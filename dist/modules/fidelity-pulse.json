@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T15:40:17.500864Z",
- "run_id": "f9c69509-cda6-4cde-b92b-e798137b3faa",
+ "checked_at": "2026-10-09T15:46:28.873064Z",
+ "run_id": "04d0ed40-b7b1-4d11-82ac-11ee184850f1",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -251,13 +251,13 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "red",
-     "summary": "410/1179 values match exactly across 6 columns; column check: stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 21); 769 values differ, 0 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 1 players entered or left the bottom of the list since the save (churn)",
+     "summary": "28/1179 values match exactly across 6 columns; 1151 values differ, 0 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 1 players entered or left the bottom of the list since the save (churn)",
      "counts": {
       "publisher_players": 198,
       "stored_players": 197,
       "compared": 1179,
-      "matched": 410,
-      "mismatched": 769,
+      "matched": 28,
+      "mismatched": 1151,
       "missing_in_stored": 1,
       "extra_in_stored": 0,
       "outside_universe": 0,
@@ -271,10 +271,10 @@
      "bake_saved_at": "2026-10-09T13:07:14.733447Z",
      "grains": {
       "full|1": {
-       "left": 197,
+       "left": 198,
        "right": 196,
-       "mismatched": 0,
-       "missing": 1,
+       "mismatched": 191,
+       "missing": 2,
        "extra": 0
       },
       "full|2": {
@@ -299,10 +299,10 @@
        "extra": 0
       },
       "std|1": {
-       "left": 197,
+       "left": 198,
        "right": 196,
-       "mismatched": 0,
-       "missing": 1,
+       "mismatched": 191,
+       "missing": 2,
        "extra": 0
       },
       "std|2": {
@@ -314,6 +314,26 @@
       }
      },
      "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 319,
+       "name": "Bhayshul Tuten",
+       "pos": "RB",
+       "left": "3626",
+       "right": 3481.0,
+       "delta": -145.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 319,
+       "name": "Bhayshul Tuten",
+       "pos": "RB",
+       "left": "3606",
+       "right": 3462.0,
+       "delta": -144.0
+      },
       {
        "type": "value_mismatch",
        "grain": "half|1",
@@ -345,24 +365,13 @@
        "delta": -132.0
       },
       {
-       "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 2795,
-       "name": "George Kittle",
-       "pos": "TE",
-       "left": "2951",
-       "right": 2820.0,
-       "delta": -131.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 4450,
-       "name": "Daniel Jones",
-       "pos": "QB",
-       "left": "506",
-       "right": 617.0,
-       "delta": 111.0
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 3081,
+       "name": "Tyreek Hill",
+       "pos": "WR",
+       "left": "357",
+       "right": null
       },
       {
        "type": "missing",
@@ -375,20 +384,11 @@
       },
       {
        "type": "missing",
-       "grain": "full|1",
-       "player_key": 3081,
-       "name": "Tyreek Hill",
-       "pos": "WR",
-       "left": "347",
-       "right": null
-      },
-      {
-       "type": "missing",
        "grain": "std|1",
        "player_key": 3081,
        "name": "Tyreek Hill",
        "pos": "WR",
-       "left": "340",
+       "left": "350",
        "right": null
       }
      ],
@@ -533,6 +533,28 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 319,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "left": "3626",
+     "right": 3481.0,
+     "delta": -145.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 319,
+     "name": "Bhayshul Tuten",
+     "pos": "RB",
+     "left": "3606",
+     "right": 3462.0,
+     "delta": -144.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "half|1",
      "player_key": 319,
      "name": "Bhayshul Tuten",
@@ -565,25 +587,13 @@
     },
     {
      "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 2795,
-     "name": "George Kittle",
-     "pos": "TE",
-     "left": "2951",
-     "right": 2820.0,
-     "delta": -131.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 4450,
-     "name": "Daniel Jones",
-     "pos": "QB",
-     "left": "506",
-     "right": 617.0,
-     "delta": 111.0
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 3081,
+     "name": "Tyreek Hill",
+     "pos": "WR",
+     "left": "357",
+     "right": null
     },
     {
      "stage": "publisher_vs_stored",
@@ -598,21 +608,11 @@
     {
      "stage": "publisher_vs_stored",
      "type": "missing",
-     "grain": "full|1",
-     "player_key": 3081,
-     "name": "Tyreek Hill",
-     "pos": "WR",
-     "left": "347",
-     "right": null
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
      "grain": "std|1",
      "player_key": 3081,
      "name": "Tyreek Hill",
      "pos": "WR",
-     "left": "340",
+     "left": "350",
      "right": null
     }
    ]
@@ -1592,7 +1592,7 @@
   {
    "source": "razzball",
    "label": "Razzball",
-   "status": "red",
+   "status": "amber",
    "stored_week": null,
    "chart_week": null,
    "content_week": 5,
@@ -1601,19 +1601,19 @@
    "stored_bake": "2026-10-08",
    "stages": {
     "publisher_vs_stored": {
-     "status": "red",
-     "summary": "2040/2040 values match exactly across 3 columns; 0 value mismatches, 0 publisher players not stored, 5 stored players not on the page; 1 publisher players are not stored because the page's player universe excludes them (Scotty Miller); 8 publisher names do not resolve to a canonical player; 3 players at the page's last listed value swapped in or out (ties at the row cap: Max Hurleman, Riley Nowakowski, Ty Pezza)",
+     "status": "amber",
+     "summary": "2064/2064 values match exactly across 3 columns; 1 publisher players are not stored because the page's player universe excludes them (Scotty Miller); 8 publisher names matched by the stored row's key (the canonical resolver refuses their listed position: Brady Russell, Connor Heyward, Ben VanSumeren, Riley Nowakowski, Max Hurleman)",
      "counts": {
-      "publisher_players": 681,
+      "publisher_players": 689,
       "stored_players": 688,
-      "compared": 2040,
-      "matched": 2040,
+      "compared": 2064,
+      "matched": 2064,
       "mismatched": 0,
       "missing_in_stored": 0,
-      "extra_in_stored": 5,
+      "extra_in_stored": 0,
       "outside_universe": 1,
-      "list_churn": 3,
-      "unresolved_names": 8
+      "list_churn": 0,
+      "unresolved_names": 0
      },
      "url": "https://football.razzball.com/projections-qb-restofseason/",
      "publisher_vintage": "2026-10-08",
@@ -1621,101 +1621,28 @@
      "stored_saved_at": "2026-10-09T15:25:41.856846Z",
      "grains": {
       "full|1": {
-       "left": 681,
+       "left": 689,
        "right": 688,
        "mismatched": 0,
        "missing": 1,
-       "extra": 8
+       "extra": 0
       },
       "half|1": {
-       "left": 681,
+       "left": 689,
        "right": 688,
        "mismatched": 0,
        "missing": 1,
-       "extra": 8
+       "extra": 0
       },
       "std|1": {
-       "left": 681,
+       "left": 689,
        "right": 688,
        "mismatched": 0,
        "missing": 1,
-       "extra": 8
+       "extra": 0
       }
      },
-     "examples": [
-      {
-       "type": "extra",
-       "grain": "full|1",
-       "player_key": 2724,
-       "name": "Brady Russell",
-       "pos": "RB",
-       "left": null,
-       "right": 2.3
-      },
-      {
-       "type": "extra",
-       "grain": "half|1",
-       "player_key": 2724,
-       "name": "Brady Russell",
-       "pos": "RB",
-       "left": null,
-       "right": 1.7
-      },
-      {
-       "type": "extra",
-       "grain": "full|1",
-       "player_key": 914,
-       "name": "Connor Heyward",
-       "pos": "RB",
-       "left": null,
-       "right": 1.5
-      },
-      {
-       "type": "extra",
-       "grain": "full|1",
-       "player_key": 4000,
-       "name": "Jackson Meeks",
-       "pos": "TE",
-       "left": null,
-       "right": 1.2
-      },
-      {
-       "type": "extra",
-       "grain": "half|1",
-       "player_key": 914,
-       "name": "Connor Heyward",
-       "pos": "RB",
-       "left": null,
-       "right": 1.2
-      },
-      {
-       "type": "extra",
-       "grain": "std|1",
-       "player_key": 2724,
-       "name": "Brady Russell",
-       "pos": "RB",
-       "left": null,
-       "right": 1.2
-      },
-      {
-       "type": "extra",
-       "grain": "half|1",
-       "player_key": 4000,
-       "name": "Jackson Meeks",
-       "pos": "TE",
-       "left": null,
-       "right": 0.9
-      },
-      {
-       "type": "extra",
-       "grain": "std|1",
-       "player_key": 914,
-       "name": "Connor Heyward",
-       "pos": "RB",
-       "left": null,
-       "right": 0.9
-      }
-     ],
+     "examples": [],
      "outside_universe": [
       {
        "player_key": 399,
@@ -1728,96 +1655,7 @@
        }
       }
      ],
-     "unresolved": [
-      {
-       "name": "Brady Russell",
-       "pos": "RB",
-       "team": "SEA",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "2.3",
-        "half|1": "1.7",
-        "std|1": "1.2"
-       }
-      },
-      {
-       "name": "Connor Heyward",
-       "pos": "RB",
-       "team": "LV",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "1.5",
-        "half|1": "1.2",
-        "std|1": "0.9"
-       }
-      },
-      {
-       "name": "Ben VanSumeren",
-       "pos": "RB",
-       "team": "KC",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "0.2",
-        "half|1": "0.2",
-        "std|1": "0.1"
-       }
-      },
-      {
-       "name": "Riley Nowakowski",
-       "pos": "RB",
-       "team": "PIT",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "0.1",
-        "half|1": "0.1",
-        "std|1": "0.0"
-       }
-      },
-      {
-       "name": "Max Hurleman",
-       "pos": "WR",
-       "team": "PIT",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "0.0",
-        "half|1": "0.0",
-        "std|1": "0.0"
-       }
-      },
-      {
-       "name": "Jackson Meeks",
-       "pos": "TE",
-       "team": "DET",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "1.2",
-        "half|1": "0.9",
-        "std|1": "0.7"
-       }
-      },
-      {
-       "name": "Colson Yankoff",
-       "pos": "TE",
-       "team": "WAS",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "0.8",
-        "half|1": "0.6",
-        "std|1": "0.4"
-       }
-      },
-      {
-       "name": "Ty Pezza",
-       "pos": "TE",
-       "team": "BAL",
-       "reason": "position_conflict",
-       "values": {
-        "full|1": "0.1",
-        "half|1": "0.1",
-        "std|1": "0.0"
-       }
-      }
-     ]
+     "unresolved": []
     },
     "stored_vs_chart": {
      "status": "amber",
@@ -2122,9 +1960,9 @@
        "week_compared": 4,
        "publisher": {
         "QB": 104,
-        "RB": 167,
-        "WR": 265,
-        "TE": 145
+        "RB": 169,
+        "WR": 267,
+        "TE": 148
        },
        "stored": {
         "QB": 104,
@@ -2170,88 +2008,7 @@
      }
     }
    },
-   "worst_examples": [
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "full|1",
-     "player_key": 2724,
-     "name": "Brady Russell",
-     "pos": "RB",
-     "left": null,
-     "right": 2.3
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "half|1",
-     "player_key": 2724,
-     "name": "Brady Russell",
-     "pos": "RB",
-     "left": null,
-     "right": 1.7
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "full|1",
-     "player_key": 914,
-     "name": "Connor Heyward",
-     "pos": "RB",
-     "left": null,
-     "right": 1.5
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "full|1",
-     "player_key": 4000,
-     "name": "Jackson Meeks",
-     "pos": "TE",
-     "left": null,
-     "right": 1.2
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "half|1",
-     "player_key": 914,
-     "name": "Connor Heyward",
-     "pos": "RB",
-     "left": null,
-     "right": 1.2
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "std|1",
-     "player_key": 2724,
-     "name": "Brady Russell",
-     "pos": "RB",
-     "left": null,
-     "right": 1.2
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "half|1",
-     "player_key": 4000,
-     "name": "Jackson Meeks",
-     "pos": "TE",
-     "left": null,
-     "right": 0.9
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "std|1",
-     "player_key": 914,
-     "name": "Connor Heyward",
-     "pos": "RB",
-     "left": null,
-     "right": 0.9
-    }
-   ]
+   "worst_examples": []
   }
  ],
  "not_covered": {},
