@@ -1,6 +1,6 @@
 """One snapshot date = one save (GAP-RAZZBALL-CHART-BEHIND-STORED, 2026-10-09).
 
-Razzball (and CBS ROS) re-save the same snapshot date in place when the
+Razzball re-saves the same snapshot date in place when the
 publisher updates the same day: the saver upserts on (player_key, date). A
 player the publisher dropped between two saves keeps its row from the earlier
 save, so the stored date mixes two pulls: on 2026-10-08 Kaytron Allen and
