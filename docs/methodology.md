@@ -316,7 +316,10 @@ implement exactly this text.
 
 3. **Never an input this week** (even when a reader selects it):
    - *Held*: the source's section, or the derived series' own section, carries
-     `validationHold` or `promotionHold`. A hold on a source holds every
+     `validationHold: {reason, week, root, kept_week}` (the pipeline sets it
+     on every held section, raw and `*_adjusted`; `root` is the source whose
+     engine-vs-reference disagreement caused it) or `promotionHold`. Any
+     section carrying one is held. A hold on a source holds every
      series derived from it (`fantasycalc` holds `fantasycalc_adjusted`;
      `espn` holds `espn_vorp`; and so on). Reason: `held: <reason>`.
    - *Not yet published*: a weekly chart whose content week is older than the

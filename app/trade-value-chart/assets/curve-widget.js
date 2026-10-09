@@ -2092,7 +2092,7 @@
   //  3. The same inputs in both weeks: an input without the prior week at this
   //     setting and view is left out of the current week too.
   //  4. Per player: the equal-weight mean of the finite values of those
-  //     inputs' series, published only when at least DDF_MIN_SOURCES price him.
+  //     inputs' series, published only when at least COMPOSITE_MIN_SOURCES price him.
   // null = every eligible input; otherwise the reader's chosen inputs
   // (setCompositeInputs), kept across league changes. A chosen input that is
   // unusable at a setting is skipped there, never priced as 0.
@@ -2103,8 +2103,8 @@
   let compositeStates = {};
   // Prior-week results per "view|series", cleared on every rebuild.
   let compositePriorCache = new Map();
-  const DDF_MIN_SOURCES = 2;
-  const DDF_SHORT_REASON = "Needs at least two source values";
+  const COMPOSITE_MIN_SOURCES = 2;
+  const COMPOSITE_SHORT_REASON = "Needs at least two source values";
   const COMPOSITE_VIEWS = [...VIEW_MODE_ORDER];
   // Indexed: the inputs themselves (projections and the bias-adjusted charts).
   // VORP vs waivers: each projection's VORP vs waivers series and each chart
@@ -2125,10 +2125,14 @@
   const compositeKeyOlderWeek = key => sourceIsStale(key) || firstLoadExcluded.has(key);
   // JEG-479 (Jeremy 2026-10-08): a source held for the week is held with every
   // series derived from it. A hold is a section field the pipeline writes:
-  //   validationHold: {reason, week}  engine vs Python reference disagreed
-  //   promotionHold:  {reason, week}  the chain kept the last section
-  // HOLD_DERIVED_SERIES is the one source -> derived map: a hold on the source
-  // holds these too.
+  //   validationHold: {reason, week, root, kept_week}  engine vs Python
+  //     reference disagreed; set on every held section (raw and *_adjusted);
+  //     root is the source whose disagreement caused it; the kept section
+  //     keeps its old week_designated.
+  //   promotionHold: {reason, week}  (accepted the same way)
+  // Any section carrying one is held, always. HOLD_DERIVED_SERIES is the one
+  // source -> derived map: a hold on the source holds these too, even if the
+  // derived section does not carry the field.
   const HOLD_FIELDS = ["validationHold", "promotionHold"];
   const HOLD_DERIVED_SERIES = {
     espn: ["espn_vorp"],
@@ -2147,7 +2151,9 @@
       if (!hold) continue;
       const reason = typeof hold === "object" && hold.reason ? String(hold.reason)
         : typeof hold === "string" ? hold : field;
-      return {field, reason, week: typeof hold === "object" ? (hold.week ?? null) : null, source: sectionKey};
+      const detail = typeof hold === "object" ? hold : {};
+      return {field, reason, week: detail.week ?? null, root: detail.root ?? null,
+        keptWeek: detail.kept_week ?? null, source: sectionKey};
     }
     return null;
   }
@@ -2164,7 +2170,10 @@
   // the hold (the series itself, or its source).
   function compositeBlock(key) {
     const hold = seriesHold(key);
-    if (hold) return {key, reason: `held: ${hold.reason}`, heldBy: hold.source, holdField: hold.field, holdWeek: hold.week};
+    if (hold) {
+      return {key, reason: `held: ${hold.reason}`, heldBy: hold.source, holdField: hold.field, holdWeek: hold.week,
+        holdRoot: hold.root, holdKeptWeek: hold.keptWeek};
+    }
     if (compositeKeyOlderWeek(key)) {
       const week = activeReferenceWeek();
       return {key, reason: week ? `not yet published for week ${week}` : "not yet published for the current week",
@@ -2197,7 +2206,7 @@
   //   inputs/series: the included inputs and the series they contribute;
   //   excluded: [{key, series, reason, ...}] for every other input;
   //   current/prior: Map player_key -> {value, count, used} (value null when
-  //   fewer than DDF_MIN_SOURCES price him); prior is null without a pair.
+  //   fewer than COMPOSITE_MIN_SOURCES price him); prior is null without a pair.
   // The pair is the newest served week among the candidate inputs and the
   // week before. If no candidate has a prior week at all (a first week, or the
   // history cannot be read), the current week uses every candidate and there
@@ -2228,7 +2237,7 @@
     const series = included.map(item => item.series);
     const blendOf = values => {
       const blend = ValueModel.compositeValue(values, series);
-      return {value: blend.count >= DDF_MIN_SOURCES ? blend.value : null, count: blend.count, used: blend.used};
+      return {value: blend.count >= COMPOSITE_MIN_SOURCES ? blend.value : null, count: blend.count, used: blend.used};
     };
     const current = new Map();
     rows.forEach(row => current.set(row.player_key, blendOf(row.values)));
@@ -2271,12 +2280,12 @@
       priorWeek: state?.priorWeek ?? null,
       priorAvailable: Boolean(state?.priorAvailable),
       priorReason: state?.priorReason ?? null,
-      minSources: DDF_MIN_SOURCES
+      minSources: COMPOSITE_MIN_SOURCES
     };
   }
   // Writes, on every row: values.ddf_value (the active view's DDF Value this
   // week), ddfCount and ddfSources (inputs pricing him and their series),
-  // ddfReason (DDF_SHORT_REASON when the value is null), ddfPrior and
+  // ddfReason (COMPOSITE_SHORT_REASON when the value is null), ddfPrior and
   // ddfPriorCount (the same view, prior week, same inputs), ddfTier, and
   // ddfByView (all three views: {value, count, sources, reason, prior,
   // priorCount}).
@@ -2304,7 +2313,7 @@
         const now = state.current.get(row.player_key);
         const before = state.prior?.get(row.player_key) || null;
         return [view, {value: now.value, count: now.count, sources: now.used,
-          reason: now.value === null ? DDF_SHORT_REASON : null,
+          reason: now.value === null ? COMPOSITE_SHORT_REASON : null,
           prior: before ? before.value : null, priorCount: before ? before.count : 0}];
       }));
       const mine = row.ddfByView[active.view];
@@ -2342,7 +2351,7 @@
       priorWeek: state.priorWeek, priorAvailable: state.priorAvailable, priorReason: state.priorReason,
       current: now.values, currentCounts: now.counts,
       prior: before ? before.values : null, priorCounts: before ? before.counts : null,
-      minSources: DDF_MIN_SOURCES};
+      minSources: COMPOSITE_MIN_SOURCES};
   }
   // getSourceInfo({includeComposite: true}) entry. week: the current week of
   // the active view's DDF Value. Never stale: an input that has not published
@@ -3828,8 +3837,8 @@
   // current week is never an input. A requested one is dropped and listed in
   // `dropped` ({key, reason: "held: ..." | "not yet published for week N",
   // ...}) and the call still succeeds (v2 replays a saved list). If dropping
-  // them leaves fewer than DDF_MIN_SOURCES usable inputs, the defaults apply
-  // (fellBackToDefaults: true). A list with fewer than DDF_MIN_SOURCES usable
+  // them leaves fewer than COMPOSITE_MIN_SOURCES usable inputs, the defaults apply
+  // (fellBackToDefaults: true). A list with fewer than COMPOSITE_MIN_SOURCES usable
   // inputs and nothing dropped is refused (no player could have a DDF Value).
   function setCompositeInputs(keys, publish = true) {
     let next = null;
@@ -3847,7 +3856,7 @@
       dropped = asked.map(compositeBlock).filter(Boolean);
       next = asked.filter(key => !compositeBlock(key));
       const usable = next.filter(compositeKeyUsable);
-      if (usable.length < DDF_MIN_SOURCES) {
+      if (usable.length < COMPOSITE_MIN_SOURCES) {
         // A saved list gone stale (an input held or not yet published this
         // week) never fails: what it asked for is not possible this week, so
         // the defaults apply. A list that is short on its own is refused.
@@ -3855,7 +3864,7 @@
           fellBack = true;
           next = null;
         } else {
-          return {ok: false, error: `DDF Value needs at least ${DDF_MIN_SOURCES} usable inputs for ${scoreLabel()} / ${teams} teams; usable: ${usable.join(", ") || "none"}`};
+          return {ok: false, error: `DDF Value needs at least ${COMPOSITE_MIN_SOURCES} usable inputs for ${scoreLabel()} / ${teams} teams; usable: ${usable.join(", ") || "none"}`};
         }
       }
       const defaults = defaultCompositeInputKeys();
@@ -4275,7 +4284,7 @@
   // ---- DDF Value history (JEG-465 / JEG-471 / JEG-479) ----
   // The pair and the inputs come from the active view's composite state
   // (buildCompositeState): the same inputs in both weeks, at least
-  // DDF_MIN_SOURCES values per player, each input priced exactly as its own Δ.
+  // COMPOSITE_MIN_SOURCES values per player, each input priced exactly as its own Δ.
   const COMPOSITE_HISTORY_METHOD = "equal-weight mean of the included inputs' finite values, at least two per player (ValueModel.compositeValue)";
   function compositeOfMaps(series) {
     const keys = series.map(item => item.key);
@@ -4284,14 +4293,14 @@
     players.forEach(playerKey => {
       const blend = ValueModel.compositeValue(
         Object.fromEntries(series.map(item => [item.key, item.values[playerKey]])), keys);
-      if (blend.count < DDF_MIN_SOURCES) return;
+      if (blend.count < COMPOSITE_MIN_SOURCES) return;
       values[playerKey] = blend.value;
       counts[playerKey] = blend.count;
     });
     return {values, counts};
   }
   const compositeExtra = state => ({view: state.view, inputs: [...state.inputs], series: [...state.series],
-    excluded: state.excluded.map(entry => ({...entry})), minSources: DDF_MIN_SOURCES});
+    excluded: state.excluded.map(entry => ({...entry})), minSources: COMPOSITE_MIN_SOURCES});
   // One saved week of the active view's DDF Value over its inputs (the ones
   // used for the current/prior pair). An input without that week is listed in
   // `dropped` (only possible for a week other than the pair's).

@@ -699,8 +699,8 @@ the prior week, over the same inputs; a player needs at least two series to have
   requested, isDefault, defaults, allowed, excluded: [{key, series, reason, ...}], held,
   notPublished, currentWeek, priorWeek, priorAvailable, priorReason, minSources: 2}`. `inputs` are the
   input keys averaged in that view and `series` the series they contribute. A held entry also has
-  `heldBy` (the section carrying the hold), `holdField` (`validationHold` | `promotionHold`) and
-  `holdWeek`; an unpublished one has `notPublished: true`. `defaults` are the inputs a reader can
+  `heldBy` (the section carrying the hold), `holdField` (`validationHold` | `promotionHold`),
+  `holdWeek`, `holdRoot` (the source whose disagreement caused it) and `holdKeptWeek`; an unpublished one has `notPublished: true`. `defaults` are the inputs a reader can
   choose this week. `setCompositeInputs(keys, publish = true)`: `keys` is an array of the seven
   keys (order and duplicates ignored), `null` or `"default"` restores the defaults (choosing exactly
   the defaults is the default). Held / unpublished keys are dropped and listed in `dropped`; if that
