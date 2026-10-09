@@ -278,9 +278,15 @@ def check_freshness(page) -> list[str]:
             errors.append(f"freshness: pipeline jargon in {r['text']!r}")
     page.keyboard.press("Escape")
     # A failed import shows its source as Not updating, and the header says so.
+    # Hermetic: every other source's rows read healthy, so only FantasyPros (plus any series the
+    # engine itself pauses) can be stuck, whatever today's real data says.
     def broken(route, *_):
         doc = _freshness_doc()
         for item in doc.get("items", []):
+            if str(item.get("key", "")).startswith(("source_import.", "comparison.")):
+                item["freshness_ok"] = True
+                if "weeks_behind" in item:
+                    item["weeks_behind"] = 0
             if item.get("key") == "source_import.fantasypros":
                 item["freshness_ok"] = False
                 item["value"] = "2026-10-06"
@@ -289,8 +295,9 @@ def check_freshness(page) -> list[str]:
     fp = rows.get("fantasypros")
     if not fp or fp["status"] != "stuck" or "since 2026-10-06" not in fp["text"]:
         errors.append(f"freshness: failed FantasyPros import not shown as Not updating: {fp}")
-    if "1 source not updating" not in label:
-        errors.append(f"freshness: header chip {label!r} does not warn")
+    stuck = 1 + sum(1 for pub, want in roots.items() if want.get("paused") and pub != "fantasypros")
+    if f"{stuck} source{'s' if stuck != 1 else ''} not updating" not in label:
+        errors.append(f"freshness: header chip {label!r} does not warn about {stuck} stuck source(s)")
 
     # Fail closed: a missing freshness file never shows a source as current.
     def missing(route, *_):
