@@ -582,6 +582,10 @@ class ProjEnv:
             "combos": {c: {"native": {slug(n): float(v[s]) for k, (n, p, v) in PROJ.items()}}
                        for s, c in fp.SITE_COMBO.items()}}
         self.vintage, self.modified, self.probe, self.error = "2026-10-08", "2026-10-08T11:00:00+00:00", None, None
+        # The save at 12:00 acknowledged fingerprint "fp-saved"; the publisher serves the same content now.
+        self.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-08T12:00:05+00:00"}
+        self.live = {"ok": True, "fingerprint": "fp-saved", "error": None}
+        self.live_calls = 0
 
     def run(self):
         mod = FakeProjection(list(self.pub.values()), self.vintage, self.modified, self.error)
@@ -596,6 +600,10 @@ class ProjEnv:
 
             def probe_state(self, source):
                 return outer.probe
+
+            def live_fingerprint(self, source):
+                outer.live_calls += 1
+                return outer.live
 
         orig = fp.projection_module
         fp.projection_module = lambda source: mod
@@ -618,10 +626,12 @@ class ProjectionStages(unittest.TestCase):
         r, div = env.run()
         self.assertEqual("red", r["stages"]["publisher_vs_stored"]["status"])
         self.assertTrue(any(d["type"] == "value_mismatch" for d in div))
+        self.assertEqual("same", r["stages"]["publisher_vs_stored"]["publisher_version"])
         env.probe = {"last_ok": True, "last_fp": "new", "acked_fp": "old", "last_probe_at": "2026-10-08T22:00:00Z"}
         r, _ = env.run()
         self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])  # ingest pending
-        env.probe, env.modified = None, "2026-10-08T20:00:00+00:00"  # page stamp after the 12:00 save
+        env.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-08T12:00:05+00:00"}
+        env.modified = "2026-10-08T20:00:00+00:00"  # page stamp after the 12:00 save
         r, _ = env.run()
         self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])
 
@@ -696,6 +706,78 @@ class ProjectionStages(unittest.TestCase):
         r, _ = env.run()
         self.assertEqual("unknown", r["stages"]["publisher_vs_stored"]["status"])
         self.assertEqual("amber", r["status"])
+
+
+class ProjectionSameVersion(unittest.TestCase):
+    """JEG-480 / JEG-520 (2026-10-09): a projection difference is red only against the same publisher version.
+
+    The 21:51Z pulse turned ESPN red on 39 values: ESPN moved Pat Bryant to injured reserve at 20:17Z (60.39
+    full-PPR points stored, 0.00 now) and re-spread Denver's receivers (Troy Franklin 34.15 -> 73.57), after the
+    19:25:45Z save. The next save (21:52Z) equals ESPN. The probe fingerprint acked with the save names the
+    content it read; a different fingerprint now is a daily update, the same one is a fault."""
+
+    def edited_after_save(self, env):
+        # Gibbs projected lower after news; the save (12:00) read the older content "fp-saved".
+        env.pub[2] = ("Jahmyr Gibbs", "RB", {"std": "0.0", "half": "0.0", "full": "0.0"})
+        env.live = {"ok": True, "fingerprint": "fp-after-news", "error": None}
+        return env
+
+    def test_publisher_edit_after_the_save_is_amber_not_red(self):
+        r, _ = self.edited_after_save(ProjEnv()).run()
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("amber", s1["status"], s1["summary"])
+        self.assertEqual("changed", s1["publisher_version"])
+        self.assertIn("daily update", s1["summary"])
+
+    def test_stored_differs_from_the_same_publisher_version_is_red(self):
+        """Negative test, the fault the rule names (GAP-ESPN-ZEROED-STORED): the saver stored 0 for players the
+        publisher projects, and the publisher still serves the content the save read."""
+        env = ProjEnv()
+        env.stored[0].update(std=0.0, half=0.0, full=0.0)  # zeroed on save
+        r, div = env.run()
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("red", s1["status"], s1["summary"])
+        self.assertEqual("same", s1["publisher_version"])
+        self.assertTrue(any(d["type"] == "value_mismatch" for d in div))
+
+    def test_an_unsaved_update_older_than_a_day_is_stale_red(self):
+        env = self.edited_after_save(ProjEnv())
+        for row in env.stored:
+            row["created_at"] = "2026-10-07T20:00:00+00:00"
+        env.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-07T20:00:05+00:00"}
+        env.vintage, env.modified = None, None  # ESPN prints no update stamp
+        r, _ = env.run()
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("red", s1["status"], s1["summary"])
+        self.assertIn("stale", s1["summary"])
+
+    def test_a_block_of_missing_players_is_red_even_after_an_update(self):
+        env = self.edited_after_save(ProjEnv())
+        for i in range(4):
+            key = 100 + i
+            env.pub[key] = (f"Filler Player{i}", "WR", {"std": "30.0", "half": "31.0", "full": "32.0"})
+        r, _ = env.run()
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("red", s1["status"], s1["summary"])
+        self.assertIn("block of players", s1["summary"])
+
+    def test_no_fingerprint_with_the_save_or_now_is_amber_unconfirmed(self):
+        env = ProjEnv()
+        env.stored[0].update(half=0.0)
+        env.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-08T09:00:00+00:00"}  # acked another save
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])
+        self.assertIn("unconfirmed", r["stages"]["publisher_vs_stored"]["summary"])
+        env = ProjEnv()
+        env.stored[0].update(half=0.0)
+        env.live = {"ok": False, "fingerprint": None, "error": "HTTP 503"}
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])
+
+    def test_the_publisher_is_not_re_probed_when_nothing_differs(self):
+        env = ProjEnv()
+        env.run()
+        self.assertEqual(0, env.live_calls)
 
 
 def healthy_extras(source="usatoday"):

@@ -70,6 +70,23 @@ jobs:
           echo "mode=$mode" >> $GITHUB_OUTPUT
           echo "::notice title=razzball::mode=$mode"
 
+      # JEG-480 / JEG-520: a run the probe did not dispatch (manual or
+      # scheduled) still records which publisher content it read: the probe
+      # fingerprint taken before the data is read is acknowledged with it,
+      # so the fidelity pulse can tell a stored copy that differs from the
+      # same publisher version (a fault: red, held) from a publisher update
+      # made after the save (amber). Taken first, a race can only
+      # yield amber, never a false red.
+      - name: Fingerprint the publisher first (run not dispatched by the probe)
+        id: fp
+        if: steps.cfg.outputs.mode == 'write' && github.event.inputs.probe_fp == ''
+        continue-on-error: true
+        run: |
+          python3 pipelines/source_probe.py probe --sources razzball --dry-run --out /tmp/probe-razzball.jsonl > /dev/null
+          fp=$(head -n 1 /tmp/probe-razzball.jsonl | jq -r '.fingerprint // ""')
+          echo "fp=$fp" >> "$GITHUB_OUTPUT"
+          echo "publisher fingerprint, read first: ${fp:-none}"
+
       - name: Scrape and save
         id: sync
         env:
@@ -135,11 +152,11 @@ jobs:
       # record the ingest itself as failed.
       - name: Acknowledge probe fingerprint
         id: ack
-        if: success() && github.event.inputs.probe_fp != '' && steps.cfg.outputs.mode == 'write'
+        if: success() && (github.event.inputs.probe_fp != '' || steps.fp.outputs.fp != '') && steps.cfg.outputs.mode == 'write'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          PROBE_FP: ${{ github.event.inputs.probe_fp }}
+          PROBE_FP: ${{ github.event.inputs.probe_fp || steps.fp.outputs.fp }}
         run: python3 pipelines/source_probe.py ack --supabase --source razzball --fingerprint "$PROBE_FP"
 
       - name: Dispatch the rebuild chain on new content
