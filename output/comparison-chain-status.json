@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-09T19:27:25.119340+00:00",
+  "run_at": "2026-10-09T19:46:28.683470+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,11 +10,9 @@
     "cbsros": "promoted 1/1",
     "razzball": "HELD at stage 'review' (amber, failed at stage 'review'): kept last promoted section (rest of season); candidate not promoted: razzball values are not snapshot sha256:1caac623cbb3's (12 differ, e.g. section full_10 ben vansumeren: not in snapshot; section full_12 ben vansumeren: not in snapshot; section full_14 ben vansumeren: not in snapshot); the section waits for a bake and legs built from that snapshot"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "published_with_holds",
   "held": [
     "fantasycalc",
     "razzball"
@@ -185,18 +183,5 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "ERROR tests.test_search_players_universe.SearchPlayersUniverseTest"
-    ],
-    "assertions": [],
-    "make_targets": [
-      "Makefile:486: test-core"
-    ],
-    "detail": "ERROR tests.test_search_players_universe.SearchPlayersUniverseTest",
-    "recorded_at": "2026-10-09T19:45:02.621112+00:00"
   }
 }
