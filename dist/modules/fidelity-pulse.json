@@ -1,0 +1,1067 @@
+{
+ "schema": "fidelity-pulse/1",
+ "checked_at": "2026-10-09T00:01:40.139605Z",
+ "run_id": "3e252bcc-db55-410a-b267-880c8a92d3cc",
+ "overall": "red",
+ "site": {
+  "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
+  "built_at": "2026-10-08T23:40:11.494716+00:00",
+  "error": null
+ },
+ "rules": {
+  "match": "exact: the stored native equals the number the publisher printed (its own rounding; float noise below 1e-9 ignored); the chart native equals the stored native to 1e-9",
+  "publisher_vs_stored": "red on any publisher player missing from the stored bake, stored player not on the publisher page, value mismatch, page week != stored week, or a different article; amber when the publisher revised the page after the save and less than 12 h ago, or when publisher names do not resolve to a canonical player",
+  "fantasycalc": "FantasyCalc is a live crowd feed with no versioned snapshot, so values that moved since the save are amber and listed (players outside the max(25%, 50 points) band by name). Red: more than 10% of values outside that band (a broken save, not movement); a stored list closer to another live list (scoring or QB setting) than to its own by 1.5x (column swap); a player above the list's churn line (its 15th-percentile value) on one side only",
+  "universe": "players the chart's player universe (the chart file's player_keys) excludes are amber and listed by name: the publisher values them, the page cannot show them",
+  "stored_vs_chart": "red on any difference between the live chart's native values and the stored bake the chart was built from; amber when a newer stored bake (different values) is not on the chart yet",
+  "freshness": "amber when the publisher posted a newer week than the chart shows less than 24 h ago, red after that",
+  "reference_vs_engine": "red when the JEG-479 value check reports a disagreement for the source; n/a while no report is published",
+  "rollup": "a source is the worst of its stages; unknown (input unreadable) counts as amber"
+ },
+ "sources": [
+  {
+   "source": "usatoday",
+   "label": "USA Today",
+   "status": "red",
+   "stored_week": 5,
+   "chart_week": 5,
+   "stored_bake": "usatwk5_2026-10-08t1535_v1",
+   "stages": {
+    "publisher_vs_stored": {
+     "status": "red",
+     "summary": "864/864 values match exactly across 6 columns; 0 value mismatches, 2 publisher players not stored, 0 stored players not on the page; 7 publisher players are not stored because the page's player universe excludes them (Tyreek Hill, Austin Ekeler, Joe Mixon, Jaydon Blue, Zach Ertz, ...)",
+     "counts": {
+      "publisher_players": 261,
+      "stored_players": 253,
+      "compared": 864,
+      "matched": 864,
+      "mismatched": 0,
+      "missing_in_stored": 2,
+      "extra_in_stored": 0,
+      "outside_universe": 7,
+      "list_churn": 0,
+      "unresolved_names": 0
+     },
+     "url": "https://www.usatoday.com/story/sports/fantasy/football/2026/10/06/fantasy-trade-value-charts-week-5-ros-rankings/92125556007/",
+     "page_week": 5,
+     "page_modified": "2026-10-06T21:36:46Z",
+     "bake_id": "usatwk5_2026-10-08t1535_v1",
+     "bake_saved_at": "2026-10-08T15:35:30.873077Z",
+     "grains": {
+      "full|1": {
+       "left": 261,
+       "right": 252,
+       "mismatched": 0,
+       "missing": 9,
+       "extra": 0
+      },
+      "full|2": {
+       "left": 36,
+       "right": 36,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|1": {
+       "left": 261,
+       "right": 252,
+       "mismatched": 0,
+       "missing": 9,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 36,
+       "right": 36,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|1": {
+       "left": 261,
+       "right": 252,
+       "mismatched": 0,
+       "missing": 9,
+       "extra": 0
+      },
+      "std|2": {
+       "left": 36,
+       "right": 36,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      }
+     },
+     "examples": [
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 4196,
+       "name": "Darius Slayton",
+       "pos": "WR",
+       "left": "2",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 4196,
+       "name": "Darius Slayton",
+       "pos": "WR",
+       "left": "2",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "std|1",
+       "player_key": 4196,
+       "name": "Darius Slayton",
+       "pos": "WR",
+       "left": "2",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 822,
+       "name": "Joshua Palmer",
+       "pos": "WR",
+       "left": "1",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 822,
+       "name": "Joshua Palmer",
+       "pos": "WR",
+       "left": "1",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "std|1",
+       "player_key": 822,
+       "name": "Joshua Palmer",
+       "pos": "WR",
+       "left": "1",
+       "right": null
+      }
+     ],
+     "outside_universe": [
+      {
+       "player_key": 3081,
+       "name": "Tyreek Hill",
+       "pos": "WR",
+       "values": {
+        "full|1": "15",
+        "half|1": "15",
+        "std|1": "15"
+       }
+      },
+      {
+       "player_key": 2866,
+       "name": "Austin Ekeler",
+       "pos": "RB",
+       "values": {
+        "full|1": "9",
+        "half|1": "7",
+        "std|1": "5"
+       }
+      },
+      {
+       "player_key": 3735,
+       "name": "Joe Mixon",
+       "pos": "RB",
+       "values": {
+        "full|1": "6",
+        "half|1": "6",
+        "std|1": "6"
+       }
+      },
+      {
+       "player_key": 2040,
+       "name": "Jaydon Blue",
+       "pos": "RB",
+       "values": {
+        "full|1": "3",
+        "half|1": "3",
+        "std|1": "3"
+       }
+      },
+      {
+       "player_key": 3572,
+       "name": "Zach Ertz",
+       "pos": "TE",
+       "values": {
+        "full|1": "3",
+        "half|1": "3",
+        "std|1": "3"
+       }
+      },
+      {
+       "player_key": 843,
+       "name": "Tyler Goodson",
+       "pos": "RB",
+       "values": {
+        "full|1": "2",
+        "half|1": "2",
+        "std|1": "2"
+       }
+      },
+      {
+       "player_key": 3792,
+       "name": "Carson Wentz",
+       "pos": "QB",
+       "values": {
+        "full|1": "0",
+        "half|1": "0",
+        "std|1": "0"
+       }
+      }
+     ],
+     "unresolved": []
+    },
+    "stored_vs_chart": {
+     "status": "amber",
+     "summary": "861/861 chart values equal stored bake usatwk5_2026-10-08t1535_v1; 1 stored players are left off the chart because the page's player universe excludes them (Carson Wentz)",
+     "counts": {
+      "chart_players": 252,
+      "stored_players": 253,
+      "compared": 861,
+      "matched": 861,
+      "mismatched": 0,
+      "missing_on_chart": 0,
+      "extra_on_chart": 0,
+      "outside_universe": 1,
+      "unresolved_names": 0
+     },
+     "chart_week": 5,
+     "chart_imported_at": "2026-10-08T23:39:44Z",
+     "bake_id": "usatwk5_2026-10-08t1535_v1",
+     "bake_saved_at": "2026-10-08T15:35:30.873077Z",
+     "behind": null,
+     "grains": {
+      "full|1": {
+       "left": 252,
+       "right": 252,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "full|2": {
+       "left": 36,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
+      },
+      "half|1": {
+       "left": 252,
+       "right": 252,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 36,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
+      },
+      "std|1": {
+       "left": 252,
+       "right": 252,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|2": {
+       "left": 36,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
+      }
+     },
+     "examples": [],
+     "outside_universe": [
+      {
+       "player_key": 3792,
+       "name": "Carson Wentz",
+       "pos": "QB",
+       "values": {
+        "full|2": 8.0,
+        "half|2": 8.0,
+        "std|2": 8.0
+       }
+      }
+     ],
+     "unresolved": []
+    },
+    "freshness": {
+     "status": "green",
+     "summary": "publisher has no newer week than the chart's week 5",
+     "chart_week": 5,
+     "publisher_week": 5,
+     "notes": []
+    },
+    "reference_vs_engine": {
+     "status": "n/a",
+     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+    }
+   },
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 4196,
+     "name": "Darius Slayton",
+     "pos": "WR",
+     "left": "2",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "half|1",
+     "player_key": 4196,
+     "name": "Darius Slayton",
+     "pos": "WR",
+     "left": "2",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "std|1",
+     "player_key": 4196,
+     "name": "Darius Slayton",
+     "pos": "WR",
+     "left": "2",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 822,
+     "name": "Joshua Palmer",
+     "pos": "WR",
+     "left": "1",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "half|1",
+     "player_key": 822,
+     "name": "Joshua Palmer",
+     "pos": "WR",
+     "left": "1",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "std|1",
+     "player_key": 822,
+     "name": "Joshua Palmer",
+     "pos": "WR",
+     "left": "1",
+     "right": null
+    }
+   ]
+  },
+  {
+   "source": "fantasycalc",
+   "label": "FantasyCalc",
+   "status": "amber",
+   "stored_week": 5,
+   "chart_week": 5,
+   "stored_bake": "fcwk5_2026-10-08t2005_v1",
+   "stages": {
+    "publisher_vs_stored": {
+     "status": "amber",
+     "summary": "18/1161 values match exactly across 6 columns; 1143 of 1161 values moved since the save at 2026-10-08T20:05:29.762788Z (largest 260%; 15 outside the max(25%, 50) band: Daniel Jones, Kyler Murray, Malik Willis, Mike Gesicki); 6 players entered or left the bottom of the list since the save (churn); 1 publisher players are not stored because the page's player universe excludes them (Tyreek Hill)",
+     "counts": {
+      "publisher_players": 197,
+      "stored_players": 197,
+      "compared": 1161,
+      "matched": 18,
+      "mismatched": 1143,
+      "missing_in_stored": 0,
+      "extra_in_stored": 0,
+      "outside_universe": 1,
+      "list_churn": 6,
+      "unresolved_names": 0
+     },
+     "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
+     "page_week": null,
+     "page_modified": null,
+     "bake_id": "fcwk5_2026-10-08t2005_v1",
+     "bake_saved_at": "2026-10-08T20:05:29.762788Z",
+     "grains": {
+      "full|1": {
+       "left": 197,
+       "right": 195,
+       "mismatched": 190,
+       "missing": 4,
+       "extra": 2
+      },
+      "full|2": {
+       "left": 197,
+       "right": 197,
+       "mismatched": 191,
+       "missing": 3,
+       "extra": 3
+      },
+      "half|1": {
+       "left": 197,
+       "right": 195,
+       "mismatched": 190,
+       "missing": 4,
+       "extra": 2
+      },
+      "half|2": {
+       "left": 197,
+       "right": 197,
+       "mismatched": 191,
+       "missing": 3,
+       "extra": 3
+      },
+      "std|1": {
+       "left": 197,
+       "right": 195,
+       "mismatched": 190,
+       "missing": 4,
+       "extra": 2
+      },
+      "std|2": {
+       "left": 197,
+       "right": 197,
+       "mismatched": 191,
+       "missing": 3,
+       "extra": 3
+      }
+     },
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "2784",
+       "right": 2349.0,
+       "delta": -435.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "2782",
+       "right": 2348.0,
+       "delta": -434.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "2751",
+       "right": 2321.0,
+       "delta": -430.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 3651,
+       "name": "Justin Herbert",
+       "pos": "QB",
+       "left": "2435",
+       "right": 2754.0,
+       "delta": 319.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 3651,
+       "name": "Justin Herbert",
+       "pos": "QB",
+       "left": "2437",
+       "right": 2756.0,
+       "delta": 319.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 3651,
+       "name": "Justin Herbert",
+       "pos": "QB",
+       "left": "2407",
+       "right": 2723.0,
+       "delta": 316.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 1205,
+       "name": "Michael Wilson",
+       "pos": "WR",
+       "left": "2750",
+       "right": 2446.0,
+       "delta": -304.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 1205,
+       "name": "Michael Wilson",
+       "pos": "WR",
+       "left": "2731",
+       "right": 2429.0,
+       "delta": -302.0
+      }
+     ],
+     "outside_universe": [
+      {
+       "player_key": 3081,
+       "name": "Tyreek Hill",
+       "pos": "WR",
+       "values": {
+        "full|1": "368",
+        "half|1": "365",
+        "std|1": "361"
+       }
+      }
+     ],
+     "unresolved": []
+    },
+    "stored_vs_chart": {
+     "status": "amber",
+     "summary": "1170/1170 chart values equal stored bake fcwk5_2026-10-08t2005_v1; 2 stored players are left off the chart because the page's player universe excludes them (Tyreek Hill, Joe Mixon)",
+     "counts": {
+      "chart_players": 195,
+      "stored_players": 197,
+      "compared": 1170,
+      "matched": 1170,
+      "mismatched": 0,
+      "missing_on_chart": 0,
+      "extra_on_chart": 0,
+      "outside_universe": 2,
+      "unresolved_names": 0
+     },
+     "chart_week": 5,
+     "chart_imported_at": "2026-10-08T23:39:42Z",
+     "bake_id": "fcwk5_2026-10-08t2005_v1",
+     "bake_saved_at": "2026-10-08T20:05:29.762788Z",
+     "behind": null,
+     "grains": {
+      "full|1": {
+       "left": 195,
+       "right": 195,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "full|2": {
+       "left": 197,
+       "right": 195,
+       "mismatched": 0,
+       "missing": 2,
+       "extra": 0
+      },
+      "half|1": {
+       "left": 195,
+       "right": 195,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 197,
+       "right": 195,
+       "mismatched": 0,
+       "missing": 2,
+       "extra": 0
+      },
+      "std|1": {
+       "left": 195,
+       "right": 195,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|2": {
+       "left": 197,
+       "right": 195,
+       "mismatched": 0,
+       "missing": 2,
+       "extra": 0
+      }
+     },
+     "examples": [],
+     "outside_universe": [
+      {
+       "player_key": 3081,
+       "name": "Tyreek Hill",
+       "pos": "WR",
+       "values": {
+        "full|2": 291.0,
+        "half|2": 289.0,
+        "std|2": 285.0
+       }
+      },
+      {
+       "player_key": 3735,
+       "name": "Joe Mixon",
+       "pos": "RB",
+       "values": {
+        "full|2": 13.0,
+        "half|2": 12.0,
+        "std|2": 13.0
+       }
+      }
+     ],
+     "unresolved": []
+    },
+    "freshness": {
+     "status": "green",
+     "summary": "chart shows week 5; content week is 5",
+     "chart_week": 5,
+     "publisher_week": 5
+    },
+    "reference_vs_engine": {
+     "status": "n/a",
+     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+    }
+   },
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "2784",
+     "right": 2349.0,
+     "delta": -435.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "2782",
+     "right": 2348.0,
+     "delta": -434.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "2751",
+     "right": 2321.0,
+     "delta": -430.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 3651,
+     "name": "Justin Herbert",
+     "pos": "QB",
+     "left": "2435",
+     "right": 2754.0,
+     "delta": 319.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 3651,
+     "name": "Justin Herbert",
+     "pos": "QB",
+     "left": "2437",
+     "right": 2756.0,
+     "delta": 319.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 3651,
+     "name": "Justin Herbert",
+     "pos": "QB",
+     "left": "2407",
+     "right": 2723.0,
+     "delta": 316.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 1205,
+     "name": "Michael Wilson",
+     "pos": "WR",
+     "left": "2750",
+     "right": 2446.0,
+     "delta": -304.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 1205,
+     "name": "Michael Wilson",
+     "pos": "WR",
+     "left": "2731",
+     "right": 2429.0,
+     "delta": -302.0
+    }
+   ]
+  },
+  {
+   "source": "fantasypros",
+   "label": "FantasyPros",
+   "status": "green",
+   "stored_week": 5,
+   "chart_week": 5,
+   "stored_bake": "fpwk5_2026-10-08t1536_v1",
+   "stages": {
+    "publisher_vs_stored": {
+     "status": "green",
+     "summary": "630/630 values match exactly across 6 columns",
+     "counts": {
+      "publisher_players": 178,
+      "stored_players": 178,
+      "compared": 630,
+      "matched": 630,
+      "mismatched": 0,
+      "missing_in_stored": 0,
+      "extra_in_stored": 0,
+      "outside_universe": 0,
+      "list_churn": 0,
+      "unresolved_names": 0
+     },
+     "url": "https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-5-2026/",
+     "page_week": 5,
+     "page_modified": "2026-10-06T16:31:34+00:00",
+     "bake_id": "fpwk5_2026-10-08t1536_v1",
+     "bake_saved_at": "2026-10-08T15:36:15.100704Z",
+     "grains": {
+      "full|1": {
+       "left": 178,
+       "right": 178,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "full|2": {
+       "left": 32,
+       "right": 32,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|1": {
+       "left": 178,
+       "right": 178,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 32,
+       "right": 32,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|1": {
+       "left": 178,
+       "right": 178,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|2": {
+       "left": 32,
+       "right": 32,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      }
+     },
+     "examples": [],
+     "outside_universe": [],
+     "unresolved": []
+    },
+    "stored_vs_chart": {
+     "status": "green",
+     "summary": "630/630 chart values equal stored bake fpwk5_2026-10-08t1536_v1",
+     "counts": {
+      "chart_players": 178,
+      "stored_players": 178,
+      "compared": 630,
+      "matched": 630,
+      "mismatched": 0,
+      "missing_on_chart": 0,
+      "extra_on_chart": 0,
+      "outside_universe": 0,
+      "unresolved_names": 0
+     },
+     "chart_week": 5,
+     "chart_imported_at": "2026-10-08T23:39:45Z",
+     "bake_id": "fpwk5_2026-10-08t1536_v1",
+     "bake_saved_at": "2026-10-08T15:36:15.100704Z",
+     "behind": null,
+     "grains": {
+      "full|1": {
+       "left": 178,
+       "right": 178,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "full|2": {
+       "left": 32,
+       "right": 32,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|1": {
+       "left": 178,
+       "right": 178,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 32,
+       "right": 32,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|1": {
+       "left": 178,
+       "right": 178,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|2": {
+       "left": 32,
+       "right": 32,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      }
+     },
+     "examples": [],
+     "outside_universe": [],
+     "unresolved": []
+    },
+    "freshness": {
+     "status": "green",
+     "summary": "publisher has no newer week than the chart's week 5",
+     "chart_week": 5,
+     "publisher_week": 5,
+     "notes": []
+    },
+    "reference_vs_engine": {
+     "status": "n/a",
+     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+    }
+   },
+   "worst_examples": []
+  },
+  {
+   "source": "cbs",
+   "label": "CBS",
+   "status": "amber",
+   "stored_week": 5,
+   "chart_week": 5,
+   "stored_bake": "cbswk5_2026-10-08t1259_v1",
+   "stages": {
+    "publisher_vs_stored": {
+     "status": "green",
+     "summary": "448/448 values match exactly across 6 columns",
+     "counts": {
+      "publisher_players": 139,
+      "stored_players": 139,
+      "compared": 448,
+      "matched": 448,
+      "mismatched": 0,
+      "missing_in_stored": 0,
+      "extra_in_stored": 0,
+      "outside_universe": 0,
+      "list_churn": 0,
+      "unresolved_names": 0
+     },
+     "url": "https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-5-trade-chart/",
+     "page_week": 5,
+     "page_modified": "2026-10-07T17:44:10+00:00",
+     "bake_id": "cbswk5_2026-10-08t1259_v1",
+     "bake_saved_at": "2026-10-08T12:59:38.994744Z",
+     "grains": {
+      "full|1": {
+       "left": 117,
+       "right": 117,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "full|2": {
+       "left": 35,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|1": {
+       "left": 113,
+       "right": 113,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 35,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|1": {
+       "left": 113,
+       "right": 113,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|2": {
+       "left": 35,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      }
+     },
+     "examples": [],
+     "outside_universe": [],
+     "unresolved": []
+    },
+    "stored_vs_chart": {
+     "status": "amber",
+     "summary": "445/445 chart values equal stored bake cbswk5_2026-10-08t1259_v1; 1 stored players are left off the chart because the page's player universe excludes them (Tyreek Hill)",
+     "counts": {
+      "chart_players": 138,
+      "stored_players": 139,
+      "compared": 445,
+      "matched": 445,
+      "mismatched": 0,
+      "missing_on_chart": 0,
+      "extra_on_chart": 0,
+      "outside_universe": 1,
+      "unresolved_names": 0
+     },
+     "chart_week": 5,
+     "chart_imported_at": "2026-10-08T23:39:46Z",
+     "bake_id": "cbswk5_2026-10-08t1259_v1",
+     "bake_saved_at": "2026-10-08T12:59:38.994744Z",
+     "behind": null,
+     "grains": {
+      "full|1": {
+       "left": 117,
+       "right": 116,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
+      },
+      "full|2": {
+       "left": 35,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|1": {
+       "left": 113,
+       "right": 112,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 35,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "std|1": {
+       "left": 113,
+       "right": 112,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
+      },
+      "std|2": {
+       "left": 35,
+       "right": 35,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      }
+     },
+     "examples": [],
+     "outside_universe": [
+      {
+       "player_key": 3081,
+       "name": "Tyreek Hill",
+       "pos": "WR",
+       "values": {
+        "full|1": 8.0,
+        "half|1": 7.0,
+        "std|1": 6.0
+       }
+      }
+     ],
+     "unresolved": []
+    },
+    "freshness": {
+     "status": "green",
+     "summary": "publisher has no newer week than the chart's week 5",
+     "chart_week": 5,
+     "publisher_week": 5,
+     "notes": []
+    },
+    "reference_vs_engine": {
+     "status": "n/a",
+     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+    }
+   },
+   "worst_examples": []
+  }
+ ],
+ "not_covered": {
+  "espn": "not covered yet: projection sources (ESPN, CBS rest of season, Razzball) are the second JEG-480 slice",
+  "cbsros": "not covered yet: projection sources are the second JEG-480 slice",
+  "razzball": "not covered yet: projection sources are the second JEG-480 slice"
+ },
+ "requests": 17
+}

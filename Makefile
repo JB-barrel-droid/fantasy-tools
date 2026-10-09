@@ -125,6 +125,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
 	python3 -m unittest tests.test_monitor_alerts
+	python3 -m unittest tests.test_fidelity_pulse
 	python3 -m unittest tests.test_security_lockdown_migration
 	python3 -m unittest tests.test_source_probe
 	python3 -m unittest tests.test_source_snapshot_match

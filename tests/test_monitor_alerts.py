@@ -259,5 +259,46 @@ class IssuesDisabledTest(unittest.TestCase):
         self.assertIn("Rebuild chain is failing", text)
 
 
+def pulse(**statuses):
+    return {"checked_at": "2026-10-08T23:00:00Z", "sources": [
+        {"source": s, "label": s.upper(), "status": st, "stored_week": 5, "chart_week": 5,
+         "stages": {"stored_vs_chart": {"status": st, "summary": f"{s} {st}"}},
+         "worst_examples": [{"stage": "stored_vs_chart", "grain": "half|1", "name": "Jahmyr Gibbs",
+                             "left": 74.0, "right": 74.5, "type": "value_mismatch"}]} for s, st in statuses.items()]}
+
+
+class FidelityPulseAlertsTest(unittest.TestCase):
+    """JEG-480: a red fidelity source opens one fidelity-red-<source> issue; the
+    pulse run and the health-artifacts run never close each other's issues."""
+
+    def test_red_source_alerts_amber_does_not(self):
+        alerts = ma.pulse_alerts(pulse(cbs="red", usatoday="amber", fantasypros="green"))
+        self.assertEqual(["fidelity-red-cbs"], [a.key for a in alerts])
+        self.assertIn("Jahmyr Gibbs", alerts[0].body)
+        self.assertEqual([], ma.pulse_alerts({"read_error": "x"}))
+
+    def test_runs_own_disjoint_keys(self):
+        gh = FakeIssues()
+        ma.reconcile(chain_alert(), gh, NOW, log=lambda *_: None)
+        ma.reconcile(ma.pulse_alerts(pulse(cbs="red")), gh, NOW, log=lambda *_: None,
+                     scope=ma.in_pulse_scope, source="fidelity-pulse.yml")
+        self.assertEqual([1, 2], gh.created)
+        self.assertIn("by fidelity-pulse.yml", gh.issues[2]["body"])
+        # health run with nothing failing must not close the pulse issue ...
+        ma.reconcile([], gh, NOW, log=lambda *_: None)
+        self.assertEqual([1], gh.closed)
+        # ... and a green pulse closes only its own
+        ma.reconcile(ma.pulse_alerts(pulse(cbs="green")), gh, NOW, log=lambda *_: None,
+                     scope=ma.in_pulse_scope, source="fidelity-pulse.yml")
+        self.assertEqual([1, 2], gh.closed)
+
+    def test_unreadable_pulse_leaves_issues_untouched(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict("os.environ", {"GITHUB_REPOSITORY": "o/r",
+                                                                              "GITHUB_TOKEN": "t"}), \
+                mock.patch.object(ma, "reconcile") as rec, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(0, ma.main(["--pulse", str(Path(d) / "missing.json")]))
+            rec.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

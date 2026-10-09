@@ -142,7 +142,22 @@ def green_site() -> dict:
                                        "checks": [{"name": "espn_ineligible_cross_check", "status": "ok"},
                                                   {"name": "espn_zeroed_staleness", "status": "ok"}]},
         "modules/input-lineage.json": {"generated_at": ago(2), "checked": 12, "mismatches": []},
+        "modules/fidelity-pulse.json": pulse_doc(),
     }
+
+
+def pulse_doc(red=None) -> dict:
+    """JEG-480 fidelity pulse: four trade charts, every stage green (one red when asked)."""
+    stages = lambda st: {k: {"status": st if k == "stored_vs_chart" else ("n/a" if k == "reference_vs_engine" else "green"),
+                             "summary": "ok", "counts": {"compared": 10, "matched": 10 if st == "green" else 9}}
+                         for k in ("publisher_vs_stored", "stored_vs_chart", "freshness", "reference_vs_engine")}
+    return {"schema": "fidelity-pulse/1", "checked_at": ago(1), "overall": "red" if red else "green",
+            "rules": {"match": "exact"}, "not_covered": {"espn": "second slice"},
+            "sources": [{"source": s, "label": s, "status": "red" if s == red else "green", "stored_week": 5,
+                         "chart_week": 5, "stages": stages("red" if s == red else "green"),
+                         "worst_examples": [{"stage": "stored_vs_chart", "grain": "half|1", "name": "Jahmyr Gibbs",
+                                             "left": 74.0, "right": 74.5, "type": "value_mismatch"}] if s == red else []}
+                        for s in ("usatoday", "fantasycalc", "fantasypros", "cbs")]}
 
 
 def stale_site() -> dict:
@@ -152,6 +167,7 @@ def stale_site() -> dict:
     site["modules/source-import-health.json"]["checked_at"] = ago(10)
     site["modules/ops-status.json"]["blocks"]["synthetic"]["run"]["created_at"] = ago(40)
     site["modules/input-lineage.json"]["mismatches"] = [{"section": "cbsros", "reason": "lineage_raw_vintage_mismatch"}]
+    site["modules/fidelity-pulse.json"]["checked_at"] = ago(10)
     return site
 
 
@@ -173,16 +189,18 @@ def failed_site() -> dict:
     ops["synthetic"]["report"]["pages"][2].update(passed=False, problems=["#weightsReadout is empty"])
     del site["assets/reference-freshness.json"]   # a missing published file: asset 404
     site["modules/data-accuracy.json"].update(status="bad", violations=[{"check": "espn_zeroed_staleness"}])
+    site["modules/fidelity-pulse.json"] = pulse_doc(red="cbs")
     return site
 
 
 # Expected card statuses per scenario (cards not listed must be "ok").
 EXPECT = {
     "green": {"__banner__": "ok"},
-    "stale": {"__banner__": "warn", "chain": "warn", "ingest": "warn", "synthetic": "warn", "derived": "warn"},
+    "stale": {"__banner__": "warn", "chain": "warn", "ingest": "warn", "synthetic": "warn", "derived": "warn",
+              "pulse": "warn"},
     "failed": {"__banner__": "bad", "chain": "bad", "jobs": "bad", "ingest": "bad", "deploy": "bad",
                "alerts": "bad", "monitor": "bad", "synthetic": "bad", "surfaces": "bad", "freshness": "bad",
-               "security": "bad", "derived": "bad"},
+               "security": "bad", "derived": "bad", "pulse": "bad"},
 }
 SCENARIOS = {"green": green_site, "stale": stale_site, "failed": failed_site}
 
