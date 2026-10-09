@@ -226,7 +226,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_transform_batch70_to_comparison
 	python3 -m unittest tests.test_backstop_hash_roundtrip
 	python3 -m unittest tests.test_vintage_trigger
-	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lock_revert_notice_render
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
@@ -431,6 +430,7 @@ validate: reference sync guard-harness test-core test-integration
 
 test-core:
 	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_rank_guard
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_ppg_tie_parity
 	python3 -m unittest tests.test_kdst_removed

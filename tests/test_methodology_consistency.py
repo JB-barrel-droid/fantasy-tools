@@ -7,6 +7,10 @@ proportional_scaling_flex_aware_per_position) showed up as a bad checkpoint.
 The expectation is now derived from the reindex pipeline itself. These tests
 prove the check still catches genuine drift: a source silently keeping an OLD
 method while the pipeline moved on must fail.
+
+2026-10-08 (JEG-482, Jeremy): the reindex method is now the one-factor
+order_preserving_rescale, under fit key "order_preserving_rescale"; the
+flex-aware bucket method is the OLD method a drifted source would carry.
 """
 import json
 import sys
@@ -23,10 +27,10 @@ def _fixture(method_by_combo, tmpdir, extra_fit=None):
     """Minimal comparison-sources-data.json shaped like the real fixture.
 
     extra_fit: optional dict merged into every combo's fit block (e.g. a
-    vorp_translation step as written by pipelines/translate_via_vorp.py).
+    retired vorp_translation step a pre-JEG-482 fixture carries).
     """
     def _combo(src, cn):
-        fit = {"flex_aware_pie": {"method": method_by_combo.get((src, cn)), "anchor": "espn_leg"}}
+        fit = {bpc._reindex_pipeline_fit_key(): {"method": method_by_combo.get((src, cn)), "anchor": "espn_leg"}}
         if extra_fit:
             fit.update(extra_fit)
         return {"fit": fit}
@@ -70,8 +74,9 @@ class TestMethodologyConsistency(unittest.TestCase):
         """The expectation must track the pipeline's actual fit metadata."""
         self.assertEqual(
             bpc._reindex_pipeline_method(),
-            "proportional_scaling_flex_aware_per_position",
+            "order_preserving_rescale",
         )
+        self.assertEqual(bpc._reindex_pipeline_fit_key(), "order_preserving_rescale")
 
     def test_all_sources_on_current_method_is_ok(self):
         """The intentional methodology change must not read as a failure."""
@@ -85,16 +90,15 @@ class TestMethodologyConsistency(unittest.TestCase):
         Proves the guard discriminates: this is the state the old hardcoded
         constant could not distinguish from the intentional migration."""
         m = self._all_current()
-        m[("usatoday", "full_12")] = "proportional_scaling_vorp_overlap"
+        m[("usatoday", "full_12")] = "proportional_scaling_flex_aware_per_position"
         res = self._run_with(m)
         self.assertEqual(res["status"], "bad", res.get("reason"))
         self.assertIn("usatoday/full_12", res["reason"])
 
     def test_vorp_translation_fit_key_is_not_held_to_reindex_method(self):
-        """The vorp_translation step (method vorp-supabase, written by
-        pipelines/translate_via_vorp.py) is a separate transformation step
-        with its own dedicated check (build_vorp_translation_summary). The
-        methodology-consistency check must scope its reindex method/anchor
+        """A fit key other than the reindex one (here the retired
+        vorp_translation record a pre-JEG-482 fixture carries) is not held
+        to the reindex method: the check scopes its method/anchor
         expectation to the reindex fit key only.
 
         Discrimination: the pre-fix loop iterated every fit key, so this
@@ -117,7 +121,7 @@ class TestMethodologyConsistency(unittest.TestCase):
         try:
             p = bpc.REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
             d = json.loads(p.read_text(encoding="utf-8"))
-            del d["sources"]["cbs"]["combos"]["full_12"]["fit"]["flex_aware_pie"]
+            del d["sources"]["cbs"]["combos"]["full_12"]["fit"][bpc._reindex_pipeline_fit_key()]
             p.write_text(json.dumps(d))
             res = bpc.build_methodology_consistency()
         finally:

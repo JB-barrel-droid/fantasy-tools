@@ -222,7 +222,7 @@ def collect_page(widget_override=None):
             page.wait_for_function("() => window.TradeValueCurveHarness && window.TradeValueCurveDiagnostics",
                                    timeout=20000)
             out["clamp"] = page.evaluate(SET_SF, 5)
-            out["sf1"] = page.evaluate(READ, list(SOURCES))
+            out["sf1"] = page.evaluate(READ, list(SOURCES) + ["espn"])
             out["zero"] = page.evaluate(SET_SF, 0)
             # The classic page's roster input drives the same setter.
             out["has_input"] = page.evaluate("""() => { const i = document.querySelector('[data-roster-key="SUPERFLEX"]');
@@ -248,7 +248,8 @@ def page_problems(got):
     pos_of = browser_players()
     for source in SOURCES:
         values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
-        expected = expected_derived(source, "ppr", 12, SF_SHAPE, fixture, pos_of)
+        anchor = {int(k): v for k, v in got["sf1"]["maps"]["espn"].items()}
+        expected = expected_derived(source, "ppr", 12, SF_SHAPE, fixture, pos_of, anchor=anchor)
         diffs, _ = compare_maps(expected, values)
         if diffs:
             problems.append(f"superflex {source}: {diffs[:2]}")

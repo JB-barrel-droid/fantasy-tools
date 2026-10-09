@@ -492,6 +492,25 @@ Answered 2026-10-08 (JEG-452), position shares, in `TradeValueCurveControls`:
   (today: the live calibration, the ESPN anchor and the `*_adjusted` series) is open as
   `docs/math-review-agenda.md` MR-16.
 
+## Back-end contract: native rank (JEG-482, 2026-10-08)
+
+A published chart's Indexed ("as published") values are its native values times one factor, so the
+chart's own order is kept at every league setting (methodology, The Three Views). The front end can
+now say where the publisher itself ranks a player, read-only, in `TradeValueCurveControls`:
+
+- `getNativeRank(playerKey, source)`: the player's rank on that publisher's own list at the active
+  scoring (its superflex list when the roster has a superflex slot and the publisher publishes one),
+  1 = highest native value; ties share the better rank. `null` when the chart does not price him or
+  `source` is not a published chart (`fantasycalc`, `usatoday`, `fantasypros`, `cbs`). Use it for
+  "#3 on FantasyCalc" next to the Indexed value in the player drawer and the table tooltip.
+- `getNativeRanks(source)`: every rank as `{playerKey: rank}` (one call per chart for a table),
+  or `null` for a source that is not a published chart.
+
+Ranks are over the charted players (canonical QB/RB/WR/TE), so a publisher list that includes
+K/DST or unmatched names can show a slightly different number on its own site. The rank
+guard (`dist/modules/rank-guard.json`, schema `rank-guard-v1`) and
+`TradeValueCurveDiagnostics.indexedOrder` report whether the Indexed order matches it.
+
 ## Back-end contract: history
 
 Built 2026-10-08 (branch `feat/week-history`) for Risers & fallers (frames 05/06) and the Δ

@@ -15,9 +15,10 @@ one:
    standard roster:
    * the engine's prior-week values for FantasyCalc (Week 4, the week before
      the Week 5 it serves) and CBS (Week 3, before its Week 4) equal an
-     independent price of the saved natives by the Python translation the
-     chain promotes with (pipelines/vorp_translation/unified.translate_natives,
-     same peers), player for player; the known player (Bijan Robinson) has
+     independent price of the saved natives: Indexed is the natives times one
+     factor against the page's live anchor (JEG-482; tests/
+     test_published_league_settings_engine.one_factor), player for player;
+     the known player (Bijan Robinson) has
      a prior value equal to that independent price, and Δ = current - prior
      (Week 4 -> 5 FantasyCalc, Week 3 -> 4 CBS) is printed;
    * feeding each source's SERVED saved week back through getWeekValues
@@ -463,15 +464,15 @@ ESPN_PRIOR = """async () => {
 }"""
 
 
-def _python_prior(source, week):
-    """Independent price of a saved week at Full PPR / 12 / standard roster."""
-    from vorp_translation import unified as U
-    fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text(encoding="utf-8"))
-    slug_of = {v: k for k, v in fixture["player_keys"].items()}
+def _python_prior(source, week, anchor):
+    """Independent price of a saved week at Full PPR / 12 / standard roster:
+    the saved natives times one factor against the page's live anchor
+    (JEG-482), over the charted players (canonical QB/RB/WR/TE)."""
+    from tests.test_published_league_settings_engine import browser_players, one_factor
+    pos_of = browser_players()
     natives = _week(week)["sources"][source]["natives"]["ppr"]
-    slugged = {slug_of[int(k)]: v for k, v in natives.items() if int(k) in slug_of}
-    result = U.translate_natives(slugged, 12, peers=U.peer_natives(fixture, source, "ppr"))
-    return {int(k): result["translated"].get(k, 0.0) for k in result["evaluated"]}
+    native = {int(k): float(v) for k, v in natives.items() if int(k) in pos_of}
+    return one_factor(native, native, anchor)
 
 
 @contextlib.contextmanager
@@ -549,7 +550,7 @@ def collect(overrides=None):
     for source in H.PUBLISHED:
         served = index["served"][source]["week"]
         if served and source in (index["weeks"].get(str(served - 1)) or {}).get("sources", {}):
-            expected[source] = (served - 1, _python_prior(source, served - 1))
+            expected[source] = served - 1
     failures = [] if expected else ["no published chart has a saved prior week"]
     with _server(overrides or {}) as url, sync_playwright() as playwright:
         exe = _render_env.chromium_executable(playwright)
@@ -565,7 +566,10 @@ def collect(overrides=None):
             page.goto(url, wait_until="networkidle", timeout=120000)
             page.wait_for_function(READY, timeout=30000)
             prior = page.evaluate(PRIOR)
-            for source, (week, want) in expected.items():
+            anchor = {int(k): v for k, v in page.evaluate(
+                "() => Object.fromEntries([...window.TradeValueCurveHarness.sourceMaps().get('espn').entries()])").items()}
+            for source, week in expected.items():
+                want = _python_prior(source, week, anchor)
                 got = prior[source]["prior"]
                 if not got.get("available"):
                     failures.append(f"{source}: prior week unavailable ({got.get('reason')})")

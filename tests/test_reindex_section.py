@@ -605,19 +605,22 @@ class TestQBAnchorResolution(unittest.TestCase):
             combo = section["combos"]["full_12"]
             self.assertEqual(90.0, combo["native"]["chart only"])
             self.assertEqual(["chart only"], combo["not_on_espn"])
-            # He gets an Indexed value from his bucket's scale, like a player
+            # He gets an Indexed value from the chart's one factor, like a player
             # ESPN lists at 0, and the reconciliation still holds.
             self.assertGreater(combo["reindexed"]["chart only"], 0.0)
             self.assertEqual(section["reindex_status"], "complete")
 
 
-class TestFlexAwareExactReconciliation(unittest.TestCase):
-    """JEG-15: the flex-aware branch must report EXACT reconciliation numbers.
+class TestPublishedOrderPreservingRescale(unittest.TestCase):
+    """JEG-482 (Jeremy, 2026-10-08): a published chart's Indexed values are
+    its native values times ONE factor, so its own ranking survives exactly.
 
-    Named defect: index_total[pos] used to report the dedicated bucket's scale
-    as a "representative" factor, with target_total = pre_total * rep_scale --
-    a number that did not equal the sum of the stored reindexed values whenever
-    buckets carried genuinely different scales.
+    Replaces TestFlexAwareExactReconciliation (JEG-15), which pinned the
+    per-(position, role) bucket scaling this rule removes. The fixture is the
+    same one: the anchor prices the source's top players at 1x and the rest
+    at 2x, so any per-bucket scaling moves lower-ranked players above
+    higher-ranked ones (it did: a bench player at 2 x 105 = 210 over a
+    starter at 106).
     """
 
     def setUp(self):
@@ -628,59 +631,111 @@ class TestFlexAwareExactReconciliation(unittest.TestCase):
     def _j(pl):
         return int(''.join(c for c in pl["name"] if c.isdigit()))
 
-    def test_exact_factor_and_bucket_reconciliation(self):
-        players = self.players
-        # Native: uniform ramp. Anchor: ratio 1.0 for the players the source
-        # ranks as dedicated starters (high j), ratio 2.0 for the rest --
-        # so the dedicated bucket scale genuinely differs from the aggregate.
-        def native_fn(pl):
-            return 100.0 + self._j(pl)
-        def anchor_fn(pl):
-            j = self._j(pl)
-            ratio = 1.0 if j >= 6 else 2.0
-            return ratio * (100.0 + j)
-        fx = make_fixture(self.tmp, players, anchor_fn)
-        cand = make_candidate(self.tmp, "fantasycalc", players, native_fn)
-        # The flex-aware branch serves as-published sources only.
+    def _run(self, native_fn, anchor_fn):
+        fx = make_fixture(self.tmp, self.players, anchor_fn)
+        cand = make_candidate(self.tmp, "fantasycalc", self.players, native_fn)
         doc = json.loads(cand.read_text(encoding="utf-8"))
         doc["value_provenance"] = "published"
         cand.write_text(json.dumps(doc))
         section, review = run_stage(cand, fx, self.players_path)
         self.assertEqual(review, [])
-        combo = section["combos"]["full_12"]
-        reidx = combo["reindexed"]
+        return section["combos"]["full_12"]
+
+    def test_order_equals_native_order(self):
+        # Positions on different native levels, and an anchor that weights
+        # them the other way round: a per-position fit would swap them.
+        level = {"QB": 400.0, "RB": 300.0, "WR": 200.0, "TE": 100.0}
+        anchor_level = {"QB": 10.0, "RB": 40.0, "WR": 30.0, "TE": 20.0}
+        pos_of = {pl["name"].lower(): pl["pos"] for pl in self.players["players"]}
+
+        def native_fn(pl):
+            return level[pl["pos"]] + self._j(pl)
+
+        def anchor_fn(pl):
+            j = self._j(pl)
+            return (1.0 if j >= 6 else 2.0) * (anchor_level[pl["pos"]] + j)
+
+        combo = self._run(native_fn, anchor_fn)
+        native, reidx = combo["native"], combo["reindexed"]
+        self.assertEqual(set(reidx), {s for s in native if pos_of.get(s) in POS})
+        by_native = sorted(reidx, key=lambda s: (-float(native[s]), s))
+        by_indexed = sorted(reidx, key=lambda s: (-reidx[s], s))
+        self.assertEqual(by_indexed, by_native)
+        self.assertEqual(rcs_guard_inversions(native, reidx), 0)
+
+    def test_one_factor_and_fixed_pie(self):
+        def native_fn(pl):
+            return 100.0 + self._j(pl)
+
+        def anchor_fn(pl):
+            j = self._j(pl)
+            return (1.0 if j >= 6 else 2.0) * (100.0 + j)
+
+        combo = self._run(native_fn, anchor_fn)
+        native, reidx = combo["native"], combo["reindexed"]
+        fit = combo["fit"]["order_preserving_rescale"]
+        self.assertNotIn("flex_aware_pie", combo["fit"])
+        factor = fit["factor"]
+        for slug, value in reidx.items():
+            self.assertAlmostEqual(value, float(native[slug]) * factor, places=9)
+        # The chart's pie over its priced players is the anchor's over them.
+        self.assertAlmostEqual(sum(reidx.values()), fit["anchor_total"], places=6)
+        self.assertAlmostEqual(factor, fit["anchor_total"] / fit["native_total"], places=12)
+        it = combo["index_total"]
+        self.assertAlmostEqual(sum(t["post_total"] for t in it.values()),
+                               sum(t["target_total"] for t in it.values()), places=6)
         for pos in POS:
-            it = combo["index_total"][pos]
-            # The defect's signature: dedicated-scale factor was exactly 1.0.
-            self.assertNotAlmostEqual(it["factor"], 1.0, places=2,
-                msg=f"{pos}: factor must be the exact aggregate, not the dedicated bucket scale")
-            # Exact: factor == post_total / pre_total
-            self.assertAlmostEqual(it["factor"], it["post_total"] / it["pre_total"], places=9)
-            # Reconciliation: stored reindexed values sum to the reported post total
-            stored = sum(v for s, v in reidx.items()
-                         if s.startswith(f"player {pos.lower()}"))
-            self.assertAlmostEqual(stored, it["post_total"], places=6,
-                msg=f"{pos}: stored reindexed total must equal reported post_total")
-            self.assertAlmostEqual(it["target_total"], it["post_total"], places=9)
-            # Buckets sum to the position totals
-            bpre = sum(b["pre"] for b in it["buckets"].values())
-            bpost = sum(b["post"] for b in it["buckets"].values())
-            bn = sum(b["n"] for b in it["buckets"].values())
-            self.assertAlmostEqual(bpre, it["pre_total"], places=6)
-            self.assertAlmostEqual(bpost, it["post_total"], places=6)
-            self.assertEqual(bn, it["n_priced"])
-            # Each bucket's own exacts reconcile
-            for role, b in it["buckets"].items():
-                self.assertAlmostEqual(b["post"], b["pre"] * b["scale"], places=6)
-                self.assertAlmostEqual(b["scale"], b["anchor"] / b["pre"], places=9)
-        # Full-pie reconciliation
-        pie = combo["fit"]["flex_aware_pie"]["pie"]
-        self.assertAlmostEqual(pie["pre_total"],
-            sum(combo["index_total"][p]["pre_total"] for p in POS), places=6)
-        self.assertAlmostEqual(pie["post_total"],
-            sum(combo["index_total"][p]["post_total"] for p in POS), places=6)
-        self.assertAlmostEqual(pie["post_total"], sum(reidx.values()), places=6)
-        self.assertAlmostEqual(pie["factor"], pie["post_total"] / pie["pre_total"], places=9)
+            stored = sum(v for s, v in reidx.items() if s.startswith(f"player {pos.lower()}"))
+            self.assertAlmostEqual(stored, it[pos]["post_total"], places=6)
+            self.assertEqual(it[pos]["factor"], factor)
+
+
+class TestChartOnlyPlayerGetsTheOneFactor(unittest.TestCase):
+    """JEG-486 x JEG-482: a player not on ESPN's list (espn_status "absent")
+    is priced with anchor 0.0 and gets the chart's ONE factor like everyone
+    else, in order, without a review row."""
+
+    def test_chart_only_player_is_native_times_the_factor(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            plist = {"meta": {}, "players": [
+                {"player_key": 1000 + j, "name": f"Wr Player {j}", "pos": "WR"} for j in range(12)]}
+            plist["players"].append({"player_key": 9999, "name": "Chart Only", "pos": "WR",
+                                     "espn_status": "absent"})
+            players_p = tmp / "players.json"
+            players_p.write_text(json.dumps(plist))
+            fixture_keys = {pl["name"].lower(): pl["player_key"] for pl in plist["players"]}
+            anchor_vals = {pl["name"].lower(): 10.0 + j for j, pl in enumerate(plist["players"][:12])}
+            fx_p = tmp / "fixture.json"
+            fx_p.write_text(json.dumps(
+                {"player_keys": fixture_keys,
+                 "sources": {"espn": {"combos": {"full_12": {"values": anchor_vals}}}}}))
+            cand_p = make_candidate(tmp, "cbs", plist,
+                                    lambda pl: 55.0 if pl["name"] == "Chart Only"
+                                    else 20.0 + int(pl["name"].split()[-1]),
+                                    combos=("full_12",))
+            doc = json.loads(cand_p.read_text(encoding="utf-8"))
+            doc["value_provenance"] = "published"
+            cand_p.write_text(json.dumps(doc))
+            section, review = rcs.reindex_section(str(cand_p), str(fx_p), str(players_p))
+            self.assertEqual([], [r for r in review if r.get("player_key") == 9999])
+            combo = section["combos"]["full_12"]
+            self.assertEqual(["chart only"], combo["not_on_espn"])
+            factor = combo["fit"]["order_preserving_rescale"]["factor"]
+            self.assertAlmostEqual(combo["reindexed"]["chart only"], 55.0 * factor, places=9)
+            # Top of the chart natively, top of it Indexed.
+            self.assertEqual(max(combo["reindexed"], key=combo["reindexed"].get), "chart only")
+            self.assertEqual(rcs_guard_inversions(combo["native"], combo["reindexed"]), 0)
+            # He takes the factor but is not in it: the factor is measured on
+            # the players the anchor prices, as the browser measures it.
+            others = {s: v for s, v in combo["reindexed"].items() if s != "chart only"}
+            self.assertAlmostEqual(sum(others.values()), sum(anchor_vals.values()), places=6)
+            self.assertEqual(combo["fit"]["order_preserving_rescale"]["n_uncalibrated"], 1)
+
+
+def rcs_guard_inversions(native, indexed):
+    from check_rank_guard import count_inversions
+    return count_inversions(native, indexed)["inversions"]
 
 
 if __name__ == "__main__":

@@ -16,8 +16,10 @@ What it computes, per league setting (scoring x teams x roster) and view
                         projections), one factor to the anchor's shared total
   usatoday, fantasycalc,
   fantasypros, cbs      Indexed: the saved 12-team values at the saved setup,
-                        else derived from the saved natives
-                        (unified.translate_ranked at the setting);
+                        else the saved natives times ONE factor that matches
+                        the anchor's total over the chart's players
+                        (published_one_factor; JEG-482: the chart keeps its
+                        own order, no per-position translation);
                         VORP vs waivers / Adjusted values: the saved vorp_views
                         at their own setup, else derived (one batch)
   *_adjusted            the raw chart through the live OLS cells (ESPN two-tier
@@ -290,6 +292,28 @@ def freshness(inp: Inputs) -> dict:
 # The engine's building blocks, written from the methodology
 # ---------------------------------------------------------------------------
 
+MIN_SHARED_FOR_PIE = 40
+
+
+def published_one_factor(native: dict, keys, anchor: dict, saved: dict | None = None) -> dict:
+    """A published chart's Indexed values off the saved setup (methodology,
+    The Three Views #3; JEG-482): native x one factor, where the factor is the
+    anchor's total over the chart's players it prices / the chart's native
+    total over them. With fewer than MIN_SHARED_FOR_PIE shared players the
+    factor is the saved one (saved total / native total over the chart's
+    players). Players with no native value are left out (missing, not 0)."""
+    keys = [k for k in keys if k in native]
+    shared = [k for k in keys if k in anchor and _finite(anchor[k])]
+    a_total = sum(max(0.0, float(anchor[k])) for k in shared)
+    n_total = sum(max(0.0, float(native[k])) for k in shared)
+    if len(shared) < MIN_SHARED_FOR_PIE or a_total <= 0 or n_total <= 0:
+        base = saved if saved is not None else native
+        a_total = sum(max(0.0, float(base[k])) for k in keys if k in base)
+        n_total = sum(max(0.0, float(native[k])) for k in keys if k in base)
+    factor = a_total / n_total if a_total > 0 and n_total > 0 else 0.0
+    return {k: max(0.0, float(native[k])) * factor for k in keys}
+
+
 class Setting:
     """Everything the page computes at one (scoring, teams, roster)."""
 
@@ -367,14 +391,7 @@ class Setting:
             native = self.native(src)
             out = {}
             if saved and native:
-                at = unified.translate_ranked(
-                    self._ranked(native), self.teams, self.shape["BENCH"], self.shape["FLEX"],
-                    slots={p: self.shape[p] for p in POSITIONS},
-                    superflex_count=self.shape["SUPERFLEX"], our_max=self.our_max(),
-                    peers=self._peers(src))
-                for key in saved:
-                    t = at["translated"].get(str(key))
-                    out[key] = t["translated"] if t is not None else 0.0
+                out = published_one_factor(native, list(saved), self.anchor(), saved)
         self._published[src] = out
         return out
 
@@ -443,52 +460,59 @@ class Setting:
             self._ddf[src] = out
         return out
 
+    CELL_KEYS = ("fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball")
+
     def cells(self) -> list[dict]:
         """OLS cells per (source, position, tier): the source's served values
         against the live two-tier values on the same players."""
-        if self._cells is not None:
-            return self._cells
+        if self._cells is None:
+            self._cells = [c for raw_key in self.CELL_KEYS for c in self._fit_cells(raw_key)]
+        return self._cells
+
+    def _fit_cells(self, raw_key: str) -> list[dict]:
+        """One source's cells, fitted on demand: a published chart's Indexed
+        values are scaled against the anchor (JEG-482), and the anchor needs
+        only ESPN's own cells, so ESPN's are fitted without the others."""
+        if not hasattr(self, "_cells_by_key"):
+            self._cells_by_key = {}
+        if raw_key in self._cells_by_key:
+            return self._cells_by_key[raw_key]
         cells = []
         espn = self.two_tier("espn")
-        if espn:
-            for raw_key in ("fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"):
-                ddf = self.two_tier(raw_key) if raw_key in ("cbsros", "razzball") else espn
-                if not ddf:
+        ddf = (self.two_tier(raw_key) if raw_key in ("cbsros", "razzball") else espn) if espn else None
+        published = self.raw_map(raw_key) if ddf else None
+        if ddf and published:
+            for pos in POSITIONS:
+                c = ddf["cal"].get(pos)
+                if c and c.get("invalid"):
                     continue
-                published = self.raw_map(raw_key)
-                if not published:
-                    continue
-                for pos in POSITIONS:
-                    c = ddf["cal"].get(pos)
-                    if c and c.get("invalid"):
+                for tier in ("starter", "bench"):
+                    members = ddf["starters"] if tier == "starter" else ddf["bench"]
+                    xs, ys = [], []
+                    for key, x in published.items():
+                        if ddf["pos_of"].get(key) != pos or key not in members:
+                            continue
+                        y = ddf["values"].get(key)
+                        if y is None or not math.isfinite(x) or not math.isfinite(y):
+                            continue
+                        xs.append(x)
+                        ys.append(y)
+                    if len(xs) < 2:
                         continue
-                    for tier in ("starter", "bench"):
-                        members = ddf["starters"] if tier == "starter" else ddf["bench"]
-                        xs, ys = [], []
-                        for key, x in published.items():
-                            if ddf["pos_of"].get(key) != pos or key not in members:
-                                continue
-                            y = ddf["values"].get(key)
-                            if y is None or not math.isfinite(x) or not math.isfinite(y):
-                                continue
-                            xs.append(x)
-                            ys.append(y)
-                        if len(xs) < 2:
-                            continue
-                        n = len(xs)
-                        mx, my = sum(xs) / n, sum(ys) / n
-                        sxx = sum((x - mx) ** 2 for x in xs)
-                        sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-                        if not sxx > 0:
-                            continue
-                        beta = sxy / sxx
-                        cells.append({"source": raw_key, "position": pos, "tier": tier,
-                                      "alpha": my - beta * mx, "beta": beta, "n": n})
-        self._cells = cells
+                    n = len(xs)
+                    mx, my = sum(xs) / n, sum(ys) / n
+                    sxx = sum((x - mx) ** 2 for x in xs)
+                    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+                    if not sxx > 0:
+                        continue
+                    beta = sxy / sxx
+                    cells.append({"source": raw_key, "position": pos, "tier": tier,
+                                  "alpha": my - beta * mx, "beta": beta, "n": n})
+        self._cells_by_key[raw_key] = cells
         return cells
 
     def cells_for(self, raw_key: str) -> list[dict] | None:
-        live = [c for c in self.cells() if c["source"] == raw_key]
+        live = list(self._fit_cells(raw_key)) if raw_key in self.CELL_KEYS else []
         if live:
             return live
         entry = ((self.inp.adjustment_inputs or {}).get("sources") or {}).get(raw_key)
@@ -854,12 +878,9 @@ def week_values(setting: "Setting", series: str, week: int, hist: History, view:
                 native[k] = f
         if not native:
             return None, "no values saved for that week"
-        at = unified.translate_ranked(
-            setting._ranked(native), setting.teams, setting.shape["BENCH"], setting.shape["FLEX"],
-            slots={p: setting.shape[p] for p in POSITIONS}, superflex_count=setting.shape["SUPERFLEX"],
-            our_max=setting.our_max(), peers=setting._peers(base))
-        raw = {k: (at["translated"][str(k)]["translated"] if str(k) in at["translated"] else 0.0)
-               for k in native}
+        # JEG-482: a saved week's Indexed values are its natives times one
+        # factor against today's anchor (the browser's historyPublishedValues).
+        raw = published_one_factor(native, list(native), anchor)
         if series in PUBLISHED:
             values = raw
         else:
