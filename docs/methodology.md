@@ -473,6 +473,8 @@ by `pipelines/derive_lineup_parameters.py`. The Week 5 reports are kept in
    player's fundamental value is his value above waivers times the share of
    the remaining weeks in which that surplus enters a starting lineup. This
    section defines that share.
+   "Enters a lineup" is decided on projections before the week, so the share
+   is about where his projection will sit, not how his games turn out.
 2. It is an additive approximation of "contribution to expected lineup
    points over an all-waiver roster". The exact quantity depends on the
    other players on the roster (section 6, portfolio value). That needs a
@@ -560,6 +562,11 @@ work list of VP-2.4).
    RB depth 1 about 0.34, depth 2 about 0.04; WR depth 1 about 0.48.
 3. The level of a player projected at `x` is `X ~ Normal(x, s(x))` with
    `s(x) = max(sigma_p x, sigma_floor,p)` (for a chart, `sigma_chart,p x`).
+   `X` is where his projection will sit when a manager sets a lineup, not
+   his realized points: lineups are set on projections before the games, so
+   `sigma` is the spread of projections (source disagreement and weekly
+   drift, ES-1), and Sunday's outcome noise is excluded on purpose (ES-8.2;
+   Jeremy, JEG-525 artifact comment, 2026-10-09).
 4. `share_p(x) = avail_p x [ P(X > l_p) + sum over k of fill_k x
    P(e_k < X <= e_(k-1)) ]`. Mass below `w_p` counts nothing. `share` is
    between 0 and `avail_p`, and non-decreasing in `x`.

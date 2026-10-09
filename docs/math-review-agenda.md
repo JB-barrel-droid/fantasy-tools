@@ -1278,6 +1278,14 @@ the bench player's share rises by the probability his weekly projection
 beats the lowest starter's, from the weekly projection spread. Not
 measured. (c) Position-specific weekly noise in the Stash signal.
 
+Jeremy (JEG-525 artifact comment, 2026-10-09): the start decision is made
+on projections before the week, not on outcomes, which is why outcome
+variance matters less than it looks. The spec agrees (ES-4.3). Follow-up for
+G6: `score_lineup_values.start_worthy_calibration` checks predicted
+start-worthiness against realized finishes inside the starter count; once
+weekly projections are stored (G4 b) it should check against *projected*
+starts, the thing the share actually predicts.
+
 **Depends on:** G4 (b). **Sources:** `derive_lineup_parameters.weekly_noise`.
 
 ## MR-24 - More seasons for the hazard and noise estimates (Jeremy, JEG-525)
