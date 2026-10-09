@@ -36,20 +36,20 @@
     "scoring": "ppr",
     "teams": 12
   },
-  "generated_at": "2026-10-09T02:01:54Z",
+  "generated_at": "2026-10-09T03:07:11Z",
   "review_rows": [],
   "schema": "trade-value-adjustment-inputs-v1",
   "sources": {
     "cbs": {
       "cells": [
         {
-          "alpha": -3.757921101203433,
-          "beta": 1.2258003616174071,
+          "alpha": -3.5878196951608725,
+          "beta": 1.2206947133143007,
           "n": 12,
           "position": "QB",
           "source": "cbs",
           "tier": "starter",
-          "x_mean": 11.4,
+          "x_mean": 11.308333333333332,
           "y_mean": 10.216203021235009
         },
         {
@@ -84,13 +84,13 @@
           "y_mean": 9.261512787960417
         },
         {
-          "alpha": 8.730769551661625,
-          "beta": 0.719995142130302,
+          "alpha": 8.657799847063695,
+          "beta": 0.720999618338426,
           "n": 40,
           "position": "WR",
           "source": "cbs",
           "tier": "starter",
-          "x_mean": 20.605,
+          "x_mean": 20.677500000000002,
           "y_mean": 23.5662694552565
         },
         {
@@ -105,13 +105,13 @@
           "y_mean": 0.0
         },
         {
-          "alpha": 3.2718687633677845,
-          "beta": 0.8024748755678683,
+          "alpha": 3.438841962302874,
+          "beta": 0.7972050068335517,
           "n": 12,
           "position": "TE",
           "source": "cbs",
           "tier": "starter",
-          "x_mean": 12.775,
+          "x_mean": 12.65,
           "y_mean": 13.523485298747303
         },
         {
@@ -136,13 +136,13 @@
           "reason": "fewer_than_5_pairs"
         },
         "QB|starter": {
-          "alpha": -3.757921101203433,
-          "beta": 1.2258003616174071,
+          "alpha": -3.5878196951608725,
+          "beta": 1.2206947133143007,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 11.4,
+          "x_mean": 11.308333333333332,
           "y_mean": 10.216203021235009
         },
         "RB|bench": {
@@ -174,13 +174,13 @@
           "reason": "fewer_than_5_pairs"
         },
         "TE|starter": {
-          "alpha": 3.2718687633677845,
-          "beta": 0.8024748755678683,
+          "alpha": 3.438841962302874,
+          "beta": 0.7972050068335517,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 12.775,
+          "x_mean": 12.65,
           "y_mean": 13.523485298747303
         },
         "WR|bench": {
@@ -192,13 +192,13 @@
           "reason": "fewer_than_5_pairs"
         },
         "WR|starter": {
-          "alpha": 8.730769551661625,
-          "beta": 0.719995142130302,
+          "alpha": 8.657799847063695,
+          "beta": 0.720999618338426,
           "cell": true,
           "fallback": false,
           "n_pairs": 40,
           "reason": null,
-          "x_mean": 20.605,
+          "x_mean": 20.677500000000002,
           "y_mean": 23.5662694552565
         }
       },
@@ -559,172 +559,172 @@
     "fantasycalc": {
       "cells": [
         {
-          "alpha": 2.0867763278935865,
-          "beta": 1.0094198617318366,
+          "alpha": 2.0477186056916548,
+          "beta": 0.9807331737989708,
           "n": 12,
           "position": "QB",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 8.325000000000001,
+          "x_mean": 8.608333333333333,
           "y_mean": 10.490196676811127
         },
         {
-          "alpha": -1.255172831436063,
-          "beta": 2.604806756468265,
+          "alpha": -0.5682000298507601,
+          "beta": 2.5591233573859333,
           "n": 9,
           "position": "QB",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 1.9666666666666666,
+          "x_mean": 1.7333333333333334,
           "y_mean": 3.867613789618191
         },
         {
-          "alpha": 10.194090686445882,
-          "beta": 0.7253071371625892,
+          "alpha": 9.914306132499433,
+          "beta": 0.7341910198564798,
           "n": 34,
           "position": "RB",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 25.90294117647059,
+          "x_mean": 25.970588235294116,
           "y_mean": 28.98167879524272
         },
         {
-          "alpha": 0.7576501515457341,
-          "beta": 2.2016739858753347,
+          "alpha": -0.16213844796860144,
+          "beta": 2.5512129488036464,
           "n": 20,
           "position": "RB",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 2.23,
+          "x_mean": 2.285,
           "y_mean": 5.667383140047731
         },
         {
-          "alpha": 11.08604925863434,
-          "beta": 0.670556368715342,
+          "alpha": 11.039971263721867,
+          "beta": 0.6688067026310903,
           "n": 38,
           "position": "WR",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 19.936842105263157,
+          "x_mean": 20.057894736842105,
           "y_mean": 24.454825704390736
         },
         {
-          "alpha": 4.256525255159965,
-          "beta": 1.0758935564840229,
-          "n": 32,
+          "alpha": 3.86872907111914,
+          "beta": 1.2667379502883673,
+          "n": 33,
           "position": "WR",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 1.771875,
-          "y_mean": 6.162874150555093
+          "x_mean": 1.6636363636363636,
+          "y_mean": 5.97612038841706
         },
         {
-          "alpha": 5.233254800305192,
-          "beta": 0.7643694050631475,
+          "alpha": 4.888641106652864,
+          "beta": 0.7944188816147596,
           "n": 12,
           "position": "TE",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 10.366666666666665,
+          "x_mean": 10.408333333333333,
           "y_mean": 13.157217632793154
         },
         {
-          "alpha": 3.3472067194753343,
-          "beta": 0.5022782894067543,
-          "n": 7,
+          "alpha": 2.452714307959017,
+          "beta": 1.1093292900440155,
+          "n": 9,
           "position": "TE",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 1.1857142857142857,
-          "y_mean": 3.9427652626290572
+          "x_mean": 1.1222222222222222,
+          "y_mean": 3.697628289008412
         }
       ],
       "diagnostics": {
         "QB|bench": {
-          "alpha": -1.255172831436063,
-          "beta": 2.604806756468265,
+          "alpha": -0.5682000298507601,
+          "beta": 2.5591233573859333,
           "cell": true,
           "fallback": false,
           "n_pairs": 9,
           "reason": null,
-          "x_mean": 1.9666666666666666,
+          "x_mean": 1.7333333333333334,
           "y_mean": 3.867613789618191
         },
         "QB|starter": {
-          "alpha": 2.0867763278935865,
-          "beta": 1.0094198617318366,
+          "alpha": 2.0477186056916548,
+          "beta": 0.9807331737989708,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 8.325000000000001,
+          "x_mean": 8.608333333333333,
           "y_mean": 10.490196676811127
         },
         "RB|bench": {
-          "alpha": 0.7576501515457341,
-          "beta": 2.2016739858753347,
+          "alpha": -0.16213844796860144,
+          "beta": 2.5512129488036464,
           "cell": true,
           "fallback": false,
           "n_pairs": 20,
           "reason": null,
-          "x_mean": 2.23,
+          "x_mean": 2.285,
           "y_mean": 5.667383140047731
         },
         "RB|starter": {
-          "alpha": 10.194090686445882,
-          "beta": 0.7253071371625892,
+          "alpha": 9.914306132499433,
+          "beta": 0.7341910198564798,
           "cell": true,
           "fallback": false,
           "n_pairs": 34,
           "reason": null,
-          "x_mean": 25.90294117647059,
+          "x_mean": 25.970588235294116,
           "y_mean": 28.98167879524272
         },
         "TE|bench": {
-          "alpha": 3.3472067194753343,
-          "beta": 0.5022782894067543,
+          "alpha": 2.452714307959017,
+          "beta": 1.1093292900440155,
           "cell": true,
           "fallback": false,
-          "n_pairs": 7,
+          "n_pairs": 9,
           "reason": null,
-          "x_mean": 1.1857142857142857,
-          "y_mean": 3.9427652626290572
+          "x_mean": 1.1222222222222222,
+          "y_mean": 3.697628289008412
         },
         "TE|starter": {
-          "alpha": 5.233254800305192,
-          "beta": 0.7643694050631475,
+          "alpha": 4.888641106652864,
+          "beta": 0.7944188816147596,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 10.366666666666665,
+          "x_mean": 10.408333333333333,
           "y_mean": 13.157217632793154
         },
         "WR|bench": {
-          "alpha": 4.256525255159965,
-          "beta": 1.0758935564840229,
+          "alpha": 3.86872907111914,
+          "beta": 1.2667379502883673,
           "cell": true,
           "fallback": false,
-          "n_pairs": 32,
+          "n_pairs": 33,
           "reason": null,
-          "x_mean": 1.771875,
-          "y_mean": 6.162874150555093
+          "x_mean": 1.6636363636363636,
+          "y_mean": 5.97612038841706
         },
         "WR|starter": {
-          "alpha": 11.08604925863434,
-          "beta": 0.670556368715342,
+          "alpha": 11.039971263721867,
+          "beta": 0.6688067026310903,
           "cell": true,
           "fallback": false,
           "n_pairs": 38,
           "reason": null,
-          "x_mean": 19.936842105263157,
+          "x_mean": 20.057894736842105,
           "y_mean": 24.454825704390736
         }
       },
-      "n_published": 195,
+      "n_published": 197,
       "reference_combo": "full_12_qb1",
       "role_counts": {
-        "bench": 68,
+        "bench": 71,
         "starter": 96
       },
       "status": "live"
