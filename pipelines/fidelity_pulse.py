@@ -101,7 +101,7 @@ VALUE_CHECK_URL = SITE + "modules/value-check.json"
 UA = "DataDrivenFootball-fidelity-pulse/1.0 (+https://jb-barrel-droid.github.io/fantasy-tools/modules/status.html)"
 HOST_GAP_S = 1.0           # politeness: at least this long between two requests to one host
 
-GRACE_HOURS = 12           # a publisher revision inside this window is amber, after it red
+GRACE_HOURS = 24           # a publisher revision after the save is 'update available' (amber) this long, then stale (red)
 NEW_WEEK_GRACE_HOURS = 24  # a newer publisher week inside this window is amber, after it red
 FC_DRIFT_REL = 0.25        # FantasyCalc movement band (relative to the stored value), see docstring
 FC_DRIFT_ABS = 50          # ... or this many FantasyCalc points, whichever is larger
@@ -130,13 +130,17 @@ PROJECTION_STALE_HOURS = 24
 ACK_MATCH_MINUTES = 15     # an ack this close to the stored save names the content that save read
 BLOCK_SHARE = 0.10         # missing + extra players above this share of a position is a block, never an update
 BLOCK_MIN = 3              # ... and at least this many players
-DROP_AMBER = 0.85          # a position's player count below this share of the prior week is amber
-DROP_RED = 0.60            # ... below this share, red
+DROP_AMBER = 0.95          # a position's player count below this share of the prior week is amber (alert only)
+DROP_RED = 0.90            # ... below this share (a drop of more than 10%), red and held, when the publisher's
+                           # own list did not drop with it (Jeremy 2026-10-09, JEG-520: hold only on big drops)
 THIN_CELL = 5              # an adjustment cell fitted on fewer players is thin (amber)
 TIER_DROP = 0.60           # a tier's count below this share of the prior week's pulse is amber
 SCORINGS = ("std", "half", "full")
 STAGES = ("publisher_vs_stored", "stored_vs_chart", "freshness", "reference_vs_engine", "scrape_validity")
 RANK = {"green": 0, "n/a": 0, "amber": 1, "unknown": 1, "red": 2}
+# JEG-520: the stages whose red holds the source (reference_vs_engine reds are held by the JEG-479 value check).
+HOLD_STAGES = ("publisher_vs_stored", "stored_vs_chart", "freshness", "scrape_validity")
+HOLD_PREFIX = "fidelity: "
 
 # Stored scoring labels per table, and the chart's combo names.
 STORED_SCORING = {
@@ -180,12 +184,25 @@ RULES = {
                    f"{PROJECTION_AMBER_DAYS} d amber, {PROJECTION_RED_DAYS} d red, or the publisher's own update "
                    "date is newer than the chart's",
     "scrape_validity": "signals that a scrape may have missed (Jeremy 2026-10-09): a position's stored or chart "
-                       f"player count below {DROP_AMBER:.0%} of the prior week's is amber, below {DROP_RED:.0%} red; "
+                       f"player count below {DROP_AMBER:.0%} of the prior week's is amber (alert only), below "
+                       f"{DROP_RED:.0%} red (held) when the publisher's own list for that position did not drop below "
+                       f"{DROP_RED:.0%} too (if it did, or it was not read, amber); "
                        f"an adjustment cell fitted on fewer than {THIN_CELL} players, an identity-fallback cell, or a "
                        f"position x tier count below {TIER_DROP:.0%} of the prior week's pulse is amber; JEG-482 "
                        "published-rank inversions are red. A player absent from a fully loaded chart means 0; "
                        "absences that may be processing errors are stages 1 and 2",
     "rollup": "a source is the worst of its stages; unknown (input unreadable) counts as amber",
+    "hold": "JEG-520: a red in publisher_vs_stored, stored_vs_chart, freshness or scrape_validity holds that source "
+            "and its derived series (the chain's validationHold, reason 'fidelity: <stage>'): kept out of DDF Value, "
+            "labelled, a published chart served from its last good section. Amber and unknown never hold; "
+            "reference_vs_engine reds are already held by the JEG-479 value check. While held, stored_vs_chart is "
+            "n/a (the chart shows the kept section) unless the hold was stored_vs_chart on the same stored save, "
+            "which stays red until a newer save; freshness reads the stored week or snapshot instead of the chart's.",
+    "tolerance": "per-source tolerance (JEG-520, measured in docs/fidelity-tolerances.md): FantasyCalc live-feed "
+                 f"movement band max({FC_DRIFT_REL:.0%}, {FC_DRIFT_ABS} points), red only above {FC_SYSTEMIC_SHARE:.0%} "
+                 "of values outside it; article charts exact against the same article version, a later revision is "
+                 f"'update available' for {GRACE_HOURS} h, then stale; projections exact against the same publisher "
+                 f"version (probe fingerprint), a changed version amber for {PROJECTION_STALE_HOURS} h, then stale",
 }
 
 
@@ -1084,13 +1101,14 @@ def stage_publisher(source: str, pub: dict, stored: dict, ident: Identity, now: 
         after_save = revised and saved_at and revised > saved_at
         if after_save and (now - revised) <= timedelta(hours=GRACE_HOURS):
             status = worst(status, "amber")
-            reasons.append(f"publisher revised the page at {iso(revised)}, after the save; inside the "
-                           f"{GRACE_HOURS} h grace window")
+            reasons.append(f"update available: the publisher revised the page at {iso(revised)}, after the "
+                           f"save at {iso(saved_at)} (a newer article version, not bad data; stale after "
+                           f"{GRACE_HOURS} h)")
         else:
             status = "red"
             if after_save:
-                reasons.append(f"publisher revised the page at {iso(revised)}, after the save at {iso(saved_at)}, "
-                               f"and the revision is not stored ({GRACE_HOURS} h grace passed)")
+                reasons.append(f"stale: the publisher revised the page at {iso(revised)}, after the save at "
+                               f"{iso(saved_at)}, and the revision is still not stored after {GRACE_HOURS} h")
         reasons.insert(0, f"{len(cmp['mismatches'])} value mismatches, {players(cmp['missing'])} publisher players not "
                           f"stored, {players(cmp['extra'])} stored players not on the page")
     if source != "fantasycalc":
@@ -1375,11 +1393,19 @@ def stage_scrape_validity(source: str, extras: dict, ident: Identity, *, publish
                 base = prior.get(pos) or 0
                 if base >= 5 and n < DROP_AMBER * base:
                     sev = "red" if n < DROP_RED * base else "amber"
-                    drops.append({"side": side, "position": pos, "now": n, "prior_week": base, "severity": sev})
+                    listed = (counts.get("publisher") or {}).get(pos) if counts.get("publisher") else None
+                    why = None
+                    if sev == "red" and listed is None:
+                        sev, why = "amber", "publisher list not read: drop unconfirmed"
+                    elif sev == "red" and listed < DROP_RED * base:
+                        sev, why = "amber", f"the publisher's own list dropped too ({listed})"
+                    drops.append({"side": side, "position": pos, "now": n, "prior_week": base, "severity": sev,
+                                  **({"note": why} if why else {})})
                     status = worst(status, sev)
         if drops:
             reasons.append("player count dropped vs week " + str(prior_week) + ": " + ", ".join(
-                f"{d['side']} {d['position']} {d['prior_week']}->{d['now']}" for d in drops))
+                f"{d['side']} {d['position']} {d['prior_week']}->{d['now']}" + (f" ({d['note']})" if d.get("note") else "")
+                for d in drops))
     else:
         reasons.append(f"no week {prior_week} history to compare position counts with")
     signals["count_drops"] = drops
@@ -1866,6 +1892,36 @@ def stage_projection_freshness(source, site_doc, pub, latest, now):
                  chart_snapshot=snap, publisher_vintage=vintage)
 
 
+def section_hold(site_doc: dict | None, source: str) -> dict | None:
+    """The fidelity hold (JEG-520) the live chart's section carries, if any."""
+    hold = site_section(site_doc or {}, source).get("validationHold")
+    if isinstance(hold, dict) and str(hold.get("reason") or "").startswith(HOLD_PREFIX):
+        return hold
+    return None
+
+
+def held_chart_stage(held: dict, identity: str | None) -> dict:
+    """Stage 2 for a held source: the chart serves the kept (last good) section, so comparing it with the
+    newest stored save says nothing. A hold caused by stage 2 stays red until a newer save exists: the chain
+    would rebuild the same chart from the same save."""
+    if held.get("stage") == "stored_vs_chart" and identity and held.get("identity") == identity:
+        return stage("red", f"held ({held.get('reason')}) since {held.get('since')}: the chart built from stored save "
+                            f"{identity} differed from it; held until a newer save", held=True)
+    return stage("n/a", f"held ({held.get('reason')}) since {held.get('since')}: the chart serves the last good "
+                        "section; compared again once the hold is released", held=True)
+
+
+def hold_decision(result: dict, identity: str | None, held: dict | None, now: datetime) -> dict | None:
+    """JEG-520: a red in a holding stage holds the source; amber and unknown never do."""
+    red = [n for n in HOLD_STAGES if (result["stages"].get(n) or {}).get("status") == "red"]
+    if not red:
+        return None
+    first = red[0]
+    return {"stage": first, "stages": red, "reason": HOLD_PREFIX + first, "identity": identity,
+            "since": (held or {}).get("since") if (held or {}).get("reason") == HOLD_PREFIX + first else iso(now),
+            "summary": str(result["stages"][first].get("summary") or "")[:300]}
+
+
 def _content_week(now: datetime) -> int:
     from nfl_week import content_week  # noqa: PLC0415
     return content_week(now.date())
@@ -1899,14 +1955,21 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
             divergences += [dict(d, stage="publisher_vs_stored", source_url=pub.get("url")) for d in divergence_items(cmp)]
         except Exception as e:  # noqa: BLE001
             stages["publisher_vs_stored"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
+    held = section_hold(site_doc, source)
+    identity = f"{latest}@{iso(saved_at)}" if latest else None
     try:
-        stages["stored_vs_chart"], cmp2 = stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
-                                                                 latest, latest_rows, verified_keys(cmp))
-        divergences += [dict(d, stage="stored_vs_chart", source_url=SITE_FIXTURE) for d in divergence_items(cmp2)]
+        if held:
+            stages["stored_vs_chart"] = held_chart_stage(held, identity)
+        else:
+            stages["stored_vs_chart"], cmp2 = stage_projection_chart(source, mod, site_doc, site_error, store, ident,
+                                                                     now, latest, latest_rows, verified_keys(cmp))
+            divergences += [dict(d, stage="stored_vs_chart", source_url=SITE_FIXTURE) for d in divergence_items(cmp2)]
     except Exception as e:  # noqa: BLE001
         stages["stored_vs_chart"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     try:
-        stages["freshness"] = stage_projection_freshness(source, site_doc, pub, latest, now)
+        # A held chart serves the kept section: judge what the next build would serve (the stored snapshot).
+        fresh_doc = {"sources": {source: {"lineage": {"raw_vintage": latest}}}} if held and latest else site_doc
+        stages["freshness"] = stage_projection_freshness(source, fresh_doc, pub, latest, now)
     except Exception as e:  # noqa: BLE001
         stages["freshness"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     stages["reference_vs_engine"] = stage_reference(source, report, report_where)
@@ -1919,10 +1982,12 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
         stages["scrape_validity"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     status = worst(*(rollup(s["status"]) for s in stages.values()))
     examples = [{"stage": n, **ex} for n in STAGES for ex in (stages[n].get("examples") or [])]
-    return {"source": source, "label": LABEL[source], "status": status,
-            "stored_week": None, "chart_week": None, "content_week": _content_week(now), "stored_snapshot": latest,
-            "chart_snapshot": chart_snapshot(site_doc, source) if site_doc else None,
-            "stored_bake": latest, "stages": stages, "worst_examples": examples[:EXAMPLES]}, divergences
+    result = {"source": source, "label": LABEL[source], "status": status,
+              "stored_week": None, "chart_week": None, "content_week": _content_week(now), "stored_snapshot": latest,
+              "chart_snapshot": chart_snapshot(site_doc, source) if site_doc else None,
+              "stored_bake": latest, "stages": stages, "worst_examples": examples[:EXAMPLES], "held": held}
+    result["hold"] = hold_decision(result, identity, held, now)
+    return result, divergences
 
 
 # --------------------------------------------------------------------------
@@ -1973,14 +2038,22 @@ def check_source(source: str, *, fetch: Fetcher, store, ident: Identity, site_do
                             for d in divergence_items(cmp1)]
         except Exception as e:  # noqa: BLE001
             stages["publisher_vs_stored"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
+    held = section_hold(site_doc, source)
+    identity = (stored.get("bake") or {}).get("bake_id")
     try:
-        stages["stored_vs_chart"], cmp2 = stage_chart(source, site_doc, site_error, store, ident, stored)
-        divergences += [dict(d, stage="stored_vs_chart", source_url=SITE_FIXTURE)
-                        for d in divergence_items(cmp2)]
+        if held:
+            stages["stored_vs_chart"] = held_chart_stage(held, identity)
+        else:
+            stages["stored_vs_chart"], cmp2 = stage_chart(source, site_doc, site_error, store, ident, stored)
+            divergences += [dict(d, stage="stored_vs_chart", source_url=SITE_FIXTURE)
+                            for d in divergence_items(cmp2)]
     except Exception as e:  # noqa: BLE001
         stages["stored_vs_chart"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     try:
-        stages["freshness"] = stage_freshness(source, site_doc, disc, stored, now)
+        # A held chart serves the kept section: judge what the next build would serve (the stored week).
+        fresh_doc = ({"sources": {source: {"source_provenance": {"week_designated": stored["week"]}}}}
+                     if held and stored.get("week") is not None else site_doc)
+        stages["freshness"] = stage_freshness(source, fresh_doc, disc, stored, now)
     except Exception as e:  # noqa: BLE001
         stages["freshness"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     stages["reference_vs_engine"] = stage_reference(source, report, report_where)
@@ -1999,7 +2072,8 @@ def check_source(source: str, *, fetch: Fetcher, store, ident: Identity, site_do
     result = {"source": source, "label": LABEL[source], "status": status,
               "stored_week": stored.get("week"), "chart_week": site_week,
               "stored_bake": (stored.get("bake") or {}).get("bake_id"),
-              "stages": stages, "worst_examples": examples[:EXAMPLES]}
+              "stages": stages, "worst_examples": examples[:EXAMPLES], "held": held}
+    result["hold"] = hold_decision(result, identity, held, now)
     return result, divergences
 
 
@@ -2031,8 +2105,27 @@ def universe_report(path: Path = PLAYERS_FIXTURE) -> dict:
             "summary": f"{n_rows} players searchable; {nfl.get('n_nfl_active')} active NFL players ({parts})"}
 
 
+def last_good(sources, holds: dict, site_doc: dict | None, previous: dict | None) -> dict:
+    """{source: built_at of the last chart file this source was not held on}. The chain restores a held
+    published chart's sections from the fixture commit with that built_at. Carried forward while held."""
+    prev = previous or {}
+    prev_good = prev.get("last_good") or {}
+    prev_holds = prev.get("holds") or {}
+    prev_built = (prev.get("site") or {}).get("built_at")
+    out = {}
+    for source in sources:
+        if source not in holds:
+            out[source] = (site_doc or {}).get("built_at") or prev_good.get(source)
+        elif source in prev_holds:
+            out[source] = prev_good.get(source)
+        else:  # newly held: the chart the previous run saw without a hold
+            out[source] = prev_built or prev_good.get(source)
+    return out
+
+
 def run(sources=SOURCES, *, fetch: Fetcher, store, ident: Identity, site_doc, site_error, report, report_where,
-        now: datetime | None = None, extras: dict | None = None, universe: dict | None = None) -> tuple[dict, dict]:
+        now: datetime | None = None, extras: dict | None = None, universe: dict | None = None,
+        previous: dict | None = None) -> tuple[dict, dict]:
     now = now or utcnow()
     results, divergences = [], {}
     for source in sources:
@@ -2046,11 +2139,15 @@ def run(sources=SOURCES, *, fetch: Fetcher, store, ident: Identity, site_doc, si
         "overall": worst(*(r["status"] for r in results)),
         "site": {"url": SITE_FIXTURE, "built_at": (site_doc or {}).get("built_at"), "error": site_error},
         "rules": RULES,
+        "holds": {r["source"]: r["hold"] for r in results if r.get("hold")},
         "sources": results,
         "not_covered": NOT_COVERED,
         "requests": len(fetch.log),
         "universe": universe if universe is not None else universe_report(),
     }
+    doc["last_good"] = last_good(sources, doc["holds"], site_doc, previous)
+    before = {k: (v or {}).get("reason") for k, v in ((previous or {}).get("holds") or {}).items() if k in sources}
+    doc["holds_changed"] = before != {k: v["reason"] for k, v in doc["holds"].items()}
     return doc, divergences
 
 
@@ -2076,7 +2173,7 @@ def history_rows(doc: dict, divergences: dict, ident: Identity | None = None) ->
             "n_compared": compared, "n_diverged": diverged, "n_blocked": blocked,
             "checks": {k: {kk: vv for kk, vv in v.items()
                            if kk not in ("examples", "unresolved", "grains", "outside_universe")}
-                       for k, v in stages.items()},
+                       for k, v in stages.items()} | {"hold": r.get("hold")},
             "started_at": finished, "finished_at": finished})
         ranked = sorted(divergences.get(r["source"], []),
                         key=lambda d: -abs(d.get("delta") or 0) if d["type"] == "value_mismatch" else 0)
@@ -2133,7 +2230,8 @@ def summary_lines(doc: dict) -> list[str]:
     if doc.get("universe"):
         lines.append(f"  Universe     {doc['universe'].get('status'):<7} {doc['universe'].get('summary')}")
     for r in doc["sources"]:
-        lines.append(f"  {r['label']:<12} {r['status']:<7} stored week {r['stored_week']} / chart week {r['chart_week']}")
+        lines.append(f"  {r['label']:<12} {r['status']:<7} stored week {r['stored_week']} / chart week {r['chart_week']}"
+                     + (f"  HOLD {r['hold']['reason']}" if r.get("hold") else ""))
         for name in STAGES:
             s = r["stages"][name]
             lines.append(f"    {name:<20} {s['status']:<7} {s['summary'][:400]}")
@@ -2148,6 +2246,8 @@ def main(argv=None) -> int:
     ap.add_argument("--offline-dir", help="stored_<source>.json + players.json instead of Supabase (local runs)")
     ap.add_argument("--write-supabase", action="store_true", help="append the run to public.fidelity_runs")
     ap.add_argument("--no-relay", action="store_true", help="do not use the USA Today relay")
+    ap.add_argument("--previous", default=str(ROOT / "dist" / "modules" / "fidelity-pulse.json"),
+                    help="the last published pulse (carries each source's last good chart forward)")
     args = ap.parse_args(argv)
 
     sources = [s for s in args.sources.split(",") if s]
@@ -2160,8 +2260,13 @@ def main(argv=None) -> int:
     site_doc, site_error = load_site(fetch, args.site_json)
     report, where = load_value_check(fetch=fetch)
     extras = load_extras(fetch, site_doc, utcnow(), store)
+    try:
+        previous = json.loads(Path(args.previous).read_text(encoding="utf-8")) if args.previous else None
+    except (OSError, ValueError):
+        previous = None
     doc, divergences = run(sources, fetch=fetch, store=store, ident=ident, site_doc=site_doc,
-                           site_error=site_error, report=report, report_where=where, extras=extras)
+                           site_error=site_error, report=report, report_where=where, extras=extras,
+                           previous=previous)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, indent=1, default=str) + "\n", encoding="utf-8")
