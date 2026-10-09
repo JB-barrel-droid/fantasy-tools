@@ -1908,8 +1908,36 @@ def check_source(source: str, *, fetch: Fetcher, store, ident: Identity, site_do
     return result, divergences
 
 
+PLAYERS_FIXTURE = ROOT / "data" / "fixtures" / "current" / "players.json"
+
+
+def universe_report(path: Path = PLAYERS_FIXTURE) -> dict:
+    """JEG-502: the player universe the page searches (players.json rows), with
+    the active NFL universe count by roster status (meta.universe.nfl_active,
+    written by bake_players.py). Informational: never sets a source's status."""
+    try:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return {"status": "unknown", "summary": f"players.json unreadable: {type(e).__name__}"}
+    meta = doc.get("meta") or {}
+    nfl = (meta.get("universe") or {}).get("nfl_active")
+    n_rows = len(doc.get("players") or [])
+    if not nfl:
+        return {"status": "amber", "n_rows": n_rows, "as_of": meta.get("as_of"),
+                "summary": f"{n_rows} players searchable; no active NFL universe count in this bake"}
+    by_status = nfl.get("by_roster_status") or {}
+    parts = ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in by_status.items())
+    return {"status": "green", "n_rows": n_rows, "as_of": meta.get("as_of"),
+            "n_nfl_active": nfl.get("n_nfl_active"), "by_roster_status": by_status,
+            "n_universe_only": nfl.get("n_universe_only"),
+            "n_sleeper_identity": nfl.get("n_sleeper_identity"),
+            "identity_base_pulled_at": nfl.get("identity_base_pulled_at"),
+            "definition": nfl.get("definition"),
+            "summary": f"{n_rows} players searchable; {nfl.get('n_nfl_active')} active NFL players ({parts})"}
+
+
 def run(sources=SOURCES, *, fetch: Fetcher, store, ident: Identity, site_doc, site_error, report, report_where,
-        now: datetime | None = None, extras: dict | None = None) -> tuple[dict, dict]:
+        now: datetime | None = None, extras: dict | None = None, universe: dict | None = None) -> tuple[dict, dict]:
     now = now or utcnow()
     results, divergences = [], {}
     for source in sources:
@@ -1926,6 +1954,7 @@ def run(sources=SOURCES, *, fetch: Fetcher, store, ident: Identity, site_doc, si
         "sources": results,
         "not_covered": NOT_COVERED,
         "requests": len(fetch.log),
+        "universe": universe if universe is not None else universe_report(),
     }
     return doc, divergences
 
@@ -2006,6 +2035,8 @@ def load_site(fetch: Fetcher, path: str | None) -> tuple[dict | None, str | None
 
 def summary_lines(doc: dict) -> list[str]:
     lines = [f"Fidelity pulse {doc['checked_at']}: overall {doc['overall']}"]
+    if doc.get("universe"):
+        lines.append(f"  Universe     {doc['universe'].get('status'):<7} {doc['universe'].get('summary')}")
     for r in doc["sources"]:
         lines.append(f"  {r['label']:<12} {r['status']:<7} stored week {r['stored_week']} / chart week {r['chart_week']}")
         for name in STAGES:
