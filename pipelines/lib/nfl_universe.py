@@ -14,8 +14,8 @@ Definition of "active" (a QB/RB/WR/TE is in the universe when either holds):
   1. On an NFL team: Sleeper `team` is set (53-man roster, practice squad,
      injured reserve, PUP and the other reserve lists: Sleeper keeps the team
      on all of them) AND a sign of life: a Sleeper news item within
-     RECENT_NEWS_DAYS of the pull (`last_news`), Sleeper status "Practice
-     Squad", or an injury designation. Sleeper never clears a retired
+     RECENT_NEWS_DAYS of the pull (`last_news`) or Sleeper status "Practice
+     Squad". Sleeper never clears a retired
      player's team (Ben Roethlisberger is still PIT, last news 2022).
   2. Free agent: no team, Sleeper `active` is true, and a news item within
      RECENT_NEWS_DAYS of the pull. This keeps players released or unsigned
@@ -60,7 +60,7 @@ DEFINITION = (
     "squad, injured reserve, PUP and other reserve lists), plus free agents "
     f"Sleeper flags active. Each needs a Sleeper news item in the {RECENT_NEWS_DAYS} "
     "days before the identity pull (a rostered player may instead carry "
-    "Sleeper's practice-squad status or an injury designation), which drops "
+    "Sleeper's practice-squad status), which drops "
     "retired players Sleeper still lists on a team. Practice squad is "
     "Sleeper's status, or inferred for a rostered player with no depth-chart slot.")
 
@@ -109,10 +109,10 @@ def in_universe(entry: dict, pulled_on: date) -> bool:
     if entry.get("team"):
         # Sleeper never clears the team of a retired player (Ben
         # Roethlisberger: PIT, last news 2022), so a team needs a sign of
-        # life: news this year, Sleeper's own practice-squad status, or a
-        # current injury designation.
-        return (_recent_news(entry, pulled_on) or entry.get("status") == "Practice Squad"
-                or bool((entry.get("injury_status") or "").strip()))
+        # life: news this year or Sleeper's own practice-squad status. (An
+        # injury designation is not one: Sleeper keeps stale ones, e.g. a
+        # 2021 "Questionable" on a player with no news since.)
+        return _recent_news(entry, pulled_on) or entry.get("status") == "Practice Squad"
     return bool(entry.get("active")) and _recent_news(entry, pulled_on)
 
 

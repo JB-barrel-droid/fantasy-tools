@@ -16,8 +16,9 @@ Rules (additive only: an existing row is never updated, re-keyed or removed):
     position (a new namesake would make position-less lookups of the
     existing player ambiguous), and two missing players sharing one name.
     Both are listed in the output for review.
-  - player_key = the table's max + 1, in Sleeper-id order. full_name is
-    Sleeper's spelling; metadata carries sleeper_id, team and the source.
+  - player_key is the table's identity column (GENERATED ALWAYS): the
+    database assigns it; rows go in Sleeper-id order. full_name is Sleeper's
+    spelling; metadata carries sleeper_id, team and the source.
 
 Runs in sleeper-identity-refresh.yml after the base is refreshed (main only).
 
@@ -63,7 +64,6 @@ def plan(base: dict, registry, known_sleeper_ids: set[str], team_ids: dict[str, 
         names.setdefault(norm_player_name(rec["name"]), []).append(sid)
     skill_names = {norm_player_name(e["full_name"]) for e in registry.by_key.values()
                    if e["position"] in SKILL_POSITIONS}
-    next_key = max(registry.by_key, default=0) + 1
     insert, skipped = [], []
     for sid in sorted(missing, key=lambda s: (len(s), s)):
         rec = missing[sid]
@@ -78,7 +78,6 @@ def plan(base: dict, registry, known_sleeper_ids: set[str], team_ids: dict[str, 
             continue
         team = rec["team"]
         insert.append({
-            "player_key": next_key,
             "full_name": rec["name"],
             "position": rec["pos"],
             "active": True,
@@ -86,7 +85,6 @@ def plan(base: dict, registry, known_sleeper_ids: set[str], team_ids: dict[str, 
             "metadata": {"sleeper_id": sid, "team": team or None, "source": SOURCE,
                          "roster_status": rec["roster_status"]},
         })
-        next_key += 1
     return {"insert": insert, "skipped": skipped, "n_universe": len(universe), "n_missing": len(missing)}
 
 
@@ -115,10 +113,12 @@ def main(argv=None) -> int:
     for s in result["skipped"]:
         print(f"  skipped {s['name']} ({s['pos']}, sleeper {s['sleeper_id']}): {s['reason']}")
     for r in result["insert"][:10]:
-        print(f"  + {r['player_key']} {r['full_name']} {r['position']} {r['metadata']['team']}")
+        print(f"  + {r['full_name']} {r['position']} {r['metadata']['team']}")
     if args.write and result["insert"]:
-        sbclient.post("players", result["insert"], prefer="return=minimal")
-        print(f"inserted {len(result['insert'])} players")
+        made = sbclient.post("players", result["insert"],
+                             params="?select=player_key,full_name,position") or []
+        print(f"inserted {len(made)} players: " + ", ".join(
+            f"{m['player_key']} {m['full_name']} ({m['position']})" for m in made))
     elif not args.write:
         print("dry run: nothing written")
     return 0
