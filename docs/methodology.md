@@ -355,10 +355,17 @@ implement exactly this text.
    before the week it serves; history rule in "Week-Over-Week Snapshots"). The
    pair is the newest served week among them (`currentWeek`) and the week
    before (`priorWeek`). An input without that prior week, or serving another
-   week, is left out of **both** weeks. Today the as-published charts are
-   recomputed for earlier weeks in the Indexed view only, so in VORP vs
-   waivers and Adjusted values the four charts are left out and those two
-   DDF Values average our three projections (MR-17). If no input has a prior
+   week, is left out of **both** weeks. A chart's VORP vs waivers / Adjusted
+   values for a saved week (JEG-479, Jeremy 2026-10-09 "Build prior week"):
+   the same `ValueModel.derivePublishedViews` batch as the current week, fed
+   every chart's saved natives for that week (its own natives and player set,
+   its peers for the waiver-line extension, the batch whose top sets the
+   Adjusted 0-70 scale), with the current league, roster and the ESPN
+   anchor's eight group totals; no adjustment fit is involved. Equal natives
+   keep the order of the chart's served list. Where a tab shows the
+   pipeline's saved `vorp_views` (Full PPR, 12 teams, standard roster; an
+   older vintage, math-review VA-3) those charts have no prior week in that
+   tab and sit out both weeks there. If no input has a prior
    week (a first week, or no history), the current week uses the inputs from
    step 4 and there is no prior week.
 6. **Per player, per week.** The equal-weight mean of the finite values of

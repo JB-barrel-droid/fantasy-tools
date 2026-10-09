@@ -900,10 +900,9 @@ def _display(setting: "Setting", series: str, values: dict, entry: dict, ppg: di
     return out
 
 
-def week_values(setting: "Setting", series: str, week: int, hist: History, view: str = "indexed"):
-    """(values or None, reason) for one series at a saved week, as priced
-    (the history accessors: no row rules)."""
-    base = history_base(series)
+def history_entry(hist: History, base: str, week: int):
+    """(entry, None) | (None, reason): a source's saved entry for a week, the
+    served version when the source serves that week from a kept version."""
     doc = hist.week_doc(week)
     entry = ((doc or {}).get("sources") or {}).get(base)
     served = hist.served(base) or {}
@@ -916,8 +915,80 @@ def week_values(setting: "Setting", series: str, week: int, hist: History, view:
         return None, f"no Week {week} content saved"
     if entry.get("week") != week:
         return None, f"saved entry is labelled week {entry.get('week')}"
-    if base in PUBLISHED and view != "indexed":
-        return None, "earlier weeks are recomputed in the Indexed view only"
+    return entry, None
+
+
+def _week_native(setting: "Setting", entry: dict) -> dict:
+    native = {}
+    for key, v in ((entry.get("natives") or {}).get(setting.scoring) or {}).items():
+        k, f = int(key), _num(v)
+        if k in setting.inp.players and f is not None:
+            native[k] = f
+    return native
+
+
+def week_view_batch(setting: "Setting", week: int, hist: History):
+    """({chart: {"vorp", "adj"}}, None) | (None, reason): every chart's saved
+    natives for that week through derive_views at the current league, roster
+    and anchor group totals. Equal natives keep the served list's order; players
+    the served list lacks follow, by player key."""
+    cache = setting.__dict__.setdefault("_week_batches", {})
+    if week in cache:
+        return cache[week]
+    natives = {}
+    for chart in PUBLISHED:
+        entry, _why = history_entry(hist, chart, week)
+        if entry is None:
+            continue
+        native = _week_native(setting, entry)
+        if not native:
+            continue
+        rank = {k: i for i, k in enumerate(setting.native(chart))}
+        order = sorted(native, key=lambda k: (-native[k], rank.get(k, math.inf),
+                                              k if k not in rank else 0))
+        natives[chart] = {k: native[k] for k in order}
+    anchor = setting.anchor()
+    roles = vm.role_map(anchor, setting.player_of, setting.teams, setting.shape)
+    inputs = {}
+    for chart, native in natives.items():
+        keys = list(native)
+        kset = set(keys)
+        budgets = {p: {"starter": 0.0, "bench": 0.0} for p in POSITIONS}
+        for key, value in anchor.items():
+            role = roles.get(key)
+            if key in kset and role in ("starter", "bench") and math.isfinite(value):
+                budgets[setting.player_of(key)["pos"]][role] += max(0.0, value)
+        inputs[chart] = (native, keys, budgets)
+    out = (derive_views(inputs, natives, lambda k: setting.player_of(k)["pos"], setting.teams, setting.shape), None)
+    cache[week] = out
+    return out
+
+
+def saved_view_applies(setting: "Setting", chart: str, view: str) -> bool:
+    vv = ((setting.inp.fixture.get("sources") or {}).get(chart) or {}).get("vorp_views")
+    return bool(vv and setting.saved_setup
+                and VIEW_SCORING.get(str(vv.get("scoring") or "").lower()) == setting.scoring
+                and _num(vv.get("teams")) == setting.teams
+                and setting._saved_view(vv, VIEW_FIELD[view]))
+
+
+def week_values(setting: "Setting", series: str, week: int, hist: History, view: str = "indexed"):
+    """(values or None, reason) for one series at a saved week, as priced
+    (the history accessors: no row rules)."""
+    base = history_base(series)
+    entry, why = history_entry(hist, base, week)
+    if entry is None:
+        return None, why
+    if series in PUBLISHED and view != "indexed":
+        if saved_view_applies(setting, series, view):
+            return None, "this tab shows the pipeline's saved views, so no earlier week is computed the same way"
+        batch, why = week_view_batch(setting, week, hist)
+        if batch is None:
+            return None, why
+        derived = (batch.get(series) or {}).get(view) or {}
+        if not derived:
+            return None, "no values saved for that week"
+        return {k: c for k, v in derived.items() if (c := _clamp(v)) is not None}, None
     anchor = setting.anchor()
     if series in ADJUSTED or base in PUBLISHED:
         native = {}

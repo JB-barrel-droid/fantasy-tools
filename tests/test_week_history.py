@@ -509,6 +509,44 @@ SELF = """async (keys) => {
   }
   return out;
 }"""
+# JEG-479 "Build prior week": the charts' VORP vs waivers / Adjusted values
+# for a saved week are derivePublishedViews on that week's saved natives.
+# Run after SELF (Half PPR, 10 teams, an extra bench spot: off the saved
+# setup, so the tabs derive their views): the served week fed back through
+# getWeekValues reproduces each chart's tab values exactly.
+VIEW_SELF = """async (keys) => {
+  const c = window.TradeValueCurveControls;
+  const view = v => document.querySelector(`#viewModeTabs [data-view-mode=${v}]`).click();
+  const index = await (await fetch('assets/history/index.json')).json();
+  const out = {};
+  for (const v of ['vorp', 'adj']) {
+    view(v);
+    const rows = c.getAllRows();
+    for (const k of keys) {
+      const week = index.served[k].week;
+      const r = await c.getWeekValues(k, week);
+      const errors = [];
+      if (!r.available) { out[`${k} (${v})`] = {errors: [`week ${week}: ${r.reason}`], zeroOnly: []}; continue; }
+      let compared = 0;
+      rows.forEach(row => {
+        const a = row.values[k], b = r.values[row.player_key];
+        if (a == null && b == null) return;
+        compared += 1;
+        if (a != null && b != null && Math.abs(a - b) <= 1e-9) return;
+        // The JEG-479 row rules, as in SELF: the row shows 0 for a player a
+        // fully loaded chart does not price; the accessor returns the week as priced.
+        if (a === 0 && b == null) return;
+        const why = (row.missingReasons || {})[k] || '';
+        if (a == null && why.startsWith('Not enough players')) return;
+        errors.push(`${row.name}: tab ${a}, week ${week} ${b}`);
+      });
+      if (!compared) errors.push('no player compared');
+      out[`${k} (${v})`] = {errors, zeroOnly: []};
+    }
+  }
+  view('indexed');
+  return out;
+}"""
 ESPN_PRIOR = """async () => {
   const c = window.TradeValueCurveControls;
   c.setScoring('ppr'); c.setTeams(12);
@@ -699,7 +737,10 @@ def collect(overrides=None):
                     if bad or not got:
                         failures.append(f"espn prior != pipeline leg on {len(bad)} players, e.g. "
                                         f"{[(k, got[k], want[k]) for k in bad[:4]]}")
-            for source, res in page.evaluate(SELF, served_sources()).items():
+            served = served_sources()
+            self_results = page.evaluate(SELF, served)
+            self_results.update(page.evaluate(VIEW_SELF, [k for k in served if k in H.PUBLISHED]))
+            for source, res in self_results.items():
                 if res["errors"]:
                     failures.append(f"{source} served week != chart: {res['errors'][:2]} ({len(res['errors'])} players)")
                 if len(res["zeroOnly"]) > 5:
@@ -737,7 +778,11 @@ class DeltaRecomputeTest(unittest.TestCase):
         served_ignored = widget.replace('if (servedRec?.week === week && servedRec?.version === "superseded") {',
                                         'if (false) {')
         self.assertNotEqual(served_ignored, widget)
+        id_order = widget.replace("const native = historyListOrder(key, historyNatives(found.entry));",
+                                  "const native = historyNatives(found.entry);")
+        self.assertNotEqual(id_order, widget)
         cases = {
+            "chart views ignore the publisher's order between equal values": {"assets/curve-widget.js": id_order},
             "week-4 file served relabelled as week 3": {"assets/history/week-4.json": relabelled_doc},
             "week-4 file served with week-3 content": {"assets/history/week-4.json": json.dumps(dict(relabelled, week=4))},
             "accessor substitutes the served natives": {"assets/curve-widget.js": substitute},
