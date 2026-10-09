@@ -532,7 +532,13 @@ VIEW_SELF = """async (keys) => {
         const a = row.values[k], b = r.values[row.player_key];
         if (a == null && b == null) return;
         compared += 1;
-        if (a == null || b == null || Math.abs(a - b) > 1e-9) errors.push(`${row.name}: tab ${a}, week ${week} ${b}`);
+        if (a != null && b != null && Math.abs(a - b) <= 1e-9) return;
+        // The JEG-479 row rules, as in SELF: the row shows 0 for a player a
+        // fully loaded chart does not price; the accessor returns the week as priced.
+        if (a === 0 && b == null) return;
+        const why = (row.missingReasons || {})[k] || '';
+        if (a == null && why.startsWith('Not enough players')) return;
+        errors.push(`${row.name}: tab ${a}, week ${week} ${b}`);
       });
       if (!compared) errors.push('no player compared');
       out[`${k} (${v})`] = {errors, zeroOnly: []};
