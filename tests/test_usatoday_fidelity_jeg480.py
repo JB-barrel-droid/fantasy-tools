@@ -137,9 +137,15 @@ class ImporterTest(unittest.TestCase):
         row = {"value": None, "native_value": 15.0, "player_key": 3081}
         self.assertEqual(importer.native_priced("usatoday", row)["value"], 15.0)
 
+    def test_fantasycalc_row_without_chart_value_is_priced_by_native(self):
+        # JEG-512: save_fantasycalc_references shares usatoday's apply_reindex,
+        # so it stores the same NULL-value rows (Tyreek Hill, 2026-10-09 bake).
+        row = {"value": None, "native_value": 357.0, "player_key": 3081}
+        self.assertEqual(importer.native_priced("fantasycalc", row)["value"], 357.0)
+
     def test_other_sources_keep_the_strict_rule(self):
         row = {"value": None, "native_value": 15.0}
-        self.assertIsNone(importer.native_priced("fantasycalc", row)["value"])
+        self.assertIsNone(importer.native_priced("cbs", row)["value"])
 
     def test_no_native_value_stays_missing(self):
         row = {"value": None, "native_value": None}

@@ -77,6 +77,7 @@ def make_snapshot(
     # "__auto__" -> SOURCE_TABLES[source]; None -> omit the key (snapshot-only
     # sources like cbsros, which have no Supabase table by design).
     supabase_table: str | None = "__auto__",
+    rows: list | None = None,
 ) -> Path:
     """Stamp a consistent (snapshot.json, snapshot-manifest.json) pair."""
     snap_dir = root / source / vintage_dir
@@ -86,7 +87,7 @@ def make_snapshot(
         "source": source,
         "fetched_at": "2026-09-21T00:00:00Z",
         "row_count": row_count,
-        "rows": [],
+        "rows": rows or [],
         "review_count": review_count,
         "review_rows": [],
     }
@@ -626,6 +627,87 @@ class VerifyImportHealthTest(unittest.TestCase):
         )
         self.assertEqual(entry["status"], "failed")
         self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
+    # -- JEG-512: count drift (Jeremy 2026-10-09, "hold only on big drops") -----
+    # A same-vintage player-count change is publisher churn: alert-only and
+    # promotable. A drop of more than 10% at any position (or in total) holds.
+    def fc_entry(self, table_rows, *, row_count, review_count=0, snap_rows=None):
+        mod.fetch_table_summary = lambda table, params: table_rows
+        make_snapshot(self.root, "fantasycalc", "week-3",
+                      content_vintage="Week 3", week_designated=3,
+                      row_count=row_count, review_count=review_count, rows=snap_rows)
+        entry, _ = mod.verify_source(
+            "fantasycalc", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        return entry
+
+    def test_fantasycalc_import_review_rows_are_in_the_table(self):
+        # Real case 2026-10-09 (chain run 37990714617): the importer read 594
+        # rows FROM source_trade_values, 591 clean + 3 review (Tyreek Hill,
+        # value NULL). The table holds what the importer read, so 594 is
+        # exactly what the manifest implies: ok, no drift at all.
+        entry = self.fc_entry(db_rows(594, week=3), row_count=591, review_count=3)
+        self.assertEqual(entry["status"], "ok", entry["failure_reason"])
+
+    def test_small_growth_at_same_vintage_promotes_with_an_alert(self):
+        entry = self.fc_entry(db_rows(594, week=3), row_count=591)
+        self.assertEqual(entry["status"], "warning", entry["failure_reason"])
+        self.assertTrue(entry["failure_reason"].startswith(mod.COUNT_DRIFT_PREFIX))
+        self.assertFalse(mod.entry_is_blocking("fantasycalc", entry))
+        self.assertTrue(mod.entry_is_promotable(entry))
+
+    def test_small_drop_at_same_vintage_promotes_with_an_alert(self):
+        entry = self.fc_entry(db_rows(585, week=3), row_count=591)  # -1%
+        self.assertEqual(entry["status"], "warning", entry["failure_reason"])
+        self.assertTrue(mod.entry_is_promotable(entry))
+        self.assertFalse(mod.entry_is_blocking("fantasycalc", entry))
+
+    def test_big_total_drop_holds(self):
+        entry = self.fc_entry(db_rows(530, week=3), row_count=591)  # -10.3%
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
+        self.assertFalse(mod.entry_is_promotable(entry))
+        self.assertTrue(mod.entry_is_blocking("fantasycalc", entry))
+
+    def test_big_drop_at_one_position_holds_even_when_the_total_is_small(self):
+        # 100 WR + 20 TE snapshotted; the table now has 17 TE (-15%) while the
+        # total is down only 2.5%. Removing the per-position check makes this
+        # promote, so it guards that check specifically.
+        snap = [{"pos": "WR"}] * 100 + [{"pos": "TE"}] * 20
+        table = [dict(r, position="WR") for r in db_rows(100, week=3)] + \
+            [{"player_key": 5000 + i, "week": 3, "position": "TE"} for i in range(17)]
+        entry = self.fc_entry(table, row_count=120, snap_rows=snap)
+        self.assertEqual(entry["status"], "failed")
+        self.assertIn("TE", entry["failure_reason"])
+        self.assertFalse(mod.entry_is_promotable(entry))
+
+    def test_small_drop_at_one_position_promotes(self):
+        snap = [{"pos": "WR"}] * 100 + [{"pos": "TE"}] * 20
+        table = [dict(r, position="WR") for r in db_rows(100, week=3)] + \
+            [{"player_key": 5000 + i, "week": 3, "position": "TE"} for i in range(19)]
+        entry = self.fc_entry(table, row_count=120, snap_rows=snap)  # TE -5%
+        self.assertEqual(entry["status"], "warning", entry["failure_reason"])
+        self.assertTrue(mod.entry_is_promotable(entry))
+
+    def test_count_drift_does_not_skip_the_freshness_check(self):
+        # Week 1 content in Week 3: stale holds regardless of the count rule.
+        mod.fetch_table_summary = lambda table, params: db_rows(594, week=1)
+        make_snapshot(self.root, "fantasycalc", "week-1",
+                      content_vintage="Week 1", week_designated=1, row_count=591)
+        entry, _ = mod.verify_source(
+            "fantasycalc", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertTrue(mod.entry_is_blocking("fantasycalc", entry))
+        self.assertFalse(mod.entry_is_promotable(entry))
+
+    def test_position_capable_tables_select_their_position_column(self):
+        # Without the column in the select, the per-position rule silently
+        # degrades to the total.
+        for source in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
+            self.assertIn(",position", mod.SOURCE_CONFIGS[source]["params"], source)
+        self.assertIn(",pos", mod.SOURCE_CONFIGS["razzball"]["params"])
+
     # -- ESPN daily rule ---------------------------------------------------------
     def test_espn_fresh_within_two_days(self):
         self.stamp_all_ok(nfl_week=3, espn_vintage="2026-09-21")
