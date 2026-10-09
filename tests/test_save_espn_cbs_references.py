@@ -69,6 +69,11 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         mod.fetch_players = lambda: PLAYERS
         mod.upsert_rows = lambda table, rows, conflict: self.writes.append((table, rows, conflict))
         mod.count_rows = lambda table, params: sum(len(rows) for t, rows, _ in self.writes if t == table)
+        # ESPN saves prune the stored set to this save's keys (JEG-480): the
+        # fake store is what this test wrote, so nothing is stale.
+        self._fetch_rows, self._delete_rows = mod.fetch_rows, mod.delete_rows
+        mod.fetch_rows = lambda table, params: [r for t, rows, _ in self.writes if t == table for r in rows]
+        mod.delete_rows = lambda table, params: self.fail(f"unexpected delete {params}")
         # Mock WriterAudit to avoid Supabase calls in tests
         self._orig_audit = mod.WriterAudit
         class MockAudit:
@@ -88,6 +93,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         mod.fetch_players = self._fetch
         mod.upsert_rows = self._upsert
         mod.count_rows = self._count
+        mod.fetch_rows, mod.delete_rows = self._fetch_rows, self._delete_rows
         mod.WriterAudit = self._orig_audit
 
     def write_inputs(self, csv_rows=None, tables=None, meta_vintage="2026-09-21"):
