@@ -19,7 +19,7 @@
       "bench_raw": 81.375,
       "bench_share_used": 0.15,
       "n_bench": 32,
-      "n_pool": 167,
+      "n_pool": 168,
       "n_starters": 39,
       "pb": 0.8590247374662389,
       "pie": 542.5,
@@ -47,7 +47,7 @@
       "bench_raw": 66.33000000000003,
       "bench_share_used": 0.15,
       "n_bench": 39,
-      "n_pool": 227,
+      "n_pool": 232,
       "n_starters": 45,
       "pb": 0.9191678417062296,
       "pie": 442.2000000000001,
@@ -58,7 +58,7 @@
       "tau": 0.9624999999999997
     }
   },
-  "generated_at": "2026-10-09T13:50:37Z",
+  "generated_at": "2026-10-09T16:28:42Z",
   "identity": {
     "alias_note": "Shared verified alias map with the ESPN DDF leg (data/inputs/player_aliases.json); suffix, punctuation and nickname spellings match through norm_player_name (FixtureIdentity). Unresolvable identities are excluded, never guessed.",
     "aliases_used": [
@@ -95,9 +95,9 @@
     "pies_note": "Positional pies measured from the current Razzball data (tier surplus). No pies file: a static file goes stale when the player pool changes.",
     "razzball_snapshot": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/razzball/2026-10-08/snapshot.json",
     "razzball_snapshot_date": "2026-10-08",
-    "razzball_snapshot_id": "sha256:dad139729d9cff47e97da39b52a8392cad56e7c4a90abb39578be779010e26cc",
+    "razzball_snapshot_id": "sha256:1caac623cbb362a096a0435c6abd417994153094647ac1f3e395b3bea198d475",
     "razzball_snapshot_rows": 688,
-    "razzball_snapshot_sha256": "36f89d42b56a40a0bdb7bd6c76283819c65df978c2c1277eaf4d4f76aa6302d2",
+    "razzball_snapshot_sha256": "54416fd2313338ce2dc87a6573b3f4a764e346a04cecf5aae3ab11dfd840f05a",
     "scoring": "ppr",
     "source_tag": "razzball",
     "teams": 14
@@ -127,12 +127,6 @@
     {
       "player": "Kyrese Rowan",
       "player_norm": "kyrese rowan",
-      "pos": "WR",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Britain Covey",
-      "player_norm": "britain covey",
       "pos": "WR",
       "reason": "unresolved_identity"
     },
@@ -257,12 +251,6 @@
       "reason": "unresolved_identity"
     },
     {
-      "player": "Anthony Tyus III",
-      "player_norm": "anthony tyus",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
       "player": "Miles Kitselman",
       "player_norm": "miles kitselman",
       "pos": "TE",
@@ -293,12 +281,6 @@
       "reason": "unresolved_identity"
     },
     {
-      "player": "Marquez Valdes-Scantling",
-      "player_norm": "marquez valdesscantling",
-      "pos": "WR",
-      "reason": "unresolved_identity"
-    },
-    {
       "player": "Garrett Greene",
       "player_norm": "garrett greene",
       "pos": "WR",
@@ -320,12 +302,6 @@
       "player": "Evan Svoboda",
       "player_norm": "evan svoboda",
       "pos": "TE",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Ihmir Smith-Marsette",
-      "player_norm": "ihmir smithmarsette",
-      "pos": "WR",
       "reason": "unresolved_identity"
     },
     {
@@ -371,12 +347,6 @@
       "reason": "unresolved_identity"
     },
     {
-      "player": "CJ Daniels",
-      "player_norm": "cj daniels",
-      "pos": "WR",
-      "reason": "unresolved_identity"
-    },
-    {
       "player": "Nick DeGennaro",
       "player_norm": "nick degennaro",
       "pos": "WR",
@@ -391,12 +361,6 @@
     {
       "player": "Irvin Charles",
       "player_norm": "irvin charles",
-      "pos": "WR",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Jeshaun Jones",
-      "player_norm": "jeshaun jones",
       "pos": "WR",
       "reason": "unresolved_identity"
     },
@@ -418,10 +382,10 @@
   "summary": {
     "calibration_notes": [],
     "n_bench": 95,
-    "n_review": 48,
+    "n_review": 42,
     "n_starters": 112,
-    "n_values": 640,
-    "n_waiver": 433
+    "n_values": 646,
+    "n_waiver": 439
   },
   "values": [
     {
@@ -3395,6 +3359,17 @@
       "value": 0.0
     },
     {
+      "player": "Ihmir Smith-Marsette",
+      "player_key": 699,
+      "player_norm": "ihmir smithmarsette",
+      "pos": "WR",
+      "ppg": 0.0,
+      "raw_value": 0.0,
+      "team": "CAR",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
       "player": "Austin Trammell",
       "player_key": 741,
       "player_norm": "austin trammell",
@@ -3501,6 +3476,17 @@
       "ppg": 0.7,
       "raw_value": 0.0,
       "team": "DAL",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
+      "player": "Britain Covey",
+      "player_key": 855,
+      "player_norm": "britain covey",
+      "pos": "WR",
+      "ppg": 0.0,
+      "raw_value": 0.0,
+      "team": "PHI",
       "tier": "waiver",
       "value": 0.0
     },
@@ -4363,6 +4349,17 @@
       "value": 0.0
     },
     {
+      "player": "Jeshaun Jones",
+      "player_key": 1650,
+      "player_norm": "jeshaun jones",
+      "pos": "WR",
+      "ppg": 0.0,
+      "raw_value": 0.0,
+      "team": "MIN",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
       "player": "Jordan Whittington",
       "player_key": 1672,
       "player_norm": "jordan whittington",
@@ -4689,6 +4686,17 @@
       "ppg": 1.6,
       "raw_value": 0.0,
       "team": "CLE",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
+      "player": "Anthony Tyus III",
+      "player_key": 1980,
+      "player_norm": "anthony tyus",
+      "pos": "RB",
+      "ppg": 0.0,
+      "raw_value": 0.0,
+      "team": "CAR",
       "tier": "waiver",
       "value": 0.0
     },
@@ -5294,6 +5302,17 @@
       "ppg": 0.1,
       "raw_value": 0.0,
       "team": "TB",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
+      "player": "CJ Daniels",
+      "player_key": 2414,
+      "player_norm": "cj daniels",
+      "pos": "WR",
+      "ppg": 0.0,
+      "raw_value": 0.0,
+      "team": "LAR",
       "tier": "waiver",
       "value": 0.0
     },
@@ -7138,6 +7157,17 @@
       "player": "KeAndre Lambert-Smith",
       "player_key": 4248,
       "player_norm": "keandre lambertsmith",
+      "pos": "WR",
+      "ppg": 0.0,
+      "raw_value": 0.0,
+      "team": "LAC",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
+      "player": "Marquez Valdes-Scantling",
+      "player_key": 4255,
+      "player_norm": "marquez valdesscantling",
       "pos": "WR",
       "ppg": 0.0,
       "raw_value": 0.0,

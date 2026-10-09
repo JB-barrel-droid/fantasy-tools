@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T15:46:28.873064Z",
- "run_id": "04d0ed40-b7b1-4d11-82ac-11ee184850f1",
+ "checked_at": "2026-10-09T17:10:42.072755Z",
+ "run_id": "c9e66fa4-2998-4593-a744-56f188d8f7be",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -180,8 +180,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (225236 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T14:21:22.214141+00:00"
+     "summary": "engine and Python reference agree (366612 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T16:45:28.453401+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -244,160 +244,82 @@
   {
    "source": "fantasycalc",
    "label": "FantasyCalc",
-   "status": "red",
+   "status": "amber",
    "stored_week": 5,
    "chart_week": 5,
-   "stored_bake": "fcwk5_2026-10-09t1307_v1",
+   "stored_bake": "fcwk5_2026-10-09t1705_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "red",
-     "summary": "28/1179 values match exactly across 6 columns; 1151 values differ, 0 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 1 players entered or left the bottom of the list since the save (churn)",
+     "status": "green",
+     "summary": "1188/1188 values match exactly across 6 columns",
      "counts": {
       "publisher_players": 198,
-      "stored_players": 197,
-      "compared": 1179,
-      "matched": 28,
-      "mismatched": 1151,
-      "missing_in_stored": 1,
+      "stored_players": 198,
+      "compared": 1188,
+      "matched": 1188,
+      "mismatched": 0,
+      "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 1,
+      "list_churn": 0,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
      "page_week": null,
      "page_modified": null,
-     "bake_id": "fcwk5_2026-10-09t1307_v1",
-     "bake_saved_at": "2026-10-09T13:07:14.733447Z",
+     "bake_id": "fcwk5_2026-10-09t1705_v1",
+     "bake_saved_at": "2026-10-09T17:05:25.343448Z",
      "grains": {
       "full|1": {
        "left": 198,
-       "right": 196,
-       "mismatched": 191,
-       "missing": 2,
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       },
       "full|2": {
        "left": 198,
-       "right": 197,
-       "mismatched": 193,
-       "missing": 1,
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       },
       "half|1": {
        "left": 198,
-       "right": 196,
-       "mismatched": 191,
-       "missing": 2,
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       },
       "half|2": {
        "left": 198,
-       "right": 197,
-       "mismatched": 193,
-       "missing": 1,
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       },
       "std|1": {
        "left": 198,
-       "right": 196,
-       "mismatched": 191,
-       "missing": 2,
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       },
       "std|2": {
        "left": 198,
-       "right": 197,
-       "mismatched": 192,
-       "missing": 1,
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       }
      },
-     "examples": [
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 319,
-       "name": "Bhayshul Tuten",
-       "pos": "RB",
-       "left": "3626",
-       "right": 3481.0,
-       "delta": -145.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 319,
-       "name": "Bhayshul Tuten",
-       "pos": "RB",
-       "left": "3606",
-       "right": 3462.0,
-       "delta": -144.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 319,
-       "name": "Bhayshul Tuten",
-       "pos": "RB",
-       "left": "3604",
-       "right": 3460.0,
-       "delta": -144.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 2795,
-       "name": "George Kittle",
-       "pos": "TE",
-       "left": "3026",
-       "right": 2891.0,
-       "delta": -135.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 2795,
-       "name": "George Kittle",
-       "pos": "TE",
-       "left": "2958",
-       "right": 2826.0,
-       "delta": -132.0
-      },
-      {
-       "type": "missing",
-       "grain": "full|1",
-       "player_key": 3081,
-       "name": "Tyreek Hill",
-       "pos": "WR",
-       "left": "357",
-       "right": null
-      },
-      {
-       "type": "missing",
-       "grain": "half|1",
-       "player_key": 3081,
-       "name": "Tyreek Hill",
-       "pos": "WR",
-       "left": "354",
-       "right": null
-      },
-      {
-       "type": "missing",
-       "grain": "std|1",
-       "player_key": 3081,
-       "name": "Tyreek Hill",
-       "pos": "WR",
-       "left": "350",
-       "right": null
-      }
-     ],
+     "examples": [],
      "outside_universe": [],
      "unresolved": []
     },
     "stored_vs_chart": {
-     "status": "green",
-     "summary": "1179/1179 chart values equal stored bake fcwk5_2026-10-09t1307_v1",
+     "status": "amber",
+     "summary": "1179/1179 chart values equal stored bake fcwk5_2026-10-09t1307_v1; newer stored bake fcwk5_2026-10-09t1705_v1 (week 5, saved 2026-10-09T17:05:25.343448Z) is not on the chart yet: 1151 values changed, 9 added, 0 dropped",
      "counts": {
       "chart_players": 197,
       "stored_players": 197,
@@ -413,7 +335,14 @@
      "chart_imported_at": "2026-10-09T14:05:42Z",
      "bake_id": "fcwk5_2026-10-09t1307_v1",
      "bake_saved_at": "2026-10-09T13:07:14.733447Z",
-     "behind": null,
+     "behind": {
+      "bake_id": "fcwk5_2026-10-09t1705_v1",
+      "saved_at": "2026-10-09T17:05:25.343448Z",
+      "week": 5,
+      "changed_values": 1151,
+      "added": 9,
+      "dropped": 0
+     },
      "grains": {
       "full|1": {
        "left": 196,
@@ -470,8 +399,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (225236 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T14:21:22.214141+00:00"
+     "summary": "engine and Python reference agree (366612 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T16:45:28.453401+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -488,8 +417,8 @@
        "stored": {
         "QB": 34,
         "RB": 59,
-        "WR": 76,
-        "TE": 27
+        "WR": 77,
+        "TE": 28
        },
        "chart": {
         "QB": 34,
@@ -529,93 +458,7 @@
      }
     }
    },
-   "worst_examples": [
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 319,
-     "name": "Bhayshul Tuten",
-     "pos": "RB",
-     "left": "3626",
-     "right": 3481.0,
-     "delta": -145.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 319,
-     "name": "Bhayshul Tuten",
-     "pos": "RB",
-     "left": "3606",
-     "right": 3462.0,
-     "delta": -144.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 319,
-     "name": "Bhayshul Tuten",
-     "pos": "RB",
-     "left": "3604",
-     "right": 3460.0,
-     "delta": -144.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 2795,
-     "name": "George Kittle",
-     "pos": "TE",
-     "left": "3026",
-     "right": 2891.0,
-     "delta": -135.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 2795,
-     "name": "George Kittle",
-     "pos": "TE",
-     "left": "2958",
-     "right": 2826.0,
-     "delta": -132.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
-     "grain": "full|1",
-     "player_key": 3081,
-     "name": "Tyreek Hill",
-     "pos": "WR",
-     "left": "357",
-     "right": null
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
-     "grain": "half|1",
-     "player_key": 3081,
-     "name": "Tyreek Hill",
-     "pos": "WR",
-     "left": "354",
-     "right": null
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
-     "grain": "std|1",
-     "player_key": 3081,
-     "name": "Tyreek Hill",
-     "pos": "WR",
-     "left": "350",
-     "right": null
-    }
-   ]
+   "worst_examples": []
   },
   {
    "source": "fantasypros",
@@ -769,8 +612,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (225236 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T14:21:22.214141+00:00"
+     "summary": "engine and Python reference agree (366612 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T16:45:28.453401+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -989,8 +832,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (225236 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T14:21:22.214141+00:00"
+     "summary": "engine and Python reference agree (366612 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T16:45:28.453401+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -1200,8 +1043,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (225236 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T14:21:22.214141+00:00"
+     "summary": "engine and Python reference agree (366612 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T16:45:28.453401+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1269,17 +1112,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
-     "summary": "1104/1104 values match exactly across 3 columns; 2 players at the page's last listed value swapped in or out (ties at the row cap: Justin Joly, Seydou Traore); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1107/1107 values match exactly across 3 columns; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 369,
       "stored_players": 369,
-      "compared": 1104,
-      "matched": 1104,
+      "compared": 1107,
+      "matched": 1107,
       "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 2,
+      "list_churn": 0,
       "unresolved_names": 0
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -1291,22 +1134,22 @@
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 0,
+       "extra": 0
       },
       "half|1": {
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 0,
+       "extra": 0
       },
       "std|1": {
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 0,
+       "extra": 0
       }
      },
      "examples": [],
@@ -1442,8 +1285,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (225236 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T14:21:22.214141+00:00"
+     "summary": "engine and Python reference agree (366612 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T16:45:28.453401+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1949,8 +1792,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (225236 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T14:21:22.214141+00:00"
+     "summary": "engine and Python reference agree (366612 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T16:45:28.453401+00:00"
     },
     "scrape_validity": {
      "status": "green",

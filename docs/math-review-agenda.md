@@ -19,6 +19,36 @@ a crash, a parity break, or a value that contradicts a rule already decided).
 Numbers below are cited from the log or test that measured them. "Not
 measured" means nobody has run that option yet.
 
+## Answered by the Value Pipeline spec (JEG-508, 2026-10-09)
+
+Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`
+"Value Pipeline (source-neutral, 2026-10-09)" (VP-0 to VP-12) now gives the
+rule for the items below. The open choices it lists (OC-1 to OC-8) are
+waiting on Jeremy. The items stay below as history and for the measurements.
+
+| Item | Where it is answered |
+| --- | --- |
+| MR-01 | VP-5 (fixed pie) and VP-6.4. The basis counts zeros (OC-8) |
+| MR-02 | No anchor. Every source follows the roster (VP-2.2, VP-9) |
+| MR-03 | VP-6.4: natives x one factor to DDF Value (option c, re-anchored) |
+| MR-04 | VP-5.6: one factor per source to the pie |
+| MR-05 | VP-3 to VP-5: average source weights, slices (OC-3), unfunded budget (OC-5), no 70 factor |
+| MR-06 | Retired, with the fit (VP-10) |
+| MR-07 | VP-8: each week's own inputs and weights (option b) |
+| MR-08 | VP-2.4, with the peers now the included same-family sources |
+| MR-09 | VP-2.2 and OC-4 |
+| MR-10 | Option C retired (VP-10). The ChartHealth starter/bench checks no longer price anything |
+| MR-11 | The two-tier window no longer prices anything. Bench share is OC-2 |
+| MR-12 | DDF tier (VP-7.3) |
+| MR-15 | Weights come from the sources' own superflex VORP (Superseded note in "Superflex") |
+| MR-16 | VP-4.3 |
+| MR-17 | VP-6.3: Adjusted values only, three versions |
+| MR-18 | SG-1/2/3/10 go with the two-tier legs. SG-5 is VP-2.2. SG-6 is VP-5.6. SG-7/8 are VP-3 to VP-5. SG-9 is VP-2.2 and VP-2.4. SG-11 is OC-8 |
+| GAP-ADJ-CLIP-ZERO | Retired, with the live cells |
+
+MR-13 (gate) and MR-14 (consumers) are still open: pin the VP invariants once
+the open choices are answered.
+
 ## How the review runs
 
 1. **Freeze one build.** Pick one `main` commit and its fixture after the
@@ -388,6 +418,21 @@ lack the projects-0 players, so their prior value is "—", not 0.0.
 (b) Each week's own fit and anchor (total movement). (c) Show both. Not
 measured.
 
+**Update 2026-10-09 (JEG-479, "Build prior week").** The four charts now have
+a prior week in VORP vs waivers and Adjusted values. These views use no
+adjustment fit, so the only choice was the anchor. Every input that belongs
+to the chart comes from the saved week: its natives and player set, its peers'
+natives for the waiver-line extension, and the batch whose top sets the
+Adjusted 0-70 scale. The league, roster and ESPN anchor group totals (our
+position weighting) stay current, as option (a) does for every other series,
+so a chart's Δ is the publishers' movement. Ties between equal natives keep
+the served list's order. That is a stand-in: the saved files lose the
+publisher's order, and the translation gives tied players different values
+(e.g. CBS Half PPR 10 Adjusted values: Josh Downs and Carnell Tate are tied
+in CBS's list, yet one gets 9.26 and the other 4.09). Not done: Full PPR 12
+standard, where the saved `vorp_views` (VA-3) are shown. Those three charts
+have no prior week there.
+
 **Depends on:** MR-02, MR-04, MR-05, MR-06.
 **Sources:** HISTORY-ESPN-PRIOR, GAP-R4-PROJECTION-HISTORY, `fix/weeks-tidy`
 `docs/claude-log/2026-10-08-weeks.md`.
@@ -737,13 +782,16 @@ every v2 tab, so each choice below moves the headline number.
   as-published (Indexed) charts in Indexed; a projection's own
   DDF-weighted value above waivers in Adjusted values (the engine computes
   none today).
-- *Charts drop out of two views.* The engine recomputes an as-published
-  chart's earlier weeks in the Indexed view only, so under "same inputs in
-  both weeks" the four charts are left out of the VORP vs waivers and
-  Adjusted values DDF Values, which then average our three projections. The
-  fix is a prior-week derivation of those views (the shared Adjusted 0-70
-  batch scale and the saved views at the 12-team setup make it more than a
-  one-chart recompute; MR-07).
+- *Charts in two views (fixed 2026-10-09, JEG-479 "Build prior week").*
+  Until then the engine recomputed an as-published chart's earlier weeks in
+  the Indexed view only, so the four charts were left out of the VORP vs
+  waivers and Adjusted values DDF Values. Each saved week is now derived with
+  the same `derivePublishedViews` batch on that week's natives for all charts
+  (MR-07), so all seven inputs count in both weeks of every view. Exception:
+  Full PPR 12 standard. There the tabs show the saved `vorp_views` (VA-3), so
+  FantasyCalc, FantasyPros and USA Today still sit out both weeks in those
+  two views. Deriving at every setting (VA-3 option a) would close it but
+  changes current values.
 - *No prior week at all.* In a first week, or when the history cannot be read,
   no input has a prior week; the engine then uses every eligible input for the
   current week and reports no Δ, rather than showing no DDF Value.

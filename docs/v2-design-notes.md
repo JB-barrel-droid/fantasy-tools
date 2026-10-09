@@ -618,7 +618,14 @@ movement, not a move in our projections.
 
 - Published charts: `ValueModel.derivePublishedSetup` on the saved natives. This is the function
   that prices the chart off the saved setup, and it reproduces the saved values on it.
-  - Indexed view only. In the other views the result is `available: false` with the reason.
+  - VORP vs waivers / Adjusted values tabs (JEG-479, 2026-10-09): `ValueModel.derivePublishedViews`,
+    the current week's batch, on every chart's saved natives for that week (own natives and player
+    set, peers, the Adjusted 0-70 batch) with the current league, roster and anchor group totals.
+    Equal natives keep the served list's order (the saved files store natives by player id). A
+    chart with nothing saved for the week is out of that week's batch. At the setup where the tab
+    shows the pipeline's saved `vorp_views` (Full PPR / 12 / standard roster) the result is
+    `available: false`: no saved week is computed the way those values are (math-review VA-3).
+    Proof: the served week fed back reproduces each chart's tab values exactly off that setup.
 - CBS ROS and Razzball: `ddfTwoTierValuesForSource` on the saved projections, then
   `normalizedAdjustedMapFor`, with the same below-the-leg 0 rule as the table.
 - ESPN (2026-10-08, HISTORY-ESPN-PRIOR): that week's two-tier leg, built by the pipeline's own
@@ -687,6 +694,19 @@ Cadence"):
   Monday change is saved inside week N, and re-scraped at least every 20 h even when unchanged.
 
 ## Back-end contract: DDF Value (JEG-471 / JEG-479, 2026-10-08/09)
+
+> **Superseded (JEG-508)** once the Value Pipeline implementation merges. The
+> target contract is `docs/methodology.md` VP-11:
+> - The inputs are the source keys and their Adjusted values. The
+>   `*_adjusted` keys are retired.
+> - There are three versions, `ddf_value`, `ddf_value_charts` and
+>   `ddf_value_projections`, each one number in every tab.
+> - `ddfByVersion` replaces `ddfByView`.
+> - The composite calls take a `version` instead of a `view`.
+> - There is a new `TradeValueCurveDiagnostics.valuePipeline`.
+>
+> Every other field name below keeps its meaning. Until then, this section
+> describes the engine.
 
 The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series,
 key `ddf_value`. v2 reads it; it does no blend math. Inputs are the seven keys
@@ -769,10 +789,12 @@ confidence; none gives no value (Jeremy 2026-10-09).
   published chart's (or its `*_adjusted` series') saved week from `getWeekValues` / `getPriorWeek`
   carries the same row rules as the rows: 0 for a current row's player below that week's chart's floor
   where it was fully loaded, identity-fallback cells left out (2026-10-09).
-- **Today's data.** The as-published charts are recomputed for earlier weeks in Indexed only, so the
-  VORP vs waivers and Adjusted values DDF Values average the three projections (the four charts are
-  excluded with `no prior week: earlier weeks are recomputed in the Indexed view only`). The
-  `*_adjusted` series now have earlier weeks in every tab (they are the same in every tab).
+- **Today's data.** Since JEG-479 "Build prior week" (2026-10-09) the as-published charts have
+  earlier weeks in every tab, so all seven inputs count in both weeks of every view's DDF Value,
+  except at Full PPR / 12 teams / standard roster, where the VORP vs waivers and Adjusted values
+  tabs show the saved `vorp_views` for FantasyCalc, FantasyPros and USA Today: those three are
+  excluded there (`no prior week: at Full PPR / 12 teams this tab shows the pipeline's saved
+  views ...`) until VA-3 is decided. The `*_adjusted` series have earlier weeks in every tab.
 
 ## Multi-device pass (2026-10-08)
 
