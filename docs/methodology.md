@@ -51,6 +51,32 @@ The stable rules are:
 3. **Indexed.** The original published trade charts are indexed to match the
    value range of the other charts.
 
+**Indexed is one factor per chart (JEG-482, Jeremy 2026-10-08).** "There
+shouldn't be some secondary correction layer, the math is clearly off and this
+finding is a signal that it is." A published chart's Indexed values are its
+native values times ONE factor per chart and combo:
+
+    factor  = anchor total / native total, over the players the chart prices
+              that the ESPN anchor also prices
+    indexed = native x factor
+
+so the chart's pie equals the anchor's over the same players and its own
+ranking survives exactly, across and within positions, at every league setting
+(`reindex_comparison_section.order_preserving_rescale` for the saved 12-team
+values against the fixture's ESPN leg; `ValueModel.derivePublishedSetup` /6
+against the live anchor everywhere else). Per-position and starter/bench
+repricing belongs only to VORP vs waivers and Adjusted values. The rank guard
+(`pipelines/check_rank_guard.py`, `tests/test_rank_guard.py`, written to
+`output/rank-guard.json` and `dist/modules/rank-guard.json` on every
+`make sync`) fails the build on any pair of players a chart ranks apart whose
+Indexed order differs. What it replaced: from 2026-10-01 each chart was scaled
+per (position, starter/flex/bench) bucket to the anchor's total for that bucket
+(d4629423, 6a824749), and from JEG-64 the saved values were the chart's value
+above waivers put onto our positional maxes (`translate_via_vorp.py`, removed)
+-- both repriced positions against each other, so on Week 5 FantasyCalc's #3
+(Smith-Njigba) showed #5 and the 12 saved combos carried 15,279 pairwise
+inversions.
+
 Value above waivers and DDF values follow the user's league-settings inputs
 (teams, scoring, roster). There is no cap at the anchor's top value: a
 publisher whose implied weighting puts its top player above ours shows that.
@@ -93,7 +119,9 @@ What holds and is gated by `make validate` (`tests/test_view_invariants.py`):
 
 What does not hold yet (measured; options on `docs/math-review-agenda.md`,
 "From views-audit" and MR-01/03/04/05; not changed before the review):
-- The published charts' Indexed totals run 0.66-1.82x the anchor's.
+- (Fixed by JEG-482: the published charts' Indexed totals now equal the
+  anchor's over the players they price -- exactly off the saved setup, against
+  the fixture's leg at it.)
 - Their VORP vs waivers totals run 0.71-1.00x.
 - Their Adjusted group totals are not the DDF weights (70 cap, mixed basis).
 
@@ -129,15 +157,11 @@ The VORP translation work (JEG-32/JEG-61/JEG-62) defines the intended next
 published-chart transformation: publisher values plus league roster settings
 determine the waiver line, publisher-native surplus determines implied
 positional weights, and our valuation assumptions determine derived values.
-The saved 12-team published values are this translation for players above the
-waiver line (JEG-64, `translate_via_vorp.py`) and 0 for players the translation
-prices at or below it; only a player the translation cannot identify keeps the
-flex-aware pie value as a fail-safe. The comparison chain computes the
-translation from the natives it is promoting (`--translation natives`), so the
-saved values are always the translation of the saved natives
-(`tests/test_vorp_translation_js_parity.py` `stored_drift_problems`, risk
-register JEG332-STORED-DRIFT). The browser runs the same translation at every
-other league setting (see "League-settings engine" below).
+This translation is the VORP vs waivers view's math (the browser's
+`translatePublishedVorp`, held to `unified.translate_ranked` by
+`tests/test_vorp_translation_js_parity.py`). Since JEG-482 it is no longer
+written into the saved Indexed values (JEG-64's `translate_via_vorp.py` stage is
+removed): those are the natives times one factor (The Three Views, above).
 
 Every derived output inherits the input's immutable source vintage. Acquisition,
 processing, fitting, and promotion times are separate operational timestamps;
@@ -159,14 +183,14 @@ published chart (CBS, FantasyPros, USA Today, FantasyCalc) is saved once per
 scoring at 12 teams and the standard roster (QB1 RB2 WR3 TE1 FLEX1 BENCH6). At
 that setup the chart and table show the saved values unchanged. At any other
 team count or roster the browser derives the chart from the saved 12-team
-inputs with `ValueModel.derivePublishedSetup` (value-model.js): the
-value-above-waivers translation (`translatePublishedVorp`, an exact port of
-`unified.translate_ranked`, held to it by `tests/test_vorp_translation_js_parity.py`)
-runs at the chosen setting for every player above that setting's waiver line;
-every other player is worth 0 (value above waivers is zero by definition;
-`league-settings-001/3`, 2026-10-07 -- it replaced the server's fail-safe value,
-which the saved 12-team values still carry, risk register
-JEG332-BELOW-WAIVER-SAVED). The caption labels these values derived. The
+natives with `ValueModel.derivePublishedSetup` (value-model.js,
+`league-settings-001/6`, JEG-482): the natives times one factor that matches the
+live anchor's total over the chart's players at that setting (the saved factor
+when the anchor prices fewer than 40 of them), so the chart keeps its own order.
+/1-/5 priced Indexed as value above waivers translated onto our positional
+maxes, which reordered players across positions; that translation now feeds
+only the VORP vs waivers and Adjusted views. The caption labels these values
+derived. The
 adjusted series refit live against the ESPN two-tier leg at the chosen setting,
 as they already did at 12 teams. A scoring with no saved 12-team setup is still
 unavailable and borrows nothing.
@@ -214,23 +238,20 @@ by `tests/test_vorp_translation_js_parity.py`:
   chart's caption line names the charts ("waiver line extrapolated from other
   charts: CBS (QB, RB, WR, TE)") and the v2 Sources and Freshness lists add the
   note to the chart's line.
-- *Coupling.* A chart's saved values now depend on the other charts' natives,
-  so the comparison chain re-translates every published chart in the promoted
-  fixture after the per-source stages (`rebuild_comparison_chain.run_retranslate`)
-  before the fit.
-
-Because a chart's translated value is value above waivers scaled so its top
-player sits at our positional max, a lower waiver line raises the chart's
-lower and middle values a little as well as pricing the bottom; its top value
-does not move.
+- *Coupling.* The waiver line (VORP vs waivers and Adjusted) depends on the
+  other charts' natives. The saved Indexed values do not (JEG-482); the
+  comparison chain re-indexes every published chart in the promoted fixture
+  against the promoted ESPN leg and runs the rank guard before the fit
+  (`rebuild_comparison_chain.run_reindex_fixture`).
 
 **Other chart views (JEG332-VORP-VIEWS, `published-views-001/1`, 2026-10-07).**
 The "VORP vs waivers" and "Adjusted values" views show the saved `vorp_views`
 only at the setup they were built for (full PPR, 12 teams, standard roster;
 FantasyCalc, FantasyPros, USA Today). At every other scoring, team count and
 roster -- and for CBS everywhere -- `ValueModel.derivePublishedViews` derives
-them from the saved 12-team natives on the same translation and waiver line as
-Indexed, so a player at or below the waiver line is 0 in all three views:
+them from the saved 12-team natives on the same translation and waiver line, so
+a player at or below the waiver line is 0 in both views (Indexed, one factor
+on the natives, does not zero anyone; JEG-482):
 
 - *VORP vs waivers*: each player's value above the setting's waiver line in the
   publisher's units, times one factor per chart so the chart's total equals the

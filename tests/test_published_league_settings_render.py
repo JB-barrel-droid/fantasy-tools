@@ -108,13 +108,13 @@ def collect(overrides=None):
                 for teams in (8, 10, 12, 14):
                     page.evaluate("([s, t]) => { const c = window.TradeValueCurveControls; "
                                   "try { c.setScoring(s); c.setTeams(t); } catch (e) {} }", [scoring, teams])
-                    out[(scoring, teams, "std")] = page.evaluate(READ_MAPS, list(PUBLISHED))
+                    out[(scoring, teams, "std")] = page.evaluate(READ_MAPS, list(PUBLISHED) + ["espn"])
             page.evaluate("() => { try { window.TradeValueCurveControls.setScoring('ppr'); "
                           "window.TradeValueCurveControls.setTeams(12); } catch (e) {} }")
             for key, value in CUSTOM_ROSTER.items():
                 page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                   i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
-            out[("ppr", 12, "custom")] = page.evaluate(READ_MAPS, list(PUBLISHED))
+            out[("ppr", 12, "custom")] = page.evaluate(READ_MAPS, list(PUBLISHED) + ["espn"])
             for key, value in SAVED_SHAPE.items():
                 page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                   i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
@@ -141,7 +141,10 @@ def verify(collected):
             if not values:
                 problems.append(f"{setting} {source}: unavailable (empty map)")
                 continue
-            expected = expected_derived(source, scoring, teams, shape, fixture, pos_of)
+            # JEG-482: off the saved setup the chart is the natives times one
+            # factor against the page's live anchor.
+            anchor = {int(k): v for k, v in got["maps"]["espn"].items()}
+            expected = expected_derived(source, scoring, teams, shape, fixture, pos_of, anchor=anchor)
             diffs, _ = compare_maps(expected, values)
             if diffs:
                 problems.append(f"{setting} {source}: {diffs[:2]}")

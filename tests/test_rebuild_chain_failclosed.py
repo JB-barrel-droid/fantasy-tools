@@ -133,10 +133,10 @@ class WireFake:
                 return False, "promotion refused: review verdict is not 'ready'"
             return True, ""
 
-        if script == "translate_via_vorp.py":
-            # JEG-64 stage is fail-safe by design (never halts the chain);
-            # the fake mirrors its success path without touching Supabase.
-            return True, "vorp-translate: fake no-op"
+        if script in ("reindex_published_fixture.py", "check_rank_guard.py"):
+            # JEG-482 stage 6b: re-index the promoted fixture, then the rank
+            # guard. The fake mirrors their success path.
+            return True, ""
 
         if script == "build_cbsros_ddf_leg.py":
             return True, ""
@@ -297,12 +297,8 @@ class FailClosedTest(unittest.TestCase):
         review artifact records a named failing check.
         """
         fake = WireFake(self.repo, verdicts={"*": "hold"})
-        # WireFake predates the vorp-translate stage (JEG-64); stub it via a
-        # wrapper so this test exercises the review-hold path, not the stale
-        # fake. (Instance attribute can't override __call__; wrap instead.)
+
         def run_fn(cmd, **kwargs):
-            if Path(cmd[1]).name == "translate_via_vorp.py":
-                return True, "vorp-translate: ok"
             return fake(cmd, **kwargs)
 
         sec = self.repo / "held-section.json"
@@ -415,46 +411,63 @@ class FailClosedTest(unittest.TestCase):
         self.assertTrue(status["success"])
         self.assertEqual(status["fit"]["status"], "ok")
 
-    def test_fixture_retranslated_after_promotion_before_fit(self):
-        """V2-WAIVER-COVERAGE: a short chart's waiver line comes from the OTHER
-        charts' natives, so after every promotion the whole fixture is
-        re-translated (fixture mode, natives) before the fit reads it."""
-        repo = make_repo(self.tmp / "retr", tuple(chain.SOURCES))
+    def test_fixture_reindexed_and_rank_guarded_after_promotion_before_fit(self):
+        """JEG-482: after every promotion the whole fixture is re-indexed from
+        its natives against the promoted ESPN leg, then the rank guard runs,
+        both before the fit reads the fixture. No section is translated."""
+        repo = make_repo(self.tmp / "reidx", tuple(chain.SOURCES))
         fake = WireFake(repo, verdicts={"*": "ready"})
         seen = []
         orig = fake.__call__
 
         def spy(cmd, **kwargs):
-            if Path(cmd[1]).name == "translate_via_vorp.py" and "--fixture" in cmd:
-                seen.append(list(cmd))
+            seen.append(list(cmd))
             return orig(cmd, **kwargs)
 
         status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=spy)
         self.assertTrue(status["success"])
-        self.assertEqual(len(seen), 1, "fixture re-translation must run exactly once")
-        cmd = seen[0]
-        self.assertEqual(cmd[cmd.index("--translation") + 1], "natives")
-        self.assertTrue(cmd[cmd.index("--fixture") + 1].endswith("comparison-sources-data.json"))
-        calls = fake.calls
-        last_promote = max(i for i, c in enumerate(calls) if c == "promote_comparison_section.py")
-        retr = [i for i, c in enumerate(calls) if c == "translate_via_vorp.py"][-1]
-        self.assertLess(last_promote, retr)
-        self.assertLess(retr, calls.index("build_adjustment_inputs.py"))
+        names = [Path(c[1]).name for c in seen if len(c) > 1]
+        self.assertNotIn("translate_via_vorp.py", names)
+        self.assertEqual(names.count("reindex_published_fixture.py"), 1)
+        self.assertEqual(names.count("check_rank_guard.py"), 1)
+        for c in seen:
+            if len(c) > 1 and Path(c[1]).name in ("reindex_published_fixture.py", "check_rank_guard.py"):
+                self.assertTrue(c[c.index("--fixture") + 1].endswith("comparison-sources-data.json"))
+        last_promote = max(i for i, n in enumerate(names) if n == "promote_comparison_section.py")
+        reidx = names.index("reindex_published_fixture.py")
+        guard = names.index("check_rank_guard.py")
+        self.assertLess(last_promote, reidx)
+        self.assertLess(reidx, guard)
+        self.assertLess(guard, names.index("build_adjustment_inputs.py"))
 
-    def test_retranslate_failure_fails_chain(self):
-        repo = make_repo(self.tmp / "retr2", tuple(chain.SOURCES))
+    def test_rank_guard_failure_fails_chain(self):
+        repo = make_repo(self.tmp / "guard", tuple(chain.SOURCES))
         fake = WireFake(repo, verdicts={"*": "ready"})
         orig = fake.__call__
 
         def bad(cmd, **kwargs):
-            if Path(cmd[1]).name == "translate_via_vorp.py" and "--fixture" in cmd:
-                fake.calls.append("translate_via_vorp.py")
-                return False, "retranslate exploded"
+            if Path(cmd[1]).name == "check_rank_guard.py":
+                return False, "rank guard: fail -- 1 inversions"
             return orig(cmd, **kwargs)
 
         status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=bad)
         self.assertFalse(status["success"])
-        self.assertEqual(status["fit"]["stage"], "retranslate")
+        self.assertEqual(status["fit"]["stage"], "rank_guard")
+        self.assertNotIn("build_adjustment_inputs.py", fake.calls)
+
+    def test_reindex_fixture_failure_fails_chain(self):
+        repo = make_repo(self.tmp / "reidx2", tuple(chain.SOURCES))
+        fake = WireFake(repo, verdicts={"*": "ready"})
+        orig = fake.__call__
+
+        def bad(cmd, **kwargs):
+            if Path(cmd[1]).name == "reindex_published_fixture.py":
+                return False, "re-index exploded"
+            return orig(cmd, **kwargs)
+
+        status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=bad)
+        self.assertFalse(status["success"])
+        self.assertEqual(status["fit"]["stage"], "reindex_fixture")
         self.assertNotIn("build_adjustment_inputs.py", fake.calls)
 
     # --- status durability -------------------------------------------------

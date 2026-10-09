@@ -840,9 +840,10 @@
   // As-published sources sort the lock order by their native published values,
   // not the reindexed chart values. Native values are the source's own
   // cross-position ranking (e.g., FantasyCalc's JSN at #3 overall). The
-  // plotted values preserve this order via proportional global scaling;
-  // per-position roster-shape factors are skipped for these sources to
-  // avoid destroying the native cross-position order.
+  // plotted Indexed values keep this order at every setting: they are the
+  // natives times ONE factor per chart (JEG-482; ValueModel.
+  // derivePublishedSetup, pipelines/check_rank_guard.py). Per-position
+  // roster-shape factors are skipped for these sources for the same reason.
   const AS_PUBLISHED_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
   let universe = [];
   let orderedRows = [];
@@ -861,6 +862,12 @@
   let twoTierConfigCache = new Map();
   let twoTierCalCache = new Map();
   let liveCellsCache = null;
+  // JEG-482: bumped each time rebuildDomain installs a new anchor. Off the
+  // saved setup a published chart's Indexed values are scaled against the
+  // live anchor, so its live cells are fitted (and its derived values
+  // cached) only against the anchor of the current rebuild.
+  let anchorVersion = 0;
+  const anchorReady = () => (sourceMaps.get("espn")?.size || 0) > 0;
   let vorpRowsCache = new Map();
   let espnFixtureLegCache = null;
   // The split the charts were actually matched to, for the footnote. Measured
@@ -1231,18 +1238,11 @@
     });
     if (nativeRow?.values?.size) savedPublishedNative(key).forEach((value, playerKey) => native.set(playerKey, value));
     if (!saved.size || !native.size) return {saved, native, derived: null};
-    // JEG332-DERIVED-PEAKS: our ESPN projections let the positional maxes
-    // follow the league (ValueModel.positionalMaxForSetup).
-    const field = scoringField();
-    const projection = new Map();
-    canonicalByKey.forEach((player, playerKey) => {
-      const ppg = player.espn_ppg?.[field];
-      if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
-    });
+    // JEG-482: Indexed is the natives times one factor that matches the live
+    // anchor's range at this setting -- never a per-position repricing.
     const derived = ValueModel.derivePublishedSetup({
-      native, saved, indexTotal: savedRow.index_total,
-      posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-      teams, shape: rosterShape, projection, peers: publishedPeers(key)
+      native, saved, anchor: sourceMaps.get("espn"),
+      posOf: playerKey => canonicalByKey.get(playerKey)?.pos
     });
     return {saved, native, derived};
   }
@@ -1260,14 +1260,15 @@
     if (derived) {
       values = derived.values;
       info = {mode: "derived", version: derived.version,
-        positionalMax: derived.positionalMax, ourMax: derived.ourMax,
-        translationVersion: derived.translationVersion, translated: derived.translated,
-        belowWaiver: derived.belowWaiver, waiver: derived.waiver,
+        factor: derived.factor, basis: derived.basis, shared: derived.shared,
+        waiver: publishedWaiver(key),
         superflex: ValueModel.superflexCount(rosterShape)
           ? (publishesSuperflex(key) ? "publisher superflex values" : "derived from 1-QB values")
           : null};
     }
-    derivedPublishedCache.set(cacheKey, {values, info});
+    // Never cache a derivation made before this rebuild's anchor exists
+    // (it fell back to the saved factor; JEG-482).
+    if (anchorReady()) derivedPublishedCache.set(cacheKey, {values, info});
     lastPublishedDerivation[key] = info;
     return new Map(values);
   }
@@ -2392,10 +2393,15 @@
     // Live cells first: the two-tier-native curves (espn/cbsros/razzball) and the
     // _adjusted family re-price on the bench-share slider via the refit cells.
     // Cache-hit when refreshAfterWeightChange already refit for this share.
+    // JEG-482: drop the previous anchor first, so this fit covers the
+    // anchor-independent sources only; the published charts' cells are fitted
+    // once this rebuild's anchor is installed (below).
+    sourceMaps = new Map();
     refitLiveCells();
     vorpRowsCache.clear();
     espnFixtureLegCache = null;
     derivedViewBatchCache = null;
+    derivedPublishedCache = new Map();
     lastPublishedView = {};
     espnRoleByKey = new Map();
     sourceMaps = new Map();
@@ -2413,6 +2419,8 @@
       : buildEspnIndexedMap();
     const anchorMap = applyRosterShape(espnAnchorValues, "espn");
     sourceMaps.set("espn", anchorMap);
+    anchorVersion += 1;
+    refitLiveCells();
     const displayShare = anchorDisplayShare(anchorMap);
     lastDisplayShare = displayShare;
     // two-tier-native sources (cbsros, razzball) re-price live on the slider via
@@ -3011,7 +3019,11 @@
     // The roster signature is part of the key: published raw values are
     // derived per roster (league-settings-001), so cells fitted on one
     // roster's values must not be reused for another's.
-    const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}#${pieSignature(activePies())}|${rosterSignature()}`;
+    // JEG-482: published charts' raw values off the saved setup follow the
+    // live anchor, so their cells are fitted only once this rebuild's anchor
+    // exists (ESPN / CBS ROS / Razzball cells never depend on it).
+    const withPublished = anchorReady();
+    const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}#${pieSignature(activePies())}|${rosterSignature()}|a${withPublished ? anchorVersion : "-"}`;
     if (liveCellsCache && liveCellsCache.key === key) return liveCellsCache.cells;
     const cells = [];
     const ddfBySource = {};
@@ -3026,6 +3038,7 @@
       ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"].forEach(rawKey => {
         const ddf = ddfBySource[rawKey];
         if (!ddf) return;
+        if (AS_PUBLISHED_KEYS.has(rawKey) && !withPublished) return;
         const published = buildPublishedSourceMap(rawKey);
         if (!published.size) return;
         TwoTier.POSITIONS.forEach(pos => {
@@ -4013,16 +4026,9 @@
     const native = historyNatives(entry);
     if (!native.size) return {reason: `no ${scoreLabel()} values saved for that week`};
     const peers = publishedPeers(source);
-    const field = scoringField();
-    const projection = new Map();
-    canonicalByKey.forEach((player, playerKey) => {
-      const ppg = player.espn_ppg?.[field];
-      if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
-    });
     const derived = ValueModel.derivePublishedSetup({
-      native, saved: native, indexTotal: null,
-      posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-      teams, shape: rosterShape, projection, peers
+      native, saved: native, anchor: sourceMaps.get("espn"),
+      posOf: playerKey => canonicalByKey.get(playerKey)?.pos
     });
     return {values: derived.values, method: `ValueModel.derivePublishedSetup ${derived.version}`,
       peers: Object.keys(peers).sort()};
@@ -4388,10 +4394,12 @@
           saved12: mapToObject(saved),
           savedIndexTotal: savedPublishedRow(key, "combo_reindexed")?.index_total || null,
           peers: Object.keys(publishedPeers(key)).sort(),
+          // The Indexed derivation is one factor (JEG-482); the translation
+          // shown beside it is the VORP vs waivers one (derivePublishedViews).
           derivation: derived ? {
-            version: derived.version, positionalMax: derived.positionalMax, ourMax: derived.ourMax,
-            translated: derived.translated, belowWaiver: derived.belowWaiver, waiver: derived.waiver,
-            translation: derived.translation, values: mapToObject(derived.values)
+            version: derived.version, factor: derived.factor, basis: derived.basis, shared: derived.shared,
+            waiver: views?.waiver || null, translation: views?.translation || null,
+            values: mapToObject(derived.values)
           } : null,
           indexed: {mode: indexedInfo?.mode || null, info: indexedInfo, values: mapToObject(indexed)},
           vorp: {mode: vorpInfo?.mode || null, values: mapToObject(vorp)},
@@ -4443,6 +4451,52 @@
     }
   }
 
+  // JEG-482: a published chart's own ranking. The publisher's native values at
+  // the active scoring (its superflex values where the roster has a superflex
+  // slot and it publishes them), ranked high to low; ties share the better
+  // rank. {playerKey: rank} over the canonical players the chart prices.
+  function nativeRanksFor(source) {
+    if (!AS_PUBLISHED_KEYS.has(source)) return null;
+    const native = savedPublishedNative(source);
+    const ordered = [...native.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+    const ranks = new Map();
+    let previous = null, rank = 0;
+    ordered.forEach(([playerKey, value], index) => {
+      if (value !== previous) { rank = index + 1; previous = value; }
+      ranks.set(playerKey, rank);
+    });
+    return ranks;
+  }
+
+  // JEG-482 rank check, at the active setting: for every published chart the
+  // plotted Indexed values must keep the native order -- every pair the
+  // chart ranks strictly apart stays strictly apart, same way round.
+  // Informational in the diagnostics (indexedOrder); tests/test_rank_guard.py
+  // gates it across the 12 combos, and pipelines/check_rank_guard.py gates
+  // the saved values.
+  function indexedOrderDiagnostics() {
+    const sources = {};
+    AS_PUBLISHED_KEYS.forEach(key => {
+      if (!sourceAvailable(key)) return;
+      const indexed = viewMode === "indexed" && sourceMaps.has(key) ? sourceMaps.get(key) : buildPublishedSourceMap(key);
+      const native = savedPublishedNative(key);
+      const keys = [...indexed.keys()].filter(playerKey => native.has(playerKey) && Number.isFinite(indexed.get(playerKey)));
+      keys.sort((a, b) => native.get(b) - native.get(a) || a - b);
+      let pairs = 0, inversions = 0, first = null;
+      for (let i = 0; i < keys.length; i += 1) {
+        for (let j = i + 1; j < keys.length; j += 1) {
+          if (native.get(keys[i]) === native.get(keys[j])) continue;
+          pairs += 1;
+          if (indexed.get(keys[i]) > indexed.get(keys[j])) continue;
+          inversions += 1;
+          if (!first) first = {higher: keys[i], lower: keys[j]};
+        }
+      }
+      sources[key] = {n: keys.length, pairs, inversions, first};
+    });
+    return {ok: Object.values(sources).every(row => row.inversions === 0), sources};
+  }
+
   window.TradeValueCurveControls = {
     setPosition,
     setScoring,
@@ -4477,6 +4531,15 @@
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
     getAllRows: () => universe.map(rowCopy),
+    // JEG-482 (read-only): the player's rank on the publisher's own chart at
+    // the active scoring ("#3 on FantasyCalc"); null when the chart does not
+    // price him or the source is not a published chart. getNativeRanks(source)
+    // returns every rank as {playerKey: rank}. See docs/v2-design-notes.md.
+    getNativeRank: (playerKey, source) => nativeRanksFor(source)?.get(Number(playerKey)) ?? null,
+    getNativeRanks: source => {
+      const ranks = nativeRanksFor(source);
+      return ranks ? Object.fromEntries(ranks) : null;
+    },
     isReady: () => engineReady,
     getRankSource: () => selectedRankSourceKey(),
     getActiveSources: () => activeSourceKeys(),
@@ -4734,15 +4797,13 @@
     visibleSourceKeys().filter(sourceAvailable).forEach(key => {
       const values = sourceMapsForCheck.get(key);
       if (!values) return;
-      // Published charts are NOT held to the anchor's total by this guard
-      // (views-audit 2026-10-08). The old note said the pipeline indexes them
-      // to the anchor's pie (proportional_scaling_vorp_overlap) and checks it
-      // there; that stopped being true when the saved values became the
-      // value-above-waivers translation (JEG-64), which puts each position's
-      // top at our positional max and has no total step -- on Week 5 their
-      // shared totals run 0.66-1.82x the anchor's. Whether Indexed should
-      // match totals is on docs/math-review-agenda.md ("From views-audit");
-      // until then the row reports the measured gap and does not gate.
+      // Published charts are NOT gated by this guard. Since JEG-482 their
+      // Indexed values are the natives times one factor that matches the
+      // anchor's total over the chart's priced players (the saved values at
+      // 12 teams against the fixture's ESPN leg; the live anchor elsewhere),
+      // so the measured gap is ~0 off the saved setup and small at it (the
+      // live anchor vs the fixture leg). Their gate is the order:
+      // indexedOrder below and pipelines/check_rank_guard.py.
       if (AS_PUBLISHED_KEYS.has(key)) {
         const indexed = viewMode === "indexed" ? values : buildPublishedSourceMap(key);
         const t = ValueModel.sharedTotals({values: indexed, anchor, playerOf: playerKey => canonicalByKey.get(playerKey)});
@@ -5375,7 +5436,7 @@
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, viewInvariants, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, indexedOrder:indexedOrderDiagnostics(), viewInvariants, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     // JEG-30: the per-source numbers live in the Chart Health detail view

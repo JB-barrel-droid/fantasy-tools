@@ -21,6 +21,7 @@ function runSetup(c) {
   const pos = new Map(Object.entries(c.pos).map(([k, p]) => [Number(k), p]));
   const out = ValueModel.derivePublishedSetup({
     native, saved, indexTotal: c.index_total, posOf: k => pos.get(k),
+    anchor: c.anchor ? new Map(c.anchor.map(([k, v]) => [k, v])) : undefined,
     teams: c.teams, shape: c.shape,
     projection: c.projection ? new Map(c.projection.map(([k, v]) => [k, v])) : undefined,
     peers: c.peers ? Object.fromEntries(Object.entries(c.peers).map(([src, rows]) =>
@@ -29,6 +30,7 @@ function runSetup(c) {
   return {
     values: Object.fromEntries([...out.values.entries()]),
     translated: out.translated, belowWaiver: out.belowWaiver, version: out.version,
+    factor: out.factor, basis: out.basis, shared: out.shared,
     positionalMax: out.positionalMax, ourMax: out.ourMax,
     savedSetup: ValueModel.isSavedSetup(c.teams, c.shape),
     waiver: out.waiver,
