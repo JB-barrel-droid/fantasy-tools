@@ -388,6 +388,21 @@ lack the projects-0 players, so their prior value is "—", not 0.0.
 (b) Each week's own fit and anchor (total movement). (c) Show both. Not
 measured.
 
+**Update 2026-10-09 (JEG-479, "Build prior week").** The four charts now have
+a prior week in VORP vs waivers and Adjusted values. These views use no
+adjustment fit, so the only choice was the anchor. Every input that belongs
+to the chart comes from the saved week: its natives and player set, its peers'
+natives for the waiver-line extension, and the batch whose top sets the
+Adjusted 0-70 scale. The league, roster and ESPN anchor group totals (our
+position weighting) stay current, as option (a) does for every other series,
+so a chart's Δ is the publishers' movement. Ties between equal natives keep
+the served list's order. That is a stand-in: the saved files lose the
+publisher's order, and the translation gives tied players different values
+(e.g. CBS Half PPR 10 Adjusted values: Josh Downs and Carnell Tate are tied
+in CBS's list, yet one gets 9.26 and the other 4.09). Not done: Full PPR 12
+standard, where the saved `vorp_views` (VA-3) are shown. Those three charts
+have no prior week there.
+
 **Depends on:** MR-02, MR-04, MR-05, MR-06.
 **Sources:** HISTORY-ESPN-PRIOR, GAP-R4-PROJECTION-HISTORY, `fix/weeks-tidy`
 `docs/claude-log/2026-10-08-weeks.md`.
@@ -737,13 +752,16 @@ every v2 tab, so each choice below moves the headline number.
   as-published (Indexed) charts in Indexed; a projection's own
   DDF-weighted value above waivers in Adjusted values (the engine computes
   none today).
-- *Charts drop out of two views.* The engine recomputes an as-published
-  chart's earlier weeks in the Indexed view only, so under "same inputs in
-  both weeks" the four charts are left out of the VORP vs waivers and
-  Adjusted values DDF Values, which then average our three projections. The
-  fix is a prior-week derivation of those views (the shared Adjusted 0-70
-  batch scale and the saved views at the 12-team setup make it more than a
-  one-chart recompute; MR-07).
+- *Charts in two views (fixed 2026-10-09, JEG-479 "Build prior week").*
+  Until then the engine recomputed an as-published chart's earlier weeks in
+  the Indexed view only, so the four charts were left out of the VORP vs
+  waivers and Adjusted values DDF Values. Each saved week is now derived with
+  the same `derivePublishedViews` batch on that week's natives for all charts
+  (MR-07), so all seven inputs count in both weeks of every view. Exception:
+  Full PPR 12 standard. There the tabs show the saved `vorp_views` (VA-3), so
+  FantasyCalc, FantasyPros and USA Today still sit out both weeks in those
+  two views. Deriving at every setting (VA-3 option a) would close it but
+  changes current values.
 - *No prior week at all.* In a first week, or when the history cannot be read,
   no input has a prior week; the engine then uses every eligible input for the
   current week and reports no Δ, rather than showing no DDF Value.

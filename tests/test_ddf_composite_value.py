@@ -231,6 +231,7 @@ RANK = """async () => {""" + HELPERS + """
 }"""
 
 PRIOR = """async () => {""" + HELPERS + """
+  if (window.__setting) { c.setScoring(window.__setting[0]); c.setTeams(window.__setting[1]); }
   const out = {problems: [], views: {}};
   for (const v of VIEWS) {
     view(v);
@@ -348,12 +349,19 @@ def _launch(p):
     return p.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=exe)
 
 
-def run(script: str, history_edit=None, data_edit=None, init_script=None):
+def run(script: str, history_edit=None, data_edit=None, init_script=None, week_edit=None):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
         raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     overrides = {}
+    if week_edit:
+        # (week, edit): serve that saved week's file edited.
+        week, edit = week_edit
+        path = f"assets/history/week-{week}.json"
+        doc = json.loads((DIST / path).read_text(encoding="utf-8"))
+        edit(doc)
+        overrides[path] = json.dumps(doc).encode("utf-8")
     if history_edit:
         index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
         history_edit(index)
@@ -481,6 +489,83 @@ class DdfCompositeValueTest(unittest.TestCase):
         # Both weeks, rows included, are means over exactly res["sources"] (checked per player).
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
         self.assertGreater(res["compared"], 100)
+
+
+CHARTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
+# Off the saved 12-team setup every view's DDF Value is derived from the
+# saved weeks for the charts too (JEG-479 "Build prior week").
+DERIVED_SETTING = "window.__setting = ['half_ppr', 10];"
+
+
+def served_week(source):
+    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    return index["served"][source]["week"]
+
+
+class DdfChartPriorWeekTest(unittest.TestCase):
+    """JEG-479 (Jeremy 2026-10-09, "Build prior week"): the four trade charts
+    have a prior week in VORP vs waivers and Adjusted values (the same
+    derivePublishedViews batch on that week's saved natives), so they count
+    in both weeks of every view's DDF Value; a chart without saved inputs for
+    the prior week is still left out of both weeks."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not (DIST / "index.html").exists():
+            raise _render_env.unavailable("dist/ not built (run make sync)")
+
+    def test_charts_count_in_both_weeks_of_every_view(self):
+        out = run(PRIOR, init_script=DERIVED_SETTING)
+        self.assertEqual(out["pageErrors"], [])
+        self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
+        want = {"indexed": INPUTS,
+                "vorp": ["espn_vorp", "cbsros_vorp", "razzball_vorp"] + CHARTS,
+                "adj": ["espn", "cbsros", "razzball"] + CHARTS}
+        for v, res in out["views"].items():
+            self.assertTrue(res["available"], (v, res))
+            self.assertEqual(res["excluded"], [], v)
+            self.assertEqual(res["sources"], want[v], v)
+            self.assertEqual(res["infoSeries"], want[v], v)
+            self.assertGreater(res["compared"], 100, v)
+
+    def test_chart_without_saved_prior_inputs_is_left_out_of_both_weeks(self):
+        prior = served_week("cbs") - 1
+
+        def drop_cbs(doc):
+            doc["sources"].pop("cbs")
+        out = run(PRIOR, init_script=DERIVED_SETTING, week_edit=(prior, drop_cbs))
+        self.assertEqual(out["pageErrors"], [])
+        self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
+        for v, res in out["views"].items():
+            self.assertTrue(res["available"], (v, res))
+            excluded = {e["key"]: e["reason"] for e in res["excluded"]}
+            self.assertEqual(set(excluded), {"cbs_adjusted"}, (v, excluded))
+            self.assertTrue(excluded["cbs_adjusted"].startswith(f"no prior week: no Week {prior} CBS"), excluded)
+            self.assertNotIn("cbs", res["sources"])
+            self.assertNotIn("cbs_adjusted", res["sources"])
+            if v != "indexed":
+                self.assertEqual([s for s in res["sources"] if s in CHARTS],
+                                 ["fantasycalc", "usatoday", "fantasypros"], v)
+
+    def test_saved_views_setup_has_no_prior_week_for_those_charts(self):
+        # Full PPR / 12 / standard roster: the VORP vs waivers and Adjusted tabs
+        # show the pipeline's saved views for the charts that carry them (an
+        # older vintage, math-review VA-3), so no prior week is computed the
+        # same way: those charts sit out both weeks there; CBS (no saved
+        # views) counts.
+        data = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
+        saved = [k for k in CHARTS if (data.get(k) or {}).get("vorp_views")]
+        if not saved:
+            self.skipTest("no chart carries saved views")
+        out = run(PRIOR)
+        self.assertEqual(out["pageErrors"], [])
+        self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
+        for v in ("vorp", "adj"):
+            res = out["views"][v]
+            excluded = {e["key"]: e["reason"] for e in res["excluded"]}
+            self.assertEqual(set(excluded), {f"{k}_adjusted" for k in saved}, (v, excluded))
+            self.assertTrue(all("saved views" in r for r in excluded.values()), excluded)
+            self.assertEqual([s for s in res["sources"] if s in CHARTS], [k for k in CHARTS if k not in saved], v)
 
 
 HELD_INIT = "window.__heldKey = %s; window.__heldSeries = %s;"

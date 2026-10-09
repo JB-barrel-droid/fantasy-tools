@@ -228,23 +228,26 @@ class TestTwoTierPort(unittest.TestCase):
         rostered total, so that is what this asserts.
         """
         pools = self._pools()
-        # With the ESPN-pure production pool, the floor cap first binds at
-        # 16 teams (RB rostered hits its floor exactly); at 10-12 no position
-        # reaches its floor. Keep the binding size in the loop so the cap
-        # stays exercised -- the guard below fails closed if it ever binds
-        # nowhere (cap untested) or binds at the wrong size (data drift).
-        for teams in (10, 12, 16):
+        # With the ESPN-pure production pool, no position reaches its floor
+        # at 10-12 teams; the cap binds by 18 (QB, RB and WR rostered hit
+        # their floors). Keep a binding size in the loop so the cap stays
+        # exercised: the guard below fails closed if it binds nowhere (cap
+        # untested). JEG-480 (2026-10-09): this used to require a bind at
+        # exactly 16 teams, a fact about one week's pool (RB 70/70); once
+        # ESPN's full projected set was stored (fullbacks and 16 players the
+        # identity snapshot had dropped) RB's floor moved to #75 and 16
+        # teams roster 72, while the cap itself still holds everywhere.
+        bound_at = []
+        for teams in (10, 12, 16, 18):
             d = run_harness("benchmixdetail", {"teams": teams, "benchSlots": 6, "pools": pools})
-            bound = False
             for pos, n in d["mix"].items():
                 rostered = d["starters"][pos] + n
                 self.assertLessEqual(
                     rostered, d["floor"][pos],
                     f"{pos}: rostered {rostered} passes irrelevance floor #{d['floor'][pos]}")
                 if rostered == d["floor"][pos]:
-                    bound = True
-            if teams == 16:
-                self.assertTrue(bound, "no position reached its floor -- cap is untested here")
+                    bound_at.append((teams, pos))
+        self.assertTrue(bound_at, "no position reached its floor at any size -- cap is untested")
 
     def test_bench_mix_responds_to_roster_shape(self):
         """Superflex must raise bench QB; a pinned constant cannot.
