@@ -745,10 +745,9 @@ by `tests/test_vorp_translation_js_parity.py`:
 > saved `vorp_views` are retired (VP-10).
 
 **Other chart views (JEG332-VORP-VIEWS, `published-views-001/1`, 2026-10-07).**
-The "VORP vs waivers" and "Adjusted values" views show the saved `vorp_views`
-only at the setup they were built for (full PPR, 12 teams, standard roster;
-FantasyCalc, FantasyPros, USA Today). At every other scoring, team count and
-roster -- and for CBS everywhere -- `ValueModel.derivePublishedViews` derives
+VA-3 decided (Jeremy, 2026-10-09: "Compute live everywhere."): the saved `vorp_views`
+(2026-10-03) are retired. At every scoring, team count and roster -- Full PPR /
+12 / standard roster included -- `ValueModel.derivePublishedViews` derives
 them from the saved 12-team natives on the same translation and waiver line, so
 a player at or below the waiver line is 0 in both views (Indexed, one factor
 on the natives, does not zero anyone; JEG-482):
@@ -886,10 +885,9 @@ implement exactly this text.
    natives and player set, its peers for the waiver-line extension, the batch
    whose top sets the Adjusted 0-70 scale), with the current league, roster
    and the ESPN anchor's eight group totals; no adjustment fit is involved.
-   Equal natives keep the order of the chart's served list. Where the
-   Adjusted tab shows the pipeline's saved `vorp_views` (Full PPR, 12 teams,
-   standard roster; an older vintage, math-review VA-3) the charts have no
-   prior week and sit out both weeks of every version there. If no input of a
+   Equal natives keep the order of the chart's served list. Every setting
+   derives the charts' views live (VA-3, Jeremy, 2026-10-09: "Compute live everywhere."), so
+   every chart has a prior week at every setting. If no input of a
    version has a prior week (a first week, or no history), the current week
    uses the inputs from step 4 and that version has no prior week.
 6. **Per player, per week.** The equal-weight mean of the finite values of

@@ -67,9 +67,12 @@ class ReferenceMatchesEngine(unittest.TestCase):
             self.assertGreater(report["series"][key]["compared"], 0, key)
 
 
-SEED_OLD = "    return values;\n  }\n\n  // JEG-242: build a source map from vorp_views"
-SEED_NEW = ("    if (key === \"fantasycalc\") values.forEach((v, k) => values.set(k, v * 1.05));\n"
-            + SEED_OLD)
+# The end of buildPublishedSourceMap (a chart's served Indexed values):
+# code, not a comment, so the anchor survives comment edits nearby.
+SEED_OLD = "in ${sourceLabel(key)}.`);\n      values.set(playerKey, value);\n    });\n    return values;\n  }\n"
+SEED_NEW = SEED_OLD.replace(
+    "    return values;\n",
+    "    if (key === \"fantasycalc\") values.forEach((v, k) => values.set(k, v * 1.05));\n    return values;\n")
 
 
 class SeededMismatch(unittest.TestCase):

@@ -1313,44 +1313,10 @@
     return values;
   }
 
-  // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
-  // vorp_views keys are normalized lowercase display names, exactly the form
-  // used by the fixture's player_keys table. JEG332-VORP-VIEWS (2026-10-07):
-  // resolve through product-data's copy of that table -- since JEG-363 the
-  // snapshot `data` carries no player_keys, so this lookup came back empty and
-  // the views silently showed the Indexed values instead.
-  function buildVorpViewSourceMap(key, viewKey) {
-    const vorpViews = data.sources?.[key]?.vorp_views;
-    const viewData = vorpViews?.views?.[viewKey];
-    if (!viewData || typeof viewData !== "object") return new Map();
-    const keysById = window.TradeValueProductData?.getPlayerKeysBySourceId?.() || new Map();
-    const nameToKey = new Map();
-    keysById.forEach((playerKey, displayName) => {
-      const norm = String(displayName).trim().toLowerCase();
-      if (canonicalByKey.has(Number(playerKey)) && norm && !nameToKey.has(norm)) nameToKey.set(norm, Number(playerKey));
-    });
-    const values = new Map();
-    Object.entries(viewData).forEach(([displayName, rawValue]) => {
-      const playerKey = nameToKey.get(String(displayName).trim().toLowerCase());
-      const player = canonicalByKey.get(playerKey);
-      const value = clampValue(rawValue);
-      if (!player || value === null) return;
-      values.set(playerKey, value);
-    });
-    return values;
-  }
-
-  // JEG332-VORP-VIEWS: the saved vorp_views apply only at the exact setup
-  // they were built for -- their own scoring and team count, standard roster.
-  // (Before 2026-10-07 the scoring was never compared, so Standard / Half PPR
-  // at 12 teams showed the full-PPR views.)
-  const VIEW_SCORING = {ppr: "ppr", full: "ppr", half_ppr: "half_ppr", half: "half_ppr", standard: "standard"};
-  function savedViewApplies(key) {
-    const vorpViews = data.sources?.[key]?.vorp_views;
-    if (!vorpViews || !onSavedSetup()) return false;
-    return VIEW_SCORING[String(vorpViews.scoring || "").toLowerCase()] === scoring
-      && Number(vorpViews.teams) === teams;
-  }
+  // VA-3 (Jeremy 2026-10-09, "Compute live everywhere"): the pipeline's saved
+  // vorp_views (Oct 3, build_imputed_vorps.py) are retired. Every setting,
+  // the saved 12-team one included, derives VORP vs waivers and Adjusted
+  // values live with the same math (derivedViewBatch below).
 
   // JEG332-VORP-VIEWS: every published chart derived into the VORP-vs-waivers
   // and Adjusted views at the active setting (ValueModel.derivePublishedViews),
@@ -1396,15 +1362,8 @@
   }
 
   // The VORP-vs-waivers / Adjusted map for a published chart at the active
-  // setting: the saved view at its own setup, derived everywhere else.
+  // setting, derived live at every setting (VA-3).
   function publishedViewMap(key, viewKey) {
-    if (savedViewApplies(key)) {
-      const saved = buildVorpViewSourceMap(key, viewKey);
-      if (saved.size) {
-        lastPublishedView[key] = {mode: "saved", view: viewKey};
-        return saved;
-      }
-    }
     const batch = derivedViewBatch();
     const derived = viewKey === "adj_values" ? batch.sources[key]?.adj : batch.sources[key]?.vorp;
     lastPublishedView[key] = derived?.size
@@ -1419,7 +1378,6 @@
   function sourceHasVorpView(key) {
     const viewKey = getViewKey(viewMode);
     if (!viewKey) return true;
-    if (savedViewApplies(key) && buildVorpViewSourceMap(key, viewKey).size) return true;
     const nativeRow = savedPublishedRow(key, "native");
     return !!(nativeRow?.values && nativeRow.values.size);
   }
@@ -2385,7 +2343,12 @@
     const chart = chartOfInput(key);
     if (!chart) return row.values[key];
     const value = compositeChartValues(chart).get(row.player_key);
-    return value === undefined ? null : value;
+    if (value !== undefined) return value;
+    // A player outside the computed rows (search, playerRow): the same chart
+    // rule as the rows (0 below a fully loaded chart's floor).
+    if (!POSITION_ORDER.includes(row.pos)) return null;
+    const missing = chartMissingValue(chart, chart, row, chartNative(chart), publishedWaiver(chart));
+    return missing.value === undefined ? null : missing.value;
   }
   // One input's prior week at this setting, in the Adjusted view (cached per
   // rebuild). A chart's carries the rows' chart rules (chartRowRulesOnWeek).
@@ -2656,25 +2619,35 @@
     const values = Object.fromEntries(visibleSourceKeys().map(k => [k, rowValue(k, player)]));
     const missingReasons = Object.fromEntries(visibleSourceKeys().filter(k => values[k] === null)
       .map(k => [k, missingReason(k, player)]));
-    const ddfByView = {};
-    COMPOSITE_VIEWS.forEach(view => {
-      const state = compositeStates[view];
-      if (!state) return;
-      const blend = ValueModel.compositeValue(values, state.series);
+    // JEG-497: the three DDF versions over each version's included inputs'
+    // Adjusted-view values (compositeInputValue), as applyComposite does.
+    const row = {...player, player_key: key, values};
+    const empty = {value: null, count: 0, sources: [], reason: COMPOSITE_NONE_REASON, lowConfidence: false,
+      confidenceNote: null, prior: null, priorCount: 0, priorLowConfidence: false};
+    const ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
+      const state = compositeStates[version];
+      if (!state) return [COMPOSITE_VERSION_NAMES[version], {...empty}];
+      const inputValues = Object.fromEntries(state.inputs.map((input, i) => [state.series[i], compositeInputValue(input, row)]));
+      const blend = ValueModel.compositeValue(inputValues, state.series);
       const value = blend.count >= COMPOSITE_MIN_SOURCES ? blend.value : null;
       const before = state.prior?.get(key) || null;
-      ddfByView[view] = {value, count: blend.count, sources: [...blend.used],
+      return [COMPOSITE_VERSION_NAMES[version], {value, count: blend.count, sources: [...blend.used],
         reason: value === null ? COMPOSITE_NONE_REASON : null, lowConfidence: blend.count === 1,
+        confidenceNote: blend.count === 1 ? COMPOSITE_ONE_SOURCE_NOTE : null,
         prior: before ? before.value : null, priorCount: before ? before.count : 0,
-        priorLowConfidence: Boolean(before && before.count === 1)};
+        priorLowConfidence: Boolean(before && before.count === 1)}];
+    }));
+    COMPOSITE_VERSION_KEYS.forEach(version => {
+      const entry = ddfByVersion[COMPOSITE_VERSION_NAMES[version]];
+      values[version] = entry.value;
+      if (entry.value === null) missingReasons[version] = entry.reason;
     });
-    const mine = ddfByView[viewMode] || {value: null, count: 0, sources: [], reason: COMPOSITE_NONE_REASON,
-      lowConfidence: false, prior: null, priorCount: 0, priorLowConfidence: false};
-    values[COMPOSITE_KEY] = mine.value;
-    if (mine.value === null) missingReasons[COMPOSITE_KEY] = mine.reason;
-    return {...player, espnRole: "waiver", values, missingReasons, ddfByView, materialized: true,
-      ddfCount: mine.count, ddfSources: [...mine.sources], ddfReason: mine.reason,
-      ddfLowConfidence: mine.lowConfidence, ddfConfidenceNote: mine.lowConfidence ? COMPOSITE_ONE_SOURCE_NOTE : null,
+    const {blended: mine, charts, projections} = ddfByVersion;
+    return {...player, espnRole: "waiver", values, missingReasons, ddfByVersion, materialized: true,
+      ddfCount: mine.count, ddfChartsCount: charts.count, ddfProjectionsCount: projections.count,
+      ddfSources: [...mine.sources], ddfReason: mine.reason,
+      ddfLowConfidence: mine.lowConfidence, ddfConfidenceNote: mine.confidenceNote,
+      ddfChartsLowConfidence: charts.lowConfidence, ddfProjectionsLowConfidence: projections.lowConfidence,
       ddfPrior: mine.prior, ddfPriorCount: mine.priorCount, ddfPriorLowConfidence: mine.priorLowConfidence,
       ddfTier: mine.value === null ? null : "waiver"};
   }
@@ -4538,9 +4511,8 @@
   // chart with nothing saved for the week is not in that week's batch. The
   // league, roster and the anchor's eight group totals (our position
   // weighting) are the current ones, as for every other saved week; no
-  // adjustment fit is involved. Where the tab shows the pipeline's saved
-  // views instead of derived ones (savedViewApplies) there is no saved week
-  // (historyPublishedViewValues). Cached per anchor build, setting and week.
+  // adjustment fit is involved. Every setting derives (VA-3), so every
+  // setting has the saved weeks. Cached per anchor build, setting and week.
   //
   // Tie order: the translation ranks a chart's players by native value and keeps list
   // order between equal values (ValueModel sortRanked is a stable sort), so
@@ -4587,14 +4559,6 @@
   }
   function historyPublishedViewValues(source, week, view, index, doc) {
     const viewKey = getViewKey(view);
-    // At the setup where this tab shows the pipeline's saved views
-    // (publishedViewMap "saved" mode; a different vintage, math-review VA-3)
-    // no saved week is computed the way the values shown are, so there is
-    // none: the chart sits out the DDF Value pair there (both weeks).
-    if (savedViewApplies(source) && buildVorpViewSourceMap(source, viewKey).size) {
-      return {reason: `at ${scoreLabel()} / ${teams} teams this tab shows the pipeline's saved views (an older`
-        + " vintage, not derived from the saved weeks), so no earlier week is computed the same way"};
-    }
     const batch = historyViewBatch(week, index, doc);
     if (!batch.derived) return {reason: batch.reason};
     const derived = batch.derived.sources[source];
@@ -5461,7 +5425,7 @@
     [...AS_PUBLISHED_KEYS].filter(sourceAvailable).forEach(key => {
       const vorp = measuredPublishedView(key, "vorp");
       if (vorp.size) out.vorp.sources[key] = {...viewTotalsRow(vorp, anchor), gated: false,
-        mode: savedViewApplies(key) ? "saved" : "derived"};
+        mode: "derived"};
       const adj = measuredPublishedView(key, "adj_values");
       const info = derivedViewBatch().sources[key]?.roles;
       const roles = info ? new Map([...info].map(([k, row]) => [Number(k), row.role])) : null;
@@ -5477,7 +5441,7 @@
           ratio: ratio === null ? null : Number(ratio.toFixed(6)), unfunded: row.players === 0 && row.anchor > 0};
       });
       const spread = ratios.length ? Math.max(...ratios) / Math.min(...ratios) : null;
-      out.adjusted.sources[key] = {groups: rows, mode: savedViewApplies(key) ? "saved" : "derived",
+      out.adjusted.sources[key] = {groups: rows, mode: "derived",
         spread: spread === null ? null : Number(spread.toFixed(6)),
         level: budget > 0 ? Number((source / budget).toFixed(6)) : null,
         holds: spread !== null && Math.abs(spread - 1) <= VIEW_INVARIANT_REL_TOL && budget > 0 && Math.abs(source / budget - 1) <= VIEW_INVARIANT_REL_TOL,

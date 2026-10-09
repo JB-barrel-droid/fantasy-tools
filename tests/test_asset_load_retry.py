@@ -93,12 +93,8 @@ class AssetLoadRetryTest(unittest.TestCase):
     def test_slow_adjustment_inputs_still_load(self):
         out = run(_slow)
         self.assertTrue(out["adjustmentsLoaded"], "adjustment inputs dropped on a slow load")
-        # Every input is averaged or left out only for want of a prior week
-        # (the saved-views setup, #448); never for the adjustment data.
-        reasons = {e["key"]: e["reason"] for e in out["composite"]["excluded"]}
-        for key in ALL_INPUTS:
-            self.assertTrue(key in out["composite"]["inputs"] or reasons.get(key, "").startswith("no prior week"),
-                            f"DDF Value lost {key} on a slow load: {reasons}")
+        self.assertEqual(sorted(out["composite"]["inputs"]), sorted(ALL_INPUTS),
+                         f"DDF Value lost inputs on a slow load: excluded={out['composite']['excluded']}")
         self.assertIsNotNone(out["loadStatus"], "TradeValueCurveControls.getLoadStatus missing")
         status = out["loadStatus"]["assets"]["adjustments"]
         self.assertTrue(status["ok"])
@@ -118,9 +114,7 @@ class AssetLoadRetryTest(unittest.TestCase):
         # JEG-497: the DDF inputs do not depend on the adjustment data.
         reasons = {e["key"]: e["reason"] for e in out["composite"]["excluded"]}
         self.assertNotIn("Adjustment data failed to load", reasons.values(), reasons)
-        for key in ALL_INPUTS:
-            self.assertTrue(key in out["composite"]["inputs"] or reasons.get(key, "").startswith("no prior week"),
-                            f"{key}: {reasons}")
+        self.assertEqual(sorted(out["composite"]["inputs"]), sorted(ALL_INPUTS), reasons)
 
 
 if __name__ == "__main__":

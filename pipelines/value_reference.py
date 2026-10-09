@@ -20,8 +20,8 @@ What it computes, per league setting (scoring x teams x roster) and view
                         the anchor's total over the chart's players
                         (published_one_factor; JEG-482: the chart keeps its
                         own order, no per-position translation);
-                        VORP vs waivers / Adjusted values: the saved vorp_views
-                        at their own setup, else derived (one batch)
+                        VORP vs waivers / Adjusted values: derived live at
+                        every setting (one batch; VA-3 retired the saved views)
   *_adjusted            the raw chart through the live OLS cells (ESPN two-tier
                         target), then per-position peaks to the anchor's and one
                         factor to its shared total
@@ -664,33 +664,11 @@ class Setting:
         return vm.scale_to_shared_total(raw, self.anchor(), self.player_of)
 
     def published_view(self, src: str, view: str) -> dict:
-        """VORP vs waivers / Adjusted values for a published chart."""
-        vv = ((self.inp.fixture.get("sources") or {}).get(src) or {}).get("vorp_views")
-        if (vv and self.saved_setup
-                and VIEW_SCORING.get(str(vv.get("scoring") or "").lower()) == self.scoring
-                and _num(vv.get("teams")) == self.teams):
-            saved = self._saved_view(vv, VIEW_FIELD[view])
-            if saved:
-                return saved
+        """VORP vs waivers / Adjusted values for a published chart, derived
+        live at every setting (VA-3, Jeremy 2026-10-09: the pipeline's saved
+        vorp_views are retired)."""
         batch = self.view_batch()
         return dict((batch.get(src) or {}).get(view) or {})
-
-    def _saved_view(self, vv: dict, field_name: str) -> dict:
-        data = (vv.get("views") or {}).get(field_name)
-        if not isinstance(data, dict):
-            return {}
-        name_to_key = {}
-        for slug, key in self.inp.key_of.items():
-            norm = str(slug).strip().lower()
-            if key in self.inp.players and norm and norm not in name_to_key:
-                name_to_key[norm] = key
-        out = {}
-        for name, value in data.items():
-            key = name_to_key.get(str(name).strip().lower())
-            v = _clamp(value)
-            if key is not None and v is not None:
-                out[key] = v
-        return out
 
     def view_batch(self) -> dict:
         """Every published chart derived into both views as one batch (the
@@ -986,14 +964,6 @@ def week_view_batch(setting: "Setting", week: int, hist: History):
     return out
 
 
-def saved_view_applies(setting: "Setting", chart: str, view: str) -> bool:
-    vv = ((setting.inp.fixture.get("sources") or {}).get(chart) or {}).get("vorp_views")
-    return bool(vv and setting.saved_setup
-                and VIEW_SCORING.get(str(vv.get("scoring") or "").lower()) == setting.scoring
-                and _num(vv.get("teams")) == setting.teams
-                and setting._saved_view(vv, VIEW_FIELD[view]))
-
-
 def week_values(setting: "Setting", series: str, week: int, hist: History, view: str = "indexed"):
     """(values or None, reason) for one series at a saved week, as priced
     (the history accessors: no row rules)."""
@@ -1002,8 +972,6 @@ def week_values(setting: "Setting", series: str, week: int, hist: History, view:
     if entry is None:
         return None, why
     if series in PUBLISHED and view != "indexed":
-        if saved_view_applies(setting, series, view):
-            return None, "this tab shows the pipeline's saved views, so no earlier week is computed the same way"
         batch, why = week_view_batch(setting, week, hist)
         if batch is None:
             return None, why
