@@ -65,3 +65,20 @@ anywhere else is a defect; the ESPN, CBS ROS and Razzball lines start where
 their own projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
 band on published charts, was retired 2026-10-08, GAP-026: publisher shape
 disagreement is the product.)
+
+## Values explainer (living artifact)
+
+Jeremy reads how every source's values are made at the claude.ai artifact
+https://claude.ai/artifact/RALxprAWirGvjw8uwZwbfW ("DDF Value Logic"). It is
+built by `make values-explainer` (`pipelines/build_values_explainer.py`, page
+template and engine extractor in `app/values-explainer/`) into
+`output/values-explainer/index.html`, and every number on it is read from the
+chart engine. Keep it current:
+
+- After any change to value math (the files in `LOGIC_FILES` in the builder),
+  rebuild and republish to that URL in the same session. If the logic changed,
+  update the narrative in `template.html` to match, then
+  `make values-explainer MARK_REVIEWED=1` so the page stops flagging it.
+- A daily scheduled task rebuilds and republishes it from `main`. When the page
+  says "Logic changed since this explanation was reviewed", the narrative is
+  stale: fix the text, not the numbers.
