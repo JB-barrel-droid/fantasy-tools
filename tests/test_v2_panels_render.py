@@ -59,6 +59,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import http.server
+import json
 import re
 import shutil
 import socketserver
@@ -275,13 +276,12 @@ def check_freshness(page) -> list[str]:
     page.keyboard.press("Escape")
     # A failed import shows its source as Not updating, and the header says so.
     def broken(route, *_):
-        response = route.fetch()
-        doc = response.json()
+        doc = _freshness_doc()
         for item in doc.get("items", []):
             if item.get("key") == "source_import.fantasypros":
                 item["freshness_ok"] = False
                 item["value"] = "2026-10-06"
-        route.fulfill(response=response, json=doc)
+        route.fulfill(status=200, json=doc)
     rows, label = _freshness_with(page, broken)
     fp = rows.get("fantasypros")
     if not fp or fp["status"] != "stuck" or "since 2026-10-06" not in fp["text"]:
@@ -304,8 +304,7 @@ def check_freshness(page) -> list[str]:
 
     # Fail closed: a source whose own rows are missing is unknown; every other source confirmed current.
     def dropped(route, *_):
-        response = route.fetch()
-        doc = response.json()
+        doc = _freshness_doc()
         items = [item for item in doc.get("items", [])
                  if item.get("key") not in ("source_import.fantasypros", "comparison.source.fantasypros")]
         for item in items:
@@ -314,7 +313,7 @@ def check_freshness(page) -> list[str]:
                 if "weeks_behind" in item:
                     item["weeks_behind"] = 0
         doc["items"] = items
-        route.fulfill(response=response, json=doc)
+        route.fulfill(status=200, json=doc)
     rows, label = _freshness_with(page, dropped)
     for pub, want in roots.items():
         r = rows.get(pub)
@@ -330,6 +329,12 @@ def check_freshness(page) -> list[str]:
     return errors
 
 
+def _freshness_doc() -> dict:
+    """The built freshness record, read from disk (a route.fetch round trip to the test server
+    was refused intermittently on Windows)."""
+    return json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8"))
+
+
 def _freshness_with(page, handler):
     """Load Player values with reference-freshness.json served by handler; return the rows and the chip."""
     other = page.context.browser.new_page(viewport={"width": 1440, "height": 1000})
@@ -338,8 +343,9 @@ def _freshness_with(page, handler):
         other.route("**/v2/v2.js*", functools.partial(_serve, page.v2_js))
     other.route("**/assets/reference-freshness.json*", handler)
     other.goto(page.url.split("#")[0] + "#player-values", wait_until="load", timeout=120000)
-    other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
+    other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=120000)
     other.wait_for_timeout(1500)   # the freshness record loads after the engine
+    other.wait_for_function("() => !document.getElementById('v2FreshnessLabel').textContent.includes('checking sources')", timeout=60000)
     other.click("#v2Freshness")
     rows = other.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#v2Popover tr[data-source]')].map(tr =>
       [tr.dataset.source, {status: tr.dataset.status, text: tr.lastElementChild.textContent}]))""")
