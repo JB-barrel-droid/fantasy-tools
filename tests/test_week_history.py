@@ -692,9 +692,9 @@ def collect(overrides=None):
                     entry = _week(served - 1)["sources"]["espn"]
                     want = H.espn_legs_for_week(entry, players)["legs"]["ppr"]
                     got = {k: v for k, v in res["values"].items() if v != 0}
-                    # The anchor's live cells map the 1-dp leg onto the
-                    # full-precision two-tier values (near identity at the
-                    # reference share), so allow the leg's own rounding.
+                    # The prior is that week's projections through the live
+                    # two-tier (JEG-493), full precision; allow the leg's own
+                    # 1-dp rounding.
                     bad = [k for k, v in got.items() if k in want and abs(v - want[k]) > 0.06]
                     if bad or not got:
                         failures.append(f"espn prior != pipeline leg on {len(bad)} players, e.g. "
@@ -732,6 +732,9 @@ class DeltaRecomputeTest(unittest.TestCase):
         espn_served_leg = widget.replace("const leg = saved?.legs?.[scoringField()];",
                                           "const leg = legs?.weeks?.[String(week + 1)]?.legs?.[scoringField()];")
         self.assertNotEqual(espn_served_leg, widget)
+        espn_served_ppg = widget.replace("const anchor = espnAnchorFromTwoTier(espnTwoTierFromPpg(ppg), raw);",
+                                         "const anchor = espnAnchorFromTwoTier(ddfTwoTierValues(), raw);")
+        self.assertNotEqual(espn_served_ppg, widget)
         vorp_served = widget.replace("values: buildVorpMap(series, ppg),", "values: buildVorpMap(series),")
         self.assertNotEqual(vorp_served, widget)
         served_ignored = widget.replace('if (servedRec?.week === week && servedRec?.version === "superseded") {',
@@ -743,6 +746,7 @@ class DeltaRecomputeTest(unittest.TestCase):
             "accessor substitutes the served natives": {"assets/curve-widget.js": substitute},
             "prior paired with the served week": {"assets/curve-widget.js": same_week},
             "ESPN prior reads the served week's leg": {"assets/curve-widget.js": espn_served_leg},
+            "ESPN prior prices the served projections": {"assets/curve-widget.js": espn_served_ppg},
             "VORP prior prices the served projections": {"assets/curve-widget.js": vorp_served},
         }
         index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8")) \

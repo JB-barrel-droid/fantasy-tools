@@ -1990,10 +1990,13 @@
   // At 0.15 this is exactly the built leg at every team count. Returns null
   // when the live two-tier is unavailable (caller falls back to the fixture).
   function liveEspnAnchorValues() {
-    const ddf = ddfTwoTierValues();
+    return espnAnchorFromTwoTier(ddfTwoTierValues(), buildPublishedSourceMap("espn"));
+  }
+  // members: a Map whose keys are the players the anchor may list.
+  function espnAnchorFromTwoTier(ddf, members) {
     if (!ddf) return null;
     const values = new Map();
-    buildPublishedSourceMap("espn").forEach((_, playerKey) => {
+    members.forEach((_, playerKey) => {
       const pos = ddf.posOf.get(playerKey);
       if (!canonicalByKey.get(playerKey) || !pos) return;
       const cal = ddf.calibration[pos];
@@ -3097,6 +3100,55 @@
     const values = new Map();
     raw.forEach((v, id) => values.set(id, v * scale));
     return {values, scale, posOf, starters: cfg.pool.starters, bench: cfg.pool.bench, calibration: cal};
+  }
+
+  // ddfTwoTierValues on another set of ESPN per-game projections (a saved
+  // week's, {player_key -> ppg}): same pool, pies, position weights, bench
+  // share and scale rules. On the served projections it equals
+  // ddfTwoTierValues. Uncached (history accessor only).
+  function espnTwoTierFromPpg(ppg) {
+    const lists = {QB: [], RB: [], WR: [], TE: []};
+    ppg.forEach((x, playerKey) => {
+      const pos = canonicalByKey.get(playerKey)?.pos;
+      if (TwoTier.POSITIONS.includes(pos) && Number.isFinite(x)) lists[pos].push({id: playerKey, x});
+    });
+    let pool;
+    try {
+      pool = TwoTier.buildPositionTiers(lists, {
+        teams,
+        slots: {...TwoTier.REF_SLOTS},
+        flexCount: TwoTier.REF_FLEX_COUNT,
+        flexEligible: [...TwoTier.REF_FLEX_ELIGIBLE],
+        benchMix: TwoTier.legacyBenchMixFor(teams)
+      });
+    } catch (e) {
+      return null;
+    }
+    let pies = {};
+    TwoTier.POSITIONS.forEach(pos => { pies[pos] = Number(pool.tiers[pos]?.surplus); });
+    if (positionWeights) {
+      const total = TwoTier.POSITIONS.reduce((s, pos) => s + (Number(pies[pos]) || 0), 0);
+      pies = {};
+      TwoTier.POSITIONS.forEach(pos => { pies[pos] = total * (Number(positionWeights[pos]) || 0); });
+    }
+    const shares = TwoTier.skillBenchShares(benchShare);
+    const cal = {};
+    TwoTier.POSITIONS.forEach(pos => {
+      cal[pos] = TwoTier.calibratePositionFeasible(pool.tiers[pos], pies[pos], TwoTier.skillBenchShare(shares, pos), pos);
+    });
+    const raw = new Map(), posOf = new Map();
+    TwoTier.POSITIONS.forEach(pos => {
+      lists[pos].forEach(d => {
+        posOf.set(d.id, pos);
+        raw.set(d.id, TwoTier.priceForProjection(d.x, cal[pos]));
+      });
+    });
+    let mx = 0;
+    raw.forEach(v => { if (v > mx) mx = v; });
+    const scale = mx > 0 ? 70 / mx : 1;
+    const values = new Map();
+    raw.forEach((v, id) => values.set(id, v * scale));
+    return {values, scale, posOf, starters: pool.starters, bench: pool.bench, calibration: cal};
   }
 
   // Per-source live two-tier values for two-tier-native sources (cbsros, razzball).
@@ -4285,10 +4337,16 @@
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) raw.set(playerKey, value);
     });
     if (raw.size < ValueModel.MIN_SHARED_FOR_PIE) return {reason: `the Week ${week} ESPN leg prices too few players`};
-    const liveCells = adjustmentCellsFor("espn");
-    const map = applyRosterShape(liveCells ? buildLiveAdjustedMap("espn", liveCells, {raw}) : raw, "espn");
-    return {values: historyDisplayValues("espn", map, entry, historyPpg(entry)),
-      method: "pipeline two-tier leg (build_ddf_two_tier_leg) + the anchor's live cells and roster shape"};
+    // JEG-493: priced exactly like the served anchor -- that week's ESPN
+    // projections through the live two-tier at the active setting -- over
+    // the players that week's leg lists. (The 12-team leg through the OLS
+    // cells flattened the 14-team bench.)
+    const ppg = historyPpg(entry);
+    const anchor = espnAnchorFromTwoTier(espnTwoTierFromPpg(ppg), raw);
+    if (!anchor) return {reason: `the Week ${week} ESPN projections cannot be priced at this setting`};
+    const map = applyRosterShape(anchor, "espn");
+    return {values: historyDisplayValues("espn", map, entry, ppg),
+      method: "that week's ESPN projections through the live two-tier (the anchor's path) + roster shape"};
   }
   // VORP vs waivers: the same projection-minus-waiver rows on the saved
   // projections, level-matched to the current anchor like the served series.
