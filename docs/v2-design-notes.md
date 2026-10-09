@@ -1111,3 +1111,41 @@ Built on the engine's "Back-end contract: DDF Value" above. v2 still does no val
   simulated `missingReasons` entry shows "—" with that reason and a finite 0 shows "0.0"; broken builds: tier from
   espnRole, engine reason ignored). test_below_leg_zero_render and test_espn_zero_badge_render now pick ESPN
   explicitly (they test the ESPN-0 rule).
+
+## Player values: expand, Reset zoom, filter chips (JEG-483, 2026-10-08)
+
+Restores usability the above-the-fold pass (JEG-470) compressed; that layout stays. Supersedes "Reset zoom
+removed" and the small "Set exact values" link in the JEG-470/472/473/475 section above.
+
+- **Expand chart (⤢).** A 44 px button in the plot corner, in the `.v2-zoom` group. It opens `#v2Expand`: a large
+  dialog over a dimmed page on desktop (scrim, ✕, Esc, focus kept inside, focus back on ⤢ when closed), full screen
+  below 768 px. The live `#v2Plot` node moves into the dialog and back on close (a placeholder holds its height), so
+  there is one chart, one pair of brushes and one state: a brush or zoom there is the toolbar's Show, the table's
+  rows and the chart card's chart. Inside: a ~75vh plot with both brushes (the Y brush shows at 390 too), quick
+  Top 25 / 50 / 100 / All buttons that set Show, "Y axis fits the value range" (on by default; the Y brush also
+  rescales the Y axis there and lines outside it are clipped, never clamped) and the legend. `renderCharts()` runs on
+  open, close and resize; the chart sizes from its container.
+- **Player names when zoomed.** Kept on the main chart (names under each point once points are 64 px apart). The
+  expanded chart staggers names on two lines, so it names players from 34 px apart (Top 25 at 1440 names all 25).
+- **Expand table.** "⤢ Expand" in the table card head moves `#v2TableWrap` into the same dialog at full height.
+  Pos / Team / Tier are their own sortable columns there (Tier sorts Starter, Bench, Waiver); sticky header,
+  heat tint and Show more paging are unchanged because it is the same table.
+- **Tier** in the expanded table uses the one v2 helper, `tierFor` / `tierText` (Trade targets), like every tab; it
+  sorts Starter, Bench, Waiver, then —. The "◐ 1 source" tag shows in the expanded table and the expanded chart's
+  hover card because they are the main table and chart.
+- **Reset zoom.** In the plot corner, shown only while Show is Custom from a zoom, brush or exact ranks. The Show
+  preset in force before the zoom is remembered (`state.zoomFrom`); Reset zoom clears the rank-window zoom and the
+  value range and returns to that preset. Search, position, sort, Δ and Rank by stay. The toolbar Reset is unchanged.
+  `state.rankZoom` records whether the rank window itself was zoomed; a Custom that came only from the value range
+  uses the remembered preset's rank window, and clearing the range returns Show to that preset.
+- **Filter chips.** Under the toolbar, one chip per active filter: "Value 12–30 ✕", "Ranks 20–60 ✕",
+  "Search: jsn ✕", "Position: WR ✕". Each clears only its own filter (the ranks chip keeps the value range and
+  vice versa). 32 px visual, 44 px hit area.
+- **Set exact values** is now a 44 px, 13 px-text button at the end of the chart card's title line (it was a 10 px
+  link under the Y brush).
+- **Tests:** `tests/test_v2_expand_render.py` (test-unit), with 9 deliberately broken builds. `test_v2_panels_render`
+  now allows ⤢ and Reset zoom inside the chart.
+- **Jeremy's answers (2026-10-09):** Reset zoom clears both brushes; "Y axis fits the value range" is on by default;
+  "Set exact values" stays on the chart card's title line; Tier follows the ranking series on every tab (done with
+  `tierFor` / `tierText`; this branch's own `tierOf` was dropped). The Y axis
+  is never capped at a fixed value: it scales from the largest value shown (indexed values can exceed 70).

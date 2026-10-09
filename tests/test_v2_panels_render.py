@@ -397,7 +397,8 @@ def check_toolbar(page) -> list[str]:
         if page.locator(selector).count():
             errors.append(f"toolbar: removed control still present: {selector}")
     text = page.text_content("#v2Main")
-    for gone in ("Chart options", "Reset to all", "Reset zoom", "Clear filters"):
+    # "Reset zoom" came back in JEG-483 (shown only while zoomed; tests/test_v2_expand_render.py).
+    for gone in ("Chart options", "Reset to all", "Clear filters"):
         if gone in text:
             errors.append(f"toolbar: {gone!r} is still on Player values")
     resets = page.evaluate("() => [...document.querySelectorAll('#v2Main button')].filter(b => /^Reset$/.test(b.textContent.trim()) && b.offsetParent).length")
@@ -409,7 +410,8 @@ def check_toolbar(page) -> list[str]:
     # Chart: only direct manipulation inside (brushes, zoom), no rank-window buttons.
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
       .filter(n => n.offsetParent).map(n => n.id || n.textContent.trim())""")
-    allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi"}
+    allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
+               "v2ExpandChart", "v2ResetZoom"}   # JEG-483: expand and (while zoomed) Reset zoom
     extra = [n for n in inside if n not in allowed]
     if extra:
         errors.append(f"chart: controls other than brushes and zoom inside the chart: {extra}")
@@ -460,6 +462,11 @@ def check_x_brush(page) -> list[str]:
     page.fill("#v2ToRank", "60")
     page.evaluate("() => document.getElementById('v2ToRank').dispatchEvent(new Event('change'))")
     _settle(page)
+    # The redraw runs on the next animation frame; under load that can take longer than the settle.
+    # Wait (up to 3 s) for the drawn rows to match the window; a redraw that never comes still fails below.
+    with contextlib.suppress(Exception):
+        page.wait_for_function("() => { const v = window.TradeValueV2.view(); const w = window.TradeValueV2.state.window;"
+                               " return v.visible.length && v.visible[0].rank === w[0]; }", timeout=3000)
     snap = page.evaluate(SNAP)
     if snap["window"] != [20, 60] or snap["show"] != "Custom 20–60" or snap["firstRow"] != "20":
         errors.append(f"More From 20 To 60: window {snap['window']} Show {snap['show']!r} first row {snap['firstRow']!r}")
@@ -787,7 +794,7 @@ class PanelsRenderTest(unittest.TestCase):
             "pair toggle applied at once": {"v2_js": v2.replace(
                 "          if (box.checked) draft.add(item.key); else draft.delete(item.key);",
                 "          if (box.checked) draft.add(item.key); else draft.delete(item.key);\n          toggleEngineSource(item.key);", 1)},
-            "zone preset ignored": {"v2_js": v2.replace("    const zone = zoneWindow(rows, state.windowPreset);", "    const zone = null;", 1)},
+            "zone preset ignored": {"v2_js": v2.replace("    const zone = zoneWindow(rows, preset);", "    const zone = null;", 1)},
             "Team box ignored": {"v2_js": v2.replace("state.metaCols.team !== false && (row.team || \"FA\")", "(row.team || \"FA\")", 1)},
             "From / To ignored": {"v2_js": v2.replace(
                 '      from.addEventListener("change", onBounds);\n      to.addEventListener("change", onBounds);\n', "", 1)},

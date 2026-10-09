@@ -40,7 +40,8 @@
   const narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 767px)") : null;
   const metaWideQuery = window.matchMedia ? window.matchMedia("(min-width: 1600px)") : null;   // JEG-473
   let metaNoRoom = false;   // set when the expanded columns would make the table scroll sideways
-  const metaColumnsShown = () => Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom;
+  let expanded = null;      // JEG-483: "chart" | "table" while the expanded view is open
+  const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
   const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
   const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
@@ -156,6 +157,9 @@
     delta: false,
     window: null,          // [lo, hi] 1-based rank window (chart and table)
     windowPreset: SHOW_DEFAULT,   // the toolbar's "Show" (JEG-475); "custom" after a brush, zoom or exact ranks
+    zoomFrom: null,        // JEG-483: the Show preset before a zoom or brush made it Custom (Reset zoom returns to it)
+    rankZoom: false,       // JEG-483: the rank window itself was zoomed or brushed (not only the value range)
+    axisZoom: true,        // JEG-483: in the expanded chart the Y axis fits the value range
     sort: null,            // {key, dir}; null = rank-series order
     shown: PAGE_SIZE,
     hoverIndex: null,
@@ -251,6 +255,8 @@
     if (badge) parent.appendChild(badge);
   }
   const tierLabel = role => ({starter: "Starter", bench: "Bench", waiver: "Waiver"}[role] || "—");
+  // JEG-483: sort order for the Tier column (Starter, Bench, Waiver, then —).
+  const TIER_ORDER = {starter: 0, bench: 1, waiver: 2};
 
   // Tier / roster tier (Jeremy, 2026-10-08): it follows the series a tab ranks or values by, never
   // always ESPN. DDF Value: the engine's row.ddfTier. Any other series: the player's rank by that
@@ -343,11 +349,13 @@
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
     const n = rows.length;
-    const zone = zoneWindow(rows, state.windowPreset);
+    // A Custom that comes only from the value range keeps the remembered preset's rank window (JEG-483).
+    const preset = state.windowPreset === "custom" && !state.rankZoom ? state.zoomFrom || SHOW_DEFAULT : state.windowPreset;
+    const zone = zoneWindow(rows, preset);
     if (zone) {
       state.window = [Math.min(zone[0], Math.max(1, n)), Math.max(1, Math.min(zone[1], n))];
-    } else if (!state.window || state.windowPreset !== "custom") {
-      const hi = state.windowPreset === "all" ? n : Number(state.windowPreset) || n;
+    } else if (!state.window || preset !== "custom") {
+      const hi = preset === "all" ? n : Number(preset) || n;
       state.window = [1, Math.max(1, Math.min(n, hi))];
     } else {
       state.window = [Math.max(1, Math.min(state.window[0], n)), Math.max(1, Math.min(state.window[1], n))];
@@ -529,6 +537,8 @@
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
     if (key.textContent) legend.appendChild(key);
+    // The expanded chart carries the same legend.
+    $("v2ExpandLegend").replaceChildren(...[...legend.childNodes].map(node => node.cloneNode(true)));
   }
 
   function drawSeriesChart(container, keys, opts) {
@@ -539,8 +549,12 @@
     // The rows shown: rank window ∩ value range (collect). X labels are each player's rank.
     const slice = view.visible;
     const n = slice.length;
-    const names = opts.names && (n > 1 ? (width - 52) / (n - 1) : width) >= 64;
-    const pad = {l: 40, r: 12, t: 12, b: names ? 46 : 30};
+    // Player names under the points once zoomed in far enough (Jeremy: "when you zoom in on the chart you see
+    // the names"). The expanded chart staggers them on two lines, so it names players at half the spacing.
+    const gap = n > 1 ? (width - 52) / (n - 1) : width;
+    const names = opts.names && gap >= (opts.stagger ? 34 : 64);
+    const stagger = names && opts.stagger && gap < 64;
+    const pad = {l: 40, r: 12, t: 12, b: names ? (stagger ? 58 : 46) : 30};
     if (opts.plot) opts.plot.style.setProperty("--v2-plot-pad-b", `${pad.b}px`);   // the Y brush lines up with the axis
     const lo = n ? slice[0].rank : state.window[0];
     const hi = n ? slice[n - 1].rank : state.window[1];
@@ -551,16 +565,27 @@
       const v = row.values[key];
       if (Number.isFinite(v) && v > vmax) vmax = v;
     }));
-    const {max: ymax, step: ystep} = niceScale(vmax);
-    const ymin = 0;
+    let {max: ymax, step: ystep} = niceScale(vmax);
+    let ymin = 0;
+    // JEG-483 axis zoom (expanded chart only): the Y axis spans the value range; lines outside it are clipped.
+    const axisZoom = Boolean(opts.axisZoom && view.rangeOn);
+    if (axisZoom) {
+      ymin = Math.max(0, state.range.min ?? 0);
+      ymax = state.range.max ?? ymax;
+      if (!(ymax > ymin)) ymax = ymin + 1;
+      ystep = [0.5, 1, 2, 5, 10, 20, 50].find(step => (ymax - ymin) / step <= 6) || 50;
+    }
     const x = i => pad.l + (n <= 1 ? (width - pad.l - pad.r) / 2 : (i / (n - 1)) * (width - pad.l - pad.r));
-    const y = v => pad.t + (1 - (Math.min(ymax, Math.max(ymin, v)) - ymin) / (ymax - ymin)) * (height - pad.t - pad.b);
+    const y = axisZoom
+      ? v => pad.t + (1 - (v - ymin) / (ymax - ymin)) * (height - pad.t - pad.b)
+      : v => pad.t + (1 - (Math.min(ymax, Math.max(ymin, v)) - ymin) / (ymax - ymin)) * (height - pad.t - pad.b);
     const grid = el("g", {class: "grid"}, svg);
     const axis = el("g", {class: "axis"}, svg);
-    for (let v = ymin; v <= ymax + 1e-9; v += ystep) {
+    const first = axisZoom ? Math.ceil(ymin / ystep - 1e-9) * ystep : ymin;
+    for (let v = first; v <= ymax + 1e-9; v += ystep) {
       el("line", {x1: pad.l, x2: width - pad.r, y1: y(v), y2: y(v)}, grid);
       const label = el("text", {x: pad.l - 8, y: y(v) + 4, "text-anchor": "end"}, axis);
-      label.textContent = Math.round(v);
+      label.textContent = ystep < 1 ? v.toFixed(1) : Math.round(v);
     }
     const xTicks = Math.min(5, n);
     for (let t = 0; t < xTicks; t += 1) {
@@ -569,13 +594,19 @@
       label.textContent = slice[i].rank;
     }
     if (names) {
-      {
-        slice.forEach((row, i) => {
-          const label = el("text", {x: x(i), y: height - 8, "text-anchor": "middle", class: "name-label"}, svg);
-          const last = String(row.name || "").split(" ").slice(-1)[0];
-          label.textContent = last.length > 11 ? `${last.slice(0, 10)}…` : last;
-        });
-      }
+      slice.forEach((row, i) => {
+        const label = el("text", {x: x(i), y: height - (stagger && i % 2 ? 20 : 8), "text-anchor": "middle", class: "name-label"}, svg);
+        const last = String(row.name || "").split(" ").slice(-1)[0];
+        label.textContent = last.length > 11 ? `${last.slice(0, 10)}…` : last;
+        label.dataset.playerKey = String(row.player_key);
+      });
+    }
+    let lines = svg;
+    if (axisZoom) {
+      const clipId = `${container.id}Clip`;
+      const clip = el("clipPath", {id: clipId}, el("defs", {}, svg));
+      el("rect", {x: pad.l - 6, y: pad.t - 2, width: width - pad.l - pad.r + 12, height: height - pad.t - pad.b + 4}, clip);
+      lines = el("g", {"clip-path": `url(#${clipId})`}, svg);
     }
     // The DDF Value line is drawn last so it sits on top of the others.
     keys.filter(key => key !== DDF_KEY).concat(keys.includes(DDF_KEY) ? [DDF_KEY] : []).forEach(key => {
@@ -593,10 +624,10 @@
       });
       if (!d) return;
       const cls = `series is-${meta.method}${view.infoByKey[key]?.stale ? " is-older" : ""}`;
-      el("path", {d, class: cls, stroke: meta.color, "data-source": key}, svg);
+      el("path", {d, class: cls, stroke: meta.color, "data-source": key}, lines);
     });
     const overlay = el("g", {class: "hover"}, svg);
-    return {svg, overlay, x, y, slice, width, height, pad, keys};
+    return {svg, overlay, x, y, slice, width, height, pad, keys, ymin, ymax, axisZoom};
   }
 
   let mainChart = null;
@@ -604,7 +635,9 @@
 
   function renderCharts() {
     renderLegend();
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, plot: $("v2Plot")});
+    const big = expanded === "chart";
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, plot: $("v2Plot"),
+      stagger: big, axisZoom: big && state.axisZoom});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
     vorpChart = view.vorpKeys.length
@@ -869,7 +902,8 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true}
+      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+        order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
     // Ranking series first (it is the sort basis), then the groups in their fixed order.
@@ -893,6 +927,7 @@
     if (!col) return rows;
     const dir = state.sort.dir === "asc" ? 1 : -1;
     return rows.sort((a, b) => {
+      if (col.order) return dir * (col.order(a) - col.order(b)) || a.rank - b.rank;
       const va = col.get(a);
       const vb = col.get(b);
       if (col.text) return dir * String(va).localeCompare(String(vb));
@@ -1065,6 +1100,7 @@
           }
         } else {
           td.textContent = v;
+          if (col.cls === "col-meta") td.dataset.col = col.id;
           if (col.id === "name") {
             appendEspnZero(td, row);
             // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
@@ -1083,7 +1119,7 @@
       tbody.appendChild(tr);
     });
     table.append(thead, tbody);
-    if (metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
+    if (expanded !== "table" && metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
       const wrap = $("v2TableWrap");
       if (wrap.scrollWidth > wrap.clientWidth + 1) { metaNoRoom = true; renderTable(true); return; }
     }
@@ -1098,6 +1134,7 @@
     $("v2TableMeta").textContent = `${rows.length} of ${view.rows.length} players · ranks ${lo}–${hi}${valueText}`
       + `${weeks.length === 1 ? ` · Week ${weeks[0]}` : ""}${hidden ? ` · ${hidden} column group${hidden === 1 ? "" : "s"} hidden` : ""}`
       + " · tint = above or below the ranking value";
+    if (expanded === "table") $("v2ExpandMeta").textContent = $("v2TableMeta").textContent;
   }
 
   // ---------- player detail (frame 13 drawer, frame 14 full screen) ----------
@@ -3987,6 +4024,7 @@
       else tab.removeAttribute("aria-current");
     });
     closePopover();
+    if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
     refresh();
   }
@@ -3995,6 +4033,7 @@
   function refreshValues() {
     collect();
     renderHeader();
+    renderFilterChips();
     renderEmpty();
     renderNotice();
     renderTable();
@@ -4005,7 +4044,7 @@
   function renderEmpty() {
     const empty = !view.visible.length;
     $("v2Empty").hidden = !empty;
-    $("v2Plot").hidden = empty;
+    $("v2Plot").hidden = empty && expanded !== "chart";   // the expanded chart keeps its brushes to widen again
     $("v2Chart").hidden = empty;
     $("v2TableCard").hidden = empty;
     if (!empty) return;
@@ -4051,26 +4090,166 @@
     if (valuesFrame) return;
     valuesFrame = requestAnimationFrame(() => { valuesFrame = 0; if (currentView() === "values") refreshValues(); });
   }
+  // JEG-483: the Show preset in force before a zoom or brush, so Reset zoom can return to it.
+  function rememberPreset() {
+    if (state.windowPreset !== "custom") state.zoomFrom = state.windowPreset;
+  }
+  // A Show preset (toolbar or the expanded chart's quick chips) ends any zoom.
+  function applyPreset(preset) {
+    state.windowPreset = preset;
+    state.zoomFrom = null;
+    state.rankZoom = false;
+    state.window = null;
+    state.shown = PAGE_SIZE;
+  }
   // A brush, zoom or exact ranks: Show becomes "Custom lo–hi".
   function setWindow(win) {
+    rememberPreset();
     state.window = win;
     state.windowPreset = "custom";
+    state.rankZoom = true;
     state.shown = PAGE_SIZE;
     scheduleValues();
   }
   // The value range (Y brush or "Set exact values") composes with the rank window; Show reads Custom.
+  // Clearing it while the rank window was never zoomed returns Show to the remembered preset.
   function setRange(range) {
+    const on = range.min !== null || range.max !== null;
+    if (on) rememberPreset();
     state.range = range;
-    if (range.min !== null || range.max !== null) state.windowPreset = "custom";
+    if (on) state.windowPreset = "custom";
+    else if (state.windowPreset === "custom" && !state.rankZoom) applyPreset(state.zoomFrom || SHOW_DEFAULT);
     state.shown = PAGE_SIZE;
     scheduleValues();
   }
+  // JEG-483 Reset zoom: undoes the zoom only (rank window and value range), back to the Show preset
+  // from before it. Search, position, sort, Δ and Rank by stay.
+  function resetZoom() {
+    state.range = {min: null, max: null};
+    applyPreset(state.zoomFrom || SHOW_DEFAULT);
+    refresh();
+  }
+  // Clears the rank window only; a value range stays.
+  function clearRankZoom() {
+    state.rankZoom = false;
+    state.window = null;
+    if (!view || !view.rangeOn) applyPreset(state.zoomFrom || SHOW_DEFAULT);
+    state.shown = PAGE_SIZE;
+    refresh();
+  }
+
+  // JEG-483: a chip per active filter next to the toolbar; each ✕ clears exactly that filter.
+  const trimNum = v => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+  function filterChips() {
+    const chips = [];
+    if (view.rangeOn) {
+      const lo = state.range.min ?? view.yScale.lo;
+      const hi = state.range.max ?? view.yScale.hi;
+      chips.push({id: "range", text: `Value ${trimNum(lo)}–${trimNum(hi)}`, clear: () => setRange({min: null, max: null})});
+    }
+    if (state.windowPreset === "custom" && state.rankZoom) {
+      chips.push({id: "ranks", text: `Ranks ${state.window[0]}–${state.window[1]}`, clear: clearRankZoom});
+    }
+    if (state.search.trim()) {
+      chips.push({id: "search", text: `Search: ${state.search.trim()}`, clear: () => {
+        state.search = ""; $("v2Search").value = ""; state.shown = PAGE_SIZE; refresh();
+      }});
+    }
+    if (view.state.position !== "ALL") {
+      chips.push({id: "position", text: `Position: ${view.state.position}`, clear: () => { C.setPosition("ALL"); refresh(); }});
+    }
+    return chips;
+  }
+  function renderFilterChips() {
+    const box = $("v2FilterChips");
+    const chips = filterChips();
+    box.replaceChildren();
+    chips.forEach(chip => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "v2-fchip";
+      b.dataset.chip = chip.id;
+      b.setAttribute("aria-label", `Clear filter ${chip.text}`);
+      b.append(document.createTextNode(`${chip.text} `));
+      const x = document.createElement("span");
+      x.setAttribute("aria-hidden", "true");
+      x.textContent = "✕";
+      b.appendChild(x);
+      b.addEventListener("click", () => {
+        chip.clear();
+        // Keep the keyboard near the chips: the first one left, else the search box.
+        requestAnimationFrame(() => (box.querySelector("button") || $("v2Search")).focus());
+      });
+      box.appendChild(b);
+    });
+    box.hidden = !chips.length;
+    // Reset zoom shows only while a zoom or brush has made Show Custom.
+    $("v2ResetZoom").hidden = state.windowPreset !== "custom";
+    document.querySelectorAll("#v2ExpandTools [data-xshow]").forEach(b => {
+      const on = b.dataset.xshow === state.windowPreset;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    $("v2AxisZoom").setAttribute("aria-pressed", String(state.axisZoom));
+    $("v2AxisZoom").textContent = `Y axis fits the value range · ${state.axisZoom ? "On" : "Off"}`;
+  }
+
+  // ---------- JEG-483 expanded chart / table ----------
+  // The live plot (or table box) moves into one overlay and back, so ids, listeners and state stay single:
+  // a brush in the expanded chart is the toolbar's brush. Desktop: a large panel over a scrim; below 768 px
+  // full screen, as the settings panels are.
+  let expandOpener = null;
+  let expandHome = null;   // {node, placeholder}
+  function openExpanded(kind) {
+    if (expanded) closeExpanded(true);
+    closePopover();
+    $("v2Tip").hidden = true;
+    const node = kind === "chart" ? $("v2Plot") : $("v2TableWrap");
+    expandOpener = kind === "chart" ? $("v2ExpandChart") : $("v2ExpandTable");
+    const placeholder = document.createElement("div");
+    placeholder.className = "v2-expand-placeholder";
+    placeholder.style.height = `${node.offsetHeight}px`;
+    node.before(placeholder);
+    expandHome = {node, placeholder};
+    expanded = kind;
+    const overlay = $("v2Expand");
+    overlay.dataset.kind = kind;
+    $("v2ExpandTitle").textContent = kind === "chart" ? "Trade value by player rank" : "All selected values";
+    $("v2ExpandMeta").textContent = kind === "chart" ? "Drag either brush or pick a range; the table and the toolbar follow." : "";
+    $("v2ExpandTools").hidden = kind !== "chart";
+    $("v2ExpandBody").appendChild(node);
+    overlay.hidden = false;
+    document.body.classList.add("v2-expand-open");
+    expandOpener.setAttribute("aria-expanded", "true");
+    if (kind === "chart") renderCharts(); else renderTable();
+    $("v2ExpandClose").focus();
+  }
+  function closeExpanded(silent) {
+    if (!expanded) return;
+    const kind = expanded;
+    expanded = null;
+    const {node, placeholder} = expandHome;
+    placeholder.replaceWith(node);
+    expandHome = null;
+    $("v2Expand").hidden = true;
+    document.body.classList.remove("v2-expand-open");
+    $("v2Tip").hidden = true;
+    if (currentView() === "values" && view) { if (kind === "chart") renderCharts(); else renderTable(); }
+    const opener = expandOpener;
+    expandOpener = null;
+    if (opener) {
+      opener.setAttribute("aria-expanded", "false");
+      if (!silent) opener.focus();
+    }
+  }
+
   // JEG-475: one Reset for search, position, Show, value range, sort and Δ. Rank by, sources,
   // columns and league settings are selections, not filters, and stay.
   function resetValues() {
     state.search = ""; $("v2Search").value = "";
     state.range = {min: null, max: null};
     state.windowPreset = SHOW_DEFAULT; state.window = null;
+    state.zoomFrom = null; state.rankZoom = false;
     state.sort = null; state.shown = PAGE_SIZE; state.delta = false;
     if (view && view.state.position !== "ALL") C.setPosition("ALL");
     if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);
@@ -4092,10 +4271,19 @@
     });
     $("v2Show").addEventListener("change", event => {
       if (event.target.value === "custom") return;
-      state.windowPreset = event.target.value;
-      state.shown = PAGE_SIZE;
+      applyPreset(event.target.value);
       refresh();
     });
+    // JEG-483: Reset zoom, expanded chart / table and their controls.
+    $("v2ResetZoom").addEventListener("click", () => { resetZoom(); requestAnimationFrame(() => $("v2ZoomIn").focus()); });
+    $("v2ExpandChart").addEventListener("click", () => openExpanded("chart"));
+    $("v2ExpandTable").addEventListener("click", () => openExpanded("table"));
+    $("v2ExpandClose").addEventListener("click", () => closeExpanded());
+    $("v2Expand").addEventListener("mousedown", event => { if (event.target === $("v2Expand")) closeExpanded(); });
+    document.querySelectorAll("#v2ExpandTools [data-xshow]").forEach(button => {
+      button.addEventListener("click", () => { applyPreset(button.dataset.xshow); refresh(); });
+    });
+    $("v2AxisZoom").addEventListener("click", () => { state.axisZoom = !state.axisZoom; refresh(); });
     $("v2More").addEventListener("click", openMore);
     $("v2Columns").addEventListener("click", openColumns);
     $("v2YExact").addEventListener("click", openRange);
@@ -4106,7 +4294,7 @@
       button.addEventListener("click", () => {
         const what = button.dataset.clear;
         if (what === "search") { state.search = ""; $("v2Search").value = ""; }
-        if (what === "range") state.range = {min: null, max: null};
+        if (what === "range") { setRange({min: null, max: null}); return; }
         if (what === "position") C.setPosition("ALL");
         state.shown = PAGE_SIZE;
         refresh();
@@ -4175,7 +4363,8 @@
     $("v2Scrim").addEventListener("click", () => { if (panelOpen) closePopover(); else closeDrawer(); });
     document.addEventListener("keydown", event => {
       if (event.key === "Tab") {
-        const box = !$("v2Popover").hidden && panelOpen ? $("v2Popover") : !$("v2Drawer").hidden ? $("v2Drawer") : null;
+        const box = !$("v2Popover").hidden && panelOpen ? $("v2Popover") : !$("v2Drawer").hidden ? $("v2Drawer")
+          : expanded ? $("v2Expand") : null;
         if (!box) return;
         const items = [...box.querySelectorAll("button, a[href], input, select, [tabindex='0']")]
           .filter(n => !n.disabled && n.offsetParent !== null);
@@ -4190,6 +4379,7 @@
       if (event.key !== "Escape") return;
       if (!$("v2Popover").hidden) closePopover();
       else if (!$("v2Drawer").hidden) closeDrawer();
+      else if (expanded) closeExpanded();
     });
     document.addEventListener("mousedown", event => {
       const pop = $("v2Popover");
@@ -4241,6 +4431,8 @@
     applyRoute();
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
       compare: () => compareView, tradeState: TR,
+      // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
+      chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
       // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
       shown: () => (ddfShown ? [DDF_KEY] : []).concat(C.getActiveSources()),

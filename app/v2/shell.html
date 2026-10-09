@@ -89,6 +89,8 @@
       <button type="button" class="v2-select" id="v2More" aria-haspopup="dialog" aria-expanded="false">More</button>
       <button type="button" class="v2-btn v2-reset" id="v2Reset">Reset</button>
     </div>
+    <!-- JEG-483: one chip per active filter; each ✕ clears only that filter. -->
+    <div class="v2-fchips" id="v2FilterChips" role="group" aria-label="Active filters" hidden></div>
     <p class="v2-filter-note" id="v2FilterNote" hidden></p>
     <div class="v2-notice" id="v2Notice" role="status" hidden>
       <p id="v2NoticeText"></p>
@@ -100,6 +102,7 @@
       <div class="v2-card-head v2-chart-head">
         <h2 id="v2ChartTitle">Trade value by player rank</h2>
         <div class="v2-legend" id="v2Legend"></div>
+        <button type="button" class="v2-select v2-yexact" id="v2YExact" aria-haspopup="dialog">Set exact values</button>
       </div>
       <div class="v2-empty" id="v2Empty" hidden>
         <p><span aria-hidden="true">∅</span> <b id="v2EmptyTitle">No players match.</b></p>
@@ -125,11 +128,12 @@
         <div class="v2-plot-main">
           <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
           <div class="v2-zoom" role="group" aria-label="Zoom">
+            <button type="button" class="v2-zoom-reset" id="v2ResetZoom" hidden>Reset zoom</button>
+            <button type="button" id="v2ExpandChart" aria-label="Expand chart" title="Expand chart" aria-haspopup="dialog">⤢</button>
             <button type="button" id="v2ZoomOut" aria-label="Zoom out">−</button>
             <button type="button" id="v2ZoomIn" aria-label="Zoom in">+</button>
           </div>
         </div>
-        <button type="button" class="v2-link v2-yexact" id="v2YExact" aria-haspopup="dialog">Set exact values</button>
         <div class="v2-brush">
           <div class="v2-brush-track" id="v2Brush">
             <svg class="v2-brush-overview" id="v2BrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
@@ -148,6 +152,7 @@
         <h2 id="v2TableTitle">All selected values</h2>
         <p class="v2-meta" id="v2TableMeta">—</p>
         <button type="button" class="v2-select" id="v2Columns" aria-haspopup="dialog" aria-expanded="false">Columns</button>
+        <button type="button" class="v2-select v2-texpand-btn" id="v2ExpandTable" aria-haspopup="dialog"><span aria-hidden="true">⤢</span> Expand</button>
       </div>
       <div class="v2-table-wrap" id="v2TableWrap">
         <table class="v2-table v2-vtable" id="v2Table"></table>
@@ -167,6 +172,31 @@
       </div>
       <div class="v2-chart v2-chart-small" id="v2VorpChart"></div>
     </section>
+
+    <!-- JEG-483: expanded chart or table. The live plot / table box moves in here while open, so every
+         control keeps one id and one state; it moves back on close. -->
+    <div class="v2-expand" id="v2Expand" hidden>
+      <div class="v2-expand-box" role="dialog" aria-modal="true" aria-labelledby="v2ExpandTitle">
+        <div class="v2-expand-head">
+          <div class="v2-expand-titles">
+            <h2 id="v2ExpandTitle">Trade value by player rank</h2>
+            <p class="v2-meta" id="v2ExpandMeta"></p>
+          </div>
+          <button type="button" class="v2-btn v2-panel-close" id="v2ExpandClose" aria-label="Close expanded view">✕</button>
+        </div>
+        <div class="v2-expand-tools" id="v2ExpandTools">
+          <div class="v2-xshow" role="group" aria-label="Show">
+            <button type="button" data-xshow="25">Top 25</button>
+            <button type="button" data-xshow="50">Top 50</button>
+            <button type="button" data-xshow="100">Top 100</button>
+            <button type="button" data-xshow="all">All</button>
+          </div>
+          <button type="button" class="v2-select" id="v2AxisZoom" aria-pressed="true">Y axis fits the value range · On</button>
+          <div class="v2-legend" id="v2ExpandLegend"></div>
+        </div>
+        <div class="v2-expand-body" id="v2ExpandBody"></div>
+      </div>
+    </div>
 
     <p class="v2-footnote">DDF Value is our value, built from the inputs you choose in Customize. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
