@@ -65,7 +65,11 @@ implementation follows the rule as written.
     at the scoring. The projection sections' `combos[...].native` values in
     `comparison-sources-data.json` are display-rounded copies (2-3 dp) and
     are not inputs: rounding there flips near-ties in the projected-points
-    order (lead ruling 2026-10-09, see "Spec rulings" below).
+    order (lead ruling 2026-10-09, see "Spec rulings" below). A player ESPN
+    marks ineligible (`espn_status` ineligible, no `espn_ppg`) is listed by
+    ESPN at native 0: he has an ESPN value and counts as 0 in `m` (JEG-496,
+    every ESPN-listed player gets a row). Only ESPN has this status; a null
+    per-game value from another projection means it does not list him.
   - *Trade charts* (`cbs`, `fantasycalc`, `fantasypros`, `usatoday`). Native
     = the publisher's trade value from the saved 12-team list at the scoring:
     the section's `combos["<scoring>_12"]` (`fantasycalc`: `_12_qb1`)
@@ -408,6 +412,7 @@ above left a choice. Each was settled here, and the text above now states it:
 
 - **Projection precision.** Full-precision per-game points, not the
   display-rounded section copies (VP-0).
+- **ESPN ineligible players.** Listed at 0 and counted as 0 in `m` (VP-0).
 - **Superflex overlay.** It sets every player it lists, adding players only
   it lists (VP-0).
 - **Prior week at superflex.** 1-QB natives, since no overlay is saved (VP-0).
