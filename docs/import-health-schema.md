@@ -150,7 +150,7 @@ stale, independent of the pipeline checkpoints' pass/fail status.
 - `ok` — snapshot exists, bytes match the manifest sha256, table (if any)
   matches, vintage is fresh. Week-designated charts are fresh when their
   content week is `>= nfl_week` (a source ahead of the others is fresh).
-- `warning` — non-blocking. Two producers:
+- `warning` — non-blocking. Three producers:
   - `LAGGING_ONE_WEEK (non-blocking): ...` (build-lag-001): a week-designated
     chart (fantasycalc, usatoday, fantasypros, cbs, cbsros) exactly one
     content week behind `nfl_week`. The build uses it, labelled with its own
@@ -159,6 +159,15 @@ stale, independent of the pipeline checkpoints' pass/fail status.
     missed window, or `stale` unverified schedule).
   - `TABLE_DRIFT` stamping lag: the table is fresher than the manifest. Not
     promotable.
+  - `COUNT_DRIFT (non-blocking): ...` (JEG-512, Jeremy 2026-10-09: "hold only
+    on big drops"): at the same vintage, the table's player count differs
+    from what the manifest implies, but no position (and not the total)
+    dropped more than 10% (`COUNT_DROP_HOLD_PCT`). Growth never holds.
+    Alert-only and promotable. Positions come from the table's position
+    column (`position`, Razzball `pos`) against the snapshot rows' `pos`;
+    ESPN and CBS ROS tables carry no position, so they check the total only.
+    A drop of more than 10% is a blocking `TABLE_DRIFT` failure naming the
+    position.
 - `stale` — the snapshot verified (bytes + table) but its content vintage is
   too old: a week-designated chart two or more weeks behind with no
   verified publication schedule, or ESPN more than 2 days from the check
@@ -183,7 +192,8 @@ stale, independent of the pipeline checkpoints' pass/fail status.
 | `LAGGING_ONE_WEEK` | build-lag-001, status `warning`, non-blocking: a week-designated chart exactly one content week behind. Always written as `LAGGING_ONE_WEEK (non-blocking): ...`, with the publication-window verdict appended. |
 | `MISSED_WINDOW` / `AWAITING_PUBLICATION` | Publication-window verdicts (`pipelines/lib/publication_windows.py`). Standalone only at two or more weeks behind (`red`, blocking); at one week behind they appear inside a `LAGGING_ONE_WEEK` reason. |
 | `BYTE_MISMATCH` | `snapshot.json` bytes differ from the manifest's sha256 — unverified bytes are never promoted. |
-| `TABLE_DRIFT` | The Supabase table's row count or unanimous vintage no longer matches the manifest — a partial or stale table is not treated as complete. |
+| `TABLE_DRIFT` | The Supabase table's row count or unanimous vintage no longer matches the manifest — a partial or stale table is not treated as complete. At the same vintage only a drop of more than 10% (total or any position) fails; smaller changes are `COUNT_DRIFT`. |
+| `COUNT_DRIFT` | JEG-512, status `warning`, non-blocking and promotable: a same-vintage player-count change with no position dropping more than 10%. Always written as `COUNT_DRIFT (non-blocking): ...`. |
 | `NO_VINTAGE` | No content vintage is derivable from the manifest — a vintage-less snapshot may never back fixture updates. |
 | `IMPORT_FAILED` | The verification itself could not run (e.g. Supabase re-query error, unreadable snapshot, missing file ref for a gap source). |
 | `RAZZBALL_STALE` | Razzball only (JEG-307): the snapshot directory is older than the freshness window (`age_days > 2` warn, `> 6` bad). The DB landing can still be fresh; this entry watches the snapshot itself (written when Razzball had no CI puller, GAP-024). |
@@ -219,7 +229,8 @@ are written once per scoring (standard/half_ppr/ppr) from the single published
 - **No fixture update (`match`/`reference`/`section`/`promote`) may run on a
   red health check.** Promotion is wired to this contract for the seven active
   raw sources: `promote_comparison_section.py` refuses when the source entry is
-  neither `ok` nor a `LAGGING_ONE_WEEK` warning (`entry_is_promotable`), when
+  neither `ok` nor a `LAGGING_ONE_WEEK` or `COUNT_DRIFT` warning
+  (`entry_is_promotable`), when
   the candidate lacks immutable `content_vintage` provenance, or when the
   candidate vintage differs from the fresh L1 vintage. A lagging source is
   therefore promoted under its own week, never relabelled. Earlier

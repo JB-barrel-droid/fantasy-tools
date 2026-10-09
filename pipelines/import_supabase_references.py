@@ -469,7 +469,10 @@ def scope_superflex_rows(
 # from native_value (build_comparison_source_section), so such a row is
 # priced by its native_value here instead of going to review, like the
 # superflex rows below. Other sources keep the strict rule.
-NATIVE_PRICED_SOURCES = ("usatoday",)
+# JEG-512: save_fantasycalc_references calls the same apply_reindex, so it
+# stores the same NULL-value rows (Tyreek Hill, bake fcwk5_2026-10-09t1705);
+# left strict, they went to review and import health held FantasyCalc.
+NATIVE_PRICED_SOURCES = ("usatoday", "fantasycalc")
 
 
 def native_priced(source: str, row: dict[str, Any]) -> dict[str, Any]:
