@@ -903,6 +903,8 @@
   // JEG-210: the user's source selection before entering a non-indexed view,
   // restored when they return to Indexed.
   let savedActiveSourcesForView = null;
+  // The curves the user hid in the Indexed selection, parked with it.
+  let savedUserDeselectedForView = null;
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -5367,7 +5369,9 @@
     // user will return to instead -- same regression power, right set.
     const indexedSelection = viewMode === "indexed"
       ? activeSources : (savedActiveSourcesForView || activeSources);
-    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, indexedSelection, userDeselectedSources, firstLoadExcluded);
+    const indexedHidden = viewMode === "indexed"
+      ? userDeselectedSources : (savedUserDeselectedForView || userDeselectedSources);
+    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, indexedSelection, indexedHidden, firstLoadExcluded);
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
@@ -5411,14 +5415,24 @@
       const selected = tab.dataset.viewMode === mode;
       tab.setAttribute("aria-selected", selected ? "true" : "false");
     });
+    // The Indexed selection and the curves the user hid in it travel
+    // together: parked while another view shows its own set, restored on
+    // return. Clearing the hidden set while parking (before 2026-10-09) made
+    // the defaultGroupedSources guard read every default the user had hidden
+    // (v2 hides ESPN and the *_adjusted curves) as a vanished default and
+    // throw on the first view switch.
     if (mode === "indexed") {
       if (savedActiveSourcesForView) {
         activeSources = savedActiveSourcesForView;
         savedActiveSourcesForView = null;
-        userDeselectedSources = new Set();
+        userDeselectedSources = savedUserDeselectedForView || new Set();
+        savedUserDeselectedForView = null;
       }
     } else {
-      if (!savedActiveSourcesForView) savedActiveSourcesForView = new Set(activeSources);
+      if (!savedActiveSourcesForView) {
+        savedActiveSourcesForView = new Set(activeSources);
+        savedUserDeselectedForView = new Set(userDeselectedSources);
+      }
       const viewKeys = [...AS_PUBLISHED_KEYS].filter(key => sourceHasVorpView(key));
       if (viewKeys.length) {
         activeSources = new Set(viewKeys);
