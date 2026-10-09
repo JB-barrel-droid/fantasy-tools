@@ -1978,6 +1978,33 @@
     return adjusted;
   }
 
+  // JEG-493: the ESPN anchor IS the live two-tier at the active setting
+  // (ddfTwoTierValues), read directly -- the same rule cbsros/razzball follow
+  // in adjustedMapFor. It used to go through the OLS cells (alpha + beta *
+  // published), but the fixture's ESPN section is the 12-team leg at every
+  // team count, so at 14 teams the bench reached players the 12-team leg
+  // prices at 0.0 and every one of them landed on the bench cell's intercept
+  // (ppr/14 RB: Juszczyk 2.29 ppg and Dillon 4.71 ppg both 2.73; up to 2.7 off
+  // the 14-team leg). Membership is unchanged: players the fixture lists that
+  // the live pool rosters (starter or bench) at a position that calibrated.
+  // At 0.15 this is exactly the built leg at every team count. Returns null
+  // when the live two-tier is unavailable (caller falls back to the fixture).
+  function liveEspnAnchorValues() {
+    const ddf = ddfTwoTierValues();
+    if (!ddf) return null;
+    const values = new Map();
+    buildPublishedSourceMap("espn").forEach((_, playerKey) => {
+      const pos = ddf.posOf.get(playerKey);
+      if (!canonicalByKey.get(playerKey) || !pos) return;
+      const cal = ddf.calibration[pos];
+      if (!cal || cal.invalid) return; // withheld, never guessed
+      if (!ddf.starters.has(playerKey) && !ddf.bench.has(playerKey)) return;
+      const value = ddf.values.get(playerKey);
+      if (Number.isFinite(value)) values.set(playerKey, Math.max(0, value));
+    });
+    return values.size ? values : null;
+  }
+
   function adjustedMapFor(key) {
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
     // DDF-native sources (cbsros, razzball): their "adjusted" map IS the
@@ -2565,15 +2592,13 @@
     rowFallbackCache = new Map();
     nativeSourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
-    // 2026-10-01: the anchor (espn) re-prices live on the bench-share slider
-    // via its refit cells. At the 0.15 reference share the cells are identity
-    // and this reproduces the baked fixture leg (pinned regression test).
+    // 2026-10-01: the anchor (espn) re-prices live on the bench-share slider.
+    // JEG-493: it is the live two-tier read directly (liveEspnAnchorValues),
+    // which at the 0.15 reference share is the built leg at every team count
+    // (tests/test_espn_anchor_matches_leg.py).
     buildEspnRows();
     espnRoleByKey = espnTierMap();
-    const espnLiveCells = adjustmentCellsFor("espn");
-    const espnAnchorValues = espnLiveCells
-      ? buildLiveAdjustedMap("espn", espnLiveCells)
-      : buildEspnIndexedMap();
+    const espnAnchorValues = liveEspnAnchorValues() || buildEspnIndexedMap();
     const anchorMap = applyRosterShape(espnAnchorValues, "espn");
     sourceMaps.set("espn", anchorMap);
     anchorVersion += 1;
