@@ -13,9 +13,13 @@ permissions:
   pages: write
   id-token: write
 
+# A running deploy always finishes; GitHub keeps only the newest pending run,
+# which deploys next. cancel-in-progress: true starved the site on 2026-10-09:
+# bot and agent commits landed faster than a ~15-minute deploy, so every run
+# was cancelled and nothing went live for hours.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
