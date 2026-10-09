@@ -1165,7 +1165,7 @@ and is the largest single move in the JEG-508 pipeline, and it is silent.
 
 **Options.** (a) Keep OC-2 A and accept the flattening. (b) OC-2 D / OC-9 A:
 the expected-starts parts (`docs/methodology.md` ES-5) replace the slices;
-the bench share becomes the pie paid on fill-in parts (4.7% to 5.5%). (c)
+the bench share becomes the pie paid on fill-in parts (5.0% to 6.1%). (c)
 Keep the slices and fix the budget (OC-9 B).
 
 **Depends on:** nothing. It feeds OC-2, OC-3 and `es-value-001`.
@@ -1208,8 +1208,8 @@ convex form `avail x E[(X - w)^+ lineup(X)]` prices both. Should the upside be
 in the pie, or a separate signal?
 
 **Why it matters.** Measured (ES-8.1): the convex form gives a bench-tier
-share of 10.6% to 13.9% and a starter/bench price of 0.6x to 1.9x against
-7.8% to 9.8% and 1.1x to 3.8x for the share form; near the line it values a
+share of 10.8% to 14.1% and a starter/bench price of 0.6x to 1.9x against
+8.0% to 9.9% and 1.1x to 3.5x for the share form; near the line it values a
 player above his whole surplus, and it is driven by `sigma`, the least
 measured input.
 
@@ -1282,10 +1282,11 @@ measured. (c) Position-specific weekly noise in the Stash signal.
 
 ## MR-24 - More seasons for the hazard and noise estimates (Jeremy, JEG-525)
 
-**Question.** The missed-game hazard and weekly noise use 2024-2025 (443 to
+**Question.** The missed-game hazard and weekly noise used 2024-2025 (443 to
 1,559 team games per position). Jeremy: 5-10 seasons would add much more
-significance. nflverse's public weekly stats (2015 on) are reachable from
-the build container.
+significance. Done 2026-10-09: nflverse 2015-2025 added (ES-A), the hazard
+now pools 2,319 to 8,128 team games per position; RB moved from 10.0% to
+15.3%, the others by about 1 point.
 
 **Options.** (a) Add 2015-2025 from nflverse as a second actuals file keyed
 by nflverse player id, and let the derivation pool it. (b) Keep two seasons.

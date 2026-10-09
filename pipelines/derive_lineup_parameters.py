@@ -20,6 +20,14 @@ Nothing here is assumed. Every number is measured from files in the repo:
       line; no row in a week his team played is a missed game.
   data/inputs/nfl_schedule_2024_2026.json    the weeks each team plays, per
       season (public.games). The missing week is the bye.
+  data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz and
+  data/inputs/nfl_schedule_2015_2025.json    the same two things for 2015-2025
+      from nflverse's public weekly stats (stats_player_week_<year>.csv and
+      games.csv, 2026-10-09; MR-24). Keyed by nflverse player id, not
+      player_key, so they serve the hazard and noise estimates only. A
+      played-but-scoreless game is a 0-point row there, so it counts as
+      played. The hazard is pooled over these eleven seasons; the Supabase
+      file's 2024-2025 is reported beside it as a cross-check.
   data/inputs/nfl_byes_2026.json             the 2026 bye table (cross-checked
       against the schedule by tests/test_derive_lineup_parameters.py).
   data/fixtures/current/players.json         this week's per-game projections
@@ -36,8 +44,9 @@ MIN_GAMES games), keeping only players who played their team's last game in
 W_sel ("healthy at valuation"; a player already out is priced by the
 projections, not by m). The top S_p are the starters and the next b_p the
 bench, where S_p / b_p are the 12-team allocation counts (ES-2). Over the
-measurement window weeks k+1..17 (week 18 is excluded: starters rest), a team
-game with no stat line is a missed game. m_pos = missed / team games, pooled
+measurement window weeks k+1 to the season's last week minus one (the final
+week is excluded: contenders rest starters), a team game with no stat line is
+a missed game. m_pos = missed / team games, pooled
 over seasons and windows, with a normal-approximation 95% interval. The
 split into temporary (he played again later) and season-ending absences is
 reported. Selecting on the past and measuring on the future avoids survivor
@@ -90,6 +99,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 ACTUALS = REPO / "data" / "inputs" / "weekly_actuals_2024_2026.csv"
 SCHEDULE = REPO / "data" / "inputs" / "nfl_schedule_2024_2026.json"
+HISTORY_ACTUALS = REPO / "data" / "inputs" / "weekly_actuals_nflverse_2015_2025.csv.gz"
+HISTORY_SCHEDULE = REPO / "data" / "inputs" / "nfl_schedule_2015_2025.json"
 BYES = REPO / "data" / "inputs" / "nfl_byes_2026.json"
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
 HISTORY = REPO / "data" / "history"
@@ -110,9 +121,10 @@ FLEX = 1
 BENCH = 6
 BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 MIN_GAMES = 3
-LAST_MEASURED_WEEK = 17  # week 18: contenders rest starters
+LAST_MEASURED_WEEK = 17  # week 18: contenders rest starters (18-week seasons)
 SELECTION_WINDOWS = ((1, 5), (1, 9))
 SEASONS = (2024, 2025)
+HISTORY_SEASONS = tuple(range(2015, 2026))
 MAD_TO_SD = 1.4826
 MIN_PPG_FOR_MOVEMENT = 5.0
 
@@ -160,6 +172,23 @@ def load_actuals(path=ACTUALS) -> list:
                     "pos": r["pos"], "team": r["team"],
                     "pts": {"standard": float(r["std"]), "half_ppr": float(r["half_ppr"]), "ppr": float(r["ppr"])}})
     return out
+
+
+def load_actuals_nflverse(path=HISTORY_ACTUALS) -> list:
+    """The 2015-2025 nflverse export (gzip CSV: season, week, player_id, name,
+    pos, team, std, half_ppr, ppr). player_key is the nflverse id (a string)."""
+    import gzip
+    with gzip.open(path, "rt", encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    return [{"season": int(r["season"]), "week": int(r["week"]), "player_key": r["player_id"],
+             "pos": r["pos"], "team": r["team"],
+             "pts": {"standard": float(r["std"]), "half_ppr": float(r["half_ppr"]), "ppr": float(r["ppr"])}}
+            for r in rows]
+
+
+def last_measured_week(schedule: dict, season: int) -> int:
+    """The season's final week minus one (16 for 2015-2020, 17 from 2021)."""
+    return max(w for weeks in schedule[season].values() for w in weeks) - 1
 
 
 def load_schedule(path=SCHEDULE) -> dict:
@@ -244,17 +273,19 @@ def missed_game_rates(actuals, schedule, season, select_window, measure_window, 
 
 
 def pooled_rates(actuals, schedule, sizes, seasons=SEASONS, windows=SELECTION_WINDOWS,
-                 last_week=LAST_MEASURED_WEEK, scoring="ppr") -> dict:
+                 last_week=None, scoring="ppr") -> dict:
     """m_pos pooled over seasons and selection windows, per group, with a
-    normal-approximation 95% interval and the per-cell detail."""
+    normal-approximation 95% interval and the per-cell detail. last_week None
+    = each season's final week minus one (last_measured_week)."""
     cells = []
     acc = {pos: {g: Counter() for g in ("starters", "bench", "rostered")} for pos in POSITIONS}
     for season in seasons:
         if season not in schedule:
             continue
+        last = last_week if last_week is not None else last_measured_week(schedule, season)
         for lo, hi in windows:
-            r = missed_game_rates(actuals, schedule, season, (lo, hi), (hi + 1, last_week), sizes, scoring)
-            cells.append({"season": season, "select": [lo, hi], "measure": [hi + 1, last_week],
+            r = missed_game_rates(actuals, schedule, season, (lo, hi), (hi + 1, last), sizes, scoring)
+            cells.append({"season": season, "select": [lo, hi], "measure": [hi + 1, last],
                           "rates": {pos: {g: r[pos][g]["rate"] for g in r[pos]} for pos in POSITIONS}})
             for pos in POSITIONS:
                 for g in acc[pos]:
@@ -392,7 +423,9 @@ def weekly_noise(actuals, schedule, sizes, seasons=SEASONS, scoring="ppr") -> di
     for pos in POSITIONS:
         cvs = []
         for season in seasons:
-            pts, _ = _player_weeks(actuals, season, 1, LAST_MEASURED_WEEK, scoring)
+            if season not in schedule:
+                continue
+            pts, _ = _player_weeks(actuals, season, 1, last_measured_week(schedule, season), scoring)
             cands = sorted(((k, v) for k, v in pts.items() if k[1] == pos and len(v) >= 6),
                            key=lambda kv: -statistics.mean(kv[1].values()))[:sizes[pos]["starters"]]
             for _, v in cands:
@@ -407,18 +440,25 @@ def weekly_noise(actuals, schedule, sizes, seasons=SEASONS, scoring="ppr") -> di
 # --------------------------------------------------------------------------- recommend
 
 
-def recommend(m: dict, cross: dict, movement_summary: dict, byes: dict) -> dict:
-    """The parameters the spec uses, each with its source named."""
+def recommend(m: dict, cross: dict, movement_summary: dict, byes: dict, m_history: dict | None = None) -> dict:
+    """The parameters the spec uses, each with its source named. With
+    m_history (the 2015-2025 pooled rates) the hazard comes from it and the
+    recent two seasons are reported as m_recent."""
     rec = {}
     for pos in POSITIONS:
-        starters = m["pooled"][pos]["starters"]
-        rostered = m["pooled"][pos]["rostered"]
+        recent = m["pooled"][pos]["starters"]
+        use = (m_history or m)["pooled"][pos]
+        starters, rostered = use["starters"], use["rostered"]
         cs = cross[pos]
         mv = movement_summary.get(pos) or {}
         rec[pos] = {
             "m": starters["rate"],
-            "m_source": "healthy starters, 2024-2025, selection weeks 1-5 and 1-9, measured to week 17",
+            "m_source": ("healthy starters, 2015-2025 (nflverse), selection weeks 1-5 and 1-9, measured to the "
+                         "season's last week minus one" if m_history else
+                         "healthy starters, 2024-2025 (Supabase), selection weeks 1-5 and 1-9, measured to week 17"),
             "m_ci95": starters["ci95"],
+            "m_games": starters["games"],
+            "m_recent": recent["rate"],
             "m_rostered": rostered["rate"],
             "sigma_rel_now": cs["sigma_rel"],
             "sigma_rel_drift": mv.get("horizon_rel_sd"),
@@ -449,22 +489,34 @@ def render_report(doc: dict) -> str:
     L.append("")
     L.append("## Recommended parameters")
     L.append("")
-    L.append("| Position | m (healthy starters) | 95% interval | m, all rostered | sigma now (spread) "
-             "| sigma drift (to mid-window) | sigma used | sigma floor (ppg) |")
-    L.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    L.append("| Position | m (healthy starters) | 95% interval | team games | m, 2024-2025 only | m, all rostered | "
+             "sigma now (spread) | sigma drift (to mid-window) | sigma used | sigma floor (ppg) |")
+    L.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for pos in POSITIONS:
         r = rec[pos]
         ci = r["m_ci95"]
-        L.append(f"| {pos} | {_pct(r['m'])} | {_pct(ci[0])} to {_pct(ci[1])} | {_pct(r['m_rostered'])} | "
-                 f"{_pct(r['sigma_rel_now'])} | {_pct(r['sigma_rel_drift'])} | {_pct(r['sigma_rel'])} | "
-                 f"{r['sigma_floor']:.2f} |")
+        L.append(f"| {pos} | {_pct(r['m'])} | {_pct(ci[0])} to {_pct(ci[1])} | {r['m_games']:,} | {_pct(r['m_recent'])} | "
+                 f"{_pct(r['m_rostered'])} | {_pct(r['sigma_rel_now'])} | {_pct(r['sigma_rel_drift'])} | "
+                 f"{_pct(r['sigma_rel'])} | {r['sigma_floor']:.2f} |")
+    L.append("")
+    L.append(f"m source: {rec['QB']['m_source']}.")
+    if doc.get("missed_games_history"):
+        L.append("")
+        L.append("## Missed-game hazard of healthy starters by season (nflverse, 2015-2025)")
+        L.append("")
+        L.append("| Season | Selected on | Measured | QB | RB | WR | TE |")
+        L.append("| --- | --- | --- | --- | --- | --- | --- |")
+        for c in doc["missed_games_history"]["cells"]:
+            s_ = c["rates"]
+            L.append(f"| {c['season']} | weeks {c['select'][0]}-{c['select'][1]} | weeks {c['measure'][0]}-{c['measure'][1]} | "
+                     + " | ".join(_pct(s_[p]["starters"]) for p in POSITIONS) + " |")
     b = doc["bye_share"]
     L.append("")
     L.append(f"Bye share of remaining team-weeks: {_pct(b['share'])} "
              f"({b['teams_with_bye_in_window']} of {b['teams']} teams have a bye in weeks "
              f"{b['first_week']}-{b['last_week']}, {b['weeks']} weeks).")
     L.append("")
-    L.append("## Missed-game hazard by cell (rate of team games with no stat line)")
+    L.append("## Missed-game hazard by cell, 2024-2025 Supabase export (rate of team games with no stat line)")
     L.append("")
     L.append("| Season | Selected on | Measured | QB starters | RB starters | WR starters | TE starters "
              "| QB rostered | RB rostered | WR rostered | TE rostered |")
@@ -512,7 +564,7 @@ def render_report(doc: dict) -> str:
     L.append("The ESPN median shifts of about 20% between weeks 3, 4 and 5 are the GAP-GAMES-REMAINING-STALE "
              "denominator, not projection changes; demeaning removes them.")
     L.append("")
-    L.append("## Realized weekly noise of starters (2024-2025, sd over mean of weekly points)")
+    L.append("## Realized weekly noise of starters (sd over mean of weekly points; 2015-2025 when the history file is present)")
     L.append("")
     L.append("| Position | Median | Players |")
     L.append("| --- | --- | --- |")
@@ -528,7 +580,8 @@ def render_report(doc: dict) -> str:
 # --------------------------------------------------------------------------- main
 
 
-def derive(actuals, schedule, byes_doc, players, history, teams=12, scoring="ppr", content_week=None) -> dict:
+def derive(actuals, schedule, byes_doc, players, history, teams=12, scoring="ppr", content_week=None,
+           history_actuals=None, history_schedule=None) -> dict:
     sizes = pool_sizes(teams)
     if content_week is None:
         content_week = max(history) if history else 5
@@ -536,18 +589,26 @@ def derive(actuals, schedule, byes_doc, players, history, teams=12, scoring="ppr
     last_week = byes_doc["regular_season_weeks"][1]
     byes = bye_share(byes_doc["byes"], first_ros, last_week)
     m = pooled_rates(actuals, schedule, sizes, scoring=scoring)
+    m_history = None
+    if history_actuals is not None and history_schedule is not None:
+        m_history = pooled_rates(history_actuals, history_schedule, sizes, seasons=HISTORY_SEASONS, scoring=scoring)
     cross = cross_source_sigma(players, sizes, scoring)
     pos_of = {p["player_key"]: p["pos"] for p in players}
     movement = week_to_week_sigma(history, pos_of, SCORINGS.index(scoring))
     horizon = (last_week - first_ros + 1) / 2.0
     movement_summary = summarize_movement(movement, horizon)
-    noise = weekly_noise(actuals, schedule, sizes, scoring=scoring)
-    rec = recommend(m, cross, movement_summary, byes)
+    if history_actuals is not None and history_schedule is not None:
+        noise = weekly_noise(history_actuals, history_schedule, sizes, seasons=HISTORY_SEASONS, scoring=scoring)
+    else:
+        noise = weekly_noise(actuals, schedule, sizes, scoring=scoring)
+    rec = recommend(m, cross, movement_summary, byes, m_history)
     return {"schema": SCHEMA, "content_week": content_week, "teams": teams, "scoring": scoring,
             "pool_sizes": sizes, "recommended": rec, "bye_share": byes, "missed_games": m,
+            "missed_games_history": m_history,
             "cross_source": cross, "week_to_week": movement, "week_to_week_summary": movement_summary,
             "weekly_noise": noise,
             "inputs": {"actuals": str(ACTUALS.relative_to(REPO)), "schedule": str(SCHEDULE.relative_to(REPO)),
+                       "history_actuals": str(HISTORY_ACTUALS.relative_to(REPO)) if history_actuals is not None else None,
                        "players": str(PLAYERS.relative_to(REPO)), "history_weeks": sorted(history)}}
 
 
@@ -566,7 +627,11 @@ def main(argv=None) -> int:
     byes_doc = json.loads(BYES.read_text(encoding="utf-8"))
     players = json.loads(PLAYERS.read_text(encoding="utf-8"))["players"]
     history = load_history()
-    doc = derive(actuals, schedule, byes_doc, players, history, args.teams, args.scoring, args.content_week)
+    hist_act = hist_sched = None
+    if HISTORY_ACTUALS.exists() and HISTORY_SCHEDULE.exists():
+        hist_act, hist_sched = load_actuals_nflverse(), load_schedule(HISTORY_SCHEDULE)
+    doc = derive(actuals, schedule, byes_doc, players, history, args.teams, args.scoring, args.content_week,
+                 hist_act, hist_sched)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(doc, indent=1, sort_keys=True), encoding="utf-8")
     args.report.parent.mkdir(parents=True, exist_ok=True)

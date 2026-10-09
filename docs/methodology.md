@@ -487,18 +487,22 @@ each week from the repo's data; the engine reads them from
 `config/lineup_parameters.json` (generated, committed, pinned by tests). A
 change to them is a value change and is reviewed as one.
 
-| Position | m, missed-game hazard | 95% interval | sigma now (source spread) | sigma drift (to mid-window) | sigma used | sigma floor (points per game) |
-| --- | --- | --- | --- | --- | --- | --- |
-| QB | 9.9% | 7.1% to 12.7% | 14.0% | 11.6% | 18.2% | 0.69 |
-| RB | 10.0% | 8.2% to 11.8% | 11.1% | 27.9% | 30.0% | 0.89 |
-| WR | 13.0% | 11.4% to 14.7% | 12.3% | 28.2% | 30.8% | 1.01 |
-| TE | 15.9% | 12.5% to 19.3% | 8.1% | 35.3% | 36.2% | 0.64 |
+| Position | m, missed-game hazard | 95% interval | team games | m, 2024-2025 only | sigma now (source spread) | sigma drift (to mid-window) | sigma used | sigma floor (points per game) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| QB | 11.0% | 9.8% to 12.3% | 2,319 | 9.9% | 14.0% | 11.6% | 18.2% | 0.69 |
+| RB | 15.3% | 14.4% to 16.2% | 5,816 | 10.0% | 11.1% | 27.9% | 30.0% | 0.89 |
+| WR | 11.7% | 11.0% to 12.4% | 8,128 | 13.0% | 12.3% | 28.2% | 30.8% | 1.01 |
+| TE | 14.4% | 13.0% to 15.8% | 2,331 | 15.9% | 8.1% | 35.3% | 36.2% | 0.64 |
 
 - `m_p`: the share of team games a healthy starter at `p` misses. From
-  `data/inputs/weekly_actuals_2024_2026.csv` (ES-A): players in the 12-team
-  starter pool by points per game over weeks 1-5 or 1-9 who played their
-  team's last game of that window; measured on weeks k+1 to 17, pooled over
-  2024 and 2025 (443 to 1,559 team games per position).
+  `data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz` (ES-A; MR-24):
+  players in the 12-team starter pool by points per game over weeks 1-5 or
+  1-9 who played their team's last game of that window; measured on weeks
+  k+1 to the season's last week minus one, pooled over 2015 to 2025 (2,319
+  to 8,128 team games per position). The 2024-2025 Supabase export gives the
+  "2024-2025 only" column as a cross-check; it agrees within 2 points
+  except RB, where those two seasons were unusually healthy (10.0% against
+  15.3% over eleven).
 - `b`: the bye share of the remaining team-weeks, from
   `data/inputs/nfl_byes_2026.json` and the content week: 30 of 32 teams have a
   bye in weeks 6-18, so `b = 30 / (32 x 13) = 7.2%` at Week 5. It falls as
@@ -571,8 +575,8 @@ VP-3 to VP-7 then run unchanged with `ssl := sw` and `bsl := fi`: group
 totals, per-source weights, the DDF average of weights, the pie, the rates,
 `A_i = r[p, bench] x fi_i + r[p, starter] x sw_i`, VORP vs waivers display,
 rows, DDF Value, Indexed, tiers. The bench share becomes an output: the sum
-of the bench-group weights (the pie paid on fill-in parts, 4.7% to 5.5% this
-week) and, in diagnostics, the pie held by bench-tier players (7.8% to 9.8%).
+of the bench-group weights (the pie paid on fill-in parts, 5.0% to 6.1% this
+week) and, in diagnostics, the pie held by bench-tier players (8.0% to 9.9%).
 The slider (VP-3.4) stays as the reader's override on these groups. OC-2 is
 therefore answered "source-implied, from expected starts", and OC-3 "parts by
 expected starts, continuous in the native, never reordering a source's
@@ -590,24 +594,24 @@ value per point above waivers, starters over bench tier, QB / RB / WR / TE).
 
 | Setting | Bench tier, before | after A | after B | after A, option form | Price before | Price after A |
 | --- | --- | --- | --- | --- | --- | --- |
-| standard/8 | 13.8% | 9.4% | 9.1% | 13.4% | 1.0 / 1.6 / 0.7 / 1.0 | 1.2 / 3.1 / 1.7 / 1.2 |
-| standard/10 | 14.5% | 9.2% | 8.9% | 12.7% | 1.0 / 1.0 / 0.9 / 1.1 | 1.2 / 2.1 / 2.3 / 1.4 |
-| standard/12 | 14.0% | 7.8% | 7.3% | 10.9% | 1.4 / 1.1 / 1.1 / 0.8 | 2.3 / 2.4 / 2.6 / 1.5 |
-| standard/14 | 14.7% | 8.1% | 7.2% | 10.6% | 1.1 / 0.9 / 0.8 / 0.7 | 2.1 / 2.1 / 1.8 / 1.6 |
-| half_ppr/8 | 14.0% | 9.3% | 9.1% | 13.6% | 1.0 / 1.7 / 0.8 / 1.0 | 1.2 / 3.8 / 1.7 / 1.2 |
-| half_ppr/10 | 14.2% | 9.1% | 8.9% | 12.7% | 1.0 / 1.2 / 0.8 / 1.1 | 1.2 / 2.4 / 1.9 / 1.3 |
-| half_ppr/12 | 14.1% | 8.0% | 8.2% | 11.3% | 1.5 / 1.3 / 1.0 / 0.8 | 2.2 / 2.7 / 2.3 / 1.1 |
-| half_ppr/14 | 14.5% | 8.1% | 7.2% | 10.7% | 1.1 / 1.2 / 0.8 / 0.7 | 2.1 / 2.0 / 2.1 / 1.3 |
-| ppr/8 | 14.5% | 9.8% | 9.4% | 13.9% | 1.0 / 1.6 / 0.9 / 1.0 | 1.2 / 3.0 / 1.6 / 1.1 |
-| ppr/10 | 14.0% | 8.5% | 8.3% | 12.2% | 1.0 / 1.5 / 0.8 / 1.9 | 1.2 / 2.6 / 2.3 / 2.2 |
-| ppr/12 | 14.8% | 8.5% | 8.5% | 11.9% | 1.5 / 1.0 / 1.0 / 0.8 | 2.3 / 1.7 / 2.8 / 1.4 |
-| ppr/14 | 14.1% | 8.0% | 7.2% | 10.7% | 1.2 / 1.2 / 0.8 / 0.6 | 2.1 / 2.1 / 2.0 / 1.1 |
+| standard/8 | 13.8% | 9.6% | 9.2% | 13.7% | 1.0 / 1.6 / 0.7 / 1.0 | 1.2 / 2.8 / 1.7 / 1.2 |
+| standard/10 | 14.5% | 9.5% | 9.1% | 13.0% | 1.0 / 1.0 / 0.9 / 1.1 | 1.2 / 2.0 / 2.3 / 1.4 |
+| standard/12 | 14.0% | 8.0% | 7.5% | 11.1% | 1.4 / 1.1 / 1.1 / 0.8 | 2.3 / 2.2 / 2.7 / 1.5 |
+| standard/14 | 14.7% | 8.3% | 7.4% | 10.8% | 1.1 / 0.9 / 0.8 / 0.7 | 2.1 / 1.9 / 1.9 / 1.6 |
+| half_ppr/8 | 14.0% | 9.6% | 9.2% | 13.8% | 1.0 / 1.7 / 0.8 / 1.0 | 1.2 / 3.5 / 1.7 / 1.2 |
+| half_ppr/10 | 14.2% | 9.4% | 9.0% | 12.9% | 1.0 / 1.2 / 0.8 / 1.1 | 1.2 / 2.1 / 1.9 / 1.3 |
+| half_ppr/12 | 14.1% | 8.2% | 8.3% | 11.5% | 1.5 / 1.3 / 1.0 / 0.8 | 2.2 / 2.5 / 2.4 / 1.1 |
+| half_ppr/14 | 14.5% | 8.3% | 7.4% | 10.9% | 1.1 / 1.2 / 0.8 / 0.7 | 2.1 / 1.9 / 2.1 / 1.3 |
+| ppr/8 | 14.5% | 9.9% | 9.5% | 14.1% | 1.0 / 1.6 / 0.9 / 1.0 | 1.2 / 2.8 / 1.6 / 1.1 |
+| ppr/10 | 14.0% | 8.7% | 8.5% | 12.4% | 1.0 / 1.5 / 0.8 / 1.9 | 1.2 / 2.5 / 2.4 / 2.2 |
+| ppr/12 | 14.8% | 8.6% | 8.6% | 12.0% | 1.5 / 1.0 / 1.0 / 0.8 | 2.2 / 1.6 / 2.9 / 1.4 |
+| ppr/14 | 14.1% | 8.2% | 7.4% | 10.8% | 1.2 / 1.2 / 0.8 / 0.6 | 2.1 / 2.0 / 2.0 / 1.1 |
 
 - Sensitivity at 12-team full PPR (option A): `m` at 0.5x to 1.5x gives
-  8.1% to 8.9%; `sigma` at 0x to 1.5x gives 8.0% to 8.9%; the first-pass
-  assumptions give 8.7%; the fill-in-only bound is 8.0% and plain value above
-  waivers (bench starts every week) 13.1%. Top-12 share of the RB pie: 56.7%
-  (before 52.0%); WR 48.4% (39.2%).
+  8.2% to 9.0%; `sigma` at 0x to 1.5x gives 8.1% to 9.1%; the first-pass
+  assumptions give 8.7%; the fill-in-only bound is 8.1% and plain value above
+  waivers (bench starts every week) 13.1%. Top-12 share of the RB pie: 56.1%
+  (before 52.0%); WR 48.5% (39.2%).
 - The VP slices as written (OC-2 A, source-implied) imply a bench share of
   42% at 12-team full PPR, 49% at 8-team standard and 39% at 14-team half
   PPR on live data (QB 47%, RB 42%, WR 43%, TE 37% at 12-team full PPR),
@@ -651,7 +655,7 @@ value per point above waivers, starters over bench tier, QB / RB / WR / TE).
 
 1. *Convex option value* (manifesto section 5). The form
    `avail x E[(X - w)^+ lineup(X)]` pays for the upside of a level change as
-   well as its probability. Measured: bench tier 10.6% to 13.9% across the
+   well as its probability. Measured: bench tier 10.8% to 14.1% across the
    12 settings and a starter/bench price of 0.6x to 1.9x, so it gives back
    most of the starter premium the lineup share creates, it is driven by
    `sigma` (the least-measured input), and near the line it values a player
@@ -659,7 +663,7 @@ value per point above waivers, starters over bench tier, QB / RB / WR / TE).
    and show option value as its own signal, `P(X > l_p)` for bench players,
    which is the G5 Stash tag (MR-21).
 2. *Weekly noise* (the manager's Sunday problem): starters' weekly points vary
-   by 50% to 70% of their mean (2024-2025, `output/lineup-parameters.md`).
+   by 38% (QB) to 59% (WR, TE) of their mean (2015-2025, `output/lineup-parameters.md`).
    `sigma` here is level uncertainty, not that. Matchup-driven starts of bench
    players need weekly projections (G4 b) and are a follow-up.
 3. *Discounting* (section 9) and the *playoff objective* (section 10): out of
@@ -685,7 +689,7 @@ value per point above waivers, starters over bench tier, QB / RB / WR / TE).
   rougher than the projections'.
 - *B, keep the slices and set the per-position bench budget from A.* For: the
   smallest change to the VP spec; the same bench-tier share by construction
-  (7.2% to 9.4%). Against: it keeps the kink at the starter line, pays every
+  (7.4% to 9.5%). Against: it keeps the kink at the starter line, pays every
   starter's bench-level part at the bench rate (so the starter premium is a
   by-product of a budget transfer rather than of lineup share), gives no
   per-player share for the drawer or the stash tag, and needs a second rule
@@ -729,6 +733,17 @@ where p.position in ('QB', 'RB', 'WR', 'TE');
 A row exists where the player recorded a stat line. The 2026 schedule agrees
 with `nfl_byes_2026.json` for all 32 teams (test). G4 (a) should extend this
 view week by week rather than start a new table.
+
+`data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz` and
+`data/inputs/nfl_schedule_2015_2025.json` (MR-24) come from nflverse's public
+releases, `stats_player/stats_player_week_<year>.csv` and `schedules/games.csv`
+(2026-10-09): regular season, QB/RB/WR/TE, keyed by nflverse player id, team
+codes as `games_remaining.TEAM_ALIASES`. A player who dressed and recorded no
+stat has a 0-point row there, so he counts as played. On 2024-2025 it carries
+about 1.5% fewer player-games and 0.75% fewer points than the Supabase export
+(a few extra rostered players per week there, and a minor scoring-rule
+difference); the healthy-starter hazard agrees within 2 points (test). The
+cancelled 2022 Week 17 game leaves BUF and CIN with 16 games that season.
 
 ### Open choices for Jeremy (the spec uses the recommended option)
 

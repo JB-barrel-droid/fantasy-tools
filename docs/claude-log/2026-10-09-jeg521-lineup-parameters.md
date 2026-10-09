@@ -4,16 +4,45 @@ Content week 5, ppr scoring, 12 teams. Schema `lineup-parameters/1`. Produced by
 
 ## Recommended parameters
 
-| Position | m (healthy starters) | 95% interval | m, all rostered | sigma now (spread) | sigma drift (to mid-window) | sigma used | sigma floor (ppg) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| QB | 9.9% | 7.1% to 12.7% | 16.7% | 14.0% | 11.6% | 18.2% | 0.69 |
-| RB | 10.0% | 8.2% to 11.8% | 12.2% | 11.1% | 27.9% | 30.0% | 0.89 |
-| WR | 13.0% | 11.4% to 14.7% | 15.2% | 12.3% | 28.2% | 30.8% | 1.01 |
-| TE | 15.9% | 12.5% to 19.3% | 15.1% | 8.1% | 35.3% | 36.2% | 0.64 |
+| Position | m (healthy starters) | 95% interval | team games | m, 2024-2025 only | m, all rostered | sigma now (spread) | sigma drift (to mid-window) | sigma used | sigma floor (ppg) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| QB | 11.0% | 9.8% to 12.3% | 2,319 | 9.9% | 13.6% | 14.0% | 11.6% | 18.2% | 0.69 |
+| RB | 15.3% | 14.4% to 16.2% | 5,816 | 10.0% | 16.4% | 11.1% | 27.9% | 30.0% | 0.89 |
+| WR | 11.7% | 11.0% to 12.4% | 8,128 | 13.0% | 13.7% | 12.3% | 28.2% | 30.8% | 1.01 |
+| TE | 14.4% | 13.0% to 15.8% | 2,331 | 15.9% | 14.8% | 8.1% | 35.3% | 36.2% | 0.64 |
+
+m source: healthy starters, 2015-2025 (nflverse), selection weeks 1-5 and 1-9, measured to the season's last week minus one.
+
+## Missed-game hazard of healthy starters by season (nflverse, 2015-2025)
+
+| Season | Selected on | Measured | QB | RB | WR | TE |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2015 | weeks 1-5 | weeks 6-16 | 10.6% | 22.0% | 10.7% | 12.2% |
+| 2015 | weeks 1-9 | weeks 10-16 | 13.6% | 18.7% | 9.9% | 14.8% |
+| 2016 | weeks 1-5 | weeks 6-16 | 1.6% | 20.3% | 7.5% | 11.4% |
+| 2016 | weeks 1-9 | weeks 10-16 | 1.3% | 11.5% | 7.6% | 17.1% |
+| 2017 | weeks 1-5 | weeks 6-16 | 17.1% | 11.1% | 12.6% | 9.8% |
+| 2017 | weeks 1-9 | weeks 10-16 | 6.2% | 11.8% | 12.6% | 2.5% |
+| 2018 | weeks 1-5 | weeks 6-16 | 6.6% | 13.4% | 13.8% | 8.1% |
+| 2018 | weeks 1-9 | weeks 10-16 | 12.2% | 14.0% | 14.7% | 14.8% |
+| 2019 | weeks 1-5 | weeks 6-16 | 9.9% | 16.2% | 14.4% | 29.5% |
+| 2019 | weeks 1-9 | weeks 10-16 | 9.1% | 11.8% | 12.0% | 16.7% |
+| 2020 | weeks 1-5 | weeks 6-16 | 13.0% | 19.6% | 11.1% | 12.1% |
+| 2020 | weeks 1-9 | weeks 10-16 | 6.2% | 18.1% | 6.8% | 7.5% |
+| 2021 | weeks 1-5 | weeks 6-17 | 16.7% | 21.8% | 14.7% | 12.9% |
+| 2021 | weeks 1-9 | weeks 10-17 | 6.6% | 23.1% | 11.4% | 13.2% |
+| 2022 | weeks 1-5 | weeks 6-17 | 15.4% | 19.2% | 11.6% | 17.6% |
+| 2022 | weeks 1-9 | weeks 10-17 | 16.1% | 11.6% | 11.3% | 20.9% |
+| 2023 | weeks 1-5 | weeks 6-17 | 20.3% | 12.3% | 10.7% | 15.2% |
+| 2023 | weeks 1-9 | weeks 10-17 | 6.7% | 14.3% | 9.1% | 14.6% |
+| 2024 | weeks 1-5 | weeks 6-17 | 11.3% | 13.4% | 20.2% | 11.3% |
+| 2024 | weeks 1-9 | weeks 10-17 | 2.3% | 11.2% | 8.7% | 11.5% |
+| 2025 | weeks 1-5 | weeks 6-17 | 15.8% | 9.9% | 11.1% | 19.4% |
+| 2025 | weeks 1-9 | weeks 10-17 | 13.5% | 6.6% | 8.9% | 21.7% |
 
 Bye share of remaining team-weeks: 7.2% (30 of 32 teams have a bye in weeks 6-18, 13 weeks).
 
-## Missed-game hazard by cell (rate of team games with no stat line)
+## Missed-game hazard by cell, 2024-2025 Supabase export (rate of team games with no stat line)
 
 | Season | Selected on | Measured | QB starters | RB starters | WR starters | TE starters | QB rostered | RB rostered | WR rostered | TE rostered |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -93,13 +122,13 @@ Players with an unavailable Sleeper status are excluded above. Their median rela
 
 The ESPN median shifts of about 20% between weeks 3, 4 and 5 are the GAP-GAMES-REMAINING-STALE denominator, not projection changes; demeaning removes them.
 
-## Realized weekly noise of starters (2024-2025, sd over mean of weekly points)
+## Realized weekly noise of starters (sd over mean of weekly points; 2015-2025 when the history file is present)
 
 | Position | Median | Players |
 | --- | --- | --- |
-| QB | 39% | 24 |
-| RB | 49% | 60 |
-| WR | 56% | 84 |
-| TE | 56% | 24 |
+| QB | 38% | 132 |
+| RB | 52% | 330 |
+| WR | 55% | 462 |
+| TE | 59% | 132 |
 
 Weekly noise is what a manager faces on Sunday. It is several times the level uncertainty above and is not what sigma in the spec measures (ES-5).

@@ -92,9 +92,10 @@ class MissedGameRates(unittest.TestCase):
         rows += [_row(2024, w, 2, "TE", "BBB", 8) for w in range(1, 18)]
         pooled = dl.pooled_rates(rows, _schedule(), TWO_TEAM, seasons=(2024,), windows=((1, 5), (1, 9)))
         st = pooled["pooled"]["TE"]["starters"]
-        self.assertEqual(st["games"], 2 * 12 + 2 * 8)
+        # A 17-week synthetic season is measured to week 16 (its last week minus one).
+        self.assertEqual(st["games"], 2 * 11 + 2 * 7)
         self.assertEqual(st["missed"], 2)
-        self.assertAlmostEqual(st["rate"], 2 / 40)
+        self.assertAlmostEqual(st["rate"], 2 / 36)
         self.assertLess(st["ci95"][0], st["rate"])
         self.assertGreater(st["ci95"][1], st["rate"])
         self.assertEqual(len(pooled["cells"]), 2)
@@ -154,6 +155,61 @@ class Sigma(unittest.TestCase):
         mv = {"espn": {"RB": [{"robust_sd": 0.1}], }}
         s = dl.summarize_movement(mv, 4.0)["RB"]
         self.assertAlmostEqual(s["horizon_rel_sd"], 0.2)
+
+
+class HistoryFile(unittest.TestCase):
+    def test_last_measured_week_is_the_final_week_minus_one(self):
+        sched = {2015: {"AAA": list(range(1, 18)), "BBB": [w for w in range(1, 18) if w != 9]},
+                 2021: {"AAA": list(range(1, 19))}}
+        self.assertEqual(dl.last_measured_week(sched, 2015), 16)
+        self.assertEqual(dl.last_measured_week(sched, 2021), 17)
+
+    def test_pooled_rates_use_each_seasons_own_last_week(self):
+        rows = [_row(2015, w, 1, "QB", "AAA", 20) for w in range(1, 17)]  # plays 1-16, not 17
+        rows += [_row(2015, w, 2, "QB", "BBB", 18) for w in range(1, 18)]
+        sched = {2015: {t: list(range(1, 18)) for t in ("AAA", "BBB")}}
+        pooled = dl.pooled_rates(rows, sched, TWO_TEAM, seasons=(2015,), windows=((1, 5),))
+        st = pooled["pooled"]["QB"]["starters"]
+        self.assertEqual(pooled["cells"][0]["measure"], [6, 16])  # week 17 excluded
+        self.assertEqual(st["missed"], 0)  # the week-17 absence is not measured
+
+    def test_nflverse_file_is_well_formed_and_agrees_with_supabase_on_the_overlap(self):
+        rows = dl.load_actuals_nflverse()
+        self.assertGreater(len(rows), 50000)
+        self.assertEqual({r["season"] for r in rows}, set(dl.HISTORY_SEASONS))
+        self.assertEqual({r["pos"] for r in rows}, set(dl.POSITIONS))
+        sched = dl.load_schedule(dl.HISTORY_SCHEDULE)
+        self.assertEqual(set(sched), set(dl.HISTORY_SEASONS))
+        for season, teams in sched.items():
+            self.assertEqual(len(teams), 32, season)
+            for team, weeks in teams.items():
+                expected = 17 if season >= 2021 else 16
+                if (season, team) in {(2022, "BUF"), (2022, "CIN")}:
+                    expected = 16  # the cancelled Week 17 game
+                self.assertEqual(len(weeks), expected, (season, team))
+        for r in rows[:3000]:
+            self.assertIn(r["week"], sched[r["season"]][r["team"]], r)
+        # 2024-2025 healthy-starter hazard within 2 points of the Supabase export's
+        sizes = dl.pool_sizes(12)
+        a = dl.pooled_rates(rows, sched, sizes, seasons=(2024, 2025))["pooled"]
+        b = dl.pooled_rates(dl.load_actuals(), dl.load_schedule(), sizes)["pooled"]
+        for pos in dl.POSITIONS:
+            self.assertLess(abs(a[pos]["starters"]["rate"] - b[pos]["starters"]["rate"]), 0.02, pos)
+
+    def test_derive_with_history_uses_it_for_m(self):
+        actuals = dl.load_actuals()
+        sched = dl.load_schedule()
+        byes = json.loads(dl.BYES.read_text(encoding="utf-8"))
+        players = json.loads(dl.PLAYERS.read_text(encoding="utf-8"))["players"]
+        hist = dl.load_history()
+        doc = dl.derive(actuals, sched, byes, players, hist, 12, "ppr",
+                        history_actuals=dl.load_actuals_nflverse(), history_schedule=dl.load_schedule(dl.HISTORY_SCHEDULE))
+        for pos in dl.POSITIONS:
+            r = doc["recommended"][pos]
+            self.assertIn("2015-2025", r["m_source"])
+            self.assertGreater(r["m_games"], 2000)
+            self.assertTrue(0.05 < r["m"] < 0.25, (pos, r["m"]))
+            self.assertAlmostEqual(r["m"], doc["missed_games_history"]["pooled"][pos]["starters"]["rate"])
 
 
 class CommittedData(unittest.TestCase):
