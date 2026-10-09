@@ -317,7 +317,7 @@ the week; projection sources use the newest snapshot dated in the week. A closed
 never changes; other versions are kept, not used. Full rule and contract: docs/v2-design-notes.md
 "Back-end contract: history".
 
-## DDF Composite Value (JEG-455 / JEG-471 / JEG-479, Jeremy 2026-10-08)
+## DDF Composite Value (JEG-455 / JEG-471 / JEG-479, Jeremy 2026-10-08/09)
 
 The **DDF Composite Value** ("DDF Value" in compact spots) is computed per
 league setting (scoring, teams, roster, bench share, position shares), per
@@ -348,7 +348,7 @@ implement exactly this text.
      section is the only valid one, and it is not used. Reason: `not yet
      published for week N`. Projections are rest-of-season and always current.
 4. **Selected and available.** By default every input left by step 3; a reader
-   may choose a subset (at least two). An input whose series has no values at
+   may choose a subset (at least one). An input whose series has no values at
    this setting (missing section, paused, no saved setup) is left out.
 5. **Same inputs in both weeks.** For each remaining input, its series is
    recomputed for the prior week at the same setting and view (the week
@@ -362,16 +362,53 @@ implement exactly this text.
    week (a first week, or no history), the current week uses the inputs from
    step 4 and there is no prior week.
 6. **Per player, per week.** The equal-weight mean of the finite values of
-   the included series. A series that does not price the player is left out,
-   never counted as 0; ESPN's 0 for a player it lists at 0 counts (GAP-025).
-   The value is published only when **at least two** series price the player;
-   otherwise it is null with the reason "Needs at least two source values".
-   The prior week uses the same series and the same two-value rule.
+   the included series, as the rows carry them ("Published Charts On The
+   Rows" below). A series with no value for the player is left out, never
+   counted as 0. A 0 a series does carry counts: ESPN's 0 for a player it
+   lists at 0 (GAP-025), a leg's 0 at or below its floor, and a fully loaded
+   chart's 0 for a player below its floor. When exactly **one** series prices
+   the player, the DDF Value is that series' value, flagged low confidence
+   ("Only one source prices this player"; Jeremy 2026-10-09, replacing the
+   two-value minimum). When none does, it is null with the reason "No source
+   prices this player". The prior week uses the same series and the same rule.
+   A one-source value counts in tiers like any other.
 7. **Δ** = this week's value − the prior week's value, when both exist.
 8. **Tier.** Rank by the view's current DDF Value and cut at the league's slot
    counts (the engine's value-based slot fill). No value, no tier.
 
 One DDF Value per view for every comparison column (no leave-one-out).
+
+### Published Charts On The Rows (Jeremy 2026-10-08/09)
+
+What a row carries for a published chart (`<chart>`, its VORP vs waivers and
+Adjusted values, and `<chart>_adjusted`), in every view and both weeks:
+
+- **Missing = 0 for a fully loaded chart.** A chart is fully loaded at a
+  position when its waiver line there is set by its own list: the waiver
+  method of the value-above-waivers translation (`unified.waiver_summary`,
+  `ValueModel.publishedWaiverInfo`) is `roster_determined`, i.e. the chart
+  lists more players at that position than the league rosters. A player the
+  chart does not list there is below its floor: 0 for the chart and 0 for its
+  `*_adjusted` series. A listed player a view prices only above waivers (VORP
+  vs waivers, Adjusted values) is 0 there too.
+- **Too shallow at a position.** When the waiver method is
+  `imputed_from_other_charts` (the line is extrapolated from the other
+  charts) or `insufficient_coverage` (it sits at the end of the chart's own
+  list), an unlisted player has no value: "Chart doesn't list players this
+  deep at <pos>".
+- **Identity-fallback adjustment cells are blank.** A `*_adjusted` value for a
+  player in a cell the fit fell back to identity on (`adjustment-inputs.json`
+  `fallback: "identity"`, the starter/bench partition the cells are applied
+  on) is null: "Not enough players to fit an adjustment" (fewer than 5 pairs),
+  or "Adjustment fit refused (order would invert)" (`non_positive_slope`). It
+  is never the unadjusted chart value, and it is not a DDF input for that
+  player.
+- Every null on a row carries its reason (`missingReasons`).
+
+These are row rules: the pie, scale and view-invariant guards measure the
+series as before (`TradeValueCurveDiagnostics` unchanged across the 12-combo
+sweep); the rows, and everything read from them (tables, DDF Value, Δ),
+carry them.
 
 The engine computes it in the browser (`curve-widget.js`,
 `ValueModel.compositeValue`); the API is in `docs/v2-design-notes.md`

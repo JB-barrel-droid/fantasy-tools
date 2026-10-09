@@ -3,8 +3,10 @@
 The rule is docs/methodology.md "DDF Composite Value" (Jeremy, 2026-10-08):
 one DDF Value per view (Indexed, VORP vs waivers, Adjusted values), each for
 the current and the prior week; per player the equal-weight mean of the
-included inputs' finite values, published only when at least two price him
-(else null, ddfReason "Needs at least two source values"). A missing series
+included inputs' finite values. Exactly one pricing him gives that value,
+flagged ddfLowConfidence ("Only one source prices this player"; Jeremy
+2026-10-09, replacing the two-value minimum); none gives null with ddfReason
+"No source prices this player". A missing series
 never counts as 0; ESPN's 0 for a player it lists at 0 (GAP-025) does. An
 input that is held or has not published the current week is never included,
 even when a reader selects it; an input without the prior week is left out of
@@ -18,7 +20,7 @@ Checks, headless on the built dist/ (the live page):
    position-share edit and the three view tabs.
 3. setCompositeInputs: a subset changes ddf_value (and only the DDF fields),
    fires the rows and shared events (shared only with publish), invalid input
-   (including fewer than two usable inputs) is refused with no change, null
+   (no usable input) is refused with no change, null
    restores every value exactly.
 4. Rank, zones and tiers by DDF Value.
 5. Prior week: getPriorWeek("ddf_value") and the rows' ddfPrior use exactly the
@@ -45,19 +47,21 @@ def setUpModule():
 
 INPUTS = ["espn", "cbsros", "razzball", "fantasycalc_adjusted", "usatoday_adjusted",
           "fantasypros_adjusted", "cbs_adjusted"]
-SHORT = "Needs at least two source values"
+NONE = "No source prices this player"
+ONE = "Only one source prices this player"
 
 HELPERS = """
   const c = window.TradeValueCurveControls;
   const INPUTS = %s;
-  const SHORT = %s;
+  const NONE = %s;
+  const ONE = %s;
   const VIEWS = ['indexed', 'vorp', 'adj'];
   const view = v => document.querySelector(`#viewModeTabs [data-view-mode=${v}]`).click();
   const activeView = () => c.getCompositeInputs().view;
   const mean = (values, keys) => {
     const used = keys.filter(k => typeof values[k] === 'number' && Number.isFinite(values[k]));
     const v = used.map(k => values[k]);
-    return {value: v.length >= 2 ? v.reduce((a, b) => a + b, 0) / v.length : null, count: v.length, used};
+    return {value: v.length >= 1 ? v.reduce((a, b) => a + b, 0) / v.length : null, count: v.length, used};
   };
   const near = (a, b) => (a === null || a === undefined) ? (b === null || b === undefined) : (b !== null && b !== undefined && Math.abs(a - b) <= 1e-9);
   const others = () => JSON.stringify(c.getAllRows().map(r => {
@@ -77,11 +81,14 @@ HELPERS = """
         if (!near(got.value, want.value) && problems.length < 40) problems.push(`${tag}/${v} ${r.name}: ddf ${got.value} != mean ${want.value}`);
         if (got.count !== want.count) problems.push(`${tag}/${v} ${r.name}: count ${got.count} != ${want.count}`);
         if (JSON.stringify(got.sources) !== JSON.stringify(want.used)) problems.push(`${tag}/${v} ${r.name}: sources ${got.sources}`);
-        if (got.reason !== (want.value === null ? SHORT : null)) problems.push(`${tag}/${v} ${r.name}: reason ${got.reason}`);
+        if (got.reason !== (want.value === null ? NONE : null)) problems.push(`${tag}/${v} ${r.name}: reason ${got.reason}`);
+        if (got.lowConfidence !== (want.count === 1)) problems.push(`${tag}/${v} ${r.name}: lowConfidence ${got.lowConfidence} with ${want.count} sources`);
       }
       const mine = r.ddfByView[active];
       if (r.values.ddf_value !== mine.value || r.ddfCount !== mine.count || r.ddfReason !== mine.reason
-          || r.ddfPrior !== mine.prior || JSON.stringify(r.ddfSources) !== JSON.stringify(mine.sources)) {
+          || r.ddfPrior !== mine.prior || JSON.stringify(r.ddfSources) !== JSON.stringify(mine.sources)
+          || r.ddfLowConfidence !== mine.lowConfidence || r.ddfConfidenceNote !== (mine.lowConfidence ? ONE : null)
+          || (r.values.ddf_value === null && r.missingReasons?.ddf_value !== r.ddfReason)) {
         problems.push(`${tag} ${r.name}: row DDF fields differ from ddfByView.${active}`);
       }
       if (r.values.ddf_value !== null) priced += 1;
@@ -90,7 +97,7 @@ HELPERS = """
     if (priced < 100) problems.push(`${tag}: only ${priced} players have a DDF Value`);
     return {priced, short};
   };
-""" % (json.dumps(INPUTS), json.dumps(SHORT))
+""" % (json.dumps(INPUTS), json.dumps(NONE), json.dumps(ONE))
 
 PURE = """() => {
   const m = window.ValueModel.compositeValue;
@@ -149,7 +156,7 @@ SETTER = """async () => {""" + HELPERS + """
   const before = ddf();
   out.invalid = [c.setCompositeInputs([]), c.setCompositeInputs(['fantasycalc']), c.setCompositeInputs(['espn_vorp']),
     c.setCompositeInputs(['ddf_value']), c.setCompositeInputs('espn'), c.setCompositeInputs({espn: true}),
-    c.setCompositeInputs(['espn', 'usatoday']), c.setCompositeInputs(['espn']), c.setCompositeInputs(['razzball', 'razzball'])];
+    c.setCompositeInputs(['espn', 'usatoday'])];
   out.unchangedAfterInvalid = ddf() === before && JSON.stringify(c.getCompositeInputs()) === JSON.stringify(out.get);
   const quiet = events.shared.length;
   out.quietSet = c.setCompositeInputs(['razzball', 'cbsros'], false);
@@ -235,6 +242,19 @@ PRIOR = """async () => {""" + HELPERS + """
     if (!r.available) continue;
     const each = {};
     for (const key of r.sources) each[key] = await c.getPriorWeek(key);
+    // Each input as averaged = its own prior week plus the rows' chart rules:
+    // every value it has is unchanged, an added value is a 0 (below a fully
+    // loaded chart's floor), a removed one is an identity-fallback cell.
+    for (const key of r.sources) {
+      const own = each[key].values, used = r.seriesValues[key];
+      Object.entries(used).forEach(([pk, value]) => {
+        if ((pk in own ? !near(own[pk], value) : value !== 0) && out.problems.length < 30) out.problems.push(`${v} ${key} ${pk}: averaged ${value}, own ${own[pk]}`);
+      });
+      Object.keys(own).forEach(pk => {
+        if (!(pk in used) && !key.endsWith("_adjusted") && out.problems.length < 30) out.problems.push(`${v} ${key} ${pk}: dropped from the average`);
+      });
+      each[key] = {values: used};
+    }
     c.getAllRows().forEach(row => {
       const k = row.player_key;
       const cur = mean(row.values, r.sources);
@@ -246,7 +266,8 @@ PRIOR = """async () => {""" + HELPERS + """
       if (!near(r.values[k] ?? null, want.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: prior ${r.values[k]} != ${want.value}`);
       if (!near(row.ddfPrior, want.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: row ddfPrior ${row.ddfPrior} != ${want.value}`);
       if (want.value !== null && r.counts[k] !== want.count) out.problems.push(`${v} ${row.name}: prior count ${r.counts[k]} != ${want.count}`);
-      if (want.count === 1 && (k in r.values)) out.problems.push(`${v} ${row.name}: a one-source prior value was published`);
+      if (want.count === 1 && !(k in r.values)) out.problems.push(`${v} ${row.name}: a one-source prior value was not published`);
+      if (want.count === 1 && row.ddfPriorLowConfidence !== true) out.problems.push(`${v} ${row.name}: one-source prior not flagged`);
       if (want.count === 1) o.short += 1;
       if (want.value !== null && cur.value !== null) o.compared += 1;
     });
@@ -384,7 +405,7 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["series"]["vorp"][:3], ["espn_vorp", "cbsros_vorp", "razzball_vorp"])
         self.assertEqual(out["series"]["adj"][:3], ["espn", "cbsros", "razzball"])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
-        self.assertGreater(out["shortPlayers"], 0, "no player has one source, so the two-source rule went untested")
+        self.assertGreater(out["shortPlayers"], 0, "no player has one source, so the one-source rule went untested")
         self.assertEqual(out["activeAtEnd"], "indexed")
 
     def test_set_composite_inputs(self):
@@ -436,7 +457,7 @@ class DdfCompositeValueTest(unittest.TestCase):
             self.assertEqual(res["sources"], res["infoSeries"], f"{v}: the pair's inputs are not the current week's")
             self.assertGreater(res["compared"], 100, v)
         self.assertGreater(sum(res["short"] for res in out["views"].values()), 0,
-                           "no player has one prior-week source, so the two-source rule went untested")
+                           "no player has one prior-week source, so the one-source rule went untested")
         self.assertFalse(out["wrongWeek"]["available"])
         self.assertTrue(out["weekValuesMatch"], "getWeekValues(ddf_value, prior) differs from getPriorWeek")
         self.assertTrue(out["valuesGetterMatch"], "getCompositeValues differs from getPriorWeek")
@@ -508,15 +529,18 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertTrue(reasons, "no deselected input to check")
         self.assertTrue(out["allRequested"]["ok"])
         self.assertNotIn(key, out["allRequested"]["inputs"])
-        # A stale saved list (v2 replays it) never fails: alone, or with one
-        # other input, too few remain, so the defaults apply.
+        # A stale saved list (v2 replays it) never fails. Alone, nothing
+        # usable remains, so the defaults apply; with one other input that
+        # input alone is the choice (one source is enough, Jeremy 2026-10-09).
         for stale in (out["onlyHeld"], out["heldPlusOne"]):
             self.assertTrue(stale["ok"], stale)
-            self.assertTrue(stale["fellBackToDefaults"], stale)
-            self.assertTrue(stale["isDefault"], stale)
             self.assertEqual([d["key"] for d in stale["dropped"]], [key])
             self.assertNotIn(key, stale["inputs"])
-        self.assertTrue(out["afterStale"]["isDefault"])
+        self.assertTrue(out["onlyHeld"]["fellBackToDefaults"], out["onlyHeld"])
+        self.assertTrue(out["onlyHeld"]["isDefault"], out["onlyHeld"])
+        self.assertNotIn("fellBackToDefaults", out["heldPlusOne"])
+        self.assertEqual(out["heldPlusOne"]["inputs"], ["espn"])
+        self.assertEqual(out["afterStale"]["inputs"], ["espn"])
         # Prior week: out of both weeks.
         prior = out["prior"]
         self.assertTrue(prior["available"], prior)

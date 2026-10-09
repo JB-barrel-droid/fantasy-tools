@@ -96,7 +96,7 @@ SAVED_SHAPE = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
 BENCH_SHARE = tt.DEFAULT_BENCH_SHARE
 # Inputs a DDF Value needs (docs/methodology.md "DDF Composite Value" step 6;
 # the engine's COMPOSITE_MIN_SOURCES).
-DDF_MIN_INPUTS = 2
+DDF_MIN_INPUTS = 1  # Jeremy 2026-10-09: one series gives that value, low confidence
 VIEW_SCORING = {"ppr": "ppr", "full": "ppr", "half_ppr": "half_ppr", "half": "half_ppr",
                 "standard": "standard"}
 
@@ -731,9 +731,51 @@ class Setting:
             ok = ok and cell_set_complete(entry)
         return ok
 
+    # -- published charts on the rows (methodology "Published Charts On The Rows") --
+    def waiver_methods(self, raw: str, native: dict | None = None) -> dict:
+        """{pos: waiver method} of a chart's value-above-waivers translation at
+        this setting (its saved natives, or a saved week's), the other charts'
+        served natives as peers."""
+        native = self.native(raw) if native is None else native
+        if not native:
+            return {}
+        at = unified.translate_ranked(self._ranked(native), self.teams, self.shape["BENCH"], self.shape["FLEX"],
+                                      slots={p: self.shape[p] for p in POSITIONS},
+                                      superflex_count=self.shape["SUPERFLEX"], peers=self._peers(raw))
+        return {pos: info.get("waiver_method") for pos, info in (at.get("positions") or {}).items()}
+
+    def fallback_cells(self, raw: str) -> set:
+        """{(POS, tier)} cells the fit fell back to identity on."""
+        entry = ((self.inp.adjustment_inputs or {}).get("sources") or {}).get(raw) or {}
+        return {(str(c.get("position", "")).upper(), str(c.get("tier", "")).lower())
+                for c in entry.get("cells") or [] if c.get("fallback")}
+
+    def adjustment_tier(self, key: int) -> str | None:
+        ddf = self.two_tier("espn")
+        if not ddf:
+            return None
+        return "starter" if key in ddf["starters"] else "bench" if key in ddf["bench"] else None
+
+    def fallback_blank(self, series: str, key: int) -> bool:
+        """A *_adjusted value in an identity-fallback cell is blank."""
+        raw = CHART_OF.get(series)
+        if not raw:
+            return False
+        tier = self.adjustment_tier(key)
+        return bool(tier) and (self.player_of(key)["pos"], tier) in self.fallback_cells(raw)
+
+    def chart_missing(self, series: str, raw: str, key: int, native: dict, methods: dict):
+        """A chart series' value for a player its map does not price: 0 below
+        the chart's floor, else None (too shallow, or a listed player's
+        *_adjusted series without a cell)."""
+        if key in native:
+            return 0.0 if series in PUBLISHED else None
+        return 0.0 if methods.get(self.player_of(key)["pos"]) == "roster_determined" else None
+
     def rows(self, view: str = "indexed") -> dict:
         """{player_key: {series: value or None}} -- the page's rows."""
         maps = self.series_maps(view)
+        methods = {raw: self.waiver_methods(raw) for raw in PUBLISHED}
         floors = {}
         for key, ppg_field in LEG_PPG.items():
             by_pos = {}
@@ -758,7 +800,10 @@ class Setting:
             values = {}
             for key in SERIES_KEYS:
                 m = maps.get(key) or {}
-                if k in m:
+                raw = key if key in PUBLISHED else CHART_OF.get(key)
+                if m and self.fallback_blank(key, k):
+                    values[key] = None
+                elif k in m:
                     values[key] = m[k]
                 elif not m:
                     values[key] = None
@@ -768,6 +813,8 @@ class Setting:
                     v = self.inp.ppg(k, LEG_PPG[key], self.scoring)
                     fl = floors[key].get(p["pos"])
                     values[key] = 0.0 if v is not None and fl is not None and v <= fl else None
+                elif raw:
+                    values[key] = self.chart_missing(key, raw, k, self.native(raw), methods[raw])
                 else:
                     values[key] = None
             out[k] = values
@@ -854,7 +901,8 @@ def _display(setting: "Setting", series: str, values: dict, entry: dict, ppg: di
 
 
 def week_values(setting: "Setting", series: str, week: int, hist: History, view: str = "indexed"):
-    """(values or None, reason) for one series at a saved week."""
+    """(values or None, reason) for one series at a saved week, as priced
+    (the history accessors: no row rules)."""
     base = history_base(series)
     doc = hist.week_doc(week)
     entry = ((doc or {}).get("sources") or {}).get(base)
@@ -1067,7 +1115,9 @@ def allocation_counts(pool: list[dict], teams: int, shape: dict, rank_of) -> dic
 DDF_RULES = {
     # A DDF Value is published when at least this many series price the player.
     "min_inputs": DDF_MIN_INPUTS,
-    "short_reason": "Needs at least two source values",
+    "short_reason": "No source prices this player",
+    # Exactly this many series: the value is published, flagged low confidence.
+    "low_confidence_count": 1,
 }
 # Step 2: the series each input contributes in each view.
 CHART_OF = {"fantasycalc_adjusted": "fantasycalc", "usatoday_adjusted": "usatoday",
@@ -1150,6 +1200,38 @@ def composite(values: dict, keys: list[str], rules: dict | None = None) -> tuple
     return sum(values[k] for k in used) / len(used), len(used), None
 
 
+def chart_rules_on_week(s: "Setting", series: str, week: int, values: dict, hist: "History",
+                        rows: dict) -> dict:
+    """The rows' chart rules on a saved week inside the DDF pair: 0 for a
+    current row's player below that week's chart's floor where it was fully
+    loaded, identity-fallback cells left out. That week's listing and waiver
+    lines come from its Indexed values."""
+    raw = series if series in PUBLISHED else CHART_OF.get(series)
+    if not raw:
+        return values
+    if series == raw:
+        listing = values
+    else:
+        listing, _why = week_values(s, raw, week, hist, "indexed")
+        if listing is None:
+            return values
+    methods = s.waiver_methods(raw, {int(k): v for k, v in listing.items()})
+    out = dict(values)
+    for k in rows:
+        p = s.player_of(k)
+        if p is None or p["pos"] not in POSITIONS:
+            continue
+        if s.fallback_blank(series, k):
+            out.pop(k, None)
+            continue
+        if k in out:
+            continue
+        missing = s.chart_missing(series, raw, k, {int(x) for x in listing}, methods)
+        if missing is not None:
+            out[k] = missing
+    return out
+
+
 def composite_state(s: "Setting", view: str, rows: dict, maps: dict, fresh: dict,
                     hist: "History | None") -> dict:
     """Steps 1-6 for one view: the included inputs and series, the excluded
@@ -1164,6 +1246,8 @@ def composite_state(s: "Setting", view: str, rows: dict, maps: dict, fresh: dict
         prior = None
         if hist is not None:
             week, _pw, values, why = prior_values(s, series, hist, view)
+            if values is not None:
+                values = chart_rules_on_week(s, series, week - 1, values, hist, rows)
             prior = {"week": week, "values": values, "reason": why}
         candidates.append((key, series, prior))
     served = [p["week"] for _k, _s, p in candidates if p and isinstance(p["week"], int)]
