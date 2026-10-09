@@ -463,6 +463,24 @@ def scope_superflex_rows(
     return [r for r in rows if r.get("week") == week and r.get("bake_id") == bake_id]
 
 
+# JEG-480: save_usatoday_references stores a published player the save-time
+# reindex cannot price (no ESPN anchor pair, e.g. Tyreek Hill week 5) with
+# value NULL and the published native_value. The chain prices every chart
+# from native_value (build_comparison_source_section), so such a row is
+# priced by its native_value here instead of going to review, like the
+# superflex rows below. Other sources keep the strict rule.
+NATIVE_PRICED_SOURCES = ("usatoday",)
+
+
+def native_priced(source: str, row: dict[str, Any]) -> dict[str, Any]:
+    """`row`, with value = native_value when `source` stores unanchored rows
+    with a NULL value and the row has a numeric native_value."""
+    if (source in NATIVE_PRICED_SOURCES and parse_float(row.get("value")) is None
+            and parse_float(row.get("native_value")) is not None):
+        return dict(row, value=row.get("native_value"))
+    return row
+
+
 def normalize_superflex_rows(
     rows: list[dict[str, Any]], names: dict[int, str]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -566,7 +584,7 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
     clean_rows: list[dict[str, Any]] = []
     review_rows: list[dict[str, Any]] = []
     for row in rows:
-        clean, review = normalize_db_row(row, names)
+        clean, review = normalize_db_row(native_priced(source, row), names)
         if clean is not None:
             clean_rows.append(clean)
         else:

@@ -136,10 +136,47 @@ def _default_fetch(table: str, params: str) -> list[dict[str, Any]]:
     return [r for r in rows if isinstance(r, dict)]
 
 
+def _default_delete(table: str, params: str) -> None:
+    _sb().delete(table, params=params)
+
+
 fetch_players: Callable[[], list[dict[str, Any]]] = _default_fetch_players
 upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = _default_upsert
 count_rows: Callable[[str, str], int] = _default_count
 fetch_rows: Callable[[str, str], list[dict[str, Any]]] = _default_fetch
+delete_rows: Callable[[str, str], None] = _default_delete
+
+# ESPN's grain (2026, week 2) is one live set, rewritten on every save. A
+# prune that would remove more than this share of the stored set means the
+# pull is probably truncated: fail closed instead.
+ESPN_MAX_PRUNE_FRAC = 0.10
+ESPN_MAX_PRUNE_ABS = 25  # a handful of stale rows is ordinary churn at any size
+
+
+def prune_espn(clean: list[dict[str, Any]]) -> list[int]:
+    """Delete the (2026, week 2) rows whose player_key is not in this save.
+
+    JEG-480: the ESPN table holds one current set (each save upserts it),
+    so a player the new save no longer carries kept his old row forever:
+    2026-10-09, Riley Nowakowski and Jackson Meeks, stored under a
+    players-table identity at another position by the legacy matcher, stayed
+    beside the canonical save and failed its row count (567 vs 565). Same
+    replace rule as save_cbsros_references. Returns the deleted keys."""
+    keep = {r["player_key"] for r in clean}
+    stored = fetch_rows("espn_season_projections", "?select=player_key&season=eq.2026&week=eq.2")
+    stale = sorted({r["player_key"] for r in stored if r.get("player_key") not in keep})
+    if len(stale) > max(ESPN_MAX_PRUNE_ABS, ESPN_MAX_PRUNE_FRAC * len(stored)):
+        raise SystemExit(
+            f"Fail closed: this ESPN save would remove {len(stale)}/{len(stored)} stored players "
+            f"(>{ESPN_MAX_PRUNE_FRAC:.0%}); probable truncated pull. Upserted rows stay; nothing deleted.")
+    for start in range(0, len(stale), 200):
+        chunk = stale[start:start + 200]
+        delete_rows("espn_season_projections",
+                    f"?season=eq.2026&week=eq.2&player_key=in.({','.join(map(str, chunk))})")
+    if stale:
+        print(f"::notice title=espn stale rows removed::{len(stale)} player_keys no longer in "
+              f"ESPN's set: {stale}", flush=True)
+    return stale
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +556,8 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
             audit.fail(str(e))
         raise
 
+    pruned = prune_espn(clean) if name == "espn" else []
+
     live = count_rows(table, count_params)
     if live != len(clean):
         raise SystemExit(
@@ -534,6 +573,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         "review_count": len(review),
         "review": review,
         "vintage": vintage_label,
+        "pruned": pruned,
         "run_id": audit.run_id if audit else None,
         **({"bake_id": bake_id} if name == "cbs" else {}),
     }

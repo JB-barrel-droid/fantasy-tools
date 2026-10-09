@@ -7,10 +7,10 @@
   "cbsros_snapshot": "2026-10-09",
   "espn_snapshot_id": "sha256:72751399133136a7ab70ede5bdd954569a33cfec9cb6731301d3b4a836226459",
   "cbsros_snapshot_id": "sha256:2fc55469533bb9d9b20abb9018dd3c381b79eb7ff2f72fe2f2e7cf17ab92dcdd",
-  "rz_snapshot_id": "sha256:abfcd53db227c25a81b8281356fcd7d4fad766ddbcadc009acde5e94a7a106b9",
+  "rz_snapshot_id": "sha256:dad139729d9cff47e97da39b52a8392cad56e7c4a90abb39578be779010e26cc",
   "n_players": 676,
   "n_espn_complete": 339,
-  "n_rz_complete": 642,
+  "n_rz_complete": 640,
   "n_cbsros_complete": 369,
   "universe": {
    "note": "Rows = ESPN's list (priced or listed at 0) + players any current-week published chart or projection source prices. A player not on ESPN's list is espn_status 'absent' (ESPN shown as missing, never 0).",
@@ -56,19 +56,19 @@
        "QB": 34,
        "RB": 59,
        "WR": 76,
-       "TE": 28
+       "TE": 27
       },
       "ppr-12": {
        "QB": 34,
        "RB": 59,
        "WR": 76,
-       "TE": 28
+       "TE": 27
       },
       "standard-12": {
        "QB": 34,
        "RB": 59,
        "WR": 76,
-       "TE": 28
+       "TE": 27
       }
      }
     },
@@ -148,7 +148,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-09T11:45:48Z",
+   "built_at": "2026-10-09T13:50:10Z",
    "as_of": "2026-10-09",
    "summary": {
     "live": 3,
@@ -404,7 +404,7 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 642,
+      "priced": 640,
       "universe": 676,
       "note": "Razzball where priced; no fill leg. Rank correlation vs ESPN primary 0.78\u20130.91, never 0.99+ \u2014 verified independent 2026-09-17."
      },
@@ -36496,13 +36496,9 @@
    "espn_complete": false,
    "espn_comp_count": 0,
    "espn_covered": [],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
    "cbsros_complete": true,
    "cbsros_comp_count": 3,
    "cbsros_covered": [
@@ -36519,30 +36515,9 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
-    "cbsros",
-    "razzball"
+    "cbsros"
    ],
    "games_remaining": 13,
-   "rz_ppg": {
-    "standard": 2.1,
-    "half_ppr": 2.3,
-    "ppr": 2.4
-   },
-   "rz_ros": {
-    "standard": 27.3,
-    "half_ppr": 29.9,
-    "ppr": 31.2
-   },
-   "rz_filled_ppg": {
-    "standard": 2.1,
-    "half_ppr": 2.3,
-    "ppr": 2.4
-   },
-   "rz_filled_ros": {
-    "standard": 27.3,
-    "half_ppr": 29.9,
-    "ppr": 31.2
-   },
    "cbsros_ppg": {
     "standard": 0.817,
     "half_ppr": 0.942,
@@ -46099,13 +46074,9 @@
    "espn_complete": false,
    "espn_comp_count": 0,
    "espn_covered": [],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
    "cbsros_complete": true,
    "cbsros_comp_count": 3,
    "cbsros_covered": [
@@ -46122,30 +46093,9 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
-    "cbsros",
-    "razzball"
+    "cbsros"
    ],
    "games_remaining": 13,
-   "rz_ppg": {
-    "standard": 2.4,
-    "half_ppr": 2.6,
-    "ppr": 2.9
-   },
-   "rz_ros": {
-    "standard": 31.2,
-    "half_ppr": 33.8,
-    "ppr": 37.7
-   },
-   "rz_filled_ppg": {
-    "standard": 2.4,
-    "half_ppr": 2.6,
-    "ppr": 2.9
-   },
-   "rz_filled_ros": {
-    "standard": 31.2,
-    "half_ppr": 33.8,
-    "ppr": 37.7
-   },
    "cbsros_ppg": {
     "standard": 1.185,
     "half_ppr": 1.223,

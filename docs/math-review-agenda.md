@@ -762,6 +762,92 @@ alternatives above. Not measured.
 `tests/test_ddf_composite_value.py`, `docs/methodology.md` "DDF Composite
 Value".
 
+## MR-18 - Spec gaps found by the clean-room spec reference
+
+**Question.** A third implementation, `pipelines/spec_reference/` (part of
+JEG-479), was written only from this file, `docs/methodology.md`, the
+claude-log decisions and the data files. It does not use the JS engine,
+`twotier_reference.py`, `parity/value_model_parity.py` or `unified.py`. Where
+the written spec could be read more than one way, which reading is right?
+Each gap below states the reading the reference took (`SPEC_GAPS` in
+`spec_reference/compare.py`) and how far the engine is from it.
+
+**Why it matters.** The two-tier and value-model ports are line-for-line
+copies of the JS, so they cannot catch a bug they copied. The spec reference
+can, but only once these readings are written down. Until then, a
+disagreement can be either a spec gap or an engine bug.
+
+**Current behaviour.** The reference runs on every `value_check.py compare`
+as the non-blocking `spec_reference` section of `value-check.json`. Measured
+on main 0d9a1108, Week 5 data, 12 settings (superflex 0) x 3 views:
+62,393 values, 24,070 over 0.05 under the reference's own readings. Reading
+SG-3, SG-7 and SG-11 the engine's way (diagnostic flags) leaves 14,492.
+Agreement with those readings: Indexed published charts 228 of 8,896 over
+(max 0.17, SG-10); CBS ROS 73 of 4,428 and Razzball 53 of 7,704 (max 0.32,
+SG-1/2); short-chart waiver lines agree position by position.
+
+- **SG-1 / SG-2, two-tier glide.** "softplus glide" and "slice pricing" are
+  named but not defined. The reference uses: starter slice =
+  min(surplus, softplus_tau(ppg - rs)), bench slice = the rest. rs (midway
+  between the last starter and the first bench player) and tau = (rs - rw) / 4
+  come from the leg artifact's recorded fields. With the share inside the
+  window, it reproduces the built legs within 0.04-0.17
+  (`tests/test_spec_reference.py`).
+- **SG-3, share above the window.** The docs say only "falls back down". The
+  reference steps one point inside the upper edge. The legs and the engine sit
+  at the edge (pb = ps): standard/12 RB 0.1469, half_ppr/12 TE 0.1488,
+  half_ppr/8 RB 0.1497. Reading changes values by up to 2.4 (ESPN), 4.6
+  (CBS ROS) and 3.6 (Razzball).
+- **SG-5, raw value-above-waivers series' roster.** Not written. The
+  reference uses the translation's bench (teams x 6 by the 12-team mix). The
+  engine rosters more QBs and TEs: at ppr/12, 27 QBs and 27 TEs above the line
+  (15 bench QBs of 72 bench slots). This is the pattern the 2026-09-25 log
+  called out for the anchor. Waiver lines for ESPN at ppr/12: QB 15.10
+  (reference 16.90), RB 7.73 (5.00), TE 5.93 (7.89). Up to 15.7 (espn_vorp),
+  14.7 (cbsros_vorp) and 18.3 (razzball_vorp). Overlaps MR-04's sub-question.
+- **SG-6, published VORP vs waivers factor.** The reference reads "the anchor's
+  total over the players that chart ranks" literally. The engine's factor is
+  0.2-0.6% lower (one ratio per chart, 1.001-1.006), so up to 0.86. This is VA-2.
+- **SG-7 / SG-8, Adjusted values budgets.** Within each group the engine shares
+  in proportion to value above waivers exactly as written (one constant ratio
+  per group). The group budgets differ: whose roles and which players define
+  "the anchor's total for that group" is not written. At ppr/14, USA Today RB
+  bench is 119.6 (engine) vs 152.9 (anchor tiers, whole group), and TE bench
+  is 40.8 vs 29.6. At the saved setup the 70 factor's batch is undefined while
+  three charts show saved views (CBS ppr/12 x0.86). Up to 41.8. This is MR-05.
+- **SG-9, translation details.** Not written: rounding of the
+  slot-proportional preliminary flex, D'Hondt tie order, and whether hidden
+  imputed players are flex candidates. These move one flex slot. USA Today
+  ppr/10 RB waiver 10 vs 11, CBS ppr/10 RB 4.2 vs 4.5 and TE 3.2 vs 2.8.
+- **SG-10, anchor.** The spec says the built leg. The engine adds live refit
+  cells (within about 0.2 at 8/10/12 teams).
+- **SG-11, what "priced" means in a total-match factor.** The contract keeps a
+  genuine 0.0 as a value, so the reference counts anchor zeros. The engine
+  counts only anchor > 0 for CBS ROS, Razzball, the raw `*_vorp` series and
+  derived-setting Indexed charts. The saved 12-team Indexed factor
+  (`order_preserving_rescale`) counts the zeros. So a published chart's
+  Indexed pie over the players it shares with the anchor is 1.000 at 12 teams
+  but 1.03-1.18 elsewhere: USA Today ppr/8 1.184, FantasyPros 1.136, CBS
+  1.042. The two code paths of one rule disagree. This is MR-01 (a) vs (c).
+- **SG-12, rows.** 20 players ESPN lists at 0.0 with no other source (incl.
+  De'Von Achane) have no row on the page. GAP-025 says 0.0 with a badge. The
+  spec does not say whether a one-source zero row is shown.
+
+**Found as a suspected engine bug, not a gap:** JEG-493. At 14 teams the
+engine's ESPN anchor is not the built leg: the bottom 4-15 bench players per
+position share one value, up to 2.7 off. For example, at ppr/14 Kyle
+Juszczyk (2.29 ppg, leg 0.04) and AJ Dillon (4.71 ppg, leg 3.59) are both
+2.73.
+
+**Options.** For each SG item: confirm the engine's reading (write it into
+`docs/methodology.md` and switch the reference to it), confirm the reference's
+reading (an engine change, through the review), or write a new rule.
+
+**Depends on:** MR-01 (SG-11), MR-04 (SG-5, SG-6), MR-05 (SG-7, SG-8), MR-08 /
+MR-09 (SG-9), MR-11 (SG-3).
+**Sources:** `pipelines/spec_reference/`, `tests/test_spec_reference.py`,
+`value-check.json` `spec_reference`, JEG-493.
+
 ---
 
 ## GAP-ADJ-CLIP-ZERO - The live-cell clip zeroes rostered bench players

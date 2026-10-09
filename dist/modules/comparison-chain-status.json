@@ -1,8 +1,8 @@
 {
-  "run_at": "2026-10-09T11:46:13.739752+00:00",
+  "run_at": "2026-10-09T15:08:52.482491+00:00",
   "nfl_week": 5,
   "sources": {
-    "usatoday": "promoted 3/3",
+    "usatoday": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
@@ -10,21 +10,53 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
-  "held_detail": {},
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "published_with_holds",
+  "held": [
+    "usatoday"
+  ],
+  "hold_severity": "amber",
+  "held_detail": {
+    "usatoday": {
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "2026-10-06",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "2026-10-06",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "fantasycalc": {
       "source": "fantasycalc",
@@ -46,7 +78,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (5952 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6804 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -70,7 +102,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (7704 values)",
+      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (7752 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -103,7 +135,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-08",
+      "content_vintage": "2026-10-09",
       "content_week": 5,
       "health_status": "ok",
       "lagging_one_week": false
@@ -126,5 +158,20 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_two_tier_frontend.TestTwoTierPort.test_bench_mix_never_rosters_past_the_irrelevance_floor"
+    ],
+    "assertions": [
+      "AssertionError: False is not true : no position reached its floor -- cap is untested here"
+    ],
+    "make_targets": [
+      "Makefile:443: test-core"
+    ],
+    "detail": "FAIL tests.test_two_tier_frontend.TestTwoTierPort.test_bench_mix_never_rosters_past_the_irrelevance_floor; AssertionError: False is not true : no position reached its floor -- cap is untested here",
+    "recorded_at": "2026-10-09T15:10:05.048484+00:00"
   }
 }

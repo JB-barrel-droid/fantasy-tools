@@ -11,7 +11,7 @@
   --v2-negative: #B33F50;
   --v2-older: #A56320;
   --v2-nav: #142B25;
-  --v2-rank-tint: #EEF6F2;
+  --v2-rank-tint: #EEF6F2; --v2-ddf: #A84410;
   --v2-focus: #087F5B;
   --v2-hover: #F7FAF9;
   --v2-hover-rank: #E3F1EA;
@@ -43,7 +43,7 @@
   :root:not([data-theme="light"]) {
     --v2-canvas: #0E1714; --v2-surface: #15211D; --v2-ink: #E4EEEA; --v2-muted: #93A39E;
     --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
-    --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
+    --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26; --v2-ddf: #F28C5B;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
     --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
     --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
@@ -53,7 +53,7 @@
 :root[data-theme="dark"] {
   --v2-canvas: #0E1714; --v2-surface: #15211D; --v2-ink: #E4EEEA; --v2-muted: #93A39E;
   --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
-  --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
+  --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26; --v2-ddf: #F28C5B;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
     --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
     --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
@@ -413,6 +413,12 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-ctable tr { cursor: default; }
 .v2-ctable td.player { white-space: normal; }
 .v2-ctable td.player .th-sub { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); }
+/* JEG-467: the DDF Value row decides the verdict: first, a brand-orange edge, bold name and a worded tag. */
+.v2-ctable tr.is-verdict td.player { font-weight: 700; box-shadow: inset 4px 0 0 var(--v2-ddf); padding-left: 12px; }
+.v2-ctable .v2-cverdict-tag { display: block; font-size: 11px; font-weight: 700; color: var(--v2-ddf); }
+/* JEG-466: the shared series picker keeps a 44 px target on every tab. */
+.v2-app select.v2-series-picker { min-height: 44px; }
+#v2Compare .v2-field-rank select.v2-series-picker { min-height: 44px; }
 .v2-ctable td[data-col="net"] .missing .why { display: block; font-size: 11px; font-weight: 400; white-space: normal; max-width: 260px; margin-left: auto; }
 @media (max-width: 767px) {
   .v2-trade-sides { grid-template-columns: 1fr; }

@@ -525,6 +525,12 @@ roster and with one superflex slot, plus the DDF Value's prior-week pair.
   each held to the JS by its own vector check). A JS bug a port copied
   verbatim would not be caught; anything in how the series are assembled
   would.
+- *Spec reference (non-blocking).* `pipelines/spec_reference/` is a third,
+  clean-room implementation of the two-tier pricing and the value model,
+  written from this document and the data files only. `value_check.py` adds
+  its comparison as the `spec_reference` section of `value-check.json`. It
+  never holds a source. Where this text is silent, its readings are listed in
+  `docs/math-review-agenda.md` MR-18.
 
 ## Detailed Rule Owners
 

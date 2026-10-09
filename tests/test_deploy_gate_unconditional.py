@@ -114,5 +114,16 @@ class DeployGateUnconditionalTest(unittest.TestCase):
             "rendered gate must block the deploy (not continue-on-error)")
 
 
+
+class DeployNeverStarves(unittest.TestCase):
+    """2026-10-09: with cancel-in-progress: true, commits landing faster than a
+    deploy cancelled every run and nothing went live for hours. A running deploy
+    must finish; the newest pending run deploys next."""
+
+    def test_running_deploy_is_not_cancelled(self):
+        block = re.search(r"^concurrency:\n((?:  .*\n?)+)", PAGES, re.M)
+        self.assertIsNotNone(block, "pages.yml has no concurrency block")
+        self.assertRegex(block.group(1), r"cancel-in-progress:\s*false")
+
 if __name__ == "__main__":
     unittest.main()

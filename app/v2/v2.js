@@ -65,6 +65,55 @@
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
     return "pub";
   }
+  // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
+  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (as published)", "ESPN value above waivers".
+  function groupSeriesName(key) {
+    if (key === DDF_KEY) return "DDF Value";
+    const meta = sourceMeta(key);
+    const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
+    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (as published)`,
+      vorp: `${name} value above waivers`}[seriesGroup(key)];
+  }
+  const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
+
+  // JEG-466: the one series picker every tab uses (Player values' Rank by, Risers & fallers,
+  // Compare's Player values shown). A native <select> with one <optgroup> per JEG-474 group,
+  // DDF Value first. Each option: symbol, group-vocabulary name, "· Wk N" when the series is
+  // on a prior week, and a disabled option carries its reason in the label and the title.
+  // entries: [{key, reason}], reason set (a string) when the series cannot be picked.
+  function renderSeriesPicker(select, entries, selected) {
+    select.replaceChildren();
+    select.classList.add("v2-series-picker");
+    SERIES_GROUPS.forEach(group => {
+      const inGroup = entries.filter(entry => seriesGroup(entry.key) === group.id);
+      if (!inGroup.length) return;
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = pickerGroupTitle(group);
+      optgroup.dataset.group = group.id;
+      inGroup.forEach(({key, reason}) => {
+        const option = document.createElement("option");
+        option.value = key;
+        option.dataset.group = group.id;
+        const item = view && view.infoByKey[key];
+        const behind = !(item && item.stale) ? null : key === DDF_KEY
+          ? {short: Number.isFinite(item.week) ? `Wk ${item.week}` : "Earlier week", label: "Some DDF Value inputs are on an earlier week."}
+          : priorWeekInfo(sourceMeta(key).publisher, item, view.refWeek);
+        let text = `${sourceMeta(key).symbol} ${groupSeriesName(key)}`;
+        if (behind) { text += ` · ${behind.short}`; option.dataset.priorWeek = behind.short; }
+        if (reason) { text += ` — ${reason}`; option.disabled = true; }
+        option.textContent = text;
+        option.title = [behind && behind.label, reason].filter(Boolean).join(" ");
+        optgroup.appendChild(option);
+      });
+      select.appendChild(optgroup);
+    });
+    const keys = entries.map(entry => entry.key);
+    select.value = keys.includes(selected) ? selected : "";
+    select.disabled = !entries.some(entry => !entry.reason);
+  }
+  const unavailableReason = item => (!item ? "not available" : item.available ? null
+    : item.paused ? "waiting on fresh inputs" : "not available for this league");
+
   // Prior-week badge for a series key: the shared JEG-459 badge, named by publisher.
   function weekBadge(key) {
     const item = view && view.infoByKey[key];
@@ -342,16 +391,11 @@
     });
 
     const rankBy = $("v2RankBy");
-    rankBy.replaceChildren();
     const rankKeys = view.plotKeys.concat(view.vorpKeys);
     if (view.infoByKey[DDF_KEY] && !rankKeys.includes(DDF_KEY)) rankKeys.unshift(DDF_KEY);
-    rankKeys.forEach(key => {
-      const option = document.createElement("option");
-      option.value = key;
-      option.textContent = `${sourceMeta(key).symbol} ${sourceMeta(key).short}`;
-      option.selected = key === view.rankKey;
-      rankBy.appendChild(option);
-    });
+    // The series ranked by now stays pickable even when it went unavailable, so the picker shows it.
+    renderSeriesPicker(rankBy, rankKeys.map(key => ({key,
+      reason: key === view.rankKey ? null : unavailableReason(view.infoByKey[key])})), view.rankKey);
 
     $("v2Position").value = view.state.position;
     renderShow();
@@ -2651,9 +2695,11 @@
   // series (JEG-469). The sides are v2 module state, so they survive switching tabs.
   const TR = {give: [], receive: [], shown: null, open: new Set()};   // give/receive: [{key, name}]
   let compareView = null;
-  // JEG-469: the series the verdict reads. "Player values shown" for now; swap this one
-  // line to the DDF Value series key once the engine exposes it.
-  const verdictKey = () => TR.shown;
+  // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
+  // available it decides the verdict, whatever "Player values shown" picks; the picker drives the
+  // side cards' values and totals. With DDF Value not shown, the verdict reads the picked series.
+  let verdictSeries = null;
+  const verdictKey = () => verdictSeries;
   let exampleCache = null;   // {signature, pick}: the empty-state sample trade
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
@@ -2672,9 +2718,12 @@
     const pointKeys = usable(view.plotKeys);
     const vorpKeys = usable(view.vorpKeys);
     const unavailable = view.active.filter(key => !view.infoByKey[key]?.available);
-    // "Player values shown": one exact series, the ranking series unless picked.
+    // "Player values shown": one exact series; DDF Value unless picked, then the ranking series.
     const shownChoices = pointKeys.concat(vorpKeys);
-    if (!shownChoices.includes(TR.shown)) TR.shown = shownChoices.includes(view.rankKey) ? view.rankKey : shownChoices[0] || null;
+    if (!shownChoices.includes(TR.shown)) {
+      TR.shown = [DDF_KEY, view.rankKey].find(key => shownChoices.includes(key)) || shownChoices[0] || null;
+    }
+    verdictSeries = pointKeys.includes(DDF_KEY) ? DDF_KEY : TR.shown;
     const TC = window.TradeValueTrade;
     // JEG-469 empty state: before any player is added, a sample trade marked "Example".
     const example = !TR.give.length && !TR.receive.length && verdictKey() ? exampleTrade(pointKeys) : null;
@@ -2946,6 +2995,14 @@
       const source = document.createElement("td");
       source.className = "player";
       sourceCell(source, result.key);
+      // JEG-467: the series the verdict reads is marked in words, not only by its tint.
+      if (result.key === verdictKey()) {
+        tr.classList.add("is-verdict");
+        const tag = document.createElement("span");
+        tag.className = "v2-cverdict-tag";
+        tag.textContent = "★ Decides the verdict";
+        source.insertBefore(tag, source.querySelector(".th-sub"));
+      }
       const open = TR.open.has(result.key);
       const toggle = document.createElement("button");
       toggle.type = "button";
@@ -3214,7 +3271,8 @@
     if (v.kind === "incomplete") {
       const names = v.missing.map(m => m.row.name || "a player").join(", ");
       return {kind: v.kind, title: `${name}: no verdict yet`,
-        text: `No ${name} value for ${names}, so this series cannot score the trade (a missing value is never counted as zero). Pick another series in Player values shown.`};
+        text: `No ${name} value for ${names}, so this series cannot score the trade (a missing value is never counted as zero). `
+          + (key === DDF_KEY ? "Each source's own result is in the table below." : "Pick another series in Player values shown.")};
     }
     const net = fmtGap(v.net);
     if (v.kind === "win") {
@@ -3291,16 +3349,9 @@
   }
 
   function renderShownPicker() {
-    const select = $("v2CShown");
-    select.replaceChildren();
-    compareView.shownChoices.forEach(key => {
-      const option = document.createElement("option");
-      option.value = key;
-      option.textContent = `${sourceMeta(key).symbol} ${sourceMeta(key).short}`;
-      select.appendChild(option);
-    });
-    select.value = TR.shown || "";
-    select.disabled = !compareView.shownChoices.length;
+    const entries = compareView.shownChoices.map(key => ({key, reason: null}))
+      .concat(compareView.unavailable.map(key => ({key, reason: unavailableReason(view.infoByKey[key])})));
+    renderSeriesPicker($("v2CShown"), entries, TR.shown);
   }
 
   function renderCompare() {
@@ -3539,10 +3590,10 @@
   const weeksCache = new Map();   // series -> getHistoryWeeks result (the saved weeks do not change)
   const pairCache = new Map();    // "series:week" -> {prior, after} for an earlier week pair
 
-  function priorLabel(key) {
-    const meta = sourceMeta(key);
-    return plainSeries(meta.publisher, meta.method);
-  }
+  // Risers copy names each series in the JEG-474 group vocabulary.
+  const priorLabel = key => groupSeriesName(key);
+  // JEG-465: Risers & fallers opens on the DDF Value whenever the engine has its prior week.
+  const RISERS_DEFAULT = DDF_KEY;
 
   // Week pairs the engine can price for a series: every saved week whose week before is
   // also saved, up to the week served now. Latest first.
@@ -3582,19 +3633,11 @@
     }
     const choices = M.SERIES.map(key => ({key, prior: priorCache.get(key)}));
     if (!R.series || !choices.some(c => c.key === R.series)) {
-      R.series = (choices.find(c => c.prior.available) || choices[0]).key;
+      R.series = (choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
+        || choices.find(c => c.prior.available) || choices[0]).key;
     }
-    const select = $("v2RSeries");
-    select.replaceChildren();
-    choices.forEach(({key, prior}) => {
-      const option = document.createElement("option");
-      option.value = key;
-      option.disabled = !prior.available;
-      option.textContent = `${sourceMeta(key).symbol} ${priorLabel(key)}` + (prior.available ? "" : " — no prior week");
-      option.title = prior.available ? "" : prior.reason;
-      select.appendChild(option);
-    });
-    select.value = R.series;
+    renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
+      reason: prior.available ? null : `no prior week: ${prior.reason || "not saved"}`})), R.series);
     $("v2RPosition").value = view.state.position;
     const servedPrior = priorCache.get(R.series);
     if (servedPrior.available && !weeksCache.has(R.series)) {
@@ -3604,7 +3647,9 @@
         .then(info => { weeksCache.set(R.series, info); if (currentView() === "risers") renderRisers(); });
       return;
     }
-    const pairs = servedPrior.available ? weekPairs(R.series) : [];
+    // DDF Value: only the served pair is offered. The engine prices it over the same inputs on both
+    // sides; two getWeekValues calls could average different inputs (Back-end requests).
+    const pairs = servedPrior.available && R.series !== DDF_KEY ? weekPairs(R.series) : [];
     if (!pairs.includes(R.week)) R.week = servedPrior.available ? servedPrior.currentWeek : null;
     const weeks = $("v2RWeeks");
     weeks.replaceChildren();
@@ -3634,11 +3679,15 @@
     risersView = M.buildMovers(rows, R.series, prior);
     const label = priorLabel(R.series);
     const v = risersView;
+    const group = seriesGroup(R.series);
+    // DDF Value: both weeks average the same inputs, so say how many of them have the prior week.
+    const ddfInputs = group === "ddf" && Array.isArray(prior.sources) && Array.isArray(prior.inputs)
+      ? ` · ${prior.sources.length} of ${prior.inputs.length} sources have a prior week` : "";
     $("v2RMeta").textContent = v.available
-      ? `${label} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
-        + (sourceMeta(R.series).method === "dda"
-          ? "A projection moving is a change in that source's outlook."
-          : "A riser now costs more from a manager who trades off this chart; a faller costs less.")
+      ? `${label}${ddfInputs} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
+        + (group === "ddf" ? "A riser is worth more in a trade than last week; a faller is worth less."
+          : group === "proj" ? "A projection moving is a change in that source's outlook."
+            : "A riser now costs more from a manager who trades off this chart; a faller costs less.")
       : `No Δ for ${label}: ${v.reason}.`;
     // One bar scale for both lists, so a bar's length means the same number of points on either side.
     const shownItems = v.risers.slice(0, R.shown.rise).concat(v.fallers.slice(0, R.shown.fall));
@@ -3653,6 +3702,9 @@
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
     if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
+    if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
+      notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
+    }
     if (unavailable.length) notes.push(`No prior week: ${unavailable.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
     const note = $("v2RNote");
     note.hidden = !notes.length;

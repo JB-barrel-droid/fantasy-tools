@@ -466,6 +466,13 @@ Answered 2026-10-08 by the history contract below (branch `feat/week-history`): 
 CBS ROS and Razzball get prior weeks, and ESPN, the Adjusted series and the VORP vs waivers series
 return "Δ —" with a reason.
 
+**BE-3 · DDF Value for an earlier week pair (Risers & fallers, JEG-465).** `getPriorWeek("ddf_value")`
+prices the served pair over the same inputs on both sides. An earlier pair (Week N−1 → N) can only be
+built from two `getWeekValues("ddf_value", week)` calls, which may average different inputs, so the Δ
+would mix a change of inputs with a change of values. v2 therefore offers only the served pair for DDF
+Value. Request: `getWeekPair("ddf_value", week)` (or a `week` argument to `getPriorWeek` that accepts
+any saved pair) returning `{values, currentValues, sources, dropped, ...}` over one input set.
+
 **BE-2 · Editable position shares and superflex (frames 11, 12).** Frame 11 lets the reader set QB /
 RB / WR / TE shares of total value; frame 12 has a SUPERFLEX slot. The engine exposes
 `getPositionWeights()` but no setter, and `setRosterSpot` knows QB, RB, WR, TE, FLEX, BENCH (K and DST
@@ -981,3 +988,44 @@ Built on the engine's "Back-end contract: DDF Value" above. v2 still does no val
 - **Δ prior week for DDF Value:** `movers.deltaFor` uses the prior result's `currentValues` when present, so both sides cover the same inputs.
 - **Copy:** the footer no longer says "no blended score". It now reads "DDF Value is our value, built from the inputs you choose in Customize. Every other series keeps its source's identity." Nothing explains the MR-17 methodology yet.
 - **Tests:** `tests/test_v2_ddf_render.py` (test-unit), with 9 deliberately broken builds. The compare, offer, panels, states and waterfall tests now read the shown set from `TradeValueV2.shown()`, and widen it where a check needs several methods.
+
+## Shared series picker, Risers by DDF Value, verdict by DDF Value (2026-10-08, JEG-466 / 465 / 467)
+
+- **One picker (JEG-466).** `renderSeriesPicker(select, entries, selected)` in v2.js draws every per-tab
+  series choice: Player values' Rank by (`#v2RankBy`), Risers & fallers' series (`#v2RSeries`) and Compare's
+  Player values shown (`#v2CShown`). It is a native `<select>` (keyboard and screen-reader behaviour for
+  free) with one `<optgroup>` per JEG-474 group in vocabulary order, DDF Value first: DDF Value,
+  Projections, Trade charts (adjusted), Trade charts (as published), Value above waivers (Advanced).
+  - Option label: symbol + the series in group words (`groupSeriesName`: "ESPN projection", "FantasyCalc
+    chart (adjusted)", "FantasyCalc chart (as published)", "ESPN value above waivers").
+  - A series on a prior week gets "· Wk N" in its label (the `priorWeekInfo` short text; the full sentence
+    is the option's title).
+  - A series that cannot be picked is listed disabled with its reason in the label ("— no prior week:
+    …", "— not available for this league", "— waiting on fresh inputs").
+  - 44 px tall on every tab (Compare's picker was 36 px).
+- **Risers & fallers (JEG-465).** `movers.SERIES` starts with `ddf_value`; the tab opens on DDF Value
+  whenever the engine has its prior week (`RISERS_DEFAULT`), else on the first series that has one.
+  - DDF Value's Δ and its "before → now" are `getPriorWeek("ddf_value")` `currentValues − values`
+    (`buildMovers` now reads "now" from `currentValues` too, not the row's value).
+  - The meta line says "DDF Value · N of M sources have a prior week"; inputs the engine dropped from
+    both weeks are listed with their reasons. The counts of players not compared stay.
+  - Only the served week pair is offered for DDF Value (see BE-3).
+  - Copy names every series in group words ("FantasyCalc chart (as published)", "Razzball projection").
+- **Compare a trade (JEG-467).** "Player values shown" defaults to DDF Value (then the ranking series).
+  - The verdict reads DDF Value whenever DDF Value is shown and available, whatever the picker says
+    (`verdictSeries` in `collectCompare`). The picker drives the side cards' values and totals; the
+    per-source table and its waterfalls show every series as before; the verdict card's waterfall is
+    the verdict series'. With DDF Value not shown, the verdict reads the picked series (Jeremy, 2026-10-08:
+    the verdict follows the picked series when DDF Value is hidden).
+  - With a DDF Value missing for a player, the verdict says so and points to the table rather than
+    to the picker.
+  - The DDF Value row is first in "Difference by source & method", with a brand-orange edge, a bold
+    name and the words "★ Decides the verdict".
+- **Tests.** `test_v2_risers_render` (DDF movers equal the engine's `currentValues − values`; opens on
+  DDF Value; grouped picker for Risers and Rank by, one series forced to "no prior week" is disabled
+  with its reason; broken builds: picker ungrouped, Risers default not DDF). `test_v2_waterfall_render`
+  (verdict = DDF Value net from engine values with the picker on another series; verdict-card waterfall
+  = DDF Value's row; broken build: verdict follows the picker). `test_v2_compare_render` (DDF Value row
+  first and marked; Values shown grouped and opening on DDF Value). `test_v2_offer_render` (side values
+  follow the picker, DDF Value included). `test_v2_movers` (DDF "now" from `currentValues`).
+

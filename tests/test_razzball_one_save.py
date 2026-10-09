@@ -178,6 +178,39 @@ class OneSnapshotDateIsOneSave(unittest.TestCase):
         self.assertEqual([869], [r["player_key"] for r in snap["superseded_rows"]])
 
 
+class ImportHealthCountsTheNewestSave(unittest.TestCase):
+    """Chain run 37939612502 (first run with the import fix): the snapshot held
+    688 rows, the health check counted all 690 of the date and failed it
+    TABLE_DRIFT."""
+
+    def test_rows_left_from_an_earlier_save_are_not_drift(self):
+        from datetime import date
+        import test_import_health as ih
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        saved = ih.mod.fetch_table_summary
+        self.addCleanup(setattr, ih.mod, "fetch_table_summary", saved)
+
+        def table(name, params):
+            self.assertIn("pulled_at", params)
+            rows = ih.db_rows(10, source_content_date="2026-09-21", date_col="razzball_snapshot_date")
+            for r in rows:
+                r["pulled_at"] = "2026-09-21T03:25:30+00:00"
+            old = ih.db_rows(2, source_content_date="2026-09-21", date_col="razzball_snapshot_date")
+            for i, r in enumerate(old):
+                r.update(player_key=5000 + i, pulled_at="2026-09-20T19:26:52+00:00")
+            return rows + old
+        ih.mod.fetch_table_summary = table
+        root = Path(tmp.name)
+        ih.make_snapshot(root, "razzball", "2026-09-21", content_vintage="2026-09-21",
+                         week_designated=None, supabase_table="public.razzball_projections")
+        entry, _ = ih.mod.verify_source("razzball", sources_root=root, nfl_week=3,
+                                        check_date=date(2026, 9, 21), prev_entry=None, checked_at="t")
+        self.assertEqual("ok", entry["status"], entry.get("failure_reason"))
+        self.assertEqual(10, entry["db_latest_rows"])
+        self.assertEqual(2, entry["ignored_older_rows"])
+
+
 class SaverStampsAndChecksItsOwnSave(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

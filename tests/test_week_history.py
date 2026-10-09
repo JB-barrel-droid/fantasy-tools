@@ -299,6 +299,62 @@ class WeekSnapshotRuleTest(unittest.TestCase):
         fixture["sources"]["cbs"]["combos"]["full_12"]["native"]["bijan"] = 46.0
         self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["cbs"]["week"])
 
+    def _held_cbs(self):
+        """Chain run 37877126939 (2026-10-09): the CBS candidate was held
+        (review hold), so the page kept the last promoted Week 5 section,
+        built when Tyreek Hill (3081) was outside the universe. The same run
+        added him to player_keys, so the saved Week 5 now prices a universe
+        player the kept section does not carry."""
+        saved = self._chart("cbs", 5, 47.0, "2026-10-08 11:36:55+00")
+        for sc in H.SCORINGS:
+            saved["natives"][sc]["3081"] = 7.0
+        docs = H.merge({}, [saved], content_week=5, log=self.quiet)
+        fixture = {"player_keys": {"bijan": 217, "tyreek hill": 3081},
+                   "sources": {"cbs": {"week_designated": "Week 5", "combos": {
+                       c: {"native": {"bijan": 47.0}} for c in H.FIXTURE_COMBO.values()}}}}
+        return docs, fixture
+
+    def test_held_section_built_on_an_older_universe_serves_its_kept_week(self):
+        docs, fixture = self._held_cbs()
+        index = H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)
+        rec = index["served"]["cbs"]
+        self.assertEqual(rec["week"], 5, rec.get("reason"))
+        self.assertEqual(rec["version"], "superseded")  # not the snapshot as saved
+        self.assertEqual(rec["served_from"]["dropped_players"], ["3081"])
+        self.assertIn("does not carry", rec["note"])
+        # make sync serves exactly the kept section's content as "this week".
+        with tempfile.TemporaryDirectory() as tmp:
+            served = H.write_served_versions(index, {}, Path(tmp) / "served.json", docs)
+        entry = served["sources"]["cbs"]
+        self.assertEqual(entry["fingerprint"], rec["entry_fingerprint"])
+        self.assertEqual(entry["week"], 5)
+        for sc in H.SCORINGS:
+            self.assertEqual(entry["natives"][sc], {"217": 47.0})
+        H.validate_week_doc({"schema": H.SCHEMA, "season": H.SEASON, "week": 5, "frozen": True,
+                             "sources": {"cbs": entry}}, 5)
+
+    def test_held_section_with_a_different_value_still_matches_nothing(self):
+        docs, fixture = self._held_cbs()
+        fixture["sources"]["cbs"]["combos"]["full_12"]["native"]["bijan"] = 46.0
+        rec = H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["cbs"]
+        self.assertIsNone(rec["week"])
+        # A served player the saved week lacks is not a subset either.
+        docs, fixture = self._held_cbs()
+        fixture["player_keys"]["new guy"] = 9999
+        for cell in fixture["sources"]["cbs"]["combos"].values():
+            cell["native"]["new guy"] = 3.0
+        self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["cbs"]["week"])
+
+    def test_gate_reports_an_unmatched_source_instead_of_crashing(self):
+        index = {"served": {"cbs": {"week": None, "reason": "the served inputs match no saved week"},
+                            "espn": {"week": 5}}}
+        failures = []
+        self.assertIsNone(served_week(index, "cbs_adjusted", failures))
+        self.assertEqual(served_week(index, "espn_vorp", failures), 5)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("cbs", failures[0])
+        self.assertIn("match no saved week", failures[0])
+
     def test_two_qb_rows_in_the_same_bake_are_ignored(self):
         # FantasyCalc saves qb_slots=2 rows in the same bake (superflex
         # publisher values); history is the 1-QB natives only.
@@ -542,6 +598,20 @@ def served_sources():
     return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources]
 
 
+def served_week(index, series, failures):
+    """The saved week a series' base source serves (index served.week), or
+    None with a failure. A held source serves its kept section's week
+    (JEG-479 holds); a source whose served inputs match no saved week is a
+    history bug to report, never a crash of the gate."""
+    base = series.split("_")[0]
+    rec = (index.get("served") or {}).get(base) or {}
+    if isinstance(rec.get("week"), int):
+        return rec["week"]
+    failures.append(f"{series}: the served {base} inputs have no saved week "
+                    f"({rec.get('reason') or 'not in the history index'})")
+    return None
+
+
 def collect(overrides=None):
     """Failures of the Δ checks against the built dist/ (with optional
     served-file overrides that simulate a broken state)."""
@@ -554,12 +624,13 @@ def collect(overrides=None):
     # Every published chart whose week before the served one is saved (on
     # 2026-10-08: USA Today / FantasyCalc / FantasyPros Week 4, CBS Week 3).
     index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
-    expected = {}
+    expected, failures = {}, []
     for source in H.PUBLISHED:
-        served = index["served"][source]["week"]
+        served = served_week(index, source, failures)
         if served and source in (index["weeks"].get(str(served - 1)) or {}).get("sources", {}):
             expected[source] = served - 1
-    failures = [] if expected else ["no published chart has a saved prior week"]
+    if not expected:
+        failures.append("no published chart has a saved prior week")
     with _server(overrides or {}) as url, sync_playwright() as playwright:
         exe = _render_env.chromium_executable(playwright)
         try:
@@ -605,7 +676,10 @@ def collect(overrides=None):
             # builds it (espn_legs_for_week), player for player.
             players = json.loads((ROOT / "data/fixtures/current/players.json").read_text(encoding="utf-8"))
             for source, res in page.evaluate(ESPN_PRIOR).items():
-                served = index["served"][source.split("_")[0]]["week"]
+                # Published charts were reported above; report a projection once.
+                served = served_week(index, source, [] if source.split("_")[0] in H.PUBLISHED else failures)
+                if served is None:
+                    continue
                 if not res["available"]:
                     if (source.split("_")[0] in index["weeks"].get(str(served - 1), {}).get("sources", {})):
                         failures.append(f"{source}: prior week unavailable ({res['reason']})")
