@@ -105,7 +105,11 @@ jobs:
 
       - name: Publish to the status page
         id: publish
-        if: env.IS_MAIN == 'true'
+        # A run limited to some sources must not replace the status page's
+        # full report: on 2026-10-09 a razzball-only dispatch published a
+        # 1-source file and test_published_surfaces failed main's validate
+        # ("fidelity-pulse: sources=1 < 7") until the next full run.
+        if: env.IS_MAIN == 'true' && (github.event_name != 'workflow_dispatch' || inputs.sources == '')
         run: |
           cp output/fidelity-pulse.json dist/modules/fidelity-pulse.json
           git config user.name "github-actions[bot]"

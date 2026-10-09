@@ -472,12 +472,14 @@ test-core:
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_tier_matches_leg
+	python3 -m unittest tests.test_espn_listed_rows
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
 	python3 -m unittest tests.test_position_weights_setter
 	python3 -m unittest tests.test_ddf_composite_value
 	python3 -m unittest tests.test_view_switch_hidden_defaults
+	python3 -m unittest tests.test_row_missing_reasons
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_vorp_translation_js_parity

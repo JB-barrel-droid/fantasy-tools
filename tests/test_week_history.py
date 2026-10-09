@@ -494,6 +494,14 @@ SELF = """async (keys) => {
       // ESPN only: a player one side prices at 0.0 and the other lacks is the
       // leg/players.json identity edge (reported, GAP-ESPN-LEG-STATUS-EDGE).
       if (k === 'espn' && (v == null ? p : v) === 0) { zeroOnly.push(row.name); return; }
+      // JEG-479 row rules (Jeremy 2026-10-08/09): the row shows 0 for a player
+      // below a fully loaded chart's floor whom the saved week does not price,
+      // and blanks an identity-fallback adjustment cell the week still prices.
+      // The history accessor returns the saved week as priced.
+      const chartSeries = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'].includes(base(k));
+      if (chartSeries && v === 0 && p == null) return;
+      const why = (row.missingReasons || {})[k] || '';
+      if (chartSeries && v == null && (why.startsWith('Not enough players') || why.startsWith('Adjustment fit refused'))) return;
       errors.push(`${row.name}: chart ${v}, week ${week} ${p}`);
     });
     if (!compared) errors.push('no player compared');
