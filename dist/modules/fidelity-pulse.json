@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T01:17:19.884539Z",
- "run_id": "b1905960-190c-45f5-8ca9-88edc7ac606b",
+ "checked_at": "2026-10-09T03:15:43.767337Z",
+ "run_id": "05357aef-6475-41d2-a549-4b59a74d2705",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-08T23:40:11.494716+00:00",
+  "built_at": "2026-10-09T02:01:44.862922+00:00",
   "error": null
  },
  "rules": {
@@ -236,7 +236,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-08T23:39:44Z",
+     "chart_imported_at": "2026-10-09T02:01:10Z",
      "bake_id": "usatwk5_2026-10-08t1535_v1",
      "bake_saved_at": "2026-10-08T15:35:30.873077Z",
      "behind": null,
@@ -380,154 +380,73 @@
    "status": "amber",
    "stored_week": 5,
    "chart_week": 5,
-   "stored_bake": "fcwk5_2026-10-08t2005_v1",
+   "stored_bake": "fcwk5_2026-10-09t0305_v1",
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "15/1161 values match exactly across 6 columns; 1146 of 1161 values moved since the save at 2026-10-08T20:05:29.762788Z (largest 260%; 39 outside the max(25%, 50) band: Baker Mayfield, C.J. Stroud, Dalton Schultz, Daniel Jones, Darren Waller, Jalon Daniels, Jameis Winston, Justin Herbert, Kyler Murray, Malik Willis, Mike Gesicki); 7 players entered or left the bottom of the list since the save (churn); 1 publisher players are not stored because the page's player universe excludes them (Tyreek Hill)",
+     "summary": "1185/1185 values match exactly across 6 columns; 1 publisher players are not stored because the page's player universe excludes them (Tyreek Hill)",
      "counts": {
       "publisher_players": 198,
-      "stored_players": 197,
-      "compared": 1161,
-      "matched": 15,
-      "mismatched": 1146,
+      "stored_players": 198,
+      "compared": 1185,
+      "matched": 1185,
+      "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 1,
-      "list_churn": 7,
+      "list_churn": 0,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
      "page_week": null,
      "page_modified": null,
-     "bake_id": "fcwk5_2026-10-08t2005_v1",
-     "bake_saved_at": "2026-10-08T20:05:29.762788Z",
+     "bake_id": "fcwk5_2026-10-09t0305_v1",
+     "bake_saved_at": "2026-10-09T03:05:25.530584Z",
      "grains": {
       "full|1": {
        "left": 198,
-       "right": 195,
-       "mismatched": 190,
-       "missing": 5,
-       "extra": 2
+       "right": 197,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
       },
       "full|2": {
        "left": 198,
-       "right": 197,
-       "mismatched": 192,
-       "missing": 4,
-       "extra": 3
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
       },
       "half|1": {
        "left": 198,
-       "right": 195,
-       "mismatched": 190,
-       "missing": 5,
-       "extra": 2
+       "right": 197,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
       },
       "half|2": {
        "left": 198,
-       "right": 197,
-       "mismatched": 192,
-       "missing": 4,
-       "extra": 3
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
       },
       "std|1": {
        "left": 198,
-       "right": 195,
-       "mismatched": 190,
-       "missing": 5,
-       "extra": 2
+       "right": 197,
+       "mismatched": 0,
+       "missing": 1,
+       "extra": 0
       },
       "std|2": {
        "left": 198,
-       "right": 197,
-       "mismatched": 192,
-       "missing": 4,
-       "extra": 3
+       "right": 198,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
       }
      },
-     "examples": [
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 3541,
-       "name": "Kirk Cousins",
-       "pos": "QB",
-       "left": "1767",
-       "right": 2316.0,
-       "delta": 549.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 3541,
-       "name": "Kirk Cousins",
-       "pos": "QB",
-       "left": "1768",
-       "right": 2317.0,
-       "delta": 549.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 3541,
-       "name": "Kirk Cousins",
-       "pos": "QB",
-       "left": "1747",
-       "right": 2290.0,
-       "delta": 543.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
-       "pos": "QB",
-       "left": "2240",
-       "right": 1777.0,
-       "delta": -463.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
-       "pos": "QB",
-       "left": "2241",
-       "right": 1778.0,
-       "delta": -463.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
-       "pos": "QB",
-       "left": "2215",
-       "right": 1757.0,
-       "delta": -458.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 3133,
-       "name": "Trey McBride",
-       "pos": "TE",
-       "left": "5851",
-       "right": 6273.0,
-       "delta": 422.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 3133,
-       "name": "Trey McBride",
-       "pos": "TE",
-       "left": "5358",
-       "right": 5779.0,
-       "delta": 421.0
-      }
-     ],
+     "examples": [],
      "outside_universe": [
       {
        "player_key": 3081,
@@ -544,7 +463,7 @@
     },
     "stored_vs_chart": {
      "status": "amber",
-     "summary": "1170/1170 chart values equal stored bake fcwk5_2026-10-08t2005_v1; 2 stored players are left off the chart because the page's player universe excludes them (Tyreek Hill, Joe Mixon)",
+     "summary": "1170/1170 chart values equal stored bake fcwk5_2026-10-08t2005_v1; 2 stored players are left off the chart because the page's player universe excludes them (Tyreek Hill, Joe Mixon); newer stored bake fcwk5_2026-10-09t0305_v1 (week 5, saved 2026-10-09T03:05:25.530584Z) is not on the chart yet: 1146 values changed, 24 added, 15 dropped",
      "counts": {
       "chart_players": 195,
       "stored_players": 197,
@@ -557,10 +476,17 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-08T23:39:42Z",
+     "chart_imported_at": "2026-10-09T02:01:08Z",
      "bake_id": "fcwk5_2026-10-08t2005_v1",
      "bake_saved_at": "2026-10-08T20:05:29.762788Z",
-     "behind": null,
+     "behind": {
+      "bake_id": "fcwk5_2026-10-09t0305_v1",
+      "saved_at": "2026-10-09T03:05:25.530584Z",
+      "week": 5,
+      "changed_values": 1146,
+      "added": 24,
+      "dropped": 15
+     },
      "grains": {
       "full|1": {
        "left": 195,
@@ -641,96 +567,7 @@
      "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
     }
    },
-   "worst_examples": [
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 3541,
-     "name": "Kirk Cousins",
-     "pos": "QB",
-     "left": "1767",
-     "right": 2316.0,
-     "delta": 549.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 3541,
-     "name": "Kirk Cousins",
-     "pos": "QB",
-     "left": "1768",
-     "right": 2317.0,
-     "delta": 549.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 3541,
-     "name": "Kirk Cousins",
-     "pos": "QB",
-     "left": "1747",
-     "right": 2290.0,
-     "delta": 543.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
-     "pos": "QB",
-     "left": "2240",
-     "right": 1777.0,
-     "delta": -463.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
-     "pos": "QB",
-     "left": "2241",
-     "right": 1778.0,
-     "delta": -463.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
-     "pos": "QB",
-     "left": "2215",
-     "right": 1757.0,
-     "delta": -458.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 3133,
-     "name": "Trey McBride",
-     "pos": "TE",
-     "left": "5851",
-     "right": 6273.0,
-     "delta": 422.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 3133,
-     "name": "Trey McBride",
-     "pos": "TE",
-     "left": "5358",
-     "right": 5779.0,
-     "delta": 421.0
-    }
-   ]
+   "worst_examples": []
   },
   {
    "source": "fantasypros",
@@ -823,7 +660,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-08T23:39:45Z",
+     "chart_imported_at": "2026-10-09T02:01:11Z",
      "bake_id": "fpwk5_2026-10-08t1536_v1",
      "bake_saved_at": "2026-10-08T15:36:15.100704Z",
      "behind": null,
@@ -980,7 +817,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-08T23:39:46Z",
+     "chart_imported_at": "2026-10-09T02:01:14Z",
      "bake_id": "cbswk5_2026-10-08t1259_v1",
      "bake_saved_at": "2026-10-08T12:59:38.994744Z",
      "behind": null,
