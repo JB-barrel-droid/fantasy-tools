@@ -605,6 +605,10 @@ class TestQBAnchorResolution(unittest.TestCase):
             combo = section["combos"]["full_12"]
             self.assertEqual(90.0, combo["native"]["chart only"])
             self.assertEqual(["chart only"], combo["not_on_espn"])
+            # He gets an Indexed value from his bucket's scale, like a player
+            # ESPN lists at 0, and the reconciliation still holds.
+            self.assertGreater(combo["reindexed"]["chart only"], 0.0)
+            self.assertEqual(section["reindex_status"], "complete")
 
 
 class TestFlexAwareExactReconciliation(unittest.TestCase):

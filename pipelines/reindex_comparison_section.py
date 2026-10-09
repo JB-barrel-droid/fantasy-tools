@@ -288,8 +288,12 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                 key = combo.get("player_keys", {}).get(slug)
                 anchor_v = anchor_by_key.get(key)
                 if anchor_v is None and key in not_on_espn:
+                    # Priced like a player ESPN lists at 0 (anchor 0.0): he
+                    # gets an indexed value from his bucket's scale, never
+                    # calibrates the scale (overlap needs anchor > 0) and
+                    # adds nothing to the bucket's anchor total.
                     out_combo.setdefault("not_on_espn", []).append(slug)
-                    continue
+                    anchor_v = 0.0
                 if anchor_v is None:
                     # Zero-VORP policy: if native is also low, skip silently.
                     # Meaningful natives with no anchor still get review (potential omission).
@@ -318,7 +322,7 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             # where sources overlap; the deep tail varies in depth by source
             # and shouldn't drive the scale.
             overlap = [s for s in priced
-                       if float(anchor_by_key[combo.get("player_keys", {}).get(s)]) > 0]
+                       if float(anchor_by_key.get(combo.get("player_keys", {}).get(s), 0.0)) > 0]
             if not overlap:
                 # Fallback: use all priced if no VORP>0 overlap (shouldn't happen)
                 overlap = priced
