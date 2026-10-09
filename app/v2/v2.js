@@ -135,6 +135,7 @@
   // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
   const DDF_KEY = "ddf_value";
   const DDF_META = {label: "DDF Value", symbol: "★"};
+  const DDF_VERSION_NAMES = {charts: "trade charts only", projections: "projections only"};
   function sourceMeta(key) {
     if (key === DDF_KEY) {
       return {key, method: "ddf", publisher: "ddf", ...DDF_META, color: isDark() ? "#F28C5B" : "#A84410", short: "DDF Value"};
@@ -143,6 +144,14 @@
     let publisher;
     if (key.endsWith("_vorp")) { method = "vorp"; publisher = key.slice(0, -5); }
     else if (key.endsWith("_adjusted")) { method = "dda"; publisher = key.slice(0, -9); }
+    // JEG-508: the engine's DDF inputs are now "<chart>_adj_values" (the chart's adjusted values).
+    else if (key.endsWith("_adj_values")) { method = "dda"; publisher = key.slice(0, -11); }
+    // JEG-497: "ddf_value_charts" / "ddf_value_projections" are DDF Value versions, not publisher charts.
+    else if (key.startsWith(`${DDF_KEY}_`)) {
+      const version = DDF_VERSION_NAMES[key.slice(DDF_KEY.length + 1)] || "";
+      const label = version ? `DDF Value (${version})` : "DDF Value";
+      return {key, method: "ddf", publisher: "ddf", ...DDF_META, label, color: isDark() ? "#F28C5B" : "#A84410", short: label};
+    }
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
     else { method = "indexed"; publisher = key; }
     const pub = PUBLISHERS[publisher] || {label: key, color: "#64736F", symbol: "•"};
@@ -464,7 +473,7 @@
     // Fail closed: "all sources current" only when every root source is confirmed current.
     const unknown = roots.filter(r => r.status === "unknown").length;
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
-    const freshNotes = [behind ? `${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
+    const freshNotes = [behind ? `⚠ ${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
       unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
     $("v2FreshnessLabel").textContent = stuck ? `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
@@ -1195,7 +1204,8 @@
     const main = document.createElement("div");
     const eyebrow = document.createElement("p");
     eyebrow.className = "v2-eyebrow";
-    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_FULL[meta.method]}${item?.week ? ` · W${item.week}` : ""}`;
+    const methodName = METHOD_FULL[meta.method];
+    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label}${methodName ? ` · ${methodName}` : ""}${item?.week ? ` · W${item.week}` : ""}`;
     const big = document.createElement("p");
     big.className = "v2-dhero-value";
     big.dataset.source = key;
@@ -2125,7 +2135,7 @@
         week.textContent = r.week ? `Week ${r.week}` : "—";
         const status = document.createElement("td");
         status.className = r.status === "stuck" ? "is-bad" : r.status === "current" ? "is-ok" : "is-older";
-        status.textContent = `${{stuck: "⚠ ", unknown: "? ", current: "✓ "}[r.status] || ""}${r.text}`;
+        status.textContent = `${{stuck: "⚠ ", prior: "⚠ ", unknown: "? ", current: "✓ "}[r.status] || ""}${r.text}`;
         if (r.reason) {
           const why = document.createElement("span");
           why.className = "th-sub";
