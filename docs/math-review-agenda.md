@@ -691,11 +691,14 @@ teams, QB 6.4% -> 16.4%, the other three scaled down in proportion):
 
 ## MR-17 - DDF Composite Value: what the blend averages
 
-**Question.** The DDF Composite Value (JEG-455 / JEG-471) is the per-player
-equal-weight mean of the adjusted series. Jeremy decided the inputs (adjusted,
-not as-published or VORP), the missing-value rule, the current-week default,
-no leave-one-out, and tiers by slot count (2026-10-08). The points below were
-not decided; the engine took the reading most consistent with those decisions.
+**Question.** The DDF Composite Value (JEG-455 / JEG-471 / JEG-479) is the
+per-player equal-weight mean of the included inputs, per view. Jeremy decided
+(2026-10-08) the inputs, the missing-value rule, no leave-one-out, tiers by
+slot count, and (JEG-479) one DDF Value per view for the current and prior
+week, at least two values per player, held and not-yet-published sources never
+included, and the same inputs in both weeks. The full rule is
+`docs/methodology.md` "DDF Composite Value". The points below were not
+decided; the engine took the reading most consistent with those decisions.
 Which should stand?
 
 **Why it matters.** DDF Value is the default rank, Δ, tier and "our value" on
@@ -723,19 +726,33 @@ every v2 tab, so each choice below moves the headline number.
   superflex, then flex, then bench). A DDF Value of 0 is waiver; no DDF Value
   is no tier. In a single-position view the zones are that position's DDF
   tier counts; in All they stay teams x slots, as for every other series.
-- *Views.* The adjusted inputs do not change with the Indexed / VORP vs
-  waivers / Adjusted values tab, so neither does DDF Value. Their prior weeks
-  exist in Indexed only, so in the other tabs the Δ drops the four charts.
-- *Δ pair.* The newest served week among the inputs and the week before it.
-  An input serving an older week, or lacking that prior week, is dropped from
-  both sides (JEG-465).
+- *Series per view* (reading taken; "that view's series" was not spelled
+  out). Indexed: the seven inputs as before (projections and `*_adjusted`).
+  VORP vs waivers: `espn_vorp`, `cbsros_vorp`, `razzball_vorp` and each chart
+  translated to value above waivers. Adjusted values: the three projections
+  as shown in every tab and each chart's Adjusted values. Alternatives: the
+  as-published (Indexed) charts in Indexed; a projection's own
+  DDF-weighted value above waivers in Adjusted values (the engine computes
+  none today).
+- *Charts drop out of two views.* The engine recomputes an as-published
+  chart's earlier weeks in the Indexed view only, so under "same inputs in
+  both weeks" the four charts are left out of the VORP vs waivers and
+  Adjusted values DDF Values, which then average our three projections. The
+  fix is a prior-week derivation of those views (the shared Adjusted 0-70
+  batch scale and the saved views at the 12-team setup make it more than a
+  one-chart recompute; MR-07).
+- *No prior week at all.* In a first week, or when the history cannot be read,
+  no input has a prior week; the engine then uses every eligible input for the
+  current week and reports no Δ, rather than showing no DDF Value.
+- *Two-value minimum.* 23 of 508 players at Full PPR 12 (Indexed) have one series and
+  no DDF Value (measured 2026-10-08).
 
 **Options.** Weight the two families equally (1/2 projections, 1/2 charts)
-instead of each series; require a minimum count before showing a DDF Value;
-leave zeros out of the mean; per-view inputs. Not measured.
+instead of each series; leave zeros out of the mean; the series-per-view
+alternatives above. Not measured.
 
 **Depends on:** MR-06, MR-10, MR-12, MR-07.
-**Sources:** JEG-455, JEG-471, JEG-456, JEG-465,
+**Sources:** JEG-455, JEG-471, JEG-479, JEG-456, JEG-465,
 `tests/test_ddf_composite_value.py`, `docs/methodology.md` "DDF Composite
 Value".
 
