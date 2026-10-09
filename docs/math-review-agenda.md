@@ -706,74 +706,66 @@ teams, QB 6.4% -> 16.4%, the other three scaled down in proportion):
 
 ## MR-17 - DDF Composite Value: what the blend averages
 
-**Question.** The DDF Composite Value (JEG-455 / JEG-471 / JEG-479) is the
-per-player equal-weight mean of the included inputs, per view. Jeremy decided
-(2026-10-08) the inputs, the missing-value rule, no leave-one-out, tiers by
-slot count, and (JEG-479) one DDF Value per view for the current and prior
-week, held and not-yet-published sources never included, and the same inputs
-in both weeks; and (2026-10-09) a fully loaded chart's 0 for a player below its
-floor counts, and one source is enough (flagged low confidence). The full rule is
-`docs/methodology.md` "DDF Composite Value". The points below were not
-decided; the engine took the reading most consistent with those decisions.
-Which should stand?
+**Question.** The DDF Composite Value (JEG-455 / JEG-471 / JEG-479 / JEG-497)
+is the per-player equal-weight mean of the included inputs' Adjusted values.
+Jeremy decided:
+- (2026-10-08) the inputs, the missing-value rule, no leave-one-out, tiers by
+  slot count, held and not-yet-published sources never included, and the same
+  inputs in both weeks;
+- (2026-10-09) a fully loaded chart's 0 for a player below its floor counts,
+  one source is enough (flagged low confidence), and the DDF Value reads each
+  source's Adjusted-view value only. There are three versions (blend, charts
+  only, projections only), each one number that is the same in every tab;
+  Indexed and VORP vs waivers never feed it.
+
+The full rule is `docs/methodology.md` "DDF Composite Value". The points
+below were not decided; the engine took the reading most consistent with those
+decisions. Which should stand?
 
 **Why it matters.** DDF Value is the default rank, Δ, tier and "our value" on
 every v2 tab, so each choice below moves the headline number.
 
-**Current behaviour** (engine, JEG-471; no existing series changed):
-- *Which series count as "trade charts".* The four bias-adjusted charts
-  (`fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted`,
-  `cbs_adjusted`). CBS ROS is a projection and is already one of the three
-  projection inputs. So with all seven in, the trade charts carry 4/7 of the
-  weight and our projections 3/7.
-- *Mixed coverage.* A player gets the mean of the series that price him. A
-  fully loaded chart prices everyone at its positions (0 below its floor), so
-  only a chart too shallow at a position leaves a deep player out (CBS at
-  every position and FantasyPros at RB/TE at Full PPR 12, 2026-10-09). The count is
-  on every row (`ddfCount`). The inputs share one scale (MR-06, MR-10), so the
-  mean is not unit-mixed, but the mix of inputs changes down the board.
-- *Zeros.* ESPN's 0 for a player it lists at 0 (GAP-025), a leg's 0 below
-  its lowest priced projection (GAP-ESPN-BELOW-LEG) and a fully loaded chart's
-  0 below its floor count as values, so they pull the mean down. At Full PPR
-  12 (Indexed) 383 of 648 players have a DDF Value of 0 (2026-10-09). A
-  clipped live cell can also produce a 0 (GAP-ADJ-CLIP-ZERO).
+**Current behaviour** (engine):
+- *Which values count.* The three projections as the rows carry them, and
+  each published chart's Adjusted values (value above waivers re-weighted to
+  our group weights, VA-5). The bias-adjusted `*_adjusted` series no longer
+  feed it. With all seven in, the charts carry 4/7 of the weight and our
+  projections 3/7.
+- *Mixed coverage.* A player gets the mean of the inputs that price him. A
+  fully loaded chart prices everyone at its positions: below waivers its
+  Adjusted value is 0. So only a chart too shallow at a position leaves a deep
+  player out. Counts are on every row (`ddfCount`, `ddfChartsCount`,
+  `ddfProjectionsCount`).
+- *Zeros.* These count as values and pull the mean down:
+  - ESPN's 0 for a player it lists at 0 (GAP-025);
+  - a leg's 0 below its lowest priced projection (GAP-ESPN-BELOW-LEG);
+  - a fully loaded chart's 0 below waivers.
+
+  A clipped live cell can also produce a 0 (GAP-ADJ-CLIP-ZERO).
 - *Superflex.* No separate rule: each input enters with its own superflex
   pricing at the active roster (MR-02, MR-15). FantasyCalc's publisher basis
   is 1 QB.
-- *Tiers.* `ValueModel.roleMap` on the DDF Values (dedicated slots, then
-  superflex, then flex, then bench). A DDF Value of 0 is waiver; no DDF Value
-  is no tier. In a single-position view the zones are that position's DDF
-  tier counts; in All they stay teams x slots, as for every other series.
-- *Series per view* (reading taken; "that view's series" was not spelled
-  out). Indexed: the seven inputs as before (projections and `*_adjusted`).
-  VORP vs waivers: `espn_vorp`, `cbsros_vorp`, `razzball_vorp` and each chart
-  translated to value above waivers. Adjusted values: the three projections
-  as shown in every tab and each chart's Adjusted values. Alternatives: the
-  as-published (Indexed) charts in Indexed; a projection's own
-  DDF-weighted value above waivers in Adjusted values (the engine computes
-  none today).
-- *Charts in two views (fixed 2026-10-09, JEG-479 "Build prior week").*
-  Until then the engine recomputed an as-published chart's earlier weeks in
-  the Indexed view only, so the four charts were left out of the VORP vs
-  waivers and Adjusted values DDF Values. Each saved week is now derived with
-  the same `derivePublishedViews` batch on that week's natives for all charts
-  (MR-07), so all seven inputs count in both weeks of every view. Exception:
-  Full PPR 12 standard. There the tabs show the saved `vorp_views` (VA-3), so
-  FantasyCalc, FantasyPros and USA Today still sit out both weeks in those
-  two views. Deriving at every setting (VA-3 option a) would close it but
+- *Tiers.* `ValueModel.roleMap` on the blended DDF Values (dedicated slots,
+  then superflex, then flex, then bench). A DDF Value of 0 is waiver; no DDF
+  Value means no tier.
+- *Charts' prior week (fixed 2026-10-09, JEG-479 "Build prior week").* Each
+  saved week's Adjusted values are derived with the same
+  `derivePublishedViews` batch on that week's natives for all charts (MR-07),
+  so all seven inputs count in both weeks. Exception: at Full PPR 12 with the
+  standard roster, the Adjusted tab shows the saved `vorp_views` (VA-3), so
+  FantasyCalc, FantasyPros and USA Today sit out both weeks of every version
+  there. Deriving at every setting (VA-3 option a) would close that gap but
   changes current values.
-- *No prior week at all.* In a first week, or when the history cannot be read,
-  no input has a prior week; the engine then uses every eligible input for the
-  current week and reports no Δ, rather than showing no DDF Value.
-- *One source.* Replaced the two-value minimum (Jeremy 2026-10-09): one
-  series gives its own value, flagged `ddfLowConfidence`. At Full PPR 12: 0
-  players in Indexed (the full charts price everyone), 145 of 649 in VORP vs
-  waivers and Adjusted values, where only the three projections are inputs
-  today.
+- *No prior week at all.* In a first week, or when the history cannot be
+  read, no input of a version has a prior week. The engine then uses every
+  eligible input for the current week and reports no Δ, rather than showing
+  no DDF Value.
+- *One source.* One input gives its own value, flagged low confidence
+  (`ddfLowConfidence`, `ddfChartsLowConfidence`,
+  `ddfProjectionsLowConfidence`).
 
 **Options.** Weight the two families equally (1/2 projections, 1/2 charts)
-instead of each series; leave zeros out of the mean; the series-per-view
-alternatives above. Not measured.
+instead of each input; leave zeros out of the mean. Neither is measured.
 
 **Depends on:** MR-06, MR-10, MR-12, MR-07.
 **Sources:** JEG-455, JEG-471, JEG-479, JEG-456, JEG-465,

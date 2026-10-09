@@ -1,36 +1,33 @@
-"""JEG-471 / JEG-479 (engine): the DDF Composite Value ("DDF Value") series.
+"""JEG-471 / JEG-479 / JEG-497 (engine): the DDF Composite Value ("DDF Value").
 
-The rule is docs/methodology.md "DDF Composite Value" (Jeremy, 2026-10-08):
-one DDF Value per view (Indexed, VORP vs waivers, Adjusted values), each for
-the current and the prior week; per player the equal-weight mean of the
-included inputs' finite values. Exactly one pricing him gives that value,
-flagged ddfLowConfidence ("Only one source prices this player"; Jeremy
-2026-10-09, replacing the two-value minimum); none gives null with ddfReason
-"No source prices this player". A missing series
-never counts as 0; ESPN's 0 for a player it lists at 0 (GAP-025) does. An
+The rule is docs/methodology.md "DDF Composite Value" (Jeremy, 2026-10-08/09):
+per player, the equal-weight mean of each included input's ADJUSTED-view
+value only -- ESPN, CBS rest of season and Razzball, and each published
+chart's Adjusted values. Three versions (JEG-497): ddf_value (all seven
+inputs), ddf_value_charts (the four charts), ddf_value_projections (the three
+projections); each is ONE number, the same in every view and tab. Exactly one
+input pricing him gives that value, flagged low confidence ("Only one source
+prices this player"); none gives null with "No source prices this player". An
 input that is held or has not published the current week is never included,
 even when a reader selects it; an input without the prior week is left out of
 both weeks. Tier: rank by DDF Value and cut at the league's slot counts.
 
 Checks, headless on the built dist/ (the live page):
 1. ValueModel.compositeValue: mean of finite values, missing left out, 0 kept.
-2. Every row's values.ddf_value / ddfCount / ddfSources / ddfReason and all
-   three ddfByView entries are that mean (two or more values) over the view's
-   inputs, across scorings, team counts, a superflex roster, a bench share, a
-   position-share edit and the three view tabs.
-3. setCompositeInputs: a subset changes ddf_value (and only the DDF fields),
-   fires the rows and shared events (shared only with publish), invalid input
-   (no usable input) is refused with no change, null
-   restores every value exactly.
+2. Every row's three versions, counts, sources, reasons and low-confidence
+   flags are that mean over the version's inputs' Adjusted-view values, and
+   identical in every tab, across scorings, team counts, a superflex roster,
+   a bench share and a position-share edit.
+3. setCompositeInputs: a subset changes the DDF fields only, fires the rows
+   and shared events (shared only with publish), invalid input (no usable
+   input) is refused with no change, null restores every value exactly.
 4. Rank, zones and tiers by DDF Value.
-5. Prior week: getPriorWeek("ddf_value") and the rows' ddfPrior use exactly the
+5. Prior week: getPriorWeek(version) and the rows' priors use exactly the
    current week's inputs; an input without the prior week is left out of the
    current week too (simulated with an edited history index).
 6. A held source (validationHold / promotionHold on its section, or on the
    derived section) and a source that has not published the current week are
    never inputs, even when requested; excluded lists the reason.
-The before/after 12-combo x 3-view sweep (every non-DDF value identical) is in
-the PR.
 """
 from __future__ import annotations
 
@@ -47,6 +44,9 @@ def setUpModule():
 
 INPUTS = ["espn", "cbsros", "razzball", "fantasycalc_adjusted", "usatoday_adjusted",
           "fantasypros_adjusted", "cbs_adjusted"]
+PROJECTIONS = ["espn", "cbsros", "razzball"]
+CHARTS = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]
+VERSIONS = ["ddf_value", "ddf_value_charts", "ddf_value_projections"]
 NONE = "No source prices this player"
 ONE = "Only one source prices this player"
 
@@ -55,41 +55,55 @@ HELPERS = """
   const INPUTS = %s;
   const NONE = %s;
   const ONE = %s;
-  const VIEWS = ['indexed', 'vorp', 'adj'];
+  const VERSIONS = ['ddf_value', 'ddf_value_charts', 'ddf_value_projections'];
+  const COUNT = {ddf_value: 'ddfCount', ddf_value_charts: 'ddfChartsCount', ddf_value_projections: 'ddfProjectionsCount'};
+  const LOW = {ddf_value: 'ddfLowConfidence', ddf_value_charts: 'ddfChartsLowConfidence', ddf_value_projections: 'ddfProjectionsLowConfidence'};
   const view = v => document.querySelector(`#viewModeTabs [data-view-mode=${v}]`).click();
-  const activeView = () => c.getCompositeInputs().view;
+  const activeView = () => c.getState().viewMode;
   const mean = (values, keys) => {
     const used = keys.filter(k => typeof values[k] === 'number' && Number.isFinite(values[k]));
     const v = used.map(k => values[k]);
     return {value: v.length >= 1 ? v.reduce((a, b) => a + b, 0) / v.length : null, count: v.length, used};
   };
   const near = (a, b) => (a === null || a === undefined) ? (b === null || b === undefined) : (b !== null && b !== undefined && Math.abs(a - b) <= 1e-9);
+  const isDdf = k => VERSIONS.includes(k);
   const others = () => JSON.stringify(c.getAllRows().map(r => {
-    const v = {...r.values}; delete v.ddf_value; return [r.player_key, r.espnRole, v];
+    const v = {...r.values}; VERSIONS.forEach(k => delete v[k]); return [r.player_key, r.espnRole, v];
   }));
-  const ddf = () => JSON.stringify(c.getAllRows().map(r => [r.player_key, r.values.ddf_value, r.ddfCount, r.ddfTier, r.ddfPrior, r.ddfByView]));
-  // Every row against the rule, for the active view and (from row values,
-  // which hold every series the other views include) all three views.
+  const ddf = () => JSON.stringify(c.getAllRows().map(r => [r.player_key, r.ddfTier, r.ddfPrior, r.ddfVersions]));
+  // A series' Adjusted-view value: a chart's "<chart>_adj_values" is the
+  // chart's value on the Adjusted tab's row; a projection's is its own.
+  const seriesValue = (adjRow, s) => s.endsWith('_adj_values') ? adjRow.values[s.replace(/_adj_values$/, '')] : adjRow.values[s];
+  // Every row against the rule. The expected Adjusted-view values come from
+  // the Adjusted tab's rows; every version must also be the same on the rows
+  // of the tab that was open.
   const checkMean = (tag, problems) => {
     let priced = 0, short = 0;
-    const active = activeView();
-    c.getAllRows().forEach(r => {
-      for (const v of VIEWS) {
+    const was = activeView();
+    const rowsNow = c.getAllRows();
+    if (was !== 'adj') view('adj');
+    const adj = new Map(c.getAllRows().map(r => [r.player_key, r]));
+    if (was !== 'adj') view(was);
+    rowsNow.forEach(r => {
+      const a = adj.get(r.player_key);
+      for (const v of VERSIONS) {
         const series = c.getCompositeInputs(v).series;
-        const want = mean(r.values, series);
-        const got = r.ddfByView[v];
-        if (!near(got.value, want.value) && problems.length < 40) problems.push(`${tag}/${v} ${r.name}: ddf ${got.value} != mean ${want.value}`);
-        if (got.count !== want.count) problems.push(`${tag}/${v} ${r.name}: count ${got.count} != ${want.count}`);
+        const values = Object.fromEntries(series.map(s => [s, seriesValue(a, s)]));
+        const want = mean(values, series);
+        const got = r.ddfVersions[v];
+        if (!near(got.value, want.value) && problems.length < 40) problems.push(`${tag}/${v} ${r.name}: ${got.value} != mean ${want.value}`);
+        if (!near(r.values[v], got.value) || !near(a.values[v], got.value)) problems.push(`${tag}/${v} ${r.name}: not the same in every tab`);
+        if (got.count !== want.count || r[COUNT[v]] !== want.count) problems.push(`${tag}/${v} ${r.name}: count ${got.count} != ${want.count}`);
         if (JSON.stringify(got.sources) !== JSON.stringify(want.used)) problems.push(`${tag}/${v} ${r.name}: sources ${got.sources}`);
         if (got.reason !== (want.value === null ? NONE : null)) problems.push(`${tag}/${v} ${r.name}: reason ${got.reason}`);
-        if (got.lowConfidence !== (want.count === 1)) problems.push(`${tag}/${v} ${r.name}: lowConfidence ${got.lowConfidence} with ${want.count} sources`);
+        if (want.value === null && r.missingReasons?.[v] !== NONE) problems.push(`${tag}/${v} ${r.name}: missingReasons ${r.missingReasons?.[v]}`);
+        if (got.lowConfidence !== (want.count === 1) || r[LOW[v]] !== (want.count === 1)) problems.push(`${tag}/${v} ${r.name}: lowConfidence ${got.lowConfidence} with ${want.count}`);
+        if (got.confidenceNote !== (want.count === 1 ? ONE : null)) problems.push(`${tag}/${v} ${r.name}: note ${got.confidenceNote}`);
       }
-      const mine = r.ddfByView[active];
-      if (r.values.ddf_value !== mine.value || r.ddfCount !== mine.count || r.ddfReason !== mine.reason
-          || r.ddfPrior !== mine.prior || JSON.stringify(r.ddfSources) !== JSON.stringify(mine.sources)
-          || r.ddfLowConfidence !== mine.lowConfidence || r.ddfConfidenceNote !== (mine.lowConfidence ? ONE : null)
-          || (r.values.ddf_value === null && r.missingReasons?.ddf_value !== r.ddfReason)) {
-        problems.push(`${tag} ${r.name}: row DDF fields differ from ddfByView.${active}`);
+      const blend = r.ddfVersions.ddf_value;
+      if (r.ddfReason !== blend.reason || r.ddfPrior !== blend.prior || r.ddfConfidenceNote !== blend.confidenceNote
+          || JSON.stringify(r.ddfSources) !== JSON.stringify(blend.sources)) {
+        problems.push(`${tag} ${r.name}: flat DDF fields differ from ddfVersions.ddf_value`);
       }
       if (r.values.ddf_value !== null) priced += 1;
       if (r.ddfCount === 1) short += 1;
@@ -112,9 +126,9 @@ MEAN = """async () => {""" + HELPERS + """
   const problems = [];
   const info = c.getCompositeInputs();
   if (!info.isDefault) problems.push('inputs are not the defaults on load');
-  const keys = {}, series = {};
-  VIEWS.forEach(v => { keys[v] = c.getCompositeInputs(v).inputs; series[v] = c.getCompositeInputs(v).series; });
-  let zeroPlayers = 0, shortPlayers = 0;
+  const keys = {}, series = {}, excluded = {};
+  VERSIONS.forEach(v => { const i = c.getCompositeInputs(v); keys[v] = i.inputs; series[v] = i.series; excluded[v] = i.excluded; });
+  let shortPlayers = 0;
   const steps = [
     ['load', () => {}],
     ['standard/8', () => { c.setScoring('standard'); c.setTeams(8); }],
@@ -124,21 +138,13 @@ MEAN = """async () => {""" + HELPERS + """
     ['bench share 25%', () => { c.setRosterSpot('SUPERFLEX', 0); c.setBenchShareFraction(0.25); }],
     ['QB share +5pp', () => { c.setBenchShareFraction(0.15); c.setPositionWeights({QB: c.getPositionWeights().QB + 0.05}); }],
     ['VORP vs waivers tab', () => { c.setPositionWeights(null); view('vorp'); }],
-    ['Adjusted values tab', () => { view('adj'); }],
     ['Indexed tab', () => { view('indexed'); }],
   ];
   for (const [tag, step] of steps) {
     step();
     shortPlayers += checkMean(tag, problems).short;
-    const now = c.getCompositeInputs().inputs;
-    c.getAllRows().forEach(r => {
-      if (r.espnProjectsZero && r.values.espn === 0 && now.includes('espn') && activeView() === 'indexed' && r.values.ddf_value !== null) {
-        zeroPlayers += 1;
-        if (!r.ddfSources.includes('espn')) problems.push(`${tag} ${r.name}: ESPN 0 left out of the DDF Value`);
-      }
-    });
   }
-  return {problems, keys, series, zeroPlayers, shortPlayers, activeAtEnd: activeView()};
+  return {problems, keys, series, excluded, shortPlayers, activeAtEnd: activeView()};
 }"""
 
 SETTER = """async () => {""" + HELPERS + """
@@ -147,7 +153,7 @@ SETTER = """async () => {""" + HELPERS + """
   window.addEventListener('trade-value-rows-change', () => { events.rows += 1; });
   window.addEventListener('trade-value-shared-change', e => { events.shared.push(e.detail.compositeInputs); });
   const baseOthers = others(), baseDdf = ddf();
-  out.set = c.setCompositeInputs(['fantasycalc_adjusted', 'espn', 'espn']);
+  out.set = c.setCompositeInputs(['cbsros', 'espn', 'espn']);
   checkMean('subset', out.problems);
   out.subsetMoved = ddf() !== baseDdf;
   out.othersSame = others() === baseOthers;
@@ -226,95 +232,92 @@ RANK = """async () => {""" + HELPERS + """
   c.setRosterSpot('SUPERFLEX', 0); c.setScoring('ppr'); c.setTeams(12);
   c.setLockOrder('espn');
   const plain = {info: c.getSourceInfo().map(i => i.key), active: c.getActiveSources(),
-    withComposite: c.getSourceInfo({includeComposite: true}).slice(-1)[0]};
+    withComposite: c.getSourceInfo({includeComposite: true}).filter(i => i.composite)};
   return {problems, plain, rank: c.getRankSource()};
 }"""
 
 PRIOR = """async () => {""" + HELPERS + """
   if (window.__setting) { c.setScoring(window.__setting[0]); c.setTeams(window.__setting[1]); }
-  const out = {problems: [], views: {}};
-  for (const v of VIEWS) {
-    view(v);
-    const info = c.getCompositeInputs();
-    const r = await c.getPriorWeek('ddf_value');
+  const out = {problems: [], versions: {}};
+  view('adj');
+  const adj = new Map(c.getAllRows().map(r => [r.player_key, r]));
+  view('indexed');
+  const rows = c.getAllRows();
+  for (const v of VERSIONS) {
+    const info = c.getCompositeInputs(v);
+    const r = await c.getPriorWeek(v);
     const o = {available: r.available, reason: r.reason, sources: r.sources, inputs: r.inputs, excluded: r.excluded,
-      currentWeek: r.currentWeek, priorWeek: r.priorWeek, week: r.week, infoSeries: info.series, compared: 0, short: 0};
-    out.views[v] = o;
+      currentWeek: r.currentWeek, priorWeek: r.priorWeek, week: r.week, infoSeries: info.series,
+      infoPrior: info.priorAvailable, compared: 0, short: 0};
+    out.versions[v] = o;
     if (!r.available) continue;
-    const each = {};
-    for (const key of r.sources) each[key] = await c.getPriorWeek(key);
-    // Each input as averaged = its own prior week plus the rows' chart rules:
-    // every value it has is unchanged, an added value is a 0 (below a fully
-    // loaded chart's floor), a removed one is an identity-fallback cell.
-    for (const key of r.sources) {
-      const own = each[key].values, used = r.seriesValues[key];
-      Object.entries(used).forEach(([pk, value]) => {
-        if ((pk in own ? !near(own[pk], value) : value !== 0) && out.problems.length < 30) out.problems.push(`${v} ${key} ${pk}: averaged ${value}, own ${own[pk]}`);
-      });
-      Object.keys(own).forEach(pk => {
-        if (!(pk in used) && !key.endsWith("_adjusted") && out.problems.length < 30) out.problems.push(`${v} ${key} ${pk}: dropped from the average`);
-      });
-      each[key] = {values: used};
+    // A projection is averaged exactly as its own prior week; a chart's
+    // Adjusted values may only gain zeros (below a fully loaded chart's floor).
+    for (const s of r.sources) {
+      if (s.endsWith('_adj_values')) continue;
+      const own = (await c.getPriorWeek(s)).values, used = r.seriesValues[s];
+      if (JSON.stringify(Object.keys(own).sort()) !== JSON.stringify(Object.keys(used).sort())
+          || Object.keys(own).some(pk => !near(own[pk], used[pk]))) out.problems.push(`${v} ${s}: averaged prior differs from getPriorWeek`);
     }
-    c.getAllRows().forEach(row => {
+    rows.forEach(row => {
       const k = row.player_key;
-      const cur = mean(row.values, r.sources);
+      const a = adj.get(k);
+      const cur = mean(Object.fromEntries(r.sources.map(s => [s, seriesValue(a, s)])), r.sources);
       if (!near(r.currentValues[k] ?? null, cur.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: current ${r.currentValues[k]} != ${cur.value}`);
-      if (!near(row.values.ddf_value, cur.value)) out.problems.push(`${v} ${row.name}: row ddf_value ${row.values.ddf_value} != ${cur.value} over the pair's inputs`);
+      if (!near(row.values[v], cur.value)) out.problems.push(`${v} ${row.name}: row value ${row.values[v]} != ${cur.value} over the pair's inputs`);
       const pv = {};
-      r.sources.forEach(s => { pv[s] = each[s].values[k]; });
+      r.sources.forEach(s => { pv[s] = r.seriesValues[s][k]; });
       const want = mean(pv, r.sources);
+      const got = row.ddfVersions[v];
       if (!near(r.values[k] ?? null, want.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: prior ${r.values[k]} != ${want.value}`);
-      if (!near(row.ddfPrior, want.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: row ddfPrior ${row.ddfPrior} != ${want.value}`);
+      if (!near(got.prior, want.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: row prior ${got.prior} != ${want.value}`);
       if (want.value !== null && r.counts[k] !== want.count) out.problems.push(`${v} ${row.name}: prior count ${r.counts[k]} != ${want.count}`);
-      if (want.count === 1 && !(k in r.values)) out.problems.push(`${v} ${row.name}: a one-source prior value was not published`);
-      if (want.count === 1 && row.ddfPriorLowConfidence !== true) out.problems.push(`${v} ${row.name}: one-source prior not flagged`);
+      if (want.count === 1 && got.priorLowConfidence !== true) out.problems.push(`${v} ${row.name}: one-source prior not flagged`);
       if (want.count === 1) o.short += 1;
       if (want.value !== null && cur.value !== null) o.compared += 1;
     });
-    if (v === 'indexed') {
-      out.wrongWeek = await c.getPriorWeek('ddf_value', r.priorWeek - 1);
-      const wk = await c.getWeekValues('ddf_value', r.priorWeek);
+    if (v === 'ddf_value') {
+      out.wrongWeek = await c.getPriorWeek(v, r.priorWeek - 1);
+      const wk = await c.getWeekValues(v, r.priorWeek);
       out.weekValuesMatch = wk.available && JSON.stringify(wk.values) === JSON.stringify(r.values);
-      out.history = await c.getHistoryWeeks('ddf_value');
-      const all = c.getCompositeValues('indexed');
+      out.history = await c.getHistoryWeeks(v);
+      const all = c.getCompositeValues(v);
       out.valuesGetterMatch = JSON.stringify(all.prior) === JSON.stringify(r.values) && JSON.stringify(all.current) === JSON.stringify(r.currentValues);
     }
   }
-  view('indexed');
   return out;
 }"""
 
 HELD = """async () => {""" + HELPERS + """
   const out = {problems: []};
-  const leaks = (tag, held) => held && c.getAllRows().forEach(r => VIEWS.forEach(v => {
-    const s = r.ddfByView[v].sources.find(k => held.includes(k));
+  const leaks = (tag, held) => held && c.getAllRows().forEach(r => VERSIONS.forEach(v => {
+    const s = r.ddfVersions[v].sources.find(k => held.includes(k));
     if (s && out.problems.length < 20) out.problems.push(`${tag}/${v} ${r.name}: ${s} in the DDF Value`);
   }));
-  const prefix = window.__heldSeries;
+  const held = window.__heldSeries;
   out.load = c.getCompositeInputs();
-  out.loadByView = Object.fromEntries(VIEWS.map(v => [v, c.getCompositeInputs(v)]));
+  out.loadByVersion = Object.fromEntries(VERSIONS.map(v => [v, c.getCompositeInputs(v)]));
   checkMean('load', out.problems);
-  leaks('load', prefix);
+  leaks('load', held);
   out.withHeld = c.setCompositeInputs([window.__heldKey, 'espn', 'cbsros']);
   checkMean('requested with held', out.problems);
-  leaks('requested with held', prefix);
+  leaks('requested with held', held);
   out.allRequested = c.setCompositeInputs(INPUTS);
   checkMean('all requested', out.problems);
-  leaks('all requested', prefix);
+  leaks('all requested', held);
   out.onlyHeld = c.setCompositeInputs([window.__heldKey]);
   out.heldPlusOne = c.setCompositeInputs([window.__heldKey, 'espn']);
   out.afterStale = c.getCompositeInputs();
   c.setCompositeInputs(null);
   c.setScoring('standard'); c.setTeams(10);
   checkMean('standard/10', out.problems);
-  leaks('standard/10', prefix);
+  leaks('standard/10', held);
   c.setScoring('ppr'); c.setTeams(12);
   const r = await c.getPriorWeek('ddf_value');
   out.prior = {available: r.available, reason: r.reason, sources: r.sources, inputs: r.inputs, excluded: r.excluded};
   const wk = await c.getWeekValues('ddf_value', r.priorWeek);
   out.weekSources = wk.sources;
-  out.sourceInfo = c.getSourceInfo({includeComposite: true}).slice(-1)[0];
+  out.sourceInfo = c.getSourceInfo({includeComposite: true}).filter(i => i.composite);
   return out;
 }"""
 
@@ -391,6 +394,16 @@ def run(script: str, history_edit=None, data_edit=None, init_script=None, week_e
             browser.close()
 
 
+def assert_pair_or_none(test, version, keys, excluded):
+    """Every input of a version is either averaged or excluded with "no prior
+    week" (the charts' Adjusted values have no saved prior week until the
+    prior-week Adjusted derivation lands; then they are averaged)."""
+    reasons = {e["key"]: e["reason"] for e in excluded}
+    for key in {"ddf_value": INPUTS, "ddf_value_charts": CHARTS, "ddf_value_projections": PROJECTIONS}[version]:
+        if key not in keys:
+            test.assertTrue(reasons.get(key, "").startswith("no prior week"), (version, key, reasons))
+
+
 class DdfCompositeValueTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -405,13 +418,17 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["none"], {"value": None, "count": 0, "used": []})
         self.assertEqual(out["order"]["used"], ["b", "a"])
 
-    def test_rows_carry_the_mean_of_at_least_two_inputs_in_every_view(self):
+    def test_three_versions_from_adjusted_values_the_same_in_every_tab(self):
         out = run(MEAN)
         self.assertEqual(out["pageErrors"], [])
-        self.assertEqual(out["keys"]["indexed"], INPUTS, "Indexed: every current-week input with a prior week")
-        self.assertEqual(out["series"]["indexed"], INPUTS)
-        self.assertEqual(out["series"]["vorp"][:3], ["espn_vorp", "cbsros_vorp", "razzball_vorp"])
-        self.assertEqual(out["series"]["adj"][:3], ["espn", "cbsros", "razzball"])
+        self.assertEqual(out["keys"]["ddf_value_projections"], PROJECTIONS)
+        self.assertEqual(out["series"]["ddf_value_projections"], PROJECTIONS)
+        self.assertEqual(out["keys"]["ddf_value_charts"], CHARTS)
+        self.assertEqual(out["series"]["ddf_value_charts"],
+                         ["fantasycalc_adj_values", "usatoday_adj_values", "fantasypros_adj_values", "cbs_adj_values"])
+        for version in VERSIONS:
+            assert_pair_or_none(self, version, out["keys"][version], out["excluded"][version])
+        self.assertTrue(set(PROJECTIONS) <= set(out["keys"]["ddf_value"]))
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         self.assertGreater(out["shortPlayers"], 0, "no player has one source, so the one-source rule went untested")
         self.assertEqual(out["activeAtEnd"], "indexed")
@@ -421,16 +438,16 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         self.assertTrue(out["set"]["ok"], out["set"])
-        self.assertEqual(out["set"]["inputs"], ["espn", "fantasycalc_adjusted"])
+        self.assertEqual(out["set"]["inputs"], ["espn", "cbsros"])
         self.assertFalse(out["set"]["isDefault"])
         self.assertTrue(out["subsetMoved"])
         self.assertTrue(out["othersSame"], "a DDF Value input change moved another series")
         self.assertGreaterEqual(out["eventsAfterSet"]["rows"], 1)
-        self.assertEqual(out["eventsAfterSet"]["shared"], [["espn", "fantasycalc_adjusted"]])
+        self.assertEqual(out["eventsAfterSet"]["shared"], [["espn", "cbsros"]])
         # v2 contract: a deselected input's reason is exactly "not selected"
         # (the only reason v2 lets a reader re-tick).
         self.assertEqual({e["key"]: e["reason"] for e in out["get"]["excluded"]},
-                         {k: "not selected" for k in INPUTS if k not in ("espn", "fantasycalc_adjusted")})
+                         {k: "not selected" for k in INPUTS if k not in ("espn", "cbsros")})
         for refused in out["invalid"]:
             self.assertFalse(refused["ok"], refused)
             self.assertIn("error", refused)
@@ -447,53 +464,54 @@ class DdfCompositeValueTest(unittest.TestCase):
         out = run(RANK)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
-        self.assertNotIn("ddf_value", out["plain"]["info"])
-        self.assertNotIn("ddf_value", out["plain"]["active"])
-        entry = out["plain"]["withComposite"]
-        self.assertEqual((entry["key"], entry["label"], entry["composite"], entry["available"]),
-                         ("ddf_value", "DDF Value", True, True))
+        for version in VERSIONS:
+            self.assertNotIn(version, out["plain"]["info"])
+            self.assertNotIn(version, out["plain"]["active"])
+        entries = {e["key"]: e for e in out["plain"]["withComposite"]}
+        self.assertEqual(list(entries), VERSIONS)
+        entry = entries["ddf_value"]
+        self.assertEqual((entry["label"], entry["composite"], entry["available"]), ("DDF Value", True, True))
         self.assertEqual(out["rank"], "espn")
 
     def test_prior_week_uses_exactly_the_current_inputs(self):
         out = run(PRIOR)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        for v, res in out["views"].items():
-            self.assertTrue(res["available"], (v, res))
+        for version, res in out["versions"].items():
+            if not res["infoPrior"]:
+                self.assertFalse(res["available"], (version, res))
+                self.assertTrue(res["reason"], version)
+                continue
+            self.assertTrue(res["available"], (version, res))
             self.assertEqual(res["priorWeek"], res["currentWeek"] - 1)
             self.assertEqual(res["week"], res["priorWeek"])
-            self.assertEqual(res["sources"], res["infoSeries"], f"{v}: the pair's inputs are not the current week's")
-            self.assertGreater(res["compared"], 100, v)
-        self.assertGreater(sum(res["short"] for res in out["views"].values()), 0,
-                           "no player has one prior-week source, so the one-source rule went untested")
+            self.assertEqual(res["sources"], res["infoSeries"], f"{version}: the pair's inputs are not the current week's")
+            self.assertGreater(res["compared"], 100, version)
+        self.assertTrue(out["versions"]["ddf_value"]["available"])
         self.assertFalse(out["wrongWeek"]["available"])
         self.assertTrue(out["weekValuesMatch"], "getWeekValues(ddf_value, prior) differs from getPriorWeek")
         self.assertTrue(out["valuesGetterMatch"], "getCompositeValues differs from getPriorWeek")
-        self.assertEqual(out["history"]["servedWeek"], out["views"]["indexed"]["currentWeek"])
+        self.assertEqual(out["history"]["servedWeek"], out["versions"]["ddf_value"]["currentWeek"])
 
     def test_inputs_without_the_prior_week_are_left_out_of_both_weeks(self):
         def edit(index):
-            served = index["served"]
-            served["cbs"] = {**served["cbs"], "week": served["cbs"]["week"] - 1}   # serves another week
-            served.pop("razzball")                                               # no saved week matches
+            index["served"].pop("razzball")   # no saved week matches
         out = run(PRIOR, history_edit=edit)
         self.assertEqual(out["pageErrors"], [])
-        res = out["views"]["indexed"]
-        self.assertTrue(res["available"], res)
-        excluded = {e["key"]: e["reason"] for e in res["excluded"]}
-        self.assertEqual(set(excluded), {"cbs_adjusted", "razzball"}, excluded)
-        self.assertTrue(excluded["cbs_adjusted"].startswith("no prior week: serves Week"), excluded)
-        self.assertTrue(excluded["razzball"].startswith("no prior week: "), excluded)
-        self.assertNotIn("cbs_adjusted", res["sources"])
-        self.assertNotIn("razzball", res["sources"])
+        for version in ("ddf_value", "ddf_value_projections"):
+            res = out["versions"][version]
+            self.assertTrue(res["available"], res)
+            excluded = {e["key"]: e["reason"] for e in res["excluded"]}
+            self.assertTrue(excluded["razzball"].startswith("no prior week: "), excluded)
+            self.assertNotIn("razzball", res["sources"])
+            self.assertGreater(res["compared"], 100)
         # Both weeks, rows included, are means over exactly res["sources"] (checked per player).
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        self.assertGreater(res["compared"], 100)
 
 
-CHARTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
-# Off the saved 12-team setup every view's DDF Value is derived from the
-# saved weeks for the charts too (JEG-479 "Build prior week").
+CHART_SERIES = ["fantasycalc_adj_values", "usatoday_adj_values", "fantasypros_adj_values", "cbs_adj_values"]
+# Off the saved 12-team setup the charts' Adjusted values are derived from the
+# saved weeks too (JEG-479 "Build prior week").
 DERIVED_SETTING = "window.__setting = ['half_ppr', 10];"
 
 
@@ -504,29 +522,28 @@ def served_week(source):
 
 class DdfChartPriorWeekTest(unittest.TestCase):
     """JEG-479 (Jeremy 2026-10-09, "Build prior week"): the four trade charts
-    have a prior week in VORP vs waivers and Adjusted values (the same
-    derivePublishedViews batch on that week's saved natives), so they count
-    in both weeks of every view's DDF Value; a chart without saved inputs for
-    the prior week is still left out of both weeks."""
+    have a prior-week Adjusted value (the same derivePublishedViews batch on
+    that week's saved natives), so they count in both weeks of ddf_value and
+    ddf_value_charts; a chart without saved inputs for the prior week is
+    still left out of both weeks."""
 
     @classmethod
     def setUpClass(cls):
         if not (DIST / "index.html").exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
 
-    def test_charts_count_in_both_weeks_of_every_view(self):
+    def test_charts_count_in_both_weeks(self):
         out = run(PRIOR, init_script=DERIVED_SETTING)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        want = {"indexed": INPUTS,
-                "vorp": ["espn_vorp", "cbsros_vorp", "razzball_vorp"] + CHARTS,
-                "adj": ["espn", "cbsros", "razzball"] + CHARTS}
-        for v, res in out["views"].items():
-            self.assertTrue(res["available"], (v, res))
-            self.assertEqual(res["excluded"], [], v)
-            self.assertEqual(res["sources"], want[v], v)
-            self.assertEqual(res["infoSeries"], want[v], v)
-            self.assertGreater(res["compared"], 100, v)
+        want = {"ddf_value": PROJECTIONS + CHART_SERIES, "ddf_value_charts": CHART_SERIES,
+                "ddf_value_projections": PROJECTIONS}
+        for version, res in out["versions"].items():
+            self.assertTrue(res["available"], (version, res))
+            self.assertEqual(res["excluded"], [], version)
+            self.assertEqual(res["sources"], want[version], version)
+            self.assertEqual(res["infoSeries"], want[version], version)
+            self.assertGreater(res["compared"], 100, version)
 
     def test_chart_without_saved_prior_inputs_is_left_out_of_both_weeks(self):
         prior = served_week("cbs") - 1
@@ -536,44 +553,44 @@ class DdfChartPriorWeekTest(unittest.TestCase):
         out = run(PRIOR, init_script=DERIVED_SETTING, week_edit=(prior, drop_cbs))
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        for v, res in out["views"].items():
-            self.assertTrue(res["available"], (v, res))
+        for version in ("ddf_value", "ddf_value_charts"):
+            res = out["versions"][version]
+            self.assertTrue(res["available"], (version, res))
             excluded = {e["key"]: e["reason"] for e in res["excluded"]}
-            self.assertEqual(set(excluded), {"cbs_adjusted"}, (v, excluded))
+            self.assertEqual(set(excluded), {"cbs_adjusted"}, (version, excluded))
             self.assertTrue(excluded["cbs_adjusted"].startswith(f"no prior week: no Week {prior} CBS"), excluded)
-            self.assertNotIn("cbs", res["sources"])
-            self.assertNotIn("cbs_adjusted", res["sources"])
-            if v != "indexed":
-                self.assertEqual([s for s in res["sources"] if s in CHARTS],
-                                 ["fantasycalc", "usatoday", "fantasypros"], v)
+            self.assertNotIn("cbs_adj_values", res["sources"])
+            self.assertEqual([s for s in res["sources"] if s in CHART_SERIES], CHART_SERIES[:3], version)
 
     def test_saved_views_setup_has_no_prior_week_for_those_charts(self):
-        # Full PPR / 12 / standard roster: the VORP vs waivers and Adjusted tabs
-        # show the pipeline's saved views for the charts that carry them (an
-        # older vintage, math-review VA-3), so no prior week is computed the
-        # same way: those charts sit out both weeks there; CBS (no saved
-        # views) counts.
+        # Full PPR / 12 / standard roster: the Adjusted tab shows the
+        # pipeline's saved views for the charts that carry them (an older
+        # vintage, math-review VA-3), so no prior week is computed the same
+        # way: those charts sit out both weeks there; CBS (no saved views)
+        # counts.
         data = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
-        saved = [k for k in CHARTS if (data.get(k) or {}).get("vorp_views")]
+        saved = [k for k in ("fantasycalc", "usatoday", "fantasypros", "cbs") if (data.get(k) or {}).get("vorp_views")]
         if not saved:
             self.skipTest("no chart carries saved views")
         out = run(PRIOR)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        for v in ("vorp", "adj"):
-            res = out["views"][v]
+        for version in ("ddf_value", "ddf_value_charts"):
+            res = out["versions"][version]
             excluded = {e["key"]: e["reason"] for e in res["excluded"]}
-            self.assertEqual(set(excluded), {f"{k}_adjusted" for k in saved}, (v, excluded))
+            self.assertEqual(set(excluded), {f"{k}_adjusted" for k in saved}, (version, excluded))
             self.assertTrue(all("saved views" in r for r in excluded.values()), excluded)
-            self.assertEqual([s for s in res["sources"] if s in CHARTS], [k for k in CHARTS if k not in saved], v)
+            self.assertEqual([s for s in res["sources"] if s in CHART_SERIES],
+                             [f"{k}_adj_values" for k in ("fantasycalc", "usatoday", "fantasypros", "cbs") if k not in saved],
+                             version)
 
 
 HELD_INIT = "window.__heldKey = %s; window.__heldSeries = %s;"
-# The series an input contributes across the views (exact keys).
-HELD_SERIES = {"fantasycalc_adjusted": ["fantasycalc_adjusted", "fantasycalc"],
-               "usatoday_adjusted": ["usatoday_adjusted", "usatoday"],
-               "cbs_adjusted": ["cbs_adjusted", "cbs"],
-               "razzball": ["razzball", "razzball_vorp"]}
+# The DDF series an input contributes (exact keys).
+HELD_SERIES = {"fantasycalc_adjusted": ["fantasycalc_adj_values"],
+               "usatoday_adjusted": ["usatoday_adj_values"],
+               "cbs_adjusted": ["cbs_adj_values"],
+               "razzball": ["razzball"]}
 
 
 class DdfHeldSeriesTest(unittest.TestCase):
@@ -585,7 +602,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
     def setUpClass(cls):
         if not (DIST / "index.html").exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
-        # No prefix: nothing is held, so nothing is checked for leaking.
+        # No held series: nothing is checked for leaking.
         cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("fantasycalc_adjusted"), "null"))
 
     def held_run(self, data_edit, key):
@@ -594,14 +611,16 @@ class DdfHeldSeriesTest(unittest.TestCase):
     def assert_never_included(self, out, key, reason_start):
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
-        base = self.unheld["loadByView"]
-        for view, info in out["loadByView"].items():
-            want = [k for k in base[view]["inputs"] if k != key]
-            self.assertEqual(info["inputs"], want, view)
-            entry = {e["key"]: e for e in info["excluded"]}[key]
-            self.assertTrue(entry["reason"].startswith(reason_start), entry)
+        base = self.unheld["loadByVersion"]
+        members = {"ddf_value": INPUTS, "ddf_value_charts": CHARTS, "ddf_value_projections": PROJECTIONS}
+        for version, info in out["loadByVersion"].items():
+            want = [k for k in base[version]["inputs"] if k != key]
+            self.assertEqual(info["inputs"], want, version)
+            if key in members[version]:
+                entry = {e["key"]: e for e in info["excluded"]}[key]
+                self.assertTrue(entry["reason"].startswith(reason_start), entry)
         self.assertNotIn(key, out["load"]["defaults"])
-        # Requested with two usable inputs: dropped and reported, not fatal.
+        # Requested with usable inputs: dropped and reported, not fatal.
         self.assertTrue(out["withHeld"]["ok"], out["withHeld"])
         self.assertEqual(out["withHeld"]["inputs"], ["espn", "cbsros"])
         self.assertEqual([d["key"] for d in out["withHeld"]["dropped"]], [key])
@@ -630,11 +649,13 @@ class DdfHeldSeriesTest(unittest.TestCase):
         prior = out["prior"]
         self.assertTrue(prior["available"], prior)
         self.assertNotIn(key, prior["inputs"])
-        self.assertNotIn(key, prior["sources"])
+        for series in HELD_SERIES[key]:
+            self.assertNotIn(series, prior["sources"])
+            self.assertNotIn(series, out["weekSources"])
         self.assertIn(key, [e["key"] for e in prior["excluded"]])
-        self.assertNotIn(key, out["weekSources"])
-        self.assertNotIn(key, out["sourceInfo"]["inputs"])
-        self.assertFalse(out["sourceInfo"]["stale"])
+        for entry in out["sourceInfo"]:
+            self.assertNotIn(key, entry["inputs"])
+            self.assertFalse(entry["stale"])
 
     def test_validation_hold_on_the_source_holds_its_derived_series(self):
         out = self.held_run(hold_on("fantasycalc"), "fantasycalc_adjusted")
@@ -661,11 +682,11 @@ class DdfHeldSeriesTest(unittest.TestCase):
         out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc_adjusted")
         self.assert_never_included(out, "fantasycalc_adjusted", "held: " + HOLD["reason"])
 
-    def test_a_held_projection_holds_its_value_above_waivers_series(self):
+    def test_a_held_projection_is_out_of_every_version(self):
         out = self.held_run(hold_on("razzball"), "razzball")
         self.assert_never_included(out, "razzball", "held: " + HOLD["reason"])
-        excluded = {e["key"]: e for e in out["loadByView"]["vorp"]["excluded"]}
-        self.assertEqual(excluded["razzball"]["series"], "razzball_vorp")
+        excluded = {e["key"]: e for e in out["loadByVersion"]["ddf_value_projections"]["excluded"]}
+        self.assertEqual(excluded["razzball"]["series"], "razzball")
 
     def test_a_source_not_yet_published_for_the_week_is_never_an_input(self):
         out = self.held_run(older_week("usatoday"), "usatoday_adjusted")
@@ -678,9 +699,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         self.assertEqual(out["load"]["held"], [])
         self.assertEqual(out["load"]["notPublished"], [])
-        self.assertIn("fantasycalc_adjusted", out["load"]["inputs"])
-        self.assertIn("fantasycalc_adjusted", out["prior"]["sources"])
-        self.assertEqual(out["withHeld"]["inputs"], ["espn", "cbsros", "fantasycalc_adjusted"])
+        self.assertIn("fantasycalc_adjusted", out["loadByVersion"]["ddf_value_charts"]["inputs"])
         self.assertNotIn("dropped", out["withHeld"])
 
 
