@@ -1083,10 +1083,16 @@ are a 0 is better than the user questioning why they aren't in the tool."
   `meta.universe.nfl_active` and in the fidelity pulse.
 - Practice squad is Sleeper's own status, or inferred for a player on a team
   with status Active and no depth-chart slot (`roster_status_inferred`).
-- A universe player nothing prices has ESPN "absent" and no projection; the
-  row rules give him 0 where a chart is fully loaded and a reason elsewhere.
-  `unpriced_reason` names his status. A player not yet on the players table
-  is keyed 1,000,000 + his Sleeper id (`identity: "sleeper"`).
+- A universe player nothing prices has ESPN "absent" and no projection
+  (`universe_only`, `unpriced_reason` names his status). He is not one of the
+  engine's computed rows (getAllRows, the curves, the pies); search
+  materialises him on demand (`TradeValueCurveControls.searchPlayers` /
+  `getPlayer`) with the same row rules: 0 where a chart is fully loaded, a
+  reason elsewhere.
+- Every row ties back to the players table (JEG-438). The Sleeper identity
+  refresh inserts universe players the table lacks
+  (`pipelines/sync_sleeper_players.py`, additive, `metadata.sleeper_id`);
+  until then they are listed in `meta.universe.nfl_active.not_on_players_table`.
 
 ## Detailed Rule Owners
 

@@ -484,12 +484,13 @@ def load_identity_base(path=None):
 
 
 def nfl_universe_keys(base, registry):
-    """{player_key: universe record} for the active NFL universe.
+    """({player_key: universe record}, [records with no key]).
 
-    Canonical key when the bake's own resolver places the Sleeper name on one
-    players-table row (position first, then a unique skill-position name, the
-    same rule as the ESPN leg); otherwise the synthetic Sleeper key
-    (nfl_universe.SLEEPER_KEY_BASE + Sleeper id) with Sleeper's name.
+    The key is the players-table row the bake's own resolver places the
+    Sleeper name on (position first, then a unique skill-position name, the
+    same rule as the ESPN leg). A player the table does not carry yet has no
+    row this bake; sync_sleeper_players.py (Sleeper identity refresh) inserts
+    him, and meta.universe.nfl_active lists him meanwhile.
     """
     universe = nfl_universe.active_universe(base)
 
@@ -504,10 +505,10 @@ def nfl_universe_keys(base, registry):
 
     keys = nfl_universe.assign_keys(universe, resolve_key)
     out = {key: universe[sid] for sid, key in keys.items()}
-    n_syn = sum(1 for k in out if nfl_universe.is_sleeper_key(k))
-    print(f"nfl universe: {len(out)} active QB/RB/WR/TE "
-          f"({len(out) - n_syn} on the players table, {n_syn} Sleeper-only)")
-    return out
+    unkeyed = [universe[sid] for sid in sorted(universe) if sid not in keys]
+    print(f"nfl universe: {len(universe)} active QB/RB/WR/TE "
+          f"({len(out)} on the players table, {len(unkeyed)} not yet)")
+    return out, unkeyed
 
 
 def _snapshot_order(path):
@@ -793,7 +794,7 @@ def bake(args):
     # no row for them) and no other leg: the engine shows 0 where a source is
     # fully loaded and a reason elsewhere (row.missingReasons).
     identity_base = load_identity_base(getattr(args, "identity_base", None))
-    universe = nfl_universe_keys(identity_base, registry)
+    universe, universe_unkeyed = nfl_universe_keys(identity_base, registry)
     have = {k for k, _r, _s in skill_rows}
     skill_rows += [(k, {"comps": {}, "pos": (registry.by_key.get(k) or {}).get("position") or u["pos"],
                         "team": u["team"], "universe_only": True}, "absent")
@@ -839,8 +840,7 @@ def bake(args):
 
         row = {
             "player_key": key,
-            "name": (uni["name"] if nfl_universe.is_sleeper_key(key)
-                     else require_canonical_name(key, registry=registry)),
+            "name": require_canonical_name(key, registry=registry),
             "pos": pos,
             "team": team,
             # Primary leg = ESPN (already ROS, no actuals subtraction).
@@ -887,9 +887,6 @@ def bake(args):
             # fixture): nothing prices him.
             row["universe_only"] = True
             row["unpriced_reason"] = nfl_universe.unpriced_reason(uni)
-            if nfl_universe.is_sleeper_key(key):
-                # Not on the players table yet: Sleeper's id and spelling.
-                row["identity"] = "sleeper"
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
@@ -1121,7 +1118,7 @@ def bake(args):
             "chart_depth": chart_depth,
             # JEG-502: every active NFL QB/RB/WR/TE has a row; counts by
             # roster status (also reported in the fidelity pulse).
-            "nfl_active": nfl_universe.summary(players, identity_base),
+            "nfl_active": nfl_universe.summary(players, identity_base, universe_unkeyed),
         },
         "scoring_note": "No INT/fumble data in season sources; values exclude them.",
         "ppg_note": ("Per-game points = ROS fantasy points / the games the "
@@ -1192,11 +1189,8 @@ def bake(args):
     }
 
     # Fail-closed name gate: every display name == players.full_name for its key.
-    # JEG-502: Sleeper-only universe rows (identity "sleeper", synthetic keys)
-    # are not on the players table; every other row must match it.
     assert_canonical_names(
-        [(p["player_key"], p["name"]) for p in players
-         if not nfl_universe.is_sleeper_key(p["player_key"])],
+        [(p["player_key"], p["name"]) for p in players],
         registry=registry, context="players.json")
     meta["dataset_status"] = build_dataset_status(
         meta, players, snapshot_dir=str(SNAPSHOT_DIR), rz_live=True)

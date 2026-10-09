@@ -1930,7 +1930,7 @@ def universe_report(path: Path = PLAYERS_FIXTURE) -> dict:
     return {"status": "green", "n_rows": n_rows, "as_of": meta.get("as_of"),
             "n_nfl_active": nfl.get("n_nfl_active"), "by_roster_status": by_status,
             "n_universe_only": nfl.get("n_universe_only"),
-            "n_sleeper_identity": nfl.get("n_sleeper_identity"),
+            "n_not_on_players_table": nfl.get("n_not_on_players_table"),
             "identity_base_pulled_at": nfl.get("identity_base_pulled_at"),
             "definition": nfl.get("definition"),
             "summary": f"{n_rows} players searchable; {nfl.get('n_nfl_active')} active NFL players ({parts})"}

@@ -293,6 +293,17 @@
         ecr_ppg: player.ecr_ppg || null,
         blend_ppg: player.blend_ppg || null,
         games_remaining: Number.isFinite(Number(player.games_remaining)) ? Number(player.games_remaining) : null,
+        // JEG-502: roster status from the active NFL universe (bake_players.py).
+        roster_status: player.roster_status || null,
+        roster_status_label: player.roster_status_label || null,
+        roster_status_inferred: player.roster_status_inferred === true,
+        injury_status: player.injury_status || null,
+        depth_chart_position: player.depth_chart_position || null,
+        depth_chart_order: Number.isFinite(Number(player.depth_chart_order)) && player.depth_chart_order !== null
+          ? Number(player.depth_chart_order) : null,
+        sleeper_id: player.sleeper_id || null,
+        universe_only: player.universe_only === true,
+        unpriced_reason: player.unpriced_reason || null,
         // Legacy aliases (removed by the v1 contract cutover).
         full_name: canonicalName,
         name: canonicalName,

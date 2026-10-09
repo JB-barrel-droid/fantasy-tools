@@ -10,14 +10,16 @@ refreshed Tue + Thu by sleeper-identity-refresh.yml from Sleeper
 /players/nfl). Dates are measured from the base's own meta.pulled_at, so the
 same base always gives the same universe.
 
-Definition of "active" (a player is in the universe when either holds):
-  1. On an NFL team: Sleeper `team` is set. That covers the 53-man roster,
-     the practice squad, injured reserve, PUP and the other reserve lists
-     (Sleeper keeps the team on all of them).
-  2. Free agent with recent activity: no team, Sleeper `active` is true, and
-     Sleeper has a news item within FREE_AGENT_RECENT_DAYS of the pull
-     (`last_news`). This keeps players released or unsigned this year and
-     drops long-retired players Sleeper still flags active.
+Definition of "active" (a QB/RB/WR/TE is in the universe when either holds):
+  1. On an NFL team: Sleeper `team` is set (53-man roster, practice squad,
+     injured reserve, PUP and the other reserve lists: Sleeper keeps the team
+     on all of them) AND a sign of life: a Sleeper news item within
+     RECENT_NEWS_DAYS of the pull (`last_news`), Sleeper status "Practice
+     Squad", or an injury designation. Sleeper never clears a retired
+     player's team (Ben Roethlisberger is still PIT, last news 2022).
+  2. Free agent: no team, Sleeper `active` is true, and a news item within
+     RECENT_NEWS_DAYS of the pull. This keeps players released or unsigned
+     this year and drops long-retired players Sleeper still flags active.
 
 Roster status (one code per player, first match wins):
   practice_squad   Sleeper status "Practice Squad"; or on a team, status
@@ -37,7 +39,8 @@ from __future__ import annotations
 from datetime import date
 
 UNIVERSE_POSITIONS = ("QB", "RB", "WR", "TE")
-FREE_AGENT_RECENT_DAYS = 365
+RECENT_NEWS_DAYS = 365
+PLACEHOLDER_NAMES = {"duplicate player"}
 
 # Sleeper team codes that differ from the board's (games_remaining aliases).
 _TEAM_FIX = {"LAR": "LA", "JAC": "JAX", "WSH": "WAS"}
@@ -55,26 +58,11 @@ STATUS_ORDER = tuple(STATUS_LABELS)
 DEFINITION = (
     "Every QB/RB/WR/TE Sleeper lists on an NFL team (active roster, practice "
     "squad, injured reserve, PUP and other reserve lists), plus free agents "
-    f"Sleeper flags active with a news item in the {FREE_AGENT_RECENT_DAYS} "
-    "days before the identity pull. Practice squad is Sleeper's status, or "
-    "inferred for a rostered player with no depth-chart slot.")
-
-# Synthetic player_key range for universe players the canonical players table
-# does not carry yet: SLEEPER_KEY_BASE + Sleeper id. Far above every
-# public.players key (max 4,646 on 2026-10-09), so never a collision.
-SLEEPER_KEY_BASE = 1_000_000
-
-
-def sleeper_key(sleeper_id: str) -> int | None:
-    return SLEEPER_KEY_BASE + int(sleeper_id) if str(sleeper_id).isdigit() else None
-
-
-def is_sleeper_key(player_key) -> bool:
-    try:
-        return int(player_key) >= SLEEPER_KEY_BASE
-    except (TypeError, ValueError):
-        return False
-
+    f"Sleeper flags active. Each needs a Sleeper news item in the {RECENT_NEWS_DAYS} "
+    "days before the identity pull (a rostered player may instead carry "
+    "Sleeper's practice-squad status or an injury designation), which drops "
+    "retired players Sleeper still lists on a team. Practice squad is "
+    "Sleeper's status, or inferred for a rostered player with no depth-chart slot.")
 
 def board_team(team: str | None) -> str:
     t = (team or "").strip().upper()
@@ -105,18 +93,27 @@ def _pulled_on(base: dict) -> date:
     return date.fromisoformat(pulled)
 
 
-def in_universe(entry: dict, pulled_on: date) -> bool:
-    if entry.get("pos") not in UNIVERSE_POSITIONS:
-        return False
-    if entry.get("team"):
-        return True
-    if not entry.get("active"):
-        return False
+def _recent_news(entry: dict, pulled_on: date) -> bool:
     try:
         news = date.fromisoformat(entry.get("last_news") or "")
     except ValueError:
         return False
-    return (pulled_on - news).days <= FREE_AGENT_RECENT_DAYS
+    return (pulled_on - news).days <= RECENT_NEWS_DAYS
+
+
+def in_universe(entry: dict, pulled_on: date) -> bool:
+    if entry.get("pos") not in UNIVERSE_POSITIONS:
+        return False
+    if (entry.get("name") or "").strip().lower() in PLACEHOLDER_NAMES:
+        return False
+    if entry.get("team"):
+        # Sleeper never clears the team of a retired player (Ben
+        # Roethlisberger: PIT, last news 2022), so a team needs a sign of
+        # life: news this year, Sleeper's own practice-squad status, or a
+        # current injury designation.
+        return (_recent_news(entry, pulled_on) or entry.get("status") == "Practice Squad"
+                or bool((entry.get("injury_status") or "").strip()))
+    return bool(entry.get("active")) and _recent_news(entry, pulled_on)
 
 
 def active_universe(base: dict) -> dict[str, dict]:
@@ -152,8 +149,9 @@ def assign_keys(universe: dict[str, dict], resolve_key) -> dict[str, int]:
 
     resolve_key(name, pos) -> canonical player_key or None (fail-closed, the
     bake's own resolver). A canonical key two universe players both resolve to
-    stays with the one on a team when exactly one is; every other player gets
-    his synthetic Sleeper key, so no two universe players share a row.
+    stays with the one on a team when exactly one is. A player with no key is
+    left out (every row ties back to the players table, JEG-438): the Sleeper
+    identity refresh inserts the missing ones (sync_sleeper_players.py).
     """
     claims: dict[int, list[str]] = {}
     for sid, rec in universe.items():
@@ -168,11 +166,6 @@ def assign_keys(universe: dict[str, dict], resolve_key) -> dict[str, int]:
         rostered = [s for s in sids if universe[s]["team"]]
         if len(rostered) == 1:
             keys[rostered[0]] = key
-    for sid in universe:
-        if sid not in keys:
-            synthetic = sleeper_key(sid)
-            if synthetic is not None:
-                keys[sid] = synthetic
     return keys
 
 
@@ -182,7 +175,7 @@ def unpriced_reason(rec: dict) -> str:
     return f"{rec['roster_status_label']}{where}. No chart or projection prices this player."
 
 
-def summary(players: list[dict], base: dict) -> dict:
+def summary(players: list[dict], base: dict, unkeyed: list[dict] | None = None) -> dict:
     """meta.universe counts for players.json and the fidelity pulse."""
     by_status = {code: 0 for code in STATUS_ORDER}
     n_unknown = 0
@@ -201,5 +194,8 @@ def summary(players: list[dict], base: dict) -> dict:
         "n_not_in_nfl_active": n_unknown,
         "n_practice_squad_inferred": sum(1 for p in players if p.get("roster_status_inferred")),
         "n_universe_only": sum(1 for p in players if p.get("universe_only")),
-        "n_sleeper_identity": sum(1 for p in players if is_sleeper_key(p.get("player_key"))),
+        # Universe players with no players-table row yet (no row this bake).
+        "n_not_on_players_table": len(unkeyed or []),
+        "not_on_players_table": sorted(f"{u['name']} ({u['pos']}, {u['team'] or 'free agent'})"
+                                       for u in (unkeyed or []))[:50],
     }
