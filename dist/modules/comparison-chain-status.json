@@ -1,12 +1,12 @@
 {
-  "run_at": "2026-10-09T04:01:53.535211+00:00",
+  "run_at": "2026-10-09T04:40:35.090926+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
-    "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows. A hold means a human must review first; the chain will not override it.",
+    "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
@@ -14,27 +14,10 @@
     "post_rebuild_validation"
   ],
   "success": false,
-  "outcome": "published_with_holds",
-  "held": [
-    "cbs"
-  ],
-  "hold_severity": "amber",
-  "held_detail": {
-    "cbs": {
-      "detail": "cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows. A hold means a human must review first; the chain will not override it.",
-      "reason": "review hold",
-      "stage": "review",
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber",
-      "rolled_back": 0
-    }
-  },
+  "outcome": "green",
+  "held": [],
+  "hold_severity": "none",
+  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -71,24 +54,11 @@
     },
     "cbs": {
       "source": "cbs",
-      "status": "held",
-      "stage": "review",
-      "detail": "cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
-      "sections": 3,
-      "held": true,
-      "held_reason": "review hold",
-      "failed_stage": "review",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
+      "sections": 3
     },
     "cbsros": {
       "source": "cbsros",
@@ -163,22 +133,17 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "ERROR tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs"
+      "FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_inputs_without_the_prior_week_are_left_out_of_both_weeks",
+      "FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_prior_week_uses_exactly_the_current_inputs",
+      "FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_rows_carry_the_mean_of_at_least_two_inputs_in_every_view"
     ],
     "assertions": [
-      "TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'"
+      "AssertionError: Lists differ: ['Curve regression guard failed: defaultGr[259 chars]cs.'] != []"
     ],
     "make_targets": [
-      "Makefile:465: test-core"
+      "Makefile:476: test-core"
     ],
-    "detail": "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'",
-    "recorded_at": "2026-10-09T04:07:18.027093+00:00"
+    "detail": "FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_inputs_without_the_prior_week_are_left_out_of_both_weeks; FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_prior_week_uses_exactly_the_current_inputs; FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_rows_carry_the_mean_of_at_least_two_inputs_in_every_view; AssertionError: Lists differ: ['Curve regression guard failed: defaultGr[259 chars]cs.'] != []",
+    "recorded_at": "2026-10-09T04:53:04.806330+00:00"
   }
 }
