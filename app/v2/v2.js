@@ -302,10 +302,14 @@
     const roots = rootFreshness();
     const stuck = roots.filter(r => r.status === "stuck").length;
     const behind = roots.filter(r => r.status === "prior").length;
+    // Fail closed: "all sources current" only when every root source is confirmed current.
+    const unknown = roots.filter(r => r.status === "unknown").length;
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
+    const freshNotes = [behind ? `${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
+      unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
     $("v2FreshnessLabel").textContent = stuck ? `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`
-      : `${weekText}${behind ? `${behind} source${behind === 1 ? "" : "s"} on a prior week` : "all sources current"}`;
-    $("v2Freshness").classList.toggle("is-older", older || behind > 0);
+      : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
+    $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
     $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);
 
@@ -1588,6 +1592,23 @@
   }
 
   // ---------- 11 Weights & bench ----------
+  // fe-fidelity: below a position's feasible window the engine prices it at a higher share
+  // (bench_share_used). v2 shows the share the engine used, never the request, and says when
+  // they differ. No math here: the used shares come from getBenchShareUsed().
+  function benchShown(share) {
+    const used = C.getBenchShareUsed ? C.getBenchShareUsed(share) : null;
+    const values = used ? Object.values(used).filter(Number.isFinite) : [];
+    const lo = values.length ? Math.min(...values) : share;
+    const hi = values.length ? Math.max(...values) : share;
+    const pct = v => (v * 100).toFixed(1);
+    const single = pct(lo) === pct(hi);
+    const text = single ? `${pct(lo)}%` : `${pct(lo)}–${pct(hi)}%`;
+    const starters = single ? `${pct(1 - lo)}%` : `${pct(1 - hi)}–${pct(1 - lo)}%`;
+    const differs = values.some(v => Math.abs(v - share) > 5e-4);
+    const edge = values.some(v => v > share) ? "lowest" : "highest";
+    const note = differs ? `Bench ${pct(share)}% requested · priced at ${text} (${edge} the league supports)` : "";
+    return {text, starters, note};
+  }
   function openWeights() {
     const bounds = C.getBenchBounds();
     let draft = C.getBenchShare();
@@ -1623,14 +1644,20 @@
       split.className = "v2-psplit";
       body.appendChild(split);
       const sync = () => {
-        readout.textContent = `${(draft * 100).toFixed(1)}%`;
+        const shown = benchShown(draft);
+        readout.textContent = shown.text;
         split.innerHTML = "";
         const b = document.createElement("b");
-        b.textContent = `Starters ${(100 - draft * 100).toFixed(1)}% / Bench ${(draft * 100).toFixed(1)}%`;
+        b.textContent = `Starters ${shown.starters} / Bench ${shown.text}`;
         const p = document.createElement("span");
         p.className = "v2-meta";
         p.textContent = "Feasible bounds recalculate with league structure.";
-        split.append(b, p);
+        const note = document.createElement("span");
+        note.className = "v2-meta is-older";
+        note.dataset.benchNote = "";
+        note.hidden = !shown.note;
+        note.textContent = shown.note ? `⚠ ${shown.note}` : "";
+        split.append(b, p, note);
       };
       slider.addEventListener("input", () => { draft = Number(slider.value); sync(); });
       sync();
@@ -1750,9 +1777,18 @@
           text: "Not updating", reason: `We couldn't refresh ${name}${since ? ` since ${since}` : ""}.`};
       }
       const prior = (own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
-      return {pub, name, week: base?.week, status: prior ? "prior" : "current",
-        text: prior ? "Prior week" : "Current",
-        reason: prior && view.refWeek && base?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${base.week}.` : ""};
+      if (prior) {
+        return {pub, name, week: base?.week, status: "prior", text: "Prior week",
+          reason: view.refWeek && base?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${base.week}.` : ""};
+      }
+      // Fail closed: Current only when this source's own rows say freshness_ok === true. A missing
+      // or unreadable file, or a missing row, is "Freshness unknown", never a green tick.
+      const confirmed = Boolean(own && imp && own.freshness_ok === true && imp.freshness_ok === true);
+      if (!confirmed) {
+        return {pub, name, week: base?.week, status: "unknown", text: "Freshness unknown",
+          reason: pipeline ? `We couldn't confirm when ${name} last updated.` : `Checking when ${name} last updated.`};
+      }
+      return {pub, name, week: base?.week, status: "current", text: "Current", reason: ""};
     });
   }
   function openFreshness() {
@@ -1773,8 +1809,8 @@
         const week = document.createElement("td");
         week.textContent = r.week ? `Week ${r.week}` : "—";
         const status = document.createElement("td");
-        status.className = r.status === "stuck" ? "is-bad" : r.status === "prior" ? "is-older" : "is-ok";
-        status.textContent = `${r.status === "stuck" ? "⚠ " : r.status === "current" ? "✓ " : ""}${r.text}`;
+        status.className = r.status === "stuck" ? "is-bad" : r.status === "current" ? "is-ok" : "is-older";
+        status.textContent = `${{stuck: "⚠ ", unknown: "? ", current: "✓ "}[r.status] || ""}${r.text}`;
         if (r.reason) {
           const why = document.createElement("span");
           why.className = "th-sub";
@@ -3253,8 +3289,9 @@
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
+    const linkBench = benchShown(C.getBenchShare());
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
-      + `bench ${(C.getBenchShare() * 100).toFixed(1)}%.${earlier}`);
+      + `bench ${linkBench.text}${linkBench.note ? ` (${(C.getBenchShare() * 100).toFixed(1)}% requested)` : ""}.${earlier}`);
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 8000);
   }
@@ -3349,7 +3386,10 @@
     $("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]
       .map(pos => `${pos} ${Number.isFinite(Number(weights[pos])) ? `${(Number(weights[pos]) * 100).toFixed(1)}%` : "—"}`).join(" · ");
     const bench = C.getBenchShare();
-    $("v2HowBench").textContent = Number.isFinite(bench) ? `${(bench * 100).toFixed(1)}%` : "—";
+    const benchUsed = Number.isFinite(bench) ? benchShown(bench) : null;
+    $("v2HowBench").textContent = benchUsed ? benchUsed.text : "—";
+    $("v2HowBenchNote").hidden = !(benchUsed && benchUsed.note);
+    $("v2HowBenchNote").textContent = benchUsed && benchUsed.note ? `⚠ ${benchUsed.note}` : "";
     document.querySelectorAll("#v2How [data-sources]").forEach(list => {
       const method = list.dataset.sources;
       list.replaceChildren();

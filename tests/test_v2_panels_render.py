@@ -19,7 +19,10 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
   * Source freshness (10, JEG-463): one row per root source (publisher), Prior
     week where the data's freshness record says so, no pipeline jargon; a
     failed import in reference-freshness.json shows that source as Not
-    updating and warns on the header chip;
+    updating and warns on the header chip; fail closed: with the file missing
+    (404) every source shows "Freshness unknown" (no tick) and the chip says
+    "unconfirmed"; a source whose own rows are missing is unknown while the
+    rest are current;
   * toolbar (JEG-475): Search · Position · Show · Rank by · Δ · More · Reset,
     each exactly once, left to right, sticky; the chart-options box, rank
     window buttons, Reset to all / Reset zoom / Clear filters are gone; only
@@ -48,7 +51,7 @@ one fault each (pair toggle applied at once, zone preset ignored, Team box
 ignored, From / To ignored, brush drag keeps the preset, value range ignores
 the rank window, Y brush does nothing, Reset keeps the value range, Columns
 menu ignored, no SUPERFLEX stepper, bench move not reported, shares not
-applied, league Apply does nothing, no chart-and-table split, header not
+applied, freshness fails open, league Apply does nothing, no chart-and-table split, header not
 sticky, cells wide enough to scroll sideways) and requires each to fail.
 """
 from __future__ import annotations
@@ -271,11 +274,6 @@ def check_freshness(page) -> list[str]:
             errors.append(f"freshness: pipeline jargon in {r['text']!r}")
     page.keyboard.press("Escape")
     # A failed import shows its source as Not updating, and the header says so.
-    other = page.context.browser.new_page(viewport={"width": 1440, "height": 1000})
-    other.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
-    if getattr(page, "v2_js", None) is not None:
-        other.route("**/v2/v2.js*", functools.partial(_serve, page.v2_js))
-
     def broken(route, *_):
         response = route.fetch()
         doc = response.json()
@@ -284,20 +282,70 @@ def check_freshness(page) -> list[str]:
                 item["freshness_ok"] = False
                 item["value"] = "2026-10-06"
         route.fulfill(response=response, json=doc)
-    other.route("**/assets/reference-freshness.json*", broken)
-    other.goto(page.url.split("#")[0] + "#player-values", wait_until="load", timeout=120000)
-    other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
-    other.wait_for_timeout(1500)   # the freshness record loads after the engine
-    other.click("#v2Freshness")
-    fp = other.evaluate("""() => { const tr = document.querySelector('#v2Popover tr[data-source="fantasypros"]');
-      return tr ? {status: tr.dataset.status, text: tr.lastElementChild.textContent} : null; }""")
-    label = other.evaluate("() => document.getElementById('v2FreshnessLabel').textContent")
+    rows, label = _freshness_with(page, broken)
+    fp = rows.get("fantasypros")
     if not fp or fp["status"] != "stuck" or "since 2026-10-06" not in fp["text"]:
         errors.append(f"freshness: failed FantasyPros import not shown as Not updating: {fp}")
     if "1 source not updating" not in label:
         errors.append(f"freshness: header chip {label!r} does not warn")
-    other.close()
+
+    # Fail closed: a missing freshness file never shows a source as current.
+    def missing(route, *_):
+        route.fulfill(status=404, content_type="text/plain", body="not found")
+    rows, label = _freshness_with(page, missing)
+    for pub, want in roots.items():
+        r = rows.get(pub)
+        expect = "stuck" if want.get("paused") else "prior" if want.get("prior") else "unknown"
+        if not r or r["status"] != expect or (expect == "unknown" and (
+                "Freshness unknown" not in r["text"] or "✓" in r["text"] or "couldn't confirm" not in r["text"])):
+            errors.append(f"freshness: with the file missing {pub} shows {r}, want {expect}")
+    if "all sources current" in label or "unconfirmed" not in label:
+        errors.append(f"freshness: with the file missing the header chip says {label!r}")
+
+    # Fail closed: a source whose own rows are missing is unknown; every other source confirmed current.
+    def dropped(route, *_):
+        response = route.fetch()
+        doc = response.json()
+        items = [item for item in doc.get("items", [])
+                 if item.get("key") not in ("source_import.fantasypros", "comparison.source.fantasypros")]
+        for item in items:
+            if str(item.get("key", "")).startswith(("source_import.", "comparison.")):
+                item["freshness_ok"] = True
+                if "weeks_behind" in item:
+                    item["weeks_behind"] = 0
+        doc["items"] = items
+        route.fulfill(response=response, json=doc)
+    rows, label = _freshness_with(page, dropped)
+    for pub, want in roots.items():
+        r = rows.get(pub)
+        expect = ("stuck" if want.get("paused") else "prior" if want.get("prior")
+                  else "unknown" if pub == "fantasypros" else "current")
+        if not r or r["status"] != expect:
+            errors.append(f"freshness: with FantasyPros rows removed {pub} shows {r}, want {expect}")
+    fp = rows.get("fantasypros") or {}
+    if "✓" in fp.get("text", "") or "Freshness unknown" not in fp.get("text", ""):
+        errors.append(f"freshness: FantasyPros without rows shows {fp}")
+    if "all sources current" in label or "1 source unconfirmed" not in label:
+        errors.append(f"freshness: with one source unconfirmed the header chip says {label!r}")
     return errors
+
+
+def _freshness_with(page, handler):
+    """Load Player values with reference-freshness.json served by handler; return the rows and the chip."""
+    other = page.context.browser.new_page(viewport={"width": 1440, "height": 1000})
+    other.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+    if getattr(page, "v2_js", None) is not None:
+        other.route("**/v2/v2.js*", functools.partial(_serve, page.v2_js))
+    other.route("**/assets/reference-freshness.json*", handler)
+    other.goto(page.url.split("#")[0] + "#player-values", wait_until="load", timeout=120000)
+    other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
+    other.wait_for_timeout(1500)   # the freshness record loads after the engine
+    other.click("#v2Freshness")
+    rows = other.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#v2Popover tr[data-source]')].map(tr =>
+      [tr.dataset.source, {status: tr.dataset.status, text: tr.lastElementChild.textContent}]))""")
+    label = other.evaluate("() => document.getElementById('v2FreshnessLabel').textContent")
+    other.close()
+    return rows, label
 
 
 VIEW = "window.TradeValueV2"
@@ -741,6 +789,9 @@ class PanelsRenderTest(unittest.TestCase):
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
             "pipeline failure ignored": {"v2_js": v2.replace(
                 "find(item => item && item.freshness_ok === false);", "find(item => false);", 1)},
+            "freshness fails open": {"v2_js": v2.replace(
+                "const confirmed = Boolean(own && imp && own.freshness_ok === true && imp.freshness_ok === true);",
+                "const confirmed = true;", 1)},
             "league Apply does nothing": {"v2_js": v2.replace(
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1)},

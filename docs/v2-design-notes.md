@@ -876,3 +876,19 @@ Supersedes the Player values parts of "Chart options (21)" and "Navigator and va
   `--v2-heat-*` (light and dark). `--v2-chart-h` = `clamp(280px, calc(100vh - 490px), 42vh)`: the 490 px is the
   shared header plus the toolbar at 1366 × 768; if the Methods bar merge makes the header shorter, the chart
   simply grows. Stacked layouts (768–1279) use `clamp(280px, 36vh, 400px)`.
+
+## Data fidelity: freshness fails closed, bench share shown as used (2026-10-08, fe-fidelity)
+
+- **Source freshness fails closed.** A source shows "✓ Current" only when its own rows in
+  `assets/reference-freshness.json` (`comparison.source.<pub>` and `source_import.<pub>`) both report
+  `freshness_ok === true`. A missing or unreadable file, or a missing row, shows "? Freshness unknown" (amber,
+  "We couldn't confirm when X last updated."), never a tick. "Not updating" and "Prior week" are unchanged and
+  take precedence. The header chip says "all sources current" only when every root source is confirmed; otherwise
+  e.g. "Week 5 · ⚠ 2 sources unconfirmed" (and "checking sources…" until the file has loaded).
+- **Bench share shown is the share used.** Below a position's feasible window the engine prices at a higher share
+  (`bench_share_used`; PPR 12 teams at 2%: QB 7.5%, RB/WR/TE 4.4–4.7%). v2 reads it from the new read-only
+  `TradeValueCurveControls.getBenchShareUsed(share?)` (per position, null when withheld) and shows the lowest–highest
+  used share in the Weights & bench readout and Starters / Bench split, on How values work, and in the shared-link
+  notice. When it differs from the request one note says so: "Bench 2.0% requested · priced at 4.4–7.5% (lowest
+  the league supports)". The slider position and the share link (`bench=`) still carry the request. The
+  "Bench share moved from … to …" league notice is about the setting and is unchanged.

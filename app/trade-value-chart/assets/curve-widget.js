@@ -4193,6 +4193,19 @@
     setRosterSpot,
     setBenchShareFraction,
     getBenchShare: () => benchShare,
+    // Read-only (fe-fidelity): the share each position was actually priced
+    // at, bench_share_used from the live two-tier calibration at `share`
+    // (default: the active bench share). Below a position's feasible window
+    // the engine prices at a higher share than requested. {QB, RB, WR, TE};
+    // null for a withheld position; null when there is no calibration.
+    getBenchShareUsed: (share = benchShare) => {
+      const cal = twoTierCalibration(share);
+      if (!cal) return null;
+      return Object.fromEntries(TwoTier.POSITIONS.map(pos => {
+        const c = cal[pos];
+        return [pos, c && !c.invalid && Number.isFinite(c.bench_share_used) ? c.bench_share_used : null];
+      }));
+    },
     getBenchBounds: () => {
       const bounds = twoTierConfig().bounds;
       return bounds ? TwoTier.inwardBounds(bounds[0], bounds[1]) : null;
