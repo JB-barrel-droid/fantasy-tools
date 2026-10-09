@@ -104,6 +104,57 @@ class PullerAgreesWithTheSaverTest(unittest.TestCase):
                          ("riley nowakowski", "Riley Nowakowski"))
 
 
+class RazzballCanonicalFallbackTest(unittest.TestCase):
+    """2026-10-09 23:40 pulse: Razzball's "Scotty Miller" (0.1 / game) was not
+    stored; the legacy matcher folds no nicknames, the canonical resolver
+    gives public.players 399 "Scott Miller"."""
+
+    PLAYERS = [
+        {"player_key": 399, "full_name": "Scott Miller", "position": "WR", "active": False},
+        {"player_key": 1155, "full_name": "Ben VanSumeren", "position": "LB", "active": False},
+        {"player_key": 869, "full_name": "Josh Allen", "position": "QB", "active": True},
+    ]
+
+    def setUp(self):
+        import save_razzball_references as rz
+        self.rz = rz
+        self.index = rz.build_name_index(self.PLAYERS)
+        self.reg = canonical_players.load_registry(rows=self.PLAYERS)
+
+    def test_a_legacy_miss_resolves_canonically(self):
+        self.assertEqual(self.rz.resolve_name("Scotty Miller", "WR", self.index, "scotty miller", self.reg),
+                         (399, None))
+
+    def test_without_the_registry_the_legacy_rule_is_unchanged(self):
+        self.assertEqual(self.rz.resolve_name("Scotty Miller", "WR", self.index, "scotty miller"),
+                         (None, "no_match"))
+
+    def test_a_legacy_hit_is_not_second_guessed(self):
+        # The legacy matcher keeps its own answers (here its single-candidate
+        # rule); only its misses fall back.
+        self.assertEqual(self.rz.resolve_name("Ben VanSumeren", "RB", self.index, None, self.reg), (1155, None))
+
+    def test_the_fallback_still_fails_closed_on_position(self):
+        self.assertEqual(self.rz.resolve_name("Scotty Miller", "TE", self.index, None, self.reg),
+                         (None, "no_match"))
+
+    def test_the_saver_passes_the_registry(self):
+        rows = [{"player_name": "Scotty Miller", "player_norm": "scotty miller", "pos": "WR", "team": "PIT",
+                 "rz_std_ppg": 0.1, "rz_half_ppr_ppg": 0.1, "rz_ppr_ppg": 0.1}]
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "snapshot.json"
+            path.write_text(json.dumps({"schema": "trade-value-razzball-snapshot-v1",
+                                        "vintage_date": "2026-10-09", "rows": rows}), encoding="utf-8")
+            saved = self.rz.fetch_players
+            self.rz.fetch_players = lambda: self.PLAYERS
+            try:
+                clean, review, _ = self.rz.build_razzball_rows(path)
+            finally:
+                self.rz.fetch_players = saved
+        self.assertEqual([r["player_key"] for r in clean], [399])
+        self.assertEqual(review, [])
+
+
 class PulseTieTest(unittest.TestCase):
     def _cmp(self, stored, chart):
         left = FP.projection_grains([{"player_key": 1860}], lambda r: {"full|1": stored}, 2)
