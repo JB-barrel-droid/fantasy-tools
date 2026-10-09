@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T17:34:40.531392Z",
- "run_id": "4bec1715-6d5b-4d89-8d9f-089333f65db5",
+ "checked_at": "2026-10-09T17:59:07.786673Z",
+ "run_id": "a59590ab-dd57-4602-833a-77df618150cf",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-09T16:28:35.363686+00:00",
+  "built_at": "2026-10-09T17:13:36.451046+00:00",
   "error": null
  },
  "rules": {
@@ -24,7 +24,7 @@
   {
    "source": "usatoday",
    "label": "USA Today",
-   "status": "amber",
+   "status": "red",
    "stored_week": 5,
    "chart_week": 5,
    "stored_bake": "usatwk5_2026-10-09t1427_v1",
@@ -98,37 +98,30 @@
      "unresolved": []
     },
     "stored_vs_chart": {
-     "status": "amber",
-     "summary": "864/864 chart values equal stored bake usatwk5_2026-10-08t1535_v1; newer stored bake usatwk5_2026-10-09t1427_v1 (week 5, saved 2026-10-09T14:27:35.484255Z) is not on the chart yet: 0 values changed, 27 added, 0 dropped",
+     "status": "red",
+     "summary": "888/888 chart values equal stored bake usatwk5_2026-10-09t1427_v1; 0 chart values differ from the stored bake, 1 stored players not on the chart, 0 chart players not stored",
      "counts": {
-      "chart_players": 253,
-      "stored_players": 253,
-      "compared": 864,
-      "matched": 864,
+      "chart_players": 260,
+      "stored_players": 261,
+      "compared": 888,
+      "matched": 888,
       "mismatched": 0,
-      "missing_on_chart": 0,
+      "missing_on_chart": 1,
       "extra_on_chart": 0,
       "outside_universe": 0,
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T14:05:45Z",
-     "bake_id": "usatwk5_2026-10-08t1535_v1",
-     "bake_saved_at": "2026-10-08T15:35:30.873077Z",
-     "behind": {
-      "bake_id": "usatwk5_2026-10-09t1427_v1",
-      "saved_at": "2026-10-09T14:27:35.484255Z",
-      "week": 5,
-      "changed_values": 0,
-      "added": 27,
-      "dropped": 0
-     },
+     "chart_imported_at": "2026-10-09T17:13:03Z",
+     "bake_id": "usatwk5_2026-10-09t1427_v1",
+     "bake_saved_at": "2026-10-09T14:27:35.484255Z",
+     "behind": null,
      "grains": {
       "full|1": {
-       "left": 252,
-       "right": 252,
+       "left": 261,
+       "right": 260,
        "mismatched": 0,
-       "missing": 0,
+       "missing": 1,
        "extra": 0
       },
       "full|2": {
@@ -139,10 +132,10 @@
        "extra": 0
       },
       "half|1": {
-       "left": 252,
-       "right": 252,
+       "left": 261,
+       "right": 260,
        "mismatched": 0,
-       "missing": 0,
+       "missing": 1,
        "extra": 0
       },
       "half|2": {
@@ -153,10 +146,10 @@
        "extra": 0
       },
       "std|1": {
-       "left": 252,
-       "right": 252,
+       "left": 261,
+       "right": 260,
        "mismatched": 0,
-       "missing": 0,
+       "missing": 1,
        "extra": 0
       },
       "std|2": {
@@ -167,7 +160,35 @@
        "extra": 0
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 822,
+       "name": "Josh Palmer",
+       "pos": "WR",
+       "left": 1.0,
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 822,
+       "name": "Josh Palmer",
+       "pos": "WR",
+       "left": 1.0,
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "std|1",
+       "player_key": 822,
+       "name": "Josh Palmer",
+       "pos": "WR",
+       "left": 1.0,
+       "right": null
+      }
+     ],
      "outside_universe": [],
      "unresolved": []
     },
@@ -181,7 +202,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T17:07:59.780452+00:00"
+     "report_generated_at": "2026-10-09T17:32:00.118238+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -202,10 +223,10 @@
         "TE": 37
        },
        "chart": {
-        "QB": 35,
-        "RB": 75,
-        "WR": 106,
-        "TE": 36
+        "QB": 36,
+        "RB": 79,
+        "WR": 108,
+        "TE": 37
        },
        "prior_week": {
         "QB": 35,
@@ -225,7 +246,7 @@
        "QB|starter": 12,
        "QB|bench": 6,
        "RB|starter": 32,
-       "RB|bench": 27,
+       "RB|bench": 25,
        "WR|starter": 40,
        "WR|bench": 26,
        "TE|starter": 12,
@@ -239,7 +260,38 @@
      }
     }
    },
-   "worst_examples": []
+   "worst_examples": [
+    {
+     "stage": "stored_vs_chart",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 822,
+     "name": "Josh Palmer",
+     "pos": "WR",
+     "left": 1.0,
+     "right": null
+    },
+    {
+     "stage": "stored_vs_chart",
+     "type": "missing",
+     "grain": "half|1",
+     "player_key": 822,
+     "name": "Josh Palmer",
+     "pos": "WR",
+     "left": 1.0,
+     "right": null
+    },
+    {
+     "stage": "stored_vs_chart",
+     "type": "missing",
+     "grain": "std|1",
+     "player_key": 822,
+     "name": "Josh Palmer",
+     "pos": "WR",
+     "left": 1.0,
+     "right": null
+    }
+   ]
   },
   {
    "source": "fantasycalc",
@@ -332,7 +384,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T16:28:03Z",
+     "chart_imported_at": "2026-10-09T16:49:39Z",
      "bake_id": "fcwk5_2026-10-09t1307_v1",
      "bake_saved_at": "2026-10-09T13:07:14.733447Z",
      "behind": {
@@ -400,7 +452,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T17:07:59.780452+00:00"
+     "report_generated_at": "2026-10-09T17:32:00.118238+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -551,7 +603,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T16:28:07Z",
+     "chart_imported_at": "2026-10-09T17:13:05Z",
      "bake_id": "fpwk5_2026-10-09t1235_v1",
      "bake_saved_at": "2026-10-09T12:35:46.178513Z",
      "behind": null,
@@ -613,7 +665,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T17:07:59.780452+00:00"
+     "report_generated_at": "2026-10-09T17:32:00.118238+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -771,7 +823,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T16:28:09Z",
+     "chart_imported_at": "2026-10-09T17:13:07Z",
      "bake_id": "cbswk5_2026-10-08t1259_v1",
      "bake_saved_at": "2026-10-08T12:59:38.994744Z",
      "behind": null,
@@ -833,7 +885,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T17:07:59.780452+00:00"
+     "report_generated_at": "2026-10-09T17:32:00.118238+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -930,18 +982,18 @@
    "stored_bake": "2026-10-09",
    "stages": {
     "publisher_vs_stored": {
-     "status": "amber",
-     "summary": "1695/1695 values match exactly across 3 columns; 5 publisher names do not resolve to a canonical player; parse notes: rest-of-season weeks 6-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5]); 392 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
+     "status": "red",
+     "summary": "1668/1695 values match exactly across 3 columns; 27 value mismatches, 0 publisher players not stored, 0 stored players not on the page; 5 publisher names do not resolve to a canonical player; 1 players at the page's last listed value swapped in or out (ties at the row cap: Roschon Johnson); parse notes: rest-of-season weeks 6-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5]); 391 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
      "counts": {
-      "publisher_players": 565,
+      "publisher_players": 566,
       "stored_players": 565,
       "compared": 1695,
-      "matched": 1695,
-      "mismatched": 0,
+      "matched": 1668,
+      "mismatched": 27,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 0,
+      "list_churn": 1,
       "unresolved_names": 5
      },
      "url": "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info",
@@ -950,28 +1002,109 @@
      "stored_saved_at": "2026-10-09T15:07:24.915892Z",
      "grains": {
       "full|1": {
-       "left": 565,
+       "left": 566,
        "right": 565,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 9,
+       "missing": 1,
        "extra": 0
       },
       "half|1": {
-       "left": 565,
+       "left": 566,
        "right": 565,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 9,
+       "missing": 1,
        "extra": 0
       },
       "std|1": {
-       "left": 565,
+       "left": 566,
        "right": 565,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 9,
+       "missing": 1,
        "extra": 0
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 2070,
+       "name": "Dont'e Thornton Jr.",
+       "pos": "WR",
+       "left": "13.06",
+       "right": 0.0,
+       "delta": -13.06
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 2070,
+       "name": "Dont'e Thornton Jr.",
+       "pos": "WR",
+       "left": "10.81",
+       "right": 0.0,
+       "delta": -10.81
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 2070,
+       "name": "Dont'e Thornton Jr.",
+       "pos": "WR",
+       "left": "8.56",
+       "right": 0.0,
+       "delta": -8.56
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 4207,
+       "name": "Malik Benson",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 6.48,
+       "delta": 6.48
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 3796,
+       "name": "Dareke Young",
+       "pos": "WR",
+       "left": "6.52",
+       "right": 12.379999999999999,
+       "delta": 5.86
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 4207,
+       "name": "Malik Benson",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 5.33,
+       "delta": 5.33
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 3796,
+       "name": "Dareke Young",
+       "pos": "WR",
+       "left": "5.32",
+       "right": 10.03,
+       "delta": 4.71
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 4207,
+       "name": "Malik Benson",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 4.18,
+       "delta": 4.18
+      }
+     ],
      "outside_universe": [],
      "unresolved": [
       {
@@ -1161,7 +1294,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T17:07:59.780452+00:00"
+     "report_generated_at": "2026-10-09T17:32:00.118238+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1171,7 +1304,7 @@
        "week_compared": 4,
        "publisher": {
         "QB": 81,
-        "RB": 133,
+        "RB": 134,
         "WR": 231,
         "TE": 120
        },
@@ -1221,89 +1354,92 @@
    },
    "worst_examples": [
     {
-     "stage": "stored_vs_chart",
+     "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "full|1",
-     "player_key": 377,
-     "name": "Jacob Cowing",
+     "player_key": 2070,
+     "name": "Dont'e Thornton Jr.",
      "pos": "WR",
-     "left": "2.32",
-     "right": 2.31,
-     "delta": -0.005
+     "left": "13.06",
+     "right": 0.0,
+     "delta": -13.06
     },
     {
-     "stage": "stored_vs_chart",
+     "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 1068,
-     "name": "Jeremy Ruckert",
-     "pos": "TE",
-     "left": "2.64",
-     "right": 2.63,
-     "delta": -0.005
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 1860,
-     "name": "Tyler Warren",
-     "pos": "TE",
-     "left": "11.81",
-     "right": 11.8,
-     "delta": -0.005
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 1885,
-     "name": "Oronde Gadsden II",
-     "pos": "TE",
-     "left": "5.94",
-     "right": 5.93,
-     "delta": -0.005
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 3550,
-     "name": "Jake Ferguson",
-     "pos": "TE",
-     "left": "7.09",
-     "right": 7.08,
-     "delta": -0.005
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "extra",
-     "grain": "full|1",
-     "player_key": 3963,
-     "name": "riley nowakowski",
-     "pos": null,
-     "left": null,
-     "right": 0.0
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "extra",
-     "grain": "full|1",
-     "player_key": 4000,
-     "name": "jackson meeks",
-     "pos": null,
-     "left": null,
-     "right": 0.0
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "extra",
      "grain": "half|1",
-     "player_key": 3963,
-     "name": "riley nowakowski",
-     "pos": null,
-     "left": null,
-     "right": 0.0
+     "player_key": 2070,
+     "name": "Dont'e Thornton Jr.",
+     "pos": "WR",
+     "left": "10.81",
+     "right": 0.0,
+     "delta": -10.81
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 2070,
+     "name": "Dont'e Thornton Jr.",
+     "pos": "WR",
+     "left": "8.56",
+     "right": 0.0,
+     "delta": -8.56
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 4207,
+     "name": "Malik Benson",
+     "pos": "WR",
+     "left": "0.00",
+     "right": 6.48,
+     "delta": 6.48
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 3796,
+     "name": "Dareke Young",
+     "pos": "WR",
+     "left": "6.52",
+     "right": 12.379999999999999,
+     "delta": 5.86
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 4207,
+     "name": "Malik Benson",
+     "pos": "WR",
+     "left": "0.00",
+     "right": 5.33,
+     "delta": 5.33
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 3796,
+     "name": "Dareke Young",
+     "pos": "WR",
+     "left": "5.32",
+     "right": 10.03,
+     "delta": 4.71
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 4207,
+     "name": "Malik Benson",
+     "pos": "WR",
+     "left": "0.00",
+     "right": 4.18,
+     "delta": 4.18
     }
    ]
   },
@@ -1320,17 +1456,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
-     "summary": "1104/1104 values match exactly across 3 columns; 2 players at the page's last listed value swapped in or out (ties at the row cap: Justin Joly, Seydou Traore); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1107/1107 values match exactly across 3 columns; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 369,
       "stored_players": 369,
-      "compared": 1104,
-      "matched": 1104,
+      "compared": 1107,
+      "matched": 1107,
       "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 2,
+      "list_churn": 0,
       "unresolved_names": 0
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -1342,22 +1478,22 @@
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 0,
+       "extra": 0
       },
       "half|1": {
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 0,
+       "extra": 0
       },
       "std|1": {
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 0,
+       "extra": 0
       }
      },
      "examples": [],
@@ -1416,7 +1552,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T17:07:59.780452+00:00"
+     "report_generated_at": "2026-10-09T17:32:00.118238+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1837,7 +1973,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T17:07:59.780452+00:00"
+     "report_generated_at": "2026-10-09T17:32:00.118238+00:00"
     },
     "scrape_validity": {
      "status": "green",
