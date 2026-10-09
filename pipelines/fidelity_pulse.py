@@ -81,7 +81,7 @@ import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable
@@ -744,7 +744,9 @@ def compare(left: dict, right: dict, *, printed: bool) -> dict:
         for k in sorted(L.keys() & R.keys()):
             out["compared"] += 1
             lv, rv = L[k], R[k]
-            same = (equal_after_rounding(lv["text"], rv["value"]) if printed and lv.get("text") is not None
+            same = ((equal_after_rounding(lv["text"], rv["value"])
+                     or (lv.get("text_alt") is not None and equal_after_rounding(lv["text_alt"], rv["value"])))
+                    if printed and lv.get("text") is not None
                     else abs(lv["value"] - rv["value"]) <= 1e-9)
             if same:
                 out["matched"] += 1
@@ -1491,20 +1493,27 @@ def dedupe_snapshot(rows: list[dict], mod=None) -> list[dict]:
     return list(best.values())
 
 
-def fmt_dec(value: float, places: int) -> str:
-    return str(Decimal(repr(float(value))).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+def fmt_dec(value: float, places: int, rounding=ROUND_HALF_UP) -> str:
+    return str(Decimal(repr(float(value))).quantize(Decimal(1).scaleb(-places), rounding=rounding))
 
 
 def projection_grains(rows: list[dict], fn, places: int | None = None, ident: Identity | None = None) -> dict:
     """{grain: {player_key: cell}} from a module's stored-value function. With
     `places`, the stored value is rounded half-up to the chart's printed
-    decimals and carried as printed text (the chart prints rounded natives)."""
+    decimals and carried as printed text (the chart prints rounded natives).
+    `text_alt` is the half-down rounding: on an exact tie (ESPN Tyler Warren
+    full PPR 141.66 / 12 games = 11.805) the chart's builder may round either
+    way (Python round() on the binary 11.80499... gives 11.8), and both are
+    the stored number printed to the chart's decimals. Off a tie the two are
+    the same text, so the rule stays exact (JEG-480, 27 such ties on
+    2026-10-09)."""
     out: dict[str, dict] = {}
     for r in rows:
         for g, v in (fn(r) or {}).items():
             if v is None:
                 continue
             cell = {"value": float(v), "text": fmt_dec(v, places) if places is not None else None,
+                    "text_alt": fmt_dec(v, places, ROUND_HALF_DOWN) if places is not None else None,
                     "name": (ident.name(r["player_key"]) if ident else None) or r.get("player_norm")
                             or str(r.get("player_key")),
                     "pos": r.get("pos") or r.get("position") or (ident.pos(r["player_key"]) if ident else None)}

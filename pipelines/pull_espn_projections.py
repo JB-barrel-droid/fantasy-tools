@@ -286,8 +286,22 @@ def resolve_identity(imap, name, pos, problems, registry=None):
         problems.append(f"identity-pos-mismatch: {name!r} ESPN={pos} "
                         f"registry={entry['pos']}")
         return None
-    return canon, (entry.get("name") or
-                   " ".join(w.capitalize() for w in canon.split(" ")))
+    display = (entry.get("name") or
+               " ".join(w.capitalize() for w in canon.split(" ")))
+    if registry is not None:
+        # One identity rule for the CSV and the stored rows (JEG-480): a
+        # snapshot match the canonical resolver rejects (the saver then
+        # leaves it out) would put a player on the chart that Supabase does
+        # not hold. 2026-10-09: Riley Nowakowski (ESPN RB, players TE) and
+        # Jackson Meeks (ESPN TE, players WR).
+        import canonical_players  # noqa: PLC0415
+        if (canonical_players.resolve(display, position=pos, registry=registry) is None
+                and canonical_players.resolve(name, position=pos, registry=registry) is None):
+            _key, why = canonical_players.resolve_with_reason(display, position=pos, registry=registry)
+            problems.append(f"identity-unresolved: {name!r} ({pos}; snapshot "
+                            f"{canon!r}, canonical: {why})")
+            return None
+    return canon, display
 
 
 def main():
