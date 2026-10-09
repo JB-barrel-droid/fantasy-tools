@@ -573,6 +573,43 @@ class TestQBAnchorResolution(unittest.TestCase):
             self.assertEqual(len(missing_anchor_reviews), 1,
                              "Meaningful missing-anchor should block")
 
+    def test_player_not_on_espns_list_is_not_a_missing_anchor(self):
+        """GAP-UNIVERSE-CHART-ONLY (2026-10-08): a chart-only player (players.json
+        espn_status 'absent': not on ESPN's list) has no ESPN anchor by
+        definition. That is known, not a possible omission, so it must not hold
+        the chart (CBS Week 5 held on Tyreek Hill, native 8.0). His published
+        native stays in the section; he is listed under not_on_espn."""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            plist = {"meta": {}, "players": [
+                {"player_key": 1000 + j, "name": f"Qb Player {j}", "pos": "QB"}
+                for j in range(10)]}
+            plist["players"].append({"player_key": 9999, "name": "Chart Only", "pos": "QB",
+                                     "espn_status": "absent"})
+            players_p = tmp / "players.json"
+            players_p.write_text(json.dumps(plist))
+            fixture_keys = {pl["name"].lower(): pl["player_key"] for pl in plist["players"]}
+            anchor_vals = {pl["name"].lower(): 30.0 for pl in plist["players"][:10]}
+            fx_p = tmp / "fixture.json"
+            fx_p.write_text(json.dumps(
+                {"player_keys": fixture_keys,
+                 "sources": {"espn": {"combos": {"full_12": {"values": anchor_vals}}}}}))
+            cand_p = make_candidate(tmp, "cbs", plist,
+                                    lambda pl: 90.0 if pl["name"] == "Chart Only" else 100.0,
+                                    combos=("full_12",))
+            cand_data = json.loads(cand_p.read_text(encoding="utf-8"))
+            cand_data["value_provenance"] = "published"
+            cand_p.write_text(json.dumps(cand_data))
+            section, review = rcs.reindex_section(str(cand_p), str(fx_p), str(players_p))
+            self.assertEqual([], [r for r in review if r.get("player_key") == 9999])
+            combo = section["combos"]["full_12"]
+            self.assertEqual(90.0, combo["native"]["chart only"])
+            self.assertEqual(["chart only"], combo["not_on_espn"])
+            # He gets an Indexed value from his bucket's scale, like a player
+            # ESPN lists at 0, and the reconciliation still holds.
+            self.assertGreater(combo["reindexed"]["chart only"], 0.0)
+            self.assertEqual(section["reindex_status"], "complete")
+
 
 class TestFlexAwareExactReconciliation(unittest.TestCase):
     """JEG-15: the flex-aware branch must report EXACT reconciliation numbers.
