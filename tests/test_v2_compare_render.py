@@ -13,6 +13,9 @@ own search boxes, and checks against window.TradeValueCurveControls.getAllRows()
   * VORP vs waivers series sit only in their own panel, never in the
     trade-value table;
   * the trade survives a round trip to Player values;
+  * JEG-467: "Player values shown" defaults to DDF Value and is the shared
+    grouped picker (JEG-466); DDF Value is the first row of "Difference by
+    source & method", marked in words as the series that decides the verdict;
   * no page errors and no horizontal overflow at 390 px.
 
 Discrimination: test_guard_fails_on_broken_builds serves trade.js with the
@@ -39,6 +42,7 @@ import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests.test_v2_risers_render import PICKER_READ, check_picker  # noqa: E402
 
 
 def setUpModule():
@@ -82,6 +86,8 @@ READ = """() => {
     give: side('v2GivePlayers'), receive: side('v2GetPlayers'),
     points: document.getElementById('v2CTable').hidden ? [] : read(document.getElementById('v2CTable')),
     vorp: document.getElementById('v2CVorpCard').hidden ? [] : read(document.getElementById('v2CVorpTable')),
+    marked: [...document.querySelectorAll('#v2CTable tbody tr.is-verdict')].map(tr => ({key: tr.dataset.source,
+      tag: tr.querySelector('.v2-cverdict-tag')?.textContent ?? null})),
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
 
@@ -138,6 +144,16 @@ def check(snap) -> list[str]:
             errors.append(f"{key}: label {row['label']!r} does not match net {net}")
     if not saw_missing:
         errors.append("the trade has no player missing a selected series; the missing-value path went unchecked")
+    if "ddf_value" in point_keys:
+        if not snap["points"] or snap["points"][0]["key"] != "ddf_value":
+            errors.append(f"DDF Value is not the first row: {[r['key'] for r in snap['points']]}")
+        if snap["marked"] != [{"key": "ddf_value", "tag": "★ Decides the verdict"}]:
+            errors.append(f"DDF Value row not marked as deciding the verdict: {snap['marked']}")
+    else:
+        errors.append("DDF Value is not shown; its row went unchecked")
+    errors += check_picker(snap["picker"], "Player values shown")
+    if snap["firstShown"] != "ddf_value":
+        errors.append(f"Player values shown opened on {snap['firstShown']!r}, not DDF Value")
     return errors
 
 
@@ -189,6 +205,7 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body))
                 page.goto(url, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare()", timeout=30000)
+                first_shown = page.evaluate("() => document.getElementById('v2CShown').value")
                 for key in EXTRA_SERIES:
                     page.evaluate("""key => { const box = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
                       if (box && !box.checked && !box.disabled) box.click(); }""", key)
@@ -204,7 +221,8 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
                 page.evaluate("() => { location.hash = '#compare-trade'; }")
                 page.wait_for_function("() => !document.getElementById('v2Compare').hidden")
                 snap = page.evaluate(READ)
-                snap.update(width=width, pick=pick, pageErrors=list(errors))
+                snap.update(width=width, pick=pick, pageErrors=list(errors), firstShown=first_shown,
+                            picker=page.evaluate(PICKER_READ, "#v2CShown"))
                 snapshots.append(snap)
                 page.close()
         finally:

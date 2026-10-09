@@ -49,9 +49,12 @@ const brief = list => list.map(m => [m.row.player_key, Math.round(m.delta * 1000
 const a = M.buildMovers(input.rows, 'fantasycalc', input.prior);
 const b = M.buildMovers(input.rows, 'fantasycalc', input.unavailable);
 const d = M.deltaFor(20, input.prior, '3');
+// JEG-465: a DDF Value prior carries its own current side; "now" and Δ both come from it.
+const ddf = M.buildMovers(input.rows, 'ddf_value', {...input.prior, currentValues: {'1': 40, '2': 10, '6': 32}});
+const ddfBrief = ddf.risers.concat(ddf.fallers).map(m => [m.row.player_key, m.current, m.before, Math.round(m.delta * 1000) / 1000]);
 console.log(JSON.stringify({risers: brief(a.risers), fallers: brief(a.fallers), noPrior: a.noPrior, noCurrent: a.noCurrent,
   unchanged: a.unchanged, priorWeek: a.priorWeek, un: {available: b.available, reason: b.reason, n: b.risers.length + b.fallers.length},
-  missing: d}));
+  missing: d, ddf: ddfBrief}));
 """
 
 
@@ -76,6 +79,8 @@ def check(js: Path) -> list[str]:
         errors.append(f"unavailable prior must give no movers and the engine's reason: {r['un']}")
     if r["missing"].get("delta") is not None or "Week 4" not in (r["missing"].get("reason") or ""):
         errors.append(f"no prior value must be Δ — with a reason naming the week: {r['missing']}")
+    if sorted(r["ddf"]) != [[1, 40, 25.0, 15.0], [2, 10, 14.0, -4.0]]:
+        errors.append(f"DDF Value movers {r['ddf']} must read now from currentValues: [[1, 40, 25, 15], [2, 10, 14, -4]]")
     return errors
 
 
@@ -86,14 +91,16 @@ class MoversTest(unittest.TestCase):
     def test_checks_fail_on_broken_builds(self):
         source = MOVERS_JS.read_text(encoding="utf-8")
         broken = {
-            "sign flipped": source.replace("return {delta: current - before, before, reason: null};",
-                                           "return {delta: before - current, before, reason: null};", 1),
+            "sign flipped": source.replace("return {delta: current - before, before, current, reason: null};",
+                                           "return {delta: before - current, before, current, reason: null};", 1),
             "missing prior read as zero": source.replace(
                 "const before = prior.values ? prior.values[playerKey] : undefined;",
                 "const before = (prior.values ? prior.values[playerKey] : undefined) ?? 0;", 1),
             "unavailable prior ignored": source.replace(
                 "if (!prior || !prior.available) {\n      return {series, available: false,",
                 "if (!prior) {\n      return {series, available: false,", 1),
+            "DDF now read from the row, not currentValues": source.replace(
+                "if (prior.currentValues) current = prior.currentValues[playerKey];", "", 1),
             "unchanged listed": source.replace("if (Math.abs(d.delta) < 0.05) unchanged += 1;", "if (false) unchanged += 1;", 1),
         }
         with tempfile.TemporaryDirectory() as tmp:

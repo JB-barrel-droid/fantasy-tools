@@ -247,15 +247,17 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                   const box = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
                   if (box && !box.checked && !box.disabled) box.click(); } }""",
                               ["espn", "fantasycalc_adjusted", "fantasypros_adjusted", "usatoday_adjusted", *EXTRA_SERIES])
+                # The one-series notice above hid DDF Value; show it again so the picker offers it.
+                page.evaluate("() => window.TradeValueV2.setShown(['ddf_value'].concat(window.TradeValueV2.shown()))")
                 pick = page.evaluate(PICK)
                 page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
                 page.wait_for_function("() => !document.getElementById('v2Compare').hidden && !document.getElementById('v2CTable').hidden")
-                options = page.evaluate("() => [...document.querySelectorAll('#v2CShown option')].map(o => o.value)")
+                options = page.evaluate("() => [...document.querySelectorAll('#v2CShown option:not(:disabled)')].map(o => o.value)")
                 engine = page.evaluate(READ)["engine"]
                 lacking = [k for k in options if any(not finite(engine[p].get(k)) for p in pick["give"] + pick["receive"])]
                 if not lacking:
                     errors.append(tag + "no shown series lacks a value for a picked player; the incomplete total went unchecked")
-                for shown in ["espn", "fantasycalc"] + lacking[:1]:
+                for shown in ["ddf_value", "espn", "fantasycalc"] + lacking[:1]:
                     page.select_option("#v2CShown", shown)
                     snap = page.evaluate(READ)
                     errors += [tag + e for e in check_sides(snap, pick)]

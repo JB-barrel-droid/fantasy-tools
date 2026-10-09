@@ -13,9 +13,11 @@ window.TradeValueCurveControls.getAllRows():
     largest cumulative extent across rows (0 included);
   * missing: with a player who lacks a series, that row has a "no value" step
     and no landing bar (never a 0);
-  * verdict: the headline names the "Player values shown" series and says
-    "you win by" / "you lose by" / "even" from that series' engine sums; the
-    text names every complete source that sees it the other way;
+  * verdict (JEG-467): with DDF Value shown, the headline names DDF Value and
+    says "you win by" / "you lose by" / "even" from DDF Value's engine sums,
+    even with "Player values shown" switched to another series; the text names
+    every complete source that sees it the other way; the verdict card's
+    waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
     directly below; no horizontal scroll at 1100 or 390;
@@ -23,7 +25,7 @@ window.TradeValueCurveControls.getAllRows():
     and the address keeps no trade.
 
 Discrimination: test_guard_fails_on_broken_builds serves a per-row scale, the
-verdict reading the ranking series, a verdict naming no source, no example,
+verdict following the picker instead of DDF Value, a verdict naming no source, no example,
 the landing drawn on incomplete rows, and the 3-column layout removed, and
 requires the checks to fail on each.
 """
@@ -163,8 +165,12 @@ def check_waterfalls(snap, pick, expect_missing=False) -> list[str]:
 
 
 def check_verdict(snap, pick) -> list[str]:
-    engine, key = snap["engine"], snap["shown"]
+    engine = snap["engine"]
     names = {r["key"]: r["wf"]["name"] for r in snap["rows"] if r["wf"]}
+    # JEG-467: DDF Value decides whenever it is a row; only without it does the picked series decide.
+    key = "ddf_value" if "ddf_value" in names else snap["shown"]
+    if "ddf_value" in names and snap["shown"] == "ddf_value":
+        return ["the picker still shows DDF Value; the verdict-vs-picker split went unchecked"]
     if key not in names:
         return [f"verdict series {key} is not a table row"]
     nets = {}
@@ -186,6 +192,10 @@ def check_verdict(snap, pick) -> list[str]:
         errors.append(f"verdict does not name the sources that see it the other way {missing}: {text!r}")
     if snap["verdictFall"] is None:
         errors.append("verdict card has no waterfall")
+    else:
+        row = next(r["wf"] for r in snap["rows"] if r["key"] == key)
+        if snap["verdictFall"]["steps"] != row["steps"] or snap["verdictFall"]["land"] != row["land"]:
+            errors.append(f"verdict card waterfall is not {key}'s own: {snap['verdictFall']['name']!r}")
     return errors
 
 
@@ -314,8 +324,8 @@ class WaterfallRenderTest(unittest.TestCase):
             "a scale per row": {"v2.js": (v2.replace(
                 "renderWaterfall(bar, fall, sharedScale || window.TradeValueTrade.waterfallScale([fall]));",
                 "renderWaterfall(bar, fall, window.TradeValueTrade.waterfallScale([fall]));", 1), js)},
-            "verdict reads the ranking series": {"v2.js": (v2.replace(
-                "const verdictKey = () => TR.shown;", "const verdictKey = () => view.rankKey;", 1), js)},
+            "verdict not DDF": {"v2.js": (v2.replace(
+                "verdictSeries = pointKeys.includes(DDF_KEY) ? DDF_KEY : TR.shown;", "verdictSeries = TR.shown;", 1), js)},
             "verdict names no source": {"v2.js": (v2.replace(
                 "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.",
                 "text = `Some sources think you lose this trade.", 1).replace(

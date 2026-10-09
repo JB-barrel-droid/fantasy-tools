@@ -16,11 +16,18 @@ every series the picker offers, the test asks the engine itself
     engine has no prior value (never a number);
   * desktop 1440 side-by-side cards and mobile 390 stacked cards; no page
     errors; no 390 overflow.
+  * JEG-465: the tab opens on DDF Value (when the engine has its prior week),
+    and DDF Value's movers are the engine's currentValues - values;
+  * JEG-466: the shared series picker (Risers' series, Player values' Rank by)
+    groups its options under the JEG-474 group names in vocabulary order, DDF
+    Value first; a series the engine has no prior week for (one is forced
+    unavailable through getPriorWeek) is disabled with its reason in the label.
 
 Discrimination: test_guard_fails_on_broken_builds serves movers.js with the
 sign flipped and with a missing prior read as 0, and v2.js with the picked
 series ignored and with an earlier week pair keeping this week's values, and
-requires the checks to fail on each.
+requires the checks to fail on each; and v2.js with the picker's options
+outside their groups and with Risers opening on another series.
 """
 from __future__ import annotations
 
@@ -59,7 +66,9 @@ READ = """async ([series, week]) => {
   const served = prior.available && (week === null || week === prior.currentWeek);
   const before = served ? prior : await C.getWeekValues(series, week - 1);
   const after = served ? null : await C.getWeekValues(series, week);
-  const now = served ? Object.fromEntries(C.getRows().map(r => [String(r.player_key), r.values[series]])) : (after.values || {});
+  // DDF Value: the delta is currentValues - values over the same inputs (JEG-465), so "now" is currentValues.
+  const now = served ? (prior.currentValues || Object.fromEntries(C.getRows().map(r => [String(r.player_key), r.values[series]])))
+    : (after.values || {});
   const text = node => node ? node.textContent : null;
   const read = id => [...document.querySelectorAll(`#${id} li`)].map(li => ({key: li.dataset.playerKey,
     now: text(li.querySelector('[data-col="now"]')), before: text(li.querySelector('[data-col="before"]')),
@@ -77,6 +86,70 @@ READ = """async ([series, week]) => {
 
 def fmt(v):
     return f"{v:.1f}"
+
+
+# JEG-474 group vocabulary, in order. Written out here, not read from v2.js.
+GROUPS = ["DDF Value", "Projections", "Trade charts (adjusted)", "Trade charts (as published)",
+          "Value above waivers (Advanced)"]
+DDF = "ddf_value"
+FORCED_OFF = "usatoday"   # getPriorWeek is patched to say this series has no prior week
+FORCED_REASON = "test: no saved week before this one"
+
+
+def expected_group(key):
+    if key == DDF:
+        return "DDF Value"
+    if key.endswith("_vorp"):
+        return "Value above waivers (Advanced)"
+    if key.endswith("_adjusted"):
+        return "Trade charts (adjusted)"
+    if key in ("espn", "cbsros", "razzball"):
+        return "Projections"
+    return "Trade charts (as published)"
+
+
+# The shared picker (JEG-466) as rendered, plus the engine's stale flags for the prior-week badge.
+PICKER_READ = """sel => {
+  const info = Object.fromEntries(window.TradeValueCurveControls.getSourceInfo({includeComposite: true}).map(i => [i.key, {stale: Boolean(i.stale), week: i.week}]));
+  const select = document.querySelector(sel);
+  return {value: select.value, height: select.getBoundingClientRect().height,
+    options: [...select.querySelectorAll('option')].map(o => ({key: o.value, parent: o.parentElement.tagName,
+      group: o.parentElement.tagName === 'OPTGROUP' ? o.parentElement.label : null, disabled: o.disabled, text: o.textContent,
+      stale: (info[o.value] || {}).stale || false, week: (info[o.value] || {}).week ?? null}))};
+}"""
+
+
+def check_picker(snap, name, disabled=None) -> list[str]:
+    """Groups and order follow the vocabulary, DDF Value first; disabled options carry a reason.
+
+    disabled: {key: reason substring} the picker must show disabled (None: do not check which)."""
+    errors = []
+    opts = snap["options"]
+    if not opts:
+        return [f"{name}: no options"]
+    for o in opts:
+        if o["parent"] != "OPTGROUP" or o["group"] != expected_group(o["key"]):
+            errors.append(f"{name}: {o['key']} sits in {o['parent']} {o['group']!r}, want group {expected_group(o['key'])!r}")
+        if o["stale"] != ("· Wk" in o["text"] or "· Earlier week" in o["text"]):
+            errors.append(f"{name}: {o['key']} prior-week badge {o['text']!r} but engine stale={o['stale']}")
+        if o["disabled"] and "—" not in o["text"]:
+            errors.append(f"{name}: {o['key']} disabled without a reason in its label: {o['text']!r}")
+    order = [GROUPS.index(o["group"]) if o["group"] in GROUPS else -1 for o in opts]
+    if order != sorted(order):
+        errors.append(f"{name}: groups out of vocabulary order {[o['group'] for o in opts]}")
+    keys = [o["key"] for o in opts]
+    if DDF in keys and keys[0] != DDF:
+        errors.append(f"{name}: DDF Value is not first: {keys}")
+    if disabled is not None:
+        got = {o["key"]: o["text"] for o in opts if o["disabled"]}
+        if set(got) != set(disabled):
+            errors.append(f"{name}: disabled {sorted(got)} != {sorted(disabled)}")
+        for key, reason in disabled.items():
+            if key in got and reason not in got[key]:
+                errors.append(f"{name}: {key} label {got[key]!r} lacks the reason {reason!r}")
+    if snap["height"] < 44:
+        errors.append(f"{name}: picker is {snap['height']}px tall, under the 44 px target")
+    return errors
 
 
 def fmt_gap(v):
@@ -172,12 +245,30 @@ def run_checks(movers_js=None, v2_js=None, full=True) -> list[str]:
                     page.route("**/v2/movers.js*", functools.partial(_serve, movers_js))
                 if v2_js is not None:
                     page.route("**/v2/v2.js*", functools.partial(_serve, v2_js))
-                page.goto(base + "#risers-fallers", wait_until="networkidle")
+                page.goto(base + "#player-values", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()", timeout=40000)
+                # One series with no prior week, so the disabled-with-reason path is exercised.
+                page.evaluate("""([off, reason]) => { const C = window.TradeValueCurveControls; const real = C.getPriorWeek;
+                  C.getPriorWeek = (key, week) => key === off ? Promise.resolve({source: key, available: false, reason}) : real(key, week); }""",
+                              [FORCED_OFF, FORCED_REASON])
+                page.evaluate("() => { location.hash = '#risers-fallers'; }")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.risers()", timeout=40000)
+                page.wait_for_function("() => !/Recomputing|Reading/.test(document.getElementById('v2RMeta').textContent)", timeout=30000)
                 options = page.evaluate("() => [...document.querySelectorAll('#v2RSeries option')].map(o => o.value)")
                 if not options:
                     errors.append(f"{width}px: no series offered")
-                series_list = options if width == 1440 else options[:1]
+                # JEG-465: the tab opens on DDF Value whenever the engine has its prior week.
+                ddf_ready = page.evaluate("async () => (await window.TradeValueCurveControls.getPriorWeek('ddf_value')).available")
+                opened = page.evaluate("() => document.getElementById('v2RSeries').value")
+                if not ddf_ready:
+                    errors.append(f"[{width}px] the engine has no DDF Value prior week; the default went unchecked")
+                elif opened != DDF:
+                    errors.append(f"[{width}px] Risers & fallers opened on {opened!r}, not DDF Value")
+                if DDF not in options:
+                    errors.append(f"[{width}px] DDF Value is not offered")
+                errors += [f"[{width}px] {e}" for e in check_picker(page.evaluate(PICKER_READ, "#v2RSeries"), "Risers series",
+                                                                    disabled={FORCED_OFF: FORCED_REASON})]
+                series_list = options if width == 1440 else [DDF]
                 checked_pair = False
                 for series in series_list:
                     enabled = page.evaluate(f"() => !document.querySelector('#v2RSeries option[value=\"{series}\"]').disabled")
@@ -209,6 +300,7 @@ def run_checks(movers_js=None, v2_js=None, full=True) -> list[str]:
                     # Player values, Δ on, with an Indexed chart plotted.
                     page.evaluate("() => { location.hash = '#player-values'; }")
                     page.wait_for_function("() => !document.getElementById('v2Main').hidden")
+                    errors += [f"[{width}px] {e}" for e in check_picker(page.evaluate(PICKER_READ, "#v2RankBy"), "Rank by")]
                     page.evaluate("""() => { const box = document.querySelector('#legacyEngine #sourceToggles input[data-source="fantasycalc"]');
                       if (box && !box.checked && !box.disabled) box.click(); }""")
                     page.click("#v2DeltaBtn")
@@ -244,8 +336,8 @@ class RisersRenderTest(unittest.TestCase):
         movers = MOVERS_JS.read_text(encoding="utf-8")
         v2 = V2_JS.read_text(encoding="utf-8")
         broken = {
-            "sign flipped": {"movers_js": movers.replace("return {delta: current - before, before, reason: null};",
-                                                         "return {delta: before - current, before, reason: null};", 1)},
+            "sign flipped": {"movers_js": movers.replace("return {delta: current - before, before, current, reason: null};",
+                                                         "return {delta: before - current, before, current, reason: null};", 1)},
             "missing prior read as zero": {"movers_js": movers.replace(
                 "const before = prior.values ? prior.values[playerKey] : undefined;",
                 "const before = (prior.values ? prior.values[playerKey] : undefined) ?? 0;", 1)},
@@ -255,6 +347,10 @@ class RisersRenderTest(unittest.TestCase):
             "earlier pair keeps this week's values": {"v2_js": v2.replace(
                 "source = source.map(row => ({...row, values: {...row.values, [R.series]: later[String(row.player_key)] ?? null}}));",
                 "source = source.slice();", 1)},
+            "picker ungrouped": {"v2_js": v2.replace(
+                "      select.appendChild(optgroup);\n", "      select.append(...optgroup.children);\n", 1)},
+            "Risers default not DDF": {"v2_js": v2.replace(
+                "const RISERS_DEFAULT = DDF_KEY;", "const RISERS_DEFAULT = \"fantasycalc\";", 1)},
         }
         for name, kwargs in broken.items():
             with self.subTest(mutation=name):
