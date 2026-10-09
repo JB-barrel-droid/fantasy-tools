@@ -242,6 +242,19 @@ PRIOR = """async () => {""" + HELPERS + """
     if (!r.available) continue;
     const each = {};
     for (const key of r.sources) each[key] = await c.getPriorWeek(key);
+    // Each input as averaged = its own prior week plus the rows' chart rules:
+    // every value it has is unchanged, an added value is a 0 (below a fully
+    // loaded chart's floor), a removed one is an identity-fallback cell.
+    for (const key of r.sources) {
+      const own = each[key].values, used = r.seriesValues[key];
+      Object.entries(used).forEach(([pk, value]) => {
+        if ((pk in own ? !near(own[pk], value) : value !== 0) && out.problems.length < 30) out.problems.push(`${v} ${key} ${pk}: averaged ${value}, own ${own[pk]}`);
+      });
+      Object.keys(own).forEach(pk => {
+        if (!(pk in used) && !key.endsWith("_adjusted") && out.problems.length < 30) out.problems.push(`${v} ${key} ${pk}: dropped from the average`);
+      });
+      each[key] = {values: used};
+    }
     c.getAllRows().forEach(row => {
       const k = row.player_key;
       const cur = mean(row.values, r.sources);

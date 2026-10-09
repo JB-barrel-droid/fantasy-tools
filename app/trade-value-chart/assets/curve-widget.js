@@ -2311,8 +2311,40 @@
   // only an as-published chart's saved weeks depend on the view).
   function compositePrior(view, series) {
     const cacheKey = AS_PUBLISHED_KEYS.has(series) ? `${view}|${series}` : series;
-    if (!compositePriorCache.has(cacheKey)) compositePriorCache.set(cacheKey, priorWeekSync(series, null, view));
+    if (!compositePriorCache.has(cacheKey)) {
+      compositePriorCache.set(cacheKey, chartRowRulesOnWeek(series, priorWeekSync(series, null, view)));
+    }
     return compositePriorCache.get(cacheKey);
+  }
+  // The rows' chart rules on a saved week (JEG-479 follow-up), so the DDF
+  // pair reads both weeks alike: 0 for a current row's player below that
+  // week's chart's floor where it was fully loaded, identity-fallback cells
+  // left out. That week's listing and waiver lines come from its Indexed
+  // values (the natives times one factor, JEG-482: the same order, so the
+  // same waiver lines). The history accessors themselves are unchanged.
+  function chartRowRulesOnWeek(series, prior) {
+    const raw = chartOfSeries(series);
+    if (!raw || !prior.available) return prior;
+    const listing = series === raw ? prior : weekValuesSync(raw, prior.week, "indexed");
+    if (!listing.available) return prior;
+    const native = new Map(Object.entries(listing.values).map(([playerKey, value]) => [Number(playerKey), value]));
+    const waiver = ValueModel.publishedWaiverInfo({
+      native, peers: publishedPeers(raw), posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+      teams, shape: rosterShape
+    });
+    const values = {...prior.values};
+    universe.forEach(row => {
+      if (!POSITION_ORDER.includes(row.pos)) return;
+      const playerKey = row.player_key;
+      if (adjustmentFallbackReason(series, playerKey, row.pos)) {
+        delete values[playerKey];
+        return;
+      }
+      if (playerKey in values) return;
+      const missing = chartMissingValue(series, raw, row, native, waiver);
+      if (missing.value !== undefined) values[playerKey] = missing.value;
+    });
+    return {...prior, values};
   }
   // JEG-484: product-data's per-asset load outcome (read-only).
   const productLoadStatus = () => window.TradeValueProductData?.getLoadStatus?.() || {assets: {}, adjustmentsLoaded: false};
@@ -4332,7 +4364,6 @@
       : source === "espn" ? historyEspnValues(entry, week)
       : historyProjectionValues(source, entry);
     if (!result.values) return unavailable(result.reason);
-    if (AS_PUBLISHED_KEYS.has(base)) applyChartRowRules(source, base, entry, result.values);
     const values = {};
     result.values.forEach((value, playerKey) => {
       const clamped = clampValue(value);
@@ -4340,28 +4371,6 @@
     });
     return {source, week, available: true, values, setting: historySetting(view), origin: entry.origin,
       fingerprint: entry.fingerprint, method: result.method, ...(result.peers ? {peers: result.peers} : {})};
-  }
-  // The rows' chart rules (missing = 0 for a fully loaded chart, blanked
-  // identity-fallback cells) on a saved week, so a week-over-week pair reads
-  // both weeks the same way. Fully loaded is that week's chart at the current
-  // setting; the players are the current rows. Edits `map` in place.
-  function applyChartRowRules(source, base, entry, map) {
-    const native = historyNatives(entry);
-    const waiver = native.size ? ValueModel.publishedWaiverInfo({
-      native, peers: publishedPeers(base), posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-      teams, shape: rosterShape
-    }) : null;
-    universe.forEach(row => {
-      if (!POSITION_ORDER.includes(row.pos)) return;
-      const playerKey = row.player_key;
-      if (adjustmentFallbackReason(source, playerKey, row.pos)) {
-        map.delete(playerKey);
-        return;
-      }
-      if (map.has(playerKey) || !waiver) return;
-      const missing = chartMissingValue(source, base, row, native, waiver);
-      if (missing.value !== undefined) map.set(playerKey, missing.value);
-    });
   }
   // The served week of a series from the history index, or an unavailable answer.
   function servedWeekOf(source, week, index) {
@@ -4469,7 +4478,8 @@
     const extra = compositeExtra(state);
     if (!Number.isInteger(week)) return historyUnavailable(COMPOSITE_KEY, week, "no week given", extra);
     if (!state.series.length) return historyUnavailable(COMPOSITE_KEY, week, "no DDF Value input is available at this setting", extra);
-    const results = await Promise.all(state.series.map(series => getWeekValues(series, week)));
+    const results = (await Promise.all(state.series.map(series => getWeekValues(series, week))))
+      .map(result => chartRowRulesOnWeek(result.source, result));
     const included = results.filter(result => result.available);
     const dropped = results.filter(result => !result.available).map(result => ({source: result.source, reason: result.reason}));
     if (!included.length) {
@@ -4496,6 +4506,10 @@
     const info = compositeValuesInfo(viewMode);
     return {source: COMPOSITE_KEY, week: state.priorWeek, available: true, values: info.prior, counts: info.priorCounts,
       currentValues: info.current, currentCounts: info.currentCounts, sources: [...state.series], dropped: [],
+      // Each input's prior week as averaged: its getPriorWeek values plus the
+      // rows' chart rules (0 below a fully loaded chart's floor, fallback
+      // cells left out).
+      seriesValues: Object.fromEntries(state.series.map(series => [series, {...compositePrior(state.view, series).values}])),
       ...extra, setting: historySetting(), method: COMPOSITE_HISTORY_METHOD};
   }
   // Saved weeks any input has, and the current week of the pair.
@@ -4519,6 +4533,21 @@
     map?.forEach((value, key) => { out[key] = value; });
     return out;
   };
+  // A published chart's map plus the rows' 0 for every row player below a
+  // fully loaded chart's floor (chartMissingValue), so the inspector shows
+  // what the rows show.
+  function withChartRowZeros(key, map) {
+    if (!map?.size) return map;
+    const out = new Map(map);
+    const native = chartNative(key);
+    const waiver = publishedWaiver(key);
+    universe.forEach(row => {
+      if (out.has(row.player_key) || !POSITION_ORDER.includes(row.pos)) return;
+      const missing = chartMissingValue(key, key, row, native, waiver);
+      if (missing.value !== undefined) out.set(row.player_key, missing.value);
+    });
+    return out;
+  }
   function getInspection() {
     const keptView = lastPublishedView;
     const keptDerivation = lastPublishedDerivation;
@@ -4532,11 +4561,13 @@
       const published = {};
       [...AS_PUBLISHED_KEYS].forEach(key => {
         const {saved, native, derived} = derivePublishedFor(key);
-        const indexed = buildPublishedSourceMap(key);
+        // Each view's values as the rows show them (JEG-479: 0 below a fully
+        // loaded chart's floor); the maps' own players are unchanged.
+        const indexed = withChartRowZeros(key, buildPublishedSourceMap(key));
         const indexedInfo = lastPublishedDerivation[key] || null;
-        const vorp = publishedViewMap(key, "vorp");
+        const vorp = withChartRowZeros(key, publishedViewMap(key, "vorp"));
         const vorpInfo = lastPublishedView[key] || null;
-        const adj = publishedViewMap(key, "adj_values");
+        const adj = withChartRowZeros(key, publishedViewMap(key, "adj_values"));
         const adjInfo = lastPublishedView[key] || null;
         const views = batch.sources?.[key];
         published[key] = {
