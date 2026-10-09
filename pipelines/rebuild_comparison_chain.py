@@ -1245,6 +1245,18 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     results = {}
     fit_result = None
     adjusted_result = None
+    # GAP-UNIVERSE-CHART-ONLY: every players.json player (now including
+    # those only a published chart or projection prices) gets a fixture slug
+    # before any section is keyed through the fixture's player_keys.
+    try:
+        import sync_universe_keys
+        added = sync_universe_keys.sync_files(
+            repo / "data" / "fixtures" / "current" / "players.json",
+            repo / "data" / "fixtures" / "current" / "comparison-sources-data.json")
+        print(f"universe keys: {len(added)} players added to the fixture's "
+              f"player_keys" + (f": {added}" if added else ""))
+    except Exception as e:  # noqa: BLE001 -- sections keep the old universe
+        print(f"universe keys: sync failed ({e}); sections keep the fixture's keys")
     try:
         for source in SOURCES:
             print(f"\n[{source}] Starting chain...")
