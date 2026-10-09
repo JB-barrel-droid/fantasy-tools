@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T03:15:43.767337Z",
- "run_id": "05357aef-6475-41d2-a549-4b59a74d2705",
+ "checked_at": "2026-10-09T03:46:16.255869Z",
+ "run_id": "62258e46-db43-41b8-b3e3-900646640176",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-09T02:01:44.862922+00:00",
+  "built_at": "2026-10-09T03:22:23.504276+00:00",
   "error": null
  },
  "rules": {
@@ -236,7 +236,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T02:01:10Z",
+     "chart_imported_at": "2026-10-09T03:22:01Z",
      "bake_id": "usatwk5_2026-10-08t1535_v1",
      "bake_saved_at": "2026-10-08T15:35:30.873077Z",
      "behind": null,
@@ -307,8 +307,9 @@
      "notes": []
     },
     "reference_vs_engine": {
-     "status": "n/a",
-     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+     "status": "green",
+     "summary": "engine and Python reference agree (208124 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T03:34:49.841942+00:00"
     }
    },
    "worst_examples": [
@@ -384,17 +385,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "1185/1185 values match exactly across 6 columns; 1 publisher players are not stored because the page's player universe excludes them (Tyreek Hill)",
+     "summary": "15/1161 values match exactly across 6 columns; 1146 of 1161 values moved since the save at 2026-10-09T03:05:25.530584Z (largest 180%; 30 outside the max(25%, 50) band: Cam Ward, Daniel Jones, Deshaun Watson, Jake Ferguson, Jameis Winston, Malik Willis, Sam Darnold, T.J. Hockenson); 7 players entered or left the bottom of the list since the save (churn); 1 publisher players are not stored because the page's player universe excludes them (Tyreek Hill)",
      "counts": {
-      "publisher_players": 198,
+      "publisher_players": 197,
       "stored_players": 198,
-      "compared": 1185,
-      "matched": 1185,
-      "mismatched": 0,
+      "compared": 1161,
+      "matched": 15,
+      "mismatched": 1146,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 1,
-      "list_churn": 0,
+      "list_churn": 7,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -404,58 +405,139 @@
      "bake_saved_at": "2026-10-09T03:05:25.530584Z",
      "grains": {
       "full|1": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 0,
-       "missing": 1,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 4,
+       "extra": 4
       },
       "full|2": {
-       "left": 198,
+       "left": 197,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 3,
+       "extra": 4
       },
       "half|1": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 0,
-       "missing": 1,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 4,
+       "extra": 4
       },
       "half|2": {
-       "left": 198,
+       "left": 197,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 3,
+       "extra": 4
       },
       "std|1": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 0,
-       "missing": 1,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 4,
+       "extra": 4
       },
       "std|2": {
-       "left": 198,
+       "left": 197,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 3,
+       "extra": 4
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "1891",
+       "right": 2641.0,
+       "delta": 750.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "1890",
+       "right": 2639.0,
+       "delta": 749.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "1868",
+       "right": 2609.0,
+       "delta": 741.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 4203,
+       "name": "Deshaun Watson",
+       "pos": "QB",
+       "left": "1143",
+       "right": 724.0,
+       "delta": -419.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 4203,
+       "name": "Deshaun Watson",
+       "pos": "QB",
+       "left": "1143",
+       "right": 724.0,
+       "delta": -419.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 4203,
+       "name": "Deshaun Watson",
+       "pos": "QB",
+       "left": "1130",
+       "right": 715.0,
+       "delta": -415.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 3541,
+       "name": "Kirk Cousins",
+       "pos": "QB",
+       "left": "2112",
+       "right": 1767.0,
+       "delta": -345.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 3541,
+       "name": "Kirk Cousins",
+       "pos": "QB",
+       "left": "2113",
+       "right": 1768.0,
+       "delta": -345.0
+      }
+     ],
      "outside_universe": [
       {
        "player_key": 3081,
        "name": "Tyreek Hill",
        "pos": "WR",
        "values": {
-        "full|1": "335",
-        "half|1": "332",
-        "std|1": "329"
+        "full|1": "295",
+        "half|1": "292",
+        "std|1": "289"
        }
       }
      ],
@@ -463,71 +545,64 @@
     },
     "stored_vs_chart": {
      "status": "amber",
-     "summary": "1170/1170 chart values equal stored bake fcwk5_2026-10-08t2005_v1; 2 stored players are left off the chart because the page's player universe excludes them (Tyreek Hill, Joe Mixon); newer stored bake fcwk5_2026-10-09t0305_v1 (week 5, saved 2026-10-09T03:05:25.530584Z) is not on the chart yet: 1146 values changed, 24 added, 15 dropped",
+     "summary": "1182/1182 chart values equal stored bake fcwk5_2026-10-09t0305_v1; 1 stored players are left off the chart because the page's player universe excludes them (Tyreek Hill)",
      "counts": {
-      "chart_players": 195,
-      "stored_players": 197,
-      "compared": 1170,
-      "matched": 1170,
+      "chart_players": 197,
+      "stored_players": 198,
+      "compared": 1182,
+      "matched": 1182,
       "mismatched": 0,
       "missing_on_chart": 0,
       "extra_on_chart": 0,
-      "outside_universe": 2,
+      "outside_universe": 1,
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T02:01:08Z",
-     "bake_id": "fcwk5_2026-10-08t2005_v1",
-     "bake_saved_at": "2026-10-08T20:05:29.762788Z",
-     "behind": {
-      "bake_id": "fcwk5_2026-10-09t0305_v1",
-      "saved_at": "2026-10-09T03:05:25.530584Z",
-      "week": 5,
-      "changed_values": 1146,
-      "added": 24,
-      "dropped": 15
-     },
+     "chart_imported_at": "2026-10-09T03:22:00Z",
+     "bake_id": "fcwk5_2026-10-09t0305_v1",
+     "bake_saved_at": "2026-10-09T03:05:25.530584Z",
+     "behind": null,
      "grains": {
       "full|1": {
-       "left": 195,
-       "right": 195,
+       "left": 197,
+       "right": 197,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "full|2": {
-       "left": 197,
-       "right": 195,
+       "left": 198,
+       "right": 197,
        "mismatched": 0,
-       "missing": 2,
+       "missing": 1,
        "extra": 0
       },
       "half|1": {
-       "left": 195,
-       "right": 195,
+       "left": 197,
+       "right": 197,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "half|2": {
-       "left": 197,
-       "right": 195,
+       "left": 198,
+       "right": 197,
        "mismatched": 0,
-       "missing": 2,
+       "missing": 1,
        "extra": 0
       },
       "std|1": {
-       "left": 195,
-       "right": 195,
+       "left": 197,
+       "right": 197,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "std|2": {
-       "left": 197,
-       "right": 195,
+       "left": 198,
+       "right": 197,
        "mismatched": 0,
-       "missing": 2,
+       "missing": 1,
        "extra": 0
       }
      },
@@ -538,19 +613,9 @@
        "name": "Tyreek Hill",
        "pos": "WR",
        "values": {
-        "full|2": 291.0,
-        "half|2": 289.0,
-        "std|2": 285.0
-       }
-      },
-      {
-       "player_key": 3735,
-       "name": "Joe Mixon",
-       "pos": "RB",
-       "values": {
-        "full|2": 13.0,
-        "half|2": 12.0,
-        "std|2": 13.0
+        "full|2": 279.0,
+        "half|2": 277.0,
+        "std|2": 274.0
        }
       }
      ],
@@ -563,11 +628,101 @@
      "publisher_week": 5
     },
     "reference_vs_engine": {
-     "status": "n/a",
-     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+     "status": "green",
+     "summary": "engine and Python reference agree (208124 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T03:34:49.841942+00:00"
     }
    },
-   "worst_examples": []
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "1891",
+     "right": 2641.0,
+     "delta": 750.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "1890",
+     "right": 2639.0,
+     "delta": 749.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "1868",
+     "right": 2609.0,
+     "delta": 741.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 4203,
+     "name": "Deshaun Watson",
+     "pos": "QB",
+     "left": "1143",
+     "right": 724.0,
+     "delta": -419.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 4203,
+     "name": "Deshaun Watson",
+     "pos": "QB",
+     "left": "1143",
+     "right": 724.0,
+     "delta": -419.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 4203,
+     "name": "Deshaun Watson",
+     "pos": "QB",
+     "left": "1130",
+     "right": 715.0,
+     "delta": -415.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 3541,
+     "name": "Kirk Cousins",
+     "pos": "QB",
+     "left": "2112",
+     "right": 1767.0,
+     "delta": -345.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 3541,
+     "name": "Kirk Cousins",
+     "pos": "QB",
+     "left": "2113",
+     "right": 1768.0,
+     "delta": -345.0
+    }
+   ]
   },
   {
    "source": "fantasypros",
@@ -660,7 +815,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T02:01:11Z",
+     "chart_imported_at": "2026-10-09T03:22:02Z",
      "bake_id": "fpwk5_2026-10-08t1536_v1",
      "bake_saved_at": "2026-10-08T15:36:15.100704Z",
      "behind": null,
@@ -720,8 +875,9 @@
      "notes": []
     },
     "reference_vs_engine": {
-     "status": "n/a",
-     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+     "status": "green",
+     "summary": "engine and Python reference agree (208124 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T03:34:49.841942+00:00"
     }
    },
    "worst_examples": []
@@ -817,7 +973,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T02:01:14Z",
+     "chart_imported_at": "2026-10-09T03:22:03Z",
      "bake_id": "cbswk5_2026-10-08t1259_v1",
      "bake_saved_at": "2026-10-08T12:59:38.994744Z",
      "behind": null,
@@ -888,8 +1044,9 @@
      "notes": []
     },
     "reference_vs_engine": {
-     "status": "n/a",
-     "summary": "not yet available: no JEG-479 value-check report is published (value-check.json)"
+     "status": "green",
+     "summary": "engine and Python reference agree (208124 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T03:34:49.841942+00:00"
     }
    },
    "worst_examples": []
@@ -900,5 +1057,5 @@
   "cbsros": "not covered yet: projection sources are the second JEG-480 slice",
   "razzball": "not covered yet: projection sources are the second JEG-480 slice"
  },
- "requests": 17
+ "requests": 16
 }
