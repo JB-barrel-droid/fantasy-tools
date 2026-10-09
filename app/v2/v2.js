@@ -293,6 +293,29 @@
     return rank < sb ? "starter" : rank < bw ? "bench" : "waiver";
   }
   const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));
+
+  // Low-confidence DDF Value (Jeremy, 2026-10-08): when exactly one input prices a player the engine
+  // still gives a DDF Value (that input's value) and flags it (row.ddfLowConfidence). Shown everywhere
+  // that value appears as "◐ 1 source" (symbol + label), with the engine's note as the tooltip.
+  const LOW_CONFIDENCE_NOTE = "Only one source prices this player";
+  const isLowConfidence = (row, key) => key === DDF_KEY && Boolean(row && row.ddfLowConfidence)
+    && Number.isFinite(row.values?.[DDF_KEY]);
+  function lowConfidenceNode(row) {
+    const node = document.createElement("span");
+    node.className = "v2-lowconf";
+    node.dataset.lowConfidence = "";
+    const count = Number.isFinite(row.ddfCount) ? row.ddfCount : 1;
+    node.title = row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE;
+    node.setAttribute("aria-label", `Low confidence: ${node.title}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = "◐";
+    node.append(sym, document.createTextNode(` ${count} source${count === 1 ? "" : "s"}`));
+    return node;
+  }
+  function appendLowConfidence(parent, row, key) {
+    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));
+  }
   // Player values: the Rank by series over the engine's ranked rows.
   const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
 
@@ -740,6 +763,7 @@
       const val = document.createElement("span");
       val.className = "val";
       val.textContent = Number.isFinite(v) ? fmt(v) + (state.delta ? `  ${deltaText(row, key)}` : "") : "—";
+      appendLowConfidence(val, row, key);
       if (!Number.isFinite(v)) {
         val.title = missingReason(key, row);
         const why = document.createElement("span");
@@ -1004,6 +1028,7 @@
         if (col.cls === "num") {
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
+            appendLowConfidence(td, row, col.source);
             const heat = col.source ? heatFor(row, col.source) : null;
             if (heat) {
               if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
@@ -1115,7 +1140,10 @@
     big.className = "v2-dhero-value";
     big.dataset.source = key;
     const v = row.values[key];
-    if (Number.isFinite(v)) big.textContent = fmt(v);
+    if (Number.isFinite(v)) {
+      big.textContent = fmt(v);
+      appendLowConfidence(big, row, key);
+    }
     else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
     unit.className = "v2-meta";
@@ -1190,8 +1218,10 @@
         } else if (view.active.includes(item.key)) {
           td.dataset.source = item.key;
           const v = row.values[item.key];
-          if (Number.isFinite(v)) td.textContent = fmt(v);
-          else td.appendChild(missingNode(missingReason(item.key, row), "not priced"));
+          if (Number.isFinite(v)) {
+            td.textContent = fmt(v);
+            appendLowConfidence(td, row, item.key);
+          } else td.appendChild(missingNode(missingReason(item.key, row), "not priced"));
         } else {
           const add = document.createElement("button");
           add.type = "button";
@@ -2436,6 +2466,12 @@
 
   // DDF Value's "from N sources" (row.ddfCount), the sub-text under our value.
   function ddfCountNode(row) {
+    if (isLowConfidence(row, DDF_KEY)) {
+      const node = lowConfidenceNode(row);
+      node.classList.add("why", "t-count");
+      node.dataset.ddfCount = String(Number.isFinite(row.ddfCount) ? row.ddfCount : 1);
+      return node;
+    }
     if (!Number.isFinite(row.ddfCount)) return null;
     const node = document.createElement("span");
     node.className = "why t-count";
@@ -2489,7 +2525,7 @@
 
   // One chart's value for a player as a labeled run: "◆ USAT [Wk 4] 17.4 +9.8".
   // Used by the phone cards and by an expanded row in the two-column layout.
-  function chartValueSpan(p, key) {
+  function chartValueSpan(p, key, withNative) {
     const cell = p.cells[key];
     const span = document.createElement("span");
     span.dataset.chart = key;
@@ -2513,6 +2549,15 @@
     val.textContent = fmt(cell.value);
     span.appendChild(val);
     span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
+    const rank = withNative && typeof C.getNativeRank === "function" ? C.getNativeRank(p.row.player_key, key) : null;
+    if (Number.isFinite(rank)) {
+      const native = document.createElement("span");
+      native.className = "t-native";
+      native.dataset.nativeRank = String(rank);
+      native.title = `${PUBLISHER_NAMES[key]}'s own rank for this player, before indexing`;
+      native.textContent = `#${rank} on ${PUBLISHER_NAMES[key]}`;
+      span.appendChild(native);
+    }
     return span;
   }
 
@@ -2651,7 +2696,7 @@
         cell.colSpan = columns;
         const line = document.createElement("div");
         line.className = "vals";
-        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart)));
+        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart, true)));
         cell.appendChild(line);
         detail.appendChild(cell);
         tbody.appendChild(detail);
@@ -2747,7 +2792,7 @@
     }
     if (targetsView.omittedNoOurs) {
       const why = targetsView.omittedReasons.map(([reason, n]) => `${reason} (${n})`).join("; ");
-      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value for them${why ? `. Why: ${why}` : ""}.`);
+      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${targetsView.ours === DDF_KEY ? "DDF Value" : `${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value`} for them${why ? `. Why: ${why}` : ""}.`);
     }
     if (targetsView.atWaiverCells && !blocked) {
       notes.push("A chart value of 0.0 is at that chart's waiver line for your league: never a buy, no gap.");
@@ -2931,6 +2976,7 @@
           const b = document.createElement("b");
           b.textContent = fmt(v);
           line.appendChild(b);
+          appendLowConfidence(line, row, result.key);
         } else {
           line.appendChild(missingNode(missingReason(result.key, row), "no value"));
         }
@@ -3215,8 +3261,10 @@
       value.className = "v2-trade-value";
       value.dataset.source = shown || "";
       const v = shown && row.values ? row.values[shown] : null;
-      if (Number.isFinite(v)) value.textContent = fmt(v);
-      else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
+      if (Number.isFinite(v)) {
+        value.textContent = fmt(v);
+        appendLowConfidence(value, row, shown);
+      } else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
       if (compareView.example) {
         li.classList.add("is-example");
         li.append(who, value, document.createElement("span"));

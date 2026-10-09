@@ -1081,6 +1081,16 @@ Built on the engine's "Back-end contract: DDF Value" above. v2 still does no val
   - Player values (tooltip, Tier column, sub-line, drawer): Rank by. Trade targets (sub-lines, drawer opened from the
     tab): the tab's Our value, over the engine's rows at the current position. Compare a trade (player sub-line, drawer
     opened from it): the verdict series, over every priced player against the All-positions zones.
+- **One-source DDF Value (Jeremy, 2026-10-08):** "Show the value it would be with one source if it's there, but flag
+  the issue for the user." When the engine sets `row.ddfLowConfidence` (one input prices the player; `values.ddf_value`
+  = that input, `ddfCount` 1, `ddfConfidenceNote`), v2 shows the value with "◐ 1 source" (symbol + label, the note as
+  tooltip) everywhere the DDF Value appears: Trade targets (in place of "from N sources"; such players are targets),
+  the Player values table and chart tooltip, the drawer hero and matrix, and Compare's player values and per-series
+  lines. With 0 inputs the player is still left out and counted. Until the engine ships the flag, tests simulate it.
+- **Native rank (JEG-482):** an opened Trade targets row shows "#N on <publisher>" per chart from
+  `getNativeRank(playerKey, chart)` (the publisher's own order, before indexing). Not on phone cards (width).
+- **Waiver-line test:** current data has no chart value at or below 0 (JEG-482 pure rescale), so the render suite
+  simulates one (`SIMULATE_ROWS`) to keep the "0.0 · waiver line, no gap, never a buy" rule tested.
 - **Engine accessor added (read-only):** `TradeValueCurveControls.getZonesFor(key, pos = current)` →
   `{starter_to_bench, bench_to_waiver}` (ordinal + 0.5, unclamped), the same roster ordinals `getZones()` uses for a
   non-composite ranking; `null` for `ddf_value` (use `ddfTier`). Needed because `getZones()` follows the engine's
@@ -1088,7 +1098,7 @@ Built on the engine's "Back-end contract: DDF Value" above. v2 still does no val
 - **Missing reasons (every tab):** `missingReason(key, row)` reads `row.missingReasons[key]` first (back end confirmed
   the field; not shipped yet), then `row.ddfReason` for DDF Value, then the generic line. Used by the Player values
   table and chart tooltip, the drawer hero and matrix, and Compare's player values. A finite 0 always shows "0.0".
-- **Tests:** tests/test_v2_targets.py (DDF default, ESPN alternative; broken builds: default reverted to ESPN, DDF
+- **Tests:** tests/test_v2_targets.py (DDF default, ESPN alternative, one-source player kept; broken builds: default reverted to ESPN, DDF
   Value dropped from the choices). tests/test_v2_targets_render.py (Our value = engine `ddf_value`, "from N sources" =
   `ddfCount`, tier = `ddfTier`; ESPN / CBS / Razzball through the picker with the tier from that series' rank; pick
   remembered after a reload; broken builds: default reverted to ESPN, tier from espnRole, source count missing, pick

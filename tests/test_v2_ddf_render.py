@@ -26,6 +26,8 @@ headless at 1440 and 390 with empty storage, and checks against the engine
     series, it is the row's rank (engine order) against getZones();
   * a missing value shows "—" with the engine's own reason when the row has
     row.missingReasons[key] (simulated), and a finite 0 shows "0.0";
+  * a one-source DDF Value (row.ddfLowConfidence, simulated) shows "◐ 1 source"
+    in its DDF Value cell with the engine's note as the tooltip;
   * no page errors, no horizontal overflow at 390.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js / movers.js /
@@ -268,29 +270,35 @@ def check_missing_reason(page, tag) -> list[str]:
       const key = V2.view().plotKeys.find(k => k !== 'ddf_value');
       const trs = [...document.querySelectorAll('#v2Table tbody tr')];
       if (!key || trs.length < 2) return null;
-      const [gone, zero] = [trs[0].dataset.playerKey, trs[1].dataset.playerKey];
+      const [gone, zero, low] = [trs[0].dataset.playerKey, trs[1].dataset.playerKey, trs[2]?.dataset.playerKey];
       const real = C.getRows;
       window.__realGetRows = real;
       C.getRows = () => real().map(r => {
         const k = String(r.player_key);
         if (k === gone) return {...r, values: {...r.values, [key]: null}, missingReasons: {[key]: reason}};
         if (k === zero) return {...r, values: {...r.values, [key]: 0}};
+        if (k === low) return {...r, ddfCount: 1, ddfLowConfidence: true, ddfConfidenceNote: 'Only one source prices this player'};
         return r;
       });
       V2.setShown(V2.shown());
-      return {key, gone, zero};
+      return {key, gone, zero, low};
     }""", REASON)
     if not probe:
         return [tag + "no rows to simulate a missing reason on"]
     page.wait_for_timeout(250)
-    got = page.evaluate("""({key, gone, zero}) => {
+    got = page.evaluate("""({key, gone, zero, low}) => {
       const cell = k => document.querySelector(`#v2Table tbody tr[data-player-key="${k}"] td[data-source="${key}"]`);
       const g = cell(gone), z = cell(zero);
       return {goneTitle: g?.querySelector('.missing')?.title ?? null, goneText: g?.querySelector('.missing')?.firstChild?.textContent ?? null,
-        zeroText: z ? (z.firstChild ? z.firstChild.textContent : '').trim() : null, zeroMissing: Boolean(z?.querySelector('.missing'))};
+        zeroText: z ? (z.firstChild ? z.firstChild.textContent : '').trim() : null, zeroMissing: Boolean(z?.querySelector('.missing')),
+        low: (() => { const m = document.querySelector(`#v2Table tbody tr[data-player-key="${low}"] td[data-source="ddf_value"] [data-low-confidence]`);
+          return m ? {text: m.textContent, title: m.title} : null; })(),
+        lowOnZero: Boolean(document.querySelector(`#v2Table tbody tr[data-player-key="${zero}"] [data-low-confidence]`))};
     }""", probe)
     if got["goneText"] != "—" or got["goneTitle"] != REASON:
         errors.append(tag + f"missing value shows {got['goneText']!r} with reason {got['goneTitle']!r}, want '—' with {REASON!r}")
+    if got["low"] != {"text": "◐ 1 source", "title": "Only one source prices this player"} or got["lowOnZero"]:
+        errors.append(tag + f"one-source DDF Value marker {got['low']} (also on a normal row: {got['lowOnZero']}), want '◐ 1 source'")
     if got["zeroText"] != "0.0" or got["zeroMissing"]:
         errors.append(tag + f"a finite 0 shows {got['zeroText']!r} (missing={got['zeroMissing']}), want '0.0'")
     page.evaluate("() => { const C = window.TradeValueCurveControls; C.getRows = window.__realGetRows; window.TradeValueV2.setShown(window.TradeValueV2.shown()); }")
@@ -395,6 +403,8 @@ class DdfRenderTest(unittest.TestCase):
             "tier read from espnRole": {"v2.js": (v2.replace(
                 "const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));",
                 "const tierText = row => tierLabel(row.espnRole);", 1), js)},
+            "low-confidence marker missing": {"v2.js": (v2.replace(
+                "    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));", "", 1), js)},
             "engine missing reason ignored": {"v2.js": (v2.replace(
                 '    if (typeof own === "string" && own.trim()) return own;\n', "", 1), js)},
             "DDF Δ from the row value": {"movers.js": (movers.replace(

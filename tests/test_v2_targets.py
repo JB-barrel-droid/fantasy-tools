@@ -22,7 +22,7 @@ Discrimination: test_checks_fail_on_broken_builds runs the same checks against
 mutated copies of targets.js (sign flipped, missing read as 0, prior-week
 chart dropped, prior-week chart not flagged, missing ours read as 0, waiver rule removed, chosen series
 ignored, unavailable series offered as available, default reverted to ESPN, DDF Value dropped from the
-choices) and requires every one to fail.
+choices, one-source player left out) and requires every one to fail.
 """
 from __future__ import annotations
 
@@ -68,7 +68,10 @@ const brief = p => ({key: p.row.player_key, ours: p.ours, cells: p.cells,
 const d = T.buildTargets(input.rows, input.charts);
 const r = T.buildTargets(input.rows, input.charts, {ours: "espn"});
 const c = T.buildTargets(input.rows, input.charts, {ours: "cbsros"});
+// Jeremy, 2026-10-08: a one-source DDF Value (ddfLowConfidence) is still a target.
+const lc = T.buildTargets([{player_key: 9, name: "H", values: {ddf_value: 3.0, usatoday: 9.0}, ddfCount: 1, ddfLowConfidence: true}], ["usatoday"]);
 console.log(JSON.stringify({
+  lowConfidence: lc.sell.map(p => [p.row.player_key, p.ours, p.bestSell.gap]),
   ddf: {ours: d.ours, sell: d.sell.map(brief), buy: d.buy.map(brief), compared: d.compared, omitted: d.omittedNoOurs},
   sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, omitted: r.omittedNoOurs,
   cbsros: {ours: c.ours, sell: c.sell.map(brief), buy: c.buy.map(brief), omitted: c.omittedNoOurs},
@@ -101,6 +104,8 @@ def check(result: dict) -> list[str]:
             or dd_buy != [(1, 12.0, {"chart": "fantasycalc", "gap": -4.0}), (6, 12.0, {"chart": "fantasycalc", "gap": -3.0})]
             or dd["omitted"] != 2 or dd["compared"] != 5):
         errors.append(f"the default must read the engine's ddf_value series only: {dd}")
+    if result["lowConfidence"] != [[9, 3.0, 6.0]]:
+        errors.append(f"a one-source (low-confidence) DDF Value must still be a target: {result['lowConfidence']}")
     # From here on: the ESPN alternative (picked explicitly).
     sell = [(p["key"], p["bestSell"]) for p in result["sell"]]
     buy = [(p["key"], p["bestBuy"]) for p in result["buy"]]
@@ -174,6 +179,7 @@ MUTATIONS = {
     "unavailable series offered": ("const available = Boolean(item && item.available);", "const available = true;"),
     # JEG-455
     "default reverted to ESPN": ("const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[1];"),
+    "one-source player left out": ("      if (!finite(ours)) {", "      if (!finite(ours) || row.ddfLowConfidence) {"),
     "DDF Value dropped from the choices": ('const OUR_KEYS = ["ddf_value", "espn", "cbsros", "razzball"];',
                                            'const OUR_KEYS = ["espn", "cbsros", "razzball"];'),
 }
