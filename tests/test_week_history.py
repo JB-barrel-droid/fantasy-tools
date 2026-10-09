@@ -64,6 +64,7 @@ WIDGET = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
 BIJAN = 217
 DELTAS = {}  # source -> Bijan Robinson Δ at Full PPR / 12 (printed by the test)
 ZERO_ONLY = {}  # series -> players priced 0.0 on one side only (printed)
+UNMATCHED = {}  # base source -> why its served inputs match no saved week (warned)
 
 
 def _week(n):
@@ -345,15 +346,14 @@ class WeekSnapshotRuleTest(unittest.TestCase):
             cell["native"]["new guy"] = 3.0
         self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["cbs"]["week"])
 
-    def test_gate_reports_an_unmatched_source_instead_of_crashing(self):
+    def test_gate_warns_on_an_unmatched_source_instead_of_crashing(self):
         index = {"served": {"cbs": {"week": None, "reason": "the served inputs match no saved week"},
                             "espn": {"week": 5}}}
-        failures = []
-        self.assertIsNone(served_week(index, "cbs_adjusted", failures))
-        self.assertEqual(served_week(index, "espn_vorp", failures), 5)
-        self.assertEqual(len(failures), 1)
-        self.assertIn("cbs", failures[0])
-        self.assertIn("match no saved week", failures[0])
+        unmatched = {}
+        self.assertIsNone(served_week(index, "cbs_adjusted", unmatched))
+        self.assertEqual(served_week(index, "espn_vorp", unmatched), 5)
+        self.assertEqual(list(unmatched), ["cbs"])
+        self.assertIn("match no saved week", unmatched["cbs"])
 
     def test_two_qb_rows_in_the_same_bake_are_ignored(self):
         # FantasyCalc saves qb_slots=2 rows in the same bake (superflex
@@ -636,18 +636,29 @@ def served_sources():
     return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources]
 
 
-def served_week(index, series, failures):
+def served_week(index, series, unmatched):
     """The saved week a series' base source serves (index served.week), or
-    None with a failure. A held source serves its kept section's week
-    (JEG-479 holds); a source whose served inputs match no saved week is a
-    history bug to report, never a crash of the gate."""
+    None, recorded in `unmatched`. A held source serves its kept section's
+    week (JEG-479 holds). A source whose served inputs match no saved week
+    (a fresh bake not saved yet, or a history bug like JEG-492) is a warning,
+    not a gate failure (Jeremy, 2026-10-09, JEG-507): the page shows that
+    series' prior week as unavailable with the reason."""
     base = series.split("_")[0]
     rec = (index.get("served") or {}).get(base) or {}
     if isinstance(rec.get("week"), int):
         return rec["week"]
-    failures.append(f"{series}: the served {base} inputs have no saved week "
-                    f"({rec.get('reason') or 'not in the history index'})")
+    unmatched[base] = (f"the served {base} inputs have no saved week "
+                       f"({rec.get('reason') or 'not in the history index'})")
     return None
+
+
+def unmatched_prior(series, res):
+    """A series whose served week the index could not match has no prior
+    week: the engine must say so with a reason, never price one."""
+    if res.get("available") or not res.get("reason"):
+        return [f"{series}: the served week is unmatched but the engine reported "
+                f"available={res.get('available')} reason={res.get('reason')!r}"]
+    return []
 
 
 def collect(overrides=None):
@@ -661,10 +672,13 @@ def collect(overrides=None):
         raise _render_env.unavailable("dist/ is not built with history")
     # Every published chart whose week before the served one is saved (on
     # 2026-10-08: USA Today / FantasyCalc / FantasyPros Week 4, CBS Week 3).
-    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    # The page and this check read the same index (an override included).
+    index = json.loads((overrides or {}).get("assets/history/index.json") or
+                       (DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
     expected, failures = {}, []
+    UNMATCHED.clear()
     for source in H.PUBLISHED:
-        served = served_week(index, source, failures)
+        served = served_week(index, source, UNMATCHED)
         if served and source in (index["weeks"].get(str(served - 1)) or {}).get("sources", {}):
             expected[source] = served - 1
     if not expected:
@@ -685,6 +699,8 @@ def collect(overrides=None):
             prior = page.evaluate(PRIOR)
             anchor = {int(k): v for k, v in page.evaluate(
                 "() => Object.fromEntries([...window.TradeValueCurveHarness.sourceMaps().get('espn').entries()])").items()}
+            for source in sorted(set(H.PUBLISHED) & set(UNMATCHED)):
+                failures += unmatched_prior(source, prior[source]["prior"])
             for source, week in expected.items():
                 want = _python_prior(source, week, anchor)
                 got = prior[source]["prior"]
@@ -715,8 +731,9 @@ def collect(overrides=None):
             players = json.loads((ROOT / "data/fixtures/current/players.json").read_text(encoding="utf-8"))
             for source, res in page.evaluate(ESPN_PRIOR).items():
                 # Published charts were reported above; report a projection once.
-                served = served_week(index, source, [] if source.split("_")[0] in H.PUBLISHED else failures)
+                served = served_week(index, source, UNMATCHED)
                 if served is None:
+                    failures += unmatched_prior(source, res)
                     continue
                 if not res["available"]:
                     if (source.split("_")[0] in index["weeks"].get(str(served - 1), {}).get("sources", {})):
@@ -737,7 +754,8 @@ def collect(overrides=None):
                     if bad or not got:
                         failures.append(f"espn prior != pipeline leg on {len(bad)} players, e.g. "
                                         f"{[(k, got[k], want[k]) for k in bad[:4]]}")
-            served = served_sources()
+            # An unmatched source has no served week to reproduce.
+            served = [k for k in served_sources() if k.split("_")[0] not in UNMATCHED]
             self_results = page.evaluate(SELF, served)
             self_results.update(page.evaluate(VIEW_SELF, [k for k in served if k in H.PUBLISHED]))
             for source, res in self_results.items():
@@ -760,6 +778,8 @@ class DeltaRecomputeTest(unittest.TestCase):
         print(f"Bijan Robinson Δ (Full PPR, 12 teams): {DELTAS}")
         if ZERO_ONLY:
             print(f"0.0-only membership differences (reported): {ZERO_ONLY}")
+        for base, why in UNMATCHED.items():
+            print(f"::warning title=week history::{base}: {why}; its prior week shows as unavailable")
 
     def test_delta_guard_fails_on_broken_states(self):
         widget = WIDGET.read_text(encoding="utf-8")
@@ -802,6 +822,35 @@ class DeltaRecomputeTest(unittest.TestCase):
         for name, overrides in cases.items():
             with self.subTest(name):
                 self.assertNotEqual(collect(overrides), [], f"{name} was not caught")
+
+    def _unmatched_index(self):
+        # Run 37877126939 (2026-10-09): the index could not match the served
+        # ESPN inputs (and so espn_vorp) to a saved week; the gate crashed on
+        # None - 1. Same for a published chart.
+        index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+        for base in ("espn", "usatoday"):
+            index["served"][base] = {"week": None, "reason": "the served inputs match no saved week"}
+        return json.dumps(index)
+
+    def test_unmatched_served_week_is_a_warning_not_a_crash(self):
+        # Jeremy, 2026-10-09 (JEG-507): warn, don't block, as long as the
+        # engine reports the prior week unavailable with a reason.
+        self.assertEqual(collect({"assets/history/index.json": self._unmatched_index()}), [])
+        self.assertEqual(sorted(UNMATCHED), ["espn", "usatoday"])
+        self.assertTrue(all("match no saved week" in why for why in UNMATCHED.values()), UNMATCHED)
+
+    def test_unmatched_guard_fails_when_the_engine_guesses_a_week(self):
+        widget = WIDGET.read_text(encoding="utf-8")
+        # The engine guesses the newest saved week for an unmatched source.
+        guesses = widget.replace(
+            "if (!served || !Number.isInteger(served.week)) {",
+            "if (served && !Number.isInteger(served.week)) "
+            "return {served: {...served, week: Math.max(...Object.keys(index.weeks || {}).map(Number))}}; "
+            "if (!served) {")
+        self.assertNotEqual(guesses, widget)
+        failures = collect({"assets/history/index.json": self._unmatched_index(),
+                            "assets/curve-widget.js": guesses})
+        self.assertTrue([f for f in failures if "the served week is unmatched but" in f], failures)
 
 
 if __name__ == "__main__":
