@@ -902,10 +902,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-chart-head .v2-legend svg { width: 16px; }
 
 .v2-legend .v2-legend-key { color: var(--v2-muted); }
-/* "Set exact values": a small link in the plot's corner, under the Y brush, with a 44 px hit area. */
-.v2-app .v2-yexact { grid-column: 1; grid-row: 2; align-self: center; position: relative; min-height: 30px; min-width: 44px;
-  padding: 0 2px; font-size: 10px; line-height: 1.15; text-align: left; white-space: normal; }
-.v2-yexact::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+/* "Set exact values" (JEG-483): a full 44 px control at the end of the chart card's title line. */
+.v2-app .v2-yexact { margin-left: auto; min-height: 44px; padding: 8px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.v2-yexact::after, #v2ExpandTable::after { content: none; }
 
 /* The plot: Y value brush | chart, X rank brush underneath. Height includes both brushes. */
 .v2-plot { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 44px;
@@ -1030,7 +1029,54 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   .v2-ybrush { display: none; }
   .v2-plot-main, #v2Main .v2-plot .v2-brush { grid-column: 1; }
   .v2-plot-main { height: 260px; }
-  .v2-app .v2-yexact { grid-column: 1; grid-row: 3; justify-self: start; font-size: 12px; min-height: 44px; }
   .v2-toolbar .v2-search { max-width: none; }
   .v2-app .v2-reset { margin-left: 0; }
 }
+
+/* JEG-483: active filter chips, Reset zoom, expanded chart and table. */
+.v2-fchips { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 6px 0 2px; }
+.v2-fchips[hidden] { display: none; }
+.v2-fchip { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px 4px 12px;
+  border: 1px solid var(--v2-tint-border); border-radius: 999px; background: var(--v2-positive); color: var(--v2-action-strong);
+  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.v2-fchip::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+.v2-fchip:hover { border-color: var(--v2-action); }
+.v2-zoom .v2-zoom-reset { width: auto; padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--v2-action-strong); }
+.v2-zoom .v2-zoom-reset[hidden] { display: none; }
+#v2ExpandChart { font-size: 20px; }
+.v2-app #v2ExpandTable { flex: none; position: relative; min-height: 30px; min-width: 44px; padding: 4px 12px; font-size: 13px; }
+#v2ExpandTable::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+body.v2-expand-open { overflow: hidden; }
+.v2-expand { position: fixed; inset: 0; z-index: 58; background: rgba(10,20,17,.35); display: flex; align-items: flex-start; justify-content: center; padding: 24px; }
+.v2-expand[hidden] { display: none; }
+.v2-expand-box { display: flex; flex-direction: column; width: min(1600px, 100%); max-height: calc(100vh - 48px); background: var(--v2-surface);
+  border: 1px solid var(--v2-border); border-radius: var(--v2-radius-card); box-shadow: 0 12px 32px rgba(20,43,37,.22); overflow: hidden; }
+.v2-expand-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 14px 20px 10px; border-bottom: 1px solid var(--v2-border); }
+.v2-expand-head h2 { font-size: 20px; font-weight: 800; margin: 0; }
+.v2-expand-head .v2-meta { margin-top: 2px !important; font-size: 12px; }
+.v2-expand-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 20px 0; }
+.v2-expand-tools[hidden] { display: none; }
+.v2-expand-tools .v2-legend { margin: 0; flex: 1 1 320px; }
+.v2-xshow { display: inline-flex; gap: 6px; }
+.v2-xshow button { min-width: 64px; min-height: 44px; padding: 6px 12px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn);
+  background: var(--v2-surface); color: var(--v2-ink); cursor: pointer; font-weight: 600; }
+.v2-xshow button.is-on { background: var(--v2-positive); border-color: var(--v2-action); color: var(--v2-action-strong); }
+.v2-expand-body { flex: 1 1 auto; min-height: 0; padding: 8px 20px 16px; display: flex; flex-direction: column; }
+.v2-expand[data-kind="chart"] .v2-expand-body .v2-plot { height: 75vh; margin-top: 4px; }
+.v2-expand #v2ExpandChart { display: none; }
+.v2-expand[data-kind="table"] .v2-expand-box { height: calc(100vh - 48px); }
+#v2Main .v2-expand .v2-table-wrap { flex: 1 1 0; min-height: 0; max-height: none; margin-top: 0; }
+@media (max-width: 767px) {
+  .v2-expand { padding: 0; }
+  .v2-expand-box, .v2-expand[data-kind] .v2-expand-box { width: 100vw; height: 100vh; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+  .v2-expand-head, .v2-expand-tools { padding-left: 16px; padding-right: 16px; }
+  .v2-expand-body { padding: 8px 16px 12px; overflow-y: auto; }
+  .v2-xshow { width: 100%; }
+  .v2-xshow button { min-width: 0; flex: 1 1 0; padding: 6px 4px; white-space: nowrap; }
+  /* Full screen there is room for the Y brush again. */
+  .v2-expand[data-kind="chart"] .v2-expand-body .v2-plot { grid-template-columns: 56px minmax(0, 1fr); height: 70vh; }
+  .v2-expand .v2-ybrush { display: block; }
+  .v2-expand .v2-plot-main { grid-column: 2; height: auto; }
+  #v2Main .v2-expand .v2-plot .v2-brush { grid-column: 2; }
+}
+body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the expanded chart */
