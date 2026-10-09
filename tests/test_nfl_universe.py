@@ -64,6 +64,9 @@ BASE = {
                       depth_chart_order=4, last_news=None),
         # retired: Sleeper never cleared his team, last news 2022
         "310": _entry("Long Retired", "QB", "PIT", last_news="2022-01-27"),
+        # stale injury designation, no news since 2021: not a sign of life
+        "320": _entry("Stale Tag", "TE", "TEN", status="Inactive", injury_status="Questionable",
+                      last_news="2021-08-15"),
         # injured reserve (Sleeper keeps the team, status Inactive)
         "400": _entry("Ir Guy", "RB", "MIA", status="Inactive", injury_status="IR", depth_chart_order=3),
         # free agent with news this season
@@ -103,6 +106,7 @@ class DefinitionTest(unittest.TestCase):
         self.assertEqual(("free_agent", ""), (u["500"]["roster_status"], u["500"]["team"]))
         self.assertEqual("LA", u["900"]["team"])  # the board's team code
         self.assertNotIn("310", u)  # on a team in Sleeper, retired in life
+        self.assertNotIn("320", u)
 
     def test_free_agent_window_is_measured_from_the_pull(self):
         base = json.loads(json.dumps(BASE))
@@ -204,14 +208,16 @@ class BakeCarriesTheUniverseTest(unittest.TestCase):
 class InsertMissingPlayersTest(unittest.TestCase):
     """sync_sleeper_players.plan: the players-table rows the refresh adds."""
 
-    def test_missing_universe_player_is_planned_with_next_key_and_sleeper_id(self):
+    def test_missing_universe_player_is_planned_with_sleeper_id_and_no_key(self):
         out = sync_sleeper_players.plan(BASE, Registry(REGISTRY_ROWS), set(), {"DET": "team-det"})
         self.assertEqual([], out["skipped"])
         self.assertEqual(1, len(out["insert"]))
         row = out["insert"][0]
-        self.assertEqual({"player_key": 889, "full_name": "Fresh Rookie", "position": "WR", "active": True,
-                          "team_id": "team-det"}, {k: row[k] for k in ("player_key", "full_name", "position",
-                                                                      "active", "team_id")})
+        # public.players.player_key is GENERATED ALWAYS: sending one is a 400
+        # (first run on main, 2026-10-09). The database assigns it.
+        self.assertNotIn("player_key", row)
+        self.assertEqual({"full_name": "Fresh Rookie", "position": "WR", "active": True, "team_id": "team-det"},
+                         {k: row[k] for k in ("full_name", "position", "active", "team_id")})
         self.assertEqual("950", row["metadata"]["sleeper_id"])
         self.assertEqual("practice_squad", row["metadata"]["roster_status"])
 
