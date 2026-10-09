@@ -1043,7 +1043,18 @@
         cbsros_ppg: player.cbsros_ppg || null,
         projectionSource: player.espn_ppg ? "ESPN" : null,
         // GAP-025: ESPN projects 0 (injured/out); not set when ESPN has no row.
-        espnProjectsZero: player.espn_projects_zero === true
+        espnProjectsZero: player.espn_projects_zero === true,
+        // JEG-502: roster status from the active NFL universe (bake_players.py).
+        roster_status: player.roster_status || null,
+        roster_status_label: player.roster_status_label || null,
+        roster_status_inferred: player.roster_status_inferred === true,
+        injury_status: player.injury_status || null,
+        depth_chart_position: player.depth_chart_position || null,
+        depth_chart_order: Number.isFinite(Number(player.depth_chart_order)) && player.depth_chart_order !== null
+          ? Number(player.depth_chart_order) : null,
+        sleeper_id: player.sleeper_id || null,
+        universe_only: player.universe_only === true,
+        unpriced_reason: player.unpriced_reason || null,
       });
     });
     return map;
@@ -2572,6 +2583,64 @@
     missingReasons: {...(row.missingReasons || {})},
     ddfByView: Object.fromEntries(Object.entries(row.ddfByView || {}).map(([view, entry]) =>
       [view, {...entry, sources: [...entry.sources]}]))});
+
+  // JEG-502 (lazy): a player no source prices (universe_only) is not one of the
+  // computed rows (getAllRows, curves, pies, tiers). searchPlayers/getPlayer
+  // build his row on demand with the same row rules: rowValue (0 where a chart
+  // is fully loaded), missingReason for every null, and the DDF Value of each
+  // view over that view's included series. A computed player's row is a copy
+  // of the engine's own.
+  function playerRow(playerKey) {
+    const key = Number(playerKey);
+    const computed = universe.find(row => row.player_key === key);
+    if (computed) return rowCopy(computed);
+    const player = canonicalByKey.get(key);
+    if (!player || !POSITION_ORDER.includes(player.pos)) return null;
+    const values = Object.fromEntries(visibleSourceKeys().map(k => [k, rowValue(k, player)]));
+    const missingReasons = Object.fromEntries(visibleSourceKeys().filter(k => values[k] === null)
+      .map(k => [k, missingReason(k, player)]));
+    const ddfByView = {};
+    COMPOSITE_VIEWS.forEach(view => {
+      const state = compositeStates[view];
+      if (!state) return;
+      const blend = ValueModel.compositeValue(values, state.series);
+      const value = blend.count >= COMPOSITE_MIN_SOURCES ? blend.value : null;
+      const before = state.prior?.get(key) || null;
+      ddfByView[view] = {value, count: blend.count, sources: [...blend.used],
+        reason: value === null ? COMPOSITE_NONE_REASON : null, lowConfidence: blend.count === 1,
+        prior: before ? before.value : null, priorCount: before ? before.count : 0,
+        priorLowConfidence: Boolean(before && before.count === 1)};
+    });
+    const mine = ddfByView[viewMode] || {value: null, count: 0, sources: [], reason: COMPOSITE_NONE_REASON,
+      lowConfidence: false, prior: null, priorCount: 0, priorLowConfidence: false};
+    values[COMPOSITE_KEY] = mine.value;
+    if (mine.value === null) missingReasons[COMPOSITE_KEY] = mine.reason;
+    return {...player, espnRole: "waiver", values, missingReasons, ddfByView, materialized: true,
+      ddfCount: mine.count, ddfSources: [...mine.sources], ddfReason: mine.reason,
+      ddfLowConfidence: mine.lowConfidence, ddfConfidenceNote: mine.lowConfidence ? COMPOSITE_ONE_SOURCE_NOTE : null,
+      ddfPrior: mine.prior, ddfPriorCount: mine.priorCount, ddfPriorLowConfidence: mine.priorLowConfidence,
+      ddfTier: mine.value === null ? null : "waiver"};
+  }
+  const searchKey = text => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[.'’]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  // Every player in players.json whose name contains the query (accents and
+  // punctuation ignored): exact name, then name start, then a word start, then
+  // anywhere; priced players before unpriced ones, then by name.
+  function searchPlayers(query, {limit = 20} = {}) {
+    const needle = searchKey(query);
+    if (!needle) return [];
+    const hits = [];
+    canonicalByKey.forEach((player, playerKey) => {
+      if (!POSITION_ORDER.includes(player.pos)) return;
+      const name = searchKey(player.name);
+      const at = name.indexOf(needle);
+      if (at < 0) return;
+      const rank = name === needle ? 0 : at === 0 ? 1 : name.includes(` ${needle}`) ? 2 : 3;
+      hits.push({playerKey, rank, unpriced: player.universe_only ? 1 : 0, name: player.name});
+    });
+    hits.sort((a, b) => a.rank - b.rank || a.unpriced - b.unpriced || a.name.localeCompare(b.name) || a.playerKey - b.playerKey);
+    return hits.slice(0, Math.max(0, Number(limit) || 0)).map(hit => playerRow(hit.playerKey)).filter(Boolean);
+  }
 
   function rebuildDomain() {
     // Live cells first: the two-tier-native curves (espn/cbsros/razzball) and the
@@ -4891,6 +4960,14 @@
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
     getAllRows: () => universe.map(rowCopy),
+    // JEG-502 (read-only, lazy): search every player in players.json, the
+    // whole active NFL universe included, and get any one player's row. A
+    // player no source prices is materialised on demand (materialized: true,
+    // universe_only: true) with values 0 where a chart is fully loaded, null
+    // with missingReasons[key] elsewhere, and roster_status / roster_status_label
+    // / unpriced_reason. He never enters getAllRows, the curves or the pies.
+    searchPlayers: (query, options) => searchPlayers(query, options),
+    getPlayer: playerKey => playerRow(playerKey),
     // JEG-482 (read-only): the player's rank on the publisher's own chart at
     // the active scoring ("#3 on FantasyCalc"); null when the chart does not
     // price him or the source is not a published chart. getNativeRanks(source)

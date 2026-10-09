@@ -72,6 +72,20 @@ jobs:
           git commit -m "Sleeper identity base refresh (JEG-366)"
           git push origin HEAD:${GITHUB_REF_NAME}
 
+      # JEG-502: every active NFL QB/RB/WR/TE needs a players-table row so the
+      # bake can give him a players.json row (JEG-438: no made-up keys).
+      # Additive inserts only, keyed by metadata.sleeper_id; dry run off main.
+      - name: Add missing active NFL players to public.players (JEG-502)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          flag=""
+          [ "${GITHUB_REF}" = "refs/heads/main" ] && flag="--write"
+          PYTHONPATH=/tmp/gh_shim python3 pipelines/sync_sleeper_players.py $flag
+
       # Monitoring: record this run in Supabase monitoring.check_observations,
       # red or green. A run that never happens is flagged `missed` by the
       # evaluator. Never fails the job. Declared in config/monitoring_coverage.json.

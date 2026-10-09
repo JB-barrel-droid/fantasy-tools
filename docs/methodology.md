@@ -1067,6 +1067,33 @@ roster and with one superflex slot, plus the DDF Value's prior-week pair.
   never holds a source. Where this text is silent, its readings are listed in
   `docs/math-review-agenda.md` MR-18.
 
+## Player Universe (JEG-502, Jeremy 2026-10-09)
+
+"All players in the active NFL universe should be available in the search;
+even if they are not rostered, on practice squads, etc. The user knowing they
+are a 0 is better than the user questioning why they aren't in the tool."
+
+- `players.json` has a row for ESPN's list, every player a current-week chart
+  or projection prices, and every active NFL QB/RB/WR/TE.
+- Active NFL player, from the Sleeper identity base (refreshed Tue + Thu):
+  on an NFL team (active roster, practice squad, injured reserve, PUP or
+  another reserve list), or a free agent Sleeper flags active with a news item
+  in the 365 days before the pull. Rules and statuses:
+  `pipelines/lib/nfl_universe.py`; counts by status in
+  `meta.universe.nfl_active` and in the fidelity pulse.
+- Practice squad is Sleeper's own status, or inferred for a player on a team
+  with status Active and no depth-chart slot (`roster_status_inferred`).
+- A universe player nothing prices has ESPN "absent" and no projection
+  (`universe_only`, `unpriced_reason` names his status). He is not one of the
+  engine's computed rows (getAllRows, the curves, the pies); search
+  materialises him on demand (`TradeValueCurveControls.searchPlayers` /
+  `getPlayer`) with the same row rules: 0 where a chart is fully loaded, a
+  reason elsewhere.
+- Every row ties back to the players table (JEG-438). The Sleeper identity
+  refresh inserts universe players the table lacks
+  (`pipelines/sync_sleeper_players.py`, additive, `metadata.sleeper_id`);
+  until then they are listed in `meta.universe.nfl_active.not_on_players_table`.
+
 ## Detailed Rule Owners
 
 - `docs/pipeline-rules.md` owns fail-closed identity, null/zero handling,

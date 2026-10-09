@@ -11,8 +11,15 @@ Output: data/inputs/sleeper_identity_base.json (schema sleeper-identity-base-v2)
     "meta": {"pulled_at", "source", "n_players", "n_name_keys", "n_ambiguous_names"},
     "by_name": {"jamarr chase": ["7564"], "josh allen": ["4984", "..."]},
     "by_sleeper_id": {"7564": {"name", "pos", "team", "active", "status",
+                               "injury_status", "depth_chart_position",
+                               "depth_chart_order", "last_news",
                                "espn_id", "yahoo_id", "gsis_id", "sportradar_id"}}
   }
+
+JEG-502 added the roster fields (injury_status, depth_chart_position,
+depth_chart_order, last_news = date of Sleeper's latest news item) so the bake
+can define the active NFL universe (pipelines/lib/nfl_universe.py). Additive:
+the schema name is unchanged and identity resolution does not read them.
 
 Rules (v1 got these wrong; see docs/claude-log/ 2026-10-05 entry):
   - Names are keyed with canonical_players.norm_plain, the same convention as
@@ -45,6 +52,15 @@ FANTASY_POSITIONS = ("QB", "RB", "WR", "TE", "K")
 # below that is truncated or an API change, never a real roster.
 MIN_FANTASY_PLAYERS = 2500
 CROSS_IDS = ("espn_id", "yahoo_id", "gsis_id", "sportradar_id")
+ROSTER_FIELDS = ("injury_status", "depth_chart_position", "depth_chart_order")
+
+
+def news_date(ms) -> str | None:
+    """Sleeper news_updated (epoch milliseconds) -> 'YYYY-MM-DD' (UTC)."""
+    try:
+        return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc).date().isoformat()
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
 
 
 def pull_sleeper() -> dict:
@@ -75,6 +91,12 @@ def build_base(sleeper_data: dict, pulled_at: str | None = None) -> dict:
             "active": bool(p.get("active", False)),
             "status": p.get("status"),
         }
+        for key in ROSTER_FIELDS:
+            if p.get(key) not in (None, ""):
+                entry[key] = p[key]
+        last_news = news_date(p.get("news_updated"))
+        if last_news:
+            entry["last_news"] = last_news
         for key in CROSS_IDS:
             if p.get(key) not in (None, ""):
                 entry[key] = str(p[key])
@@ -120,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--from-file", type=Path,
                     help="build from a saved /players/nfl response instead of the API")
     args = ap.parse_args(argv)
-    raw = json.loads(args.from_file.read_text()) if args.from_file else pull_sleeper()
+    raw = json.loads(args.from_file.read_text(encoding="utf-8")) if args.from_file else pull_sleeper()
     print(f"Got {len(raw)} raw Sleeper players", file=sys.stderr)
     base = build_base(raw)
     problems = check_base(base)
