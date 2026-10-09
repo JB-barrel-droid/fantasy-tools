@@ -1725,9 +1725,15 @@
         adds.forEach(toggleEngineSource);
         drops.forEach(toggleEngineSource);
         if (inputsDraft && C.setCompositeInputs) {
-          const now = C.getCompositeInputs().inputs;
-          const changed = inputsDraft.size !== now.length || now.some(key => !inputsDraft.has(key));
-          if (changed) C.setCompositeInputs([...inputsDraft]);
+          const info = C.getCompositeInputs();
+          const defaults = info.defaults || [];
+          const isDefaultDraft = inputsDraft.size === defaults.length && defaults.every(key => inputsDraft.has(key));
+          // The default set goes back to the engine's own defaults (null), so it follows them as they change.
+          if (isDefaultDraft) { if (!info.isDefault) C.resetCompositeInputs(); }
+          else {
+            const changed = inputsDraft.size !== info.inputs.length || info.inputs.some(key => !inputsDraft.has(key));
+            if (changed) C.setCompositeInputs([...inputsDraft]);
+          }
         }
         saveSelection();
         closePopover();

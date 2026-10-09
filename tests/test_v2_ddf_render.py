@@ -165,8 +165,9 @@ def check_customize(page, tag) -> list[str]:
     page.click('#v2Popover [data-apply="sources"]')
     page.wait_for_timeout(300)
     reset = page.evaluate(READ)
-    if sorted(reset["inputs"]) != sorted(reset["defaults"]):
-        errors.append(tag + f"Reset to default left inputs {reset['inputs']}, defaults {reset['defaults']}")
+    # Reset to default hands the choice back to the engine (isDefault), which then follows its own defaults.
+    if not reset["isDefault"]:
+        errors.append(tag + f"Reset to default left reader-chosen inputs {reset['inputs']} (defaults {reset['defaults']})")
     # Hiding the DDF Value is remembered too.
     page.click("#v2EditSources")
     page.click(f'#v2Popover [data-series="{DDF}"]')
