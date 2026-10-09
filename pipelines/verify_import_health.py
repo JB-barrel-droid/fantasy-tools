@@ -133,9 +133,13 @@ SOURCE_CONFIGS = {
     },
     "razzball": {
         "api_table": "razzball_projections",
-        "params": "?select=player_key,razzball_snapshot_date,week,created_at",
+        "params": "?select=player_key,razzball_snapshot_date,week,created_at,pulled_at",
         "vintage_date_col": "razzball_snapshot_date",
         "table_holds_review_rows": False,
+        # A date re-saved in place keeps rows of players dropped since; the
+        # import reads only the newest save (lib/latest_save.py), so does this
+        # check (GAP-RAZZBALL-CHART-BEHIND-STORED).
+        "save_stamp_col": "pulled_at",
     },
 }
 
@@ -615,6 +619,11 @@ def verify_source(
             # _select_latest_bake fails closed (no-blend): multiple bakes, no
             # created_at on any row -> recency would be a guess.
             return fail("TABLE_DRIFT", f"bake scoping failed (no-blend guard): {exc}")
+        if config.get("save_stamp_col"):
+            sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+            from latest_save import latest_save_rows  # noqa: PLC0415
+            # Superseded rows count as ignored older rows (same contract).
+            latest_rows = latest_save_rows(latest_rows, config["save_stamp_col"])[0]
         entry["ignored_older_rows"] = len(rows) - len(latest_rows)
         # Checkpoint fields: expose what's actually in the DB so the dashboard
         # can show it separately from the snapshot vintage.
