@@ -5,7 +5,7 @@ Jeremy, 2026-10-08: "A disagreement should hold that source and its derived
 values for the week, and it should also keep that source and its derived
 series out of the consolidated DDF values."
 
-    python pipelines/value_check.py compare [--engine-json P] [--today YYYY-MM-DD]
+    python pipelines/value_check.py compare [--report P] [--engine-json P] [--today YYYY-MM-DD]
         Runs the engine headless on the built dist/ (default roster and one
         superflex slot, 3 scorings x 8/10/12/14 teams, all three views) and
         pipelines/value_reference.py on the same snapshot, diffs every value,
@@ -47,8 +47,6 @@ import value_reference as ref  # noqa: E402
 
 TOL = 0.05
 REPORT = REPO / "output" / "value-check.json"
-SUMMARY = REPO / "output" / "value-check.md"
-ENGINE_DUMP = REPO / "output" / "value-check-engine.json"
 FIXTURE_REL = "data/fixtures/current/comparison-sources-data.json"
 STATUS = REPO / "output" / "comparison-chain-status.json"
 SCHEMA = "value-check/1"
@@ -414,23 +412,43 @@ def update_chain_status(status: dict, report: dict, week: int | None) -> dict:
 # CLI
 # ---------------------------------------------------------------------------
 
+def dumps_for(report_path: Path) -> tuple[Path, Path, Path]:
+    """(summary .md, engine dump, reference dump) beside a report path."""
+    stem = Path(report_path).with_suffix("")
+    return stem.with_suffix(".md"), Path(f"{stem}-engine.json"), Path(f"{stem}-reference.json")
+
+
+def held_sections(fixture_path: Path = REPO / FIXTURE_REL) -> dict:
+    """{section: validationHold} in the fixture being published."""
+    try:
+        fixture = json.loads(Path(fixture_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {sec: s["validationHold"] for sec, s in (fixture.get("sources") or {}).items()
+            if isinstance(s, dict) and s.get("validationHold")}
+
+
 def cmd_compare(args) -> int:
     today = date.fromisoformat(args.today) if args.today else datetime.now(timezone.utc).date()
     setting_list = ref.settings(superflex_too=not args.no_superflex)
+    report_path = Path(args.report)
+    summary_path, engine_path, reference_path = dumps_for(report_path)
     if args.engine_json and Path(args.engine_json).exists() and not args.rerun_engine:
         engine = json.loads(Path(args.engine_json).read_text(encoding="utf-8"))
     else:
         engine = run_engine(setting_list, today)
-        ENGINE_DUMP.parent.mkdir(parents=True, exist_ok=True)
-        ENGINE_DUMP.write_text(json.dumps(engine, separators=(",", ":")), encoding="utf-8")
+        engine_path.parent.mkdir(parents=True, exist_ok=True)
+        engine_path.write_text(json.dumps(engine, separators=(",", ":")), encoding="utf-8")
     reference = run_reference(setting_list, today)
+    reference_path.parent.mkdir(parents=True, exist_ok=True)
+    reference_path.write_text(json.dumps(reference, separators=(",", ":"), default=str), encoding="utf-8")
     report = compare(engine["settings"], reference, args.tol)
     report["today"] = today.isoformat()
     report["page_errors"] = engine.get("page_errors") or []
     report["settings"] = [ref.setting_id(s) for s in setting_list]
-    REPORT.parent.mkdir(parents=True, exist_ok=True)
-    REPORT.write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
-    SUMMARY.write_text(summary_md(report), encoding="utf-8")
+    report["held_sections"] = held_sections()
+    report_path.write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
+    summary_path.write_text(summary_md(report), encoding="utf-8")
     print(summary_md(report))
     return 1 if (args.strict and report["verdict"] != "agree") else 0
 
@@ -476,6 +494,7 @@ def main(argv=None) -> int:
     c.add_argument("--tol", type=float, default=TOL)
     c.add_argument("--no-superflex", action="store_true")
     c.add_argument("--strict", action="store_true", help="exit 1 on any disagreement")
+    c.add_argument("--report", default=str(REPORT), help="report path (dumps go beside it)")
     c.set_defaults(func=cmd_compare)
     h = sub.add_parser("hold")
     h.add_argument("--report", default=str(REPORT))

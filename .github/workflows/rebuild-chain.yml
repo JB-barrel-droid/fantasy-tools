@@ -297,16 +297,16 @@ jobs:
           # JEG-479 (Jeremy 2026-10-08): the math lives in two places on
           # purpose. Run the engine headless on this build and the Python
           # reference (pipelines/value_reference.py) on the same snapshot and
-          # diff every value (output/value-check.json, machine-readable). A
-          # disagreeing source and every series derived from it
+          # diff every value (output/value-check-prehold.json). A disagreeing
+          # source and every series derived from it
           # (value_check.SOURCE_DERIVED) are held: their sections go back to
           # the last published ones, marked validationHold {reason, week}, so
           # the page labels them and keeps them out of the DDF Value; the
           # other sources publish. A comparison that cannot run holds nothing
           # and is a warning; `make validate` below stays the deploy gate.
           if env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/sync_dashboard_artifacts.py > output/value-check-sync.log 2>&1 \
-             && python3 pipelines/value_check.py compare; then
-            python3 pipelines/value_check.py hold \
+             && python3 pipelines/value_check.py compare --report output/value-check-prehold.json; then
+            python3 pipelines/value_check.py hold --report output/value-check-prehold.json \
               || echo "::warning title=value-check::the hold step failed; see the log"
           else
             echo "::warning title=value-check::engine vs reference comparison did not run; nothing held"
@@ -320,6 +320,11 @@ jobs:
             python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
             exit 1
           fi
+          # The published build (holds applied, dist/ synced by validate):
+          # output/value-check.json is the report of what ships, with the held
+          # sections listed; the Supabase store below reads its dumps.
+          python3 pipelines/value_check.py compare --report output/value-check.json \
+            || echo "::warning title=value-check::post-hold comparison did not run"
 
       # Capture again AFTER promotion (weeks lane, 2026-10-08): the first
       # capture ran before the chain, so a source the chain just promoted was
@@ -578,7 +583,8 @@ jobs:
       - name: Value check summary (JEG-479)
         if: always()
         run: |
-          if [ -f output/value-check.md ]; then cat output/value-check.md >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f output/value-check-prehold.md ]; then echo "### Before holds" >> "$GITHUB_STEP_SUMMARY"; cat output/value-check-prehold.md >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f output/value-check.md ]; then echo "### Published build" >> "$GITHUB_STEP_SUMMARY"; cat output/value-check.md >> "$GITHUB_STEP_SUMMARY"; fi
 
       - name: Upload value check report (JEG-479)
         if: always()
@@ -589,6 +595,9 @@ jobs:
             output/value-check.json
             output/value-check.md
             output/value-check-engine.json
+            output/value-check-reference.json
+            output/value-check-prehold.json
+            output/value-check-prehold.md
           if-no-files-found: warn
           retention-days: 14
 
