@@ -399,6 +399,38 @@ PPR: QB1 29.5 -> 30.9) while the derived published charts' QB1 reaches 70.
 Re-pricing the anchor for roster shape is the open decision in
 JEG332-SUPERFLEX-FLEX.
 
+## Two Implementations (JEG-479, Jeremy 2026-10-08)
+
+The math lives in two places on purpose, so one can validate the other: the
+browser engine (`curve-widget.js`, `value-model.js`) and the Python reference
+(`pipelines/value_reference.py`). Every chain run builds the page, runs the
+engine headless and the reference on the same snapshot, and diffs every
+value the page shows (`pipelines/value_check.py`): all 14 series and the DDF
+Value, in the three views, at 3 scorings x 8/10/12/14 teams on the default
+roster and with one superflex slot, plus the DDF Value's prior-week pair.
+
+- *Tolerance* 0.05 on the 0-70 scale: half of the last digit the page shows.
+  A value on one side and none on the other always disagrees.
+- *Hold.* A disagreeing series holds its source and every series derived from
+  it (`value_check.SOURCE_DERIVED`: a published chart with its `*_adjusted`
+  series and its VORP vs waivers / Adjusted values views; ESPN, CBS ROS and
+  Razzball with their raw VORP vs waivers series). Their fixture sections go
+  back to the last published ones, labelled with their own week, and carry
+  `validationHold: {reason, week}`; a held series is never a DDF Value input.
+  The other sources publish. The hold is released on the first run where the
+  two agree.
+- *Report.* `output/value-check.json` (schema `value-check/1`, published as
+  `modules/value-check.json`) lists every source's verdict, the held series
+  and examples of each disagreement.
+- *Independence.* The reference composes the series from this document, not
+  from the JS. Its arithmetic kernels are separate Python code: the server's
+  own published-chart translation (`vorp_translation/unified.py`, which the
+  browser ports) and two Python ports of the browser's two-tier and
+  value-model helpers (`twotier_reference.py`, `parity/value_model_parity.py`,
+  each held to the JS by its own vector check). A JS bug a port copied
+  verbatim would not be caught; anything in how the series are assembled
+  would.
+
 ## Detailed Rule Owners
 
 - `docs/pipeline-rules.md` owns fail-closed identity, null/zero handling,
