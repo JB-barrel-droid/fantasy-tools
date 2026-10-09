@@ -1224,6 +1224,73 @@ pie and `P(X > l)` as the G5 Stash signal.
 **Sources:** `pipelines/expected_starts_model.py` (`form="option"`),
 `output/expected-starts-before-after.md` sensitivity rows.
 
+## MR-22 - Bench value through the season (Jeremy, JEG-525, 2026-10-09)
+
+**Question.** Jeremy: as the season progresses the bench loses value and is
+at its lowest in the playoffs: byes pass, the injury window shortens, the
+hold-versus-waiver equation shifts (one week of a waiver pickup can exceed
+a long hold), expected output gets less volatile, eliminated teams stop
+using waivers, holding value is minimal in the playoffs. How much of this
+does the expected-starts spec already carry, and what needs a rule?
+
+**Current behaviour (spec ES-1, measured with the model).** Two inputs move
+with the content week: the bye share of remaining team-weeks (7.2% at Week
+5, 0 from Week 14) and the drift horizon of `sigma` (half the remaining
+weeks). Bench tier at 12-team full PPR: Week 5 8.5%, Week 9 8.3%, Week 11
+8.0%, Week 14 7.7%, Week 17 7.5%; the fill-in share 4.9% to 3.1%; the RB
+starter/bench price 1.7x to 2.2x. So the spec moves the right way but
+gently: the fall is from byes and `sigma`, not from a shorter injury window
+(a per-game hazard is flat in time) or from the playoff rules.
+
+**Options.**
+- (a) Leave as is: the per-game lens prices a week the same in Week 6 and
+  Week 16; discounting (manifesto section 9) and the playoff objective
+  (section 10) are follow-ups.
+- (b) Add a horizon term: the value of a fill-in state scales with the
+  number of weeks left in which it can happen (one injury in 12 weeks
+  versus one in 2). Not measured.
+- (c) A playoff-mode setting (weeks 15-17): no byes, holding value only for
+  rostered teams, waivers thin. Needs standings (out of scope, JEG-521).
+
+**Depends on:** `es-value-001`; G4 (b) for weekly projections.
+**Sources:** `pipelines/expected_starts_model.py` run by content week
+(JEG-525 comment), `output/lineup-parameters.md`.
+
+## MR-23 - Matchups and weekly variance by position (Jeremy, JEG-525)
+
+**Question.** Jeremy: low-end starters are sometimes projected below
+high-end bench players in a given week, so bench players are worth more
+than the season curve says; and week-to-week variance is thought to be
+higher for pass catchers. Does the data agree, and should the weekly
+decision enter the value?
+
+**Measured.** Realized weekly noise of 12-team starters (standard deviation
+of weekly points over the player's mean, 2024-2025, `output/lineup-
+parameters.md`): QB 39%, RB 49%, WR 56%, TE 56%. Pass catchers are noisier,
+as suspected. This noise is 2 to 5 times the level uncertainty `sigma` in
+ES-1; it is what a manager faces on Sunday, and the spec deliberately does
+not price it (ES-8.2) because pricing it needs the weekly projections that
+drive the matchup swap (G4 b).
+
+**Options.** (a) Leave the season value alone; show the weekly swap as a
+lineup signal once weekly projections are stored. (b) Add a matchup term:
+the bench player's share rises by the probability his weekly projection
+beats the lowest starter's, from the weekly projection spread. Not
+measured. (c) Position-specific weekly noise in the Stash signal.
+
+**Depends on:** G4 (b). **Sources:** `derive_lineup_parameters.weekly_noise`.
+
+## MR-24 - More seasons for the hazard and noise estimates (Jeremy, JEG-525)
+
+**Question.** The missed-game hazard and weekly noise use 2024-2025 (443 to
+1,559 team games per position). Jeremy: 5-10 seasons would add much more
+significance. nflverse's public weekly stats (2015 on) are reachable from
+the build container.
+
+**Options.** (a) Add 2015-2025 from nflverse as a second actuals file keyed
+by nflverse player id, and let the derivation pool it. (b) Keep two seasons.
+**Depends on:** nothing. **Sources:** JEG-525.
+
 ## Outside this review
 
 - K/DST: being removed from the pipeline (kdst lane, Jeremy's decision).
