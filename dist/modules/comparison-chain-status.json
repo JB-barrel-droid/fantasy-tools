@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-09T18:01:41.106203+00:00",
+  "run_at": "2026-10-09T19:07:15.460051+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -8,13 +8,16 @@
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
-    "razzball": "promoted 1/1"
+    "razzball": "HELD at stage 'review' (amber, failed at stage 'review'): kept last promoted section (rest of season); candidate not promoted: razzball values are not snapshot sha256:1caac623cbb3's (12 differ, e.g. section full_10 ben vansumeren: not in snapshot; section full_12 ben vansumeren: not in snapshot; section full_14 ben vansumeren: not in snapshot); the section waits for a bake and legs built from that snapshot"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "published_with_holds",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
-    "fantasycalc"
+    "fantasycalc",
+    "razzball"
   ],
   "hold_severity": "amber",
   "held_detail": {
@@ -26,6 +29,20 @@
         "present": true,
         "week_designated": "Week 5",
         "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    },
+    "razzball": {
+      "detail": "razzball values are not snapshot sha256:1caac623cbb3's (12 differ, e.g. section full_10 ben vansumeren: not in snapshot; section full_12 ben vansumeren: not in snapshot; section full_14 ben vansumeren: not in snapshot); the section waits for a bake and legs built from that snapshot",
+      "reason": "failed at stage 'review'",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
         "content_week": 5
       },
       "weeks_behind": 0,
@@ -76,7 +93,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6804 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6792 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -98,11 +115,23 @@
     },
     "razzball": {
       "source": "razzball",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (7752 values)",
-      "promoted": 1,
-      "sections": 1
+      "status": "held",
+      "stage": "review",
+      "detail": "razzball values are not snapshot sha256:1caac623cbb3's (12 differ, e.g. section full_10 ben vansumeren: not in snapshot; section full_12 ben vansumeren: not in snapshot; section full_14 ben vansumeren: not in snapshot); the section waits for a bake and legs built from that snapshot",
+      "promoted": 0,
+      "sections": 1,
+      "held_reason": "failed at stage 'review'",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     }
   },
   "fit": {
@@ -156,5 +185,18 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "ERROR tests.test_search_players_universe.SearchPlayersUniverseTest"
+    ],
+    "assertions": [],
+    "make_targets": [
+      "Makefile:486: test-core"
+    ],
+    "detail": "ERROR tests.test_search_players_universe.SearchPlayersUniverseTest",
+    "recorded_at": "2026-10-09T19:24:53.232231+00:00"
   }
 }
