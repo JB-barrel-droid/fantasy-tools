@@ -221,6 +221,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_value_check
 	python3 -m unittest tests.test_load_value_check
 	python3 -m unittest tests.test_spec_reference
+	python3 -m unittest tests.test_spec_reference_value_pipeline
 	python3 -m unittest tests.test_consolidated_current
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
