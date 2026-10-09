@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T21:51:18.759312Z",
- "run_id": "f0242e4e-cd3f-43d2-afae-214ab1eb6aad",
+ "checked_at": "2026-10-09T22:37:36.608043Z",
+ "run_id": "a39bc8b4-ad57-40a9-acb4-3cf590a01487",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-09T20:59:31.610930+00:00",
+  "built_at": "2026-10-09T21:27:21.492760+00:00",
   "error": null
  },
  "rules": {
@@ -112,7 +112,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T20:58:48Z",
+     "chart_imported_at": "2026-10-09T21:26:59Z",
      "bake_id": "usatwk5_2026-10-09t1427_v1",
      "bake_saved_at": "2026-10-09T14:27:35.484255Z",
      "behind": null,
@@ -173,8 +173,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (595813 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T21:43:30.502057+00:00"
+     "summary": "engine and Python reference agree (595861 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T22:10:21.178204+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -473,8 +473,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (595813 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T21:43:30.502057+00:00"
+     "summary": "engine and Python reference agree (595861 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T22:10:21.178204+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -714,7 +714,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T20:58:51Z",
+     "chart_imported_at": "2026-10-09T21:27:00Z",
      "bake_id": "fpwk5_2026-10-09t1235_v1",
      "bake_saved_at": "2026-10-09T12:35:46.178513Z",
      "behind": null,
@@ -775,8 +775,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (595813 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T21:43:30.502057+00:00"
+     "summary": "engine and Python reference agree (595861 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T22:10:21.178204+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -934,7 +934,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T20:58:54Z",
+     "chart_imported_at": "2026-10-09T21:27:02Z",
      "bake_id": "cbswk5_2026-10-08t1259_v1",
      "bake_saved_at": "2026-10-08T12:59:38.994744Z",
      "behind": null,
@@ -995,8 +995,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (595813 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T21:43:30.502057+00:00"
+     "summary": "engine and Python reference agree (595861 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T22:10:21.178204+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -1093,129 +1093,48 @@
    "stored_bake": "2026-10-09",
    "stages": {
     "publisher_vs_stored": {
-     "status": "red",
-     "summary": "1659/1698 values match exactly across 3 columns; 39 value mismatches, 0 publisher players not stored, 0 stored players not on the page; 5 publisher names do not resolve to a canonical player; 1 players at the page's last listed value swapped in or out (ties at the row cap: Pierre Strong Jr.); parse notes: rest-of-season weeks 6-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5]); 390 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
+     "status": "amber",
+     "summary": "1701/1701 values match exactly across 3 columns; 5 publisher names do not resolve to a canonical player; parse notes: rest-of-season weeks 6-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5]); 390 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
      "counts": {
       "publisher_players": 567,
-      "stored_players": 566,
-      "compared": 1698,
-      "matched": 1659,
-      "mismatched": 39,
+      "stored_players": 567,
+      "compared": 1701,
+      "matched": 1701,
+      "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 1,
+      "list_churn": 0,
       "unresolved_names": 5
      },
      "url": "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info",
      "publisher_vintage": null,
      "stored_snapshot": "2026-10-09",
-     "stored_saved_at": "2026-10-09T19:25:45.551676Z",
+     "stored_saved_at": "2026-10-09T21:52:49.112298Z",
      "grains": {
       "full|1": {
        "left": 567,
-       "right": 566,
-       "mismatched": 13,
-       "missing": 1,
+       "right": 567,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       },
       "half|1": {
        "left": 567,
-       "right": 566,
-       "mismatched": 13,
-       "missing": 1,
+       "right": 567,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       },
       "std|1": {
        "left": 567,
-       "right": 566,
-       "mismatched": 13,
-       "missing": 1,
+       "right": 567,
+       "mismatched": 0,
+       "missing": 0,
        "extra": 0
       }
      },
-     "examples": [
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 4571,
-       "name": "Pat Bryant",
-       "pos": "WR",
-       "left": "0.00",
-       "right": 60.39,
-       "delta": 60.39
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 4571,
-       "name": "Pat Bryant",
-       "pos": "WR",
-       "left": "0.00",
-       "right": 48.84,
-       "delta": 48.84
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 17,
-       "name": "Troy Franklin",
-       "pos": "WR",
-       "left": "73.57",
-       "right": 34.15,
-       "delta": -39.42
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 4571,
-       "name": "Pat Bryant",
-       "pos": "WR",
-       "left": "0.00",
-       "right": 37.290000000000006,
-       "delta": 37.29
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 17,
-       "name": "Troy Franklin",
-       "pos": "WR",
-       "left": "62.07",
-       "right": 28.9,
-       "delta": -33.17
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 17,
-       "name": "Troy Franklin",
-       "pos": "WR",
-       "left": "50.57",
-       "right": 23.65,
-       "delta": -26.92
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 2893,
-       "name": "Lil'Jordan Humphrey",
-       "pos": "WR",
-       "left": "12.74",
-       "right": 0.0,
-       "delta": -12.74
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 2893,
-       "name": "Lil'Jordan Humphrey",
-       "pos": "WR",
-       "left": "10.34",
-       "right": 0.0,
-       "delta": -10.34
-      }
-     ],
+     "examples": [],
      "outside_universe": [],
      "unresolved": [
       {
@@ -1276,15 +1195,15 @@
      ]
     },
     "stored_vs_chart": {
-     "status": "green",
-     "summary": "1698/1698 chart values equal stored snapshot 2026-10-09 (per game, 2 decimals)",
+     "status": "red",
+     "summary": "1664/1698 chart values equal stored snapshot 2026-10-09 (per game, 2 decimals); 34 chart values differ from the stored snapshot, 1 stored players not on the chart, 0 chart players not stored",
      "counts": {
       "chart_players": 566,
-      "stored_players": 566,
+      "stored_players": 567,
       "compared": 1698,
-      "matched": 1698,
-      "mismatched": 0,
-      "missing_on_chart": 0,
+      "matched": 1664,
+      "mismatched": 34,
+      "missing_on_chart": 1,
       "extra_on_chart": 0,
       "outside_universe": 0,
       "unresolved_names": 0
@@ -1293,28 +1212,106 @@
      "behind": null,
      "grains": {
       "full|1": {
-       "left": 566,
+       "left": 567,
        "right": 566,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 11,
+       "missing": 1,
        "extra": 0
       },
       "half|1": {
-       "left": 566,
+       "left": 567,
        "right": 566,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 11,
+       "missing": 1,
        "extra": 0
       },
       "std|1": {
-       "left": 566,
+       "left": 567,
        "right": 566,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 12,
+       "missing": 1,
        "extra": 0
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 4571,
+       "name": "Pat Bryant",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 5.03,
+       "delta": 5.03
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 4571,
+       "name": "Pat Bryant",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 4.07,
+       "delta": 4.07
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 17,
+       "name": "Troy Franklin",
+       "pos": "WR",
+       "left": "6.13",
+       "right": 2.85,
+       "delta": -3.280833
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 4571,
+       "name": "Pat Bryant",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 3.11,
+       "delta": 3.11
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 17,
+       "name": "Troy Franklin",
+       "pos": "WR",
+       "left": "5.17",
+       "right": 2.41,
+       "delta": -2.7625
+      },
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 1076,
+       "name": "Pierre Strong",
+       "pos": "RB",
+       "left": "0.00",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 1076,
+       "name": "Pierre Strong",
+       "pos": "RB",
+       "left": "0.00",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "std|1",
+       "player_key": 1076,
+       "name": "Pierre Strong",
+       "pos": "RB",
+       "left": "0.00",
+       "right": null
+      }
+     ],
      "outside_universe": [],
      "unresolved": []
     },
@@ -1326,8 +1323,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (595813 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T21:43:30.502057+00:00"
+     "summary": "engine and Python reference agree (595861 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T22:10:21.178204+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1343,7 +1340,7 @@
        },
        "stored": {
         "QB": 81,
-        "RB": 134,
+        "RB": 135,
         "WR": 231,
         "TE": 120
        },
@@ -1387,92 +1384,89 @@
    },
    "worst_examples": [
     {
-     "stage": "publisher_vs_stored",
+     "stage": "stored_vs_chart",
      "type": "value_mismatch",
      "grain": "full|1",
      "player_key": 4571,
      "name": "Pat Bryant",
      "pos": "WR",
      "left": "0.00",
-     "right": 60.39,
-     "delta": 60.39
+     "right": 5.03,
+     "delta": 5.03
     },
     {
-     "stage": "publisher_vs_stored",
+     "stage": "stored_vs_chart",
      "type": "value_mismatch",
      "grain": "half|1",
      "player_key": 4571,
      "name": "Pat Bryant",
      "pos": "WR",
      "left": "0.00",
-     "right": 48.84,
-     "delta": 48.84
+     "right": 4.07,
+     "delta": 4.07
     },
     {
-     "stage": "publisher_vs_stored",
+     "stage": "stored_vs_chart",
      "type": "value_mismatch",
      "grain": "full|1",
      "player_key": 17,
      "name": "Troy Franklin",
      "pos": "WR",
-     "left": "73.57",
-     "right": 34.15,
-     "delta": -39.42
+     "left": "6.13",
+     "right": 2.85,
+     "delta": -3.280833
     },
     {
-     "stage": "publisher_vs_stored",
+     "stage": "stored_vs_chart",
      "type": "value_mismatch",
      "grain": "std|1",
      "player_key": 4571,
      "name": "Pat Bryant",
      "pos": "WR",
      "left": "0.00",
-     "right": 37.290000000000006,
-     "delta": 37.29
+     "right": 3.11,
+     "delta": 3.11
     },
     {
-     "stage": "publisher_vs_stored",
+     "stage": "stored_vs_chart",
      "type": "value_mismatch",
      "grain": "half|1",
      "player_key": 17,
      "name": "Troy Franklin",
      "pos": "WR",
-     "left": "62.07",
-     "right": 28.9,
-     "delta": -33.17
+     "left": "5.17",
+     "right": 2.41,
+     "delta": -2.7625
     },
     {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 17,
-     "name": "Troy Franklin",
-     "pos": "WR",
-     "left": "50.57",
-     "right": 23.65,
-     "delta": -26.92
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
+     "stage": "stored_vs_chart",
+     "type": "missing",
      "grain": "full|1",
-     "player_key": 2893,
-     "name": "Lil'Jordan Humphrey",
-     "pos": "WR",
-     "left": "12.74",
-     "right": 0.0,
-     "delta": -12.74
+     "player_key": 1076,
+     "name": "Pierre Strong",
+     "pos": "RB",
+     "left": "0.00",
+     "right": null
     },
     {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
+     "stage": "stored_vs_chart",
+     "type": "missing",
      "grain": "half|1",
-     "player_key": 2893,
-     "name": "Lil'Jordan Humphrey",
-     "pos": "WR",
-     "left": "10.34",
-     "right": 0.0,
-     "delta": -10.34
+     "player_key": 1076,
+     "name": "Pierre Strong",
+     "pos": "RB",
+     "left": "0.00",
+     "right": null
+    },
+    {
+     "stage": "stored_vs_chart",
+     "type": "missing",
+     "grain": "std|1",
+     "player_key": 1076,
+     "name": "Pierre Strong",
+     "pos": "RB",
+     "left": "0.00",
+     "right": null
     }
    ]
   },
@@ -1584,8 +1578,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (595813 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T21:43:30.502057+00:00"
+     "summary": "engine and Python reference agree (595861 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T22:10:21.178204+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1846,14 +1840,14 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher updated 2026-10-09 (1 h ago); chart shows snapshot 2026-10-08",
+     "summary": "publisher updated 2026-10-09 (2 h ago); chart shows snapshot 2026-10-08",
      "chart_snapshot": "2026-10-08",
      "publisher_vintage": "2026-10-09"
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (595813 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T21:43:30.502057+00:00"
+     "summary": "engine and Python reference agree (595861 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T22:10:21.178204+00:00"
     },
     "scrape_validity": {
      "status": "green",
