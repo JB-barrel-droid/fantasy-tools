@@ -2343,7 +2343,12 @@
     const chart = chartOfInput(key);
     if (!chart) return row.values[key];
     const value = compositeChartValues(chart).get(row.player_key);
-    return value === undefined ? null : value;
+    if (value !== undefined) return value;
+    // A player outside the computed rows (search, playerRow): the same chart
+    // rule as the rows (0 below a fully loaded chart's floor).
+    if (!POSITION_ORDER.includes(row.pos)) return null;
+    const missing = chartMissingValue(chart, chart, row, chartNative(chart), publishedWaiver(chart));
+    return missing.value === undefined ? null : missing.value;
   }
   // One input's prior week at this setting, in the Adjusted view (cached per
   // rebuild). A chart's carries the rows' chart rules (chartRowRulesOnWeek).
@@ -2614,25 +2619,35 @@
     const values = Object.fromEntries(visibleSourceKeys().map(k => [k, rowValue(k, player)]));
     const missingReasons = Object.fromEntries(visibleSourceKeys().filter(k => values[k] === null)
       .map(k => [k, missingReason(k, player)]));
-    const ddfByView = {};
-    COMPOSITE_VIEWS.forEach(view => {
-      const state = compositeStates[view];
-      if (!state) return;
-      const blend = ValueModel.compositeValue(values, state.series);
+    // JEG-497: the three DDF versions over each version's included inputs'
+    // Adjusted-view values (compositeInputValue), as applyComposite does.
+    const row = {...player, player_key: key, values};
+    const empty = {value: null, count: 0, sources: [], reason: COMPOSITE_NONE_REASON, lowConfidence: false,
+      confidenceNote: null, prior: null, priorCount: 0, priorLowConfidence: false};
+    const ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
+      const state = compositeStates[version];
+      if (!state) return [COMPOSITE_VERSION_NAMES[version], {...empty}];
+      const inputValues = Object.fromEntries(state.inputs.map((input, i) => [state.series[i], compositeInputValue(input, row)]));
+      const blend = ValueModel.compositeValue(inputValues, state.series);
       const value = blend.count >= COMPOSITE_MIN_SOURCES ? blend.value : null;
       const before = state.prior?.get(key) || null;
-      ddfByView[view] = {value, count: blend.count, sources: [...blend.used],
+      return [COMPOSITE_VERSION_NAMES[version], {value, count: blend.count, sources: [...blend.used],
         reason: value === null ? COMPOSITE_NONE_REASON : null, lowConfidence: blend.count === 1,
+        confidenceNote: blend.count === 1 ? COMPOSITE_ONE_SOURCE_NOTE : null,
         prior: before ? before.value : null, priorCount: before ? before.count : 0,
-        priorLowConfidence: Boolean(before && before.count === 1)};
+        priorLowConfidence: Boolean(before && before.count === 1)}];
+    }));
+    COMPOSITE_VERSION_KEYS.forEach(version => {
+      const entry = ddfByVersion[COMPOSITE_VERSION_NAMES[version]];
+      values[version] = entry.value;
+      if (entry.value === null) missingReasons[version] = entry.reason;
     });
-    const mine = ddfByView[viewMode] || {value: null, count: 0, sources: [], reason: COMPOSITE_NONE_REASON,
-      lowConfidence: false, prior: null, priorCount: 0, priorLowConfidence: false};
-    values[COMPOSITE_KEY] = mine.value;
-    if (mine.value === null) missingReasons[COMPOSITE_KEY] = mine.reason;
-    return {...player, espnRole: "waiver", values, missingReasons, ddfByView, materialized: true,
-      ddfCount: mine.count, ddfSources: [...mine.sources], ddfReason: mine.reason,
-      ddfLowConfidence: mine.lowConfidence, ddfConfidenceNote: mine.lowConfidence ? COMPOSITE_ONE_SOURCE_NOTE : null,
+    const {blended: mine, charts, projections} = ddfByVersion;
+    return {...player, espnRole: "waiver", values, missingReasons, ddfByVersion, materialized: true,
+      ddfCount: mine.count, ddfChartsCount: charts.count, ddfProjectionsCount: projections.count,
+      ddfSources: [...mine.sources], ddfReason: mine.reason,
+      ddfLowConfidence: mine.lowConfidence, ddfConfidenceNote: mine.confidenceNote,
+      ddfChartsLowConfidence: charts.lowConfidence, ddfProjectionsLowConfidence: projections.lowConfidence,
       ddfPrior: mine.prior, ddfPriorCount: mine.priorCount, ddfPriorLowConfidence: mine.priorLowConfidence,
       ddfTier: mine.value === null ? null : "waiver"};
   }
