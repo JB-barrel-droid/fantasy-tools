@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T04:28:28.688317Z",
- "run_id": "5b5c0fa3-f4e2-4a6a-b42e-4ae1657681b2",
+ "checked_at": "2026-10-09T05:10:54.330459Z",
+ "run_id": "c5edca55-a26f-4ff4-ae70-8dcd8896735b",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -2030,17 +2030,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
-     "summary": "1098/1098 values match exactly across 3 columns; 6 players at the page's last listed value swapped in or out (ties at the row cap: Andrew Beck, Corey Kiner, Darius Cooper, Eli Stowers, Justin Joly, Michael Pittman); parse notes: RB: 1 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1101/1101 values match exactly across 3 columns; 4 players at the page's last listed value swapped in or out (ties at the row cap: Darius Cooper, Justin Joly, Michael Pittman, Seydou Traore); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 369,
       "stored_players": 369,
-      "compared": 1098,
-      "matched": 1098,
+      "compared": 1101,
+      "matched": 1101,
       "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 6,
+      "list_churn": 4,
       "unresolved_names": 0
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -2052,22 +2052,22 @@
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 3,
-       "extra": 3
+       "missing": 2,
+       "extra": 2
       },
       "half|1": {
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 3,
-       "extra": 3
+       "missing": 2,
+       "extra": 2
       },
       "std|1": {
        "left": 369,
        "right": 369,
        "mismatched": 0,
-       "missing": 3,
-       "extra": 3
+       "missing": 2,
+       "extra": 2
       }
      },
      "examples": [],
@@ -2370,13 +2370,13 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "2040/2040 values match exactly across 3 columns; 0 value mismatches, 0 publisher players not stored, 7 stored players not on the page; publisher updated (2026-10-08) after the stored snapshot 2026-10-08; inside the 12 h grace window; 1 publisher players are not stored because the page's player universe excludes them (Scotty Miller); 8 publisher names do not resolve to a canonical player; 3 players at the page's last listed value swapped in or out (ties at the row cap: Max Hurleman, Riley Nowakowski, Ty Pezza)",
+     "summary": "2035/2040 values match exactly across 3 columns; 5 value mismatches, 0 publisher players not stored, 7 stored players not on the page; publisher updated (2026-10-08) after the stored snapshot 2026-10-08; inside the 12 h grace window; 1 publisher players are not stored because the page's player universe excludes them (Scotty Miller); 8 publisher names do not resolve to a canonical player; 3 players at the page's last listed value swapped in or out (ties at the row cap: Max Hurleman, Riley Nowakowski, Ty Pezza)",
      "counts": {
       "publisher_players": 681,
       "stored_players": 690,
       "compared": 2040,
-      "matched": 2040,
-      "mismatched": 0,
+      "matched": 2035,
+      "mismatched": 5,
       "missing_in_stored": 0,
       "extra_in_stored": 7,
       "outside_universe": 1,
@@ -2391,26 +2391,76 @@
       "full|1": {
        "left": 681,
        "right": 690,
-       "mismatched": 0,
+       "mismatched": 1,
        "missing": 1,
        "extra": 10
       },
       "half|1": {
        "left": 681,
        "right": 690,
-       "mismatched": 0,
+       "mismatched": 3,
        "missing": 1,
        "extra": 10
       },
       "std|1": {
        "left": 681,
        "right": 690,
-       "mismatched": 0,
+       "mismatched": 1,
        "missing": 1,
        "extra": 10
       }
      },
      "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 2105,
+       "name": "Omarion Hampton",
+       "pos": "RB",
+       "left": "14.1",
+       "right": 14.0,
+       "delta": -0.1
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 2105,
+       "name": "Omarion Hampton",
+       "pos": "RB",
+       "left": "13.1",
+       "right": 13.0,
+       "delta": -0.1
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 3167,
+       "name": "Quinshon Judkins",
+       "pos": "RB",
+       "left": "13.5",
+       "right": 13.4,
+       "delta": -0.1
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 3615,
+       "name": "Isaiah Williams",
+       "pos": "WR",
+       "left": "3.5",
+       "right": 3.6,
+       "delta": 0.1
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 3253,
+       "name": "Jaylen Waddle",
+       "pos": "WR",
+       "left": "6.9",
+       "right": 7.0,
+       "delta": 0.1
+      },
       {
        "type": "extra",
        "grain": "full|1",
@@ -2437,51 +2487,6 @@
        "pos": "RB",
        "left": null,
        "right": 2.4
-      },
-      {
-       "type": "extra",
-       "grain": "std|1",
-       "player_key": 3270,
-       "name": "Kaytron Allen",
-       "pos": "RB",
-       "left": null,
-       "right": 2.4
-      },
-      {
-       "type": "extra",
-       "grain": "full|1",
-       "player_key": 2724,
-       "name": "Brady Russell",
-       "pos": "RB",
-       "left": null,
-       "right": 2.3
-      },
-      {
-       "type": "extra",
-       "grain": "half|1",
-       "player_key": 1242,
-       "name": "Emari Demercado",
-       "pos": "RB",
-       "left": null,
-       "right": 2.3
-      },
-      {
-       "type": "extra",
-       "grain": "std|1",
-       "player_key": 1242,
-       "name": "Emari Demercado",
-       "pos": "RB",
-       "left": null,
-       "right": 2.1
-      },
-      {
-       "type": "extra",
-       "grain": "half|1",
-       "player_key": 2724,
-       "name": "Brady Russell",
-       "pos": "RB",
-       "left": null,
-       "right": 1.7
       }
      ],
      "outside_universe": [
@@ -3022,6 +3027,61 @@
    "worst_examples": [
     {
      "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 2105,
+     "name": "Omarion Hampton",
+     "pos": "RB",
+     "left": "14.1",
+     "right": 14.0,
+     "delta": -0.1
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 2105,
+     "name": "Omarion Hampton",
+     "pos": "RB",
+     "left": "13.1",
+     "right": 13.0,
+     "delta": -0.1
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 3167,
+     "name": "Quinshon Judkins",
+     "pos": "RB",
+     "left": "13.5",
+     "right": 13.4,
+     "delta": -0.1
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 3615,
+     "name": "Isaiah Williams",
+     "pos": "WR",
+     "left": "3.5",
+     "right": 3.6,
+     "delta": 0.1
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 3253,
+     "name": "Jaylen Waddle",
+     "pos": "WR",
+     "left": "6.9",
+     "right": 7.0,
+     "delta": 0.1
+    },
+    {
+     "stage": "publisher_vs_stored",
      "type": "extra",
      "grain": "full|1",
      "player_key": 3270,
@@ -3049,56 +3109,6 @@
      "pos": "RB",
      "left": null,
      "right": 2.4
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "std|1",
-     "player_key": 3270,
-     "name": "Kaytron Allen",
-     "pos": "RB",
-     "left": null,
-     "right": 2.4
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "full|1",
-     "player_key": 2724,
-     "name": "Brady Russell",
-     "pos": "RB",
-     "left": null,
-     "right": 2.3
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "half|1",
-     "player_key": 1242,
-     "name": "Emari Demercado",
-     "pos": "RB",
-     "left": null,
-     "right": 2.3
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "std|1",
-     "player_key": 1242,
-     "name": "Emari Demercado",
-     "pos": "RB",
-     "left": null,
-     "right": 2.1
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "half|1",
-     "player_key": 2724,
-     "name": "Brady Russell",
-     "pos": "RB",
-     "left": null,
-     "right": 1.7
     }
    ]
   }
