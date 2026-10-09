@@ -51,6 +51,11 @@ jobs:
           echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
 
       - name: Scrape ESPN projections
+        # Read-only players-table access: names the identity snapshot misses
+        # resolve through lib/canonical_players (JEG-480).
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           # JEG-102: fail closed. A scraper failure, a missing CSV or a suspiciously
           # small CSV fails the job. A zero exit with no CSV would mean "payload

@@ -196,8 +196,60 @@ def load_team_map(problems):
     return _validate_team_map(dict(TEAM_FALLBACK))
 
 
-def resolve_identity(imap, name, pos, problems):
-    """ESPN name -> (canonical_key, display) or None (fail closed)."""
+def espn_eligible(ros):
+    """True when ESPN projects any scoring stat for the rest of the season.
+
+    GAP-ESPN-ZEROED-STORED (JEG-480): the old rule was per position (an RB
+    needed rushing yards, a WR receptions or receiving yards), so fullbacks
+    ESPN projects only as receivers (Alec Ingold 12.82 half PPR) and a WR
+    projected only on rushes (Barion Brown) were flagged ineligible, and the
+    saver stored their projection as 0 while the chart priced ESPN's number."""
+    return any(float(v or 0) != 0 for v in ros.values())
+
+
+def unresolved_ros_half_ppr(pl, ros_weeks):
+    """Half-PPR points ESPN projects for a player over `ros_weeks` (sum of
+    the 2026 weekly projection blocks, first block per week), so an
+    unresolved name is reported only when ESPN actually projects him."""
+    seen_weeks, pts = set(), 0.0
+    for s in pl.get("stats", []):
+        if (s.get("seasonId") != SEASON_ID or s.get("statSourceId") != 1
+                or s.get("statSplitTypeId") != 1):
+            continue
+        wk = s.get("scoringPeriodId")
+        if wk not in ros_weeks or wk in seen_weeks:
+            continue
+        seen_weeks.add(wk)
+        st = s.get("stats") or {}
+        pts += sum(float(st.get(sid, 0) or 0) * W[col] for sid, col in STATMAP)
+    return round(pts, 2)
+
+
+def canonical_registry(problems):
+    """The canonical players registry (lib/canonical_players, public.players),
+    or None when Supabase is not reachable (local runs without credentials).
+    A miss is noted, never fatal: names then resolve through the snapshot
+    only, as before."""
+    try:
+        import canonical_players  # noqa: PLC0415 -- pipelines/lib on sys.path
+        return canonical_players.load_registry()
+    except Exception as e:  # noqa: BLE001
+        problems.append(f"canonical-registry-unavailable ({type(e).__name__}: {e}); "
+                        "names the identity snapshot misses stay unresolved")
+        return None
+
+
+def resolve_identity(imap, name, pos, problems, registry=None):
+    """ESPN name -> (canonical_key, display) or None (fail closed).
+
+    The identity snapshot first (its keys are the CSV's player_norm labels
+    the ESPN leg joins on); a name the snapshot does not carry resolves
+    through the canonical players table (JEG-438 single resolver,
+    lib/canonical_players.resolve_with_reason, position-checked) -- the
+    snapshot is a static file and missed active players ESPN projects
+    (Joshua Palmer, Tyler Goodson, Austin Ekeler: GAP-USAT-SAVER-LEGACY-
+    RESOLVER / JEG-480). The row is then labelled with the players table's
+    full_name, so every downstream resolver finds the same player_key."""
     key = ident.norm_name(ident.shared_alias_spelling(name))
     canon = None
     if key in imap.alias_to_canonical:
@@ -210,6 +262,17 @@ def resolve_identity(imap, name, pos, problems):
             canon = h
             problems.append(f"heuristic-identity: {name!r} -> {canon!r} "
                             f"(add to registry)")
+    if canon is None and registry is not None:
+        import canonical_players  # noqa: PLC0415
+        pkey, why = canonical_players.resolve_with_reason(
+            name, position=pos, registry=registry)
+        if pkey is not None:
+            full = registry.by_key[pkey]["full_name"]
+            problems.append(f"canonical-identity: {name!r} ({pos}) -> "
+                            f"player_key {pkey} {full!r}")
+            return ident.norm_name(full), full
+        problems.append(f"identity-unresolved: {name!r} ({pos}; canonical: {why})")
+        return None
     if canon is None:
         problems.append(f"identity-unresolved: {name!r} ({pos})")
         return None
@@ -274,6 +337,11 @@ def main():
         return 1
 
     # ---- 2. parse + identity (fail closed) ----
+    registry = canonical_registry(problems)
+    # Players ESPN projects that no resolver could name: written to the meta
+    # so the saver reports them as identity misses (identity_queue, the
+    # identity-unmatched monitor) instead of dropping them silently.
+    unresolved = []
     priced, seen = [], set()
     dup_blocks = 0
     for pos in POSITIONS:
@@ -288,8 +356,14 @@ def main():
                 problems.append(f"pos-slot-mismatch: {name!r} slot={pos} "
                                 f"defaultPositionId={dpid}; skipped")
                 continue
-            res = resolve_identity(imap, name, pos, problems)
+            res = resolve_identity(imap, name, pos, problems, registry)
             if res is None:
+                ros_pts = unresolved_ros_half_ppr(pl, ros_weeks)
+                if ros_pts:
+                    unresolved.append({
+                        "player": name, "pos": pos,
+                        "team": team_map.get(int(pl.get("proTeamId") or 0), ""),
+                        "ros_half_ppr": ros_pts})
                 continue
             canon, display = res
             if canon in seen:
@@ -347,12 +421,7 @@ def main():
         sb_pts = sum(float(sb.get(sid, 0) or 0) * W[col]
                      for sid, col in STATMAP)
         p["season_block_half_ppr"] = round(sb_pts, 2)
-        p["eligible"] = (
-            ("r_pass_yds" in ros and ros["r_pass_yds"] != 0) if p["pos"] == "QB"
-            else ("r_rush_yds" in ros and ros["r_rush_yds"] != 0)
-            if p["pos"] == "RB"
-            else (ros.get("r_rec_yds", 0) != 0 or
-                  ros.get("r_receptions", 0) != 0))
+        p["eligible"] = espn_eligible(ros)
 
     priced.sort(key=lambda p: -p["ros_half_ppr"])
 
@@ -431,6 +500,7 @@ def main():
             "coverage": {pos: sum(1 for p in priced if p["pos"] == pos)
                          for pos in POSITIONS},
             "n_priced": len(priced),
+            "identity_unresolved": unresolved,
             "n_problems": len(problems)}
     with tempfile.NamedTemporaryFile("w", dir=str(HIDDEN), delete=False) as tf:
         json.dump(meta, tf, indent=1)
