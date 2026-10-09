@@ -202,6 +202,15 @@ class PullerIdentityTest(unittest.TestCase):
         self.assertEqual(got, ("josh palmer", "Josh Palmer"))
         self.assertTrue(any(p.startswith("canonical-identity") for p in problems))
 
+    def test_canonical_label_drops_the_generational_suffix(self):
+        # The fixture slug and the snapshot keys drop the suffix; a label
+        # keeping it ("anthony tyus iii") had a section native but no CSV
+        # row in tests.test_static_export (chain run 37944395121).
+        reg = canonical_players.load_registry(rows=PLAYERS + [
+            {"player_key": 1980, "full_name": "Anthony Tyus III", "position": "RB", "active": True}])
+        got = puller.resolve_identity(_EmptySnapshot(), "Anthony Tyus III", "RB", [], reg)
+        self.assertEqual(got, ("anthony tyus", "Anthony Tyus III"))
+
     def test_position_conflict_stays_unresolved(self):
         problems = []
         got = puller.resolve_identity(_EmptySnapshot(), "Brady Russell", "RB", problems, self.reg)
