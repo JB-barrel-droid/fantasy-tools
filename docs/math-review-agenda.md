@@ -44,6 +44,7 @@ waiting on Jeremy. The items stay below as history and for the measurements.
 | MR-16 | VP-4.3 |
 | MR-17 | VP-6.3: Adjusted values only, three versions |
 | MR-18 | SG-1/2/3/10 go with the two-tier legs. SG-5 is VP-2.2. SG-6 is VP-5.6. SG-7/8 are VP-3 to VP-5. SG-9 is VP-2.2 and VP-2.4. SG-11 is OC-8 |
+| OC-2, OC-3 | Proposed answer: "Expected-starts value" (ES-0 to ES-11, JEG-521, 2026-10-09), decision `es-value-001` pending. MR-19 to MR-21 below came out of that work |
 | GAP-ADJ-CLIP-ZERO | Retired, with the live cells |
 
 MR-13 (gate) and MR-14 (consumers) are still open: pin the VP invariants once
@@ -1146,6 +1147,82 @@ whichever tab is open. Published Indexed rows also appear in
 `fixedPie.checks` with basis "not gated (published)".
 
 ---
+
+## MR-19 - The VP slices imply a 39% to 49% bench share on live data
+
+**Question.** OC-2 A ("source-implied" bench share from the VP-2.6 slices) is
+the spec's recommended default. Measured on the Week 5 build it puts 42% of
+the pie on bench slices at 12-team full PPR (QB 47%, RB 42%, WR 43%, TE 37%),
+49% at 8-team standard and 39% at 14-team half PPR, against 15% live today.
+Is that the intended meaning of "bench share"?
+
+**Why it matters.** Every starter's surplus up to the first non-starter is a
+bench slice, so the bench groups hold most of the surplus of a deep position.
+Paying them at the DDF-average rate flattens every curve toward the bench
+and is the largest single move in the JEG-508 pipeline, and it is silent.
+
+**Current behaviour.** Not live. The two-tier solves for a 15% share.
+
+**Options.** (a) Keep OC-2 A and accept the flattening. (b) OC-2 D / OC-9 A:
+the expected-starts parts (`docs/methodology.md` ES-5) replace the slices;
+the bench share becomes the pie paid on fill-in parts (4.7% to 5.5%). (c)
+Keep the slices and fix the budget (OC-9 B).
+
+**Depends on:** nothing. It feeds OC-2, OC-3 and `es-value-001`.
+**Sources:** `pipelines/expected_starts_model.py`,
+`output/expected-starts-before-after.md`, JEG-521 status comments.
+
+## MR-20 - Per-game basis differs across projection sources
+
+**Question.** ESPN's per-game number is the rest-of-season total divided by
+the team's remaining games (`pipelines/lib/games_remaining.py`), so a player
+ESPN projects to miss weeks has a lower per-game number: per team game. CBS
+rest of season and Razzball publish per game played. VP-0 treats all three as
+the same native. Which basis should "points per game" mean, and should the
+others be converted?
+
+**Why it matters.** For a currently injured starter the three sources
+disagree by his absence, not by his talent (Lamar Jackson, Week 5: ESPN 21.4,
+CBS rest of season 23.0 per game, Razzball 17.5 with a health flag). The
+cross-source spread for unavailable players is 2 to 5 times the healthy
+spread (`output/lineup-parameters.md`). Under expected starts (ES-8.4) the
+forward hazard `m` is applied to everyone, so the known absence must sit in
+the projection, and it sits there for one source only.
+
+**Options.** (a) Convert ESPN to per game played using its own weekly blocks
+(the off-repo `espn_weekly_projections.csv`, G4 b) and apply known absences
+to every source from one status feed (Sleeper, G4 c). (b) Convert CBS and
+Razzball to per team game using the Sleeper status and an expected return
+week. (c) Leave as is and document.
+
+**Depends on:** G4 (b) and (c) of JEG-521.
+**Sources:** `pipelines/derive_lineup_parameters.py` (`UNAVAILABLE` exclusion),
+`pipelines/bake_players.py` `espn_ppg`, `pipelines/lib/games_remaining.py`.
+
+## MR-21 - Where option value lives
+
+**Question.** Manifesto section 5 says bench players are options and upside
+is probability-weighted future utility. The expected-starts pie (ES-5) prices
+the probability of being start-worthy but not the size of the upside. The
+convex form `avail x E[(X - w)^+ lineup(X)]` prices both. Should the upside be
+in the pie, or a separate signal?
+
+**Why it matters.** Measured (ES-8.1): the convex form gives a bench-tier
+share of 10.6% to 13.9% and a starter/bench price of 0.6x to 1.9x against
+7.8% to 9.8% and 1.1x to 3.8x for the share form; near the line it values a
+player above his whole surplus, and it is driven by `sigma`, the least
+measured input.
+
+**Current behaviour.** Not live. The ES spec recommends the share form in the
+pie and `P(X > l)` as the G5 Stash signal.
+
+**Options.** (a) Share form in the pie, option value as a signal
+(recommended). (b) Convex form in the pie. (c) Share form plus a separate
+"option value" series on the pie scale, not in DDF Value.
+
+**Depends on:** `es-value-001`; G4 for a measured `sigma`.
+**Sources:** `pipelines/expected_starts_model.py` (`form="option"`),
+`output/expected-starts-before-after.md` sensitivity rows.
 
 ## Outside this review
 
