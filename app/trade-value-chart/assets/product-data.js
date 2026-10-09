@@ -44,7 +44,13 @@
     playersInlineId: "players-data",
   });
 
-  const FETCH_TIMEOUT_MS = 4000;
+  // JEG-484: same-origin static assets get no short timeout. A 4s timeout on
+  // a slow first load (backgrounded tab, slow network) silently dropped the
+  // adjustment inputs, and with them every *_adjusted series and 4 of DDF
+  // Value's 7 inputs. Each asset is retried with backoff instead; the
+  // per-attempt ceiling only guards against a connection that never ends.
+  const FETCH_ATTEMPT_TIMEOUT_MS = 60000;
+  const FETCH_RETRY_DELAYS_MS = Object.freeze([500, 1500]); // 3 attempts in all
 
   // Source keys verbatim from contract §3.4.2 (api.product_options.source_keys).
   const SOURCE_KEYS = Object.freeze([
@@ -103,6 +109,7 @@
     options: null,           // contract-shaped api.product_options
     activeSnapshotId: null,
     freshness: null,         // JEG-432 R5 buildSourceFreshness() at load
+    loadStatus: {},          // JEG-484: asset name -> {ok, error, attempts}
   };
 
   // ---------- Fetch helpers ----------
@@ -141,6 +148,28 @@
           reject(err);
         });
     });
+  }
+
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  // JEG-484: fetch a same-origin JSON asset with retry + backoff, recording
+  // the outcome in state.loadStatus[name] so a failure is never silent.
+  async function fetchAsset(name, path) {
+    const status = { ok: false, error: null, attempts: 0 };
+    state.loadStatus[name] = status;
+    for (let attempt = 0; attempt <= FETCH_RETRY_DELAYS_MS.length; attempt += 1) {
+      if (attempt > 0) await delay(FETCH_RETRY_DELAYS_MS[attempt - 1]);
+      status.attempts = attempt + 1;
+      try {
+        const payload = await fetchJSON(path, FETCH_ATTEMPT_TIMEOUT_MS);
+        status.ok = true;
+        status.error = null;
+        return payload;
+      } catch (err) {
+        status.error = err && err.message ? err.message : String(err);
+      }
+    }
+    throw new Error(status.error);
   }
 
   function loadPlayersInline() {
@@ -794,6 +823,17 @@
     return state.playerKeysBySourceId;
   }
 
+  // getLoadStatus(): JEG-484 read-only load outcome per asset, e.g.
+  // {assets: {detail: {ok, error, attempts}, adjustments: {...}},
+  //  adjustmentsLoaded}. Available before init finishes (and after it fails).
+  function getLoadStatus() {
+    const assets = {};
+    Object.entries(state.loadStatus).forEach(([name, status]) => {
+      assets[name] = { ok: status.ok, error: status.error, attempts: status.attempts };
+    });
+    return { assets, adjustmentsLoaded: !!state.adjustments };
+  }
+
   // getProviderInfo(): debug surface for the chart health panel.
   function getProviderInfo() {
     if (!state.initialized) {
@@ -830,10 +870,12 @@
       throw new Error(`Unknown contract version ${expectedVersion}. Render refused.`);
     }
 
-    // Detail is mandatory (the chart's primary data is here).
+    // Both assets load in parallel. Detail is mandatory (the chart's primary
+    // data is here).
+    const adjustmentsPromise = fetchAsset("adjustments", LEGACY_PATHS.adjustments).catch(() => null);
     let detail;
     try {
-      detail = await fetchJSON(LEGACY_PATHS.detail, FETCH_TIMEOUT_MS);
+      detail = await fetchAsset("detail", LEGACY_PATHS.detail);
     } catch (err) {
       throw new Error(`Data contract fetch failed (${LEGACY_PATHS.detail}): ${err && err.message ? err.message : err}. Render refused.`);
     }
@@ -841,11 +883,13 @@
       throw new Error("Data contract payload is empty. Render refused.");
     }
 
-    // Adjustment inputs are best-effort: contract §5.2 fail-open semantics.
-    // We log a warning when they are absent and continue.
-    const adjustments = await fetchJSON(LEGACY_PATHS.adjustments, FETCH_TIMEOUT_MS).catch(() => null);
+    // Adjustment inputs: the chart still renders without them (contract
+    // §5.2), but only after retries, and the failure is exposed through
+    // getLoadStatus() so the page can say which inputs are missing and why.
+    const adjustments = await adjustmentsPromise;
     if (!adjustments) {
-      console.warn("[product-data] assets/adjustment-inputs.json absent; *_adjusted columns will pause per runRegressionGuards.");
+      const why = state.loadStatus.adjustments && state.loadStatus.adjustments.error;
+      console.warn(`[product-data] ${LEGACY_PATHS.adjustments} failed to load (${why || "empty payload"}); *_adjusted series are missing.`);
     }
 
     state.detail = detail;
@@ -936,6 +980,7 @@
     getPlayerKeysBySourceId,
     getProviderInfo,
     getMissingSources,
+    getLoadStatus,
     // Constants exported so consumers stop redefining them locally.
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,
@@ -972,6 +1017,7 @@
     getPlayerKeysBySourceId,
     getProviderInfo,
     getMissingSources,
+    getLoadStatus,
     handle: () => publicHandle,
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,

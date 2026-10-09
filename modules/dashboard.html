@@ -259,8 +259,8 @@ function sysEvaluate(p, nowMs){
 </section>
 
 <section class="card" id="vorpTranslationCard">
-  <h2><span class="view-tag view-tag-vorp">[VORP]</span> VORP — legacy translation freshness</h2>
-  <div class="desc">This checks legacy Supabase translation provenance and grain freshness, not Option C eight-group readiness. A current legacy grain does not certify the new VORP view. Stale or fallback findings remain visible below. Indexed uses native trade values and does not call this translation.</div>
+  <h2><span class="view-tag">[Indexed]</span> Rank guard — published charts keep their own order</h2>
+  <div class="desc">Indexed is each published chart's native values times one factor (JEG-482), so its order must equal the publisher's. Any pair of players the chart ranks apart that Indexed swaps or ties is an inversion; one inversion turns this red. Machine-readable: rank-guard.json.</div>
   <div id="vorpTranslation"></div>
 </section>
 
@@ -619,8 +619,8 @@ async function main(){
   if(data.scale_agreement && data.scale_agreement.status){
     tally(data.scale_agreement.status);
   }
-  if(data.vorp_translation && data.vorp_translation.status){
-    tally(data.vorp_translation.status);
+  if(data.rank_guard && data.rank_guard.status){
+    tally(data.rank_guard.status);
   }
   if(data.adj_curve_pipeline){
     for(const st of Object.values(data.adj_curve_pipeline)){
@@ -777,23 +777,22 @@ async function main(){
     methHost.innerHTML = `<div style="color:var(--grey)">Methodology consistency data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
   }
 
-  // VORP translation freshness (JEG-70): rendered (not just counted) so a
-  // stale grain or fallback-as-steady-state is visible, following the
-  // methodology_consistency pattern.
+  // Rank guard (JEG-482; replaced the JEG-70 translation freshness card):
+  // every published chart's Indexed order equals its own native order.
   const vorpHost = document.getElementById("vorpTranslation");
-  const vt = data.vorp_translation;
+  const vt = data.rank_guard;
   if(vt && vt.status){
     const dotCls = vt.status === "ok" ? "ok" : vt.status === "warn" ? "warn" : vt.status === "bad" ? "bad" : "unk";
     const reasonCls = vt.status === "bad" ? "bad" : vt.status === "warn" ? "warn" : "";
-    const counts = (vt.n_ok != null && vt.n_expected != null)
-      ? `<div style="margin-top:4px;color:var(--dim)">${vt.n_ok} / ${vt.n_expected} grains at current week via vorp-supabase</div>` : "";
+    const counts = (vt.n_checks != null)
+      ? `<div style="margin-top:4px;color:var(--dim)">${vt.n_checks - (vt.n_failed || 0)} / ${vt.n_checks} chart x combo checks keep the native order (${vt.inversions || 0} inversions)</div>` : "";
     vorpHost.innerHTML = `<div class="cp-grid"><div class="cp">
-      <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${vt.label || "VORP translation freshness"}</span></div>
+      <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${vt.label || "Rank guard"}</span></div>
       <div class="cp-time">${shortTs(vt.timestamp)} (${timeAgo(vt.timestamp)})</div>
       <div class="cp-reason ${reasonCls}">${vt.reason || ""}</div>${counts}
     </div></div>`;
   } else {
-    vorpHost.innerHTML = `<div style="color:var(--grey)">VORP translation data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
+    vorpHost.innerHTML = `<div style="color:var(--grey)">Rank guard data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
   }
 
   // Scale agreement: native vs reindexed vs anchor, per source x position.

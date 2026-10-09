@@ -391,6 +391,32 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id consolidated_values_write --owner rebuild-chain.yml --outcome "${{ steps.consolidate.outcome }}"
 
+      # JEG-479: the engine's and the Python reference's values for the
+      # published build (output/value-check*.json) go to
+      # public.value_check_values / api.player_values / api.value_check_diff.
+      # Non-blocking for Pages like the consolidation write; its outcome is the
+      # monitored check value_check_write, and the comparison's own verdict is
+      # value_check_agree (warn: a disagreement holds sources, it does not stop
+      # the site).
+      - name: Store engine vs reference values (JEG-479)
+        id: valuestore
+        if: steps.chain.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/load_value_check.py --report output/value-check.json
+
+      - name: Record value check checks
+        if: always() && steps.valuestore.outcome != 'skipped' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/record_monitor_check.py --check-id value_check_write --owner rebuild-chain.yml --outcome "${{ steps.valuestore.outcome }}"
+          AGREE=$(python3 -c 'import json; print("success" if json.load(open("output/value-check.json")).get("verdict") == "agree" else "failure")' 2>/dev/null || echo failure)
+          python3 pipelines/record_monitor_check.py --check-id value_check_agree --owner rebuild-chain.yml --outcome "$AGREE"
+
       - name: Publish chain status only (chain failed)
         if: steps.chain.outcome == 'failure'
         run: |
