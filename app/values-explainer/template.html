@@ -1,0 +1,914 @@
+<title>DDF Value Logic</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single reading column for the explanation, widening to full
+   width for tables and charts; a sticky section index; a scoreboard-style
+   status strip under the title. */
+:root {
+  --bg: #f6f7f4;
+  --panel: #ffffff;
+  --ink: #17201b;
+  --ink-2: #4a524c;
+  --ink-3: #737b74;
+  --rule: #dfe3dc;
+  --rule-2: #eceee9;
+  --accent: #0f5a46;
+  --accent-soft: #e2efe9;
+  --warn: #9a5b00;
+  --warn-bg: #fdf1dc;
+  --good: #1f7a3a;
+  --good-bg: #e3f3e7;
+  --bad: #b3261e;
+  --bad-bg: #fbe6e4;
+  --div-neg: #2a78d6;
+  --div-pos: #d03b3b;
+  --div-mid: #f0efec;
+  --s-espn: #17201b;
+  --s-fantasycalc: #2a78d6;
+  --s-usatoday: #eb6834;
+  --s-fantasypros: #1baf7a;
+  --s-cbsros: #eda100;
+  --s-cbs: #e87ba4;
+  --s-razzball: #008300;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111513; --panel: #181d1a; --ink: #e9ede8; --ink-2: #b8c0b9; --ink-3: #8b948d;
+    --rule: #2c332e; --rule-2: #222824; --accent: #6fcfac; --accent-soft: #1d3129;
+    --warn: #f1b44c; --warn-bg: #3a2c12; --good: #6cd48a; --good-bg: #17301f; --bad: #f08a80; --bad-bg: #3b1d1a;
+    --div-neg: #3987e5; --div-pos: #e66767; --div-mid: #383835;
+    --s-espn: #e9ede8; --s-fantasycalc: #3987e5; --s-usatoday: #d95926; --s-fantasypros: #199e70;
+    --s-cbsros: #c98500; --s-cbs: #d55181; --s-razzball: #2fa52f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111513; --panel: #181d1a; --ink: #e9ede8; --ink-2: #b8c0b9; --ink-3: #8b948d;
+  --rule: #2c332e; --rule-2: #222824; --accent: #6fcfac; --accent-soft: #1d3129;
+  --warn: #f1b44c; --warn-bg: #3a2c12; --good: #6cd48a; --good-bg: #17301f; --bad: #f08a80; --bad-bg: #3b1d1a;
+  --div-neg: #3987e5; --div-pos: #e66767; --div-mid: #383835;
+  --s-espn: #e9ede8; --s-fantasycalc: #3987e5; --s-usatoday: #d95926; --s-fantasypros: #199e70;
+  --s-cbsros: #c98500; --s-cbs: #d55181; --s-razzball: #2fa52f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 80px; }
+@media (max-width: 520px) { .wrap { padding-inline: 16px; } body { font-size: 15px; } }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: 0.005em; }
+h1 { font-size: clamp(2rem, 4.5vw, 2.9rem); font-weight: 700; line-height: 1.02; }
+h2 { font-size: 1.65rem; font-weight: 700; line-height: 1.1; }
+h3 { font-size: 1.2rem; font-weight: 600; line-height: 1.2; }
+p { margin: 0; max-width: 70ch; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.eyebrow { font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.78rem; color: var(--ink-3); }
+.muted { color: var(--ink-2); }
+.small { font-size: 0.88rem; }
+.num { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.85rem; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: grid; gap: 14px; padding-bottom: 18px; border-bottom: 2px solid var(--ink); }
+.top .lede { font-size: 1.08rem; color: var(--ink-2); }
+.strip { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; font-size: 0.9rem; color: var(--ink-2); }
+.strip b { color: var(--ink); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--rule); background: var(--panel); border-radius: 999px; padding: 2px 10px 2px 8px; font-size: 0.82rem; white-space: nowrap; }
+.swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; flex: none; }
+.banner { border: 1px solid var(--warn); background: var(--warn-bg); color: var(--ink); border-radius: 6px; padding: 10px 14px; font-size: 0.92rem; }
+.banner b { color: var(--warn); }
+
+nav.index { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--rule); margin-inline: -20px; padding: 8px 20px; display: flex; gap: 4px 16px; flex-wrap: wrap; font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; }
+@media (max-width: 520px) { nav.index { margin-inline: -16px; padding-inline: 16px; overflow-x: auto; flex-wrap: nowrap; } }
+nav.index a { color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+nav.index a:hover { color: var(--accent); }
+
+section.sec { display: grid; gap: 16px; padding-top: 40px; scroll-margin-top: 48px; }
+section.sec > header { display: grid; gap: 6px; }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; min-width: 0; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.grid2 > * { min-width: 0; }
+@media (max-width: 400px) { .grid2 { grid-template-columns: 1fr; } }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+thead th { font-family: var(--font-display); font-weight: 600; font-size: 0.86rem; letter-spacing: 0.03em; color: var(--ink-2); background: var(--panel); position: sticky; top: 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+td.r, th.r { text-align: right; }
+tbody tr:hover td { background: var(--rule-2); }
+tr.anchor td { font-weight: 600; }
+tr.groupline td { background: var(--bg); font-family: var(--font-display); font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.07em; font-size: 0.76rem; padding-block: 5px; }
+.serieslabel { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+
+.pill { display: inline-block; border-radius: 999px; padding: 0 8px; font-size: 0.76rem; font-weight: 600; line-height: 1.6; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+.pill.none { background: var(--rule-2); color: var(--ink-3); }
+
+.map td { min-width: 128px; font-size: 0.86rem; }
+.map td:first-child { min-width: 170px; }
+.map .fam { font-family: var(--font-display); font-weight: 700; font-size: 1.02rem; }
+.map .who { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--panel); }
+.seg button { font: inherit; font-size: 0.86rem; border: 0; background: transparent; color: var(--ink-2); padding: 5px 11px; cursor: pointer; border-right: 1px solid var(--rule); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.toggle { font: inherit; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink-2); border-radius: 999px; padding: 2px 10px 2px 8px; cursor: pointer; }
+.toggle[aria-pressed="false"] { opacity: 0.45; }
+.toggle[aria-pressed="false"] .swatch { background: var(--ink-3) !important; }
+label.ctl { display: inline-flex; gap: 8px; align-items: center; font-size: 0.88rem; color: var(--ink-2); }
+select, input[type="search"] { font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 8px; }
+
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--ink-3); font-family: var(--font-body); font-size: 11px; }
+.chart .gridline { stroke: var(--rule-2); stroke-width: 1; }
+.chart .axis { stroke: var(--rule); }
+.chart .zone { stroke: var(--ink-3); stroke-dasharray: 3 4; stroke-width: 1; }
+.chart .zonelabel { fill: var(--ink-3); font-size: 10.5px; }
+.chart .cross { stroke: var(--ink-3); stroke-width: 1; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.12); padding: 8px 10px; font-size: 0.8rem; min-width: 200px; z-index: 3; }
+.tip .row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.tip .row span:first-child { display: inline-flex; gap: 6px; align-items: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cards { display: grid; gap: 14px; }
+.srcnav { display: flex; flex-wrap: wrap; gap: 6px; }
+.srcnav button { font: inherit; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.srcnav button[aria-selected="true"] { border-color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+.recipe { counter-reset: step; display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.recipe li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.recipe li::before { counter-increment: step; content: counter(step); font-family: var(--font-display); font-weight: 700; font-size: 0.95rem; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--ink); display: grid; place-items: center; line-height: 1; }
+.recipe li > div { min-width: 0; display: grid; gap: 6px; }
+.formula { font-family: var(--font-mono); font-size: 0.84rem; background: var(--bg); border: 1px solid var(--rule-2); border-radius: 6px; padding: 6px 10px; overflow-x: auto; white-space: pre; }
+.codepath { font-family: var(--font-mono); font-size: 0.76rem; color: var(--ink-3); }
+
+.trace { display: grid; gap: 12px; }
+.trace .steps { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 0.86rem; }
+.trace .step { display: inline-grid; gap: 0; border: 1px solid var(--rule); border-radius: 6px; padding: 3px 8px; background: var(--bg); }
+.trace .step .k { font-size: 0.72rem; color: var(--ink-3); }
+.trace .step .v { font-family: var(--font-mono); font-size: 0.84rem; }
+.trace .step.final { border-color: var(--ink); background: var(--panel); }
+.trace .op { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.85rem; }
+
+.obs { display: grid; gap: 10px; }
+.obs .item { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: start; padding: 12px 14px; background: var(--panel); border: 1px solid var(--rule); border-left-width: 4px; border-radius: 6px; }
+.obs .item.check { border-left-color: var(--warn); }
+.obs .item.info { border-left-color: var(--accent); }
+.obs .item > div { min-width: 0; display: grid; gap: 4px; }
+.mr { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 18px; font-size: 0.9rem; }
+.mr span.id { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-3); margin-right: 6px; }
+
+details.fold { border-top: 1px solid var(--rule); padding-top: 10px; }
+details.fold summary { cursor: pointer; font-family: var(--font-display); font-weight: 600; color: var(--ink-2); }
+footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 16px; display: grid; gap: 10px; font-size: 0.88rem; color: var(--ink-2); }
+@media (prefers-reduced-motion: no-preference) { .seg button, .toggle, .srcnav button { transition: background-color .12s, opacity .12s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Data Driven Football · internal</div>
+    <h1>DDF Value Logic</h1>
+    <p class="lede">How each source turns into a value on the trade chart, with the chart engine's own numbers. Read it to decide whether you agree with each step, and use the checks and the list at the bottom to spot what looks wrong.</p>
+    <div class="strip" id="strip"></div>
+    <div class="chips" id="weeks"></div>
+    <div id="reviewBanner" hidden></div>
+  </header>
+
+  <nav class="index" aria-label="Sections">
+    <a href="#map">The map</a>
+    <a href="#checks">Checks</a>
+    <a href="#curves">Curves</a>
+    <a href="#pie">Pie split</a>
+    <a href="#sources">Source by source</a>
+    <a href="#trace">Trace a player</a>
+    <a href="#compare">Compare players</a>
+    <a href="#settings">League settings</a>
+    <a href="#look">Things to look at</a>
+  </nav>
+
+  <section class="sec" id="map">
+    <header>
+      <div class="eyebrow">1 · The map</div>
+      <h2>Four families of series, three views</h2>
+      <p class="muted">Every series is measured against one anchor: the ESPN two-tier leg (our model run on ESPN's per-game projections). The views change only the published charts; the other series look the same in all three views.</p>
+    </header>
+    <div class="tablewrap"><table class="map" id="mapTable"></table></div>
+  </section>
+
+  <section class="sec" id="checks">
+    <header>
+      <div class="eyebrow">2 · Checks</div>
+      <h2>Totals and starting points against the anchor</h2>
+      <p class="muted">Each total is taken over the players that series and the ESPN anchor both price (QB/RB/WR/TE). A ratio of 1.00 means the series spends the same pie as the anchor. Only the gated rows block a deploy.</p>
+    </header>
+    <div class="tablewrap"><table id="totalsTable"></table></div>
+    <h3>Where each position's curve starts (Indexed view)</h3>
+    <p class="muted small">The top value at each position. Published charts are pinned to fixed starting points; projection series start wherever their own projections put them.</p>
+    <div class="tablewrap"><table id="startsTable"></table></div>
+  </section>
+
+  <section class="sec" id="curves">
+    <header>
+      <div class="eyebrow">3 · Curves</div>
+      <h2>Value by positional rank</h2>
+      <p class="muted">Each line is one series sorted by its own values, so you see its shape, not its player order. Dashed lines mark the anchor's starter and bench cut-offs at this position.</p>
+    </header>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="curveView"></div>
+      <div class="seg" role="group" aria-label="Position" id="curvePos"></div>
+      <div class="seg" role="group" aria-label="Series preset" id="curvePreset"></div>
+    </div>
+    <div class="chips" id="curveToggles"></div>
+    <div class="panel"><div class="chart" id="curveChart"></div></div>
+  </section>
+
+  <section class="sec" id="pie">
+    <header>
+      <div class="eyebrow">4 · Pie split</div>
+      <h2>How each series divides its value</h2>
+      <p class="muted">Share of each series' total that goes to each position, split starter and bench by the ESPN tier. Cells are tinted by the gap to the anchor's share: blue where the series gives less than the anchor, red where it gives more.</p>
+    </header>
+    <div class="controls"><div class="seg" role="group" aria-label="View" id="pieView"></div></div>
+    <div class="tablewrap"><table id="pieTable"></table></div>
+  </section>
+
+  <section class="sec" id="sources">
+    <header>
+      <div class="eyebrow">5 · Source by source</div>
+      <h2>The recipe for each source, with its numbers</h2>
+    </header>
+    <div class="srcnav" role="tablist" id="srcNav"></div>
+    <div id="srcBody" class="cards"></div>
+  </section>
+
+  <section class="sec" id="trace">
+    <header>
+      <div class="eyebrow">6 · Trace a player</div>
+      <h2>One player through every source</h2>
+      <p class="muted">The arithmetic for one player, step by step, ending at the value the chart shows in each view.</p>
+    </header>
+    <div class="controls">
+      <label class="ctl" for="playerSearch">Player <input type="search" id="playerSearch" list="playerList" placeholder="Type a name" autocomplete="off"></label>
+      <datalist id="playerList"></datalist>
+      <div class="chips" id="playerQuick"></div>
+    </div>
+    <div id="traceBody" class="trace"></div>
+  </section>
+
+  <section class="sec" id="compare">
+    <header>
+      <div class="eyebrow">7 · Compare players</div>
+      <h2>Top players across every series</h2>
+      <p class="muted">Ranked by DDF Value. Each cell is tinted against that row's median: red above, blue below. Spread is the highest minus the lowest published chart.</p>
+    </header>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="cmpView"></div>
+      <div class="seg" role="group" aria-label="Position" id="cmpPos"></div>
+    </div>
+    <div class="tablewrap" style="max-height: 640px"><table id="cmpTable"></table></div>
+  </section>
+
+  <section class="sec" id="settings">
+    <header>
+      <div class="eyebrow">8 · League settings</div>
+      <h2>What moves when the league changes</h2>
+      <p class="muted">Top value per position in the Indexed view at other team counts and scorings (standard roster). Published charts are saved once per scoring at 12 teams; every other team count is derived in the browser.</p>
+    </header>
+    <div class="controls"><div class="seg" role="group" aria-label="Position" id="setPos"></div></div>
+    <div class="tablewrap"><table id="setTable"></table></div>
+  </section>
+
+  <section class="sec" id="look">
+    <header>
+      <div class="eyebrow">9 · Things to look at</div>
+      <h2>Measured from this build</h2>
+      <p class="muted">Each item is computed from the numbers above on every rebuild, so the list changes when the data or the logic does. Amber items are places where the logic may not do what you intend; green-edged items are context.</p>
+    </header>
+    <div class="obs" id="obsList"></div>
+    <h3>Open questions in the math review</h3>
+    <div class="mr" id="mrList"></div>
+  </section>
+
+  <footer class="prov" id="prov"></footer>
+</div>
+
+<script>
+const D = /*__VALUES_DATA__*/null;
+(function () {
+"use strict";
+const POS = ["QB", "RB", "WR", "TE"];
+const VIEWS = [["indexed", "Indexed"], ["vorp", "VORP vs waivers"], ["adj", "Adjusted values"]];
+const VIEW_NAME = Object.fromEntries(VIEWS);
+const PUB = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+const PROJ = ["espn", "cbsros", "razzball"];
+const ADJ = PUB.map(k => k + "_adjusted");
+const RAWV = PROJ.map(k => k + "_vorp");
+const NAME = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS",
+  espn: "ESPN", cbsros: "CBS rest of season", razzball: "Razzball"};
+const baseOf = k => k.replace(/_(adjusted|vorp)$/, "");
+const nameOf = k => {
+  const b = NAME[baseOf(k)] || k;
+  if (k.endsWith("_adjusted")) return b + " adjusted";
+  if (k.endsWith("_vorp")) return b + " raw VORP";
+  return k === "espn" ? "ESPN (anchor)" : b;
+};
+const colorOf = k => `var(--s-${baseOf(k)})`;
+const dashOf = k => k.endsWith("_adjusted") ? "7 4" : k.endsWith("_vorp") ? "2 3" : "";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = (x, d = 1) => (x === null || x === undefined || !isFinite(x)) ? "—" : Number(x).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
+const fmtN = x => (x === null || x === undefined || !isFinite(x)) ? "—" : Number(x).toLocaleString("en-US", {maximumFractionDigits: Math.abs(x) >= 100 ? 0 : 2});
+const pct = (x, d = 1) => isFinite(x) ? (x * 100).toFixed(d) + "%" : "—";
+const sw = k => `<span class="swatch" style="background:${colorOf(k)}${dashOf(k) ? `;background:repeating-linear-gradient(90deg, ${colorOf(k)} 0 5px, transparent 5px 8px)` : ""}"></span>`;
+const label = k => `<span class="serieslabel">${sw(k)}${esc(nameOf(k))}</span>`;
+const P = D.players;
+const V = D.views;
+const store = {get(k, d) { try { return localStorage.getItem("ddfvl:" + k) ?? d; } catch (e) { return d; } },
+               set(k, v) { try { localStorage.setItem("ddfvl:" + k, v); } catch (e) {} }};
+const weekOf = {};
+(D.info || []).forEach(s => { weekOf[s.key] = s.week; });
+const S = D.setting;
+const R = D.setting.roster;
+const SCORING = {ppr: "Full PPR", half_ppr: "Half PPR", standard: "Standard"};
+const OUR_MAX = D.published.cbs?.ourMax || {QB: 25, RB: 70, WR: 55, TE: 30};
+const segmented = (host, options, current, onPick) => {
+  host.innerHTML = options.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${v === current}">${esc(l)}</button>`).join("");
+  host.addEventListener("click", e => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    host.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    onPick(b.dataset.v);
+  });
+};
+const posKeys = pos => Object.keys(P).filter(k => P[k].p === pos);
+const totalsOver = (map, keys) => keys.reduce((s, k) => s + (isFinite(map?.[k]) ? Math.max(0, map[k]) : 0), 0);
+const median = a => { const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : NaN; };
+const softplus = z => z > 30 ? z : Math.log1p(Math.exp(z));
+
+/* ---------- header ---------- */
+(function header() {
+  const m = D.meta;
+  const rosterTxt = `QB ${R.QB} · RB ${R.RB} · WR ${R.WR} · TE ${R.TE} · Flex ${R.FLEX} · Bench ${R.BENCH}`;
+  $("strip").innerHTML = [
+    `<span><b>${S.teams} teams</b> · ${SCORING[S.scoring] || S.scoring} · ${rosterTxt}</span>`,
+    `<span>Bench share <b>${pct(S.benchShare, 0)}</b></span>`,
+    `<span>Commit <b class="mono">${esc(m.commit)}</b> · build <span class="mono">${esc(m.build_tag || "—")}</span></span>`,
+    `<span>Generated <b>${esc(new Date(m.generated_at).toLocaleString("en-US", {dateStyle: "medium", timeStyle: "short"}))}</b></span>`
+  ].join("");
+  $("weeks").innerHTML = ["usatoday", "fantasycalc", "fantasypros", "cbs", "espn", "cbsros", "razzball"].map(k => {
+    const s = (D.info || []).find(x => x.key === k) || {};
+    const wk = s.week ? `Week ${s.week}` : "projections";
+    return `<span class="chip">${sw(k)}${esc(NAME[k])} <span class="muted">${wk}${s.stale ? " · stale" : ""}${s.waiverNote ? " · waiver line extrapolated" : ""}</span></span>`;
+  }).join("");
+  if (m.logic_changed && m.logic_changed.length) {
+    const b = $("reviewBanner");
+    b.hidden = false;
+    b.className = "banner";
+    const when = m.reviewed?.reviewed_at ? ` (last reviewed ${esc(m.reviewed.reviewed_at)} at commit <span class="mono">${esc(m.reviewed.commit || "?")}</span>)` : "";
+    b.innerHTML = `<b>Logic changed since this explanation was reviewed${when}.</b> The numbers are current; the written explanation may lag in: ${m.logic_changed.map(f => `<span class="mono">${esc(f)}</span>`).join(", ")}.`;
+  }
+})();
+
+/* ---------- 1 map ---------- */
+(function map() {
+  const fc = D.published.fantasycalc?.positions || {};
+  const ex = D.published.fantasycalc;
+  const tt = D.twoTier.espn?.positions || {};
+  const rows = [
+    {fam: "Published trade charts", who: PUB, cells: [
+      "The publisher's own trade values, in its own units (FantasyCalc runs to about 10,000; the article charts to about 75). Saved once per scoring at 12 teams.",
+      `Waiver line = the chart's value at rank <i>rostered + 1</i> at each position, using a ${S.teams}-team roster with flex and bench filled by the chart's own values. Short charts extend their list from the other three charts. Example: FantasyCalc RB line ${fmtN(fc.RB?.waiver_line_value)} at rank ${(fc.RB?.n_rostered ?? 0) + 1}.`,
+      `Value above waivers scaled so each position's top player sits at a fixed start: QB ${OUR_MAX.QB} · RB ${OUR_MAX.RB} · WR ${OUR_MAX.WR} · TE ${OUR_MAX.TE}. No total factor.`,
+      "At the saved setup: the pipeline's saved view (published value × our group total ÷ the chart's group total). Elsewhere, and for CBS always: value above waivers × one factor so the chart's total equals the anchor's.",
+      "Value above waivers shared out inside 8 groups (position × starter/bench) by the anchor's group totals, then one factor puts the top player across all charts at 70.",
+      "Indexed: no level match. VORP vs waivers and Adjusted: matched to the anchor total."
+    ]},
+    {fam: "Projections, two-tier model", who: PROJ, cells: [
+      "Per-game projections for the rest of the season, rescored for the scoring setting. ESPN is the anchor; CBS rest of season and Razzball run the same model on their own projections.",
+      `Waiver line = the best projection left after starters, flex and a fixed bench mix (QB ${D.twoTier.espn?.benchMix?.QB} · RB ${D.twoTier.espn?.benchMix?.RB} · WR ${D.twoTier.espn?.benchMix?.WR} · TE ${D.twoTier.espn?.benchMix?.TE}). Each position's pie = its total points above that line (ESPN RB ${fmt(tt.RB?.surplus)}).`,
+      `Two prices per position, one for bench-level points and one for starter-level points, solved so bench players get ${pct(S.benchShare, 0)} of the pie; a soft glide joins them. Then one multiplier puts the top player at 70.`,
+      "Same as Indexed.",
+      "Same as Indexed.",
+      "ESPN is the anchor. CBS rest of season and Razzball: one factor matches their total to ESPN's on shared players."
+    ]},
+    {fam: "Raw VORP vs waivers", who: RAWV, cells: [
+      "The same per-game projections as above.",
+      "Waiver line = the best projection not rostered by a separate role model (dedicated starters, flex, then bench chosen by points above each position's last dedicated starter).",
+      "Points per game above that line, no starter or bench pricing. One factor matches the total to the anchor's.",
+      "Same as Indexed.", "Same as Indexed.",
+      "One factor to the anchor's total on shared players."
+    ]},
+    {fam: "Bias-adjusted charts", who: ADJ, cells: [
+      "The published chart's Indexed value.",
+      "None of its own: it inherits the published chart's translation.",
+      "A straight-line fit per position × starter/bench (adjusted = α + β × published), fitted to the ESPN leg on the same players. Then each position's top is pinned to the anchor's top, then one factor matches the total.",
+      "Same as Indexed.", "Same as Indexed.",
+      "Peak pin per position, then the total."
+    ]},
+    {fam: "DDF Value", who: [], cells: [
+      `The mean of the series in use: ${(D.composite?.inputs || []).map(nameOf).join(", ")}.`,
+      "None of its own.",
+      "Equal-weight mean of the inputs that price the player. A missing input is left out, never counted as 0.",
+      "Not shown in this view.", "Not shown in this view.",
+      "Inherits its inputs' scale."
+    ]}
+  ];
+  const head = ["Family", "Input", "Value above waivers", "Indexed (the default view)", "VORP vs waivers view", "Adjusted values view", "Level matched to the anchor by"];
+  $("mapTable").innerHTML = `<thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr><td><div class="fam">${r.fam}</div><div class="who">${r.who.map(k => `<span class="chip">${sw(k)}${esc(nameOf(k).replace(" adjusted", "").replace(" raw VORP", ""))}</span>`).join("")}</div></td>${r.cells.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>`;
+})();
+
+/* ---------- 2 checks ---------- */
+const ALL_SERIES = [...PUB, ...PROJ, ...ADJ, ...RAWV];
+const GROUPS = [["Published trade charts", PUB], ["Projections", PROJ], ["Bias-adjusted charts", ADJ], ["Raw VORP vs waivers", RAWV]];
+(function checks() {
+  const vi = D.viewInvariants;
+  const cell = (v, k) => {
+    const s = vi?.indexed?.[v]?.sources?.[k];
+    if (k === "espn") return `<td class="r"><span class="pill info">anchor</span></td>`;
+    if (!s) return `<td class="r"><span class="pill none">same as Indexed</span></td>`;
+    const off = Math.abs(s.ratio - 1);
+    const cls = s.holds ? "good" : off < 0.05 ? "warn" : "bad";
+    return `<td class="r"><span class="num">×${s.ratio.toFixed(2)}</span> <span class="pill ${cls}">${s.holds ? "matches" : (s.gated ? "fails gate" : "not gated")}</span><div class="muted small num">${fmt(s.total, 0)} vs ${fmt(s.target, 0)} · ${s.shared} players</div></td>`;
+  };
+  const rows = GROUPS.map(([g, keys]) => `<tr class="groupline"><td colspan="4">${g}</td></tr>` + keys.map(k => {
+    const changes = PUB.includes(k);
+    return `<tr class="${k === "espn" ? "anchor" : ""}"><td>${label(k)}</td>${cell("indexed", k)}${changes ? cell("vorp", k) : `<td class="r"><span class="pill none">same as Indexed</span></td>`}${changes ? cell("adj", k) : `<td class="r"><span class="pill none">same as Indexed</span></td>`}</tr>`;
+  }).join("")).join("");
+  $("totalsTable").innerHTML = `<thead><tr><th>Series</th>${VIEWS.map(([, l]) => `<th class="r">${l}</th>`).join("")}</tr></thead><tbody>${rows}</tbody>`;
+
+  const tops = k => {
+    const out = {};
+    POS.forEach(pos => { out[pos] = Math.max(0, ...posKeys(pos).map(p => V.indexed[k]?.[p]).filter(isFinite)); });
+    return out;
+  };
+  const at = tops("espn");
+  const rowsS = [`<tr class="anchor"><td>${label("espn")}</td>${POS.map(p => `<td class="r num">${fmt(at[p])}</td>`).join("")}<td class="muted small">the anchor</td></tr>`,
+    `<tr><td><span class="serieslabel"><span class="swatch" style="background:var(--ink-3)"></span>Fixed start for published charts</span></td>${POS.map(p => `<td class="r num">${fmt(OUR_MAX[p])}${Math.abs(OUR_MAX[p] - at[p]) >= 2 ? ` <span class="pill warn">${OUR_MAX[p] > at[p] ? "+" : ""}${fmt(OUR_MAX[p] - at[p])}</span>` : ""}</td>`).join("")}<td class="muted small">pill = gap to the anchor's own top</td></tr>`,
+    ...[...PUB, "cbsros", "razzball", ...ADJ, ...RAWV].map(k => {
+      const t = tops(k);
+      return `<tr><td>${label(k)}</td>${POS.map(p => `<td class="r num">${fmt(t[p])}</td>`).join("")}<td class="muted small">${PUB.includes(k) ? "pinned" : ADJ.includes(k) ? "pinned to the anchor's top" : "own projections × one factor"}</td></tr>`;
+    })];
+  $("startsTable").innerHTML = `<thead><tr><th>Series</th>${POS.map(p => `<th class="r">${p}</th>`).join("")}<th>How it is set</th></tr></thead><tbody>${rowsS.join("")}</tbody>`;
+})();
+
+/* ---------- 3 curves ---------- */
+(function curves() {
+  const PRESETS = {pub: ["espn", ...PUB], proj: [...PROJ, ...RAWV], adj: ["espn", ...ADJ], all: ALL_SERIES};
+  let view = store.get("cv", "indexed"), pos = store.get("cp", "RB");
+  let on = new Set(PRESETS[store.get("cs", "pub")] || PRESETS.pub);
+  const host = $("curveChart");
+  segmented($("curveView"), VIEWS, view, v => { view = v; store.set("cv", v); draw(); });
+  segmented($("curvePos"), POS.map(p => [p, p]), pos, v => { pos = v; store.set("cp", v); draw(); });
+  segmented($("curvePreset"), [["pub", "Published vs anchor"], ["proj", "Projections"], ["adj", "Bias-adjusted"], ["all", "Everything"]], store.get("cs", "pub"), v => {
+    store.set("cs", v); on = new Set(PRESETS[v]); toggles(); draw();
+  });
+  function toggles() {
+    $("curveToggles").innerHTML = ALL_SERIES.map(k => `<button type="button" class="toggle" data-k="${k}" aria-pressed="${on.has(k)}">${sw(k)}${esc(nameOf(k))}</button>`).join("");
+  }
+  $("curveToggles").addEventListener("click", e => {
+    const b = e.target.closest("button[data-k]"); if (!b) return;
+    const k = b.dataset.k; on.has(k) ? on.delete(k) : on.add(k);
+    b.setAttribute("aria-pressed", String(on.has(k))); draw();
+  });
+  toggles();
+  function draw() {
+    const keys = posKeys(pos);
+    const series = ALL_SERIES.filter(k => on.has(k)).map(k => {
+      const m = V[view]?.[k] || {};
+      const pts = keys.filter(p => isFinite(m[p]) && m[p] > 0).map(p => ({p, v: m[p]})).sort((a, b) => b.v - a.v);
+      return {k, pts};
+    }).filter(s => s.pts.length);
+    const espnCounts = D.twoTier.espn?.counts?.[pos];
+    const n = Math.max(10, ...series.map(s => s.pts.length));
+    const W = 1000, H = 420, L = 44, Rr = 150, T = 14, B = 34;
+    const ymax = Math.max(10, ...series.map(s => s.pts[0]?.v || 0));
+    const ystep = ymax > 60 ? 10 : ymax > 25 ? 5 : 2;
+    const yTop = Math.ceil(ymax / ystep) * ystep;
+    const x = i => L + (i / Math.max(1, n - 1)) * (W - L - Rr);
+    const y = v => T + (1 - v / yTop) * (H - T - B);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(pos)} curves, ${esc(VIEW_NAME[view])}">`;
+    for (let v = 0; v <= yTop + 1e-9; v += ystep) svg += `<line class="gridline" x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    const xt = n > 60 ? 20 : n > 25 ? 10 : 5;
+    for (let i = 0; i < n; i += xt) svg += `<text x="${x(i)}" y="${H - B + 16}" text-anchor="middle">${i + 1}</text>`;
+    svg += `<text x="${(L + W - Rr) / 2}" y="${H - 2}" text-anchor="middle">rank at ${pos}</text>`;
+    if (espnCounts) {
+      [[espnCounts.starters, "starters"], [espnCounts.starters + espnCounts.bench, "rostered"]].forEach(([c, lab]) => {
+        if (c > 0 && c < n) svg += `<line class="zone" x1="${x(c - 0.5)}" x2="${x(c - 0.5)}" y1="${T}" y2="${H - B}"/><text class="zonelabel" x="${x(c - 0.5) + 4}" y="${T + 10}">${lab} ${c}</text>`;
+      });
+    }
+    const ends = [];
+    series.forEach(s => {
+      const d = s.pts.map((pt, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(pt.v).toFixed(1)}`).join("");
+      svg += `<path d="${d}" fill="none" style="stroke:${colorOf(s.k)}" stroke-width="${s.k === "espn" ? 2.6 : 2}" stroke-dasharray="${dashOf(s.k)}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      ends.push({k: s.k, y: y(s.pts[0].v), v: s.pts[0].v});
+    });
+    // direct labels at the start (top value), de-overlapped, right-hand gutter
+    ends.sort((a, b) => a.y - b.y);
+    let last = -1e9;
+    ends.forEach(e => { e.ly = Math.max(e.y, last + 13); last = e.ly; });
+    if (series.length <= 8) ends.forEach(e => {
+      svg += `<text x="${W - Rr + 8}" y="${e.ly + 4}" style="fill:var(--ink-2)">${esc(nameOf(e.k).replace(" (anchor)", ""))} ${fmt(e.v)}</text>`;
+    });
+    svg += `<text x="${W - Rr + 8}" y="${H - B}" style="fill:var(--ink-3)">${series.length > 8 ? "top values in tooltip" : "label = top value"}</text>`;
+    svg += `<line class="cross" id="cx" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"/>`;
+    svg += `<rect x="${L}" y="${T}" width="${W - L - Rr}" height="${H - T - B}" fill="transparent" id="hit"/></svg>`;
+    host.innerHTML = svg + `<div class="tip" id="ctip" hidden></div>`;
+    const svgEl = host.querySelector("svg"), tip = host.querySelector("#ctip"), cx = host.querySelector("#cx");
+    host.querySelector("#hit").addEventListener("mousemove", ev => {
+      const r = svgEl.getBoundingClientRect();
+      const sx = (ev.clientX - r.left) / r.width * W;
+      const i = Math.max(0, Math.min(n - 1, Math.round((sx - L) / (W - L - Rr) * (n - 1))));
+      cx.setAttribute("x1", x(i)); cx.setAttribute("x2", x(i)); cx.setAttribute("visibility", "visible");
+      const rows = series.map(s => ({k: s.k, pt: s.pts[i]})).filter(r => r.pt).sort((a, b) => b.pt.v - a.pt.v);
+      tip.innerHTML = `<div class="eyebrow">${pos}${i + 1}</div>` + rows.map(r => `<div class="row"><span>${sw(r.k)}${esc(P[r.pt.p]?.n)}</span><span class="num">${fmt(r.pt.v)}</span></div>`).join("");
+      tip.hidden = false;
+      const px = (x(i) / W) * r.width;
+      tip.style.left = Math.min(r.width - 240, px + 14) + "px";
+      tip.style.top = "10px";
+    });
+    host.querySelector("#hit").addEventListener("mouseleave", () => { tip.hidden = true; cx.setAttribute("visibility", "hidden"); });
+  }
+  draw();
+})();
+
+/* ---------- 4 pie split ---------- */
+(function pie() {
+  let view = "indexed";
+  segmented($("pieView"), VIEWS, view, v => { view = v; draw(); });
+  const role = k => P[k]?.r === "starter" ? "starter" : P[k]?.r === "bench" ? "bench" : "waiver";
+  const cols = [];
+  POS.forEach(p => { cols.push([p, "starter"]); cols.push([p, "bench"]); });
+  cols.push(["ALL", "waiver"]);
+  function shares(k) {
+    const m = V[view]?.[k] || {};
+    const anchor = V.indexed.espn || {};
+    const keys = Object.keys(m).filter(p => isFinite(anchor[p]) && POS.includes(P[p]?.p));
+    const tot = totalsOver(m, keys);
+    const out = {};
+    cols.forEach(([p, r]) => {
+      const ks = keys.filter(x => (p === "ALL" || P[x].p === p) && role(x) === r);
+      out[p + r] = tot > 0 ? totalsOver(m, ks) / tot : NaN;
+    });
+    return {out, tot, n: keys.length};
+  }
+  function tint(diff) {
+    if (!isFinite(diff)) return "";
+    const a = Math.min(1, Math.abs(diff) / 0.08);
+    const c = diff > 0 ? "var(--div-pos)" : "var(--div-neg)";
+    return `background: color-mix(in srgb, ${c} ${Math.round(a * 45)}%, transparent)`;
+  }
+  function draw() {
+    const a = shares("espn");
+    const rows = GROUPS.map(([g, keys]) => `<tr class="groupline"><td colspan="${cols.length + 2}">${g}</td></tr>` + keys.map(k => {
+      const s = k === "espn" ? a : shares(k);
+      return `<tr class="${k === "espn" ? "anchor" : ""}"><td>${label(k)}</td>${cols.map(([p, r]) => {
+        const v = s.out[p + r], d = k === "espn" ? NaN : v - a.out[p + r];
+        return `<td class="r num" style="${tint(d)}" title="${isFinite(d) ? (d > 0 ? "+" : "") + (d * 100).toFixed(1) + " points vs anchor" : ""}">${pct(v)}</td>`;
+      }).join("")}<td class="r num">${fmt(s.tot, 0)}</td></tr>`;
+    }).join("")).join("");
+    $("pieTable").innerHTML = `<thead><tr><th>Series</th>${cols.map(([p, r]) => `<th class="r">${p === "ALL" ? "Waiver tier" : `${p} ${r === "starter" ? "start" : "bench"}`}</th>`).join("")}<th class="r">Total</th></tr></thead><tbody>${rows}</tbody>`;
+  }
+  draw();
+})();
+
+/* ---------- 5 sources ---------- */
+(function sources() {
+  const list = [...PUB, ...PROJ, "adjusted", "rawvorp", "ddf"];
+  const nav = $("srcNav");
+  let cur = store.get("src", "fantasycalc");
+  if (!list.includes(cur)) cur = "fantasycalc";
+  const tabLabel = k => k === "adjusted" ? "Bias-adjusted charts" : k === "rawvorp" ? "Raw VORP vs waivers" : k === "ddf" ? "DDF Value" : nameOf(k);
+  nav.innerHTML = list.map(k => `<button type="button" role="tab" data-k="${k}" aria-selected="${k === cur}">${["adjusted", "rawvorp", "ddf"].includes(k) ? "" : sw(k)}${esc(tabLabel(k))}</button>`).join("");
+  nav.addEventListener("click", e => {
+    const b = e.target.closest("button[data-k]"); if (!b) return;
+    cur = b.dataset.k; store.set("src", cur);
+    nav.querySelectorAll("button").forEach(x => x.setAttribute("aria-selected", String(x === b)));
+    render();
+  });
+  const methodPill = m => m === "roster_determined" ? `<span class="pill good">from the chart</span>` : m === "imputed_from_other_charts" ? `<span class="pill warn">extended from other charts</span>` : `<span class="pill bad">${esc(m)}</span>`;
+  function published(k) {
+    const pb = D.published[k];
+    const pos = pb.positions || {};
+    const modes = pb.modes;
+    const rows = POS.map(p => {
+      const x = pos[p] || {};
+      return `<tr><td>${p}</td><td class="r num">${x.n_listed ?? "—"}</td><td class="r num">${x.n_dedicated ?? "—"} + ${x.n_flex ?? 0} + ${x.n_bench ?? 0} = ${x.n_rostered ?? "—"}</td><td class="r num">${fmtN(x.waiver_line_value)}</td><td>${methodPill(x.waiver_method)}${x.n_imputed ? ` <span class="muted small">${x.n_imputed} past the list</span>` : ""}</td><td class="r num">${fmtN(x.max_vorp)}</td><td class="r num" style="white-space:nowrap">${OUR_MAX[p]} ÷ ${fmtN(x.max_vorp)} = ${x.max_vorp > 0 ? Number((OUR_MAX[p] / x.max_vorp).toPrecision(3)) : "—"}</td><td class="r num">${pct(x.implied_weight)}</td><td class="r num">${pct(D.positionWeights?.[p])}</td></tr>`;
+    }).join("");
+    const g = pb.groups || {}, bud = pb.budgets || {};
+    const grows = POS.map(p => ["starter", "bench"].map(r => `<tr><td>${p} ${r}</td><td class="r num">${fmtN(g[p]?.[r])}</td><td class="r num">${fmt(bud[p]?.[r])}</td><td class="r num">${g[p]?.[r] > 0 ? fmt(bud[p][r] / g[p][r], 4) : "—"}</td></tr>`).join("")).join("");
+    const savedNote = modes.vorp === "saved"
+      ? `<p class="small"><span class="pill warn">saved view</span> At this setting the chart shows the pipeline's saved VORP vs waivers and Adjusted values (<span class="mono">build_imputed_vorps.py</span>, <span class="mono">build_reweighted_values.py</span>): published value × (our group VORP ÷ the chart's group total of published values), using the raw published value rather than value above waivers. At every other setting the browser recipe below is used. The two are compared in section 9.</p>`
+      : `<p class="small"><span class="pill info">browser recipe</span> This chart has no saved views, so all three views come from the browser at every setting.</p>`;
+    return `<div class="panel cards">
+      <h3>${label(k)} <span class="muted small">Week ${weekOf[k] ?? "?"} · ${Object.keys(pb.native).length} players listed</span></h3>
+      <ol class="recipe">
+        <li><div><b>Take the published value</b><p class="muted small">Saved at 12 teams for ${SCORING[S.scoring]}. Units are the publisher's own.</p></div></li>
+        <li><div><b>Find each position's waiver line</b><p class="muted small">Fill a ${S.teams}-team roster from the chart's own order: dedicated starters, then flex (weighted by how much surplus the chart gives each flex position), then bench by the same rule. The line is the value of the next player. If the chart lists too few players, its tail is extended with the other charts' values mapped into its units.${pb.peers ? ` Peers: ${pb.peers.map(x => NAME[x]).join(", ")}.` : ""}</p></div></li>
+        <li><div><b>Subtract and scale to the fixed start</b><div class="formula">Indexed = max(0, published − waiver line) × start[pos] ÷ max above-waivers[pos]</div></div></li>
+      </ol>
+      <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Listed</th><th class="r">Rostered (start + flex + bench)</th><th class="r">Waiver line</th><th>How the line was set</th><th class="r">Top above waivers</th><th class="r">Scale</th><th class="r">Implied weight</th><th class="r">Anchor weight</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="muted small">Implied weight is this chart's share of total value above waivers by position. Anchor weight is the share of the ESPN two-tier pie.</p>
+      ${savedNote}
+      <ol class="recipe" start="4">
+        <li><div><b>VORP vs waivers (browser recipe)</b><div class="formula">value above waivers × ${fmt(pb.vorpScale, 5)}   (anchor total ${fmt(pb.total, 1)} ÷ chart total above waivers)</div></div></li>
+        <li><div><b>Adjusted values (browser recipe)</b><div class="formula">anchor group total × (player above waivers ÷ chart group total) × ${fmt(D.batch.adjScale, 4)}   (70 ÷ top across all charts ${fmt(D.batch.batchMax, 2)})</div>
+          <div class="tablewrap"><table><thead><tr><th>Group</th><th class="r">Chart total above waivers</th><th class="r">Anchor group total</th><th class="r">Factor</th></tr></thead><tbody>${grows}</tbody></table></div></div></li>
+      </ol>
+      <p class="codepath">value-model.js · translatePublishedVorp, derivePublishedSetup, derivePublishedViews · server: vorp_translation/unified.py</p>
+    </div>`;
+  }
+  function projection(k) {
+    const t = D.twoTier[k];
+    if (!t || t.error) return `<div class="panel">Two-tier reconstruction failed: ${esc(t?.error)}</div>`;
+    const shown = V.indexed[k] || {};
+    const ratios = Object.keys(t.values).filter(p => t.values[p] > 1 && isFinite(shown[p])).map(p => shown[p] / t.values[p]);
+    const factor = median(ratios);
+    const maxdiff = Math.max(0, ...Object.keys(t.values).filter(p => isFinite(shown[p])).map(p => Math.abs(shown[p] - t.values[p] * factor)));
+    const rows = POS.map(p => {
+      const c = t.positions[p] || {};
+      const cnt = t.counts?.[p] || {};
+      const fell = c.shareUsed !== null && Math.abs(c.shareUsed - S.benchShare) > 1e-6;
+      return `<tr><td>${p}</td><td class="r num">${cnt.starters} / ${cnt.bench}</td><td class="r num">${fmt(c.rw, 2)}</td><td class="r num">${fmt(c.rs, 2)}</td><td class="r num">${fmt(c.tau, 2)}</td><td class="r num">${fmt(c.surplus, 1)}</td><td class="r num">${pct(c.shareUsed)}${fell ? ` <span class="pill warn">reduced</span>` : ""}</td><td class="r num">${fmt(c.pb, 3)}</td><td class="r num">${fmt(c.ps, 3)}</td><td class="r num">${c.pb > 0 ? fmt(c.ps / c.pb, 2) + "×" : "—"}</td></tr>`;
+    }).join("");
+    const anchorNote = k === "espn"
+      ? `This is the anchor: the chart reads the pipeline's built leg (<span class="mono">build_ddf_two_tier_leg.py</span>). Rebuilt here from ESPN's projections, it matches the shown values within ${fmt(maxdiff, 3)}.`
+      : `Then one factor, <b class="num">×${fmt(factor, 4)}</b>, makes its total equal ESPN's on the players both price. Rebuilt here, it matches the shown values within ${fmt(maxdiff, 3)}.`;
+    return `<div class="panel cards">
+      <h3>${label(k)} <span class="muted small">${Object.keys(t.values).length} players priced above waivers</span></h3>
+      <ol class="recipe">
+        <li><div><b>Per-game projection</b><p class="muted small">Rest-of-season points for ${SCORING[S.scoring]} divided by the games left.</p></div></li>
+        <li><div><b>Build the pool</b><p class="muted small">${S.teams} teams: dedicated starters by projection, the best remaining RB/WR/TE fill flex, then a fixed bench mix per position (QB ${t.benchMix.QB} · RB ${t.benchMix.RB} · WR ${t.benchMix.WR} · TE ${t.benchMix.TE}). Waiver line = the best projection left. Starter line = halfway between the worst starter and the best non-starter.</p></div></li>
+        <li><div><b>Price two kinds of points</b><p class="muted small">Points above the waiver line are split into bench-level points and starter-level points with a soft step at the starter line (glide width = 25% of the gap). Each position's pie (total points above waivers) is shared ${pct(1 - S.benchShare, 0)} to starters, ${pct(S.benchShare, 0)} to bench; that fixes the two prices.</p>
+          <div class="formula">value = bench price × bench-level points + starter price × starter-level points</div></div></li>
+        <li><div><b>One multiplier puts the top player at 70</b><div class="formula">× ${fmt(t.scale, 4)}   (70 ÷ the top raw value)</div><p class="small">${anchorNote}</p></div></li>
+      </ol>
+      <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Starters / bench</th><th class="r">Waiver line (ppg)</th><th class="r">Starter line</th><th class="r">Glide width</th><th class="r">Pie</th><th class="r">Bench share used</th><th class="r">Bench price</th><th class="r">Starter price</th><th class="r">Starter premium</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="muted small">"Reduced" means the requested bench share could not be priced with a starter premium at that position, so the highest workable share was used. A premium near 1.00× means starter and bench points are worth about the same there.</p>
+      <p class="codepath">curve-widget.js · TwoTier (buildPositionTiers, calibratePositionFeasible, priceForProjection) · server: twotier_reference.py, build_ddf_two_tier_leg.py</p>
+    </div>`;
+  }
+  function adjusted() {
+    const cells = D.adjustmentWeights?.cells || [];
+    const rows = PUB.map(src => {
+      const cs = cells.filter(c => c.rawKey === src);
+      return `<tr class="groupline"><td colspan="5">${esc(NAME[src])}</td></tr>` + POS.map(p => ["starter", "bench"].map(r => {
+        const c = cs.find(x => x.position === p && x.tier === r);
+        if (!c) return `<tr><td>${p} ${r}</td><td colspan="4"><span class="pill bad">no cell</span></td></tr>`;
+        const flag = c.n < 5 ? `<span class="pill warn">${c.n} players</span>` : c.beta <= 0 ? `<span class="pill bad">inverts</span>` : "";
+        return `<tr><td>${p} ${r}</td><td class="r num">${fmt(c.alpha, 2)}</td><td class="r num">${fmt(c.beta, 3)}</td><td class="r num">${c.n}</td><td>${flag}</td></tr>`;
+      }).join("")).join("");
+    }).join("");
+    return `<div class="panel cards">
+      <h3>Bias-adjusted charts</h3>
+      <ol class="recipe">
+        <li><div><b>Start from the published chart's Indexed value</b></div></li>
+        <li><div><b>Apply a straight-line fit for the player's position and ESPN tier</b><div class="formula">fitted = max(0, α + β × Indexed)</div><p class="muted small">α and β are refitted in the browser at the active bench share: least squares against the ESPN two-tier leg on the players both price, one fit per position × starter/bench. Waiver-tier players are not adjusted.</p></div></li>
+        <li><div><b>Pin each position's top to the anchor's top, then match the total</b><div class="formula">× anchor top[pos] ÷ fitted top[pos]   then   × anchor total ÷ series total (shared players)</div></div></li>
+      </ol>
+      <div class="tablewrap"><table><thead><tr><th>Cell</th><th class="r">α</th><th class="r">β</th><th class="r">Players</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="codepath">curve-widget.js · refitLiveCells, buildLiveAdjustedMap, normalizedAdjustedMapFor · value-model.js · shapeToAnchorPeaksThenSharedTotal · baked fit: build_adjustment_inputs.py</p>
+    </div>`;
+  }
+  function rawvorp() {
+    const rows = RAWV.map(k => {
+      const r = D.rawVorp?.[k] || {};
+      const t = D.twoTier[baseOf(k)]?.positions || {};
+      return POS.map((p, i) => `<tr>${i === 0 ? `<td rowspan="4">${label(k)}</td>` : ""}<td>${p}</td><td class="r num">${r.counts?.[p]?.starter ?? "—"} / ${r.counts?.[p]?.bench ?? "—"}</td><td class="r num">${fmt(r.waiverLine?.[p], 2)}</td><td class="r num">${fmt(t[p]?.rw, 2)}</td>${i === 0 ? `<td rowspan="4" class="r num">×${fmt(r.factor, 4)}</td>` : ""}</tr>`).join("");
+    }).join("");
+    return `<div class="panel cards">
+      <h3>Raw VORP vs waivers</h3>
+      <ol class="recipe">
+        <li><div><b>Assign roles from the source's own projections</b><p class="muted small">Dedicated starters by projection, flex from the best remaining RB/WR/TE, then ${S.teams * R.BENCH} bench spots to the players with the most points above their position's last dedicated starter. This is a different role model from the two-tier pool.</p></div></li>
+        <li><div><b>Points per game above the best unrostered player</b><div class="formula">raw = max(0, ppg − waiver line[pos])   (unrostered players = 0)</div></div></li>
+        <li><div><b>One factor to the anchor's total</b></div></li>
+      </ol>
+      <div class="tablewrap"><table><thead><tr><th>Series</th><th>Pos</th><th class="r">Starters / bench</th><th class="r">Waiver line (this series)</th><th class="r">Waiver line (two-tier pool)</th><th class="r">Factor</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="codepath">curve-widget.js · buildVorpRows, buildVorpMap · value-model.js · projectionRoles, scaleToSharedTotal</p>
+    </div>`;
+  }
+  function ddf() {
+    const c = D.composite || {};
+    return `<div class="panel cards">
+      <h3>DDF Value</h3>
+      <div class="formula">DDF Value = mean of the inputs that price the player</div>
+      <p>Inputs in use: ${(c.inputs || []).map(label).join(" ")}.</p>
+      <p class="muted small">${c.isDefault ? "These are the defaults: every adjusted series available in the current week." : "The reader changed the inputs."} The published charts as shown (Indexed) and the raw VORP series are never averaged in. Its tier ranks DDF Value and cuts at the league's slot counts.</p>
+      <p class="codepath">value-model.js · compositeValue · curve-widget.js · compositeInputKeys</p>
+    </div>`;
+  }
+  function render() {
+    $("srcBody").innerHTML = PUB.includes(cur) ? published(cur) : PROJ.includes(cur) ? projection(cur)
+      : cur === "adjusted" ? adjusted() : cur === "rawvorp" ? rawvorp() : ddf();
+  }
+  render();
+})();
+
+/* ---------- 6 trace ---------- */
+(function trace() {
+  const names = Object.entries(P).filter(([, p]) => POS.includes(p.p)).sort((a, b) => (b[1].ddf ?? -1) - (a[1].ddf ?? -1));
+  $("playerList").innerHTML = names.map(([, p]) => `<option value="${esc(p.n)} (${p.p}, ${esc(p.t)})"></option>`).join("");
+  const byLabel = new Map(names.map(([k, p]) => [`${p.n} (${p.p}, ${p.t})`, k]));
+  const pickFirst = (pos, skip = 0) => names.filter(([, p]) => p.p === pos)[skip]?.[0];
+  const benchWr = names.find(([, p]) => p.p === "WR" && p.r === "bench")?.[0];
+  const quick = [pickFirst("RB", 1), pickFirst("QB"), pickFirst("WR", 2), pickFirst("TE"), benchWr].filter(Boolean);
+  $("playerQuick").innerHTML = quick.map(k => `<button type="button" class="toggle" aria-pressed="true" data-k="${k}">${esc(P[k].n)}</button>`).join("");
+  $("playerQuick").addEventListener("click", e => { const b = e.target.closest("button[data-k]"); if (b) show(b.dataset.k); });
+  $("playerSearch").addEventListener("change", e => { const k = byLabel.get(e.target.value); if (k) show(k); });
+  const step = (k, v, final) => `<span class="step${final ? " final" : ""}"><span class="k">${k}</span><span class="v">${v}</span></span>`;
+  const op = s => `<span class="op">${s}</span>`;
+  const shownRow = (k, key) => VIEWS.map(([v, l]) => {
+    const val = V[v]?.[key]?.[k];
+    return step(l, isFinite(val) ? fmt(val) : "—", true);
+  }).join("");
+  function show(k) {
+    const p = P[k]; if (!p) return;
+    store.set("player", k);
+    $("playerSearch").value = `${p.n} (${p.p}, ${p.t})`;
+    const pos = p.p;
+    const blocks = [];
+    blocks.push(`<div class="panel"><h3>${esc(p.n)} <span class="muted small">${pos} · ${esc(p.t)} · ESPN tier ${esc(p.r)} · DDF Value <b class="num">${fmt(p.ddf)}</b> from ${p.ddfN ?? 0} series</span></h3></div>`);
+    PUB.forEach(src => {
+      const pb = D.published[src];
+      const t = pb.translated?.[k];
+      const x = pb.positions?.[pos] || {};
+      const native = pb.native?.[k];
+      let chain;
+      if (native === undefined) chain = step("Published value", "not listed") + op("→") + `<span class="muted small">no value in any view</span>`;
+      else if (!t) chain = step("Published value", fmtN(native)) + op("−") + step(`Waiver line (${pos}${x.n_rostered + 1})`, fmtN(x.waiver_line_value)) + op("=") + step("Above waivers", "0") + op("→") + shownRow(k, src);
+      else chain = step("Published value", fmtN(t.native)) + op("−") + step(`Waiver line (${pos}${x.n_rostered + 1})`, fmtN(x.waiver_line_value)) + op("=") + step("Above waivers", fmtN(t.vorp))
+        + op("×") + step(`${OUR_MAX[pos]} ÷ ${fmtN(x.max_vorp)}`, Number((OUR_MAX[pos] / x.max_vorp).toPrecision(3))) + op("=") + step("Translated", fmt(t.translated))
+        + op("→") + shownRow(k, src)
+        + (pb.modes.vorp === "saved" ? `<span class="muted small">browser recipe would give ${fmt(pb.derivedVorp?.[k])} / ${fmt(pb.derivedAdj?.[k])}</span>` : "");
+      const adj = V.indexed[src + "_adjusted"]?.[k];
+      const cell = (D.adjustmentWeights?.cells || []).find(c => c.rawKey === src && c.position === pos && c.tier === p.r);
+      let adjChain = "";
+      if (isFinite(adj) && t) {
+        const fitted = cell ? Math.max(0, cell.alpha + cell.beta * V.indexed[src][k]) : V.indexed[src][k];
+        adjChain = `<div class="steps">${sw(src + "_adjusted")}${step("Indexed", fmt(V.indexed[src][k]))}${cell ? op("→") + step(`α + β×x (${pos} ${p.r})`, `${fmt(cell.alpha, 2)} + ${fmt(cell.beta, 3)}×x = ${fmt(fitted, 2)}`) : ""}${op("× peak pin × total")}${step("factor", fitted > 0 ? fmt(adj / fitted, 3) : "—")}${op("=")}${step(nameOf(src + "_adjusted"), fmt(adj), true)}</div>`;
+      }
+      blocks.push(`<div class="panel"><div class="steps">${label(src)}</div><div class="steps">${chain}</div>${adjChain}</div>`);
+    });
+    PROJ.forEach(src => {
+      const t = D.twoTier[src];
+      const c = t?.positions?.[pos];
+      const xppg = p.ppg?.[src]?.[S.scoringField];
+      const shown = V.indexed[src]?.[k];
+      let chain;
+      if (!isFinite(xppg)) chain = step("Projection", "none") + op("→") + step(nameOf(src), "—", true);
+      else if (!c || !(xppg > c.rw)) chain = step("ppg", fmt(xppg, 2)) + op("≤") + step("Waiver line", fmt(c?.rw, 2)) + op("→") + step(nameOf(src), isFinite(shown) ? fmt(shown) : "—", true);
+      else {
+        const glide = c.tau * (softplus((xppg - c.rs) / c.tau) - softplus((c.rw - c.rs) / c.tau));
+        const a = (xppg - c.rw) - glide, b = glide;
+        const raw = c.pb * a + c.ps * b;
+        const leg = raw * t.scale;
+        chain = step("ppg", fmt(xppg, 2)) + op("−") + step("Waiver line", fmt(c.rw, 2)) + op("=") + step("Above", fmt(xppg - c.rw, 2))
+          + op("→") + step("Bench-level pts", fmt(a, 2)) + step("Starter-level pts", fmt(b, 2))
+          + op("→") + step(`${fmt(c.pb, 3)}×a + ${fmt(c.ps, 3)}×b`, fmt(raw, 3)) + op("×") + step("70 ÷ top", fmt(t.scale, 3)) + op("=") + step("Two-tier", fmt(leg))
+          + (src === "espn" ? "" : op("×") + step("Total factor", leg > 0 && isFinite(shown) ? fmt(shown / leg, 3) : "—"))
+          + op("=") + step(nameOf(src), isFinite(shown) ? fmt(shown) : "—", true);
+      }
+      const vk = src + "_vorp", rv = D.rawVorp?.[vk];
+      const rshown = V.indexed[vk]?.[k];
+      const rchain = isFinite(xppg) && rv ? step("ppg", fmt(xppg, 2)) + op("−") + step("Waiver line", fmt(rv.waiverLine?.[pos], 2)) + op("=") + step("Above", fmt(Math.max(0, xppg - rv.waiverLine?.[pos]), 2)) + op("×") + step("Factor", fmt(rv.factor, 3)) + op("=") + step(nameOf(vk), isFinite(rshown) ? fmt(rshown) : "—", true) : "";
+      blocks.push(`<div class="panel"><div class="steps">${label(src)}</div><div class="steps">${chain}</div>${rchain ? `<div class="steps">${sw(vk)}${rchain}</div>` : ""}</div>`);
+    });
+    $("traceBody").innerHTML = blocks.join("");
+  }
+  show(store.get("player", null) && P[store.get("player")] ? store.get("player") : quick[0]);
+})();
+
+/* ---------- 7 compare ---------- */
+(function compare() {
+  let view = "indexed", pos = "ALL";
+  segmented($("cmpView"), VIEWS, view, v => { view = v; draw(); });
+  segmented($("cmpPos"), [["ALL", "All"], ...POS.map(p => [p, p])], pos, v => { pos = v; draw(); });
+  const cols = [...PUB, ...PROJ, ...ADJ];
+  function draw() {
+    const keys = Object.keys(P).filter(k => POS.includes(P[k].p) && (pos === "ALL" || P[k].p === pos) && isFinite(P[k].ddf))
+      .sort((a, b) => P[b].ddf - P[a].ddf).slice(0, pos === "ALL" ? 80 : 40);
+    const body = keys.map((k, i) => {
+      const vals = cols.map(c => V[view]?.[c]?.[k]);
+      const med = median(vals.filter(isFinite));
+      const pubVals = PUB.map(c => V[view]?.[c]?.[k]).filter(isFinite);
+      const spread = pubVals.length > 1 ? Math.max(...pubVals) - Math.min(...pubVals) : NaN;
+      return `<tr><td class="num">${i + 1}</td><td>${esc(P[k].n)} <span class="muted small">${P[k].p} · ${esc(P[k].t)}</span></td><td class="r num"><b>${fmt(P[k].ddf)}</b></td>${vals.map(v => {
+        const d = isFinite(v) && isFinite(med) && med > 0 ? (v - med) / med : NaN;
+        const a = isFinite(d) ? Math.min(1, Math.abs(d) / 0.4) : 0;
+        const st = isFinite(d) ? `background: color-mix(in srgb, ${d > 0 ? "var(--div-pos)" : "var(--div-neg)"} ${Math.round(a * 40)}%, transparent)` : "";
+        return `<td class="r num" style="${st}">${fmt(v)}</td>`;
+      }).join("")}<td class="r num">${fmt(spread)}</td></tr>`;
+    }).join("");
+    $("cmpTable").innerHTML = `<thead><tr><th>#</th><th>Player</th><th class="r">DDF Value</th>${cols.map(c => `<th class="r">${sw(c)} ${esc(nameOf(c).replace(" rest of season", " ROS").replace(" (anchor)", ""))}</th>`).join("")}<th class="r">Published spread</th></tr></thead><tbody>${body}</tbody>`;
+  }
+  draw();
+})();
+
+/* ---------- 8 settings ---------- */
+(function settings() {
+  let pos = "QB";
+  segmented($("setPos"), POS.map(p => [p, p]), pos, v => { pos = v; draw(); });
+  const series = [...PROJ, ...PUB, ...ADJ];
+  function draw() {
+    const sets = D.sensitivity || [];
+    const head = `<tr><th>Series</th>${sets.map(s => `<th class="r">${s.teams} teams<br><span class="muted">${SCORING[s.scoring]}</span></th>`).join("")}</tr>`;
+    const body = series.map(k => `<tr class="${k === "espn" ? "anchor" : ""}"><td>${label(k)}</td>${sets.map(s => {
+      const c = s.series?.[k]?.[pos];
+      const isSaved = s.teams === 12;
+      return `<td class="r num">${c ? fmt(c.top) : "—"}${PUB.includes(k) && !isSaved ? ` <span class="pill info">derived</span>` : ""}</td>`;
+    }).join("")}</tr>`).join("");
+    $("setTable").innerHTML = `<thead>${head}</thead><tbody><tr class="groupline"><td colspan="${sets.length + 1}">Top value at ${pos}</td></tr>${body}</tbody>`;
+  }
+  draw();
+})();
+
+/* ---------- 9 observations ---------- */
+(function observations() {
+  const obs = [];
+  const add = (kind, title, body) => obs.push({kind, title, body});
+  const vi = D.viewInvariants?.indexed?.indexed?.sources || {};
+  const off = PUB.filter(k => vi[k] && Math.abs(vi[k].ratio - 1) > 0.05);
+  if (off.length) add("check", "Published charts spend different totals than the anchor in the Indexed view",
+    `${off.map(k => `${NAME[k]} ×${vi[k].ratio.toFixed(2)}`).join(", ")}. Indexed pins each position's top and keeps the chart's own curve below it, with no total factor, so a chart with a flatter curve spends more. Open as MR-01 and MR-03.`);
+  const tops = {};
+  POS.forEach(p => { tops[p] = Math.max(0, ...posKeys(p).map(k => V.indexed.espn?.[k]).filter(isFinite)); });
+  const gaps = POS.filter(p => Math.abs(OUR_MAX[p] - tops[p]) >= 2);
+  if (gaps.length) add("check", "The fixed starting points no longer match the anchor's own tops",
+    `Published charts start at ${POS.map(p => `${p} ${OUR_MAX[p]}`).join(", ")}; the ESPN anchor's tops are ${POS.map(p => `${p} ${fmt(tops[p])}`).join(", ")}. The gap is largest at ${gaps.sort((a, b) => Math.abs(OUR_MAX[b] - tops[b]) - Math.abs(OUR_MAX[a] - tops[a]))[0]}. The fixed values are a calibration from an earlier anchor.`);
+  const sens = D.sensitivity || [];
+  const s12 = sens.filter(s => s.teams === 12);
+  if (s12.length > 1) {
+    const pubSame = s12.every(s => POS.every(p => Math.abs((s.series?.fantasycalc?.[p]?.top ?? 0) - (s12[0].series?.fantasycalc?.[p]?.top ?? 0)) < 0.05));
+    const espnQb = s12.map(s => `${SCORING[s.scoring]} ${fmt(s.series?.espn?.QB?.top)}`).join(", ");
+    if (pubSame) add("check", "Scoring changes move the anchor's starting points but not the published charts'",
+      `At 12 teams the published charts start at the same QB/RB/WR/TE values in every scoring, while the ESPN QB top moves (${espnQb}). The starting points follow team count and roster but not scoring.`);
+  }
+  PUB.forEach(k => {
+    const imp = POS.filter(p => D.published[k].positions?.[p]?.waiver_method === "imputed_from_other_charts");
+    if (imp.length) add("info", `${NAME[k]}: waiver line extended from other charts at ${imp.join(", ")}`,
+      `${NAME[k]} lists fewer players than a ${S.teams}-team league rosters at ${imp.map(p => `${p} (${D.published[k].positions[p].n_listed} listed, ${D.published[k].positions[p].n_rostered} rostered)`).join(", ")}, so its line is read from its list extended with the other charts' values. Open as MR-08.`);
+  });
+  PUB.forEach(k => {
+    const pb = D.published[k];
+    if (pb.modes.vorp !== "saved") return;
+    const parts = [];
+    ["vorp", "adj"].forEach(v => {
+      const der = v === "vorp" ? pb.derivedVorp : pb.derivedAdj;
+      const shown = V[v]?.[k] || {};
+      const ks = Object.keys(shown).filter(p => isFinite(der?.[p]));
+      if (!ks.length) return;
+      const diffs = ks.map(p => Math.abs(shown[p] - der[p]));
+      const mx = Math.max(...diffs), mean = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+      const worst = ks[diffs.indexOf(mx)];
+      if (mx > 1) parts.push(`${VIEW_NAME[v]}: ${fmt(mean, 2)} apart on average, up to ${fmt(mx, 1)} (${esc(P[worst]?.n)}: ${fmt(shown[worst])} saved vs ${fmt(der[worst])} browser)`);
+    });
+    if (parts.length) add("check", `${NAME[k]}: the saved views and the browser recipe disagree`,
+      `At the default setting the chart shows the pipeline's saved VORP vs waivers and Adjusted values; at any other team count or roster it switches to the browser recipe, so values jump when a reader changes one setting. ${parts.join(". ")}. Open as MR-04 and MR-05.`);
+  });
+  PROJ.forEach(k => {
+    const t = D.twoTier[k];
+    POS.forEach(p => {
+      const c = t?.positions?.[p];
+      if (c && c.shareUsed !== null && Math.abs(c.shareUsed - S.benchShare) > 1e-6)
+        add("info", `${NAME[k]} ${p}: bench share reduced to ${pct(c.shareUsed)}`,
+          `At ${pct(S.benchShare, 0)} the model cannot give ${p} starters a premium over bench points (starter price ${fmt(c.ps, 3)} vs bench ${fmt(c.pb, 3)}), so it uses the highest share that works. Open as MR-11.`);
+    });
+  });
+  const tp = D.twoTier.espn?.counts, rv = D.rawVorp?.espn_vorp?.counts;
+  if (tp && rv) {
+    const diff = POS.filter(p => tp[p].bench !== rv[p].bench);
+    if (diff.length) add("check", "Two role models: the two-tier pool and the raw VORP series roster different players",
+      `Bench spots by position, two-tier pool vs raw VORP series (ESPN): ${POS.map(p => `${p} ${tp[p].bench} vs ${rv[p].bench}`).join(", ")}. So the waiver lines differ too (ESPN RB ${fmt(D.twoTier.espn.positions.RB.rw, 2)} vs ${fmt(D.rawVorp.espn_vorp.waiverLine.RB, 2)} ppg). The raw VORP view is not the two-tier model minus its starter premium. Open as MR-12.`);
+  }
+  const cells = D.adjustmentWeights?.cells || [];
+  const thin = cells.filter(c => c.n < 5 || c.beta <= 0);
+  if (thin.length) add("info", "Bias-adjustment fits on few players",
+    thin.map(c => `${NAME[c.rawKey]} ${c.position} ${c.tier}: ${c.n} players, β ${fmt(c.beta, 3)}`).join("; ") + ". Open as MR-06.");
+  const aa = D.diagnostics?.adjustedAgreement;
+  if (aa && aa.compared > 0 && !aa.ok) add("check", "Adjusted series peaks outside the band", esc((aa.offenders || []).join("; ")));
+  const fp = D.fixedPie;
+  add(fp?.ok ? "info" : "check", fp?.ok ? "Deploy gate on the pie holds" : "Deploy gate on the pie fails",
+    `${(fp?.checks || []).filter(c => c.basis !== "not gated (published)").length} gated series within ±${fp?.tolerance} of their target; the four published charts are reported but not gated.`);
+  $("obsList").innerHTML = obs.sort((a, b) => (a.kind === "check" ? 0 : 1) - (b.kind === "check" ? 0 : 1)).map(o =>
+    `<div class="item ${o.kind}"><span class="pill ${o.kind === "check" ? "warn" : "info"}">${o.kind === "check" ? "check" : "context"}</span><div><b>${esc(o.title)}</b><p class="small muted">${o.body}</p></div></div>`).join("");
+  $("mrList").innerHTML = (D.meta.math_review || []).map(m => `<div><span class="id">${esc(m.id)}</span>${esc(m.title.replace(/`/g, ""))}</div>`).join("") || `<p class="muted">None listed.</p>`;
+})();
+
+/* ---------- provenance ---------- */
+(function prov() {
+  const m = D.meta;
+  const files = Object.entries(m.logic_hashes || {}).map(([f, h]) => `<tr><td class="mono">${esc(f)}</td><td class="mono">${esc(h)}</td><td>${(m.logic_changed || []).includes(f) ? `<span class="pill warn">changed since review</span>` : `<span class="pill good">reviewed</span>`}</td></tr>`).join("");
+  $("prov").innerHTML = `<div class="eyebrow">Provenance</div>
+    <p>Built by <span class="mono">pipelines/build_values_explainer.py</span> (<span class="mono">make values-explainer</span>) from commit <span class="mono">${esc(m.commit)}</span> (${esc(m.commit_subject)}). Every value is read from the chart engine running headless on the built site; the two-tier and raw VORP reconstructions are checked against it. Engine versions: ${Object.entries(D.versions || {}).map(([k, v]) => `${esc(k)} <span class="mono">${esc(v)}</span>`).join(" · ")}.</p>
+    <details class="fold"><summary>Logic files and review status</summary><div class="tablewrap"><table><thead><tr><th>File</th><th>Hash</th><th>Status</th></tr></thead><tbody>${files}</tbody></table></div></details>`;
+})();
+})();
+</script>

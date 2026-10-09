@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
+.PHONY: help values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -476,6 +476,11 @@ test-all: naming naming-convention test-unit
 # Operating-model plan status (JEG-96). Reads lanes/plan.json + lanes/linear_fixture.json.
 plan-status:
 	@python3 lanes/plan_status.py
+
+# Values explainer (internal page; published as a claude.ai artifact).
+# Needs Playwright Chromium. MARK_REVIEWED=1 after re-checking the narrative.
+values-explainer:
+	python3 pipelines/build_values_explainer.py $(if $(MARK_REVIEWED),--mark-reviewed,)
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart
