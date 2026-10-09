@@ -41,8 +41,8 @@ decision copy-vorp-001):
   trade-value-methodology = raw projections/stats -> value-above-waivers
                             methodology applied (positional waiver lines,
                             smoothed starter/bench lineup weights, 70-pt scale).
-  reindexed-as-given     = their published values, only isotonic-reindexed
-                            onto the chart's 0-70 scale; no methodology applied.
+  reindexed-as-given     = their published values times one factor per combo
+                            (JEG-482: their order kept); no methodology applied.
 
 Interface: build_dataset_status(meta, players, snapshot_dir=None,
 comparison_asset=None, fc_cache=None). The surgical main() path of the
@@ -72,8 +72,8 @@ def _utcnow():    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ
 #                             methodology applied (positional waiver lines,
 #                             smoothed starter/bench lineup weights, 70-pt
 #                             scale).
-#   reindexed-as-given      = their published values, only isotonic-reindexed
-#                             onto the chart's 0-70 scale; no methodology.
+#   reindexed-as-given      = their published values times one factor per combo
+#                             (JEG-482: their order kept); no methodology.
 _METHOD_TV = ("trade-value-methodology", "Our methodology")
 _METHOD_GIVEN = ("reindexed-as-given", "As published (reindexed)")
 

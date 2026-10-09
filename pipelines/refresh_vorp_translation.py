@@ -12,12 +12,13 @@ league-settings-001; translate_source raises SystemExit for them (not caught
 by the per-grain `except Exception`), so they must not be listed here.
 FantasyCalc qb2 combos are intentionally NOT written: the JEG-62 grain
 has no qb dimension and qb2 natives diverge materially, so those combos stay
-pinned to reindex-fallback by the data-driven guard in translate_via_vorp.py.
-Do not serve the qb1 grain to qb2 combos.
+pinned to reindex-fallback. Do not serve the qb1 grain to qb2 combos.
+Since JEG-482 the grains are a record only: no saved chart value is read
+from publisher_translated_values (Indexed is a one-factor rescale).
 
 Grain week = the SOURCE's content week (GAP-VORP-GRAIN-WEEK-LABEL,
 2026-10-08): each source's grain is labelled with the week of the natives it
-was computed from (the fixture section's week, translate_via_vorp.
+was computed from (the fixture section's week, nfl_week.
 section_content_week), never the chain week. A CBS section still on Week 4
 while the chain runs in Week 5 is stored as week 4. --week is the chain week;
 it is printed for the log only.
@@ -46,7 +47,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "vorp_translation"))
 import json
 
 from nfl_week import current_nfl_week
-from translate_via_vorp import section_content_week
+from nfl_week import section_content_week
 from unified import translate_source, TBL_TRANSLATED
 
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"

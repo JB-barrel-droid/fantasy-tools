@@ -500,6 +500,19 @@ def main() -> int:
     # sync (JEG-8), so it can never silently go stale behind the app copy.
     sync_monitor_fixture(FIXTURES, dist_modules)
 
+    # JEG-482: rank guard. Every published chart's Indexed order must equal
+    # its native order in the fixture this build publishes. Fail closed (the
+    # deploy gate): the order is the data the page promises. The result is
+    # machine-readable for the JEG-480 fidelity pulse.
+    from check_rank_guard import run as run_rank_guard
+    rank_guard = run_rank_guard(FIXTURES / "comparison-sources-data.json",
+                                ROOT / "output" / "rank-guard.json",
+                                [dist_modules / "rank-guard.json"])
+    if rank_guard["status"] != "pass":
+        bad = [f"{c['source']}/{c['combo']} ({c['inversions']})"
+               for c in rank_guard["checks"] if not c["ok"]]
+        raise SystemExit("rank guard failed: published chart order broken in " + ", ".join(bad))
+
     # JEG-424: the consolidation watcher's data. Built here, from the same
     # fixture `make validate` checks, so the page only ever shows validated
     # values (public.consolidated_values holds every bake, including ones

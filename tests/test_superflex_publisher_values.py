@@ -444,7 +444,7 @@ def collect_overlay_page(fixture, widget_override=None):
             page.goto(url, wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueCurveHarness && window.TradeValueCurveDiagnostics",
                                    timeout=20000)
-            out["sf1"] = page.evaluate(SET_AND_READ, [1, list(PAGE_SOURCES)])
+            out["sf1"] = page.evaluate(SET_AND_READ, [1, list(PAGE_SOURCES) + ["espn"]])
             out["sf0"] = page.evaluate(SET_AND_READ, [0, list(PAGE_SOURCES)])
             out["errors"] = errors
         finally:
@@ -471,8 +471,9 @@ def overlay_problems(widget_override=None):
         with mock.patch.object(unified, "load_native_values", loader):
             for source in PAGE_SOURCES:
                 values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
+                anchor = {int(k): v for k, v in got["sf1"]["maps"]["espn"].items()}
                 expected = expected_derived(source, "ppr", 12, {**SAVED_SHAPE, "SUPERFLEX": 1},
-                                            fixture, pos_of)
+                                            fixture, pos_of, anchor=anchor)
                 diffs, _ = compare_maps(expected, values)
                 if diffs:
                     problems.append(f"superflex {source}: {diffs[:2]}")

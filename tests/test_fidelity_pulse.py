@@ -271,7 +271,7 @@ class Env:
                 p[fp.FC_API.format(qb=qb, ppr=ppr)] = json.dumps(fc_payload(self.pub["fantasycalc"], s, qb))
         return p
 
-    def run(self, sources=fp.SOURCES):
+    def run(self, sources=fp.TRADE_CHARTS):
         ident = fp.Identity.load(PLAYERS + FILLER)
         fetch = FakeFetch(self.build_pages())
         doc, div = fp.run(sources, fetch=fetch, store=FakeStore(self.stored), ident=ident, site_doc=self.chart,
@@ -288,7 +288,7 @@ def st(result, source, stage=None):
 class BaselineGreen(unittest.TestCase):
     def test_all_trade_charts_green_on_consistent_data(self):
         res, doc, _ = Env().run()
-        for s in fp.SOURCES:
+        for s in fp.TRADE_CHARTS:
             with self.subTest(source=s):
                 self.assertEqual("green", st(res, s), json.dumps(res[s]["stages"], indent=1, default=str)[:3000])
                 self.assertEqual("n/a", st(res, s, "reference_vs_engine"))
@@ -434,7 +434,7 @@ class Stage1FantasyCalc(unittest.TestCase):
 
 class Stage2StoredVsChart(unittest.TestCase):
     def test_chart_value_differs_from_stored_red(self):
-        for source in fp.SOURCES:
+        for source in fp.TRADE_CHARTS:
             with self.subTest(source=source):
                 env = Env()
                 combo = "half_12_qb1" if source == "fantasycalc" else "half_12"
@@ -536,6 +536,245 @@ class Stage4Reference(unittest.TestCase):
         res, _, _ = Env().run(["cbs"])
         self.assertEqual("n/a", st(res, "cbs", "reference_vs_engine"))
         self.assertEqual("green", st(res, "cbs"))
+
+
+class FakeProjection:
+    """A projection source module per pipelines/fidelity_sources/__init__.py (per-game unit, 1 decimal)."""
+    SOURCE = "razzball"
+    STORED_TABLE = "razzball_projections"
+    SNAPSHOT_COLUMN = "snap"
+    STORED_SELECT = "player_key,std,half,full,snap,created_at"
+    CHART_DECIMALS = 1
+
+    def __init__(self, rows, vintage=None, modified=None, error=None):
+        self.rows, self.vintage, self.modified, self.error = rows, vintage, modified, error
+
+    def read_publisher(self, fetch):
+        if self.error:
+            return {"rows": [], "url": "u", "error": self.error}
+        return {"rows": [fp.PubRow(n, p, None, {f"{s}|1": v[s] for s in ("std", "half", "full")})
+                         for n, p, v in self.rows],
+                "url": "https://football.razzball.com/projections-rb-restofseason/", "vintage": self.vintage,
+                "dates": {"dateModified": self.modified}, "notes": [], "error": None}
+
+    @staticmethod
+    def stored_publisher_values(row):
+        return {f"{s}|1": row[s] for s in ("std", "half", "full") if row.get(s) is not None}
+
+    @staticmethod
+    def stored_chart_values(row, ctx):
+        return {f"{s}|1": row[s] for s in ("std", "half", "full") if row.get(s) is not None}
+
+
+PROJ = {2: ("Jahmyr Gibbs", "RB", {"std": "18.4", "half": "20.6", "full": "22.8"}),
+        3: ("Ja'Marr Chase", "WR", {"std": "12.1", "half": "15.0", "full": "17.9"}),
+        1: ("Josh Allen", "QB", {"std": "21.5", "half": "21.5", "full": "21.5"})}
+
+
+class ProjEnv:
+    def __init__(self):
+        self.pub = {k: (n, p, dict(v)) for k, (n, p, v) in PROJ.items()}
+        self.stored = [{"player_key": k, "snap": "2026-10-08", "created_at": "2026-10-08T12:00:00+00:00",
+                        **{s: float(x) for s, x in v.items()}} for k, (n, p, v) in PROJ.items()]
+        self.chart = chart_doc({})
+        self.chart["sources"]["razzball"] = {
+            "lineage": {"raw_vintage": "2026-10-08"},
+            "combos": {c: {"native": {slug(n): float(v[s]) for k, (n, p, v) in PROJ.items()}}
+                       for s, c in fp.SITE_COMBO.items()}}
+        self.vintage, self.modified, self.probe, self.error = "2026-10-08", "2026-10-08T11:00:00+00:00", None, None
+
+    def run(self):
+        mod = FakeProjection(list(self.pub.values()), self.vintage, self.modified, self.error)
+        outer = self
+
+        class Store:
+            def latest_snapshot(self, m):
+                return max(r["snap"] for r in outer.stored) if outer.stored else None
+
+            def snapshot_rows(self, m, snap):
+                return [r for r in outer.stored if r["snap"] == snap]
+
+            def probe_state(self, source):
+                return outer.probe
+
+        orig = fp.projection_module
+        fp.projection_module = lambda source: mod
+        try:
+            doc, div = fp.run(["razzball"], fetch=FakeFetch({}), store=Store(), ident=fp.Identity.load(PLAYERS + FILLER),
+                              site_doc=self.chart, site_error=None, report=None, report_where="n/a", now=NOW)
+        finally:
+            fp.projection_module = orig
+        return doc["sources"][0], div["razzball"]
+
+
+class ProjectionStages(unittest.TestCase):
+    def test_baseline_green(self):
+        r, _ = ProjEnv().run()
+        self.assertEqual("green", r["status"], json.dumps(r["stages"], indent=1, default=str)[:2000])
+
+    def test_publisher_differs_red_unless_explained(self):
+        env = ProjEnv()
+        env.pub[2] = ("Jahmyr Gibbs", "RB", dict(PROJ[2][2], half="20.7"))
+        r, div = env.run()
+        self.assertEqual("red", r["stages"]["publisher_vs_stored"]["status"])
+        self.assertTrue(any(d["type"] == "value_mismatch" for d in div))
+        env.probe = {"last_ok": True, "last_fp": "new", "acked_fp": "old", "last_probe_at": "2026-10-08T22:00:00Z"}
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])  # ingest pending
+        env.probe, env.modified = None, "2026-10-08T20:00:00+00:00"  # page stamp after the 12:00 save
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])
+
+    def test_tie_at_the_row_cap_is_churn_not_red(self):
+        # the page shows Kenneth Walker instead of Gibbs at the same lowest RB value: swapped at the cap
+        env = ProjEnv()
+        env.pub[2] = ("Jahmyr Gibbs", "RB", {"std": "1.0", "half": "1.0", "full": "1.0"})
+        env.stored[0].update(std=1.0, half=1.0, full=1.0)
+        env.stored.append({"player_key": 5, "snap": "2026-10-08", "created_at": "2026-10-08T12:00:00+00:00",
+                           "std": 1.0, "half": 1.0, "full": 1.0})
+        r, _ = env.run()
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("green", s1["status"], s1["summary"])
+        self.assertEqual(1, s1["counts"]["list_churn"])
+        env.stored[-1].update(std=9.0)  # above the page's lowest value: a real absence
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["publisher_vs_stored"]["status"])
+
+    def test_chart_differs_red_rounding_is_the_charts(self):
+        env = ProjEnv()
+        env.stored[0]["half"] = 20.64  # chart prints 20.6: equal after the chart's rounding
+        env.pub[2] = ("Jahmyr Gibbs", "RB", dict(PROJ[2][2], half="20.64"))
+        r, _ = env.run()
+        self.assertEqual("green", r["stages"]["stored_vs_chart"]["status"])
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 20.7
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
+        self.assertEqual("red", r["status"])
+
+    def test_snapshot_resaved_after_the_chart_was_built(self):
+        """2026-10-09: Razzball's 10-08 snapshot was re-saved (upsert) after the chart was built from it;
+        137 chart values differed from rows that equal the publisher now. Amber, not red; a row that
+        also differs from the publisher (ESPN's zeroed projections) stays red."""
+        env = ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        for row in env.stored:
+            row["_written_at"] = "2026-10-08T23:25:00+00:00"
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 20.1  # chart's older value
+        r, _ = env.run()
+        s2 = r["stages"]["stored_vs_chart"]
+        self.assertEqual("amber", s2["status"], s2["summary"])
+        self.assertIn("re-saved", s2["summary"])
+        env.stored[0]["half"] = 0.0  # stored also differs from the publisher: a real fault
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
+        env = ProjEnv()  # written before the chart was built: a plain difference is red
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        for row in env.stored:
+            row["_written_at"] = "2026-10-08T12:00:00+00:00"
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 20.1
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
+
+    def test_stale_chart_snapshot(self):
+        env = ProjEnv()
+        for row in env.stored:
+            row["snap"] = "2026-10-04"
+        env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-04"
+        env.vintage = "2026-10-04"
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["freshness"]["status"])
+
+    def test_publisher_newer_than_chart(self):
+        env = ProjEnv()
+        env.vintage, env.modified = "2026-10-09", "2026-10-08T22:30:00+00:00"
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["freshness"]["status"])
+
+    def test_unreadable_publisher_unknown(self):
+        env = ProjEnv()
+        env.error = "HTTP 403"
+        r, _ = env.run()
+        self.assertEqual("unknown", r["stages"]["publisher_vs_stored"]["status"])
+        self.assertEqual("amber", r["status"])
+
+
+def healthy_extras(source="usatoday"):
+    """Adjustment cells with healthy counts, last week's history equal to this week, no rank report."""
+    cells = [{"position": p, "tier": t, "n": n} for p, t, n in
+             (("QB", "starter", 12), ("QB", "bench", 8), ("RB", "starter", 32), ("RB", "bench", 21),
+              ("WR", "starter", 40), ("WR", "bench", 31), ("TE", "starter", 12), ("TE", "bench", 8))]
+    natives = {"half_ppr": {str(k): float(v[2]["half"]) for k, v in TABLES[source].items()}}
+    return {"adjustment": {"sources": {source: {"cells": cells, "diagnostics": {}}}}, "adjustment_where": "test",
+            "history": {4: {"sources": {source: {"natives": natives}}}},
+            "rank_guard": None, "rank_guard_where": "not yet available", "prior_pulse": {}}
+
+
+class Stage5ScrapeValidity(unittest.TestCase):
+    """Jeremy 2026-10-09: thin or odd fits are signals the scrape may have missed."""
+
+    def run_with(self, extras, env=None):
+        env = env or Env()
+        ident = fp.Identity.load(PLAYERS + FILLER)
+        doc, _ = fp.run(["usatoday"], fetch=FakeFetch(env.build_pages()), store=FakeStore(env.stored), ident=ident,
+                        site_doc=env.chart, site_error=None, report=None, report_where="n/a", now=NOW, extras=extras)
+        return doc["sources"][0]
+
+    def test_healthy_signals_green(self):
+        r = self.run_with(healthy_extras())
+        self.assertEqual("green", r["stages"]["scrape_validity"]["status"], r["stages"]["scrape_validity"])
+        self.assertEqual("green", r["status"])
+
+    def test_identity_fallback_cell_amber_with_reason(self):
+        ex = healthy_extras()
+        ex["adjustment"]["sources"]["usatoday"]["cells"][7].update(fallback="identity")
+        ex["adjustment"]["sources"]["usatoday"]["diagnostics"] = {"TE|bench": {"reason": "non_positive_slope"}}
+        s5 = self.run_with(ex)["stages"]["scrape_validity"]
+        self.assertEqual("amber", s5["status"])
+        self.assertIn("TE|bench", s5["summary"])
+        self.assertIn("non_positive_slope", s5["summary"])
+
+    def test_thin_cell_amber(self):
+        ex = healthy_extras()
+        ex["adjustment"]["sources"]["usatoday"]["cells"][1].update(n=1)
+        self.assertEqual("amber", self.run_with(ex)["stages"]["scrape_validity"]["status"])
+
+    def test_sudden_position_drop_vs_prior_week(self):
+        ex = healthy_extras()
+        # last week listed 10 more RBs than this week's chart and store: 12 -> 2 is a drop to 17%
+        ex["history"][4]["sources"]["usatoday"]["natives"]["half_ppr"].update(
+            {str(100 + i): 5.0 for i in range(10)})
+        for i in range(10):  # make the fillers RBs for this check
+            FILLER[i]["position"] = "RB"
+        try:
+            s5 = self.run_with(ex)["stages"]["scrape_validity"]
+        finally:
+            for i in range(10):
+                FILLER[i]["position"] = "WR"
+        self.assertEqual("red", s5["status"])
+        self.assertTrue(any(d["position"] == "RB" for d in s5["signals"]["count_drops"]))
+
+    def test_tier_drop_vs_prior_pulse(self):
+        ex = healthy_extras()
+        ex["prior_pulse"] = {"usatoday": {4: {"RB|bench": 21, "WR|bench": 31}}}
+        ex["adjustment"]["sources"]["usatoday"]["cells"][3].update(n=9)  # RB bench 21 -> 9
+        s5 = self.run_with(ex)["stages"]["scrape_validity"]
+        self.assertEqual("amber", s5["status"])
+        self.assertEqual("RB|bench", s5["signals"]["tier_drops"][0]["cell"])
+
+    def test_history_counts_reads_projection_ppg_weeks(self):
+        ident = fp.Identity.load(PLAYERS + FILLER)
+        doc = {"sources": {"razzball": {"ppg": {"2": {}, "5": {}, "3": {}}}}}
+        self.assertEqual({"QB": 0, "RB": 2, "WR": 1, "TE": 0}, fp.history_counts(doc, "razzball", ident))
+        self.assertIsNone(fp.history_counts({"sources": {}}, "razzball", ident))
+
+    def test_rank_guard_inversions_red(self):
+        ex = healthy_extras()
+        ex["rank_guard"] = {"sources": {"usatoday": {"full_12": {"inversions": 3}, "half_12": {"inversions": 0}}}}
+        r = self.run_with(ex)
+        self.assertEqual("red", r["stages"]["scrape_validity"]["status"])
+        self.assertEqual("red", r["status"])
+        ex["rank_guard"] = {"sources": {"usatoday": {"full_12": {"inversions": 0}}}}
+        self.assertEqual("green", self.run_with(ex)["stages"]["scrape_validity"]["status"])
 
 
 class Parsers(unittest.TestCase):

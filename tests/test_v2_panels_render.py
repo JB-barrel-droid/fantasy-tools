@@ -110,7 +110,10 @@ def _built_dist():
             def log_message(self, format, *args):
                 pass
         handler = functools.partial(QuietHandler, directory=str(dist))
-        with socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
+        # Two pages load at once in check_freshness; the default backlog (5) refuses connections under load.
+        class Server(socketserver.ThreadingTCPServer):
+            request_queue_size = 128
+        with Server(("127.0.0.1", 0), handler) as server:
             server.daemon_threads = True
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
