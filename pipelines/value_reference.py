@@ -94,11 +94,9 @@ DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "SUPERFLEX": 0,
 SAVED_TEAMS = 12
 SAVED_SHAPE = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
 BENCH_SHARE = tt.DEFAULT_BENCH_SHARE
-# Inputs a DDF Value needs. The engine on main publishes a DDF Value from one
-# input; Jeremy's 2026-10-08 rule (at least 2) lands with the engine change
-# for JEG-479 item 4, and this constant moves to 2 in the same change, so the
-# two implementations change together.
-DDF_MIN_INPUTS = 1
+# Inputs a DDF Value needs (docs/methodology.md "DDF Composite Value" step 6;
+# the engine's COMPOSITE_MIN_SOURCES).
+DDF_MIN_INPUTS = 2
 VIEW_SCORING = {"ppr": "ppr", "full": "ppr", "half_ppr": "half_ppr", "half": "half_ppr",
                 "standard": "standard"}
 
@@ -207,10 +205,9 @@ class Inputs:
             n = _num(k)
             if n is not None and n == int(n):
                 key_of[slug] = int(n)
-        held = {s: (sec.get("validationHold") or {}).get("reason") or "validation hold"
-                for s, sec in (fx.get("sources") or {}).items()
-                if isinstance(sec, dict) and sec.get("validationHold")}
-        return cls(fx, canon, key_of, adj, today or datetime.now(timezone.utc).date(), held)
+        # Holds are read from the fixture's sections (section_hold); `held`
+        # is an explicit override map {section: reason}.
+        return cls(fx, canon, key_of, adj, today or datetime.now(timezone.utc).date(), {})
 
     # product-data getPlayerValues, restricted to the chart's players.
     def cell(self, source: str, scoring: str, teams: int, view: str = "combo_reindexed") -> dict | None:
@@ -1061,82 +1058,167 @@ def allocation_counts(pool: list[dict], teams: int, shape: dict, rank_of) -> dic
 # DDF Composite Value (docs/methodology.md "DDF Composite Value")
 # ---------------------------------------------------------------------------
 
-def composite_inputs(setting: Setting, fresh: dict) -> tuple[list[str], dict]:
-    """(default inputs, {excluded key: reason}) at a setting."""
-    inputs, excluded = [], {}
-    for key in COMPOSITE_INPUTS:
-        row = fresh["series"].get(key) or {}
-        if key in setting.inp.held or ("cbs" if key == "cbs_adjusted" else key) in setting.inp.held:
-            excluded[key] = "held"
-        elif not setting.available(key):
-            excluded[key] = "not available"
-        elif row.get("older") or row.get("first_load_excluded"):
-            excluded[key] = "older week"
-        else:
-            inputs.append(key)
-    return inputs, excluded
+# The DDF rules in one place, so a methodology change is a change here
+# (the engine's COMPOSITE_* constants in curve-widget.js).
+DDF_RULES = {
+    # A DDF Value is published when at least this many series price the player.
+    "min_inputs": DDF_MIN_INPUTS,
+    "short_reason": "Needs at least two source values",
+}
+# Step 2: the series each input contributes in each view.
+CHART_OF = {"fantasycalc_adjusted": "fantasycalc", "usatoday_adjusted": "usatoday",
+            "fantasypros_adjusted": "fantasypros", "cbs_adjusted": "cbs"}
+VIEW_SERIES = {
+    "indexed": {k: k for k in COMPOSITE_INPUTS},
+    "vorp": {"espn": "espn_vorp", "cbsros": "cbsros_vorp", "razzball": "razzball_vorp", **CHART_OF},
+    "adj": {"espn": "espn", "cbsros": "cbsros", "razzball": "razzball", **CHART_OF},
+}
+HOLD_FIELDS = ("validationHold", "promotionHold")
+# A hold on a source holds the series derived from it (methodology step 3).
+HOLD_DERIVED = {"espn": ["espn_vorp"], "cbsros": ["cbsros_vorp"], "razzball": ["razzball_vorp"],
+                "fantasycalc": ["fantasycalc_adjusted"], "usatoday": ["usatoday_adjusted"],
+                "fantasypros": ["fantasypros_adjusted"], "cbs": ["cbs_adjusted"]}
 
 
-def composite(values: dict, keys: list[str], min_inputs: int = DDF_MIN_INPUTS) -> tuple:
+def section_hold(inp: Inputs, section: str) -> str | None:
+    """The hold reason on a fixture section, or None."""
+    if section in inp.held:
+        return inp.held[section]
+    sec = (inp.fixture.get("sources") or {}).get(section)
+    if not isinstance(sec, dict):
+        return None
+    for f in HOLD_FIELDS:
+        hold = sec.get(f)
+        if hold:
+            if isinstance(hold, dict) and hold.get("reason"):
+                return str(hold["reason"])
+            return hold if isinstance(hold, str) else f
+    return None
+
+
+def series_hold(inp: Inputs, key: str) -> str | None:
+    own = section_hold(inp, key)
+    if own:
+        return own
+    base = next((src for src, derived in HOLD_DERIVED.items() if key in derived), None)
+    return section_hold(inp, base) if base else None
+
+
+def composite_block(s: "Setting", key: str, fresh: dict) -> str | None:
+    """Step 3: why an input is never used this week, or None."""
+    hold = series_hold(s.inp, key)
+    if hold:
+        return f"held: {hold}"
+    row = fresh["series"].get(key) or {}
+    if row.get("older") or row.get("first_load_excluded"):
+        return f"not yet published for week {fresh['current_week']}"
+    return None
+
+
+def series_unusable(s: "Setting", series: str, maps: dict) -> str | None:
+    """Step 4: a series with no values at this setting, or None."""
+    sources = s.inp.fixture.get("sources") or {}
+    if series in SOURCE_KEYS and ("cbs" if series == "cbs_adjusted" else series) not in sources:
+        return "missing from this build"
+    if series in ADJUSTED:
+        entry = ((s.inp.adjustment_inputs or {}).get("sources") or {}).get(CHART_OF[series])
+        if not cell_set_complete(entry):
+            return "paused while it waits on fresh adjustment inputs"
+    if not maps.get(series):
+        return "not available at this setting"
+    if series in VORP_KEYS:
+        ok = any(s.inp.ppg(k, VORP_KEYS[series], s.scoring) is not None for k in s.inp.players)
+    elif series in ("cbsros", "razzball"):
+        ok = any(s.inp.ppg(k, LEG_PPG[series], s.scoring) is not None for k in s.inp.players)
+    elif series in PUBLISHED or series in ADJUSTED:
+        ok = s.inp.combo_exists(series, s.scoring, SAVED_TEAMS)
+    else:
+        ok = s.inp.combo_exists(series, s.scoring, s.teams)
+    return None if ok else "not available at this setting"
+
+
+def composite(values: dict, keys: list[str], rules: dict | None = None) -> tuple:
+    """Step 6: (value or None, count, reason) over the finite values of keys."""
+    rules = rules or DDF_RULES
     used = [k for k in keys if _finite(values.get(k))]
-    if not used:
-        return None, 0, "no input prices this player"
-    if len(used) < min_inputs:
-        return None, len(used), f"only {len(used)} input prices this player"
+    if len(used) < max(1, rules["min_inputs"]):
+        return None, len(used), rules["short_reason"]
     return sum(values[k] for k in used) / len(used), len(used), None
 
 
-def composite_prior(s: Setting, rows: dict, keys: list[str], hist: History, view: str) -> dict:
-    """The DDF Value's week-over-week pair: the newest served week among the
-    inputs and the week before it, over the SAME inputs on both sides; an
-    input without that prior week (or serving another week) is dropped from
-    both."""
-    results = {}
-    for key in keys:
-        week, prior, values, reason = prior_values(s, key, hist, view)
-        results[key] = {"week": week, "values": values, "reason": reason}
-    weeks = [r["week"] for r in results.values() if isinstance(r["week"], int)]
-    if not weeks:
-        return {"available": False, "reason": "no DDF Value input matches a saved week", "sources": []}
-    current = max(weeks)
-    sources = [k for k in keys if results[k]["values"] is not None and results[k]["week"] == current]
-    dropped = {k: (results[k]["reason"] if results[k]["values"] is None
-                   else f"serves Week {results[k]['week']}, not Week {current}")
-               for k in keys if k not in sources}
-    if not sources:
-        return {"available": False, "reason": f"no DDF Value input has Week {current - 1}",
-                "sources": [], "dropped": dropped, "currentWeek": current, "priorWeek": current - 1}
-    prior_vals, current_vals = {}, {}
-    players = set()
-    for k in sources:
-        players.update(results[k]["values"])
-    for pk in players:
-        v, _n, _r = composite({k: results[k]["values"].get(pk) for k in sources}, sources)
-        if v is not None:
-            prior_vals[pk] = v
-    for pk, values in rows.items():
-        v, _n, _r = composite(values, sources)
-        if v is not None:
-            current_vals[pk] = v
-    return {"available": True, "sources": sources, "dropped": dropped, "currentWeek": current,
-            "priorWeek": current - 1, "values": prior_vals, "currentValues": current_vals}
+def composite_state(s: "Setting", view: str, rows: dict, maps: dict, fresh: dict,
+                    hist: "History | None") -> dict:
+    """Steps 1-6 for one view: the included inputs and series, the excluded
+    ones with their reason, the current week's and the prior week's values."""
+    excluded, candidates = {}, []
+    for key in COMPOSITE_INPUTS:
+        series = VIEW_SERIES[view][key]
+        reason = composite_block(s, key, fresh) or series_unusable(s, series, maps)
+        if reason:
+            excluded[key] = reason
+            continue
+        prior = None
+        if hist is not None:
+            week, _pw, values, why = prior_values(s, series, hist, view)
+            prior = {"week": week, "values": values, "reason": why}
+        candidates.append((key, series, prior))
+    served = [p["week"] for _k, _s, p in candidates if p and isinstance(p["week"], int)]
+    current_week = max(served) if served else None
+    paired = [c for c in candidates
+              if c[2] and c[2]["values"] is not None and c[2]["week"] == current_week]
+    included = paired if paired else candidates
+    if paired:
+        for key, ser, prior in candidates:
+            if (key, ser, prior) in paired:
+                continue
+            excluded[key] = "no prior week: " + (
+                f"serves Week {prior['week']}, not Week {current_week}"
+                if prior["values"] is not None else str(prior["reason"]))
+    series = [c[1] for c in included]
+    current = {pk: composite(values, series) for pk, values in rows.items()}
+    prior_out = None
+    if paired:
+        prior_out = {}
+        players = set()
+        for _k, _s, prior in included:
+            players.update(prior["values"])
+        for pk in players:
+            prior_out[pk] = composite({ser: prior["values"].get(pk) for _k, ser, prior in included}, series)
+    return {"view": view, "inputs": [c[0] for c in included], "series": series, "excluded": excluded,
+            "currentWeek": current_week if paired else None,
+            "priorWeek": current_week - 1 if paired else None,
+            "priorAvailable": bool(paired), "current": current, "prior": prior_out}
 
 
-def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None) -> dict:
-    """One setting: {view: {player_key: {series: value}}} with ddf_value, and
-    the DDF Value's prior-week pair per view."""
+def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: "History | None" = None) -> dict:
+    """One setting: {view: {player_key: {series: value}}} with the view's DDF
+    Value (ddf_value, ddf_count), and the DDF Value's prior-week pair per view
+    (the shape of the engine's getPriorWeek("ddf_value"))."""
     s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0))
     fresh = freshness(inp)
-    keys, excluded = composite_inputs(s, fresh)
-    out = {"setting": setting_spec, "composite_inputs": keys, "composite_excluded": excluded,
-           "views": {}, "prior": {}}
+    out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}
     for view in views:
+        maps = s.series_maps(view)
         rows = s.rows(view)
-        for values in rows.values():
-            values[COMPOSITE_KEY], values["ddf_count"], _reason = composite(values, keys)
+        state = composite_state(s, view, rows, maps, fresh, hist)
+        for pk, values in rows.items():
+            values[COMPOSITE_KEY], values["ddf_count"], _reason = state["current"][pk]
         out["views"][view] = rows
+        out["composite"][view] = {"inputs": state["inputs"], "series": state["series"],
+                                  "excluded": state["excluded"]}
         if hist is not None:
-            out["prior"][view] = composite_prior(s, rows, keys, hist, view)
+            if state["priorAvailable"]:
+                out["prior"][view] = {
+                    "available": True, "sources": state["series"],
+                    "currentWeek": state["currentWeek"], "priorWeek": state["priorWeek"],
+                    "values": {pk: v for pk, (v, _n, _r) in state["prior"].items() if v is not None},
+                    "currentValues": {pk: v for pk, (v, _n, _r) in state["current"].items()
+                                      if v is not None}}
+            else:
+                out["prior"][view] = {"available": False, "sources": []}
+    first = out["composite"].get("indexed") or next(iter(out["composite"].values()), {})
+    out["composite_inputs"] = first.get("inputs", [])
+    out["composite_excluded"] = first.get("excluded", {})
     return out
 
 
