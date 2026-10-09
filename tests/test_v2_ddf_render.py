@@ -21,10 +21,16 @@ headless at 1440 and 390 with empty storage, and checks against the engine
   * Reset (toolbar) puts Rank by back to the DDF Value;
   * Δ Prior week on the DDF Value cell is getPriorWeek("ddf_value")
     currentValues − values (both sides over the same inputs);
+  * Tier (Jeremy, 2026-10-08: the tier follows the Rank by series): ranked by
+    DDF Value, each row's tier is the engine's row.ddfTier; ranked by another
+    series, it is the row's rank (engine order) against getZones();
+  * a missing value shows "—" with the engine's own reason when the row has
+    row.missingReasons[key] (simulated), and a finite 0 shows "0.0";
   * no page errors, no horizontal overflow at 390.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js / movers.js /
-v2.css with one fault each and requires the checks to fail on each.
+v2.css with one fault each (including the tier read from espnRole and the
+engine's missing reason ignored) and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -210,6 +216,87 @@ def check_reset_and_delta(page, tag) -> list[str]:
     return errors
 
 
+TIER_READ = """() => {
+  const C = window.TradeValueCurveControls;
+  const rows = C.getRows();
+  const z = C.getZones();
+  const label = {starter: 'Starter', bench: 'Bench', waiver: 'Waiver'};
+  const rank = C.getRankSource();
+  const want = Object.fromEntries(rows.map((r, i) => [String(r.player_key), rank === 'ddf_value' ? (label[r.ddfTier] || '—')
+    : !Number.isFinite(r.values[rank]) ? '—' : i + 1 < z.starter_to_bench ? 'Starter' : i + 1 < z.bench_to_waiver ? 'Bench' : 'Waiver']));
+  // Tier is the last meta column when those show (1600 px and up), else the last part of the player sub-line.
+  const got = [...document.querySelectorAll('#v2Table tbody tr')].map(tr => {
+    const sub = tr.querySelector('td.player .player-sub');
+    const metas = tr.querySelectorAll('td.col-meta');
+    return {key: tr.dataset.playerKey, tier: metas.length ? metas[metas.length - 1].textContent.trim() : sub ? sub.textContent.split(' · ').pop() : null};
+  });
+  const espnDiffers = rows.some(r => (label[r.espnRole] || '—') !== want[String(r.player_key)]);
+  return {rank, want, got, espnDiffers};
+}"""
+
+REASON = "Not enough players to fit an adjustment"
+
+
+def check_tiers(page, tag) -> list[str]:
+    """Tier follows Rank by: DDF Value, then one other series."""
+    errors = []
+    other = page.evaluate("() => window.TradeValueV2.view().plotKeys.find(k => k !== 'ddf_value')")
+    for key in (DDF, other):
+        page.select_option("#v2RankBy", key)
+        page.wait_for_timeout(250)
+        snap = page.evaluate(TIER_READ)
+        if snap["rank"] != key:
+            errors.append(tag + f"Rank by {key} left the engine on {snap['rank']}")
+            continue
+        if not snap["got"]:
+            errors.append(tag + f"ranked by {key}: no rows")
+        bad = [(g["key"], g["tier"], snap["want"].get(g["key"])) for g in snap["got"] if g["tier"] != snap["want"].get(g["key"])]
+        if bad:
+            errors.append(tag + f"ranked by {key}: tier differs from that series' zones, e.g. {bad[:3]} (key, shown, want)")
+        if key == DDF and not snap["espnDiffers"]:
+            errors.append(tag + "ESPN roles equal the DDF tiers for every row: the tier check is not discriminating")
+    page.select_option("#v2RankBy", DDF)
+    page.wait_for_timeout(250)
+    return errors
+
+
+def check_missing_reason(page, tag) -> list[str]:
+    """Simulate the engine's row.missingReasons (and a finite 0) on two shown rows."""
+    errors = []
+    probe = page.evaluate("""(reason) => {
+      const C = window.TradeValueCurveControls, V2 = window.TradeValueV2;
+      const key = V2.view().plotKeys.find(k => k !== 'ddf_value');
+      const trs = [...document.querySelectorAll('#v2Table tbody tr')];
+      if (!key || trs.length < 2) return null;
+      const [gone, zero] = [trs[0].dataset.playerKey, trs[1].dataset.playerKey];
+      const real = C.getRows;
+      window.__realGetRows = real;
+      C.getRows = () => real().map(r => {
+        const k = String(r.player_key);
+        if (k === gone) return {...r, values: {...r.values, [key]: null}, missingReasons: {[key]: reason}};
+        if (k === zero) return {...r, values: {...r.values, [key]: 0}};
+        return r;
+      });
+      V2.setShown(V2.shown());
+      return {key, gone, zero};
+    }""", REASON)
+    if not probe:
+        return [tag + "no rows to simulate a missing reason on"]
+    page.wait_for_timeout(250)
+    got = page.evaluate("""({key, gone, zero}) => {
+      const cell = k => document.querySelector(`#v2Table tbody tr[data-player-key="${k}"] td[data-source="${key}"]`);
+      const g = cell(gone), z = cell(zero);
+      return {goneTitle: g?.querySelector('.missing')?.title ?? null, goneText: g?.querySelector('.missing')?.firstChild?.textContent ?? null,
+        zeroText: z ? (z.firstChild ? z.firstChild.textContent : '').trim() : null, zeroMissing: Boolean(z?.querySelector('.missing'))};
+    }""", probe)
+    if got["goneText"] != "—" or got["goneTitle"] != REASON:
+        errors.append(tag + f"missing value shows {got['goneText']!r} with reason {got['goneTitle']!r}, want '—' with {REASON!r}")
+    if got["zeroText"] != "0.0" or got["zeroMissing"]:
+        errors.append(tag + f"a finite 0 shows {got['zeroText']!r} (missing={got['zeroMissing']}), want '0.0'")
+    page.evaluate("() => { const C = window.TradeValueCurveControls; C.getRows = window.__realGetRows; window.TradeValueV2.setShown(window.TradeValueV2.shown()); }")
+    return errors
+
+
 def _serve(body, ctype, route, *_):
     route.fulfill(status=200, content_type=ctype, body=body)
 
@@ -264,6 +351,8 @@ def run_checks(overrides=None, viewports=((1440, 900), (390, 844))) -> list[str]
                 errors += check_defaults(snap, tag)
                 errors += check_table(snap, tag)
                 if width >= 1280:
+                    errors += check_tiers(page, tag)
+                    errors += check_missing_reason(page, tag)
                     errors += check_customize(page, tag)
                     errors += check_reset_and_delta(page, tag)
                 if width <= 390 and snap["overflow"] > 0:
@@ -303,6 +392,11 @@ class DdfRenderTest(unittest.TestCase):
                 "if (key === DDF_KEY) return \"ddf\";\n    const meta = sourceMeta(key);",
                 "if (key === DDF_KEY) return \"ddf\";\n    const meta = sourceMeta(key);", 1).replace(
                 "            td.textContent = fmt(v);", "            td.textContent = fmt(col.source === DDF_KEY ? Math.floor(v * 10 - 1) / 10 : v);", 1), js)},
+            "tier read from espnRole": {"v2.js": (v2.replace(
+                "const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));",
+                "const tierText = row => tierLabel(row.espnRole);", 1), js)},
+            "engine missing reason ignored": {"v2.js": (v2.replace(
+                '    if (typeof own === "string" && own.trim()) return own;\n', "", 1), js)},
             "DDF Δ from the row value": {"movers.js": (movers.replace(
                 "    if (prior.currentValues) current = prior.currentValues[playerKey];\n", "", 1), js)},
         }

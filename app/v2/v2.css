@@ -240,6 +240,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-tip .v2-meta { display: block; margin-bottom: 6px; }
 .v2-tip .row { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-weight: 600; }
 .v2-tip .row .val { margin-left: auto; font-variant-numeric: tabular-nums; }
+.v2-tip .row .val .why { font-size: 11px; font-weight: 400; color: var(--v2-muted); }
 .v2-tip .row.is-rank { color: var(--v2-action); }
 
 /* Drawer and popover */
@@ -304,6 +305,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-ttable td.player { white-space: normal; }
 .v2-ttable .player-sub { display: block; }
 .v2-ttable .num { font-size: clamp(13px, 1.1vw, 15px); }
+/* JEG-455: DDF Value's "from N sources" under our value. */
+.v2-ttable td[data-ours] .t-count { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); white-space: nowrap; }
+.v2-tcards .vals .ours .t-count { font-weight: 400; color: var(--v2-muted); }
 .v2-ttable td.best { font-size: clamp(14px, 1.15vw, 16px); }
 .v2-ttable td.best.up { color: var(--v2-action); }
 .v2-ttable td.best.down { color: var(--v2-negative); }
