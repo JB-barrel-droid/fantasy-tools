@@ -4294,6 +4294,106 @@
     if (!map.size) return {reason: "that week's chart prices no players at this setting"};
     return {values: map, method: `${raw.method} + current fit cells + normalizedAdjustedMapFor`, peers: raw.peers};
   }
+  // Is this source's week served from a kept version, not the week's snapshot?
+  const servedVersionAt = (index, base, week) =>
+    index?.served?.[base]?.week === week && index?.served?.[base]?.version === "superseded";
+  // The saved entry of one source for one week: the served version when the
+  // source serves that week from a kept version (index served.version
+  // "superseded"), else the week's snapshot. {entry} | {missing: reason}
+  // (nothing saved for that week) | {error: reason} (a history read failed).
+  function historyEntryOf(base, week, index, doc) {
+    let entry = doc?.sources?.[base];
+    const servedRec = index?.served?.[base];
+    if (servedRec?.week === week && servedRec?.version === "superseded") {
+      try {
+        const served = historyNow("served");
+        const version = served?.sources?.[base];
+        if (!version || version.fingerprint !== servedRec.entry_fingerprint) {
+          return {missing: `the served ${sourceLabel(base)} version is not saved`};
+        }
+        entry = version;
+      } catch (error) {
+        return {error: `history could not be read: ${error.message}`};
+      }
+    }
+    if (!entry) return {missing: `no Week ${week} ${sourceLabel(base)} content saved`};
+    if (entry.week !== week) return {missing: `saved entry is labelled week ${entry.week}`};
+    return {entry};
+  }
+  // JEG-479 "Build prior week" (Jeremy 2026-10-09): a published chart's VORP
+  // vs waivers / Adjusted values for a saved week. Exactly derivedViewBatch
+  // (ValueModel.derivePublishedViews) with every chart's saved natives for
+  // THAT week: the chart's own natives and player set, its peers (the other
+  // charts' natives for the same week, which extend a short chart's waiver
+  // line) and the batch whose top player sets the Adjusted 0-70 scale. A
+  // chart with nothing saved for the week is not in that week's batch. The
+  // league, roster and the anchor's eight group totals (our position
+  // weighting) are the current ones, as for every other saved week; no
+  // adjustment fit is involved. Where the tab shows the pipeline's saved
+  // views instead of derived ones (savedViewApplies) there is no saved week
+  // (historyPublishedViewValues). Cached per anchor build, setting and week.
+  //
+  // Tie order: the translation ranks a chart's players by native value and keeps list
+  // order between equal values (ValueModel sortRanked is a stable sort), so
+  // two players a chart values equally get different values above waivers.
+  // The served natives arrive in the publisher's list order; the saved week
+  // files store natives keyed by player id (sorted keys), which loses it. A
+  // saved week is therefore ordered by value, equal values in the served
+  // list's order, players the served list lacks after them by player key.
+  function historyListOrder(key, native) {
+    const served = new Map();
+    [...savedPublishedNative(key).keys()].forEach((playerKey, rank) => served.set(playerKey, rank));
+    const rankOf = playerKey => served.has(playerKey) ? served.get(playerKey) : Infinity;
+    return new Map([...native.entries()].sort((a, b) => b[1] - a[1]
+      || rankOf(a[0]) - rankOf(b[0]) || (rankOf(a[0]) === Infinity ? a[0] - b[0] : 0)));
+  }
+  let historyViewBatchCache = {version: -1, batches: new Map()};
+  function historyViewBatch(week, index, doc) {
+    if (historyViewBatchCache.version !== anchorVersion) historyViewBatchCache = {version: anchorVersion, batches: new Map()};
+    const cacheKey = `${scoring}|${teams}|${rosterSignature()}|${week}`;
+    if (historyViewBatchCache.batches.has(cacheKey)) return historyViewBatchCache.batches.get(cacheKey);
+    const anchor = sourceMaps.get("espn");
+    if (!anchor?.size) return {reason: "the ESPN anchor is not built"};
+    const natives = {};
+    for (const key of AS_PUBLISHED_KEYS) {
+      const found = historyEntryOf(key, week, index, doc);
+      if (found.error) return {reason: found.error};
+      if (!found.entry) continue;
+      const native = historyListOrder(key, historyNatives(found.entry));
+      if (native.size) natives[key] = native;
+    }
+    const playerOf = playerKey => canonicalByKey.get(playerKey);
+    const roles = ValueModel.roleMap({values: anchor, playerOf, teams, shape: rosterShape});
+    const inputs = {};
+    Object.entries(natives).forEach(([key, native]) => {
+      const keys = [...native.keys()];
+      inputs[key] = {native, keys,
+        budgets: ValueModel.anchorGroupTotals({values: anchor, playerOf, roles, keys: new Set(keys)})};
+    });
+    const batch = {members: Object.keys(natives).sort(), derived: ValueModel.derivePublishedViews({
+      sources: inputs, natives, posOf: playerKey => canonicalByKey.get(playerKey)?.pos, teams, shape: rosterShape
+    })};
+    historyViewBatchCache.batches.set(cacheKey, batch);
+    return batch;
+  }
+  function historyPublishedViewValues(source, week, view, index, doc) {
+    const viewKey = getViewKey(view);
+    // At the setup where this tab shows the pipeline's saved views
+    // (publishedViewMap "saved" mode; a different vintage, math-review VA-3)
+    // no saved week is computed the way the values shown are, so there is
+    // none: the chart sits out the DDF Value pair there (both weeks).
+    if (savedViewApplies(source) && buildVorpViewSourceMap(source, viewKey).size) {
+      return {reason: `at ${scoreLabel()} / ${teams} teams this tab shows the pipeline's saved views (an older`
+        + " vintage, not derived from the saved weeks), so no earlier week is computed the same way"};
+    }
+    const batch = historyViewBatch(week, index, doc);
+    if (!batch.derived) return {reason: batch.reason};
+    const derived = batch.derived.sources[source];
+    const map = viewKey === "adj_values" ? derived?.adj : derived?.vorp;
+    if (!map?.size) return {reason: `no ${scoreLabel()} values saved for that week`};
+    return {values: map, method: `ValueModel.derivePublishedViews ${batch.derived.version} on the Week ${week} saved natives`
+      + ` (batch: ${batch.members.join(", ")})`, peers: batch.members.filter(key => key !== source)};
+  }
   // One saved week of one series at the reader's current setting.
   // Resolves {source, week, available, reason?, values: {player_key: value}
   // (players the saved week does not price are absent), setting, origin,
@@ -4312,8 +4412,10 @@
       const index = await historyIndex();
       await historyWeekDoc(index, week);
       const base = historyBaseSource(source);
-      const servedRec = index?.served?.[base];
-      if (servedRec?.week === week && servedRec?.version === "superseded") await historyServedVersions();
+      // A chart's VORP vs waivers / Adjusted week reads every chart's entry
+      // for that week (historyViewBatch), so any of them may be a served version.
+      const reads = AS_PUBLISHED_KEYS.has(source) ? [...AS_PUBLISHED_KEYS] : [base];
+      if (reads.some(key => servedVersionAt(index, key, week))) await historyServedVersions();
       if (source === "espn") await historyEspnLegs();
     } catch (error) {
       // historyLoaded holds the error; weekValuesSync words it.
@@ -4321,9 +4423,10 @@
   }
   // getWeekValues without the fetches (they must have resolved). view: the
   // tab whose values are recomputed. Only the as-published charts differ by
-  // tab, and their earlier weeks exist in Indexed only; every other series
-  // (projections, VORP vs waivers, the *_adjusted charts) is the same in
-  // every tab, so its saved weeks are too.
+  // tab (Indexed: historyPublishedValues; VORP vs waivers / Adjusted values:
+  // historyPublishedViewValues); every other series (projections, VORP vs
+  // waivers, the *_adjusted charts) is the same in every tab, so its saved
+  // weeks are too.
   function weekValuesSync(source, week, view) {
     week = Number(week);
     const unavailable = (reason, extra) => ({...historyUnavailable(source, week, reason, extra), setting: historySetting(view)});
@@ -4345,26 +4448,11 @@
     // The served week may be served from another kept version than the
     // week's snapshot (index served.version "superseded", e.g. a FantasyCalc
     // pull after the Tuesday cut): then "this week" is exactly that version.
-    let entry = doc?.sources?.[base];
-    const servedRec = index?.served?.[base];
-    if (servedRec?.week === week && servedRec?.version === "superseded") {
-      try {
-        const served = historyNow("served");
-        const version = served?.sources?.[base];
-        if (!version || version.fingerprint !== servedRec.entry_fingerprint) {
-          return unavailable(`the served ${sourceLabel(base)} version is not saved`);
-        }
-        entry = version;
-      } catch (error) {
-        return unavailable(`history could not be read: ${error.message}`);
-      }
-    }
-    if (!entry) return unavailable(`no Week ${week} ${sourceLabel(base)} content saved`);
-    if (entry.week !== week) return unavailable(`saved entry is labelled week ${entry.week}`);
-    if (AS_PUBLISHED_KEYS.has(source) && view !== "indexed") {
-      return unavailable("earlier weeks are recomputed in the Indexed view only");
-    }
+    const found = historyEntryOf(base, week, index, doc);
+    if (!found.entry) return unavailable(found.error || found.missing);
+    const entry = found.entry;
     const result = source.endsWith("_adjusted") ? historyAdjustedValues(source, base, entry)
+      : AS_PUBLISHED_KEYS.has(source) && view !== "indexed" ? historyPublishedViewValues(source, week, view, index, doc)
       : AS_PUBLISHED_KEYS.has(source) ? historyPublishedValues(source, entry)
       : source.endsWith("_vorp") ? historyVorpValues(source, entry)
       : source === "espn" ? historyEspnValues(entry, week)
@@ -4430,9 +4518,11 @@
     try {
       const index = await historyIndex();
       const weeks = new Set(Object.values(index?.served || {}).map(rec => rec?.week).filter(Number.isInteger));
+      const servedNeeded = [...weeks].some(week => [...AS_PUBLISHED_KEYS].some(key => servedVersionAt(index, key, week - 1)));
       await Promise.all([
         ...[...weeks].map(week => historyWeekDoc(index, week - 1).catch(() => null)),
         historyEspnLegs().catch(() => null),
+        ...(servedNeeded ? [historyServedVersions().catch(() => null)] : []),
       ]);
     } catch (error) {
       // Recorded in historyLoaded; every pair then reports it.
