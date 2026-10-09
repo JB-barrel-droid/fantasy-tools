@@ -13,6 +13,8 @@ negative values for the deepest bench players and the clip at 0 adds mass:
 the anchor ran 0.65-1.78 above its pie in 10 of 12 combos on aefb8f7 data
 (peak at 4%, just inside the RB/WR/TE windows where the bench rate is ~0;
 1-3% step up to the same windows, so they price identically).
+(JEG-493, 2026-10-09: the anchor is now the live two-tier read directly,
+so it no longer clips; the clip-mass check routes it back through the cells.)
 
 Two further defects made it sticky:
   * setBenchShareFraction moved only the control and readout; the chart kept
@@ -200,8 +202,13 @@ class BenchShareLowPieTest(unittest.TestCase):
         self.assertTrue(any("stale" in p for p in problems), problems[:10])
 
     def test_sweep_catches_the_clip_mass(self):
-        # Drop only the cell-total restoration: the pie check must fail.
-        broken = mutate(built_widget(), "if (!(sums.kept > sums.fitted) || !(sums.fitted > 0)) return;", "return;")
+        # The original defect: the anchor through the OLS cells with the
+        # cell-total restoration dropped. The pie check must fail. (JEG-493
+        # took the anchor off the cells -- it is the live two-tier read
+        # directly -- so the mutation first routes it back through them.)
+        broken = mutate(built_widget(), "const espnAnchorValues = liveEspnAnchorValues() || buildEspnIndexedMap();",
+                        'const espnAnchorValues = buildLiveAdjustedMap("espn", adjustmentCellsFor("espn"));')
+        broken = mutate(broken, "if (!(sums.kept > sums.fitted) || !(sums.fitted > 0)) return;", "return;")
         problems = sweep(broken, [("ppr", 12)])["problems"]
         self.assertTrue(any("anchor total - pie" in p for p in problems), problems[:10])
         self.assertFalse(any("stale" in p for p in problems), problems[:10])

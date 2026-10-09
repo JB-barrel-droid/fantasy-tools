@@ -593,12 +593,34 @@ class Setting:
         return {k: v * f for k, v in shaped.items()}
 
     # -- the anchor and every other series -------------------------------
+    def espn_anchor_from(self, ddf: dict | None, members) -> dict | None:
+        """The anchor's values from a live ESPN two-tier (JEG-493): each member
+        the pool rosters (starter or bench) at a position that calibrated,
+        at its two-tier value (>= 0). None when nothing qualifies."""
+        if not ddf:
+            return None
+        out = {}
+        for k in members:
+            pos = ddf["pos_of"].get(k)
+            if k not in self.inp.players or not pos:
+                continue
+            cal = ddf["cal"].get(pos)
+            if not cal or cal.get("invalid"):
+                continue
+            if k not in ddf["starters"] and k not in ddf["bench"]:
+                continue
+            v = ddf["values"].get(k)
+            if v is not None and math.isfinite(v):
+                out[k] = max(0.0, v)
+        return out or None
+
     def anchor(self) -> dict:
+        """The ESPN anchor: the live two-tier at this setting over the players
+        the built leg lists (JEG-493), else the built leg; then roster shape."""
         if not hasattr(self, "_anchor"):
-            cells = self.cells_for("espn")
-            if not cells:
-                raise RuntimeError("no ESPN cells: the engine would fall back to the browser-derived leg")
-            self._anchor = self.roster_shaped(self.live_adjusted("espn", cells), "espn")
+            leg = self.raw_map("espn")
+            values = self.espn_anchor_from(self.two_tier("espn"), leg) or leg
+            self._anchor = self.roster_shaped(values, "espn")
         return self._anchor
 
     def adjusted_map(self, key: str) -> dict:
@@ -1027,10 +1049,13 @@ def week_values(setting: "Setting", series: str, week: int, hist: History, view:
                 raw[k] = f
         if len(raw) < vm.MIN_SHARED_FOR_PIE:
             return None, "the ESPN leg prices too few players"
-        cells = setting.cells_for("espn")
-        mapped = setting.live_adjusted("espn", cells, raw=raw) if cells else raw
-        values = _display(setting, "espn", setting.roster_shaped(mapped, "espn"), entry,
-                          _saved_ppg(setting, entry))
+        # JEG-493: that week's ESPN projections through the live two-tier (the
+        # anchor's path), over the players that week's leg lists.
+        ppg = _saved_ppg(setting, entry)
+        anchor_week = setting.espn_anchor_from(setting.two_tier("espn", ppg), raw)
+        if not anchor_week:
+            return None, f"the Week {week} ESPN projections cannot be priced at this setting"
+        values = _display(setting, "espn", setting.roster_shaped(anchor_week, "espn"), entry, ppg)
     else:  # cbsros, razzball
         ppg = _saved_ppg(setting, entry)
         if not ppg:

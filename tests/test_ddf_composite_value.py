@@ -56,6 +56,7 @@ HELPERS = """
   const NONE = %s;
   const ONE = %s;
   const VERSIONS = ['ddf_value', 'ddf_value_charts', 'ddf_value_projections'];
+  const NAME = {ddf_value: 'blended', ddf_value_charts: 'charts', ddf_value_projections: 'projections'};
   const COUNT = {ddf_value: 'ddfCount', ddf_value_charts: 'ddfChartsCount', ddf_value_projections: 'ddfProjectionsCount'};
   const LOW = {ddf_value: 'ddfLowConfidence', ddf_value_charts: 'ddfChartsLowConfidence', ddf_value_projections: 'ddfProjectionsLowConfidence'};
   const view = v => document.querySelector(`#viewModeTabs [data-view-mode=${v}]`).click();
@@ -70,7 +71,7 @@ HELPERS = """
   const others = () => JSON.stringify(c.getAllRows().map(r => {
     const v = {...r.values}; VERSIONS.forEach(k => delete v[k]); return [r.player_key, r.espnRole, v];
   }));
-  const ddf = () => JSON.stringify(c.getAllRows().map(r => [r.player_key, r.ddfTier, r.ddfPrior, r.ddfVersions]));
+  const ddf = () => JSON.stringify(c.getAllRows().map(r => [r.player_key, r.ddfTier, r.ddfPrior, r.ddfByVersion]));
   // A series' Adjusted-view value: a chart's "<chart>_adj_values" is the
   // chart's value on the Adjusted tab's row; a projection's is its own.
   const seriesValue = (adjRow, s) => s.endsWith('_adj_values') ? adjRow.values[s.replace(/_adj_values$/, '')] : adjRow.values[s];
@@ -90,7 +91,7 @@ HELPERS = """
         const series = c.getCompositeInputs(v).series;
         const values = Object.fromEntries(series.map(s => [s, seriesValue(a, s)]));
         const want = mean(values, series);
-        const got = r.ddfVersions[v];
+        const got = r.ddfByVersion[NAME[v]];
         if (!near(got.value, want.value) && problems.length < 40) problems.push(`${tag}/${v} ${r.name}: ${got.value} != mean ${want.value}`);
         if (!near(r.values[v], got.value) || !near(a.values[v], got.value)) problems.push(`${tag}/${v} ${r.name}: not the same in every tab`);
         if (got.count !== want.count || r[COUNT[v]] !== want.count) problems.push(`${tag}/${v} ${r.name}: count ${got.count} != ${want.count}`);
@@ -100,10 +101,10 @@ HELPERS = """
         if (got.lowConfidence !== (want.count === 1) || r[LOW[v]] !== (want.count === 1)) problems.push(`${tag}/${v} ${r.name}: lowConfidence ${got.lowConfidence} with ${want.count}`);
         if (got.confidenceNote !== (want.count === 1 ? ONE : null)) problems.push(`${tag}/${v} ${r.name}: note ${got.confidenceNote}`);
       }
-      const blend = r.ddfVersions.ddf_value;
+      const blend = r.ddfByVersion.blended;
       if (r.ddfReason !== blend.reason || r.ddfPrior !== blend.prior || r.ddfConfidenceNote !== blend.confidenceNote
           || JSON.stringify(r.ddfSources) !== JSON.stringify(blend.sources)) {
-        problems.push(`${tag} ${r.name}: flat DDF fields differ from ddfVersions.ddf_value`);
+        problems.push(`${tag} ${r.name}: flat DDF fields differ from ddfByVersion.blended`);
       }
       if (r.values.ddf_value !== null) priced += 1;
       if (r.ddfCount === 1) short += 1;
@@ -268,7 +269,7 @@ PRIOR = """async () => {""" + HELPERS + """
       const pv = {};
       r.sources.forEach(s => { pv[s] = r.seriesValues[s][k]; });
       const want = mean(pv, r.sources);
-      const got = row.ddfVersions[v];
+      const got = row.ddfByVersion[NAME[v]];
       if (!near(r.values[k] ?? null, want.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: prior ${r.values[k]} != ${want.value}`);
       if (!near(got.prior, want.value) && out.problems.length < 30) out.problems.push(`${v} ${row.name}: row prior ${got.prior} != ${want.value}`);
       if (want.value !== null && r.counts[k] !== want.count) out.problems.push(`${v} ${row.name}: prior count ${r.counts[k]} != ${want.count}`);
@@ -291,7 +292,7 @@ PRIOR = """async () => {""" + HELPERS + """
 HELD = """async () => {""" + HELPERS + """
   const out = {problems: []};
   const leaks = (tag, held) => held && c.getAllRows().forEach(r => VERSIONS.forEach(v => {
-    const s = r.ddfVersions[v].sources.find(k => held.includes(k));
+    const s = r.ddfByVersion[NAME[v]].sources.find(k => held.includes(k));
     if (s && out.problems.length < 20) out.problems.push(`${tag}/${v} ${r.name}: ${s} in the DDF Value`);
   }));
   const held = window.__heldSeries;

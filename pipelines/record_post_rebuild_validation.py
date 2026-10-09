@@ -71,6 +71,9 @@ def record(repo: Path, log_text: str) -> dict:
     status["post_rebuild_validation"] = block
     status["failed"] = sorted(set(status.get("failed") or []) | {"post_rebuild_validation"})
     status["success"] = False
+    # Nothing is published after a red validate, whatever the chain wrote
+    # before it ran ("published_with_holds" here misled readers, JEG-509).
+    status["outcome"] = "failed"
     for rel in STATUS_PATHS:
         path = repo / rel
         path.parent.mkdir(parents=True, exist_ok=True)

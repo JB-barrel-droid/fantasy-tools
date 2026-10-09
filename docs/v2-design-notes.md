@@ -695,6 +695,19 @@ Cadence"):
 
 ## Back-end contract: DDF Value (JEG-471 / JEG-479 / JEG-497, 2026-10-08/09)
 
+> **Superseded (JEG-508)** once the Value Pipeline implementation merges. The
+> target contract is `docs/methodology.md` VP-11:
+> - The inputs are the source keys and their Adjusted values. The
+>   `*_adjusted` keys are retired.
+> - There are three versions, `ddf_value`, `ddf_value_charts` and
+>   `ddf_value_projections`, each one number in every tab (shipped with JEG-497, #465).
+> - `ddfByVersion` replaces `ddfByView` (shipped with JEG-497, #465).
+> - The composite calls take a `version` instead of a `view`.
+> - There is a new `TradeValueCurveDiagnostics.valuePipeline`.
+>
+> Every other field name below keeps its meaning. Until then, this section
+> describes the engine.
+
 The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series in
 three versions: `ddf_value` (all seven inputs), `ddf_value_charts` (the four published charts) and
 `ddf_value_projections` (ESPN, CBS rest of season, Razzball). v2 reads them; it does no blend math.
@@ -728,8 +741,8 @@ cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj
   - `ddfPrior`, `ddfPriorCount`, `ddfPriorLowConfidence` (blend, prior week, same inputs).
   - `ddfTier` (`"starter" | "bench" | "waiver"` by the blend; `null` without one; a one-source
     value counts).
-  - `ddfVersions: {ddf_value, ddf_value_charts, ddf_value_projections}`, each `{value, count,
-    sources, reason, lowConfidence, confidenceNote, prior, priorCount, priorLowConfidence}`.
+  - `ddfByVersion: {blended, charts, projections}`, each `{value, count, sources, reason,
+    lowConfidence, confidenceNote, prior, priorCount, priorLowConfidence}`.
   - `getPlayerValues()` also carries the three version keys.
 - **Missing values (JEG-479, 2026-10-09).** Every row has `missingReasons: {[seriesKey]: string}`
   with an entry for each `null` in `row.values` (and none for a number). Texts: `Chart doesn't list
@@ -750,7 +763,8 @@ cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj
   Value", "DDF Value (charts)", "DDF Value (projections)"), longLabel, composite: true, inputs,
   series, isDefault, week, priorWeek, stale: false, available, active: false, ...}`. None is in
   `getActiveSources()` or drawn.
-- **Inputs.** `getCompositeInputs([version])` (`ddf_value` by default) → `{version, inputs, series,
+- **Inputs.** `getCompositeInputs([version])` (`version` is `"blended"` (default), `"charts"`,
+  `"projections"` or the matching `ddf_value*` key; anything else reads the blend) → `{version, inputs, series,
   requested, isDefault, defaults, allowed, excluded: [{key, series, reason, ...}], held,
   notPublished, currentWeek, priorWeek, priorAvailable, priorReason, minSources: 1}`. `inputs` are
   the input keys averaged in that version and `series` the series they contribute. A held entry

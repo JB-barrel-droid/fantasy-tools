@@ -19,6 +19,36 @@ a crash, a parity break, or a value that contradicts a rule already decided).
 Numbers below are cited from the log or test that measured them. "Not
 measured" means nobody has run that option yet.
 
+## Answered by the Value Pipeline spec (JEG-508, 2026-10-09)
+
+Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`
+"Value Pipeline (source-neutral, 2026-10-09)" (VP-0 to VP-12) now gives the
+rule for the items below. The open choices it lists (OC-1 to OC-8) are
+waiting on Jeremy. The items stay below as history and for the measurements.
+
+| Item | Where it is answered |
+| --- | --- |
+| MR-01 | VP-5 (fixed pie) and VP-6.4. The basis counts zeros (OC-8) |
+| MR-02 | No anchor. Every source follows the roster (VP-2.2, VP-9) |
+| MR-03 | VP-6.4: natives x one factor to DDF Value (option c, re-anchored) |
+| MR-04 | VP-5.6: one factor per source to the pie |
+| MR-05 | VP-3 to VP-5: average source weights, slices (OC-3), unfunded budget (OC-5), no 70 factor |
+| MR-06 | Retired, with the fit (VP-10) |
+| MR-07 | VP-8: each week's own inputs and weights (option b) |
+| MR-08 | VP-2.4, with the peers now the included same-family sources |
+| MR-09 | VP-2.2 and OC-4 |
+| MR-10 | Option C retired (VP-10). The ChartHealth starter/bench checks no longer price anything |
+| MR-11 | The two-tier window no longer prices anything. Bench share is OC-2 |
+| MR-12 | DDF tier (VP-7.3) |
+| MR-15 | Weights come from the sources' own superflex VORP (Superseded note in "Superflex") |
+| MR-16 | VP-4.3 |
+| MR-17 | VP-6.3: Adjusted values only, three versions |
+| MR-18 | SG-1/2/3/10 go with the two-tier legs. SG-5 is VP-2.2. SG-6 is VP-5.6. SG-7/8 are VP-3 to VP-5. SG-9 is VP-2.2 and VP-2.4. SG-11 is OC-8 |
+| GAP-ADJ-CLIP-ZERO | Retired, with the live cells |
+
+MR-13 (gate) and MR-14 (consumers) are still open: pin the VP invariants once
+the open choices are answered.
+
 ## How the review runs
 
 1. **Freeze one build.** Pick one `main` commit and its fixture after the
@@ -815,6 +845,15 @@ SG-1/2); short-chart waiver lines agree position by position.
   called out for the anchor. Waiver lines for ESPN at ppr/12: QB 15.10
   (reference 16.90), RB 7.73 (5.00), TE 5.93 (7.89). Up to 15.7 (espn_vorp),
   14.7 (cbsros_vorp) and 18.3 (razzball_vorp). Overlaps MR-04's sub-question.
+  Checked under JEG-493 (2026-10-09): not a counting bug. The engine rosters
+  exactly teams x (starting slots + BENCH): 168 at ppr/12 (96 starters + 72
+  bench) for espn_vorp, cbsros_vorp and razzball_vorp alike. Only the split
+  across positions differs. `ValueModel.projectionRoles` fills the bench with
+  the best remaining players by surplus over each position's last dedicated
+  starter. That is a deliberate rule (it replaced raw per-game ranking, which
+  filled the bench with QBs), but no document states it. The reference uses
+  the translation allocator's 12-team mix. Behaviour left as is until MR-04
+  picks a reading.
 - **SG-6, published VORP vs waivers factor.** The reference reads "the anchor's
   total over the players that chart ranks" literally. The engine's factor is
   0.2-0.6% lower (one ratio per chart, 1.001-1.006), so up to 0.86. This is VA-2.
@@ -829,8 +868,10 @@ SG-1/2); short-chart waiver lines agree position by position.
   slot-proportional preliminary flex, D'Hondt tie order, and whether hidden
   imputed players are flex candidates. These move one flex slot. USA Today
   ppr/10 RB waiver 10 vs 11, CBS ppr/10 RB 4.2 vs 4.5 and TE 3.2 vs 2.8.
-- **SG-10, anchor.** The spec says the built leg. The engine adds live refit
-  cells (within about 0.2 at 8/10/12 teams).
+- **SG-10, anchor.** The spec says the built leg. The engine added live refit
+  cells (within about 0.5 at 8/10 teams, 0.06 at 12). Resolved by JEG-493:
+  the engine's anchor is now the live two-tier read directly, which at the
+  0.15 share is the built leg at every team count.
 - **SG-11, what "priced" means in a total-match factor.** The contract keeps a
   genuine 0.0 as a value, so the reference counts anchor zeros. The engine
   counts only anchor > 0 for CBS ROS, Razzball, the raw `*_vorp` series and
@@ -851,6 +892,11 @@ engine's ESPN anchor is not the built leg: the bottom 4-15 bench players per
 position share one value, up to 2.7 off. For example, at ppr/14 Kyle
 Juszczyk (2.29 ppg, leg 0.04) and AJ Dillon (4.71 ppg, leg 3.59) are both
 2.73.
+Fixed (JEG-493): the fixture's ESPN section holds the 12-team leg at every
+team count, and the engine mapped it onto the live two-tier through one line
+per position and tier. At 14 teams the bench reaches players the 12-team leg
+prices at 0.0, so they all landed on the line's intercept. The anchor now
+reads the live two-tier values directly.
 
 **Options.** For each SG item: confirm the engine's reading (write it into
 `docs/methodology.md` and switch the reference to it), confirm the reference's

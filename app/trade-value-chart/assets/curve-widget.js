@@ -87,7 +87,7 @@
   // included inputs' values, at least two of them (rule and series per view:
   // "DDF Composite Value" below, docs/methodology.md). One value for every
   // comparison column (no leave-one-out). It is a derived series: it lives
-  // on the rows (values.ddf_value / _charts / _projections, ddfCount, ddfTier, ddfVersions,
+  // on the rows (values.ddf_value / _charts / _projections, ddfCount, ddfTier, ddfByVersion,
   // ...), never in sourceMaps, so no guard, pie, spread or existing series
   // reads it.
   const COMPOSITE_KEY = "ddf_value";
@@ -1978,6 +1978,36 @@
     return adjusted;
   }
 
+  // JEG-493: the ESPN anchor IS the live two-tier at the active setting
+  // (ddfTwoTierValues), read directly -- the same rule cbsros/razzball follow
+  // in adjustedMapFor. It used to go through the OLS cells (alpha + beta *
+  // published), but the fixture's ESPN section is the 12-team leg at every
+  // team count, so at 14 teams the bench reached players the 12-team leg
+  // prices at 0.0 and every one of them landed on the bench cell's intercept
+  // (ppr/14 RB: Juszczyk 2.29 ppg and Dillon 4.71 ppg both 2.73; up to 2.7 off
+  // the 14-team leg). Membership is unchanged: players the fixture lists that
+  // the live pool rosters (starter or bench) at a position that calibrated.
+  // At 0.15 this is exactly the built leg at every team count. Returns null
+  // when the live two-tier is unavailable (caller falls back to the fixture).
+  function liveEspnAnchorValues() {
+    return espnAnchorFromTwoTier(ddfTwoTierValues(), buildPublishedSourceMap("espn"));
+  }
+  // members: a Map whose keys are the players the anchor may list.
+  function espnAnchorFromTwoTier(ddf, members) {
+    if (!ddf) return null;
+    const values = new Map();
+    members.forEach((_, playerKey) => {
+      const pos = ddf.posOf.get(playerKey);
+      if (!canonicalByKey.get(playerKey) || !pos) return;
+      const cal = ddf.calibration[pos];
+      if (!cal || cal.invalid) return; // withheld, never guessed
+      if (!ddf.starters.has(playerKey) && !ddf.bench.has(playerKey)) return;
+      const value = ddf.values.get(playerKey);
+      if (Number.isFinite(value)) values.set(playerKey, Math.max(0, value));
+    });
+    return values.size ? values : null;
+  }
+
   function adjustedMapFor(key) {
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
     // DDF-native sources (cbsros, razzball): their "adjusted" map IS the
@@ -2234,6 +2264,9 @@
   };
   const COMPOSITE_VERSION_KEYS = Object.keys(COMPOSITE_VERSIONS);
   const isCompositeKey = key => COMPOSITE_VERSION_KEYS.includes(key);
+  // The short names of the versions (VP-11): row.ddfByVersion keys, and
+  // accepted by getCompositeInputs / getCompositeValues.
+  const COMPOSITE_VERSION_NAMES = {ddf_value: "blended", ddf_value_charts: "charts", ddf_value_projections: "projections"};
   // The Adjusted-view series each input contributes. A chart's is its
   // Adjusted values (publishedViewMap "adj_values", with the rows' 0 below a
   // fully loaded chart's floor), read at every view so the DDF Value does
@@ -2449,7 +2482,8 @@
       prior,
     };
   }
-  const compositeVersionOf = key => isCompositeKey(key) ? key : COMPOSITE_KEY;
+  const compositeVersionOf = key => isCompositeKey(key) ? key
+    : (COMPOSITE_VERSION_KEYS.find(version => COMPOSITE_VERSION_NAMES[version] === key) || COMPOSITE_KEY);
   function compositeInputsInfo(version = COMPOSITE_KEY) {
     const state = compositeStates[compositeVersionOf(version)];
     return {
@@ -2472,7 +2506,7 @@
   }
   // Writes, on every row, for each version (ddf_value, ddf_value_charts,
   // ddf_value_projections; the same in every view): values[version], and
-  // ddfVersions[version] = {value, count, sources, reason, lowConfidence,
+  // ddfByVersion[blended | charts | projections] = {value, count, sources, reason, lowConfidence,
   // confidenceNote, prior, priorCount, priorLowConfidence}; a null value's
   // reason also in missingReasons[version]. Flat fields: ddfCount,
   // ddfChartsCount, ddfProjectionsCount; ddfSources; ddfReason;
@@ -2500,7 +2534,7 @@
     compositeMap = new Map();
     rows.forEach(row => {
       if (!row.missingReasons) row.missingReasons = {};
-      row.ddfVersions = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
+      row.ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
         const state = compositeStates[version];
         const now = state.current.get(row.player_key);
         const before = state.prior?.get(row.player_key) || null;
@@ -2513,11 +2547,9 @@
         row.values[version] = entry.value;
         if (entry.value === null) row.missingReasons[version] = entry.reason;
         else delete row.missingReasons[version];
-        return [version, entry];
+        return [COMPOSITE_VERSION_NAMES[version], entry];
       }));
-      const blend = row.ddfVersions[COMPOSITE_KEY];
-      const charts = row.ddfVersions.ddf_value_charts;
-      const projections = row.ddfVersions.ddf_value_projections;
+      const {blended: blend, charts, projections} = row.ddfByVersion;
       row.ddfCount = blend.count;
       row.ddfChartsCount = charts.count;
       row.ddfProjectionsCount = projections.count;
@@ -2595,7 +2627,7 @@
   // A copy of an engine row for the read-only accessors.
   const rowCopy = row => ({...row, values: {...row.values}, ddfSources: [...(row.ddfSources || [])],
     missingReasons: {...(row.missingReasons || {})},
-    ddfVersions: Object.fromEntries(Object.entries(row.ddfVersions || {}).map(([version, entry]) =>
+    ddfByVersion: Object.fromEntries(Object.entries(row.ddfByVersion || {}).map(([version, entry]) =>
       [version, {...entry, sources: [...entry.sources]}]))});
 
   function rebuildDomain() {
@@ -2620,15 +2652,13 @@
     rowFallbackCache = new Map();
     nativeSourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
-    // 2026-10-01: the anchor (espn) re-prices live on the bench-share slider
-    // via its refit cells. At the 0.15 reference share the cells are identity
-    // and this reproduces the baked fixture leg (pinned regression test).
+    // 2026-10-01: the anchor (espn) re-prices live on the bench-share slider.
+    // JEG-493: it is the live two-tier read directly (liveEspnAnchorValues),
+    // which at the 0.15 reference share is the built leg at every team count
+    // (tests/test_espn_anchor_matches_leg.py).
     buildEspnRows();
     espnRoleByKey = espnTierMap();
-    const espnLiveCells = adjustmentCellsFor("espn");
-    const espnAnchorValues = espnLiveCells
-      ? buildLiveAdjustedMap("espn", espnLiveCells)
-      : buildEspnIndexedMap();
+    const espnAnchorValues = liveEspnAnchorValues() || buildEspnIndexedMap();
     const anchorMap = applyRosterShape(espnAnchorValues, "espn");
     sourceMaps.set("espn", anchorMap);
     anchorVersion += 1;
@@ -3127,6 +3157,55 @@
     const values = new Map();
     raw.forEach((v, id) => values.set(id, v * scale));
     return {values, scale, posOf, starters: cfg.pool.starters, bench: cfg.pool.bench, calibration: cal};
+  }
+
+  // ddfTwoTierValues on another set of ESPN per-game projections (a saved
+  // week's, {player_key -> ppg}): same pool, pies, position weights, bench
+  // share and scale rules. On the served projections it equals
+  // ddfTwoTierValues. Uncached (history accessor only).
+  function espnTwoTierFromPpg(ppg) {
+    const lists = {QB: [], RB: [], WR: [], TE: []};
+    ppg.forEach((x, playerKey) => {
+      const pos = canonicalByKey.get(playerKey)?.pos;
+      if (TwoTier.POSITIONS.includes(pos) && Number.isFinite(x)) lists[pos].push({id: playerKey, x});
+    });
+    let pool;
+    try {
+      pool = TwoTier.buildPositionTiers(lists, {
+        teams,
+        slots: {...TwoTier.REF_SLOTS},
+        flexCount: TwoTier.REF_FLEX_COUNT,
+        flexEligible: [...TwoTier.REF_FLEX_ELIGIBLE],
+        benchMix: TwoTier.legacyBenchMixFor(teams)
+      });
+    } catch (e) {
+      return null;
+    }
+    let pies = {};
+    TwoTier.POSITIONS.forEach(pos => { pies[pos] = Number(pool.tiers[pos]?.surplus); });
+    if (positionWeights) {
+      const total = TwoTier.POSITIONS.reduce((s, pos) => s + (Number(pies[pos]) || 0), 0);
+      pies = {};
+      TwoTier.POSITIONS.forEach(pos => { pies[pos] = total * (Number(positionWeights[pos]) || 0); });
+    }
+    const shares = TwoTier.skillBenchShares(benchShare);
+    const cal = {};
+    TwoTier.POSITIONS.forEach(pos => {
+      cal[pos] = TwoTier.calibratePositionFeasible(pool.tiers[pos], pies[pos], TwoTier.skillBenchShare(shares, pos), pos);
+    });
+    const raw = new Map(), posOf = new Map();
+    TwoTier.POSITIONS.forEach(pos => {
+      lists[pos].forEach(d => {
+        posOf.set(d.id, pos);
+        raw.set(d.id, TwoTier.priceForProjection(d.x, cal[pos]));
+      });
+    });
+    let mx = 0;
+    raw.forEach(v => { if (v > mx) mx = v; });
+    const scale = mx > 0 ? 70 / mx : 1;
+    const values = new Map();
+    raw.forEach((v, id) => values.set(id, v * scale));
+    return {values, scale, posOf, starters: pool.starters, bench: pool.bench, calibration: cal};
   }
 
   // Per-source live two-tier values for two-tier-native sources (cbsros, razzball).
@@ -4315,10 +4394,16 @@
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) raw.set(playerKey, value);
     });
     if (raw.size < ValueModel.MIN_SHARED_FOR_PIE) return {reason: `the Week ${week} ESPN leg prices too few players`};
-    const liveCells = adjustmentCellsFor("espn");
-    const map = applyRosterShape(liveCells ? buildLiveAdjustedMap("espn", liveCells, {raw}) : raw, "espn");
-    return {values: historyDisplayValues("espn", map, entry, historyPpg(entry)),
-      method: "pipeline two-tier leg (build_ddf_two_tier_leg) + the anchor's live cells and roster shape"};
+    // JEG-493: priced exactly like the served anchor -- that week's ESPN
+    // projections through the live two-tier at the active setting -- over
+    // the players that week's leg lists. (The 12-team leg through the OLS
+    // cells flattened the 14-team bench.)
+    const ppg = historyPpg(entry);
+    const anchor = espnAnchorFromTwoTier(espnTwoTierFromPpg(ppg), raw);
+    if (!anchor) return {reason: `the Week ${week} ESPN projections cannot be priced at this setting`};
+    const map = applyRosterShape(anchor, "espn");
+    return {values: historyDisplayValues("espn", map, entry, ppg),
+      method: "that week's ESPN projections through the live two-tier (the anchor's path) + roster shape"};
   }
   // VORP vs waivers: the same projection-minus-waiver rows on the saved
   // projections, level-matched to the current anchor like the served series.
@@ -4864,7 +4949,7 @@
     // values.ddf_value_charts, values.ddf_value_projections (null when no
     // included input prices him; missingReasons and ddfReason say so),
     // ddfCount / ddfChartsCount / ddfProjectionsCount, the low-confidence
-    // flags (one input), ddfPrior, ddfTier and ddfVersions (all three, both
+    // flags (one input), ddfPrior, ddfTier and ddfByVersion (all three, both
     // weeks). Field list: docs/v2-design-notes.md "Back-end contract: DDF Value".
     getRows: () => displayRows().map(rowCopy),
     // Every priced player at every position (Compare a trade), ignoring the
@@ -4938,8 +5023,9 @@
     // JEG-479: getCompositeInputs([view]) for the active view by default;
     // getCompositeValues([view]) gives one view's DDF Value for both weeks.
     // JEG-497: getCompositeInputs([version]) / getCompositeValues([version]),
-    // version one of ddf_value (default), ddf_value_charts,
-    // ddf_value_projections; the same in every view.
+    // version "blended" (default) | "charts" | "projections", or the series
+    // key ddf_value | ddf_value_charts | ddf_value_projections; the same in
+    // every view. Anything else (a former view name) reads the blend.
     getCompositeInputs: version => compositeInputsInfo(version),
     getCompositeValues: version => compositeValuesInfo(version),
     getLoadStatus: () => productLoadStatus(),

@@ -9,8 +9,11 @@ Headless on the built dist/:
 1. The adjustment-inputs response is delayed past the old 4s timeout: the
    adjusted series still load, DDF Value keeps all 7 inputs.
 2. The adjustment-inputs request fails every time: it is retried (3 attempts),
-   then getLoadStatus() reports the failure and getCompositeInputs().excluded
-   names every *_adjusted input with the reason "Adjustment data failed to load".
+   then getLoadStatus() reports the failure. Since JEG-497 (Jeremy 2026-10-09)
+   the DDF Value reads each chart's Adjusted values, not the fitted *_adjusted
+   series, so a failed adjustment load no longer removes any DDF input; the
+   rows' *_adjusted nulls carry "Adjustment data failed to load"
+   (tests/test_row_missing_reasons.py).
 """
 from __future__ import annotations
 
@@ -90,8 +93,12 @@ class AssetLoadRetryTest(unittest.TestCase):
     def test_slow_adjustment_inputs_still_load(self):
         out = run(_slow)
         self.assertTrue(out["adjustmentsLoaded"], "adjustment inputs dropped on a slow load")
-        self.assertEqual(sorted(out["composite"]["inputs"]), sorted(ALL_INPUTS),
-                         f"DDF Value lost inputs on a slow load: excluded={out['composite']['excluded']}")
+        # Every input is averaged or left out only for want of a prior week
+        # (the saved-views setup, #448); never for the adjustment data.
+        reasons = {e["key"]: e["reason"] for e in out["composite"]["excluded"]}
+        for key in ALL_INPUTS:
+            self.assertTrue(key in out["composite"]["inputs"] or reasons.get(key, "").startswith("no prior week"),
+                            f"DDF Value lost {key} on a slow load: {reasons}")
         self.assertIsNotNone(out["loadStatus"], "TradeValueCurveControls.getLoadStatus missing")
         status = out["loadStatus"]["assets"]["adjustments"]
         self.assertTrue(status["ok"])
@@ -108,10 +115,12 @@ class AssetLoadRetryTest(unittest.TestCase):
         self.assertEqual(status["attempts"], 3)
         self.assertEqual(out["requests"], 3, "the adjustment inputs were not retried")
         self.assertFalse(out["loadStatus"]["adjustmentsLoaded"])
+        # JEG-497: the DDF inputs do not depend on the adjustment data.
         reasons = {e["key"]: e["reason"] for e in out["composite"]["excluded"]}
-        for key in ADJUSTED:
-            self.assertEqual(reasons.get(key), "Adjustment data failed to load", f"{key}: {reasons}")
-        self.assertEqual(sorted(out["composite"]["inputs"]), ["cbsros", "espn", "razzball"])
+        self.assertNotIn("Adjustment data failed to load", reasons.values(), reasons)
+        for key in ALL_INPUTS:
+            self.assertTrue(key in out["composite"]["inputs"] or reasons.get(key, "").startswith("no prior week"),
+                            f"{key}: {reasons}")
 
 
 if __name__ == "__main__":

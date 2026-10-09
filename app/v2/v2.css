@@ -996,6 +996,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   .v2-vtable .v2-group-row th { top: 0; }
   .v2-vtable .v2-head-row th { top: var(--v2-group-h); box-shadow: 0 1px 0 var(--v2-border); }
   .v2-vtable .v2-head-row th.is-rank, .v2-vtable .v2-group-row th.is-rank { background: var(--v2-rank-tint); }
+  /* The hidden engine page styles a global .rank as flex; keep the # column a real table cell. */
+  .v2-vtable th.rank, .v2-vtable td.rank { display: table-cell; }
   .v2-vtable td.rank, .v2-vtable td.player { position: sticky; z-index: 1; background: var(--v2-surface); }
   .v2-vtable td.rank, .v2-vtable .v2-head-row th.rank { left: 0; }
   .v2-vtable td.player, .v2-vtable .v2-head-row th.player { left: 34px; box-shadow: 1px 0 0 var(--v2-border); }
