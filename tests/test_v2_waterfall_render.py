@@ -60,7 +60,7 @@ TRADE_JS = ROOT / "app" / "v2" / "trade.js"
 PICK = """() => {
   const C = window.TradeValueCurveControls;
   const rows = C.getAllRows();
-  const active = C.getActiveSources();
+  const active = window.TradeValueV2.shown();
   const byEspn = rows.filter(r => Number.isFinite(r.values.espn)).sort((a, b) => b.values.espn - a.values.espn);
   const complete = r => active.every(k => Number.isFinite(r.values[k]));
   const priced = byEspn.filter(complete);
@@ -263,7 +263,11 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                     errors.append(tag + f"example leaked into the address: {ex['hash']}")
                 else:
                     errors += [tag + "example: " + e for e in check_waterfalls(ex, {"give": ex["give"], "receive": ex["receive"]})]
-                # A 2-for-2 from a link, with a verdict series that is not the ranking series.
+                # A 2-for-2 from a link, with a verdict series that is not the ranking series. Show every
+                # trade-value series so the verdict has sources that can disagree with it.
+                page.evaluate("""() => window.TradeValueV2.setShown(window.TradeValueV2.shown().concat(
+                  ['espn', 'cbsros', 'razzball', 'fantasycalc_adjusted', 'usatoday_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']))""")
+                page.wait_for_timeout(200)
                 pick = page.evaluate(PICK)
                 page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
                 page.wait_for_function("() => !document.getElementById('v2CTable').hidden")
