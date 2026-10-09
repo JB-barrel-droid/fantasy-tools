@@ -428,6 +428,16 @@ def held_sections(fixture_path: Path = REPO / FIXTURE_REL) -> dict:
             if isinstance(s, dict) and s.get("validationHold")}
 
 
+def spec_reference_section(engine_settings: dict) -> dict:
+    """Second, non-blocking comparison: the clean-room spec reference
+    (pipelines/spec_reference). It never changes the verdict or holds."""
+    try:
+        from spec_reference import compare as spec_compare
+        return spec_compare.compare(engine_settings)
+    except Exception as exc:  # noqa: BLE001 - informational only
+        return {"schema": "spec-reference/1", "blocking": False, "error": repr(exc)}
+
+
 def cmd_compare(args) -> int:
     today = date.fromisoformat(args.today) if args.today else datetime.now(timezone.utc).date()
     setting_list = ref.settings(superflex_too=not args.no_superflex)
@@ -447,6 +457,7 @@ def cmd_compare(args) -> int:
     report["page_errors"] = engine.get("page_errors") or []
     report["settings"] = [ref.setting_id(s) for s in setting_list]
     report["held_sections"] = held_sections()
+    report["spec_reference"] = spec_reference_section(engine["settings"])
     report_path.write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     summary_path.write_text(summary_md(report), encoding="utf-8")
     print(summary_md(report))
