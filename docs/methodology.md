@@ -345,7 +345,8 @@ rules, except that only charts are filled in (VP-2.4).
    ones marked).
    - It is one positive factor, so the chart's own order survives exactly
      (rank guard; estimated players sit at or below the lowest listed one).
-   - If the native sum is `<= 0`, or `shared` is empty, Indexed is null
+   - If the native sum is `<= 0`, the `ddf_value` sum is `<= 0` (the factor
+     must be positive), or `shared` is empty, Indexed is null
      for the whole chart, players below rosterable depth included: "Not
      enough shared players to index".
    - Otherwise players below rosterable depth follow rule 2 (0).
@@ -418,6 +419,13 @@ above left a choice. Each was settled here, and the text above now states it:
 - **Prior week at superflex.** 1-QB natives, since no overlay is saved (VP-0).
 - **Default roster.** Stated in VP-0.
 - **Null Indexed factor.** The whole chart is null (VP-6.4).
+- **Zero DDF sum.** A chart whose shared players all have DDF Value 0 gets a
+  null factor, not 0 (VP-6.4; SA-17).
+- **Prior-week ESPN ineligible players.** The prior week uses the history
+  snapshot as saved. Week 4's ESPN snapshot did not save ESPN's ineligible
+  players, so in the prior week they are not listed by ESPN rather than
+  listed at 0 (SA-18). Whether to rebuild them at 0 is on the math review
+  agenda.
 - The remaining readings the clean-room reference recorded (SA-7, SA-8,
   SA-10 to SA-16 in `pipelines/spec_reference/SPEC_AMBIGUITIES.md`) stand
   as written there unless the three-way comparison shows a disagreement
