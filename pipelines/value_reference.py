@@ -1,48 +1,33 @@
 #!/usr/bin/env python3
-"""Python reference for every value series the page shows (JEG-479).
+"""Python reference for every value the page shows: the source-neutral value
+pipeline (JEG-508).
 
-Jeremy, 2026-10-08: the math lives in two places on purpose -- the browser
-engine (app/trade-value-chart/assets/curve-widget.js + value-model.js) and this
-Python reference -- so one can validate the other. pipelines/value_check.py
-runs both on the same build and diffs them on every chain run.
+Written from docs/methodology.md "Value Pipeline (source-neutral,
+2026-10-09)", steps VP-0..VP-12 and the decided OC table, and from nothing
+else: not from the browser engine (curve-widget.js / value-model.js) and not
+from the clean-room spec reference (pipelines/spec_reference/). The three are
+written independently on purpose; pipelines/value_check.py diffs this module
+against the engine on every chain run (JEG-479).
 
-What it computes, per league setting (scoring x teams x roster) and view
-(indexed / vorp / adj), for every player the page lists:
+Two layers:
 
-  espn                  the ESPN two-tier leg (fixture), refit live through the
-                        browser's OLS cells at the active bench share, then the
-                        roster-shape factor
-  cbsros, razzball      each source's own two-tier values (its own per-game
-                        projections), one factor to the anchor's shared total
-  usatoday, fantasycalc,
-  fantasypros, cbs      Indexed: the saved 12-team values at the saved setup,
-                        else the saved natives times ONE factor that matches
-                        the anchor's total over the chart's players
-                        (published_one_factor; JEG-482: the chart keeps its
-                        own order, no per-position translation);
-                        VORP vs waivers / Adjusted values: derived live at
-                        every setting (one batch; VA-3 retired the saved views)
-  *_adjusted            the raw chart through the live OLS cells (ESPN two-tier
-                        target), then per-position peaks to the anchor's and one
-                        factor to its shared total
-  *_vorp                projection minus the waiver line, one factor to the
-                        anchor's shared total
-  ddf_value             the DDF Composite Value per the written rule
-                        (docs/methodology.md "DDF Composite Value")
-plus the display rules (ESPN-listed 0, below-the-leg 0).
+  run_pipeline(league, sources, pos_of, included, ...)
+      The math, VP-0 to VP-7, on plain inputs: each source's natives
+      (points per game for a projection, trade value for a chart), the league
+      setting and the included set. tests/test_value_reference_worked_example
+      runs it on tests/fixtures/value_pipeline_worked_example.json and checks
+      every intermediate to 1e-6.
 
-Inputs are the build's own snapshot: data/fixtures/current/
-comparison-sources-data.json, players.json and the served adjustment inputs.
+  Setting / compute(inp, setting)
+      The build's inputs (data/fixtures/current/comparison-sources-data.json,
+      players.json, the week history in dist/assets/history): which sources
+      are eligible and included (VP-1), their natives at the setting, the
+      prior week (VP-8), and the page's rows per tab (VP-11) in the shape
+      value_check compares.
 
-Independence (audited in the JEG-479 PR): this module's composition -- which
-series reads what, in what order, with which factor -- is written here from
-the methodology, not from the JS. The arithmetic kernels it calls are
-separate Python implementations: pipelines/vorp_translation/unified.py (the
-server's own published-chart translation, which the JS ports), and the
-Python ports pipelines/twotier_reference.py and
-pipelines/parity/value_model_parity.py (written from the JS, each held to it
-by its own vector parity check). No code is shared with the engine at run
-time; a JS bug that a port copied verbatim would not be caught here.
+Every "Lead's reading" in the spec is followed as written. Where this module
+had to choose a reading the spec leaves open it says "Reference reading" at
+the spot; the list is also on JEG-508 and in docs/claude-log.md.
 """
 from __future__ import annotations
 
@@ -50,55 +35,66 @@ import json
 import math
 import re
 import sys
-import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
-sys.path.insert(0, str(REPO / "pipelines" / "parity"))
 sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 sys.path.insert(0, str(REPO))
 
-import twotier_reference as tt  # noqa: E402
-import value_model_parity as vm  # noqa: E402
-from pipelines.vorp_translation import unified  # noqa: E402
-
-VERSION = "value-reference-001/1"
+VERSION = "value-reference-002/1"
+PIPELINE_VERSION = "value-pipeline/2"
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
-ADJUSTMENT_INPUTS = REPO / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
+HISTORY = REPO / "dist" / "assets" / "history"
+
+# ---------------------------------------------------------------------------
+# VP-0 definitions and constants
+# ---------------------------------------------------------------------------
 
 POSITIONS = ("QB", "RB", "WR", "TE")
+POS_ORDER = {p: i for i, p in enumerate(POSITIONS)}
+FLEX_ELIGIBLE = ("RB", "WR", "TE")
+BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+IMPUTE_MIN_FIT = 3
+ESTIMATE_FIT_N = 10
+DEFAULT_BENCH_SHARE = 0.15
+PIE_PER_STARTING_SLOT = 28.0
+GROUPS = tuple(f"{p}|{r}" for p in POSITIONS for r in ("starter", "bench"))
+
+# The page's sources (VP-0) and series (VP-11).
 PUBLISHED = ("usatoday", "fantasycalc", "fantasypros", "cbs")
-ADJUSTED = ("fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted")
 PROJECTIONS = ("espn", "cbsros", "razzball")
-SOURCE_KEYS = ("usatoday", "fantasycalc", "fantasypros", "cbs", "espn", "cbsros", "razzball",
-               *ADJUSTED)
-VORP_KEYS = {"espn_vorp": "espn_ppg", "cbsros_vorp": "cbsros_ppg", "razzball_vorp": "rz_ppg"}
-SERIES_KEYS = (*SOURCE_KEYS, *VORP_KEYS)
-COMPOSITE_KEY = "ddf_value"
-COMPOSITE_INPUTS = ("espn", "cbsros", "razzball", *ADJUSTED)
-WEEKLY_KEYS = frozenset((*PUBLISHED, *ADJUSTED))
+SOURCES = (*PUBLISHED, *PROJECTIONS)          # source-key order
+FAMILY = {**{k: "chart" for k in PUBLISHED}, **{k: "projection" for k in PROJECTIONS}}
+VORP_KEYS = {"espn_vorp": "espn", "cbsros_vorp": "cbsros", "razzball_vorp": "razzball"}
+SERIES_KEYS = (*SOURCES, *VORP_KEYS)
+PPG_FIELD = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
 VIEWS = ("indexed", "vorp", "adj")
-VIEW_FIELD = {"vorp": "vorp", "adj": "adj_values"}
-LEG_PPG = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
+# VP-11: the series drawn in each tab. Projections in the Indexed tab carry
+# their Adjusted values (available, off by default, OC-7); in the VORP vs
+# waivers tab they are drawn only as *_vorp.
+VIEW_SERIES = {
+    "indexed": (*PUBLISHED, *PROJECTIONS),
+    "vorp": (*PUBLISHED, *VORP_KEYS),
+    "adj": (*PUBLISHED, *PROJECTIONS),
+}
+COMPOSITE_KEY = "ddf_value"
+DDF_VERSIONS = {"ddf_value": "blended", "ddf_value_charts": "charts", "ddf_value_projections": "projections"}
+DDF_FAMILY = {"blended": None, "charts": "chart", "projections": "projection"}
+DDF_COUNT_FIELD = {"ddf_value": "ddf_count", "ddf_value_charts": "ddf_charts_count",
+                   "ddf_value_projections": "ddf_projections_count"}
+
 SCORINGS = ("standard", "half_ppr", "ppr")
 TEAM_COUNTS = (8, 10, 12, 14)
 COMBO_PREFIX = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
-QB_AWARE = frozenset({"fantasycalc", "fantasycalc_adjusted"})
-DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 6,
-                  "K": 0, "DST": 0}
+HISTORY_SCORING_INDEX = {"standard": 0, "half_ppr": 1, "ppr": 2}
+QB_AWARE = frozenset({"fantasycalc"})
+DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 6}
 SAVED_TEAMS = 12
-SAVED_SHAPE = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
-BENCH_SHARE = tt.DEFAULT_BENCH_SHARE
-# Inputs a DDF Value needs (docs/methodology.md "DDF Composite Value" step 6;
-# the engine's COMPOSITE_MIN_SOURCES).
-DDF_MIN_INPUTS = 1  # Jeremy 2026-10-09: one series gives that value, low confidence
-VIEW_SCORING = {"ppr": "ppr", "full": "ppr", "half_ppr": "half_ppr", "half": "half_ppr",
-                "standard": "standard"}
+HOLD_FIELDS = ("validationHold", "promotionHold")
 
 
 def roster(superflex: int = 0) -> dict:
@@ -120,10 +116,6 @@ def setting_id(s: dict) -> str:
     return f"{s['scoring']}/{s['teams']}/sf{s['superflex']}"
 
 
-# ---------------------------------------------------------------------------
-# Inputs (the build's snapshot)
-# ---------------------------------------------------------------------------
-
 def _finite(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
@@ -136,23 +128,495 @@ def _num(v):
     return f if math.isfinite(f) else None
 
 
-def _clamp(v):
-    """A served value: finite and >= 0, else missing."""
-    f = _num(v) if v not in (None, "") else None
-    return None if f is None else max(0.0, f)
+def round_half_up(x: float) -> int:
+    return int(math.floor(x + 0.5))
 
 
-def collation_key(name: str) -> tuple:
-    """Approximates ICU root collation (String.localeCompare) for names:
-    accents and case are secondary, so compare the stripped, casefolded form
-    first, then the original."""
-    base = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c))
-    return (base.casefold(), name)
+def median(values: list[float]) -> float:
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2.0
 
 
-def tiebreak_key(player: dict) -> tuple:
-    return (collation_key(str(player.get("name") or "")), int(player.get("player_key") or 0))
+@dataclass
+class League:
+    """League setting L (VP-0)."""
+    teams: int
+    slots: dict                      # dedicated slots per team, D_p
+    flex: int = 1                    # F (RB/WR/TE)
+    superflex: int = 0               # SF (QB/RB/WR/TE)
+    bench: int = 6                   # B
+    bench_share: float = DEFAULT_BENCH_SHARE
+    flex_eligible: tuple = FLEX_ELIGIBLE
+    position_shares: dict | None = None   # reader position shares (VP-4.4)
 
+    @property
+    def starting_slots(self) -> int:
+        return sum(int(self.slots.get(p, 0)) for p in POSITIONS) + int(self.flex) + int(self.superflex)
+
+    @property
+    def pie(self) -> float:
+        """VP-5.1 (OC-1): 28 per starting slot."""
+        return PIE_PER_STARTING_SLOT * self.teams * self.starting_slots
+
+
+@dataclass
+class SourceInput:
+    key: str
+    family: str                      # "projection" | "chart"
+    values: dict                     # {player_key: native}; a finite native = listed
+    label: str = ""
+
+    def __post_init__(self):
+        self.label = self.label or self.key
+
+
+# ---------------------------------------------------------------------------
+# VP-2.2 league allocation
+# ---------------------------------------------------------------------------
+
+def bench_seats(total: int) -> dict:
+    """VP-2.2d: D'Hondt over BENCH_MIX_12; ties go to position order."""
+    seats = {p: 0 for p in POSITIONS}
+    for _ in range(max(0, total)):
+        best = max(POSITIONS, key=lambda p: (BENCH_MIX_12[p] / (seats[p] + 1), -POS_ORDER[p]))
+        seats[best] += 1
+    return seats
+
+
+def allocate(league: League, order: dict, score: dict) -> dict:
+    """VP-2.2 a-e on per-position orders (best first) and a score per
+    player (mean points per game, or a source's own natives in the
+    degenerate week, or blended DDF Value for VP-7.2's degenerate slot fill)."""
+    t = int(league.teams)
+    d = {p: t * int(league.slots.get(p, 0)) for p in POSITIONS}
+
+    def take(cands, n):
+        cands.sort(key=lambda c: (-score[c[1]], POS_ORDER[c[0]], c[1]))
+        got = {p: 0 for p in POSITIONS}
+        for p, _i in cands[:max(0, n)]:
+            got[p] += 1
+        return got
+
+    sf = take([(p, i) for p in POSITIONS for idx, i in enumerate(order.get(p, [])) if idx >= d[p]],
+              t * int(league.superflex))
+    fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
+               for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
+              t * int(league.flex))
+    b = bench_seats(round_half_up(t * league.bench))
+    out = {}
+    for p in POSITIONS:
+        s = d[p] + sf[p] + fx[p]
+        out[p] = {"dedicated": d[p], "superflex": sf[p], "flex": fx[p], "bench": b[p],
+                  "starters": s, "rostered": s + b[p]}
+    return out
+
+
+# ---------------------------------------------------------------------------
+# VP-2.4 fill-in of rosterable players a chart does not list
+# ---------------------------------------------------------------------------
+
+def _estimate(c: SourceInput, i: int, c_order_p: list, peers: list, m: dict) -> dict:
+    """One estimate for chart c, player i at position p (VP-2.4 c-g).
+    c_order_p: c's listed players at p in c's sort order."""
+    cv = c.values
+    cap = cv[c_order_p[-1]]           # lowest listed native at p
+    peer_info, ests = {}, []
+    for k in peers:
+        kv = k.values
+        if i not in kv:
+            continue
+        shared = [j for j in c_order_p if j in kv]
+        n_fit = min(ESTIMATE_FIT_N, len(shared))
+        fit = shared[len(shared) - n_fit:] if n_fit else []
+        num = 0.0
+        den = 0.0
+        for j in fit:
+            num += cv[j]
+            den += kv[j]
+        entry = {"usable": False, "fit_players": list(fit), "num": num, "den": den}
+        if len(fit) >= IMPUTE_MIN_FIT and den > 0:
+            ratio = num / den
+            est = ratio * kv[i]
+            entry.update({"usable": True, "ratio": ratio, "peer_native": kv[i], "estimate": est})
+            ests.append(est)
+        peer_info[k.key] = entry
+    out = {"peers": peer_info, "cap": cap}
+    if ests:
+        out["path"] = "peers"
+        raw = median(ests)
+    else:
+        # Curve path: no chart lists him, or none that does is usable.
+        out["path"] = "curve"
+        pts_all = [j for j in c_order_p if j in m]
+        n_pts = min(ESTIMATE_FIT_N, len(pts_all))
+        pts = pts_all[len(pts_all) - n_pts:] if n_pts else []
+        if len(pts) >= IMPUTE_MIN_FIT and len({m[j] for j in pts}) > 1:
+            n = len(pts)
+            mean_m = sum(m[j] for j in pts) / n
+            mean_x = sum(cv[j] for j in pts) / n
+            sxy = sum((m[j] - mean_m) * (cv[j] - mean_x) for j in pts)
+            sxx = sum((m[j] - mean_m) ** 2 for j in pts)
+            slope = sxy / sxx
+            intercept = mean_x - slope * mean_m
+            raw = intercept + slope * m[i]
+            out["curve"] = {"points": pts, "slope": slope, "intercept": intercept, "mean_ppg": m[i]}
+        else:
+            positive = [j for j in c_order_p if j in m and m[j] > 0]
+            if positive:
+                low = positive[-1]
+                raw = cv[low] * m[i] / m[low]
+                out["curve"] = {"points": pts, "low": low, "mean_ppg": m[i]}
+            else:
+                raw = 0.0
+                out["curve"] = {"points": pts, "low": None, "mean_ppg": m[i]}
+    out["raw"] = raw
+    out["value"] = min(max(raw, 0.0), cap)
+    out["capped"] = raw > cap
+    return out
+
+
+# ---------------------------------------------------------------------------
+# VP-2 .. VP-5 for one source
+# ---------------------------------------------------------------------------
+
+def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict) -> dict:
+    """VP-2.3, 2.5, 2.6 and VP-3.1: work lists, waiver and starter lines,
+    slices and the 8 group totals."""
+    positions, players = {}, {}
+    groups = {g: 0.0 for g in GROUPS}
+    for p in POSITIONS:
+        a = alloc[p]
+        listed = [(i, x, False) for i, x in src.values.items() if pos_of.get(i) == p]
+        est = [(i, e["value"], True) for i, e in (estimates.get(p) or {}).items()]
+        work = sorted(listed + est, key=lambda r: (-r[1], r[2], r[0]))
+        n_rost, n_start = a["rostered"], a["starters"]
+        info = {**a, "listed": len(listed), "extended": bool(est),
+                "imputation_ratios": dict(estimates.get(p) or {}) or None}
+        if len(work) > n_rost:
+            w = work[n_rost][1]
+            method = "estimated" if work[n_rost][2] else "roster_determined"
+        elif work:
+            w = work[-1][1]
+            method = "insufficient_coverage"
+        else:
+            info.update({"waiver_value": None, "starter_line": None, "method": "no_players"})
+            positions[p] = info
+            continue
+        line = work[n_start][1] if len(work) > n_start else w
+        line = max(line, w)
+        info.update({"waiver_value": w, "starter_line": line, "method": method})
+        positions[p] = info
+        for rank, (i, x, is_est) in enumerate(work, start=1):
+            v = max(0.0, x - w)
+            bsl = max(0.0, min(x, line) - w)
+            ssl = max(0.0, x - line)
+            role = "starter" if rank <= n_start else "bench" if rank <= n_rost else "waiver"
+            players[i] = {"pos": p, "native": x, "imputed": is_est, "rank": rank, "role": role,
+                          "vorp": v, "bench_slice": bsl, "starter_slice": ssl}
+            groups[f"{p}|starter"] += ssl
+            groups[f"{p}|bench"] += bsl
+    return {"positions": positions, "players": players, "groups": groups}
+
+
+def _mixes(groups: dict, bench_share: float) -> dict:
+    """VP-3.2 - 3.4: mixes and the source's own weights."""
+    total = sum(groups[g] for g in GROUPS)
+    s_tot = sum(groups[f"{p}|starter"] for p in POSITIONS)
+    b_tot = sum(groups[f"{p}|bench"] for p in POSITIONS)
+    sig = {p: groups[f"{p}|starter"] / s_tot for p in POSITIONS} if s_tot > 0 else None
+    beta = {p: groups[f"{p}|bench"] / b_tot for p in POSITIONS} if b_tot > 0 else None
+    weights = None
+    if total > 0:
+        weights = {}
+        for p in POSITIONS:
+            if sig is not None and beta is not None:
+                ws, wb = (1 - bench_share) * sig[p], bench_share * beta[p]
+            elif sig is not None:
+                ws, wb = sig[p], 0.0
+            else:
+                ws, wb = 0.0, beta[p]
+            weights[f"{p}|starter"], weights[f"{p}|bench"] = ws, wb
+    return {"total_vorp": total, "starter_mix": sig, "bench_mix": beta, "weights": weights}
+
+
+def ddf_weights(league: League, details: dict, included: list) -> dict:
+    """VP-4: the average of the included sources' mixes, bench fixed at bs."""
+    s_raw, b_raw = {}, {}
+    for p in POSITIONS:
+        sv, bv = [], []
+        for k in included:
+            d = details[k]
+            if d["weights"] is None or d["positions"][p]["method"] == "no_players":
+                continue
+            if d["starter_mix"] is not None:
+                sv.append(d["starter_mix"][p])
+            if d["bench_mix"] is not None:
+                bv.append(d["bench_mix"][p])
+        s_raw[p] = sum(sv) / len(sv) if sv else 0.0
+        b_raw[p] = sum(bv) / len(bv) if bv else 0.0
+    s_sum, b_sum = sum(s_raw.values()), sum(b_raw.values())
+    bs = league.bench_share
+    if s_sum > 0 and b_sum > 0:
+        bs_eff = bs
+    elif b_sum == 0:
+        bs_eff = 0.0
+    else:
+        bs_eff = 1.0
+    w = {}
+    for p in POSITIONS:
+        w[f"{p}|starter"] = (1 - bs_eff) * s_raw[p] / s_sum if s_sum > 0 else 0.0
+        w[f"{p}|bench"] = bs_eff * b_raw[p] / b_sum if b_sum > 0 else 0.0
+    if league.position_shares:
+        for p in POSITIONS:
+            share = league.position_shares.get(p)
+            tot = w[f"{p}|starter"] + w[f"{p}|bench"]
+            if share is None or tot == 0:
+                continue
+            for r in ("starter", "bench"):
+                w[f"{p}|{r}"] = w[f"{p}|{r}"] * share / tot
+    return {"starter_mix_mean": s_raw, "bench_mix_mean": b_raw, "bench_share_applied": bs_eff, "weights": w}
+
+
+def _price(detail: dict, budgets: dict, pie: float) -> None:
+    """VP-5.3 - 5.6 for one source, in place."""
+    g = detail["groups"]
+    b2 = dict(budgets)
+    moved, unpaid = [], []
+    for p in POSITIONS:
+        for r, o in (("starter", "bench"), ("bench", "starter")):
+            gk, ok = f"{p}|{r}", f"{p}|{o}"
+            if g[gk] == 0 and budgets[gk] > 0:
+                if g[ok] > 0:
+                    b2[ok] += budgets[gk]
+                    b2[gk] = 0.0
+                    moved.append(gk)
+                else:
+                    unpaid.append(gk)
+    rates = {k: (b2[k] / g[k] if g[k] > 0 else 0.0) for k in GROUPS}
+    total = detail["total_vorp"]
+    factor = pie / total if total > 0 else 0.0
+    for pl in detail["players"].values():
+        if total > 0:
+            pl["adjusted"] = (rates[f"{pl['pos']}|bench"] * pl["bench_slice"]
+                              + rates[f"{pl['pos']}|starter"] * pl["starter_slice"])
+            pl["vorp_display"] = pl["vorp"] * factor
+        else:
+            pl["adjusted"] = 0.0
+            pl["vorp_display"] = 0.0
+    detail.update({"rates": rates, "budgets_paid": b2, "unfunded_moved": moved, "unfunded_groups": unpaid,
+                   "vorp_display_factor": factor})
+
+
+# ---------------------------------------------------------------------------
+# The pipeline
+# ---------------------------------------------------------------------------
+
+def mean_ppg(sources: dict, included: list) -> dict:
+    """VP-0 m_i: mean native of the projections in I that list i."""
+    projs = [sources[k] for k in included if sources[k].family == "projection"]
+    keys = set()
+    for s in projs:
+        keys.update(s.values)
+    m = {}
+    for i in sorted(keys):
+        vals = [s.values[i] for s in projs if i in s.values]
+        m[i] = sum(vals) / len(vals)
+    return m
+
+
+def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
+                 selection: list | None = None) -> dict:
+    """VP-1.3 .. VP-7 at one setting and week.
+
+    sources: {key: SourceInput} in source-key order, every source shown (held
+    and unpublished ones too); included: the keys in I; selection: the
+    reader's DDF input selection (VP-1.5), None = all.
+    """
+    pos_of = {i: p for i, p in pos_of.items() if p in POSITIONS}
+    for s in sources.values():
+        s.values = {i: float(x) for i, x in s.values.items() if _finite(x) and i in pos_of}
+    inc = [k for k in sources if k in set(included)]
+    m = mean_ppg(sources, inc)
+    degenerate = not any(sources[k].family == "projection" for k in inc)
+    order_m = {p: sorted((i for i in m if pos_of[i] == p), key=lambda i: (-m[i], i)) for p in POSITIONS}
+
+    alloc = None if degenerate else allocate(league, order_m, m)
+    fill_sets = {} if degenerate else {p: order_m[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
+    chart_peers = [sources[k] for k in inc if sources[k].family == "chart"]
+
+    details = {}
+    for key, src in sources.items():
+        own_order = {p: sorted((i for i in src.values if pos_of[i] == p), key=lambda i: (-src.values[i], i))
+                     for p in POSITIONS}
+        s_alloc = alloc if alloc is not None else allocate(league, own_order, src.values)
+        estimates = {}
+        if src.family == "chart" and not degenerate:
+            peers = [k for k in chart_peers if k.key != key]
+            for p in POSITIONS:
+                if not own_order[p]:
+                    continue
+                est = {}
+                for i in fill_sets[p]:
+                    if i not in src.values:
+                        est[i] = _estimate(src, i, own_order[p], peers, m)
+                if est:
+                    estimates[p] = est
+        d = _source_lines(src, pos_of, s_alloc, estimates)
+        d.update(_mixes(d["groups"], league.bench_share))
+        d.update({"family": src.family, "status": "included" if key in inc else "excluded",
+                  "allocation": s_alloc})
+        details[key] = d
+
+    wts = ddf_weights(league, details, inc)
+    pie = league.pie
+    budgets = {g: pie * wts["weights"][g] for g in GROUPS}
+    for d in details.values():
+        _price(d, budgets, pie)
+
+    rows = _rows(sources, details, pos_of, inc, selection, m)
+    if degenerate:
+        blended = {i: r["ddf"]["blended"]["value"] for i, r in rows.items()}
+        scored = {i: v for i, v in blended.items() if v is not None}
+        order_d = {p: sorted((i for i in scored if pos_of[i] == p), key=lambda i: (-scored[i], i))
+                   for p in POSITIONS}
+        slot_fill = allocate(league, order_d, scored)
+    else:
+        slot_fill = alloc
+    _tiers(rows, slot_fill, m)
+    indexed = _indexed(sources, details, rows)
+    ranking = sorted(rows, key=lambda i: (rows[i]["ddf"]["blended"]["value"] is None,
+                                          -(rows[i]["ddf"]["blended"]["value"] or 0.0), i))
+    return {
+        "included": inc, "degenerate": degenerate, "pie": pie,
+        "starting_slots_per_team": league.starting_slots,
+        "bench_share": league.bench_share, "bench_share_applied": wts["bench_share_applied"],
+        "mean_ppg": m, "allocation": alloc, "fill_sets": fill_sets, "slot_fill": slot_fill,
+        "sources": details, "starter_mix_mean": wts["starter_mix_mean"],
+        "bench_mix_mean": wts["bench_mix_mean"], "ddf_weights": wts["weights"],
+        "group_budgets": budgets, "indexed": indexed, "rows": rows, "default_ranking": ranking,
+    }
+
+
+def row_value(src: SourceInput, detail: dict, i: int, pos: str, field_name: str):
+    """VP-6.2: (value, reason) of source src for player i in one view field
+    ("adjusted" or "vorp_display")."""
+    pl = detail["players"].get(i)
+    if pl is not None:
+        return pl[field_name], None
+    if detail["positions"][pos]["method"] == "no_players":
+        return None, f"{src.label} doesn't price {pos}"
+    if src.family == "chart":
+        return 0.0, f"Below rosterable depth; {src.label} doesn't list him"
+    return None, f"{src.label} doesn't project this player"
+
+
+def _ddf(values: dict, keys: list) -> dict:
+    used = [k for k in keys if values.get(k) is not None]
+    if not used:
+        return {"value": None, "count": 0, "low_confidence": False, "sources": [],
+                "reason": "No source prices this player"}
+    total = 0.0
+    for k in used:
+        total += values[k]
+    n = len(used)
+    return {"value": total / n, "count": n, "low_confidence": n == 1, "sources": used,
+            "reason": "Only one source prices this player" if n == 1 else None}
+
+
+def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: dict) -> dict:
+    """VP-6.1 - 6.3: one row per player any source lists."""
+    universe = set()
+    for s in sources.values():
+        universe.update(s.values)
+    sel = set(selection) if selection is not None else None
+    rows = {}
+    for i in sorted(universe):
+        pos = pos_of[i]
+        adj, vorp, reasons, est = {}, {}, {}, {}
+        for key, src in sources.items():
+            d = details[key]
+            adj[key], why = row_value(src, d, i, pos, "adjusted")
+            vorp[key], _ = row_value(src, d, i, pos, "vorp_display")
+            if why:
+                reasons[key] = why
+            pl = d["players"].get(i)
+            if pl is not None and pl["imputed"]:
+                e = d["positions"][pos]["imputation_ratios"][i]
+                est[key] = e["path"]
+        ddf = {}
+        for version, fam in DDF_FAMILY.items():
+            keys = [k for k in inc if (fam is None or sources[k].family == fam) and (sel is None or k in sel)]
+            ddf[version] = _ddf(adj, keys)
+        if not inc:
+            for v in ddf.values():
+                v["reason"] = "No source available this week"
+        rows[i] = {"pos": pos, "adjusted": adj, "vorp_vs_waivers": vorp, "estimated": est,
+                   "reasons": reasons, "ddf": ddf, "mean_ppg": m.get(i), "indexed": {}}
+    return rows
+
+
+def _tiers(rows: dict, slot_fill: dict, m: dict) -> None:
+    """VP-7.3 ddfTier."""
+    for p in POSITIONS:
+        ranked = [i for i, r in rows.items() if r["pos"] == p and r["ddf"]["blended"]["value"] is not None]
+        ranked.sort(key=lambda i: (-rows[i]["ddf"]["blended"]["value"], m.get(i) is None,
+                                   -(m.get(i) or 0.0), i))
+        for rank, i in enumerate(ranked, start=1):
+            v = rows[i]["ddf"]["blended"]["value"]
+            if v == 0:
+                tier = "waiver"
+            elif rank <= slot_fill[p]["starters"]:
+                tier = "starter"
+            elif rank <= slot_fill[p]["rostered"]:
+                tier = "bench"
+            else:
+                tier = "waiver"
+            rows[i]["ddf_tier"] = tier
+    for r in rows.values():
+        r.setdefault("ddf_tier", None)
+
+
+def _indexed(sources: dict, details: dict, rows: dict) -> dict:
+    """VP-6.4: one factor per chart over its listed players with a numeric
+    blended DDF Value (zeros included, OC-8)."""
+    out = {}
+    for key, src in sources.items():
+        if src.family != "chart":
+            continue
+        d = details[key]
+        listed = sorted(src.values, key=lambda i: (-src.values[i], i))
+        shared = [i for i in listed if rows[i]["ddf"]["blended"]["value"] is not None]
+        ddf_total = 0.0
+        nat_total = 0.0
+        for i in shared:
+            ddf_total += rows[i]["ddf"]["blended"]["value"]
+            nat_total += src.values[i]
+        factor = ddf_total / nat_total if shared and nat_total > 0 else None
+        values = {}
+        for i, r in rows.items():
+            pl = d["players"].get(i)
+            if factor is None:
+                v = None
+            elif pl is not None:
+                v = pl["native"] * factor
+            elif d["positions"][r["pos"]]["method"] == "no_players":
+                v = None
+            else:
+                v = 0.0
+            values[i] = v
+            r["indexed"][key] = v
+            if factor is None:
+                r["reasons"].setdefault(f"{key}:indexed", "Not enough shared players to index")
+        out[key] = {"factor": factor, "shared_players": len(shared), "ddf_total": ddf_total,
+                    "native_total": nat_total, "values": values}
+    return out
+
+
+# ---------------------------------------------------------------------------
+# The build's inputs
+# ---------------------------------------------------------------------------
 
 def espn_projects_zero(p: dict) -> bool:
     if p.get("espn_status") == "ineligible":
@@ -170,19 +634,13 @@ class Inputs:
     fixture: dict
     players: dict          # player_key -> player dict (QB/RB/WR/TE, named)
     key_of: dict           # fixture slug -> player_key
-    adjustment_inputs: dict | None
     today: date
-    held: dict = field(default_factory=dict)  # series -> reason (validation holds)
+    held: dict = field(default_factory=dict)  # section -> reason (explicit holds)
 
     @classmethod
-    def load(cls, fixture=FIXTURE, players=PLAYERS, adjustment_inputs=ADJUSTMENT_INPUTS,
-             today: date | None = None):
+    def load(cls, fixture=FIXTURE, players=PLAYERS, today: date | None = None, **_ignored):
         fx = json.loads(Path(fixture).read_text(encoding="utf-8"))
         pl = json.loads(Path(players).read_text(encoding="utf-8"))
-        try:
-            adj = json.loads(Path(adjustment_inputs).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            adj = None
         canon = {}
         for p in pl.get("players") or []:
             try:
@@ -205,21 +663,18 @@ class Inputs:
             n = _num(k)
             if n is not None and n == int(n):
                 key_of[slug] = int(n)
-        # Holds are read from the fixture's sections (section_hold); `held`
-        # is an explicit override map {section: reason}.
-        return cls(fx, canon, key_of, adj, today or datetime.now(timezone.utc).date(), {})
+        return cls(fx, canon, key_of, today or datetime.now(timezone.utc).date(), {})
 
-    # product-data getPlayerValues, restricted to the chart's players.
-    def cell(self, source: str, scoring: str, teams: int, view: str = "combo_reindexed") -> dict | None:
-        section = "cbs" if source == "cbs_adjusted" else source
-        combo_key = f"{COMBO_PREFIX[scoring]}_{teams}" + ("_qb1" if section in QB_AWARE else "")
-        combo = ((self.fixture.get("sources") or {}).get(section) or {}).get("combos", {}).get(combo_key)
+    def section(self, source: str) -> dict | None:
+        sec = (self.fixture.get("sources") or {}).get(source)
+        return sec if isinstance(sec, dict) else None
+
+    def cell(self, source: str, scoring: str, teams: int, view: str = "native") -> dict | None:
+        combo_key = f"{COMBO_PREFIX[scoring]}_{teams}" + ("_qb1" if source in QB_AWARE else "")
+        combo = ((self.section(source) or {}).get("combos") or {}).get(combo_key)
         if not combo:
             return None
-        if view == "combo_reindexed":
-            raw = combo.get("values") or combo.get("reindexed")
-        else:
-            raw = combo.get(view)
+        raw = combo.get(view) if view != "values" else (combo.get("values") or combo.get("reindexed"))
         if not raw:
             return None
         out = {}
@@ -229,12 +684,7 @@ class Inputs:
             if key is None or v is None or key not in self.players:
                 continue
             out[key] = v
-        return {"values": out, "index_total": combo.get("index_total")}
-
-    def combo_exists(self, source: str, scoring: str, teams: int) -> bool:
-        section = "cbs" if source == "cbs_adjusted" else source
-        combo_key = f"{COMBO_PREFIX[scoring]}_{teams}" + ("_qb1" if section in QB_AWARE else "")
-        return bool(((self.fixture.get("sources") or {}).get(section) or {}).get("combos", {}).get(combo_key))
+        return {"values": out}
 
     def ppg(self, key: int, field_name: str, scoring: str):
         v = (self.players[key].get(field_name) or {}).get(scoring)
@@ -242,8 +692,7 @@ class Inputs:
 
 
 # ---------------------------------------------------------------------------
-# Content weeks (docs/methodology.md "Week-Over-Week Snapshots"; the
-# Tuesday-flip calendar of pipelines/nfl_week.py)
+# Content weeks (Tuesday flip, pipelines/nfl_week.py) and holds (VP-1.1)
 # ---------------------------------------------------------------------------
 
 def section_week(section: dict | None, today: date) -> tuple[int | None, bool]:
@@ -252,591 +701,61 @@ def section_week(section: dict | None, today: date) -> tuple[int | None, bool]:
     if not isinstance(section, dict):
         return None, False
     for f in ("week_designated", "content_vintage"):
-        m = re.search(r"week\s*(\d+)|wk\s*(\d+)", str(section.get(f) or ""), re.I)
-        if m:
-            return int(m.group(1) or m.group(2)), True
+        mt = re.search(r"week\s*(\d+)|wk\s*(\d+)", str(section.get(f) or ""), re.I)
+        if mt:
+            return int(mt.group(1) or mt.group(2)), True
     for f in ("content_vintage", "vintage", "published", "fetched_at"):
-        m = re.match(r"(\d{4})-(\d{2})-(\d{2})", str(section.get(f) or ""))
-        if m:
-            d = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        mt = re.match(r"(\d{4})-(\d{2})-(\d{2})", str(section.get(f) or ""))
+        if mt:
+            d = date(int(mt.group(1)), int(mt.group(2)), int(mt.group(3)))
             return current_nfl_week(d), f == "content_vintage"
     return None, False
 
 
 def freshness(inp: Inputs) -> dict:
-    """{series: {"week", "older", "first_load_excluded"}} for the weekly series."""
+    """{"current_week", "reference_week", "series": {source: {week, weekly,
+    older, first_load_excluded}}}. Only charts are weekly; projections are
+    rest-of-season and always current."""
     from nfl_week import current_nfl_week
     current = current_nfl_week(inp.today)
-    sources = inp.fixture.get("sources") or {}
     rows = {}
-    for key in SOURCE_KEYS:
-        base = key
-        if key in ADJUSTED:
-            raw = "cbs" if key == "cbs_adjusted" else key[: -len("_adjusted")]
-            base = raw if raw in sources else key
-        week, weekly = section_week(sources.get(base), inp.today)
-        rows[key] = {"week": week, "weekly": weekly,
-                     "older": week is not None and week < current}
+    for key in SOURCES:
+        week, weekly = section_week(inp.section(key), inp.today)
+        weekly = weekly and FAMILY[key] == "chart"
+        rows[key] = {"week": week, "weekly": weekly, "older": weekly and week is not None and week < current}
     weekly_weeks = [r["week"] for r in rows.values() if r["weekly"] and r["week"] is not None]
-    ref = min(max(weekly_weeks), current) if weekly_weeks else None
+    ref_week = min(max(weekly_weeks), current) if weekly_weeks else None
     for r in rows.values():
-        r["first_load_excluded"] = bool(r["weekly"] and ref is not None and r["week"] is not None
-                                        and r["week"] < ref)
-    return {"current_week": current, "reference_week": ref, "series": rows}
+        r["first_load_excluded"] = bool(r["weekly"] and ref_week is not None and r["week"] is not None
+                                        and r["week"] < ref_week)
+    return {"current_week": current, "reference_week": ref_week, "series": rows}
+
+
+def section_hold(inp: Inputs, section: str) -> str | None:
+    """The hold reason on a fixture section, or None."""
+    if section in inp.held:
+        return inp.held[section]
+    sec = inp.section(section)
+    if not sec:
+        return None
+    for f in HOLD_FIELDS:
+        hold = sec.get(f)
+        if hold:
+            if isinstance(hold, dict) and hold.get("reason"):
+                return str(hold["reason"])
+            return hold if isinstance(hold, str) else f
+    return None
 
 
 # ---------------------------------------------------------------------------
-# The engine's building blocks, written from the methodology
+# Week history (docs/methodology.md "Week-Over-Week Snapshots"; written by
+# pipelines/build_week_history.py into dist/assets/history during make sync)
 # ---------------------------------------------------------------------------
-
-MIN_SHARED_FOR_PIE = 40
-
-
-def published_one_factor(native: dict, keys, anchor: dict, saved: dict | None = None) -> dict:
-    """A published chart's Indexed values off the saved setup (methodology,
-    The Three Views #3; JEG-482): native x one factor, where the factor is the
-    anchor's total over the chart's players it prices / the chart's native
-    total over them. With fewer than MIN_SHARED_FOR_PIE shared players the
-    factor is the saved one (saved total / native total over the chart's
-    players). Players with no native value are left out (missing, not 0)."""
-    keys = [k for k in keys if k in native]
-    shared = [k for k in keys if k in anchor and _finite(anchor[k])]
-    a_total = sum(max(0.0, float(anchor[k])) for k in shared)
-    n_total = sum(max(0.0, float(native[k])) for k in shared)
-    if len(shared) < MIN_SHARED_FOR_PIE or a_total <= 0 or n_total <= 0:
-        base = saved if saved is not None else native
-        a_total = sum(max(0.0, float(base[k])) for k in keys if k in base)
-        n_total = sum(max(0.0, float(native[k])) for k in keys if k in base)
-    factor = a_total / n_total if a_total > 0 and n_total > 0 else 0.0
-    return {k: max(0.0, float(native[k])) * factor for k in keys}
-
-
-class Setting:
-    """Everything the page computes at one (scoring, teams, roster)."""
-
-    def __init__(self, inp: Inputs, scoring: str, teams: int, superflex: int = 0):
-        self.inp, self.scoring, self.teams = inp, scoring, int(teams)
-        self.shape = roster(superflex)
-        self.saved_setup = (self.teams == SAVED_TEAMS and not superflex)
-        self.player_of = inp.players.get
-        self._published = {}
-        self._natives = {}
-        self._ddf = {}
-        self._cells = None
-
-    # -- published charts ------------------------------------------------
-    def native(self, src: str) -> dict:
-        """Saved 12-team natives; the publisher's superflex values replace
-        them where saved when the roster has a superflex slot."""
-        if src not in self._natives:
-            cell = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native")
-            out = dict(cell["values"]) if cell else {}
-            if out and self.shape["SUPERFLEX"]:
-                sf = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native_superflex")
-                if sf:
-                    out.update(sf["values"])
-            self._natives[src] = out
-        return self._natives[src]
-
-    def saved_values(self, src: str) -> dict:
-        cell = self.inp.cell(src, self.scoring, SAVED_TEAMS)
-        if not cell:
-            return {}
-        return {k: c for k, v in cell["values"].items() if (c := _clamp(v)) is not None}
-
-    def _ranked(self, native: dict) -> dict:
-        ranked = {p: [] for p in POSITIONS}
-        for key, value in native.items():
-            ranked[self.player_of(key)["pos"]].append((str(key), str(key), float(value)))
-        for p in POSITIONS:
-            ranked[p].sort(key=lambda r: -r[2])
-        return ranked
-
-    def _peers(self, src: str) -> dict:
-        out = {}
-        for other in PUBLISHED:
-            if other == src:
-                continue
-            nat = self.native(other)
-            if nat:
-                by_pos = {p: [] for p in POSITIONS}
-                for key, value in nat.items():
-                    by_pos[self.player_of(key)["pos"]].append((str(key), float(value)))
-                out[other] = by_pos
-        return out
-
-    def our_max(self) -> dict:
-        proj = {p: [] for p in POSITIONS}
-        for key, p in self.inp.players.items():
-            v = self.inp.ppg(key, "espn_ppg", self.scoring)
-            if v is not None:
-                proj[p["pos"]].append((str(key), str(key), v))
-        for rows in proj.values():
-            rows.sort(key=lambda r: -r[2])
-        return unified.positional_max_for_setup(
-            proj, self.teams, self.shape["BENCH"], self.shape["FLEX"],
-            slots={p: self.shape[p] for p in POSITIONS}, superflex_count=self.shape["SUPERFLEX"])
-
-    def published_indexed(self, src: str) -> dict:
-        """Indexed values: saved at the saved setup, derived elsewhere."""
-        if src in self._published:
-            return self._published[src]
-        saved = self.saved_values(src)
-        if self.saved_setup:
-            out = saved
-        else:
-            native = self.native(src)
-            out = {}
-            if saved and native:
-                out = published_one_factor(native, list(saved), self.anchor(), saved)
-        self._published[src] = out
-        return out
-
-    def raw_map(self, src: str) -> dict:
-        """The source's served (as-published / leg) values at this setting."""
-        if src in PUBLISHED:
-            return self.published_indexed(src)
-        cell = self.inp.cell(src, self.scoring, self.teams)
-        if not cell:
-            return {}
-        return {k: c for k, v in cell["values"].items() if (c := _clamp(v)) is not None}
-
-    # -- two-tier ------------------------------------------------------
-    def two_tier(self, src: str = "espn", ppg_override: dict | None = None) -> dict | None:
-        """Live two-tier values on src's own per-game projections (ESPN for
-        espn and the published charts), the pipeline's legacy bench mix, the
-        default bench share, top player at 70."""
-        if ppg_override is None and src in self._ddf:
-            return self._ddf[src]
-        ppg_field = LEG_PPG.get(src, "espn_ppg")
-        lists = {p: [] for p in POSITIONS}
-        for key, p in self.inp.players.items():
-            v = (ppg_override.get(key) if ppg_override is not None
-                 else self.inp.ppg(key, ppg_field, self.scoring))
-            if v is not None:
-                # Zero-padded ids: the port breaks ties on str(id), the engine on
-                # the numeric id; padding makes the two orders the same.
-                lists[p["pos"]].append({"id": f"{key:012d}", "x": v})
-        try:
-            pool = tt.build_position_tiers(lists, {
-                "teams": self.teams, "slots": dict(tt.REF_SLOTS), "flexCount": tt.REF_FLEX_COUNT,
-                "flexEligible": list(tt.REF_FLEX_ELIGIBLE),
-                "benchMix": tt.legacy_bench_mix_for(self.teams)})
-        except ValueError:
-            pool = None
-        if pool is None:
-            if ppg_override is None:
-                self._ddf[src] = None
-            return None
-        shares = tt.skill_bench_shares(BENCH_SHARE)
-        cal, invalid = {}, set()
-        for pos in POSITIONS:
-            tier = pool["tiers"].get(pos)
-            pie = float(tier["surplus"]) if tier else float("nan")
-            try:
-                c = tt.calibrate_position_feasible(tier, pie, tt.skill_bench_share(shares, pos), pos)
-            except Exception:  # noqa: BLE001 - mirrors the engine's withheld position
-                c = None
-            if src in ("cbsros", "razzball") and (not c or c.get("invalid")):
-                invalid.add(pos)
-                continue
-            cal[pos] = c
-        raw, pos_of = {}, {}
-        for pos in POSITIONS:
-            if pos in invalid:
-                continue
-            for d in lists[pos]:
-                pos_of[int(d["id"])] = pos
-                raw[int(d["id"])] = tt.price_for_projection(d["x"], cal.get(pos))
-        mx = max(raw.values(), default=0.0)
-        scale = 70.0 / mx if mx > 0 else 1.0
-        out = {"values": {k: v * scale for k, v in raw.items()}, "pos_of": pos_of,
-               "starters": {int(i) for i in pool["starters"]}, "bench": {int(i) for i in pool["bench"]},
-               "cal": cal}
-        if ppg_override is None:
-            self._ddf[src] = out
-        return out
-
-    CELL_KEYS = ("fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball")
-
-    def cells(self) -> list[dict]:
-        """OLS cells per (source, position, tier): the source's served values
-        against the live two-tier values on the same players."""
-        if self._cells is None:
-            self._cells = [c for raw_key in self.CELL_KEYS for c in self._fit_cells(raw_key)]
-        return self._cells
-
-    def _fit_cells(self, raw_key: str) -> list[dict]:
-        """One source's cells, fitted on demand: a published chart's Indexed
-        values are scaled against the anchor (JEG-482), and the anchor needs
-        only ESPN's own cells, so ESPN's are fitted without the others."""
-        if not hasattr(self, "_cells_by_key"):
-            self._cells_by_key = {}
-        if raw_key in self._cells_by_key:
-            return self._cells_by_key[raw_key]
-        cells = []
-        espn = self.two_tier("espn")
-        ddf = (self.two_tier(raw_key) if raw_key in ("cbsros", "razzball") else espn) if espn else None
-        published = self.raw_map(raw_key) if ddf else None
-        if ddf and published:
-            for pos in POSITIONS:
-                c = ddf["cal"].get(pos)
-                if c and c.get("invalid"):
-                    continue
-                for tier in ("starter", "bench"):
-                    members = ddf["starters"] if tier == "starter" else ddf["bench"]
-                    xs, ys = [], []
-                    for key, x in published.items():
-                        if ddf["pos_of"].get(key) != pos or key not in members:
-                            continue
-                        y = ddf["values"].get(key)
-                        if y is None or not math.isfinite(x) or not math.isfinite(y):
-                            continue
-                        xs.append(x)
-                        ys.append(y)
-                    if len(xs) < 2:
-                        continue
-                    n = len(xs)
-                    mx, my = sum(xs) / n, sum(ys) / n
-                    sxx = sum((x - mx) ** 2 for x in xs)
-                    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-                    if not sxx > 0:
-                        continue
-                    beta = sxy / sxx
-                    cells.append({"source": raw_key, "position": pos, "tier": tier,
-                                  "alpha": my - beta * mx, "beta": beta, "n": n})
-        self._cells_by_key[raw_key] = cells
-        return cells
-
-    def cells_for(self, raw_key: str) -> list[dict] | None:
-        live = list(self._fit_cells(raw_key)) if raw_key in self.CELL_KEYS else []
-        if live:
-            return live
-        entry = ((self.inp.adjustment_inputs or {}).get("sources") or {}).get(raw_key)
-        return entry["cells"] if cell_set_complete(entry) else None
-
-    def live_adjusted(self, raw_key: str, cells: list[dict], raw: dict | None = None) -> dict:
-        """The served values through the OLS cells, on the two-tier tiers the
-        cells were fitted on."""
-        raw = self.raw_map(raw_key) if raw is None else raw
-        ddf = self.two_tier(raw_key) if raw_key in ("cbsros", "razzball") else self.two_tier("espn")
-        by_cell = {}
-        for c in cells:
-            pos, tier = str(c.get("position", "")).upper(), str(c.get("tier", "")).lower()
-            a, b = _num(c.get("alpha")), _num(c.get("beta"))
-            if pos in POSITIONS and tier in ("starter", "bench") and a is not None and b is not None:
-                by_cell[(pos, tier)] = (a, b)
-        native = raw_key in PROJECTIONS
-        out, sums, cell_of = {}, {}, {}
-        for key, value in raw.items():
-            if ddf:
-                tier = "starter" if key in ddf["starters"] else "bench" if key in ddf["bench"] else None
-                pos = ddf["pos_of"].get(key)
-            else:  # the engine's fallback: value-ordered roles on the served values
-                tier = vm.role_map(raw, self.player_of, self.teams, self.shape).get(key)
-                pos = self.player_of(key)["pos"]
-            cell = by_cell.get((pos, tier)) if tier and pos else None
-            if native and not cell:
-                continue
-            if not native and not cell and tier in ("starter", "bench"):
-                continue
-            safe = max(0.0, value) if math.isfinite(value) else 0.0
-            fitted = cell[0] + cell[1] * safe if cell else safe
-            out[key] = max(0.0, fitted)
-            if native and cell:
-                s = sums.setdefault((pos, tier), [0.0, 0.0])
-                s[0] += fitted
-                s[1] += max(0.0, fitted)
-                cell_of[key] = (pos, tier)
-        for ck, (fitted, kept) in sums.items():
-            if kept > fitted and fitted > 0:
-                f = fitted / kept
-                for key, k2 in cell_of.items():
-                    if k2 == ck:
-                        out[key] *= f
-        return out
-
-    # -- roster shape ------------------------------------------------------
-    def roster_is_default(self) -> bool:
-        return all(self.shape[k] == DEFAULT_ROSTER[k] for k in DEFAULT_ROSTER)
-
-    def _allocation(self, shape: dict) -> dict:
-        pool = [p for k, p in self.inp.players.items()
-                if self.inp.ppg(k, "espn_ppg", self.scoring) is not None]
-        rank = {k: self.inp.ppg(k, "espn_ppg", self.scoring) for k in self.inp.players}
-        return allocation_counts(pool, self.teams, shape, lambda p: rank[p["player_key"]])
-
-    def roster_shaped(self, values: dict, key: str) -> dict:
-        """Roster-shape factor for the non-published series off the default
-        roster: per position the top-N average at the custom roster over the
-        default one (clamped 0.25-1.8), then one factor keeps the skill total."""
-        if key in PUBLISHED or key in VORP_KEYS or self.roster_is_default():
-            return values
-        default = self._allocation(DEFAULT_ROSTER)["rostered"]
-        custom = self._allocation(self.shape)["rostered"]
-        shaped = dict(values)
-        before = sum(v for v in values.values())
-        for pos in POSITIONS:
-            rows = sorted(((k, v) for k, v in values.items() if self.player_of(k)["pos"] == pos),
-                          key=lambda r: -r[1])
-            if not rows:
-                continue
-            d = max(1, min(len(rows), default.get(pos) or 1))
-            c = max(1, min(len(rows), custom.get(pos) or 1))
-            avg_d = sum(v for _, v in rows[:d]) / d
-            avg_c = sum(v for _, v in rows[:c]) / c
-            factor = max(0.25, min(1.8, avg_c / avg_d)) if avg_d > 0 else 1.0
-            for k, v in rows:
-                shaped[k] = v * factor
-        after = sum(shaped.values())
-        f = before / after if before > 0 and after > 0 else 1.0
-        return {k: v * f for k, v in shaped.items()}
-
-    # -- the anchor and every other series -------------------------------
-    def espn_anchor_from(self, ddf: dict | None, members) -> dict | None:
-        """The anchor's values from a live ESPN two-tier (JEG-493): each member
-        the pool rosters (starter or bench) at a position that calibrated,
-        at its two-tier value (>= 0). None when nothing qualifies."""
-        if not ddf:
-            return None
-        out = {}
-        for k in members:
-            pos = ddf["pos_of"].get(k)
-            if k not in self.inp.players or not pos:
-                continue
-            cal = ddf["cal"].get(pos)
-            if not cal or cal.get("invalid"):
-                continue
-            if k not in ddf["starters"] and k not in ddf["bench"]:
-                continue
-            v = ddf["values"].get(k)
-            if v is not None and math.isfinite(v):
-                out[k] = max(0.0, v)
-        return out or None
-
-    def anchor(self) -> dict:
-        """The ESPN anchor: the live two-tier at this setting over the players
-        the built leg lists (JEG-493), else the built leg; then roster shape."""
-        if not hasattr(self, "_anchor"):
-            leg = self.raw_map("espn")
-            values = self.espn_anchor_from(self.two_tier("espn"), leg) or leg
-            self._anchor = self.roster_shaped(values, "espn")
-        return self._anchor
-
-    def adjusted_map(self, key: str) -> dict:
-        raw_key = "cbs" if key == "cbs_adjusted" else key[: -len("_adjusted")] if key.endswith("_adjusted") else key
-        if raw_key in ("cbsros", "razzball"):
-            ddf = self.two_tier(raw_key)
-            return dict(ddf["values"]) if ddf else {}
-        cells = self.cells_for(raw_key)
-        return self.live_adjusted(raw_key, cells) if cells else {}
-
-    def normalized(self, key: str) -> dict:
-        values = self.roster_shaped(self.adjusted_map(key), key)
-        anchor = self.anchor()
-        if key in ("cbsros", "razzball"):
-            return vm.scale_to_shared_total(values, anchor, self.player_of)
-        raw_key = "cbs" if key == "cbs_adjusted" else key[: -len("_adjusted")]
-        if self.cells_for(raw_key):
-            return vm.shape_to_anchor_peaks_then_shared_total(values, anchor, self.player_of)
-        raise RuntimeError(f"{key}: no cells (fixed-pie fallback not modelled)")
-
-    def vorp_map(self, key: str, ppg_override: dict | None = None) -> dict:
-        """Projection minus each position's waiver line, roles by projected
-        points at this roster; one factor to the anchor's shared total."""
-        ppg_field = VORP_KEYS[key]
-        priced = [(p, v) for k, p in self.inp.players.items()
-                  if (v := (ppg_override.get(k) if ppg_override is not None
-                            else self.inp.ppg(k, ppg_field, self.scoring))) is not None]
-        priced.sort(key=lambda r: (-r[1], tiebreak_key(r[0])))
-        ppg = {p["player_key"]: v for p, v in priced}
-        roles = projection_roles([p for p, _ in priced], self.teams, self.shape,
-                                 lambda p: ppg[p["player_key"]])
-        baseline = {}
-        for pos in POSITIONS:
-            rows = [(p, v) for p, v in priced if p["pos"] == pos]
-            waiver = next(((p, v) for p, v in rows if roles.get(p["player_key"], "waiver") == "waiver"), None)
-            baseline[pos] = waiver[1] if waiver else (rows[-1][1] if rows else 0.0)
-        raw = {}
-        for p, v in priced:
-            role = roles.get(p["player_key"], "waiver")
-            raw[p["player_key"]] = 0.0 if role == "waiver" else max(0.0, v - baseline[p["pos"]])
-        return vm.scale_to_shared_total(raw, self.anchor(), self.player_of)
-
-    def published_view(self, src: str, view: str) -> dict:
-        """VORP vs waivers / Adjusted values for a published chart, derived
-        live at every setting (VA-3, Jeremy 2026-10-09: the pipeline's saved
-        vorp_views are retired)."""
-        batch = self.view_batch()
-        return dict((batch.get(src) or {}).get(view) or {})
-
-    def view_batch(self) -> dict:
-        """Every published chart derived into both views as one batch (the
-        Adjusted 70 anchor is shared): value above the setting's waiver line,
-        VORP scaled to the anchor's group-budget total, Adjusted shares each
-        anchor group total in proportion to value above waivers."""
-        if hasattr(self, "_batch"):
-            return self._batch
-        anchor = self.anchor()
-        roles = vm.role_map(anchor, self.player_of, self.teams, self.shape)
-        inputs = {}
-        for src in PUBLISHED:
-            native = self.native(src)
-            keys = list(self.saved_values(src))
-            if native and keys:
-                budgets = {p: {"starter": 0.0, "bench": 0.0} for p in POSITIONS}
-                kset = set(keys)
-                for key, value in anchor.items():
-                    role = roles.get(key)
-                    if key in kset and role in ("starter", "bench") and math.isfinite(value):
-                        budgets[self.player_of(key)["pos"]][role] += max(0.0, value)
-                inputs[src] = (native, keys, budgets)
-        natives = {src: self.native(src) for src in PUBLISHED if self.native(src)}
-        self._batch = derive_views(inputs, natives, lambda k: self.player_of(k)["pos"],
-                                   self.teams, self.shape)
-        return self._batch
-
-    # -- the page's series maps and rows ----------------------------------
-    def series_maps(self, view: str = "indexed") -> dict:
-        maps = {"espn": self.anchor()}
-        for key in SOURCE_KEYS:
-            if key == "espn":
-                continue
-            if key in ADJUSTED or key in ("cbsros", "razzball"):
-                maps[key] = self.normalized(key)
-            elif view != "indexed":
-                maps[key] = self.published_view(key, view)
-            else:
-                maps[key] = self.published_indexed(key)
-        for key in VORP_KEYS:
-            maps[key] = self.vorp_map(key)
-        return maps
-
-    def available(self, key: str) -> bool:
-        """The series has values at this setting and is not paused/missing."""
-        sources = self.inp.fixture.get("sources") or {}
-        section = "cbs" if key == "cbs_adjusted" else key
-        if key not in VORP_KEYS and section not in sources:
-            return False
-        if key in ("cbsros", "razzball"):
-            ok = any(self.inp.ppg(k, LEG_PPG[key], self.scoring) is not None for k in self.inp.players)
-        elif key in PUBLISHED or key in ADJUSTED:
-            ok = self.inp.combo_exists(key if key in PUBLISHED or key == "cbs_adjusted" else key,
-                                       self.scoring, SAVED_TEAMS)
-        else:
-            ok = self.inp.combo_exists(key, self.scoring, self.teams)
-        if key in ADJUSTED:
-            raw = "cbs" if key == "cbs_adjusted" else key[: -len("_adjusted")]
-            entry = ((self.inp.adjustment_inputs or {}).get("sources") or {}).get(raw)
-            ok = ok and cell_set_complete(entry)
-        return ok
-
-    # -- published charts on the rows (methodology "Published Charts On The Rows") --
-    def waiver_methods(self, raw: str, native: dict | None = None) -> dict:
-        """{pos: waiver method} of a chart's value-above-waivers translation at
-        this setting (its saved natives, or a saved week's), the other charts'
-        served natives as peers."""
-        native = self.native(raw) if native is None else native
-        if not native:
-            return {}
-        at = unified.translate_ranked(self._ranked(native), self.teams, self.shape["BENCH"], self.shape["FLEX"],
-                                      slots={p: self.shape[p] for p in POSITIONS},
-                                      superflex_count=self.shape["SUPERFLEX"], peers=self._peers(raw))
-        return {pos: info.get("waiver_method") for pos, info in (at.get("positions") or {}).items()}
-
-    def fallback_cells(self, raw: str) -> set:
-        """{(POS, tier)} cells the fit fell back to identity on."""
-        entry = ((self.inp.adjustment_inputs or {}).get("sources") or {}).get(raw) or {}
-        return {(str(c.get("position", "")).upper(), str(c.get("tier", "")).lower())
-                for c in entry.get("cells") or [] if c.get("fallback")}
-
-    def adjustment_tier(self, key: int) -> str | None:
-        ddf = self.two_tier("espn")
-        if not ddf:
-            return None
-        return "starter" if key in ddf["starters"] else "bench" if key in ddf["bench"] else None
-
-    def fallback_blank(self, series: str, key: int) -> bool:
-        """A *_adjusted value in an identity-fallback cell is blank."""
-        raw = CHART_OF.get(series)
-        if not raw:
-            return False
-        tier = self.adjustment_tier(key)
-        return bool(tier) and (self.player_of(key)["pos"], tier) in self.fallback_cells(raw)
-
-    def chart_missing(self, series: str, raw: str, key: int, native: dict, methods: dict):
-        """A chart series' value for a player its map does not price: 0 below
-        the chart's floor, else None (too shallow, or a listed player's
-        *_adjusted series without a cell)."""
-        if key in native:
-            return 0.0 if series in PUBLISHED else None
-        return 0.0 if methods.get(self.player_of(key)["pos"]) == "roster_determined" else None
-
-    def rows(self, view: str = "indexed") -> dict:
-        """{player_key: {series: value or None}} -- the page's rows."""
-        maps = self.series_maps(view)
-        methods = {raw: self.waiver_methods(raw) for raw in PUBLISHED}
-        floors = {}
-        for key, ppg_field in LEG_PPG.items():
-            by_pos = {}
-            for k in maps.get(key, {}):
-                v = self.inp.ppg(k, ppg_field, self.scoring)
-                if v is not None:
-                    pos = self.player_of(k)["pos"]
-                    by_pos[pos] = min(by_pos.get(pos, math.inf), v)
-            floors[key] = by_pos
-        universe = set()
-        for m in maps.values():
-            universe.update(m)
-        # JEG-496: every player on ESPN's built leg gets a row, ESPN 0.0
-        # included (the anchor map keeps only starter/bench players).
-        if maps.get("espn"):
-            universe.update(self.raw_map("espn"))
-        out = {}
-        for k in universe:
-            p = self.player_of(k)
-            if p is None:
-                continue
-            values = {}
-            for key in SERIES_KEYS:
-                m = maps.get(key) or {}
-                raw = key if key in PUBLISHED else CHART_OF.get(key)
-                if m and self.fallback_blank(key, k):
-                    values[key] = None
-                elif k in m:
-                    values[key] = m[k]
-                elif not m:
-                    values[key] = None
-                elif key in ("espn", "espn_vorp") and p["espn_zero"]:
-                    values[key] = 0.0
-                elif key in LEG_PPG:
-                    v = self.inp.ppg(k, LEG_PPG[key], self.scoring)
-                    fl = floors[key].get(p["pos"])
-                    values[key] = 0.0 if v is not None and fl is not None and v <= fl else None
-                elif raw:
-                    values[key] = self.chart_missing(key, raw, k, self.native(raw), methods[raw])
-                else:
-                    values[key] = None
-            out[k] = values
-        return out
-
-
-# ---------------------------------------------------------------------------
-# Prior week (docs/v2-design-notes.md "Back-end contract: history"): a saved
-# week's own inputs priced at the CURRENT league, roster, bench share, anchor,
-# fit cells and peers. Only the source's own inputs come from the saved week.
-# The saved weeks are the build's history files (dist/assets/history, written
-# by pipelines/build_week_history.py during `make sync`).
-# ---------------------------------------------------------------------------
-HISTORY = REPO / "dist" / "assets" / "history"
-HISTORY_SCORING_INDEX = {"standard": 0, "half_ppr": 1, "ppr": 2}
-
 
 class History:
     def __init__(self, root: Path = HISTORY):
         self.root = Path(root)
         self.index = self._load("index.json") or {}
-        self.espn_legs = self._load("espn-legs.json") or {}
         self.served_versions = self._load("served.json") or {}
         self._weeks = {}
 
@@ -858,48 +777,6 @@ class History:
         return (self.index.get("served") or {}).get(base)
 
 
-def history_base(series: str) -> str:
-    if series.endswith("_vorp"):
-        return series[: -len("_vorp")]
-    if series.endswith("_adjusted"):
-        return "cbs" if series == "cbs_adjusted" else series[: -len("_adjusted")]
-    return series
-
-
-def _saved_ppg(setting: "Setting", entry: dict) -> dict:
-    idx = HISTORY_SCORING_INDEX[setting.scoring]
-    out = {}
-    for key, triple in (entry.get("ppg") or {}).items():
-        k = int(key)
-        v = triple[idx] if isinstance(triple, list) and len(triple) > idx else None
-        if k in setting.inp.players and _finite(v):
-            out[k] = float(v)
-    return out
-
-
-def _display(setting: "Setting", series: str, values: dict, entry: dict, ppg: dict) -> dict:
-    """The page's display rules on a saved week (ESPN-listed 0, below the leg)."""
-    out = dict(values)
-    floors = {}
-    if series in LEG_PPG:
-        for k in values:
-            if k in ppg:
-                pos = setting.player_of(k)["pos"]
-                floors[pos] = min(floors.get(pos, math.inf), ppg[k])
-    for key, triple in (entry.get("ppg") or {}).items():
-        k = int(key)
-        if k in out or k not in setting.inp.players or not values:
-            continue
-        if series in ("espn", "espn_vorp") and isinstance(triple, list) and triple \
-                and all(v == 0 for v in triple):
-            out[k] = 0.0
-            continue
-        v, fl = ppg.get(k), floors.get(setting.player_of(k)["pos"])
-        if series in LEG_PPG and v is not None and fl is not None and v <= fl:
-            out[k] = 0.0
-    return out
-
-
 def history_entry(hist: History, base: str, week: int):
     """(entry, None) | (None, reason): a source's saved entry for a week, the
     served version when the source serves that week from a kept version."""
@@ -918,138 +795,238 @@ def history_entry(hist: History, base: str, week: int):
     return entry, None
 
 
-def _week_native(setting: "Setting", entry: dict) -> dict:
-    native = {}
-    for key, v in ((entry.get("natives") or {}).get(setting.scoring) or {}).items():
-        k, f = int(key), _num(v)
-        if k in setting.inp.players and f is not None:
-            native[k] = f
-    return native
-
-
-def week_view_batch(setting: "Setting", week: int, hist: History):
-    """({chart: {"vorp", "adj"}}, None) | (None, reason): every chart's saved
-    natives for that week through derive_views at the current league, roster
-    and anchor group totals. Equal natives keep the served list's order; players
-    the served list lacks follow, by player key."""
-    cache = setting.__dict__.setdefault("_week_batches", {})
-    if week in cache:
-        return cache[week]
-    natives = {}
-    for chart in PUBLISHED:
-        entry, _why = history_entry(hist, chart, week)
-        if entry is None:
-            continue
-        native = _week_native(setting, entry)
-        if not native:
-            continue
-        rank = {k: i for i, k in enumerate(setting.native(chart))}
-        order = sorted(native, key=lambda k: (-native[k], rank.get(k, math.inf),
-                                              k if k not in rank else 0))
-        natives[chart] = {k: native[k] for k in order}
-    anchor = setting.anchor()
-    roles = vm.role_map(anchor, setting.player_of, setting.teams, setting.shape)
-    inputs = {}
-    for chart, native in natives.items():
-        keys = list(native)
-        kset = set(keys)
-        budgets = {p: {"starter": 0.0, "bench": 0.0} for p in POSITIONS}
-        for key, value in anchor.items():
-            role = roles.get(key)
-            if key in kset and role in ("starter", "bench") and math.isfinite(value):
-                budgets[setting.player_of(key)["pos"]][role] += max(0.0, value)
-        inputs[chart] = (native, keys, budgets)
-    out = (derive_views(inputs, natives, lambda k: setting.player_of(k)["pos"], setting.teams, setting.shape), None)
-    cache[week] = out
+def snapshot_natives(inp: Inputs, source: str, entry: dict, scoring: str) -> dict:
+    """A source's natives from a saved week entry: a chart's 12-team natives
+    at the scoring, a projection's per-game points at the scoring. Reference
+    reading: the snapshot has no superflex natives, so a superflex setting's
+    prior week uses the 1-QB natives (nothing from the current week enters
+    the prior week, VP-8.1)."""
+    out = {}
+    if FAMILY[source] == "chart":
+        for key, v in ((entry.get("natives") or {}).get(scoring) or {}).items():
+            k, f = int(key), _num(v)
+            if k in inp.players and f is not None:
+                out[k] = f
+    else:
+        idx = HISTORY_SCORING_INDEX[scoring]
+        for key, triple in (entry.get("ppg") or {}).items():
+            k = int(key)
+            v = triple[idx] if isinstance(triple, list) and len(triple) > idx else None
+            if k in inp.players and _finite(v):
+                out[k] = float(v)
     return out
 
 
-def week_values(setting: "Setting", series: str, week: int, hist: History, view: str = "indexed"):
-    """(values or None, reason) for one series at a saved week, as priced
-    (the history accessors: no row rules)."""
-    base = history_base(series)
-    entry, why = history_entry(hist, base, week)
-    if entry is None:
-        return None, why
-    if series in PUBLISHED and view != "indexed":
-        batch, why = week_view_batch(setting, week, hist)
-        if batch is None:
-            return None, why
-        derived = (batch.get(series) or {}).get(view) or {}
-        if not derived:
-            return None, "no values saved for that week"
-        return {k: c for k, v in derived.items() if (c := _clamp(v)) is not None}, None
-    anchor = setting.anchor()
-    if series in ADJUSTED or base in PUBLISHED:
-        native = {}
-        for key, v in ((entry.get("natives") or {}).get(setting.scoring) or {}).items():
-            k, f = int(key), _num(v)
-            if k in setting.inp.players and f is not None:
-                native[k] = f
-        if not native:
-            return None, "no values saved for that week"
-        # JEG-482: a saved week's Indexed values are its natives times one
-        # factor against today's anchor (the browser's historyPublishedValues).
-        raw = published_one_factor(native, list(native), anchor)
-        if series in PUBLISHED:
-            values = raw
+# ---------------------------------------------------------------------------
+# One setting on the build's inputs
+# ---------------------------------------------------------------------------
+
+class Setting:
+    """Everything the page computes at one (scoring, teams, roster)."""
+
+    def __init__(self, inp: Inputs, scoring: str, teams: int, superflex: int = 0,
+                 hist: History | None = None, bench_share: float | None = None,
+                 position_shares: dict | None = None, selection: list | None = None):
+        self.inp, self.scoring, self.teams = inp, scoring, int(teams)
+        self.shape = roster(superflex)
+        self.hist = hist
+        self.selection = selection
+        self.league = League(
+            teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
+            superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
+            bench_share=DEFAULT_BENCH_SHARE if bench_share is None else float(bench_share),
+            position_shares=position_shares)
+        self.pos_of = {k: p["pos"] for k, p in inp.players.items()}
+        self._current = None
+        self._prior = None
+        self._state = None
+
+    # -- natives (VP-0) --------------------------------------------------
+    def natives(self, src: str) -> dict:
+        """Current-week natives at this setting's scoring. A chart: the saved
+        12-team list, the saved native_superflex replacing it for the players
+        it covers when SF >= 1. A projection: per-game points; ESPN lists a
+        player it projects at zero (espn_status ineligible) at 0.0 (JEG-496;
+        Reference reading of "every player on ESPN's list", VP-6.1, matching
+        the ESPN week snapshot, which carries those players at 0)."""
+        if self.inp.section(src) is None:
+            return {}
+        if FAMILY[src] == "chart":
+            cell = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native")
+            out = dict(cell["values"]) if cell else {}
+            if out and self.shape["SUPERFLEX"] >= 1:
+                sf = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native_superflex")
+                if sf:
+                    out.update(sf["values"])
+            return out
+        out = {}
+        for k, p in self.inp.players.items():
+            v = self.inp.ppg(k, PPG_FIELD[src], self.scoring)
+            if v is not None:
+                out[k] = v
+            elif src == "espn" and p["espn_zero"]:
+                out[k] = 0.0
+        return out
+
+    # -- VP-1 the included set -------------------------------------------
+    def state(self) -> dict:
+        """Eligible and included sources, exclusion reasons and the prior
+        week's natives."""
+        if self._state is not None:
+            return self._state
+        fresh = freshness(self.inp)
+        current = {k: self.natives(k) for k in SOURCES}
+        eligible, excluded = [], {}
+        for k in SOURCES:
+            hold = section_hold(self.inp, k)
+            row = fresh["series"].get(k) or {}
+            if hold:
+                excluded[k] = f"held: {hold}"
+            elif row.get("older") or row.get("first_load_excluded"):
+                excluded[k] = f"not yet published for week {fresh['current_week']}"
+            elif self.inp.section(k) is None:
+                excluded[k] = "missing from this build"
+            elif not current[k]:
+                excluded[k] = "not available at this setting"
+            else:
+                eligible.append(k)
+        prior, current_week = {}, None
+        hist = self.hist
+        built = (hist.index.get("fixture_built_at") if hist else None)
+        same_build = not (built and self.inp.fixture.get("built_at") and built != self.inp.fixture["built_at"])
+        if hist is not None and same_build:
+            weeks = {k: (hist.served(k) or {}).get("week") for k in eligible}
+            weeks = {k: w for k, w in weeks.items() if isinstance(w, int)}
+            current_week = max(weeks.values()) if weeks else None
+            for k in eligible:
+                if weeks.get(k) != current_week or current_week is None:
+                    continue
+                entry, _why = history_entry(hist, k, current_week - 1)
+                nat = snapshot_natives(self.inp, k, entry, self.scoring) if entry else {}
+                if nat:
+                    prior[k] = nat
+        if prior:
+            included = [k for k in eligible if k in prior]
+            for k in eligible:
+                if k not in prior:
+                    excluded[k] = "no prior week"
         else:
-            if not cell_set_complete(((setting.inp.adjustment_inputs or {}).get("sources") or {}).get(base)):
-                return None, "the Adjusted series is paused at this setting"
-            cells = setting.cells_for(base)
-            if not cells:
-                return None, "no fit cells at this setting"
-            adjusted = setting.roster_shaped(setting.live_adjusted(base, cells, raw=raw), series)
-            values = vm.shape_to_anchor_peaks_then_shared_total(adjusted, anchor, setting.player_of)
-    elif series in VORP_KEYS:
-        ppg = _saved_ppg(setting, entry)
-        if not ppg:
-            return None, "no projections saved for that week"
-        values = _display(setting, series, setting.vorp_map(series, ppg), entry, ppg)
-    elif series == "espn":
-        leg = (((hist.espn_legs.get("weeks") or {}).get(str(week)) or {}).get("legs") or {}).get(setting.scoring)
-        if not leg:
-            return None, f"no ESPN leg was built for Week {week}"
-        raw = {}
-        for key, v in leg.items():
-            k, f = int(key), _num(v)
-            if k in setting.inp.players and f is not None:
-                raw[k] = f
-        if len(raw) < vm.MIN_SHARED_FOR_PIE:
-            return None, "the ESPN leg prices too few players"
-        # JEG-493: that week's ESPN projections through the live two-tier (the
-        # anchor's path), over the players that week's leg lists.
-        ppg = _saved_ppg(setting, entry)
-        anchor_week = setting.espn_anchor_from(setting.two_tier("espn", ppg), raw)
-        if not anchor_week:
-            return None, f"the Week {week} ESPN projections cannot be priced at this setting"
-        values = _display(setting, "espn", setting.roster_shaped(anchor_week, "espn"), entry, ppg)
-    else:  # cbsros, razzball
-        ppg = _saved_ppg(setting, entry)
-        if not ppg:
-            return None, "no projections saved for that week"
-        ddf = setting.two_tier(series, ppg)
-        shaped = setting.roster_shaped(dict(ddf["values"]) if ddf else {}, series)
-        values = vm.scale_to_shared_total(shaped, anchor, setting.player_of)
-        if not values:
-            return None, "that week's projections price no players at this setting"
-        values = _display(setting, series, values, entry, ppg)
-    out = {k: c for k, v in values.items() if (c := _clamp(v)) is not None}
-    return out, None
+            included = list(eligible)
+            current_week = None
+        self._state = {"eligible": eligible, "included": included, "excluded": excluded,
+                       "current": current, "prior": prior, "current_week": current_week}
+        return self._state
+
+    def _sources(self, natives: dict) -> dict:
+        return {k: SourceInput(k, FAMILY[k], dict(natives[k])) for k in SOURCES if k in natives}
+
+    def result(self) -> dict:
+        if self._current is None:
+            st = self.state()
+            self._current = run_pipeline(self.league, self._sources(st["current"]), self.pos_of,
+                                         st["included"], self.selection)
+        return self._current
+
+    def prior_result(self) -> dict | None:
+        """VP-8: the same L, I and pie on the prior week's inputs."""
+        st = self.state()
+        if not st["prior"]:
+            return None
+        if self._prior is None:
+            self._prior = run_pipeline(self.league, self._sources(st["prior"]), self.pos_of,
+                                       st["included"], self.selection)
+        return self._prior
+
+    # -- VP-11 rows --------------------------------------------------------
+    def rows(self, view: str = "indexed") -> dict:
+        """{player_key: {series: value or None}} -- the page's rows in a tab,
+        with the three DDF versions and their counts."""
+        res = self.result()
+        out = {}
+        for i, r in res["rows"].items():
+            values = {}
+            for key in VIEW_SERIES[view]:
+                base = VORP_KEYS.get(key, key)
+                if key in VORP_KEYS:
+                    values[key] = r["vorp_vs_waivers"].get(base)
+                elif view == "indexed":
+                    values[key] = r["indexed"].get(key) if FAMILY[key] == "chart" else r["adjusted"].get(key)
+                elif view == "vorp":
+                    values[key] = r["vorp_vs_waivers"].get(key)
+                else:
+                    values[key] = r["adjusted"].get(key)
+            for version, name in DDF_VERSIONS.items():
+                values[version] = r["ddf"][name]["value"]
+                values[DDF_COUNT_FIELD[version]] = r["ddf"][name]["count"]
+            out[i] = values
+        return out
+
+    def diagnostics(self) -> dict:
+        """The comparable part of TradeValueCurveDiagnostics.valuePipeline."""
+        res, st = self.result(), self.state()
+        srcs = {}
+        for k, d in res["sources"].items():
+            srcs[k] = {
+                "family": d["family"], "totalVorp": d["total_vorp"], "weights": d["weights"],
+                "starterMix": d["starter_mix"], "benchMix": d["bench_mix"], "rates": d["rates"],
+                "unfundedGroups": d["unfunded_groups"], "vorpFactor": d["vorp_display_factor"],
+                "indexedFactor": (res["indexed"].get(k) or {}).get("factor"),
+                "positions": {p: {"method": pi["method"], "waiver": pi["waiver_value"],
+                                  "starterLine": pi["starter_line"], "starters": pi["starters"],
+                                  "rostered": pi["rostered"], "listed": pi["listed"],
+                                  "nEstimated": len(pi["imputation_ratios"] or {})}
+                              for p, pi in d["positions"].items()},
+            }
+        return {"version": PIPELINE_VERSION, "pie": res["pie"], "benchShare": res["bench_share"],
+                "included": res["included"],
+                "excluded": [{"key": k, "reason": v} for k, v in st["excluded"].items()],
+                "ddfWeights": res["ddf_weights"], "allocation": res["slot_fill"],
+                "fillSets": res["fill_sets"], "sources": srcs}
 
 
-def prior_values(setting: "Setting", series: str, hist: History, view: str = "indexed"):
-    """(served week, prior week, values or None, reason)."""
-    built = hist.index.get("fixture_built_at")
-    if built and setting.inp.fixture.get("built_at") and built != setting.inp.fixture["built_at"]:
-        return None, None, None, "the history index belongs to a different build of the values"
-    served = hist.served(history_base(series))
-    if not served or not isinstance(served.get("week"), int):
-        return None, None, None, (served or {}).get("reason") or "no saved week matches the served values"
-    week = served["week"]
-    values, reason = week_values(setting, series, week - 1, hist, view)
-    return week, week - 1, values, reason
+def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None) -> dict:
+    """One setting in the shape value_check compares: rows per tab, the
+    estimated flags, each DDF version's prior-week pair (the shape of the
+    engine's getPriorWeek(version)), the included set and the diagnostics."""
+    s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0), hist=hist)
+    res, st = s.result(), s.state()
+    prior = s.prior_result()
+    out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}
+    for view in views:
+        out["views"][view] = s.rows(view)
+    out["estimated"] = {i: dict(r["estimated"]) for i, r in res["rows"].items() if r["estimated"]}
+    for version, name in DDF_VERSIONS.items():
+        fam = DDF_FAMILY[name]
+        inputs = [k for k in st["included"] if fam is None or FAMILY[k] == fam]
+        excluded = {k: v for k, v in st["excluded"].items() if fam is None or FAMILY[k] == fam}
+        out["composite"][version] = {"inputs": inputs, "excluded": excluded}
+        if hist is None:
+            continue
+        if prior is not None and inputs:
+            pv = {i: r["ddf"][name]["value"] for i, r in prior["rows"].items()}
+            cv = {i: r["ddf"][name]["value"] for i, r in res["rows"].items()}
+            entry = {"available": True, "sources": inputs, "currentWeek": st["current_week"],
+                     "priorWeek": st["current_week"] - 1,
+                     "values": {i: v for i, v in pv.items() if v is not None},
+                     "currentValues": {i: v for i, v in cv.items() if v is not None}}
+        else:
+            entry = {"available": False, "sources": []}
+        for view in views:
+            out["prior"].setdefault(view, {})[version] = entry
+    out["composite_inputs"] = list(st["included"])
+    out["composite_excluded"] = dict(st["excluded"])
+    out["pipeline"] = s.diagnostics()
+    return out
 
+
+# ---------------------------------------------------------------------------
+# Legacy (retired by JEG-508 VP-10; not part of the pipeline above)
+# ---------------------------------------------------------------------------
+# derive_views is the superseded published-chart VORP vs waivers / Adjusted
+# batch (D'Hondt flex, ESPN group budgets, the 70 Adjusted scale). It is kept
+# only because tests/test_published_views_engine.py holds the CURRENT
+# engine's ValueModel.derivePublishedViews to it; that test and this function
+# retire with the engine change that removes derivePublishedViews.
 
 def _ranked_by_pos(native: dict, pos_of) -> dict:
     ranked = {p: [] for p in POSITIONS}
@@ -1061,13 +1038,9 @@ def _ranked_by_pos(native: dict, pos_of) -> dict:
 
 
 def derive_views(inputs: dict, natives: dict, pos_of, teams: int, shape: dict) -> dict:
-    """VORP vs waivers and Adjusted values for a batch of published charts at
-    one setting (docs/methodology.md "Other chart views").
-
-    inputs: {src: (native {key: value}, keys [key], budgets {pos: {starter, bench}})}
-    natives: {src: native} of every chart (each chart's peers are the others).
-    Returns {src: {"vorp": {key: v}, "adj": {key: v}}}.
-    """
+    """LEGACY. {src: {"vorp": {key: v}, "adj": {key: v}}} for a batch of
+    published charts under the superseded rules (see the note above)."""
+    from pipelines.vorp_translation import unified
     slots = {p: int(shape[p]) for p in POSITIONS}
     sf = int(shape.get("SUPERFLEX") or 0)
     vorp_out, weighted, batch_max = {}, {}, 0.0
@@ -1115,309 +1088,17 @@ def derive_views(inputs: dict, natives: dict, pos_of, teams: int, shape: dict) -
             for src in vorp_out}
 
 
-def cell_set_complete(entry) -> bool:
-    if not isinstance(entry, dict) or entry.get("status") != "live" or not isinstance(entry.get("cells"), list):
-        return False
-    present = set()
-    for c in entry["cells"]:
-        pos, tier = str(c.get("position", "")).upper(), str(c.get("tier", "")).lower()
-        if pos in POSITIONS and tier in ("starter", "bench") and _num(c.get("alpha")) is not None \
-                and _num(c.get("beta")) is not None:
-            present.add((pos, tier))
-    return len(present) == 8
-
-
-def projection_roles(pool: list[dict], teams: int, shape: dict, rank_of) -> dict:
-    """Roles by projected points: dedicated slots, superflex (any position),
-    flex (RB/WR/TE), then bench by surplus over each position's last
-    dedicated starter."""
-    by_pos, direct = {}, {}
-    for pos in POSITIONS:
-        direct[pos] = teams * int(shape.get(pos) or 0)
-        rows = [p for p in pool if p["pos"] == pos and math.isfinite(rank_of(p))]
-        rows.sort(key=lambda p: (-rank_of(p), tiebreak_key(p)))
-        by_pos[pos] = rows
-    baseline = {}
-    for pos in POSITIONS:
-        rows = by_pos[pos]
-        baseline[pos] = rank_of(rows[min(max(direct[pos] - 1, 0), len(rows) - 1)]) if rows else 0.0
-    roles = {}
-    for pos in POSITIONS:
-        for p in by_pos[pos][:direct[pos]]:
-            roles[p["player_key"]] = "starter"
-
-    def remaining(positions, score):
-        rest = [p for pos in positions for p in by_pos[pos] if p["player_key"] not in roles]
-        rest.sort(key=lambda p: (-score(p), tiebreak_key(p)))
-        return rest
-    for p in remaining(POSITIONS, rank_of)[: teams * int(shape.get("SUPERFLEX") or 0)]:
-        roles[p["player_key"]] = "starter"
-    for p in remaining(("RB", "WR", "TE"), rank_of)[: teams * int(shape.get("FLEX") or 0)]:
-        roles[p["player_key"]] = "starter"
-    for p in remaining(POSITIONS, lambda p: rank_of(p) - baseline[p["pos"]])[: teams * int(shape.get("BENCH") or 0)]:
-        roles[p["player_key"]] = "bench"
-    return roles
-
-
-def allocation_counts(pool: list[dict], teams: int, shape: dict, rank_of) -> dict:
-    """Rostered counts per position from projection_roles."""
-    roles = projection_roles(pool, teams, shape, rank_of)
-    rostered = {p: 0 for p in POSITIONS}
-    for key, role in roles.items():
-        pos = next(p["pos"] for p in pool if p["player_key"] == key)
-        if role in ("starter", "bench"):
-            rostered[pos] += 1
-    return {"rostered": rostered}
-
-
-# ---------------------------------------------------------------------------
-# DDF Composite Value (docs/methodology.md "DDF Composite Value")
-# ---------------------------------------------------------------------------
-
-# The DDF rules in one place, so a methodology change is a change here
-# (the engine's COMPOSITE_* constants in curve-widget.js).
-DDF_RULES = {
-    # A DDF Value is published when at least this many series price the player.
-    "min_inputs": DDF_MIN_INPUTS,
-    "short_reason": "No source prices this player",
-    # Exactly this many series: the value is published, flagged low confidence.
-    "low_confidence_count": 1,
-}
-# The inputs and the three versions (JEG-497, Jeremy 2026-10-09): each input
-# contributes its ADJUSTED-view value only -- the projections as the rows
-# carry them, each chart its Adjusted values (never the bias-adjusted
-# *_adjusted series). Indexed and VORP vs waivers never feed it. Each version
-# is one number per player, the same in every view.
-CHART_OF = {"fantasycalc_adjusted": "fantasycalc", "usatoday_adjusted": "usatoday",
-            "fantasypros_adjusted": "fantasypros", "cbs_adjusted": "cbs"}
-PROJECTION_INPUTS = ("espn", "cbsros", "razzball")
-CHART_INPUTS = tuple(ADJUSTED)
-DDF_VERSIONS = {"ddf_value": COMPOSITE_INPUTS, "ddf_value_charts": CHART_INPUTS,
-                "ddf_value_projections": PROJECTION_INPUTS}
-DDF_COUNT_FIELD = {"ddf_value": "ddf_count", "ddf_value_charts": "ddf_charts_count",
-                   "ddf_value_projections": "ddf_projections_count"}
-INPUT_SERIES = {k: (f"{CHART_OF[k]}_adj_values" if k in CHART_OF else k) for k in COMPOSITE_INPUTS}
-HOLD_FIELDS = ("validationHold", "promotionHold")
-# A hold on a source holds the series derived from it (methodology step 3).
-HOLD_DERIVED = {"espn": ["espn_vorp"], "cbsros": ["cbsros_vorp"], "razzball": ["razzball_vorp"],
-                "fantasycalc": ["fantasycalc_adjusted"], "usatoday": ["usatoday_adjusted"],
-                "fantasypros": ["fantasypros_adjusted"], "cbs": ["cbs_adjusted"]}
-
-def section_hold(inp: Inputs, section: str) -> str | None:
-    """The hold reason on a fixture section, or None."""
-    if section in inp.held:
-        return inp.held[section]
-    sec = (inp.fixture.get("sources") or {}).get(section)
-    if not isinstance(sec, dict):
-        return None
-    for f in HOLD_FIELDS:
-        hold = sec.get(f)
-        if hold:
-            if isinstance(hold, dict) and hold.get("reason"):
-                return str(hold["reason"])
-            return hold if isinstance(hold, str) else f
-    return None
-
-
-def series_hold(inp: Inputs, key: str) -> str | None:
-    own = section_hold(inp, key)
-    if own:
-        return own
-    base = next((src for src, derived in HOLD_DERIVED.items() if key in derived), None)
-    return section_hold(inp, base) if base else None
-
-
-def composite_block(s: "Setting", key: str, fresh: dict) -> str | None:
-    """Step 3: why an input is never used this week, or None."""
-    hold = series_hold(s.inp, key)
-    if hold:
-        return f"held: {hold}"
-    row = fresh["series"].get(key) or {}
-    if row.get("older") or row.get("first_load_excluded"):
-        return f"not yet published for week {fresh['current_week']}"
-    return None
-
-
-def input_unusable(s: "Setting", key: str, maps: dict, chart_values: dict) -> str | None:
-    """Step 4: an input with no Adjusted-view values at this setting, or None."""
-    sources = s.inp.fixture.get("sources") or {}
-    chart = CHART_OF.get(key)
-    if chart:
-        if chart not in sources:
-            return "missing from this build"
-        return None if chart_values.get(chart) else "not available at this setting"
-    if key not in sources:
-        return "missing from this build"
-    if not maps.get(key):
-        return "not available at this setting"
-    if key in ("cbsros", "razzball"):
-        ok = any(s.inp.ppg(k, LEG_PPG[key], s.scoring) is not None for k in s.inp.players)
-    else:
-        ok = s.inp.combo_exists(key, s.scoring, s.teams)
-    return None if ok else "not available at this setting"
-
-
-def composite(values: dict, keys: list[str], rules: dict | None = None) -> tuple:
-    """Step 6: (value or None, count, reason) over the finite values of keys."""
-    rules = rules or DDF_RULES
-    used = [k for k in keys if _finite(values.get(k))]
-    if len(used) < max(1, rules["min_inputs"]):
-        return None, len(used), rules["short_reason"]
-    return sum(values[k] for k in used) / len(used), len(used), None
-
-
-def chart_adjusted_values(s: "Setting", chart: str, universe) -> dict:
-    """A chart's Adjusted values at this setting as the Adjusted tab's rows
-    show them: 0 for a row's player below a fully loaded chart's floor (or
-    listed below its waiver line)."""
-    view_map = s.series_maps("adj").get(chart) or {}
-    if not view_map:
-        return {}
-    out = dict(view_map)
-    native, methods = s.native(chart), s.waiver_methods(chart)
-    for k in universe:
-        p = s.player_of(k)
-        if k in out or p is None or p["pos"] not in POSITIONS:
-            continue
-        missing = s.chart_missing(chart, chart, k, native, methods)
-        if missing is not None:
-            out[k] = missing
-    return out
-
-
-def chart_rules_on_week(s: "Setting", series: str, week: int, values: dict, hist: "History",
-                        rows, view: str = "indexed") -> dict:
-    """The rows' chart rules on a saved week inside the DDF pair: 0 for a
-    current row's player below that week's chart's floor where it was fully
-    loaded, identity-fallback cells left out. That week's listing and waiver
-    lines come from its Indexed values."""
-    raw = series if series in PUBLISHED else CHART_OF.get(series)
-    if not raw:
-        return values
-    if series == raw and view == "indexed":
-        listing = values
-    else:
-        listing, _why = week_values(s, raw, week, hist, "indexed")
-        if listing is None:
-            return values
-    methods = s.waiver_methods(raw, {int(k): v for k, v in listing.items()})
-    out = dict(values)
-    for k in rows:
-        p = s.player_of(k)
-        if p is None or p["pos"] not in POSITIONS:
-            continue
-        if s.fallback_blank(series, k):
-            out.pop(k, None)
-            continue
-        if k in out:
-            continue
-        missing = s.chart_missing(series, raw, k, {int(x) for x in listing}, methods)
-        if missing is not None:
-            out[k] = missing
-    return out
-
-
-def input_prior(s: "Setting", key: str, hist: "History", rows) -> dict:
-    """An input's prior week in the Adjusted view (a chart's with the rows'
-    chart rules)."""
-    chart = CHART_OF.get(key)
-    week, _pw, values, why = prior_values(s, chart or key, hist, "adj")
-    if chart and values is not None:
-        values = chart_rules_on_week(s, chart, week - 1, values, hist, rows, view="adj")
-    return {"week": week, "values": values, "reason": why}
-
-
-def composite_state(s: "Setting", version: str, rows: dict, maps: dict, chart_values: dict, fresh: dict,
-                    priors: dict | None) -> dict:
-    """Steps 1-6 for one version: the included inputs and series, the excluded
-    ones with their reason, the current week's and the prior week's values."""
-    excluded, candidates = {}, []
-    for key in DDF_VERSIONS[version]:
-        reason = composite_block(s, key, fresh) or input_unusable(s, key, maps, chart_values)
-        if reason:
-            excluded[key] = reason
-            continue
-        candidates.append((key, INPUT_SERIES[key], priors.get(key) if priors is not None else None))
-    served = [p["week"] for _k, _s, p in candidates if p and isinstance(p["week"], int)]
-    current_week = max(served) if served else None
-    paired = [c for c in candidates
-              if c[2] and c[2]["values"] is not None and c[2]["week"] == current_week]
-    included = paired if paired else candidates
-    if paired:
-        for key, ser, prior in candidates:
-            if (key, ser, prior) in paired:
-                continue
-            excluded[key] = "no prior week: " + (
-                f"serves Week {prior['week']}, not Week {current_week}"
-                if prior["values"] is not None else str(prior["reason"]))
-    series = [c[1] for c in included]
-
-    def input_value(key, pk):
-        chart = CHART_OF.get(key)
-        return chart_values.get(chart, {}).get(pk) if chart else rows[pk].get(key)
-    current = {pk: composite({ser: input_value(key, pk) for key, ser, _p in included}, series) for pk in rows}
-    prior_out = None
-    if paired:
-        prior_out = {}
-        players = set()
-        for _k, _s, prior in included:
-            players.update(prior["values"])
-        for pk in players:
-            prior_out[pk] = composite({ser: prior["values"].get(pk) for _k, ser, prior in included}, series)
-    return {"version": version, "inputs": [c[0] for c in included], "series": series, "excluded": excluded,
-            "currentWeek": current_week if paired else None,
-            "priorWeek": current_week - 1 if paired else None,
-            "priorAvailable": bool(paired), "current": current, "prior": prior_out}
-
-
-def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: "History | None" = None) -> dict:
-    """One setting: {view: {player_key: {series: value}}} with the three DDF
-    versions (ddf_value, ddf_value_charts, ddf_value_projections and their
-    counts), and each version's prior-week pair per view (the shape of the
-    engine's getPriorWeek(version))."""
-    s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0))
-    fresh = freshness(inp)
-    out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}
-    for view in views:
-        maps = s.series_maps(view)
-        rows = s.rows(view)
-        chart_values = {chart: chart_adjusted_values(s, chart, rows) for chart in PUBLISHED}
-        priors = ({key: input_prior(s, key, hist, rows) for key in COMPOSITE_INPUTS}
-                  if hist is not None else None)
-        out["composite"][view], out["prior"][view] = {}, {}
-        for version in DDF_VERSIONS:
-            state = composite_state(s, version, rows, maps, chart_values, fresh, priors)
-            for pk, values in rows.items():
-                values[version], values[DDF_COUNT_FIELD[version]], _reason = state["current"][pk]
-            out["composite"][view][version] = {"inputs": state["inputs"], "series": state["series"],
-                                               "excluded": state["excluded"]}
-            if hist is None:
-                continue
-            if state["priorAvailable"]:
-                out["prior"][view][version] = {
-                    "available": True, "sources": state["series"],
-                    "currentWeek": state["currentWeek"], "priorWeek": state["priorWeek"],
-                    "values": {pk: v for pk, (v, _n, _r) in state["prior"].items() if v is not None},
-                    "currentValues": {pk: v for pk, (v, _n, _r) in state["current"].items()
-                                      if v is not None}}
-            else:
-                out["prior"][view][version] = {"available": False, "sources": []}
-        out["views"][view] = rows
-    first = (out["composite"].get("indexed") or next(iter(out["composite"].values()), {})).get(COMPOSITE_KEY, {})
-    out["composite_inputs"] = first.get("inputs", [])
-    out["composite_excluded"] = first.get("excluded", {})
-    return out
-
-
 def main(argv=None) -> int:
     import argparse
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", type=Path, default=REPO / "output" / "value-reference.json")
     ap.add_argument("--fixture", type=Path, default=FIXTURE)
     ap.add_argument("--players", type=Path, default=PLAYERS)
+    ap.add_argument("--history", type=Path, default=HISTORY)
     args = ap.parse_args(argv)
     inp = Inputs.load(args.fixture, args.players)
-    result = {"version": VERSION, "settings": [compute(inp, s) for s in settings()]}
+    hist = History(args.history)
+    result = {"version": VERSION, "settings": [compute(inp, s, hist=hist) for s in settings()]}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, separators=(",", ":"), default=str), encoding="utf-8")
     print(f"wrote {args.out}")
