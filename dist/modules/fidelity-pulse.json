@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T00:01:40.139605Z",
- "run_id": "3e252bcc-db55-410a-b267-880c8a92d3cc",
+ "checked_at": "2026-10-09T01:17:19.884539Z",
+ "run_id": "b1905960-190c-45f5-8ca9-88edc7ac606b",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -384,17 +384,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "18/1161 values match exactly across 6 columns; 1143 of 1161 values moved since the save at 2026-10-08T20:05:29.762788Z (largest 260%; 15 outside the max(25%, 50) band: Daniel Jones, Kyler Murray, Malik Willis, Mike Gesicki); 6 players entered or left the bottom of the list since the save (churn); 1 publisher players are not stored because the page's player universe excludes them (Tyreek Hill)",
+     "summary": "15/1161 values match exactly across 6 columns; 1146 of 1161 values moved since the save at 2026-10-08T20:05:29.762788Z (largest 260%; 39 outside the max(25%, 50) band: Baker Mayfield, C.J. Stroud, Dalton Schultz, Daniel Jones, Darren Waller, Jalon Daniels, Jameis Winston, Justin Herbert, Kyler Murray, Malik Willis, Mike Gesicki); 7 players entered or left the bottom of the list since the save (churn); 1 publisher players are not stored because the page's player universe excludes them (Tyreek Hill)",
      "counts": {
-      "publisher_players": 197,
+      "publisher_players": 198,
       "stored_players": 197,
       "compared": 1161,
-      "matched": 18,
-      "mismatched": 1143,
+      "matched": 15,
+      "mismatched": 1146,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 1,
-      "list_churn": 6,
+      "list_churn": 7,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -404,128 +404,128 @@
      "bake_saved_at": "2026-10-08T20:05:29.762788Z",
      "grains": {
       "full|1": {
-       "left": 197,
+       "left": 198,
        "right": 195,
        "mismatched": 190,
-       "missing": 4,
+       "missing": 5,
        "extra": 2
       },
       "full|2": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 191,
-       "missing": 3,
+       "mismatched": 192,
+       "missing": 4,
        "extra": 3
       },
       "half|1": {
-       "left": 197,
+       "left": 198,
        "right": 195,
        "mismatched": 190,
-       "missing": 4,
+       "missing": 5,
        "extra": 2
       },
       "half|2": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 191,
-       "missing": 3,
+       "mismatched": 192,
+       "missing": 4,
        "extra": 3
       },
       "std|1": {
-       "left": 197,
+       "left": 198,
        "right": 195,
        "mismatched": 190,
-       "missing": 4,
+       "missing": 5,
        "extra": 2
       },
       "std|2": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 191,
-       "missing": 3,
+       "mismatched": 192,
+       "missing": 4,
        "extra": 3
       }
      },
      "examples": [
       {
        "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 2060,
-       "name": "Sam Darnold",
+       "grain": "full|2",
+       "player_key": 3541,
+       "name": "Kirk Cousins",
        "pos": "QB",
-       "left": "2784",
-       "right": 2349.0,
-       "delta": -435.0
+       "left": "1767",
+       "right": 2316.0,
+       "delta": 549.0
       },
       {
        "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 2060,
-       "name": "Sam Darnold",
+       "grain": "half|2",
+       "player_key": 3541,
+       "name": "Kirk Cousins",
        "pos": "QB",
-       "left": "2782",
-       "right": 2348.0,
-       "delta": -434.0
+       "left": "1768",
+       "right": 2317.0,
+       "delta": 549.0
       },
       {
        "type": "value_mismatch",
        "grain": "std|2",
-       "player_key": 2060,
-       "name": "Sam Darnold",
+       "player_key": 3541,
+       "name": "Kirk Cousins",
        "pos": "QB",
-       "left": "2751",
-       "right": 2321.0,
-       "delta": -430.0
+       "left": "1747",
+       "right": 2290.0,
+       "delta": 543.0
       },
       {
        "type": "value_mismatch",
        "grain": "full|2",
-       "player_key": 3651,
-       "name": "Justin Herbert",
+       "player_key": 4158,
+       "name": "C.J. Stroud",
        "pos": "QB",
-       "left": "2435",
-       "right": 2754.0,
-       "delta": 319.0
+       "left": "2240",
+       "right": 1777.0,
+       "delta": -463.0
       },
       {
        "type": "value_mismatch",
        "grain": "half|2",
-       "player_key": 3651,
-       "name": "Justin Herbert",
+       "player_key": 4158,
+       "name": "C.J. Stroud",
        "pos": "QB",
-       "left": "2437",
-       "right": 2756.0,
-       "delta": 319.0
+       "left": "2241",
+       "right": 1778.0,
+       "delta": -463.0
       },
       {
        "type": "value_mismatch",
        "grain": "std|2",
-       "player_key": 3651,
-       "name": "Justin Herbert",
+       "player_key": 4158,
+       "name": "C.J. Stroud",
        "pos": "QB",
-       "left": "2407",
-       "right": 2723.0,
-       "delta": 316.0
+       "left": "2215",
+       "right": 1757.0,
+       "delta": -458.0
       },
       {
        "type": "value_mismatch",
        "grain": "full|2",
-       "player_key": 1205,
-       "name": "Michael Wilson",
-       "pos": "WR",
-       "left": "2750",
-       "right": 2446.0,
-       "delta": -304.0
+       "player_key": 3133,
+       "name": "Trey McBride",
+       "pos": "TE",
+       "left": "5851",
+       "right": 6273.0,
+       "delta": 422.0
       },
       {
        "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 1205,
-       "name": "Michael Wilson",
-       "pos": "WR",
-       "left": "2731",
-       "right": 2429.0,
-       "delta": -302.0
+       "grain": "full|1",
+       "player_key": 3133,
+       "name": "Trey McBride",
+       "pos": "TE",
+       "left": "5358",
+       "right": 5779.0,
+       "delta": 421.0
       }
      ],
      "outside_universe": [
@@ -534,9 +534,9 @@
        "name": "Tyreek Hill",
        "pos": "WR",
        "values": {
-        "full|1": "368",
-        "half|1": "365",
-        "std|1": "361"
+        "full|1": "335",
+        "half|1": "332",
+        "std|1": "329"
        }
       }
      ],
@@ -645,90 +645,90 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 2060,
-     "name": "Sam Darnold",
+     "grain": "full|2",
+     "player_key": 3541,
+     "name": "Kirk Cousins",
      "pos": "QB",
-     "left": "2784",
-     "right": 2349.0,
-     "delta": -435.0
+     "left": "1767",
+     "right": 2316.0,
+     "delta": 549.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 2060,
-     "name": "Sam Darnold",
+     "grain": "half|2",
+     "player_key": 3541,
+     "name": "Kirk Cousins",
      "pos": "QB",
-     "left": "2782",
-     "right": 2348.0,
-     "delta": -434.0
+     "left": "1768",
+     "right": 2317.0,
+     "delta": 549.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "std|2",
-     "player_key": 2060,
-     "name": "Sam Darnold",
+     "player_key": 3541,
+     "name": "Kirk Cousins",
      "pos": "QB",
-     "left": "2751",
-     "right": 2321.0,
-     "delta": -430.0
+     "left": "1747",
+     "right": 2290.0,
+     "delta": 543.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "full|2",
-     "player_key": 3651,
-     "name": "Justin Herbert",
+     "player_key": 4158,
+     "name": "C.J. Stroud",
      "pos": "QB",
-     "left": "2435",
-     "right": 2754.0,
-     "delta": 319.0
+     "left": "2240",
+     "right": 1777.0,
+     "delta": -463.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "half|2",
-     "player_key": 3651,
-     "name": "Justin Herbert",
+     "player_key": 4158,
+     "name": "C.J. Stroud",
      "pos": "QB",
-     "left": "2437",
-     "right": 2756.0,
-     "delta": 319.0
+     "left": "2241",
+     "right": 1778.0,
+     "delta": -463.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "std|2",
-     "player_key": 3651,
-     "name": "Justin Herbert",
+     "player_key": 4158,
+     "name": "C.J. Stroud",
      "pos": "QB",
-     "left": "2407",
-     "right": 2723.0,
-     "delta": 316.0
+     "left": "2215",
+     "right": 1757.0,
+     "delta": -458.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "full|2",
-     "player_key": 1205,
-     "name": "Michael Wilson",
-     "pos": "WR",
-     "left": "2750",
-     "right": 2446.0,
-     "delta": -304.0
+     "player_key": 3133,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "left": "5851",
+     "right": 6273.0,
+     "delta": 422.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 1205,
-     "name": "Michael Wilson",
-     "pos": "WR",
-     "left": "2731",
-     "right": 2429.0,
-     "delta": -302.0
+     "grain": "full|1",
+     "player_key": 3133,
+     "name": "Trey McBride",
+     "pos": "TE",
+     "left": "5358",
+     "right": 5779.0,
+     "delta": 421.0
     }
    ]
   },
