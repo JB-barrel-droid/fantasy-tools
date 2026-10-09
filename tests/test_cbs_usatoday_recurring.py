@@ -425,7 +425,10 @@ class UsatodayReindexTest(unittest.TestCase):
 
     def test_unmatched_anchor_identity_goes_to_review(self):
         """A row whose identity has no ESPN anchor pair is never written
-        with an un-reindexed value: it moves to review."""
+        with an un-reindexed value: it is stored with value NULL and its
+        published native_value, and listed in review. (JEG-480 changed the
+        rule: it used to be dropped whole, which hid 8 published week-5
+        players from the chart, e.g. Tyreek Hill.)"""
         from save_usatoday_references import apply_reindex
         clean, _ = self._fixture_rows()
         bogus = dict(clean[0])
@@ -434,8 +437,9 @@ class UsatodayReindexTest(unittest.TestCase):
         bogus["native_value"] = 50.0
         bogus["value"] = 50.0
         final, review = apply_reindex(clean + [bogus], [], "test_bake")
-        self.assertEqual(len(final), len(clean))
-        self.assertNotIn(999999999, {r["player_key"] for r in final})
+        self.assertEqual(len(final), len(clean) + 1)
+        stored = [r for r in final if r["player_key"] == 999999999]
+        self.assertEqual([(r["value"], r["native_value"]) for r in stored], [(None, 50.0)])
         bogus_reviews = [r for r in review
                          if r.get("player_key") == 999999999]
         self.assertGreaterEqual(len(bogus_reviews), 1)

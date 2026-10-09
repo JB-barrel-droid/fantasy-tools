@@ -71,16 +71,35 @@ class _NoAudit:
 
 class StoredEqualsEspnTest(unittest.TestCase):
     def setUp(self):
-        self.saved = (saver.fetch_players, saver.upsert_rows, saver.count_rows, saver.WriterAudit)
+        self.saved = (saver.fetch_players, saver.upsert_rows, saver.count_rows, saver.WriterAudit,
+                      saver.fetch_rows, saver.delete_rows)
         self.writes = []
+        # A fake (2026, week 2) table keyed by player_key: upserts merge,
+        # deletes remove, counts read it.
+        self.store = {}
+        self.deleted = []
+
+        def upsert(t, rows, c):
+            self.writes.append(rows)
+            self.store.update({r["player_key"]: r for r in rows})
+
+        def delete(t, params):
+            keys = [int(k) for k in params.split("player_key=in.(")[1].rstrip(")").split(",")]
+            self.deleted.extend(keys)
+            for k in keys:
+                self.store.pop(k, None)
+
         saver.fetch_players = lambda: PLAYERS
-        saver.upsert_rows = lambda t, rows, c: self.writes.append(rows)
-        saver.count_rows = lambda t, p: sum(len(r) for r in self.writes)
+        saver.upsert_rows = upsert
+        saver.count_rows = lambda t, p: len(self.store)
+        saver.fetch_rows = lambda t, p: [{"player_key": k} for k in self.store]
+        saver.delete_rows = delete
         saver.WriterAudit = _NoAudit
         self.tmp = Path(tempfile.mkdtemp())
 
     def tearDown(self):
-        saver.fetch_players, saver.upsert_rows, saver.count_rows, saver.WriterAudit = self.saved
+        (saver.fetch_players, saver.upsert_rows, saver.count_rows, saver.WriterAudit,
+         saver.fetch_rows, saver.delete_rows) = self.saved
 
     def _save(self, rows, meta=None):
         csv_path = self.tmp / "espn.csv"
@@ -126,6 +145,27 @@ class StoredEqualsEspnTest(unittest.TestCase):
         misses = identity_queue.identity_misses(result["review"])
         self.assertEqual([(m["name"], m["pos"]) for m in misses], [("Brady Russell", "RB")])
         self.assertEqual(saver.warn_identity_misses("espn", result["review"]), 1)
+
+
+    def test_a_player_no_longer_in_the_save_is_removed(self):
+        # 2026-10-09: Riley Nowakowski (3963) and Jackson Meeks (4000) were
+        # stored by the legacy matcher under another position's identity;
+        # the canonical save no longer carries them and the row count failed
+        # (567 stored vs 565 saved).
+        allen = "Josh Allen,josh allen,QB,BUF,True,True,3000,20,400,4,0,0,0,250.0,5-18,2026-10-08"
+        ingold = "Alec Ingold,alec ingold,RB,MIA,True,True,0,0,0,0,8.6,66.2,0.3,12.82,5-18,2026-10-08"
+        self._save([allen, ingold])
+        self.store[3963] = {"player_key": 3963}
+        self._save([allen, ingold])
+        self.assertEqual(self.deleted, [3963])
+        self.assertEqual(set(self.store), {869, 3446})
+
+    def test_a_truncated_save_fails_closed_and_deletes_nothing(self):
+        for k in range(100, 140):
+            self.store[k] = {"player_key": k}
+        with self.assertRaises(SystemExit):
+            self._save(["Josh Allen,josh allen,QB,BUF,True,True,3000,20,400,4,0,0,0,250.0,5-18,2026-10-08"])
+        self.assertEqual(self.deleted, [])
 
 
 class PullerEligibilityTest(unittest.TestCase):
