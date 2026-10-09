@@ -86,7 +86,7 @@ def setUpModule():
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-ACTIVE = "() => window.TradeValueCurveControls.getActiveSources()"
+ACTIVE = "() => window.TradeValueV2.shown()"
 
 
 def _serve(body, route, *_):
@@ -129,7 +129,7 @@ def check_sources(page, width) -> list[str]:
     box = page.evaluate("() => { const b = document.getElementById('v2Popover').getBoundingClientRect(); return {w: b.width, h: b.height}; }")
     if width <= 390 and (box["w"] < 389 or box["h"] < 800):
         errors.append(f"sources panel is not full screen at 390: {box}")
-    info = page.evaluate("() => Object.fromEntries(window.TradeValueCurveControls.getSourceInfo().map(i => [i.key, i]))")
+    info = page.evaluate("() => Object.fromEntries(window.TradeValueCurveControls.getSourceInfo({includeComposite: true}).map(i => [i.key, i]))")
     pairs = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-series]')].map(b => ({key: b.dataset.series,
       on: b.checked === true || b.getAttribute('aria-pressed') === 'true', disabled: b.disabled}))""")
     for p in pairs:
@@ -634,6 +634,8 @@ TABLE_FIT = """() => { const wrap = document.getElementById('v2TableWrap'); cons
 
 
 def _group_of(key):
+    if key == "ddf_value":
+        return "ddf"
     if key.endswith("_vorp"):
         return "vorp"
     if key.endswith("_adjusted"):
@@ -648,7 +650,7 @@ def check_table_fit(page, width) -> list[str]:
     fit = page.evaluate(TABLE_FIT)
     tag = f"table fit {width}: "
     if fit["scroll"] > 0:
-        errors.append(tag + f"horizontal scroll {fit['scroll']}px with the default selection")
+        errors.append(tag + f"horizontal scroll {fit['scroll']}px with the wide selection")
     if not fit["headLines"] or max(fit["headLines"]) > 2:
         errors.append(tag + f"headers over two lines: {fit['headLines']}")
     if fit["headSticky"] is not True or fit["playerSticky"] != "sticky":
@@ -736,7 +738,17 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
                 tag = f"[{width}px] "
                 if width >= 1280:
                     errors += [tag + e for e in check_fold(page, width, height)]
+                    # Fit is judged with a wider selection than the first-visit default: at 1440 six value
+                    # columns (DDF Value, ESPN, the four adjusted charts).
+                    before_shown = page.evaluate("() => window.TradeValueV2.shown()")
+                    # 1366 gets five (no ESPN), the same count the pre-DDF default had.
+                    page.evaluate("""wide => window.TradeValueV2.setShown(['ddf_value'].concat(wide ? ['espn'] : [],
+                      ['fantasycalc_adjusted', 'usatoday_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']))""", width >= 1440)
+                    page.wait_for_timeout(200)
                     errors += [tag + e for e in check_table_fit(page, width)]
+                    page.evaluate("keys => window.TradeValueV2.setShown(keys)", before_shown)
+                    page.wait_for_function("keys => JSON.stringify(window.TradeValueV2.view().active) === JSON.stringify(keys)", arg=before_shown)
+                    page.wait_for_timeout(800)
                 if width == 1440:
                     errors += [tag + e for e in check_toolbar(page)]
                     for check in (check_x_brush, check_y_brush, check_reset, check_columns):

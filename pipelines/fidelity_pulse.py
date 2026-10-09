@@ -1460,16 +1460,34 @@ def projection_module(source: str):
     return importlib.import_module(f"fidelity_sources.{source}")
 
 
-def dedupe_snapshot(rows: list[dict]) -> list[dict]:
-    """One row per player: the latest written (a day can be re-saved)."""
+def written_at(row: dict) -> datetime | None:
+    """When a stored row's values were last written. `_written_at` is a column
+    default, so an upsert re-save of the same date never moves it; the save's
+    own `pulled_at` does (GAP-RAZZBALL-CHART-BEHIND-STORED: the 03:25 re-save
+    read as 23:25)."""
+    stamps = [parse_ts(row.get(k)) for k in ("_written_at", "pulled_at", "created_at")]
+    stamps = [s for s in stamps if s is not None]
+    return max(stamps) if stamps else None
+
+
+def dedupe_snapshot(rows: list[dict], mod=None) -> list[dict]:
+    """One row per player: the latest written (a day can be re-saved). For a
+    source whose saves stamp every row with one `SAVE_STAMP`, only the newest
+    save counts: rows of players dropped since are superseded (the chain's
+    import drops them too, lib/latest_save.py)."""
+    stamp_key = getattr(mod, "SAVE_STAMP", None)
+    if stamp_key:
+        from latest_save import latest_save_rows  # noqa: PLC0415
+        rows = latest_save_rows(rows, stamp_key)[0]
+    floor = datetime.min.replace(tzinfo=timezone.utc)
     best: dict[int, dict] = {}
     for r in rows:
         k = r.get("player_key")
         if k is None:
             continue
-        stamp = str(r.get("_written_at") or r.get("created_at") or "")
-        if k not in best or stamp >= str(best[k].get("_written_at") or best[k].get("created_at") or ""):
-            best[int(k)] = r
+        k = int(k)
+        if k not in best or (written_at(r) or floor) >= (written_at(best[k]) or floor):
+            best[k] = r
     return list(best.values())
 
 
@@ -1633,7 +1651,7 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     snap = chart_snapshot(site_doc, source)
     if snap is None:
         return stage("red", "live chart section names no snapshot date"), {}
-    rows = latest_rows if snap == latest else dedupe_snapshot(store.snapshot_rows(mod, snap))
+    rows = latest_rows if snap == latest else dedupe_snapshot(store.snapshot_rows(mod, snap), mod)
     if not rows:
         return stage("red", f"no stored {LABEL[source]} snapshot {snap} (the chart's vintage)"), {}
     ctx = {"ident": ident, "now": now, "season": SEASON}
@@ -1656,10 +1674,10 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     # publisher (e.g. ESPN projections stored as 0) stays red.
     resaved = [m for m in cmp["mismatches"]
                if built and verified_keys is not None and m["player_key"] in verified_keys
-               and (parse_ts((by_key.get(m["player_key"]) or {}).get("_written_at")) or floor) > built]
+               and (written_at(by_key.get(m["player_key"]) or {}) or floor) > built]
     if n_bad and resaved and len(resaved) == n_bad and not unresolved:
         status = "amber"
-        last = max(parse_ts(by_key[m["player_key"]].get("_written_at")) for m in resaved)
+        last = max(written_at(by_key[m["player_key"]]) for m in resaved)
         reasons.append(f"{len(resaved)} chart values differ because snapshot {snap} was re-saved at {iso(last)}, after "
                        f"the chart was built from it at {iso(built)}; the chart's version is overwritten, so these "
                        "cannot be checked until the next chain run rebuilds from the stored rows")
@@ -1732,9 +1750,8 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
     latest, latest_rows, saved_at, probe, pub = None, [], None, None, {}
     try:
         latest = store.latest_snapshot(mod)
-        latest_rows = dedupe_snapshot(store.snapshot_rows(mod, latest)) if latest else []
-        saved_at = max((parse_ts(r.get("_written_at") or r.get("created_at")) for r in latest_rows
-                        if r.get("_written_at") or r.get("created_at")), default=None)
+        latest_rows = dedupe_snapshot(store.snapshot_rows(mod, latest), mod) if latest else []
+        saved_at = max((t for t in map(written_at, latest_rows) if t is not None), default=None)
         probe = store.probe_state(source)
         read_error = None
     except Exception as e:  # noqa: BLE001

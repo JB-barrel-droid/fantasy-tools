@@ -79,6 +79,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import player_aliases  # noqa: E402 -- the one verified alias list
 import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
 from canonical_players import narrow_candidates  # noqa: E402
+import canonical_players  # noqa: E402 -- the one name -> player_key resolver (JEG-438)
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import content_week  # noqa: E402 -- content week for the CBS save grain
 # Writer audit for Supabase write provenance
@@ -182,6 +183,40 @@ def resolve_name(
     return rec["player_key"], rec, rec["position"]
 
 
+def build_registry(players: list[dict[str, Any]]) -> "canonical_players.Registry":
+    """The canonical resolver's registry over the fetched players rows."""
+    return canonical_players.load_registry(rows=[
+        r for r in players
+        if isinstance(r.get("player_key"), int) and str(r.get("full_name") or "").strip()])
+
+
+def resolve_canonical(
+    name: str, pos: str | None, registry: "canonical_players.Registry"
+) -> tuple[int | None, dict[str, Any] | None, str | None]:
+    """resolve_name's contract through lib/canonical_players (JEG-438: the one
+    way to match a name: norm_player_name with nicknames, the verified alias
+    list, position filter, active over inactive, fail closed). Returns
+    (player_key, record, canonical position) or (None, None, reason) with
+    reason one of unmatched | ambiguous | position_conflict."""
+    key, reason = canonical_players.resolve_with_reason(name, position=pos or None, registry=registry)
+    if key is None:
+        return None, None, reason
+    rec = registry.by_key[key]
+    return key, rec, rec["position"] or None
+
+
+def warn_identity_misses(source: str, review: list[dict[str, Any]]) -> int:
+    """Print every identity miss in a saver's review list as a workflow
+    warning (JEG-480: an unmatched name is loud, not a count in a log line).
+    identity_queue.record_misses records the same names for the
+    identity-unmatched monitor. Returns the number of misses."""
+    misses = identity_queue.identity_misses(review)
+    for m in misses:
+        print(f"::warning title=identity-unmatched {source}::"
+              f"{m['name']} ({m['pos'] or '?'}): {m['reason']}", flush=True)
+    return len(misses)
+
+
 # ---------------------------------------------------------------------------
 # ESPN
 # ---------------------------------------------------------------------------
@@ -213,36 +248,53 @@ def espn_vintage(csv_path: Path, meta_path: Path) -> str:
     )
 
 
+def espn_unresolved(meta_path: Path) -> list[dict[str, Any]]:
+    """The puller's identity_unresolved list (players ESPN projects that no
+    resolver named); [] when the meta has none."""
+    if not meta_path.exists():
+        return []
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    return [m for m in (meta.get("identity_unresolved") or []) if isinstance(m, dict)]
+
+
 def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
     vintage = espn_vintage(csv_path, meta_path)
     with csv_path.open(newline="", encoding="utf-8") as handle:
         raw = list(csv.DictReader(handle))
 
-    index = build_name_index(fetch_players())
+    registry = build_registry(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
+    # Players ESPN projects that the puller could not name (meta
+    # identity_unresolved): identity misses, reported, never dropped silently.
+    for miss in espn_unresolved(meta_path):
+        review.append({
+            "reason": "unresolved_name",
+            "player": miss.get("player"),
+            "pos": miss.get("pos") or None,
+            "team": miss.get("team") or None,
+            "value": miss.get("ros_half_ppr"),
+            "detail": "no single canonical players-table identity (ESPN puller); never guessed",
+        })
     pulled_at = utc_now()
     for row in raw:
         name = str(row.get("player") or "").strip()
         projected = str(row.get("has_espn_projection") or "").strip().lower() in ("true", "1", "yes")
-        eligible = str(row.get("eligible") or "").strip().lower() in ("true", "1", "yes")
         if not name or not projected:
             review.append({"reason": "no_espn_projection", "player": name or None})
             continue
-        # Ineligible (out/IR) players: save with 0 values, not review.
-        # A player with has_espn_projection=True but eligible=False is out for
-        # the season — their projection is legitimately 0, not missing data.
-        if not eligible:
-            # Force all projection values to 0 for ineligible players
-            for col in ["ros_half_ppr", "r_pass_yds", "r_pass_tds", "r_rush_yds",
-                       "r_rush_tds", "r_receptions", "r_rec_yds", "r_rec_tds"]:
-                if col in row:
-                    row[col] = "0"
+        # GAP-ESPN-ZEROED-STORED (JEG-480): ESPN's numbers are stored as ESPN
+        # projects them, whatever the `eligible` flag says. This used to force
+        # every ineligible row to 0, and the flag's old per-position rule
+        # marked fullbacks ESPN projects as receivers ineligible (Alec Ingold
+        # 12.82 half PPR stored as 0 while the chart, built from the CSV,
+        # priced ESPN's number). A player who is out has no projected points
+        # in ESPN's own weekly blocks, so his row is 0 without being forced.
         value = parse_float(row.get("ros_half_ppr"))
         if value is None:
             review.append({"reason": "missing_or_non_numeric_value", "player": name})
             continue
-        key, _rec, pos = resolve_name(name, str(row.get("pos") or ""), index)
+        key, _rec, pos = resolve_canonical(name, str(row.get("pos") or ""), registry)
         if key is None:
             review.append(
                 {
@@ -529,6 +581,7 @@ def main() -> int:
         review_path.write_text(json.dumps(result["review"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"review report ({len(result['review'])} rows): {review_path}")
 
+    warn_identity_misses(result["source"], result["review"])
     if not result["dry_run"]:
         identity_queue.record_misses(result["source"], result["review"])
     status = "dry-run" if result["dry_run"] else "saved"

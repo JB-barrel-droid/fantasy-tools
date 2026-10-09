@@ -13,6 +13,19 @@ The live plan is the Linear ticket **JEG-440 (GO LIVE)**. Linear is the source
 of truth for status: at most 3 tickets In Progress, and Done means merged and
 live.
 
+## Linear (team Jegabee, project Trade Value Chart)
+
+Follow the user-level "Work Tracking in Linear" rules for all work here. They
+cover: a ticket per workstream, status comments, decisions quoted on the
+ticket, delegated agents naming their ticket, and "(part of JEG-xxx)" PR titles.
+
+- The back end owns tickets for pipelines, Supabase, engine math and
+  workflows. The v2 front-end session owns its own tickets.
+- Front-end requests that need engine or data changes become back-end
+  tickets, linked to the front-end ticket.
+- Fidelity findings from the pulse, an audit or a reviewer get a ticket
+  (Urgent if live numbers are wrong) and a row in `docs/risk-register.md`.
+
 ## Standing constraints
 
 - **Finish end to end.** For a fix, refresh or deploy repair: commit, merge to
@@ -59,9 +72,12 @@ live.
 Run the 12-combo headless sweep (3 scorings × 4 league sizes) against the built
 `dist/`, and check `fixedPieIndexed` in `TradeValueCurveDiagnostics` for each.
 Pie totals agreeing across sources proves nothing about curve shape: compare
-where each position's curve starts. The published charts start at a fixed
-index (12 teams: QB/RB/WR/TE 25/70/55/30), so a published curve starting
-anywhere else is a defect; the ESPN, CBS ROS and Razzball lines start where
-their own projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
+where each position's curve starts. Since JEG-482 (2026-10-09), Indexed is one
+order-preserving factor per chart and league setting, with no per-position
+correction layer and no cap at 70. A published chart's curve therefore starts
+where its own values put it, and it must keep the publisher's ranking:
+`pipelines/check_rank_guard.py` and `tests/test_rank_guard.py` must show zero
+inversions. The ESPN, CBS ROS and Razzball lines also start where their own
+projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
 band on published charts, was retired 2026-10-08, GAP-026: publisher shape
 disagreement is the product.)

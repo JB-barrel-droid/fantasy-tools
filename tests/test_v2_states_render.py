@@ -165,6 +165,9 @@ def run_checks(v2_js=None, v2_css=None, with_failure=True) -> list[str]:
             for width, height in ((1440, 1000), (390, 844)):
                 page, page_errors = open_page(width, height)
                 page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=30000)
+                # Every method in the shown set, so each detail column has cells to check.
+                page.evaluate("() => window.TradeValueV2.setShown(window.TradeValueV2.shown().concat(['espn', 'espn_vorp']))")
+                page.wait_for_timeout(200)
                 page.click("#v2Table tbody tr")
                 page.wait_for_timeout(200)
                 errors += check_drawer(page.evaluate(READ_DRAWER), width)

@@ -47,6 +47,8 @@
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
+    {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
+      note: "Our value for each player, built from the inputs you choose below."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
@@ -57,6 +59,7 @@
       note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
   ];
   function seriesGroup(key) {
+    if (key === DDF_KEY) return "ddf";
     if (key.endsWith("_vorp")) return "vorp";
     if (key.endsWith("_adjusted")) return "adj";
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
@@ -73,11 +76,19 @@
 
   // One series in plain words, whatever the width: "ESPN · Our value", "FantasyCalc chart".
   function plainSeries(publisher, method) {
+    if (publisher === "ddf") return "DDF Value";
     const name = PLAIN_NAMES[publisher] || PUBLISHER_NAMES[publisher] || publisher;
     return method === "indexed" ? `${name} chart` : `${name} · ${PLAIN_METHOD[method]}`;
   }
 
+  // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
+  // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
+  const DDF_KEY = "ddf_value";
+  const DDF_META = {label: "DDF Value", symbol: "★"};
   function sourceMeta(key) {
+    if (key === DDF_KEY) {
+      return {key, method: "ddf", publisher: "ddf", ...DDF_META, color: isDark() ? "#F28C5B" : "#A84410", short: "DDF Value"};
+    }
     let method;
     let publisher;
     if (key.endsWith("_vorp")) { method = "vorp"; publisher = key.slice(0, -5); }
@@ -158,7 +169,7 @@
   // Week labels come from the data's own freshness record (content week and
   // which series are an older week), the same record that picks first-load sources.
   function sourceInfoWithFreshness() {
-    const info = C.getSourceInfo();
+    const info = C.getSourceInfo({includeComposite: true});
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     info.forEach(item => {
       const series = freshness?.series?.[item.key];
@@ -195,11 +206,11 @@
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const active = C.getActiveSources();
+    const active = (ddfShown && infoByKey[DDF_KEY] ? [DDF_KEY] : []).concat(C.getActiveSources());
     const rankKey = C.getRankSource();
-    // Ranking series first, then DDA, Index, VORP (frame 22: one ordering everywhere).
-    const methodOrder = {dda: 0, indexed: 1, vorp: 2};
-    const ordered = active.slice().sort((a, b) => (b === rankKey) - (a === rankKey)
+    // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
+    const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
+    const ordered = active.slice().sort((a, b) => (b === DDF_KEY) - (a === DDF_KEY) || (b === rankKey) - (a === rankKey)
       || methodOrder[sourceMeta(a).method] - methodOrder[sourceMeta(b).method]);
     const plotKeys = ordered.filter(key => sourceMeta(key).method !== "vorp");
     const vorpKeys = ordered.filter(key => sourceMeta(key).method === "vorp");
@@ -315,7 +326,7 @@
 
     // JEG-474 / JEG-466: one "Showing: …" line, a compact legend (not buttons) and one Customize control.
     const counts = SERIES_GROUPS.map(g => ({g, n: view.active.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
-    $("v2ShowingText").textContent = `${counts.map(c => `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`).join(" + ") || "nothing selected"}`
+    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)).join(" + ") || "nothing selected"}`
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();
@@ -332,7 +343,9 @@
 
     const rankBy = $("v2RankBy");
     rankBy.replaceChildren();
-    view.plotKeys.concat(view.vorpKeys).forEach(key => {
+    const rankKeys = view.plotKeys.concat(view.vorpKeys);
+    if (view.infoByKey[DDF_KEY] && !rankKeys.includes(DDF_KEY)) rankKeys.unshift(DDF_KEY);
+    rankKeys.forEach(key => {
       const option = document.createElement("option");
       option.value = key;
       option.textContent = `${sourceMeta(key).symbol} ${sourceMeta(key).short}`;
@@ -385,7 +398,7 @@
       const meta = sourceMeta(key);
       const span = document.createElement("span");
       const swatch = el("svg", {width: 22, height: 8, "aria-hidden": "true"});
-      el("line", {x1: 0, y1: 4, x2: 22, y2: 4, stroke: meta.color, "stroke-width": 2,
+      el("line", {x1: 0, y1: 4, x2: 22, y2: 4, stroke: meta.color, "stroke-width": meta.method === "ddf" ? 3.5 : 2,
         "stroke-dasharray": meta.method === "indexed" ? "6 4" : meta.method === "vorp" ? "1.5 4" : ""}, swatch);
       span.appendChild(swatch);
       const twice = keys.filter(k => sourceMeta(k).publisher === meta.publisher).length > 1;
@@ -449,7 +462,8 @@
         });
       }
     }
-    keys.forEach(key => {
+    // The DDF Value line is drawn last so it sits on top of the others.
+    keys.filter(key => key !== DDF_KEY).concat(keys.includes(DDF_KEY) ? [DDF_KEY] : []).forEach(key => {
       const meta = sourceMeta(key);
       let d = "";
       let pen = false;
@@ -463,7 +477,7 @@
         }
       });
       if (!d) return;
-      const cls = `series is-${meta.method === "dda" ? "dda" : meta.method}${view.infoByKey[key]?.stale ? " is-older" : ""}`;
+      const cls = `series is-${meta.method}${view.infoByKey[key]?.stale ? " is-older" : ""}`;
       el("path", {d, class: cls, stroke: meta.color, "data-source": key}, svg);
     });
     const overlay = el("g", {class: "hover"}, svg);
@@ -712,10 +726,11 @@
   // ---------- table ----------
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
-  const TABLE_GROUPS = [["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
+  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
     ["published", "Trade charts as published"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
   const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
+    if (key === DDF_KEY) return "ddf";
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
     if (meta.method === "indexed") return "published";
@@ -809,7 +824,9 @@
   }
   const HEAT_WORDS = {above: "above", below: "below", same: "about level with"};
 
-  function missingReason(key) {
+  function missingReason(key, row) {
+    // JEG-479: the engine says why a player has no DDF Value (e.g. fewer than two sources price him).
+    if (key === DDF_KEY && row && row.ddfReason) return row.ddfReason;
     const item = view.infoByKey[key];
     const name = sourceMeta(key).short;
     if (item && !item.available) return `${name} is unavailable right now, so no player has a value from it`;
@@ -907,7 +924,7 @@
               td.appendChild(d);
             }
           } else {
-            const reason = col.source ? missingReason(col.source) : "Needs at least two of our values for this player";
+            const reason = col.source ? missingReason(col.source, row) : "Needs at least two of our values for this player";
             const dash = document.createElement("span");
             dash.className = "missing";
             dash.title = reason;
@@ -1283,6 +1300,7 @@
     popoverAnchor = null;
   }
   function toggleEngineSource(key) {
+    if (key === DDF_KEY) { ddfShown = !ddfShown; return true; }
     const input = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
     if (!input || input.disabled) return false;
     input.click();
@@ -1387,6 +1405,8 @@
   // Grouped by type, not publisher; each group explains itself. A draft until Done.
   function openSources(anchor) {
     const draft = new Set(view.active);
+    const composite = C.getCompositeInputs ? C.getCompositeInputs() : null;
+    const inputsDraft = composite ? new Set(composite.inputs) : null;
     openPanel(anchor || $("v2EditSources"), "Customize values", "Choose which series appear on every tab.", pop => {
       const body = panelBody(pop);
       const summary = document.createElement("p");
@@ -1430,6 +1450,49 @@
         if (item.waiverNote && item.available) label.title = item.waiverNote;
         return label;
       }
+      // The DDF Value's inputs: every allowed series, the excluded ones with the engine's reason.
+      function ddfInputs() {
+        const box = document.createElement("fieldset");
+        box.className = "v2-ddf-inputs";
+        const legend = document.createElement("legend");
+        legend.textContent = `Built from ${inputsDraft.size} input${inputsDraft.size === 1 ? "" : "s"}`;
+        box.appendChild(legend);
+        // Only "not selected" stays selectable: a held, prior-week or unavailable source is never a DDF input (JEG-479).
+        const excluded = new Map((composite.excluded || []).filter(item => item.reason !== "not selected")
+          .map(item => [item.key, item.reason]));
+        const keys = composite.allowed || [];
+        keys.forEach(key => {
+          const meta = sourceMeta(key);
+          const label = document.createElement("label");
+          label.className = `v2-crow${excluded.has(key) ? " is-disabled" : ""}`;
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.dataset.ddfInput = key;
+          input.checked = inputsDraft.has(key);
+          input.disabled = excluded.has(key) || (inputsDraft.size === 1 && inputsDraft.has(key));
+          input.addEventListener("change", () => {
+            if (input.checked) inputsDraft.add(key); else inputsDraft.delete(key);
+            render();
+            const again = groupsBox.querySelector(`[data-ddf-input="${key}"]`);
+            if (again) again.focus();
+          });
+          const name = document.createElement("span");
+          name.className = "v2-crow-name";
+          name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
+          const group = SERIES_GROUPS.find(g => g.id === seriesGroup(key));
+          name.append(document.createTextNode(`${PLAIN_NAMES[meta.publisher] || meta.label} · ${group ? group.one : meta.short}`));
+          label.append(input, name);
+          if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
+          if (excluded.has(key)) {
+            const why = document.createElement("span");
+            why.className = "v2-meta";
+            why.textContent = excluded.get(key);
+            label.appendChild(why);
+          }
+          box.appendChild(label);
+        });
+        return box;
+      }
       function render() {
         groupsBox.replaceChildren();
         SERIES_GROUPS.forEach(g => {
@@ -1460,6 +1523,7 @@
           note.className = "v2-meta";
           note.textContent = g.note;
           section.append(head, note, ...items.map(rowFor));
+          if (g.id === "ddf" && composite) section.appendChild(ddfInputs());
           if (g.id === "vorp" && items.some(item => draft.has(item.key))) section.open = true;
           groupsBox.appendChild(section);
         });
@@ -1473,6 +1537,7 @@
       reset.addEventListener("click", () => {
         draft.clear();
         (startActive || []).forEach(key => draft.add(key));
+        if (inputsDraft) { inputsDraft.clear(); (composite.defaults || []).forEach(key => inputsDraft.add(key)); }
         render();
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Done", true, () => {
@@ -1481,13 +1546,59 @@
         const drops = view.active.filter(key => !draft.has(key));
         adds.forEach(toggleEngineSource);
         drops.forEach(toggleEngineSource);
+        if (inputsDraft && C.setCompositeInputs) {
+          const now = C.getCompositeInputs().inputs;
+          const changed = inputsDraft.size !== now.length || now.some(key => !inputsDraft.has(key));
+          if (changed) C.setCompositeInputs([...inputsDraft]);
+        }
+        saveSelection();
         closePopover();
         refresh();
       }, {"data-apply": "sources"}]], reset);
       render();
     });
   }
-  let startActive = null;   // the first-load selection: what "Reset to default" returns to
+  let startActive = null;   // the default selection: what "Reset to default" returns to
+  let ddfShown = true;      // whether the DDF Value series is shown (it has no engine toggle)
+  const SAVE_KEY = "ddf.v2.selection";
+  function defaultShown() {
+    const info = C.getSourceInfo();
+    return [DDF_KEY].concat(info.filter(item => item.available && sourceMeta(item.key).method === "indexed").map(item => item.key));
+  }
+  // Make the shown series equal `keys` (adds before drops, so the engine never has none).
+  function applyShown(keys) {
+    const want = new Set(keys);
+    const engineNow = C.getActiveSources();
+    const available = new Set(C.getSourceInfo().filter(item => item.available).map(item => item.key));
+    const adds = [...want].filter(key => key !== DDF_KEY && available.has(key) && !engineNow.includes(key));
+    const drops = engineNow.filter(key => !want.has(key));
+    adds.forEach(toggleEngineSource);
+    if (C.getActiveSources().length > drops.length) drops.forEach(toggleEngineSource);
+    ddfShown = want.has(DDF_KEY);
+  }
+  function saveSelection() {
+    try {
+      const inputs = C.getCompositeInputs ? C.getCompositeInputs() : null;
+      localStorage.setItem(SAVE_KEY, JSON.stringify({v: 1, shown: (ddfShown ? [DDF_KEY] : []).concat(C.getActiveSources()),
+        inputs: inputs && !inputs.isDefault ? inputs.inputs : null, rank: C.getRankSource()}));
+    } catch (error) { /* storage unavailable: the choice lasts this visit only */ }
+  }
+  function loadSelection() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      return saved && saved.v === 1 && Array.isArray(saved.shown) ? saved : null;
+    } catch (error) { return null; }
+  }
+  function applyStartSelection() {
+    const hasDdf = typeof C.getCompositeInputs === "function";
+    const saved = loadSelection();
+    if (hasDdf && saved && Array.isArray(saved.inputs) && saved.inputs.length) C.setCompositeInputs(saved.inputs, false);
+    const shown = saved && saved.shown.length ? saved.shown : (hasDdf ? defaultShown() : C.getActiveSources());
+    applyShown(shown.filter(key => hasDdf || key !== DDF_KEY));
+    const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);
+    if (rank && rank !== C.getRankSource() && (rank === DDF_KEY || C.getActiveSources().includes(rank))) C.setLockOrder(rank);
+    startActive = hasDdf ? defaultShown() : C.getActiveSources().slice();
+  }
 
   // Frame 18: when a league change makes a selected series unavailable, say which one was dropped.
   let statusTimer = null;
@@ -2063,8 +2174,7 @@
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
   const INDEXED_INFO = "Published charts use their own point scales. We rescale each chart so its total value "
-    + "matches our ESPN-based scale for your league, which makes the numbers comparable. Rankings within a chart "
-    + "don't change; only the scale does.";
+    + "matches our ESPN-based scale for your league, which makes the numbers comparable.";
   function indexedInfoButton(context) {
     const button = document.createElement("button");
     button.type = "button";
@@ -3224,7 +3334,7 @@
     const count = compareView.giveRows.length + compareView.receiveRows.length;
     const sc = compareView.scale;
     $("v2CMeta").textContent = ready
-      ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points, never blended. `
+      ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
     $("v2CClear").hidden = !count;
@@ -3733,6 +3843,7 @@
     state.windowPreset = SHOW_DEFAULT; state.window = null;
     state.sort = null; state.shown = PAGE_SIZE; state.delta = false;
     if (view && view.state.position !== "ALL") C.setPosition("ALL");
+    if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);
     refresh();
   }
 
@@ -3743,7 +3854,7 @@
       searchTimer = setTimeout(() => { state.search = event.target.value; state.shown = PAGE_SIZE; refresh(); }, 120);
     });
     $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); refresh(); });
-    $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; refresh(); });
+    $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; saveSelection(); refresh(); });
     $("v2DeltaBtn").addEventListener("click", () => {
       state.delta = !state.delta;
       refresh();
@@ -3891,7 +4002,7 @@
       return;
     }
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
-    startActive = C.getActiveSources().slice();
+    applyStartSelection();
     loadPipeline();
     bind();
     setStatus("");
@@ -3900,7 +4011,10 @@
     applyRoute();
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
       compare: () => compareView, tradeState: TR,
-      risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache)};
+      risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
+      // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
+      shown: () => (ddfShown ? [DDF_KEY] : []).concat(C.getActiveSources()),
+      setShown: keys => { applyShown(keys); refresh(); }};
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

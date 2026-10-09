@@ -23,6 +23,9 @@
   // One player's Δ for one series. prior: the getPriorWeek result.
   function deltaFor(current, prior, playerKey) {
     if (!prior || !prior.available) return {delta: null, reason: (prior && prior.reason) || "no prior week"};
+    // JEG-471: getPriorWeek("ddf_value") returns both sides over the same inputs; the current side
+    // is currentValues, never the row's value (which may average inputs the prior week lacks).
+    if (prior.currentValues) current = prior.currentValues[playerKey];
     if (!finite(current)) return {delta: null, reason: "no value this week"};
     const before = prior.values ? prior.values[playerKey] : undefined;
     if (!finite(before)) return {delta: null, reason: `not priced in Week ${prior.priorWeek}`};
