@@ -60,11 +60,25 @@ implementation follows the rule as written.
   VP-3.4); reader position shares (default: none).
 - **Sources and natives.**
   - *Projections* (`espn`, `cbsros`, `razzball`). Native = the source's own
-    projected points per game at the scoring.
+    projected points per game at the scoring, at full stored precision: the
+    per-player bake `players.json` fields `espn_ppg`, `cbsros_ppg`, `rz_ppg`
+    at the scoring. The projection sections' `combos[...].native` values in
+    `comparison-sources-data.json` are display-rounded copies (2-3 dp) and
+    are not inputs: rounding there flips near-ties in the projected-points
+    order (lead ruling 2026-10-09, see "Spec rulings" below).
   - *Trade charts* (`cbs`, `fantasycalc`, `fantasypros`, `usatoday`). Native
-    = the publisher's trade value from the saved 12-team list at the scoring.
-    With `SF >= 1`, the saved `native_superflex` replaces the 1-QB native for
-    the players it covers ("Superflex", below).
+    = the publisher's trade value from the saved 12-team list at the scoring:
+    the section's `combos["<scoring>_12"]` (`fantasycalc`: `_12_qb1`)
+    `.native`. **Superflex overlay.** With `SF >= 1`, the saved
+    `native_superflex` sets the native of every player it lists, including
+    players only the superflex list has (CBS's 1-QB list carries 13 QBs, its
+    superflex list 35); players it does not list keep their 1-QB native.
+  - **Prior week** (VP-8): the history snapshot
+    `data/history/week-<content_week - 1>.json`, charts from `natives`,
+    projections from `ppg`, as saved. The snapshot keeps no superflex
+    overlay, so at `SF >= 1` the prior week uses the charts' 1-QB natives.
+  - **Default roster** (the settings the chain compares): QB1 RB2 WR3 TE1
+    FLEX1, bench 6; the superflex combo is PPR, 12 teams, plus SF1.
   - A source *lists* player `i` when it has a finite native for him. His
     position comes from the naming table (`player_key`).
   - A chart's *estimated* players are the players VP-2.4 fills in for it.
@@ -327,9 +341,10 @@ rules, except that only charts are filled in (VP-2.4).
    ones marked).
    - It is one positive factor, so the chart's own order survives exactly
      (rank guard; estimated players sit at or below the lowest listed one).
-   - If the native sum is `<= 0`, or `shared` is empty, Indexed is null:
-     "Not enough shared players to index".
-   - Players below rosterable depth follow rule 2 (0).
+   - If the native sum is `<= 0`, or `shared` is empty, Indexed is null
+     for the whole chart, players below rosterable depth included: "Not
+     enough shared players to index".
+   - Otherwise players below rosterable depth follow rule 2 (0).
    - Projections have no published scale. In the Indexed tab ("Trade charts
      (as published)") they are available as their Adjusted values but
      **off by default** (OC-7): not drawn until the reader turns them on.
@@ -385,6 +400,25 @@ The charts' saved lists are 12-team lists. At every `T` and roster the same
 natives are deconstructed at the reader's setting. That is the publisher's
 valuation applied to the reader's league, and it is labelled derived, as
 today.
+
+### Spec rulings (lead, 2026-10-09)
+
+The first three-way comparison on live data found the places where the text
+above left a choice. Each was settled here, and the text above now states it:
+
+- **Projection precision.** Full-precision per-game points, not the
+  display-rounded section copies (VP-0).
+- **Superflex overlay.** It sets every player it lists, adding players only
+  it lists (VP-0).
+- **Prior week at superflex.** 1-QB natives, since no overlay is saved (VP-0).
+- **Default roster.** Stated in VP-0.
+- **Null Indexed factor.** The whole chart is null (VP-6.4).
+- The remaining readings the clean-room reference recorded (SA-7, SA-8,
+  SA-10 to SA-16 in `pipelines/spec_reference/SPEC_AMBIGUITIES.md`) stand
+  as written there unless the three-way comparison shows a disagreement
+  they cause. At the 1-QB settings, every disagreement between the Python
+  reference and the clean-room reference on 2026-10-09 traced to the
+  projection precision above.
 
 ### VP-10 Retired, and what replaces each
 
