@@ -593,7 +593,9 @@ def _indexed(sources: dict, details: dict, rows: dict) -> dict:
         for i in shared:
             ddf_total += rows[i]["ddf"]["blended"]["value"]
             nat_total += src.values[i]
-        factor = ddf_total / nat_total if shared and nat_total > 0 else None
+        # Null when nothing is shared or either sum is <= 0 (spec PR #484);
+        # then the chart's whole Indexed column is null, below-depth included.
+        factor = ddf_total / nat_total if shared and nat_total > 0 and ddf_total > 0 else None
         values = {}
         for i, r in rows.items():
             pl = d["players"].get(i)

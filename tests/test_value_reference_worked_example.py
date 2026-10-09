@@ -205,6 +205,35 @@ class WorkedExample(unittest.TestCase):
             self.assertAlmostEqual(vorp, res["pie"], places=6, msg=key)
 
 
+class IndexedNullRule(unittest.TestCase):
+    """VP-6.4 as ruled in spec PR #484: the Indexed factor is null when the
+    shared native sum <= 0, the shared DDF Value sum <= 0, or nothing is
+    shared, and then the chart's whole Indexed column is null, players below
+    rosterable depth included."""
+
+    def _run(self, chart_values):
+        pos_of = {1: "RB", 2: "RB", 3: "RB", 4: "RB", 5: "RB"}
+        league = ref.League(teams=1, slots={"QB": 0, "RB": 1, "WR": 0, "TE": 0}, flex=0, bench=1)
+        # Equal projections: every player sits on the waiver line, so every
+        # Adjusted value and every DDF Value is 0.
+        sources = {"p": ref.SourceInput("p", "projection", {i: 5.0 for i in pos_of}),
+                   "c": ref.SourceInput("c", "chart", dict(chart_values))}
+        return ref.run_pipeline(league, sources, pos_of, ["p", "c"])
+
+    def test_ddf_sum_zero_gives_null_for_the_whole_chart(self):
+        res = self._run({1: 10.0, 2: 10.0, 3: 10.0})
+        self.assertEqual(res["indexed"]["c"]["ddf_total"], 0.0)
+        self.assertGreater(res["indexed"]["c"]["native_total"], 0.0)
+        self.assertIsNone(res["indexed"]["c"]["factor"])
+        # Listed, estimated and below-depth players alike.
+        self.assertEqual({i: r["indexed"]["c"] for i, r in res["rows"].items()}, {i: None for i in res["rows"]})
+
+    def test_native_sum_zero_gives_null(self):
+        res = self._run({1: 0.0, 2: 0.0, 3: 0.0})
+        self.assertIsNone(res["indexed"]["c"]["factor"])
+        self.assertTrue(all(r["indexed"]["c"] is None for r in res["rows"].values()))
+
+
 class CheckerCatchesBrokenRules(unittest.TestCase):
     """Each broken rule must make the worked-example check fail."""
 

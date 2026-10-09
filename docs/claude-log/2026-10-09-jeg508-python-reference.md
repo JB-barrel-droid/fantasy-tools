@@ -57,3 +57,13 @@ Branch `jeg508-pyref`, draft PR; not merged.
   or older than the newest weekly section's week).
 - value_check compares projections in the Indexed tab (VP-11: "available,
   off by default"), and does not compare series VP-11 marks "not drawn".
+
+### Follow-up: spec PR #484 rulings (same session)
+- (a) projection natives at full precision with ESPN ineligible listed at 0,
+  (b) superflex overlay sets and adds every player it lists, and (d) prior
+  week from the history as saved: already what the code does (read in
+  `Setting.natives` and `snapshot_natives`); no change.
+- (c) Indexed factor is now also null when the shared DDF Value sum is <= 0
+  (it was 0). Verified: `IndexedNullRule.test_ddf_sum_zero_gives_null_for_the_whole_chart`
+  failed before the fix (0.0 is not None) and passes after; the worked example
+  still reproduces at 1e-6.
