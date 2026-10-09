@@ -3,7 +3,7 @@
 Both sides of every compared value, keyed (season, week, scoring, teams,
 roster, view, series, player_key); `agrees` uses the report's tolerance with
 exact presence; `held` marks every series of a held root; the DDF Value's
-prior-week side is stored as series ddf_value_prior.
+prior-week sides are stored as series <version>_prior.
 """
 from __future__ import annotations
 
@@ -19,9 +19,9 @@ import load_value_check as lv  # noqa: E402
 def _setting(engine_vals, ref_vals, prior_e=None, prior_r=None):
     spec = {"scoring": "half_ppr", "teams": 10, "superflex": 1}
     reference = {"half_ppr/10/sf1": {"setting": spec, "views": {"indexed": {"7": ref_vals}, "vorp": {}, "adj": {}},
-                                     "prior": {"indexed": {"values": prior_r or {}}}}}
+                                     "prior": {"indexed": {"ddf_value": {"values": prior_r or {}}}}}}
     engine = {"half_ppr/10/sf1": {"views": {"indexed": {"7": engine_vals}, "vorp": {}, "adj": {}},
-                                  "prior": {"indexed": {"values": prior_e or {}}}}}
+                                  "prior": {"indexed": {"ddf_value": {"values": prior_e or {}}}}}}
     return engine, reference
 
 

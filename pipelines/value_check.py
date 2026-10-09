@@ -84,7 +84,7 @@ def derived_series(root: str) -> list[str]:
 # Engine (headless, the built dist/)
 # ---------------------------------------------------------------------------
 
-ENGINE_JS = """async ([settings, views, keys]) => {
+ENGINE_JS = """async ([settings, views, keys, versions]) => {
   const c = window.TradeValueCurveControls;
   const clickView = mode => {
     const tab = document.querySelector(`#viewModeTabs [data-view-mode="${mode}"]`);
@@ -104,19 +104,26 @@ ENGINE_JS = """async ([settings, views, keys]) => {
       c.getAllRows().forEach(r => {
         const v = {};
         keys.forEach(k => { v[k] = num(r.values[k]); });
+        // JEG-497: the three DDF versions and their counts.
         v.ddf_value = num(r.values.ddf_value);
+        v.ddf_value_charts = num(r.values.ddf_value_charts);
+        v.ddf_value_projections = num(r.values.ddf_value_projections);
         v.ddf_count = Number.isInteger(r.ddfCount) ? r.ddfCount : null;
-        if ('ddfReason' in r) v.ddf_reason = r.ddfReason;
+        v.ddf_charts_count = Number.isInteger(r.ddfChartsCount) ? r.ddfChartsCount : null;
+        v.ddf_projections_count = Number.isInteger(r.ddfProjectionsCount) ? r.ddfProjectionsCount : null;
         rows[r.player_key] = v;
       });
       entry.views[view] = rows;
-      try {
-        const p = await c.getPriorWeek('ddf_value');
-        entry.prior[view] = {available: p.available, reason: p.reason || null, sources: p.sources || [],
-          dropped: p.dropped || [], currentWeek: p.currentWeek ?? null, priorWeek: p.priorWeek ?? null,
-          values: p.values || {}, counts: p.counts || {}, currentValues: p.currentValues || {}};
-      } catch (e) {
-        entry.prior[view] = {available: false, reason: String(e)};
+      entry.prior[view] = {};
+      for (const version of versions) {
+        try {
+          const p = await c.getPriorWeek(version);
+          entry.prior[view][version] = {available: p.available, reason: p.reason || null, sources: p.sources || [],
+            dropped: p.dropped || [], currentWeek: p.currentWeek ?? null, priorWeek: p.priorWeek ?? null,
+            values: p.values || {}, counts: p.counts || {}, currentValues: p.currentValues || {}};
+        } catch (e) {
+          entry.prior[view][version] = {available: false, reason: String(e)};
+        }
       }
     }
     clickView('indexed');
@@ -149,7 +156,8 @@ def run_engine(setting_list: list[dict], today: date, dist: Path | None = None,
                 page.wait_for_function(
                     "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                     timeout=90000)
-                result = page.evaluate(ENGINE_JS, [setting_list, list(ref.VIEWS), list(ref.SERIES_KEYS)])
+                result = page.evaluate(ENGINE_JS, [setting_list, list(ref.VIEWS), list(ref.SERIES_KEYS),
+                                                   list(ref.DDF_VERSIONS)])
                 return {"settings": result, "page_errors": errors}
         finally:
             browser.close()
@@ -213,9 +221,10 @@ def compare(engine: dict, reference: dict, tol: float = TOL) -> dict:
                                             "where": []})["mismatches"] += 1
             continue
         for view in ref.VIEWS:
-            series = list(ref.SERIES_KEYS) + [ref.COMPOSITE_KEY, "ddf_count"]
+            ddf = [*ref.DDF_VERSIONS, *ref.DDF_COUNT_FIELD.values()]
+            series = list(ref.SERIES_KEYS) + ddf
             if view in VIEWS_WITH_PUBLISHED_ONLY:
-                series = list(ref.PUBLISHED) + [ref.COMPOSITE_KEY, "ddf_count"]
+                series = list(ref.PUBLISHED) + ddf
             d = diff_rows(e["views"].get(view), r["views"].get(view), series, tol)
             for key, res in d.items():
                 agg = by_series.setdefault(key, {"compared": 0, "mismatches": 0, "examples": [],
@@ -229,8 +238,9 @@ def compare(engine: dict, reference: dict, tol: float = TOL) -> dict:
                     for m in res["mismatches"][: max(0, 5 - len(agg["examples"]))]:
                         agg["examples"].append({"setting": sid, "view": view, **m})
         for view in ref.VIEWS:
-            _diff_prior(by_series, sid, view, (e.get("prior") or {}).get(view),
-                        (r.get("prior") or {}).get(view), tol)
+            for version in ref.DDF_VERSIONS:
+                _diff_prior(by_series, sid, view, ((e.get("prior") or {}).get(view) or {}).get(version),
+                            ((r.get("prior") or {}).get(view) or {}).get(version), tol, version)
         inputs_e = (e.get("composite") or {}).get("inputs")
         if inputs_e is not None and sorted(inputs_e) != sorted(r["composite_inputs"]):
             agg = by_series.setdefault("ddf_inputs", {"compared": 0, "mismatches": 0, "examples": [],
@@ -242,13 +252,14 @@ def compare(engine: dict, reference: dict, tol: float = TOL) -> dict:
     return attribute(by_series, total_compared, tol)
 
 
-def _diff_prior(by_series: dict, sid: str, view: str, e: dict | None, r: dict | None, tol: float) -> None:
+def _diff_prior(by_series: dict, sid: str, view: str, e: dict | None, r: dict | None, tol: float,
+                version: str = "ddf_value") -> None:
     """The DDF Value prior-week pair: availability, the paired input set, the
     prior week's values and the current side over the same inputs."""
     if r is None:
         return
     e = e or {}
-    agg = by_series.setdefault("ddf_value_prior", {"compared": 0, "mismatches": 0, "examples": [],
+    agg = by_series.setdefault(f"{version}_prior", {"compared": 0, "mismatches": 0, "examples": [],
                                                    "max_abs_diff": 0.0, "where": []})
 
     def flag(detail):
