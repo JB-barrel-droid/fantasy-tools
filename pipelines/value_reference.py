@@ -746,6 +746,10 @@ class Setting:
         universe = set()
         for m in maps.values():
             universe.update(m)
+        # JEG-496: every player on ESPN's built leg gets a row, ESPN 0.0
+        # included (the anchor map keeps only starter/bench players).
+        if maps.get("espn"):
+            universe.update(self.raw_map("espn"))
         out = {}
         for k in universe:
             p = self.player_of(k)

@@ -825,7 +825,10 @@ SG-1/2); short-chart waiver lines agree position by position.
   1.042. The two code paths of one rule disagree. This is MR-01 (a) vs (c).
 - **SG-12, rows.** 20 players ESPN lists at 0.0 with no other source (incl.
   De'Von Achane) have no row on the page. GAP-025 says 0.0 with a badge. The
-  spec does not say whether a one-source zero row is shown.
+  spec does not say whether a one-source zero row is shown. **Resolved by
+  JEG-496 (2026-10-09):** Jeremy's rule (JEG-486) is that every player on
+  ESPN's list gets a row, showing ESPN 0. The engine and value_reference now
+  add the built ESPN leg's players to the rows. no_engine_row is 0.
 
 **Found as a suspected engine bug, not a gap:** JEG-493. At 14 teams the
 engine's ESPN anchor is not the built leg: the bottom 4-15 bench players per
