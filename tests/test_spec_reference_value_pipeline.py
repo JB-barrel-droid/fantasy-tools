@@ -137,6 +137,39 @@ class Invariants(unittest.TestCase):
             self.assertAlmostEqual(row["adjusted"]["c5"] or 0.0, out["rows"][k]["adjusted"]["c5"] or 0.0, 9)
 
 
+class Rulings(unittest.TestCase):
+    """Lead's spec rulings 2026-10-09 (methodology.md "Spec rulings")."""
+
+    def test_null_indexed_factor_nulls_whole_chart(self):
+        # A held chart whose only listed player has native 0 has a native sum
+        # of 0 (VP-6.4 null case): every value on it is null, below-depth too.
+        fx = _fx()
+        fx["players"]["299"] = {"name": "RB Nobody", "pos": "RB"}
+        fx["inputs"]["c6"] = {"family": "chart", "status": "held", "values": {"299": 0.0}}
+        out = we.run_fixture(fx)
+        self.assertIsNone(out["indexed"]["c6"]["factor"])
+        self.assertTrue(all(v is None for v in out["indexed"]["c6"]["values"].values()))
+        # 201 is an RB c6 neither lists nor estimates (old reading gave 0).
+        self.assertIsNone(out["rows"][201]["indexed"]["c6"])
+        self.assertEqual(out["rows"][201]["adjusted"]["c6"], 0.0)
+
+    def test_live_projection_natives_and_overlay(self):
+        from spec_reference import pipeline_live as pl
+        data = pl.load(pl.default_paths())
+        espn = pl.current_natives(data, "espn", "ppr", 12, 0, {})
+        players = {int(p["player_key"]): p for p in data["players"]}
+        ineligible = [k for k, p in players.items()
+                      if p.get("espn_status") == "ineligible" and not p.get("espn_ppg") and k in data["pos_of"]]
+        self.assertTrue(ineligible)
+        self.assertTrue(all(espn.get(k) == 0.0 for k in ineligible))
+        full = [k for k, p in players.items() if (p.get("espn_ppg") or {}).get("ppr") is not None]
+        self.assertTrue(all(espn[k] == float(players[k]["espn_ppg"]["ppr"]) for k in full))
+        # CBS's superflex list adds QBs its 1-QB list lacks.
+        one_qb = pl.current_natives(data, "cbs", "ppr", 12, 0, {})
+        sf = pl.current_natives(data, "cbs", "ppr", 12, 1, {})
+        self.assertTrue(set(sf) - set(one_qb))
+
+
 class LiveDump(unittest.TestCase):
     """The live entry point runs on the committed snapshot and keeps VP-5's
     invariant: every included source's Adjusted values total the pie."""

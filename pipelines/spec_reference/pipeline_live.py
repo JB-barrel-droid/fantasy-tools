@@ -8,12 +8,16 @@ Run (also reachable as `compare.py pipeline ...`):
         [--out output/spec-reference/pipeline-values.json]
 
 Inputs (data files only):
-- current week: the fixture's sections. Projections (espn, cbsros, razzball):
-  `combos["<scoring>_<T>"].native` (points per game, keyed by name). Charts
-  (cbs, fantasycalc, fantasypros, usatoday): the saved 12-team list
-  `combos["<scoring>_12"]` (fantasycalc `_12_qb1`) `.native`, with
-  `.native_superflex` overlaid at SF >= 1. Names map to player_key through
-  the fixture's `player_keys`.
+- current week (VP-0 "Sources and natives", lead rulings 2026-10-09).
+  Projections (espn, cbsros, razzball): players.json `espn_ppg` /
+  `cbsros_ppg` / `rz_ppg` at the scoring, full precision (the sections'
+  combos copies are display-rounded and not inputs); a player with
+  `espn_status` "ineligible" and no `espn_ppg` is listed by ESPN at 0. The
+  section must exist for the source to be eligible. Charts (cbs,
+  fantasycalc, fantasypros, usatoday): the saved 12-team list
+  `combos["<scoring>_12"]` (fantasycalc `_12_qb1`) `.native`; at SF >= 1
+  `.native_superflex` sets every player it lists, adding ones only it lists.
+  Names map to player_key through the fixture's `player_keys`.
 - positions: the naming table `players.json` (`player_key` -> `pos`).
 - prior week: `data/history/week-<content_week - 1>.json` (`natives[scoring]`
   for charts, `ppg[key][scoring index]` for projections); the content week
@@ -75,7 +79,7 @@ SCORINGS = ("standard", "half_ppr", "ppr")
 TEAMS = (8, 10, 12, 14)
 COMBO_SCORING = {"standard": "standard", "half_ppr": "half", "ppr": "full"}
 HIST_INDEX = {"standard": 0, "half_ppr": 1, "ppr": 2}
-# Default roster (SA-12): QB1 RB2 WR3 TE1 FLEX1 BENCH6, 8 starters per team.
+# Default roster (VP-0 ruling): QB1 RB2 WR3 TE1 FLEX1 BENCH6, 8 starters per team.
 DEFAULT_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
 SUPERFLEX_COMBO = ("ppr", 12)
 
@@ -112,7 +116,7 @@ def load(paths: dict) -> dict:
     pos_of = {int(p["player_key"]): p.get("pos") for p in players
               if p.get("pos") in vp.POS_ORDER}
     names = {int(p["player_key"]): p.get("name") for p in players}
-    return {"fixture": fx, "pos_of": pos_of, "names": names, "index": index,
+    return {"fixture": fx, "players": players, "pos_of": pos_of, "names": names, "index": index,
             "content_week": content_week, "prior": prior, "paths": paths}
 
 
@@ -127,30 +131,53 @@ def current_natives(data: dict, s: str, scoring: str, teams: int, sf: int, dropp
     section = (fx.get("sources") or {}).get(s)
     if not section:
         return None
-    combo = _combo(section, scoring, teams if s in PROJECTIONS else 12)
+    if s in PROJECTIONS:
+        return projection_natives(data, s, scoring)
+    combo = _combo(section, scoring, 12)
     if not combo or not combo.get("native"):
         return None
     name_keys = fx.get("player_keys") or {}
     out = {}
     miss = 0
 
-    def put(name, value, overlay=False):
+    def put(name, value):
         nonlocal miss
         k = name_keys.get(name)
         if k is None or value is None or int(k) not in data["pos_of"]:
             miss += 1
             return
-        if overlay and int(k) not in out:
-            return     # SA-2: the overlay replaces, it never adds a player
         out[int(k)] = float(value)
 
     for name, v in combo["native"].items():
         put(name, v)
-    if sf >= 1 and s in CHARTS:
+    if sf >= 1:
+        # VP-0 ruling: the overlay sets every player it lists, adding players
+        # only it lists; the rest keep their 1-QB native.
         for name, v in (combo.get("native_superflex") or {}).items():
-            put(name, v, overlay=True)
+            put(name, v)
     dropped[s] = dropped.get(s, 0) + miss
     return out
+
+
+PPG_FIELD = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
+
+
+def projection_natives(data: dict, s: str, scoring: str) -> dict | None:
+    """VP-0 ruling: full-precision per-game points from players.json at the
+    scoring; ESPN-ineligible players (espn_status "ineligible", no espn_ppg)
+    are listed by ESPN at 0."""
+    field = PPG_FIELD[s]
+    out = {}
+    for p in data["players"]:
+        k = int(p["player_key"])
+        if k not in data["pos_of"]:
+            continue
+        v = (p.get(field) or {}).get(scoring)
+        if v is not None:
+            out[k] = float(v)
+        elif s == "espn" and p.get("espn_status") == "ineligible":
+            out[k] = 0.0
+    return out or None
 
 
 def prior_natives(data: dict, s: str, scoring: str) -> dict | None:

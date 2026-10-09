@@ -496,12 +496,12 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
         vals = {}
         for k in row_keys:
             p = pos_of[k]
-            if r["positions"][p]["method"] == "no_players":
-                vals[k] = None
+            if f is None or r["positions"][p]["method"] == "no_players":
+                vals[k] = None    # a null factor nulls the whole chart (VP-6.4, ruling)
             elif k in r["players"]:
-                vals[k] = r["players"][k]["native"] * f if f is not None else None
+                vals[k] = r["players"][k]["native"] * f
             else:
-                vals[k] = 0.0     # below rosterable depth (VP-6.2), even with no factor (SA-9)
+                vals[k] = 0.0     # below rosterable depth (VP-6.2)
         indexed[s] = {"factor": f, "shared_players": len(shared), "ddf_total": ddf_tot,
                       "native_total": nat_tot, "values": vals}
         r["indexed_factor"] = f
