@@ -309,7 +309,8 @@ function renderAlerts(feeds) {
 // JEG-480 fidelity pulse: one row per source, one cell per stage.
 const PULSE_STATUS = { green: "ok", amber: "warn", red: "bad", unknown: "unk", "n/a": "unk" };
 const PULSE_STAGES = [["publisher_vs_stored", "Publisher vs stored"], ["stored_vs_chart", "Stored vs live chart"],
-                      ["freshness", "Freshness"], ["reference_vs_engine", "Reference vs engine"]];
+                      ["freshness", "Freshness"], ["reference_vs_engine", "Reference vs engine"],
+                      ["scrape_validity", "Scrape-validity signals"]];
 function renderFidelity(feeds) {
   const d = feeds.pulse.doc;
   if (!d) return card("fidelity", "pulse", "Data fidelity pulse", "bad", missing(feeds, "pulse"), { wide: true });
@@ -331,7 +332,7 @@ function renderFidelity(feeds) {
       <td>${ex ? `<ul class="why" style="margin:0;padding-left:16px">${ex}</ul>` : "—"}${out.length ? `<div class="why">Outside the page's player universe: ${esc(out.join(", "))}</div>` : ""}</td></tr>`;
   });
   for (const [key, why] of Object.entries(d.not_covered || {})) {
-    rows.push(`<tr data-source="${esc(key)}" data-status="unk"><td>${pill("unk", "Not covered")}</td><td><strong>${esc(key)}</strong></td><td colspan="5" class="why">${esc(why)}</td></tr>`);
+    rows.push(`<tr data-source="${esc(key)}" data-status="unk"><td>${pill("unk", "Not covered")}</td><td><strong>${esc(key)}</strong></td><td colspan="6" class="why">${esc(why)}</td></tr>`);
   }
   const st = worst(feeds.pulse.status, sts);
   card("fidelity", "pulse", "Data fidelity pulse (publisher site → stored raw → live chart)", st, feedLine(feeds.pulse) +
