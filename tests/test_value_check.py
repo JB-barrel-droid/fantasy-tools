@@ -113,7 +113,47 @@ class SeededMismatch(unittest.TestCase):
         inp.held = {s: "validation hold" for s in ("fantasycalc", "fantasycalc_adjusted")}
         out = ref.compute(inp, settings[0], views=("indexed",))
         self.assertNotIn("fantasycalc_adjusted", out["composite_inputs"])
-        self.assertEqual(out["composite_excluded"].get("fantasycalc_adjusted"), "held")
+        self.assertTrue(out["composite_excluded"].get("fantasycalc_adjusted", "").startswith("held:"))
+
+
+class HeldAndUnpublishedInputs(unittest.TestCase):
+    """docs/methodology.md "DDF Composite Value" step 3 on the live engine:
+    a held source (validationHold on its section) and a chart that has not
+    published the current week are never DDF inputs, in any view, in either
+    week; the reference agrees with the engine value for value."""
+
+    @classmethod
+    def setUpClass(cls):
+        _playwright_or_skip()
+        _render_env.ensure_built()
+
+    def test_held_and_unpublished_inputs_agree_and_are_left_out(self):
+        import tempfile
+        fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
+        fixture["sources"]["fantasycalc"]["validationHold"] = {
+            "reason": "engine and Python reference disagree on fantasycalc", "week": 5,
+            "root": "fantasycalc", "kept_week": 5}
+        for sec in ("usatoday", "usatoday_adjusted"):
+            fixture["sources"][sec]["week_designated"] = "Week 1"
+            fixture["sources"][sec]["content_vintage"] = "Week 1"
+        body = json.dumps(fixture).encode("utf-8")
+        settings = [{"scoring": "ppr", "teams": 12, "superflex": 0},
+                    {"scoring": "half_ppr", "teams": 10, "superflex": 1}]
+        engine = vc.run_engine(settings, TODAY, overrides={"assets/comparison-sources-data.json": body})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "fixture.json"
+            path.write_bytes(body)
+            reference = vc.run_reference(settings, TODAY, fixture=path)
+        report = vc.compare(engine["settings"], reference)
+        bad = {k: a["examples"][:2] for k, a in report["series"].items() if a["mismatches"]}
+        self.assertEqual(bad, {})
+        for sid, r in reference.items():
+            for view, comp in r["composite"].items():
+                self.assertNotIn("fantasycalc_adjusted", comp["inputs"], f"{sid}/{view}")
+                self.assertNotIn("usatoday_adjusted", comp["inputs"], f"{sid}/{view}")
+                self.assertTrue(comp["excluded"]["fantasycalc_adjusted"].startswith("held:"))
+                self.assertTrue(comp["excluded"]["usatoday_adjusted"].startswith("not yet published"))
+            self.assertIn("fantasycalc_adjusted", (engine["settings"][sid]["composite"].get("held") or []))
 
 
 def _rows(values):
