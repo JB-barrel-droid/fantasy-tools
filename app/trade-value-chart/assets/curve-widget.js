@@ -5038,7 +5038,7 @@
     // the current position), unclamped. Same roster ordinals as rosterOrdinals();
     // for DDF Value use row.ddfTier instead (null here).
     getZonesFor: (key, pos = position) => {
-      if (key === COMPOSITE_KEY) return null;
+      if (isCompositeKey(key)) return null;
       const shape = rosterShape;
       const slots = shape.QB + shape.RB + shape.WR + shape.TE + shape.FLEX + (shape.SUPERFLEX || 0);
       let starter;
