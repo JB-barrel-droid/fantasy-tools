@@ -2507,10 +2507,37 @@
     }
     compositeMap = new Map();
     rows.forEach(row => {
+      const blend = setCompositeFields(row);
+      if (blend.value !== null) compositeMap.set(row.player_key, blend.value);
+    });
+    ddfRoleByKey = ValueModel.roleMap({values: compositeMap, playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams, shape: rosterShape});
+    rows.forEach(row => {
+      row.ddfTier = row.values[COMPOSITE_KEY] === null ? null : (ddfRoleByKey.get(row.player_key) || "waiver");
+    });
+  }
+  // The DDF fields of one row from the current compositeStates. A row outside
+  // the computed set (JEG-502 lazy rows) is blended from its own values over
+  // the version's series, the same rule buildCompositeState applies.
+  function setCompositeFields(row) {
       if (!row.missingReasons) row.missingReasons = {};
       row.ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
         const state = compositeStates[version];
-        const now = state.current.get(row.player_key);
+        const own = () => {
+          // A chart's input map holds the computed rows' chart zeros
+          // (withChartRowZeros); this row gets the same rule here.
+          const inputOf = key => {
+            const value = compositeInputValue(key, row);
+            const chart = chartOfInput(key);
+            if (value !== null || !chart || !compositeChartValues(chart).size || !POSITION_ORDER.includes(row.pos)) return value;
+            const missing = chartMissingValue(chart, chart, row, chartNative(chart), publishedWaiver(chart));
+            return missing.value === undefined ? null : missing.value;
+          };
+          const inputs = Object.fromEntries(state.inputs.map((key, i) => [state.series[i], inputOf(key)]));
+          const blend = ValueModel.compositeValue(inputs, state.series);
+          return {value: blend.count >= COMPOSITE_MIN_SOURCES ? blend.value : null, count: blend.count, used: blend.used};
+        };
+        const now = state.current.get(row.player_key) || own();
         const before = state.prior?.get(row.player_key) || null;
         const entry = {value: now.value, count: now.count, sources: now.used,
           reason: now.value === null ? COMPOSITE_NONE_REASON : null,
@@ -2536,13 +2563,7 @@
       row.ddfPrior = blend.prior;
       row.ddfPriorCount = blend.priorCount;
       row.ddfPriorLowConfidence = blend.priorLowConfidence;
-      if (blend.value !== null) compositeMap.set(row.player_key, blend.value);
-    });
-    ddfRoleByKey = ValueModel.roleMap({values: compositeMap, playerOf: playerKey => canonicalByKey.get(playerKey),
-      teams, shape: rosterShape});
-    rows.forEach(row => {
-      row.ddfTier = row.values[COMPOSITE_KEY] === null ? null : (ddfRoleByKey.get(row.player_key) || "waiver");
-    });
+      return blend;
   }
   // getCompositeValues([version]): one version's DDF Value for both weeks as
   // plain objects keyed by player_key, over every player either week prices.
@@ -2619,37 +2640,10 @@
     const values = Object.fromEntries(visibleSourceKeys().map(k => [k, rowValue(k, player)]));
     const missingReasons = Object.fromEntries(visibleSourceKeys().filter(k => values[k] === null)
       .map(k => [k, missingReason(k, player)]));
-    // JEG-497: the three DDF versions over each version's included inputs'
-    // Adjusted-view values (compositeInputValue), as applyComposite does.
-    const row = {...player, player_key: key, values};
-    const empty = {value: null, count: 0, sources: [], reason: COMPOSITE_NONE_REASON, lowConfidence: false,
-      confidenceNote: null, prior: null, priorCount: 0, priorLowConfidence: false};
-    const ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
-      const state = compositeStates[version];
-      if (!state) return [COMPOSITE_VERSION_NAMES[version], {...empty}];
-      const inputValues = Object.fromEntries(state.inputs.map((input, i) => [state.series[i], compositeInputValue(input, row)]));
-      const blend = ValueModel.compositeValue(inputValues, state.series);
-      const value = blend.count >= COMPOSITE_MIN_SOURCES ? blend.value : null;
-      const before = state.prior?.get(key) || null;
-      return [COMPOSITE_VERSION_NAMES[version], {value, count: blend.count, sources: [...blend.used],
-        reason: value === null ? COMPOSITE_NONE_REASON : null, lowConfidence: blend.count === 1,
-        confidenceNote: blend.count === 1 ? COMPOSITE_ONE_SOURCE_NOTE : null,
-        prior: before ? before.value : null, priorCount: before ? before.count : 0,
-        priorLowConfidence: Boolean(before && before.count === 1)}];
-    }));
-    COMPOSITE_VERSION_KEYS.forEach(version => {
-      const entry = ddfByVersion[COMPOSITE_VERSION_NAMES[version]];
-      values[version] = entry.value;
-      if (entry.value === null) missingReasons[version] = entry.reason;
-    });
-    const {blended: mine, charts, projections} = ddfByVersion;
-    return {...player, espnRole: "waiver", values, missingReasons, ddfByVersion, materialized: true,
-      ddfCount: mine.count, ddfChartsCount: charts.count, ddfProjectionsCount: projections.count,
-      ddfSources: [...mine.sources], ddfReason: mine.reason,
-      ddfLowConfidence: mine.lowConfidence, ddfConfidenceNote: mine.confidenceNote,
-      ddfChartsLowConfidence: charts.lowConfidence, ddfProjectionsLowConfidence: projections.lowConfidence,
-      ddfPrior: mine.prior, ddfPriorCount: mine.priorCount, ddfPriorLowConfidence: mine.priorLowConfidence,
-      ddfTier: mine.value === null ? null : "waiver"};
+    const row = {...player, espnRole: "waiver", values, missingReasons, materialized: true};
+    setCompositeFields(row);
+    row.ddfTier = row.values[COMPOSITE_KEY] === null ? null : "waiver";
+    return row;
   }
   const searchKey = text => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/[.'’]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
