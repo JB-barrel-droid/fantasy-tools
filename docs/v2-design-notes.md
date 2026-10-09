@@ -695,6 +695,19 @@ Cadence"):
 
 ## Back-end contract: DDF Value (JEG-471 / JEG-479, 2026-10-08/09)
 
+> **Superseded (JEG-508)** once the Value Pipeline implementation merges. The
+> target contract is `docs/methodology.md` VP-11:
+> - The inputs are the source keys and their Adjusted values. The
+>   `*_adjusted` keys are retired.
+> - There are three versions, `ddf_value`, `ddf_value_charts` and
+>   `ddf_value_projections`, each one number in every tab.
+> - `ddfByVersion` replaces `ddfByView`.
+> - The composite calls take a `version` instead of a `view`.
+> - There is a new `TradeValueCurveDiagnostics.valuePipeline`.
+>
+> Every other field name below keeps its meaning. Until then, this section
+> describes the engine.
+
 The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series,
 key `ddf_value`. v2 reads it; it does no blend math. Inputs are the seven keys
 `espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted, cbs_adjusted`.

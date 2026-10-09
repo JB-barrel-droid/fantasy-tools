@@ -19,6 +19,36 @@ a crash, a parity break, or a value that contradicts a rule already decided).
 Numbers below are cited from the log or test that measured them. "Not
 measured" means nobody has run that option yet.
 
+## Answered by the Value Pipeline spec (JEG-508, 2026-10-09)
+
+Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`
+"Value Pipeline (source-neutral, 2026-10-09)" (VP-0 to VP-12) now gives the
+rule for the items below. The open choices it lists (OC-1 to OC-8) are
+waiting on Jeremy. The items stay below as history and for the measurements.
+
+| Item | Where it is answered |
+| --- | --- |
+| MR-01 | VP-5 (fixed pie) and VP-6.4. The basis counts zeros (OC-8) |
+| MR-02 | No anchor. Every source follows the roster (VP-2.2, VP-9) |
+| MR-03 | VP-6.4: natives x one factor to DDF Value (option c, re-anchored) |
+| MR-04 | VP-5.6: one factor per source to the pie |
+| MR-05 | VP-3 to VP-5: average source weights, slices (OC-3), unfunded budget (OC-5), no 70 factor |
+| MR-06 | Retired, with the fit (VP-10) |
+| MR-07 | VP-8: each week's own inputs and weights (option b) |
+| MR-08 | VP-2.4, with the peers now the included same-family sources |
+| MR-09 | VP-2.2 and OC-4 |
+| MR-10 | Option C retired (VP-10). The ChartHealth starter/bench checks no longer price anything |
+| MR-11 | The two-tier window no longer prices anything. Bench share is OC-2 |
+| MR-12 | DDF tier (VP-7.3) |
+| MR-15 | Weights come from the sources' own superflex VORP (Superseded note in "Superflex") |
+| MR-16 | VP-4.3 |
+| MR-17 | VP-6.3: Adjusted values only, three versions |
+| MR-18 | SG-1/2/3/10 go with the two-tier legs. SG-5 is VP-2.2. SG-6 is VP-5.6. SG-7/8 are VP-3 to VP-5. SG-9 is VP-2.2 and VP-2.4. SG-11 is OC-8 |
+| GAP-ADJ-CLIP-ZERO | Retired, with the live cells |
+
+MR-13 (gate) and MR-14 (consumers) are still open: pin the VP invariants once
+the open choices are answered.
+
 ## How the review runs
 
 1. **Freeze one build.** Pick one `main` commit and its fixture after the
