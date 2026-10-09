@@ -41,6 +41,17 @@ the series" and BE-4 in docs/v2-design-notes.md.
 - Manual: /v2/#trade-targets at 1440 and 390: DDF Value default, "from 7 sources" under Our value, tiers from
   DDF Value, new subtitle and footnote, no horizontal overflow at 390.
 
+## Follow-up (2026-10-09)
+- One-source DDF Value (Jeremy): value kept, player is a target, tag "◐ 1 source" with the engine's
+  `ddfConfidenceNote` as tooltip and in the accessible name, on Trade targets, Player values, the drawer and
+  Compare. Opened Trade targets rows show "#N on <publisher>" (`getNativeRank`).
+- Render suite simulates a one-source player, a no-input player and a chart value at 0 (current data has none),
+  so "waiver rule removed" is caught again.
+- Verified after rebasing onto 4714754d (picker) and later main: every tests/test_v2_*_render.py,
+  test_launch_front_door, test_ddf_composite_value, test_v2_targets, the two ESPN-0 suites and validate 63/63.
+  The ddf broken-build run had one Customize click timeout and the panels suite one "More From 20 To 60"
+  failure under load; both re-run separately (see the report).
+
 ## Claimed (not verified)
-- `row.missingReasons` is not shipped by the engine yet; only a simulated row was tested.
+- `row.missingReasons` and `row.ddfLowConfidence` are not shipped by the engine yet; only simulated rows were tested.
 - Compare tiers use the All-positions zones over every priced player; not checked by a render test.
