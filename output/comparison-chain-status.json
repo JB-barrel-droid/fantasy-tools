@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-09T16:01:36.326841+00:00",
+  "run_at": "2026-10-09T16:28:45.393505+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
@@ -10,10 +10,8 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
+  "failed": [],
+  "success": true,
   "outcome": "published_with_holds",
   "held": [
     "usatoday"
@@ -158,20 +156,5 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_two_tier_frontend.TestTwoTierPort.test_bench_mix_never_rosters_past_the_irrelevance_floor"
-    ],
-    "assertions": [
-      "AssertionError: False is not true : no position reached its floor -- cap is untested here"
-    ],
-    "make_targets": [
-      "Makefile:443: test-core"
-    ],
-    "detail": "FAIL tests.test_two_tier_frontend.TestTwoTierPort.test_bench_mix_never_rosters_past_the_irrelevance_floor; AssertionError: False is not true : no position reached its floor -- cap is untested here",
-    "recorded_at": "2026-10-09T16:02:44.699830+00:00"
   }
 }

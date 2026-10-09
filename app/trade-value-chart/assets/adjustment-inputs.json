@@ -2,11 +2,11 @@
   "fit": {
     "bench_share": 0.15,
     "combo_note": "Matches the chart's default Full-PPR 12-team view (comboKey: ppr -> 'full'; fantasycalc takes the _qb1 variant).",
-    "ddf_leg_bake_id": "ddf-20261008-espn-ppr-12t-0p15",
-    "ddf_leg_path": "data/ddf-two-tier/ddf-20261008-espn-ppr-12t-0p15/ddf_leg.json",
-    "ddf_leg_sha256": "0eef92af7fa4589cf070320e6fa1142503c0f896c0ba748c5297d85e268f406c",
+    "ddf_leg_bake_id": "ddf-20261009-espn-ppr-12t-0p15",
+    "ddf_leg_path": "data/ddf-two-tier/ddf-20261009-espn-ppr-12t-0p15/ddf_leg.json",
+    "ddf_leg_sha256": "de4f9a15765ef00f25498224212d3b60d671d0036fa7e0ded395cebedd100674",
     "espn_purity_note": "y targets are the DDF two-tier leg built from ESPN projections only (no expert blending).",
-    "espn_snapshot_date": "2026-10-08",
+    "espn_snapshot_date": "2026-10-09",
     "fixture": "data/fixtures/current/comparison-sources-data.json",
     "fixture_built_at": null,
     "fixture_players": "data/fixtures/current/players.json",
@@ -36,21 +36,21 @@
     "scoring": "ppr",
     "teams": 12
   },
-  "generated_at": "2026-10-09T14:06:27Z",
+  "generated_at": "2026-10-09T16:28:44Z",
   "review_rows": [],
   "schema": "trade-value-adjustment-inputs-v1",
   "sources": {
     "cbs": {
       "cells": [
         {
-          "alpha": -5.474041607467804,
-          "beta": 1.2280989985041768,
+          "alpha": -5.930625420005951,
+          "beta": 1.2928650336273426,
           "n": 12,
           "position": "QB",
           "source": "cbs",
           "tier": "starter",
-          "x_mean": 12.776042198400546,
-          "y_mean": 10.216203021235009
+          "x_mean": 13.735443253360557,
+          "y_mean": 11.827448883636501
         },
         {
           "alpha": 0.0,
@@ -64,14 +64,14 @@
           "y_mean": 0.0
         },
         {
-          "alpha": 8.85166979283673,
-          "beta": 0.7810590222406972,
+          "alpha": 11.287882798826594,
+          "beta": 0.7037762889687164,
           "n": 31,
           "position": "RB",
           "source": "cbs",
           "tier": "starter",
-          "x_mean": 27.857438785423774,
-          "y_mean": 30.6099736927099
+          "x_mean": 29.949358626027102,
+          "y_mean": 32.36553126964516
         },
         {
           "alpha": 0.0,
@@ -81,18 +81,18 @@
           "position": "RB",
           "source": "cbs",
           "tier": "bench",
-          "x_mean": 6.817984057800292,
-          "y_mean": 8.549088727348076
+          "x_mean": 7.32997212078376,
+          "y_mean": 9.773036654877298
         },
         {
-          "alpha": 7.513340329958261,
-          "beta": 0.6553802684663943,
+          "alpha": 6.934135225962319,
+          "beta": 0.7031987276441931,
           "n": 40,
           "position": "WR",
           "source": "cbs",
           "tier": "starter",
-          "x_mean": 24.494068402246047,
-          "y_mean": 23.5662694552565
+          "x_mean": 26.333420112302196,
+          "y_mean": 25.451762743453227
         },
         {
           "alpha": 0.0,
@@ -106,14 +106,14 @@
           "y_mean": 0.0
         },
         {
-          "alpha": 1.632404449042772,
-          "beta": 0.6926383232672468,
+          "alpha": 1.9655100354256003,
+          "beta": 0.6724506975002007,
           "n": 12,
           "position": "TE",
           "source": "cbs",
           "tier": "starter",
-          "x_mean": 17.167806704100734,
-          "y_mean": 13.523485298747303
+          "x_mean": 18.45700187170325,
+          "y_mean": 14.37693381781496
         },
         {
           "alpha": 0.0,
@@ -137,14 +137,14 @@
           "reason": "fewer_than_5_pairs"
         },
         "QB|starter": {
-          "alpha": -5.474041607467804,
-          "beta": 1.2280989985041768,
+          "alpha": -5.930625420005951,
+          "beta": 1.2928650336273426,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 12.776042198400546,
-          "y_mean": 10.216203021235009
+          "x_mean": 13.735443253360557,
+          "y_mean": 11.827448883636501
         },
         "RB|bench": {
           "alpha": 0.0,
@@ -155,14 +155,14 @@
           "reason": "non_positive_slope"
         },
         "RB|starter": {
-          "alpha": 8.85166979283673,
-          "beta": 0.7810590222406972,
+          "alpha": 11.287882798826594,
+          "beta": 0.7037762889687164,
           "cell": true,
           "fallback": false,
           "n_pairs": 31,
           "reason": null,
-          "x_mean": 27.857438785423774,
-          "y_mean": 30.6099736927099
+          "x_mean": 29.949358626027102,
+          "y_mean": 32.36553126964516
         },
         "TE|bench": {
           "alpha": 0.0,
@@ -173,14 +173,14 @@
           "reason": "fewer_than_5_pairs"
         },
         "TE|starter": {
-          "alpha": 1.632404449042772,
-          "beta": 0.6926383232672468,
+          "alpha": 1.9655100354256003,
+          "beta": 0.6724506975002007,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 17.167806704100734,
-          "y_mean": 13.523485298747303
+          "x_mean": 18.45700187170325,
+          "y_mean": 14.37693381781496
         },
         "WR|bench": {
           "alpha": 0.0,
@@ -191,14 +191,14 @@
           "reason": "fewer_than_5_pairs"
         },
         "WR|starter": {
-          "alpha": 7.513340329958261,
-          "beta": 0.6553802684663943,
+          "alpha": 6.934135225962319,
+          "beta": 0.7031987276441931,
           "cell": true,
           "fallback": false,
           "n_pairs": 40,
           "reason": null,
-          "x_mean": 24.494068402246047,
-          "y_mean": 23.5662694552565
+          "x_mean": 26.333420112302196,
+          "y_mean": 25.451762743453227
         }
       },
       "n_published": 117,
@@ -218,8 +218,8 @@
           "position": "QB",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 14.141666666666666,
-          "y_mean": 14.141666666666666
+          "x_mean": 14.0,
+          "y_mean": 14.0
         },
         {
           "alpha": 0.0,
@@ -238,8 +238,8 @@
           "position": "RB",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 29.840740740740742,
-          "y_mean": 29.840740740740742
+          "x_mean": 29.807407407407407,
+          "y_mean": 29.807407407407407
         },
         {
           "alpha": 0.0,
@@ -248,8 +248,8 @@
           "position": "RB",
           "source": "cbsros",
           "tier": "bench",
-          "x_mean": 5.482608695652174,
-          "y_mean": 5.482608695652174
+          "x_mean": 5.478260869565218,
+          "y_mean": 5.478260869565218
         },
         {
           "alpha": 0.0,
@@ -258,8 +258,8 @@
           "position": "WR",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 21.226666666666667,
-          "y_mean": 21.226666666666667
+          "x_mean": 21.213333333333335,
+          "y_mean": 21.213333333333335
         },
         {
           "alpha": 0.0,
@@ -268,8 +268,8 @@
           "position": "WR",
           "source": "cbsros",
           "tier": "bench",
-          "x_mean": 5.33225806451613,
-          "y_mean": 5.33225806451613
+          "x_mean": 5.32258064516129,
+          "y_mean": 5.32258064516129
         },
         {
           "alpha": 0.0,
@@ -278,8 +278,8 @@
           "position": "TE",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 13.15,
-          "y_mean": 13.15
+          "x_mean": 13.166666666666666,
+          "y_mean": 13.166666666666666
         },
         {
           "alpha": 0.0,
@@ -310,8 +310,8 @@
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 14.141666666666666,
-          "y_mean": 14.141666666666666
+          "x_mean": 14.0,
+          "y_mean": 14.0
         },
         "RB|bench": {
           "alpha": 0.0,
@@ -320,8 +320,8 @@
           "fallback": false,
           "n_pairs": 23,
           "reason": null,
-          "x_mean": 5.482608695652174,
-          "y_mean": 5.482608695652174
+          "x_mean": 5.478260869565218,
+          "y_mean": 5.478260869565218
         },
         "RB|starter": {
           "alpha": 0.0,
@@ -330,8 +330,8 @@
           "fallback": false,
           "n_pairs": 27,
           "reason": null,
-          "x_mean": 29.840740740740742,
-          "y_mean": 29.840740740740742
+          "x_mean": 29.807407407407407,
+          "y_mean": 29.807407407407407
         },
         "TE|bench": {
           "alpha": 0.0,
@@ -350,8 +350,8 @@
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 13.15,
-          "y_mean": 13.15
+          "x_mean": 13.166666666666666,
+          "y_mean": 13.166666666666666
         },
         "WR|bench": {
           "alpha": 0.0,
@@ -360,8 +360,8 @@
           "fallback": false,
           "n_pairs": 31,
           "reason": null,
-          "x_mean": 5.33225806451613,
-          "y_mean": 5.33225806451613
+          "x_mean": 5.32258064516129,
+          "y_mean": 5.32258064516129
         },
         "WR|starter": {
           "alpha": 0.0,
@@ -370,8 +370,8 @@
           "fallback": false,
           "n_pairs": 45,
           "reason": null,
-          "x_mean": 21.226666666666667,
-          "y_mean": 21.226666666666667
+          "x_mean": 21.213333333333335,
+          "y_mean": 21.213333333333335
         }
       },
       "n_published": 369,
@@ -391,58 +391,58 @@
           "position": "QB",
           "source": "espn",
           "tier": "starter",
-          "x_mean": 11.975,
-          "y_mean": 11.975
+          "x_mean": 13.516666666666666,
+          "y_mean": 13.516666666666666
         },
         {
           "alpha": 0.0,
           "beta": 1.0,
-          "n": 8,
+          "n": 9,
           "position": "QB",
           "source": "espn",
           "tier": "bench",
-          "x_mean": 3.0875,
-          "y_mean": 3.0875
-        },
-        {
-          "alpha": 0.0,
-          "beta": 1.0,
-          "n": 33,
-          "position": "RB",
-          "source": "espn",
-          "tier": "starter",
-          "x_mean": 29.815151515151513,
-          "y_mean": 29.815151515151513
-        },
-        {
-          "alpha": 0.0,
-          "beta": 1.0,
-          "n": 20,
-          "position": "RB",
-          "source": "espn",
-          "tier": "bench",
-          "x_mean": 6.415000000000001,
-          "y_mean": 6.415000000000001
-        },
-        {
-          "alpha": 0.0,
-          "beta": 1.0,
-          "n": 39,
-          "position": "WR",
-          "source": "espn",
-          "tier": "starter",
-          "x_mean": 24.235897435897435,
-          "y_mean": 24.235897435897435
+          "x_mean": 3.1222222222222222,
+          "y_mean": 3.1222222222222222
         },
         {
           "alpha": 0.0,
           "beta": 1.0,
           "n": 35,
+          "position": "RB",
+          "source": "espn",
+          "tier": "starter",
+          "x_mean": 30.582857142857147,
+          "y_mean": 30.582857142857147
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 18,
+          "position": "RB",
+          "source": "espn",
+          "tier": "bench",
+          "x_mean": 6.583333333333333,
+          "y_mean": 6.583333333333333
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 37,
+          "position": "WR",
+          "source": "espn",
+          "tier": "starter",
+          "x_mean": 27.0,
+          "y_mean": 27.0
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 36,
           "position": "WR",
           "source": "espn",
           "tier": "bench",
-          "x_mean": 5.917142857142857,
-          "y_mean": 5.917142857142857
+          "x_mean": 6.386111111111111,
+          "y_mean": 6.386111111111111
         },
         {
           "alpha": 0.0,
@@ -451,8 +451,8 @@
           "position": "TE",
           "source": "espn",
           "tier": "starter",
-          "x_mean": 13.85,
-          "y_mean": 13.85
+          "x_mean": 14.75,
+          "y_mean": 14.75
         },
         {
           "alpha": 0.0,
@@ -461,8 +461,8 @@
           "position": "TE",
           "source": "espn",
           "tier": "bench",
-          "x_mean": 3.2111111111111112,
-          "y_mean": 3.2111111111111112
+          "x_mean": 3.388888888888889,
+          "y_mean": 3.388888888888889
         }
       ],
       "diagnostics": {
@@ -471,10 +471,10 @@
           "beta": 1.0,
           "cell": true,
           "fallback": false,
-          "n_pairs": 8,
+          "n_pairs": 9,
           "reason": null,
-          "x_mean": 3.0875,
-          "y_mean": 3.0875
+          "x_mean": 3.1222222222222222,
+          "y_mean": 3.1222222222222222
         },
         "QB|starter": {
           "alpha": 0.0,
@@ -483,28 +483,28 @@
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 11.975,
-          "y_mean": 11.975
+          "x_mean": 13.516666666666666,
+          "y_mean": 13.516666666666666
         },
         "RB|bench": {
           "alpha": 0.0,
           "beta": 1.0,
           "cell": true,
           "fallback": false,
-          "n_pairs": 20,
+          "n_pairs": 18,
           "reason": null,
-          "x_mean": 6.415000000000001,
-          "y_mean": 6.415000000000001
+          "x_mean": 6.583333333333333,
+          "y_mean": 6.583333333333333
         },
         "RB|starter": {
           "alpha": 0.0,
           "beta": 1.0,
           "cell": true,
           "fallback": false,
-          "n_pairs": 33,
+          "n_pairs": 35,
           "reason": null,
-          "x_mean": 29.815151515151513,
-          "y_mean": 29.815151515151513
+          "x_mean": 30.582857142857147,
+          "y_mean": 30.582857142857147
         },
         "TE|bench": {
           "alpha": 0.0,
@@ -513,8 +513,8 @@
           "fallback": false,
           "n_pairs": 9,
           "reason": null,
-          "x_mean": 3.2111111111111112,
-          "y_mean": 3.2111111111111112
+          "x_mean": 3.388888888888889,
+          "y_mean": 3.388888888888889
         },
         "TE|starter": {
           "alpha": 0.0,
@@ -523,31 +523,31 @@
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 13.85,
-          "y_mean": 13.85
+          "x_mean": 14.75,
+          "y_mean": 14.75
         },
         "WR|bench": {
           "alpha": 0.0,
           "beta": 1.0,
           "cell": true,
           "fallback": false,
-          "n_pairs": 35,
+          "n_pairs": 36,
           "reason": null,
-          "x_mean": 5.917142857142857,
-          "y_mean": 5.917142857142857
+          "x_mean": 6.386111111111111,
+          "y_mean": 6.386111111111111
         },
         "WR|starter": {
           "alpha": 0.0,
           "beta": 1.0,
           "cell": true,
           "fallback": false,
-          "n_pairs": 39,
+          "n_pairs": 37,
           "reason": null,
-          "x_mean": 24.235897435897435,
-          "y_mean": 24.235897435897435
+          "x_mean": 27.0,
+          "y_mean": 27.0
         }
       },
-      "n_published": 496,
+      "n_published": 567,
       "reference_combo": "full_12",
       "role_counts": {
         "bench": 72,
@@ -558,166 +558,166 @@
     "fantasycalc": {
       "cells": [
         {
-          "alpha": 1.6330984911239987,
-          "beta": 0.5723619762712111,
+          "alpha": 1.549754054273146,
+          "beta": 0.6285074536331764,
           "n": 12,
           "position": "QB",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 16.26684968304794,
-          "y_mean": 10.943624723420042
+          "x_mean": 17.445832921187318,
+          "y_mean": 12.514590080078426
         },
         {
-          "alpha": -0.7604491065757233,
-          "beta": 0.9137231199146417,
+          "alpha": -0.87678911372178,
+          "beta": 0.9294529691402243,
           "n": 15,
           "position": "QB",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 3.593483250857028,
-          "y_mean": 2.5229996207583696
+          "x_mean": 3.85393051642131,
+          "y_mean": 2.7052580476261245
         },
         {
-          "alpha": 9.411313891637011,
-          "beta": 0.6679920642188336,
+          "alpha": 11.5757501755483,
+          "beta": 0.6062714804213323,
           "n": 34,
           "position": "RB",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 29.297301497872994,
-          "y_mean": 28.98167879524272
+          "x_mean": 31.420701422365067,
+          "y_mean": 30.62522534276223
         },
         {
-          "alpha": -1.9687004632630218,
-          "beta": 2.4125110894452324,
+          "alpha": -2.7459950024296473,
+          "beta": 2.7458575636815095,
           "n": 19,
           "position": "RB",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 3.2888416393956152,
-          "y_mean": 5.965666463208138
+          "x_mean": 3.527209193119499,
+          "y_mean": 6.939219039184484
         },
         {
-          "alpha": 10.942640967748064,
-          "beta": 0.5183222038980327,
+          "alpha": 10.966539806382812,
+          "beta": 0.5549499856009806,
           "n": 38,
           "position": "WR",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 26.069083352062734,
-          "y_mean": 24.454825704390736
+          "x_mean": 27.958509571926925,
+          "y_mean": 26.482114290748537
         },
         {
-          "alpha": 4.581956746529036,
-          "beta": 0.7930349523873788,
+          "alpha": 4.8310671863465355,
+          "beta": 0.6596111631687887,
           "n": 28,
           "position": "WR",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 2.730487170718886,
-          "y_mean": 6.747328509954436
+          "x_mean": 2.9283864978139773,
+          "y_mean": 6.7626636103773885
         },
         {
-          "alpha": 4.221277334903535,
-          "beta": 0.5471447583152871,
+          "alpha": 4.625683290753084,
+          "beta": 0.5335888108177123,
           "n": 12,
           "position": "TE",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 16.331949017302595,
-          "y_mean": 13.157217632793154
+          "x_mean": 17.515650503006544,
+          "y_mean": 13.97183841335101
         },
         {
-          "alpha": 0.10036874089309356,
-          "beta": 1.2346751093213162,
+          "alpha": 0.1407791671434655,
+          "beta": 1.220500923028973,
           "n": 10,
           "position": "TE",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 2.6140453426558405,
-          "y_mean": 3.327865460107571
+          "x_mean": 2.803505238258077,
+          "y_mean": 3.5624598981540094
         }
       ],
       "diagnostics": {
         "QB|bench": {
-          "alpha": -0.7604491065757233,
-          "beta": 0.9137231199146417,
+          "alpha": -0.87678911372178,
+          "beta": 0.9294529691402243,
           "cell": true,
           "fallback": false,
           "n_pairs": 15,
           "reason": null,
-          "x_mean": 3.593483250857028,
-          "y_mean": 2.5229996207583696
+          "x_mean": 3.85393051642131,
+          "y_mean": 2.7052580476261245
         },
         "QB|starter": {
-          "alpha": 1.6330984911239987,
-          "beta": 0.5723619762712111,
+          "alpha": 1.549754054273146,
+          "beta": 0.6285074536331764,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 16.26684968304794,
-          "y_mean": 10.943624723420042
+          "x_mean": 17.445832921187318,
+          "y_mean": 12.514590080078426
         },
         "RB|bench": {
-          "alpha": -1.9687004632630218,
-          "beta": 2.4125110894452324,
+          "alpha": -2.7459950024296473,
+          "beta": 2.7458575636815095,
           "cell": true,
           "fallback": false,
           "n_pairs": 19,
           "reason": null,
-          "x_mean": 3.2888416393956152,
-          "y_mean": 5.965666463208138
+          "x_mean": 3.527209193119499,
+          "y_mean": 6.939219039184484
         },
         "RB|starter": {
-          "alpha": 9.411313891637011,
-          "beta": 0.6679920642188336,
+          "alpha": 11.5757501755483,
+          "beta": 0.6062714804213323,
           "cell": true,
           "fallback": false,
           "n_pairs": 34,
           "reason": null,
-          "x_mean": 29.297301497872994,
-          "y_mean": 28.98167879524272
+          "x_mean": 31.420701422365067,
+          "y_mean": 30.62522534276223
         },
         "TE|bench": {
-          "alpha": 0.10036874089309356,
-          "beta": 1.2346751093213162,
+          "alpha": 0.1407791671434655,
+          "beta": 1.220500923028973,
           "cell": true,
           "fallback": false,
           "n_pairs": 10,
           "reason": null,
-          "x_mean": 2.6140453426558405,
-          "y_mean": 3.327865460107571
+          "x_mean": 2.803505238258077,
+          "y_mean": 3.5624598981540094
         },
         "TE|starter": {
-          "alpha": 4.221277334903535,
-          "beta": 0.5471447583152871,
+          "alpha": 4.625683290753084,
+          "beta": 0.5335888108177123,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 16.331949017302595,
-          "y_mean": 13.157217632793154
+          "x_mean": 17.515650503006544,
+          "y_mean": 13.97183841335101
         },
         "WR|bench": {
-          "alpha": 4.581956746529036,
-          "beta": 0.7930349523873788,
+          "alpha": 4.8310671863465355,
+          "beta": 0.6596111631687887,
           "cell": true,
           "fallback": false,
           "n_pairs": 28,
           "reason": null,
-          "x_mean": 2.730487170718886,
-          "y_mean": 6.747328509954436
+          "x_mean": 2.9283864978139773,
+          "y_mean": 6.7626636103773885
         },
         "WR|starter": {
-          "alpha": 10.942640967748064,
-          "beta": 0.5183222038980327,
+          "alpha": 10.966539806382812,
+          "beta": 0.5549499856009806,
           "cell": true,
           "fallback": false,
           "n_pairs": 38,
           "reason": null,
-          "x_mean": 26.069083352062734,
-          "y_mean": 24.454825704390736
+          "x_mean": 27.958509571926925,
+          "y_mean": 26.482114290748537
         }
       },
       "n_published": 196,
@@ -731,34 +731,34 @@
     "fantasypros": {
       "cells": [
         {
-          "alpha": 1.8901441550661406,
-          "beta": 0.7299173183576924,
+          "alpha": 1.2255095889641208,
+          "beta": 0.8657291544383698,
           "n": 12,
           "position": "QB",
           "source": "fantasypros",
           "tier": "starter",
-          "x_mean": 11.782228350321965,
-          "y_mean": 10.490196676811127
+          "x_mean": 12.638005688544945,
+          "y_mean": 12.166599567495444
         },
         {
-          "alpha": 0.43107265985614474,
-          "beta": 2.7858707825773936,
+          "alpha": 0.3716831230720925,
+          "beta": 2.775495276607297,
           "n": 13,
           "position": "QB",
           "source": "fantasypros",
           "tier": "bench",
-          "x_mean": 0.8878288238861136,
-          "y_mean": 2.904449040250519
+          "x_mean": 0.952314400392712,
+          "y_mean": 3.0148272432071748
         },
         {
-          "alpha": -8.683775756923591,
-          "beta": 1.3363938236176582,
+          "alpha": -6.074780188929861,
+          "beta": 1.2143527503708176,
           "n": 34,
           "position": "RB",
           "source": "fantasypros",
           "tier": "starter",
-          "x_mean": 27.809932277609143,
-          "y_mean": 28.481245974098623
+          "x_mean": 29.82984812994818,
+          "y_mean": 30.149177930816503
         },
         {
           "alpha": 0.0,
@@ -768,70 +768,70 @@
           "position": "RB",
           "source": "fantasypros",
           "tier": "bench",
-          "x_mean": 6.819743956027157,
-          "y_mean": 6.177266078209224
+          "x_mean": 7.315081693212645,
+          "y_mean": 7.094428526550079
         },
         {
-          "alpha": -3.720751780787058,
-          "beta": 1.1963948459781946,
+          "alpha": -5.901014382488992,
+          "beta": 1.2818286972379955,
           "n": 38,
           "position": "WR",
           "source": "fantasypros",
           "tier": "starter",
-          "x_mean": 23.311347606114992,
-          "y_mean": 24.168824347975043
+          "x_mean": 25.004518236627057,
+          "y_mean": 26.150494653830368
         },
         {
-          "alpha": 0.15557591727836506,
-          "beta": 0.7027300862869182,
+          "alpha": 0.22278301992738925,
+          "beta": 0.6599820723883318,
           "n": 34,
           "position": "WR",
           "source": "fantasypros",
           "tier": "bench",
-          "x_mean": 8.30163471354295,
-          "y_mean": 5.9893843958488775
+          "x_mean": 8.904606464456363,
+          "y_mean": 6.099663648141836
         },
         {
-          "alpha": -3.857298650487147,
-          "beta": 1.4578144287558945,
+          "alpha": -3.831923908652355,
+          "beta": 1.4221431521985635,
           "n": 12,
           "position": "TE",
           "source": "fantasypros",
           "tier": "starter",
-          "x_mean": 11.6712497473362,
-          "y_mean": 13.157217632793154
+          "x_mean": 12.518966388495857,
+          "y_mean": 13.97183841335101
         },
         {
-          "alpha": -2.4627900622028567,
-          "beta": 1.4129219682811258,
+          "alpha": -2.703760156730919,
+          "beta": 1.4321133849404106,
           "n": 8,
           "position": "TE",
           "source": "fantasypros",
           "tier": "bench",
-          "x_mean": 4.032222575149432,
-          "y_mean": 3.2344257952248685
+          "x_mean": 4.325094568450233,
+          "y_mean": 3.490265665879728
         }
       ],
       "diagnostics": {
         "QB|bench": {
-          "alpha": 0.43107265985614474,
-          "beta": 2.7858707825773936,
+          "alpha": 0.3716831230720925,
+          "beta": 2.775495276607297,
           "cell": true,
           "fallback": false,
           "n_pairs": 13,
           "reason": null,
-          "x_mean": 0.8878288238861136,
-          "y_mean": 2.904449040250519
+          "x_mean": 0.952314400392712,
+          "y_mean": 3.0148272432071748
         },
         "QB|starter": {
-          "alpha": 1.8901441550661406,
-          "beta": 0.7299173183576924,
+          "alpha": 1.2255095889641208,
+          "beta": 0.8657291544383698,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 11.782228350321965,
-          "y_mean": 10.490196676811127
+          "x_mean": 12.638005688544945,
+          "y_mean": 12.166599567495444
         },
         "RB|bench": {
           "alpha": 0.0,
@@ -842,54 +842,54 @@
           "reason": "non_positive_slope"
         },
         "RB|starter": {
-          "alpha": -8.683775756923591,
-          "beta": 1.3363938236176582,
+          "alpha": -6.074780188929861,
+          "beta": 1.2143527503708176,
           "cell": true,
           "fallback": false,
           "n_pairs": 34,
           "reason": null,
-          "x_mean": 27.809932277609143,
-          "y_mean": 28.481245974098623
+          "x_mean": 29.82984812994818,
+          "y_mean": 30.149177930816503
         },
         "TE|bench": {
-          "alpha": -2.4627900622028567,
-          "beta": 1.4129219682811258,
+          "alpha": -2.703760156730919,
+          "beta": 1.4321133849404106,
           "cell": true,
           "fallback": false,
           "n_pairs": 8,
           "reason": null,
-          "x_mean": 4.032222575149432,
-          "y_mean": 3.2344257952248685
+          "x_mean": 4.325094568450233,
+          "y_mean": 3.490265665879728
         },
         "TE|starter": {
-          "alpha": -3.857298650487147,
-          "beta": 1.4578144287558945,
+          "alpha": -3.831923908652355,
+          "beta": 1.4221431521985635,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 11.6712497473362,
-          "y_mean": 13.157217632793154
+          "x_mean": 12.518966388495857,
+          "y_mean": 13.97183841335101
         },
         "WR|bench": {
-          "alpha": 0.15557591727836506,
-          "beta": 0.7027300862869182,
+          "alpha": 0.22278301992738925,
+          "beta": 0.6599820723883318,
           "cell": true,
           "fallback": false,
           "n_pairs": 34,
           "reason": null,
-          "x_mean": 8.30163471354295,
-          "y_mean": 5.9893843958488775
+          "x_mean": 8.904606464456363,
+          "y_mean": 6.099663648141836
         },
         "WR|starter": {
-          "alpha": -3.720751780787058,
-          "beta": 1.1963948459781946,
+          "alpha": -5.901014382488992,
+          "beta": 1.2818286972379955,
           "cell": true,
           "fallback": false,
           "n_pairs": 38,
           "reason": null,
-          "x_mean": 23.311347606114992,
-          "y_mean": 24.168824347975043
+          "x_mean": 25.004518236627057,
+          "y_mean": 26.150494653830368
         }
       },
       "n_published": 178,
@@ -1065,7 +1065,7 @@
           "y_mean": 29.685714285714287
         }
       },
-      "n_published": 640,
+      "n_published": 646,
       "reference_combo": "full_12",
       "role_counts": {
         "bench": 72,
@@ -1076,166 +1076,166 @@
     "usatoday": {
       "cells": [
         {
-          "alpha": -11.173377472753694,
-          "beta": 1.7326601066672271,
+          "alpha": -13.482632733656446,
+          "beta": 1.9043668934237852,
           "n": 12,
           "position": "QB",
           "source": "usatoday",
           "tier": "starter",
-          "x_mean": 12.66399443045701,
-          "y_mean": 10.769020467955118
+          "x_mean": 13.574114976729993,
+          "y_mean": 12.367462435556126
         },
         {
-          "alpha": -5.2224086873957924,
-          "beta": 1.7815084657001408,
+          "alpha": -5.6832752121520365,
+          "beta": 1.7882424551991762,
           "n": 6,
           "position": "QB",
           "source": "usatoday",
           "tier": "bench",
-          "x_mean": 5.706305790798811,
-          "y_mean": 4.9434233867860256
+          "x_mean": 6.116399633783476,
+          "y_mean": 5.254330285944269
         },
         {
-          "alpha": -1.3382972100824126,
-          "beta": 1.2816058128531118,
+          "alpha": 1.1104114058546273,
+          "beta": 1.1644289736097453,
           "n": 32,
           "position": "RB",
           "source": "usatoday",
           "tier": "starter",
-          "x_mean": 24.36442406729229,
-          "y_mean": 29.887290301377643
+          "x_mean": 26.115416857404444,
+          "y_mean": 31.519959452512722
         },
         {
-          "alpha": -0.4055845155674449,
-          "beta": 0.978290687367592,
+          "alpha": -0.28274567421066976,
+          "beta": 1.0264878671941686,
           "n": 27,
           "position": "RB",
           "source": "usatoday",
           "tier": "bench",
-          "x_mean": 6.273599348948401,
-          "y_mean": 5.731819303784164
+          "x_mean": 6.724462755270721,
+          "y_mean": 6.619833757473795
         },
         {
-          "alpha": 0.4720699497162286,
-          "beta": 1.0069914380458427,
+          "alpha": -1.1016964029636718,
+          "beta": 1.0797436098514457,
           "n": 40,
           "position": "WR",
           "source": "usatoday",
           "tier": "starter",
-          "x_mean": 23.20063801785306,
-          "y_mean": 23.83491379089513
+          "x_mean": 24.867993247882815,
+          "y_mean": 25.749360396266695
         },
         {
-          "alpha": 2.4529373210621417,
-          "beta": 0.6176872047122921,
+          "alpha": 3.074506278315147,
+          "beta": 0.4788398776255774,
           "n": 26,
           "position": "WR",
           "source": "usatoday",
           "tier": "bench",
-          "x_mean": 5.683203338204484,
-          "y_mean": 5.963379304849236
+          "x_mean": 6.091636882229695,
+          "y_mean": 5.991424937541468
         },
         {
-          "alpha": -3.451315074313394,
-          "beta": 0.8274403660172646,
+          "alpha": -3.452000404822966,
+          "beta": 0.8098572417468763,
           "n": 12,
           "position": "TE",
           "source": "usatoday",
           "tier": "starter",
-          "x_mean": 20.072180895704587,
-          "y_mean": 13.157217632793154
+          "x_mean": 21.514703974975205,
+          "y_mean": 13.97183841335101
         },
         {
-          "alpha": 0.34462409566523755,
-          "beta": 0.3116960485735837,
+          "alpha": 0.5140104421785356,
+          "beta": 0.29040878386465857,
           "n": 13,
           "position": "TE",
           "source": "usatoday",
           "tier": "bench",
-          "x_mean": 6.145252390091026,
-          "y_mean": 2.2600749831439813
+          "x_mean": 6.586891913305281,
+          "y_mean": 2.4269017121694763
         }
       ],
       "diagnostics": {
         "QB|bench": {
-          "alpha": -5.2224086873957924,
-          "beta": 1.7815084657001408,
+          "alpha": -5.6832752121520365,
+          "beta": 1.7882424551991762,
           "cell": true,
           "fallback": false,
           "n_pairs": 6,
           "reason": null,
-          "x_mean": 5.706305790798811,
-          "y_mean": 4.9434233867860256
+          "x_mean": 6.116399633783476,
+          "y_mean": 5.254330285944269
         },
         "QB|starter": {
-          "alpha": -11.173377472753694,
-          "beta": 1.7326601066672271,
+          "alpha": -13.482632733656446,
+          "beta": 1.9043668934237852,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 12.66399443045701,
-          "y_mean": 10.769020467955118
+          "x_mean": 13.574114976729993,
+          "y_mean": 12.367462435556126
         },
         "RB|bench": {
-          "alpha": -0.4055845155674449,
-          "beta": 0.978290687367592,
+          "alpha": -0.28274567421066976,
+          "beta": 1.0264878671941686,
           "cell": true,
           "fallback": false,
           "n_pairs": 27,
           "reason": null,
-          "x_mean": 6.273599348948401,
-          "y_mean": 5.731819303784164
+          "x_mean": 6.724462755270721,
+          "y_mean": 6.619833757473795
         },
         "RB|starter": {
-          "alpha": -1.3382972100824126,
-          "beta": 1.2816058128531118,
+          "alpha": 1.1104114058546273,
+          "beta": 1.1644289736097453,
           "cell": true,
           "fallback": false,
           "n_pairs": 32,
           "reason": null,
-          "x_mean": 24.36442406729229,
-          "y_mean": 29.887290301377643
+          "x_mean": 26.115416857404444,
+          "y_mean": 31.519959452512722
         },
         "TE|bench": {
-          "alpha": 0.34462409566523755,
-          "beta": 0.3116960485735837,
+          "alpha": 0.5140104421785356,
+          "beta": 0.29040878386465857,
           "cell": true,
           "fallback": false,
           "n_pairs": 13,
           "reason": null,
-          "x_mean": 6.145252390091026,
-          "y_mean": 2.2600749831439813
+          "x_mean": 6.586891913305281,
+          "y_mean": 2.4269017121694763
         },
         "TE|starter": {
-          "alpha": -3.451315074313394,
-          "beta": 0.8274403660172646,
+          "alpha": -3.452000404822966,
+          "beta": 0.8098572417468763,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 20.072180895704587,
-          "y_mean": 13.157217632793154
+          "x_mean": 21.514703974975205,
+          "y_mean": 13.97183841335101
         },
         "WR|bench": {
-          "alpha": 2.4529373210621417,
-          "beta": 0.6176872047122921,
+          "alpha": 3.074506278315147,
+          "beta": 0.4788398776255774,
           "cell": true,
           "fallback": false,
           "n_pairs": 26,
           "reason": null,
-          "x_mean": 5.683203338204484,
-          "y_mean": 5.963379304849236
+          "x_mean": 6.091636882229695,
+          "y_mean": 5.991424937541468
         },
         "WR|starter": {
-          "alpha": 0.4720699497162286,
-          "beta": 1.0069914380458427,
+          "alpha": -1.1016964029636718,
+          "beta": 1.0797436098514457,
           "cell": true,
           "fallback": false,
           "n_pairs": 40,
           "reason": null,
-          "x_mean": 23.20063801785306,
-          "y_mean": 23.83491379089513
+          "x_mean": 24.867993247882815,
+          "y_mean": 25.749360396266695
         }
       },
       "n_published": 252,
@@ -1264,5 +1264,5 @@
     "review_rows": 0,
     "sources_live": 7
   },
-  "version": "ddf-20261008-espn-ppr-12t-0p15"
+  "version": "ddf-20261009-espn-ppr-12t-0p15"
 }
