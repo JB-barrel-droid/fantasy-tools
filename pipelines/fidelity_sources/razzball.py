@@ -39,7 +39,7 @@ from fidelity_pulse import NUMBER, PubRow, header_key, parse_page
 SOURCE = "razzball"
 STORED_TABLE = "razzball_projections"
 SNAPSHOT_COLUMN = "razzball_snapshot_date"
-STORED_SELECT = ("player_key,pos,team,per_game_standard,per_game_half_ppr,per_game_ppr,"
+STORED_SELECT = ("player_key,player_norm,pos,team,per_game_standard,per_game_half_ppr,per_game_ppr,"
                  "games_reported,razzball_snapshot_date,created_at,pulled_at")
 # Every row of one save carries the save's pulled_at; a date re-saved in place
 # keeps rows of players dropped since, which the newest save supersedes.

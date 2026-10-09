@@ -267,6 +267,35 @@ class PulseReadsTheSave(unittest.TestCase):
                "pulled_at": "2026-10-09T03:25:30+00:00"}
         self.assertEqual("2026-10-09T03:25:30Z", self.pulse.iso(self.pulse.written_at(row)))
 
+    def test_a_page_name_the_resolver_refuses_matches_its_stored_row(self):
+        # Pulse run 37945152207: Razzball lists FB Brady Russell as RB; the
+        # resolver says position_conflict, the saver stored him under key 2724.
+        # Same player, same numbers: not a "stored player not on the page".
+        class Ident:
+            def resolve(self, name, pos):
+                return (None, "position_conflict") if name == "Brady Russell" else (JACOBS, "ok")
+
+            def name(self, key):
+                return None
+
+            def pos(self, key):
+                return "RB"
+
+        pub = {"rows": [self.pulse.PubRow("Brady Russell", "RB", "SEA", {"full|1": "2.3", "half|1": "1.7", "std|1": "1.2"}),
+                        self.pulse.PubRow("Josh Jacobs", "RB", "GB", {"full|1": "0.1", "half|1": "0.1", "std|1": "0.1"})],
+               "vintage": "2026-10-08"}
+        rows = [{"player_key": 2724, "player_norm": "brady russell", "pos": "RB", "per_game_standard": 1.2,
+                 "per_game_half_ppr": 1.7, "per_game_ppr": 2.3, "pulled_at": "2026-10-09T14:30:52+00:00"},
+                {"player_key": JACOBS, "player_norm": "josh jacobs", "pos": "RB", "per_game_standard": 0.1,
+                 "per_game_half_ppr": 0.1, "per_game_ppr": 0.1, "pulled_at": "2026-10-09T14:30:52+00:00"}]
+        from datetime import datetime, timezone
+        res, _ = self.pulse.stage_projection_publisher(
+            "razzball", self.mod, pub, rows, "2026-10-08", None, Ident(),
+            datetime(2026, 10, 9, 15, tzinfo=timezone.utc), None, None)
+        self.assertEqual("green", res["status"], res["summary"])
+        self.assertEqual(0, res["counts"]["extra_in_stored"])
+        self.assertIn("matched by the stored row's key", res["summary"])
+
     def test_superseded_rows_are_not_the_stored_snapshot(self):
         rows = [{"player_key": JACOBS, "pulled_at": "2026-10-09T03:25:30+00:00"},
                 {"player_key": 4700, "pulled_at": "2026-10-08T19:26:52+00:00"}]
