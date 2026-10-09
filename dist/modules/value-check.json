@@ -1,9 +1,9 @@
 {
  "schema": "value-check/1",
- "generated_at": "2026-10-09T22:10:21.178204+00:00",
+ "generated_at": "2026-10-09T22:56:08.885115+00:00",
  "tolerance": 0.05,
  "tolerance_reason": "half of the page's last shown digit (values display to 0.1 on the 0-70 scale); presence must match exactly",
- "values_compared": 595861,
+ "values_compared": 595477,
  "verdict": "agree",
  "disagreeing_sources": [],
  "composite_disagreements": [],
@@ -117,10 +117,10 @@
    "where": []
   },
   "razzball": {
-   "compared": 16464,
+   "compared": 16272,
    "mismatches": 0,
    "examples": [],
-   "max_abs_diff": 9.947598300641403e-14,
+   "max_abs_diff": 4.973799150320701e-14,
    "where": []
   },
   "fantasycalc_adjusted": {
@@ -166,17 +166,17 @@
    "where": []
   },
   "razzball_vorp": {
-   "compared": 16464,
+   "compared": 16272,
    "mismatches": 0,
    "examples": [],
-   "max_abs_diff": 6.394884621840902e-14,
+   "max_abs_diff": 9.947598300641403e-14,
    "where": []
   },
   "ddf_value": {
    "compared": 53064,
    "mismatches": 0,
    "examples": [],
-   "max_abs_diff": 5.684341886080802e-14,
+   "max_abs_diff": 4.973799150320701e-14,
    "where": []
   },
   "ddf_value_charts": {
@@ -190,7 +190,7 @@
    "compared": 52920,
    "mismatches": 0,
    "examples": [],
-   "max_abs_diff": 9.947598300641403e-14,
+   "max_abs_diff": 8.526512829121202e-14,
    "where": []
   },
   "ddf_count": {
@@ -218,7 +218,7 @@
    "compared": 108414,
    "mismatches": 0,
    "examples": [],
-   "max_abs_diff": 5.684341886080802e-14,
+   "max_abs_diff": 4.973799150320701e-14,
    "where": []
   },
   "ddf_value_charts_prior": {
@@ -232,7 +232,7 @@
    "compared": 103752,
    "mismatches": 0,
    "examples": [],
-   "max_abs_diff": 9.947598300641403e-14,
+   "max_abs_diff": 8.526512829121202e-14,
    "where": []
   }
  },
@@ -271,9 +271,9 @@
   "blocking": false,
   "note": "Clean-room reference written from the methodology text only; it never holds a source. Disagreements are classified in docs/math-review-agenda.md MR-18.",
   "tolerance": 0.05,
-  "values_compared": 114554,
-  "mismatches": 72868,
-  "agreement": 0.36389824886079924,
+  "values_compared": 114362,
+  "mismatches": 72869,
+  "agreement": 0.36282156660429166,
   "by_series": {
    "indexed:espn": {
     "compared": 6804,
@@ -290,10 +290,10 @@
     "cells_disagreeing": 12
    },
    "indexed:razzball": {
-    "compared": 8232,
-    "mismatches": 1787,
+    "compared": 8136,
+    "mismatches": 1783,
     "no_engine_row": 0,
-    "max_abs_diff": 3.8833602151416784,
+    "max_abs_diff": 3.9893945107705946,
     "cells_disagreeing": 12
    },
    "indexed:usatoday": {
@@ -339,10 +339,10 @@
     "cells_disagreeing": 12
    },
    "vorp:razzball_vorp": {
-    "compared": 8232,
-    "mismatches": 2075,
+    "compared": 8136,
+    "mismatches": 2080,
     "no_engine_row": 0,
-    "max_abs_diff": 18.251585476855748,
+    "max_abs_diff": 17.710565508855858,
     "cells_disagreeing": 12
    },
    "vorp:usatoday": {
@@ -501,45 +501,45 @@
     "setting": "standard/8/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
-    "mismatches": 102,
+    "compared": 678,
+    "mismatches": 104,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 3.0712305132666984,
+    "max_abs_diff": 3.0709670833648772,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 72.9206,
-      "spec": 69.8494,
-      "diff": -3.0712,
+      "engine": 70.6814,
+      "spec": 67.6104,
+      "diff": -3.071,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 71.7701,
-      "spec": 68.7461,
-      "diff": -3.0241,
+      "engine": 69.5687,
+      "spec": 66.5448,
+      "diff": -3.0239,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 67.7434,
-      "spec": 64.8844,
-      "diff": -2.859,
+      "engine": 65.1182,
+      "spec": 62.2825,
+      "diff": -2.8357,
       "kind": "value"
      },
      {
-      "player_key": 3189,
-      "engine": 48.194,
-      "spec": 46.1367,
-      "diff": -2.0573,
+      "player_key": 869,
+      "engine": 54.5261,
+      "spec": 52.2397,
+      "diff": -2.2864,
       "kind": "value"
      },
      {
-      "player_key": 337,
-      "engine": 47.6197,
-      "spec": 45.586,
-      "diff": -2.0337,
+      "player_key": 560,
+      "engine": 48.9924,
+      "spec": 46.8387,
+      "diff": -2.1537,
       "kind": "value"
      }
     ]
@@ -805,45 +805,45 @@
     "setting": "standard/8/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 125,
+    "compared": 678,
+    "mismatches": 124,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 18.251585476855748,
+    "max_abs_diff": 17.710565508855858,
     "examples": [
      {
       "player_key": 869,
-      "engine": 48.3433,
-      "spec": 30.0917,
-      "diff": -18.2516,
+      "engine": 47.4665,
+      "spec": 29.7559,
+      "diff": -17.7106,
       "kind": "value"
      },
      {
       "player_key": 751,
       "engine": 0,
-      "spec": 15.7858,
-      "diff": 15.7858,
+      "spec": 16.0975,
+      "diff": 16.0975,
       "kind": "value"
      },
      {
       "player_key": 810,
-      "engine": 1.3245,
-      "spec": 16.7724,
-      "diff": 15.4479,
+      "engine": 0.6502,
+      "spec": 16.5853,
+      "diff": 15.9351,
       "kind": "value"
      },
      {
       "player_key": 2606,
-      "engine": 3.3112,
-      "spec": 18.2523,
-      "diff": 14.9411,
+      "engine": 3.2511,
+      "spec": 18.5365,
+      "diff": 15.2854,
       "kind": "value"
      },
      {
-      "player_key": 1107,
-      "engine": 4.6357,
-      "spec": 19.2389,
-      "diff": 14.6033,
+      "player_key": 319,
+      "engine": 5.2018,
+      "spec": 19.9999,
+      "diff": 14.7981,
       "kind": "value"
      }
     ]
@@ -1268,45 +1268,45 @@
     "setting": "standard/10/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
-    "mismatches": 136,
+    "compared": 678,
+    "mismatches": 134,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 3.1557241109013603,
+    "max_abs_diff": 3.196053416616209,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 75.2037,
-      "spec": 72.0479,
-      "diff": -3.1557,
+      "engine": 73.9791,
+      "spec": 70.783,
+      "diff": -3.1961,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 74.1694,
-      "spec": 71.0561,
-      "diff": -3.1133,
+      "engine": 72.9637,
+      "spec": 69.8106,
+      "diff": -3.1531,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 70.5496,
-      "spec": 67.5847,
-      "diff": -2.9649,
+      "engine": 68.9024,
+      "spec": 65.9211,
+      "diff": -2.9813,
+      "kind": "value"
+     },
+     {
+      "player_key": 560,
+      "engine": 54.1828,
+      "spec": 51.8241,
+      "diff": -2.3587,
       "kind": "value"
      },
      {
       "player_key": 3189,
-      "engine": 52.9717,
-      "spec": 50.7275,
-      "diff": -2.2442,
-      "kind": "value"
-     },
-     {
-      "player_key": 337,
-      "engine": 52.455,
-      "spec": 50.232,
-      "diff": -2.223,
+      "engine": 52.1535,
+      "spec": 49.8806,
+      "diff": -2.2729,
       "kind": "value"
      }
     ]
@@ -1577,45 +1577,45 @@
     "setting": "standard/10/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 158,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 15.065876258365947,
+    "max_abs_diff": 13.961472576575574,
     "examples": [
-     {
-      "player_key": 869,
-      "engine": 46.0523,
-      "spec": 30.9864,
-      "diff": -15.0659,
-      "kind": "value"
-     },
      {
       "player_key": 4617,
       "engine": 0,
-      "spec": 14.1652,
-      "diff": 14.1652,
+      "spec": 13.9615,
+      "diff": 13.9615,
+      "kind": "value"
+     },
+     {
+      "player_key": 869,
+      "engine": 44.8604,
+      "spec": 30.977,
+      "diff": -13.8834,
       "kind": "value"
      },
      {
       "player_key": 1891,
-      "engine": 3.8839,
-      "spec": 17.2639,
-      "diff": 13.3799,
+      "engine": 3.8295,
+      "spec": 17.0155,
+      "diff": 13.186,
       "kind": "value"
      },
      {
       "player_key": 3482,
       "engine": 0,
-      "spec": 13.2799,
-      "diff": 13.2799,
+      "spec": 13.0889,
+      "diff": 13.0889,
       "kind": "value"
      },
      {
-      "player_key": 535,
-      "engine": 4.4388,
-      "spec": 17.7065,
-      "diff": 13.2677,
+      "player_key": 51,
+      "engine": 32.2776,
+      "spec": 19.197,
+      "diff": -13.0806,
       "kind": "value"
      }
     ]
@@ -2064,45 +2064,45 @@
     "setting": "standard/12/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 169,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 3.8833602151416784,
+    "max_abs_diff": 3.9893945107705946,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 74.3341,
-      "spec": 70.4508,
-      "diff": -3.8834,
+      "engine": 73.629,
+      "spec": 69.6396,
+      "diff": -3.9894,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 73.4405,
-      "spec": 69.6035,
-      "diff": -3.837,
+      "engine": 72.7379,
+      "spec": 68.7964,
+      "diff": -3.9415,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 70.313,
-      "spec": 66.6383,
-      "diff": -3.6747,
+      "engine": 69.1733,
+      "spec": 65.4235,
+      "diff": -3.7498,
       "kind": "value"
      },
      {
-      "player_key": 3189,
-      "engine": 55.1227,
-      "spec": 52.236,
-      "diff": -2.8867,
+      "player_key": 869,
+      "engine": 61.333,
+      "spec": 58.212,
+      "diff": -3.121,
       "kind": "value"
      },
      {
-      "player_key": 337,
-      "engine": 54.6759,
-      "spec": 51.8125,
-      "diff": -2.8635,
+      "player_key": 560,
+      "engine": 56.2522,
+      "spec": 53.197,
+      "diff": -3.0552,
       "kind": "value"
      }
     ]
@@ -2326,45 +2326,45 @@
     "setting": "standard/12/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 190,
+    "compared": 678,
+    "mismatches": 191,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 16.90132773825696,
+    "max_abs_diff": 16.879492010706386,
     "examples": [
      {
-      "player_key": 2945,
+      "player_key": 2461,
       "engine": 0,
-      "spec": 16.9013,
-      "diff": 16.9013,
+      "spec": 16.8795,
+      "diff": 16.8795,
       "kind": "value"
      },
      {
-      "player_key": 2461,
-      "engine": 0.5182,
-      "spec": 17.3461,
-      "diff": 16.8279,
+      "player_key": 2945,
+      "engine": 0,
+      "spec": 16.8795,
+      "diff": 16.8795,
       "kind": "value"
      },
      {
       "player_key": 3482,
-      "engine": 1.0363,
-      "spec": 17.7909,
-      "diff": 16.7545,
+      "engine": 0.524,
+      "spec": 17.3123,
+      "diff": 16.7883,
       "kind": "value"
      },
      {
       "player_key": 4617,
-      "engine": 2.0727,
-      "spec": 18.6804,
-      "diff": 16.6077,
+      "engine": 1.5721,
+      "spec": 18.1779,
+      "diff": 16.6058,
       "kind": "value"
      },
      {
       "player_key": 1891,
-      "engine": 5.6999,
-      "spec": 21.7938,
-      "diff": 16.094,
+      "engine": 5.2403,
+      "spec": 21.2076,
+      "diff": 15.9673,
       "kind": "value"
      }
     ]
@@ -2813,45 +2813,45 @@
     "setting": "standard/14/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 190,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 2.212322584773034,
+    "max_abs_diff": 2.0715761184124304,
     "examples": [
      {
       "player_key": 869,
-      "engine": 57.3477,
-      "spec": 55.1354,
-      "diff": -2.2123,
+      "engine": 54.1081,
+      "spec": 52.0365,
+      "diff": -2.0716,
       "kind": "value"
      },
      {
       "player_key": 1370,
-      "engine": 41.1938,
-      "spec": 39.4546,
-      "diff": -1.7392,
-      "kind": "value"
-     },
-     {
-      "player_key": 2945,
-      "engine": 20.3806,
-      "spec": 18.7102,
-      "diff": -1.6703,
-      "kind": "value"
-     },
-     {
-      "player_key": 2461,
-      "engine": 20.7319,
-      "spec": 19.0628,
-      "diff": -1.6692,
+      "engine": 42.961,
+      "spec": 41.1302,
+      "diff": -1.8308,
       "kind": "value"
      },
      {
       "player_key": 3247,
-      "engine": 39.4523,
-      "spec": 37.7849,
-      "diff": -1.6673,
+      "engine": 40.6786,
+      "spec": 38.942,
+      "diff": -1.7366,
+      "kind": "value"
+     },
+     {
+      "player_key": 2461,
+      "engine": 20.1995,
+      "spec": 18.535,
+      "diff": -1.6645,
+      "kind": "value"
+     },
+     {
+      "player_key": 2945,
+      "engine": 20.1995,
+      "spec": 18.535,
+      "diff": -1.6645,
       "kind": "value"
      }
     ]
@@ -3122,45 +3122,45 @@
     "setting": "standard/14/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 224,
+    "compared": 678,
+    "mismatches": 223,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 16.246010861449882,
+    "max_abs_diff": 15.786402174913956,
     "examples": [
      {
       "player_key": 1218,
       "engine": 0,
-      "spec": 16.246,
-      "diff": 16.246,
+      "spec": 15.7864,
+      "diff": 15.7864,
       "kind": "value"
      },
      {
       "player_key": 536,
-      "engine": 0.4488,
-      "spec": 16.5992,
-      "diff": 16.1504,
+      "engine": 0.4471,
+      "spec": 16.1372,
+      "diff": 15.6902,
       "kind": "value"
      },
      {
       "player_key": 203,
-      "engine": 0.8976,
-      "spec": 16.9524,
-      "diff": 16.0547,
-      "kind": "value"
-     },
-     {
-      "player_key": 1032,
-      "engine": 1.3464,
-      "spec": 17.3055,
-      "diff": 15.9591,
+      "engine": 0.8941,
+      "spec": 16.488,
+      "diff": 15.5939,
       "kind": "value"
      },
      {
       "player_key": 1934,
-      "engine": 1.3464,
-      "spec": 17.3055,
-      "diff": 15.9591,
+      "engine": 0.8941,
+      "spec": 16.488,
+      "diff": 15.5939,
+      "kind": "value"
+     },
+     {
+      "player_key": 1032,
+      "engine": 1.3412,
+      "spec": 16.8388,
+      "diff": 15.4977,
       "kind": "value"
      }
     ]
@@ -3609,45 +3609,45 @@
     "setting": "half_ppr/8/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
-    "mismatches": 103,
+    "compared": 678,
+    "mismatches": 105,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 3.097000732730322,
+    "max_abs_diff": 3.1218141514934246,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 74.8794,
-      "spec": 71.7824,
-      "diff": -3.097,
+      "engine": 72.9409,
+      "spec": 69.819,
+      "diff": -3.1218,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 69.5027,
-      "spec": 66.6216,
-      "diff": -2.8811,
+      "engine": 67.6908,
+      "spec": 64.7862,
+      "diff": -2.9046,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 65.7392,
-      "spec": 63.0093,
-      "diff": -2.7299,
+      "engine": 64.0161,
+      "spec": 61.2636,
+      "diff": -2.7525,
       "kind": "value"
      },
      {
       "player_key": 1370,
-      "engine": 55.358,
-      "spec": 53.1622,
-      "diff": -2.1958,
+      "engine": 53.7903,
+      "spec": 51.5698,
+      "diff": -2.2205,
       "kind": "value"
      },
      {
-      "player_key": 3189,
-      "engine": 50.1534,
-      "spec": 48.0496,
-      "diff": -2.1038,
+      "player_key": 337,
+      "engine": 48.8027,
+      "spec": 46.6799,
+      "diff": -2.1228,
       "kind": "value"
      }
     ]
@@ -3913,45 +3913,45 @@
     "setting": "half_ppr/8/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 122,
+    "compared": 678,
+    "mismatches": 125,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 17.565420613759702,
+    "max_abs_diff": 16.921433860070287,
     "examples": [
      {
       "player_key": 869,
-      "engine": 44.3072,
-      "spec": 26.7418,
-      "diff": -17.5654,
-      "kind": "value"
-     },
-     {
-      "player_key": 506,
-      "engine": 22.9543,
-      "spec": 9.2062,
-      "diff": -13.7481,
+      "engine": 43.3921,
+      "spec": 26.4707,
+      "diff": -16.9214,
       "kind": "value"
      },
      {
       "player_key": 1760,
-      "engine": 22.9543,
-      "spec": 9.2062,
-      "diff": -13.7481,
+      "engine": 22.2252,
+      "spec": 9.1129,
+      "diff": -13.1124,
       "kind": "value"
      },
      {
       "player_key": 1311,
-      "engine": 22.4205,
-      "spec": 8.7678,
-      "diff": -13.6527,
+      "engine": 21.6961,
+      "spec": 8.6789,
+      "diff": -13.0171,
       "kind": "value"
      },
      {
       "player_key": 1730,
-      "engine": 21.3529,
-      "spec": 7.891,
-      "diff": -13.4619,
+      "engine": 21.1669,
+      "spec": 8.245,
+      "diff": -12.9219,
+      "kind": "value"
+     },
+     {
+      "player_key": 1285,
+      "engine": 19.0502,
+      "spec": 6.5092,
+      "diff": -12.541,
       "kind": "value"
      }
     ]
@@ -4390,45 +4390,45 @@
     "setting": "half_ppr/10/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
-    "mismatches": 136,
+    "compared": 678,
+    "mismatches": 134,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 2.8149794572801383,
+    "max_abs_diff": 2.862002314805885,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 65.1309,
-      "spec": 62.3159,
-      "diff": -2.815,
+      "engine": 63.9507,
+      "spec": 61.0887,
+      "diff": -2.862,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 61.1689,
-      "spec": 58.5225,
-      "diff": -2.6463,
+      "engine": 60.0831,
+      "spec": 57.3921,
+      "diff": -2.691,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 58.3955,
-      "spec": 55.8672,
-      "diff": -2.5283,
-      "kind": "value"
-     },
-     {
-      "player_key": 3189,
-      "engine": 46.9066,
-      "spec": 44.8674,
-      "diff": -2.0392,
+      "engine": 57.3758,
+      "spec": 54.8045,
+      "diff": -2.5713,
       "kind": "value"
      },
      {
       "player_key": 337,
-      "engine": 46.5105,
-      "spec": 44.4882,
-      "diff": -2.0223,
+      "engine": 46.1606,
+      "spec": 44.0851,
+      "diff": -2.0755,
+      "kind": "value"
+     },
+     {
+      "player_key": 3189,
+      "engine": 46.1606,
+      "spec": 44.0851,
+      "diff": -2.0755,
       "kind": "value"
      }
     ]
@@ -4699,45 +4699,45 @@
     "setting": "half_ppr/10/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 157,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 12.469859753013573,
+    "max_abs_diff": 11.260055244937988,
     "examples": [
      {
+      "player_key": 51,
+      "engine": 32.0088,
+      "spec": 20.7487,
+      "diff": -11.2601,
+      "kind": "value"
+     },
+     {
       "player_key": 869,
-      "engine": 37.6092,
-      "spec": 25.1393,
-      "diff": -12.4699,
+      "engine": 36.6416,
+      "spec": 25.3993,
+      "diff": -11.2423,
+      "kind": "value"
+     },
+     {
+      "player_key": 3593,
+      "engine": 29.4818,
+      "spec": 18.6023,
+      "diff": -10.8795,
+      "kind": "value"
+     },
+     {
+      "player_key": 3133,
+      "engine": 29.0606,
+      "spec": 18.2446,
+      "diff": -10.816,
       "kind": "value"
      },
      {
       "player_key": 4617,
       "engine": 0,
-      "spec": 10.774,
-      "diff": 10.774,
-      "kind": "value"
-     },
-     {
-      "player_key": 2461,
-      "engine": 0,
-      "spec": 10.4149,
-      "diff": 10.4149,
-      "kind": "value"
-     },
-     {
-      "player_key": 51,
-      "engine": 30.7711,
-      "spec": 20.4706,
-      "diff": -10.3006,
-      "kind": "value"
-     },
-     {
-      "player_key": 535,
-      "engine": 3.419,
-      "spec": 13.6471,
-      "diff": 10.228,
+      "spec": 10.7321,
+      "diff": 10.7321,
       "kind": "value"
      }
     ]
@@ -5186,45 +5186,45 @@
     "setting": "half_ppr/12/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 168,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 3.6832509789240646,
+    "max_abs_diff": 3.801921781269769,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 75.345,
-      "spec": 71.6618,
-      "diff": -3.6833,
+      "engine": 72.436,
+      "spec": 68.6341,
+      "diff": -3.8019,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 71.0933,
-      "spec": 67.6151,
-      "diff": -3.4782,
+      "engine": 68.4739,
+      "spec": 64.8783,
+      "diff": -3.5956,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 68.1171,
-      "spec": 64.7824,
-      "diff": -3.3346,
-      "kind": "value"
-     },
-     {
-      "player_key": 3189,
-      "engine": 55.7877,
-      "spec": 53.0477,
-      "diff": -2.74,
+      "engine": 65.7005,
+      "spec": 62.2492,
+      "diff": -3.4512,
       "kind": "value"
      },
      {
       "player_key": 337,
-      "engine": 55.3626,
-      "spec": 52.6431,
-      "diff": -2.7195,
+      "engine": 54.2106,
+      "spec": 51.3577,
+      "diff": -2.8529,
+      "kind": "value"
+     },
+     {
+      "player_key": 3189,
+      "engine": 54.2106,
+      "spec": 51.3577,
+      "diff": -2.8529,
       "kind": "value"
      }
     ]
@@ -5448,45 +5448,45 @@
     "setting": "half_ppr/12/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 188,
+    "compared": 678,
+    "mismatches": 191,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 13.593049227984574,
+    "max_abs_diff": 13.101955128931676,
     "examples": [
      {
       "player_key": 203,
       "engine": 0,
-      "spec": 13.593,
-      "diff": 13.593,
-      "kind": "value"
-     },
-     {
-      "player_key": 1934,
-      "engine": 0,
-      "spec": 13.593,
-      "diff": 13.593,
+      "spec": 13.102,
+      "diff": 13.102,
       "kind": "value"
      },
      {
       "player_key": 3482,
-      "engine": 2.1431,
-      "spec": 15.592,
-      "diff": 13.449,
+      "engine": 1.6094,
+      "spec": 14.6434,
+      "diff": 13.0339,
       "kind": "value"
      },
      {
       "player_key": 2461,
-      "engine": 2.5717,
-      "spec": 15.9918,
-      "diff": 13.4201,
+      "engine": 2.4142,
+      "spec": 15.4141,
+      "diff": 12.9999,
       "kind": "value"
      },
      {
       "player_key": 4617,
-      "engine": 3.0003,
-      "spec": 16.3916,
-      "diff": 13.3913,
+      "engine": 2.8165,
+      "spec": 15.7994,
+      "diff": 12.9829,
+      "kind": "value"
+     },
+     {
+      "player_key": 535,
+      "engine": 6.0354,
+      "spec": 18.8822,
+      "diff": 12.8468,
       "kind": "value"
      }
     ]
@@ -5935,45 +5935,45 @@
     "setting": "half_ppr/14/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
-    "mismatches": 189,
+    "compared": 678,
+    "mismatches": 186,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 2.8187888851742144,
+    "max_abs_diff": 2.7795786547843733,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 67.2024,
-      "spec": 64.3836,
-      "diff": -2.8188,
+      "engine": 64.9192,
+      "spec": 62.1396,
+      "diff": -2.7796,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 63.6664,
-      "spec": 60.9934,
-      "diff": -2.673,
+      "engine": 61.5559,
+      "spec": 58.9187,
+      "diff": -2.6371,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 61.1912,
-      "spec": 58.6202,
-      "diff": -2.571,
-      "kind": "value"
-     },
-     {
-      "player_key": 3189,
-      "engine": 50.9371,
-      "spec": 48.7889,
-      "diff": -2.1483,
+      "engine": 59.2015,
+      "spec": 56.6642,
+      "diff": -2.5374,
       "kind": "value"
      },
      {
       "player_key": 337,
-      "engine": 50.5836,
-      "spec": 48.4499,
-      "diff": -2.1337,
+      "engine": 49.4482,
+      "spec": 47.3239,
+      "diff": -2.1242,
+      "kind": "value"
+     },
+     {
+      "player_key": 3189,
+      "engine": 49.4482,
+      "spec": 47.3239,
+      "diff": -2.1242,
       "kind": "value"
      }
     ]
@@ -6244,45 +6244,45 @@
     "setting": "half_ppr/14/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 223,
+    "compared": 678,
+    "mismatches": 224,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 14.289472749007098,
+    "max_abs_diff": 14.095946356865168,
     "examples": [
      {
       "player_key": 1032,
       "engine": 0,
-      "spec": 14.2895,
-      "diff": 14.2895,
+      "spec": 14.0959,
+      "diff": 14.0959,
       "kind": "value"
      },
      {
       "player_key": 536,
-      "engine": 1.0733,
-      "spec": 15.2214,
-      "diff": 14.1481,
+      "engine": 1.0653,
+      "spec": 15.0152,
+      "diff": 13.9499,
       "kind": "value"
      },
      {
       "player_key": 1198,
-      "engine": 1.0733,
-      "spec": 15.2214,
-      "diff": 14.1481,
-      "kind": "value"
-     },
-     {
-      "player_key": 203,
-      "engine": 2.5045,
-      "spec": 16.464,
-      "diff": 13.9595,
+      "engine": 1.0653,
+      "spec": 15.0152,
+      "diff": 13.9499,
       "kind": "value"
      },
      {
       "player_key": 1934,
-      "engine": 2.5045,
-      "spec": 16.464,
-      "diff": 13.9595,
+      "engine": 2.1306,
+      "spec": 15.9345,
+      "diff": 13.8039,
+      "kind": "value"
+     },
+     {
+      "player_key": 203,
+      "engine": 2.4858,
+      "spec": 16.241,
+      "diff": 13.7552,
       "kind": "value"
      }
     ]
@@ -6731,45 +6731,45 @@
     "setting": "ppr/8/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
-    "mismatches": 104,
+    "compared": 678,
+    "mismatches": 106,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 2.552648604270985,
+    "max_abs_diff": 2.6481686371299133,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 68.38,
-      "spec": 65.8273,
-      "diff": -2.5526,
+      "engine": 65.8579,
+      "spec": 63.2097,
+      "diff": -2.6482,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 60.1467,
-      "spec": 57.8894,
-      "diff": -2.2573,
+      "engine": 58.0965,
+      "spec": 55.7471,
+      "diff": -2.3494,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 57.2411,
-      "spec": 55.088,
-      "diff": -2.1531,
+      "engine": 55.3576,
+      "spec": 53.1137,
+      "diff": -2.2439,
       "kind": "value"
      },
      {
       "player_key": 1370,
-      "engine": 50.4713,
-      "spec": 48.6126,
-      "diff": -1.8587,
+      "engine": 51.5025,
+      "spec": 49.4801,
+      "diff": -2.0224,
       "kind": "value"
      },
      {
       "player_key": 337,
-      "engine": 45.1404,
-      "spec": 43.4214,
-      "diff": -1.719,
+      "engine": 43.9551,
+      "spec": 42.1504,
+      "diff": -1.8048,
       "kind": "value"
      }
     ]
@@ -7035,45 +7035,45 @@
     "setting": "ppr/8/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 124,
+    "compared": 678,
+    "mismatches": 126,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 12.35687949564237,
+    "max_abs_diff": 14.724449362405647,
     "examples": [
      {
       "player_key": 869,
-      "engine": 34.0804,
-      "spec": 21.7235,
-      "diff": -12.3569,
-      "kind": "value"
-     },
-     {
-      "player_key": 506,
-      "engine": 17.6561,
-      "spec": 7.4786,
-      "diff": -10.1775,
+      "engine": 35.7228,
+      "spec": 20.9984,
+      "diff": -14.7244,
       "kind": "value"
      },
      {
       "player_key": 1760,
-      "engine": 17.6561,
-      "spec": 7.4786,
-      "diff": -10.1775,
+      "engine": 19.2985,
+      "spec": 7.2289,
+      "diff": -12.0696,
       "kind": "value"
      },
      {
       "player_key": 1311,
-      "engine": 17.2455,
-      "spec": 7.1225,
-      "diff": -10.123,
+      "engine": 18.8879,
+      "spec": 6.8847,
+      "diff": -12.0032,
       "kind": "value"
      },
      {
       "player_key": 1730,
-      "engine": 16.4243,
-      "spec": 6.4102,
-      "diff": -10.0141,
+      "engine": 18.4773,
+      "spec": 6.5405,
+      "diff": -11.9368,
+      "kind": "value"
+     },
+     {
+      "player_key": 1285,
+      "engine": 16.8349,
+      "spec": 5.1635,
+      "diff": -11.6714,
       "kind": "value"
      }
     ]
@@ -7512,45 +7512,45 @@
     "setting": "ppr/10/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
-    "mismatches": 136,
+    "compared": 678,
+    "mismatches": 133,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 2.5728042931929167,
+    "max_abs_diff": 2.6194547354737026,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 60.1533,
-      "spec": 57.5805,
-      "diff": -2.5728,
+      "engine": 59.2795,
+      "spec": 56.6601,
+      "diff": -2.6195,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 54.4258,
-      "spec": 52.0943,
-      "diff": -2.3315,
+      "engine": 53.6442,
+      "spec": 51.2704,
+      "diff": -2.3738,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 52.4044,
-      "spec": 50.1581,
-      "diff": -2.2463,
+      "engine": 51.6552,
+      "spec": 49.3682,
+      "diff": -2.2871,
       "kind": "value"
      },
      {
       "player_key": 1370,
-      "engine": 44.9852,
-      "spec": 43.0733,
-      "diff": -1.912,
+      "engine": 44.5135,
+      "spec": 42.56,
+      "diff": -1.9535,
       "kind": "value"
      },
      {
       "player_key": 337,
-      "engine": 43.9822,
-      "spec": 42.0908,
-      "diff": -1.8914,
+      "engine": 43.3685,
+      "spec": 41.4427,
+      "diff": -1.9258,
       "kind": "value"
      }
     ]
@@ -7821,45 +7821,45 @@
     "setting": "ppr/10/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 157,
+    "compared": 678,
+    "mismatches": 155,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 12.40473801528891,
+    "max_abs_diff": 11.826692078532389,
     "examples": [
      {
       "player_key": 869,
-      "engine": 33.5081,
-      "spec": 21.1034,
-      "diff": -12.4047,
+      "engine": 33.3571,
+      "spec": 21.5304,
+      "diff": -11.8267,
       "kind": "value"
      },
      {
       "player_key": 535,
       "engine": 0,
-      "spec": 11.1546,
-      "diff": 11.1546,
-      "kind": "value"
-     },
-     {
-      "player_key": 51,
-      "engine": 32.7717,
-      "spec": 21.7063,
-      "diff": -11.0653,
+      "spec": 11.2201,
+      "diff": 11.2201,
       "kind": "value"
      },
      {
       "player_key": 1891,
-      "engine": 1.4729,
-      "spec": 12.3606,
-      "diff": 10.8877,
+      "engine": 1.4662,
+      "spec": 12.4331,
+      "diff": 10.9668,
+      "kind": "value"
+     },
+     {
+      "player_key": 1921,
+      "engine": 1.4662,
+      "spec": 12.4331,
+      "diff": 10.9668,
       "kind": "value"
      },
      {
       "player_key": 2821,
-      "engine": 1.4729,
-      "spec": 12.3606,
-      "diff": 10.8877,
+      "engine": 1.4662,
+      "spec": 12.4331,
+      "diff": 10.9668,
       "kind": "value"
      }
     ]
@@ -8308,45 +8308,45 @@
     "setting": "ppr/12/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 167,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 2.200249313080839,
+    "max_abs_diff": 2.2764937262801297,
     "examples": [
      {
       "player_key": 1370,
-      "engine": 54.2377,
-      "spec": 52.0375,
-      "diff": -2.2002,
+      "engine": 54.4827,
+      "spec": 52.2062,
+      "diff": -2.2765,
       "kind": "value"
      },
      {
       "player_key": 3247,
-      "engine": 47.713,
-      "spec": 45.7728,
-      "diff": -1.9401,
+      "engine": 47.848,
+      "spec": 45.8431,
+      "diff": -2.005,
       "kind": "value"
      },
      {
       "player_key": 303,
-      "engine": 45.4101,
-      "spec": 43.5618,
-      "diff": -1.8483,
-      "kind": "value"
-     },
-     {
-      "player_key": 3289,
-      "engine": 43.1073,
-      "spec": 41.3508,
-      "diff": -1.7565,
+      "engine": 45.5064,
+      "spec": 43.5973,
+      "diff": -1.9091,
       "kind": "value"
      },
      {
       "player_key": 2730,
-      "engine": 41.9559,
-      "spec": 40.2453,
-      "diff": -1.7106,
+      "engine": 45.5064,
+      "spec": 43.5973,
+      "diff": -1.9091,
+      "kind": "value"
+     },
+     {
+      "player_key": 869,
+      "engine": 48.2283,
+      "spec": 46.3509,
+      "diff": -1.8774,
       "kind": "value"
      }
     ]
@@ -8570,45 +8570,45 @@
     "setting": "ppr/12/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 186,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 13.5346108022244,
+    "max_abs_diff": 10.509229951700828,
     "examples": [
      {
       "player_key": 869,
-      "engine": 38.7838,
-      "spec": 25.2492,
-      "diff": -13.5346,
-      "kind": "value"
-     },
-     {
-      "player_key": 506,
-      "engine": 24.6806,
-      "spec": 11.783,
-      "diff": -12.8976,
+      "engine": 37.7226,
+      "spec": 27.2134,
+      "diff": -10.5092,
       "kind": "value"
      },
      {
       "player_key": 1760,
-      "engine": 24.6806,
-      "spec": 11.783,
-      "diff": -12.8976,
+      "engine": 24.0053,
+      "spec": 13.9386,
+      "diff": -10.0667,
       "kind": "value"
      },
      {
       "player_key": 1311,
-      "engine": 24.328,
-      "spec": 11.4463,
-      "diff": -12.8817,
+      "engine": 23.6624,
+      "spec": 13.6067,
+      "diff": -10.0557,
       "kind": "value"
      },
      {
       "player_key": 1730,
-      "engine": 23.6229,
-      "spec": 10.773,
-      "diff": -12.8499,
+      "engine": 23.3194,
+      "spec": 13.2748,
+      "diff": -10.0446,
+      "kind": "value"
+     },
+     {
+      "player_key": 1285,
+      "engine": 21.9477,
+      "spec": 11.9473,
+      "diff": -10.0004,
       "kind": "value"
      }
     ]
@@ -9010,45 +9010,45 @@
     "setting": "ppr/14/sf0",
     "view": "indexed",
     "series": "razzball",
-    "compared": 686,
+    "compared": 678,
     "mismatches": 187,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 2.534426454160247,
+    "max_abs_diff": 2.534003840462212,
     "examples": [
      {
       "player_key": 2227,
-      "engine": 66.0312,
-      "spec": 63.4967,
-      "diff": -2.5344,
+      "engine": 65.454,
+      "spec": 62.92,
+      "diff": -2.534,
       "kind": "value"
      },
      {
       "player_key": 1095,
-      "engine": 60.5079,
-      "spec": 58.1806,
-      "diff": -2.3273,
+      "engine": 59.8914,
+      "spec": 57.5678,
+      "diff": -2.3236,
       "kind": "value"
      },
      {
       "player_key": 217,
-      "engine": 58.5586,
-      "spec": 56.3043,
-      "diff": -2.2542,
+      "engine": 57.9282,
+      "spec": 55.6788,
+      "diff": -2.2494,
       "kind": "value"
      },
      {
       "player_key": 337,
-      "engine": 50.4367,
-      "spec": 48.487,
-      "diff": -1.9497,
+      "engine": 49.7485,
+      "spec": 47.8085,
+      "diff": -1.94,
       "kind": "value"
      },
      {
       "player_key": 3189,
-      "engine": 50.4367,
-      "spec": 48.487,
-      "diff": -1.9497,
+      "engine": 49.7485,
+      "spec": 47.8085,
+      "diff": -1.94,
       "kind": "value"
      }
     ]
@@ -9319,45 +9319,45 @@
     "setting": "ppr/14/sf0",
     "view": "vorp",
     "series": "razzball_vorp",
-    "compared": 686,
-    "mismatches": 221,
+    "compared": 678,
+    "mismatches": 220,
     "presence": 0,
     "no_engine_row": 0,
-    "max_abs_diff": 13.088147219863757,
+    "max_abs_diff": 12.521476801464729,
     "examples": [
      {
       "player_key": 51,
-      "engine": 35.8144,
-      "spec": 22.7263,
-      "diff": -13.0881,
+      "engine": 34.9098,
+      "spec": 22.3884,
+      "diff": -12.5215,
       "kind": "value"
      },
      {
       "player_key": 3133,
-      "engine": 34.2573,
-      "spec": 21.3405,
-      "diff": -12.9167,
+      "engine": 33.392,
+      "spec": 21.0232,
+      "diff": -12.3688,
       "kind": "value"
      },
      {
       "player_key": 3593,
-      "engine": 33.9458,
-      "spec": 21.0634,
-      "diff": -12.8825,
+      "engine": 33.0885,
+      "spec": 20.7502,
+      "diff": -12.3383,
       "kind": "value"
      },
      {
       "player_key": 1032,
       "engine": 0,
-      "spec": 12.4717,
-      "diff": 12.4717,
+      "spec": 12.0133,
+      "diff": 12.0133,
       "kind": "value"
      },
      {
-      "player_key": 1164,
+      "player_key": 1218,
       "engine": 0,
-      "spec": 12.4717,
-      "diff": 12.4717,
+      "spec": 12.0133,
+      "diff": 12.0133,
       "kind": "value"
      }
     ]
