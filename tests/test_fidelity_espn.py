@@ -140,6 +140,31 @@ class ReadPublisherTests(unittest.TestCase):
         for grain, text in r.values.items():
             self.assertTrue(fp.equal_after_rounding(text, stored[grain]), grain)
 
+    def test_stored_window_wins_mid_week(self):
+        """2026-10-09: Thursday's game gave week 5 actuals; the played-week rule read 6-18
+        against stored 5-18 and flagged 906 values. With the stored window both sum 5-18."""
+        mid = {slot: [dict(p, player=dict(p["player"], stats=p["player"]["stats"] + [block(0, 1, 5, {"24": 1.0})]))
+                      for p in ps] for slot, ps in PLAYERS.items()}
+        rule = espn.read_publisher(FakeFetch(players=mid))
+        self.assertEqual("6-18", rule["ros_weeks"])  # what the reader alone would sum
+        pub = espn.read_publisher(FakeFetch(players=mid), window="5-18")
+        self.assertEqual("5-18", pub["ros_weeks"])
+        rows = {r.name: r for r in pub["rows"]}
+        self.assertEqual({"half|1": "123.05", "full|1": "139.30", "std|1": "106.80"}, rows["Aaron Jones Sr."].values)
+        self.assertTrue(any("stored rows' window" in n for n in pub["notes"]))
+
+    def test_framework_passes_the_stored_window(self):
+        seen = {}
+
+        class Mod:
+            @staticmethod
+            def read_publisher(fetch, window=None):
+                seen["window"] = window
+                return {}
+        fp.read_projection_publisher(Mod, None, [{"weeks_covered": "5-18"}, {"weeks_covered": "5-18"},
+                                                 {"weeks_covered": "4-18"}])
+        self.assertEqual("5-18", seen["window"])
+
     def test_team_list_failure_is_a_note(self):
         pub = espn.read_publisher(FakeFetch(teams=None))
         self.assertIsNone(pub["error"])

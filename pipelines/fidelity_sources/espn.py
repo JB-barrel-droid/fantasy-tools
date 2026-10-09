@@ -25,11 +25,15 @@ Stat ids (ESPN's numbering, restated from the ingest's calibration):
   3 pass yards, 4 pass TDs, 24 rush yards, 25 rush TDs,
   53 receptions, 42 receiving yards, 43 receiving TDs.
 
-Rest-of-season window (restated rule): a week 1..18 counts as played when at
-least 20 distinct players carry a non-empty 2026 actuals block for it
-(seasonId 2026, statSourceId 0, statSplitTypeId 1, scoringPeriodId = week).
-The ROS weeks are 1..18 minus the played weeks (stored as weeks_covered,
-e.g. "5-18").
+Rest-of-season window: the stored rows' own weeks_covered (e.g. "5-18"),
+passed by the framework as read_publisher(fetch, window="5-18"), so stage 1
+compares the same weeks the save summed. Mid-week (Thursday's game has
+actuals) a played-week rule moves on before the next save does; on
+2026-10-09 it read 6-18 against a stored 5-18 and flagged 906 values. Only
+when no stored window is given does the reader fall back to its own rule: a
+week 1..18 counts as played when at least 20 distinct players carry a
+non-empty 2026 actuals block for it (seasonId 2026, statSourceId 0,
+statSplitTypeId 1, scoringPeriodId = week).
 
 Stage 1 (publisher_vs_stored) unit: rest-of-season fantasy-point TOTALS.
 Summing rule (restated, not imported):
@@ -184,11 +188,14 @@ def team_map(fetch) -> tuple[dict[int, str], str | None]:
     return out, None
 
 
-def parse_players(payloads: dict[str, list[dict]], teams: dict[int, str]) -> tuple[list[fp.PubRow], dict]:
-    """PubRows (ROS totals, std|1 / half|1 / full|1) from the per-position payloads; and parse facts."""
+def parse_players(payloads: dict[str, list[dict]], teams: dict[int, str],
+                  window: tuple[int, int] | None = None) -> tuple[list[fp.PubRow], dict]:
+    """PubRows (ROS totals, std|1 / half|1 / full|1) from the per-position payloads; and parse facts.
+    With `window` (the stored rows' weeks_covered), the totals cover exactly those weeks."""
     every = [p for ps in payloads.values() for p in ps if isinstance(p, dict)]
     played = played_weeks(every)
-    ros_weeks = [w for w in range(1, 19) if w not in played]
+    ros_weeks = (list(range(window[0], window[1] + 1)) if window
+                 else [w for w in range(1, 19) if w not in played])
     rows: list[fp.PubRow] = []
     facts = {"played_weeks": played, "ros_weeks": ros_weeks, "other_position": 0, "duplicates": 0,
              "no_weekly": [], "dup_blocks": 0}
@@ -223,7 +230,7 @@ def parse_players(payloads: dict[str, list[dict]], teams: dict[int, str]) -> tup
     return rows, facts
 
 
-def read_publisher(fetch) -> dict:
+def read_publisher(fetch, window: str | None = None) -> dict:
     base = {"rows": [], "url": API, "vintage": None, "dates": {"dateModified": None}, "notes": []}
     payloads: dict[str, list[dict]] = {}
     for slot, pos in SLOTS:
@@ -246,12 +253,14 @@ def read_publisher(fetch) -> dict:
         payloads[pos] = players
 
     teams, team_note = team_map(fetch)
-    rows, facts = parse_players(payloads, teams)
+    rows, facts = parse_players(payloads, teams, parse_window(window) if window else None)
     notes = [team_note] if team_note else []
     if not facts["ros_weeks"]:
         return {**base, "notes": notes, "error": "no rest-of-season weeks: every week 1-18 has 2026 actuals"}
     weeks = facts["ros_weeks"]
-    notes.append(f"rest-of-season weeks {weeks[0]}-{weeks[-1]} (played weeks with actuals: {facts['played_weeks']})")
+    notes.append(f"rest-of-season weeks {weeks[0]}-{weeks[-1]} ("
+                 + ("the stored rows' window" if window else "played-week rule")
+                 + f"; weeks with actuals now: {facts['played_weeks']})")
     if facts["no_weekly"]:
         notes.append(f"{len(facts['no_weekly'])} players without 2026 weekly projection blocks skipped: "
                      f"{facts['no_weekly'][:5]}")

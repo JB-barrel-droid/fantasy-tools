@@ -1605,7 +1605,27 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
                  unresolved=unresolved[:EXAMPLES]), dict(cmp, left_grains=left, right_grains=right)
 
 
-def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now, latest, latest_rows):
+def verified_keys(cmp: dict) -> set[int] | None:
+    """Players stage 1 compared and found equal to the publisher in every column (None: stage 1 did not run)."""
+    if not cmp or "left_grains" not in cmp:
+        return None
+    bad = {m["player_key"] for m in cmp.get("mismatches", []) + cmp.get("missing", []) + cmp.get("extra", [])}
+    return {k for g in cmp["right_grains"].values() for k in g if k not in bad}
+
+
+def read_projection_publisher(mod, fetch, rows: list[dict]) -> dict:
+    """Call the module's reader; a reader that takes `window` gets the stored
+    rows' (most common) weeks_covered so both sides sum the same weeks."""
+    import inspect  # noqa: PLC0415
+    if "window" in inspect.signature(mod.read_publisher).parameters:
+        windows = [str(r.get("weeks_covered")) for r in rows if r.get("weeks_covered")]
+        if windows:
+            return mod.read_publisher(fetch, window=max(set(windows), key=windows.count))
+    return mod.read_publisher(fetch)
+
+
+def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now, latest, latest_rows,
+                           verified_keys: set[int] | None = None):
     if site_doc is None:
         return stage("unknown", f"live chart not read: {site_error}"), {}
     if not site_section(site_doc, source):
@@ -1624,7 +1644,26 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     n_bad = problem_count(cmp)
     status = "red" if n_bad or unresolved else "green"
     reasons = []
-    if n_bad:
+    # A snapshot date is re-saved in place (upsert) when the publisher updates
+    # the same day; the rows the chart was built from are then overwritten.
+    # Differences on rows written after the chart's raw_built_at cannot be
+    # checked against what the chart used: amber until the next chain run.
+    built = parse_ts((site_section(site_doc, source).get("lineage") or {}).get("raw_built_at"))
+    floor = datetime.min.replace(tzinfo=timezone.utc)
+    by_key = {int(r["player_key"]): r for r in rows if r.get("player_key") is not None}
+    # Exempt only rows stage 1 shows equal to the publisher now (the stored
+    # value is a genuine publisher update); a row that also differs from the
+    # publisher (e.g. ESPN projections stored as 0) stays red.
+    resaved = [m for m in cmp["mismatches"]
+               if built and verified_keys is not None and m["player_key"] in verified_keys
+               and (parse_ts((by_key.get(m["player_key"]) or {}).get("_written_at")) or floor) > built]
+    if n_bad and resaved and len(resaved) == n_bad and not unresolved:
+        status = "amber"
+        last = max(parse_ts(by_key[m["player_key"]].get("_written_at")) for m in resaved)
+        reasons.append(f"{len(resaved)} chart values differ because snapshot {snap} was re-saved at {iso(last)}, after "
+                       f"the chart was built from it at {iso(built)}; the chart's version is overwritten, so these "
+                       "cannot be checked until the next chain run rebuilds from the stored rows")
+    elif n_bad:
         reasons.append(f"{len(cmp['mismatches'])} chart values differ from the stored snapshot, "
                        f"{players(cmp['missing'])} stored players not on the chart, "
                        f"{players(cmp['extra'])} chart players not stored")
@@ -1704,7 +1743,7 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
         stages["publisher_vs_stored"] = stage("unknown", f"stored rows not read: {read_error}")
     else:
         try:
-            pub = mod.read_publisher(fetch)
+            pub = read_projection_publisher(mod, fetch, latest_rows)
             stages["publisher_vs_stored"], cmp = stage_projection_publisher(
                 source, mod, pub, latest_rows, latest, saved_at, ident, now, chart_universe(site_doc), probe)
             divergences += [dict(d, stage="publisher_vs_stored", source_url=pub.get("url")) for d in divergence_items(cmp)]
@@ -1712,7 +1751,7 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
             stages["publisher_vs_stored"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     try:
         stages["stored_vs_chart"], cmp2 = stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
-                                                                 latest, latest_rows)
+                                                                 latest, latest_rows, verified_keys(cmp))
         divergences += [dict(d, stage="stored_vs_chart", source_url=SITE_FIXTURE) for d in divergence_items(cmp2)]
     except Exception as e:  # noqa: BLE001
         stages["stored_vs_chart"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
