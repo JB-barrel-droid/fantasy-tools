@@ -82,15 +82,14 @@
     razzball_vorp: {ppgField: "rz_ppg", short: "Razzball"},
   };
   const PURE_VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
-  // DDF Composite Value, "DDF Value" for short (JEG-455 / JEG-471, Jeremy
-  // 2026-10-08): per player, the equal-weight mean of the finite ADJUSTED
-  // values -- our projections (ESPN, CBS ROS, Razzball, DDF-adjusted) and the
-  // bias-adjusted trade charts (*_adjusted). Never the as-published/indexed
-  // charts, never VORP vs waivers. Default inputs: every one of those series
-  // that is available and in the current week. One value for every
+  // DDF Composite Value, "DDF Value" for short (JEG-455 / JEG-471 / JEG-479,
+  // Jeremy 2026-10-08): per player and per view, the equal-weight mean of the
+  // included inputs' values, at least two of them (rule and series per view:
+  // "DDF Composite Value" below, docs/methodology.md). One value for every
   // comparison column (no leave-one-out). It is a derived series: it lives
-  // on the rows (values.ddf_value, ddfCount, ddfSources, ddfTier), never in
-  // sourceMaps, so no guard, pie, spread or existing series reads it.
+  // on the rows (values.ddf_value, ddfCount, ddfSources, ddfTier, ddfByView,
+  // ...), never in sourceMaps, so no guard, pie, spread or existing series
+  // reads it.
   const COMPOSITE_KEY = "ddf_value";
   const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball",
     "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
@@ -2083,63 +2082,239 @@
   }
 
   // ---- DDF Composite Value (see COMPOSITE_KEY) ----
-  // null = the defaults (every usable current-week input, re-evaluated at each
-  // setting); otherwise the reader's chosen inputs (setCompositeInputs), kept
-  // across league changes. A chosen input that is unusable at a setting is
-  // skipped there, never priced as 0.
+  // The rule is docs/methodology.md "DDF Composite Value" (Jeremy 2026-10-08,
+  // JEG-471 / JEG-479); the Python reference implements the same text.
+  //  1. Inputs are the seven COMPOSITE_INPUT_KEYS. An input whose source is
+  //     held (HOLD_FIELDS) or has not published the current content week is
+  //     never an input this week, even when a reader selects it.
+  //  2. One DDF Value per view. COMPOSITE_VIEW_SERIES names the series each
+  //     input contributes in each view.
+  //  3. The same inputs in both weeks: an input without the prior week at this
+  //     setting and view is left out of the current week too.
+  //  4. Per player: the equal-weight mean of the finite values of those
+  //     inputs' series, published only when at least DDF_MIN_SOURCES price him.
+  // null = every eligible input; otherwise the reader's chosen inputs
+  // (setCompositeInputs), kept across league changes. A chosen input that is
+  // unusable at a setting is skipped there, never priced as 0.
   let compositeInputs = null;
   let compositeMap = new Map();
   let ddfRoleByKey = new Map();
+  // Per view, rebuilt by applyComposite: see buildCompositeState.
+  let compositeStates = {};
+  // Prior-week results per "view|series", cleared on every rebuild.
+  let compositePriorCache = new Map();
+  const DDF_MIN_SOURCES = 2;
+  const DDF_SHORT_REASON = "Needs at least two source values";
+  const COMPOSITE_VIEWS = [...VIEW_MODE_ORDER];
+  // Indexed: the inputs themselves (projections and the bias-adjusted charts).
+  // VORP vs waivers: each projection's VORP vs waivers series and each chart
+  // as published, translated to value above waivers. Adjusted values: the
+  // projections and each chart's Adjusted values. A chart's series in those two
+  // views is its as-published key, whose values on the rows are the view's.
+  const COMPOSITE_CHART_SERIES = {fantasycalc_adjusted: "fantasycalc", usatoday_adjusted: "usatoday",
+    fantasypros_adjusted: "fantasypros", cbs_adjusted: "cbs"};
+  const COMPOSITE_VIEW_SERIES = {
+    indexed: Object.fromEntries(COMPOSITE_INPUT_KEYS.map(key => [key, key])),
+    [VIEW_MODE_ORDER[1]]: {espn: "espn_vorp", cbsros: "cbsros_vorp", razzball: "razzball_vorp", ...COMPOSITE_CHART_SERIES},
+    adj: {espn: "espn", cbsros: "cbsros", razzball: "razzball", ...COMPOSITE_CHART_SERIES},
+  };
   const compositeKeyUsable = key => sourceAvailable(key) && !isAdjustedCurvePaused(key) && !sourceMissingFromData(key);
-  // "Current week" is the same rule as the first-load source set (JEG-432 R5)
-  // and the stale flag: a weekly chart older than the newest week on the board
-  // is left out by default. Projections carry no week and are always current.
+  // "Not yet published for the current week": the stale flag (a weekly chart
+  // older than the current content week) or the first-load rule (JEG-432 R5).
+  // Projections carry no week and are always current.
   const compositeKeyOlderWeek = key => sourceIsStale(key) || firstLoadExcluded.has(key);
-  function defaultCompositeInputKeys() {
-    return COMPOSITE_INPUT_KEYS.filter(key => compositeKeyUsable(key) && !compositeKeyOlderWeek(key));
+  // JEG-479 (Jeremy 2026-10-08): a source held for the week is held with every
+  // series derived from it. A hold is a section field the pipeline writes:
+  //   validationHold: {reason, week}  engine vs Python reference disagreed
+  //   promotionHold:  {reason, week}  the chain kept the last section
+  // HOLD_DERIVED_SERIES is the one source -> derived map: a hold on the source
+  // holds these too.
+  const HOLD_FIELDS = ["validationHold", "promotionHold"];
+  const HOLD_DERIVED_SERIES = {
+    espn: ["espn_vorp"],
+    cbsros: ["cbsros_vorp"],
+    razzball: ["razzball_vorp"],
+    fantasycalc: ["fantasycalc_adjusted"],
+    usatoday: ["usatoday_adjusted"],
+    fantasypros: ["fantasypros_adjusted"],
+    cbs: ["cbs_adjusted"],
+  };
+  function sectionHold(sectionKey) {
+    const section = data?.sources?.[sectionKey];
+    if (!section || typeof section !== "object") return null;
+    for (const field of HOLD_FIELDS) {
+      const hold = section[field];
+      if (!hold) continue;
+      const reason = typeof hold === "object" && hold.reason ? String(hold.reason)
+        : typeof hold === "string" ? hold : field;
+      return {field, reason, week: typeof hold === "object" ? (hold.week ?? null) : null, source: sectionKey};
+    }
+    return null;
   }
-  function compositeInputKeys() {
-    return compositeInputs ? compositeInputs.filter(compositeKeyUsable) : defaultCompositeInputKeys();
+  // The hold on a series: its own section's, else its source's.
+  function seriesHold(key) {
+    const own = sectionHold(key);
+    if (own) return own;
+    const base = Object.keys(HOLD_DERIVED_SERIES).find(source => HOLD_DERIVED_SERIES[source].includes(key));
+    return base ? sectionHold(base) : null;
   }
-  const compositeAvailable = () => compositeMap.size > 0;
-  function compositeExclusionReason(key) {
-    if (sourceMissingFromData(key)) return "missing from this build";
+  const compositeKeyHeld = key => seriesHold(key) !== null;
+  // Why an input can never be selected this week (held, or its source has not
+  // published the current week), or null. heldBy names the section carrying
+  // the hold (the series itself, or its source).
+  function compositeBlock(key) {
+    const hold = seriesHold(key);
+    if (hold) return {key, reason: `held: ${hold.reason}`, heldBy: hold.source, holdField: hold.field, holdWeek: hold.week};
+    if (compositeKeyOlderWeek(key)) {
+      const week = activeReferenceWeek();
+      return {key, reason: week ? `not yet published for week ${week}` : "not yet published for the current week",
+        notPublished: true};
+    }
+    return null;
+  }
+  function compositeUnusableReason(series) {
+    if (sourceMissingFromData(series)) return "missing from this build";
     // JEG-484: name a failed load, not a pause, when the inputs never arrived.
-    if (key.endsWith("_adjusted") && productLoadStatus().assets.adjustments?.ok === false) return "Adjustment data failed to load";
-    if (isAdjustedCurvePaused(key)) return "paused while it waits on fresh adjustment inputs";
-    if (!sourceAvailable(key)) return `not available for ${scoreLabel()} / ${teams} teams`;
-    if (compositeInputs) return "not selected";
-    if (compositeKeyOlderWeek(key)) return "older week";
-    return "not selected";
+    if (series.endsWith("_adjusted") && productLoadStatus().assets.adjustments?.ok === false) return "Adjustment data failed to load";
+    if (isAdjustedCurvePaused(series)) return "paused while it waits on fresh adjustment inputs";
+    if (!sourceAvailable(series)) return `not available for ${scoreLabel()} / ${teams} teams`;
+    return null;
+  }
+  // Inputs that can be chosen this week: not blocked, usable at this setting.
+  function defaultCompositeInputKeys() {
+    return COMPOSITE_INPUT_KEYS.filter(key => !compositeBlock(key) && compositeKeyUsable(key));
+  }
+  // One input's prior week at this setting, in one view (cached per rebuild;
+  // only an as-published chart's saved weeks depend on the view).
+  function compositePrior(view, series) {
+    const cacheKey = AS_PUBLISHED_KEYS.has(series) ? `${view}|${series}` : series;
+    if (!compositePriorCache.has(cacheKey)) compositePriorCache.set(cacheKey, priorWeekSync(series, null, view));
+    return compositePriorCache.get(cacheKey);
   }
   // JEG-484: product-data's per-asset load outcome (read-only).
   const productLoadStatus = () => window.TradeValueProductData?.getLoadStatus?.() || {assets: {}, adjustmentsLoaded: false};
-  function compositeInputsInfo() {
-    const inputs = compositeInputKeys();
+  // One view's DDF Value for the current and the prior week.
+  //   inputs/series: the included inputs and the series they contribute;
+  //   excluded: [{key, series, reason, ...}] for every other input;
+  //   current/prior: Map player_key -> {value, count, used} (value null when
+  //   fewer than DDF_MIN_SOURCES price him); prior is null without a pair.
+  // The pair is the newest served week among the candidate inputs and the
+  // week before. If no candidate has a prior week at all (a first week, or the
+  // history cannot be read), the current week uses every candidate and there
+  // is no prior week (priorAvailable false, priorReason says why).
+  function buildCompositeState(view, rows) {
+    const chosen = compositeInputs || COMPOSITE_INPUT_KEYS;
+    const excluded = new Map();
+    const candidates = [];
+    COMPOSITE_INPUT_KEYS.forEach(key => {
+      const series = COMPOSITE_VIEW_SERIES[view][key];
+      const block = compositeBlock(key);
+      if (block) return excluded.set(key, {...block, series});
+      if (!chosen.includes(key)) return excluded.set(key, {key, series, reason: "not selected"});
+      const unusable = compositeUnusableReason(series);
+      if (unusable) return excluded.set(key, {key, series, reason: unusable});
+      candidates.push({key, series, prior: compositePrior(view, series)});
+    });
+    const served = candidates.map(item => item.prior.currentWeek).filter(Number.isInteger);
+    const currentWeek = served.length ? Math.max(...served) : null;
+    const paired = candidates.filter(item => item.prior.available && item.prior.currentWeek === currentWeek);
+    const priorAvailable = paired.length > 0;
+    const included = priorAvailable ? paired : candidates;
+    if (priorAvailable) {
+      candidates.filter(item => !paired.includes(item)).forEach(item => excluded.set(item.key, {key: item.key,
+        series: item.series, reason: `no prior week: ${item.prior.available
+          ? `serves Week ${item.prior.currentWeek}, not Week ${currentWeek}` : item.prior.reason}`}));
+    }
+    const series = included.map(item => item.series);
+    const blendOf = values => {
+      const blend = ValueModel.compositeValue(values, series);
+      return {value: blend.count >= DDF_MIN_SOURCES ? blend.value : null, count: blend.count, used: blend.used};
+    };
+    const current = new Map();
+    rows.forEach(row => current.set(row.player_key, blendOf(row.values)));
+    let prior = null;
+    if (priorAvailable) {
+      prior = new Map();
+      const players = new Set(included.flatMap(item => Object.keys(item.prior.values)));
+      players.forEach(playerKey => prior.set(Number(playerKey),
+        blendOf(Object.fromEntries(included.map(item => [item.series, item.prior.values[playerKey]])))));
+    }
     return {
-      inputs,
+      view,
+      inputs: included.map(item => item.key),
+      series,
+      excluded: COMPOSITE_INPUT_KEYS.filter(key => excluded.has(key)).map(key => excluded.get(key)),
+      currentWeek: priorAvailable ? currentWeek : (currentWeek ?? activeReferenceWeek()),
+      priorWeek: priorAvailable ? currentWeek - 1 : null,
+      priorAvailable,
+      priorReason: priorAvailable ? null : (candidates.length
+        ? `no DDF Value input has a prior week at this setting (${candidates.map(item => `${item.series}: ${item.prior.reason}`).join("; ")})`
+        : "no DDF Value input is available at this setting"),
+      current,
+      prior,
+    };
+  }
+  function compositeInputsInfo(view = viewMode) {
+    const state = compositeStates[view] || compositeStates[viewMode];
+    return {
+      view: state?.view ?? view,
+      inputs: state ? [...state.inputs] : [],
+      series: state ? [...state.series] : [],
       requested: compositeInputs ? [...compositeInputs] : null,
       isDefault: compositeInputs === null,
       defaults: defaultCompositeInputKeys(),
       allowed: [...COMPOSITE_INPUT_KEYS],
-      excluded: COMPOSITE_INPUT_KEYS.filter(key => !inputs.includes(key))
-        .map(key => ({key, reason: compositeExclusionReason(key)}))
+      excluded: state ? state.excluded.map(entry => ({...entry})) : [],
+      held: COMPOSITE_INPUT_KEYS.filter(compositeKeyHeld),
+      notPublished: COMPOSITE_INPUT_KEYS.filter(key => compositeBlock(key)?.notPublished),
+      currentWeek: state?.currentWeek ?? null,
+      priorWeek: state?.priorWeek ?? null,
+      priorAvailable: Boolean(state?.priorAvailable),
+      priorReason: state?.priorReason ?? null,
+      minSources: DDF_MIN_SOURCES
     };
   }
-  // Writes values.ddf_value, ddfCount, ddfSources and ddfTier on every row.
+  // Writes, on every row: values.ddf_value (the active view's DDF Value this
+  // week), ddfCount and ddfSources (inputs pricing him and their series),
+  // ddfReason (DDF_SHORT_REASON when the value is null), ddfPrior and
+  // ddfPriorCount (the same view, prior week, same inputs), ddfTier, and
+  // ddfByView (all three views: {value, count, sources, reason, prior,
+  // priorCount}).
   // Tier: rank by DDF Value and cut at the league's slot counts -- the
   // engine's value-based slot fill (ValueModel.roleMap: dedicated slots, then
   // superflex, then flex, then bench), the same rule as every other role map.
-  // A player no included series prices has no DDF Value and no tier (null).
   function applyComposite(rows) {
-    const keys = compositeInputKeys();
+    // History reads must not leave the published-chart diagnostics pointing at
+    // a saved week (the same swap as getInspection).
+    const keptView = lastPublishedView;
+    const keptDerivation = lastPublishedDerivation;
+    lastPublishedView = {...keptView};
+    lastPublishedDerivation = {...keptDerivation};
+    try {
+      compositeStates = Object.fromEntries(COMPOSITE_VIEWS.map(view => [view, buildCompositeState(view, rows)]));
+    } finally {
+      lastPublishedView = keptView;
+      lastPublishedDerivation = keptDerivation;
+    }
+    const active = compositeStates[viewMode];
     compositeMap = new Map();
     rows.forEach(row => {
-      const blend = ValueModel.compositeValue(row.values, keys);
-      row.values[COMPOSITE_KEY] = blend.value;
-      row.ddfCount = blend.count;
-      row.ddfSources = blend.used;
-      if (blend.value !== null) compositeMap.set(row.player_key, blend.value);
+      row.ddfByView = Object.fromEntries(COMPOSITE_VIEWS.map(view => {
+        const state = compositeStates[view];
+        const now = state.current.get(row.player_key);
+        const before = state.prior?.get(row.player_key) || null;
+        return [view, {value: now.value, count: now.count, sources: now.used,
+          reason: now.value === null ? DDF_SHORT_REASON : null,
+          prior: before ? before.value : null, priorCount: before ? before.count : 0}];
+      }));
+      const mine = row.ddfByView[active.view];
+      row.values[COMPOSITE_KEY] = mine.value;
+      row.ddfCount = mine.count;
+      row.ddfSources = [...mine.sources];
+      row.ddfReason = mine.reason;
+      row.ddfPrior = mine.prior;
+      row.ddfPriorCount = mine.priorCount;
+      if (mine.value !== null) compositeMap.set(row.player_key, mine.value);
     });
     ddfRoleByKey = ValueModel.roleMap({values: compositeMap, playerOf: playerKey => canonicalByKey.get(playerKey),
       teams, shape: rosterShape});
@@ -2147,21 +2322,44 @@
       row.ddfTier = row.values[COMPOSITE_KEY] === null ? null : (ddfRoleByKey.get(row.player_key) || "waiver");
     });
   }
-  // getSourceInfo({includeComposite: true}) entry. week: the newest week
-  // among the weekly inputs (the content week when only projections are in);
-  // stale: an input is an older week (only when the reader chose one).
+  // getCompositeValues([view]): one view's DDF Value for both weeks as plain
+  // objects keyed by player_key, over every player either week prices.
+  function compositeValuesInfo(view = viewMode) {
+    const state = compositeStates[view];
+    if (!state) return null;
+    const pick = map => {
+      const values = {}, counts = {};
+      map?.forEach((entry, playerKey) => {
+        if (entry.value === null) return;
+        values[playerKey] = entry.value;
+        counts[playerKey] = entry.count;
+      });
+      return {values, counts};
+    };
+    const now = pick(state.current);
+    const before = state.prior ? pick(state.prior) : null;
+    return {view: state.view, inputs: [...state.inputs], series: [...state.series], currentWeek: state.currentWeek,
+      priorWeek: state.priorWeek, priorAvailable: state.priorAvailable, priorReason: state.priorReason,
+      current: now.values, currentCounts: now.counts,
+      prior: before ? before.values : null, priorCounts: before ? before.counts : null,
+      minSources: DDF_MIN_SOURCES};
+  }
+  // getSourceInfo({includeComposite: true}) entry. week: the current week of
+  // the active view's DDF Value. Never stale: an input that has not published
+  // the current week is never included.
   function compositeSourceInfo() {
-    const inputs = compositeInputKeys();
-    const weeks = inputs.map(weekForSource).filter(Number.isFinite);
+    const state = compositeStates[viewMode];
     return {
       key: COMPOSITE_KEY,
       label: sourceLabel(COMPOSITE_KEY),
       longLabel: "DDF Composite Value",
       composite: true,
-      inputs,
+      inputs: state ? [...state.inputs] : [],
+      series: state ? [...state.series] : [],
       isDefault: compositeInputs === null,
-      week: weeks.length ? Math.max(...weeks) : activeReferenceWeek(),
-      stale: inputs.some(compositeKeyOlderWeek),
+      week: state?.currentWeek ?? activeReferenceWeek(),
+      priorWeek: state?.priorWeek ?? null,
+      stale: false,
       available: compositeAvailable(),
       paused: false,
       unavailable: false,
@@ -2171,10 +2369,13 @@
       waiver: null
     };
   }
+  const compositeAvailable = () => compositeMap.size > 0;
   const lockSourceAvailable = key => key === COMPOSITE_KEY ? compositeAvailable()
     : sourceAvailable(key) && !isAdjustedCurvePaused(key);
   // A copy of an engine row for the read-only accessors.
-  const rowCopy = row => ({...row, values: {...row.values}, ddfSources: [...(row.ddfSources || [])]});
+  const rowCopy = row => ({...row, values: {...row.values}, ddfSources: [...(row.ddfSources || [])],
+    ddfByView: Object.fromEntries(Object.entries(row.ddfByView || {}).map(([view, entry]) =>
+      [view, {...entry, sources: [...entry.sources]}]))});
 
   function rebuildDomain() {
     // Live cells first: the two-tier-native curves (espn/cbsros/razzball) and the
@@ -2187,6 +2388,7 @@
     lastPublishedView = {};
     espnRoleByKey = new Map();
     sourceMaps = new Map();
+    compositePriorCache = new Map();
     nativeSourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
     // 2026-10-01: the anchor (espn) re-prices live on the bench-share slider
@@ -3622,8 +3824,17 @@
   // DDF Value fields move: every other series is untouched. Recomputes, redraws
   // and fires trade-value-rows-change, then trade-value-shared-change (with
   // compositeInputs) unless publish is false. Invalid input changes nothing.
+  // JEG-479: an input that is held (HOLD_FIELDS) or not yet published for the
+  // current week is never an input. A requested one is dropped and listed in
+  // `dropped` ({key, reason: "held: ..." | "not yet published for week N",
+  // ...}) and the call still succeeds (v2 replays a saved list). If dropping
+  // them leaves fewer than DDF_MIN_SOURCES usable inputs, the defaults apply
+  // (fellBackToDefaults: true). A list with fewer than DDF_MIN_SOURCES usable
+  // inputs and nothing dropped is refused (no player could have a DDF Value).
   function setCompositeInputs(keys, publish = true) {
     let next = null;
+    let dropped = [];
+    let fellBack = false;
     if (!(keys === null || keys === undefined || keys === "default")) {
       if (!Array.isArray(keys)) return {ok: false, error: "expected an array of series keys, or null for the defaults"};
       if (!keys.length) return {ok: false, error: "no sources given: DDF Value needs at least one"};
@@ -3632,17 +3843,28 @@
         return {ok: false, error: `not a DDF Value input: ${unknown.map(String).join(", ")} (expected ${COMPOSITE_INPUT_KEYS.join(", ")})`};
       }
       if (!engineReady) return {ok: false, error: "DDF Value inputs cannot be set until the engine has loaded"};
-      next = COMPOSITE_INPUT_KEYS.filter(key => keys.includes(key));
-      if (!next.some(compositeKeyUsable)) {
-        return {ok: false, error: `none of ${next.join(", ")} is available for ${scoreLabel()} / ${teams} teams`};
+      const asked = COMPOSITE_INPUT_KEYS.filter(key => keys.includes(key));
+      dropped = asked.map(compositeBlock).filter(Boolean);
+      next = asked.filter(key => !compositeBlock(key));
+      const usable = next.filter(compositeKeyUsable);
+      if (usable.length < DDF_MIN_SOURCES) {
+        // A saved list gone stale (an input held or not yet published this
+        // week) never fails: what it asked for is not possible this week, so
+        // the defaults apply. A list that is short on its own is refused.
+        if (dropped.length) {
+          fellBack = true;
+          next = null;
+        } else {
+          return {ok: false, error: `DDF Value needs at least ${DDF_MIN_SOURCES} usable inputs for ${scoreLabel()} / ${teams} teams; usable: ${usable.join(", ") || "none"}`};
+        }
       }
       const defaults = defaultCompositeInputKeys();
-      if (next.length === defaults.length && next.every(key => defaults.includes(key))) next = null;
+      if (next && next.length === defaults.length && next.every(key => defaults.includes(key))) next = null;
     }
     const before = JSON.stringify(compositeInputs);
     compositeInputs = next;
     if (engineReady && JSON.stringify(compositeInputs) !== before) refreshComposite(publish);
-    return {ok: true, ...compositeInputsInfo()};
+    return {ok: true, ...compositeInputsInfo(), ...(dropped.length ? {dropped} : {}), ...(fellBack ? {fellBackToDefaults: true} : {})};
   }
 
   // Only the DDF Value fields depend on the inputs, so recompute them on the
@@ -3686,6 +3908,27 @@
     : series.endsWith("_adjusted") ? rawKeyForAdjusted(series) : series;
   let historyIndexPromise = null;
   const historyWeekPromises = new Map();
+  // JEG-479: what each history read resolved to ({value} or {error}), so the
+  // DDF Value can pair weeks synchronously inside a rebuild. Keys: "index",
+  // "legs", "served", "doc:<file>". A read not made yet throws "not loaded".
+  const historyLoaded = new Map();
+  const remember = (key, promise) => promise.then(value => {
+    historyLoaded.set(key, {value});
+    return value;
+  }, error => {
+    historyLoaded.set(key, {error});
+    throw error;
+  });
+  function historyNow(key) {
+    const loaded = historyLoaded.get(key);
+    if (!loaded) throw new Error(`${key} is not loaded yet`);
+    if (loaded.error) throw loaded.error;
+    return loaded.value;
+  }
+  function historyWeekDocNow(index, week) {
+    const file = index?.weeks?.[String(week)]?.file;
+    return file ? historyNow(`doc:${file}`) : null;
+  }
   function fetchHistoryJson(path) {
     return fetch(path).then(response => {
       if (!response.ok) throw new Error(`${path} request failed (${response.status})`);
@@ -3694,7 +3937,7 @@
   }
   function historyIndex() {
     if (!historyIndexPromise) {
-      historyIndexPromise = fetchHistoryJson(HISTORY_INDEX_PATH).catch(error => {
+      historyIndexPromise = remember("index", fetchHistoryJson(HISTORY_INDEX_PATH)).catch(error => {
         historyIndexPromise = null;
         throw error;
       });
@@ -3704,7 +3947,7 @@
   let historyEspnLegsPromise = null;
   function historyEspnLegs() {
     if (!historyEspnLegsPromise) {
-      historyEspnLegsPromise = fetchHistoryJson(HISTORY_ESPN_LEGS_PATH).catch(error => {
+      historyEspnLegsPromise = remember("legs", fetchHistoryJson(HISTORY_ESPN_LEGS_PATH)).catch(error => {
         historyEspnLegsPromise = null;
         throw error;
       });
@@ -3714,7 +3957,7 @@
   let historyServedPromise = null;
   function historyServedVersions() {
     if (!historyServedPromise) {
-      historyServedPromise = fetchHistoryJson("assets/history/served.json").catch(error => {
+      historyServedPromise = remember("served", fetchHistoryJson("assets/history/served.json")).catch(error => {
         historyServedPromise = null;
         throw error;
       });
@@ -3725,18 +3968,18 @@
     const file = index?.weeks?.[String(week)]?.file;
     if (!file) return Promise.resolve(null);
     if (!historyWeekPromises.has(file)) {
-      historyWeekPromises.set(file, fetchHistoryJson(file).then(doc => {
+      historyWeekPromises.set(file, remember(`doc:${file}`, fetchHistoryJson(file).then(doc => {
         if (doc?.week !== week) throw new Error(`${file} says week ${doc?.week}, not ${week}`);
         return doc;
-      }).catch(error => {
+      })).catch(error => {
         historyWeekPromises.delete(file);
         throw error;
       }));
     }
     return historyWeekPromises.get(file);
   }
-  function historySetting() {
-    return {scoring, teams, roster: {...rosterShape}, benchShare, viewMode, weights: activePositionWeights()};
+  function historySetting(view = viewMode) {
+    return {scoring, teams, roster: {...rosterShape}, benchShare, viewMode: view, weights: activePositionWeights()};
   }
   function historyUnavailable(source, week, reason, extra) {
     return {source, week, available: false, reason, values: null, setting: historySetting(), ...(extra || {})};
@@ -3818,10 +4061,10 @@
   // ESPN: that week's built leg (pipeline code, HISTORY_ESPN_LEGS_PATH), then
   // exactly the anchor's path: the live cells at the active bench share, the
   // roster shape, the display rules.
-  async function historyEspnValues(entry, week) {
+  function historyEspnValues(entry, week) {
     let legs;
     try {
-      legs = await historyEspnLegs();
+      legs = historyNow("legs");
     } catch (error) {
       return {reason: `the saved ESPN legs could not be read: ${error.message}`};
     }
@@ -3875,21 +4118,47 @@
   // fingerprint, method}.
   async function getWeekValues(source, week) {
     if (source === COMPOSITE_KEY) return compositeWeekValues(week);
+    await loadHistoryFor(source, week);
+    return weekValuesSync(source, week, viewMode);
+  }
+  // Fetches what weekValuesSync(source, week) reads, in the order it reads
+  // it; a failed read is recorded (historyLoaded) and reported by the sync core.
+  async function loadHistoryFor(source, week) {
     week = Number(week);
-    if (!Number.isInteger(week)) return historyUnavailable(source, week, "no week given");
+    if (!Number.isInteger(week) || source === COMPOSITE_KEY) return;
+    try {
+      const index = await historyIndex();
+      await historyWeekDoc(index, week);
+      const base = historyBaseSource(source);
+      const servedRec = index?.served?.[base];
+      if (servedRec?.week === week && servedRec?.version === "superseded") await historyServedVersions();
+      if (source === "espn") await historyEspnLegs();
+    } catch (error) {
+      // historyLoaded holds the error; weekValuesSync words it.
+    }
+  }
+  // getWeekValues without the fetches (they must have resolved). view: the
+  // tab whose values are recomputed. Only the as-published charts differ by
+  // tab, and their earlier weeks exist in Indexed only; every other series
+  // (projections, VORP vs waivers, the *_adjusted charts) is the same in
+  // every tab, so its saved weeks are too.
+  function weekValuesSync(source, week, view) {
+    week = Number(week);
+    const unavailable = (reason, extra) => ({...historyUnavailable(source, week, reason, extra), setting: historySetting(view)});
+    if (!Number.isInteger(week)) return unavailable("no week given");
     const base = historyBaseSource(source);
     if (!AS_PUBLISHED_KEYS.has(base) && !HISTORY_PROJECTION_KEYS.has(base)) {
-      return historyUnavailable(source, week, `unknown series ${source}`);
+      return unavailable(`unknown series ${source}`);
     }
     if (source.endsWith("_vorp") && !PURE_VORP_KEYS.includes(source)) {
-      return historyUnavailable(source, week, `unknown series ${source}`);
+      return unavailable(`unknown series ${source}`);
     }
     let index, doc;
     try {
-      index = await historyIndex();
-      doc = await historyWeekDoc(index, week);
+      index = historyNow("index");
+      doc = historyWeekDocNow(index, week);
     } catch (error) {
-      return historyUnavailable(source, week, `history could not be read: ${error.message}`);
+      return unavailable(`history could not be read: ${error.message}`);
     }
     // The served week may be served from another kept version than the
     // week's snapshot (index served.version "superseded", e.g. a FantasyCalc
@@ -3898,34 +4167,45 @@
     const servedRec = index?.served?.[base];
     if (servedRec?.week === week && servedRec?.version === "superseded") {
       try {
-        const served = await historyServedVersions();
+        const served = historyNow("served");
         const version = served?.sources?.[base];
         if (!version || version.fingerprint !== servedRec.entry_fingerprint) {
-          return historyUnavailable(source, week, `the served ${sourceLabel(base)} version is not saved`);
+          return unavailable(`the served ${sourceLabel(base)} version is not saved`);
         }
         entry = version;
       } catch (error) {
-        return historyUnavailable(source, week, `history could not be read: ${error.message}`);
+        return unavailable(`history could not be read: ${error.message}`);
       }
     }
-    if (!entry) return historyUnavailable(source, week, `no Week ${week} ${sourceLabel(base)} content saved`);
-    if (entry.week !== week) return historyUnavailable(source, week, `saved entry is labelled week ${entry.week}`);
-    if (AS_PUBLISHED_KEYS.has(base) && viewMode !== "indexed") {
-      return historyUnavailable(source, week, "earlier weeks are recomputed in the Indexed view only");
+    if (!entry) return unavailable(`no Week ${week} ${sourceLabel(base)} content saved`);
+    if (entry.week !== week) return unavailable(`saved entry is labelled week ${entry.week}`);
+    if (AS_PUBLISHED_KEYS.has(source) && view !== "indexed") {
+      return unavailable("earlier weeks are recomputed in the Indexed view only");
     }
     const result = source.endsWith("_adjusted") ? historyAdjustedValues(source, base, entry)
       : AS_PUBLISHED_KEYS.has(source) ? historyPublishedValues(source, entry)
       : source.endsWith("_vorp") ? historyVorpValues(source, entry)
-      : source === "espn" ? await historyEspnValues(entry, week)
+      : source === "espn" ? historyEspnValues(entry, week)
       : historyProjectionValues(source, entry);
-    if (!result.values) return historyUnavailable(source, week, result.reason);
+    if (!result.values) return unavailable(result.reason);
     const values = {};
     result.values.forEach((value, playerKey) => {
       const clamped = clampValue(value);
       if (clamped !== null) values[playerKey] = clamped;
     });
-    return {source, week, available: true, values, setting: historySetting(), origin: entry.origin,
+    return {source, week, available: true, values, setting: historySetting(view), origin: entry.origin,
       fingerprint: entry.fingerprint, method: result.method, ...(result.peers ? {peers: result.peers} : {})};
+  }
+  // The served week of a series from the history index, or an unavailable answer.
+  function servedWeekOf(source, week, index) {
+    if (index?.fixture_built_at && data?.built_at && index.fixture_built_at !== data.built_at) {
+      return {error: "the history index belongs to a different build of the values"};
+    }
+    const served = index?.served?.[historyBaseSource(source)];
+    if (!served || !Number.isInteger(served.week)) {
+      return {error: served?.reason || `no saved week matches the ${sourceLabel(source)} values served now`};
+    }
+    return {served};
   }
   // The week before the one this series serves now (frame 22's exact pair).
   // The served week comes from the history index, which matches the served
@@ -3938,21 +4218,43 @@
     } catch (error) {
       return historyUnavailable(source, week ?? null, `history could not be read: ${error.message}`);
     }
-    if (index?.fixture_built_at && data?.built_at && index.fixture_built_at !== data.built_at) {
-      return historyUnavailable(source, week ?? null, "the history index belongs to a different build of the values");
+    const found = servedWeekOf(source, week, index);
+    if (found.served) await loadHistoryFor(source, found.served.week - 1);
+    return priorWeekSync(source, week, viewMode);
+  }
+  function priorWeekSync(source, week, view) {
+    const unavailable = (asked, reason, extra) => ({...historyUnavailable(source, asked, reason, extra), setting: historySetting(view)});
+    let index;
+    try {
+      index = historyNow("index");
+    } catch (error) {
+      return unavailable(week ?? null, `history could not be read: ${error.message}`);
     }
-    const served = index?.served?.[historyBaseSource(source)];
-    if (!served || !Number.isInteger(served.week)) {
-      return historyUnavailable(source, week ?? null, served?.reason || `no saved week matches the ${sourceLabel(source)} values served now`);
-    }
+    const found = servedWeekOf(source, week, index);
+    if (found.error) return unavailable(week ?? null, found.error);
+    const served = found.served;
     const prior = served.week - 1;
     const extra = {currentWeek: served.week, priorWeek: prior,
       ...(served.label_mismatch ? {labelMismatch: served.label_mismatch} : {})};
     if (week !== undefined && week !== null && Number(week) !== prior) {
-      return historyUnavailable(source, Number(week), `Week ${week} is not the week before the served Week ${served.week}`, extra);
+      return unavailable(Number(week), `Week ${week} is not the week before the served Week ${served.week}`, extra);
     }
-    const result = await getWeekValues(source, prior);
-    return {...result, ...extra};
+    return {...weekValuesSync(source, prior, view), ...extra};
+  }
+  // Every history read the DDF Value pairs need (each served week's prior
+  // week, the served versions, the ESPN legs). Awaited once before the first
+  // rebuild; a failure only leaves those inputs without a prior week.
+  async function preloadCompositeHistory() {
+    try {
+      const index = await historyIndex();
+      const weeks = new Set(Object.values(index?.served || {}).map(rec => rec?.week).filter(Number.isInteger));
+      await Promise.all([
+        ...[...weeks].map(week => historyWeekDoc(index, week - 1).catch(() => null)),
+        historyEspnLegs().catch(() => null),
+      ]);
+    } catch (error) {
+      // Recorded in historyLoaded; every pair then reports it.
+    }
   }
   // Read-only: which saved weeks exist for a series, and the week served now.
   // Lets a page offer week pairs (N−1 → N) without reading the history files itself.
@@ -3970,10 +4272,11 @@
     return {source, servedWeek: Number.isInteger(served?.week) ? served.week : null, weeks};
   }
 
-  // ---- DDF Value history (JEG-465 / JEG-471) ----
-  // Built only from the per-series accessors above, so each input is priced
-  // exactly as its own Δ is. The composite is the same equal-weight mean over
-  // finite values (ValueModel.compositeValue).
+  // ---- DDF Value history (JEG-465 / JEG-471 / JEG-479) ----
+  // The pair and the inputs come from the active view's composite state
+  // (buildCompositeState): the same inputs in both weeks, at least
+  // DDF_MIN_SOURCES values per player, each input priced exactly as its own Δ.
+  const COMPOSITE_HISTORY_METHOD = "equal-weight mean of the included inputs' finite values, at least two per player (ValueModel.compositeValue)";
   function compositeOfMaps(series) {
     const keys = series.map(item => item.key);
     const players = new Set(series.flatMap(item => Object.keys(item.values)));
@@ -3981,81 +4284,61 @@
     players.forEach(playerKey => {
       const blend = ValueModel.compositeValue(
         Object.fromEntries(series.map(item => [item.key, item.values[playerKey]])), keys);
-      if (blend.value === null) return;
+      if (blend.count < DDF_MIN_SOURCES) return;
       values[playerKey] = blend.value;
       counts[playerKey] = blend.count;
     });
     return {values, counts};
   }
-  const COMPOSITE_HISTORY_METHOD = "equal-weight mean of the included inputs' finite values (ValueModel.compositeValue)";
-  // One saved week of the DDF Value: every current input that has that week
-  // (the others are listed in `dropped` with their reason).
+  const compositeExtra = state => ({view: state.view, inputs: [...state.inputs], series: [...state.series],
+    excluded: state.excluded.map(entry => ({...entry})), minSources: DDF_MIN_SOURCES});
+  // One saved week of the active view's DDF Value over its inputs (the ones
+  // used for the current/prior pair). An input without that week is listed in
+  // `dropped` (only possible for a week other than the pair's).
   async function compositeWeekValues(week) {
-    const inputs = compositeInputKeys();
+    const state = compositeStates[viewMode];
     week = Number(week);
-    if (!Number.isInteger(week)) return historyUnavailable(COMPOSITE_KEY, week, "no week given", {inputs});
-    if (!inputs.length) return historyUnavailable(COMPOSITE_KEY, week, "no DDF Value input is available at this setting", {inputs});
-    const results = await Promise.all(inputs.map(key => getWeekValues(key, week)));
+    if (!state) return historyUnavailable(COMPOSITE_KEY, week, "the engine has not loaded");
+    const extra = compositeExtra(state);
+    if (!Number.isInteger(week)) return historyUnavailable(COMPOSITE_KEY, week, "no week given", extra);
+    if (!state.series.length) return historyUnavailable(COMPOSITE_KEY, week, "no DDF Value input is available at this setting", extra);
+    const results = await Promise.all(state.series.map(series => getWeekValues(series, week)));
     const included = results.filter(result => result.available);
     const dropped = results.filter(result => !result.available).map(result => ({source: result.source, reason: result.reason}));
     if (!included.length) {
-      return historyUnavailable(COMPOSITE_KEY, week, `no DDF Value input has Week ${week} saved`, {inputs, sources: [], dropped});
+      return historyUnavailable(COMPOSITE_KEY, week, `no DDF Value input has Week ${week} saved`, {...extra, sources: [], dropped});
     }
     const blend = compositeOfMaps(included.map(result => ({key: result.source, values: result.values})));
     return {source: COMPOSITE_KEY, week, available: true, values: blend.values, counts: blend.counts,
-      inputs, sources: included.map(result => result.source), dropped, setting: historySetting(),
+      ...extra, sources: included.map(result => result.source), dropped, setting: historySetting(),
       method: COMPOSITE_HISTORY_METHOD};
   }
-  // Δ pair for the DDF Value (JEG-465): both weeks use the same rule and the
-  // SAME inputs. The pair is the newest served week among the inputs and the
-  // week before it; an input without that prior week (or serving another
-  // week) is dropped from BOTH sides and listed in `dropped`. The served side
-  // is returned as currentValues/currentCounts, computed from the rows'
-  // served values over exactly `sources`, so
-  //   Δ = currentValues[player] − values[player]
-  // (row.values.ddf_value can include inputs the prior side lacks).
+  // Δ pair for the active view's DDF Value: exactly the rows' ddf_value and
+  // ddfPrior. values/counts: the prior week; currentValues/currentCounts: this
+  // week (= row.values.ddf_value). sources: the series averaged in both weeks.
+  // Δ = currentValues[player] − values[player].
   async function compositePriorWeek(week) {
-    const inputs = compositeInputKeys();
+    const state = compositeStates[viewMode];
     const asked = week === undefined || week === null ? null : Number(week);
-    if (!inputs.length) return historyUnavailable(COMPOSITE_KEY, asked, "no DDF Value input is available at this setting", {inputs});
-    const results = await Promise.all(inputs.map(key => getPriorWeek(key)));
-    const servedWeeks = results.map(result => result.currentWeek).filter(Number.isInteger);
-    if (!servedWeeks.length) {
-      return historyUnavailable(COMPOSITE_KEY, asked, "no DDF Value input matches a saved week", {inputs, sources: [],
-        dropped: results.map(result => ({source: result.source, reason: result.reason}))});
+    if (!state) return historyUnavailable(COMPOSITE_KEY, asked, "the engine has not loaded");
+    const extra = {...compositeExtra(state), currentWeek: state.currentWeek, priorWeek: state.priorWeek};
+    if (!state.priorAvailable) return historyUnavailable(COMPOSITE_KEY, asked, state.priorReason, {...extra, sources: []});
+    if (asked !== null && asked !== state.priorWeek) {
+      return historyUnavailable(COMPOSITE_KEY, asked, `Week ${week} is not the week before the served Week ${state.currentWeek}`, extra);
     }
-    const currentWeek = Math.max(...servedWeeks);
-    const priorWeek = currentWeek - 1;
-    const extra = {inputs, currentWeek, priorWeek};
-    if (asked !== null && asked !== priorWeek) {
-      return historyUnavailable(COMPOSITE_KEY, asked, `Week ${week} is not the week before the served Week ${currentWeek}`, extra);
-    }
-    const isIncluded = result => result.available && result.currentWeek === currentWeek;
-    const included = results.filter(isIncluded);
-    const dropped = results.filter(result => !isIncluded(result)).map(result => ({source: result.source,
-      reason: result.available ? `serves Week ${result.currentWeek}, not Week ${currentWeek}` : result.reason}));
-    if (!included.length) {
-      return historyUnavailable(COMPOSITE_KEY, priorWeek, `no DDF Value input has Week ${priorWeek}`, {...extra, sources: [], dropped});
-    }
-    const sources = included.map(result => result.source);
-    const prior = compositeOfMaps(included.map(result => ({key: result.source, values: result.values})));
-    const currentValues = {}, currentCounts = {};
-    universe.forEach(row => {
-      const blend = ValueModel.compositeValue(row.values, sources);
-      if (blend.value === null) return;
-      currentValues[row.player_key] = blend.value;
-      currentCounts[row.player_key] = blend.count;
-    });
-    return {source: COMPOSITE_KEY, week: priorWeek, available: true, values: prior.values, counts: prior.counts,
-      currentValues, currentCounts, sources, dropped, ...extra, setting: historySetting(), method: COMPOSITE_HISTORY_METHOD};
+    const info = compositeValuesInfo(viewMode);
+    return {source: COMPOSITE_KEY, week: state.priorWeek, available: true, values: info.prior, counts: info.priorCounts,
+      currentValues: info.current, currentCounts: info.currentCounts, sources: [...state.series], dropped: [],
+      ...extra, setting: historySetting(), method: COMPOSITE_HISTORY_METHOD};
   }
-  // Saved weeks any current input has, and the newest served week among them.
+  // Saved weeks any input has, and the current week of the pair.
   async function compositeHistoryWeeks() {
-    const inputs = compositeInputKeys();
-    const results = await Promise.all(inputs.map(key => getHistoryWeeks(historyBaseSource(key))));
-    const served = results.map(result => result.servedWeek).filter(Number.isInteger);
+    const state = compositeStates[viewMode];
+    const series = state ? state.series : [];
+    const results = await Promise.all(series.map(key => getHistoryWeeks(historyBaseSource(key))));
     const weeks = [...new Set(results.flatMap(result => result.weeks))].sort((a, b) => a - b);
-    return {source: COMPOSITE_KEY, servedWeek: served.length ? Math.max(...served) : null, weeks, inputs};
+    return {source: COMPOSITE_KEY, servedWeek: state?.priorAvailable ? state.currentWeek : null, weeks,
+      inputs: state ? [...state.inputs] : [], series: [...series]};
   }
 
   // Math inspector (internal page, read-only). Every input and intermediate
@@ -4174,9 +4457,11 @@
     },
     // v2 front end (read-only): the ranked rows and source metadata the new
     // layout renders, straight from the same maps this chart draws.
-    // JEG-471: each row also carries the DDF Composite Value: values.ddf_value
-    // (null when no included series prices him), ddfCount, ddfSources and
-    // ddfTier ("starter" | "bench" | "waiver", null without a DDF Value).
+    // JEG-471 / JEG-479: each row also carries the DDF Composite Value of the
+    // active view: values.ddf_value (null when fewer than two included
+    // inputs price him; ddfReason says so), ddfCount, ddfSources, ddfPrior,
+    // ddfPriorCount, ddfTier ("starter" | "bench" | "waiver", null without a
+    // DDF Value) and ddfByView (all three views, both weeks).
     getRows: () => displayRows().map(rowCopy),
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
@@ -4237,7 +4522,10 @@
       waiver: publishedWaiver(key)
     })), ...(options && options.includeComposite ? [compositeSourceInfo()] : [])],
     // JEG-471: the DDF Value inputs; see setCompositeInputs.
-    getCompositeInputs: () => compositeInputsInfo(),
+    // JEG-479: getCompositeInputs([view]) for the active view by default;
+    // getCompositeValues([view]) gives one view's DDF Value for both weeks.
+    getCompositeInputs: view => compositeInputsInfo(COMPOSITE_VIEWS.includes(view) ? view : viewMode),
+    getCompositeValues: view => compositeValuesInfo(COMPOSITE_VIEWS.includes(view) ? view : viewMode),
     getLoadStatus: () => productLoadStatus(),
     setCompositeInputs,
     resetCompositeInputs: (publish = true) => setCompositeInputs(null, publish),
@@ -5154,6 +5442,9 @@
     try {
       data = await loadComparisonData();
       adjustmentInputs = await loadAdjustmentInputs();
+      // JEG-479: the DDF Value pairs weeks inside every rebuild, so its
+      // history reads are fetched before the first one.
+      await preloadCompositeHistory();
       // Fresh-load default: ESPN adjusted plus every *_adjusted curve with
       // live stage-2 cells (fixture-transition Option B auto-return). The
       // banner's "shown by default" copy is only true when this matches it.

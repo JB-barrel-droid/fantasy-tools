@@ -296,24 +296,58 @@ the week; projection sources use the newest snapshot dated in the week. A closed
 never changes; other versions are kept, not used. Full rule and contract: docs/v2-design-notes.md
 "Back-end contract: history".
 
-## DDF Composite Value (JEG-455 / JEG-471, Jeremy 2026-10-08)
+## DDF Composite Value (JEG-455 / JEG-471 / JEG-479, Jeremy 2026-10-08)
 
-The **DDF Composite Value** ("DDF Value" in compact spots) is, per player, the
-equal-weight mean of the **adjusted** values: our projections (ESPN, CBS ROS,
-Razzball, DDF-adjusted) and the bias-adjusted trade charts (`*_adjusted`).
-It never averages the as-published (Indexed) charts or VORP vs waivers.
+The **DDF Composite Value** ("DDF Value" in compact spots) is computed per
+league setting (scoring, teams, roster, bench share, position shares), per
+view and per week, by these steps. The engine and the Python reference
+implement exactly this text.
 
-- Only series that price the player count; a missing series is left out, never
-  counted as 0. ESPN's 0 for a player it lists at 0 counts (GAP-025). Each
-  value carries its source count.
-- Default inputs: every one of those series that is available and in the
-  current week (a weekly chart older than the newest week is left out, the
-  first-load rule). The reader can choose the inputs.
-- One DDF Value for every comparison column (no leave-one-out).
-- Tier: rank by DDF Value and cut at the league's slot counts (the engine's
-  value-based slot fill).
-- Δ: this week's DDF Value minus last week's, both over the same inputs; an
-  input without the prior week is dropped from both.
+1. **Inputs.** Seven: `espn`, `cbsros`, `razzball` (our projections) and
+   `fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted`,
+   `cbs_adjusted` (the four trade charts).
+2. **Series per view.** Each input contributes one series in each of the
+   Three Views:
+
+   | Input | Indexed | VORP vs waivers | Adjusted values |
+   |---|---|---|---|
+   | `espn` / `cbsros` / `razzball` | the input itself | `espn_vorp` / `cbsros_vorp` / `razzball_vorp` | the input itself |
+   | `<chart>_adjusted` | `<chart>_adjusted` (bias-adjusted) | `<chart>` translated to value above waivers | `<chart>` Adjusted values |
+
+3. **Never an input this week** (even when a reader selects it):
+   - *Held*: the source's section, or the derived series' own section, carries
+     `validationHold` or `promotionHold`. A hold on a source holds every
+     series derived from it (`fantasycalc` holds `fantasycalc_adjusted`;
+     `espn` holds `espn_vorp`; and so on). Reason: `held: <reason>`.
+   - *Not yet published*: a weekly chart whose content week is older than the
+     current content week (Tuesday flip, `pipelines/nfl_week.py`). Its prior
+     section is the only valid one, and it is not used. Reason: `not yet
+     published for week N`. Projections are rest-of-season and always current.
+4. **Selected and available.** By default every input left by step 3; a reader
+   may choose a subset (at least two). An input whose series has no values at
+   this setting (missing section, paused, no saved setup) is left out.
+5. **Same inputs in both weeks.** For each remaining input, its series is
+   recomputed for the prior week at the same setting and view (the week
+   before the week it serves; history rule in "Week-Over-Week Snapshots"). The
+   pair is the newest served week among them (`currentWeek`) and the week
+   before (`priorWeek`). An input without that prior week, or serving another
+   week, is left out of **both** weeks. Today the as-published charts are
+   recomputed for earlier weeks in the Indexed view only, so in VORP vs
+   waivers and Adjusted values the four charts are left out and those two
+   DDF Values average our three projections (MR-17). If no input has a prior
+   week (a first week, or no history), the current week uses the inputs from
+   step 4 and there is no prior week.
+6. **Per player, per week.** The equal-weight mean of the finite values of
+   the included series. A series that does not price the player is left out,
+   never counted as 0; ESPN's 0 for a player it lists at 0 counts (GAP-025).
+   The value is published only when **at least two** series price the player;
+   otherwise it is null with the reason "Needs at least two source values".
+   The prior week uses the same series and the same two-value rule.
+7. **Δ** = this week's value − the prior week's value, when both exist.
+8. **Tier.** Rank by the view's current DDF Value and cut at the league's slot
+   counts (the engine's value-based slot fill). No value, no tier.
+
+One DDF Value per view for every comparison column (no leave-one-out).
 
 The engine computes it in the browser (`curve-widget.js`,
 `ValueModel.compositeValue`); the API is in `docs/v2-design-notes.md`
