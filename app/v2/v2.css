@@ -158,6 +158,11 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-app .v2-call { min-height: 32px; padding: 0 4px; font-size: 12px; position: relative; }
 .v2-app .v2-call::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 
+/* DDF Value inputs inside Customize (JEG-466): a nested list under the DDF Value row. */
+.v2-ddf-inputs { border: 0; margin: 4px 0 8px; padding: 0 0 0 28px; }
+.v2-ddf-inputs legend { padding: 0; font-size: 12px; font-weight: 700; color: var(--v2-muted); }
+.v2-ddf-inputs .v2-crow { min-height: 40px; }
+
 /* Main */
 .v2-main { padding-top: 28px; padding-bottom: 48px; }
 .v2-title h1 { font-size: 34px; line-height: 1.15; font-weight: 800; }
@@ -187,6 +192,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-chart .series.is-indexed { stroke-dasharray: 6 4; }
 .v2-chart .series.is-vorp { stroke-dasharray: 1.5 4; stroke-width: 2.4; }
 .v2-chart .series.is-older { opacity: .85; }
+.v2-chart .series.is-ddf { stroke-width: 3.5; }
 .v2-chart .crosshair { stroke: var(--v2-action); stroke-dasharray: 3 3; }
 .v2-chart .hover-dot { stroke: var(--v2-surface); stroke-width: 2; }
 .v2-chart .name-label { font-size: 10px; fill: var(--v2-muted); }
