@@ -1570,12 +1570,47 @@ def cap_tie_churn(cmp: dict, left: dict, right: dict, ident: Identity) -> list[d
     return churn
 
 
+class StoredRowIdentity:
+    """A publisher name the canonical resolver refuses resolves through the
+    stored row of exactly that name and position, keyed by the saver's
+    verified player_key.
+
+    Razzball lists fullbacks and some special-teamers under another position
+    (Brady Russell RB, Jackson Meeks TE): the resolver says position_conflict,
+    while the saver stored them under their key. The page row and the stored
+    row are then the same player with the same numbers, and reading them as
+    "stored players not on the page" turned Razzball red (pulse run
+    37945152207: 2040/2040 values equal, 5 such players). Only an exact
+    (normalized name, position) match with one stored row is accepted.
+    """
+
+    def __init__(self, ident: "Identity", rows: list[dict]):
+        from canonical_players import norm_plain  # noqa: PLC0415
+        self.ident, self.norm = ident, norm_plain
+        seen: dict[tuple, set] = {}
+        for r in rows:
+            if r.get("player_norm") and r.get("player_key") is not None:
+                seen.setdefault((r["player_norm"], (r.get("pos") or "").upper()), set()).add(int(r["player_key"]))
+        self.by_name = {k: next(iter(v)) for k, v in seen.items() if len(v) == 1}
+        self.used: list[str] = []
+
+    def resolve(self, name, pos):
+        key, reason = self.ident.resolve(name, pos)
+        if key is None:
+            stored = self.by_name.get((self.norm(name), (pos or "").upper()))
+            if stored is not None:
+                self.used.append(name)
+                return stored, None
+        return key, reason
+
+
 def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident, now, universe, probe):
     if pub.get("error"):
         return stage("unknown", f"publisher not read: {pub['error']}", url=pub.get("url")), {}
     if not rows:
         return stage("red", f"no stored {LABEL[source]} rows"), {}
-    left, unresolved = publisher_grains(pub.get("rows") or [], ident)
+    stored_ident = StoredRowIdentity(ident, rows)
+    left, unresolved = publisher_grains(pub.get("rows") or [], stored_ident)
     right = projection_grains(rows, mod.stored_publisher_values, ident=ident)
     cmp = compare(left, right, printed=True)
     outside = split_universe(cmp, "missing", universe)
@@ -1605,6 +1640,9 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
     if unresolved:
         status = worst(status, "amber")
         reasons.append(f"{len(unresolved)} publisher names do not resolve to a canonical player")
+    if stored_ident.used:
+        reasons.append(f"{len(stored_ident.used)} publisher names matched by the stored row's key (the canonical "
+                       f"resolver refuses their listed position: {', '.join(stored_ident.used[:5])})")
     if churn:
         reasons.append(f"{players(churn)} players at the page's last listed value swapped in or out "
                        f"(ties at the row cap: {', '.join(sorted({m['name'] for m in churn}))[:200]})")
