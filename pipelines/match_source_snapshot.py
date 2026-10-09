@@ -218,14 +218,44 @@ def default_output_path(snapshot: dict[str, Any], output_dir: Path) -> Path:
     return output_dir / source / fetched / f"{source}-{scoring}-{teams}-matched.json"
 
 
+def _matched_row(row: dict[str, Any], snapshot: dict[str, Any], player: dict[str, Any],
+                 identity_source: str) -> dict[str, Any]:
+    return {
+        "player_key": player["player_key"],
+        "canonical_name": player["name"],
+        "identity_source": identity_source,
+        "source_player_name": row.get("player_name"),
+        "source": snapshot.get("source"),
+        "native_value": row.get("native_value", row.get("value")),
+        "value": row.get("value"),
+        "scoring": row.get("scoring") or snapshot.get("default_scoring"),
+        "teams": row.get("teams") or snapshot.get("default_teams"),
+        "pos": row.get("pos"),
+        "team": row.get("team"),
+        "source_player_id": row.get("source_player_id"),
+    }
+
+
 def _match_rows(
     rows: list[dict[str, Any]],
     snapshot: dict[str, Any],
     identity_map: dict[str, Any],
     index: dict[str, list[dict[str, Any]]],
     use_sleeper: bool,
+    by_key: dict[int, dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """-> (matched, review) for one list of snapshot rows."""
+    """-> (matched, review) for one list of snapshot rows.
+
+    by_key: the chart roster by player_key. A Supabase-backed row already
+    carries the canonical player_key its saver resolved
+    (source_player_id = public.players.player_key, lib/canonical_players);
+    when the name path below finds no single roster player, the row joins
+    the roster on that key instead of being dropped (identity_source
+    "player_key"). JEG-480: USA Today week 5 "Josh Palmer" (822) was
+    stored and in the roster, but neither the identity table nor Sleeper
+    names him, so he never reached the chart. The name path still decides
+    whenever it finds a player; only its misses fall back.
+    """
     matched = []
     review = []
     for row in rows:
@@ -239,6 +269,11 @@ def _match_rows(
         if identity is None and use_sleeper:
             identity = resolve_sleeper(row.get("player_name"), row.get("pos") or None)
             identity_source = identity["source"] if identity else None
+        key_player = (by_key or {}).get(row.get("source_player_id")) \
+            if isinstance(row.get("source_player_id"), int) else None
+        if identity is None and key_player is not None:
+            matched.append(_matched_row(row, snapshot, key_player, "player_key"))
+            continue
         if identity is None:
             review.append(
                 {
@@ -262,6 +297,8 @@ def _match_rows(
         canonical_normalized = normalize_name(identity["name"])
         candidates = index.get(canonical_normalized, [])
         player, reason = resolve_candidate(row, candidates)
+        if player is None and key_player is not None:
+            player, identity_source = key_player, "player_key"
         if player:
             matched.append(
                 {
@@ -324,7 +361,8 @@ def match_snapshot(
     )
     records = player_records(players_path)
     index = build_canonical_index(records, identity_map)
-    matched, review = _match_rows(rows, snapshot, identity_map, index, use_sleeper)
+    by_key = {r["player_key"]: r for r in records}
+    matched, review = _match_rows(rows, snapshot, identity_map, index, use_sleeper, by_key)
 
     result = {
         "schema": OUTPUT_SCHEMA,
@@ -343,7 +381,7 @@ def match_snapshot(
         # JEG-366: which identity layer resolved each matched row.
         "identity_layers": {
             layer: sum(1 for m in matched if m.get("identity_source") == layer)
-            for layer in ("manual", "sleeper", "sleeper-rostered")
+            for layer in ("manual", "sleeper", "sleeper-rostered", "player_key")
         },
         "matched_rows": matched,
         "review_rows": review,
@@ -354,7 +392,7 @@ def match_snapshot(
     # groups, counts or review). Present only when the snapshot has them.
     if "superflex_rows" in snapshot:
         sf_matched, sf_review = _match_rows(
-            snapshot.get("superflex_rows") or [], snapshot, identity_map, index, use_sleeper)
+            snapshot.get("superflex_rows") or [], snapshot, identity_map, index, use_sleeper, by_key)
         result["superflex_matched_rows"] = [{**r, "qb_slots": 2} for r in sf_matched]
         result["superflex_review_rows"] = sf_review + list(snapshot.get("superflex_review_rows") or [])
     return result
