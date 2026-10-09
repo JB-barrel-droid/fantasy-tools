@@ -88,7 +88,8 @@ H1 = "Where the trade market is wrong this week"
 SUBTITLE = ("We check four published trade charts against our projection-based values for your league. "
             "Sell the players they overpay for; buy the ones they undervalue.")
 INDEXED_TEXT = ("Published charts use their own point scales. We rescale each chart so its total value matches our "
-                "ESPN-based scale for your league, which makes the numbers comparable.")
+                "ESPN-based scale for your league, which makes the numbers comparable. Rankings within a chart don't "
+                "change; only the scale does.")
 FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
 
 READ = """([side, ours, ids]) => {

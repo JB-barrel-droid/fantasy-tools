@@ -922,24 +922,3 @@ Supersedes the Player values parts of "Chart options (21)" and "Navigator and va
   notice. When it differs from the request one note says so: "Bench 2.0% requested · priced at 4.4–7.5% (lowest
   the league supports)". The slider position and the share link (`bench=`) still carry the request. The
   "Bench share moved from … to …" league notice is about the setting and is unchanged.
-
-## DDF Value in v2: defaults, Customize, remembered choice (2026-10-08, JEG-471 v2 side / JEG-466 part 2)
-
-Built on the engine's "Back-end contract: DDF Value" above. v2 still does no value math.
-
-- **Series:** `ddf_value` is a first-class v2 series, with method "ddf", the ★ symbol and brand orange (#A84410 light, #F28C5B dark, at least 4.5:1). It sorts first everywhere, has its own "DDF Value" group in the table, and its chart line is drawn last and heavier (3.5 px).
-- **Shown on/off:** whether DDF Value is shown is v2's own flag (`ddfShown`), because the composite has no engine toggle. `TradeValueV2.shown()` lists the shown series and `TradeValueV2.setShown(keys)` does what Customize's Done does; tests use both.
-- **Default (first visit):** DDF Value plus every available as-published chart, ranked by DDF Value (`setLockOrder("ddf_value")`).
-- **Customize:** the DDF Value group lists the engine's allowed inputs (`getCompositeInputs().allowed`), ticked where the engine uses them.
-  - Only "not selected" inputs are selectable. A held, prior-week or unavailable source shows the engine's reason and is disabled (JEG-479: never a DDF input).
-  - A missing DDF Value shows "—" with `row.ddfReason` when the engine gives one (JEG-479: fewer than two sources).
-  - v2 reads `values.ddf_value` and never assumes which view it belongs to, so JEG-479's per-view DDF values need no change here.
-  - On Done, a changed input set goes to `setCompositeInputs`.
-  - Reset to default restores both the default shown set and `defaults`.
-- **Remembered on this device (JEG-455 decision):** `localStorage["ddf.v2.selection"]` holds `{v: 1, shown, inputs (null = engine defaults), rank}`.
-  - It is written on Customize Done and on a Rank by change, and read once at start-up, before a shared link is applied.
-  - Storage errors are ignored, in which case the choice lasts the visit.
-- **Reset** on Player values also restores Rank by to DDF Value (Jeremy, 2026-10-08).
-- **Δ prior week for DDF Value:** `movers.deltaFor` uses the prior result's `currentValues` when present, so both sides cover the same inputs.
-- **Copy:** the footer no longer says "no blended score". It now reads "DDF Value is our value, built from the inputs you choose in Customize. Every other series keeps its source's identity." Nothing explains the MR-17 methodology yet.
-- **Tests:** `tests/test_v2_ddf_render.py` (test-unit), with 9 deliberately broken builds. The compare, offer, panels, states and waterfall tests now read the shown set from `TradeValueV2.shown()`, and widen it where a check needs several methods.

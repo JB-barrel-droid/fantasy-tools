@@ -61,7 +61,7 @@ EXTRA_SERIES = ("fantasycalc", "espn_vorp")
 PICK = """() => {
   const C = window.TradeValueCurveControls;
   const rows = C.getAllRows();
-  const active = window.TradeValueV2.shown();
+  const active = C.getActiveSources();
   const byEspn = rows.filter(r => Number.isFinite(r.values.espn)).sort((a, b) => b.values.espn - a.values.espn);
   const complete = r => active.every(k => Number.isFinite(r.values[k]));
   const priced = byEspn.filter(complete);
@@ -236,11 +236,14 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                 page.goto(base + "#player-values", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
                 # Frame 18 "only one comparable series": leave one source selected.
-                page.evaluate("() => window.TradeValueV2.setShown([window.TradeValueCurveControls.getActiveSources()[0]])")
+                page.evaluate("""() => { const C = window.TradeValueCurveControls;
+                  for (const key of C.getActiveSources().slice(1)) {
+                    const box = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
+                    if (box && box.checked) box.click(); } }""")
                 page.evaluate("() => { location.hash = '#how-values'; location.hash = '#player-values'; }")
                 page.wait_for_timeout(300)
                 notice = page.evaluate("""() => ({shown: !document.getElementById('v2Notice').hidden,
-                  text: document.getElementById('v2NoticeText').textContent, active: window.TradeValueV2.shown()})""")
+                  text: document.getElementById('v2NoticeText').textContent, active: window.TradeValueCurveControls.getActiveSources()})""")
                 if len(notice["active"]) == 1 and (not notice["shown"] or "Only one series" not in notice["text"]):
                     errors.append(tag + f"one series selected but no notice: {notice}")
                 page.evaluate("""keys => { for (const key of keys) {

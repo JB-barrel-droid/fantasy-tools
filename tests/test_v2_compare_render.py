@@ -55,7 +55,7 @@ EXTRA_SERIES = ("usatoday", "espn_vorp")
 PICK = """(extra) => {
   const C = window.TradeValueCurveControls;
   const rows = C.getAllRows();
-  const active = window.TradeValueV2.view().active;
+  const active = C.getActiveSources();
   const byEspn = rows.filter(r => Number.isFinite(r.values.espn)).sort((a, b) => b.values.espn - a.values.espn);
   const complete = r => active.every(k => Number.isFinite(r.values[k]));
   const priced = byEspn.filter(complete);
@@ -67,7 +67,7 @@ PICK = """(extra) => {
 READ = """() => {
   const C = window.TradeValueCurveControls;
   const engine = Object.fromEntries(C.getAllRows().map(r => [String(r.player_key), {name: r.name, values: r.values}]));
-  const info = Object.fromEntries(C.getSourceInfo({includeComposite: true}).map(i => [i.key, i.available]));
+  const info = Object.fromEntries(C.getSourceInfo().map(i => [i.key, i.available]));
   const read = table => [...table.querySelectorAll('tbody tr')].map(tr => {
     const cell = name => tr.querySelector(`td[data-col="${name}"]`);
     return {key: tr.dataset.source,
@@ -78,7 +78,7 @@ READ = """() => {
       why: cell('net').querySelector('.missing .why')?.textContent ?? null};
   });
   const side = id => [...document.querySelectorAll(`#${id} li[data-player-key]`)].map(li => li.dataset.playerKey);
-  return {engine, active: window.TradeValueV2.view().active.filter(k => info[k]),
+  return {engine, active: C.getActiveSources().filter(k => info[k]),
     give: side('v2GivePlayers'), receive: side('v2GetPlayers'),
     points: document.getElementById('v2CTable').hidden ? [] : read(document.getElementById('v2CTable')),
     vorp: document.getElementById('v2CVorpCard').hidden ? [] : read(document.getElementById('v2CVorpTable')),
