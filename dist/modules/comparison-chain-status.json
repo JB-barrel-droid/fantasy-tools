@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-09T16:50:37.524920+00:00",
+  "run_at": "2026-10-09T17:13:48.069654+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "HELD at stage 'promote' (amber, failed at stage 'promote'): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: promote refused/failed: promotion refused: import health for 'fantasycalc' is 'failed', not 'ok' or a one-week lag (TABLE_DRIFT: table has 594 rows at latest vintage Week 5, manifest expects 591 -- partial/stale table, not complete)\n",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -12,10 +12,27 @@
   },
   "failed": [],
   "success": true,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
-  "held_detail": {},
+  "outcome": "published_with_holds",
+  "held": [
+    "fantasycalc"
+  ],
+  "hold_severity": "amber",
+  "held_detail": {
+    "fantasycalc": {
+      "detail": "fantasycalc-full-12-qb1-section: promote refused/failed: promotion refused: import health for 'fantasycalc' is 'failed', not 'ok' or a one-week lag (TABLE_DRIFT: table has 594 rows at latest vintage Week 5, manifest expects 591 -- partial/stale table, not complete)\n",
+      "reason": "failed at stage 'promote'",
+      "stage": "promote",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -28,11 +45,24 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "promote",
+      "detail": "fantasycalc-full-12-qb1-section: promote refused/failed: promotion refused: import health for 'fantasycalc' is 'failed', not 'ok' or a one-week lag (TABLE_DRIFT: table has 594 rows at latest vintage Week 5, manifest expects 591 -- partial/stale table, not complete)\n",
+      "promoted": 0,
+      "sections": 3,
+      "held": false,
+      "held_reason": "failed at stage 'promote'",
+      "failed_stage": "promote",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -93,7 +123,7 @@
     "fantasycalc": {
       "content_vintage": "Week 5",
       "content_week": 5,
-      "health_status": "ok",
+      "health_status": "failed",
       "lagging_one_week": false
     },
     "fantasypros": {
