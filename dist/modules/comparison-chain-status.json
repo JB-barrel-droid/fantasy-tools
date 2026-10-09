@@ -1,8 +1,8 @@
 {
-  "run_at": "2026-10-09T16:28:45.393505+00:00",
+  "run_at": "2026-10-09T16:50:37.524920+00:00",
   "nfl_week": 5,
   "sources": {
-    "usatoday": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
+    "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
@@ -12,49 +12,19 @@
   },
   "failed": [],
   "success": true,
-  "outcome": "published_with_holds",
-  "held": [
-    "usatoday"
-  ],
-  "hold_severity": "amber",
-  "held_detail": {
-    "usatoday": {
-      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
-      "reason": "review hold",
-      "stage": "review",
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "2026-10-06",
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber",
-      "rolled_back": 0
-    }
-  },
+  "outcome": "green",
+  "held": [],
+  "hold_severity": "none",
+  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "held",
-      "stage": "review",
-      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
-      "sections": 3,
-      "held": true,
-      "held_reason": "review hold",
-      "failed_stage": "review",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "2026-10-06",
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
+      "sections": 3
     },
     "fantasycalc": {
       "source": "fantasycalc",
