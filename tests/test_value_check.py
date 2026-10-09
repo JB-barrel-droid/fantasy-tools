@@ -63,7 +63,7 @@ class ReferenceMatchesEngine(unittest.TestCase):
         self.assertEqual(report["verdict"], "agree")
         self.assertGreater(report["values_compared"], 150000)
         # Every page series was compared somewhere.
-        for key in (*ref.SERIES_KEYS, ref.COMPOSITE_KEY, "ddf_value_prior"):
+        for key in (*ref.SERIES_KEYS, *ref.DDF_VERSIONS, *(f"{v}_prior" for v in ref.DDF_VERSIONS)):
             self.assertGreater(report["series"][key]["compared"], 0, key)
 
 
@@ -148,11 +148,14 @@ class HeldAndUnpublishedInputs(unittest.TestCase):
         bad = {k: a["examples"][:2] for k, a in report["series"].items() if a["mismatches"]}
         self.assertEqual(bad, {})
         for sid, r in reference.items():
-            for view, comp in r["composite"].items():
-                self.assertNotIn("fantasycalc_adjusted", comp["inputs"], f"{sid}/{view}")
-                self.assertNotIn("usatoday_adjusted", comp["inputs"], f"{sid}/{view}")
-                self.assertTrue(comp["excluded"]["fantasycalc_adjusted"].startswith("held:"))
-                self.assertTrue(comp["excluded"]["usatoday_adjusted"].startswith("not yet published"))
+            for view, versions in r["composite"].items():
+                for version in ("ddf_value", "ddf_value_charts"):
+                    comp = versions[version]
+                    tag = f"{sid}/{view}/{version}"
+                    self.assertNotIn("fantasycalc_adjusted", comp["inputs"], tag)
+                    self.assertNotIn("usatoday_adjusted", comp["inputs"], tag)
+                    self.assertTrue(comp["excluded"]["fantasycalc_adjusted"].startswith("held:"), tag)
+                    self.assertTrue(comp["excluded"]["usatoday_adjusted"].startswith("not yet published"), tag)
             self.assertIn("fantasycalc_adjusted", (engine["settings"][sid]["composite"].get("held") or []))
 
 

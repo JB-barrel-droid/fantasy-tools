@@ -822,7 +822,7 @@ the week; projection sources use the newest snapshot dated in the week. A closed
 never changes; other versions are kept, not used. Full rule and contract: docs/v2-design-notes.md
 "Back-end contract: history".
 
-## DDF Composite Value (JEG-455 / JEG-471 / JEG-479, Jeremy 2026-10-08/09)
+## DDF Composite Value (JEG-455 / JEG-471 / JEG-479 / JEG-497, Jeremy 2026-10-08/09)
 
 > **Superseded (JEG-508)**: steps 1, 2, 5, 6 and 8 and "one DDF Value per
 > view".
@@ -838,21 +838,26 @@ never changes; other versions are kept, not used. Full rule and contract: docs/v
 > "Published Charts On The Rows" is retired with the fit.
 
 The **DDF Composite Value** ("DDF Value" in compact spots) is computed per
-league setting (scoring, teams, roster, bench share, position shares), per
-view and per week, by these steps. The engine and the Python reference
+league setting (scoring, teams, roster, bench share, position shares) and per
+week, by these steps. It is **one number per player in each of three
+versions, the same in every view and tab**: the view tabs change what the
+chart plots, never the DDF Value. The engine and the Python reference
 implement exactly this text.
 
-1. **Inputs.** Seven: `espn`, `cbsros`, `razzball` (our projections) and
-   `fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted`,
-   `cbs_adjusted` (the four trade charts).
-2. **Series per view.** Each input contributes one series in each of the
-   Three Views:
+1. **Inputs and their values.** Seven inputs, each contributing its
+   **Adjusted values** value only (Jeremy 2026-10-09: the Indexed and VORP vs
+   waivers values never feed it):
 
-   | Input | Indexed | VORP vs waivers | Adjusted values |
-   |---|---|---|---|
-   | `espn` / `cbsros` / `razzball` | the input itself | `espn_vorp` / `cbsros_vorp` / `razzball_vorp` | the input itself |
-   | `<chart>_adjusted` | `<chart>_adjusted` (bias-adjusted) | `<chart>` translated to value above waivers | `<chart>` Adjusted values |
+   | Input | Value used | DDF series name |
+   |---|---|---|
+   | `espn`, `cbsros`, `razzball` | the projection's value as the rows carry it (identical in every tab) | `espn`, `cbsros`, `razzball` |
+   | `fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted`, `cbs_adjusted` | the published chart's **Adjusted values** (value above waivers re-weighted to our weights, "The Three Views" 2), with the rows' rules ("Published Charts On The Rows") | `<chart>_adj_values` |
 
+   The input keys keep their historical names; a chart input is the chart, not
+   its bias-adjusted `*_adjusted` series.
+2. **Three versions (JEG-497).** `ddf_value` averages all seven inputs,
+   `ddf_value_charts` the four charts, `ddf_value_projections` the three
+   projections. Steps 3-8 apply to each version on its own inputs.
 3. **Never an input this week** (even when a reader selects it):
    - *Held*: the source's section, or the derived series' own section, carries
      `validationHold: {reason, week, root, kept_week}` (the pipeline sets it
@@ -866,47 +871,48 @@ implement exactly this text.
      section is the only valid one, and it is not used. Reason: `not yet
      published for week N`. Projections are rest-of-season and always current.
 4. **Selected and available.** By default every input left by step 3; a reader
-   may choose a subset (at least one). An input whose series has no values at
-   this setting (missing section, paused, no saved setup) is left out.
-5. **Same inputs in both weeks.** For each remaining input, its series is
-   recomputed for the prior week at the same setting and view (the week
-   before the week it serves; history rule in "Week-Over-Week Snapshots"). The
-   pair is the newest served week among them (`currentWeek`) and the week
-   before (`priorWeek`). An input without that prior week, or serving another
-   week, is left out of **both** weeks. A chart's VORP vs waivers / Adjusted
-   values for a saved week (JEG-479, Jeremy 2026-10-09 "Build prior week"):
-   the same `ValueModel.derivePublishedViews` batch as the current week, fed
-   every chart's saved natives for that week (its own natives and player set,
-   its peers for the waiver-line extension, the batch whose top sets the
-   Adjusted 0-70 scale), with the current league, roster and the ESPN
-   anchor's eight group totals; no adjustment fit is involved. Equal natives
-   keep the order of the chart's served list. Where a tab shows the
-   pipeline's saved `vorp_views` (Full PPR, 12 teams, standard roster; an
-   older vintage, math-review VA-3) those charts have no prior week in that
-   tab and sit out both weeks there. If no input has a prior
-   week (a first week, or no history), the current week uses the inputs from
-   step 4 and there is no prior week.
+   may choose a subset (at least one), and each version uses its share of it.
+   An input with no values at this setting (missing section, no saved setup)
+   is left out.
+5. **Same inputs in both weeks.** For each remaining input, its value is
+   recomputed for the prior week at the same setting (the week before the
+   week it serves; history rule in "Week-Over-Week Snapshots"). Per version,
+   the pair is the newest served week among its inputs (`currentWeek`) and
+   the week before (`priorWeek`). An input without that prior week, or
+   serving another week, is left out of **both** weeks of that version. A
+   chart's Adjusted values for a saved week (JEG-479, Jeremy 2026-10-09
+   "Build prior week"): the same `ValueModel.derivePublishedViews` batch as
+   the current week, fed every chart's saved natives for that week (its own
+   natives and player set, its peers for the waiver-line extension, the batch
+   whose top sets the Adjusted 0-70 scale), with the current league, roster
+   and the ESPN anchor's eight group totals; no adjustment fit is involved.
+   Equal natives keep the order of the chart's served list. Where the
+   Adjusted tab shows the pipeline's saved `vorp_views` (Full PPR, 12 teams,
+   standard roster; an older vintage, math-review VA-3) the charts have no
+   prior week and sit out both weeks of every version there. If no input of a
+   version has a prior week (a first week, or no history), the current week
+   uses the inputs from step 4 and that version has no prior week.
 6. **Per player, per week.** The equal-weight mean of the finite values of
-   the included series, as the rows carry them ("Published Charts On The
-   Rows" below). A series with no value for the player is left out, never
-   counted as 0. A 0 a series does carry counts: ESPN's 0 for a player it
-   lists at 0 (GAP-025), a leg's 0 at or below its floor, and a fully loaded
-   chart's 0 for a player below its floor. When exactly **one** series prices
-   the player, the DDF Value is that series' value, flagged low confidence
-   ("Only one source prices this player"; Jeremy 2026-10-09, replacing the
-   two-value minimum). When none does, it is null with the reason "No source
-   prices this player". The prior week uses the same series and the same rule.
-   A one-source value counts in tiers like any other.
+   the included inputs. A value that is missing is left out, never counted as
+   0. A 0 an input does carry counts: ESPN's 0 for a player it lists at 0
+   (GAP-025), a leg's 0 at or below its floor, and a fully loaded chart's 0
+   for a player below its floor. When exactly **one** input prices the
+   player, the value is that input's value, flagged low confidence ("Only one
+   source prices this player"; Jeremy 2026-10-09, replacing the two-value
+   minimum). When none does, it is null with the reason "No source prices
+   this player". The prior week uses the same inputs and the same rule.
 7. **Δ** = this week's value − the prior week's value, when both exist.
-8. **Tier.** Rank by the view's current DDF Value and cut at the league's slot
-   counts (the engine's value-based slot fill). No value, no tier.
+8. **Tier.** Rank by the current `ddf_value` and cut at the league's slot
+   counts (the engine's value-based slot fill). A one-source value counts. No
+   value, no tier.
 
-One DDF Value per view for every comparison column (no leave-one-out).
+One value per version for every comparison column (no leave-one-out).
 
 ### Published Charts On The Rows (Jeremy 2026-10-08/09)
 
 What a row carries for a published chart (`<chart>`, its VORP vs waivers and
-Adjusted values, and `<chart>_adjusted`), in every view and both weeks:
+Adjusted values, and `<chart>_adjusted`), in every view and both weeks, and
+so what the DDF Value reads for a chart (its Adjusted values):
 
 - **Missing = 0 for a fully loaded chart.** A chart is fully loaded at a
   position when its waiver line there is set by its own list: the waiver
@@ -926,8 +932,8 @@ Adjusted values, and `<chart>_adjusted`), in every view and both weeks:
   `fallback: "identity"`, the starter/bench partition the cells are applied
   on) is null: "Not enough players to fit an adjustment" (fewer than 5 pairs),
   or "Adjustment fit refused (order would invert)" (`non_positive_slope`). It
-  is never the unadjusted chart value, and it is not a DDF input for that
-  player.
+  is never the unadjusted chart value. (The DDF Value reads a chart's Adjusted
+  values, not its `*_adjusted` series, so these cells do not reach it.)
 - Every null on a row carries its reason (`missingReasons`).
 
 These are row rules: the pie, scale and view-invariant guards measure the

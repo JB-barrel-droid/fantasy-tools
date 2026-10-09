@@ -698,51 +698,57 @@ Cadence"):
 - Projections (ESPN, CBS ROS, Razzball): probed every 4 h with the last slot at 23:25 UTC, so a
   Monday change is saved inside week N, and re-scraped at least every 20 h even when unchanged.
 
-## Back-end contract: DDF Value (JEG-471 / JEG-479, 2026-10-08/09)
+## Back-end contract: DDF Value (JEG-471 / JEG-479 / JEG-497, 2026-10-08/09)
 
 > **Superseded (JEG-508)** once the Value Pipeline implementation merges. The
 > target contract is `docs/methodology.md` VP-11:
 > - The inputs are the source keys and their Adjusted values. The
 >   `*_adjusted` keys are retired.
 > - There are three versions, `ddf_value`, `ddf_value_charts` and
->   `ddf_value_projections`, each one number in every tab.
-> - `ddfByVersion` replaces `ddfByView`.
+>   `ddf_value_projections`, each one number in every tab (shipped with JEG-497, #465).
+> - `ddfByVersion` replaces `ddfByView` (shipped with JEG-497, #465).
 > - The composite calls take a `version` instead of a `view`.
 > - There is a new `TradeValueCurveDiagnostics.valuePipeline`.
 >
 > Every other field name below keeps its meaning. Until then, this section
 > describes the engine.
 
-The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series,
-key `ddf_value`. v2 reads it; it does no blend math. Inputs are the seven keys
-`espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted, cbs_adjusted`.
-There is one DDF Value per view (Indexed, VORP vs waivers, Adjusted values), each for the current and
-the prior week, over the same inputs. One series pricing a player gives that value, flagged low
-confidence; none gives no value (Jeremy 2026-10-09).
+The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series in
+three versions: `ddf_value` (all seven inputs), `ddf_value_charts` (the four published charts) and
+`ddf_value_projections` (ESPN, CBS rest of season, Razzball). v2 reads them; it does no blend math.
+Each is the equal-weight mean of its inputs' **Adjusted values** only, ONE number per player, the
+same in every view and tab, for the current and the prior week over the same inputs. One input
+pricing a player gives that value, flagged low confidence; none gives no value (Jeremy 2026-10-09).
+Input keys: `espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted,
+cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj_values`).
 
-**Stable for v2 (lead, 2026-10-08).**
-1. `values.ddf_value` is always the **active view's** current-week DDF Value. v2 reads only that key.
-2. When it is null, `row.ddfReason` is a string (today always "No source prices this player"), and
-   `row.missingReasons.ddf_value` is the same text.
+**Stable for v2 (lead, 2026-10-08/09).**
+1. `values.ddf_value` is the blended DDF Value and does not change with the view tab. v2 reads that
+   key; `values.ddf_value_charts` and `values.ddf_value_projections` are the other two versions.
+2. When a version is null, `row.missingReasons[version]` is a string (today always "No source
+   prices this player"); for the blend also `row.ddfReason`.
 3. In `getCompositeInputs().excluded`, an input the reader deselected has the exact reason
    `"not selected"`; v2 lets readers re-tick only those. Every other reason is a different,
    human-readable string shown disabled: `held: <reason>`, `not yet published for week N`,
-   `no prior week: <why>`, `missing from this build`, `paused while it waits on fresh adjustment
-   inputs`, `not available for <scoring> / <teams> teams`. A held or unpublished input reads as such
-   even when it is also deselected.
-4. `getPriorWeek("ddf_value")`: **Δ = `currentValues[pk]` − `values[pk]`**.
+   `no prior week: <why>`, `missing from this build`, `not available for <scoring> / <teams>
+   teams`. A held or unpublished input reads as such even when it is also deselected.
+4. `getPriorWeek(version)`: **Δ = `currentValues[pk]` − `values[pk]`**.
 5. `setCompositeInputs(list)` silently drops held and not-yet-published keys and succeeds, so a stale
    saved list still works; v2 re-reads `getCompositeInputs()` afterwards.
 
-- **Rows.** Every `getRows()` / `getAllRows()` row has, for the active view: `values.ddf_value`
-  (number or `null`), `ddfReason` (`null` when there is a value), `ddfCount` (series pricing him),
-  `ddfSources` (those series' keys, e.g. `espn_vorp` in VORP vs waivers), `ddfLowConfidence`
-  (`true` when exactly one series prices him; the value is that series') and `ddfConfidenceNote`
-  ("Only one source prices this player", else `null`), `ddfPrior`, `ddfPriorCount` and
-  `ddfPriorLowConfidence` (prior week, same inputs, same rule; `null`/0/`false` without a prior
-  week), `ddfTier` (`"starter" | "bench" | "waiver"`, `null` with no DDF Value; a one-source value
-  counts), and `ddfByView: {indexed, vorp, adj}`, each `{value, count, sources, reason,
-  lowConfidence, prior, priorCount, priorLowConfidence}`.
+- **Rows.** Every `getRows()` / `getAllRows()` row has:
+  - `values.ddf_value`, `values.ddf_value_charts`, `values.ddf_value_projections` (number or `null`).
+  - `ddfCount`, `ddfChartsCount`, `ddfProjectionsCount`: inputs pricing him in each version.
+  - `ddfLowConfidence` + `ddfConfidenceNote` (blend), `ddfChartsLowConfidence`,
+    `ddfProjectionsLowConfidence`: `true` when exactly one input prices him (the value is that
+    input's); the note is "Only one source prices this player", else `null`.
+  - `ddfSources` (blend: the series averaged for him), `ddfReason` (blend, `null` with a value).
+  - `ddfPrior`, `ddfPriorCount`, `ddfPriorLowConfidence` (blend, prior week, same inputs).
+  - `ddfTier` (`"starter" | "bench" | "waiver"` by the blend; `null` without one; a one-source
+    value counts).
+  - `ddfByVersion: {blended, charts, projections}`, each `{value, count, sources, reason,
+    lowConfidence, confidenceNote, prior, priorCount, priorLowConfidence}`.
+  - `getPlayerValues()` also carries the three version keys.
 - **Missing values (JEG-479, 2026-10-09).** Every row has `missingReasons: {[seriesKey]: string}`
   with an entry for each `null` in `row.values` (and none for a number). Texts: `Chart doesn't list
   players this deep at <pos>` (a published chart too shallow there; a fully loaded chart gives 0
@@ -751,55 +757,57 @@ confidence; none gives no value (Jeremy 2026-10-09).
   cell), `Adjustment data failed to load` (every `*_adjusted` null when `getLoadStatus()` reports the
   adjustment inputs failed), `<ESPN | CBS rest of season | Razzball> doesn't project this player`,
   `No adjustment for this player's group`, `Missing from this build`, `Paused while it waits on
-  fresh adjustment inputs`, `Not available for <scoring> / <teams> teams`, and for `ddf_value` the
-  `ddfReason`. A held or not-yet-published series keeps its kept section's values, so it is not null
-  for that reason; its DDF exclusion is in `getCompositeInputs().excluded`.
-  `getPlayerValues()` also carries `values.ddf_value`.
-- **Rank and zones.** `setLockOrder("ddf_value")` ranks by it and `getRankSource()` returns
-  `"ddf_value"`; the lock survives scoring and team changes. `getZones()` then sits at the DDF
+  fresh adjustment inputs`, `Not available for <scoring> / <teams> teams`, and for the three DDF
+  keys "No source prices this player". A held or not-yet-published series keeps its kept section's
+  values, so it is not null for that reason; its DDF exclusion is in `getCompositeInputs().excluded`.
+- **Rank and zones.** `setLockOrder("ddf_value")` ranks by the blend and `getRankSource()` returns
+  `"ddf_value"`; the lock survives scoring, team and view changes. `getZones()` then sits at the DDF
   tier counts in a position view (All: teams × slots, as for every series).
 - **Source info.** `getSourceInfo()` is unchanged (plotted series only).
-  `getSourceInfo({includeComposite: true})` appends `{key: "ddf_value", label: "DDF Value",
-  longLabel: "DDF Composite Value", composite: true, inputs, series, isDefault, week, priorWeek,
-  stale: false, available, active: false, ...}`. It is never in `getActiveSources()` and is not drawn.
-- **Inputs.** `getCompositeInputs([view])` (active view by default) → `{view, inputs, series,
+  `getSourceInfo({includeComposite: true})` appends one entry per version: `{key, label ("DDF
+  Value", "DDF Value (charts)", "DDF Value (projections)"), longLabel, composite: true, inputs,
+  series, isDefault, week, priorWeek, stale: false, available, active: false, ...}`. None is in
+  `getActiveSources()` or drawn.
+- **Inputs.** `getCompositeInputs([version])` (`version` is `"blended"` (default), `"charts"`,
+  `"projections"` or the matching `ddf_value*` key; anything else reads the blend) → `{version, inputs, series,
   requested, isDefault, defaults, allowed, excluded: [{key, series, reason, ...}], held,
-  notPublished, currentWeek, priorWeek, priorAvailable, priorReason, minSources: 1}`. `inputs` are the
-  input keys averaged in that view and `series` the series they contribute. A held entry also has
-  `heldBy` (the section carrying the hold), `holdField` (`validationHold` | `promotionHold`),
-  `holdWeek`, `holdRoot` (the source whose disagreement caused it) and `holdKeptWeek`; an unpublished one has `notPublished: true`. `defaults` are the inputs a reader can
-  choose this week. `setCompositeInputs(keys, publish = true)`: `keys` is an array of the seven
+  notPublished, currentWeek, priorWeek, priorAvailable, priorReason, minSources: 1}`. `inputs` are
+  the input keys averaged in that version and `series` the series they contribute. A held entry
+  also has `heldBy` (the section carrying the hold), `holdField` (`validationHold` |
+  `promotionHold`), `holdWeek`, `holdRoot` (the source whose disagreement caused it) and
+  `holdKeptWeek`; an unpublished one has `notPublished: true`. `defaults` are the inputs a reader
+  can choose this week. `setCompositeInputs(keys, publish = true)`: `keys` is an array of the seven
   keys (order and duplicates ignored), `null` or `"default"` restores the defaults (choosing exactly
-  the defaults is the default). Held / unpublished keys are dropped and listed in `dropped`; if that
-  leaves no usable input the defaults apply (`fellBackToDefaults: true`). Returns `{ok:
-  true, ...getCompositeInputs()}`; an empty array, an unknown key, a non-array, or a list with no
-  usable input and nothing dropped returns `{ok: false, error}` and changes nothing. It
-  recomputes only the DDF fields, redraws, fires `trade-value-rows-change`, and (unless `publish` is
-  false) `trade-value-shared-change` whose detail carries `compositeInputs` (`null` = defaults).
-  `resetCompositeInputs(publish = true)` = `setCompositeInputs(null)`. Chosen inputs persist across
-  league changes; one unavailable at a setting is skipped there.
-- **Values.** `getCompositeValues([view])` → `{view, inputs, series, currentWeek, priorWeek,
-  priorAvailable, priorReason, current, currentCounts, prior, priorCounts, minSources}` (objects keyed
-  by `player_key`; players without a value are absent; `prior` is `null` without a prior week).
-- **Recompute.** Every rebuild (scoring, teams, roster, bench share, position shares, position
-  tab, view) recomputes all three views from the rebuilt series and their prior weeks.
-- **History.** `getPriorWeek("ddf_value"[, week])` resolves, for the active view, to `{source, week,
-  available, reason?, values, counts, currentValues, currentCounts, sources, dropped: [], inputs,
-  series, excluded, currentWeek, priorWeek, view, minSources, setting, method}`. `sources` are the
-  series averaged in both weeks; `currentValues` equal the rows' `values.ddf_value` and `values` their
-  `ddfPrior`. An input without the prior week is not in either week (it is in `excluded` with `no
-  prior week: ...`). Label it e.g. "DDF Value · 5 of 7 sources" from `inputs.length`.
-  `getWeekValues("ddf_value", week)` gives `{values, counts, sources, dropped, ...}` for any saved
-  week over the same inputs; `getHistoryWeeks("ddf_value")` the saved weeks any input has. A
-  published chart's (or its `*_adjusted` series') saved week from `getWeekValues` / `getPriorWeek`
-  carries the same row rules as the rows: 0 for a current row's player below that week's chart's floor
-  where it was fully loaded, identity-fallback cells left out (2026-10-09).
-- **Today's data.** Since JEG-479 "Build prior week" (2026-10-09) the as-published charts have
-  earlier weeks in every tab, so all seven inputs count in both weeks of every view's DDF Value,
-  except at Full PPR / 12 teams / standard roster, where the VORP vs waivers and Adjusted values
-  tabs show the saved `vorp_views` for FantasyCalc, FantasyPros and USA Today: those three are
-  excluded there (`no prior week: at Full PPR / 12 teams this tab shows the pipeline's saved
-  views ...`) until VA-3 is decided. The `*_adjusted` series have earlier weeks in every tab.
+  the defaults is the default); every version uses its share of the choice. Held / unpublished keys
+  are dropped and listed in `dropped`; if that leaves no usable input the defaults apply
+  (`fellBackToDefaults: true`). Returns `{ok: true, ...getCompositeInputs()}`; an empty array, an
+  unknown key, a non-array, or a list with no usable input and nothing dropped returns `{ok: false,
+  error}` and changes nothing. It recomputes only the DDF fields, redraws, fires
+  `trade-value-rows-change`, and (unless `publish` is false) `trade-value-shared-change` whose
+  detail carries `compositeInputs` (`null` = defaults). `resetCompositeInputs(publish = true)` =
+  `setCompositeInputs(null)`. Chosen inputs persist across league changes; one unavailable at a
+  setting is skipped there.
+- **Values.** `getCompositeValues([version])` → `{version, inputs, series, currentWeek, priorWeek,
+  priorAvailable, priorReason, current, currentCounts, prior, priorCounts, minSources}` (objects
+  keyed by `player_key`; players without a value are absent; `prior` is `null` without a prior
+  week).
+- **Recompute.** Every rebuild (scoring, teams, roster, bench share, position shares) recomputes the
+  three versions. A view switch leaves them unchanged.
+- **History.** `getPriorWeek(version[, week])` resolves to `{source, week, available, reason?,
+  values, counts, currentValues, currentCounts, sources, seriesValues, dropped: [], inputs, series,
+  excluded, currentWeek, priorWeek, version, minSources, setting, method}`. `sources` are the series
+  averaged in both weeks; `currentValues` equal the rows' `values[version]` and `values` its prior;
+  `seriesValues` is each input's prior week as averaged (a chart's with the rows' chart rules). An
+  input without the prior week is not in either week (it is in `excluded` with `no prior week:
+  ...`). Label it e.g. "DDF Value · 3 of 7 sources" from `inputs.length`. `getWeekValues(version,
+  week)` gives `{values, counts, sources, dropped, ...}` for any saved week over the same inputs;
+  `getHistoryWeeks(version)` the saved weeks any input has. The per-series `getWeekValues` /
+  `getPriorWeek` return a saved week as priced (no row rules).
+- **Today's data.** Since JEG-479 "Build prior week" (2026-10-09) every chart has earlier Adjusted
+  values, so all seven inputs count in both weeks, except at Full PPR / 12 teams / standard roster,
+  where the Adjusted tab shows the pipeline's saved `vorp_views` for FantasyCalc, FantasyPros and USA
+  Today: those three sit out both weeks of every version there (`no prior week: at Full PPR / 12
+  teams this tab shows the pipeline's saved views ...`) until VA-3 is decided.
 
 ## Multi-device pass (2026-10-08)
 

@@ -10,7 +10,7 @@ dumps beside it, written by `pipelines/value_check.py compare`) and upserts:
                              player) for the current content week: the engine's
                              value, the reference's, agrees (within the report's
                              tolerance, presence exact) and held. Series are the
-                             page's 14 plus ddf_value and ddf_value_prior (the
+                             page's 14 plus the three DDF versions and their prior weeks (the
                              DDF Value's prior-week side, keyed by this week).
 
 api.player_values and api.value_check_diff read them
@@ -77,7 +77,7 @@ def build_rows(report: dict, engine: dict, reference: dict, season: int, week: i
                 "teams": int(spec["teams"]), "roster": "superflex" if spec.get("superflex") else "standard"}
         for view in ref.VIEWS:
             series = list(ref.SERIES_KEYS) if view == "indexed" else list(ref.PUBLISHED)
-            series.append(ref.COMPOSITE_KEY)
+            series.extend(ref.DDF_VERSIONS)
             ev = {int(k): v for k, v in ((e.get("views") or {}).get(view) or {}).items()}
             rv = {int(k): v for k, v in (r["views"].get(view) or {}).items()}
             cells = {}
@@ -87,12 +87,13 @@ def build_rows(report: dict, engine: dict, reference: dict, season: int, week: i
                     b = _num((rv.get(pk) or {}).get(key))
                     if a is not None or b is not None:
                         cells[(key, pk)] = (a, b)
-            ep = ((e.get("prior") or {}).get(view) or {}).get("values") or {}
-            rp = ((r.get("prior") or {}).get(view) or {}).get("values") or {}
-            for pk in {int(k) for k in ep} | {int(k) for k in rp}:
-                a, b = _num(ep.get(str(pk), ep.get(pk))), _num(rp.get(str(pk), rp.get(pk)))
-                if a is not None or b is not None:
-                    cells[("ddf_value_prior", pk)] = (a, b)
+            for version in ref.DDF_VERSIONS:
+                ep = (((e.get("prior") or {}).get(view) or {}).get(version) or {}).get("values") or {}
+                rp = (((r.get("prior") or {}).get(view) or {}).get(version) or {}).get("values") or {}
+                for pk in {int(k) for k in ep} | {int(k) for k in rp}:
+                    a, b = _num(ep.get(str(pk), ep.get(pk))), _num(rp.get(str(pk), rp.get(pk)))
+                    if a is not None or b is not None:
+                        cells[(f"{version}_prior", pk)] = (a, b)
             for (key, pk), (a, b) in cells.items():
                 if pk not in names:
                     continue

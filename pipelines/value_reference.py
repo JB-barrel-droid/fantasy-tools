@@ -1215,20 +1215,25 @@ DDF_RULES = {
     # Exactly this many series: the value is published, flagged low confidence.
     "low_confidence_count": 1,
 }
-# Step 2: the series each input contributes in each view.
+# The inputs and the three versions (JEG-497, Jeremy 2026-10-09): each input
+# contributes its ADJUSTED-view value only -- the projections as the rows
+# carry them, each chart its Adjusted values (never the bias-adjusted
+# *_adjusted series). Indexed and VORP vs waivers never feed it. Each version
+# is one number per player, the same in every view.
 CHART_OF = {"fantasycalc_adjusted": "fantasycalc", "usatoday_adjusted": "usatoday",
             "fantasypros_adjusted": "fantasypros", "cbs_adjusted": "cbs"}
-VIEW_SERIES = {
-    "indexed": {k: k for k in COMPOSITE_INPUTS},
-    "vorp": {"espn": "espn_vorp", "cbsros": "cbsros_vorp", "razzball": "razzball_vorp", **CHART_OF},
-    "adj": {"espn": "espn", "cbsros": "cbsros", "razzball": "razzball", **CHART_OF},
-}
+PROJECTION_INPUTS = ("espn", "cbsros", "razzball")
+CHART_INPUTS = tuple(ADJUSTED)
+DDF_VERSIONS = {"ddf_value": COMPOSITE_INPUTS, "ddf_value_charts": CHART_INPUTS,
+                "ddf_value_projections": PROJECTION_INPUTS}
+DDF_COUNT_FIELD = {"ddf_value": "ddf_count", "ddf_value_charts": "ddf_charts_count",
+                   "ddf_value_projections": "ddf_projections_count"}
+INPUT_SERIES = {k: (f"{CHART_OF[k]}_adj_values" if k in CHART_OF else k) for k in COMPOSITE_INPUTS}
 HOLD_FIELDS = ("validationHold", "promotionHold")
 # A hold on a source holds the series derived from it (methodology step 3).
 HOLD_DERIVED = {"espn": ["espn_vorp"], "cbsros": ["cbsros_vorp"], "razzball": ["razzball_vorp"],
                 "fantasycalc": ["fantasycalc_adjusted"], "usatoday": ["usatoday_adjusted"],
                 "fantasypros": ["fantasypros_adjusted"], "cbs": ["cbs_adjusted"]}
-
 
 def section_hold(inp: Inputs, section: str) -> str | None:
     """The hold reason on a fixture section, or None."""
@@ -1265,25 +1270,22 @@ def composite_block(s: "Setting", key: str, fresh: dict) -> str | None:
     return None
 
 
-def series_unusable(s: "Setting", series: str, maps: dict) -> str | None:
-    """Step 4: a series with no values at this setting, or None."""
+def input_unusable(s: "Setting", key: str, maps: dict, chart_values: dict) -> str | None:
+    """Step 4: an input with no Adjusted-view values at this setting, or None."""
     sources = s.inp.fixture.get("sources") or {}
-    if series in SOURCE_KEYS and ("cbs" if series == "cbs_adjusted" else series) not in sources:
+    chart = CHART_OF.get(key)
+    if chart:
+        if chart not in sources:
+            return "missing from this build"
+        return None if chart_values.get(chart) else "not available at this setting"
+    if key not in sources:
         return "missing from this build"
-    if series in ADJUSTED:
-        entry = ((s.inp.adjustment_inputs or {}).get("sources") or {}).get(CHART_OF[series])
-        if not cell_set_complete(entry):
-            return "paused while it waits on fresh adjustment inputs"
-    if not maps.get(series):
+    if not maps.get(key):
         return "not available at this setting"
-    if series in VORP_KEYS:
-        ok = any(s.inp.ppg(k, VORP_KEYS[series], s.scoring) is not None for k in s.inp.players)
-    elif series in ("cbsros", "razzball"):
-        ok = any(s.inp.ppg(k, LEG_PPG[series], s.scoring) is not None for k in s.inp.players)
-    elif series in PUBLISHED or series in ADJUSTED:
-        ok = s.inp.combo_exists(series, s.scoring, SAVED_TEAMS)
+    if key in ("cbsros", "razzball"):
+        ok = any(s.inp.ppg(k, LEG_PPG[key], s.scoring) is not None for k in s.inp.players)
     else:
-        ok = s.inp.combo_exists(series, s.scoring, s.teams)
+        ok = s.inp.combo_exists(key, s.scoring, s.teams)
     return None if ok else "not available at this setting"
 
 
@@ -1296,8 +1298,27 @@ def composite(values: dict, keys: list[str], rules: dict | None = None) -> tuple
     return sum(values[k] for k in used) / len(used), len(used), None
 
 
+def chart_adjusted_values(s: "Setting", chart: str, universe) -> dict:
+    """A chart's Adjusted values at this setting as the Adjusted tab's rows
+    show them: 0 for a row's player below a fully loaded chart's floor (or
+    listed below its waiver line)."""
+    view_map = s.series_maps("adj").get(chart) or {}
+    if not view_map:
+        return {}
+    out = dict(view_map)
+    native, methods = s.native(chart), s.waiver_methods(chart)
+    for k in universe:
+        p = s.player_of(k)
+        if k in out or p is None or p["pos"] not in POSITIONS:
+            continue
+        missing = s.chart_missing(chart, chart, k, native, methods)
+        if missing is not None:
+            out[k] = missing
+    return out
+
+
 def chart_rules_on_week(s: "Setting", series: str, week: int, values: dict, hist: "History",
-                        rows: dict) -> dict:
+                        rows, view: str = "indexed") -> dict:
     """The rows' chart rules on a saved week inside the DDF pair: 0 for a
     current row's player below that week's chart's floor where it was fully
     loaded, identity-fallback cells left out. That week's listing and waiver
@@ -1305,7 +1326,7 @@ def chart_rules_on_week(s: "Setting", series: str, week: int, values: dict, hist
     raw = series if series in PUBLISHED else CHART_OF.get(series)
     if not raw:
         return values
-    if series == raw:
+    if series == raw and view == "indexed":
         listing = values
     else:
         listing, _why = week_values(s, raw, week, hist, "indexed")
@@ -1328,24 +1349,27 @@ def chart_rules_on_week(s: "Setting", series: str, week: int, values: dict, hist
     return out
 
 
-def composite_state(s: "Setting", view: str, rows: dict, maps: dict, fresh: dict,
-                    hist: "History | None") -> dict:
-    """Steps 1-6 for one view: the included inputs and series, the excluded
+def input_prior(s: "Setting", key: str, hist: "History", rows) -> dict:
+    """An input's prior week in the Adjusted view (a chart's with the rows'
+    chart rules)."""
+    chart = CHART_OF.get(key)
+    week, _pw, values, why = prior_values(s, chart or key, hist, "adj")
+    if chart and values is not None:
+        values = chart_rules_on_week(s, chart, week - 1, values, hist, rows, view="adj")
+    return {"week": week, "values": values, "reason": why}
+
+
+def composite_state(s: "Setting", version: str, rows: dict, maps: dict, chart_values: dict, fresh: dict,
+                    priors: dict | None) -> dict:
+    """Steps 1-6 for one version: the included inputs and series, the excluded
     ones with their reason, the current week's and the prior week's values."""
     excluded, candidates = {}, []
-    for key in COMPOSITE_INPUTS:
-        series = VIEW_SERIES[view][key]
-        reason = composite_block(s, key, fresh) or series_unusable(s, series, maps)
+    for key in DDF_VERSIONS[version]:
+        reason = composite_block(s, key, fresh) or input_unusable(s, key, maps, chart_values)
         if reason:
             excluded[key] = reason
             continue
-        prior = None
-        if hist is not None:
-            week, _pw, values, why = prior_values(s, series, hist, view)
-            if values is not None:
-                values = chart_rules_on_week(s, series, week - 1, values, hist, rows)
-            prior = {"week": week, "values": values, "reason": why}
-        candidates.append((key, series, prior))
+        candidates.append((key, INPUT_SERIES[key], priors.get(key) if priors is not None else None))
     served = [p["week"] for _k, _s, p in candidates if p and isinstance(p["week"], int)]
     current_week = max(served) if served else None
     paired = [c for c in candidates
@@ -1359,7 +1383,11 @@ def composite_state(s: "Setting", view: str, rows: dict, maps: dict, fresh: dict
                 f"serves Week {prior['week']}, not Week {current_week}"
                 if prior["values"] is not None else str(prior["reason"]))
     series = [c[1] for c in included]
-    current = {pk: composite(values, series) for pk, values in rows.items()}
+
+    def input_value(key, pk):
+        chart = CHART_OF.get(key)
+        return chart_values.get(chart, {}).get(pk) if chart else rows[pk].get(key)
+    current = {pk: composite({ser: input_value(key, pk) for key, ser, _p in included}, series) for pk in rows}
     prior_out = None
     if paired:
         prior_out = {}
@@ -1368,39 +1396,46 @@ def composite_state(s: "Setting", view: str, rows: dict, maps: dict, fresh: dict
             players.update(prior["values"])
         for pk in players:
             prior_out[pk] = composite({ser: prior["values"].get(pk) for _k, ser, prior in included}, series)
-    return {"view": view, "inputs": [c[0] for c in included], "series": series, "excluded": excluded,
+    return {"version": version, "inputs": [c[0] for c in included], "series": series, "excluded": excluded,
             "currentWeek": current_week if paired else None,
             "priorWeek": current_week - 1 if paired else None,
             "priorAvailable": bool(paired), "current": current, "prior": prior_out}
 
 
 def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: "History | None" = None) -> dict:
-    """One setting: {view: {player_key: {series: value}}} with the view's DDF
-    Value (ddf_value, ddf_count), and the DDF Value's prior-week pair per view
-    (the shape of the engine's getPriorWeek("ddf_value"))."""
+    """One setting: {view: {player_key: {series: value}}} with the three DDF
+    versions (ddf_value, ddf_value_charts, ddf_value_projections and their
+    counts), and each version's prior-week pair per view (the shape of the
+    engine's getPriorWeek(version))."""
     s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0))
     fresh = freshness(inp)
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}
     for view in views:
         maps = s.series_maps(view)
         rows = s.rows(view)
-        state = composite_state(s, view, rows, maps, fresh, hist)
-        for pk, values in rows.items():
-            values[COMPOSITE_KEY], values["ddf_count"], _reason = state["current"][pk]
-        out["views"][view] = rows
-        out["composite"][view] = {"inputs": state["inputs"], "series": state["series"],
-                                  "excluded": state["excluded"]}
-        if hist is not None:
+        chart_values = {chart: chart_adjusted_values(s, chart, rows) for chart in PUBLISHED}
+        priors = ({key: input_prior(s, key, hist, rows) for key in COMPOSITE_INPUTS}
+                  if hist is not None else None)
+        out["composite"][view], out["prior"][view] = {}, {}
+        for version in DDF_VERSIONS:
+            state = composite_state(s, version, rows, maps, chart_values, fresh, priors)
+            for pk, values in rows.items():
+                values[version], values[DDF_COUNT_FIELD[version]], _reason = state["current"][pk]
+            out["composite"][view][version] = {"inputs": state["inputs"], "series": state["series"],
+                                               "excluded": state["excluded"]}
+            if hist is None:
+                continue
             if state["priorAvailable"]:
-                out["prior"][view] = {
+                out["prior"][view][version] = {
                     "available": True, "sources": state["series"],
                     "currentWeek": state["currentWeek"], "priorWeek": state["priorWeek"],
                     "values": {pk: v for pk, (v, _n, _r) in state["prior"].items() if v is not None},
                     "currentValues": {pk: v for pk, (v, _n, _r) in state["current"].items()
                                       if v is not None}}
             else:
-                out["prior"][view] = {"available": False, "sources": []}
-    first = out["composite"].get("indexed") or next(iter(out["composite"].values()), {})
+                out["prior"][view][version] = {"available": False, "sources": []}
+        out["views"][view] = rows
+    first = (out["composite"].get("indexed") or next(iter(out["composite"].values()), {})).get(COMPOSITE_KEY, {})
     out["composite_inputs"] = first.get("inputs", [])
     out["composite_excluded"] = first.get("excluded", {})
     return out

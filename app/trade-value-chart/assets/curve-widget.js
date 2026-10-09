@@ -87,7 +87,7 @@
   // included inputs' values, at least two of them (rule and series per view:
   // "DDF Composite Value" below, docs/methodology.md). One value for every
   // comparison column (no leave-one-out). It is a derived series: it lives
-  // on the rows (values.ddf_value, ddfCount, ddfSources, ddfTier, ddfByView,
+  // on the rows (values.ddf_value / _charts / _projections, ddfCount, ddfTier, ddfByVersion,
   // ...), never in sourceMaps, so no guard, pie, spread or existing series
   // reads it.
   const COMPOSITE_KEY = "ddf_value";
@@ -2233,47 +2233,58 @@
   }
 
   // ---- DDF Composite Value (see COMPOSITE_KEY) ----
-  // The rule is docs/methodology.md "DDF Composite Value" (Jeremy 2026-10-08,
-  // JEG-471 / JEG-479); the Python reference implements the same text.
-  //  1. Inputs are the seven COMPOSITE_INPUT_KEYS. An input whose source is
-  //     held (HOLD_FIELDS) or has not published the current content week is
-  //     never an input this week, even when a reader selects it.
-  //  2. One DDF Value per view. COMPOSITE_VIEW_SERIES names the series each
-  //     input contributes in each view.
-  //  3. The same inputs in both weeks: an input without the prior week at this
-  //     setting and view is left out of the current week too.
-  //  4. Per player: the equal-weight mean of the finite values of those
-  //     inputs' series; one series pricing him gives that value, flagged low
-  //     confidence (Jeremy 2026-10-09); none gives no value.
+  // The rule is docs/methodology.md "DDF Composite Value" (Jeremy 2026-10-08/09,
+  // JEG-471 / JEG-479 / JEG-497); the Python reference implements the same text.
+  //  1. Inputs are the seven COMPOSITE_INPUT_KEYS, each contributing its
+  //     ADJUSTED-view value only (COMPOSITE_SERIES): ESPN, CBS rest of season
+  //     and Razzball as the rows carry them, and each published chart's
+  //     Adjusted values. Indexed and VORP vs waivers never feed it.
+  //  2. Three versions (JEG-497): ddf_value (all seven), ddf_value_charts (the
+  //     four charts), ddf_value_projections (the three projections). Each is
+  //     ONE number per player, the same in every view and tab.
+  //  3. An input whose source is held (HOLD_FIELDS) or has not published the
+  //     current content week is never an input, even when a reader selects it.
+  //  4. Same inputs in both weeks, per version: an input without the prior
+  //     week at this setting is left out of the current week too.
+  //  5. Per player: the equal-weight mean of the finite values of those
+  //     inputs; one value gives that value, flagged low confidence; none gives
+  //     no value.
   // null = every eligible input; otherwise the reader's chosen inputs
-  // (setCompositeInputs), kept across league changes. A chosen input that is
-  // unusable at a setting is skipped there, never priced as 0.
+  // (setCompositeInputs), kept across league changes; every version uses its
+  // share of them. A chosen input that is unusable at a setting is skipped
+  // there, never priced as 0.
   let compositeInputs = null;
   let compositeMap = new Map();
   let ddfRoleByKey = new Map();
-  // Per view, rebuilt by applyComposite: see buildCompositeState.
+  // Per version, rebuilt by applyComposite: see buildCompositeState.
   let compositeStates = {};
-  // Prior-week results per "view|series", cleared on every rebuild.
+  // Prior-week results per input, cleared on every rebuild.
   let compositePriorCache = new Map();
   // Jeremy 2026-10-09 (replaces the two-value minimum): a value needs one
   // series; exactly one is published and flagged low confidence.
   const COMPOSITE_MIN_SOURCES = 1;
   const COMPOSITE_NONE_REASON = "No source prices this player";
   const COMPOSITE_ONE_SOURCE_NOTE = "Only one source prices this player";
-  const COMPOSITE_VIEWS = [...VIEW_MODE_ORDER];
-  // Indexed: the inputs themselves (projections and the bias-adjusted charts).
-  // VORP vs waivers: each projection's VORP vs waivers series and each chart
-  // as published, translated to value above waivers. Adjusted values: the
-  // projections and each chart's Adjusted values. A chart's series in those two
-  // views is its as-published key, whose values on the rows are the view's.
-  const COMPOSITE_CHART_SERIES = {fantasycalc_adjusted: "fantasycalc", usatoday_adjusted: "usatoday",
-    fantasypros_adjusted: "fantasypros", cbs_adjusted: "cbs"};
-  const COMPOSITE_VIEW_SERIES = {
-    indexed: Object.fromEntries(COMPOSITE_INPUT_KEYS.map(key => [key, key])),
-    [VIEW_MODE_ORDER[1]]: {espn: "espn_vorp", cbsros: "cbsros_vorp", razzball: "razzball_vorp", ...COMPOSITE_CHART_SERIES},
-    adj: {espn: "espn", cbsros: "cbsros", razzball: "razzball", ...COMPOSITE_CHART_SERIES},
+  const COMPOSITE_PROJECTION_INPUTS = ["espn", "cbsros", "razzball"];
+  const COMPOSITE_CHART_INPUTS = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
+  // JEG-497: the three versions, each over its share of the inputs.
+  const COMPOSITE_VERSIONS = {
+    ddf_value: COMPOSITE_INPUT_KEYS,
+    ddf_value_charts: COMPOSITE_CHART_INPUTS,
+    ddf_value_projections: COMPOSITE_PROJECTION_INPUTS,
   };
-  const compositeKeyUsable = key => sourceAvailable(key) && !isAdjustedCurvePaused(key) && !sourceMissingFromData(key);
+  const COMPOSITE_VERSION_KEYS = Object.keys(COMPOSITE_VERSIONS);
+  const isCompositeKey = key => COMPOSITE_VERSION_KEYS.includes(key);
+  // The short names of the versions (VP-11): row.ddfByVersion keys, and
+  // accepted by getCompositeInputs / getCompositeValues.
+  const COMPOSITE_VERSION_NAMES = {ddf_value: "blended", ddf_value_charts: "charts", ddf_value_projections: "projections"};
+  // The Adjusted-view series each input contributes. A chart's is its
+  // Adjusted values (publishedViewMap "adj_values", with the rows' 0 below a
+  // fully loaded chart's floor), read at every view so the DDF Value does
+  // not move with the tab.
+  const chartOfInput = key => COMPOSITE_CHART_INPUTS.includes(key) ? rawKeyForAdjusted(key) : null;
+  const COMPOSITE_SERIES = Object.fromEntries(COMPOSITE_INPUT_KEYS.map(key =>
+    [key, chartOfInput(key) ? `${chartOfInput(key)}_adj_values` : key]));
   // "Not yet published for the current week": the stale flag (a weekly chart
   // older than the current content week) or the first-load rule (JEG-432 R5).
   // Projections carry no week and are always current.
@@ -2336,26 +2347,55 @@
     }
     return null;
   }
-  function compositeUnusableReason(series) {
-    if (sourceMissingFromData(series)) return "missing from this build";
-    // JEG-484: name a failed load, not a pause, when the inputs never arrived.
-    if (series.endsWith("_adjusted") && productLoadStatus().assets.adjustments?.ok === false) return "Adjustment data failed to load";
-    if (isAdjustedCurvePaused(series)) return "paused while it waits on fresh adjustment inputs";
-    if (!sourceAvailable(series)) return `not available for ${scoreLabel()} / ${teams} teams`;
+  // Why an input has no Adjusted-view values at this setting, or null.
+  function compositeUnusableReason(key) {
+    const chart = chartOfInput(key);
+    if (chart) {
+      if (sourceMissingFromData(chart)) return "missing from this build";
+      if (!compositeChartValues(chart).size) return `not available for ${scoreLabel()} / ${teams} teams`;
+      return null;
+    }
+    if (sourceMissingFromData(key)) return "missing from this build";
+    if (!sourceAvailable(key)) return `not available for ${scoreLabel()} / ${teams} teams`;
     return null;
   }
+  const compositeInputUsable = key => !compositeUnusableReason(key);
   // Inputs that can be chosen this week: not blocked, usable at this setting.
   function defaultCompositeInputKeys() {
-    return COMPOSITE_INPUT_KEYS.filter(key => !compositeBlock(key) && compositeKeyUsable(key));
+    return COMPOSITE_INPUT_KEYS.filter(key => !compositeBlock(key) && compositeInputUsable(key));
   }
-  // One input's prior week at this setting, in one view (cached per rebuild;
-  // only an as-published chart's saved weeks depend on the view).
-  function compositePrior(view, series) {
-    const cacheKey = AS_PUBLISHED_KEYS.has(series) ? `${view}|${series}` : series;
-    if (!compositePriorCache.has(cacheKey)) {
-      compositePriorCache.set(cacheKey, chartRowRulesOnWeek(series, priorWeekSync(series, null, view)));
+  // A chart's Adjusted values at this setting, as the Adjusted tab's rows show
+  // them (0 below a fully loaded chart's floor), whatever tab is open. Cached
+  // per rebuild; publishedViewMap's diagnostic record is left as it was.
+  let compositeChartCache = new Map();
+  function compositeChartValues(chart) {
+    if (!compositeChartCache.has(chart)) {
+      const keptView = lastPublishedView;
+      lastPublishedView = {...keptView};
+      try {
+        compositeChartCache.set(chart, withChartRowZeros(chart, publishedViewMap(chart, "adj_values")) || new Map());
+      } finally {
+        lastPublishedView = keptView;
+      }
     }
-    return compositePriorCache.get(cacheKey);
+    return compositeChartCache.get(chart);
+  }
+  // One input's Adjusted-view value for a row.
+  function compositeInputValue(key, row) {
+    const chart = chartOfInput(key);
+    if (!chart) return row.values[key];
+    const value = compositeChartValues(chart).get(row.player_key);
+    return value === undefined ? null : value;
+  }
+  // One input's prior week at this setting, in the Adjusted view (cached per
+  // rebuild). A chart's carries the rows' chart rules (chartRowRulesOnWeek).
+  function compositePrior(key) {
+    if (!compositePriorCache.has(key)) {
+      const chart = chartOfInput(key);
+      const prior = chart ? chartRowRulesOnWeek(chart, priorWeekSync(chart, null, "adj")) : priorWeekSync(key, null, "adj");
+      compositePriorCache.set(key, {...prior, source: COMPOSITE_SERIES[key]});
+    }
+    return compositePriorCache.get(key);
   }
   // The rows' chart rules on a saved week (JEG-479 follow-up), so the DDF
   // pair reads both weeks alike: 0 for a current row's player below that
@@ -2366,7 +2406,7 @@
   function chartRowRulesOnWeek(series, prior) {
     const raw = chartOfSeries(series);
     if (!raw || !prior.available) return prior;
-    const listing = series === raw ? prior : weekValuesSync(raw, prior.week, "indexed");
+    const listing = series === raw && prior.setting?.viewMode === "indexed" ? prior : weekValuesSync(raw, prior.week, "indexed");
     if (!listing.available) return prior;
     const native = new Map(Object.entries(listing.values).map(([playerKey, value]) => [Number(playerKey), value]));
     const waiver = ValueModel.publishedWaiverInfo({
@@ -2389,27 +2429,28 @@
   }
   // JEG-484: product-data's per-asset load outcome (read-only).
   const productLoadStatus = () => window.TradeValueProductData?.getLoadStatus?.() || {assets: {}, adjustmentsLoaded: false};
-  // One view's DDF Value for the current and the prior week.
+  // One version's DDF Value for the current and the prior week.
   //   inputs/series: the included inputs and the series they contribute;
-  //   excluded: [{key, series, reason, ...}] for every other input;
-  //   current/prior: Map player_key -> {value, count, used} (value null when
-  //   fewer than COMPOSITE_MIN_SOURCES price him); prior is null without a pair.
+  //   excluded: [{key, series, reason, ...}] for every input of the version
+  //   left out; current/prior: Map player_key -> {value, count, used} (value
+  //   null when no input prices him); prior is null without a pair.
   // The pair is the newest served week among the candidate inputs and the
   // week before. If no candidate has a prior week at all (a first week, or the
   // history cannot be read), the current week uses every candidate and there
   // is no prior week (priorAvailable false, priorReason says why).
-  function buildCompositeState(view, rows) {
+  function buildCompositeState(version, rows) {
     const chosen = compositeInputs || COMPOSITE_INPUT_KEYS;
+    const versionInputs = COMPOSITE_VERSIONS[version];
     const excluded = new Map();
     const candidates = [];
-    COMPOSITE_INPUT_KEYS.forEach(key => {
-      const series = COMPOSITE_VIEW_SERIES[view][key];
+    versionInputs.forEach(key => {
+      const series = COMPOSITE_SERIES[key];
       const block = compositeBlock(key);
       if (block) return excluded.set(key, {...block, series});
       if (!chosen.includes(key)) return excluded.set(key, {key, series, reason: "not selected"});
-      const unusable = compositeUnusableReason(series);
+      const unusable = compositeUnusableReason(key);
       if (unusable) return excluded.set(key, {key, series, reason: unusable});
-      candidates.push({key, series, prior: compositePrior(view, series)});
+      candidates.push({key, series, prior: compositePrior(key)});
     });
     const served = candidates.map(item => item.prior.currentWeek).filter(Number.isInteger);
     const currentWeek = served.length ? Math.max(...served) : null;
@@ -2427,7 +2468,8 @@
       return {value: blend.count >= COMPOSITE_MIN_SOURCES ? blend.value : null, count: blend.count, used: blend.used};
     };
     const current = new Map();
-    rows.forEach(row => current.set(row.player_key, blendOf(row.values)));
+    rows.forEach(row => current.set(row.player_key,
+      blendOf(Object.fromEntries(included.map(item => [item.series, compositeInputValue(item.key, row)])))));
     let prior = null;
     if (priorAvailable) {
       prior = new Map();
@@ -2436,10 +2478,11 @@
         blendOf(Object.fromEntries(included.map(item => [item.series, item.prior.values[playerKey]])))));
     }
     return {
-      view,
+      version,
       inputs: included.map(item => item.key),
       series,
-      excluded: COMPOSITE_INPUT_KEYS.filter(key => excluded.has(key)).map(key => excluded.get(key)),
+      seriesPrior: priorAvailable ? Object.fromEntries(included.map(item => [item.series, {...item.prior.values}])) : null,
+      excluded: versionInputs.filter(key => excluded.has(key)).map(key => excluded.get(key)),
       currentWeek: priorAvailable ? currentWeek : (currentWeek ?? activeReferenceWeek()),
       priorWeek: priorAvailable ? currentWeek - 1 : null,
       priorAvailable,
@@ -2450,10 +2493,12 @@
       prior,
     };
   }
-  function compositeInputsInfo(view = viewMode) {
-    const state = compositeStates[view] || compositeStates[viewMode];
+  const compositeVersionOf = key => isCompositeKey(key) ? key
+    : (COMPOSITE_VERSION_KEYS.find(version => COMPOSITE_VERSION_NAMES[version] === key) || COMPOSITE_KEY);
+  function compositeInputsInfo(version = COMPOSITE_KEY) {
+    const state = compositeStates[compositeVersionOf(version)];
     return {
-      view: state?.view ?? view,
+      version: compositeVersionOf(version),
       inputs: state ? [...state.inputs] : [],
       series: state ? [...state.series] : [],
       requested: compositeInputs ? [...compositeInputs] : null,
@@ -2470,18 +2515,21 @@
       minSources: COMPOSITE_MIN_SOURCES
     };
   }
-  // Writes, on every row: values.ddf_value (the active view's DDF Value this
-  // week), ddfCount and ddfSources (inputs pricing him and their series),
-  // ddfReason (COMPOSITE_NONE_REASON when the value is null; also in
-  // missingReasons.ddf_value), ddfLowConfidence / ddfConfidenceNote (exactly
-  // one series prices him: the value is that series'), ddfPrior and
-  // ddfPriorCount (the same view, prior week, same inputs), ddfTier, and
-  // ddfByView (all three views: {value, count, sources, reason, prior,
-  // priorCount}).
+  // Writes, on every row, for each version (ddf_value, ddf_value_charts,
+  // ddf_value_projections; the same in every view): values[version], and
+  // ddfByVersion[blended | charts | projections] = {value, count, sources, reason, lowConfidence,
+  // confidenceNote, prior, priorCount, priorLowConfidence}; a null value's
+  // reason also in missingReasons[version]. Flat fields: ddfCount,
+  // ddfChartsCount, ddfProjectionsCount; ddfSources; ddfReason;
+  // ddfLowConfidence / ddfConfidenceNote, ddfChartsLowConfidence,
+  // ddfProjectionsLowConfidence (exactly one input prices him: the value is
+  // that input's); ddfPrior, ddfPriorCount, ddfPriorLowConfidence (blended,
+  // prior week, same inputs); ddfTier (blended).
   // Tier: rank by DDF Value and cut at the league's slot counts -- the
   // engine's value-based slot fill (ValueModel.roleMap: dedicated slots, then
   // superflex, then flex, then bench), the same rule as every other role map.
   function applyComposite(rows) {
+    compositeChartCache = new Map();
     // History reads must not leave the published-chart diagnostics pointing at
     // a saved week (the same swap as getInspection).
     const keptView = lastPublishedView;
@@ -2489,38 +2537,43 @@
     lastPublishedView = {...keptView};
     lastPublishedDerivation = {...keptDerivation};
     try {
-      compositeStates = Object.fromEntries(COMPOSITE_VIEWS.map(view => [view, buildCompositeState(view, rows)]));
+      compositeStates = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => [version, buildCompositeState(version, rows)]));
     } finally {
       lastPublishedView = keptView;
       lastPublishedDerivation = keptDerivation;
     }
-    const active = compositeStates[viewMode];
     compositeMap = new Map();
     rows.forEach(row => {
-      row.ddfByView = Object.fromEntries(COMPOSITE_VIEWS.map(view => {
-        const state = compositeStates[view];
+      if (!row.missingReasons) row.missingReasons = {};
+      row.ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
+        const state = compositeStates[version];
         const now = state.current.get(row.player_key);
         const before = state.prior?.get(row.player_key) || null;
-        return [view, {value: now.value, count: now.count, sources: now.used,
+        const entry = {value: now.value, count: now.count, sources: now.used,
           reason: now.value === null ? COMPOSITE_NONE_REASON : null,
           lowConfidence: now.count === 1,
+          confidenceNote: now.count === 1 ? COMPOSITE_ONE_SOURCE_NOTE : null,
           prior: before ? before.value : null, priorCount: before ? before.count : 0,
-          priorLowConfidence: Boolean(before && before.count === 1)}];
+          priorLowConfidence: Boolean(before && before.count === 1)};
+        row.values[version] = entry.value;
+        if (entry.value === null) row.missingReasons[version] = entry.reason;
+        else delete row.missingReasons[version];
+        return [COMPOSITE_VERSION_NAMES[version], entry];
       }));
-      const mine = row.ddfByView[active.view];
-      row.values[COMPOSITE_KEY] = mine.value;
-      row.ddfCount = mine.count;
-      row.ddfSources = [...mine.sources];
-      row.ddfReason = mine.reason;
-      row.ddfLowConfidence = mine.lowConfidence;
-      row.ddfConfidenceNote = mine.lowConfidence ? COMPOSITE_ONE_SOURCE_NOTE : null;
-      row.ddfPrior = mine.prior;
-      row.ddfPriorCount = mine.priorCount;
-      row.ddfPriorLowConfidence = mine.priorLowConfidence;
-      if (!row.missingReasons) row.missingReasons = {};
-      if (mine.value === null) row.missingReasons[COMPOSITE_KEY] = mine.reason;
-      else delete row.missingReasons[COMPOSITE_KEY];
-      if (mine.value !== null) compositeMap.set(row.player_key, mine.value);
+      const {blended: blend, charts, projections} = row.ddfByVersion;
+      row.ddfCount = blend.count;
+      row.ddfChartsCount = charts.count;
+      row.ddfProjectionsCount = projections.count;
+      row.ddfSources = [...blend.sources];
+      row.ddfReason = blend.reason;
+      row.ddfLowConfidence = blend.lowConfidence;
+      row.ddfConfidenceNote = blend.confidenceNote;
+      row.ddfChartsLowConfidence = charts.lowConfidence;
+      row.ddfProjectionsLowConfidence = projections.lowConfidence;
+      row.ddfPrior = blend.prior;
+      row.ddfPriorCount = blend.priorCount;
+      row.ddfPriorLowConfidence = blend.priorLowConfidence;
+      if (blend.value !== null) compositeMap.set(row.player_key, blend.value);
     });
     ddfRoleByKey = ValueModel.roleMap({values: compositeMap, playerOf: playerKey => canonicalByKey.get(playerKey),
       teams, shape: rosterShape});
@@ -2528,10 +2581,10 @@
       row.ddfTier = row.values[COMPOSITE_KEY] === null ? null : (ddfRoleByKey.get(row.player_key) || "waiver");
     });
   }
-  // getCompositeValues([view]): one view's DDF Value for both weeks as plain
-  // objects keyed by player_key, over every player either week prices.
-  function compositeValuesInfo(view = viewMode) {
-    const state = compositeStates[view];
+  // getCompositeValues([version]): one version's DDF Value for both weeks as
+  // plain objects keyed by player_key, over every player either week prices.
+  function compositeValuesInfo(version = COMPOSITE_KEY) {
+    const state = compositeStates[compositeVersionOf(version)];
     if (!state) return null;
     const pick = map => {
       const values = {}, counts = {};
@@ -2544,21 +2597,24 @@
     };
     const now = pick(state.current);
     const before = state.prior ? pick(state.prior) : null;
-    return {view: state.view, inputs: [...state.inputs], series: [...state.series], currentWeek: state.currentWeek,
+    return {version: state.version, inputs: [...state.inputs], series: [...state.series], currentWeek: state.currentWeek,
       priorWeek: state.priorWeek, priorAvailable: state.priorAvailable, priorReason: state.priorReason,
       current: now.values, currentCounts: now.counts,
       prior: before ? before.values : null, priorCounts: before ? before.counts : null,
       minSources: COMPOSITE_MIN_SOURCES};
   }
-  // getSourceInfo({includeComposite: true}) entry. week: the current week of
-  // the active view's DDF Value. Never stale: an input that has not published
+  // getSourceInfo({includeComposite: true}) entries, one per version. week:
+  // the version's current week. Never stale: an input that has not published
   // the current week is never included.
-  function compositeSourceInfo() {
-    const state = compositeStates[viewMode];
+  const COMPOSITE_LABELS = {ddf_value: ["DDF Value", "DDF Composite Value"],
+    ddf_value_charts: ["DDF Value (charts)", "DDF Composite Value, trade charts only"],
+    ddf_value_projections: ["DDF Value (projections)", "DDF Composite Value, projections only"]};
+  function compositeSourceInfo(version = COMPOSITE_KEY) {
+    const state = compositeStates[version];
     return {
-      key: COMPOSITE_KEY,
-      label: sourceLabel(COMPOSITE_KEY),
-      longLabel: "DDF Composite Value",
+      key: version,
+      label: COMPOSITE_LABELS[version][0],
+      longLabel: COMPOSITE_LABELS[version][1],
       composite: true,
       inputs: state ? [...state.inputs] : [],
       series: state ? [...state.series] : [],
@@ -2566,7 +2622,8 @@
       week: state?.currentWeek ?? activeReferenceWeek(),
       priorWeek: state?.priorWeek ?? null,
       stale: false,
-      available: compositeAvailable(),
+      available: version === COMPOSITE_KEY ? compositeAvailable()
+        : Boolean(state && [...state.current.values()].some(entry => entry.value !== null)),
       paused: false,
       unavailable: false,
       active: false,
@@ -2581,8 +2638,8 @@
   // A copy of an engine row for the read-only accessors.
   const rowCopy = row => ({...row, values: {...row.values}, ddfSources: [...(row.ddfSources || [])],
     missingReasons: {...(row.missingReasons || {})},
-    ddfByView: Object.fromEntries(Object.entries(row.ddfByView || {}).map(([view, entry]) =>
-      [view, {...entry, sources: [...entry.sources]}]))});
+    ddfByVersion: Object.fromEntries(Object.entries(row.ddfByVersion || {}).map(([version, entry]) =>
+      [version, {...entry, sources: [...entry.sources]}]))});
 
   // JEG-502 (lazy): a player no source prices (universe_only) is not one of the
   // computed rows (getAllRows, curves, pies, tiers). searchPlayers/getPlayer
@@ -4181,7 +4238,7 @@
       const asked = COMPOSITE_INPUT_KEYS.filter(key => keys.includes(key));
       dropped = asked.map(compositeBlock).filter(Boolean);
       next = asked.filter(key => !compositeBlock(key));
-      const usable = next.filter(compositeKeyUsable);
+      const usable = next.filter(compositeInputUsable);
       if (usable.length < COMPOSITE_MIN_SOURCES) {
         // A saved list gone stale (an input held or not yet published this
         // week) never fails: what it asked for is not possible this week, so
@@ -4551,7 +4608,7 @@
   // (players the saved week does not price are absent), setting, origin,
   // fingerprint, method}.
   async function getWeekValues(source, week) {
-    if (source === COMPOSITE_KEY) return compositeWeekValues(week);
+    if (isCompositeKey(source)) return compositeWeekValues(source, week);
     await loadHistoryFor(source, week);
     return weekValuesSync(source, week, viewMode);
   }
@@ -4559,7 +4616,7 @@
   // it; a failed read is recorded (historyLoaded) and reported by the sync core.
   async function loadHistoryFor(source, week) {
     week = Number(week);
-    if (!Number.isInteger(week) || source === COMPOSITE_KEY) return;
+    if (!Number.isInteger(week) || isCompositeKey(source)) return;
     try {
       const index = await historyIndex();
       await historyWeekDoc(index, week);
@@ -4633,7 +4690,7 @@
   // The served week comes from the history index, which matches the served
   // inputs to a saved week by content fingerprint, not by the section label.
   async function getPriorWeek(source, week) {
-    if (source === COMPOSITE_KEY) return compositePriorWeek(week);
+    if (isCompositeKey(source)) return compositePriorWeek(source, week);
     let index;
     try {
       index = await historyIndex();
@@ -4683,7 +4740,7 @@
   // Read-only: which saved weeks exist for a series, and the week served now.
   // Lets a page offer week pairs (N−1 → N) without reading the history files itself.
   async function getHistoryWeeks(source) {
-    if (source === COMPOSITE_KEY) return compositeHistoryWeeks();
+    if (isCompositeKey(source)) return compositeHistoryWeeks(source);
     let index;
     try {
       index = await historyIndex();
@@ -4696,11 +4753,11 @@
     return {source, servedWeek: Number.isInteger(served?.week) ? served.week : null, weeks};
   }
 
-  // ---- DDF Value history (JEG-465 / JEG-471 / JEG-479) ----
-  // The pair and the inputs come from the active view's composite state
-  // (buildCompositeState): the same inputs in both weeks, at least
-  // COMPOSITE_MIN_SOURCES values per player, each input priced exactly as its own Δ.
-  const COMPOSITE_HISTORY_METHOD = "equal-weight mean of the included inputs' finite values, at least two per player (ValueModel.compositeValue)";
+  // ---- DDF Value history (JEG-465 / JEG-471 / JEG-479 / JEG-497) ----
+  // The pair and the inputs come from the version's composite state
+  // (buildCompositeState): the same inputs in both weeks, each input's
+  // Adjusted-view value, each priced exactly as its own Δ.
+  const COMPOSITE_HISTORY_METHOD = "equal-weight mean of the included inputs' finite Adjusted-view values; one value is published, flagged low confidence (ValueModel.compositeValue)";
   function compositeOfMaps(series) {
     const keys = series.map(item => item.key);
     const players = new Set(series.flatMap(item => Object.keys(item.values)));
@@ -4714,60 +4771,65 @@
     });
     return {values, counts};
   }
-  const compositeExtra = state => ({view: state.view, inputs: [...state.inputs], series: [...state.series],
+  const compositeExtra = state => ({version: state.version, inputs: [...state.inputs], series: [...state.series],
     excluded: state.excluded.map(entry => ({...entry})), minSources: COMPOSITE_MIN_SOURCES});
-  // One saved week of the active view's DDF Value over its inputs (the ones
-  // used for the current/prior pair). An input without that week is listed in
-  // `dropped` (only possible for a week other than the pair's).
-  async function compositeWeekValues(week) {
-    const state = compositeStates[viewMode];
+  // One input's saved week in the Adjusted view (a chart's with the rows'
+  // chart rules), named by its DDF series.
+  async function compositeInputWeek(key, week) {
+    const chart = chartOfInput(key);
+    const name = chart || key;
+    await loadHistoryFor(name, week);
+    const result = weekValuesSync(name, week, "adj");
+    return {...(chart ? chartRowRulesOnWeek(chart, result) : result), source: COMPOSITE_SERIES[key]};
+  }
+  // One saved week of a version over its inputs (the ones used for the
+  // current/prior pair). An input without that week is listed in `dropped`
+  // (only possible for a week other than the pair's).
+  async function compositeWeekValues(version, week) {
+    const state = compositeStates[version];
     week = Number(week);
-    if (!state) return historyUnavailable(COMPOSITE_KEY, week, "the engine has not loaded");
+    if (!state) return historyUnavailable(version, week, "the engine has not loaded");
     const extra = compositeExtra(state);
-    if (!Number.isInteger(week)) return historyUnavailable(COMPOSITE_KEY, week, "no week given", extra);
-    if (!state.series.length) return historyUnavailable(COMPOSITE_KEY, week, "no DDF Value input is available at this setting", extra);
-    const results = (await Promise.all(state.series.map(series => getWeekValues(series, week))))
-      .map(result => chartRowRulesOnWeek(result.source, result));
+    if (!Number.isInteger(week)) return historyUnavailable(version, week, "no week given", extra);
+    if (!state.inputs.length) return historyUnavailable(version, week, "no DDF Value input is available at this setting", extra);
+    const results = await Promise.all(state.inputs.map(key => compositeInputWeek(key, week)));
     const included = results.filter(result => result.available);
     const dropped = results.filter(result => !result.available).map(result => ({source: result.source, reason: result.reason}));
     if (!included.length) {
-      return historyUnavailable(COMPOSITE_KEY, week, `no DDF Value input has Week ${week} saved`, {...extra, sources: [], dropped});
+      return historyUnavailable(version, week, `no DDF Value input has Week ${week} saved`, {...extra, sources: [], dropped});
     }
     const blend = compositeOfMaps(included.map(result => ({key: result.source, values: result.values})));
-    return {source: COMPOSITE_KEY, week, available: true, values: blend.values, counts: blend.counts,
+    return {source: version, week, available: true, values: blend.values, counts: blend.counts,
       ...extra, sources: included.map(result => result.source), dropped, setting: historySetting(),
       method: COMPOSITE_HISTORY_METHOD};
   }
-  // Δ pair for the active view's DDF Value: exactly the rows' ddf_value and
-  // ddfPrior. values/counts: the prior week; currentValues/currentCounts: this
-  // week (= row.values.ddf_value). sources: the series averaged in both weeks.
-  // Δ = currentValues[player] − values[player].
-  async function compositePriorWeek(week) {
-    const state = compositeStates[viewMode];
+  // Δ pair for a version: exactly the rows' values[version] and its prior.
+  // values/counts: the prior week; currentValues/currentCounts: this week.
+  // sources: the series averaged in both weeks; seriesValues: each one's
+  // prior week as averaged. Δ = currentValues[player] − values[player].
+  async function compositePriorWeek(version, week) {
+    const state = compositeStates[version];
     const asked = week === undefined || week === null ? null : Number(week);
-    if (!state) return historyUnavailable(COMPOSITE_KEY, asked, "the engine has not loaded");
+    if (!state) return historyUnavailable(version, asked, "the engine has not loaded");
     const extra = {...compositeExtra(state), currentWeek: state.currentWeek, priorWeek: state.priorWeek};
-    if (!state.priorAvailable) return historyUnavailable(COMPOSITE_KEY, asked, state.priorReason, {...extra, sources: []});
+    if (!state.priorAvailable) return historyUnavailable(version, asked, state.priorReason, {...extra, sources: []});
     if (asked !== null && asked !== state.priorWeek) {
-      return historyUnavailable(COMPOSITE_KEY, asked, `Week ${week} is not the week before the served Week ${state.currentWeek}`, extra);
+      return historyUnavailable(version, asked, `Week ${week} is not the week before the served Week ${state.currentWeek}`, extra);
     }
-    const info = compositeValuesInfo(viewMode);
-    return {source: COMPOSITE_KEY, week: state.priorWeek, available: true, values: info.prior, counts: info.priorCounts,
+    const info = compositeValuesInfo(version);
+    return {source: version, week: state.priorWeek, available: true, values: info.prior, counts: info.priorCounts,
       currentValues: info.current, currentCounts: info.currentCounts, sources: [...state.series], dropped: [],
-      // Each input's prior week as averaged: its getPriorWeek values plus the
-      // rows' chart rules (0 below a fully loaded chart's floor, fallback
-      // cells left out).
-      seriesValues: Object.fromEntries(state.series.map(series => [series, {...compositePrior(state.view, series).values}])),
+      seriesValues: Object.fromEntries(Object.entries(state.seriesPrior || {}).map(([series, values]) => [series, {...values}])),
       ...extra, setting: historySetting(), method: COMPOSITE_HISTORY_METHOD};
   }
   // Saved weeks any input has, and the current week of the pair.
-  async function compositeHistoryWeeks() {
-    const state = compositeStates[viewMode];
-    const series = state ? state.series : [];
-    const results = await Promise.all(series.map(key => getHistoryWeeks(historyBaseSource(key))));
+  async function compositeHistoryWeeks(version) {
+    const state = compositeStates[version];
+    const inputs = state ? state.inputs : [];
+    const results = await Promise.all(inputs.map(key => getHistoryWeeks(chartOfInput(key) || key)));
     const weeks = [...new Set(results.flatMap(result => result.weeks))].sort((a, b) => a - b);
-    return {source: COMPOSITE_KEY, servedWeek: state?.priorAvailable ? state.currentWeek : null, weeks,
-      inputs: state ? [...state.inputs] : [], series: [...series]};
+    return {source: version, servedWeek: state?.priorAvailable ? state.currentWeek : null, weeks,
+      inputs: [...inputs], series: state ? [...state.series] : []};
   }
 
   // Math inspector (internal page, read-only). Every input and intermediate
@@ -4946,16 +5008,18 @@
         team: row.team,
         pos: row.pos,
         espnRole: row.espnRole,
-        values: Object.fromEntries([...visibleSourceKeys(), COMPOSITE_KEY].map(key => [key, row.values[key] ?? null]))
+        values: Object.fromEntries([...visibleSourceKeys(), ...COMPOSITE_VERSION_KEYS].map(key => [key, row.values[key] ?? null]))
       }));
     },
     // v2 front end (read-only): the ranked rows and source metadata the new
     // layout renders, straight from the same maps this chart draws.
-    // JEG-471 / JEG-479: each row also carries the DDF Composite Value of the
-    // active view: values.ddf_value (null when fewer than two included
-    // inputs price him; ddfReason says so), ddfCount, ddfSources, ddfPrior,
-    // ddfPriorCount, ddfTier ("starter" | "bench" | "waiver", null without a
-    // DDF Value) and ddfByView (all three views, both weeks).
+    // JEG-471 / JEG-479 / JEG-497: each row also carries the DDF Composite
+    // Value in three versions, the same in every view: values.ddf_value,
+    // values.ddf_value_charts, values.ddf_value_projections (null when no
+    // included input prices him; missingReasons and ddfReason say so),
+    // ddfCount / ddfChartsCount / ddfProjectionsCount, the low-confidence
+    // flags (one input), ddfPrior, ddfTier and ddfByVersion (all three, both
+    // weeks). Field list: docs/v2-design-notes.md "Back-end contract: DDF Value".
     getRows: () => displayRows().map(rowCopy),
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
@@ -5031,12 +5095,16 @@
       // line extrapolated from the other charts (or on the end of its list).
       waiverNote: waiverNote(key),
       waiver: publishedWaiver(key)
-    })), ...(options && options.includeComposite ? [compositeSourceInfo()] : [])],
+    })), ...(options && options.includeComposite ? COMPOSITE_VERSION_KEYS.map(compositeSourceInfo) : [])],
     // JEG-471: the DDF Value inputs; see setCompositeInputs.
     // JEG-479: getCompositeInputs([view]) for the active view by default;
     // getCompositeValues([view]) gives one view's DDF Value for both weeks.
-    getCompositeInputs: view => compositeInputsInfo(COMPOSITE_VIEWS.includes(view) ? view : viewMode),
-    getCompositeValues: view => compositeValuesInfo(COMPOSITE_VIEWS.includes(view) ? view : viewMode),
+    // JEG-497: getCompositeInputs([version]) / getCompositeValues([version]),
+    // version "blended" (default) | "charts" | "projections", or the series
+    // key ddf_value | ddf_value_charts | ddf_value_projections; the same in
+    // every view. Anything else (a former view name) reads the blend.
+    getCompositeInputs: version => compositeInputsInfo(version),
+    getCompositeValues: version => compositeValuesInfo(version),
     getLoadStatus: () => productLoadStatus(),
     setCompositeInputs,
     resetCompositeInputs: (publish = true) => setCompositeInputs(null, publish),
@@ -5047,7 +5115,7 @@
     // the current position), unclamped. Same roster ordinals as rosterOrdinals();
     // for DDF Value use row.ddfTier instead (null here).
     getZonesFor: (key, pos = position) => {
-      if (key === COMPOSITE_KEY) return null;
+      if (isCompositeKey(key)) return null;
       const shape = rosterShape;
       const slots = shape.QB + shape.RB + shape.WR + shape.TE + shape.FLEX + (shape.SUPERFLEX || 0);
       let starter;
