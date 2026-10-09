@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T19:50:55.150789Z",
- "run_id": "63a8ac04-3258-4386-89d6-22ea278fb734",
+ "checked_at": "2026-10-09T20:28:28.719312Z",
+ "run_id": "b54c41ab-b819-4f0e-916e-e7d736cefade",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-09T17:13:36.451046+00:00",
+  "built_at": "2026-10-09T18:01:30.062130+00:00",
   "error": null
  },
  "rules": {
@@ -112,7 +112,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T17:13:03Z",
+     "chart_imported_at": "2026-10-09T18:00:59Z",
      "bake_id": "usatwk5_2026-10-09t1427_v1",
      "bake_saved_at": "2026-10-09T14:27:35.484255Z",
      "behind": null,
@@ -201,8 +201,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T18:19:35.964914+00:00"
+     "summary": "engine and Python reference agree (595093 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T20:01:01.669135+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -532,8 +532,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T18:19:35.964914+00:00"
+     "summary": "engine and Python reference agree (595093 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T20:01:01.669135+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -773,7 +773,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T17:13:05Z",
+     "chart_imported_at": "2026-10-09T18:01:00Z",
      "bake_id": "fpwk5_2026-10-09t1235_v1",
      "bake_saved_at": "2026-10-09T12:35:46.178513Z",
      "behind": null,
@@ -834,8 +834,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T18:19:35.964914+00:00"
+     "summary": "engine and Python reference agree (595093 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T20:01:01.669135+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -993,7 +993,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T17:13:07Z",
+     "chart_imported_at": "2026-10-09T18:01:02Z",
      "bake_id": "cbswk5_2026-10-08t1259_v1",
      "bake_saved_at": "2026-10-08T12:59:38.994744Z",
      "behind": null,
@@ -1054,8 +1054,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T18:19:35.964914+00:00"
+     "summary": "engine and Python reference agree (595093 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T20:01:01.669135+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -1382,8 +1382,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T18:19:35.964914+00:00"
+     "summary": "engine and Python reference agree (595093 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T20:01:01.669135+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1541,18 +1541,18 @@
    "stored_bake": "2026-10-09",
    "stages": {
     "publisher_vs_stored": {
-     "status": "green",
-     "summary": "1107/1107 values match exactly across 3 columns; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "status": "red",
+     "summary": "1078/1104 values match exactly across 3 columns; 26 value mismatches, 0 publisher players not stored, 0 stored players not on the page; 2 players at the page's last listed value swapped in or out (ties at the row cap: Justin Joly, Seydou Traore); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 369,
       "stored_players": 369,
-      "compared": 1107,
-      "matched": 1107,
-      "mismatched": 0,
+      "compared": 1104,
+      "matched": 1078,
+      "mismatched": 26,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 0,
+      "list_churn": 2,
       "unresolved_names": 0
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -1563,26 +1563,107 @@
       "full|1": {
        "left": 369,
        "right": 369,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 10,
+       "missing": 1,
+       "extra": 1
       },
       "half|1": {
        "left": 369,
        "right": 369,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 10,
+       "missing": 1,
+       "extra": 1
       },
       "std|1": {
        "left": 369,
        "right": 369,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 6,
+       "missing": 1,
+       "extra": 1
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 71,
+       "name": "Stefon Diggs",
+       "pos": "WR",
+       "left": "138.9",
+       "right": 150.7,
+       "delta": 11.8
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 2515,
+       "name": "Christopher Brooks",
+       "pos": "RB",
+       "left": "30.7",
+       "right": 40.9,
+       "delta": 10.2
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 2515,
+       "name": "Christopher Brooks",
+       "pos": "RB",
+       "left": "26.2",
+       "right": 35.9,
+       "delta": 9.7
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 71,
+       "name": "Stefon Diggs",
+       "pos": "WR",
+       "left": "113.4",
+       "right": 122.7,
+       "delta": 9.3
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 2515,
+       "name": "Christopher Brooks",
+       "pos": "RB",
+       "left": "21.7",
+       "right": 30.9,
+       "delta": 9.2
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 71,
+       "name": "Stefon Diggs",
+       "pos": "WR",
+       "left": "87.9",
+       "right": 94.7,
+       "delta": 6.8
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 4474,
+       "name": "Tee Higgins",
+       "pos": "WR",
+       "left": "211.2",
+       "right": 215.8,
+       "delta": 4.6
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 4474,
+       "name": "Tee Higgins",
+       "pos": "WR",
+       "left": "176.2",
+       "right": 179.8,
+       "delta": 3.6
+      }
+     ],
      "outside_universe": [],
      "unresolved": []
     },
@@ -1715,8 +1796,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T18:19:35.964914+00:00"
+     "summary": "engine and Python reference agree (595093 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T20:01:01.669135+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1776,89 +1857,92 @@
    },
    "worst_examples": [
     {
-     "stage": "stored_vs_chart",
+     "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "full|1",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "23.025",
-     "right": 21.8,
-     "delta": -1.225
+     "player_key": 71,
+     "name": "Stefon Diggs",
+     "pos": "WR",
+     "left": "138.9",
+     "right": 150.7,
+     "delta": 11.8
     },
     {
-     "stage": "stored_vs_chart",
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 2515,
+     "name": "Christopher Brooks",
+     "pos": "RB",
+     "left": "30.7",
+     "right": 40.9,
+     "delta": 10.2
+    },
+    {
+     "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "half|1",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "23.025",
-     "right": 21.8,
-     "delta": -1.225
+     "player_key": 2515,
+     "name": "Christopher Brooks",
+     "pos": "RB",
+     "left": "26.2",
+     "right": 35.9,
+     "delta": 9.7
     },
     {
-     "stage": "stored_vs_chart",
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 71,
+     "name": "Stefon Diggs",
+     "pos": "WR",
+     "left": "113.4",
+     "right": 122.7,
+     "delta": 9.3
+    },
+    {
+     "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "std|1",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "23.025",
-     "right": 21.8,
-     "delta": -1.225
+     "player_key": 2515,
+     "name": "Christopher Brooks",
+     "pos": "RB",
+     "left": "21.7",
+     "right": 30.9,
+     "delta": 9.2
     },
     {
-     "stage": "stored_vs_chart",
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 71,
+     "name": "Stefon Diggs",
+     "pos": "WR",
+     "left": "87.9",
+     "right": 94.7,
+     "delta": 6.8
+    },
+    {
+     "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "full|1",
-     "player_key": 4490,
-     "name": "Sean Tucker",
-     "pos": "RB",
-     "left": "2.833",
-     "right": 1.625,
-     "delta": -1.208
+     "player_key": 4474,
+     "name": "Tee Higgins",
+     "pos": "WR",
+     "left": "211.2",
+     "right": 215.8,
+     "delta": 4.6
     },
     {
-     "stage": "stored_vs_chart",
+     "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "half|1",
-     "player_key": 4490,
-     "name": "Sean Tucker",
-     "pos": "RB",
-     "left": "2.750",
-     "right": 1.583,
-     "delta": -1.167
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "missing",
-     "grain": "full|1",
-     "player_key": 1221,
-     "name": "Kayshon Boutte",
+     "player_key": 4474,
+     "name": "Tee Higgins",
      "pos": "WR",
-     "left": "5.377",
-     "right": null
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "extra",
-     "grain": "full|1",
-     "player_key": 2075,
-     "name": "konata mumpfield",
-     "pos": null,
-     "left": null,
-     "right": 5.154
-    },
-    {
-     "stage": "stored_vs_chart",
-     "type": "missing",
-     "grain": "half|1",
-     "player_key": 1221,
-     "name": "Kayshon Boutte",
-     "pos": "WR",
-     "left": "4.415",
-     "right": null
+     "left": "176.2",
+     "right": 179.8,
+     "delta": 3.6
     }
    ]
   },
@@ -2260,8 +2344,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (367054 values compared in the whole report)",
-     "report_generated_at": "2026-10-09T18:19:35.964914+00:00"
+     "summary": "engine and Python reference agree (595093 values compared in the whole report)",
+     "report_generated_at": "2026-10-09T20:01:01.669135+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -2356,9 +2440,22 @@
  "not_covered": {},
  "requests": 32,
  "universe": {
-  "status": "amber",
-  "n_rows": 703,
+  "status": "green",
+  "n_rows": 1162,
   "as_of": "2026-10-09",
-  "summary": "703 players searchable; no active NFL universe count in this bake"
+  "n_nfl_active": 1146,
+  "by_roster_status": {
+   "active_roster": 503,
+   "practice_squad": 185,
+   "injured_reserve": 89,
+   "pup": 1,
+   "reserve": 0,
+   "free_agent": 368
+  },
+  "n_universe_only": 426,
+  "n_not_on_players_table": 0,
+  "identity_base_pulled_at": "2026-10-09T18:46:05+00:00",
+  "definition": "Every QB/RB/WR/TE Sleeper lists on an NFL team (active roster, practice squad, injured reserve, PUP and other reserve lists), plus free agents Sleeper flags active. Each needs a Sleeper news item in the 365 days before the identity pull (a rostered player may instead carry Sleeper's practice-squad status), which drops retired players Sleeper still lists on a team. Practice squad is Sleeper's status, or inferred for a rostered player with no depth-chart slot.",
+  "summary": "1162 players searchable; 1146 active NFL players (503 active roster, 185 practice squad, 89 injured reserve, 1 pup, 0 reserve, 368 free agent)"
  }
 }
