@@ -252,6 +252,76 @@
   }
   const tierLabel = role => ({starter: "Starter", bench: "Bench", waiver: "Waiver"}[role] || "—");
 
+  // Tier / roster tier (Jeremy, 2026-10-08): it follows the series a tab ranks or values by, never
+  // always ESPN. DDF Value: the engine's row.ddfTier. Any other series: the player's rank by that
+  // series against the engine's roster zones for that ranking (rank < starter_to_bench = Starter,
+  // < bench_to_waiver = Bench, else Waiver). A display mapping, not value math. null ("—") when the
+  // series has no value for the player.
+  // scope: {rows, pos, engineOrder}. rows = the list ranked within (engineOrder: C.getRows() order,
+  // so the engine's own ranking series reads row order against getZones(), as the chart's lines do).
+  const tierRanks = new WeakMap();
+  function tierFor(row, key, scope) {
+    if (!row || !key) return null;
+    if (key === DDF_KEY) return row.ddfTier || null;
+    const value = row.values ? row.values[key] : null;
+    if (!Number.isFinite(value) || !scope || !scope.rows) return null;
+    let byKey = tierRanks.get(scope.rows);
+    if (!byKey) tierRanks.set(scope.rows, byKey = new Map());
+    let entry = byKey.get(key);
+    if (!entry) {
+      const enginePos = C.getState().position;
+      const pos = scope.pos || enginePos;
+      const engineRanked = Boolean(scope.engineOrder) && key === C.getRankSource() && pos === enginePos;
+      const ranks = new Map();
+      if (engineRanked) {
+        scope.rows.forEach((r, index) => ranks.set(String(r.player_key), index + 1));
+      } else {
+        scope.rows.map((r, index) => ({r, index})).filter(({r}) => Number.isFinite(r.values?.[key]))
+          .sort((a, b) => b.r.values[key] - a.r.values[key] || a.index - b.index)
+          .forEach(({r}, index) => ranks.set(String(r.player_key), index + 1));
+      }
+      const zones = engineRanked ? C.getZones()
+        : typeof C.getZonesFor === "function" ? C.getZonesFor(key, pos)
+        : C.getRankSource() !== DDF_KEY || pos === "ALL" ? C.getZones() : null;
+      entry = {ranks, zones};
+      byKey.set(key, entry);
+    }
+    const rank = entry.ranks.get(String(row.player_key));
+    const sb = entry.zones && entry.zones.starter_to_bench;
+    const bw = entry.zones && entry.zones.bench_to_waiver;
+    if (!Number.isFinite(rank) || !Number.isFinite(sb) || !Number.isFinite(bw)) return null;
+    return rank < sb ? "starter" : rank < bw ? "bench" : "waiver";
+  }
+  const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));
+
+  // Low-confidence DDF Value (Jeremy, 2026-10-08): when exactly one input prices a player the engine
+  // still gives a DDF Value (that input's value) and flags it (row.ddfLowConfidence). Shown everywhere
+  // that value appears as "◐ 1 source" (symbol + label), with the engine's note as the tooltip.
+  const LOW_CONFIDENCE_NOTE = "Only one source prices this player";
+  const isLowConfidence = (row, key) => key === DDF_KEY && Boolean(row && row.ddfLowConfidence)
+    && Number.isFinite(row.values?.[DDF_KEY]);
+  function lowConfidenceNode(row) {
+    const node = document.createElement("span");
+    node.className = "v2-lowconf";
+    node.dataset.lowConfidence = "";
+    const count = Number.isFinite(row.ddfCount) ? row.ddfCount : 1;
+    const label = `${count} source${count === 1 ? "" : "s"}`;
+    // Jeremy (2026-10-09): tag "◐ 1 source"; the engine's note is the tooltip and part of the accessible name.
+    node.title = row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE;
+    node.setAttribute("role", "img");
+    node.setAttribute("aria-label", `${label}: ${node.title}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = "◐";
+    node.append(sym, document.createTextNode(` ${label}`));
+    return node;
+  }
+  function appendLowConfidence(parent, row, key) {
+    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));
+  }
+  // Player values: the Rank by series over the engine's ranked rows.
+  const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
+
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
@@ -294,7 +364,8 @@
     // The Y brush's scale: the ranking series' own spread over the listed players (display only).
     const rankValues = rows.map(row => row.values[rankKey]).filter(Number.isFinite);
     const yScale = {lo: Math.floor(Math.min(0, ...rankValues)), hi: Math.max(1, Math.ceil(Math.max(0, ...rankValues)))};
-    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible, totalRows: allRows.length, omittedMissing,
+    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible,
+      tierScope: {rows: allRows, pos: C.getState().position, engineOrder: true}, totalRows: allRows.length, omittedMissing,
       rangeOn, yScale, rankValues, refWeek, state: C.getState(), roster: C.getRosterShape()};
   }
 
@@ -682,7 +753,7 @@
     appendEspnZero(h, row);
     const meta = document.createElement("span");
     meta.className = "v2-meta";
-    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}${weekNote}`;
+    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "FA"} · ${valuesTier(row)}${weekNote}`;
     tip.append(h, meta);
     keys.forEach(key => {
       const m = sourceMeta(key);
@@ -695,6 +766,14 @@
       const val = document.createElement("span");
       val.className = "val";
       val.textContent = Number.isFinite(v) ? fmt(v) + (state.delta ? `  ${deltaText(row, key)}` : "") : "—";
+      appendLowConfidence(val, row, key);
+      if (!Number.isFinite(v)) {
+        val.title = missingReason(key, row);
+        const why = document.createElement("span");
+        why.className = "why";
+        why.textContent = ` ${val.title}`;
+        val.appendChild(why);
+      }
       line.appendChild(val);
       tip.appendChild(line);
     });
@@ -790,7 +869,7 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "Tier", cls: "col-meta", get: row => tierLabel(row.espnRole), text: true}
+      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
     // Ranking series first (it is the sort basis), then the groups in their fixed order.
@@ -868,10 +947,14 @@
   }
   const HEAT_WORDS = {above: "above", below: "below", same: "about level with"};
 
+  // Why a value is "—", for every tab: the engine's own reason first (row.missingReasons[key], e.g.
+  // "Not enough players to fit an adjustment"), then row.ddfReason for the DDF Value (JEG-479), then a
+  // generic line. A finite 0 is a value ("0.0"), never missing.
   function missingReason(key, row) {
-    // JEG-479: the engine says why a player has no DDF Value (e.g. fewer than two sources price him).
+    const own = row && row.missingReasons ? row.missingReasons[key] : null;
+    if (typeof own === "string" && own.trim()) return own;
     if (key === DDF_KEY && row && row.ddfReason) return row.ddfReason;
-    const item = view.infoByKey[key];
+    const item = view && view.infoByKey[key];
     const name = sourceMeta(key).short;
     if (item && !item.available) return `${name} is unavailable right now, so no player has a value from it`;
     return `${name} has no value for this player`;
@@ -948,6 +1031,7 @@
         if (col.cls === "num") {
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
+            appendLowConfidence(td, row, col.source);
             const heat = col.source ? heatFor(row, col.source) : null;
             if (heat) {
               if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
@@ -985,7 +1069,7 @@
             appendEspnZero(td, row);
             // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
             const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
-              state.metaCols.tier !== false && tierLabel(row.espnRole)].filter(Boolean);
+              state.metaCols.tier !== false && valuesTier(row)].filter(Boolean);
             if (parts.length) {
               const sub = document.createElement("span");
               sub.className = "player-sub";
@@ -1019,6 +1103,12 @@
   // ---------- player detail (frame 13 drawer, frame 14 full screen) ----------
   let lastFocus = null;
   let drawerRow = null;
+  let drawerTierFrom = null;   // which tab's series the drawer's tier follows
+  function drawerTier(row) {
+    if (drawerTierFrom === "targets" && targetsView) return tierText(row, targetsView.ours, targetsView.tierScope);
+    if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
+    return valuesTier(row);
+  }
   const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Published chart"], ["vorp", "VORP vs waivers"]];
   const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Indexed", vorp: "VORP vs waivers"};
 
@@ -1053,8 +1143,11 @@
     big.className = "v2-dhero-value";
     big.dataset.source = key;
     const v = row.values[key];
-    if (Number.isFinite(v)) big.textContent = fmt(v);
-    else big.appendChild(missingNode(`No ${seriesName(key)} value for ${row.name}`, "not priced by this source"));
+    if (Number.isFinite(v)) {
+      big.textContent = fmt(v);
+      appendLowConfidence(big, row, key);
+    }
+    else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
     unit.className = "v2-meta";
     unit.textContent = meta.method === "vorp" ? "VORP vs waivers, on this source's own scale" : "Trade-value points";
@@ -1128,8 +1221,10 @@
         } else if (view.active.includes(item.key)) {
           td.dataset.source = item.key;
           const v = row.values[item.key];
-          if (Number.isFinite(v)) td.textContent = fmt(v);
-          else td.appendChild(missingNode(`No ${seriesName(item.key)} value for ${row.name}`, "not priced"));
+          if (Number.isFinite(v)) {
+            td.textContent = fmt(v);
+            appendLowConfidence(td, row, item.key);
+          } else td.appendChild(missingNode(missingReason(item.key, row), "not priced"));
         } else {
           const add = document.createElement("button");
           add.type = "button";
@@ -1162,7 +1257,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${tierLabel(row.espnRole)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -1208,8 +1303,10 @@
     return out;
   }
 
-  function openDrawer(row) {
+  // tierFrom: "targets" | "compare" | undefined (Player values); a re-open of the same row keeps it.
+  function openDrawer(row, tierFrom) {
     if ($("v2Drawer").hidden) lastFocus = document.activeElement;
+    if (tierFrom !== undefined || row !== drawerRow) drawerTierFrom = tierFrom || null;
     drawerRow = row;
     const drawer = $("v2Drawer");
     drawer.replaceChildren();
@@ -1221,7 +1318,7 @@
     title.textContent = row.name;
     const meta = document.createElement("p");
     meta.className = "v2-meta";
-    meta.textContent = `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+    meta.textContent = `${row.pos} · ${row.team || "FA"} · ${drawerTier(row)}`;
     titles.append(title, meta);
     const close = document.createElement("button");
     close.type = "button";
@@ -2180,10 +2277,21 @@
     sell: {section: "v2TSell", table: "v2TTable", cards: "v2TCards", meta: "v2TSellMeta", empty: "v2TSellEmpty", more: "v2TSellMore", less: "v2TSellLess"},
     buy: {section: "v2TBuy", table: "v2TBuyTable", cards: "v2TBuyCards", meta: "v2TBuyMeta", empty: "v2TBuyEmpty", more: "v2TBuyMore", less: "v2TBuyLess"}
   };
-  // ours: which projection-derived series is "our value". Module state, so the
-  // choice survives switching tabs like the engine-held selections do.
+  // ours: which series is "our value" (DDF Value by default, JEG-455). Module state, so the choice
+  // survives switching tabs, and remembered on this device like the DDF selection (ddf.v2.targets).
   // shown / expanded are per list: each list opens and collapses on its own.
-  const T = {search: "", chart: "all", ours: "espn",
+  const TARGETS_SAVE_KEY = "ddf.v2.targets";
+  function loadTargetsOurs() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TARGETS_SAVE_KEY) || "null");
+      return saved && saved.v === 1 && typeof saved.ours === "string" ? saved.ours : null;
+    } catch (error) { return null; }
+  }
+  function saveTargetsOurs(ours) {
+    try { localStorage.setItem(TARGETS_SAVE_KEY, JSON.stringify({v: 1, ours})); }
+    catch (error) { /* storage unavailable: the choice lasts this visit only */ }
+  }
+  const T = {search: "", chart: "all", ours: loadTargetsOurs(),
     shown: {sell: TARGETS_TOP, buy: TARGETS_TOP}, expanded: {sell: new Set(), buy: new Set()}};
   let targetsView = null;
 
@@ -2304,8 +2412,17 @@
       : null;
     const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
+    // Why players were left out: the engine's reasons, most common first (display only).
+    const omittedReasons = new Map();
+    if (!blocked) {
+      searched.filter(row => !Number.isFinite(row.values?.[ourKey])).forEach(row => {
+        const reason = missingReason(ourKey, row);
+        omittedReasons.set(reason, (omittedReasons.get(reason) || 0) + 1);
+      });
+    }
     targetsView = {...result, ours: ourKey, choices, used, skipped, prior: prior || [], info, infoByKey, refWeek, blocked,
-      position: C.getState().position};
+      position: C.getState().position, tierScope: {rows, pos: C.getState().position, engineOrder: true},
+      omittedReasons: [...omittedReasons].sort((a, b) => b[1] - a[1])};
   }
 
   function renderTargetControls() {
@@ -2343,11 +2460,40 @@
       const option = document.createElement("option");
       option.value = choice.key;
       option.disabled = !choice.available;
-      option.textContent = `${PUBLISHERS[choice.key].symbol} ${TT.OUR_NAMES[choice.key]}${choice.available ? "" : ` — ${choice.reason}`}`;
+      option.textContent = `${sourceMeta(choice.key).symbol} ${TT.OUR_NAMES[choice.key]}${choice.available ? "" : ` — ${choice.reason}`}`;
       oursSelect.appendChild(option);
     });
     oursSelect.value = targetsView.ours;
     $("v2TPosition").value = targetsView.position;
+  }
+
+  // DDF Value's "from N sources" (row.ddfCount), the sub-text under our value.
+  function ddfCountNode(row) {
+    if (isLowConfidence(row, DDF_KEY)) {
+      const node = lowConfidenceNode(row);
+      node.classList.add("why", "t-count");
+      node.dataset.ddfCount = String(Number.isFinite(row.ddfCount) ? row.ddfCount : 1);
+      return node;
+    }
+    if (!Number.isFinite(row.ddfCount)) return null;
+    const node = document.createElement("span");
+    node.className = "why t-count";
+    node.dataset.ddfCount = String(row.ddfCount);
+    node.textContent = `from ${row.ddfCount} source${row.ddfCount === 1 ? "" : "s"}`;
+    if (Array.isArray(row.ddfSources) && row.ddfSources.length) node.title = row.ddfSources.map(seriesName).join(", ");
+    return node;
+  }
+  // Our value: the number (with DDF Value's source count), or "—" with the engine's reason.
+  function oursValue(cell, p) {
+    if (!Number.isFinite(p.ours)) {
+      cell.appendChild(missingNode(missingReason(targetsView.ours, p.row), "no value"));
+      return;
+    }
+    cell.appendChild(document.createTextNode(fmt(p.ours)));
+    if (targetsView.ours === DDF_KEY) {
+      const count = ddfCountNode(p.row);
+      if (count) cell.appendChild(count);
+    }
   }
 
   function gapNode(cell, tag) {
@@ -2382,7 +2528,7 @@
 
   // One chart's value for a player as a labeled run: "◆ USAT [Wk 4] 17.4 +9.8".
   // Used by the phone cards and by an expanded row in the two-column layout.
-  function chartValueSpan(p, key) {
+  function chartValueSpan(p, key, withNative) {
     const cell = p.cells[key];
     const span = document.createElement("span");
     span.dataset.chart = key;
@@ -2406,6 +2552,15 @@
     val.textContent = fmt(cell.value);
     span.appendChild(val);
     span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
+    const rank = withNative && typeof C.getNativeRank === "function" ? C.getNativeRank(p.row.player_key, key) : null;
+    if (Number.isFinite(rank)) {
+      const native = document.createElement("span");
+      native.className = "t-native";
+      native.dataset.nativeRank = String(rank);
+      native.title = `${PUBLISHER_NAMES[key]}'s own rank for this player, before indexing`;
+      native.textContent = `#${rank} on ${PUBLISHER_NAMES[key]}`;
+      span.appendChild(native);
+    }
     return span;
   }
 
@@ -2475,8 +2630,8 @@
       const tr = document.createElement("tr");
       tr.tabIndex = 0;
       tr.dataset.playerKey = key;
-      tr.addEventListener("click", () => openDrawer(p.row));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row); });
+      tr.addEventListener("click", () => openDrawer(p.row, "targets"));
+      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row, "targets"); });
       const td = (cls, text) => {
         const cell = document.createElement("td");
         if (cls) cell.className = cls;
@@ -2488,10 +2643,11 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       name.appendChild(sub);
-      const ours = td("num is-rank", fmt(p.ours));
+      const ours = td("num is-rank");
       ours.dataset.ours = "";
+      oursValue(ours, p);
       targetsView.used.forEach(chart => {
         const cell = p.cells[chart];
         const c = td("num t-chart");
@@ -2543,7 +2699,7 @@
         cell.colSpan = columns;
         const line = document.createElement("div");
         line.className = "vals";
-        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart)));
+        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart, true)));
         cell.appendChild(line);
         detail.appendChild(cell);
         tbody.appendChild(detail);
@@ -2559,8 +2715,8 @@
       const li = document.createElement("li");
       li.tabIndex = 0;
       li.dataset.playerKey = String(p.row.player_key);
-      li.addEventListener("click", () => openDrawer(p.row));
-      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row); });
+      li.addEventListener("click", () => openDrawer(p.row, "targets"));
+      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
       const top = document.createElement("div");
       top.className = "top";
       const who = document.createElement("div");
@@ -2569,7 +2725,7 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       who.append(name, sub);
       const b = targetBest(side, p);
       const big = document.createElement("div");
@@ -2582,7 +2738,9 @@
       line.className = "vals";
       const ours = document.createElement("span");
       ours.className = "ours";
-      ours.textContent = `Ours ${fmt(p.ours)}`;
+      ours.dataset.ours = "";
+      ours.append(document.createTextNode("Ours "));
+      oursValue(ours, p);
       line.appendChild(ours);
       targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
       li.append(top, line);
@@ -2636,7 +2794,8 @@
       notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
     }
     if (targetsView.omittedNoOurs) {
-      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value for them.`);
+      const why = targetsView.omittedReasons.map(([reason, n]) => `${reason} (${n})`).join("; ");
+      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${targetsView.ours === DDF_KEY ? "DDF Value" : `${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value`} for them${why ? `. Why: ${why}` : ""}.`);
     }
     if (targetsView.atWaiverCells && !blocked) {
       notes.push("A chart value of 0.0 is at that chart's waiver line for your league: never a buy, no gap.");
@@ -2644,7 +2803,11 @@
     const note = $("v2TNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
-    $("v2TOursNote").textContent = window.TradeValueTargets.OUR_NAMES[targetsView.ours];
+    // The footnote follows the picked series: DDF Value is built from the chosen inputs; a projection
+    // series is that publisher's projections with our Data Driven Adjustments.
+    $("v2TOursNote").textContent = targetsView.ours === DDF_KEY
+      ? "the DDF Value, built from the inputs chosen in Customize on Player values"
+      : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]} with Data Driven Adjustments`;
     // Footnote: each compared chart that is still on an earlier week, with its badge.
     const priorNote = $("v2TPriorNote");
     priorNote.replaceChildren();
@@ -2667,7 +2830,12 @@
     });
     $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); resetLists(); renderTargets(); });
     $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; resetLists(); renderTargets(); });
-    $("v2TOurs").addEventListener("change", event => { T.ours = event.target.value; resetLists(); renderTargets(); });
+    $("v2TOurs").addEventListener("change", event => {
+      T.ours = event.target.value;
+      saveTargetsOurs(T.ours);
+      resetLists();
+      renderTargets();
+    });
     $("v2TChartInfoSlot").replaceWith(indexedInfoButton("Compare against"));
     TARGET_SIDES.forEach(side => {
       const ids = TARGET_IDS[side];
@@ -2700,6 +2868,12 @@
   // side cards' values and totals. With DDF Value not shown, the verdict reads the picked series.
   let verdictSeries = null;
   const verdictKey = () => verdictSeries;
+  // Compare tiers: rank by the verdict series over every priced player, against the All-positions zones.
+  let compareTierRows = null;
+  function compareTierScope() {
+    if (!compareTierRows) compareTierRows = C.getAllRows();
+    return {rows: compareTierRows, pos: "ALL", engineOrder: false};
+  }
   let exampleCache = null;   // {signature, pick}: the empty-state sample trade
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
@@ -2711,6 +2885,7 @@
   }
 
   function collectCompare() {
+    compareTierRows = null;
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
@@ -2804,8 +2979,9 @@
           const b = document.createElement("b");
           b.textContent = fmt(v);
           line.appendChild(b);
+          appendLowConfidence(line, row, result.key);
         } else {
-          line.appendChild(missingNode(`No ${seriesName(result.key)} value for ${row.name}`, "no value"));
+          line.appendChild(missingNode(missingReason(result.key, row), "no value"));
         }
         col.appendChild(line);
       });
@@ -3075,21 +3251,23 @@
         name.type = "button";
         name.className = "v2-trade-name";
         name.setAttribute("aria-label", `${row.name}: player details`);
-        name.addEventListener("click", () => openDrawer(row));
+        name.addEventListener("click", () => openDrawer(row, "compare"));
       }
       name.textContent = row.name;
       appendEspnZero(name, row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = row.unpriced ? "No value in any source for this league"
-        : `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+        : `${row.pos} · ${row.team || "FA"} · ${tierText(row, verdictKey(), compareTierScope())}`;
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";
       value.dataset.source = shown || "";
       const v = shown && row.values ? row.values[shown] : null;
-      if (Number.isFinite(v)) value.textContent = fmt(v);
-      else value.appendChild(missingNode(`No ${shown ? seriesName(shown) : ""} value for ${row.name}`, "no value"));
+      if (Number.isFinite(v)) {
+        value.textContent = fmt(v);
+        appendLowConfidence(value, row, shown);
+      } else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
       if (compareView.example) {
         li.classList.add("is-example");
         li.append(who, value, document.createElement("span"));

@@ -7,7 +7,13 @@ headless (desktop 1440 × 900 and 1366 × 768, narrow desktop 1024 × 768, phone
 
 Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * "Our value" shows the engine's value for the series picked in "Our value"
-    (ESPN by default, then CBS rest-of-season and Razzball through the picker);
+    (DDF Value by default, JEG-455; then ESPN, CBS rest-of-season and Razzball
+    through the picker);
+  * with DDF Value, each row's Our value carries "from N sources" with N the
+    engine's row.ddfCount, and the tier in the player sub-line is the engine's
+    row.ddfTier; with a projection picked there is no source count and the
+    tier is the player's rank by that series against the league's roster
+    zones (Jeremy, 2026-10-08: the tier follows the selected series);
   * each chart cell shows the engine's value for that chart, and its gap is
     exactly chart − ours with the right sign; a value the engine does not have
     shows — plus a reason, never 0.0;
@@ -16,8 +22,14 @@ Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * sell rows are ordered largest positive gap first, buy rows most negative
     first; the per-chart run under an opened row (two-column layout) and on a
     phone card carries the same numbers;
-  * the picked series survives a round trip to Player values; the Methods row
-    stays hidden on this tab.
+  * the picked series survives a round trip to Player values and a reload
+    (remembered on this device); the Methods row stays hidden on this tab;
+  * simulated engine rows (SIMULATE_ROWS, until the engine ships them and
+    because current data has no chart value at 0): a one-source DDF Value
+    (ddfLowConfidence) is a target and shows "◐ 1 source" with the engine's
+    note as its tooltip; a player with no DDF input is left out and counted
+    with the engine's reason; a chart value of 0 shows "waiver line", no gap;
+  * an opened row's "#N on <publisher>" is the engine's getNativeRank.
 
 JEG-464: the H1 and subtitle are the decided copy; the nav tab stays "Trade
 targets" ("Targets" on phones).
@@ -47,7 +59,9 @@ targets.js, v2.js, v2.css and the page (gap sign flipped, missing read as 0,
 waiver rule removed, picked series ignored; prior-week chart dropped, badge
 removed; "indexed" label removed, aria-expanded never reset; lists open on 25,
 no two-column layout; old headline; Pos/Team/Tier columns back with one-line
-headers) and requires the checks to fail on each.
+headers; default reverted to ESPN, tier read from espnRole, source count
+missing, pick not remembered, one-source player left out, low-confidence
+marker missing, native rank off by one) and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -81,25 +95,40 @@ def setUpModule():
 TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-OURS = ("espn", "cbsros", "razzball")
+DDF = "ddf_value"
+OURS = (DDF, "espn", "cbsros", "razzball")
+TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
+CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
 H1 = "Where the trade market is wrong this week"
-SUBTITLE = ("We check four published trade charts against our projection-based values for your league. "
+SUBTITLE = ("We check four published trade charts against our values for your league. "
             "Sell the players they overpay for; buy the ones they undervalue.")
 INDEXED_TEXT = ("Published charts use their own point scales. We rescale each chart so its total value matches our "
                 "ESPN-based scale for your league, which makes the numbers comparable.")
 FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
 
 READ = """([side, ours, ids]) => {
-  const rows = window.TradeValueCurveControls.getRows();
+  const C = window.TradeValueCurveControls;
+  const rows = C.getRows();
   const engine = Object.fromEntries(rows.map(r => [String(r.player_key), r.values]));
+  const ddf = Object.fromEntries(rows.map(r => [String(r.player_key), {count: r.ddfCount, tier: r.ddfTier,
+    low: Boolean(r.ddfLowConfidence), note: r.ddfConfidenceNote || null}]));
+  const order = rows.map(r => String(r.player_key));
+  const st = C.getState();
   const text = node => (node ? node.childNodes[0]?.textContent || "" : null);
+  const ownText = node => (node ? [...node.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join("") : null);
+  const count = node => { const c = node && node.querySelector('.t-count'); return c ? {text: c.textContent, n: c.dataset.ddfCount,
+    low: c.hasAttribute('data-low-confidence'), title: c.title, aria: c.getAttribute('aria-label')} : null; };
+  const tierOf = sub => (sub ? sub.textContent.split(' · ').pop() : null);
   const runOf = span => ({value: span.querySelector('.val')?.textContent ?? null, gap: span.querySelector('.gap')?.textContent ?? null,
+    native: span.querySelector('.t-native')?.textContent ?? null,
     atWaiver: Boolean(span.querySelector('.at-waiver')), missing: Boolean(span.querySelector('.missing'))});
   const table = [...document.querySelectorAll(`#${ids.table} tbody tr[data-player-key]`)].map(tr => ({
     key: tr.dataset.playerKey,
-    ours: tr.querySelector('[data-ours]').textContent,
+    ours: ownText(tr.querySelector('[data-ours]')),
+    count: count(tr.querySelector('[data-ours]')),
+    tier: tierOf(tr.querySelector('.player-sub')),
     best: text(tr.querySelector('td.best')),
     bestChart: tr.querySelector('td.best').dataset.best,
     cells: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, {
@@ -112,10 +141,17 @@ READ = """([side, ours, ids]) => {
     cells: Object.fromEntries([...tr.querySelectorAll('[data-chart]')].map(s => [s.dataset.chart, runOf(s)]))}));
   const cards = [...document.querySelectorAll(`#${ids.cards} li`)].map(li => ({
     key: li.dataset.playerKey,
-    ours: li.querySelector('.ours').textContent,
+    ours: ownText(li.querySelector('.ours')),
+    count: count(li.querySelector('.ours')),
+    tier: tierOf(li.querySelector('.top .v2-meta')),
     cells: Object.fromEntries([...li.querySelectorAll('.vals [data-chart]')].map(s => [s.dataset.chart, runOf(s)]))
   }));
-  return {side, ours, engine, table, details, cards, used: window.TradeValueV2.targets().used,
+  return {side, ours, engine, ddf, order, position: st.position, teams: st.teams, roster: C.getRosterShape(),
+    zonesFor: C.getZonesFor ? C.getZonesFor(ours) : null,
+    natives: C.getNativeRanks ? Object.fromEntries(window.TradeValueV2.targets().used.map(k => [k, C.getNativeRanks(k)])) : null,
+    probe: window.__probe || null, omittedNoOurs: window.TradeValueV2.targets().omittedNoOurs,
+    note: document.getElementById('v2TNote').textContent,
+    table, details, cards, used: window.TradeValueV2.targets().used,
     picker: document.getElementById('v2TOurs').value,
     // Every target on this side, not only the rendered page.
     allBest: window.TradeValueV2.targets()[side].map(p => [String(p.row.player_key), (side === 'sell' ? p.bestSell : p.bestBuy).chart]),
@@ -173,6 +209,42 @@ LAYOUT = """(sides) => {
     overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
 
+# Simulated engine rows (JEG-455 / Jeremy 2026-10-08, and the waiver rule): wraps getRows so that
+#  low  - the player with the highest compared chart value has a one-source DDF Value of 0.5
+#         (ddfCount 1, ddfLowConfidence, the engine's note) -> a sell target with the marker;
+#  none - another player has no DDF input (null, count 0, a reason) -> left out and counted;
+#  zero - the top sell target's second chart is at its waiver line (0) -> "waiver line", no gap.
+# Current data has no chart value at or below 0 (JEG-482 pure rescale), so "zero" keeps that rule tested.
+SIMULATE_ROWS = """() => {
+  const C = window.TradeValueCurveControls, V2 = window.TradeValueV2;
+  const t = V2.targets();
+  const used = t.used;
+  const rows = C.getRows();
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  const top = t.sell.find(p => used.filter(c => fin(p.row.values[c]) && p.row.values[c] > 0).length >= 2);
+  if (!top) return null;
+  const zero = {key: String(top.row.player_key), chart: used.find(c => c !== top.bestSell.chart && fin(top.row.values[c]) && top.row.values[c] > 0)};
+  let low = null, best = -Infinity;
+  rows.forEach(r => { const k = String(r.player_key); if (k === zero.key || !fin(r.values.ddf_value)) return;
+    used.forEach(c => { if (fin(r.values[c]) && r.values[c] > best) { best = r.values[c]; low = k; } }); });
+  const none = rows.map(r => String(r.player_key)).find(k => k !== zero.key && k !== low
+    && fin(rows.find(r => String(r.player_key) === k).values.ddf_value));
+  const note = 'Only one source prices this player', reason = 'No source prices this player';
+  const real = C.getRows.bind(C);
+  C.getRows = () => real().map(r => {
+    const k = String(r.player_key);
+    if (k === low) return {...r, values: {...r.values, ddf_value: 0.5}, ddfCount: 1, ddfSources: [used[0]],
+      ddfLowConfidence: true, ddfConfidenceNote: note};
+    if (k === none) return {...r, values: {...r.values, ddf_value: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
+      ddfLowConfidence: false, ddfReason: reason};
+    if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
+    return r;
+  });
+  window.__probe = {low, none, zero, note, reason};
+  document.getElementById('v2TPosition').dispatchEvent(new Event('change'));
+  return window.__probe;
+}"""
+
 # Simulate a chart one week behind: FantasyPros on Week 4 while the content week is N.
 SIMULATE_PRIOR = """() => {
   const C = window.TradeValueCurveControls, P = window.TradeValueProductData;
@@ -218,6 +290,8 @@ def finite(value):
 
 def check_run(where, values, our_key, cell):
     """A per-chart run (opened row or phone card) against the engine."""
+    if not finite(values.get(our_key)):
+        return [f"{where}: listed without an engine {our_key} value"]
     for chart, run in cell.items():
         value = values.get(chart)
         if not finite(value):
@@ -231,11 +305,74 @@ def check_run(where, values, our_key, cell):
     return []
 
 
+def expected_tiers(snapshot) -> dict:
+    """Tier per player for the picked series: DDF Value → the engine's ddfTier; a projection → the
+    player's rank by that series (engine row order breaks ties) against the league's roster zones."""
+    our_key = snapshot["ours"]
+    if our_key == DDF:
+        return {key: TIER_LABEL.get(d["tier"], "—") for key, d in snapshot["ddf"].items()}
+    priced = [k for k in snapshot["order"] if finite((snapshot["engine"].get(k) or {}).get(our_key))]
+    priced.sort(key=lambda k: -snapshot["engine"][k][our_key])   # stable: engine order breaks ties
+    if snapshot["position"] == "ALL":
+        shape = snapshot["roster"]
+        slots = sum(shape.get(p, 0) for p in ("QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"))
+        starter, bench = snapshot["teams"] * slots + 0.5, snapshot["teams"] * (slots + shape["BENCH"]) + 0.5
+    else:
+        zones = snapshot["zonesFor"] or {}
+        starter, bench = zones.get("starter_to_bench"), zones.get("bench_to_waiver")
+    out = {}
+    for rank, key in enumerate(priced, 1):
+        out[key] = "Starter" if rank < starter else "Bench" if rank < bench else "Waiver"
+    return out
+
+
+def check_ours_extras(where, snapshot, key, shown) -> list[str]:
+    """JEG-455: DDF Value's source count (or the one-source marker), and the tier from the picked series."""
+    errors = []
+    if snapshot["ours"] == DDF:
+        d = snapshot["ddf"][key]
+        n = d["count"]
+        if d["low"]:
+            c = shown["count"] or {}
+            if (not c.get("low") or c.get("text") != f"◐ {n} source" or c.get("title") != d["note"]
+                    or c.get("aria") != f"{n} source: {d['note']}"):
+                errors.append(f"{where}: one-source DDF Value shows {shown['count']}, want '◐ {n} source' titled {d['note']!r}")
+        else:
+            want = f"from {n} source{'' if n == 1 else 's'}"
+            if not shown["count"] or shown["count"]["text"] != want or shown["count"]["n"] != str(n) or shown["count"]["low"]:
+                errors.append(f"{where}: source count {shown['count']}, engine ddfCount {n} ({want!r})")
+    elif shown["count"]:
+        errors.append(f"{where}: a source count {shown['count']} shown for {snapshot['ours']}")
+    want_tier = snapshot["tiers"].get(key, "—")
+    if shown["tier"] != want_tier:
+        errors.append(f"{where}: tier {shown['tier']!r}, expected {want_tier!r} from {snapshot['ours']}")
+    return errors
+
+
 def check(snapshot) -> list[str]:
     errors = []
     side = snapshot["side"]
     our_key = snapshot["ours"]
     engine = snapshot["engine"]
+    snapshot["tiers"] = expected_tiers(snapshot)
+    probe = snapshot["probe"]
+    if not probe:
+        errors.append("rows were not simulated")
+    else:
+        listed = {key for key, _ in snapshot["allBest"]}
+        if our_key == DDF and side == "sell":
+            if probe["low"] not in listed:
+                errors.append(f"one-source player {probe['low']} is not a sell target (Jeremy: show it, flagged)")
+            if not any(r["key"] == probe["low"] for r in snapshot["table"] + snapshot["cards"]):
+                errors.append(f"one-source player {probe['low']} is not rendered in the top rows")
+        if our_key == DDF:
+            if probe["none"] in listed:
+                errors.append(f"player {probe['none']} with no DDF input is listed as a {side} target")
+            if snapshot["omittedNoOurs"] < 1 or probe["reason"] not in snapshot["note"]:
+                errors.append(f"player with no DDF input not counted with the engine's reason: {snapshot['note']!r}")
+        zrows = [r for r in snapshot["table"] if r["key"] == probe["zero"]["key"]]
+        if our_key == DDF and side == "sell" and snapshot["table"] and not zrows:
+            errors.append(f"the waiver-line probe {probe['zero']} is not rendered")
     if snapshot["picker"] != our_key:
         errors.append(f"picker shows {snapshot['picker']!r}, expected {our_key!r}")
     if not snapshot["methodsHidden"]:
@@ -258,6 +395,7 @@ def check(snapshot) -> list[str]:
         if not finite(ours) or row["ours"] != fmt(ours):
             errors.append(f"{row['key']}: ours {row['ours']!r} != engine {our_key} {ours!r}")
             continue
+        errors += check_ours_extras(f"row {row['key']}", snapshot, row["key"], row)
         gaps = {}
         for chart, cell in row["cells"].items():
             value = values.get(chart)
@@ -289,8 +427,14 @@ def check(snapshot) -> list[str]:
     ordered = sorted(best_gaps, reverse=(side == "sell"))
     if best_gaps != ordered:
         errors.append(f"{side} rows are not ordered by largest gap")
+    natives = snapshot["natives"] or {}
     for detail in snapshot["details"]:
         values = engine.get(detail["key"], {})
+        for chart, run in detail["cells"].items():
+            rank = (natives.get(chart) or {}).get(detail["key"])
+            want = f"#{rank} on {CHART_NAMES[chart]}" if rank is not None else None
+            if natives and run["native"] != want:
+                errors.append(f"opened row {detail['key']}/{chart}: native rank {run['native']!r}, engine {want!r}")
         if set(detail["cells"]) != set(snapshot["used"]):
             errors.append(f"opened row {detail['key']}: charts {sorted(detail['cells'])} != compared {sorted(snapshot['used'])}")
         errors += check_run(f"opened row {detail['key']}", values, our_key, detail["cells"])
@@ -299,6 +443,7 @@ def check(snapshot) -> list[str]:
         if not finite(values.get(our_key)) or card["ours"] != f"Ours {fmt(values[our_key])}":
             errors.append(f"card {card['key']}: {card['ours']!r} vs engine {our_key} {values.get(our_key)!r}")
             continue
+        errors += check_ours_extras(f"card {card['key']}", snapshot, card["key"], card)
         errors += check_run(f"card {card['key']}", values, our_key, card["cells"])
     return errors
 
@@ -467,6 +612,9 @@ def _open(browser, url, width, height, targets_js, v2_js, v2_css):
             page.route(pattern, functools.partial(_serve, body, kind))
     page.goto(url, wait_until="networkidle")
     page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=40000)
+    if not page.evaluate(SIMULATE_ROWS):
+        errors.append("no sell target with two charts to simulate rows on")
+    page.wait_for_timeout(200)
     return page, errors
 
 
@@ -561,8 +709,8 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                     errors += [tag + e for e in _popover_checks(page, width)]
                     errors += [tag + e for e in _paging_checks(page, width)]
                 full_numbers = numbers and width in (1440, 390)
-                for ours in (OURS if full_numbers else ("espn",) if numbers else ()):
-                    if ours != "espn":
+                for ours in (OURS if full_numbers else (DDF,) if numbers else ()):
+                    if ours != DDF:
                         page.select_option("#v2TOurs", ours)
                         # The pick must survive a trip to Player values and back.
                         page.evaluate("() => { location.hash = '#player-values'; }")
@@ -585,6 +733,13 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                             errors.append(tag + f"{ours} {side}: ▾ did not open a row's per-chart values")
                         if width < 768 and snap["overflow"] > 0:
                             errors.append(tag + f"horizontal overflow {snap['overflow']}px")
+                if full_numbers:
+                    # Remembered on this device: the last pick (Razzball) is back after a reload.
+                    page.reload(wait_until="networkidle")
+                    page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=40000)
+                    picked = page.evaluate("() => [document.getElementById('v2TOurs').value, window.TradeValueV2.targets().ours]")
+                    if picked != [OURS[-1], OURS[-1]]:
+                        errors.append(tag + f"Our value after a reload is {picked}, expected {OURS[-1]!r} (remembered)")
                 if layout and width in (1440, 390):
                     ref_week = page.evaluate(SIMULATE_PRIOR)
                     page.wait_for_timeout(200)
@@ -645,12 +800,23 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "Pos/Team/Tier columns and one-line headers": (
                 {"v2_js": (v2, '    head("Player", "player");\n',
                            '    head("Player", "player"); head("Pos", "col-meta"); head("Team", "col-meta"); head("Tier", "col-meta");\n',
-                           '      const ours = td("num is-rank", fmt(p.ours));\n',
-                           '      td("col-meta", p.row.pos); td("col-meta", p.row.team || "FA"); td("col-meta", tierLabel(p.row.espnRole));\n'
-                           '      const ours = td("num is-rank", fmt(p.ours));\n'),
+                           '      const ours = td("num is-rank");\n',
+                           '      td("col-meta", p.row.pos); td("col-meta", p.row.team || "FA"); td("col-meta", tierLabel(p.row.ddfTier));\n'
+                           '      const ours = td("num is-rank");\n'),
                  "v2_css": (css, ".v2-ttable th { vertical-align: bottom; white-space: normal; line-height: 1.25; }",
                             ".v2-ttable th { vertical-align: bottom; white-space: nowrap; line-height: 1.25; }")},
                 {"viewports": ((1024, 768),), "numbers": False}),
+            # JEG-455 / tier ruling
+            "default reverted to ESPN": ({"targets_js": (targets, "const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[1];")}, numbers_only),
+            "tier read from espnRole": ({"v2_js": (v2, "const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));",
+                                                   "const tierText = row => tierLabel(row.espnRole);")}, numbers_only),
+            "source count missing": ({"v2_js": (v2, "      if (count) cell.appendChild(count);\n", "")}, numbers_only),
+            "pick not remembered": ({"v2_js": (v2, "      saveTargetsOurs(T.ours);\n", "")}, numbers_only),
+            "one-source player left out": ({"targets_js": (targets, "      if (!finite(ours)) {",
+                                                           "      if (!finite(ours) || row.ddfLowConfidence) {")}, numbers_only),
+            "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, DDF_KEY)) {\n      const node = lowConfidenceNode(row);",
+                                                         "    if (false) {\n      const node = lowConfidenceNode(row);")}, numbers_only),
+            "native rank off by one": ({"v2_js": (v2, "native.textContent = `#${rank} on", "native.textContent = `#${rank + 1} on")}, numbers_only),
         }
         for name, (mutation, opts) in broken.items():
             with self.subTest(mutation=name):

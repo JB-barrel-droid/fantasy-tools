@@ -5033,6 +5033,28 @@
     resetCompositeInputs: (publish = true) => setCompositeInputs(null, publish),
     getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
     getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value])),
+    // v2 tier labels (read-only, 2026-10-08): the roster-zone cutoffs getZones()
+    // would give if the list were ranked by `key` in position `pos` (default:
+    // the current position), unclamped. Same roster ordinals as rosterOrdinals();
+    // for DDF Value use row.ddfTier instead (null here).
+    getZonesFor: (key, pos = position) => {
+      if (key === COMPOSITE_KEY) return null;
+      const shape = rosterShape;
+      const slots = shape.QB + shape.RB + shape.WR + shape.TE + shape.FLEX + (shape.SUPERFLEX || 0);
+      let starter;
+      let bench;
+      if (pos === "ALL") {
+        starter = teams * slots;
+        bench = teams * (slots + shape.BENCH);
+      } else {
+        const counts = allocationCounts();
+        const group = pos === "FLEX" ? ["RB", "WR", "TE"] : [pos];
+        starter = group.reduce((sum, p) => sum + (counts.lineup[p] || 0), 0);
+        bench = group.reduce((sum, p) => sum + (counts.rostered[p] || 0), 0);
+      }
+      if (!Number.isFinite(starter) || !Number.isFinite(bench)) return null;
+      return {starter_to_bench: starter + 0.5, bench_to_waiver: bench + 0.5};
+    },
     // Internal math inspector (read-only): see getInspection above.
     getInspection
   };

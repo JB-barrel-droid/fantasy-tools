@@ -85,11 +85,11 @@ managers will accept. Sell where a public chart pays more than we would, buy whe
 It keeps the frame's layout (table on desktop, cards below 768 px), but the comparison is one exact
 pair per column, not a spread across sources:
 
-- Our value = one engine projection-derived DDF series, picked in "Our value" (Jeremy,
-  2026-10-07): `espn` (ESPN, default), `cbsros` (CBS rest-of-season) or `razzball`. One series at a
-  time, never a blend. A series unavailable at the current setting is listed disabled with its
-  reason; if the picked one becomes unavailable the tab fails closed rather than swapping. The pick
-  is v2 module state, so it survives switching tabs (no storage, like the other v2 selections).
+- Our value = one engine series, picked in "Our value": `ddf_value` (DDF Value, the default since
+  JEG-455, 2026-10-08), or the projections `espn`, `cbsros` (CBS rest-of-season) and `razzball` as
+  alternatives. A series unavailable at the current setting is listed disabled with its reason; if
+  the picked one becomes unavailable the tab fails closed rather than swapping. The pick survives
+  switching tabs and is remembered on this device (see "Trade targets: DDF Value as our value").
 - Each published chart = the engine's Indexed series (`usatoday`, `fantasycalc`, `fantasypros`,
   `cbs`), which the engine puts on the same trade-value point scale. VORP vs waivers is never
   paired with anything.
@@ -498,6 +498,11 @@ Answered 2026-10-08 (JEG-452), position shares, in `TradeValueCurveControls`:
 - A scoring or teams change resets the shares to that league's defaults. How far an edit reaches
   (today: the live calibration, the ESPN anchor and the `*_adjusted` series) is open as
   `docs/math-review-agenda.md` MR-16.
+
+**BE-4 · Per-value missing reasons (2026-10-08).** Confirmed by the back end: `row.missingReasons[seriesKey]`
+(string) for every null value (adjusted fallbacks such as "Not enough players to fit an adjustment" or "Adjustment fit
+refused (order would invert)", shallow charts, held or not-yet-published sources, `ddf_value`). v2 reads it through
+`missingReason()`; until it ships, v2 shows its generic reason.
 
 ## Back-end contract: native rank (JEG-482, 2026-10-08)
 
@@ -1059,3 +1064,53 @@ Built on the engine's "Back-end contract: DDF Value" above. v2 still does no val
   first and marked; Values shown grouped and opening on DDF Value). `test_v2_offer_render` (side values
   follow the picker, DDF Value included). `test_v2_movers` (DDF "now" from `currentValues`).
 
+## Trade targets: DDF Value as our value; tier follows the series (2026-10-08, JEG-455 / JEG-456 part 2)
+
+- **Our value (JEG-455):** `TradeValueTargets.OUR_KEYS` is `ddf_value, espn, cbsros, razzball`; the default
+  is DDF Value and the projections stay as choices. Each is one engine series read as is (targets.js does
+  only the gap subtraction).
+- **Source count:** with DDF Value, each row's Our value (table cell and phone card) carries "from N sources"
+  (`row.ddfCount`; the tooltip names `row.ddfSources`). A player whose picked value is null cannot be a target;
+  he is counted in "N players left out", now followed by the engine's reasons (`missingReason`), most common first.
+  If a null ever reaches a row, the cell shows "—" with the reason.
+- **Remembered on this device:** `localStorage["ddf.v2.targets"] = {v: 1, ours}`, written on change, read once at
+  start; storage errors are ignored (the choice then lasts the visit).
+- **Copy:** subtitle "We check four published trade charts against our values for your league. …" (headline
+  unchanged). The footnote's "Our value is …" follows the pick: "the DDF Value, built from the inputs chosen in
+  Customize on Player values", or "<projection> with Data Driven Adjustments".
+- **Tier (Jeremy's ruling, everywhere in v2):** one helper, `tierFor(row, key, scope)` / `tierText(...)` in v2.js;
+  `row.espnRole` is no longer read anywhere in app/v2.
+  - `ddf_value` → `row.ddfTier`.
+  - Any other series → the player's rank by that series within `scope.rows` against the engine's roster zones
+    (rank < `starter_to_bench` = Starter, < `bench_to_waiver` = Bench, else Waiver). When the series is the engine's
+    own ranking (Player values' Rank by), the rank is the row order (`fullRank`) and the zones are `getZones()`, exactly
+    the chart's lines. Otherwise the zones come from the new read-only accessor `getZonesFor(key, pos)`. "—" when
+    the series has no value for the player.
+  - Player values (tooltip, Tier column, sub-line, drawer): Rank by. Trade targets (sub-lines, drawer opened from the
+    tab): the tab's Our value, over the engine's rows at the current position. Compare a trade (player sub-line, drawer
+    opened from it): the verdict series, over every priced player against the All-positions zones.
+- **One-source DDF Value (Jeremy, 2026-10-08):** "Show the value it would be with one source if it's there, but flag
+  the issue for the user." When the engine sets `row.ddfLowConfidence` (one input prices the player; `values.ddf_value`
+  = that input, `ddfCount` 1, `ddfConfidenceNote`), v2 shows the value with the tag "◐ 1 source" (Jeremy, 2026-10-09: the engine's
+  `ddfConfidenceNote` is the tooltip and part of the accessible name, "1 source: Only one source prices this player") everywhere the DDF Value appears: Trade targets (in place of "from N sources"; such players are targets),
+  the Player values table and chart tooltip, the drawer hero and matrix, and Compare's player values and per-series
+  lines. With 0 inputs the player is still left out and counted. Until the engine ships the flag, tests simulate it.
+- **Native rank (JEG-482):** an opened Trade targets row shows "#N on <publisher>" per chart from
+  `getNativeRank(playerKey, chart)` (the publisher's own order, before indexing). Not on phone cards (width).
+- **Waiver-line test:** current data has no chart value at or below 0 (JEG-482 pure rescale), so the render suite
+  simulates one (`SIMULATE_ROWS`) to keep the "0.0 · waiver line, no gap, never a buy" rule tested.
+- **Engine accessor added (read-only):** `TradeValueCurveControls.getZonesFor(key, pos = current)` →
+  `{starter_to_bench, bench_to_waiver}` (ordinal + 0.5, unclamped), the same roster ordinals `getZones()` uses for a
+  non-composite ranking; `null` for `ddf_value` (use `ddfTier`). Needed because `getZones()` follows the engine's
+  current ranking (DDF tier counts in a position view when ranked by DDF Value), which is not the Trade targets series.
+- **Missing reasons (every tab):** `missingReason(key, row)` reads `row.missingReasons[key]` first (back end confirmed
+  the field; not shipped yet), then `row.ddfReason` for DDF Value, then the generic line. Used by the Player values
+  table and chart tooltip, the drawer hero and matrix, and Compare's player values. A finite 0 always shows "0.0".
+- **Tests:** tests/test_v2_targets.py (DDF default, ESPN alternative, one-source player kept; broken builds: default reverted to ESPN, DDF
+  Value dropped from the choices). tests/test_v2_targets_render.py (Our value = engine `ddf_value`, "from N sources" =
+  `ddfCount`, tier = `ddfTier`; ESPN / CBS / Razzball through the picker with the tier from that series' rank; pick
+  remembered after a reload; broken builds: default reverted to ESPN, tier from espnRole, source count missing, pick
+  not remembered). tests/test_v2_ddf_render.py (Player values tier ranked by DDF Value and by one other series; a
+  simulated `missingReasons` entry shows "—" with that reason and a finite 0 shows "0.0"; broken builds: tier from
+  espnRole, engine reason ignored). test_below_leg_zero_render and test_espn_zero_badge_render now pick ESPN
+  explicitly (they test the ESPN-0 rule).

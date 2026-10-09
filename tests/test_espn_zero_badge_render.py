@@ -186,6 +186,8 @@ def collect(overrides=None):
             page.fill("#v2Search", "")
             page.evaluate("() => { location.hash = '#trade-targets'; }")
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=30000)
+            # JEG-455: DDF Value is the default Our value; this check is about ESPN, so pick it.
+            page.select_option("#v2TOurs", "espn")
             page.click("#v2Targets [data-side=sell]")
             page.wait_for_function("() => document.getElementById('v2TOurs').value === 'espn'")
             out["targets"] = page.evaluate("""() => {
