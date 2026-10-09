@@ -651,6 +651,30 @@ class ProjectionStages(unittest.TestCase):
         self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
         self.assertEqual("red", r["status"])
 
+    def test_snapshot_resaved_after_the_chart_was_built(self):
+        """2026-10-09: Razzball's 10-08 snapshot was re-saved (upsert) after the chart was built from it;
+        137 chart values differed from rows that equal the publisher now. Amber, not red; a row that
+        also differs from the publisher (ESPN's zeroed projections) stays red."""
+        env = ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        for row in env.stored:
+            row["_written_at"] = "2026-10-08T23:25:00+00:00"
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 20.1  # chart's older value
+        r, _ = env.run()
+        s2 = r["stages"]["stored_vs_chart"]
+        self.assertEqual("amber", s2["status"], s2["summary"])
+        self.assertIn("re-saved", s2["summary"])
+        env.stored[0]["half"] = 0.0  # stored also differs from the publisher: a real fault
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
+        env = ProjEnv()  # written before the chart was built: a plain difference is red
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        for row in env.stored:
+            row["_written_at"] = "2026-10-08T12:00:00+00:00"
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 20.1
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
+
     def test_stale_chart_snapshot(self):
         env = ProjEnv()
         for row in env.stored:
