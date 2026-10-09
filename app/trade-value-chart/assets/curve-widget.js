@@ -2104,12 +2104,16 @@
   const compositeAvailable = () => compositeMap.size > 0;
   function compositeExclusionReason(key) {
     if (sourceMissingFromData(key)) return "missing from this build";
+    // JEG-484: name a failed load, not a pause, when the inputs never arrived.
+    if (key.endsWith("_adjusted") && productLoadStatus().assets.adjustments?.ok === false) return "Adjustment data failed to load";
     if (isAdjustedCurvePaused(key)) return "paused while it waits on fresh adjustment inputs";
     if (!sourceAvailable(key)) return `not available for ${scoreLabel()} / ${teams} teams`;
     if (compositeInputs) return "not selected";
     if (compositeKeyOlderWeek(key)) return "older week";
     return "not selected";
   }
+  // JEG-484: product-data's per-asset load outcome (read-only).
+  const productLoadStatus = () => window.TradeValueProductData?.getLoadStatus?.() || {assets: {}, adjustmentsLoaded: false};
   function compositeInputsInfo() {
     const inputs = compositeInputKeys();
     return {
@@ -4221,6 +4225,7 @@
     })), ...(options && options.includeComposite ? [compositeSourceInfo()] : [])],
     // JEG-471: the DDF Value inputs; see setCompositeInputs.
     getCompositeInputs: () => compositeInputsInfo(),
+    getLoadStatus: () => productLoadStatus(),
     setCompositeInputs,
     resetCompositeInputs: (publish = true) => setCompositeInputs(null, publish),
     getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
