@@ -265,11 +265,11 @@ PRIOR = """async () => {""" + HELPERS + """
 
 HELD = """async () => {""" + HELPERS + """
   const out = {problems: []};
-  const leaks = (tag, prefix) => prefix && c.getAllRows().forEach(r => VIEWS.forEach(v => {
-    const s = r.ddfByView[v].sources.find(k => k.startsWith(prefix));
+  const leaks = (tag, held) => held && c.getAllRows().forEach(r => VIEWS.forEach(v => {
+    const s = r.ddfByView[v].sources.find(k => held.includes(k));
     if (s && out.problems.length < 20) out.problems.push(`${tag}/${v} ${r.name}: ${s} in the DDF Value`);
   }));
-  const prefix = window.__heldPrefix;
+  const prefix = window.__heldSeries;
   out.load = c.getCompositeInputs();
   out.loadByView = Object.fromEntries(VIEWS.map(v => [v, c.getCompositeInputs(v)]));
   checkMean('load', out.problems);
@@ -462,7 +462,12 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertGreater(res["compared"], 100)
 
 
-HELD_INIT = "window.__heldKey = %s; window.__heldPrefix = %s;"
+HELD_INIT = "window.__heldKey = %s; window.__heldSeries = %s;"
+# The series an input contributes across the views (exact keys).
+HELD_SERIES = {"fantasycalc_adjusted": ["fantasycalc_adjusted", "fantasycalc"],
+               "usatoday_adjusted": ["usatoday_adjusted", "usatoday"],
+               "cbs_adjusted": ["cbs_adjusted", "cbs"],
+               "razzball": ["razzball", "razzball_vorp"]}
 
 
 class DdfHeldSeriesTest(unittest.TestCase):
@@ -477,8 +482,8 @@ class DdfHeldSeriesTest(unittest.TestCase):
         # No prefix: nothing is held, so nothing is checked for leaking.
         cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("fantasycalc_adjusted"), "null"))
 
-    def held_run(self, data_edit, key, prefix):
-        return run(HELD, data_edit=data_edit, init_script=HELD_INIT % (json.dumps(key), json.dumps(prefix)))
+    def held_run(self, data_edit, key):
+        return run(HELD, data_edit=data_edit, init_script=HELD_INIT % (json.dumps(key), json.dumps(HELD_SERIES[key])))
 
     def assert_never_included(self, out, key, reason_start):
         self.assertEqual(out["pageErrors"], [])
@@ -523,7 +528,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertFalse(out["sourceInfo"]["stale"])
 
     def test_validation_hold_on_the_source_holds_its_derived_series(self):
-        out = self.held_run(hold_on("fantasycalc"), "fantasycalc_adjusted", "fantasycalc")
+        out = self.held_run(hold_on("fantasycalc"), "fantasycalc_adjusted")
         self.assert_never_included(out, "fantasycalc_adjusted", "held: " + HOLD["reason"])
         entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc_adjusted"]
         self.assertEqual(entry["reason"], "held: " + HOLD["reason"])
@@ -532,29 +537,29 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual(out["load"]["held"], ["fantasycalc_adjusted"])
 
     def test_pipeline_hold_on_raw_and_adjusted_sections(self):
-        out = self.held_run(hold_on("cbs", "cbs_adjusted"), "cbs_adjusted", "cbs")
+        out = self.held_run(hold_on("cbs", "cbs_adjusted"), "cbs_adjusted")
         self.assert_never_included(out, "cbs_adjusted", "held: " + HOLD["reason"])
         entry = {e["key"]: e for e in out["load"]["excluded"]}["cbs_adjusted"]
         self.assertEqual((entry["heldBy"], entry["holdRoot"]), ("cbs_adjusted", "cbs"))
 
     def test_hold_on_the_derived_section_itself(self):
-        out = self.held_run(hold_on("fantasycalc_adjusted"), "fantasycalc_adjusted", "fantasycalc")
+        out = self.held_run(hold_on("fantasycalc_adjusted"), "fantasycalc_adjusted")
         self.assert_never_included(out, "fantasycalc_adjusted", "held: " + HOLD["reason"])
         entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc_adjusted"]
         self.assertEqual(entry["heldBy"], "fantasycalc_adjusted")
 
     def test_promotion_hold_is_a_hold_too(self):
-        out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc_adjusted", "fantasycalc")
+        out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc_adjusted")
         self.assert_never_included(out, "fantasycalc_adjusted", "held: " + HOLD["reason"])
 
     def test_a_held_projection_holds_its_value_above_waivers_series(self):
-        out = self.held_run(hold_on("razzball"), "razzball", "razzball")
+        out = self.held_run(hold_on("razzball"), "razzball")
         self.assert_never_included(out, "razzball", "held: " + HOLD["reason"])
         excluded = {e["key"]: e for e in out["loadByView"]["vorp"]["excluded"]}
         self.assertEqual(excluded["razzball"]["series"], "razzball_vorp")
 
     def test_a_source_not_yet_published_for_the_week_is_never_an_input(self):
-        out = self.held_run(older_week("usatoday"), "usatoday_adjusted", "usatoday")
+        out = self.held_run(older_week("usatoday"), "usatoday_adjusted")
         self.assert_never_included(out, "usatoday_adjusted", "not yet published for week")
         self.assertEqual(out["load"]["notPublished"], ["usatoday_adjusted"])
 
