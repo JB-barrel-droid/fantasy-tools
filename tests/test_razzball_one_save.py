@@ -303,5 +303,19 @@ class PulseReadsTheSave(unittest.TestCase):
         self.assertIn("pulled_at", self.mod.STORED_SELECT)
 
 
+class PartialPulseDoesNotPublish(unittest.TestCase):
+    """A razzball-only pulse dispatch (2026-10-09 14:34) replaced the status
+    page's 7-source report with a 1-source one, and main's validate failed
+    test_published_surfaces until the next full run."""
+
+    def test_publish_step_skips_runs_limited_to_some_sources(self):
+        import re
+        wf = (ROOT / ".github" / "workflows" / "fidelity-pulse.yml").read_text(encoding="utf-8")
+        step = wf.split("- name: Publish to the status page", 1)[1].split("- name:", 1)[0]
+        cond = re.search(r"^\s*if:\s*(.+)$", step, re.M).group(1)
+        self.assertIn("inputs.sources == ''", cond)
+        self.assertIn("github.event_name != 'workflow_dispatch'", cond)
+
+
 if __name__ == "__main__":
     unittest.main()
