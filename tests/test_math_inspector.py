@@ -281,9 +281,13 @@ class InspectorEngineParityTests(unittest.TestCase):
             # VORP vs waivers: the browser derivation instead of the saved view shown.
             "vorp from derivation": ("        row[key] = p.vorp.values[k] ?? null;",
                                      "        row[key] = p.views?.vorp?.[k] ?? null;", saved),
-            # Adjusted values recomputed here instead of read from the engine.
-            "adjusted recomputed": ("        row[key] = p.adj.values[k] ?? null;",
-                                    "        row[key] = row[`${key}__check`];", saved),
+            # Adjusted values tab shows another engine number (the chart's VORP
+            # vs waivers). VA-3 (Jeremy 2026-10-09, "Compute live everywhere"):
+            # the saved setup now derives live, so the former mutation (the
+            # recomputed check column) equals the shown value everywhere and
+            # is no longer a broken inspector.
+            "adjusted shows VORP vs waivers": ("        row[key] = p.adj.values[k] ?? null;",
+                                               "        row[key] = p.vorp.values[k] ?? null;", saved),
         }
         for name, (old, new, settings) in broken_variants.items():
             with self.subTest(variant=name):
