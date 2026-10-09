@@ -702,6 +702,10 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
         reason = section_identity_mismatch(repo, source)
         if reason:
             raise ChainHalt("review", reason)
+        if source == "razzball":
+            reason = razzball_values_mismatch(repo, snapshot)
+            if reason:
+                raise ChainHalt("review", reason)
 
         result["status"] = "ok"
         result["stage"] = "complete"
@@ -756,6 +760,63 @@ def section_identity_mismatch(repo, source):
     reason = projection_identity.mismatch(source, section.get("snapshot_id"),
                                           Path(repo) / PLAYERS_REL)
     return f"section vs players.json: {reason}" if reason else None
+
+
+RZ_SCORING_COLUMNS = {"standard": "rz_std_ppg", "half_ppr": "rz_half_ppr_ppg", "ppr": "rz_ppr_ppg"}
+RZ_COMBO_SCORING = {"standard": "standard", "half": "half_ppr", "full": "ppr"}
+
+
+def razzball_values_mismatch(repo, snapshot, limit=3):
+    """Why the Razzball values about to be served are not the snapshot's, or None.
+
+    The ids prove only that the section and players.json *say* they come from
+    `snapshot` (GAP-RAZZBALL-CHART-BEHIND-STORED). This checks the numbers:
+    every per-game value in the section (natives, joined by the fixture's
+    player_keys) and in players.json (rz_ppg, by player_key) must equal that
+    player's snapshot row, and no served player may be missing from the
+    snapshot. A stale bake or section stamped with the new id holds Razzball
+    (isolated: the last good section is kept) instead of publishing old
+    numbers under the new snapshot's name.
+    """
+    try:
+        snap = json.loads(Path(snapshot).read_text(encoding="utf-8"))
+        fixture = _read_fixture(repo)
+        players = json.loads((Path(repo) / PLAYERS_REL).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return f"razzball values not checkable: {exc}"
+    by_key = {}
+    for row in snap.get("rows") or []:
+        key = row.get("player_key")
+        if isinstance(key, int) and not isinstance(key, bool):
+            by_key[key] = {s: row.get(col) for s, col in RZ_SCORING_COLUMNS.items()}
+    slug_key = fixture.get("player_keys") or {}
+    section = (fixture.get("sources") or {}).get("razzball") or {}
+    problems = []
+
+    def check(where, key, scoring, served):
+        if key not in by_key:
+            problems.append(f"{where}: not in snapshot")
+            return
+        stored = by_key[key].get(scoring)
+        if not isinstance(stored, (int, float)) or abs(float(served) - float(stored)) > 1e-9:
+            problems.append(f"{where} {scoring} {served} vs snapshot {stored}")
+
+    for combo, block in sorted((section.get("combos") or {}).items()):
+        scoring = RZ_COMBO_SCORING.get(combo.rsplit("_", 1)[0])
+        for slug, ppg in sorted((block.get("native") or {}).items()):
+            key = slug_key.get(slug)
+            if scoring and key is not None:
+                check(f"section {combo} {slug}", key, scoring, ppg)
+    for player in players.get("players") or []:
+        for scoring, ppg in sorted((player.get("rz_ppg") or {}).items()):
+            if scoring in RZ_SCORING_COLUMNS and ppg is not None:
+                check(f"players.json {player.get('name') or player.get('player_key')}",
+                      player.get("player_key"), scoring, ppg)
+    if not problems:
+        return None
+    return (f"razzball values are not snapshot {projection_identity.file_id(snapshot)[:19]}'s "
+            f"({len(problems)} differ, e.g. {'; '.join(problems[:limit])}); the section waits "
+            "for a bake and legs built from that snapshot")
 
 
 def razzball_bake_mismatch(repo, snapshot):

@@ -1030,6 +1030,11 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             "public.razzball_projections. Never writing an empty snapshot."
         )
     rows, scoped_date = _select_latest_snapshot_date(rows, date_key="razzball_snapshot_date")
+    # GAP-RAZZBALL-CHART-BEHIND-STORED: a date re-saved in place keeps rows of
+    # players the publisher dropped since; only the newest save is the snapshot.
+    sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+    from latest_save import latest_save_rows  # noqa: PLC0415
+    rows, superseded = latest_save_rows(rows)
     date_scope_note = (
         f" import scoped to latest snapshot date present ({scoped_date})"
         if scoped_date is not None else ""
@@ -1134,6 +1139,13 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         ),
         "row_count": len(clean_rows),
         "review_count": len(review_rows),
+        # Rows of the same date from an earlier save (players the publisher
+        # has dropped since); never priced. Not part of the snapshot id.
+        "superseded_rows": [
+            {"player_key": r.get("player_key"), "player_norm": r.get("player_norm"),
+             "pulled_at": r.get("pulled_at")}
+            for r in superseded
+        ],
     }
     manifest_fields = {
         "supabase_table": SOURCE_TABLES["razzball"],
@@ -1142,7 +1154,8 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             "public.razzball_projections (latest snapshot date); native Razzball "
             "shape (rz_*_ppg from per_game_*, other row fields from raw_stats "
             "verbatim); pos and team from the table (Razzball's own labels; "
-            "public.players.position only as a fallback)"
+            "public.players.position only as a fallback); newest save of "
+            f"that date only ({len(superseded)} superseded rows dropped)"
             f"{date_scope_note}"
         ),
         "content_vintage": content_vintage,
