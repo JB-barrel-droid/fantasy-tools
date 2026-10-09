@@ -679,17 +679,19 @@ Cadence"):
 - Projections (ESPN, CBS ROS, Razzball): probed every 4 h with the last slot at 23:25 UTC, so a
   Monday change is saved inside week N, and re-scraped at least every 20 h even when unchanged.
 
-## Back-end contract: DDF Value (JEG-471 / JEG-479, 2026-10-08)
+## Back-end contract: DDF Value (JEG-471 / JEG-479, 2026-10-08/09)
 
 The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series,
 key `ddf_value`. v2 reads it; it does no blend math. Inputs are the seven keys
 `espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted, cbs_adjusted`.
 There is one DDF Value per view (Indexed, VORP vs waivers, Adjusted values), each for the current and
-the prior week, over the same inputs; a player needs at least two series to have one.
+the prior week, over the same inputs. One series pricing a player gives that value, flagged low
+confidence; none gives no value (Jeremy 2026-10-09).
 
 **Stable for v2 (lead, 2026-10-08).**
 1. `values.ddf_value` is always the **active view's** current-week DDF Value. v2 reads only that key.
-2. When it is null, `row.ddfReason` is a string (today always "Needs at least two source values").
+2. When it is null, `row.ddfReason` is a string (today always "No source prices this player"), and
+   `row.missingReasons.ddf_value` is the same text.
 3. In `getCompositeInputs().excluded`, an input the reader deselected has the exact reason
    `"not selected"`; v2 lets readers re-tick only those. Every other reason is a different,
    human-readable string shown disabled: `held: <reason>`, `not yet published for week N`,
@@ -701,11 +703,25 @@ the prior week, over the same inputs; a player needs at least two series to have
    saved list still works; v2 re-reads `getCompositeInputs()` afterwards.
 
 - **Rows.** Every `getRows()` / `getAllRows()` row has, for the active view: `values.ddf_value`
-  (number or `null`), `ddfReason` (`null` when there is a value), `ddfCount` (series pricing him, also
-  when fewer than two), `ddfSources` (those series' keys, e.g. `espn_vorp` in VORP vs waivers),
-  `ddfPrior` and `ddfPriorCount` (prior week, same inputs, same two-value rule; `null`/0 without a
-  prior week), `ddfTier` (`"starter" | "bench" | "waiver"`, `null` with no DDF Value), and
-  `ddfByView: {indexed, vorp, adj}`, each `{value, count, sources, reason, prior, priorCount}`.
+  (number or `null`), `ddfReason` (`null` when there is a value), `ddfCount` (series pricing him),
+  `ddfSources` (those series' keys, e.g. `espn_vorp` in VORP vs waivers), `ddfLowConfidence`
+  (`true` when exactly one series prices him; the value is that series') and `ddfConfidenceNote`
+  ("Only one source prices this player", else `null`), `ddfPrior`, `ddfPriorCount` and
+  `ddfPriorLowConfidence` (prior week, same inputs, same rule; `null`/0/`false` without a prior
+  week), `ddfTier` (`"starter" | "bench" | "waiver"`, `null` with no DDF Value; a one-source value
+  counts), and `ddfByView: {indexed, vorp, adj}`, each `{value, count, sources, reason,
+  lowConfidence, prior, priorCount, priorLowConfidence}`.
+- **Missing values (JEG-479, 2026-10-09).** Every row has `missingReasons: {[seriesKey]: string}`
+  with an entry for each `null` in `row.values` (and none for a number). Texts: `Chart doesn't list
+  players this deep at <pos>` (a published chart too shallow there; a fully loaded chart gives 0
+  instead, `docs/methodology.md` "Published Charts On The Rows"), `Not enough players to fit an
+  adjustment` / `Adjustment fit refused (order would invert)` (a `*_adjusted` identity-fallback
+  cell), `Adjustment data failed to load` (every `*_adjusted` null when `getLoadStatus()` reports the
+  adjustment inputs failed), `<ESPN | CBS rest of season | Razzball> doesn't project this player`,
+  `No adjustment for this player's group`, `Missing from this build`, `Paused while it waits on
+  fresh adjustment inputs`, `Not available for <scoring> / <teams> teams`, and for `ddf_value` the
+  `ddfReason`. A held or not-yet-published series keeps its kept section's values, so it is not null
+  for that reason; its DDF exclusion is in `getCompositeInputs().excluded`.
   `getPlayerValues()` also carries `values.ddf_value`.
 - **Rank and zones.** `setLockOrder("ddf_value")` ranks by it and `getRankSource()` returns
   `"ddf_value"`; the lock survives scoring and team changes. `getZones()` then sits at the DDF
@@ -716,16 +732,16 @@ the prior week, over the same inputs; a player needs at least two series to have
   stale: false, available, active: false, ...}`. It is never in `getActiveSources()` and is not drawn.
 - **Inputs.** `getCompositeInputs([view])` (active view by default) → `{view, inputs, series,
   requested, isDefault, defaults, allowed, excluded: [{key, series, reason, ...}], held,
-  notPublished, currentWeek, priorWeek, priorAvailable, priorReason, minSources: 2}`. `inputs` are the
+  notPublished, currentWeek, priorWeek, priorAvailable, priorReason, minSources: 1}`. `inputs` are the
   input keys averaged in that view and `series` the series they contribute. A held entry also has
   `heldBy` (the section carrying the hold), `holdField` (`validationHold` | `promotionHold`),
   `holdWeek`, `holdRoot` (the source whose disagreement caused it) and `holdKeptWeek`; an unpublished one has `notPublished: true`. `defaults` are the inputs a reader can
   choose this week. `setCompositeInputs(keys, publish = true)`: `keys` is an array of the seven
   keys (order and duplicates ignored), `null` or `"default"` restores the defaults (choosing exactly
   the defaults is the default). Held / unpublished keys are dropped and listed in `dropped`; if that
-  leaves fewer than two usable inputs the defaults apply (`fellBackToDefaults: true`). Returns `{ok:
-  true, ...getCompositeInputs()}`; an empty array, an unknown key, a non-array, or a list with fewer
-  than two usable inputs and nothing dropped returns `{ok: false, error}` and changes nothing. It
+  leaves no usable input the defaults apply (`fellBackToDefaults: true`). Returns `{ok:
+  true, ...getCompositeInputs()}`; an empty array, an unknown key, a non-array, or a list with no
+  usable input and nothing dropped returns `{ok: false, error}` and changes nothing. It
   recomputes only the DDF fields, redraws, fires `trade-value-rows-change`, and (unless `publish` is
   false) `trade-value-shared-change` whose detail carries `compositeInputs` (`null` = defaults).
   `resetCompositeInputs(publish = true)` = `setCompositeInputs(null)`. Chosen inputs persist across
@@ -742,7 +758,10 @@ the prior week, over the same inputs; a player needs at least two series to have
   `ddfPrior`. An input without the prior week is not in either week (it is in `excluded` with `no
   prior week: ...`). Label it e.g. "DDF Value · 5 of 7 sources" from `inputs.length`.
   `getWeekValues("ddf_value", week)` gives `{values, counts, sources, dropped, ...}` for any saved
-  week over the same inputs; `getHistoryWeeks("ddf_value")` the saved weeks any input has.
+  week over the same inputs; `getHistoryWeeks("ddf_value")` the saved weeks any input has. A
+  published chart's (or its `*_adjusted` series') saved week from `getWeekValues` / `getPriorWeek`
+  carries the same row rules as the rows: 0 for a current row's player below that week's chart's floor
+  where it was fully loaded, identity-fallback cells left out (2026-10-09).
 - **Today's data.** The as-published charts are recomputed for earlier weeks in Indexed only, so the
   VORP vs waivers and Adjusted values DDF Values average the three projections (the four charts are
   excluded with `no prior week: earlier weeks are recomputed in the Indexed view only`). The

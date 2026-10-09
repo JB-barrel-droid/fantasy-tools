@@ -695,8 +695,9 @@ teams, QB 6.4% -> 16.4%, the other three scaled down in proportion):
 per-player equal-weight mean of the included inputs, per view. Jeremy decided
 (2026-10-08) the inputs, the missing-value rule, no leave-one-out, tiers by
 slot count, and (JEG-479) one DDF Value per view for the current and prior
-week, at least two values per player, held and not-yet-published sources never
-included, and the same inputs in both weeks. The full rule is
+week, held and not-yet-published sources never included, and the same inputs
+in both weeks; and (2026-10-09) a fully loaded chart's 0 for a player below its
+floor counts, and one source is enough (flagged low confidence). The full rule is
 `docs/methodology.md` "DDF Composite Value". The points below were not
 decided; the engine took the reading most consistent with those decisions.
 Which should stand?
@@ -710,15 +711,17 @@ every v2 tab, so each choice below moves the headline number.
   `cbs_adjusted`). CBS ROS is a projection and is already one of the three
   projection inputs. So with all seven in, the trade charts carry 4/7 of the
   weight and our projections 3/7.
-- *Mixed coverage.* A player gets the mean of the series that price him, so a
-  deep player whom the short charts do not list is averaged mostly or only
-  over our projections, while a top player includes all seven. The count is
+- *Mixed coverage.* A player gets the mean of the series that price him. A
+  fully loaded chart prices everyone at its positions (0 below its floor), so
+  only a chart too shallow at a position leaves a deep player out (CBS at
+  every position and FantasyPros at RB/TE at Full PPR 12, 2026-10-09). The count is
   on every row (`ddfCount`). The inputs share one scale (MR-06, MR-10), so the
   mean is not unit-mixed, but the mix of inputs changes down the board.
-- *Zeros.* ESPN's 0 for a player it lists at 0 (GAP-025) and a leg's 0 below
-  its lowest priced projection (GAP-ESPN-BELOW-LEG) count as values, so they
-  pull the mean down. A player only ESPN lists at 0 gets a DDF Value of 0
-  from one input.
+- *Zeros.* ESPN's 0 for a player it lists at 0 (GAP-025), a leg's 0 below
+  its lowest priced projection (GAP-ESPN-BELOW-LEG) and a fully loaded chart's
+  0 below its floor count as values, so they pull the mean down. At Full PPR
+  12 (Indexed) 383 of 648 players have a DDF Value of 0 (2026-10-09). A
+  clipped live cell can also produce a 0 (GAP-ADJ-CLIP-ZERO).
 - *Superflex.* No separate rule: each input enters with its own superflex
   pricing at the active roster (MR-02, MR-15). FantasyCalc's publisher basis
   is 1 QB.
@@ -744,8 +747,11 @@ every v2 tab, so each choice below moves the headline number.
 - *No prior week at all.* In a first week, or when the history cannot be read,
   no input has a prior week; the engine then uses every eligible input for the
   current week and reports no Δ, rather than showing no DDF Value.
-- *Two-value minimum.* 23 of 508 players at Full PPR 12 (Indexed) have one series and
-  no DDF Value (measured 2026-10-08).
+- *One source.* Replaced the two-value minimum (Jeremy 2026-10-09): one
+  series gives its own value, flagged `ddfLowConfidence`. At Full PPR 12: 0
+  players in Indexed (the full charts price everyone), 145 of 649 in VORP vs
+  waivers and Adjusted values, where only the three projections are inputs
+  today.
 
 **Options.** Weight the two families equally (1/2 projections, 1/2 charts)
 instead of each series; leave zeros out of the mean; the series-per-view
@@ -755,6 +761,44 @@ alternatives above. Not measured.
 **Sources:** JEG-455, JEG-471, JEG-479, JEG-456, JEG-465,
 `tests/test_ddf_composite_value.py`, `docs/methodology.md` "DDF Composite
 Value".
+
+---
+
+## GAP-ADJ-CLIP-ZERO - The live-cell clip zeroes rostered bench players
+
+Flagged by Jeremy for this review, 2026-10-09. Recorded only; behaviour is
+unchanged.
+
+**What happens.** `buildLiveAdjustedMap` (curve-widget.js) prices a player
+in a starter/bench cell as `max(0, alpha + beta * x)`. The cells are fitted at
+the reference setting (Full PPR, 12 teams, 15% bench share). At other settings
+the same intercept and slope can go negative for the low end of a bench cell,
+and the clip turns those rostered bench players into 0. The two-tier-native
+series (ESPN, CBS rest of season, Razzball) re-price live through the same
+path.
+
+**Example (measured on the 2026-10-09 build).** Woody Marks (RB):
+- Standard, 8 teams: ESPN 0, CBS rest of season 0 and Razzball 0. The four
+  charts price him at 2.8-5.7, and the adjusted FantasyCalc and USA Today
+  series at 6.0-6.7.
+- Full PPR, 12 teams: ESPN 6.9 and Razzball 6.5.
+
+So at 8 teams the page reads him as a sell (every chart pays more than our
+value of 0), which is an artefact of the clip, not our valuation.
+
+**Why it matters.** Trade targets and the DDF Value treat that 0 as a real
+value. Since 2026-10-09 a 0 also counts in the DDF Value and in its one-source
+rule.
+
+**Options (not measured).**
+- Refit the cells per setting.
+- Floor the clip at the cell's own minimum fitted value.
+- Leave a clipped bench player missing rather than 0.
+- Clip only below the waiver line.
+
+**Depends on:** MR-06, MR-11, MR-12.
+**Sources:** curve-widget.js `buildLiveAdjustedMap`, MR-12 (ESPN zero
+display rules), JEG-479.
 
 ---
 

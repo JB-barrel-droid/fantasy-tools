@@ -2071,8 +2071,88 @@
     });
     return floors;
   }
+  // ---- Published charts on the rows (JEG-479 follow-up, Jeremy 2026-10-08/09) ----
+  // 1. Missing = 0 for a fully loaded chart. A chart is fully loaded at a
+  //    position when its waiver line there is set by its own list
+  //    (ValueModel.publishedWaiverInfo method "roster_determined": the chart
+  //    lists more players than the league rosters). A player it does not list
+  //    there, or lists below the waiver line, is below its floor: 0 for the
+  //    chart and for its *_adjusted series (a chart the view prices only above
+  //    waivers lists him too). Where the line is extrapolated from the other
+  //    charts ("imputed_from_other_charts") or sits at the end of the chart's
+  //    own list ("insufficient_coverage"), the chart is too shallow at that
+  //    position: an unlisted player stays missing, with a reason.
+  // 2. Identity-fallback adjustment cells (adjustment-inputs.json fallback
+  //    "identity": too few pairs, or a refused non-positive slope) do not
+  //    adjust: those players' *_adjusted value is missing, with a reason.
+  // Rows only: sourceMaps (curves' guards, pies, spreads) are unchanged.
+  let rowNativeCache = new Map();
+  let rowTierCache;  // undefined until read in a rebuild
+  let rowFallbackCache = new Map();
+  function chartNative(raw) {
+    if (!rowNativeCache.has(raw)) rowNativeCache.set(raw, savedPublishedNative(raw));
+    return rowNativeCache.get(raw);
+  }
+  const chartOfSeries = key => AS_PUBLISHED_KEYS.has(key) ? key
+    : (key.endsWith("_adjusted") && AS_PUBLISHED_KEYS.has(rawKeyForAdjusted(key)) ? rawKeyForAdjusted(key) : null);
+  const WAIVER_FULL = "roster_determined";
+  // The reason an unlisted player has no value from a chart at a position,
+  // or null when the chart is fully loaded there (missing = 0).
+  function chartShallowReason(waiver, pos) {
+    const method = waiver?.positions?.[pos]?.method;
+    if (method === WAIVER_FULL) return null;
+    return `Chart doesn't list players this deep at ${pos}`;
+  }
+  const ADJUSTMENT_FALLBACK_REASONS = {
+    non_positive_slope: "Adjustment fit refused (order would invert)",
+    default: "Not enough players to fit an adjustment",
+  };
+  // "POS|tier" -> reason for a chart's identity-fallback cells.
+  function adjustmentFallbackCells(raw) {
+    if (rowFallbackCache.has(raw)) return rowFallbackCache.get(raw);
+    const entry = adjustmentInputs?.sources?.[raw];
+    const out = new Map();
+    (entry?.cells || []).forEach(cell => {
+      if (!cell?.fallback) return;
+      const cellKey = `${String(cell.position || "").toUpperCase()}|${String(cell.tier || "").toLowerCase()}`;
+      const why = entry?.diagnostics?.[cellKey]?.reason;
+      out.set(cellKey, ADJUSTMENT_FALLBACK_REASONS[why] || ADJUSTMENT_FALLBACK_REASONS.default);
+    });
+    rowFallbackCache.set(raw, out);
+    return out;
+  }
+  // The starter/bench partition the adjustment cells are applied on
+  // (buildLiveAdjustedMap: the DDF two-tier tiers).
+  function adjustmentTierOf(playerKey) {
+    if (rowTierCache === undefined) rowTierCache = ddfTwoTierValues();
+    const ddf = rowTierCache;
+    if (!ddf) return null;
+    if (ddf.starters.has(playerKey)) return "starter";
+    if (ddf.bench.has(playerKey)) return "bench";
+    return null;
+  }
+  // Why a *_adjusted value is blanked for this player, or null.
+  function adjustmentFallbackReason(key, playerKey, pos) {
+    if (!key.endsWith("_adjusted")) return null;
+    const raw = chartOfSeries(key);
+    if (!raw) return null;
+    const tier = adjustmentTierOf(playerKey);
+    return tier ? (adjustmentFallbackCells(raw).get(`${pos}|${tier}`) || null) : null;
+  }
+  // A chart series' value for a player the series map does not price:
+  // {value: 0} below the floor, else {reason}.
+  function chartMissingValue(key, raw, player, native, waiver) {
+    if (native.has(player.player_key)) {
+      // Listed: a view that prices only above waivers leaves him out (0); an
+      // *_adjusted series that lists him without a value has no cell.
+      return AS_PUBLISHED_KEYS.has(key) ? {value: 0} : {reason: "No adjustment for this player's group"};
+    }
+    const shallow = chartShallowReason(waiver, player.pos);
+    return shallow ? {reason: shallow} : {value: 0};
+  }
   function rowValue(key, player) {
     const map = sourceMaps.get(key);
+    if (map?.size && adjustmentFallbackReason(key, player.player_key, player.pos)) return null;
     if (map?.has(player.player_key)) return map.get(player.player_key);
     if (!map?.size) return null;
     if (ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero) return 0;
@@ -2081,7 +2161,34 @@
       const floor = legFloors.get(key)?.[player.pos];
       if (ppg !== null && Number.isFinite(floor) && ppg <= floor) return 0;
     }
+    const raw = chartOfSeries(key);
+    if (raw && POSITION_ORDER.includes(player.pos)) {
+      const missing = chartMissingValue(key, raw, player, chartNative(raw), publishedWaiver(raw));
+      if (missing.value !== undefined) return missing.value;
+    }
     return null;
+  }
+  const PROJECTION_NAMES = {espn: "ESPN", cbsros: "CBS rest of season", razzball: "Razzball"};
+  // row.missingReasons[key] for a null value (v2 contract: every null has one).
+  function missingReason(key, player) {
+    const map = sourceMaps.get(key);
+    const raw = chartOfSeries(key);
+    // JEG-484: without the adjustment data no *_adjusted value is a real one.
+    if (key.endsWith("_adjusted") && productLoadStatus().assets.adjustments?.ok === false) return "Adjustment data failed to load";
+    if (!map?.size) {
+      if (sourceMissingFromData(key)) return "Missing from this build";
+      if (isAdjustedCurvePaused(key)) return "Paused while it waits on fresh adjustment inputs";
+      return `Not available for ${scoreLabel()} / ${teams} teams`;
+    }
+    const fallback = adjustmentFallbackReason(key, player.player_key, player.pos);
+    if (fallback) return fallback;
+    if (raw && POSITION_ORDER.includes(player.pos)) {
+      const missing = chartMissingValue(key, raw, player, chartNative(raw), publishedWaiver(raw));
+      if (missing.reason) return missing.reason;
+    }
+    const base = key.endsWith("_vorp") ? key.slice(0, -5) : key;
+    if (PROJECTION_NAMES[base]) return `${PROJECTION_NAMES[base]} doesn't project this player`;
+    return "No value for this player";
   }
 
   // ---- DDF Composite Value (see COMPOSITE_KEY) ----
@@ -2095,7 +2202,8 @@
   //  3. The same inputs in both weeks: an input without the prior week at this
   //     setting and view is left out of the current week too.
   //  4. Per player: the equal-weight mean of the finite values of those
-  //     inputs' series, published only when at least COMPOSITE_MIN_SOURCES price him.
+  //     inputs' series; one series pricing him gives that value, flagged low
+  //     confidence (Jeremy 2026-10-09); none gives no value.
   // null = every eligible input; otherwise the reader's chosen inputs
   // (setCompositeInputs), kept across league changes. A chosen input that is
   // unusable at a setting is skipped there, never priced as 0.
@@ -2106,8 +2214,11 @@
   let compositeStates = {};
   // Prior-week results per "view|series", cleared on every rebuild.
   let compositePriorCache = new Map();
-  const COMPOSITE_MIN_SOURCES = 2;
-  const COMPOSITE_SHORT_REASON = "Needs at least two source values";
+  // Jeremy 2026-10-09 (replaces the two-value minimum): a value needs one
+  // series; exactly one is published and flagged low confidence.
+  const COMPOSITE_MIN_SOURCES = 1;
+  const COMPOSITE_NONE_REASON = "No source prices this player";
+  const COMPOSITE_ONE_SOURCE_NOTE = "Only one source prices this player";
   const COMPOSITE_VIEWS = [...VIEW_MODE_ORDER];
   // Indexed: the inputs themselves (projections and the bias-adjusted charts).
   // VORP vs waivers: each projection's VORP vs waivers series and each chart
@@ -2288,7 +2399,9 @@
   }
   // Writes, on every row: values.ddf_value (the active view's DDF Value this
   // week), ddfCount and ddfSources (inputs pricing him and their series),
-  // ddfReason (COMPOSITE_SHORT_REASON when the value is null), ddfPrior and
+  // ddfReason (COMPOSITE_NONE_REASON when the value is null; also in
+  // missingReasons.ddf_value), ddfLowConfidence / ddfConfidenceNote (exactly
+  // one series prices him: the value is that series'), ddfPrior and
   // ddfPriorCount (the same view, prior week, same inputs), ddfTier, and
   // ddfByView (all three views: {value, count, sources, reason, prior,
   // priorCount}).
@@ -2316,16 +2429,24 @@
         const now = state.current.get(row.player_key);
         const before = state.prior?.get(row.player_key) || null;
         return [view, {value: now.value, count: now.count, sources: now.used,
-          reason: now.value === null ? COMPOSITE_SHORT_REASON : null,
-          prior: before ? before.value : null, priorCount: before ? before.count : 0}];
+          reason: now.value === null ? COMPOSITE_NONE_REASON : null,
+          lowConfidence: now.count === 1,
+          prior: before ? before.value : null, priorCount: before ? before.count : 0,
+          priorLowConfidence: Boolean(before && before.count === 1)}];
       }));
       const mine = row.ddfByView[active.view];
       row.values[COMPOSITE_KEY] = mine.value;
       row.ddfCount = mine.count;
       row.ddfSources = [...mine.sources];
       row.ddfReason = mine.reason;
+      row.ddfLowConfidence = mine.lowConfidence;
+      row.ddfConfidenceNote = mine.lowConfidence ? COMPOSITE_ONE_SOURCE_NOTE : null;
       row.ddfPrior = mine.prior;
       row.ddfPriorCount = mine.priorCount;
+      row.ddfPriorLowConfidence = mine.priorLowConfidence;
+      if (!row.missingReasons) row.missingReasons = {};
+      if (mine.value === null) row.missingReasons[COMPOSITE_KEY] = mine.reason;
+      else delete row.missingReasons[COMPOSITE_KEY];
       if (mine.value !== null) compositeMap.set(row.player_key, mine.value);
     });
     ddfRoleByKey = ValueModel.roleMap({values: compositeMap, playerOf: playerKey => canonicalByKey.get(playerKey),
@@ -2386,6 +2507,7 @@
     : sourceAvailable(key) && !isAdjustedCurvePaused(key);
   // A copy of an engine row for the read-only accessors.
   const rowCopy = row => ({...row, values: {...row.values}, ddfSources: [...(row.ddfSources || [])],
+    missingReasons: {...(row.missingReasons || {})},
     ddfByView: Object.fromEntries(Object.entries(row.ddfByView || {}).map(([view, entry]) =>
       [view, {...entry, sources: [...entry.sources]}]))});
 
@@ -2406,6 +2528,9 @@
     espnRoleByKey = new Map();
     sourceMaps = new Map();
     compositePriorCache = new Map();
+    rowNativeCache = new Map();
+    rowTierCache = undefined;
+    rowFallbackCache = new Map();
     nativeSourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
     // 2026-10-01: the anchor (espn) re-prices live on the bench-share slider
@@ -2462,7 +2587,9 @@
       const player = canonicalByKey.get(playerKey);
       if (!player) return null;
       const values = Object.fromEntries(visibleSourceKeys().map(key => [key, rowValue(key, player)]));
-      return {...player, espnRole:espnRoleByKey.get(playerKey) || "waiver", values};
+      const missingReasons = Object.fromEntries(visibleSourceKeys().filter(key => values[key] === null)
+        .map(key => [key, missingReason(key, player)]));
+      return {...player, espnRole:espnRoleByKey.get(playerKey) || "waiver", values, missingReasons};
     }).filter(Boolean);
     applyComposite(universe);
     orderedRows = universe.filter(row => isPosition(row)).sort(orderComparator);
@@ -4205,6 +4332,7 @@
       : source === "espn" ? historyEspnValues(entry, week)
       : historyProjectionValues(source, entry);
     if (!result.values) return unavailable(result.reason);
+    if (AS_PUBLISHED_KEYS.has(base)) applyChartRowRules(source, base, entry, result.values);
     const values = {};
     result.values.forEach((value, playerKey) => {
       const clamped = clampValue(value);
@@ -4212,6 +4340,28 @@
     });
     return {source, week, available: true, values, setting: historySetting(view), origin: entry.origin,
       fingerprint: entry.fingerprint, method: result.method, ...(result.peers ? {peers: result.peers} : {})};
+  }
+  // The rows' chart rules (missing = 0 for a fully loaded chart, blanked
+  // identity-fallback cells) on a saved week, so a week-over-week pair reads
+  // both weeks the same way. Fully loaded is that week's chart at the current
+  // setting; the players are the current rows. Edits `map` in place.
+  function applyChartRowRules(source, base, entry, map) {
+    const native = historyNatives(entry);
+    const waiver = native.size ? ValueModel.publishedWaiverInfo({
+      native, peers: publishedPeers(base), posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+      teams, shape: rosterShape
+    }) : null;
+    universe.forEach(row => {
+      if (!POSITION_ORDER.includes(row.pos)) return;
+      const playerKey = row.player_key;
+      if (adjustmentFallbackReason(source, playerKey, row.pos)) {
+        map.delete(playerKey);
+        return;
+      }
+      if (map.has(playerKey) || !waiver) return;
+      const missing = chartMissingValue(source, base, row, native, waiver);
+      if (missing.value !== undefined) map.set(playerKey, missing.value);
+    });
   }
   // The served week of a series from the history index, or an unavailable answer.
   function servedWeekOf(source, week, index) {
