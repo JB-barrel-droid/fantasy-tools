@@ -31,6 +31,7 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -241,6 +242,10 @@ def build_razzball_rows(
                 "raw_stats": raw_stats,
                 "razzball_snapshot_date": vintage,
                 "pulled_at": pulled_at,
+                # An upsert never moves the column default forward; a re-save of
+                # the same date must show when its values were written
+                # (GAP-RAZZBALL-CHART-BEHIND-STORED).
+                "_written_at": pulled_at,
                 "scoring": "half_ppr",
                 "season": season,
                 "week": week,
@@ -280,11 +285,20 @@ def main() -> None:
 
     upsert_rows(TABLE, clean, CONFLICT)
 
-    live = count_rows(TABLE, f"?select=id&razzball_snapshot_date=eq.{vintage}")
-    print(f"Verified: {TABLE} holds {live} rows for vintage {vintage}")
+    # One save = one pulled_at on every row. Rows of the same date from an
+    # earlier save (players Razzball dropped since) stay in the table but are
+    # superseded: the import reads only the newest save (lib/latest_save.py).
+    # The check is that this save landed whole, not that the date holds
+    # nothing else (GAP-RAZZBALL-CHART-BEHIND-STORED: 690 vs 688 failed the
+    # 03:25 save after its upsert had already landed).
+    pulled_at = quote(clean[0]["pulled_at"], safe="")
+    live = count_rows(TABLE, f"?select=id&razzball_snapshot_date=eq.{vintage}&pulled_at=eq.{pulled_at}")
+    total = count_rows(TABLE, f"?select=id&razzball_snapshot_date=eq.{vintage}")
+    print(f"Verified: {TABLE} holds {live} rows from this save for vintage {vintage} "
+          f"({total - live} superseded rows from earlier saves of the date)")
     if live != len(clean):
         raise SystemExit(
-            f"Fail closed: {TABLE} holds {live} rows for vintage {vintage} "
+            f"Fail closed: {TABLE} holds {live} rows from this save for vintage {vintage} "
             f"after upsert, expected {len(clean)}."
         )
     identity_queue.record_misses("razzball", review)
