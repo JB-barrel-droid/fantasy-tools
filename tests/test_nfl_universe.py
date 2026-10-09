@@ -109,11 +109,19 @@ class DefinitionTest(unittest.TestCase):
         self.assertNotIn("320", u)
 
     def test_free_agent_window_is_measured_from_the_pull(self):
+        # Jeremy 2026-10-09: free agents need news in the last 90 days (was 365).
         base = json.loads(json.dumps(BASE))
-        base["by_sleeper_id"]["600"]["last_news"] = "2025-10-09"  # 364 days before the pull
+        base["by_sleeper_id"]["600"]["last_news"] = "2026-07-11"  # 89 days before the pull
         self.assertIn("600", nfl_universe.active_universe(base))
-        base["by_sleeper_id"]["600"]["last_news"] = "2025-10-07"  # 366 days
+        base["by_sleeper_id"]["600"]["last_news"] = "2026-07-09"  # 91 days
         self.assertNotIn("600", nfl_universe.active_universe(base))
+        base["by_sleeper_id"]["600"]["last_news"] = "2025-10-09"  # 364 days: out for a free agent
+        self.assertNotIn("600", nfl_universe.active_universe(base))
+
+    def test_rostered_player_keeps_the_365_day_window(self):
+        base = json.loads(json.dumps(BASE))
+        base["by_sleeper_id"]["100"]["last_news"] = "2025-10-09"  # 364 days, on a team
+        self.assertIn("100", nfl_universe.active_universe(base))
 
     def test_shared_canonical_key_goes_to_the_rostered_player(self):
         u = {"1": {"name": "Same Name", "pos": "WR", "team": "KC"},

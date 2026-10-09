@@ -40,6 +40,9 @@ from datetime import date
 
 UNIVERSE_POSITIONS = ("QB", "RB", "WR", "TE")
 RECENT_NEWS_DAYS = 365
+# Jeremy 2026-10-09 (JEG-502): free agents need news in the last 90 days, so
+# long-gone names (Antonio Brown, T.Y. Hilton) drop out of search.
+FREE_AGENT_NEWS_DAYS = 90
 PLACEHOLDER_NAMES = {"duplicate player"}
 
 # Sleeper team codes that differ from the board's (games_remaining aliases).
@@ -58,8 +61,9 @@ STATUS_ORDER = tuple(STATUS_LABELS)
 DEFINITION = (
     "Every QB/RB/WR/TE Sleeper lists on an NFL team (active roster, practice "
     "squad, injured reserve, PUP and other reserve lists), plus free agents "
-    f"Sleeper flags active. Each needs a Sleeper news item in the {RECENT_NEWS_DAYS} "
-    "days before the identity pull (a rostered player may instead carry "
+    f"Sleeper flags active. A rostered player needs a Sleeper news item in the {RECENT_NEWS_DAYS} "
+    f"days before the identity pull, a free agent one in the {FREE_AGENT_NEWS_DAYS} days "
+    "(a rostered player may instead carry "
     "Sleeper's practice-squad status), which drops "
     "retired players Sleeper still lists on a team. Practice squad is "
     "Sleeper's status, or inferred for a rostered player with no depth-chart slot.")
@@ -93,12 +97,12 @@ def _pulled_on(base: dict) -> date:
     return date.fromisoformat(pulled)
 
 
-def _recent_news(entry: dict, pulled_on: date) -> bool:
+def _recent_news(entry: dict, pulled_on: date, window: int = RECENT_NEWS_DAYS) -> bool:
     try:
         news = date.fromisoformat(entry.get("last_news") or "")
     except ValueError:
         return False
-    return (pulled_on - news).days <= RECENT_NEWS_DAYS
+    return (pulled_on - news).days <= window
 
 
 def in_universe(entry: dict, pulled_on: date) -> bool:
@@ -113,7 +117,7 @@ def in_universe(entry: dict, pulled_on: date) -> bool:
         # injury designation is not one: Sleeper keeps stale ones, e.g. a
         # 2021 "Questionable" on a player with no news since.)
         return _recent_news(entry, pulled_on) or entry.get("status") == "Practice Squad"
-    return bool(entry.get("active")) and _recent_news(entry, pulled_on)
+    return bool(entry.get("active")) and _recent_news(entry, pulled_on, FREE_AGENT_NEWS_DAYS)
 
 
 def active_universe(base: dict) -> dict[str, dict]:
