@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-09T15:01:37.021665+00:00",
+  "run_at": "2026-10-09T15:08:52.482491+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows; zero_preservation:full_12:warn -- zero sets differ: only-candidate=1, only-fixture=0. A hold means a human must review first; the chain will not override it.",
@@ -163,15 +163,15 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_static_export.StaticExportTest.test_espn_anchor_matches_committed_inputs"
+      "FAIL tests.test_two_tier_frontend.TestTwoTierPort.test_bench_mix_never_rosters_past_the_irrelevance_floor"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [] != ['espn/full_12: anthony tyus has a native [505 chars]row']"
+      "AssertionError: False is not true : no position reached its floor -- cap is untested here"
     ],
     "make_targets": [
-      "Makefile:435: test-core"
+      "Makefile:443: test-core"
     ],
-    "detail": "FAIL tests.test_static_export.StaticExportTest.test_espn_anchor_matches_committed_inputs; AssertionError: Lists differ: [] != ['espn/full_12: anthony tyus has a native [505 chars]row']",
-    "recorded_at": "2026-10-09T15:02:20.423899+00:00"
+    "detail": "FAIL tests.test_two_tier_frontend.TestTwoTierPort.test_bench_mix_never_rosters_past_the_irrelevance_floor; AssertionError: False is not true : no position reached its floor -- cap is untested here",
+    "recorded_at": "2026-10-09T15:10:05.048484+00:00"
   }
 }
