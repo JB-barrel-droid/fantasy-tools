@@ -292,12 +292,13 @@ def check_missing_reason(page, tag) -> list[str]:
       return {goneTitle: g?.querySelector('.missing')?.title ?? null, goneText: g?.querySelector('.missing')?.firstChild?.textContent ?? null,
         zeroText: z ? (z.firstChild ? z.firstChild.textContent : '').trim() : null, zeroMissing: Boolean(z?.querySelector('.missing')),
         low: (() => { const m = document.querySelector(`#v2Table tbody tr[data-player-key="${low}"] td[data-source="ddf_value"] [data-low-confidence]`);
-          return m ? {text: m.textContent, title: m.title} : null; })(),
+          return m ? {text: m.textContent, title: m.title, aria: m.getAttribute('aria-label')} : null; })(),
         lowOnZero: Boolean(document.querySelector(`#v2Table tbody tr[data-player-key="${zero}"] [data-low-confidence]`))};
     }""", probe)
     if got["goneText"] != "—" or got["goneTitle"] != REASON:
         errors.append(tag + f"missing value shows {got['goneText']!r} with reason {got['goneTitle']!r}, want '—' with {REASON!r}")
-    if got["low"] != {"text": "◐ 1 source", "title": "Only one source prices this player"} or got["lowOnZero"]:
+    if got["low"] != {"text": "◐ 1 source", "title": "Only one source prices this player",
+                      "aria": "1 source: Only one source prices this player"} or got["lowOnZero"]:
         errors.append(tag + f"one-source DDF Value marker {got['low']} (also on a normal row: {got['lowOnZero']}), want '◐ 1 source'")
     if got["zeroText"] != "0.0" or got["zeroMissing"]:
         errors.append(tag + f"a finite 0 shows {got['zeroText']!r} (missing={got['zeroMissing']}), want '0.0'")

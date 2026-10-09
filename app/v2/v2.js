@@ -305,12 +305,15 @@
     node.className = "v2-lowconf";
     node.dataset.lowConfidence = "";
     const count = Number.isFinite(row.ddfCount) ? row.ddfCount : 1;
+    const label = `${count} source${count === 1 ? "" : "s"}`;
+    // Jeremy (2026-10-09): tag "◐ 1 source"; the engine's note is the tooltip and part of the accessible name.
     node.title = row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE;
-    node.setAttribute("aria-label", `Low confidence: ${node.title}`);
+    node.setAttribute("role", "img");
+    node.setAttribute("aria-label", `${label}: ${node.title}`);
     const sym = document.createElement("span");
     sym.setAttribute("aria-hidden", "true");
     sym.textContent = "◐";
-    node.append(sym, document.createTextNode(` ${count} source${count === 1 ? "" : "s"}`));
+    node.append(sym, document.createTextNode(` ${label}`));
     return node;
   }
   function appendLowConfidence(parent, row, key) {

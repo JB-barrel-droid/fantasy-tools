@@ -1083,8 +1083,8 @@ Built on the engine's "Back-end contract: DDF Value" above. v2 still does no val
     opened from it): the verdict series, over every priced player against the All-positions zones.
 - **One-source DDF Value (Jeremy, 2026-10-08):** "Show the value it would be with one source if it's there, but flag
   the issue for the user." When the engine sets `row.ddfLowConfidence` (one input prices the player; `values.ddf_value`
-  = that input, `ddfCount` 1, `ddfConfidenceNote`), v2 shows the value with "◐ 1 source" (symbol + label, the note as
-  tooltip) everywhere the DDF Value appears: Trade targets (in place of "from N sources"; such players are targets),
+  = that input, `ddfCount` 1, `ddfConfidenceNote`), v2 shows the value with the tag "◐ 1 source" (Jeremy, 2026-10-09: the engine's
+  `ddfConfidenceNote` is the tooltip and part of the accessible name, "1 source: Only one source prices this player") everywhere the DDF Value appears: Trade targets (in place of "from N sources"; such players are targets),
   the Player values table and chart tooltip, the drawer hero and matrix, and Compare's player values and per-series
   lines. With 0 inputs the player is still left out and counted. Until the engine ships the flag, tests simulate it.
 - **Native rank (JEG-482):** an opened Trade targets row shows "#N on <publisher>" per chart from

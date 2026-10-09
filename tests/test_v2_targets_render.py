@@ -119,7 +119,7 @@ READ = """([side, ours, ids]) => {
   const text = node => (node ? node.childNodes[0]?.textContent || "" : null);
   const ownText = node => (node ? [...node.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join("") : null);
   const count = node => { const c = node && node.querySelector('.t-count'); return c ? {text: c.textContent, n: c.dataset.ddfCount,
-    low: c.hasAttribute('data-low-confidence'), title: c.title} : null; };
+    low: c.hasAttribute('data-low-confidence'), title: c.title, aria: c.getAttribute('aria-label')} : null; };
   const tierOf = sub => (sub ? sub.textContent.split(' · ').pop() : null);
   const runOf = span => ({value: span.querySelector('.val')?.textContent ?? null, gap: span.querySelector('.gap')?.textContent ?? null,
     native: span.querySelector('.t-native')?.textContent ?? null,
@@ -332,7 +332,8 @@ def check_ours_extras(where, snapshot, key, shown) -> list[str]:
         n = d["count"]
         if d["low"]:
             c = shown["count"] or {}
-            if not c.get("low") or c.get("text") != f"◐ {n} source" or c.get("title") != d["note"]:
+            if (not c.get("low") or c.get("text") != f"◐ {n} source" or c.get("title") != d["note"]
+                    or c.get("aria") != f"{n} source: {d['note']}"):
                 errors.append(f"{where}: one-source DDF Value shows {shown['count']}, want '◐ {n} source' titled {d['note']!r}")
         else:
             want = f"from {n} source{'' if n == 1 else 's'}"
