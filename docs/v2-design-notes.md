@@ -627,10 +627,9 @@ movement, not a move in our projections.
     the current week's batch, on every chart's saved natives for that week (own natives and player
     set, peers, the Adjusted 0-70 batch) with the current league, roster and anchor group totals.
     Equal natives keep the served list's order (the saved files store natives by player id). A
-    chart with nothing saved for the week is out of that week's batch. At the setup where the tab
-    shows the pipeline's saved `vorp_views` (Full PPR / 12 / standard roster) the result is
-    `available: false`: no saved week is computed the way those values are (math-review VA-3).
-    Proof: the served week fed back reproduces each chart's tab values exactly off that setup.
+    chart with nothing saved for the week is out of that week's batch. Every setting derives the
+    tabs live since VA-3 (Jeremy, 2026-10-09: "Compute live everywhere."), Full PPR / 12 / standard roster
+    included. Proof: the served week fed back reproduces each chart's tab values exactly.
 - CBS ROS and Razzball: `ddfTwoTierValuesForSource` on the saved projections, then
   `normalizedAdjustedMapFor`, with the same below-the-leg 0 rule as the table.
 - ESPN (2026-10-08, HISTORY-ESPN-PRIOR): that week's two-tier leg, built by the pipeline's own
@@ -803,11 +802,9 @@ cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj
   week)` gives `{values, counts, sources, dropped, ...}` for any saved week over the same inputs;
   `getHistoryWeeks(version)` the saved weeks any input has. The per-series `getWeekValues` /
   `getPriorWeek` return a saved week as priced (no row rules).
-- **Today's data.** Since JEG-479 "Build prior week" (2026-10-09) every chart has earlier Adjusted
-  values, so all seven inputs count in both weeks, except at Full PPR / 12 teams / standard roster,
-  where the Adjusted tab shows the pipeline's saved `vorp_views` for FantasyCalc, FantasyPros and USA
-  Today: those three sit out both weeks of every version there (`no prior week: at Full PPR / 12
-  teams this tab shows the pipeline's saved views ...`) until VA-3 is decided.
+- **Today's data.** Since JEG-479 "Build prior week" and VA-3 (Jeremy, 2026-10-09: "Compute live everywhere.",
+  the saved `vorp_views` retired) every chart has earlier Adjusted values at every setting, so all
+  seven inputs count in both weeks.
 
 ## Multi-device pass (2026-10-08)
 

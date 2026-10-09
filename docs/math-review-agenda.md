@@ -429,9 +429,10 @@ so a chart's Δ is the publishers' movement. Ties between equal natives keep
 the served list's order. That is a stand-in: the saved files lose the
 publisher's order, and the translation gives tied players different values
 (e.g. CBS Half PPR 10 Adjusted values: Josh Downs and Carnell Tate are tied
-in CBS's list, yet one gets 9.26 and the other 4.09). Not done: Full PPR 12
-standard, where the saved `vorp_views` (VA-3) are shown. Those three charts
-have no prior week there.
+in CBS's list, yet one gets 9.26 and the other 4.09). Full PPR 12 standard
+is covered since VA-3 (Jeremy, 2026-10-09: "Compute live everywhere."): the saved `vorp_views`
+are retired and every setting derives live, so every chart has a prior week
+there too.
 
 **Depends on:** MR-02, MR-04, MR-05, MR-06.
 **Sources:** HISTORY-ESPN-PRIOR, GAP-R4-PROJECTION-HISTORY, `fix/weeks-tidy`
@@ -781,11 +782,8 @@ every v2 tab, so each choice below moves the headline number.
 - *Charts' prior week (fixed 2026-10-09, JEG-479 "Build prior week").* Each
   saved week's Adjusted values are derived with the same
   `derivePublishedViews` batch on that week's natives for all charts (MR-07),
-  so all seven inputs count in both weeks. Exception: at Full PPR 12 with the
-  standard roster, the Adjusted tab shows the saved `vorp_views` (VA-3), so
-  FantasyCalc, FantasyPros and USA Today sit out both weeks of every version
-  there. Deriving at every setting (VA-3 option a) would close that gap but
-  changes current values.
+  so all seven inputs count in both weeks, at every setting since VA-3 was
+  decided (Jeremy, 2026-10-09: "Compute live everywhere.").
 - *No prior week at all.* In a first week, or when the history cannot be
   read, no input of a version has a prior week. The engine then uses every
   eligible input for the current week and reports no Δ, rather than showing
@@ -1014,6 +1012,18 @@ saved view lists 199 players against 196 now. Every other setting derives the
 views from the current natives. Options: (a) derive at every setting (what
 option A below does); (b) keep the saved views but rebuild them every week with
 the natives; (c) as now. MR-04 option (c) covers the same point.
+
+**Decided (Jeremy, 2026-10-09: "Compute live everywhere." Option (a).)** The saved
+`vorp_views` are retired. Full PPR / 12 / standard roster derives VORP vs
+waivers and Adjusted values live, with the same math as every other setting, so
+all seven sources count in the DDF Value there in both weeks. Measured on the
+2026-10-09 build at Full PPR 12 (`curve-widget.js` before and after):
+- About 180 player values change per chart and view. The largest are
+  FantasyCalc VORP vs waivers CeeDee Lamb 46.1 to 73.6 and Bijan Robinson 63.3
+  to 86.1, USA Today Brock Bowers 16.1 to 47.2 (VORP vs waivers) and 12.6 to
+  26.2 (Adjusted), and FantasyPros Adjusted Bryce Young 0 to 22.7.
+- `ddf_value` moves for 222 of 697 players. The largest movers are Tony
+  Pollard 19.4 to 14.3, Jahmyr Gibbs 72.2 to 67.4 and Puka Nacua 49.4 to 44.6.
 
 ### VA-4 - The bench-share slider moves the anchor but not the published charts
 

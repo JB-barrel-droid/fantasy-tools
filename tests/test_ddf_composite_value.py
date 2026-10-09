@@ -424,12 +424,12 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["keys"]["ddf_value_projections"], PROJECTIONS)
         self.assertEqual(out["series"]["ddf_value_projections"], PROJECTIONS)
-        # At the load setting (Full PPR / 12) the charts with saved views have
-        # no prior week (#448, VA-3) and sit out both weeks: every chart is
-        # either averaged or excluded with "no prior week".
-        self.assertTrue(set(out["keys"]["ddf_value_charts"]) <= set(CHARTS))
+        # VA-3: every setting derives the charts' Adjusted values live, so at
+        # the load setting all four charts have a prior week and count.
+        self.assertEqual(out["keys"]["ddf_value_charts"], CHARTS)
+        self.assertEqual(out["keys"]["ddf_value"], INPUTS)
         self.assertEqual(out["series"]["ddf_value_charts"],
-                         [f"{k.replace('_adjusted', '')}_adj_values" for k in out["keys"]["ddf_value_charts"]])
+                         [f"{k.replace('_adjusted', '')}_adj_values" for k in CHARTS])
         for version in VERSIONS:
             assert_pair_or_none(self, version, out["keys"][version], out["excluded"][version])
         self.assertTrue(set(PROJECTIONS) <= set(out["keys"]["ddf_value"]))
@@ -566,27 +566,20 @@ class DdfChartPriorWeekTest(unittest.TestCase):
             self.assertNotIn("cbs_adj_values", res["sources"])
             self.assertEqual([s for s in res["sources"] if s in CHART_SERIES], CHART_SERIES[:3], version)
 
-    def test_saved_views_setup_has_no_prior_week_for_those_charts(self):
-        # Full PPR / 12 / standard roster: the Adjusted tab shows the
-        # pipeline's saved views for the charts that carry them (an older
-        # vintage, math-review VA-3), so no prior week is computed the same
-        # way: those charts sit out both weeks there; CBS (no saved views)
-        # counts.
-        data = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
-        saved = [k for k in ("fantasycalc", "usatoday", "fantasypros", "cbs") if (data.get(k) or {}).get("vorp_views")]
-        if not saved:
-            self.skipTest("no chart carries saved views")
+    def test_saved_setup_derives_live_too(self):
+        # VA-3 (Jeremy 2026-10-09, "Compute live everywhere"): the saved
+        # vorp_views are retired, so at Full PPR / 12 / standard roster too
+        # every chart's Adjusted values are derived live and have a prior
+        # week: all seven inputs count in both weeks.
         out = run(PRIOR)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        for version in ("ddf_value", "ddf_value_charts"):
-            res = out["versions"][version]
-            excluded = {e["key"]: e["reason"] for e in res["excluded"]}
-            self.assertEqual(set(excluded), {f"{k}_adjusted" for k in saved}, (version, excluded))
-            self.assertTrue(all("saved views" in r for r in excluded.values()), excluded)
-            self.assertEqual([s for s in res["sources"] if s in CHART_SERIES],
-                             [f"{k}_adj_values" for k in ("fantasycalc", "usatoday", "fantasypros", "cbs") if k not in saved],
-                             version)
+        want = {"ddf_value": PROJECTIONS + CHART_SERIES, "ddf_value_charts": CHART_SERIES,
+                "ddf_value_projections": PROJECTIONS}
+        for version, res in out["versions"].items():
+            self.assertTrue(res["available"], (version, res))
+            self.assertEqual(res["excluded"], [], version)
+            self.assertEqual(res["sources"], want[version], version)
 
 
 HELD_INIT = "window.__heldKey = %s; window.__heldSeries = %s;"
