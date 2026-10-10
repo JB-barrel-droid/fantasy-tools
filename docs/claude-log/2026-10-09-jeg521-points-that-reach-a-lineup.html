@@ -1,0 +1,304 @@
+<title>Points That Reach a Lineup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column (65ch) with full-width chart panels; each step = one question, one picture, one number. */
+:root{
+  --bg:#f6f7f4; --surface:#fcfcfb; --fg:#0b0b0b; --fg2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --start:#2a78d6; --start-soft:#b7d3f6; --fill:#eb6834; --fill-soft:#f6c7b3; --lost:#c3c2b7; --depth1:#5598e7; --depth2:#9ec5f4; --accent:#1c5cab;
+  --font-display:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --font-body:system-ui,-apple-system,"Segoe UI",sans-serif; --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d0d0d; --surface:#1a1a19; --fg:#f0efec; --fg2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --start:#3987e5; --start-soft:#1c3a63; --fill:#d95926; --fill-soft:#5a2a16; --lost:#4a4a46; --depth1:#2a78d6; --depth2:#184f95; --accent:#86b6ef; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d0d0d; --surface:#1a1a19; --fg:#f0efec; --fg2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --start:#3987e5; --start-soft:#1c3a63; --fill:#d95926; --fill-soft:#5a2a16; --lost:#4a4a46; --depth1:#2a78d6; --depth2:#184f95; --accent:#86b6ef; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;margin:0}
+.wrap{max-width:980px;margin:0 auto;padding-block:32px 64px;padding-inline:16px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(28px,5vw,40px);font-weight:600;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:600;margin-top:48px}
+h3{font-size:17px;font-weight:600}
+p{max-width:65ch;margin:10px 0}
+.eyebrow{font-family:var(--font-display);text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--fg2);font-weight:500}
+.lede{font-size:18px;color:var(--fg2);max-width:65ch}
+.panel{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:16px;margin-top:16px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 20px;align-items:end}
+.controls label{display:block;font-size:13px;color:var(--fg2);font-family:var(--font-display);font-weight:500}
+.controls select,.controls input[type=range]{width:100%;margin-top:4px}
+.controls select{font:inherit;padding:6px 8px;border:1px solid var(--axis);border-radius:6px;background:var(--surface);color:var(--fg)}
+.val{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--fg)}
+svg{display:block;width:100%;height:auto;overflow:visible}
+svg text{font-family:var(--font-body);fill:var(--fg2);font-size:12px}
+svg .num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.grid line{stroke:var(--grid);stroke-width:1}
+.axis{stroke:var(--axis);stroke-width:1}
+.chartwrap{overflow-x:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px}
+.kpi{padding:10px 12px;border-left:3px solid var(--axis)}
+.kpi .k{font-size:12px;color:var(--fg2);font-family:var(--font-display)}
+.kpi .v{font-family:var(--font-mono);font-size:22px;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi.start{border-color:var(--start)} .kpi.fill{border-color:var(--fill)} .kpi.lost{border-color:var(--lost)}
+table{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{font-family:var(--font-display);font-weight:500;color:var(--fg2);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+tr.sel td{background:var(--start-soft)}
+.tablewrap{overflow-x:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--fg2);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.formula{font-family:var(--font-mono);font-size:14px;background:var(--surface);border:1px solid var(--ring);border-radius:6px;padding:10px 12px;overflow-x:auto;white-space:nowrap}
+.note{font-size:14px;color:var(--fg2)}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:4px;transform:translate(-50%,-120%);white-space:nowrap;display:none;z-index:2;font-family:var(--font-mono)}
+.rel{position:relative}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:14px}
+.card h3{margin-bottom:6px}
+.card .pick{color:var(--accent);font-family:var(--font-display);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+strong{font-weight:600}
+input[type=range]{accent-color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){.bar rect{transition:width .25s ease,x .25s ease}}
+</style>
+<div class="wrap">
+<div class="eyebrow">Data Driven Football · Week 5 build · 12 teams · full point per reception · ESPN projections</div>
+<h1>Points That Reach a Lineup</h1>
+<p class="lede">A player's trade value is his points above the waiver line, times how often those points actually land in a starting lineup. This page walks that second part, one step at a time, on real players. Change the player or the inputs and every picture recomputes.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div><label for="pos">Position</label><select id="pos"></select></div>
+    <div><label for="player">Player</label><select id="player"></select></div>
+    <div><label for="week">Content week <span class="val" id="weekv"></span></label><input type="range" id="week" min="5" max="17" step="1"></div>
+    <div><label for="m">Missed-game rate of a healthy starter <span class="val" id="mv"></span></label><input type="range" id="m" min="0" max="0.30" step="0.005"></div>
+    <div><label for="sig">Projection uncertainty <span class="val" id="sigv"></span></label><input type="range" id="sig" min="0" max="0.60" step="0.01"></div>
+  </div>
+  <p class="note" style="margin-bottom:0">Defaults are the measured values: missed-game rate from games healthy starters actually missed in 2015–2025 (nflverse), uncertainty from the spread across ESPN, CBS rest of season and Razzball plus week-to-week drift, bye share from the 2026 schedule. Moving the week shrinks the bye share and the drift.</p>
+</div>
+
+<h2>Step 1. Where the lines are</h2>
+<p>Twelve teams fill their dedicated slots, then the flex goes to whoever is best left over. The first player not drafted as a starter sets the <strong>starter line</strong>; the first player nobody rosters sets the <strong>waiver line</strong>. A player's <strong>value above waivers</strong> is his projection minus the waiver line. Nothing below the waiver line is worth anything, because anyone can have it for free.</p>
+<div class="panel rel chartwrap"><div id="strip"></div><div class="tip" id="tip1"></div></div>
+<div class="kpis" id="k1"></div>
+
+<h2>Step 2. Does he play at all?</h2>
+<p>Two things keep a player out of every lineup regardless of talent: his bye, and injury or benching. Byes are known from the schedule. The injury rate is measured from the games healthy starters actually missed over eleven seasons, 2015 to 2025. Together they give his <strong>availability</strong>.</p>
+<div class="panel chartwrap"><div id="avail"></div></div>
+<p class="note" id="availnote"></p>
+
+<h2>Step 3. When he plays, will he be projected to start?</h2>
+<p>Lineups are set on projections, before the games are played. So the question is not whether he will outscore the starters on Sunday, but whether his <strong>projection</strong> will sit above the starter line when the manager sets the lineup. Today's projection is the best guess, but projections move: the three sources disagree with each other now, and each one drifts week to week as roles and health change. That spread is the bell curve, centred on his current projection. The part above the starter line is his chance of being <strong>projected to start</strong>. The part between the two lines is where he is projected as a bench player of some depth. The part below the waiver line counts for nothing. What happens on Sunday is a separate, much larger swing (Step 8) and is deliberately not in this curve.</p>
+<div class="panel rel chartwrap"><div id="bell"></div></div>
+<div class="kpis" id="k3"></div>
+
+<h2>Step 4. If he is on the bench, how often does he get in anyway?</h2>
+<p>A bench player plays when enough starters ahead of him on his fantasy team are out. Each starter is out with the probability from Step 2 (bye or injury). The first player on the bench needs one starter out; the second needs two out at once. With more starters per team at a position, there are more chances for one of them to be missing.</p>
+<div class="panel chartwrap"><div id="fill"></div></div>
+
+<h2>Step 5. The expected lineup share</h2>
+<p>Put the steps together. Of every point above the waiver line, the share that reaches a lineup is availability × (chance he is projected to start + chance he is projected at depth 1 × fill-in rate for depth 1 + chance he is projected at depth 2 × fill-in rate for depth 2). The rest is lost: weeks he sits on a bench behind healthy starters, or is out himself.</p>
+<div class="formula" id="formula"></div>
+<div class="panel chartwrap"><div id="sharebar"></div></div>
+<div class="kpis" id="k5"></div>
+<div class="panel tablewrap"><table id="sharetable"></table></div>
+
+<h2>Step 6. From shares to a position's curve, and where the bench share comes from</h2>
+<p>Every player's surplus is split into a <strong>start-worthy part</strong> and a <strong>fill-in part</strong>. Add up all the fill-in parts at the position and you have the share of value that exists only because starters miss games. That sum is the bench share. It is not a slider any more; it is what the data says. The chart compares the position's curve today (every surplus point counts equally, then a fixed 15% is carved off for the bench) with the curve after (each player's surplus times his own share), both at the same total.</p>
+<div class="panel rel chartwrap"><div id="curve"></div><div class="tip" id="tip6"></div></div>
+<div class="legend"><span style="--c:var(--lost)">Before: value above waivers, every point equal</span><span style="--c:var(--start)">After: value above waivers × lineup share</span></div>
+<div class="kpis" id="k6"></div>
+
+<h2>Step 7. How the bench share moves through the season</h2>
+<p>Two inputs change with the calendar. The bye share falls as byes pass (it is zero from Week 14). The uncertainty shrinks as fewer weeks are left for a player's level to drift. Both push bench value down, gently. What the spec does not yet do is shorten the injury window or switch to playoff rules; those are open items on the math agenda.</p>
+<div class="panel rel chartwrap"><div id="prog"></div><div class="tip" id="tip7"></div></div>
+<div class="legend"><span style="--c:var(--start)">Bench-tier share of the pie (players ranked past the starters)</span><span style="--c:var(--fill)">Fill-in share of the pie</span></div>
+
+<h2>Step 8. Week-to-week noise, which this page does not price</h2>
+<p>Everything above is about where a player's projection sits, which is what a manager decides on. On any given Sunday a starter's actual score swings far more than projections move. Measured over 2015–2025, the weekly points of a starter vary by this much around his own average. Pass catchers are noisier than quarterbacks, as suspected. This is why a low-end starter is sometimes projected below a high-end bench player in a given week. Pricing that swap needs stored weekly projections, which is a separate piece of work.</p>
+<div class="panel chartwrap"><div id="noise"></div></div>
+
+<h2>Step 9. What was chosen, and the alternatives</h2>
+<div class="cards">
+  <div class="card"><div class="pick">Chosen</div><h3>Share of surplus, by probability</h3><p class="note">Steps 1 to 6 as shown. Bench tier holds 8.6% of the pie at 12 teams. A starter-level point is worth 1.6× a bench-level point at running back, 2.9× at wide receiver. No calibration solve, so no silent clamps.</p></div>
+  <div class="card"><div class="pick">Measured, not chosen</div><h3>Pay for the size of the upside too</h3><p class="note">Instead of the chance a bench player becomes a starter, pay for how big he would be if he did. Bench tier rises to 12.0%, the starter premium falls to 1.2×, and players near the line are valued above their whole surplus. The upside becomes the Stash signal instead.</p></div>
+  <div class="card"><div class="pick">Measured, not chosen</div><h3>Keep the slices, set the budget</h3><p class="note">Same 8.6% bench tier by construction, but every player keeps the same kink at the starter line and there is no per-player share to show. A budget patch on a structure the manifesto argues against.</p></div>
+  <div class="card"><div class="pick">Warning</div><h3>The current spec as written</h3><p class="note">Its slices count every starter's surplus up to the starter line as bench. Summed, that is 42% of the pie on bench slices at 12 teams, against 15% live today. It would land silently with the pipeline rewrite unless this decision is made first.</p></div>
+</div>
+<p class="note" style="margin-top:24px">Inputs barely matter to the answer: halving or raising the missed-game rate and the uncertainty by 50% keeps the bench tier between 8.2% and 9.1%. Try it with the sliders above. Spec: docs/methodology.md, "Expected-starts value". Decision ticket: JEG-525.</p>
+</div>
+<script>
+const D = {"params":{"QB":{"m":0.11039241052177663,"sigma_rel":0.18225645880406105,"sigma_floor":0.6860760404891962},"RB":{"m":0.1528541953232462,"sigma_rel":0.30035126498888404,"sigma_floor":0.8934678899078204},"WR":{"m":0.11675688976377953,"sigma_rel":0.3076214658905457,"sigma_floor":1.0076271631908305},"TE":{"m":0.14414414414414414,"sigma_rel":0.36189738055417864,"sigma_floor":0.643285823951013}},"bye_share":0.07211538461538461,"drift":{"QB":{"now":0.1402623933310342,"weekly":0.045647272718003576},"RB":{"now":0.11101730619310612,"weekly":0.10946445865495759},"WR":{"now":0.12314094887071482,"weekly":0.11057004253334567},"TE":{"now":0.08126485223642918,"weekly":0.13832277627845527}},"positions":{"QB":{"counts":{"dedicated":12,"flex":0,"starters":12,"bench":9,"rostered":21},"players":[["Josh Allen",23.841],["Brock Purdy",21.709],["Lamar Jackson",21.39],["Jayden Daniels",21.19],["Trevor Lawrence",20.838],["Joe Burrow",20.619],["Tyler Shough",20.448],["Patrick Mahomes",20.055],["Drake Maye",19.909],["Bryce Young",19.806],["Jalen Hurts",19.721],["Dak Prescott",19.487],["Jared Goff",18.948],["Deshaun Watson",18.819],["Matthew Stafford",18.782],["Caleb Williams",18.309],["Kyler Murray",18.264],["Jordan Love",18.11],["Bo Nix",18.086],["Sam Darnold",17.894],["Jacoby Brissett",17.343],["C.J. Stroud",17.012],["Aaron Rodgers",16.671],["Geno Smith",16.546],["Justin Herbert",16.062],["Michael Penix Jr.",15.482],["Malik Willis",15.263],["Daniel Jones",15.124],["Cam Ward",14.765]]},"RB":{"counts":{"dedicated":24,"flex":7,"starters":31,"bench":24,"rostered":55},"players":[["Jahmyr Gibbs",25.706],["Bijan Robinson",22.062],["Kenneth Walker III",21.807],["Christian McCaffrey",20.522],["Derrick Henry",20.076],["Jonathan Taylor",19.094],["James Cook",17.908],["Javonte Williams",17.543],["Ashton Jeanty",17.385],["Kyren Williams",17.212],["Chase Brown",16.62],["Breece Hall",16.259],["Bucky Irving",15.279],["Saquon Barkley",14.787],["Quinshon Judkins",14.713],["Chuba Hubbard",14.495],["Bhayshul Tuten",14.221],["Jaylen Warren",13.932],["Jeremiyah Love",13.549],["Tony Pollard",13.473],["D'Andre Swift",13.376],["Cam Skattebo",12.638],["Rhamondre Stevenson",12.586],["Zach Charbonnet",12.457],["David Montgomery",12.123],["Aaron Jones",11.688],["RJ Harvey",11.457],["Omarion Hampton",11.348],["Ollie Gordon II",10.994],["J.K. Dobbins",10.818],["Josh Jacobs",10.432],["Jordan Mason",10.351],["Travis Etienne",10.247],["Kyle Monangai",9.92],["TreVeyon Henderson",9.752],["Jadarian Price",8.789],["Alvin Kamara",8.498],["Jacory Croskey-Merritt",8.197],["Blake Corum",8.111],["Brian Robinson",8.051],["Tyler Allgeier",7.884],["Woody Marks",7.771],["Jaylen Wright",7.726],["Keaton Mitchell",7.692],["Rachaad White",7.635],["Rico Dowdle",7.577],["Kenneth Gainwell",7.349],["Braelon Allen",6.75],["Tyjae Spears",6.633],["Will Shipley",5.865],["Samaje Perine",5.592],["Chris Rodriguez Jr.",5.308],["Raheim Sanders",5.112],["Emmett Johnson",5.056],["Kaelon Black",4.977],["Najee Harris",4.897],["Mike Washington Jr.",4.777],["Justice Hill",4.737],["AJ Dillon",4.712],["Ty Johnson",4.651],["Kimani Vidal",4.6],["Sione Vaki",4.157],["Tyler Goodson",3.892]]},"WR":{"counts":{"dedicated":36,"flex":5,"starters":41,"bench":30,"rostered":71},"players":[["Ja'Marr Chase",21.245],["Puka Nacua",20.991],["Jaxon Smith-Njigba",20.514],["CeeDee Lamb",19.733],["Amon-Ra St. Brown",18.9],["Justin Jefferson",17.873],["Chris Olave",17.4],["Nico Collins",16.611],["Zay Flowers",16.544],["Tetairoa McMillan",16.106],["Drake London",15.973],["Michael Wilson",15.19],["Garrett Wilson",15.026],["Davante Adams",14.988],["DeVonta Smith",14.828],["Rashee Rice",14.732],["Christian Watson",14.376],["Parker Washington",14.098],["Jalen Coker",13.901],["Tee Higgins",13.8],["Carnell Tate",13.773],["George Pickens",13.61],["Mike Evans",13.422],["Matthew Golden",13.327],["DJ Moore",13.264],["Malik Nabers",13.255],["Terry McLaurin",13.215],["A.J. Brown",11.957],["Denzel Boston",11.957],["Luther Burden III",11.839],["DK Metcalf",11.807],["Deebo Samuel Sr.",11.802],["Jaylen Waddle",11.662],["Jordan Addison",10.93],["Stefon Diggs",10.848],["Jakobi Meyers",10.845],["Ladd McConkey",10.783],["Rome Odunze",10.572],["Malik Washington",10.484],["KC Concepcion",10.477],["Adonai Mitchell",10.4],["Jameson Williams",10.398],["Josh Downs",10.268],["Courtland Sutton",9.968],["Khalil Shakir",9.907],["Emeka Egbuka",9.902],["Xavier Worthy",9.838],["Wan'Dale Robinson",9.189],["Alec Pierce",9.091],["Roman Wilson",9.068],["Tre Tucker",8.893],["Romeo Doubs",8.893],["Keenan Allen",8.72],["Ryan Flournoy",8.672],["Dontayvion Wicks",8.637],["Rashid Shaheed",8.527],["Jordyn Tyson",8.463],["Michael Pittman",8.352],["Xavier Hutchinson",8.22],["Keon Coleman",8.101],["Caleb Douglas",8.002],["Devaughn Vele",7.885],["Brian Thomas Jr.",7.642],["Malachi Fields",7.599],["Kalif Raymond",7.567],["Quentin Johnston",7.215],["Isaac TeSlaa",7.179],["Chris Bell",7.08],["Tre Harris",7.059],["Chris Godwin",6.979],["Makai Lemon",6.943],["Rashod Bateman",6.854],["Dohnte Meyers",6.49],["Jahan Dotson",6.399],["Antonio Williams",6.021],["Marvin Harrison Jr.",6.018],["Cooper Kupp",5.972],["Ted Hurst III",5.968],["Demario Douglas",5.753]]},"TE":{"counts":{"dedicated":12,"flex":0,"starters":12,"bench":9,"rostered":21},"players":[["Trey McBride",17.162],["Brock Bowers",15.952],["George Kittle",14.182],["Isaiah Likely",12.605],["Sam LaPorta",12.414],["Harold Fannin Jr.",11.946],["Tyler Warren",11.805],["Travis Kelce",11.068],["Dallas Goedert",10.873],["Tucker Kraft",10.871],["Mark Andrews",10.682],["Juwan Johnson",10.332],["T.J. Hockenson",9.972],["Brenton Strange",9.861],["Colston Loveland",9.261],["Dalton Kincaid",9.229],["Kenyon Sadiq",9.046],["Pat Freiermuth",8.409],["Dalton Schultz",8.095],["AJ Barner",8.068],["Michael Mayer",7.977],["Cade Otton",7.88],["Hunter Henry",7.64],["Kyle Pitts",7.102],["Darren Waller",7.088],["Jake Ferguson",7.085],["Mike Gesicki",6.378],["Oronde Gadsden II",5.935],["Gunnar Helm",5.923]]}},"progression":[{"content_week":5,"weeks_left":13,"bye_share":0.0721,"sigma_rb":0.3,"fill_state_share":0.0531,"bench_tier_share":0.0865,"rb_price":1.61},{"content_week":6,"weeks_left":12,"bye_share":0.0677,"sigma_rb":0.29,"fill_state_share":0.0522,"bench_tier_share":0.0859,"rb_price":1.63},{"content_week":7,"weeks_left":11,"bye_share":0.0625,"sigma_rb":0.28,"fill_state_share":0.051,"bench_tier_share":0.0853,"rb_price":1.65},{"content_week":8,"weeks_left":10,"bye_share":0.0563,"sigma_rb":0.269,"fill_state_share":0.0497,"bench_tier_share":0.0846,"rb_price":1.68},{"content_week":9,"weeks_left":9,"bye_share":0.0556,"sigma_rb":0.257,"fill_state_share":0.0494,"bench_tier_share":0.0842,"rb_price":1.7},{"content_week":10,"weeks_left":8,"bye_share":0.0469,"sigma_rb":0.245,"fill_state_share":0.0474,"bench_tier_share":0.0833,"rb_price":1.73},{"content_week":11,"weeks_left":7,"bye_share":0.0268,"sigma_rb":0.233,"fill_state_share":0.0431,"bench_tier_share":0.0817,"rb_price":1.8},{"content_week":12,"weeks_left":6,"bye_share":0.0312,"sigma_rb":0.22,"fill_state_share":0.0438,"bench_tier_share":0.0816,"rb_price":1.81},{"content_week":13,"weeks_left":5,"bye_share":0.0125,"sigma_rb":0.206,"fill_state_share":0.0396,"bench_tier_share":0.0799,"rb_price":1.81},{"content_week":14,"weeks_left":4,"bye_share":0.0,"sigma_rb":0.19,"fill_state_share":0.0367,"bench_tier_share":0.0785,"rb_price":1.86},{"content_week":15,"weeks_left":3,"bye_share":0.0,"sigma_rb":0.174,"fill_state_share":0.0363,"bench_tier_share":0.078,"rb_price":1.91},{"content_week":16,"weeks_left":2,"bye_share":0.0,"sigma_rb":0.156,"fill_state_share":0.0359,"bench_tier_share":0.0775,"rb_price":1.95},{"content_week":17,"weeks_left":1,"bye_share":0.0,"sigma_rb":0.135,"fill_state_share":0.0355,"bench_tier_share":0.077,"rb_price":1.96}],"noise":{"QB":0.3806835252698111,"RB":0.5230404987082367,"WR":0.5465381442612833,"TE":0.5907909894001989},"missed":{"QB":{"starters":0.11039241052177663,"rostered":0.13577215811441198,"games":2319},"RB":{"starters":0.1528541953232462,"rostered":0.16396896848960826,"games":5816},"WR":{"starters":0.11675688976377953,"rostered":0.13736736449670203,"games":8128},"TE":{"starters":0.14414414414414414,"rostered":0.14797546012269938,"games":2331}},"byes":{"ARI":14,"ATL":11,"BAL":13,"BUF":7,"CAR":5,"CHI":10,"CIN":6,"CLE":11,"DAL":14,"DEN":10,"DET":6,"GB":11,"HOU":8,"IND":13,"JAX":7,"KC":5,"LA":11,"LAC":7,"LV":13,"MIA":6,"MIN":6,"NE":11,"NO":8,"NYG":8,"NYJ":13,"PHI":10,"PIT":9,"SEA":11,"SF":8,"TB":10,"TEN":9,"WAS":7}};
+const POS=['QB','RB','WR','TE'], T=12;
+const $=id=>document.getElementById(id);
+function Phi(z){ // standard normal CDF (Abramowitz-Stegun 7.1.26 via erf)
+  const t=1/(1+0.3275911*Math.abs(z)/Math.SQRT2), x=Math.abs(z)/Math.SQRT2;
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  const erf = z<0?-y:y; return 0.5*(1+erf);
+}
+function pdf(z){return Math.exp(-0.5*z*z)/Math.sqrt(2*Math.PI);}
+function binomAtLeast(n,q,k){ if(k<=0)return 1; if(k>n)return 0; let s=0; for(let j=k;j<=n;j++){ s+=comb(n,j)*Math.pow(q,j)*Math.pow(1-q,n-j);} return s; }
+function comb(n,k){let r=1;for(let i=1;i<=k;i++)r=r*(n-k+i)/i;return r;}
+function byeShare(week){ const lo=week+1, hi=18, weeks=hi-lo+1; if(weeks<=0) return 0; let n=0; for(const t in D.byes){ if(D.byes[t]>=lo && D.byes[t]<=hi) n++; } return n/(32*weeks); }
+function sigmaAt(pos,week){ const h=(18-week)/2; const d=D.drift[pos]; return Math.sqrt(d.now*d.now + d.weekly*d.weekly*h); }
+const state={pos:'RB', idx:0, week:5, m:null, sig:null, mTouched:false, sTouched:false};
+function compute(pos, m, bye, sigRel, floor){
+  const P=D.positions[pos], c=P.counts, vals=P.players.map(p=>p[1]);
+  const S=c.starters, N=c.rostered;
+  const w = vals.length>N ? vals[N] : vals[vals.length-1];
+  const l = Math.max(vals.length>S ? vals[S] : w, w);
+  const avail=(1-bye)*(1-m), q=bye+(1-bye)*m, n=Math.max(1,Math.round(S/T));
+  const edges=[l]; let k=1; while(true){ const i=S+k*T; if(i>=vals.length||vals[i]<=w)break; edges.push(vals[i]); k++; }
+  const bands=[]; for(let k=1;k<edges.length;k++) bands.push({depth:k,lo:edges[k],hi:edges[k-1],fill:binomAtLeast(n,q,k)});
+  bands.push({depth:edges.length,lo:w,hi:edges[edges.length-1],fill:binomAtLeast(n,q,edges.length)});
+  const players=P.players.map((p,i)=>{ const x=p[1]; const s=x>0?Math.max(sigRel*x,floor):floor; const v=Math.max(0,x-w);
+    const pStart = s>0 ? 1-Phi((l-x)/s) : (x>l?1:0);
+    const pb = bands.map(b=> s>0 ? Phi((b.hi-x)/s)-Phi((b.lo-x)/s) : ((x>b.lo&&x<=b.hi)?1:0));
+    const pBelow = s>0 ? Phi((w-x)/s) : (x<=w?1:0);
+    const fillShare = pb.reduce((a,pp,j)=>a+pp*bands[j].fill,0);
+    const sw=avail*v*pStart, fi=avail*v*fillShare, share=v>0?(sw+fi)/v:null;
+    return {name:p[0],x,s,v,pStart,pb,pBelow,sw,fi,share,rank:i+1,tier:i<S?'starter':(i<N?'bench':'waiver')};
+  });
+  return {w,l,avail,q,n,S,N,bands,players,c};
+}
+function fmtPct(x,d=0){return (100*x).toFixed(d)+'%';}
+function fmt(x,d=2){return x.toFixed(d);}
+// ---------- controls
+function initControls(){
+  POS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent={QB:'Quarterback',RB:'Running back',WR:'Wide receiver',TE:'Tight end'}[p];$('pos').appendChild(o);});
+  $('pos').value='RB';
+  $('pos').onchange=()=>{state.pos=$('pos').value; state.idx=Math.min(state.idx, D.positions[state.pos].players.length-1); if(!state.mTouched) state.m=null; if(!state.sTouched) state.sig=null; fillPlayers(); render();};
+  $('player').onchange=()=>{state.idx=+$('player').value; render();};
+  $('week').value=5; $('week').oninput=()=>{state.week=+$('week').value; if(!state.sTouched) state.sig=null; render();};
+  $('m').oninput=()=>{state.m=+$('m').value; state.mTouched=true; render();};
+  $('sig').oninput=()=>{state.sig=+$('sig').value; state.sTouched=true; render();};
+  fillPlayers();
+  // default player: the last starter at the position
+  state.idx = D.positions[state.pos].counts.starters-1; $('player').value=state.idx;
+}
+function fillPlayers(){ const sel=$('player'); sel.innerHTML=''; D.positions[state.pos].players.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${i+1}. ${p[0]} (${p[1].toFixed(1)})`;sel.appendChild(o);}); sel.value=state.idx; }
+// ---------- render
+function render(){
+  const pos=state.pos, prm=D.params[pos];
+  const m = state.m==null? prm.m : state.m;
+  const sig = state.sig==null? sigmaAt(pos,state.week) : state.sig;
+  const bye=byeShare(state.week);
+  $('m').value=m; $('sig').value=sig; $('weekv').textContent=state.week; $('mv').textContent=fmtPct(m,1); $('sigv').textContent=fmtPct(sig,0)+' of projection';
+  const R=compute(pos,m,bye,sig,prm.sigma_floor); const pl=R.players[state.idx];
+  renderStrip(R,pl,pos); renderAvail(R,bye,m,pos); renderBell(R,pl); renderFill(R,pos); renderShare(R,pl,pos); renderCurve(R,pos); renderProg(); renderNoise();
+}
+function posName(p){return {QB:'quarterback',RB:'running back',WR:'wide receiver',TE:'tight end'}[p];}
+function renderStrip(R,pl,pos){
+  const W=900,H=150,padL=24,padR=24; const xs=R.players.map(p=>p.x); const xmin=0, xmax=Math.ceil(Math.max(...xs)+1);
+  const sx=x=>padL+(x-xmin)/(xmax-xmin)*(W-padL-padR);
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Players at ${posName(pos)} by projected points per game">`;
+  // zones
+  g+=`<rect x="${sx(R.l)}" y="30" width="${sx(xmax)-sx(R.l)}" height="60" fill="var(--start-soft)" opacity=".55"/>`;
+  g+=`<rect x="${sx(R.w)}" y="30" width="${sx(R.l)-sx(R.w)}" height="60" fill="var(--fill-soft)" opacity=".55"/>`;
+  g+=`<text x="${(sx(R.l)+sx(xmax))/2}" y="22" text-anchor="middle">Starters (${R.S})</text>`;
+  g+=`<text x="${(sx(R.w)+sx(R.l))/2}" y="22" text-anchor="middle">Bench (${R.N-R.S})</text>`;
+  g+=`<text x="${(sx(0)+sx(R.w))/2}" y="22" text-anchor="middle">Waivers</text>`;
+  g+=`<line class="axis" x1="${padL}" x2="${W-padR}" y1="90" y2="90"/>`;
+  for(let t=0;t<=xmax;t+=5){g+=`<line class="axis" x1="${sx(t)}" x2="${sx(t)}" y1="90" y2="95"/><text class="num" x="${sx(t)}" y="110" text-anchor="middle">${t}</text>`;}
+  g+=`<text x="${W/2}" y="135" text-anchor="middle">Projected points per game</text>`;
+  g+=`<line x1="${sx(R.l)}" x2="${sx(R.l)}" y1="26" y2="92" stroke="var(--start)" stroke-width="2"/><text class="num" x="${sx(R.l)}" y="12" text-anchor="middle" fill="var(--start)">starter line ${fmt(R.l)}</text>`;
+  g+=`<line x1="${sx(R.w)}" x2="${sx(R.w)}" y1="26" y2="92" stroke="var(--fill)" stroke-width="2"/><text class="num" x="${sx(R.w)}" y="12" text-anchor="middle" fill="var(--fill)">waiver line ${fmt(R.w)}</text>`;
+  R.players.forEach((p,i)=>{ const sel=p===pl; g+=`<circle data-i="${i}" cx="${sx(p.x)}" cy="${60+((i%3)-1)*9}" r="${sel?8:4.5}" fill="${sel?'var(--fg)':(p.tier==='starter'?'var(--start)':(p.tier==='bench'?'var(--fill)':'var(--lost)'))}" stroke="var(--surface)" stroke-width="1.5"/>`; });
+  g+=`</svg>`; $('strip').innerHTML=g;
+  const tip=$('tip1'); $('strip').querySelectorAll('circle').forEach(c=>{c.onmouseenter=e=>{const p=R.players[+c.dataset.i]; tip.textContent=`${p.rank}. ${p.name} · ${p.x.toFixed(2)} ppg · ${p.tier}`; tip.style.display='block'; const r=$('strip').getBoundingClientRect(), b=c.getBoundingClientRect(); tip.style.left=(b.left-r.left+b.width/2)+'px'; tip.style.top=(b.top-r.top)+'px';}; c.onmouseleave=()=>tip.style.display='none'; c.onclick=()=>{state.idx=+c.dataset.i; $('player').value=state.idx; render();};});
+  $('k1').innerHTML=`<div class="kpi"><div class="k">${pl.name}, rank ${pl.rank} of ${R.players.length} listed</div><div class="v">${fmt(pl.x)} ppg</div></div><div class="kpi"><div class="k">Waiver line (rank ${R.N+1})</div><div class="v">${fmt(R.w)}</div></div><div class="kpi"><div class="k">Value above waivers</div><div class="v">${fmt(pl.v)}</div></div><div class="kpi start"><div class="k">Starter line (rank ${R.S+1})</div><div class="v">${fmt(R.l)}</div></div>`;
+}
+function renderAvail(R,bye,m,pos){
+  const W=900,H=90; const sx=v=>20+v*(W-40);
+  const after1=1-bye, after2=(1-bye)*(1-m);
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Availability: full season minus byes minus missed games">`;
+  g+=`<rect x="${sx(0)}" y="26" width="${sx(1)-sx(0)}" height="26" fill="var(--lost)" rx="3"/>`;
+  g+=`<rect x="${sx(0)}" y="26" width="${sx(after1)-sx(0)}" height="26" fill="var(--fill-soft)"/>`;
+  g+=`<rect x="${sx(0)}" y="26" width="${sx(after2)-sx(0)}" height="26" fill="var(--start)" rx="3"/>`;
+  g+=`<text x="${sx(after2)/2+10}" y="43" fill="#fff" class="num" font-weight="600">available ${fmtPct(after2,1)}</text>`;
+  g+=`<text class="num" x="${(sx(after2)+sx(after1))/2}" y="70" text-anchor="middle">out ${fmtPct(after1-after2,1)}</text>`;
+  g+=`<text class="num" x="${(sx(after1)+sx(1))/2}" y="70" text-anchor="middle">bye ${fmtPct(bye,1)}</text>`;
+  g+=`<text x="${sx(0)}" y="16">100% of remaining weeks</text></svg>`;
+  $('avail').innerHTML=g;
+  $('availnote').textContent=`Availability = (1 − ${fmtPct(bye,1)} bye) × (1 − ${fmtPct(m,1)} out) = ${fmtPct(R.avail,1)}. The measured rate for a healthy ${posName(pos)} starter is ${fmtPct(D.params[pos].m,1)} over ${D.missed[pos].games.toLocaleString()} team games; all rostered ${posName(pos)}s, bench included, miss ${fmtPct(D.missed[pos].rostered,1)}.`;
+}
+function renderBell(R,pl){
+  const W=900,H=240,padL=24,padR=24,top=20,base=190; const xs=R.players.map(p=>p.x); const xmax=Math.ceil(Math.max(...xs)+1);
+  const sx=x=>padL+x/xmax*(W-padL-padR); const s=Math.max(pl.s,1e-6); const peak=pdf(0)/s; const sy=d=>base-(d/peak)*(base-top);
+  const pts=[]; for(let i=0;i<=400;i++){const x=i/400*xmax; pts.push([x,pdf((x-pl.x)/s)/s]);}
+  function area(lo,hi,color){ const seg=pts.filter(p=>p[0]>=lo&&p[0]<=hi); if(seg.length<2) return ''; return `<path d="M${sx(seg[0][0])},${base} `+seg.map(p=>`L${sx(p[0])},${sy(p[1])}`).join(' ')+` L${sx(seg[seg.length-1][0])},${base} Z" fill="${color}" opacity=".85"/>`; }
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bell curve of the player's possible level against the lines">`;
+  g+=area(R.l,xmax,'var(--start)'); R.bands.forEach((b,j)=>g+=area(b.lo,b.hi,j===0?'var(--depth1)':'var(--depth2)')); g+=area(0,R.w,'var(--lost)');
+  g+=`<path d="M`+pts.map(p=>`${sx(p[0])},${sy(p[1])}`).join(' L')+`" fill="none" stroke="var(--fg)" stroke-width="1.5"/>`;
+  g+=`<line class="axis" x1="${padL}" x2="${W-padR}" y1="${base}" y2="${base}"/>`;
+  for(let t=0;t<=xmax;t+=5){g+=`<text class="num" x="${sx(t)}" y="${base+16}" text-anchor="middle">${t}</text>`;}
+  g+=`<line x1="${sx(R.l)}" x2="${sx(R.l)}" y1="${top-8}" y2="${base}" stroke="var(--start)" stroke-width="2" stroke-dasharray="4 3"/><text class="num" x="${sx(R.l)+4}" y="${top}" fill="var(--start)">starter line ${fmt(R.l)}</text>`;
+  g+=`<line x1="${sx(R.w)}" x2="${sx(R.w)}" y1="${top-8}" y2="${base}" stroke="var(--fill)" stroke-width="2" stroke-dasharray="4 3"/><text class="num" x="${sx(R.w)-4}" y="${top}" text-anchor="end" fill="var(--fill)">waiver line ${fmt(R.w)}</text>`;
+  g+=`<line x1="${sx(pl.x)}" x2="${sx(pl.x)}" y1="${sy(peak)}" y2="${base}" stroke="var(--fg)" stroke-width="1"/><text class="num" x="${sx(pl.x)}" y="${base+32}" text-anchor="middle" fill="var(--fg)">${pl.name} ${fmt(pl.x)} ± ${fmt(pl.s)}</text>`;
+  g+=`</svg>`; $('bell').innerHTML=g;
+  const bandk=R.bands.map((b,j)=>`<div class="kpi" style="border-color:${j===0?'var(--depth1)':'var(--depth2)'}"><div class="k">Chance his projection puts him at depth ${b.depth} bench (${fmt(b.lo)} to ${fmt(b.hi)})</div><div class="v">${fmtPct(pl.pb[j],1)}</div></div>`).join('');
+  $('k3').innerHTML=`<div class="kpi start"><div class="k">Chance his projection is above the starter line (${fmt(R.l)})</div><div class="v">${fmtPct(pl.pStart,1)}</div></div>${bandk}<div class="kpi lost"><div class="k">Chance his projection is below the waiver line</div><div class="v">${fmtPct(pl.pBelow,1)}</div></div>`;
+}
+function renderFill(R,pos){
+  const W=900,H=150; const n=R.n,q=R.q; let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Fill-in probabilities by bench depth">`;
+  g+=`<text x="20" y="20">A team has ${n} ${posName(pos)} starter${n>1?'s':''} (${R.S} starters ÷ 12 teams). Each is out with probability ${fmtPct(q,1)} (bye or injury).</text>`;
+  const maxk=R.bands.length; const bw=Math.min(220,(W-60)/maxk-20);
+  R.bands.forEach((b,j)=>{ const x=20+j*(bw+20); g+=`<rect x="${x}" y="${120-80*b.fill}" width="${bw}" height="${80*b.fill}" fill="${j===0?'var(--depth1)':'var(--depth2)'}" rx="3"/>`; g+=`<text class="num" x="${x+bw/2}" y="${114-80*b.fill}" text-anchor="middle" fill="var(--fg)" font-weight="600">${fmtPct(b.fill,1)}</text>`; g+=`<text x="${x+bw/2}" y="138" text-anchor="middle">depth ${b.depth}: at least ${b.depth} of ${n} out</text>`; });
+  g+=`<line class="axis" x1="20" x2="${W-20}" y1="120" y2="120"/></svg>`; $('fill').innerHTML=g;
+}
+function renderShare(R,pl,pos){
+  const parts=[['Start-worthy, plays',R.avail*pl.pStart,'var(--start)']]; R.bands.forEach((b,j)=>parts.push([`Depth ${b.depth} fill-in`,R.avail*pl.pb[j]*b.fill,j===0?'var(--depth1)':'var(--depth2)']));
+  const share=parts.reduce((a,p)=>a+p[1],0); parts.push(['Does not reach a lineup',1-share,'var(--lost)']);
+  const W=900,H=80; let x=20; let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Share of surplus reaching a lineup">`;
+  parts.forEach(p=>{const w=p[1]*(W-40); if(w>0){ g+=`<rect x="${x}" y="24" width="${Math.max(0,w-2)}" height="28" fill="${p[2]}" rx="2"/>`; if(w>70) g+=`<text class="num" x="${x+w/2}" y="43" text-anchor="middle" fill="${p[2]==='var(--lost)'?'var(--fg)':'#fff'}" font-weight="600">${fmtPct(p[1],1)}</text>`; } x+=w;});
+  g+=`<text x="20" y="14">${pl.name}: share of each surplus point that reaches a lineup</text><text x="20" y="72" class="num">0%</text><text x="${W-20}" y="72" text-anchor="end" class="num">100%</text></svg>`;
+  $('sharebar').innerHTML=g;
+  const terms=R.bands.map((b,j)=>` + ${fmt(b.fill,3)} × ${fmt(pl.pb[j],3)}`).join('');
+  $('formula').textContent=`share = ${fmt(R.avail,3)} × ( ${fmt(pl.pStart,3)}${terms} ) = ${fmtPct(share,1)}`;
+  $('k5').innerHTML=`<div class="kpi"><div class="k">Value above waivers</div><div class="v">${fmt(pl.v)}</div></div><div class="kpi start"><div class="k">Start-worthy part</div><div class="v">${fmt(pl.sw)}</div></div><div class="kpi fill"><div class="k">Fill-in part</div><div class="v">${fmt(pl.fi)}</div></div><div class="kpi lost"><div class="k">Lost (never in a lineup)</div><div class="v">${fmt(pl.v-pl.sw-pl.fi)}</div></div>`;
+  // table of anchors
+  const S=R.S; const idxs=[...new Set([0,Math.floor(S/2),S-1,S,S+Math.floor(T/2),S+T,S+T+Math.floor(T/2),state.idx].filter(i=>i>=0&&i<R.players.length))].sort((a,b)=>a-b);
+  let t=`<tr><th>Rank</th><th>Player</th><th>Projection</th><th>Surplus</th><th>P(projected to start)</th><th>Fill-in share</th><th>Lineup share</th><th>Counts</th></tr>`;
+  idxs.forEach(i=>{const p=R.players[i]; const fs=p.pb.reduce((a,pp,j)=>a+pp*R.bands[j].fill,0); t+=`<tr${i===state.idx?' class="sel"':''}><td>${p.rank}</td><td style="text-align:left">${p.name}</td><td>${fmt(p.x)}</td><td>${fmt(p.v)}</td><td>${fmtPct(p.pStart,1)}</td><td>${fmtPct(fs,1)}</td><td>${p.share==null?'–':fmtPct(p.share,1)}</td><td>${p.v>0?fmt(p.sw+p.fi):'0.00'}</td></tr>`;});
+  $('sharetable').innerHTML=t;
+}
+function renderCurve(R,pos){
+  const pl=R.players.filter(p=>p.v>0); const totV=pl.reduce((a,p)=>a+p.v,0); const totA=pl.reduce((a,p)=>a+p.sw+p.fi,0);
+  const before=pl.map(p=>p.v), after=pl.map(p=>(p.sw+p.fi)*totV/totA); // same total
+  const W=900,H=260,padL=44,padR=20,top=16,base=220; const n=pl.length; const ymax=Math.max(...before,...after)*1.05;
+  const sx=i=>padL+i/(n-1)*(W-padL-padR), sy=v=>base-v/ymax*(base-top);
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Position curve before and after">`;
+  for(let k=0;k<=4;k++){const v=ymax*k/4; g+=`<line class="grid" x1="${padL}" x2="${W-padR}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--grid)"/><text class="num" x="${padL-6}" y="${sy(v)+4}" text-anchor="end">${v.toFixed(0)}</text>`;}
+  g+=`<rect x="${sx(R.S)}" y="${top}" width="${sx(n-1)-sx(R.S)}" height="${base-top}" fill="var(--fill-soft)" opacity=".4"/><text x="${sx(R.S)+4}" y="${top+12}">bench tier</text>`;
+  g+=`<path d="M`+before.map((v,i)=>`${sx(i)},${sy(v)}`).join(' L')+`" fill="none" stroke="var(--lost)" stroke-width="2"/>`;
+  g+=`<path d="M`+after.map((v,i)=>`${sx(i)},${sy(v)}`).join(' L')+`" fill="none" stroke="var(--start)" stroke-width="2"/>`;
+  g+=`<line class="axis" x1="${padL}" x2="${W-padR}" y1="${base}" y2="${base}"/>`;
+  for(let i=0;i<n;i+=Math.ceil(n/12)){g+=`<text class="num" x="${sx(i)}" y="${base+16}" text-anchor="middle">${i+1}</text>`;}
+  g+=`<text x="${W/2}" y="${base+34}" text-anchor="middle">Rank at ${posName(pos)} (ESPN); both curves scaled to the same total</text>`;
+  pl.forEach((p,i)=>{g+=`<rect data-i="${i}" x="${sx(i)-4}" y="${top}" width="8" height="${base-top}" fill="transparent"/>`;});
+  g+=`</svg>`; $('curve').innerHTML=g;
+  const tip=$('tip6'); $('curve').querySelectorAll('rect[data-i]').forEach(r=>{r.onmouseenter=()=>{const i=+r.dataset.i; tip.textContent=`${pl[i].rank}. ${pl[i].name}: before ${before[i].toFixed(2)} · after ${after[i].toFixed(2)}`; tip.style.display='block'; const rr=$('curve').getBoundingClientRect(), b=r.getBoundingClientRect(); tip.style.left=(b.left-rr.left+b.width/2)+'px'; tip.style.top=(b.top-rr.top+20)+'px';}; r.onmouseleave=()=>tip.style.display='none';});
+  const benchBefore=pl.filter(p=>p.tier!=='starter').reduce((a,p)=>a+p.v,0)/totV; const benchAfter=pl.filter(p=>p.tier!=='starter').reduce((a,p)=>a+p.sw+p.fi,0)/totA; const fillShare=pl.reduce((a,p)=>a+p.fi,0)/totA;
+  const med=arr=>{const s=[...arr].sort((a,b)=>a-b); return s.length?s[Math.floor(s.length/2)]:0;};
+  const st=pl.filter(p=>p.tier==='starter'&&p.v>0.25).map(p=>(p.sw+p.fi)/p.v), bn=pl.filter(p=>p.tier==='bench'&&p.v>0.25).map(p=>(p.sw+p.fi)/p.v);
+  const price = bn.length? med(st)/med(bn):NaN;
+  $('k6').innerHTML=`<div class="kpi lost"><div class="k">Bench tier's share of ${posName(pos)} value, every point equal</div><div class="v">${fmtPct(benchBefore,1)}</div></div><div class="kpi start"><div class="k">Bench tier's share after lineup share</div><div class="v">${fmtPct(benchAfter,1)}</div></div><div class="kpi fill"><div class="k">Share that exists only as fill-in</div><div class="v">${fmtPct(fillShare,1)}</div></div><div class="kpi"><div class="k">Starter-level point vs bench-level point</div><div class="v">${isNaN(price)?'–':price.toFixed(1)+'×'}</div></div>`;
+}
+function renderProg(){
+  const P=D.progression; const W=900,H=230,padL=44,padR=20,top=16,base=190; const ymax=0.10;
+  const sx=i=>padL+i/(P.length-1)*(W-padL-padR), sy=v=>base-v/ymax*(base-top);
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bench share by content week">`;
+  for(let k=0;k<=5;k++){const v=ymax*k/5; g+=`<line class="grid" x1="${padL}" x2="${W-padR}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--grid)"/><text class="num" x="${padL-6}" y="${sy(v)+4}" text-anchor="end">${(100*v).toFixed(0)}%</text>`;}
+  g+=`<path d="M`+P.map((r,i)=>`${sx(i)},${sy(r.bench_tier_share)}`).join(' L')+`" fill="none" stroke="var(--start)" stroke-width="2"/>`;
+  g+=`<path d="M`+P.map((r,i)=>`${sx(i)},${sy(r.fill_state_share)}`).join(' L')+`" fill="none" stroke="var(--fill)" stroke-width="2"/>`;
+  P.forEach((r,i)=>{g+=`<circle cx="${sx(i)}" cy="${sy(r.bench_tier_share)}" r="3.5" fill="var(--start)"/><circle cx="${sx(i)}" cy="${sy(r.fill_state_share)}" r="3.5" fill="var(--fill)"/>`; if(i===state.week-5){g+=`<line x1="${sx(i)}" x2="${sx(i)}" y1="${top}" y2="${base}" stroke="var(--fg)" stroke-dasharray="3 3"/>`;} g+=`<text class="num" x="${sx(i)}" y="${base+16}" text-anchor="middle">${r.content_week}</text>`; g+=`<rect data-i="${i}" x="${sx(i)-14}" y="${top}" width="28" height="${base-top}" fill="transparent"/>`;});
+  g+=`<line class="axis" x1="${padL}" x2="${W-padR}" y1="${base}" y2="${base}"/><text x="${W/2}" y="${base+34}" text-anchor="middle">Content week (all positions, 12 teams; the dashed line is the week selected above)</text></svg>`;
+  $('prog').innerHTML=g;
+  const tip=$('tip7'); $('prog').querySelectorAll('rect[data-i]').forEach(r=>{r.onmouseenter=()=>{const p=P[+r.dataset.i]; tip.textContent=`Week ${p.content_week}: bench tier ${fmtPct(p.bench_tier_share,1)} · fill-in ${fmtPct(p.fill_state_share,1)} · bye ${fmtPct(p.bye_share,1)} · RB uncertainty ${fmtPct(p.sigma_rb,0)}`; tip.style.display='block'; const rr=$('prog').getBoundingClientRect(), b=r.getBoundingClientRect(); tip.style.left=(b.left-rr.left+b.width/2)+'px'; tip.style.top=(b.top-rr.top+20)+'px';}; r.onmouseleave=()=>tip.style.display='none';});
+}
+function renderNoise(){
+  const W=900,H=150; let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly noise by position">`;
+  const bw=160; POS.forEach((p,j)=>{const v=D.noise[p]; const x=40+j*(bw+40); const h=v/0.7*90; g+=`<rect x="${x}" y="${120-h}" width="${bw}" height="${h}" fill="var(--start)" rx="3"/><text class="num" x="${x+bw/2}" y="${114-h}" text-anchor="middle" fill="var(--fg)" font-weight="600">±${fmtPct(v,0)}</text><text x="${x+bw/2}" y="140" text-anchor="middle">${posName(p)}</text>`;});
+  g+=`<line class="axis" x1="20" x2="${W-20}" y1="120" y2="120"/><text x="20" y="16">Typical week-to-week swing of a starter's points, as a share of his own average (2015–2025)</text></svg>`;
+  $('noise').innerHTML=g;
+}
+initControls(); render();
+</script>
