@@ -290,7 +290,19 @@
   let scoring = "ppr";
   let teams = 12;
   let rosterShape = {...DEFAULT_ROSTER};
+  // The bench share in effect: the reader's override when set, else the
+  // computed readout's overall share (JEG-536, ES-14). Recomputed on every
+  // rebuild; DEFAULT_BENCH_SHARE only until the first one, or when the lineup
+  // parameters failed to load (then the VP-2.6 slices run at it).
   let benchShare = DEFAULT_BENCH_SHARE;
+  // ES-14 reader settings (es-value-001). The override is off (null) by
+  // default; on, it replaces the computed share as the bench groups' weight.
+  let benchShareOverride = null;
+  let lineupSettings = {regularSeasonEnd: 14, playoffWeeks: [15, 17], optimizeFor: "season",
+    injuryHistory: "recent", projectionConfidence: 1};
+  // config/lineup_parameters.json, served as assets/lineup-parameters.json.
+  let lineupConfig = null;
+  let lineupConfigError = null;
   // Reader position shares (VP-4.4 / BE-2): null = none (the DDF weights
   // as computed); otherwise {QB, RB, WR, TE} fractions summing to exactly 1.
   let positionWeights = null;
@@ -561,9 +573,56 @@
       flex: rosterShape.FLEX,
       superflex: ValueModel.superflexCount(rosterShape),
       bench_per_team: rosterShape.BENCH,
-      bench_share: benchShare,
+      // Slices (no lineup parameters): the override or the 15% default.
+      bench_share: benchShareOverride ?? DEFAULT_BENCH_SHARE,
+      bench_share_override: benchShareOverride,
       position_shares: positionWeights ? {...positionWeights} : null,
     };
+  }
+
+  // ES-14: the reader's settings as derive_lineup_parameters.resolve()
+  // arguments, and the resolved parameters the pipeline prices with (null
+  // when the parameters file did not load: the slices run instead).
+  function lineupResolveArgs() {
+    return {
+      objective: lineupSettings.optimizeFor,
+      injury_history: lineupSettings.injuryHistory,
+      league_weeks: {regular_season_end: lineupSettings.regularSeasonEnd,
+        playoff_weeks: [...lineupSettings.playoffWeeks]},
+      projection_confidence: lineupSettings.projectionConfidence,
+    };
+  }
+  function resolvedLineup() {
+    if (!lineupConfig) return null;
+    try {
+      return ValueModel.resolveLineupParameters(lineupConfig, lineupResolveArgs());
+    } catch (error) {
+      lineupConfigError = error;
+      return null;
+    }
+  }
+  async function loadLineupConfig() {
+    try {
+      const response = await fetch("assets/lineup-parameters.json");
+      if (!response.ok) throw new Error(`assets/lineup-parameters.json request failed (${response.status})`);
+      const cfg = await response.json();
+      if (cfg?.schema !== "lineup-parameters-config/2") throw new Error(`unexpected schema ${cfg?.schema}`);
+      lineupConfig = cfg;
+      const d = cfg.defaults || {};
+      lineupSettings = {
+        regularSeasonEnd: d.league_weeks?.regular_season_end ?? 14,
+        playoffWeeks: [...(d.league_weeks?.playoff_weeks || [15, 17])],
+        optimizeFor: d.objective || "season",
+        injuryHistory: d.injury_history || "recent",
+        projectionConfidence: d.projection_confidence ?? 1,
+      };
+    } catch (error) {
+      // A warning, not a stop (CLAUDE.md): the page prices with the VP-2.6
+      // slices at the 15% default and the readout says so (method "fixed-share").
+      lineupConfig = null;
+      lineupConfigError = error;
+      console.warn("Lineup parameters unavailable; bench share fixed at 15%:", error);
+    }
   }
 
   let pipelinePlayersCache = null;
@@ -663,7 +722,7 @@
     });
     return ValueModel.runValuePipeline({
       setting: pipelineSetting(), players: pipelinePlayers(), sources, included,
-      compositeInputs: compositeInputs ? [...compositeInputs] : null, ...extra,
+      compositeInputs: compositeInputs ? [...compositeInputs] : null, lineup: resolvedLineup(), ...extra,
     });
   }
 
@@ -711,6 +770,8 @@
     }
     pipelineNatives = natives;
     pipeline = runPipeline(natives, included);
+    // ES-14: the bench share in effect is an output unless overridden.
+    benchShare = benchShareOverride ?? pipeline.benchShare?.overall ?? DEFAULT_BENCH_SHARE;
     pipelineState = {
       eligible, included,
       excluded: PIPELINE_SOURCE_KEYS.map(key => excluded.find(e => e.key === key)).filter(Boolean),
@@ -974,6 +1035,11 @@
     row.ddfPriorCount = blend.priorCount;
     row.ddfPriorLowConfidence = blend.priorLowConfidence;
     row.ddfTier = now ? now.tier : null;
+    // ES-10 (JEG-536): the expected lineup share of his surplus and P(level
+    // above the starter line), blended over the included sources; null
+    // without lineup parameters or when no included source has him.
+    row.lineupShare = now && Number.isFinite(now.lineupShare) ? now.lineupShare : null;
+    row.startWorthy = now && Number.isFinite(now.startWorthy) ? now.startWorthy : null;
     return blend;
   }
   function applyComposite(rows) {
@@ -1175,7 +1241,7 @@
       `${scoreLabel()} · ${teams} teams · ${rosterLabel} · `,
       Object.assign(document.createElement("span"), {
         textContent: benchShareText,
-        title: "The share of the league pie paid on bench slices (15% by default; the Bench % slider changes it)."
+        title: "The bench tier's share of the league pie, computed from your league settings (the Bench % override replaces it)."
       }),
       ` · ${positionLabel} · ${axisLabel} · ${weekLabel}${staleLabel} · locked to ${lockLabel(lockOrder)}`,
       // league-settings-001 / methodology.md: values derived for a league
@@ -1277,6 +1343,11 @@
   // bench, VP-4.3) before any reader shares, from the averaged source mixes.
   function bakedPositionWeights() {
     if (!pipeline) return null;
+    const base = pipeline.ddfWeightsBeforeShares;
+    if (base) {
+      const w = Object.fromEntries(POSITION_ORDER.map(pos => [pos, base[`${pos}|starter`] + base[`${pos}|bench`]]));
+      return POSITION_ORDER.some(pos => w[pos] > 0) ? w : null;
+    }
     const S = pipeline.starterMixMean, B = pipeline.benchMixMean, bs = pipeline.benchShareApplied;
     const sumS = POSITION_ORDER.reduce((s, pos) => s + S[pos], 0);
     const sumB = POSITION_ORDER.reduce((s, pos) => s + B[pos], 0);
@@ -1325,7 +1396,7 @@
 
   function resetAllWeights() {
     positionWeights = null;
-    setBenchShareFraction(DEFAULT_BENCH_SHARE, false);
+    setBenchShareOverride(null, false);
     refreshAfterWeightChange();
   }
 
@@ -1470,25 +1541,32 @@
       input.max = String(hi);
       input.step = "0.001";
       input.value = String(benchShare);
-      input.setAttribute("aria-label", `Bench share, ${benchSharePct(lo)} to ${benchSharePct(hi)}, default 15 percent`);
+      input.setAttribute("aria-label", `Bench share override, ${benchSharePct(lo)} to ${benchSharePct(hi)}; off by default`);
     }
     if (resetBtn) {
-      resetBtn.disabled = false;
-      resetBtn.title = "Restore the default 15% bench share";
+      resetBtn.disabled = benchShareOverride === null;
+      resetBtn.title = "Use the bench share computed from your league settings";
     }
     const frac = value => (value - lo) / (hi - lo);
-    if (tick) tick.style.left = `calc(8px + ${frac(DEFAULT_BENCH_SHARE)} * (100% - 16px) - 1px)`;
+    const computed = pipeline?.benchShare?.override === false ? pipeline.benchShare.overall : null;
+    if (tick) {
+      tick.hidden = computed === null;
+      if (computed !== null) tick.style.left = `calc(8px + ${frac(Math.min(hi, Math.max(lo, computed)))} * (100% - 16px) - 1px)`;
+    }
     if (fill) {
       fill.style.left = "8px";
       fill.style.width = `calc(${frac(benchShare)} * (100% - 16px))`;
     }
-    if (valueEl) valueEl.textContent = benchSharePct(benchShare);
-    const weights = pipeline?.ddfWeights;
-    if (readout && weights) {
-      const parts = POSITION_ORDER.map(pos =>
-        `${pos} starter ${benchSharePct(weights[`${pos}|starter`])} · bench ${benchSharePct(weights[`${pos}|bench`])}`);
-      readout.textContent = `Default 15%. Share of the league pie: ${parts.join(" · ")}`;
-      readout.title = "DDF Value weights: each group's share of the fixed league pie, averaged over the sources' own weights with the bench share applied to every source.";
+    if (valueEl) valueEl.textContent = benchShareOverride === null ? `${benchSharePct(benchShare)} computed`
+      : `${benchSharePct(benchShareOverride)} (your override)`;
+    const r = benchShareReadout();
+    if (readout && r) {
+      const byPos = POSITION_ORDER.map(pos => `${pos} ${r[pos] === null ? "n/a" : benchSharePct(r[pos])}`).join(", ");
+      readout.textContent = r.method === "expected-starts"
+        ? (r.override ? `Bench share: ${benchSharePct(r.overrideValue)} (your override). By position this week: ${byPos}.`
+          : `Bench share this week: ${byPos}, from your league settings.`)
+        : `Bench share fixed at ${benchSharePct(benchShare)}: the league settings model did not load.`;
+      readout.title = "The bench share is how much of each position's value sits with bench players. It comes from how often bench players actually reach a lineup in your league setup: byes, injuries and how deep your bench is.";
     }
   }
 
@@ -1584,7 +1662,7 @@
       return `${pos} ${pct}%${b}`;
     });
     const benchPct = (benchShare * 100).toFixed(1);
-    readout.textContent = `Pie: ${parts.join(" · ")} — sums to 100%. Bench ${benchPct}% (default 15%). Values above re-price live from every included source.`;
+    readout.textContent = `Pie: ${parts.join(" · ")} — sums to 100%. Bench ${benchPct}% (${benchShareOverride === null ? "computed from your league settings" : "your override"}). Values above re-price live from every included source.`;
   }
 
   function makeRosterControls() {
@@ -1619,8 +1697,8 @@
       wrapper.append(text, input);
       grid.appendChild(wrapper);
     });
-    // Bench share: one global bounded slider (VP-3.4); the tick marks the
-    // default 15%.
+    // Bench share: the override slider (ES-14, VP-3.4), off by default; the
+    // tick marks the share computed from the league settings.
     const shareBlock = document.createElement("div");
     shareBlock.className = "bench-share-block";
     shareBlock.id = "benchShareBlock";
@@ -1635,8 +1713,8 @@
     const shareReset = document.createElement("button");
     shareReset.type = "button";
     shareReset.className = "bench-share-reset";
-    shareReset.textContent = "Reset to 15%";
-    shareReset.addEventListener("click", () => setBenchShareFraction(DEFAULT_BENCH_SHARE));
+    shareReset.textContent = "Use computed";
+    shareReset.addEventListener("click", () => setBenchShareOverride(null));
     shareHead.append(shareTitle, shareValue, shareReset);
     const slider = document.createElement("div");
     slider.className = "zslider bench-share-slider";
@@ -1644,7 +1722,7 @@
     track.className = "track";
     const tick = document.createElement("div");
     tick.className = "bench-share-tick";
-    tick.title = "Recommended 15% bench share";
+    tick.title = "Bench share computed from your league settings";
     const fill = document.createElement("div");
     fill.className = "fill";
     const shareInput = document.createElement("input");
@@ -1654,7 +1732,7 @@
     shareInput.setAttribute("aria-label", "Bench share");
     shareInput.addEventListener("input", () => setBenchShareFraction(Number(shareInput.value), false));
     shareInput.addEventListener("change", () => { setBenchShareFraction(Number(shareInput.value), false); publishShared(); });
-    shareInput.addEventListener("dblclick", () => setBenchShareFraction(DEFAULT_BENCH_SHARE));
+    shareInput.addEventListener("dblclick", () => setBenchShareOverride(null));
     slider.append(track, tick, fill, shareInput);
     const readout = document.createElement("p");
     readout.className = "bench-share-readout";
@@ -1935,36 +2013,112 @@
   }
 
   function publishShared() {
-    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare, positionWeights: activePositionWeights(),
+    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare,
+      benchShareOverride, lineupSettings: getLineupSettings(), positionWeights: activePositionWeights(),
       compositeInputs: compositeInputs ? [...compositeInputs] : null};
     window.TradeValueSharedState = detail;
     window.dispatchEvent(new CustomEvent("trade-value-shared-change", {detail}));
   }
 
-  // Bench share (VP-3.4): one global slider. Every source is normalized to
-  // it before averaging, so moving it re-prices every series.
-  function setBenchShareFraction(share, publish = true) {
-    let next = Number(share);
-    if (!Number.isFinite(next)) {
-      syncBenchShareControl();
-      return;
+  // Bench-share override (ES-14, VP-3.4): off (null) by default, when the
+  // bench share is computed from the league settings. A share in
+  // BENCH_SHARE_BOUNDS turns it on: every source is normalized to it before
+  // averaging, so it re-prices every series. Returns the override in effect.
+  function setBenchShareOverride(share, publish = true) {
+    let next = share === null || share === undefined || share === "" ? null : Number(share);
+    if (next !== null) {
+      if (!Number.isFinite(next)) {
+        syncBenchShareControl();
+        return benchShareOverride;
+      }
+      const [lo, hi] = BENCH_SHARE_BOUNDS;
+      next = Math.min(hi, Math.max(lo, next));
     }
-    const [lo, hi] = BENCH_SHARE_BOUNDS;
-    next = Math.min(hi, Math.max(lo, next));
-    if (Math.abs(next - benchShare) < 1e-9) {
+    const same = next === null ? benchShareOverride === null
+      : benchShareOverride !== null && Math.abs(next - benchShareOverride) < 1e-9;
+    if (same) {
       syncBenchShareControl();
-      return;
+      return benchShareOverride;
     }
-    benchShare = next;
+    benchShareOverride = next;
+    if (next !== null) benchShare = next;
     crossRank = null;
-    syncBenchShareControl();
-    syncWeightsReadout();
     if (engineReady) {
       refreshAfterWeightChange(publish);
-      return;
+      return benchShareOverride;
     }
     syncBenchShareControl();
+    syncWeightsReadout();
     if (publish) publishShared();
+    return benchShareOverride;
+  }
+
+  // Legacy entry (the classic page's slider and v2's links): a share sets the
+  // override; it is the same control, now off by default.
+  function setBenchShareFraction(share, publish = true) {
+    return setBenchShareOverride(share, publish);
+  }
+
+  // ES-14 reader settings. Each setter validates, re-prices and returns the
+  // settings in effect; an invalid value leaves them unchanged (and throws a
+  // RangeError so the caller can say why).
+  const PROJECTION_CONFIDENCE_STEPS = Object.freeze([0.5, 1, 1.5]);
+  function setLineupSettings(partial, publish = true) {
+    const next = {...lineupSettings, playoffWeeks: [...lineupSettings.playoffWeeks]};
+    const p = partial || {};
+    if (p.regularSeasonEnd !== undefined) next.regularSeasonEnd = Number(p.regularSeasonEnd);
+    if (p.playoffWeeks !== undefined) next.playoffWeeks = Array.isArray(p.playoffWeeks)
+      ? p.playoffWeeks.map(Number) : [];
+    if (p.optimizeFor !== undefined) next.optimizeFor = p.optimizeFor;
+    if (p.injuryHistory !== undefined) next.injuryHistory = p.injuryHistory;
+    if (p.projectionConfidence !== undefined) next.projectionConfidence = Number(p.projectionConfidence);
+    const [pLo, pHi] = next.playoffWeeks;
+    const week = n => Number.isInteger(n) && n >= 1 && n <= 18;
+    if (!week(next.regularSeasonEnd)) throw new RangeError("Last regular-season week must be a week from 1 to 18");
+    if (next.playoffWeeks.length !== 2 || !week(pLo) || !week(pHi) || pLo > pHi) {
+      throw new RangeError("Playoff weeks must be two weeks from 1 to 18, first to last");
+    }
+    if (pLo <= next.regularSeasonEnd) throw new RangeError("Playoffs must start after the last regular-season week");
+    if (!ValueModel.LINEUP_OBJECTIVES.includes(next.optimizeFor)) {
+      throw new RangeError(`Optimize for must be one of ${ValueModel.LINEUP_OBJECTIVES.join(", ")}`);
+    }
+    if (!ValueModel.LINEUP_INJURY_HISTORY.includes(next.injuryHistory)) {
+      throw new RangeError(`Injury history must be one of ${ValueModel.LINEUP_INJURY_HISTORY.join(", ")}`);
+    }
+    if (!PROJECTION_CONFIDENCE_STEPS.includes(next.projectionConfidence)) {
+      throw new RangeError(`Projection confidence must be one of ${PROJECTION_CONFIDENCE_STEPS.join(", ")}`);
+    }
+    const changed = JSON.stringify(next) !== JSON.stringify(lineupSettings);
+    lineupSettings = next;
+    if (changed) {
+      crossRank = null;
+      if (engineReady) refreshAfterWeightChange(publish);
+      else if (publish) publishShared();
+    }
+    return getLineupSettings();
+  }
+  function getLineupSettings() {
+    return {...lineupSettings, playoffWeeks: [...lineupSettings.playoffWeeks],
+      benchShareOverride};
+  }
+  function lineupDefaults() {
+    const d = lineupConfig?.defaults;
+    return {regularSeasonEnd: d?.league_weeks?.regular_season_end ?? 14,
+      playoffWeeks: [...(d?.league_weeks?.playoff_weeks || [15, 17])],
+      optimizeFor: d?.objective || "season", injuryHistory: d?.injury_history || "recent",
+      projectionConfidence: d?.projection_confidence ?? 1, benchShareOverride: null};
+  }
+  // ES-14 readout: {QB, RB, WR, TE, overall, override, overrideValue,
+  // fillInShare, method, contentWeek, window}; null before the first build or
+  // with no projection in the included set.
+  function benchShareReadout() {
+    const r = pipeline?.benchShare;
+    if (!r) return null;
+    const lineup = pipeline.lineup;
+    return {QB: r.QB, RB: r.RB, WR: r.WR, TE: r.TE, overall: r.overall, override: r.override,
+      overrideValue: r.overrideValue, fillInShare: r.fillInShare, method: r.method,
+      contentWeek: lineup ? lineup.content_week : null, window: lineup ? [...lineup.window] : null,
+      error: lineupConfigError ? String(lineupConfigError.message || lineupConfigError) : null};
   }
 
   // Backward-compatible entry: the retired free input passed an integer
@@ -2220,7 +2374,8 @@
     return historyWeekPromises.get(file);
   }
   function historySetting(view = viewMode) {
-    return {scoring, teams, roster: {...rosterShape}, benchShare, viewMode: view, weights: activePositionWeights()};
+    return {scoring, teams, roster: {...rosterShape}, benchShare, benchShareOverride, lineupSettings: getLineupSettings(),
+      viewMode: view, weights: activePositionWeights()};
   }
   function historyUnavailable(source, week, reason, extra) {
     return {source, week, available: false, reason, values: null, setting: historySetting(), ...(extra || {})};
@@ -2630,7 +2785,35 @@
     getHistoryWeeks,
     setRosterSpot,
     setBenchShareFraction,
+    // The bench share in effect: the override when on, else the computed
+    // readout's overall share (JEG-536, ES-14).
     getBenchShare: () => benchShare,
+    // ES-14 (JEG-536): the readout and the reader settings that cause it.
+    // Field list: docs/v2-design-notes.md "Back-end contract: bench share".
+    getBenchShareReadout: () => benchShareReadout(),
+    getBenchShareOverride: () => benchShareOverride,
+    setBenchShareOverride,
+    getLeagueWeeks: () => ({regularSeasonEnd: lineupSettings.regularSeasonEnd, playoffWeeks: [...lineupSettings.playoffWeeks]}),
+    setLeagueWeeks: (weeks, publish = true) => setLineupSettings({regularSeasonEnd: weeks?.regularSeasonEnd,
+      playoffWeeks: weeks?.playoffWeeks}, publish),
+    getOptimizeFor: () => lineupSettings.optimizeFor,
+    setOptimizeFor: (value, publish = true) => setLineupSettings({optimizeFor: value}, publish),
+    getInjuryHistory: () => lineupSettings.injuryHistory,
+    setInjuryHistory: (value, publish = true) => setLineupSettings({injuryHistory: value}, publish),
+    getProjectionConfidence: () => lineupSettings.projectionConfidence,
+    setProjectionConfidence: (value, publish = true) => setLineupSettings({projectionConfidence: value}, publish),
+    getLineupSettings,
+    setLineupSettings: (partial, publish = true) => {
+      const p = {...(partial || {})};
+      const hasOverride = Object.prototype.hasOwnProperty.call(p, "benchShareOverride");
+      const override = p.benchShareOverride;
+      delete p.benchShareOverride;
+      setLineupSettings(p, publish && !hasOverride);
+      if (hasOverride) setBenchShareOverride(override, publish);
+      return getLineupSettings();
+    },
+    getLineupSettingsDefaults: () => lineupDefaults(),
+    getLineupParameters: () => (pipeline?.lineup ? JSON.parse(JSON.stringify(pipeline.lineup)) : null),
     // Read-only (fe-fidelity): the share each position was actually priced
     // at, bench_share_used from the live two-tier calibration at `share`
     // (default: the active bench share). Below a position's feasible window
@@ -3495,6 +3678,8 @@
       // JEG-479 / VP-1.2: the prior week is priced inside every rebuild, so
       // its history reads are fetched before the first one.
       await preloadCompositeHistory();
+      // JEG-536 (ES-14): the expected-starts building blocks, before the first build.
+      await loadLineupConfig();
       // JEG-432 R5: weekly charts older than the newest week on the board
       // start switched off (the reader can still turn them on).
       const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;

@@ -442,6 +442,9 @@ def main() -> int:
     (APP / "assets").mkdir(parents=True, exist_ok=True)
     shutil.copy2(FIXTURES / "comparison-sources-data.json", APP / "assets" / "comparison-sources-data.json")
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
+    # JEG-536 (ES-1, ES-14): the expected-starts building blocks the engine
+    # resolves the reader's league weeks and advanced settings against.
+    shutil.copy2(ROOT / "config" / "lineup_parameters.json", APP / "assets" / "lineup-parameters.json")
     # JEG-137 R10: the per-source dataset cards read assets/deadline-checker.json
     # for the slip measurement behind the Grace/Slip rows. Only copied when a
     # checker run has produced it -- the page falls back to the 6h default

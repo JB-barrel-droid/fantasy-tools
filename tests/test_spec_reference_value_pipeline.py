@@ -182,7 +182,12 @@ class LiveDump(unittest.TestCase):
             s = rep["settings"][sid]
             self.assertEqual(s["pie"], pie)
             self.assertTrue(s["included"])
-            self.assertAlmostEqual(sum(v for k, v in s["ddf_weights"].items() if k.endswith("|bench")), 0.15, 9)
+            # es-value-001 (Jeremy, 2026-10-09; JEG-536): the bench share is an
+            # output of the league settings, no longer fixed at 15%.
+            bench = sum(v for k, v in s["ddf_weights"].items() if k.endswith("|bench"))
+            self.assertAlmostEqual(bench, s["bench_share_readout"]["fill_in_share"], 12)
+            self.assertFalse(s["bench_share_readout"]["override"])
+            self.assertTrue(0.02 < bench < 0.15, bench)
             for src in s["included"]:
                 tot = sum(v for v in s["values"]["adjusted"][src].values() if v)
                 self.assertAlmostEqual(tot, pie, 6, f"{sid} {src}")
@@ -191,6 +196,50 @@ class LiveDump(unittest.TestCase):
                 for series in view.values():
                     self.assertEqual(len(series), n_rows)
 
+
+
+class ExpectedStartsVariant(unittest.TestCase):
+    """JEG-536 (ES-11): the clean-room reference reproduces the worked
+    example's expected-starts variants to 1e-6."""
+
+    def run_variant(self, name: str, fx=None):
+        sys.path.insert(0, str(REPO))
+        from tests import _es_worked_example as esx
+        fx = fx or _fx()
+        var = fx[name]
+        inp = we.fixture_inputs(fx)
+        s = copy.deepcopy(fx["setting"])
+        s.update(var["setting_change"])
+        res = vp.run_week(vp.Setting.from_fixture(s), inp["pos_of"], inp["sources"], inp["included"],
+                          names=inp["names"], lineup=var["lineup"])
+        return esx.variant_problems(fx, name, res)
+
+    def test_variants_reproduced(self):
+        for name in ("variant_expected_starts", "variant_expected_starts_override"):
+            self.assertEqual(self.run_variant(name), [])
+
+    def test_perturbed_variant_is_caught(self):
+        fx = _fx()
+        fx["variant_expected_starts"]["expected"]["rows"]["201"]["lineup_share"] += 2e-6
+        self.assertEqual(len(self.run_variant("variant_expected_starts", fx)), 1)
+
+    def test_point_mass_level_is_caught(self):
+        # sigma ignored (a level is known exactly): the parts change.
+        real = vp.es_parts
+        with mock.patch.object(vp, "es_parts", lambda *a: real(*a[:7], 0.0, 0.0)):
+            self.assertNotEqual(self.run_variant("variant_expected_starts"), [])
+
+    def test_resolve_matches_the_python_reference(self):
+        import derive_lineup_parameters as dl
+        cfg = json.loads((REPO / "config" / "lineup_parameters.json").read_text(encoding="utf-8"))
+        for kw in ({}, {"objective": "playoffs"}, {"objective": "regular", "injury_history": "all"},
+                   {"projection_confidence": 1.5},
+                   {"league_weeks": {"regular_season_end": 13, "playoff_weeks": [14, 16]}}):
+            a, b = vp.resolve_lineup(cfg, **kw), dl.resolve(cfg, **kw)
+            self.assertAlmostEqual(a["bye"], b["bye"], places=15)
+            for p in vp.POSITIONS:
+                for k in ("m", "sigma_rel", "sigma_floor"):
+                    self.assertAlmostEqual(a["positions"][p][k], b["positions"][p][k], places=14)
 
 if __name__ == "__main__":
     unittest.main()
