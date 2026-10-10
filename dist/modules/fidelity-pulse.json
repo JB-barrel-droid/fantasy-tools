@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-10T06:17:43.908241Z",
- "run_id": "03e15b77-6d64-4d8c-b260-fc793707e314",
+ "checked_at": "2026-10-10T06:40:21.089780Z",
+ "run_id": "a70a74bd-6612-48d4-8d68-b95e1b77e639",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -31,7 +31,7 @@
    ],
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-10@2026-10-10T05:44:43.842149Z",
-   "since": "2026-10-10T06:17:43.908241Z",
+   "since": "2026-10-10T06:40:21.089780Z",
    "summary": "no stored ESPN snapshot 2026-10-09 (the chart's vintage)"
   }
  },
@@ -261,17 +261,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "25/1170 values match exactly across 6 columns; 1145 of 1170 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 42%; 9 outside the max(25%, 50) band: Daniel Jones, Jordan Love); 5 players entered or left the bottom of the list since the save (churn)",
+     "summary": "22/1169 values match exactly across 6 columns; 1147 of 1169 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 60%; 11 outside the max(25%, 50) band: Dallas Goedert, Daniel Jones, Jordan Love, Mike Washington); 7 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 198,
+      "publisher_players": 199,
       "stored_players": 197,
-      "compared": 1170,
-      "matched": 25,
-      "mismatched": 1145,
+      "compared": 1169,
+      "matched": 22,
+      "mismatched": 1147,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 5,
+      "list_churn": 7,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -316,14 +316,24 @@
        "extra": 2
       },
       "std|2": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 189,
+       "mismatched": 191,
        "missing": 3,
-       "extra": 2
+       "extra": 3
       }
      },
      "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 3442,
+       "name": "Jordan Love",
+       "pos": "QB",
+       "left": "2564",
+       "right": 1905.0,
+       "delta": -659.0
+      },
       {
        "type": "value_mismatch",
        "grain": "half|2",
@@ -343,16 +353,6 @@
        "left": "2511",
        "right": 1927.0,
        "delta": -584.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 3442,
-       "name": "Jordan Love",
-       "pos": "QB",
-       "left": "2483",
-       "right": 1905.0,
-       "delta": -578.0
       },
       {
        "type": "value_mismatch",
@@ -380,29 +380,29 @@
        "player_key": 4158,
        "name": "C.J. Stroud",
        "pos": "QB",
-       "left": "1930",
+       "left": "1946",
        "right": 2448.0,
-       "delta": 518.0
+       "delta": 502.0
       },
       {
        "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 3289,
-       "name": "Amon-Ra St. Brown",
-       "pos": "WR",
-       "left": "8185",
-       "right": 8455.0,
-       "delta": 270.0
+       "grain": "std|2",
+       "player_key": 1760,
+       "name": "Caleb Williams",
+       "pos": "QB",
+       "left": "4395",
+       "right": 4684.0,
+       "delta": 289.0
       },
       {
        "type": "value_mismatch",
-       "grain": "half|1",
+       "grain": "std|2",
        "player_key": 3289,
        "name": "Amon-Ra St. Brown",
        "pos": "WR",
-       "left": "8129",
-       "right": 8397.0,
-       "delta": 268.0
+       "left": "8028",
+       "right": 8315.0,
+       "delta": 287.0
       }
      ],
      "outside_universe": [],
@@ -546,6 +546,17 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 3442,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "left": "2564",
+     "right": 1905.0,
+     "delta": -659.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "half|2",
      "player_key": 3442,
      "name": "Jordan Love",
@@ -564,17 +575,6 @@
      "left": "2511",
      "right": 1927.0,
      "delta": -584.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 3442,
-     "name": "Jordan Love",
-     "pos": "QB",
-     "left": "2483",
-     "right": 1905.0,
-     "delta": -578.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -605,31 +605,31 @@
      "player_key": 4158,
      "name": "C.J. Stroud",
      "pos": "QB",
-     "left": "1930",
+     "left": "1946",
      "right": 2448.0,
-     "delta": 518.0
+     "delta": 502.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 3289,
-     "name": "Amon-Ra St. Brown",
-     "pos": "WR",
-     "left": "8185",
-     "right": 8455.0,
-     "delta": 270.0
+     "grain": "std|2",
+     "player_key": 1760,
+     "name": "Caleb Williams",
+     "pos": "QB",
+     "left": "4395",
+     "right": 4684.0,
+     "delta": 289.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "half|1",
+     "grain": "std|2",
      "player_key": 3289,
      "name": "Amon-Ra St. Brown",
      "pos": "WR",
-     "left": "8129",
-     "right": 8397.0,
-     "delta": 268.0
+     "left": "8028",
+     "right": 8315.0,
+     "delta": 287.0
     }
    ],
    "held": null,
@@ -1248,7 +1248,7 @@
     ],
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-10@2026-10-10T05:44:43.842149Z",
-    "since": "2026-10-10T06:17:43.908241Z",
+    "since": "2026-10-10T06:40:21.089780Z",
     "summary": "no stored ESPN snapshot 2026-10-09 (the chart's vintage)"
    }
   },
@@ -1651,5 +1651,5 @@
   "razzball": "2026-10-10T05:01:41.065126+00:00"
  },
  "resyncs": {},
- "holds_changed": true
+ "holds_changed": false
 }
