@@ -30,6 +30,38 @@ ticket, delegated agents naming their ticket, and "(part of JEG-xxx)" PR titles.
 - Fidelity findings from the pulse, an audit or a reviewer get a ticket
   (Urgent if live numbers are wrong) and a row in `docs/risk-register.md`.
 
+### Session ownership and takeover (Jeremy, 2026-10-10)
+
+Several Claude sessions work this repo at once: the back end, and the front end on the Windows PC and on the Mac. Linear decides who owns what.
+
+- **Owner label.** Every ticket a session works carries exactly one label from the `Session` group: `session:be`, `session:fe-pc` or `session:fe-mac`. The label is the owner; the Linear assignee stays Jeremy.
+- **Queue (JEG-567).** A session's queue is the Todo tickets in Jegabee that carry its own Session label. Backlog is not the queue: a ticket enters it when Jeremy moves it to Todo. At session start, and each time a ticket closes, the session reads its queue and claims the top ticket:
+  - back end: by the `BE priority` label (Now, Next, Then, Later), then Linear priority;
+  - front end: by Linear priority, then oldest first.
+- **Unrouted tickets.** A Todo ticket with no Session label has no owner yet. A session whose queue is empty routes the ones that are clearly its domain (engine, pipelines, data and research math go to `session:be`; pages and copy to a front-end session): it adds its label, comments `routed to <session>`, and works its queue. If the domain is unclear, it adds `needs-review` and asks Jeremy in a comment instead of guessing.
+- **Blocked on Jeremy.** When a ticket needs his decision, the session comments the question with the options and its recommendation, adds `needs-review`, moves the ticket to In Review, and claims its next ticket rather than waiting. Once Jeremy answers on the ticket, the owner quotes the decision with the date, removes `needs-review`, and moves the ticket back to Todo (or In Progress if it resumes now). In Progress stays reserved for work an agent is doing.
+- **Claim.** Before starting, a session:
+  1. sets the ticket In Progress;
+  2. checks that the label is its own;
+  3. comments `taken by <session> · <UTC time> · branch <name>`.
+
+  It doesn't start a ticket that carries another session's label without a takeover.
+- **Heartbeat.** While a ticket is In Progress, the owner comments at least every 4 hours of active work, at every push, and when it parks the ticket. Each comment states what's done, what's next, and the backup branch (`fe/<ticket>` or `be/<ticket>`). The owner pushes that branch to GitHub at each heartbeat, so work never lives on one machine only.
+- **Lag and takeover.** Another session may take over a ticket when:
+  - it is In Progress with no heartbeat or commit for 4 hours; or
+  - its owner session is offline or idle, and the taker's own queue is empty; or
+  - Jeremy says so.
+
+  To take over:
+  1. Comment `taking over from <session> · last heartbeat <time> · continuing from <branch>`.
+  2. Swap the Session label.
+  3. Continue from the backup branch.
+
+  The previous owner, on returning, reads the comment and doesn't resume.
+- **Idle hands.** A session with an empty queue may pick up another session's **Todo** tickets (not In Progress ones), oldest priority first. It swaps the label and comments `picked up by <session>`.
+- **Handoff.** A session that is stopping comments on each of its In Progress tickets with its state and branch, then moves them back to Todo so another session can claim them.
+- **Merge order.** Always rebase on `main` before pushing. The contract test (`tests/test_v2_contract_render.py`) and `make validate` must pass.
+
 ## Standing constraints
 
 - **Finish end to end.** For a fix, refresh or deploy repair: commit, merge to

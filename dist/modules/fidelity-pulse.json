@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-10T09:40:17.665602Z",
- "run_id": "19535aad-b583-4996-828c-ef7deebd77a5",
- "overall": "red",
+ "checked_at": "2026-10-10T18:40:16.666253Z",
+ "run_id": "a05a6d21-af4a-4241-bf6c-524c6a870aa4",
+ "overall": "amber",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-10T08:01:15.224329+00:00",
+  "built_at": "2026-10-10T15:26:53.488945+00:00",
   "error": null
  },
  "rules": {
@@ -23,18 +23,7 @@
   "tolerance": "per-source tolerance (JEG-520, measured in docs/fidelity-tolerances.md): FantasyCalc live-feed movement band max(25%, 50 points), red only above 10% of values outside it; article charts exact against the same article version, a later revision is 'update available' for 24 h, then stale; projections exact against the same publisher version (probe fingerprint), a changed version amber for 24 h, then stale; ESPN amber, then re-sync: red only when the mismatch survives a fresh sync",
   "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
- "holds": {
-  "fantasycalc": {
-   "stage": "publisher_vs_stored",
-   "stages": [
-    "publisher_vs_stored"
-   ],
-   "reason": "fidelity: publisher_vs_stored",
-   "identity": "fcwk5_2026-10-10t0705_v1",
-   "since": "2026-10-10T09:40:17.665602Z",
-   "summary": "797/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 31); stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 34); 381 of 1178 values moved since the save at 2026-10-10T07:05:26.085599Z (largest 80"
-  }
- },
+ "holds": {},
  "sources": [
   {
    "source": "usatoday",
@@ -127,7 +116,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-10T08:00:53Z",
+     "chart_imported_at": "2026-10-10T15:26:23Z",
      "bake_id": "usatwk5_2026-10-09t1427_v1",
      "bake_saved_at": "2026-10-09T14:27:35.484255Z",
      "behind": null,
@@ -188,8 +177,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (963679 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T08:14:19.497453+00:00"
+     "summary": "engine and Python reference agree (963673 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T15:40:00.561069+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -254,155 +243,155 @@
   {
    "source": "fantasycalc",
    "label": "FantasyCalc",
-   "status": "red",
+   "status": "amber",
    "stored_week": 5,
    "chart_week": 5,
-   "stored_bake": "fcwk5_2026-10-10t0705_v1",
+   "stored_bake": "fcwk5_2026-10-10t1405_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "red",
-     "summary": "797/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 31); stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 34); 381 of 1178 values moved since the save at 2026-10-10T07:05:26.085599Z (largest 80%; 2 outside the max(25%, 50) band: Aaron Rodgers, Michael Penix); 4 players entered or left the bottom of the list since the save (churn)",
+     "status": "amber",
+     "summary": "29/1167 values match exactly across 6 columns; 1138 of 1167 values moved since the save at 2026-10-10T14:05:25.076442Z (largest 233%; 9 outside the max(25%, 50) band: Darren Waller, Marvin Harrison Jr); 8 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
-      "stored_players": 197,
-      "compared": 1178,
-      "matched": 797,
-      "mismatched": 381,
+      "publisher_players": 201,
+      "stored_players": 198,
+      "compared": 1167,
+      "matched": 29,
+      "mismatched": 1138,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 4,
+      "list_churn": 8,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
      "page_week": null,
      "page_modified": null,
-     "bake_id": "fcwk5_2026-10-10t0705_v1",
-     "bake_saved_at": "2026-10-10T07:05:26.085599Z",
+     "bake_id": "fcwk5_2026-10-10t1405_v1",
+     "bake_saved_at": "2026-10-10T14:05:25.076442Z",
      "grains": {
       "full|1": {
-       "left": 197,
-       "right": 197,
-       "mismatched": 192,
+       "left": 196,
+       "right": 198,
+       "mismatched": 190,
        "missing": 2,
-       "extra": 2
+       "extra": 4
       },
       "full|2": {
-       "left": 197,
-       "right": 197,
-       "mismatched": 189,
+       "left": 196,
+       "right": 198,
+       "mismatched": 188,
        "missing": 2,
-       "extra": 2
+       "extra": 4
       },
       "half|1": {
-       "left": 197,
+       "left": 195,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 1,
+       "extra": 3
       },
       "half|2": {
-       "left": 197,
+       "left": 195,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 188,
+       "missing": 1,
+       "extra": 3
       },
       "std|1": {
-       "left": 197,
-       "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "left": 196,
+       "right": 198,
+       "mismatched": 190,
+       "missing": 2,
+       "extra": 4
       },
       "std|2": {
-       "left": 197,
-       "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "left": 198,
+       "right": 198,
+       "mismatched": 192,
+       "missing": 1,
+       "extra": 1
       }
      },
      "examples": [
       {
        "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 28,
-       "name": "Aaron Rodgers",
-       "pos": "QB",
-       "left": "903",
-       "right": 502.0,
-       "delta": -401.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 1765,
-       "name": "Michael Penix",
-       "pos": "QB",
-       "left": "1249",
-       "right": 948.0,
-       "delta": -301.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 506,
-       "name": "Lamar Jackson",
-       "pos": "QB",
-       "left": "7370",
-       "right": 7619.0,
-       "delta": 249.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 164,
-       "name": "Aaron Jones",
+       "grain": "std|1",
+       "player_key": 4048,
+       "name": "Chuba Hubbard",
        "pos": "RB",
-       "left": "2075",
-       "right": 1841.0,
-       "delta": -234.0
+       "left": "4612",
+       "right": 4235.0,
+       "delta": -377.0
       },
       {
        "type": "value_mismatch",
        "grain": "full|1",
-       "player_key": 325,
-       "name": "DJ Moore",
-       "pos": "WR",
-       "left": "1771",
-       "right": 1605.0,
-       "delta": -166.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 2730,
-       "name": "Ja'Marr Chase",
-       "pos": "WR",
-       "left": "7896",
-       "right": 8062.0,
-       "delta": 166.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 3843,
-       "name": "Christian Watson",
-       "pos": "WR",
-       "left": "3614",
-       "right": 3454.0,
-       "delta": -160.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 3862,
-       "name": "Chase Brown",
+       "player_key": 4048,
+       "name": "Chuba Hubbard",
        "pos": "RB",
-       "left": "4753",
-       "right": 4913.0,
-       "delta": 160.0
+       "left": "4586",
+       "right": 4211.0,
+       "delta": -375.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 4048,
+       "name": "Chuba Hubbard",
+       "pos": "RB",
+       "left": "4583",
+       "right": 4208.0,
+       "delta": -375.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 3442,
+       "name": "Jordan Love",
+       "pos": "QB",
+       "left": "3031",
+       "right": 2661.0,
+       "delta": -370.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 3442,
+       "name": "Jordan Love",
+       "pos": "QB",
+       "left": "3029",
+       "right": 2691.0,
+       "delta": -338.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 3442,
+       "name": "Jordan Love",
+       "pos": "QB",
+       "left": "3031",
+       "right": 2693.0,
+       "delta": -338.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 4048,
+       "name": "Chuba Hubbard",
+       "pos": "RB",
+       "left": "3538",
+       "right": 3252.0,
+       "delta": -286.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 4048,
+       "name": "Chuba Hubbard",
+       "pos": "RB",
+       "left": "3536",
+       "right": 3250.0,
+       "delta": -286.0
       }
      ],
      "outside_universe": [],
@@ -410,12 +399,12 @@
     },
     "stored_vs_chart": {
      "status": "green",
-     "summary": "1182/1182 chart values equal stored bake fcwk5_2026-10-10t0705_v1",
+     "summary": "1186/1186 chart values equal stored bake fcwk5_2026-10-10t1405_v1",
      "counts": {
-      "chart_players": 197,
-      "stored_players": 197,
-      "compared": 1182,
-      "matched": 1182,
+      "chart_players": 198,
+      "stored_players": 198,
+      "compared": 1186,
+      "matched": 1186,
       "mismatched": 0,
       "missing_on_chart": 0,
       "extra_on_chart": 0,
@@ -423,21 +412,21 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-10T08:00:52Z",
-     "bake_id": "fcwk5_2026-10-10t0705_v1",
-     "bake_saved_at": "2026-10-10T07:05:26.085599Z",
+     "chart_imported_at": "2026-10-10T15:26:21Z",
+     "bake_id": "fcwk5_2026-10-10t1405_v1",
+     "bake_saved_at": "2026-10-10T14:05:25.076442Z",
      "behind": null,
      "grains": {
       "full|1": {
-       "left": 197,
-       "right": 197,
+       "left": 198,
+       "right": 198,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "full|2": {
-       "left": 197,
-       "right": 197,
+       "left": 198,
+       "right": 198,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
@@ -457,15 +446,15 @@
        "extra": 0
       },
       "std|1": {
-       "left": 197,
-       "right": 197,
+       "left": 198,
+       "right": 198,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "std|2": {
-       "left": 197,
-       "right": 197,
+       "left": 198,
+       "right": 198,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
@@ -483,8 +472,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (963679 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T08:14:19.497453+00:00"
+     "summary": "engine and Python reference agree (963673 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T15:40:00.561069+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -493,22 +482,22 @@
       "position_counts": {
        "week_compared": 4,
        "publisher": {
-        "QB": 34,
-        "RB": 59,
-        "WR": 75,
-        "TE": 29
+        "QB": 32,
+        "RB": 58,
+        "WR": 77,
+        "TE": 28
        },
        "stored": {
         "QB": 34,
-        "RB": 59,
-        "WR": 75,
-        "TE": 29
+        "RB": 58,
+        "WR": 77,
+        "TE": 28
        },
        "chart": {
         "QB": 34,
-        "RB": 59,
-        "WR": 75,
-        "TE": 29
+        "RB": 58,
+        "WR": 77,
+        "TE": 28
        },
        "prior_week": {
         "QB": 33,
@@ -526,11 +515,11 @@
       "count_drops": [],
       "tier_counts": {
        "QB|starter": 12,
-       "QB|bench": 16,
+       "QB|bench": 14,
        "RB|starter": 34,
        "RB|bench": 19,
        "WR|starter": 38,
-       "WR|bench": 26,
+       "WR|bench": 28,
        "TE|starter": 12,
        "TE|bench": 10
       },
@@ -546,103 +535,94 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 28,
-     "name": "Aaron Rodgers",
-     "pos": "QB",
-     "left": "903",
-     "right": 502.0,
-     "delta": -401.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 1765,
-     "name": "Michael Penix",
-     "pos": "QB",
-     "left": "1249",
-     "right": 948.0,
-     "delta": -301.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "7370",
-     "right": 7619.0,
-     "delta": 249.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 164,
-     "name": "Aaron Jones",
+     "grain": "std|1",
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
      "pos": "RB",
-     "left": "2075",
-     "right": 1841.0,
-     "delta": -234.0
+     "left": "4612",
+     "right": 4235.0,
+     "delta": -377.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "full|1",
-     "player_key": 325,
-     "name": "DJ Moore",
-     "pos": "WR",
-     "left": "1771",
-     "right": 1605.0,
-     "delta": -166.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 2730,
-     "name": "Ja'Marr Chase",
-     "pos": "WR",
-     "left": "7896",
-     "right": 8062.0,
-     "delta": 166.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 3843,
-     "name": "Christian Watson",
-     "pos": "WR",
-     "left": "3614",
-     "right": 3454.0,
-     "delta": -160.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 3862,
-     "name": "Chase Brown",
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
      "pos": "RB",
-     "left": "4753",
-     "right": 4913.0,
-     "delta": 160.0
+     "left": "4586",
+     "right": 4211.0,
+     "delta": -375.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "left": "4583",
+     "right": 4208.0,
+     "delta": -375.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 3442,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "left": "3031",
+     "right": 2661.0,
+     "delta": -370.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 3442,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "left": "3029",
+     "right": 2691.0,
+     "delta": -338.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 3442,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "left": "3031",
+     "right": 2693.0,
+     "delta": -338.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "left": "3538",
+     "right": 3252.0,
+     "delta": -286.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 4048,
+     "name": "Chuba Hubbard",
+     "pos": "RB",
+     "left": "3536",
+     "right": 3250.0,
+     "delta": -286.0
     }
    ],
    "held": null,
-   "hold": {
-    "stage": "publisher_vs_stored",
-    "stages": [
-     "publisher_vs_stored"
-    ],
-    "reason": "fidelity: publisher_vs_stored",
-    "identity": "fcwk5_2026-10-10t0705_v1",
-    "since": "2026-10-10T09:40:17.665602Z",
-    "summary": "797/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 31); stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 34); 381 of 1178 values moved since the save at 2026-10-10T07:05:26.085599Z (largest 80"
-   }
+   "hold": null
   },
   {
    "source": "fantasypros",
@@ -650,7 +630,7 @@
    "status": "amber",
    "stored_week": 5,
    "chart_week": 5,
-   "stored_bake": "fpwk5_2026-10-09t1235_v1",
+   "stored_bake": "fpwk5_2026-10-10t1235_v1",
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
@@ -670,8 +650,8 @@
      "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-5-2026/",
      "page_week": 5,
      "page_modified": "2026-10-06T16:31:34+00:00",
-     "bake_id": "fpwk5_2026-10-09t1235_v1",
-     "bake_saved_at": "2026-10-09T12:35:46.178513Z",
+     "bake_id": "fpwk5_2026-10-10t1235_v1",
+     "bake_saved_at": "2026-10-10T12:35:43.369496Z",
      "grains": {
       "full|1": {
        "left": 178,
@@ -722,7 +702,7 @@
     },
     "stored_vs_chart": {
      "status": "green",
-     "summary": "630/630 chart values equal stored bake fpwk5_2026-10-09t1235_v1",
+     "summary": "630/630 chart values equal stored bake fpwk5_2026-10-10t1235_v1",
      "counts": {
       "chart_players": 178,
       "stored_players": 178,
@@ -735,9 +715,9 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-10T08:00:54Z",
-     "bake_id": "fpwk5_2026-10-09t1235_v1",
-     "bake_saved_at": "2026-10-09T12:35:46.178513Z",
+     "chart_imported_at": "2026-10-10T15:26:25Z",
+     "bake_id": "fpwk5_2026-10-10t1235_v1",
+     "bake_saved_at": "2026-10-10T12:35:43.369496Z",
      "behind": null,
      "grains": {
       "full|1": {
@@ -796,8 +776,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (963679 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T08:14:19.497453+00:00"
+     "summary": "engine and Python reference agree (963673 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T15:40:00.561069+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -957,7 +937,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-10T08:00:56Z",
+     "chart_imported_at": "2026-10-10T15:26:27Z",
      "bake_id": "cbswk5_2026-10-08t1259_v1",
      "bake_saved_at": "2026-10-08T12:59:38.994744Z",
      "behind": null,
@@ -1018,8 +998,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (963679 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T08:14:19.497453+00:00"
+     "summary": "engine and Python reference agree (963673 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T15:40:00.561069+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -1126,7 +1106,7 @@
   {
    "source": "espn",
    "label": "ESPN",
-   "status": "green",
+   "status": "amber",
    "stored_week": null,
    "chart_week": null,
    "content_week": 5,
@@ -1135,15 +1115,15 @@
    "stored_bake": "2026-10-10",
    "stages": {
     "publisher_vs_stored": {
-     "status": "green",
-     "summary": "1716/1716 values match exactly across 3 columns; parse notes: rest-of-season weeks 6-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5]); 390 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
+     "status": "amber",
+     "summary": "1692/1716 values match exactly across 3 columns; 24 value mismatches, 1 publisher players not stored, 0 stored players not on the page; update available, ingest pending: the publisher changed since the save (fingerprint 916224e70b918ab313c09691 at the save, 1f68a1f4fa9842aa6b4e28ff now); re-sync requested (espn-supabase-sync.yml): red only if the mismatch survives it; parse notes: rest-of-season weeks 6-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5]); 389 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
      "counts": {
-      "publisher_players": 572,
+      "publisher_players": 573,
       "stored_players": 572,
       "compared": 1716,
-      "matched": 1716,
-      "mismatched": 0,
-      "missing_in_stored": 0,
+      "matched": 1692,
+      "mismatched": 24,
+      "missing_in_stored": 1,
       "extra_in_stored": 0,
       "outside_universe": 0,
       "list_churn": 0,
@@ -1152,33 +1132,116 @@
      "url": "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info",
      "publisher_vintage": null,
      "stored_snapshot": "2026-10-10",
-     "stored_saved_at": "2026-10-10T05:44:43.842149Z",
+     "stored_saved_at": "2026-10-10T15:25:45.431644Z",
      "grains": {
       "full|1": {
-       "left": 572,
+       "left": 573,
        "right": 572,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 8,
+       "missing": 1,
        "extra": 0
       },
       "half|1": {
-       "left": 572,
+       "left": 573,
        "right": 572,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 8,
+       "missing": 1,
        "extra": 0
       },
       "std|1": {
-       "left": 572,
+       "left": 573,
        "right": 572,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 8,
+       "missing": 1,
        "extra": 0
       }
      },
-     "publisher_version": null,
-     "resync": null,
-     "examples": [],
+     "publisher_version": "changed",
+     "resync": {
+      "workflow": "espn-supabase-sync.yml",
+      "fingerprint": "1f68a1f4fa9842aa6b4e28ff",
+      "saved_at": "2026-10-10T15:25:45.431644Z",
+      "probe_dispatched_at": null
+     },
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 1726,
+       "name": "Marvin Harrison Jr.",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 72.21,
+       "delta": 72.21
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 1726,
+       "name": "Marvin Harrison Jr.",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 60.66,
+       "delta": 60.66
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 1726,
+       "name": "Marvin Harrison Jr.",
+       "pos": "WR",
+       "left": "0.00",
+       "right": 49.11,
+       "delta": 49.11
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 1224,
+       "name": "Jalen Brooks",
+       "pos": "WR",
+       "left": "38.41",
+       "right": 0.0,
+       "delta": -38.41
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 1224,
+       "name": "Jalen Brooks",
+       "pos": "WR",
+       "left": "31.21",
+       "right": 0.0,
+       "delta": -31.21
+      },
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 696,
+       "name": "Simi Fehoko",
+       "pos": "WR",
+       "left": "12.83",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 696,
+       "name": "Simi Fehoko",
+       "pos": "WR",
+       "left": "10.43",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "std|1",
+       "player_key": 696,
+       "name": "Simi Fehoko",
+       "pos": "WR",
+       "left": "8.03",
+       "right": null
+      }
+     ],
      "outside_universe": [],
      "unresolved": []
     },
@@ -1233,8 +1296,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (963679 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T08:14:19.497453+00:00"
+     "summary": "engine and Python reference agree (963673 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T15:40:00.561069+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1245,7 +1308,7 @@
        "publisher": {
         "QB": 81,
         "RB": 138,
-        "WR": 231,
+        "WR": 232,
         "TE": 122
        },
        "stored": {
@@ -1292,7 +1355,93 @@
      }
     }
    },
-   "worst_examples": [],
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 1726,
+     "name": "Marvin Harrison Jr.",
+     "pos": "WR",
+     "left": "0.00",
+     "right": 72.21,
+     "delta": 72.21
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 1726,
+     "name": "Marvin Harrison Jr.",
+     "pos": "WR",
+     "left": "0.00",
+     "right": 60.66,
+     "delta": 60.66
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 1726,
+     "name": "Marvin Harrison Jr.",
+     "pos": "WR",
+     "left": "0.00",
+     "right": 49.11,
+     "delta": 49.11
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 1224,
+     "name": "Jalen Brooks",
+     "pos": "WR",
+     "left": "38.41",
+     "right": 0.0,
+     "delta": -38.41
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 1224,
+     "name": "Jalen Brooks",
+     "pos": "WR",
+     "left": "31.21",
+     "right": 0.0,
+     "delta": -31.21
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 696,
+     "name": "Simi Fehoko",
+     "pos": "WR",
+     "left": "12.83",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "half|1",
+     "player_key": 696,
+     "name": "Simi Fehoko",
+     "pos": "WR",
+     "left": "10.43",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "std|1",
+     "player_key": 696,
+     "name": "Simi Fehoko",
+     "pos": "WR",
+     "left": "8.03",
+     "right": null
+    }
+   ],
    "held": null,
    "hold": null
   },
@@ -1303,9 +1452,9 @@
    "stored_week": null,
    "chart_week": null,
    "content_week": 5,
-   "stored_snapshot": "2026-10-09",
-   "chart_snapshot": "2026-10-09",
-   "stored_bake": "2026-10-09",
+   "stored_snapshot": "2026-10-10",
+   "chart_snapshot": "2026-10-10",
+   "stored_bake": "2026-10-10",
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
@@ -1324,8 +1473,8 @@
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
      "publisher_vintage": null,
-     "stored_snapshot": "2026-10-09",
-     "stored_saved_at": "2026-10-09T23:25:31.855356Z",
+     "stored_snapshot": "2026-10-10",
+     "stored_saved_at": "2026-10-10T15:25:43.018150Z",
      "grains": {
       "full|1": {
        "left": 369,
@@ -1357,7 +1506,7 @@
     },
     "stored_vs_chart": {
      "status": "green",
-     "summary": "1107/1107 chart values equal stored snapshot 2026-10-09 (per game, 3 decimals)",
+     "summary": "1107/1107 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals)",
      "counts": {
       "chart_players": 369,
       "stored_players": 369,
@@ -1369,7 +1518,7 @@
       "outside_universe": 0,
       "unresolved_names": 0
      },
-     "chart_snapshot": "2026-10-09",
+     "chart_snapshot": "2026-10-10",
      "behind": null,
      "grains": {
       "full|1": {
@@ -1400,14 +1549,14 @@
     },
     "freshness": {
      "status": "green",
-     "summary": "chart shows snapshot 2026-10-09 (1 d old); the publisher prints no update date",
-     "chart_snapshot": "2026-10-09",
+     "summary": "chart shows snapshot 2026-10-10 (0 d old); the publisher prints no update date",
+     "chart_snapshot": "2026-10-10",
      "publisher_vintage": null
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (963679 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T08:14:19.497453+00:00"
+     "summary": "engine and Python reference agree (963673 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T15:40:00.561069+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1476,94 +1625,184 @@
    "stored_week": null,
    "chart_week": null,
    "content_week": 5,
-   "stored_snapshot": "2026-10-09",
-   "chart_snapshot": "2026-10-09",
-   "stored_bake": "2026-10-09",
+   "stored_snapshot": "2026-10-10",
+   "chart_snapshot": "2026-10-10",
+   "stored_bake": "2026-10-10",
    "stages": {
     "publisher_vs_stored": {
-     "status": "green",
-     "summary": "2043/2043 values match exactly across 3 columns; 1 publisher names matched by the stored row's key (the canonical resolver refuses their listed position: Max Hurleman)",
+     "status": "amber",
+     "summary": "1672/2040 values match exactly across 3 columns; 368 value mismatches, 7 publisher players not stored, 0 stored players not on the page; publisher updated (2026-10-10) after the stored snapshot 2026-10-10; inside the 24 h grace window; 1 publisher names do not resolve to a canonical player; 1 players at the page's last listed value swapped in or out (ties at the row cap: Justin Joly)",
      "counts": {
-      "publisher_players": 681,
-      "stored_players": 681,
-      "compared": 2043,
-      "matched": 2043,
-      "mismatched": 0,
-      "missing_in_stored": 0,
+      "publisher_players": 688,
+      "stored_players": 680,
+      "compared": 2040,
+      "matched": 1672,
+      "mismatched": 368,
+      "missing_in_stored": 7,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 0,
-      "unresolved_names": 0
+      "list_churn": 1,
+      "unresolved_names": 1
      },
      "url": "https://football.razzball.com/projections-qb-restofseason/",
-     "publisher_vintage": "2026-10-09",
-     "stored_snapshot": "2026-10-09",
-     "stored_saved_at": "2026-10-10T00:30:50.507026Z",
+     "publisher_vintage": "2026-10-10",
+     "stored_snapshot": "2026-10-10",
+     "stored_saved_at": "2026-10-10T15:25:40.577244Z",
      "grains": {
       "full|1": {
-       "left": 681,
-       "right": 681,
-       "mismatched": 0,
-       "missing": 0,
+       "left": 688,
+       "right": 680,
+       "mismatched": 146,
+       "missing": 8,
        "extra": 0
       },
       "half|1": {
-       "left": 681,
-       "right": 681,
-       "mismatched": 0,
-       "missing": 0,
+       "left": 688,
+       "right": 680,
+       "mismatched": 120,
+       "missing": 8,
        "extra": 0
       },
       "std|1": {
-       "left": 681,
-       "right": 681,
-       "mismatched": 0,
-       "missing": 0,
+       "left": 688,
+       "right": 680,
+       "mismatched": 102,
+       "missing": 8,
        "extra": 0
       }
      },
      "publisher_version": null,
      "resync": null,
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 2476,
+       "name": "Kevin Coleman Jr.",
+       "pos": "WR",
+       "left": "2.9",
+       "right": 5.5,
+       "delta": 2.6
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 473,
+       "name": "Terry McLaurin",
+       "pos": "WR",
+       "left": "14.9",
+       "right": 12.8,
+       "delta": -2.1
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 2476,
+       "name": "Kevin Coleman Jr.",
+       "pos": "WR",
+       "left": "2.3",
+       "right": 4.3,
+       "delta": 2.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 764,
+       "name": "DeVonta Smith",
+       "pos": "WR",
+       "left": "17.2",
+       "right": 15.4,
+       "delta": -1.8
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 1873,
+       "name": "Derius Davis",
+       "pos": "WR",
+       "left": "0.5",
+       "right": 2.3,
+       "delta": 1.8
+      },
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 3945,
+       "name": "Quentin Johnston",
+       "pos": "WR",
+       "left": "7.5",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 2457,
+       "name": "Caleb Douglas",
+       "pos": "WR",
+       "left": "6.6",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 3945,
+       "name": "Quentin Johnston",
+       "pos": "WR",
+       "left": "6.2",
+       "right": null
+      }
+     ],
      "outside_universe": [],
-     "unresolved": []
+     "unresolved": [
+      {
+       "name": "Max Hurleman",
+       "pos": "WR",
+       "team": "PIT",
+       "reason": "position_conflict",
+       "values": {
+        "full|1": "0.0",
+        "half|1": "0.0",
+        "std|1": "0.0"
+       }
+      }
+     ]
     },
     "stored_vs_chart": {
      "status": "amber",
-     "summary": "2037/2037 chart values equal stored snapshot 2026-10-09 (per game, 1 decimals); 2 stored players are left off the chart because the page's player universe excludes them (Irvin Charles, Max Hurleman)",
+     "summary": "2037/2037 chart values equal stored snapshot 2026-10-10 (per game, 1 decimals); 1 stored players are left off the chart because the page's player universe excludes them (Irvin Charles)",
      "counts": {
       "chart_players": 679,
-      "stored_players": 681,
+      "stored_players": 680,
       "compared": 2037,
       "matched": 2037,
       "mismatched": 0,
       "missing_on_chart": 0,
       "extra_on_chart": 0,
-      "outside_universe": 2,
+      "outside_universe": 1,
       "unresolved_names": 0
      },
-     "chart_snapshot": "2026-10-09",
+     "chart_snapshot": "2026-10-10",
      "behind": null,
      "grains": {
       "full|1": {
-       "left": 681,
+       "left": 680,
        "right": 679,
        "mismatched": 0,
-       "missing": 2,
+       "missing": 1,
        "extra": 0
       },
       "half|1": {
-       "left": 681,
+       "left": 680,
        "right": 679,
        "mismatched": 0,
-       "missing": 2,
+       "missing": 1,
        "extra": 0
       },
       "std|1": {
-       "left": 681,
+       "left": 680,
        "right": 679,
        "mismatched": 0,
-       "missing": 2,
+       "missing": 1,
        "extra": 0
       }
      },
@@ -1578,30 +1817,20 @@
         "half|1": "0.0",
         "std|1": "0.0"
        }
-      },
-      {
-       "player_key": 2100,
-       "name": "Max Hurleman",
-       "pos": "WR",
-       "values": {
-        "full|1": "0.0",
-        "half|1": "0.0",
-        "std|1": "0.0"
-       }
       }
      ],
      "unresolved": []
     },
     "freshness": {
      "status": "green",
-     "summary": "chart shows snapshot 2026-10-09 (1 d old); publisher's own update date 2026-10-09",
-     "chart_snapshot": "2026-10-09",
-     "publisher_vintage": "2026-10-09"
+     "summary": "chart shows snapshot 2026-10-10 (0 d old); publisher's own update date 2026-10-10",
+     "chart_snapshot": "2026-10-10",
+     "publisher_vintage": "2026-10-10"
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (963679 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T08:14:19.497453+00:00"
+     "summary": "engine and Python reference agree (963673 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T15:40:00.561069+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1610,14 +1839,14 @@
       "position_counts": {
        "week_compared": 4,
        "publisher": {
-        "QB": 102,
-        "RB": 171,
-        "WR": 261,
-        "TE": 147
+        "QB": 103,
+        "RB": 172,
+        "WR": 265,
+        "TE": 148
        },
        "stored": {
         "QB": 102,
-        "RB": 171,
+        "RB": 170,
         "WR": 261,
         "TE": 147
        },
@@ -1659,7 +1888,93 @@
      }
     }
    },
-   "worst_examples": [],
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 2476,
+     "name": "Kevin Coleman Jr.",
+     "pos": "WR",
+     "left": "2.9",
+     "right": 5.5,
+     "delta": 2.6
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 473,
+     "name": "Terry McLaurin",
+     "pos": "WR",
+     "left": "14.9",
+     "right": 12.8,
+     "delta": -2.1
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 2476,
+     "name": "Kevin Coleman Jr.",
+     "pos": "WR",
+     "left": "2.3",
+     "right": 4.3,
+     "delta": 2.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 764,
+     "name": "DeVonta Smith",
+     "pos": "WR",
+     "left": "17.2",
+     "right": 15.4,
+     "delta": -1.8
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 1873,
+     "name": "Derius Davis",
+     "pos": "WR",
+     "left": "0.5",
+     "right": 2.3,
+     "delta": 1.8
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 3945,
+     "name": "Quentin Johnston",
+     "pos": "WR",
+     "left": "7.5",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 2457,
+     "name": "Caleb Douglas",
+     "pos": "WR",
+     "left": "6.6",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "half|1",
+     "player_key": 3945,
+     "name": "Quentin Johnston",
+     "pos": "WR",
+     "left": "6.2",
+     "right": null
+    }
+   ],
    "held": null,
    "hold": null
   }
@@ -1686,14 +2001,23 @@
   "summary": "1162 players searchable; 1024 active NFL players (503 active roster, 185 practice squad, 89 injured reserve, 1 pup, 0 reserve, 246 free agent)"
  },
  "last_good": {
-  "usatoday": "2026-10-10T08:01:15.224329+00:00",
-  "fantasycalc": "2026-10-10T07:12:39.604852+00:00",
-  "fantasypros": "2026-10-10T08:01:15.224329+00:00",
-  "cbs": "2026-10-10T08:01:15.224329+00:00",
-  "espn": "2026-10-10T08:01:15.224329+00:00",
-  "cbsros": "2026-10-10T08:01:15.224329+00:00",
-  "razzball": "2026-10-10T08:01:15.224329+00:00"
+  "usatoday": "2026-10-10T15:26:53.488945+00:00",
+  "fantasycalc": "2026-10-10T15:26:53.488945+00:00",
+  "fantasypros": "2026-10-10T15:26:53.488945+00:00",
+  "cbs": "2026-10-10T15:26:53.488945+00:00",
+  "espn": "2026-10-10T15:26:53.488945+00:00",
+  "cbsros": "2026-10-10T15:26:53.488945+00:00",
+  "razzball": "2026-10-10T15:26:53.488945+00:00"
  },
- "resyncs": {},
+ "resyncs": {
+  "espn": {
+   "workflow": "espn-supabase-sync.yml",
+   "fingerprint": "1f68a1f4fa9842aa6b4e28ff",
+   "saved_at": "2026-10-10T15:25:45.431644Z",
+   "probe_dispatched_at": null,
+   "dispatch": true,
+   "requested_at": "2026-10-10T18:40:16.666253Z"
+  }
+ },
  "holds_changed": true
 }
