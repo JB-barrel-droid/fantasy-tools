@@ -290,6 +290,15 @@ class StatusHistoryTest(unittest.TestCase):
         self.assertIsNone(rows[1]["player_key"])   # kept, unresolved
         self.assertEqual(how.get("unresolved"), 1)
 
+    def test_floor_is_below_a_real_full_pull(self):
+        # The fail-closed floor must pass a complete Sleeper pull: the
+        # committed identity base is one, and its rostered QB/RB/WR/TE alone
+        # (injured free agents not counted) must clear MIN_ROWS.
+        base = json.loads((ROOT / "data" / "inputs" / "sleeper_identity_base.json").read_text(encoding="utf-8"))
+        rostered = sum(1 for v in base["by_sleeper_id"].values()
+                       if v.get("pos") in sh.POSITIONS and v.get("team"))
+        self.assertGreaterEqual(rostered, sh.MIN_ROWS)
+
 
 class PullWritesWeeklyFilesTest(unittest.TestCase):
     def test_write_weekly_blocks(self):

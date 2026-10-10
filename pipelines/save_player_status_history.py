@@ -40,9 +40,11 @@ from player_key_index import PlayerIndex  # noqa: E402
 SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
 SUMMARY = ROOT / "output" / "player-status-history.json"
 POSITIONS = ("QB", "RB", "WR", "TE")
-# 2026-10-09 identity base: 4,234 fantasy-position players, ~2,400 of them on
-# a team at QB/RB/WR/TE. Far below that is a truncated pull.
-MIN_ROWS = 1500
+# 2026-10-09 identity base: 4,234 fantasy-position players, 837 of them on a
+# team at QB/RB/WR/TE; the first live dry run (2026-10-10) kept 957 with the
+# injured free agents. Well below that is a truncated pull. (The earlier
+# floor of 1500 assumed ~2,400 rostered and failed every real pull.)
+MIN_ROWS = 700
 FIELDS = ("status", "injury_status", "injury_body_part", "injury_start_date",
           "practice_participation", "depth_chart_position", "depth_chart_order")
 
