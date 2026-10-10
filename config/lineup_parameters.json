@@ -1,0 +1,151 @@
+{
+ "byes": {
+  "ARI": 14,
+  "ATL": 11,
+  "BAL": 13,
+  "BUF": 7,
+  "CAR": 5,
+  "CHI": 10,
+  "CIN": 6,
+  "CLE": 11,
+  "DAL": 14,
+  "DEN": 10,
+  "DET": 6,
+  "GB": 11,
+  "HOU": 8,
+  "IND": 13,
+  "JAX": 7,
+  "KC": 5,
+  "LA": 11,
+  "LAC": 7,
+  "LV": 13,
+  "MIA": 6,
+  "MIN": 6,
+  "NE": 11,
+  "NO": 8,
+  "NYG": 8,
+  "NYJ": 13,
+  "PHI": 10,
+  "PIT": 9,
+  "SEA": 11,
+  "SF": 8,
+  "TB": 10,
+  "TEN": 9,
+  "WAS": 7
+ },
+ "content_week": 5,
+ "defaults": {
+  "injury_history": "recent",
+  "league_weeks": {
+   "playoff_weeks": [
+    15,
+    17
+   ],
+   "regular_season_end": 14
+  },
+  "objective": "season",
+  "projection_confidence": 1.0
+ },
+ "positions": {
+  "QB": {
+   "m": {
+    "all": 0.11039241052177663,
+    "recent": 0.1176703516947085
+   },
+   "m_late": {
+    "all": 0.15609137055837563,
+    "recent": 0.1765082224586938
+   },
+   "sigma_floor": 0.6860760404891962,
+   "sigma_now": 0.1377514786056845,
+   "sigma_weekly": 0.022693756744802913,
+   "sigma_weekly_source": "measured: Sleeper weekly projections 2018-2025 (JEG-540)"
+  },
+  "RB": {
+   "m": {
+    "all": 0.1528541953232462,
+    "recent": 0.14426192675379015
+   },
+   "m_late": {
+    "all": 0.19736842105263158,
+    "recent": 0.18816147035237868
+   },
+   "sigma_floor": 0.844403583569196,
+   "sigma_now": 0.11174906625864282,
+   "sigma_weekly": 0.10355017908414067,
+   "sigma_weekly_source": "measured: Sleeper weekly projections 2018-2025 (JEG-540)"
+  },
+  "TE": {
+   "m": {
+    "all": 0.14414414414414414,
+    "recent": 0.15103702474903405
+   },
+   "m_late": {
+    "all": 0.1860759493670886,
+    "recent": 0.18629860908276258
+   },
+   "sigma_floor": 0.6464435118113572,
+   "sigma_now": 0.08731674506117888,
+   "sigma_weekly": 0.07173007733261402,
+   "sigma_weekly_source": "measured: Sleeper weekly projections 2018-2025 (JEG-540)"
+  },
+  "WR": {
+   "m": {
+    "all": 0.11675688976377953,
+    "recent": 0.11839875557066823
+   },
+   "m_late": {
+    "all": 0.1465798045602606,
+    "recent": 0.14907696665302156
+   },
+   "sigma_floor": 0.9870029797039623,
+   "sigma_now": 0.12314094887071482,
+   "sigma_weekly": 0.07265008873863883,
+   "sigma_weekly_source": "measured: Sleeper weekly projections 2018-2025 (JEG-540)"
+  }
+ },
+ "recency_half_life_seasons": 5.0,
+ "resolved_default": {
+  "bye": 0.078125,
+  "content_week": 5,
+  "horizon_weeks": 6.0,
+  "injury_history": "recent",
+  "league_weeks": {
+   "playoff_weeks": [
+    15,
+    17
+   ],
+   "regular_season_end": 14
+  },
+  "objective": "season",
+  "positions": {
+   "QB": {
+    "m": 0.1176703516947085,
+    "sigma_floor": 0.6860760404891962,
+    "sigma_rel": 0.14854463783390526
+   },
+   "RB": {
+    "m": 0.14426192675379015,
+    "sigma_floor": 0.844403583569196,
+    "sigma_rel": 0.27717087029452453
+   },
+   "TE": {
+    "m": 0.15103702474903405,
+    "sigma_floor": 0.6464435118113572,
+    "sigma_rel": 0.19620254313574945
+   },
+   "WR": {
+    "m": 0.11839875557066823,
+    "sigma_floor": 0.9870029797039623,
+    "sigma_rel": 0.21640680592618286
+   }
+  },
+  "projection_confidence": 1.0,
+  "window": [
+   6,
+   17
+  ]
+ },
+ "schema": "lineup-parameters-config/2",
+ "source": "pipelines/derive_lineup_parameters.py (docs/methodology.md ES-1, ES-12, ES-14); generated, do not edit"
+}
