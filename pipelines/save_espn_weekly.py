@@ -84,6 +84,7 @@ def plan_actuals(rows: list[dict], index: PlayerIndex, games: dict,
     cmp_rows = []  # (pos, espn_std, other_std)
     seen_espn_gp = set()
     how = Counter()
+    no_line = 0
     for r in rows:
         e, why = index.resolve_espn(r["espn_id"], r["name"], r["pos"])
         if e is None:
@@ -103,6 +104,14 @@ def plan_actuals(rows: list[dict], index: PlayerIndex, games: dict,
             other = ew.points(prev.get("stats") or {}, "standard")
             cmp_rows.append((r["pos"], r["week"], std, round(other, 2), r["name"]))
             continue
+        if not any(r["stats"].get(k) for _sid, k in ew.STAT_KEYS):
+            # ESPN gives a block with only games-played (210) and team
+            # win/loss (155/156) to dressed backups with no offensive stat.
+            # nflverse, the 2015-2025 history and the rest of
+            # player_game_stats have no row for them, and a row reads as
+            # "played" downstream, so it is not stored.
+            no_line += 1
+            continue
         upserts.append({
             "game_id": g["game_id"], "player_id": e["id"], "team_id": g["team_id"],
             "stats": dict(r["stats"], source="espn", espn_player_id=r["espn_id"]),
@@ -114,7 +123,7 @@ def plan_actuals(rows: list[dict], index: PlayerIndex, games: dict,
         "rows_in": len(rows), "resolved": len(rows) - len(unresolved),
         "resolved_by": dict(how), "n_unresolved": len(unresolved),
         "unresolved": unresolved[:60], "n_no_game": len(no_game), "no_game": no_game[:30],
-        "to_upsert": len(upserts),
+        "to_upsert": len(upserts), "no_offensive_line_skipped": no_line,
         "comparison_with_existing": compare(cmp_rows, only_other),
     }
     return upserts, report
@@ -142,6 +151,16 @@ def compare(cmp_rows, only_other):
 def projection_weeks(played: list[int], ros_weeks: list[int]) -> set[int]:
     nxt = ros_weeks[:1]
     return set(played) | set(nxt)
+
+
+def stored_projection_params(season: int, weeks) -> str:
+    """PostgREST query for this writer's own earlier rows. Other writers also
+    store source 'espn' rows for these weeks (v3/v4 notes); matching against
+    them made the change-only check skip real weekly rows. Same filter as
+    export_weekly_store.py."""
+    return ("?select=id,player_key,week,scoring_format,projected_points,snapshot_at"
+            f"&source=eq.espn&season=eq.{season}&week=in.({','.join(map(str, sorted(weeks)))})"
+            f"&vintage_note=like.*basis={ew.BASIS}*")
 
 
 def plan_projections(rows, index: PlayerIndex, games: dict, latest: dict,
@@ -228,9 +247,7 @@ def main(argv=None) -> int:
     act_up, act_rep = plan_actuals(acts["rows"], index, games, existing)
 
     pweeks = projection_weeks(projs["played_weeks"], projs["ros_weeks"])
-    stored = sb.get_all("projection_snapshots",
-                        f"?select=id,player_key,week,scoring_format,projected_points,snapshot_at"
-                        f"&source=eq.espn&season=eq.{season}&week=in.({','.join(map(str, sorted(pweeks)))})")
+    stored = sb.get_all("projection_snapshots", stored_projection_params(season, pweeks))
     latest, latest_at = {}, {}
     for s in stored:
         k = (s["player_key"], s["week"], s["scoring_format"])

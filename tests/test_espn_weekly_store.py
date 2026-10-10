@@ -212,6 +212,23 @@ class PlanActualsTest(unittest.TestCase):
         self.assertEqual(rep["unresolved"][0]["name"], "Ghost Player")
 
 
+class NoOffensiveLineTest(unittest.TestCase):
+    def test_games_played_only_block_is_not_stored(self):
+        # Live 2026 weeks 1-4: 276 ESPN blocks carried only stat 210 (games
+        # played) and 155/156 (team win/loss), e.g. a backup QB every week.
+        # nflverse has no row for them; storing one would read as "played".
+        ix = PlayerIndex(PLAYERS, BASE)
+        games = sv.game_index(TEAMS, GAMES)
+        blank = {"espn_id": "1", "name": "Jahmyr Gibbs", "pos": "RB", "team": "DET",
+                 "week": 1, "season": 2026, "stats": ew.map_stats({"210": 1, "155": 1})}
+        target_only = dict(blank, stats=ew.map_stats({"210": 1, "58": 1}))
+        ups, rep = sv.plan_actuals([blank], ix, games, [])
+        self.assertEqual(ups, [])
+        self.assertEqual(rep["no_offensive_line_skipped"], 1)
+        ups, _ = sv.plan_actuals([target_only], ix, games, [])
+        self.assertEqual(len(ups), 1)   # a target with no catch is a stat line
+
+
 class PlanProjectionsTest(unittest.TestCase):
     def test_change_only(self):
         ix = PlayerIndex(PLAYERS, BASE)
@@ -227,6 +244,13 @@ class PlanProjectionsTest(unittest.TestCase):
         self.assertEqual(rep["unchanged_skipped"], 1)
         self.assertIn("basis=team_week", ins[0]["vintage_note"])
         self.assertEqual(ins[0]["game_id"], "g1")
+
+    def test_change_only_reads_this_writers_rows_only(self):
+        # The first live run skipped ~20 week-1 rows per format because
+        # another writer's source='espn' rows matched the change-only check.
+        q = sv.stored_projection_params(2026, {1, 2})
+        self.assertIn("vintage_note=like.*basis=team_week*", q)
+        self.assertIn("week=in.(1,2)", q)
 
     def test_bye_week_is_skipped_not_written_without_a_game(self):
         # projection_snapshots.game_id is NOT NULL: a row with no scheduled game
