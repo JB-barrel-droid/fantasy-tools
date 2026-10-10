@@ -42,7 +42,7 @@ Several Claude sessions work this repo at once: the back end, and the front end 
 - **Blocked on Jeremy.** When a ticket needs his decision, the session comments the question with the options and its recommendation, adds `needs-review`, moves the ticket to In Review, and claims its next ticket rather than waiting. Once Jeremy answers on the ticket, the owner quotes the decision with the date, removes `needs-review`, and moves the ticket back to Todo (or In Progress if it resumes now). In Progress stays reserved for work an agent is doing.
 - **Claim.** Before starting, a session:
   1. sets the ticket In Progress;
-  2. checks that the label is its own;
+  2. checks that the `Session` label is its own and that the ticket carries one `Model tier` label (T1 deep, T2 build, T3 light; table in `AGENTS.md`);
   3. comments `taken by <session> · <UTC time> · branch <name>`.
 
   It doesn't start a ticket that carries another session's label without a takeover.
@@ -60,6 +60,7 @@ Several Claude sessions work this repo at once: the back end, and the front end 
   The previous owner, on returning, reads the comment and doesn't resume.
 - **Idle hands.** A session with an empty queue may pick up another session's **Todo** tickets (not In Progress ones), oldest priority first. It swaps the label and comments `picked up by <session>`.
 - **Handoff.** A session that is stopping comments on each of its In Progress tickets with its state and branch, then moves them back to Todo so another session can claim them.
+- **Hot files.** One In Progress ticket per hot file (list in `AGENTS.md`); a ticket names its hot files under `Touches`.
 - **Merge order.** Always rebase on `main` before pushing. The contract test (`tests/test_v2_contract_render.py`) and `make validate` must pass.
 
 ## Standing constraints
