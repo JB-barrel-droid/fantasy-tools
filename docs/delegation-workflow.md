@@ -1,44 +1,55 @@
 # Delegation Workflow
 
-This project can use several AI tools, but the repo remains the operating memory
-and ChatGPT/Codex remains the hub. Delegate expensive thinking; integrate
-deliberately.
+The repo remains the operating memory and Linear holds the state. The tier
+table, rules and merge protocol are in `AGENTS.md` ("Model tiers", "Hot files
+and merge order"), copied from the Linear document "Board operating
+conventions (2026-10-10)". This file says how a lead uses the lanes. If it
+disagrees with `AGENTS.md` or `CLAUDE.md`, they win.
 
-## Roles
+## Lanes (the `Model tier` label)
 
-### ChatGPT/Codex
+The label on a ticket is the minimum model. One ticket, one lane.
 
-- frames the task and decides whether delegation is worth it
-- supplies repo context, constraints, and success criteria
-- reviews Claude/Muse output before acting on it
-- makes final product and architecture decisions
-- edits, validates, commits, pushes, and records durable handoffs
+### T1 deep (`deep-worker`: Opus / Fable, high effort; top GPT / Codex, high reasoning)
 
-### Claude Code MCP
+- engine and value math, methodology, design
+- any bug whose root cause is unknown, until the cause is named
+- final review of T2 and T3 output, in a different model from the author
+  where possible
+- every merge and deploy (Claude lead session only)
 
-Best for token-heavy engineering work:
+OpenRouter / MiniMax models are not allowed in T1.
 
-- architecture/design exploration
-- code review and risk finding
-- debugging investigations
-- broad repo search and subsystem summarization
-- migration plans that need careful tradeoff analysis
+### T2 build (`worker`: Sonnet; Codex, medium; a strong open model, checked per task)
 
-Claude output is advisory until ChatGPT/Codex verifies it against the repo.
+- implementation against a written spec: pullers, pipeline stages,
+  migrations, front end built to a contract line, tests
+- executing an approved value spec (a config switch, porting a rule to a second
+  path, a fixture refresh), with a T1 review at merge
+- escalate to T1 after 2 failed gate runs
+- a ticket labelled T2 that needs a judgement call on the numbers is really T1:
+  relabel it
 
-### Muse.ai / Muse
+### T3 light (Haiku or the `delegate` MCP "fast" tier, JEG-538; small GPT; cheap OpenRouter models, MiniMax M3 only)
 
-Best for abundant-usage work with concrete output:
+- copy edits, doc moves, research sweeps, scraping and capture, triage, repo
+  hygiene, first drafts
+- output is untrusted until the gate passes
+- never resolves player identity, edits fixtures, or touches `config/` values
+- the MiniMax decision is pending on JEG-584 (needs Jeremy); see `AGENTS.md`
 
-- raw source scraping or capture
-- current Muse reference-dashboard comparison
-- visual/design exploration
-- quick prototype sketches
-- research sweeps and observation lists
+### Rules for every lane
 
-Muse output should usually become a raw input, artifact, or recommendation. It
-should not become runtime infrastructure or the only copy of an implementation
-detail.
+- Other model families never merge. Their output is a draft PR on
+  `be/<ticket>` or `fe/<ticket>`; the Claude lead re-reads the diff, runs the
+  gate and merges.
+- Brief with `docs/agent-brief-template.md`. It carries `Touches:`,
+  `Model tier:` and the runnable Done-when block.
+- Two In Progress tickets may not share a hot file (list in `AGENTS.md`).
+  Merge one engine PR at a time, following the merge protocol there.
+- The retired `owner:minimax`, `owner:chatgpt`, `owner:muse` and `owner:claude`
+  labels and their lanes no longer exist. Ownership is the `Session` label
+  (`CLAUDE.md`, "Session ownership and takeover").
 
 ## When To Delegate
 
@@ -50,12 +61,12 @@ Delegate when one or more are true:
 - debugging requires broad search, logs, or repeated hypotheses
 - a pipeline-rules, promotion-path, or fixture-safety change needs a second
   engineering review
-- Muse can cheaply gather raw data or visual comparisons that the repo can then
-  validate
+- a T3 lane can cheaply gather raw data or visual comparisons that the repo can
+  then validate
 
 Do not delegate when the task is a small code/doc edit, a simple command check,
-or a local fix that ChatGPT/Codex can complete faster than writing and reviewing
-a handoff.
+or a local fix the lead can complete faster than writing and reviewing a
+handoff.
 
 ## Acceptance (Runnable) Convention
 
@@ -124,8 +135,11 @@ Out of scope: changing what "done" means for methodology, copy, or publish
 worked; it does not approve publishing.
 
 ```text
+Ticket: JEG-___ (team Jegabee)
+Model tier: T1 | T2 | T3
+Touches: <hot files from AGENTS.md, or "none">
 Repo: fantasy-tools
-Branch/status: <branch, important uncommitted files, latest relevant commit>
+Branch/status: <be/<ticket> or fe/<ticket>, important uncommitted files, latest relevant commit>
 
 Task:
 <one concrete question or investigation>
@@ -154,7 +168,7 @@ Please do not:
 - <boundaries, e.g. do not write under data/ or dist/>
 ```
 
-## Muse Handoff Template
+## T3 Capture Handoff Template
 
 ```text
 Goal:
@@ -182,24 +196,25 @@ Before accepting delegated output:
 
 1. Re-read the touched files or artifacts locally.
 2. Check the output against `docs/pipeline-rules.md`.
-3. Convert raw Muse output through the documented repo pipeline before using it.
+3. Convert raw T3 output through the documented repo pipeline before using it.
 4. Add or update tests when behavior changes.
 5. Run the smallest meaningful validation command, then `make validate` for
    publishable or promotion-adjacent changes.
-6. Commit and push a coherent slice, or leave a handoff note clear enough for a
+6. Review T2/T3 work at T1, then merge per the merge protocol in `AGENTS.md`.
+7. Commit and push a coherent slice, or leave a handoff note clear enough for a
    new harness to resume within 10-20 minutes.
 
 ## Anti-Patterns
 
-- Do not ask Muse to match player identities, triage `review_rows`, edit
-  fixtures, or decide promotion readiness.
-- Do not let Claude Code push to `main` or trigger deployment without
-  ChatGPT/Codex or human review.
+- Do not ask a T3 lane to match player identities, triage `review_rows`, edit
+  fixtures, touch `config/` values, or decide promotion readiness.
+- Do not let another model family push to `main`, merge, or trigger deployment.
 - Do not switch harnesses in the middle of a candidate/promotion path without
   recording the exact artifact paths and next command.
 - Do not treat any uncommitted chat conclusion as a project rule. Durable rules
   belong in committed docs.
 - Do not parallelize dependent pipeline stages. Each stage gates the next.
+- Do not run two In Progress tickets on the same hot file.
 
 ## Continuity Notes
 
@@ -211,24 +226,6 @@ Every meaningful handoff should include:
 - unresolved failures or review rows
 - next recommended action
 
-The goal is not ceremony. The goal is to keep work portable across ChatGPT/Codex,
-Claude Code MCP, Muse, local shell work, and GitHub without losing the thread.
-
-## Owner Labels (Linear, 2026-10-01)
-
-Issue ownership across agents is tracked with Linear labels — there is no
-Claude or ChatGPT user in the workspace, so assignment runs through
-label + status/priority + comment, which each lane reads:
-
-- `owner:muse` — Roman's lane: PM, review, all merges, validation, deploys,
-  rendered production QA.
-- `owner:claude` — Claude Code's lane: works issue branches, opens draft PRs,
-  never merges/deploys. Current batch: JEG-23 + JEG-44 (in progress),
-  JEG-21/JEG-22/JEG-24 caption batch (todo), JEG-8 (rebuild chain).
-- `owner:chatgpt` — ChatGPT's lane: works issue branches, opens draft PRs,
-  never merges/deploys. Current batch: JEG-17 (full rendered QA),
-  JEG-29 (guard harness rebuild), JEG-45 (silent lock-revert notice).
-
-Roman assigns via label + comment, reviews every PR for methodology
-regressions, merges in lane order, validates, deploys, and verifies Pages +
-rendered production after every deploy.
+The goal is not ceremony. The goal is to keep work portable across Claude
+sessions, other model families, local shell work, and GitHub without losing the
+thread.
