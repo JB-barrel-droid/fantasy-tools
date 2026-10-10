@@ -122,8 +122,6 @@ class Committed(unittest.TestCase):
         self.assertIn("# Value sets", sl.render_report(doc))
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class ProjectedStarts(unittest.TestCase):
@@ -177,3 +175,6 @@ class ProjectedStarts(unittest.TestCase):
         d, meta = sl.load_weekly_projections(Path(f.name), "half_ppr")
         self.assertEqual(d, {5: {10: 11.0}, 4: {10: 10.0}})
         self.assertEqual(meta, {"rows": 2, "pre_kickoff_false": 1})
+
+if __name__ == "__main__":
+    unittest.main()
