@@ -45,6 +45,7 @@ from tests.test_published_league_settings_engine import (  # noqa: E402
     compare_maps, expected_derived, run_js,
 )
 from tests import _render_env  # noqa: E402
+from tests._holds import held_chart_roots  # noqa: E402
 
 
 def setUpModule():
@@ -132,8 +133,12 @@ def identity_problems(model_path=VALUE_MODEL):
                     problems.append(f"py {source}/{scoring}/{teams}t: superflex_count=0 differs")
     # Browser: SUPERFLEX:0 must plot exactly the server reference for the
     # default roster (saved values at 12 teams, the derivation elsewhere).
+    # JEG-569: a held chart is served from its last good build, so its saved
+    # Indexed values are on that build's anchor, not this one's: the browser
+    # identity is checked on the charts this build made.
+    held = held_chart_roots(fixture)
     probe = [(s, sc, t, "sf0", {**SAVED_SHAPE, "SUPERFLEX": 0})
-             for s in SOURCES for sc in SCORINGS for t in (8, 10, 12, 14)]
+             for s in SOURCES if s not in held for sc in SCORINGS for t in (8, 10, 12, 14)]
     results = run_js(_cases(fixture, pos_of, probe), model_path)
     for (s, sc, t, _label, _shape), r in zip(probe, results):
         tag = f"js {s}/{sc}/{t}t"
