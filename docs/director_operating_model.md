@@ -4,6 +4,11 @@ This repo does not use a separate delegated-agent runtime today. The operating
 model is a simple handoff discipline for any AI or human session working in the
 repo.
 
+Who does what, model tiers, hot files and the merge protocol are in
+`AGENTS.md` (from the Linear document "Board operating conventions",
+2026-10-10); `docs/delegation-workflow.md` covers the T1/T2/T3 lanes. Linear is
+the source of truth for ticket status.
+
 ## Stores Of Record
 
 - `execution/current-plan.md` is the only live plan.

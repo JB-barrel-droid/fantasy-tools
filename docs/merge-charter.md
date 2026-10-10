@@ -1,5 +1,13 @@
 # Merge Charter (JEG-91)
 
+> **Superseded in part (2026-10-10, JEG-603).** The merge protocol in
+> `AGENTS.md` ("Hot files and merge order", from the Linear document "Board
+> operating conventions") and `CLAUDE.md` govern merges today: the Claude lead
+> merges, one engine PR at a time, and other model families never merge. The
+> Roman, Muse and lane references below describe the retired multi-lane setup
+> and are kept as history. `lanes/plan.json` and `lanes/merge_charter.py` are
+> unchanged.
+
 This charter defines the pre-authorized auto-merge tiers for lane PRs. It is
 the one-time approval that replaces per-PR taps for routine lane work.
 

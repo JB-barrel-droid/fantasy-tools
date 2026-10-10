@@ -4,6 +4,8 @@
 > file in `docs/claude-log/YYYY-MM-DD-<slug>.md`. The format and rules are in
 > `docs/claude-log/README.md`. The directory listing is the index (files sort by
 > date). This file is the read-only archive of entries from before that date.
+> `CLAUDE.md` no longer requires a session log: the commit message, PR
+> description and Linear ticket are the record (process: `AGENTS.md`).
 
 ---
 

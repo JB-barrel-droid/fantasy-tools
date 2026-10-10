@@ -1,3 +1,9 @@
+> **Retired (2026-10-10, JEG-603).** The `owner:chatgpt` lane and this batch are
+> history. ChatGPT / Codex now works as a T1 / T2 / T3 model tier (`AGENTS.md`,
+> `docs/delegation-workflow.md`): its output is a draft PR on `be/<ticket>` or
+> `fe/<ticket>`, and the Claude lead reviews, gates and merges. Do not paste
+> this prompt.
+
 # Prompt for ChatGPT — fantasy-tools issue batch (paste as-is)
 
 You are working in the repo `JB-barrel-droid/fantasy-tools` (GitHub Pages site:
