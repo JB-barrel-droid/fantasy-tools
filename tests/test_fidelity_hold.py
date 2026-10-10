@@ -243,6 +243,32 @@ class ResaveAddsOrDropsLikeAChangedValue(unittest.TestCase):
         self.assertEqual("fidelity: publisher_vs_stored", (r["hold"] or {}).get("reason"))
 
 
+class ChartSnapshotReplacedByANewerSave(unittest.TestCase):
+    """2026-10-10 06:17Z: ESPN keeps one current set. The 05:44Z sync re-dated it 2026-10-10, while the
+    chart still showed 2026-10-09 because the chain had not rebuilt yet. Stage 2 found "no stored ESPN
+    snapshot 2026-10-09" and held ESPN. A held ESPN failed the chain's validate, so the chart could not
+    catch up: a deadlock on correct data. A chart behind a newer stored set is amber until the next chain
+    run. Freshness turns it red after PROJECTION_RED_DAYS."""
+
+    def env(self):
+        env = T.ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-07"  # the chart's older set
+        return env  # stored holds only the 2026-10-08 set (the older one was replaced)
+
+    def test_a_chart_behind_the_one_stored_set_is_amber_not_a_hold(self):
+        r, _ = self.env().run()
+        s2 = r["stages"]["stored_vs_chart"]
+        self.assertEqual("amber", s2["status"], s2["summary"])
+        self.assertIn("2026-10-08", s2["summary"])
+        self.assertIsNone(r["hold"])
+
+    def test_a_chart_snapshot_newer_than_anything_stored_still_holds(self):
+        env = self.env()
+        env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-09"
+        r, _ = env.run()
+        self.assertEqual("fidelity: stored_vs_chart", (r["hold"] or {}).get("reason"))
+
+
 class EspnAmberThenResync(unittest.TestCase):
     """Jeremy, 2026-10-10 (JEG-520): ESPN intraday drift is "Amber, then re-sync". ESPN revises projections
     during the day without changing the date. A live value that differs from a row saved before ESPN's last

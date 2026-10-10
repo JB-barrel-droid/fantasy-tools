@@ -1901,6 +1901,13 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     if snap is None:
         return stage("red", "live chart section names no snapshot date"), {}
     rows = latest_rows if snap == latest else dedupe_snapshot(store.snapshot_rows(mod, snap), mod)
+    if not rows and latest and latest_rows and snap < latest:
+        # ESPN keeps one current set: a later sync re-dates it and the chart's older set is gone.
+        # The chart is behind the stored set until the next chain run (2026-10-10 06:17Z: holding here
+        # failed the chain's validate, so the chart could never catch up). Freshness ages it to red.
+        return stage("amber", f"the chart's snapshot {snap} is no longer stored: the stored set is now {latest}; "
+                              "the chart is behind until the next chain run rebuilds it",
+                     chart_snapshot=snap, behind={"snapshot": latest}), {}
     if not rows:
         return stage("red", f"no stored {LABEL[source]} snapshot {snap} (the chart's vintage)"), {}
     ctx = {"ident": ident, "now": now, "season": SEASON}
