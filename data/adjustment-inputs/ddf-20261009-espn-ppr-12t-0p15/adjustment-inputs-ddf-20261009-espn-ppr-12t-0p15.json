@@ -1,0 +1,1268 @@
+{
+  "fit": {
+    "bench_share": 0.15,
+    "combo_note": "Matches the chart's default Full-PPR 12-team view (comboKey: ppr -> 'full'; fantasycalc takes the _qb1 variant).",
+    "ddf_leg_bake_id": "ddf-20261009-espn-ppr-12t-0p15",
+    "ddf_leg_path": "data/ddf-two-tier/ddf-20261009-espn-ppr-12t-0p15/ddf_leg.json",
+    "ddf_leg_sha256": "cafd50f8a2b7fdefdaa2dea25c3e2e897230d768350776957c75cd8e2e1a7576",
+    "espn_purity_note": "y targets are the DDF two-tier leg built from ESPN projections only (no expert blending).",
+    "espn_snapshot_date": "2026-10-09",
+    "fixture": "data/fixtures/current/comparison-sources-data.json",
+    "fixture_built_at": null,
+    "fixture_players": "data/fixtures/current/players.json",
+    "pie_source": "/home/runner/work/fantasy-tools/fantasy-tools/data/inputs/espn_pies.json",
+    "pie_vintage": "2026-09-21",
+    "reference_combos": {
+      "cbs": "full_12",
+      "cbsros": "full_12",
+      "espn": "full_12",
+      "fantasycalc": "full_12_qb1",
+      "fantasypros": "full_12",
+      "razzball": "full_12",
+      "usatoday": "full_12"
+    },
+    "role_config": {
+      "note": "Roles are assigned from each source's OWN published values at the reference shape; the widget applies baked cells by (position, role) under whatever roster shape is active at render time.",
+      "roster": {
+        "BENCH": 6,
+        "FLEX": 2,
+        "QB": 1,
+        "RB": 2,
+        "TE": 1,
+        "WR": 2
+      },
+      "teams": 12
+    },
+    "scoring": "ppr",
+    "teams": 12
+  },
+  "generated_at": "2026-10-10T05:01:51Z",
+  "review_rows": [],
+  "schema": "trade-value-adjustment-inputs-v1",
+  "sources": {
+    "cbs": {
+      "cells": [
+        {
+          "alpha": -5.929084246720082,
+          "beta": 1.3036399219334676,
+          "n": 12,
+          "position": "QB",
+          "source": "cbs",
+          "tier": "starter",
+          "x_mean": 13.618376722817764,
+          "y_mean": 11.824375321074621
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "fallback": "identity",
+          "n": 1,
+          "position": "QB",
+          "source": "cbs",
+          "tier": "bench",
+          "x_mean": 0.0,
+          "y_mean": 0.0
+        },
+        {
+          "alpha": 11.261131206476044,
+          "beta": 0.7102954760603343,
+          "n": 31,
+          "position": "RB",
+          "source": "cbs",
+          "tier": "starter",
+          "x_mean": 29.694101664773008,
+          "y_mean": 32.35271728463995
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "fallback": "identity",
+          "n": 13,
+          "position": "RB",
+          "source": "cbs",
+          "tier": "bench",
+          "x_mean": 7.267499116503711,
+          "y_mean": 9.755926584958816
+        },
+        {
+          "alpha": 6.986367455105299,
+          "beta": 0.6879735518198568,
+          "n": 40,
+          "position": "WR",
+          "source": "cbs",
+          "tier": "starter",
+          "x_mean": 26.10898162327718,
+          "y_mean": 24.948656276870672
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "fallback": "identity",
+          "n": 4,
+          "position": "WR",
+          "source": "cbs",
+          "tier": "bench",
+          "x_mean": 0.0,
+          "y_mean": 0.0
+        },
+        {
+          "alpha": 1.97108248846218,
+          "beta": 0.6776260466952024,
+          "n": 12,
+          "position": "TE",
+          "source": "cbs",
+          "tier": "starter",
+          "x_mean": 18.29969372128637,
+          "y_mean": 14.371431600550482
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "fallback": "identity",
+          "n": 3,
+          "position": "TE",
+          "source": "cbs",
+          "tier": "bench",
+          "x_mean": 0.0,
+          "y_mean": 0.0
+        }
+      ],
+      "diagnostics": {
+        "QB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": "identity",
+          "n_pairs": 1,
+          "reason": "fewer_than_5_pairs"
+        },
+        "QB|starter": {
+          "alpha": -5.929084246720082,
+          "beta": 1.3036399219334676,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 13.618376722817764,
+          "y_mean": 11.824375321074621
+        },
+        "RB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": "identity",
+          "n_pairs": 13,
+          "reason": "non_positive_slope"
+        },
+        "RB|starter": {
+          "alpha": 11.261131206476044,
+          "beta": 0.7102954760603343,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 31,
+          "reason": null,
+          "x_mean": 29.694101664773008,
+          "y_mean": 32.35271728463995
+        },
+        "TE|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": "identity",
+          "n_pairs": 3,
+          "reason": "fewer_than_5_pairs"
+        },
+        "TE|starter": {
+          "alpha": 1.97108248846218,
+          "beta": 0.6776260466952024,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 18.29969372128637,
+          "y_mean": 14.371431600550482
+        },
+        "WR|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": "identity",
+          "n_pairs": 4,
+          "reason": "fewer_than_5_pairs"
+        },
+        "WR|starter": {
+          "alpha": 6.986367455105299,
+          "beta": 0.6879735518198568,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 40,
+          "reason": null,
+          "x_mean": 26.10898162327718,
+          "y_mean": 24.948656276870672
+        }
+      },
+      "n_published": 117,
+      "reference_combo": "full_12",
+      "role_counts": {
+        "bench": 21,
+        "starter": 96
+      },
+      "status": "live"
+    },
+    "cbsros": {
+      "cells": [
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 12,
+          "position": "QB",
+          "source": "cbsros",
+          "tier": "starter",
+          "x_mean": 13.558333333333332,
+          "y_mean": 13.558333333333332
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 8,
+          "position": "QB",
+          "source": "cbsros",
+          "tier": "bench",
+          "x_mean": 3.475,
+          "y_mean": 3.475
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 27,
+          "position": "RB",
+          "source": "cbsros",
+          "tier": "starter",
+          "x_mean": 28.574074074074073,
+          "y_mean": 28.574074074074073
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 23,
+          "position": "RB",
+          "source": "cbsros",
+          "tier": "bench",
+          "x_mean": 4.778260869565218,
+          "y_mean": 4.778260869565218
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 45,
+          "position": "WR",
+          "source": "cbsros",
+          "tier": "starter",
+          "x_mean": 20.608888888888888,
+          "y_mean": 20.608888888888888
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 31,
+          "position": "WR",
+          "source": "cbsros",
+          "tier": "bench",
+          "x_mean": 5.512903225806451,
+          "y_mean": 5.512903225806451
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 12,
+          "position": "TE",
+          "source": "cbsros",
+          "tier": "starter",
+          "x_mean": 12.700000000000001,
+          "y_mean": 12.700000000000001
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 10,
+          "position": "TE",
+          "source": "cbsros",
+          "tier": "bench",
+          "x_mean": 2.69,
+          "y_mean": 2.69
+        }
+      ],
+      "diagnostics": {
+        "QB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 8,
+          "reason": null,
+          "x_mean": 3.475,
+          "y_mean": 3.475
+        },
+        "QB|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 13.558333333333332,
+          "y_mean": 13.558333333333332
+        },
+        "RB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 23,
+          "reason": null,
+          "x_mean": 4.778260869565218,
+          "y_mean": 4.778260869565218
+        },
+        "RB|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 27,
+          "reason": null,
+          "x_mean": 28.574074074074073,
+          "y_mean": 28.574074074074073
+        },
+        "TE|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 10,
+          "reason": null,
+          "x_mean": 2.69,
+          "y_mean": 2.69
+        },
+        "TE|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 12.700000000000001,
+          "y_mean": 12.700000000000001
+        },
+        "WR|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 31,
+          "reason": null,
+          "x_mean": 5.512903225806451,
+          "y_mean": 5.512903225806451
+        },
+        "WR|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 45,
+          "reason": null,
+          "x_mean": 20.608888888888888,
+          "y_mean": 20.608888888888888
+        }
+      },
+      "n_published": 369,
+      "reference_combo": "full_12",
+      "role_counts": {
+        "bench": 72,
+        "starter": 96
+      },
+      "status": "live"
+    },
+    "espn": {
+      "cells": [
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 12,
+          "position": "QB",
+          "source": "espn",
+          "tier": "starter",
+          "x_mean": 13.508333333333333,
+          "y_mean": 13.508333333333333
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 9,
+          "position": "QB",
+          "source": "espn",
+          "tier": "bench",
+          "x_mean": 3.1222222222222222,
+          "y_mean": 3.1222222222222222
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 35,
+          "position": "RB",
+          "source": "espn",
+          "tier": "starter",
+          "x_mean": 30.56857142857143,
+          "y_mean": 30.56857142857143
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 19,
+          "position": "RB",
+          "source": "espn",
+          "tier": "bench",
+          "x_mean": 6.273684210526316,
+          "y_mean": 6.273684210526316
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 37,
+          "position": "WR",
+          "source": "espn",
+          "tier": "starter",
+          "x_mean": 26.462162162162162,
+          "y_mean": 26.462162162162162
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 35,
+          "position": "WR",
+          "source": "espn",
+          "tier": "bench",
+          "x_mean": 6.4314285714285715,
+          "y_mean": 6.4314285714285715
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 12,
+          "position": "TE",
+          "source": "espn",
+          "tier": "starter",
+          "x_mean": 14.741666666666667,
+          "y_mean": 14.741666666666667
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 9,
+          "position": "TE",
+          "source": "espn",
+          "tier": "bench",
+          "x_mean": 3.388888888888889,
+          "y_mean": 3.388888888888889
+        }
+      ],
+      "diagnostics": {
+        "QB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 9,
+          "reason": null,
+          "x_mean": 3.1222222222222222,
+          "y_mean": 3.1222222222222222
+        },
+        "QB|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 13.508333333333333,
+          "y_mean": 13.508333333333333
+        },
+        "RB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 19,
+          "reason": null,
+          "x_mean": 6.273684210526316,
+          "y_mean": 6.273684210526316
+        },
+        "RB|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 35,
+          "reason": null,
+          "x_mean": 30.56857142857143,
+          "y_mean": 30.56857142857143
+        },
+        "TE|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 9,
+          "reason": null,
+          "x_mean": 3.388888888888889,
+          "y_mean": 3.388888888888889
+        },
+        "TE|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 14.741666666666667,
+          "y_mean": 14.741666666666667
+        },
+        "WR|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 35,
+          "reason": null,
+          "x_mean": 6.4314285714285715,
+          "y_mean": 6.4314285714285715
+        },
+        "WR|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 37,
+          "reason": null,
+          "x_mean": 26.462162162162162,
+          "y_mean": 26.462162162162162
+        }
+      },
+      "n_published": 571,
+      "reference_combo": "full_12",
+      "role_counts": {
+        "bench": 72,
+        "starter": 96
+      },
+      "status": "live"
+    },
+    "fantasycalc": {
+      "cells": [
+        {
+          "alpha": 1.4374481904120024,
+          "beta": 0.6369295574427144,
+          "n": 12,
+          "position": "QB",
+          "source": "fantasycalc",
+          "tier": "starter",
+          "x_mean": 17.386364995069297,
+          "y_mean": 12.511337952258991
+        },
+        {
+          "alpha": -0.9041002866257961,
+          "beta": 0.9121389541110582,
+          "n": 15,
+          "position": "QB",
+          "source": "fantasycalc",
+          "tier": "bench",
+          "x_mean": 3.9562561284609217,
+          "y_mean": 2.704555040584013
+        },
+        {
+          "alpha": 11.875611298240948,
+          "beta": 0.6100213806314297,
+          "n": 34,
+          "position": "RB",
+          "source": "fantasycalc",
+          "tier": "starter",
+          "x_mean": 31.04638637104239,
+          "y_mean": 30.81457077592103
+        },
+        {
+          "alpha": -0.22078180106932965,
+          "beta": 1.920054887883453,
+          "n": 19,
+          "position": "RB",
+          "source": "fantasycalc",
+          "tier": "bench",
+          "x_mean": 3.5349183143885567,
+          "y_mean": 6.566455386741155
+        },
+        {
+          "alpha": 11.015751097390359,
+          "beta": 0.5406064384942207,
+          "n": 38,
+          "position": "WR",
+          "source": "fantasycalc",
+          "tier": "starter",
+          "x_mean": 27.63857890134753,
+          "y_mean": 25.95734480228936
+        },
+        {
+          "alpha": 5.218827942660769,
+          "beta": 0.5466789216610273,
+          "n": 26,
+          "position": "WR",
+          "source": "fantasycalc",
+          "tier": "bench",
+          "x_mean": 3.032256221294413,
+          "y_mean": 6.87649850391794
+        },
+        {
+          "alpha": 4.647768088827641,
+          "beta": 0.5317338487203743,
+          "n": 12,
+          "position": "TE",
+          "source": "fantasycalc",
+          "tier": "starter",
+          "x_mean": 17.5250791287319,
+          "y_mean": 13.96644586307736
+        },
+        {
+          "alpha": -0.11748265147173864,
+          "beta": 1.3067270201217136,
+          "n": 11,
+          "position": "TE",
+          "source": "fantasycalc",
+          "tier": "bench",
+          "x_mean": 2.6309349596489815,
+          "y_mean": 3.3204311484844156
+        }
+      ],
+      "diagnostics": {
+        "QB|bench": {
+          "alpha": -0.9041002866257961,
+          "beta": 0.9121389541110582,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 15,
+          "reason": null,
+          "x_mean": 3.9562561284609217,
+          "y_mean": 2.704555040584013
+        },
+        "QB|starter": {
+          "alpha": 1.4374481904120024,
+          "beta": 0.6369295574427144,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 17.386364995069297,
+          "y_mean": 12.511337952258991
+        },
+        "RB|bench": {
+          "alpha": -0.22078180106932965,
+          "beta": 1.920054887883453,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 19,
+          "reason": null,
+          "x_mean": 3.5349183143885567,
+          "y_mean": 6.566455386741155
+        },
+        "RB|starter": {
+          "alpha": 11.875611298240948,
+          "beta": 0.6100213806314297,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 34,
+          "reason": null,
+          "x_mean": 31.04638637104239,
+          "y_mean": 30.81457077592103
+        },
+        "TE|bench": {
+          "alpha": -0.11748265147173864,
+          "beta": 1.3067270201217136,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 11,
+          "reason": null,
+          "x_mean": 2.6309349596489815,
+          "y_mean": 3.3204311484844156
+        },
+        "TE|starter": {
+          "alpha": 4.647768088827641,
+          "beta": 0.5317338487203743,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 17.5250791287319,
+          "y_mean": 13.96644586307736
+        },
+        "WR|bench": {
+          "alpha": 5.218827942660769,
+          "beta": 0.5466789216610273,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 26,
+          "reason": null,
+          "x_mean": 3.032256221294413,
+          "y_mean": 6.87649850391794
+        },
+        "WR|starter": {
+          "alpha": 11.015751097390359,
+          "beta": 0.5406064384942207,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 38,
+          "reason": null,
+          "x_mean": 27.63857890134753,
+          "y_mean": 25.95734480228936
+        }
+      },
+      "n_published": 197,
+      "reference_combo": "full_12_qb1",
+      "role_counts": {
+        "bench": 72,
+        "starter": 96
+      },
+      "status": "live"
+    },
+    "fantasypros": {
+      "cells": [
+        {
+          "alpha": 1.2251911195774454,
+          "beta": 0.8730327894425767,
+          "n": 12,
+          "position": "QB",
+          "source": "fantasypros",
+          "tier": "starter",
+          "x_mean": 12.529021685772863,
+          "y_mean": 12.163437870894262
+        },
+        {
+          "alpha": 0.3715865349284284,
+          "beta": 2.798910457154601,
+          "n": 13,
+          "position": "QB",
+          "source": "fantasypros",
+          "tier": "bench",
+          "x_mean": 0.9441021050503884,
+          "y_mean": 3.014043789375632
+        },
+        {
+          "alpha": -6.106279258025172,
+          "beta": 1.22561585760907,
+          "n": 34,
+          "position": "RB",
+          "source": "fantasypros",
+          "tier": "starter",
+          "x_mean": 29.57261005525481,
+          "y_mean": 30.138380576584563
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "fallback": "identity",
+          "n": 17,
+          "position": "RB",
+          "source": "fantasypros",
+          "tier": "bench",
+          "x_mean": 7.251999993205679,
+          "y_mean": 7.078877796647768
+        },
+        {
+          "alpha": -5.423332593273894,
+          "beta": 1.2528436769108244,
+          "n": 38,
+          "position": "WR",
+          "source": "fantasypros",
+          "tier": "starter",
+          "x_mean": 24.788891455632236,
+          "y_mean": 25.633273324543715
+        },
+        {
+          "alpha": 0.09328167853714842,
+          "beta": 0.6700518119235827,
+          "n": 34,
+          "position": "WR",
+          "source": "fantasypros",
+          "tier": "bench",
+          "x_mean": 8.827817477370665,
+          "y_mean": 6.008376774580033
+        },
+        {
+          "alpha": -3.8207273098631536,
+          "beta": 1.433177051423365,
+          "n": 12,
+          "position": "TE",
+          "source": "fantasypros",
+          "tier": "starter",
+          "x_mean": 12.411008922641564,
+          "y_mean": 13.96644586307736
+        },
+        {
+          "alpha": -2.703207120143652,
+          "beta": 1.4443207460266971,
+          "n": 8,
+          "position": "TE",
+          "source": "fantasypros",
+          "tier": "bench",
+          "x_mean": 4.28779706043718,
+          "y_mean": 3.489747128998055
+        }
+      ],
+      "diagnostics": {
+        "QB|bench": {
+          "alpha": 0.3715865349284284,
+          "beta": 2.798910457154601,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 13,
+          "reason": null,
+          "x_mean": 0.9441021050503884,
+          "y_mean": 3.014043789375632
+        },
+        "QB|starter": {
+          "alpha": 1.2251911195774454,
+          "beta": 0.8730327894425767,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 12.529021685772863,
+          "y_mean": 12.163437870894262
+        },
+        "RB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": "identity",
+          "n_pairs": 17,
+          "reason": "non_positive_slope"
+        },
+        "RB|starter": {
+          "alpha": -6.106279258025172,
+          "beta": 1.22561585760907,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 34,
+          "reason": null,
+          "x_mean": 29.57261005525481,
+          "y_mean": 30.138380576584563
+        },
+        "TE|bench": {
+          "alpha": -2.703207120143652,
+          "beta": 1.4443207460266971,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 8,
+          "reason": null,
+          "x_mean": 4.28779706043718,
+          "y_mean": 3.489747128998055
+        },
+        "TE|starter": {
+          "alpha": -3.8207273098631536,
+          "beta": 1.433177051423365,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 12.411008922641564,
+          "y_mean": 13.96644586307736
+        },
+        "WR|bench": {
+          "alpha": 0.09328167853714842,
+          "beta": 0.6700518119235827,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 34,
+          "reason": null,
+          "x_mean": 8.827817477370665,
+          "y_mean": 6.008376774580033
+        },
+        "WR|starter": {
+          "alpha": -5.423332593273894,
+          "beta": 1.2528436769108244,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 38,
+          "reason": null,
+          "x_mean": 24.788891455632236,
+          "y_mean": 25.633273324543715
+        }
+      },
+      "n_published": 178,
+      "reference_combo": "full_12",
+      "role_counts": {
+        "bench": 72,
+        "starter": 96
+      },
+      "status": "live"
+    },
+    "razzball": {
+      "cells": [
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 12,
+          "position": "QB",
+          "source": "razzball",
+          "tier": "starter",
+          "x_mean": 17.25,
+          "y_mean": 17.25
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 9,
+          "position": "QB",
+          "source": "razzball",
+          "tier": "bench",
+          "x_mean": 3.966666666666667,
+          "y_mean": 3.966666666666667
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 37,
+          "position": "RB",
+          "source": "razzball",
+          "tier": "starter",
+          "x_mean": 34.475675675675674,
+          "y_mean": 34.475675675675674
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 22,
+          "position": "RB",
+          "source": "razzball",
+          "tier": "bench",
+          "x_mean": 6.963636363636363,
+          "y_mean": 6.963636363636363
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 35,
+          "position": "WR",
+          "source": "razzball",
+          "tier": "starter",
+          "x_mean": 30.488571428571426,
+          "y_mean": 30.488571428571426
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 33,
+          "position": "WR",
+          "source": "razzball",
+          "tier": "bench",
+          "x_mean": 7.1030303030303035,
+          "y_mean": 7.1030303030303035
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 12,
+          "position": "TE",
+          "source": "razzball",
+          "tier": "starter",
+          "x_mean": 16.058333333333334,
+          "y_mean": 16.058333333333334
+        },
+        {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "n": 8,
+          "position": "TE",
+          "source": "razzball",
+          "tier": "bench",
+          "x_mean": 2.5875,
+          "y_mean": 2.5875
+        }
+      ],
+      "diagnostics": {
+        "QB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 9,
+          "reason": null,
+          "x_mean": 3.966666666666667,
+          "y_mean": 3.966666666666667
+        },
+        "QB|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 17.25,
+          "y_mean": 17.25
+        },
+        "RB|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 22,
+          "reason": null,
+          "x_mean": 6.963636363636363,
+          "y_mean": 6.963636363636363
+        },
+        "RB|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 37,
+          "reason": null,
+          "x_mean": 34.475675675675674,
+          "y_mean": 34.475675675675674
+        },
+        "TE|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 8,
+          "reason": null,
+          "x_mean": 2.5875,
+          "y_mean": 2.5875
+        },
+        "TE|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 16.058333333333334,
+          "y_mean": 16.058333333333334
+        },
+        "WR|bench": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 33,
+          "reason": null,
+          "x_mean": 7.1030303030303035,
+          "y_mean": 7.1030303030303035
+        },
+        "WR|starter": {
+          "alpha": 0.0,
+          "beta": 1.0,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 35,
+          "reason": null,
+          "x_mean": 30.488571428571426,
+          "y_mean": 30.488571428571426
+        }
+      },
+      "n_published": 679,
+      "reference_combo": "full_12",
+      "role_counts": {
+        "bench": 72,
+        "starter": 96
+      },
+      "status": "live"
+    },
+    "usatoday": {
+      "cells": [
+        {
+          "alpha": -13.479129043586559,
+          "beta": 1.9295997410834715,
+          "n": 12,
+          "position": "QB",
+          "source": "usatoday",
+          "tier": "starter",
+          "x_mean": 13.39312865497076,
+          "y_mean": 12.364248541342642
+        },
+        {
+          "alpha": -5.681798316999685,
+          "beta": 1.8119366548864544,
+          "n": 6,
+          "position": "QB",
+          "source": "usatoday",
+          "tier": "bench",
+          "x_mean": 6.034848484848484,
+          "y_mean": 5.2529648593832645
+        },
+        {
+          "alpha": 1.0758829658511289,
+          "beta": 1.1810150668676767,
+          "n": 32,
+          "position": "RB",
+          "source": "usatoday",
+          "tier": "starter",
+          "x_mean": 25.7672149122807,
+          "y_mean": 31.507352008472115
+        },
+        {
+          "alpha": 0.07385930616659309,
+          "beta": 0.9784051165651961,
+          "n": 25,
+          "position": "RB",
+          "source": "usatoday",
+          "tier": "bench",
+          "x_mean": 7.01312918660287,
+          "y_mean": 6.935540785471553
+        },
+        {
+          "alpha": -0.7826190514081759,
+          "beta": 1.060777272538475,
+          "n": 40,
+          "position": "WR",
+          "source": "usatoday",
+          "tier": "starter",
+          "x_mean": 24.536423444976073,
+          "y_mean": 25.245061288402635
+        },
+        {
+          "alpha": 3.0596417749427705,
+          "beta": 0.47433346445319474,
+          "n": 26,
+          "position": "WR",
+          "source": "usatoday",
+          "tier": "bench",
+          "x_mean": 6.010415899889583,
+          "y_mean": 5.910583171541963
+        },
+        {
+          "alpha": -3.4395813285992514,
+          "beta": 0.8199620744158612,
+          "n": 12,
+          "position": "TE",
+          "source": "usatoday",
+          "tier": "starter",
+          "x_mean": 21.227844231791597,
+          "y_mean": 13.96644586307736
+        },
+        {
+          "alpha": 0.5137710797387547,
+          "beta": 0.29431759279321634,
+          "n": 13,
+          "position": "TE",
+          "source": "usatoday",
+          "tier": "bench",
+          "x_mean": 6.499067599067599,
+          "y_mean": 2.4265610108967186
+        }
+      ],
+      "diagnostics": {
+        "QB|bench": {
+          "alpha": -5.681798316999685,
+          "beta": 1.8119366548864544,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 6,
+          "reason": null,
+          "x_mean": 6.034848484848484,
+          "y_mean": 5.2529648593832645
+        },
+        "QB|starter": {
+          "alpha": -13.479129043586559,
+          "beta": 1.9295997410834715,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 13.39312865497076,
+          "y_mean": 12.364248541342642
+        },
+        "RB|bench": {
+          "alpha": 0.07385930616659309,
+          "beta": 0.9784051165651961,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 25,
+          "reason": null,
+          "x_mean": 7.01312918660287,
+          "y_mean": 6.935540785471553
+        },
+        "RB|starter": {
+          "alpha": 1.0758829658511289,
+          "beta": 1.1810150668676767,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 32,
+          "reason": null,
+          "x_mean": 25.7672149122807,
+          "y_mean": 31.507352008472115
+        },
+        "TE|bench": {
+          "alpha": 0.5137710797387547,
+          "beta": 0.29431759279321634,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 13,
+          "reason": null,
+          "x_mean": 6.499067599067599,
+          "y_mean": 2.4265610108967186
+        },
+        "TE|starter": {
+          "alpha": -3.4395813285992514,
+          "beta": 0.8199620744158612,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 12,
+          "reason": null,
+          "x_mean": 21.227844231791597,
+          "y_mean": 13.96644586307736
+        },
+        "WR|bench": {
+          "alpha": 3.0596417749427705,
+          "beta": 0.47433346445319474,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 26,
+          "reason": null,
+          "x_mean": 6.010415899889583,
+          "y_mean": 5.910583171541963
+        },
+        "WR|starter": {
+          "alpha": -0.7826190514081759,
+          "beta": 1.060777272538475,
+          "cell": true,
+          "fallback": false,
+          "n_pairs": 40,
+          "reason": null,
+          "x_mean": 24.536423444976073,
+          "y_mean": 25.245061288402635
+        }
+      },
+      "n_published": 261,
+      "reference_combo": "full_12",
+      "role_counts": {
+        "bench": 72,
+        "starter": 96
+      },
+      "status": "live"
+    }
+  },
+  "stage2_cell_format": {
+    "alpha": "intercept of the affine fit (full precision)",
+    "application": "adjusted = max(0, alpha + beta * published_value)",
+    "beta": "slope of the affine fit (full precision)",
+    "n": "fit pairs used",
+    "position": "QB | RB | WR | TE",
+    "target": "the DDF two-tier value-above-waivers leg (ESPN projections only, 70/max scaled, full precision)",
+    "tier": "starter | bench (the render-time role under the reference roster shape; waiver players are never adjusted)",
+    "x_mean": "mean published value over the fit pairs",
+    "y_mean": "mean DDF leg value over the fit pairs"
+  },
+  "status": "live",
+  "summary": {
+    "cells_total": 56,
+    "review_rows": 0,
+    "sources_live": 7
+  },
+  "version": "ddf-20261009-espn-ppr-12t-0p15"
+}

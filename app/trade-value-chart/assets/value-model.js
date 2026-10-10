@@ -914,27 +914,25 @@
   //
   // The backend saves ONE setup per scoring: 12 teams, standard roster. At
   // that setup the chart shows the saved values untouched. At any other team
-  // count or roster the browser derives the published chart from the saved
-  // 12-team inputs, running the same recipe the server ran at 12 teams:
+  // count or roster the browser derives the published chart's Indexed values
+  // from the saved 12-team natives with the server's own recipe
+  // (pipelines/reindex_comparison_section.order_preserving_rescale):
   //
-  //   1. value above waivers, translated onto our positional maxes
-  //      (translatePublishedVorp) at the chosen teams/roster/bench, for every
-  //      player above that setting's waiver line. The maxes themselves follow
-  //      the setting (positionalMaxForSetup) when `projection` is passed;
-  //   2. every other player -- at or below that setting's waiver line, or
-  //      with no native value to rank -- is worth 0: value above waivers is
-  //      zero by definition.
+  //   factor  = anchor total / native total, over the saved players the
+  //             live anchor prices at this setting
+  //   indexed = native * factor, for every saved player with a native value
   //
-  // /3 (2026-10-07, Jeremy agreed): step 2 used to mirror the server's
-  // fail-safe (the saved value, or the 12-team flex-aware pie value) for
-  // below-waiver players. It now prices them at 0.
-  // /2 (2026-10-07): optional `projection` makes the positional maxes follow
-  // the setting (JEG332-DERIVED-PEAKS); both chart callers pass it.
-  // /4 (2026-10-07, V2-WAIVER-COVERAGE): `peers` -- a short position's waiver
-  // line is extrapolated from the other published charts; result `waiver`.
-  // /5 (2026-10-08, JEG332-SUPERFLEX-FLEX): shape.SUPERFLEX is a dedicated
-  // slot count passed to the translation; SUPERFLEX 0 reproduces /4 exactly.
-  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/5";
+  // One factor per chart, so the chart keeps its own ranking at every setting
+  // (methodology, The Three Views #3: "indexed to match the value range of
+  // the other charts"). Per-position and starter/bench repricing belongs to
+  // the VORP vs waivers and Adjusted views (derivePublishedViews).
+  //
+  // /6 (2026-10-08, JEG-482; Jeremy: "There shouldn't be some secondary
+  // correction layer, the math is clearly off"): replaced /1-/5, which priced
+  // Indexed as value above waivers translated onto our positional maxes
+  // (translatePublishedVorp) and so reordered players across positions
+  // (FantasyCalc Week 5: Smith-Njigba #3 on the chart, #5 here).
+  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/6";
   var SAVED_SETUP_TEAMS = 12;
   var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
 
@@ -1010,56 +1008,55 @@
     return ranked;
   }
 
-  // opts: native (Map key -> saved 12-team native value), saved (Map key ->
-  // saved 12-team chart value; only its KEY SET is used off the saved setup),
-  // indexTotal (unused since /3, accepted for callers), posOf(key), teams,
-  // shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}), projection (optional Map
-  // key -> ESPN per-game points for this scoring), peers (optional {source:
-  // Map key -> saved 12-team native} of the OTHER published charts at this
-  // scoring: a short position's waiver line is extrapolated from them).
-  // Returns {version, values: Map, ourMax, positionalMax, translated,
-  // belowWaiver, waiver}. The player set is the saved set, at every setting.
+  // opts: native (Map key -> saved 12-team native value at this scoring; the
+  // publisher's superflex values overlaid when the roster has a superflex
+  // slot), saved (Map key -> saved 12-team Indexed value; its KEY SET is the
+  // player set at every setting, and its values give the saved factor when no
+  // anchor is passed), anchor (Map key -> the live anchor's value at this
+  // setting), posOf(key). teams / shape / projection / peers / indexTotal are
+  // accepted for callers and unused (/6).
+  // Returns {version, values: Map, factor, basis: "anchor" | "saved", shared,
+  // nativeTotal, anchorTotal}. A saved player with no native value is left
+  // out (missing, never 0).
   function derivePublishedSetup(opts) {
     var native = opts.native;
     var saved = opts.saved;
-    var posOf = opts.posOf;
-    var shape = opts.shape || SAVED_SETUP_SHAPE;
-    var ranked = rankedByPosition(native, posOf);
-    var setting = settingForShape(opts.teams, shape);
-    // JEG332-DERIVED-PEAKS: with our projections supplied, the positional
-    // maxes follow the setting (positionalMaxForSetup); without them they stay
-    // at OUR_MAX (the pre-2026-10-07 behaviour).
-    var projection = null;
-    if (opts.projection && opts.projection.size) {
-      projection = {};
-      POSITION_ORDER.forEach(function (pos) { projection[pos] = []; });
-      opts.projection.forEach(function (value, key) {
-        var pos = posOf(key);
-        if (projection[pos] && typeof value === "number" && isFinite(value)) {
-          projection[pos].push({key: key, value: value});
-        }
+    var anchor = opts.anchor;
+    var posOf = opts.posOf || function () { return null; };
+    var keys = [];
+    saved.forEach(function (savedValue, key) {
+      var v = Number(native.get(key));
+      if (native.has(key) && isFinite(v) && POSITION_ORDER.indexOf(posOf(key)) !== -1) keys.push(key);
+    });
+    var nativeTotal = 0, anchorTotal = 0, shared = 0;
+    if (anchor && anchor.size) {
+      keys.forEach(function (key) {
+        var a = Number(anchor.get(key));
+        if (!anchor.has(key) || !isFinite(a)) return;
+        shared += 1;
+        anchorTotal += Math.max(0, a);
+        nativeTotal += Math.max(0, Number(native.get(key)));
       });
     }
-    var ourMax = projection
-      ? positionalMaxForSetup(Object.assign({projection: projection}, setting))
-      : TRANSLATION_OUR_MAX;
-    var at = translatePublishedVorp(Object.assign({ranked: ranked, ourMax: ourMax,
-      peers: peersByPosition(opts.peers, posOf)}, setting));
+    var basis = "anchor";
+    if (shared < MIN_SHARED_FOR_PIE || !(anchorTotal > 0) || !(nativeTotal > 0)) {
+      // Too few shared players to measure the anchor's range: keep the saved
+      // factor (the pipeline's, at 12 teams), measured on the saved values.
+      basis = "saved";
+      nativeTotal = 0; anchorTotal = 0; shared = 0;
+      keys.forEach(function (key) {
+        var s = Number(saved.get(key));
+        if (!isFinite(s)) return;
+        shared += 1;
+        anchorTotal += Math.max(0, s);
+        nativeTotal += Math.max(0, Number(native.get(key)));
+      });
+    }
+    var factor = nativeTotal > 0 && anchorTotal > 0 ? anchorTotal / nativeTotal : 0;
     var values = new Map();
-    var counts = {translated: 0, belowWaiver: 0};
-    saved.forEach(function (savedValue, key) {
-      var t = at.translated[String(key)];
-      if (t) { values.set(key, t.translated); counts.translated += 1; return; }
-      values.set(key, 0); counts.belowWaiver += 1;
-    });
-    var maxes = {};
-    POSITION_ORDER.forEach(function (pos) { maxes[pos] = ourMax[pos]; });
-    return {version: PUBLISHED_DERIVATION_VERSION, translationVersion: at.version,
-            positionalMax: projection ? POSITIONAL_MAX_VERSION : "fixed", ourMax: maxes,
-            values: values, translated: counts.translated, belowWaiver: counts.belowWaiver,
-            waiver: waiverSummary(at),
-            // Read-only echo of the translation behind `values` (math inspector).
-            translation: at};
+    keys.forEach(function (key) { values.set(key, Math.max(0, Number(native.get(key))) * factor); });
+    return {version: PUBLISHED_DERIVATION_VERSION, values: values, factor: factor, basis: basis,
+            shared: shared, nativeTotal: nativeTotal, anchorTotal: anchorTotal};
   }
 
   // ---------------------------------------------------------------------
@@ -1070,7 +1067,7 @@
   // The saved `vorp_views` (pipelines/build_imputed_vorps.py +
   // build_reweighted_values.py) exist for one scoring at 12 teams. Everywhere
   // else the browser derives both views from the same league arithmetic as
-  // derivePublishedSetup, so all three views agree on who is above waivers
+  // the VORP translation, so the two views agree on who is above waivers
   // (everyone at or below the setting's waiver line is 0 in every view):
   //
   //   VORP vs waivers: each player's value above that setting's waiver line
@@ -1295,7 +1292,731 @@
     return { value: used.length ? sum / used.length : null, count: used.length, used: used };
   }
 
+  // ===================================================================
+  // Value Pipeline (source-neutral), docs/methodology.md "Value Pipeline
+  // (source-neutral, 2026-10-09)", VP-0..VP-8. JEG-508.
+  //
+  // One pure function, runValuePipeline(input), turns every source's natives
+  // at one league setting into value above waivers, Adjusted values, DDF
+  // Value (three versions), Indexed values and tiers. No source has a
+  // special role: ESPN is a projection like CBS ROS and Razzball. The widget
+  // feeds it the natives it has loaded and reads every number it shows from
+  // the result; tests/test_value_pipeline_engine.py pins it to the worked
+  // example (tests/fixtures/value_pipeline_worked_example.json) to 1e-6.
+  //
+  // input = {
+  //   setting: {teams, slots: {QB,RB,WR,TE}, flex, superflex, bench_per_team,
+  //             bench_share (optional; 0.15 default), position_shares
+  //             (optional {pos: share})},
+  //   players: {key: {pos, name?}},
+  //   sources: {key: {family: "projection"|"chart", status: "included" |
+  //             <exclusion reason>, values: {playerKey: native}, label?}},
+  //   included: [keys] (optional; overrides status, used for the prior week
+  //             so both weeks share one I, VP-8),
+  //   compositeInputs: [keys] (optional; the reader's selection, VP-1.5),
+  //   pie: number (optional; VP-8 prior week reuses the current pie)
+  // }
+  // Player keys are numeric strings; every output map is keyed by String(key).
+  // ===================================================================
+  var VALUE_PIPELINE_VERSION = "value-pipeline/2";
+  var VP_BENCH_MIX_12 = { QB: 10, RB: 27, WR: 33, TE: 10 };
+  var VP_IMPUTE_MIN_FIT = 3;
+  var VP_ESTIMATE_FIT_N = 10;
+  var VP_DEFAULT_BENCH_SHARE = 0.15;
+  var VP_PIE_PER_STARTING_SLOT = 28;
+  var VP_FLEX_ELIGIBLE = ["RB", "WR", "TE"];
+  var VP_ROLES = ["starter", "bench"];
+
+  function vpGroupKey(pos, role) { return pos + "|" + role; }
+
+  function vpEmptyGroups() {
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) {
+      VP_ROLES.forEach(function (role) { out[vpGroupKey(pos, role)] = 0; });
+    });
+    return out;
+  }
+
+  function vpPosIndex(pos) { return POSITION_ORDER.indexOf(pos); }
+
+  // round_half_up for the bench seat total (VP-2.2d).
+  function vpRoundHalfUp(x) { return Math.floor(x + 0.5); }
+
+  // VP-2.2d: D'Hondt, each seat to the largest weight / (seats + 1), ties to
+  // position order.
+  function vpBenchSeats(teams, benchPerTeam) {
+    var seats = vpRoundHalfUp(teams * benchPerTeam);
+    var out = { QB: 0, RB: 0, WR: 0, TE: 0 };
+    for (var s = 0; s < seats; s += 1) {
+      var best = null, bestScore = -Infinity;
+      POSITION_ORDER.forEach(function (pos) {
+        var w = VP_BENCH_MIX_12[pos];
+        if (!(w > 0)) return;
+        var seatScore = w / (out[pos] + 1);
+        if (seatScore > bestScore) { bestScore = seatScore; best = pos; }
+      });
+      if (best === null) break;
+      out[best] += 1;
+    }
+    return out;
+  }
+
+  function vpNumKey(a, b) { return Number(a) - Number(b); }
+
+  // VP-2.2 a-e on per-position orders. `orders[pos]` = [{key, score}] already
+  // sorted best first; `score` is m (or the source's own native in the
+  // degenerate case, VP-2.2f). Returns {pos: {dedicated, superflex, flex,
+  // bench, starters, rostered}}.
+  function vpAllocate(orders, setting) {
+    var teams = Number(setting.teams) || 0;
+    var slots = setting.slots || {};
+    var sfSlots = Math.max(0, Number(setting.superflex) || 0);
+    var flexSlots = Math.max(0, Number(setting.flex) || 0);
+    var bench = vpBenchSeats(teams, Math.max(0, Number(setting.bench_per_team) || 0));
+    var alloc = {};
+    POSITION_ORDER.forEach(function (pos) {
+      alloc[pos] = { dedicated: teams * (Number(slots[pos]) || 0), superflex: 0, flex: 0,
+        bench: bench[pos], starters: 0, rostered: 0 };
+    });
+    function takeBest(eligiblePositions, offsetOf, count) {
+      var cand = [];
+      eligiblePositions.forEach(function (pos) {
+        var order = orders[pos] || [];
+        for (var i = offsetOf(pos); i < order.length; i += 1) {
+          cand.push({ pos: pos, key: order[i].key, score: order[i].score });
+        }
+      });
+      cand.sort(function (a, b) {
+        if (a.score !== b.score) return b.score - a.score;
+        var pa = vpPosIndex(a.pos), pb = vpPosIndex(b.pos);
+        if (pa !== pb) return pa - pb;
+        return vpNumKey(a.key, b.key);
+      });
+      var taken = { QB: 0, RB: 0, WR: 0, TE: 0 };
+      cand.slice(0, Math.max(0, count)).forEach(function (c) { taken[c.pos] += 1; });
+      return taken;
+    }
+    var sf = takeBest(POSITION_ORDER, function (pos) { return alloc[pos].dedicated; }, teams * sfSlots);
+    POSITION_ORDER.forEach(function (pos) { alloc[pos].superflex = sf[pos]; });
+    var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
+      return alloc[pos].dedicated + alloc[pos].superflex;
+    }, teams * flexSlots);
+    POSITION_ORDER.forEach(function (pos) {
+      var a = alloc[pos];
+      a.flex = fx[pos] || 0;
+      a.starters = a.dedicated + a.superflex + a.flex;
+      a.rostered = a.starters + a.bench;
+    });
+    return alloc;
+  }
+
+  function vpMedian(xs) {
+    var s = xs.slice().sort(function (a, b) { return a - b; });
+    var n = s.length;
+    if (!n) return null;
+    return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+  }
+
+  function vpFinite(v) { return typeof v === "number" && isFinite(v); }
+
+  function vpLabel(sources, key) {
+    var s = sources[key];
+    return (s && s.label) || key;
+  }
+
+  function vpListLabels(labels) {
+    if (labels.length <= 1) return labels.join("");
+    if (labels.length === 2) return labels[0] + " and " + labels[1];
+    return labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
+  }
+
+  function runValuePipeline(input) {
+    var setting = input.setting || {};
+    var players = input.players || {};
+    var sources = input.sources || {};
+    // Source order = the caller's order (the widget passes its canonical
+    // series order; the fixture lists p1, p2, c1..c5). Peers, `m` sums and
+    // the DDF source lists follow it.
+    var sourceKeys = Object.keys(sources);
+    var posOf = function (key) {
+      var p = players[key];
+      return p && vpPosIndex(p.pos) !== -1 ? p.pos : null;
+    };
+    var familyOf = function (key) { return sources[key].family === "projection" ? "projection" : "chart"; };
+
+    // --- VP-1 included set
+    var included, excluded = [];
+    if (Array.isArray(input.included)) {
+      included = sourceKeys.filter(function (k) { return input.included.indexOf(k) !== -1; });
+    } else {
+      included = sourceKeys.filter(function (k) { return sources[k].status === "included"; });
+    }
+    sourceKeys.forEach(function (k) {
+      if (included.indexOf(k) === -1) {
+        excluded.push({ key: k, reason: sources[k].status && sources[k].status !== "included"
+          ? sources[k].status : "not included" });
+      }
+    });
+    var inI = {};
+    included.forEach(function (k) { inI[k] = true; });
+
+    // --- Lists (VP-0, VP-2.1): finite natives at a known position.
+    var listed = {}; // src -> {pos: [{key, native}] sorted}
+    var nativeOf = {}; // src -> {key: native}
+    sourceKeys.forEach(function (src) {
+      var vals = sources[src].values || {};
+      var byPos = { QB: [], RB: [], WR: [], TE: [] };
+      var nat = {};
+      Object.keys(vals).forEach(function (rawKey) {
+        var key = String(rawKey);
+        var v = vals[rawKey];
+        if (v === null || v === undefined || v === "") return;
+        v = Number(v);
+        if (!isFinite(v)) return;
+        var pos = posOf(key);
+        if (!pos) return;
+        nat[key] = v;
+        byPos[pos].push({ key: key, native: v });
+      });
+      POSITION_ORDER.forEach(function (pos) {
+        byPos[pos].sort(function (a, b) {
+          if (a.native !== b.native) return b.native - a.native;
+          return vpNumKey(a.key, b.key);
+        });
+      });
+      listed[src] = byPos;
+      nativeOf[src] = nat;
+    });
+
+    // --- Mean points per game m (VP-0), from the projections in I.
+    var projI = included.filter(function (k) { return familyOf(k) === "projection"; });
+    var chartsI = included.filter(function (k) { return familyOf(k) === "chart"; });
+    var meanPpg = {};
+    var allKeys = {};
+    sourceKeys.forEach(function (src) {
+      Object.keys(nativeOf[src]).forEach(function (k) { allKeys[k] = true; });
+    });
+    Object.keys(allKeys).forEach(function (k) {
+      var sum = 0, n = 0;
+      projI.forEach(function (src) {
+        if (Object.prototype.hasOwnProperty.call(nativeOf[src], k)) { sum += nativeOf[src][k]; n += 1; }
+      });
+      if (n) meanPpg[k] = sum / n;
+    });
+    var degenerate = projI.length === 0;
+    var ppgOrder = {}; // pos -> [{key, score}]
+    POSITION_ORDER.forEach(function (pos) {
+      ppgOrder[pos] = Object.keys(meanPpg).filter(function (k) { return posOf(k) === pos; })
+        .map(function (k) { return { key: k, score: meanPpg[k] }; })
+        .sort(function (a, b) { return a.score !== b.score ? b.score - a.score : vpNumKey(a.key, b.key); });
+    });
+
+    // --- VP-2.2 league allocation (once, on the projected-points order).
+    var allocation = degenerate ? null : vpAllocate(ppgOrder, setting);
+
+    // --- VP-2.4a rosterable / fill sets.
+    var fillSets = {};
+    POSITION_ORDER.forEach(function (pos) {
+      fillSets[pos] = allocation
+        ? ppgOrder[pos].slice(0, allocation[pos].rostered + 1).map(function (r) { return r.key; })
+        : [];
+    });
+
+    // --- Pie (VP-5.1)
+    var slots = setting.slots || {};
+    var startingSlots = POSITION_ORDER.reduce(function (s, p) { return s + (Number(slots[p]) || 0); }, 0)
+      + (Number(setting.flex) || 0) + (Number(setting.superflex) || 0);
+    var pie = vpFinite(input.pie) ? input.pie
+      : VP_PIE_PER_STARTING_SLOT * (Number(setting.teams) || 0) * startingSlots;
+    var bsInput = vpFinite(setting.bench_share) ? setting.bench_share : VP_DEFAULT_BENCH_SHARE;
+
+    var chartPeersFor = function (src) {
+      return chartsI.filter(function (k) { return k !== src; });
+    };
+
+    // --- VP-2.4 fill-in estimate for chart `src`, player `key` at `pos`.
+    function estimateFor(src, key, pos) {
+      var own = listed[src][pos];
+      var ownIndex = {};
+      own.forEach(function (r) { ownIndex[r.key] = true; });
+      var cap = own[own.length - 1].native;
+      var info = { peers: {}, cap: cap, path: null, raw: null, value: null, capped: false };
+      var ests = [];
+      var usedPeers = [];
+      chartPeersFor(src).forEach(function (peer) {
+        var peerNat = nativeOf[peer];
+        if (!Object.prototype.hasOwnProperty.call(peerNat, key)) return;
+        var shared = own.filter(function (r) { return Object.prototype.hasOwnProperty.call(peerNat, r.key); });
+        var fit = shared.slice(shared.length - Math.min(VP_ESTIMATE_FIT_N, shared.length));
+        var num = 0, den = 0;
+        fit.forEach(function (r) { num += r.native; den += peerNat[r.key]; });
+        var rec = { usable: false, fitPlayers: fit.map(function (r) { return r.key; }), num: num, den: den,
+          ratio: null, peerNative: peerNat[key], estimate: null };
+        if (fit.length >= VP_IMPUTE_MIN_FIT && den > 0) {
+          rec.usable = true;
+          rec.ratio = num / den;
+          rec.estimate = rec.ratio * peerNat[key];
+          ests.push(rec.estimate);
+          usedPeers.push(peer);
+        }
+        info.peers[peer] = rec;
+      });
+      var raw;
+      if (ests.length) {
+        info.path = "peers";
+        info.usedPeers = usedPeers;
+        raw = vpMedian(ests);
+      } else {
+        info.path = "curve";
+        var pts = own.filter(function (r) { return vpFinite(meanPpg[r.key]); });
+        pts = pts.slice(pts.length - Math.min(VP_ESTIMATE_FIT_N, pts.length));
+        var mI = meanPpg[key];
+        var allEqual = pts.every(function (r) { return meanPpg[r.key] === meanPpg[pts[0].key]; });
+        if (pts.length >= VP_IMPUTE_MIN_FIT && !allEqual) {
+          var sm = 0, sx = 0;
+          pts.forEach(function (r) { sm += meanPpg[r.key]; sx += r.native; });
+          var mm = sm / pts.length, mx = sx / pts.length;
+          var sxy = 0, sxx = 0;
+          pts.forEach(function (r) {
+            var dm = meanPpg[r.key] - mm;
+            sxy += dm * (r.native - mx);
+            sxx += dm * dm;
+          });
+          var slope = sxy / sxx;
+          var intercept = mx - slope * mm;
+          raw = intercept + slope * mI;
+          info.curve = { kind: "ols", points: pts.map(function (r) { return r.key; }), slope: slope,
+            intercept: intercept, meanPpg: mI };
+        } else {
+          var low = null;
+          own.forEach(function (r) { if (vpFinite(meanPpg[r.key]) && meanPpg[r.key] > 0) low = r; });
+          if (low) {
+            raw = low.native * mI / meanPpg[low.key];
+            info.curve = { kind: "proportional", points: [low.key], low: low.key, meanPpg: mI };
+          } else {
+            raw = 0;
+            info.curve = { kind: "none", points: [], meanPpg: mI };
+          }
+        }
+      }
+      info.raw = raw;
+      info.value = Math.min(Math.max(raw, 0), cap);
+      info.capped = raw > cap;
+      var label = vpLabel(sources, src);
+      info.reason = info.path === "peers"
+        ? "Estimated: " + label + " doesn't list him; scaled from "
+          + vpListLabels(usedPeers.map(function (k) { return vpLabel(sources, k); }))
+        : "Estimated: no chart lists him; from " + label + "'s values against projected points";
+      return info;
+    }
+
+    // --- VP-2 / VP-3 per source.
+    var out = {};
+    sourceKeys.forEach(function (src) {
+      var family = familyOf(src);
+      var srcAlloc = allocation;
+      if (degenerate) {
+        var ownOrders = {};
+        POSITION_ORDER.forEach(function (pos) {
+          ownOrders[pos] = listed[src][pos].map(function (r) { return { key: r.key, score: r.native }; });
+        });
+        srcAlloc = vpAllocate(ownOrders, setting);
+      }
+      var positions = {};
+      var playersOut = {};
+      var groups = vpEmptyGroups();
+      POSITION_ORDER.forEach(function (pos) {
+        var a = srcAlloc[pos];
+        var own = listed[src][pos];
+        var work = own.map(function (r) { return { key: r.key, native: r.native, estimated: false }; });
+        var estimates = {};
+        if (family === "chart" && !degenerate && own.length) {
+          var ownSet = {};
+          own.forEach(function (r) { ownSet[r.key] = true; });
+          fillSets[pos].forEach(function (k) {
+            if (ownSet[k]) return;
+            var est = estimateFor(src, k, pos);
+            estimates[k] = est;
+            work.push({ key: k, native: est.value, estimated: true });
+          });
+          work.sort(function (x, y) {
+            if (x.native !== y.native) return y.native - x.native;
+            if (x.estimated !== y.estimated) return x.estimated ? 1 : -1;
+            return vpNumKey(x.key, y.key);
+          });
+        }
+        var N = a.rostered, S = a.starters;
+        var method, waiver = null, starterLine = null;
+        if (work.length > N) {
+          waiver = work[N].native;
+          method = work[N].estimated ? "estimated" : "roster_determined";
+        } else if (work.length) {
+          waiver = work[work.length - 1].native;
+          method = "insufficient_coverage";
+        } else {
+          method = "no_players";
+        }
+        if (method !== "no_players") {
+          starterLine = work.length > S ? work[S].native : waiver;
+          starterLine = Math.max(starterLine, waiver);
+        }
+        var bsum = 0, ssum = 0;
+        work.forEach(function (r, i) {
+          var rank = i + 1;
+          var v = Math.max(0, r.native - waiver);
+          var bsl = Math.max(0, Math.min(r.native, starterLine) - waiver);
+          var ssl = Math.max(0, r.native - starterLine);
+          bsum += bsl; ssum += ssl;
+          playersOut[r.key] = { pos: pos, native: r.native, estimated: r.estimated, rank: rank,
+            role: rank <= S ? "starter" : (rank <= N ? "bench" : "waiver"),
+            vorp: v, benchSlice: bsl, starterSlice: ssl, adjusted: 0, vorpDisplay: 0 };
+        });
+        groups[vpGroupKey(pos, "starter")] = ssum;
+        groups[vpGroupKey(pos, "bench")] = bsum;
+        positions[pos] = { dedicated: a.dedicated, superflex: a.superflex, flex: a.flex, bench: a.bench,
+          starters: S, rostered: N, listed: own.length, nEstimated: Object.keys(estimates).length,
+          estimates: estimates, method: method, waiver: waiver, starterLine: starterLine };
+      });
+      var total = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        total += groups[vpGroupKey(pos, "starter")] + groups[vpGroupKey(pos, "bench")];
+      });
+      var sSum = 0, bSum = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        sSum += groups[vpGroupKey(pos, "starter")];
+        bSum += groups[vpGroupKey(pos, "bench")];
+      });
+      var hasWeights = total > 0;
+      var starterMix = null, benchMix = null, weights = null;
+      if (hasWeights) {
+        if (sSum > 0) {
+          starterMix = {};
+          POSITION_ORDER.forEach(function (pos) { starterMix[pos] = groups[vpGroupKey(pos, "starter")] / sSum; });
+        }
+        if (bSum > 0) {
+          benchMix = {};
+          POSITION_ORDER.forEach(function (pos) { benchMix[pos] = groups[vpGroupKey(pos, "bench")] / bSum; });
+        }
+        weights = vpEmptyGroups();
+        POSITION_ORDER.forEach(function (pos) {
+          var sm = starterMix ? starterMix[pos] : 0;
+          var bm = benchMix ? benchMix[pos] : 0;
+          if (starterMix && benchMix) {
+            weights[vpGroupKey(pos, "starter")] = (1 - bsInput) * sm;
+            weights[vpGroupKey(pos, "bench")] = bsInput * bm;
+          } else {
+            weights[vpGroupKey(pos, "starter")] = sm;
+            weights[vpGroupKey(pos, "bench")] = bm;
+          }
+        });
+      }
+      out[src] = { family: family, status: inI[src] ? "included" : (sources[src].status || "excluded"),
+        included: !!inI[src], label: vpLabel(sources, src), positions: positions, players: playersOut,
+        groups: groups, totalVorp: total, hasWeights: hasWeights, starterMix: starterMix,
+        benchMix: benchMix, weights: weights, allocation: srcAlloc };
+    });
+
+    // --- VP-4 DDF weights.
+    var Sraw = {}, Braw = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var ss = 0, sn = 0, bs = 0, bn = 0;
+      included.forEach(function (src) {
+        var o = out[src];
+        if (!o.hasWeights || o.positions[pos].method === "no_players") return;
+        if (o.starterMix) { ss += o.starterMix[pos]; sn += 1; }
+        if (o.benchMix) { bs += o.benchMix[pos]; bn += 1; }
+      });
+      Sraw[pos] = sn ? ss / sn : 0;
+      Braw[pos] = bn ? bs / bn : 0;
+    });
+    var sumS = 0, sumB = 0;
+    POSITION_ORDER.forEach(function (pos) { sumS += Sraw[pos]; sumB += Braw[pos]; });
+    var bsStar = sumB === 0 ? 0 : (sumS === 0 ? 1 : bsInput);
+    var W = vpEmptyGroups();
+    POSITION_ORDER.forEach(function (pos) {
+      W[vpGroupKey(pos, "starter")] = sumS > 0 ? (1 - bsStar) * Sraw[pos] / sumS : 0;
+      W[vpGroupKey(pos, "bench")] = sumB > 0 ? bsStar * Braw[pos] / sumB : 0;
+    });
+    var shares = setting.position_shares;
+    if (shares && typeof shares === "object") {
+      POSITION_ORDER.forEach(function (pos) {
+        if (!vpFinite(shares[pos])) return;
+        var st = W[vpGroupKey(pos, "starter")], be = W[vpGroupKey(pos, "bench")];
+        var sum = st + be;
+        if (!(sum > 0)) return;
+        W[vpGroupKey(pos, "starter")] = st * shares[pos] / sum;
+        W[vpGroupKey(pos, "bench")] = be * shares[pos] / sum;
+      });
+    }
+
+    // --- VP-5 budgets, rates, Adjusted, VORP display.
+    var budgets = vpEmptyGroups();
+    Object.keys(W).forEach(function (g) { budgets[g] = pie * W[g]; });
+    sourceKeys.forEach(function (src) {
+      var o = out[src];
+      var rates = vpEmptyGroups();
+      var funded = {};
+      Object.keys(budgets).forEach(function (g) { funded[g] = budgets[g]; });
+      var moved = [], unpaid = [];
+      if (o.hasWeights) {
+        POSITION_ORDER.forEach(function (pos) {
+          VP_ROLES.forEach(function (role) {
+            var g = vpGroupKey(pos, role);
+            var other = vpGroupKey(pos, role === "starter" ? "bench" : "starter");
+            if (o.groups[g] === 0 && budgets[g] > 0) {
+              if (o.groups[other] > 0) {
+                funded[other] += budgets[g];
+                funded[g] = 0;
+                moved.push({ from: g, to: other, amount: budgets[g] });
+              } else {
+                unpaid.push({ group: g, amount: budgets[g] });
+              }
+            }
+          });
+        });
+        Object.keys(rates).forEach(function (g) { rates[g] = o.groups[g] > 0 ? funded[g] / o.groups[g] : 0; });
+      }
+      var vorpFactor = o.hasWeights ? pie / o.totalVorp : 0;
+      Object.keys(o.players).forEach(function (k) {
+        var r = o.players[k];
+        if (!o.hasWeights) { r.adjusted = 0; r.vorpDisplay = 0; return; }
+        r.adjusted = rates[vpGroupKey(r.pos, "bench")] * r.benchSlice
+          + rates[vpGroupKey(r.pos, "starter")] * r.starterSlice;
+        r.vorpDisplay = r.vorp * vorpFactor;
+      });
+      o.rates = rates;
+      o.unfundedMoved = moved;
+      o.unfundedGroups = unpaid;
+      o.vorpFactor = vorpFactor;
+    });
+
+    // --- VP-6 rows.
+    var rowKeys = Object.keys(allKeys).sort(vpNumKey);
+    var rows = {};
+    var selection = Array.isArray(input.compositeInputs) ? input.compositeInputs : null;
+    var versionSources = {
+      blended: included,
+      charts: chartsI,
+      projections: projI
+    };
+    function rowCell(src, key) {
+      var o = out[src];
+      var pos = posOf(key);
+      var p = o.players[key];
+      if (p) {
+        return { status: p.estimated ? "estimated" : "listed", player: p };
+      }
+      if (o.positions[pos].method === "no_players") {
+        return { status: "no_players", reason: o.label + " doesn't price " + pos };
+      }
+      if (o.family === "projection") {
+        return { status: "unlisted", reason: o.label + " doesn't project this player" };
+      }
+      return { status: "below_depth", reason: "Below rosterable depth; " + o.label + " doesn't list him" };
+    }
+    rowKeys.forEach(function (key) {
+      var row = { key: key, pos: posOf(key), name: players[key] && players[key].name,
+        meanPpg: vpFinite(meanPpg[key]) ? meanPpg[key] : null,
+        adjusted: {}, vorp: {}, indexed: {}, estimated: {}, estimatedPath: {}, reasons: {}, ddfByVersion: {} };
+      sourceKeys.forEach(function (src) {
+        var c = rowCell(src, key);
+        if (c.player) {
+          row.adjusted[src] = c.player.adjusted;
+          row.vorp[src] = c.player.vorpDisplay;
+          if (c.player.estimated) {
+            var est = out[src].positions[row.pos].estimates[key];
+            row.estimated[src] = est.reason;
+            row.estimatedPath[src] = est.path;
+          }
+        } else if (c.status === "below_depth") {
+          row.adjusted[src] = 0;
+          row.vorp[src] = 0;
+          row.reasons[src] = c.reason;
+        } else {
+          row.adjusted[src] = null;
+          row.vorp[src] = null;
+          row.reasons[src] = c.reason;
+        }
+      });
+      Object.keys(versionSources).forEach(function (version) {
+        var keys = versionSources[version].filter(function (k) {
+          return !selection || selection.indexOf(k) !== -1;
+        });
+        var used = [], sum = 0;
+        keys.forEach(function (k) {
+          var v = row.adjusted[k];
+          if (!vpFinite(v)) return;
+          used.push(k); sum += v;
+        });
+        var entry = { value: used.length ? sum / used.length : null, count: used.length, sources: used,
+          lowConfidence: used.length === 1, reason: null };
+        if (!included.length) entry.reason = "No source available this week";
+        else if (!used.length) entry.reason = "No source prices this player";
+        else if (used.length === 1) entry.reason = "Only one source prices this player";
+        row.ddfByVersion[version] = entry;
+      });
+      rows[key] = row;
+    });
+
+    // --- VP-6.4 Indexed. Its basis is blended DDF Value over I. Reading
+    // (VP-1.5): the reader's input selection "never changes ... any source's
+    // values", and Indexed is a source's values, so the basis ignores the
+    // selection; with no selection it is exactly the displayed blended value.
+    var indexBasis = {};
+    rowKeys.forEach(function (key) {
+      var sum = 0, n = 0;
+      included.forEach(function (k) {
+        var v = rows[key].adjusted[k];
+        if (!vpFinite(v)) return;
+        sum += v; n += 1;
+      });
+      indexBasis[key] = n ? sum / n : null;
+    });
+    var indexed = {};
+    sourceKeys.forEach(function (src) {
+      var o = out[src];
+      if (o.family !== "chart") return;
+      var ddfTotal = 0, nativeTotal = 0, n = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        listed[src][pos].forEach(function (r) {
+          var d = indexBasis[r.key];
+          if (!vpFinite(d)) return;
+          ddfTotal += d; nativeTotal += r.native; n += 1;
+        });
+      });
+      // Ruling 7 (JEG-508): a basis total <= 0 gives a null factor, never 0.
+      var factor = n && nativeTotal > 0 && ddfTotal > 0 ? ddfTotal / nativeTotal : null;
+      indexed[src] = { factor: factor, sharedPlayers: n, ddfTotal: ddfTotal, nativeTotal: nativeTotal };
+      o.indexedFactor = factor;
+      rowKeys.forEach(function (key) {
+        var row = rows[key];
+        var p = o.players[key];
+        if (p) {
+          row.indexed[src] = factor === null ? null : p.native * factor;
+          if (factor === null) row.reasons[src] = row.reasons[src] || "Not enough shared players to index";
+        } else {
+          // Lead's ruling 4 (JEG-508): with a null factor the whole chart's
+          // Indexed series is null, players below rosterable depth included.
+          row.indexed[src] = factor !== null && row.adjusted[src] === 0 ? 0 : null;
+        }
+      });
+    });
+    sourceKeys.forEach(function (src) {
+      if (out[src].family === "projection") {
+        out[src].indexedFactor = null;
+        rowKeys.forEach(function (key) { rows[key].indexed[src] = rows[key].adjusted[src]; });
+      }
+    });
+
+    // --- VP-7 slot fill, tiers, ranking.
+    var slotFill = allocation;
+    if (!slotFill) {
+      var ddfOrders = {};
+      POSITION_ORDER.forEach(function (pos) {
+        ddfOrders[pos] = rowKeys.filter(function (k) {
+          return rows[k].pos === pos && vpFinite(rows[k].ddfByVersion.blended.value);
+        }).map(function (k) { return { key: k, score: rows[k].ddfByVersion.blended.value }; })
+          .sort(function (a, b) { return a.score !== b.score ? b.score - a.score : vpNumKey(a.key, b.key); });
+      });
+      slotFill = vpAllocate(ddfOrders, setting);
+    }
+    POSITION_ORDER.forEach(function (pos) {
+      var ranked = rowKeys.filter(function (k) {
+        return rows[k].pos === pos && vpFinite(rows[k].ddfByVersion.blended.value);
+      }).sort(function (a, b) {
+        var da = rows[a].ddfByVersion.blended.value, db = rows[b].ddfByVersion.blended.value;
+        if (da !== db) return db - da;
+        var ma = rows[a].meanPpg, mb = rows[b].meanPpg;
+        if (ma !== mb) {
+          if (ma === null) return 1;
+          if (mb === null) return -1;
+          return mb - ma;
+        }
+        return vpNumKey(a, b);
+      });
+      ranked.forEach(function (k, i) {
+        var rank = i + 1;
+        var v = rows[k].ddfByVersion.blended.value;
+        rows[k].tier = v === 0 ? "waiver"
+          : (rank <= slotFill[pos].starters ? "starter" : (rank <= slotFill[pos].rostered ? "bench" : "waiver"));
+      });
+    });
+    rowKeys.forEach(function (k) { if (rows[k].tier === undefined) rows[k].tier = null; });
+    var defaultRanking = rowKeys.slice().sort(function (a, b) {
+      var da = rows[a].ddfByVersion.blended.value, db = rows[b].ddfByVersion.blended.value;
+      var fa = vpFinite(da), fb = vpFinite(db);
+      if (fa !== fb) return fa ? -1 : 1;
+      if (fa && da !== db) return db - da;
+      return vpNumKey(a, b);
+    });
+
+    return {
+      version: VALUE_PIPELINE_VERSION,
+      setting: setting,
+      pie: pie,
+      benchShare: bsInput,
+      benchShareApplied: bsStar,
+      included: included,
+      excluded: excluded,
+      degenerate: degenerate,
+      meanPpg: meanPpg,
+      allocation: allocation,
+      slotFill: slotFill,
+      fillSets: fillSets,
+      starterMixMean: Sraw,
+      benchMixMean: Braw,
+      ddfWeights: W,
+      budgets: budgets,
+      sources: out,
+      indexed: indexed,
+      rows: rows,
+      defaultRanking: defaultRanking
+    };
+  }
+
+  // Compact, JSON-safe summary for TradeValueCurveDiagnostics.valuePipeline
+  // (VP-11). Player-level detail stays on the rows.
+  function valuePipelineDiagnostics(result) {
+    var sources = {};
+    Object.keys(result.sources).forEach(function (src) {
+      var o = result.sources[src];
+      var positions = {};
+      POSITION_ORDER.forEach(function (pos) {
+        var p = o.positions[pos];
+        var estimates = {};
+        Object.keys(p.estimates).forEach(function (k) {
+          var e = p.estimates[k];
+          var peers = {};
+          Object.keys(e.peers).forEach(function (peer) {
+            var r = e.peers[peer];
+            peers[peer] = { usable: r.usable, fitPlayers: r.fitPlayers, ratio: r.ratio, estimate: r.estimate };
+          });
+          estimates[k] = { path: e.path, peers: peers, curve: e.curve || null, raw: e.raw, cap: e.cap,
+            capped: e.capped, value: e.value, reason: e.reason };
+        });
+        positions[pos] = { method: p.method, waiver: p.waiver, starterLine: p.starterLine,
+          starters: p.starters, rostered: p.rostered, listed: p.listed, nEstimated: p.nEstimated,
+          estimates: estimates };
+      });
+      sources[src] = { family: o.family, included: o.included, totalVorp: o.totalVorp, groups: o.groups,
+        weights: o.weights, starterMix: o.starterMix, benchMix: o.benchMix, rates: o.rates,
+        unfundedGroups: o.unfundedGroups, unfundedMoved: o.unfundedMoved, vorpFactor: o.vorpFactor,
+        indexedFactor: o.indexedFactor === undefined ? null : o.indexedFactor, positions: positions };
+    });
+    return {
+      version: result.version, setting: result.setting, pie: result.pie, benchShare: result.benchShare,
+      benchShareApplied: result.benchShareApplied, included: result.included, excluded: result.excluded,
+      degenerate: result.degenerate, ddfWeights: result.ddfWeights, allocation: result.allocation,
+      slotFill: result.slotFill, fillSets: result.fillSets, sources: sources
+    };
+  }
+
   root.ValueModel = {
+    VALUE_PIPELINE_VERSION: VALUE_PIPELINE_VERSION,
+    VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
+    VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
+    runValuePipeline: runValuePipeline,
+    valuePipelineDiagnostics: valuePipelineDiagnostics,
     compositeValue: compositeValue,
     PUBLISHED_DERIVATION_VERSION: PUBLISHED_DERIVATION_VERSION,
     SAVED_SETUP_TEAMS: SAVED_SETUP_TEAMS,

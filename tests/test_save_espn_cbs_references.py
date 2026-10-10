@@ -69,6 +69,11 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         mod.fetch_players = lambda: PLAYERS
         mod.upsert_rows = lambda table, rows, conflict: self.writes.append((table, rows, conflict))
         mod.count_rows = lambda table, params: sum(len(rows) for t, rows, _ in self.writes if t == table)
+        # ESPN saves prune the stored set to this save's keys (JEG-480): the
+        # fake store is what this test wrote, so nothing is stale.
+        self._fetch_rows, self._delete_rows = mod.fetch_rows, mod.delete_rows
+        mod.fetch_rows = lambda table, params: [r for t, rows, _ in self.writes if t == table for r in rows]
+        mod.delete_rows = lambda table, params: self.fail(f"unexpected delete {params}")
         # Mock WriterAudit to avoid Supabase calls in tests
         self._orig_audit = mod.WriterAudit
         class MockAudit:
@@ -88,6 +93,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         mod.fetch_players = self._fetch
         mod.upsert_rows = self._upsert
         mod.count_rows = self._count
+        mod.fetch_rows, mod.delete_rows = self._fetch_rows, self._delete_rows
         mod.WriterAudit = self._orig_audit
 
     def write_inputs(self, csv_rows=None, tables=None, meta_vintage="2026-09-21"):
@@ -183,14 +189,14 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
     # -- guard: FantasyPros "Kenny Gainwell" resolves (GAP-FP-NAME-RESOLVE) ------
     # defect: the Week 5 FantasyPros chart row "Kenny Gainwell" (RB, value 1.7)
     # went unresolved because players.full_name is "Kenneth Gainwell".
-    # pull_fantasypros.py calls resolve_name directly, so pin it there.
+    # pull_fantasypros.py calls resolve_canonical directly (JEG-539), so pin it there.
     def test_fantasypros_kenny_gainwell_resolves(self):
-        index = mod.build_name_index(PLAYERS)
-        key, rec, _ = mod.resolve_name("Kenny Gainwell", "RB", index)
+        registry = mod.build_registry(PLAYERS)
+        key, rec, _ = mod.resolve_canonical("Kenny Gainwell", "RB", registry)
         self.assertEqual(key, 785)
         self.assertEqual(rec["full_name"], "Kenneth Gainwell")
         # exact-match only: a near spelling still fails closed
-        self.assertIsNone(mod.resolve_name("Kenny Gainwel", "RB", index)[0])
+        self.assertIsNone(mod.resolve_canonical("Kenny Gainwel", "RB", registry)[0])
 
     # -- guard: the alias map is exact-match only, never fuzzy -------------------
     # defect: the alias map silently becoming a fuzzy matcher and guessing

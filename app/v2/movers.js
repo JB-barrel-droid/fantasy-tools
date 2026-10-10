@@ -13,20 +13,24 @@
 (function (root) {
   "use strict";
 
-  // Series with saved weeks, in picker order: the published charts (Indexed)
-  // and the two projection sources the engine recomputes. ESPN is the common
+  // Series with saved weeks: the DDF Value first (JEG-465, the default), the published
+  // charts (Indexed) and the projection sources the engine recomputes. ESPN is the common
   // scale and has no recomputed prior week (engine reason, risk HISTORY-ESPN-PRIOR).
-  const SERIES = ["fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros", "razzball", "espn"];
+  // The page's picker groups them (JEG-474); this order is only the order within a group.
+  const SERIES = ["ddf_value", "fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros", "razzball", "espn"];
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
   // One player's Δ for one series. prior: the getPriorWeek result.
   function deltaFor(current, prior, playerKey) {
     if (!prior || !prior.available) return {delta: null, reason: (prior && prior.reason) || "no prior week"};
+    // JEG-471: getPriorWeek("ddf_value") returns both sides over the same inputs; the current side
+    // is currentValues, never the row's value (which may average inputs the prior week lacks).
+    if (prior.currentValues) current = prior.currentValues[playerKey];
     if (!finite(current)) return {delta: null, reason: "no value this week"};
     const before = prior.values ? prior.values[playerKey] : undefined;
     if (!finite(before)) return {delta: null, reason: `not priced in Week ${prior.priorWeek}`};
-    return {delta: current - before, before, reason: null};
+    return {delta: current - before, before, current, reason: null};
   }
 
   // rows: engine rows (getRows). series: one key. prior: getPriorWeek(series).
@@ -40,14 +44,17 @@
     let noCurrent = 0;
     let unchanged = 0;
     rows.forEach((row, index) => {
-      const current = row.values ? row.values[series] : null;
-      const d = deltaFor(current, prior, String(row.player_key));
+      const playerKey = String(row.player_key);
+      // The "now" side is the one Δ is taken from: the prior result's currentValues when it
+      // has them (DDF Value), else the row's own value for this series.
+      const current = prior.currentValues ? prior.currentValues[playerKey] : (row.values ? row.values[series] : null);
+      const d = deltaFor(row.values ? row.values[series] : null, prior, playerKey);
       if (d.delta === null) {
         if (!finite(current)) noCurrent += 1;
         else noPrior += 1;
         return;
       }
-      const item = {row, order: index + 1, current, before: d.before, delta: d.delta};
+      const item = {row, order: index + 1, current: d.current, before: d.before, delta: d.delta};
       if (Math.abs(d.delta) < 0.05) unchanged += 1;   // shows as 0.0: neither a riser nor a faller
       else movers.push(item);
     });

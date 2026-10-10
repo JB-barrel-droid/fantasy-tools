@@ -85,11 +85,11 @@ managers will accept. Sell where a public chart pays more than we would, buy whe
 It keeps the frame's layout (table on desktop, cards below 768 px), but the comparison is one exact
 pair per column, not a spread across sources:
 
-- Our value = one engine projection-derived DDF series, picked in "Our value" (Jeremy,
-  2026-10-07): `espn` (ESPN, default), `cbsros` (CBS rest-of-season) or `razzball`. One series at a
-  time, never a blend. A series unavailable at the current setting is listed disabled with its
-  reason; if the picked one becomes unavailable the tab fails closed rather than swapping. The pick
-  is v2 module state, so it survives switching tabs (no storage, like the other v2 selections).
+- Our value = one engine series, picked in "Our value": `ddf_value` (DDF Value, the default since
+  JEG-455, 2026-10-08), or the projections `espn`, `cbsros` (CBS rest-of-season) and `razzball` as
+  alternatives. A series unavailable at the current setting is listed disabled with its reason; if
+  the picked one becomes unavailable the tab fails closed rather than swapping. The pick survives
+  switching tabs and is remembered on this device (see "Trade targets: DDF Value as our value").
 - Each published chart = the engine's Indexed series (`usatoday`, `fantasycalc`, `fantasypros`,
   `cbs`), which the engine puts on the same trade-value point scale. VORP vs waivers is never
   paired with anything.
@@ -466,6 +466,13 @@ Answered 2026-10-08 by the history contract below (branch `feat/week-history`): 
 CBS ROS and Razzball get prior weeks, and ESPN, the Adjusted series and the VORP vs waivers series
 return "Δ —" with a reason.
 
+**BE-3 · DDF Value for an earlier week pair (Risers & fallers, JEG-465).** `getPriorWeek("ddf_value")`
+prices the served pair over the same inputs on both sides. An earlier pair (Week N−1 → N) can only be
+built from two `getWeekValues("ddf_value", week)` calls, which may average different inputs, so the Δ
+would mix a change of inputs with a change of values. v2 therefore offers only the served pair for DDF
+Value. Request: `getWeekPair("ddf_value", week)` (or a `week` argument to `getPriorWeek` that accepts
+any saved pair) returning `{values, currentValues, sources, dropped, ...}` over one input set.
+
 **BE-2 · Editable position shares and superflex (frames 11, 12).** Frame 11 lets the reader set QB /
 RB / WR / TE shares of total value; frame 12 has a SUPERFLEX slot. The engine exposes
 `getPositionWeights()` but no setter, and `setRosterSpot` knows QB, RB, WR, TE, FLEX, BENCH (K and DST
@@ -491,6 +498,30 @@ Answered 2026-10-08 (JEG-452), position shares, in `TradeValueCurveControls`:
 - A scoring or teams change resets the shares to that league's defaults. How far an edit reaches
   (today: the live calibration, the ESPN anchor and the `*_adjusted` series) is open as
   `docs/math-review-agenda.md` MR-16.
+
+**BE-4 · Per-value missing reasons (2026-10-08).** Confirmed by the back end: `row.missingReasons[seriesKey]`
+(string) for every null value (adjusted fallbacks such as "Not enough players to fit an adjustment" or "Adjustment fit
+refused (order would invert)", shallow charts, held or not-yet-published sources, `ddf_value`). v2 reads it through
+`missingReason()`; until it ships, v2 shows its generic reason.
+
+## Back-end contract: native rank (JEG-482, 2026-10-08)
+
+A published chart's Indexed ("as published") values are its native values times one factor, so the
+chart's own order is kept at every league setting (methodology, The Three Views). The front end can
+now say where the publisher itself ranks a player, read-only, in `TradeValueCurveControls`:
+
+- `getNativeRank(playerKey, source)`: the player's rank on that publisher's own list at the active
+  scoring (its superflex list when the roster has a superflex slot and the publisher publishes one),
+  1 = highest native value; ties share the better rank. `null` when the chart does not price him or
+  `source` is not a published chart (`fantasycalc`, `usatoday`, `fantasypros`, `cbs`). Use it for
+  "#3 on FantasyCalc" next to the Indexed value in the player drawer and the table tooltip.
+- `getNativeRanks(source)`: every rank as `{playerKey: rank}` (one call per chart for a table),
+  or `null` for a source that is not a published chart.
+
+Ranks are over the charted players (canonical QB/RB/WR/TE), so a publisher list that includes
+K/DST or unmatched names can show a slightly different number on its own site. The rank
+guard (`dist/modules/rank-guard.json`, schema `rank-guard-v1`) and
+`TradeValueCurveDiagnostics.indexedOrder` report whether the Indexed order matches it.
 
 ## Back-end contract: history
 
@@ -592,7 +623,13 @@ movement, not a move in our projections.
 
 - Published charts: `ValueModel.derivePublishedSetup` on the saved natives. This is the function
   that prices the chart off the saved setup, and it reproduces the saved values on it.
-  - Indexed view only. In the other views the result is `available: false` with the reason.
+  - VORP vs waivers / Adjusted values tabs (JEG-479, 2026-10-09): `ValueModel.derivePublishedViews`,
+    the current week's batch, on every chart's saved natives for that week (own natives and player
+    set, peers, the Adjusted 0-70 batch) with the current league, roster and anchor group totals.
+    Equal natives keep the served list's order (the saved files store natives by player id). A
+    chart with nothing saved for the week is out of that week's batch. Every setting derives the
+    tabs live since VA-3 (Jeremy, 2026-10-09: "Compute live everywhere."), Full PPR / 12 / standard roster
+    included. Proof: the served week fed back reproduces each chart's tab values exactly.
 - CBS ROS and Razzball: `ddfTwoTierValuesForSource` on the saved projections, then
   `normalizedAdjustedMapFor`, with the same below-the-leg 0 rule as the table.
 - ESPN (2026-10-08, HISTORY-ESPN-PRIOR): that week's two-tier leg, built by the pipeline's own
@@ -660,44 +697,114 @@ Cadence"):
 - Projections (ESPN, CBS ROS, Razzball): probed every 4 h with the last slot at 23:25 UTC, so a
   Monday change is saved inside week N, and re-scraped at least every 20 h even when unchanged.
 
-## Back-end contract: DDF Value (JEG-471 part 1, 2026-10-08)
+## Back-end contract: DDF Value (JEG-471 / JEG-479 / JEG-497, 2026-10-08/09)
 
-The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series,
-key `ddf_value`. v2 reads it; it does no blend math. Inputs are the seven adjusted series
-`espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted, cbs_adjusted`.
+> **Superseded (JEG-508)** once the Value Pipeline implementation merges. The
+> target contract is `docs/methodology.md` VP-11:
+> - The inputs are the source keys and their Adjusted values. The
+>   `*_adjusted` keys are retired.
+> - There are three versions, `ddf_value`, `ddf_value_charts` and
+>   `ddf_value_projections`, each one number in every tab (shipped with JEG-497, #465).
+> - `ddfByVersion` replaces `ddfByView` (shipped with JEG-497, #465).
+> - The composite calls take a `version` instead of a `view`.
+> - There is a new `TradeValueCurveDiagnostics.valuePipeline`.
+>
+> Every other field name below keeps its meaning. Until then, this section
+> describes the engine.
 
-- **Rows.** Every `getRows()` / `getAllRows()` row has `values.ddf_value` (number, or `null` when no
-  included input prices the player), `ddfCount` (inputs averaged), `ddfSources` (their keys) and
-  `ddfTier` (`"starter" | "bench" | "waiver"`, `null` with no DDF Value). `getPlayerValues()` also
-  carries `values.ddf_value`.
-- **Rank and zones.** `setLockOrder("ddf_value")` ranks by it and `getRankSource()` returns
-  `"ddf_value"`; the lock survives scoring and team changes. `getZones()` then sits at the DDF
+The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series in
+three versions: `ddf_value` (all seven inputs), `ddf_value_charts` (the four published charts) and
+`ddf_value_projections` (ESPN, CBS rest of season, Razzball). v2 reads them; it does no blend math.
+Each is the equal-weight mean of its inputs' **Adjusted values** only, ONE number per player, the
+same in every view and tab, for the current and the prior week over the same inputs. One input
+pricing a player gives that value, flagged low confidence; none gives no value (Jeremy 2026-10-09).
+Input keys: `espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted,
+cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj_values`).
+
+**Stable for v2 (lead, 2026-10-08/09).**
+1. `values.ddf_value` is the blended DDF Value and does not change with the view tab. v2 reads that
+   key; `values.ddf_value_charts` and `values.ddf_value_projections` are the other two versions.
+2. When a version is null, `row.missingReasons[version]` is a string (today always "No source
+   prices this player"); for the blend also `row.ddfReason`.
+3. In `getCompositeInputs().excluded`, an input the reader deselected has the exact reason
+   `"not selected"`; v2 lets readers re-tick only those. Every other reason is a different,
+   human-readable string shown disabled: `held: <reason>`, `not yet published for week N`,
+   `no prior week: <why>`, `missing from this build`, `not available for <scoring> / <teams>
+   teams`. A held or unpublished input reads as such even when it is also deselected.
+4. `getPriorWeek(version)`: **Δ = `currentValues[pk]` − `values[pk]`**.
+5. `setCompositeInputs(list)` silently drops held and not-yet-published keys and succeeds, so a stale
+   saved list still works; v2 re-reads `getCompositeInputs()` afterwards.
+
+- **Rows.** Every `getRows()` / `getAllRows()` row has:
+  - `values.ddf_value`, `values.ddf_value_charts`, `values.ddf_value_projections` (number or `null`).
+  - `ddfCount`, `ddfChartsCount`, `ddfProjectionsCount`: inputs pricing him in each version.
+  - `ddfLowConfidence` + `ddfConfidenceNote` (blend), `ddfChartsLowConfidence`,
+    `ddfProjectionsLowConfidence`: `true` when exactly one input prices him (the value is that
+    input's); the note is "Only one source prices this player", else `null`.
+  - `ddfSources` (blend: the series averaged for him), `ddfReason` (blend, `null` with a value).
+  - `ddfPrior`, `ddfPriorCount`, `ddfPriorLowConfidence` (blend, prior week, same inputs).
+  - `ddfTier` (`"starter" | "bench" | "waiver"` by the blend; `null` without one; a one-source
+    value counts).
+  - `ddfByVersion: {blended, charts, projections}`, each `{value, count, sources, reason,
+    lowConfidence, confidenceNote, prior, priorCount, priorLowConfidence}`.
+  - `getPlayerValues()` also carries the three version keys.
+- **Missing values (JEG-479, 2026-10-09).** Every row has `missingReasons: {[seriesKey]: string}`
+  with an entry for each `null` in `row.values` (and none for a number). Texts: `Chart doesn't list
+  players this deep at <pos>` (a published chart too shallow there; a fully loaded chart gives 0
+  instead, `docs/methodology.md` "Published Charts On The Rows"), `Not enough players to fit an
+  adjustment` / `Adjustment fit refused (order would invert)` (a `*_adjusted` identity-fallback
+  cell), `Adjustment data failed to load` (every `*_adjusted` null when `getLoadStatus()` reports the
+  adjustment inputs failed), `<ESPN | CBS rest of season | Razzball> doesn't project this player`,
+  `No adjustment for this player's group`, `Missing from this build`, `Paused while it waits on
+  fresh adjustment inputs`, `Not available for <scoring> / <teams> teams`, and for the three DDF
+  keys "No source prices this player". A held or not-yet-published series keeps its kept section's
+  values, so it is not null for that reason; its DDF exclusion is in `getCompositeInputs().excluded`.
+- **Rank and zones.** `setLockOrder("ddf_value")` ranks by the blend and `getRankSource()` returns
+  `"ddf_value"`; the lock survives scoring, team and view changes. `getZones()` then sits at the DDF
   tier counts in a position view (All: teams × slots, as for every series).
 - **Source info.** `getSourceInfo()` is unchanged (plotted series only).
-  `getSourceInfo({includeComposite: true})` appends `{key: "ddf_value", label: "DDF Value",
-  longLabel: "DDF Composite Value", composite: true, inputs, isDefault, week, stale, available,
-  active: false, ...}`. It is never in `getActiveSources()` and is not drawn on the chart.
-- **Inputs.** `getCompositeInputs()` → `{inputs, requested, isDefault, defaults, allowed, excluded:
-  [{key, reason}]}`; `inputs` are the series averaged at this setting. `setCompositeInputs(keys,
-  publish = true)`: `keys` is an array of the seven keys (order and duplicates ignored), `null` or
-  `"default"` restores the defaults (choosing exactly the defaults is the default). Returns `{ok:
-  true, ...getCompositeInputs()}`; an empty array, an unknown key, a non-array or a set with no
-  input available at this setting returns `{ok: false, error}` and changes nothing. It recomputes
-  only the DDF fields, redraws, fires `trade-value-rows-change`, and (unless `publish` is false)
-  `trade-value-shared-change` whose detail carries `compositeInputs` (`null` = defaults).
-  `resetCompositeInputs(publish = true)` = `setCompositeInputs(null)`. Chosen inputs persist
-  across league changes; one unavailable at a setting is skipped there.
-- **Recompute.** Every rebuild (scoring, teams, roster, bench share, position shares, position
-  tab, view) recomputes it from the rebuilt series.
-- **History.** `getPriorWeek("ddf_value"[, week])` resolves to `{source, week, available, reason?,
-  values, counts, currentValues, currentCounts, sources, dropped: [{source, reason}], inputs,
-  currentWeek, priorWeek, setting, method}`. The pair is the newest served week among the inputs
-  (`currentWeek`) and the week before (`priorWeek`). `sources` are the inputs that have that pair;
-  the rest are in `dropped`. Both sides average exactly `sources`, so
-  **Δ = `currentValues[pk]` − `values[pk]`** (not `row.values.ddf_value`, which may average more
-  inputs). Label it e.g. "DDF Value · 5 of 7 sources have a prior week" from `sources.length` and
-  `inputs.length`. `getWeekValues("ddf_value", week)` gives `{values, counts, sources, dropped, ...}`
-  for any saved week; `getHistoryWeeks("ddf_value")` the saved weeks any input has.
+  `getSourceInfo({includeComposite: true})` appends one entry per version: `{key, label ("DDF
+  Value", "DDF Value (charts)", "DDF Value (projections)"), longLabel, composite: true, inputs,
+  series, isDefault, week, priorWeek, stale: false, available, active: false, ...}`. None is in
+  `getActiveSources()` or drawn.
+- **Inputs.** `getCompositeInputs([version])` (`version` is `"blended"` (default), `"charts"`,
+  `"projections"` or the matching `ddf_value*` key; anything else reads the blend) → `{version, inputs, series,
+  requested, isDefault, defaults, allowed, excluded: [{key, series, reason, ...}], held,
+  notPublished, currentWeek, priorWeek, priorAvailable, priorReason, minSources: 1}`. `inputs` are
+  the input keys averaged in that version and `series` the series they contribute. A held entry
+  also has `heldBy` (the section carrying the hold), `holdField` (`validationHold` |
+  `promotionHold`), `holdWeek`, `holdRoot` (the source whose disagreement caused it) and
+  `holdKeptWeek`; an unpublished one has `notPublished: true`. `defaults` are the inputs a reader
+  can choose this week. `setCompositeInputs(keys, publish = true)`: `keys` is an array of the seven
+  keys (order and duplicates ignored), `null` or `"default"` restores the defaults (choosing exactly
+  the defaults is the default); every version uses its share of the choice. Held / unpublished keys
+  are dropped and listed in `dropped`; if that leaves no usable input the defaults apply
+  (`fellBackToDefaults: true`). Returns `{ok: true, ...getCompositeInputs()}`; an empty array, an
+  unknown key, a non-array, or a list with no usable input and nothing dropped returns `{ok: false,
+  error}` and changes nothing. It recomputes only the DDF fields, redraws, fires
+  `trade-value-rows-change`, and (unless `publish` is false) `trade-value-shared-change` whose
+  detail carries `compositeInputs` (`null` = defaults). `resetCompositeInputs(publish = true)` =
+  `setCompositeInputs(null)`. Chosen inputs persist across league changes; one unavailable at a
+  setting is skipped there.
+- **Values.** `getCompositeValues([version])` → `{version, inputs, series, currentWeek, priorWeek,
+  priorAvailable, priorReason, current, currentCounts, prior, priorCounts, minSources}` (objects
+  keyed by `player_key`; players without a value are absent; `prior` is `null` without a prior
+  week).
+- **Recompute.** Every rebuild (scoring, teams, roster, bench share, position shares) recomputes the
+  three versions. A view switch leaves them unchanged.
+- **History.** `getPriorWeek(version[, week])` resolves to `{source, week, available, reason?,
+  values, counts, currentValues, currentCounts, sources, seriesValues, dropped: [], inputs, series,
+  excluded, currentWeek, priorWeek, version, minSources, setting, method}`. `sources` are the series
+  averaged in both weeks; `currentValues` equal the rows' `values[version]` and `values` its prior;
+  `seriesValues` is each input's prior week as averaged (a chart's with the rows' chart rules). An
+  input without the prior week is not in either week (it is in `excluded` with `no prior week:
+  ...`). Label it e.g. "DDF Value · 3 of 7 sources" from `inputs.length`. `getWeekValues(version,
+  week)` gives `{values, counts, sources, dropped, ...}` for any saved week over the same inputs;
+  `getHistoryWeeks(version)` the saved weeks any input has. The per-series `getWeekValues` /
+  `getPriorWeek` return a saved week as priced (no row rules).
+- **Today's data.** Since JEG-479 "Build prior week" and VA-3 (Jeremy, 2026-10-09: "Compute live everywhere.",
+  the saved `vorp_views` retired) every chart has earlier Adjusted values at every setting, so all
+  seven inputs count in both weeks.
 
 ## Multi-device pass (2026-10-08)
 
@@ -876,3 +983,201 @@ Supersedes the Player values parts of "Chart options (21)" and "Navigator and va
   `--v2-heat-*` (light and dark). `--v2-chart-h` = `clamp(280px, calc(100vh - 490px), 42vh)`: the 490 px is the
   shared header plus the toolbar at 1366 × 768; if the Methods bar merge makes the header shorter, the chart
   simply grows. Stacked layouts (768–1279) use `clamp(280px, 36vh, 400px)`.
+
+## Data fidelity: freshness fails closed, bench share shown as used (2026-10-08, fe-fidelity)
+
+- **Source freshness fails closed.** A source shows "✓ Current" only when its own rows in
+  `assets/reference-freshness.json` (`comparison.source.<pub>` and `source_import.<pub>`) both report
+  `freshness_ok === true`. A missing or unreadable file, or a missing row, shows "? Freshness unknown" (amber,
+  "We couldn't confirm when X last updated."), never a tick. "Not updating" and "Prior week" are unchanged and
+  take precedence. The header chip says "all sources current" only when every root source is confirmed; otherwise
+  e.g. "Week 5 · ⚠ 2 sources unconfirmed" (and "checking sources…" until the file has loaded).
+- **Bench share shown is the share used.** Below a position's feasible window the engine prices at a higher share
+  (`bench_share_used`; PPR 12 teams at 2%: QB 7.5%, RB/WR/TE 4.4–4.7%). v2 reads it from the new read-only
+  `TradeValueCurveControls.getBenchShareUsed(share?)` (per position, null when withheld) and shows the lowest–highest
+  used share in the Weights & bench readout and Starters / Bench split, on How values work, and in the shared-link
+  notice. When it differs from the request one note says so: "Bench 2.0% requested · priced at 4.4–7.5% (lowest
+  the league supports)". The slider position and the share link (`bench=`) still carry the request. The
+  "Bench share moved from … to …" league notice is about the setting and is unchanged.
+
+## DDF Value in v2: defaults, Customize, remembered choice (2026-10-08, JEG-471 v2 side / JEG-466 part 2)
+
+Built on the engine's "Back-end contract: DDF Value" above. v2 still does no value math.
+
+- **Series:** `ddf_value` is a first-class v2 series, with method "ddf", the ★ symbol and brand orange (#A84410 light, #F28C5B dark, at least 4.5:1). It sorts first everywhere, has its own "DDF Value" group in the table, and its chart line is drawn last and heavier (3.5 px).
+- **Shown on/off:** whether DDF Value is shown is v2's own flag (`ddfShown`), because the composite has no engine toggle. `TradeValueV2.shown()` lists the shown series and `TradeValueV2.setShown(keys)` does what Customize's Done does; tests use both.
+- **Default (first visit):** DDF Value plus every available as-published chart, ranked by DDF Value (`setLockOrder("ddf_value")`).
+- **Customize:** the DDF Value group lists the engine's allowed inputs (`getCompositeInputs().allowed`), ticked where the engine uses them.
+  - Only "not selected" inputs are selectable. A held, prior-week or unavailable source shows the engine's reason and is disabled (JEG-479: never a DDF input).
+  - A missing DDF Value shows "—" with `row.ddfReason` when the engine gives one (JEG-479: fewer than two sources).
+  - v2 reads `values.ddf_value` and never assumes which view it belongs to, so JEG-479's per-view DDF values need no change here.
+  - On Done, a changed input set goes to `setCompositeInputs`.
+  - Reset to default restores both the default shown set and `defaults`.
+- **Remembered on this device (JEG-455 decision):** `localStorage["ddf.v2.selection"]` holds `{v: 1, shown, inputs (null = engine defaults), rank}`.
+  - It is written on Customize Done and on a Rank by change, and read once at start-up, before a shared link is applied.
+  - Storage errors are ignored, in which case the choice lasts the visit.
+- **Reset** on Player values also restores Rank by to DDF Value (Jeremy, 2026-10-08).
+- **Δ prior week for DDF Value:** `movers.deltaFor` uses the prior result's `currentValues` when present, so both sides cover the same inputs.
+- **Copy:** the footer no longer says "no blended score". It now reads "DDF Value is our value, built from the inputs you choose in Customize. Every other series keeps its source's identity." Nothing explains the MR-17 methodology yet.
+- **Tests:** `tests/test_v2_ddf_render.py` (test-unit), with 9 deliberately broken builds. The compare, offer, panels, states and waterfall tests now read the shown set from `TradeValueV2.shown()`, and widen it where a check needs several methods.
+
+## Shared series picker, Risers by DDF Value, verdict by DDF Value (2026-10-08, JEG-466 / 465 / 467)
+
+- **One picker (JEG-466).** `renderSeriesPicker(select, entries, selected)` in v2.js draws every per-tab
+  series choice: Player values' Rank by (`#v2RankBy`), Risers & fallers' series (`#v2RSeries`) and Compare's
+  Player values shown (`#v2CShown`). It is a native `<select>` (keyboard and screen-reader behaviour for
+  free) with one `<optgroup>` per JEG-474 group in vocabulary order, DDF Value first: DDF Value,
+  Projections, Trade charts (adjusted), Trade charts (as published), Value above waivers (Advanced).
+  - Option label: symbol + the series in group words (`groupSeriesName`: "ESPN projection", "FantasyCalc
+    chart (adjusted)", "FantasyCalc chart (as published)", "ESPN value above waivers").
+  - A series on a prior week gets "· Wk N" in its label (the `priorWeekInfo` short text; the full sentence
+    is the option's title).
+  - A series that cannot be picked is listed disabled with its reason in the label ("— no prior week:
+    …", "— not available for this league", "— waiting on fresh inputs").
+  - 44 px tall on every tab (Compare's picker was 36 px).
+- **Risers & fallers (JEG-465).** `movers.SERIES` starts with `ddf_value`; the tab opens on DDF Value
+  whenever the engine has its prior week (`RISERS_DEFAULT`), else on the first series that has one.
+  - DDF Value's Δ and its "before → now" are `getPriorWeek("ddf_value")` `currentValues − values`
+    (`buildMovers` now reads "now" from `currentValues` too, not the row's value).
+  - The meta line says "DDF Value · N of M sources have a prior week"; inputs the engine dropped from
+    both weeks are listed with their reasons. The counts of players not compared stay.
+  - Only the served week pair is offered for DDF Value (see BE-3).
+  - Copy names every series in group words ("FantasyCalc chart (as published)", "Razzball projection").
+- **Compare a trade (JEG-467).** "Player values shown" defaults to DDF Value (then the ranking series).
+  - The verdict reads DDF Value whenever DDF Value is shown and available, whatever the picker says
+    (`verdictSeries` in `collectCompare`). The picker drives the side cards' values and totals; the
+    per-source table and its waterfalls show every series as before; the verdict card's waterfall is
+    the verdict series'. With DDF Value not shown, the verdict reads the picked series (Jeremy, 2026-10-08:
+    the verdict follows the picked series when DDF Value is hidden).
+  - With a DDF Value missing for a player, the verdict says so and points to the table rather than
+    to the picker.
+  - The DDF Value row is first in "Difference by source & method", with a brand-orange edge, a bold
+    name and the words "★ Decides the verdict".
+- **Tests.** `test_v2_risers_render` (DDF movers equal the engine's `currentValues − values`; opens on
+  DDF Value; grouped picker for Risers and Rank by, one series forced to "no prior week" is disabled
+  with its reason; broken builds: picker ungrouped, Risers default not DDF). `test_v2_waterfall_render`
+  (verdict = DDF Value net from engine values with the picker on another series; verdict-card waterfall
+  = DDF Value's row; broken build: verdict follows the picker). `test_v2_compare_render` (DDF Value row
+  first and marked; Values shown grouped and opening on DDF Value). `test_v2_offer_render` (side values
+  follow the picker, DDF Value included). `test_v2_movers` (DDF "now" from `currentValues`).
+
+## Trade targets: DDF Value as our value; tier follows the series (2026-10-08, JEG-455 / JEG-456 part 2)
+
+- **Our value (JEG-455):** `TradeValueTargets.OUR_KEYS` is `ddf_value, espn, cbsros, razzball`; the default
+  is DDF Value and the projections stay as choices. Each is one engine series read as is (targets.js does
+  only the gap subtraction).
+- **Source count:** with DDF Value, each row's Our value (table cell and phone card) carries "from N sources"
+  (`row.ddfCount`; the tooltip names `row.ddfSources`). A player whose picked value is null cannot be a target;
+  he is counted in "N players left out", now followed by the engine's reasons (`missingReason`), most common first.
+  If a null ever reaches a row, the cell shows "—" with the reason.
+- **Remembered on this device:** `localStorage["ddf.v2.targets"] = {v: 1, ours}`, written on change, read once at
+  start; storage errors are ignored (the choice then lasts the visit).
+- **Copy:** subtitle "We check four published trade charts against our values for your league. …" (headline
+  unchanged). The footnote's "Our value is …" follows the pick: "the DDF Value, built from the inputs chosen in
+  Customize on Player values", or "<projection> with Data Driven Adjustments".
+- **Tier (Jeremy's ruling, everywhere in v2):** one helper, `tierFor(row, key, scope)` / `tierText(...)` in v2.js;
+  `row.espnRole` is no longer read anywhere in app/v2.
+  - `ddf_value` → `row.ddfTier`.
+  - Any other series → the player's rank by that series within `scope.rows` against the engine's roster zones
+    (rank < `starter_to_bench` = Starter, < `bench_to_waiver` = Bench, else Waiver). When the series is the engine's
+    own ranking (Player values' Rank by), the rank is the row order (`fullRank`) and the zones are `getZones()`, exactly
+    the chart's lines. Otherwise the zones come from the new read-only accessor `getZonesFor(key, pos)`. "—" when
+    the series has no value for the player.
+  - Player values (tooltip, Tier column, sub-line, drawer): Rank by. Trade targets (sub-lines, drawer opened from the
+    tab): the tab's Our value, over the engine's rows at the current position. Compare a trade (player sub-line, drawer
+    opened from it): the verdict series, over every priced player against the All-positions zones.
+- **One-source DDF Value (Jeremy, 2026-10-08):** "Show the value it would be with one source if it's there, but flag
+  the issue for the user." When the engine sets `row.ddfLowConfidence` (one input prices the player; `values.ddf_value`
+  = that input, `ddfCount` 1, `ddfConfidenceNote`), v2 shows the value with the tag "◐ 1 source" (Jeremy, 2026-10-09: the engine's
+  `ddfConfidenceNote` is the tooltip and part of the accessible name, "1 source: Only one source prices this player") everywhere the DDF Value appears: Trade targets (in place of "from N sources"; such players are targets),
+  the Player values table and chart tooltip, the drawer hero and matrix, and Compare's player values and per-series
+  lines. With 0 inputs the player is still left out and counted. Until the engine ships the flag, tests simulate it.
+- **Native rank (JEG-482):** an opened Trade targets row shows "#N on <publisher>" per chart from
+  `getNativeRank(playerKey, chart)` (the publisher's own order, before indexing). Not on phone cards (width).
+- **Waiver-line test:** current data has no chart value at or below 0 (JEG-482 pure rescale), so the render suite
+  simulates one (`SIMULATE_ROWS`) to keep the "0.0 · waiver line, no gap, never a buy" rule tested.
+- **Engine accessor added (read-only):** `TradeValueCurveControls.getZonesFor(key, pos = current)` →
+  `{starter_to_bench, bench_to_waiver}` (ordinal + 0.5, unclamped), the same roster ordinals `getZones()` uses for a
+  non-composite ranking; `null` for `ddf_value` (use `ddfTier`). Needed because `getZones()` follows the engine's
+  current ranking (DDF tier counts in a position view when ranked by DDF Value), which is not the Trade targets series.
+- **Missing reasons (every tab):** `missingReason(key, row)` reads `row.missingReasons[key]` first (back end confirmed
+  the field; not shipped yet), then `row.ddfReason` for DDF Value, then the generic line. Used by the Player values
+  table and chart tooltip, the drawer hero and matrix, and Compare's player values. A finite 0 always shows "0.0".
+- **Tests:** tests/test_v2_targets.py (DDF default, ESPN alternative, one-source player kept; broken builds: default reverted to ESPN, DDF
+  Value dropped from the choices). tests/test_v2_targets_render.py (Our value = engine `ddf_value`, "from N sources" =
+  `ddfCount`, tier = `ddfTier`; ESPN / CBS / Razzball through the picker with the tier from that series' rank; pick
+  remembered after a reload; broken builds: default reverted to ESPN, tier from espnRole, source count missing, pick
+  not remembered). tests/test_v2_ddf_render.py (Player values tier ranked by DDF Value and by one other series; a
+  simulated `missingReasons` entry shows "—" with that reason and a finite 0 shows "0.0"; broken builds: tier from
+  espnRole, engine reason ignored). test_below_leg_zero_render and test_espn_zero_badge_render now pick ESPN
+  explicitly (they test the ESPN-0 rule).
+
+## Player values: expand, Reset zoom, filter chips (JEG-483, 2026-10-08)
+
+Restores usability the above-the-fold pass (JEG-470) compressed; that layout stays. Supersedes "Reset zoom
+removed" and the small "Set exact values" link in the JEG-470/472/473/475 section above.
+
+- **Expand chart (⤢).** A 44 px button in the plot corner, in the `.v2-zoom` group. It opens `#v2Expand`: a large
+  dialog over a dimmed page on desktop (scrim, ✕, Esc, focus kept inside, focus back on ⤢ when closed), full screen
+  below 768 px. The live `#v2Plot` node moves into the dialog and back on close (a placeholder holds its height), so
+  there is one chart, one pair of brushes and one state: a brush or zoom there is the toolbar's Show, the table's
+  rows and the chart card's chart. Inside: a ~75vh plot with both brushes (the Y brush shows at 390 too), quick
+  Top 25 / 50 / 100 / All buttons that set Show, "Y axis fits the value range" (on by default; the Y brush also
+  rescales the Y axis there and lines outside it are clipped, never clamped) and the legend. `renderCharts()` runs on
+  open, close and resize; the chart sizes from its container.
+- **Player names when zoomed.** Kept on the main chart (names under each point once points are 64 px apart). The
+  expanded chart staggers names on two lines, so it names players from 34 px apart (Top 25 at 1440 names all 25).
+- **Expand table.** "⤢ Expand" in the table card head moves `#v2TableWrap` into the same dialog at full height.
+  Pos / Team / Tier are their own sortable columns there (Tier sorts Starter, Bench, Waiver); sticky header,
+  heat tint and Show more paging are unchanged because it is the same table.
+- **Tier** in the expanded table uses the one v2 helper, `tierFor` / `tierText` (Trade targets), like every tab; it
+  sorts Starter, Bench, Waiver, then —. The "◐ 1 source" tag shows in the expanded table and the expanded chart's
+  hover card because they are the main table and chart.
+- **Reset zoom.** In the plot corner, shown only while Show is Custom from a zoom, brush or exact ranks. The Show
+  preset in force before the zoom is remembered (`state.zoomFrom`); Reset zoom clears the rank-window zoom and the
+  value range and returns to that preset. Search, position, sort, Δ and Rank by stay. The toolbar Reset is unchanged.
+  `state.rankZoom` records whether the rank window itself was zoomed; a Custom that came only from the value range
+  uses the remembered preset's rank window, and clearing the range returns Show to that preset.
+- **Filter chips.** Under the toolbar, one chip per active filter: "Value 12–30 ✕", "Ranks 20–60 ✕",
+  "Search: jsn ✕", "Position: WR ✕". Each clears only its own filter (the ranks chip keeps the value range and
+  vice versa). 32 px visual, 44 px hit area.
+- **Set exact values** is now a 44 px, 13 px-text button at the end of the chart card's title line (it was a 10 px
+  link under the Y brush).
+- **Tests:** `tests/test_v2_expand_render.py` (test-unit), with 9 deliberately broken builds. `test_v2_panels_render`
+  now allows ⤢ and Reset zoom inside the chart.
+- **Jeremy's answers (2026-10-09):** Reset zoom clears both brushes; "Y axis fits the value range" is on by default;
+  "Set exact values" stays on the chart card's title line; Tier follows the ranking series on every tab (done with
+  `tierFor` / `tierText`; this branch's own `tierOf` was dropped). The Y axis
+  is never capped at a fixed value: it scales from the largest value shown (indexed values can exceed 70).
+
+## Manifesto tab (Jeremy, 2026-10-09)
+
+- **What:** Jeremy's "Fantasy Football Manifesto" as a long-form page at `#manifesto`, first in the nav ("Manifesto"). The landing tab stays Trade targets; Manifesto is only first in nav order.
+- **Text:** in `app/v2/shell.html` (`#v2Manifesto`), verbatim from his Google Doc "Fantasy Football Manifesto V2" (read 2026-10-09). Only the HTML structure is ours: h1 = the doc title, 12 numbered h2 sections, paragraphs, bold, lists. Do not edit his sentences; replace the whole text from the doc when he revises it.
+- **Brand:** a small "Data Driven Football" eyebrow above the h1.
+- **Plain text only (Jeremy, 2026-10-09: "Why does manifesto need so many controls. Its text."):** no contents list, no links to the tool, no buttons. A first build had both; they were removed before shipping.
+- **Chrome:** the league bar and the Showing bar are hidden on this tab (no values on it). The nav freshness label still updates.
+- **No engine needed:** the page shows as soon as the script runs, without the loading card, and still shows if the engine fails (`applyStatic()` in v2.js).
+- **Layout:** one 70ch text column, 17 px / 1.7 (16 px / 1.65 below 768 px), v2 tokens and Inter. No horizontal scroll at 390 px; the six short tab labels still fit on one row.
+- **Tests:** `tests/test_v2_manifesto_render.py` (test-unit), with 4 deliberately broken builds (section 7 dropped, Manifesto not first, a link added to the text, Manifesto as landing). It also checks the tab has no links, buttons or form controls. `test_v2_nav_render` checks Manifesto is first; `test_v2_a11y_render` includes the tab in its contrast sweep.
+
+## Feature contract test (JEG-506, 2026-10-09)
+
+The contract is Jeremy's Google Doc "Data Driven Football: feature contract"
+(https://docs.google.com/document/d/1UDRlVTdOiAdI6gSSklxwB-R9uINozVmIILMwbvCBiH0). The Doc is the source of truth.
+
+Workflow rule (Jeremy):
+- A change that breaks a contract line doesn't ship.
+- Changing or removing a line needs Jeremy's yes, recorded in the Doc. Then re-export the Doc and regenerate the mirror; never edit the mirror to change the contract.
+
+How it works:
+- `docs/feature-contract.md` mirrors the Doc. Regenerate it with `python scripts/sync_feature_contract.py <exported text>` (a file or `-` for stdin). CI has no Google auth, so the script only cleans text you export (Drive connector or File > Download > Markdown) and adds the header.
+- `tests/test_v2_contract_render.py`:
+  - `CHECKS` maps every ID in the mirror to a check function, or to `PENDING("JEG-xxx")` for a line marked "to build: JEG-xxx". A pending entry may carry a partial check of what already exists (GL-17 for Player values).
+  - The unit test (`ContractMirrorTest`, no browser) fails when a mirror ID has no entry, when CHECKS has an ID the Doc dropped, when a "to build" line has a live check or the wrong ticket, or when a live line is still pending. `WORDING_HOLDS` is the only exception: TT-05 is held on JEG-510 until "indexed" becomes "rescaled".
+  - `SUBPART_HOLDS` lists part of a live line that is not built yet. GL-11's "Edit league is the primary control" is held on JEG-498, because no primary styling exists yet. GL-11 still checks that #v2EditLeague and #v2Weights exist, found by ID rather than label ("Weights & bench" becomes "Position weights" in JEG-537). It also checks that league edits stay a draft until Apply. The mirror test fails if the held wording leaves the Doc line.
+  - The render test does one page load per scenario (Player values with two reloads, the other tabs in one page including a shared Compare trade, 390 px across all tabs, engine failure), then runs every live check against those snapshots. About a minute on this machine.
+  - Checks are presence plus basic behaviour. Deep correctness stays in the other `test_v2_*` suites; GL-02 checks one engine value per tab.
+  - Fixtures, so checks never pass vacuously: the freshness file is fixed (current, prior week, unknown, not updating), and every fifth priced player is flagged one-source in what `getRows` / `getAllRows` return (Week 5 has no one-source players, so GL-03 / TT-08 would otherwise see no "◐ 1 source" tag). Values are untouched.
+  - `test_guard_fails_on_broken_builds` serves broken v2.js / v2.css / shell.html through page routes and requires the named check to report a real finding for each fault (13 faults over 11 IDs, three grouped runs).
+- When a ticket ships a pending line: Jeremy drops "to build" in the Doc, the mirror is regenerated, the mirror test fails, and the shipping ticket replaces `PENDING` with a real check.

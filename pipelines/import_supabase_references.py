@@ -463,6 +463,27 @@ def scope_superflex_rows(
     return [r for r in rows if r.get("week") == week and r.get("bake_id") == bake_id]
 
 
+# JEG-480: save_usatoday_references stores a published player the save-time
+# reindex cannot price (no ESPN anchor pair, e.g. Tyreek Hill week 5) with
+# value NULL and the published native_value. The chain prices every chart
+# from native_value (build_comparison_source_section), so such a row is
+# priced by its native_value here instead of going to review, like the
+# superflex rows below. Other sources keep the strict rule.
+# JEG-512: save_fantasycalc_references calls the same apply_reindex, so it
+# stores the same NULL-value rows (Tyreek Hill, bake fcwk5_2026-10-09t1705);
+# left strict, they went to review and import health held FantasyCalc.
+NATIVE_PRICED_SOURCES = ("usatoday", "fantasycalc")
+
+
+def native_priced(source: str, row: dict[str, Any]) -> dict[str, Any]:
+    """`row`, with value = native_value when `source` stores unanchored rows
+    with a NULL value and the row has a numeric native_value."""
+    if (source in NATIVE_PRICED_SOURCES and parse_float(row.get("value")) is None
+            and parse_float(row.get("native_value")) is not None):
+        return dict(row, value=row.get("native_value"))
+    return row
+
+
 def normalize_superflex_rows(
     rows: list[dict[str, Any]], names: dict[int, str]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -566,7 +587,7 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
     clean_rows: list[dict[str, Any]] = []
     review_rows: list[dict[str, Any]] = []
     for row in rows:
-        clean, review = normalize_db_row(row, names)
+        clean, review = normalize_db_row(native_priced(source, row), names)
         if clean is not None:
             clean_rows.append(clean)
         else:
@@ -1030,6 +1051,11 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             "public.razzball_projections. Never writing an empty snapshot."
         )
     rows, scoped_date = _select_latest_snapshot_date(rows, date_key="razzball_snapshot_date")
+    # GAP-RAZZBALL-CHART-BEHIND-STORED: a date re-saved in place keeps rows of
+    # players the publisher dropped since; only the newest save is the snapshot.
+    sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+    from latest_save import latest_save_rows  # noqa: PLC0415
+    rows, superseded = latest_save_rows(rows)
     date_scope_note = (
         f" import scoped to latest snapshot date present ({scoped_date})"
         if scoped_date is not None else ""
@@ -1134,6 +1160,13 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         ),
         "row_count": len(clean_rows),
         "review_count": len(review_rows),
+        # Rows of the same date from an earlier save (players the publisher
+        # has dropped since); never priced. Not part of the snapshot id.
+        "superseded_rows": [
+            {"player_key": r.get("player_key"), "player_norm": r.get("player_norm"),
+             "pulled_at": r.get("pulled_at")}
+            for r in superseded
+        ],
     }
     manifest_fields = {
         "supabase_table": SOURCE_TABLES["razzball"],
@@ -1142,7 +1175,8 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             "public.razzball_projections (latest snapshot date); native Razzball "
             "shape (rz_*_ppg from per_game_*, other row fields from raw_stats "
             "verbatim); pos and team from the table (Razzball's own labels; "
-            "public.players.position only as a fallback)"
+            "public.players.position only as a fallback); newest save of "
+            f"that date only ({len(superseded)} superseded rows dropped)"
             f"{date_scope_note}"
         ),
         "content_vintage": content_vintage,

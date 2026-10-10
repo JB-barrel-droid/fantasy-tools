@@ -444,7 +444,7 @@ def collect_overlay_page(fixture, widget_override=None):
             page.goto(url, wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueCurveHarness && window.TradeValueCurveDiagnostics",
                                    timeout=20000)
-            out["sf1"] = page.evaluate(SET_AND_READ, [1, list(PAGE_SOURCES)])
+            out["sf1"] = page.evaluate(SET_AND_READ, [1, list(PAGE_SOURCES) + ["espn"]])
             out["sf0"] = page.evaluate(SET_AND_READ, [0, list(PAGE_SOURCES)])
             out["errors"] = errors
         finally:
@@ -457,7 +457,7 @@ def overlay_problems(widget_override=None):
     from functools import partial
     from pipelines.vorp_translation import unified
     from tests.test_published_league_settings_engine import (
-        SAVED_SHAPE, browser_players, compare_maps, expected_derived)
+        browser_inputs, browser_players)
 
     fixture = injected_fixture()
     got = collect_overlay_page(fixture, widget_override)
@@ -469,13 +469,19 @@ def overlay_problems(widget_override=None):
         path.write_text(json.dumps(fixture))
         loader = partial(unified.load_native_values, fixture_path=path)
         with mock.patch.object(unified, "load_native_values", loader):
+            # JEG-508 (VP-6.4): Indexed = the overlaid natives times ONE
+            # factor against blended DDF Value (no longer the ESPN anchor):
+            # value / overlay native is one constant over the listed players.
             for source in PAGE_SOURCES:
                 values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
-                expected = expected_derived(source, "ppr", 12, {**SAVED_SHAPE, "SUPERFLEX": 1},
-                                            fixture, pos_of)
-                diffs, _ = compare_maps(expected, values)
-                if diffs:
-                    problems.append(f"superflex {source}: {diffs[:2]}")
+                native, _saved, _ = browser_inputs(fixture, pos_of, source, "ppr", superflex=True)
+                native = {k: v for k, v in native if v > 0}
+                missing = sorted(set(native) - set(values))
+                if missing:
+                    problems.append(f"superflex {source}: listed players not plotted {missing[:5]}")
+                ratios = [values[k] / v for k, v in native.items() if k in values]
+                if not ratios or max(ratios) - min(ratios) > 1e-9 * max(ratios):
+                    problems.append(f"superflex {source}: Indexed is not one factor on the overlaid natives")
     for source in PAGE_SOURCES:
         if got["sf0"]["maps"][source] != plain["sf0"]["maps"][source]:
             problems.append(f"{source}: values moved without a superflex slot")

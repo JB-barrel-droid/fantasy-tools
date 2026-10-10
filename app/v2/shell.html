@@ -4,6 +4,7 @@
     <div class="v2-nav-inner">
       <a class="v2-brand" href="v2/#trade-targets">Data Driven Football</a>
       <nav class="v2-tabs" aria-label="Views">
+        <a class="v2-tab" href="v2/#manifesto" data-view="manifesto" data-short="Manifesto"><span class="v2-tab-full">Manifesto</span></a>
         <a class="v2-tab" href="v2/#player-values" data-view="values" data-short="Values"><span class="v2-tab-full">Player values</span></a>
         <a class="v2-tab is-active" href="v2/#trade-targets" data-view="targets" aria-current="page" data-short="Targets"><span class="v2-tab-full">Trade targets</span></a>
         <a class="v2-tab" href="v2/#risers-fallers" data-view="risers" data-short="Movers"><span class="v2-tab-full">Risers &amp; fallers</span></a>
@@ -16,7 +17,7 @@
     </div>
   </header>
 
-  <section class="v2-league" aria-label="League settings">
+  <section class="v2-league" id="v2League" aria-label="League settings">
     <div class="v2-wrap v2-league-inner">
       <strong id="v2LeagueName">—</strong>
       <span class="v2-meta" id="v2RosterLine">—</span>
@@ -89,6 +90,8 @@
       <button type="button" class="v2-select" id="v2More" aria-haspopup="dialog" aria-expanded="false">More</button>
       <button type="button" class="v2-btn v2-reset" id="v2Reset">Reset</button>
     </div>
+    <!-- JEG-483: one chip per active filter; each ✕ clears only that filter. -->
+    <div class="v2-fchips" id="v2FilterChips" role="group" aria-label="Active filters" hidden></div>
     <p class="v2-filter-note" id="v2FilterNote" hidden></p>
     <div class="v2-notice" id="v2Notice" role="status" hidden>
       <p id="v2NoticeText"></p>
@@ -100,6 +103,7 @@
       <div class="v2-card-head v2-chart-head">
         <h2 id="v2ChartTitle">Trade value by player rank</h2>
         <div class="v2-legend" id="v2Legend"></div>
+        <button type="button" class="v2-select v2-yexact" id="v2YExact" aria-haspopup="dialog">Set exact values</button>
       </div>
       <div class="v2-empty" id="v2Empty" hidden>
         <p><span aria-hidden="true">∅</span> <b id="v2EmptyTitle">No players match.</b></p>
@@ -125,11 +129,12 @@
         <div class="v2-plot-main">
           <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
           <div class="v2-zoom" role="group" aria-label="Zoom">
+            <button type="button" class="v2-zoom-reset" id="v2ResetZoom" hidden>Reset zoom</button>
+            <button type="button" id="v2ExpandChart" aria-label="Expand chart" title="Expand chart" aria-haspopup="dialog">⤢</button>
             <button type="button" id="v2ZoomOut" aria-label="Zoom out">−</button>
             <button type="button" id="v2ZoomIn" aria-label="Zoom in">+</button>
           </div>
         </div>
-        <button type="button" class="v2-link v2-yexact" id="v2YExact" aria-haspopup="dialog">Set exact values</button>
         <div class="v2-brush">
           <div class="v2-brush-track" id="v2Brush">
             <svg class="v2-brush-overview" id="v2BrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
@@ -148,6 +153,7 @@
         <h2 id="v2TableTitle">All selected values</h2>
         <p class="v2-meta" id="v2TableMeta">—</p>
         <button type="button" class="v2-select" id="v2Columns" aria-haspopup="dialog" aria-expanded="false">Columns</button>
+        <button type="button" class="v2-select v2-texpand-btn" id="v2ExpandTable" aria-haspopup="dialog"><span aria-hidden="true">⤢</span> Expand</button>
       </div>
       <div class="v2-table-wrap" id="v2TableWrap">
         <table class="v2-table v2-vtable" id="v2Table"></table>
@@ -168,7 +174,32 @@
       <div class="v2-chart v2-chart-small" id="v2VorpChart"></div>
     </section>
 
-    <p class="v2-footnote">Values keep each source's identity. No blended or consensus score is shown. A missing value shows —, never zero.</p>
+    <!-- JEG-483: expanded chart or table. The live plot / table box moves in here while open, so every
+         control keeps one id and one state; it moves back on close. -->
+    <div class="v2-expand" id="v2Expand" hidden>
+      <div class="v2-expand-box" role="dialog" aria-modal="true" aria-labelledby="v2ExpandTitle">
+        <div class="v2-expand-head">
+          <div class="v2-expand-titles">
+            <h2 id="v2ExpandTitle">Trade value by player rank</h2>
+            <p class="v2-meta" id="v2ExpandMeta"></p>
+          </div>
+          <button type="button" class="v2-btn v2-panel-close" id="v2ExpandClose" aria-label="Close expanded view">✕</button>
+        </div>
+        <div class="v2-expand-tools" id="v2ExpandTools">
+          <div class="v2-xshow" role="group" aria-label="Show">
+            <button type="button" data-xshow="25">Top 25</button>
+            <button type="button" data-xshow="50">Top 50</button>
+            <button type="button" data-xshow="100">Top 100</button>
+            <button type="button" data-xshow="all">All</button>
+          </div>
+          <button type="button" class="v2-select" id="v2AxisZoom" aria-pressed="true">Y axis fits the value range · On</button>
+          <div class="v2-legend" id="v2ExpandLegend"></div>
+        </div>
+        <div class="v2-expand-body" id="v2ExpandBody"></div>
+      </div>
+    </div>
+
+    <p class="v2-footnote">DDF Value is our value, built from the inputs you choose in Customize. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -176,7 +207,7 @@
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
     <div class="v2-title v2-ttitle">
       <h1 id="v2TargetsTitle">Where the trade market is wrong this week</h1>
-      <p>We check four published trade charts against our projection-based values for your league. Sell the players they overpay for; buy the ones they undervalue.</p>
+      <p>We check four published trade charts against our values for your league. Sell the players they overpay for; buy the ones they undervalue.</p>
     </div>
 
     <div class="v2-filters v2-tfilters" role="search">
@@ -237,7 +268,7 @@
     </div>
 
     <p class="v2-filter-note v2-tnote" id="v2TNote" hidden></p>
-    <p class="v2-footnote" id="v2TFootnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">ESPN projections</span> with Data Driven Adjustments; each published chart is indexed to the same point scale. <span id="v2TPriorNote"></span>VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">the DDF Value, built from the inputs chosen in Customize on Player values</span>; each published chart is indexed to the same point scale. <span id="v2TPriorNote"></span>VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -420,6 +451,7 @@
       <p><strong data-engine="league" id="v2HowLeague">—</strong> <span class="v2-meta" data-engine="roster" id="v2HowRoster">—</span></p>
       <p>Position weights <span data-engine="weights" id="v2HowWeights">—</span></p>
       <p>Bench allocation <span data-engine="bench" id="v2HowBench">—</span> · Adjust from Weights &amp; bench.</p>
+      <p class="v2-meta is-older" data-engine="bench-note" data-bench-note id="v2HowBenchNote" hidden></p>
       <button type="button" class="v2-btn v2-btn-primary" id="v2HowWeightsBtn" aria-haspopup="dialog">Weights &amp; bench</button>
     </section>
 
@@ -437,6 +469,171 @@
     </section>
 
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
+  </main>
+
+  <!-- Manifesto (Jeremy, 2026-10-09): Jeremy's own text, verbatim; only the HTML structure and the eyebrow
+       are ours. Plain text, no controls (Jeremy). Static, so it shows without waiting for the engine. -->
+  <main class="v2-wrap v2-main v2-mf" id="v2Manifesto" hidden aria-labelledby="v2ManifestoTitle">
+    <article class="v2-mf-text">
+    <p class="v2-mf-eyebrow">Data Driven Football</p>
+    <h1 id="v2ManifestoTitle">Fantasy Football Manifesto</h1>
+    <p>Fantasy football is usually treated as a game of player selection: identify the players who will outperform expectations, acquire them, and build the strongest roster.</p>
+    <p>That is part of the game, but it is not the game.</p>
+    <p>Fantasy football is better understood as a <strong>dynamic capital-allocation problem</strong>. Players are assets. Roster spots are scarce capital. Waivers provide a continuously changing replacement market. Trades provide liquidity. Information changes asset prices. And the value of an asset depends not only on how many points it will score, but on when those points occur, whether they will enter your starting lineup, what alternatives are available, and what your team is trying to accomplish.</p>
+    <p>The objective is not to accumulate the most projected fantasy points.</p>
+    <p>The objective is to continuously allocate roster resources in the way that maximizes the probability of winning a championship.</p>
+    <section class="v2-mf-sec" aria-labelledby="v2M1">
+      <h2 id="v2M1">1. A player does not have one value</h2>
+      <p>Every fantasy player has several different kinds of value.</p>
+      <p><strong>Market Value</strong> is what other managers are willing to pay for the player. Like a stock price, it changes with performance, news, injuries, sentiment, and expectations.</p>
+      <p><strong>Fundamental Value</strong> is what the player's expected production is actually worth given the league's scoring system, roster structure, and available replacement players.</p>
+      <p><strong>Portfolio Value</strong> is what that player is worth specifically to your roster.</p>
+      <p>These values can be materially different.</p>
+      <p>A player may be worth more in trade than the production he is likely to provide. Another player may be difficult to trade but unusually valuable to your team because of its construction. A backup running back may have limited standalone value but substantial value to a roster whose starters carry significant injury risk.</p>
+      <p>Winning requires understanding these differences rather than treating rankings or trade values as a universal measure of worth.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M2">
+      <h2 id="v2M2">2. The fantasy market is relatively efficient, but not perfectly efficient</h2>
+      <p>Fantasy football has an enormous amount of high-quality information.</p>
+      <p>Professional analysts publish rankings and projections continuously. Their historical performance is measurable. Sportsbooks publish sophisticated player markets. Millions of fantasy managers collectively reveal their beliefs through drafts, waivers, trades, and lineup decisions.</p>
+      <p>Because of this, consistently outperforming the market simply by "liking" different players is difficult.</p>
+      <p>Over a large enough sample, blindly trusting personal conviction over aggregated expert and market information is unlikely to be a durable advantage.</p>
+      <p>That does not mean the market is perfectly efficient.</p>
+      <p>Fantasy leagues move much more slowly than financial markets. New information can materially change a player's value before every manager in a league fully reacts. Injuries, depth-chart changes, usage shifts, coaching comments, trades, and changing projections can create temporary dislocations.</p>
+      <p>The opportunity is therefore less about permanently knowing players better than everyone else and more about identifying <strong>where market price and underlying value diverge, and acting before that gap closes</strong>.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M3">
+      <h2 id="v2M3">3. Fundamental value begins with replacement</h2>
+      <p>Fantasy points do not have equal value.</p>
+      <p>A quarterback projected for 20 points per game is not necessarily more valuable than a wide receiver projected for 15. What matters is how much production the player provides relative to the alternatives available at that position.</p>
+      <p>The relevant baseline is <strong>replacement level</strong>: the quality of player that could reasonably replace the rostered player.</p>
+      <p>Replacement level is determined by league structure.</p>
+      <p>League size matters. Starting lineup requirements matter. Flex spots matter. Superflex matters. Bench size matters. Scoring rules matter.</p>
+      <p>If only one quarterback starts per team and competent quarterbacks remain on waivers, the difference between QB10 and QB15 may have little practical value. Meanwhile, if a league starts three wide receivers plus multiple flexes, the difference between WR30 and the waiver-level replacement may be substantial.</p>
+      <p>This means player value cannot be calculated correctly without understanding the league in which the player exists.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M4">
+      <h2 id="v2M4">4. Value Above Replacement is necessary, but not sufficient</h2>
+      <p>Traditional Value Over Replacement measures the production gained by owning one player instead of an available alternative.</p>
+      <p>That is an essential foundation, but fantasy football introduces another constraint:</p>
+      <p><strong>Bench points do not count.</strong></p>
+      <p>A bench player who outscores the waiver pool by three points per week creates little value if those points never enter your lineup.</p>
+      <p>Therefore, the value of a player must consider not just his expected production above replacement, but the likelihood and magnitude of that production actually affecting a starting lineup.</p>
+      <p>This creates an important distinction between <strong>player production</strong> and <strong>usable production</strong>.</p>
+      <p>The best fantasy roster is not necessarily the roster projected to score the most total points across all of its players. It is the roster most capable of putting valuable points into starting slots when they matter.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M5">
+      <h2 id="v2M5">5. Bench players are options</h2>
+      <p>Bench players should not be evaluated like weaker starters.</p>
+      <p>They are often better understood as <strong>options on future states of the world</strong>.</p>
+      <p>A player producing waiver-level numbers today may still be extremely valuable if there is a meaningful probability that an injury, role change, trade, or performance shift would turn him into an every-week starter.</p>
+      <p>Conversely, a player who reliably produces mediocre bench-level output may have little value if there is almost no plausible path to becoming meaningfully useful.</p>
+      <p>Consider two players:</p>
+      <ul>
+        <li>Player A has predictable bench-level production and a 10% probability of becoming a strong weekly starter.</li>
+        <li>Player B currently produces at waiver level but has a 25% probability of becoming a strong weekly starter.</li>
+      </ul>
+      <p>Player B may be substantially more valuable despite having the worse current projection.</p>
+      <p>This is why upside matters.</p>
+      <p>But upside is not abstract. It should be thought of as <strong>probability-weighted future utility</strong>.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M6">
+      <h2 id="v2M6">6. Portfolio construction changes player value</h2>
+      <p>The same player can have different values on different teams.</p>
+      <p>Suppose a roster has two excellent but aging running backs and no meaningful depth behind them. A high-upside backup running back may have substantial portfolio value because there is a meaningful probability that the roster will need him.</p>
+      <p>Now suppose another roster already has three strong backup running backs. Adding a fourth may create very little additional protection because several existing players already cover the same future state.</p>
+      <p>This is diminishing marginal utility.</p>
+      <p>A player should therefore be evaluated in the context of the other assets already owned.</p>
+      <p>Questions such as these matter:</p>
+      <ul>
+        <li>How likely is this player to enter my starting lineup?</li>
+        <li>Which starter risks does he protect me against?</li>
+        <li>Do I already own players who cover the same scenarios?</li>
+        <li>What roster spot am I giving up to hold him?</li>
+        <li>What is available on waivers if I later need replacement production?</li>
+        <li>Could I trade this player for an asset with greater utility to my roster?</li>
+      </ul>
+      <p>Roster construction is therefore a portfolio-allocation problem, not simply an exercise in accumulating independently valuable players.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M7">
+      <h2 id="v2M7">7. Roster spots have opportunity cost</h2>
+      <p>Every roster slot has a cost.</p>
+      <p>Holding one player means not holding another.</p>
+      <p>That makes the waiver wire an important part of player valuation. A bench player should not be compared with zero. He should be compared with the best realistic alternative that could occupy the roster spot.</p>
+      <p>As long as useful players remain freely available, mediocre bench assets have little scarcity value.</p>
+      <p>This creates an incentive to churn the bottom of the roster aggressively when the expected value of a new option exceeds the expected value of the incumbent.</p>
+      <p>The optimal bench is not necessarily stable.</p>
+      <p>It is a portfolio of bets that should continually change as probabilities, roles, injuries, schedules, and available alternatives change.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M8">
+      <h2 id="v2M8">8. Starter-grade weeks matter more than season totals</h2>
+      <p>Fantasy football is played in discrete weekly matchups.</p>
+      <p>That means two players projected for the same number of season-long points may not have the same value.</p>
+      <p>A player who misses eight games but provides starter-quality production during the other eight can be much more useful than a player who plays every week but produces below the threshold required to meaningfully improve a starting lineup.</p>
+      <p>The second player may accumulate more usable-looking season points while contributing very little marginal value.</p>
+      <p>The relevant unit is therefore not simply <strong>total points</strong>.</p>
+      <p>It is closer to:</p>
+      <p><strong>How many weeks does this player materially improve the lineup, and by how much?</strong></p>
+      <p>This is particularly important for bench players, injured players, high-variance players, and positions where replacement production is readily available.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M9">
+      <h2 id="v2M9">9. Future fantasy value should be discounted</h2>
+      <p>There is inherent uncertainty in fantasy football.</p>
+      <p>The farther into the future a projected benefit occurs, the more opportunities there are for circumstances to change before that benefit can be realized.</p>
+      <p>Players get injured. Roles change. Teams change. Better waiver options emerge. Standings change. NFL teams change incentives. Projections become obsolete.</p>
+      <p>Therefore, all else being equal, useful production in the near term is more valuable than identical expected production much later in the season.</p>
+      <p>This does not mean future value should be ignored.</p>
+      <p>It means it should be discounted for uncertainty.</p>
+      <p>A roster spot devoted to a potential Week 14 payoff carries a larger opportunity cost than one likely to create value next week.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M10">
+      <h2 id="v2M10">10. The objective function changes during the season</h2>
+      <p>Fantasy football has two distinct competitive stages:</p>
+      <p><strong>Stage 1: Make the playoffs.</strong></p>
+      <p><strong>Stage 2: Win the playoffs.</strong></p>
+      <p>Early in the season, every team's probability of reaching the playoffs is uncertain. Immediate regular-season wins therefore have substantial value.</p>
+      <p>As standings become clearer, the optimal strategy changes.</p>
+      <p>A team fighting for the final playoff spot should continue prioritizing near-term production and weekly floor.</p>
+      <p>A team that is highly likely to make the playoffs can rationally sacrifice some regular-season expected value in exchange for greater championship upside, stronger playoff matchups, injury recovery timelines, or high-variance assets.</p>
+      <p>A team with little chance of reaching the playoffs has yet another objective: maximize the probability of producing the sequence of wins necessary to survive.</p>
+      <p>There is no single optimal player ranking independent of team state.</p>
+      <p>The value of future production changes as the probability of reaching each stage changes.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M11">
+      <h2 id="v2M11">11. Market price creates the opportunity</h2>
+      <p>Once fundamental value and portfolio value can be estimated, the market becomes actionable.</p>
+      <p>The important question is no longer simply:</p>
+      <p><strong>"Is this player good?"</strong></p>
+      <p>It becomes:</p>
+      <p><strong>"What is this player worth, what does the market think he is worth, and what is he worth specifically to me?"</strong></p>
+      <p>That creates a simple decision framework.</p>
+      <p>When <strong>Market Value is below Portfolio Value</strong>, there may be an opportunity to acquire the player.</p>
+      <p>When <strong>Market Value exceeds Portfolio Value</strong>, there may be an opportunity to sell.</p>
+      <p>When a player has low current Fundamental Value but high Option Value and low roster-slot opportunity cost, he may be an attractive stash.</p>
+      <p>When a player has low Portfolio Value but meaningful Market Value, he may be an especially attractive trade candidate.</p>
+      <p>When Market Value, Fundamental Value, and Portfolio Value are all below the best freely available alternative, the player should probably be dropped.</p>
+      <p>Fantasy football therefore becomes a continuous exercise in identifying misallocated capital.</p>
+    </section>
+    <section class="v2-mf-sec" aria-labelledby="v2M12">
+      <h2 id="v2M12">12. Winning is continuous portfolio optimization</h2>
+      <p>The fantasy season should not be thought of as a draft followed by weekly lineup decisions.</p>
+      <p>The roster is a portfolio that should continuously respond to changing information.</p>
+      <p>Every week creates new prices, new probabilities, new replacement levels, and new constraints.</p>
+      <p>The manager's job is to continually answer:</p>
+      <p><strong>What allocation of my roster spots and trade capital gives me the highest probability of ultimately winning the league?</strong></p>
+      <p>Sometimes that means making a trade.</p>
+      <p>Sometimes it means declining a seemingly fair trade.</p>
+      <p>Sometimes it means holding an injured player.</p>
+      <p>Sometimes it means dropping a recognizable player for an unknown backup.</p>
+      <p>Sometimes it means paying heavily for immediate production.</p>
+      <p>Sometimes it means sacrificing present value for playoff upside.</p>
+      <p>The correct action depends on the relationship between the player's market value, fundamental value, portfolio value, option value, timing, and the team's competitive position.</p>
+      <p>The goal is not to predict every player correctly.</p>
+      <p>The goal is to repeatedly make better allocation decisions than the other managers in the league.</p>
+      <p>Over an entire season, those small advantages compound.</p>
+      <p>That is the game.</p>
+    </section>
+    </article>
   </main>
 
   <div class="v2-status" id="v2Status" role="status" hidden></div>

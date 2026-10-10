@@ -7,9 +7,17 @@ Reads the repo pull JSON written by ops/watchdog/pull_usatoday.py --write
 
     source='usatoday', variant='as_published'
 
-Identity: names resolve through the canonical public.players registry
-(numeric player_key), fail closed -- unmatched/ambiguous names go to the
-review report, never guessed. Same rule as save_espn_cbs_references.py.
+Identity: names resolve through lib/canonical_players (JEG-438, the one
+name -> player_key rule: nicknames, the verified alias list, position,
+active over inactive), fail closed -- unmatched/ambiguous names go to the
+review report, never guessed, and every miss is a workflow warning plus an
+identity_queue row (identity-unmatched monitor). JEG-480.
+
+Every published row is stored. A row the save-time reindex cannot price (no
+ESPN anchor pair: a player ESPN does not list, e.g. Tyreek Hill week 5) is
+stored with its published native_value and value NULL, like the superflex
+rows; the chain prices every chart from native_value. Until 2026-10-09 such
+rows were dropped whole (GAP-USAT-SAVER-LEGACY-RESOLVER: 8 week-5 players).
 
 Scoring: USA Today publishes one QB column (1QB); it is reused for all
 three scorings (documented as IMPLIED, mirroring the CBS fixture). RB/WR/TE
@@ -57,8 +65,9 @@ sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import content_week  # noqa: E402
 # Reuse the Supabase plumbing and the fail-closed identity resolution.
 from save_espn_cbs_references import (  # noqa: E402
-    build_name_index,
-    resolve_name,
+    build_registry,
+    resolve_canonical,
+    warn_identity_misses,
     fetch_players,
     upsert_rows,
     count_rows,
@@ -202,7 +211,7 @@ def build_usatoday_rows(
     content_date = source_content_date(url)
 
     combos = parse_tables(payload)
-    index = build_name_index(fetch_players())
+    registry = build_registry(fetch_players())
 
     superflex = parse_superflex(payload)
 
@@ -213,7 +222,7 @@ def build_usatoday_rows(
             [(*row, 1) for row in combos[scoring]]
             + [(*row, SUPERFLEX_QB_SLOTS) for row in superflex]
         ):
-            key, _rec, canonical_pos = resolve_name(name, pos, index)
+            key, _rec, canonical_pos = resolve_canonical(name, pos, registry)
             if key is None:
                 review.append(
                     {
@@ -222,6 +231,7 @@ def build_usatoday_rows(
                         "scoring": scoring,
                         "qb_slots": qb_slots,
                         "value": value,
+                        "reason": canonical_pos,  # unmatched | ambiguous | position_conflict
                         "detail": "no single canonical players-table identity; never guessed",
                     }
                 )
@@ -298,9 +308,12 @@ def apply_reindex(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Translate clean rows' `value` onto the chart scale via reindex_section.
 
-    `native_value` is untouched (raw published number). Rows with no
+    `native_value` is untouched (raw published number). A row with no
     reindexed value (no ESPN anchor pair -- reported in the reindex review)
-    move to review: never written with an un-reindexed value, never guessed.
+    is still stored, with `value` NULL and the published `native_value`:
+    never written with an un-reindexed value, never guessed, never dropped
+    (JEG-480: the chain prices every chart from native_value, and a dropped
+    row hid the publisher's number from the chart).
     Uses pipelines/reindex_comparison_section.reindex_section directly --
     the isotonic math lives in exactly one place.
     """
@@ -348,6 +361,9 @@ def apply_reindex(
     for r in clean_rows:
         combo = f"{FIXTURE_SCORING[r['scoring']]}_{r['league_teams']}"
         val = reindexed.get((combo, r["player_norm"]))
+        row = dict(r)
+        row["value"] = val
+        final_clean.append(row)
         if val is None:
             final_review.append(
                 {
@@ -355,13 +371,9 @@ def apply_reindex(
                     "player_norm": r["player_norm"],
                     "scoring": r["scoring"],
                     "reason": "reindex: no reindexed value (no ESPN anchor pair)",
-                    "detail": "value left unwritten, never guessed",
+                    "detail": "stored with the published native_value, value NULL; never guessed",
                 }
             )
-            continue
-        row = dict(r)
-        row["value"] = val
-        final_clean.append(row)
     final_clean.extend({**r, "value": None} for r in superflex_rows)
     return final_clean, final_review
 
@@ -468,6 +480,16 @@ def save_usatoday(
             f"{len(clean)}. The write did not land as planned; investigate before re-running."
         )
 
+    warn_identity_misses("usatoday", review)
+    unpriced = sorted({r["player_norm"] for r in clean
+                       if r.get("value") is None and r.get("qb_slots") == 1})
+    if unpriced:
+        print(f"::warning title=usatoday stored without a chart-scale value::"
+              f"{len(unpriced)} players have no ESPN anchor pair; stored with the published "
+              f"native_value: {', '.join(unpriced)}", flush=True)
+    import identity_queue  # noqa: PLC0415 -- on sys.path via save_espn_cbs_references
+    identity_queue.record_misses("usatoday", review)
+
     return {
         "source": "usatoday",
         "dry_run": False,
@@ -531,9 +553,8 @@ def main() -> int:
         f"(dry_run={result['dry_run']}), {result['review_count']} in review, "
         f"bake_id={result['bake_id']}"
     )
-    if not result["dry_run"]:
-        import identity_queue  # noqa: PLC0415 -- on sys.path via save_espn_cbs_references
-        identity_queue.record_misses("usatoday", result["review"])
+    if result["dry_run"]:
+        warn_identity_misses("usatoday", result["review"])
     if result["review"]:
         review_path = args.review_out or (
             ROOT / "output" / "usatoday-save-review" / f"{result['bake_id']}.json"

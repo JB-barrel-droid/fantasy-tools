@@ -12,34 +12,26 @@ const REAL_CONSOLE_ERROR = console.error.bind(console);
 const REAL_CONSOLE_WARN = console.warn.bind(console);
 const POSITIONS = ["QB", "RB", "WR", "TE"];
 const SIM_DEFAULT_SOURCE = "cbs";
-// The JEG-5 bug class (live cells partitioned by published tiers instead of
-// DDF training tiers) is simulated on the CBS adjusted map, where the tiers
-// genuinely differ (JEG-392: on ESPN, the primary leg, the simulation moved
-// the pie by only -1.35, inside the tolerance of 2, so the guard could not
-// fail). Until 2026-10-08 this pinned the simulated total/target/delta to the
-// fixture of the day; it was re-recorded three times in three days and was
-// red on main between refreshes. It is now recompute-based: the simulated
-// broken state must use the same pie and shared-player set as the current
-// state, its delta must be its total minus that pie, and it must miss the pie
-// by at least MIN_JEG5_MISS_TOLERANCES times the guard tolerance (recorded
-// misses: -79.9, +78.2, -38.1, +59.5), so a simulation that drifts towards
-// passing (the ESPN -1.35 failure mode) fails the harness.
-const EXPECTED_JEG5 = {
-  source: "cbs_adjusted",
-  basis: "shared",
-};
-const MIN_JEG5_MISS_TOLERANCES = 10;
+// JEG-508: the guard is the fixed-pie invariant of the value pipeline (VP-5):
+// every source's Adjusted values sum to the league pie and each of its eight
+// groups to its budget, pie x DDF weight. The simulated broken state is the
+// retired ESPN-anchor rule ("ESPN group totals as DDF weights", VP-10):
+// the source's groups are paid at ESPN's own weights instead of the averaged
+// DDF weights. Its total still equals the pie (both weight sets sum to 1), so
+// a total-only guard cannot see it; the group check must, by a margin of at
+// least MIN_GROUP_MISS points in some group.
+const MIN_GROUP_MISS = 1;
 
 function parseArgs(argv) {
   const args = {
     json: false,
     assertGood: false,
     assertBad: false,
-    assertJeg5Recorded: false,
     simulate: null,
     scoring: "ppr",
     teams: 12,
     source: SIM_DEFAULT_SOURCE,
+    minGroupMiss: MIN_GROUP_MISS,
     fixtureDir: path.join(ROOT, "data", "fixtures", "current"),
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -47,12 +39,11 @@ function parseArgs(argv) {
     if (arg === "--json") args.json = true;
     else if (arg === "--assert-good") args.assertGood = true;
     else if (arg === "--assert-bad") args.assertBad = true;
-    else if (arg === "--assert-jeg5-recorded") args.assertJeg5Recorded = true;
     else if (arg === "--simulate") args.simulate = argv[++i];
     else if (arg === "--scoring") args.scoring = argv[++i];
     else if (arg === "--teams") args.teams = Number(argv[++i]);
     else if (arg === "--source") args.source = argv[++i];
-    else if (arg === "--min-miss-tolerances") args.minMissTolerances = Number(argv[++i]);
+    else if (arg === "--min-group-miss") args.minGroupMiss = Number(argv[++i]);
     else if (arg === "--fixture-dir") args.fixtureDir = path.resolve(argv[++i]);
     else if (arg === "--help" || arg === "-h") {
       usage();
@@ -65,21 +56,21 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  console.log(`Usage: node tools/guard_harness.mjs [--json] [--assert-good] [--simulate tier-mismatch --assert-bad]
+  console.log(`Usage: node tools/guard_harness.mjs [--json] [--assert-good] [--simulate espn-anchor --assert-bad]
 
 Runs the browser curve-widget guard math in Node against data/fixtures/current.
 
 Options:
   --assert-good              fail unless the current fixedPieIndexed guard passes
-  --simulate tier-mismatch   simulate the old JEG-5 published-tier partition bug
-  --assert-bad               fail unless the simulated state fails the guard
-  --assert-jeg5-recorded     additionally require the JEG-5 simulation to be
-                             self-consistent and to miss the pie by a wide margin
-  --min-miss-tolerances N    the margin, in guard tolerances (default ${MIN_JEG5_MISS_TOLERANCES})
+  --simulate espn-anchor     price one source's groups at ESPN's own weights
+                             (the retired anchor rule) instead of the DDF weights
+  --assert-bad               fail unless the simulated state fails the guard by
+                             at least --min-group-miss points in some group
+  --min-group-miss N         default ${MIN_GROUP_MISS}
   --fixture-dir PATH         read comparison-sources-data.json and players.json from PATH
   --scoring KEY              standard, half_ppr, or ppr (default ppr)
   --teams N                  8, 10, 12, or 14 (default 12)
-  --source KEY               raw source for simulation (default cbs)
+  --source KEY               source for the simulation (default cbs)
   --json                     print machine-readable JSON`);
 }
 
@@ -319,26 +310,20 @@ function round(value, digits = 6) {
 
 function normalizeCheck(check) {
   if (!check) return null;
-  const perPos = {};
-  for (const pos of POSITIONS) {
-    const row = check.perPos?.[pos];
-    if (row) perPos[pos] = {total: round(row.total, 2), pie: round(row.pie, 2), n: row.n};
-  }
+  const groups = {};
+  Object.entries(check.groups || {}).forEach(([g, row]) => {
+    groups[g] = {total: round(row.total, 4), budget: round(row.budget, 4), miss: round(row.total - row.budget, 4)};
+  });
   return {
     source: check.source,
     basis: check.basis,
-    shared: check.shared,
+    n: check.n,
     total: round(check.total),
     target: round(check.target),
     delta: round(check.delta),
+    groupsOk: check.groupsOk,
     ok: check.ok,
-    n: check.n,
-    rawTotal: check.rawTotal,
-    displayScale: check.displayScale,
-    scaleIsNull: check.scaleIsNull,
-    liveCells: check.liveCells,
-    bakedCells: check.bakedCells,
-    perPos,
+    groups,
   };
 }
 
@@ -346,61 +331,52 @@ function fixedPieSummary(diagnostics) {
   return {
     ok: diagnostics.ok,
     tolerance: diagnostics.tolerance,
+    pie: diagnostics.pie,
     checks: diagnostics.checks.map(normalizeCheck),
+    indexed: diagnostics.indexed,
   };
 }
 
-// The fixedPie check for the simulated source's map (was hard-wired to
-// ESPN; see EXPECTED_JEG5). Set from --source in main().
-let SIM_KEY = "cbs_adjusted";
+let SIM_KEY = SIM_DEFAULT_SOURCE;
 function simCheck(summary) {
   return summary.checks.find(check => check && check.source === SIM_KEY);
 }
 
-function closeEnough(actual, expected, tolerance) {
-  return Math.abs(Number(actual) - Number(expected)) <= tolerance;
-}
-
 function assertGood(summary) {
   if (!summary.ok) {
-    throw new Error(`expected current fixedPieIndexed guard to pass: ${JSON.stringify(summary.checks)}`);
+    throw new Error(`expected current fixedPieIndexed guard to pass: ${JSON.stringify(summary.checks.filter(c => !c.ok))}`);
   }
 }
 
-function assertBad(summary, tierComparison) {
+function largestGroupMiss(check) {
+  return Math.max(0, ...Object.values(check?.groups || {}).map(row => Math.abs(row.miss)));
+}
+
+function assertBad(summary, minGroupMiss) {
   const check = simCheck(summary);
   if (!check || check.ok) {
     throw new Error(`expected simulated state to fail fixedPieIndexed: ${JSON.stringify(check)}`);
   }
-  if (!tierComparison || tierComparison.mismatches <= 0) {
-    throw new Error(`expected simulated state to include tier mismatches: ${JSON.stringify(tierComparison)}`);
+  const miss = largestGroupMiss(check);
+  if (!(miss >= minGroupMiss)) {
+    throw new Error(`simulated miss ${miss} < ${minGroupMiss} points in every group`);
   }
 }
 
-function assertJEG5Recorded(summary, currentSummary, minMissTolerances = MIN_JEG5_MISS_TOLERANCES) {
-  const check = simCheck(summary);
-  if (!check || check.ok) {
-    throw new Error(`expected simulated JEG-5 state to fail fixedPieIndexed: ${JSON.stringify(check)}`);
-  }
-  const current = currentSummary && simCheck(currentSummary);
-  const failures = [];
-  if (!current) failures.push(`no current ${SIM_KEY} check to compare against`);
-  if (check.source !== EXPECTED_JEG5.source) failures.push(`source ${check.source}`);
-  if (check.basis !== EXPECTED_JEG5.basis) failures.push(`basis ${check.basis}`);
-  if (current) {
-    if (check.shared !== current.shared) failures.push(`shared ${check.shared} != current ${current.shared}`);
-    if (!closeEnough(check.target, current.target, 0.01)) failures.push(`target ${check.target} != current pie ${current.target}`);
-  }
-  if (!closeEnough(check.delta, Number(check.total) - Number(check.target), 0.01)) {
-    failures.push(`delta ${check.delta} != total ${check.total} - target ${check.target}`);
-  }
-  const minMiss = minMissTolerances * Number(summary.tolerance);
-  if (!(Math.abs(Number(check.delta)) >= minMiss)) {
-    failures.push(`simulated miss |${check.delta}| < ${minMiss} (${minMissTolerances}x tolerance)`);
-  }
-  if (failures.length) {
-    throw new Error(`simulated JEG-5 numbers drifted: ${failures.join("; ")}`);
-  }
+// The retired anchor rule on one source: its eight groups paid at ESPN's own
+// weights (budgets pie x ESPN's weight) at the source's own group totals.
+function espnAnchorMap(H, source) {
+  const result = H.pipeline();
+  const src = result.sources[source];
+  const espn = result.sources.espn;
+  if (!src || !src.hasWeights) throw new Error(`no priced source ${source} to simulate`);
+  if (!espn || !espn.weights) throw new Error("no ESPN weights to simulate the anchor rule with");
+  const rate = g => src.groups[g] > 0 ? result.pie * espn.weights[g] / src.groups[g] : 0;
+  const map = new Map();
+  Object.entries(src.players).forEach(([playerKey, p]) => {
+    map.set(Number(playerKey), rate(`${p.pos}|bench`) * p.benchSlice + rate(`${p.pos}|starter`) * p.starterSlice);
+  });
+  return map;
 }
 
 function printText(report) {
@@ -409,24 +385,14 @@ function printText(report) {
   console.log(`fixture: ${report.fixtureDir}`);
   console.log(`state: ${report.state.scoring}/${report.state.teams}, benchShare=${report.state.benchShare}`);
   console.log(`registry-derived source count: ${report.state.sourceCount}; active default count: ${report.state.activeCount}`);
-  console.log(`current fixedPieIndexed: ${report.current.fixedPie.ok ? "PASS" : "FAIL"}`);
-  if (current) {
-    console.log(`  ${SIM_KEY} total=${current.total.toFixed(6)} target=${current.target.toFixed(2)} delta=${current.delta.toFixed(6)} scale=${current.displayScale} n=${current.n} liveCells=${current.liveCells} bakedCells=${current.bakedCells}`);
-    for (const pos of POSITIONS) {
-      const row = current.perPos[pos];
-      if (row) console.log(`    ${pos}: total=${row.total.toFixed(2)} pie=${row.pie.toFixed(2)} n=${row.n}`);
-    }
-  }
+  console.log(`current fixedPieIndexed: ${report.current.fixedPie.ok ? "PASS" : "FAIL"} (pie ${report.current.fixedPie.pie})`);
+  if (current) console.log(`  ${SIM_KEY} total=${current.total} target=${current.target} groupsOk=${current.groupsOk}`);
   if (report.simulated) {
     const broken = simCheck(report.simulated.fixedPie);
     console.log(`simulated ${report.simulated.name}: ${report.simulated.fixedPie.ok ? "PASS (unexpected)" : "FAIL (expected)"}`);
-    console.log(`  tier mismatches: ${report.simulated.tierComparison.mismatches}/${report.simulated.tierComparison.compared}`);
     if (broken) {
-      console.log(`  ${SIM_KEY} total=${broken.total.toFixed(6)} target=${broken.target.toFixed(2)} delta=${broken.delta.toFixed(6)} scale=${broken.displayScale} n=${broken.n} liveCells=${broken.liveCells} bakedCells=${broken.bakedCells}`);
-      for (const pos of POSITIONS) {
-        const row = broken.perPos[pos];
-        if (row) console.log(`    ${pos}: total=${row.total.toFixed(2)} pie=${row.pie.toFixed(2)} n=${row.n}`);
-      }
+      console.log(`  ${SIM_KEY} total=${broken.total} target=${broken.target} largest group miss=${largestGroupMiss(broken)}`);
+      Object.entries(broken.groups).forEach(([g, row]) => console.log(`    ${g}: total=${row.total} budget=${row.budget}`));
     }
   }
 }
@@ -445,28 +411,21 @@ async function main() {
     chartHealthMessages: globalThis.__guardHarnessConsole,
     current: {fixedPie: currentFixedPie},
   };
+  SIM_KEY = args.source;
 
   if (args.assertGood) assertGood(currentFixedPie);
 
   if (args.simulate) {
-    if (args.simulate !== "tier-mismatch") throw new Error(`unknown simulation: ${args.simulate}`);
-    const source = args.source;
-    const mapKey = source === "espn" ? "espn" : `${source}_adjusted`;
-    SIM_KEY = mapKey;
-    const cells = H.refitLiveCells().filter(cell => cell.source === source);
-    const brokenMap = H.buildLiveAdjustedMap(source, cells, {tierPartition: "published"});
-    const brokenFixedPie = fixedPieSummary(H.fixedPieDiagnosticsForMap(mapKey, brokenMap));
-    const tierComparison = H.tierPartitionComparison(source);
+    if (args.simulate !== "espn-anchor") throw new Error(`unknown simulation: ${args.simulate}`);
+    const brokenFixedPie = fixedPieSummary(H.fixedPieDiagnosticsForMap(args.source, espnAnchorMap(H, args.source)));
     report.simulated = {
-      name: "tier-mismatch",
-      description: "JEG-5 old bug: apply live cells with published-value tiers instead of DDF training tiers",
+      name: "espn-anchor",
+      description: "Retired rule: one source's groups paid at ESPN's own weights instead of the averaged DDF weights",
       fixedPie: brokenFixedPie,
-      tierComparison,
     };
-    if (args.assertBad) assertBad(brokenFixedPie, tierComparison);
-    if (args.assertJeg5Recorded) assertJEG5Recorded(brokenFixedPie, currentFixedPie, args.minMissTolerances ?? MIN_JEG5_MISS_TOLERANCES);
-  } else if (args.assertBad || args.assertJeg5Recorded) {
-    throw new Error("--assert-bad/--assert-jeg5-recorded require --simulate tier-mismatch");
+    if (args.assertBad) assertBad(brokenFixedPie, args.minGroupMiss);
+  } else if (args.assertBad) {
+    throw new Error("--assert-bad requires --simulate espn-anchor");
   }
 
   if (args.json) console.log(JSON.stringify(report, null, 2));

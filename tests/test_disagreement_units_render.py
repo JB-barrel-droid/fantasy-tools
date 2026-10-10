@@ -110,7 +110,13 @@ READ_ROWS = """() => {
 
 class ChartDisagreementUnitsTest(unittest.TestCase):
     def _check(self, rows, excluded):
-        all_keys = sorted({key for row in rows for key in row["values"]})
+        # ddf_value is a derived series on the rows, not a plotted one, so it
+        # is never a point of the disagreement spread (JEG-479: in VORP vs
+        # waivers it averages the *_vorp series and can sit outside the
+        # points' range).
+        ddf = {"ddf_value", "ddf_value_charts", "ddf_value_projections"}  # JEG-497: three versions
+        excluded = set(excluded) | ddf
+        all_keys = sorted({key for row in rows for key in row["values"]} - ddf)
         self.assertTrue(set(PURE_VORP_KEYS) <= set(all_keys), "fixture must carry the VORP vs waivers series")
         point_keys = [key for key in all_keys if key not in excluded]
         # Independent of the page's own order: the correct order must not

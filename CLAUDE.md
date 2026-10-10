@@ -10,8 +10,52 @@ been retired. Optimize for getting fresh data live every week. Protect only what
 makes the numbers worth looking at. Methodology can be refined after launch.
 
 The live plan is the Linear ticket **JEG-440 (GO LIVE)**. Linear is the source
-of truth for status: at most 3 tickets In Progress, and Done means merged and
-live.
+of truth for status. In Progress means someone (an agent) is actively working
+on it now; Done means merged and live. There is no cap on parallel work
+(Jeremy, 2026-10-09): parallelize as much as possible with subagents, limited
+only by what can run without causing issues: no two agents editing the same
+code path, value changes paired with the Python reference on one branch, and
+merges ordered so main stays green.
+
+## Linear (team Jegabee, project Trade Value Chart)
+
+Follow the user-level "Work Tracking in Linear" rules for all work here. They
+cover: a ticket per workstream, status comments, decisions quoted on the
+ticket, delegated agents naming their ticket, and "(part of JEG-xxx)" PR titles.
+
+- The back end owns tickets for pipelines, Supabase, engine math and
+  workflows. The v2 front-end session owns its own tickets.
+- Front-end requests that need engine or data changes become back-end
+  tickets, linked to the front-end ticket.
+- Fidelity findings from the pulse, an audit or a reviewer get a ticket
+  (Urgent if live numbers are wrong) and a row in `docs/risk-register.md`.
+
+### Session ownership and takeover (Jeremy, 2026-10-10)
+
+Several Claude sessions work this repo at once: the back end, and the front end on the Windows PC and on the Mac. Linear decides who owns what.
+
+- **Owner label.** Every ticket a session works carries exactly one label from the `Session` group: `session:be`, `session:fe-pc` or `session:fe-mac`. The label is the owner; the Linear assignee stays Jeremy.
+- **Claim.** Before starting, a session:
+  1. sets the ticket In Progress;
+  2. checks that the label is its own;
+  3. comments `taken by <session> · <UTC time> · branch <name>`.
+
+  It doesn't start a ticket that carries another session's label without a takeover.
+- **Heartbeat.** While a ticket is In Progress, the owner comments at least every 4 hours of active work, at every push, and when it parks the ticket. Each comment states what's done, what's next, and the backup branch (`fe/<ticket>` or `be/<ticket>`). The owner pushes that branch to GitHub at each heartbeat, so work never lives on one machine only.
+- **Lag and takeover.** Another session may take over a ticket when:
+  - it is In Progress with no heartbeat or commit for 4 hours; or
+  - its owner session is offline or idle, and the taker's own queue is empty; or
+  - Jeremy says so.
+
+  To take over:
+  1. Comment `taking over from <session> · last heartbeat <time> · continuing from <branch>`.
+  2. Swap the Session label.
+  3. Continue from the backup branch.
+
+  The previous owner, on returning, reads the comment and doesn't resume.
+- **Idle hands.** A session with an empty queue may pick up another session's **Todo** tickets (not In Progress ones), oldest priority first. It swaps the label and comments `picked up by <session>`.
+- **Handoff.** A session that is stopping comments on each of its In Progress tickets with its state and branch, then moves them back to Todo so another session can claim them.
+- **Merge order.** Always rebase on `main` before pushing. The contract test (`tests/test_v2_contract_render.py`) and `make validate` must pass.
 
 ## Standing constraints
 
@@ -59,10 +103,13 @@ live.
 Run the 12-combo headless sweep (3 scorings × 4 league sizes) against the built
 `dist/`, and check `fixedPieIndexed` in `TradeValueCurveDiagnostics` for each.
 Pie totals agreeing across sources proves nothing about curve shape: compare
-where each position's curve starts. The published charts start at a fixed
-index (12 teams: QB/RB/WR/TE 25/70/55/30), so a published curve starting
-anywhere else is a defect; the ESPN, CBS ROS and Razzball lines start where
-their own projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
+where each position's curve starts. Since JEG-482 (2026-10-09), Indexed is one
+order-preserving factor per chart and league setting, with no per-position
+correction layer and no cap at 70. A published chart's curve therefore starts
+where its own values put it, and it must keep the publisher's ranking:
+`pipelines/check_rank_guard.py` and `tests/test_rank_guard.py` must show zero
+inversions. The ESPN, CBS ROS and Razzball lines also start where their own
+projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
 band on published charts, was retired 2026-10-08, GAP-026: publisher shape
 disagreement is the product.)
 
@@ -82,3 +129,16 @@ chart engine. Keep it current:
 - A daily scheduled task rebuilds and republishes it from `main`. When the page
   says "Logic changed since this explanation was reviewed", the narrative is
   stale: fix the text, not the numbers.
+
+## Usage: same quality, fewer tokens (JEG-524)
+
+The general rules are in the user-level "Usage Discipline" section. For this repo:
+
+- Subagents: `worker` (Sonnet) for routine lanes, `deep-worker` (Opus) for value
+  or engine math, unknown-root-cause debugging, design and final review. Brief
+  them with `docs/agent-brief-template.md`; don't paste a long shared brief.
+- Read `AGENTS.md`, then only the docs your task needs.
+  `docs/engineering-notes.md` holds the dated incident notes.
+- The lead session rotates at each GO LIVE milestone, or once context passes
+  about 150k tokens. Before telling Jeremy to start a new thread, post the
+  handoff as a comment on the active Linear ticket.

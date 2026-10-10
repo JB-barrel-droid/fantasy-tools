@@ -19,6 +19,36 @@ a crash, a parity break, or a value that contradicts a rule already decided).
 Numbers below are cited from the log or test that measured them. "Not
 measured" means nobody has run that option yet.
 
+## Answered by the Value Pipeline spec (JEG-508, 2026-10-09)
+
+Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`
+"Value Pipeline (source-neutral, 2026-10-09)" (VP-0 to VP-12) now gives the
+rule for the items below. The open choices it lists (OC-1 to OC-8) are
+waiting on Jeremy. The items stay below as history and for the measurements.
+
+| Item | Where it is answered |
+| --- | --- |
+| MR-01 | VP-5 (fixed pie) and VP-6.4. The basis counts zeros (OC-8) |
+| MR-02 | No anchor. Every source follows the roster (VP-2.2, VP-9) |
+| MR-03 | VP-6.4: natives x one factor to DDF Value (option c, re-anchored) |
+| MR-04 | VP-5.6: one factor per source to the pie |
+| MR-05 | VP-3 to VP-5: average source weights, slices (OC-3), unfunded budget (OC-5), no 70 factor |
+| MR-06 | Retired, with the fit (VP-10) |
+| MR-07 | VP-8: each week's own inputs and weights (option b) |
+| MR-08 | VP-2.4, with the peers now the included same-family sources |
+| MR-09 | VP-2.2 and OC-4 |
+| MR-10 | Option C retired (VP-10). The ChartHealth starter/bench checks no longer price anything |
+| MR-11 | The two-tier window no longer prices anything. Bench share is OC-2 |
+| MR-12 | DDF tier (VP-7.3) |
+| MR-15 | Weights come from the sources' own superflex VORP (Superseded note in "Superflex") |
+| MR-16 | VP-4.3 |
+| MR-17 | VP-6.3: Adjusted values only, three versions |
+| MR-18 | SG-1/2/3/10 go with the two-tier legs. SG-5 is VP-2.2. SG-6 is VP-5.6. SG-7/8 are VP-3 to VP-5. SG-9 is VP-2.2 and VP-2.4. SG-11 is OC-8 |
+| GAP-ADJ-CLIP-ZERO | Retired, with the live cells |
+
+MR-13 (gate) and MR-14 (consumers) are still open: pin the VP invariants once
+the open choices are answered.
+
 ## How the review runs
 
 1. **Freeze one build.** Pick one `main` commit and its fixture after the
@@ -388,6 +418,22 @@ lack the projects-0 players, so their prior value is "—", not 0.0.
 (b) Each week's own fit and anchor (total movement). (c) Show both. Not
 measured.
 
+**Update 2026-10-09 (JEG-479, "Build prior week").** The four charts now have
+a prior week in VORP vs waivers and Adjusted values. These views use no
+adjustment fit, so the only choice was the anchor. Every input that belongs
+to the chart comes from the saved week: its natives and player set, its peers'
+natives for the waiver-line extension, and the batch whose top sets the
+Adjusted 0-70 scale. The league, roster and ESPN anchor group totals (our
+position weighting) stay current, as option (a) does for every other series,
+so a chart's Δ is the publishers' movement. Ties between equal natives keep
+the served list's order. That is a stand-in: the saved files lose the
+publisher's order, and the translation gives tied players different values
+(e.g. CBS Half PPR 10 Adjusted values: Josh Downs and Carnell Tate are tied
+in CBS's list, yet one gets 9.26 and the other 4.09). Full PPR 12 standard
+is covered since VA-3 (Jeremy, 2026-10-09: "Compute live everywhere."): the saved `vorp_views`
+are retired and every setting derives live, so every chart has a prior week
+there too.
+
 **Depends on:** MR-02, MR-04, MR-05, MR-06.
 **Sources:** HISTORY-ESPN-PRIOR, GAP-R4-PROJECTION-HISTORY, `fix/weeks-tidy`
 `docs/claude-log/2026-10-08-weeks.md`.
@@ -691,53 +737,211 @@ teams, QB 6.4% -> 16.4%, the other three scaled down in proportion):
 
 ## MR-17 - DDF Composite Value: what the blend averages
 
-**Question.** The DDF Composite Value (JEG-455 / JEG-471) is the per-player
-equal-weight mean of the adjusted series. Jeremy decided the inputs (adjusted,
-not as-published or VORP), the missing-value rule, the current-week default,
-no leave-one-out, and tiers by slot count (2026-10-08). The points below were
-not decided; the engine took the reading most consistent with those decisions.
-Which should stand?
+**Question.** The DDF Composite Value (JEG-455 / JEG-471 / JEG-479 / JEG-497)
+is the per-player equal-weight mean of the included inputs' Adjusted values.
+Jeremy decided:
+- (2026-10-08) the inputs, the missing-value rule, no leave-one-out, tiers by
+  slot count, held and not-yet-published sources never included, and the same
+  inputs in both weeks;
+- (2026-10-09) a fully loaded chart's 0 for a player below its floor counts,
+  one source is enough (flagged low confidence), and the DDF Value reads each
+  source's Adjusted-view value only. There are three versions (blend, charts
+  only, projections only), each one number that is the same in every tab;
+  Indexed and VORP vs waivers never feed it.
+
+The full rule is `docs/methodology.md` "DDF Composite Value". The points
+below were not decided; the engine took the reading most consistent with those
+decisions. Which should stand?
 
 **Why it matters.** DDF Value is the default rank, Δ, tier and "our value" on
 every v2 tab, so each choice below moves the headline number.
 
-**Current behaviour** (engine, JEG-471; no existing series changed):
-- *Which series count as "trade charts".* The four bias-adjusted charts
-  (`fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted`,
-  `cbs_adjusted`). CBS ROS is a projection and is already one of the three
-  projection inputs. So with all seven in, the trade charts carry 4/7 of the
-  weight and our projections 3/7.
-- *Mixed coverage.* A player gets the mean of the series that price him, so a
-  deep player whom the short charts do not list is averaged mostly or only
-  over our projections, while a top player includes all seven. The count is
-  on every row (`ddfCount`). The inputs share one scale (MR-06, MR-10), so the
-  mean is not unit-mixed, but the mix of inputs changes down the board.
-- *Zeros.* ESPN's 0 for a player it lists at 0 (GAP-025) and a leg's 0 below
-  its lowest priced projection (GAP-ESPN-BELOW-LEG) count as values, so they
-  pull the mean down. A player only ESPN lists at 0 gets a DDF Value of 0
-  from one input.
+**Current behaviour** (engine):
+- *Which values count.* The three projections as the rows carry them, and
+  each published chart's Adjusted values (value above waivers re-weighted to
+  our group weights, VA-5). The bias-adjusted `*_adjusted` series no longer
+  feed it. With all seven in, the charts carry 4/7 of the weight and our
+  projections 3/7.
+- *Mixed coverage.* A player gets the mean of the inputs that price him. A
+  fully loaded chart prices everyone at its positions: below waivers its
+  Adjusted value is 0. So only a chart too shallow at a position leaves a deep
+  player out. Counts are on every row (`ddfCount`, `ddfChartsCount`,
+  `ddfProjectionsCount`).
+- *Zeros.* These count as values and pull the mean down:
+  - ESPN's 0 for a player it lists at 0 (GAP-025);
+  - a leg's 0 below its lowest priced projection (GAP-ESPN-BELOW-LEG);
+  - a fully loaded chart's 0 below waivers.
+
+  A clipped live cell can also produce a 0 (GAP-ADJ-CLIP-ZERO).
 - *Superflex.* No separate rule: each input enters with its own superflex
   pricing at the active roster (MR-02, MR-15). FantasyCalc's publisher basis
   is 1 QB.
-- *Tiers.* `ValueModel.roleMap` on the DDF Values (dedicated slots, then
-  superflex, then flex, then bench). A DDF Value of 0 is waiver; no DDF Value
-  is no tier. In a single-position view the zones are that position's DDF
-  tier counts; in All they stay teams x slots, as for every other series.
-- *Views.* The adjusted inputs do not change with the Indexed / VORP vs
-  waivers / Adjusted values tab, so neither does DDF Value. Their prior weeks
-  exist in Indexed only, so in the other tabs the Δ drops the four charts.
-- *Δ pair.* The newest served week among the inputs and the week before it.
-  An input serving an older week, or lacking that prior week, is dropped from
-  both sides (JEG-465).
+- *Tiers.* `ValueModel.roleMap` on the blended DDF Values (dedicated slots,
+  then superflex, then flex, then bench). A DDF Value of 0 is waiver; no DDF
+  Value means no tier.
+- *Charts' prior week (fixed 2026-10-09, JEG-479 "Build prior week").* Each
+  saved week's Adjusted values are derived with the same
+  `derivePublishedViews` batch on that week's natives for all charts (MR-07),
+  so all seven inputs count in both weeks, at every setting since VA-3 was
+  decided (Jeremy, 2026-10-09: "Compute live everywhere.").
+- *No prior week at all.* In a first week, or when the history cannot be
+  read, no input of a version has a prior week. The engine then uses every
+  eligible input for the current week and reports no Δ, rather than showing
+  no DDF Value.
+- *One source.* One input gives its own value, flagged low confidence
+  (`ddfLowConfidence`, `ddfChartsLowConfidence`,
+  `ddfProjectionsLowConfidence`).
 
 **Options.** Weight the two families equally (1/2 projections, 1/2 charts)
-instead of each series; require a minimum count before showing a DDF Value;
-leave zeros out of the mean; per-view inputs. Not measured.
+instead of each input; leave zeros out of the mean. Neither is measured.
 
 **Depends on:** MR-06, MR-10, MR-12, MR-07.
-**Sources:** JEG-455, JEG-471, JEG-456, JEG-465,
+**Sources:** JEG-455, JEG-471, JEG-479, JEG-456, JEG-465,
 `tests/test_ddf_composite_value.py`, `docs/methodology.md` "DDF Composite
 Value".
+
+## MR-18 - Spec gaps found by the clean-room spec reference
+
+**Question.** A third implementation, `pipelines/spec_reference/` (part of
+JEG-479), was written only from this file, `docs/methodology.md`, the
+claude-log decisions and the data files. It does not use the JS engine,
+`twotier_reference.py`, `parity/value_model_parity.py` or `unified.py`. Where
+the written spec could be read more than one way, which reading is right?
+Each gap below states the reading the reference took (`SPEC_GAPS` in
+`spec_reference/compare.py`) and how far the engine is from it.
+
+**Why it matters.** The two-tier and value-model ports are line-for-line
+copies of the JS, so they cannot catch a bug they copied. The spec reference
+can, but only once these readings are written down. Until then, a
+disagreement can be either a spec gap or an engine bug.
+
+**Current behaviour.** The reference runs on every `value_check.py compare`
+as the non-blocking `spec_reference` section of `value-check.json`. Measured
+on main 0d9a1108, Week 5 data, 12 settings (superflex 0) x 3 views:
+62,393 values, 24,070 over 0.05 under the reference's own readings. Reading
+SG-3, SG-7 and SG-11 the engine's way (diagnostic flags) leaves 14,492.
+Agreement with those readings: Indexed published charts 228 of 8,896 over
+(max 0.17, SG-10); CBS ROS 73 of 4,428 and Razzball 53 of 7,704 (max 0.32,
+SG-1/2); short-chart waiver lines agree position by position.
+
+- **SG-1 / SG-2, two-tier glide.** "softplus glide" and "slice pricing" are
+  named but not defined. The reference uses: starter slice =
+  min(surplus, softplus_tau(ppg - rs)), bench slice = the rest. rs (midway
+  between the last starter and the first bench player) and tau = (rs - rw) / 4
+  come from the leg artifact's recorded fields. With the share inside the
+  window, it reproduces the built legs within 0.04-0.17
+  (`tests/test_spec_reference.py`).
+- **SG-3, share above the window.** The docs say only "falls back down". The
+  reference steps one point inside the upper edge. The legs and the engine sit
+  at the edge (pb = ps): standard/12 RB 0.1469, half_ppr/12 TE 0.1488,
+  half_ppr/8 RB 0.1497. Reading changes values by up to 2.4 (ESPN), 4.6
+  (CBS ROS) and 3.6 (Razzball).
+- **SG-5, raw value-above-waivers series' roster.** Not written. The
+  reference uses the translation's bench (teams x 6 by the 12-team mix). The
+  engine rosters more QBs and TEs: at ppr/12, 27 QBs and 27 TEs above the line
+  (15 bench QBs of 72 bench slots). This is the pattern the 2026-09-25 log
+  called out for the anchor. Waiver lines for ESPN at ppr/12: QB 15.10
+  (reference 16.90), RB 7.73 (5.00), TE 5.93 (7.89). Up to 15.7 (espn_vorp),
+  14.7 (cbsros_vorp) and 18.3 (razzball_vorp). Overlaps MR-04's sub-question.
+  Checked under JEG-493 (2026-10-09): not a counting bug. The engine rosters
+  exactly teams x (starting slots + BENCH): 168 at ppr/12 (96 starters + 72
+  bench) for espn_vorp, cbsros_vorp and razzball_vorp alike. Only the split
+  across positions differs. `ValueModel.projectionRoles` fills the bench with
+  the best remaining players by surplus over each position's last dedicated
+  starter. That is a deliberate rule (it replaced raw per-game ranking, which
+  filled the bench with QBs), but no document states it. The reference uses
+  the translation allocator's 12-team mix. Behaviour left as is until MR-04
+  picks a reading.
+- **SG-6, published VORP vs waivers factor.** The reference reads "the anchor's
+  total over the players that chart ranks" literally. The engine's factor is
+  0.2-0.6% lower (one ratio per chart, 1.001-1.006), so up to 0.86. This is VA-2.
+- **SG-7 / SG-8, Adjusted values budgets.** Within each group the engine shares
+  in proportion to value above waivers exactly as written (one constant ratio
+  per group). The group budgets differ: whose roles and which players define
+  "the anchor's total for that group" is not written. At ppr/14, USA Today RB
+  bench is 119.6 (engine) vs 152.9 (anchor tiers, whole group), and TE bench
+  is 40.8 vs 29.6. At the saved setup the 70 factor's batch is undefined while
+  three charts show saved views (CBS ppr/12 x0.86). Up to 41.8. This is MR-05.
+- **SG-9, translation details.** Not written: rounding of the
+  slot-proportional preliminary flex, D'Hondt tie order, and whether hidden
+  imputed players are flex candidates. These move one flex slot. USA Today
+  ppr/10 RB waiver 10 vs 11, CBS ppr/10 RB 4.2 vs 4.5 and TE 3.2 vs 2.8.
+- **SG-10, anchor.** The spec says the built leg. The engine added live refit
+  cells (within about 0.5 at 8/10 teams, 0.06 at 12). Resolved by JEG-493:
+  the engine's anchor is now the live two-tier read directly, which at the
+  0.15 share is the built leg at every team count.
+- **SG-11, what "priced" means in a total-match factor.** The contract keeps a
+  genuine 0.0 as a value, so the reference counts anchor zeros. The engine
+  counts only anchor > 0 for CBS ROS, Razzball, the raw `*_vorp` series and
+  derived-setting Indexed charts. The saved 12-team Indexed factor
+  (`order_preserving_rescale`) counts the zeros. So a published chart's
+  Indexed pie over the players it shares with the anchor is 1.000 at 12 teams
+  but 1.03-1.18 elsewhere: USA Today ppr/8 1.184, FantasyPros 1.136, CBS
+  1.042. The two code paths of one rule disagree. This is MR-01 (a) vs (c).
+- **SG-12, rows.** 20 players ESPN lists at 0.0 with no other source (incl.
+  De'Von Achane) have no row on the page. GAP-025 says 0.0 with a badge. The
+  spec does not say whether a one-source zero row is shown. **Resolved by
+  JEG-496 (2026-10-09):** Jeremy's rule (JEG-486) is that every player on
+  ESPN's list gets a row, showing ESPN 0. The engine and value_reference now
+  add the built ESPN leg's players to the rows. no_engine_row is 0.
+
+**Found as a suspected engine bug, not a gap:** JEG-493. At 14 teams the
+engine's ESPN anchor is not the built leg: the bottom 4-15 bench players per
+position share one value, up to 2.7 off. For example, at ppr/14 Kyle
+Juszczyk (2.29 ppg, leg 0.04) and AJ Dillon (4.71 ppg, leg 3.59) are both
+2.73.
+Fixed (JEG-493): the fixture's ESPN section holds the 12-team leg at every
+team count, and the engine mapped it onto the live two-tier through one line
+per position and tier. At 14 teams the bench reaches players the 12-team leg
+prices at 0.0, so they all landed on the line's intercept. The anchor now
+reads the live two-tier values directly.
+
+**Options.** For each SG item: confirm the engine's reading (write it into
+`docs/methodology.md` and switch the reference to it), confirm the reference's
+reading (an engine change, through the review), or write a new rule.
+
+**Depends on:** MR-01 (SG-11), MR-04 (SG-5, SG-6), MR-05 (SG-7, SG-8), MR-08 /
+MR-09 (SG-9), MR-11 (SG-3).
+**Sources:** `pipelines/spec_reference/`, `tests/test_spec_reference.py`,
+`value-check.json` `spec_reference`, JEG-493.
+
+---
+
+## GAP-ADJ-CLIP-ZERO - The live-cell clip zeroes rostered bench players
+
+Flagged by Jeremy for this review, 2026-10-09. Recorded only; behaviour is
+unchanged.
+
+**What happens.** `buildLiveAdjustedMap` (curve-widget.js) prices a player
+in a starter/bench cell as `max(0, alpha + beta * x)`. The cells are fitted at
+the reference setting (Full PPR, 12 teams, 15% bench share). At other settings
+the same intercept and slope can go negative for the low end of a bench cell,
+and the clip turns those rostered bench players into 0. The two-tier-native
+series (ESPN, CBS rest of season, Razzball) re-price live through the same
+path.
+
+**Example (measured on the 2026-10-09 build).** Woody Marks (RB):
+- Standard, 8 teams: ESPN 0, CBS rest of season 0 and Razzball 0. The four
+  charts price him at 2.8-5.7, and the adjusted FantasyCalc and USA Today
+  series at 6.0-6.7.
+- Full PPR, 12 teams: ESPN 6.9 and Razzball 6.5.
+
+So at 8 teams the page reads him as a sell (every chart pays more than our
+value of 0), which is an artefact of the clip, not our valuation.
+
+**Why it matters.** Trade targets and the DDF Value treat that 0 as a real
+value. Since 2026-10-09 a 0 also counts in the DDF Value and in its one-source
+rule.
+
+**Options (not measured).**
+- Refit the cells per setting.
+- Floor the clip at the cell's own minimum fitted value.
+- Leave a clipped bench player missing rather than 0.
+- Clip only below the waiver line.
+
+**Depends on:** MR-06, MR-11, MR-12.
+**Sources:** curve-widget.js `buildLiveAdjustedMap`, MR-12 (ESPN zero
+display rules), JEG-479.
 
 ---
 
@@ -808,6 +1012,18 @@ saved view lists 199 players against 196 now. Every other setting derives the
 views from the current natives. Options: (a) derive at every setting (what
 option A below does); (b) keep the saved views but rebuild them every week with
 the natives; (c) as now. MR-04 option (c) covers the same point.
+
+**Decided (Jeremy, 2026-10-09: "Compute live everywhere." Option (a).)** The saved
+`vorp_views` are retired. Full PPR / 12 / standard roster derives VORP vs
+waivers and Adjusted values live, with the same math as every other setting, so
+all seven sources count in the DDF Value there in both weeks. Measured on the
+2026-10-09 build at Full PPR 12 (`curve-widget.js` before and after):
+- About 180 player values change per chart and view. The largest are
+  FantasyCalc VORP vs waivers CeeDee Lamb 46.1 to 73.6 and Bijan Robinson 63.3
+  to 86.1, USA Today Brock Bowers 16.1 to 47.2 (VORP vs waivers) and 12.6 to
+  26.2 (Adjusted), and FantasyPros Adjusted Bryce Young 0 to 22.7.
+- `ddf_value` moves for 222 of 697 players. The largest movers are Tony
+  Pollard 19.4 to 14.3, Jahmyr Gibbs 72.2 to 67.4 and Puka Nacua 49.4 to 44.6.
 
 ### VA-4 - The bench-share slider moves the anchor but not the published charts
 
@@ -936,3 +1152,9 @@ whichever tab is open. Published Indexed rows also appear in
 - K/DST: being removed from the pipeline (kdst lane, Jeremy's decision).
 - Freshness, cadence and monitoring: no value math (refresh-cadence,
   monitoring and ops-dashboard lanes).
+
+- **Prior-week ESPN ineligible players (JEG-508, SA-18, 2026-10-09).** The
+  current week lists ESPN's ineligible players at 0 (JEG-496), but week 4's
+  ESPN history snapshot did not save them, so the prior week leaves them out
+  of ESPN and of mean projected points. Should prior weeks rebuild them at 0
+  so week-over-week change compares like with like?

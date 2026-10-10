@@ -94,22 +94,23 @@ RAZZBALL_WARN_DAYS = 6    # 3 <= age_days <= 6 -> warn
 SOURCE_CONFIGS = {
     "fantasycalc": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasycalc&variant=eq.as_published&qb_slots=eq.1",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id,position&source=eq.fantasycalc&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
-        # Review rows never touch the table (fail-closed: only matched rows
-        # are written by save_fantasycalc_references.py). The manifest's
-        # row_count is the matched count; review_count is informational.
-        "table_holds_review_rows": False,
+        # The saver writes only identity-matched rows, but the manifest's
+        # review_count is the IMPORTER's: rows it read FROM this table and
+        # could not use (JEG-512: 3 rows, 594 in the table vs 591 clean). So,
+        # like the other source_trade_values sources, the table holds them.
+        "table_holds_review_rows": True,
     },
     "usatoday": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.usatoday&variant=eq.as_published&qb_slots=eq.1",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id,position&source=eq.usatoday&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
     "fantasypros": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasypros&variant=eq.as_published&qb_slots=eq.1",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id,position&source=eq.fantasypros&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
@@ -121,7 +122,7 @@ SOURCE_CONFIGS = {
     },
     "cbs": {
         "api_table": "cbs_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.cbs&variant=eq.as_published&qb_slots=eq.1",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id,position&source=eq.cbs&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": False,
     },
@@ -133,9 +134,14 @@ SOURCE_CONFIGS = {
     },
     "razzball": {
         "api_table": "razzball_projections",
-        "params": "?select=player_key,razzball_snapshot_date,week,created_at",
+        "params": "?select=player_key,razzball_snapshot_date,week,created_at,pulled_at,pos",
+        "position_col": "pos",
         "vintage_date_col": "razzball_snapshot_date",
         "table_holds_review_rows": False,
+        # A date re-saved in place keeps rows of players dropped since; the
+        # import reads only the newest save (lib/latest_save.py), so does this
+        # check (GAP-RAZZBALL-CHART-BEHIND-STORED).
+        "save_stamp_col": "pulled_at",
     },
 }
 
@@ -163,6 +169,13 @@ LAG_TOLERANCE_WEEKS = 1
 LAGGING_CODE = "LAGGING_ONE_WEEK"
 LAGGING_PREFIX = f"{LAGGING_CODE} (non-blocking): "
 NON_BLOCKING_STATUSES = frozenset({"ok", "warning"})
+# Count drift (Jeremy 2026-10-09, JEG-512: "Hold only on big drops"). At the
+# same vintage, a table/manifest player-count difference is publisher churn
+# or bookkeeping: alert-only (a warning) and promotable. A drop of more than
+# this fraction at any position, or in total, holds the source.
+COUNT_DROP_HOLD_PCT = 0.10
+COUNT_DRIFT_CODE = "COUNT_DRIFT"
+COUNT_DRIFT_PREFIX = f"{COUNT_DRIFT_CODE} (non-blocking): "
 ADVISORY_FRESHNESS = {"razzball": frozenset({"warn", "bad", "unk"})}
 
 
@@ -184,14 +197,24 @@ def entry_is_lagging(entry: dict[str, Any]) -> bool:
     )
 
 
+def entry_is_count_drift(entry: dict[str, Any]) -> bool:
+    """True for a COUNT_DRIFT warning (small same-vintage count change)."""
+    return (
+        entry.get("status") == "warning"
+        and str(entry.get("failure_reason") or "").startswith(COUNT_DRIFT_PREFIX)
+    )
+
+
 def entry_is_promotable(entry: dict[str, Any]) -> bool:
     """Promotion contract (promote_comparison_section.check_l1_freshness).
 
-    ok, or a one-week lag promoted under its own content_vintage. A
-    TABLE_DRIFT warning is NOT promotable: the table and the snapshot
-    disagree, so the snapshot is not what Supabase holds.
+    ok, a one-week lag promoted under its own content_vintage, or a
+    COUNT_DRIFT alert (same vintage, no position dropped more than
+    COUNT_DROP_HOLD_PCT). A TABLE_DRIFT warning is NOT promotable: the table
+    is a newer vintage than the snapshot, so the snapshot is not current.
     """
-    return entry.get("status") == "ok" or entry_is_lagging(entry)
+    return (entry.get("status") == "ok" or entry_is_lagging(entry)
+            or entry_is_count_drift(entry))
 
 
 # Sources that must never be health-checked here, even if someone names them.
@@ -478,6 +501,42 @@ def latest_vintage_rows(
     return latest, scoped
 
 
+def _position_counts(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        pos = str(row.get(key) or "").strip().upper()
+        if pos:
+            counts[pos] = counts.get(pos, 0) + 1
+    return counts
+
+
+def count_drops(
+    table_rows: list[dict[str, Any]],
+    expected_total: int,
+    snapshot_rows: list[dict[str, Any]],
+    *,
+    position_col: str,
+) -> list[str]:
+    """Drops of more than COUNT_DROP_HOLD_PCT, table against what was imported.
+
+    The total is checked against the expected table rows. Each position the
+    snapshot carries (rows[].pos) is checked against the table's position
+    column; a table without that column (ESPN, CBS ROS) checks the total only.
+    Growth never counts.
+    """
+    drops: list[str] = []
+    floor = 1 - COUNT_DROP_HOLD_PCT
+    if expected_total > 0 and len(table_rows) < floor * expected_total:
+        drops.append(f"total {len(table_rows)} < {expected_total}")
+    table_pos = _position_counts(table_rows, position_col)
+    if table_pos:
+        for pos, want in sorted(_position_counts(snapshot_rows, "pos").items()):
+            have = table_pos.get(pos, 0)
+            if have < floor * want:
+                drops.append(f"{pos} {have} < {want}")
+    return drops
+
+
 def table_vintage(rows: list[dict[str, Any]], *, date_col: str = "source_content_date") -> str:
     """Latest table vintage, never the earliest (older rows stay, ignored)."""
     vintage, _ = latest_vintage_rows(rows, date_col=date_col)
@@ -527,6 +586,7 @@ def verify_source(
         "blocking": True,
     }
     loud: list[str] = []
+    count_drift_note: str | None = None
 
     def fail(code: str, detail: str) -> tuple[dict[str, Any], list[str]]:
         assert code in FAILURE_CODES, code
@@ -615,6 +675,11 @@ def verify_source(
             # _select_latest_bake fails closed (no-blend): multiple bakes, no
             # created_at on any row -> recency would be a guess.
             return fail("TABLE_DRIFT", f"bake scoping failed (no-blend guard): {exc}")
+        if config.get("save_stamp_col"):
+            sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+            from latest_save import latest_save_rows  # noqa: PLC0415
+            # Superseded rows count as ignored older rows (same contract).
+            latest_rows = latest_save_rows(latest_rows, config["save_stamp_col"])[0]
         entry["ignored_older_rows"] = len(rows) - len(latest_rows)
         # Checkpoint fields: expose what's actually in the DB so the dashboard
         # can show it separately from the snapshot vintage.
@@ -644,8 +709,28 @@ def verify_source(
             )
             if vintage_newer and abs(row_drift) <= row_tol:
                 warn_bits.append(bit + " (within tolerance; stamping lag)")
-            else:
+            elif vintage_newer or vintage_older:
                 drift_bits.append(bit)
+            else:
+                # Same vintage: "hold only on big drops" (JEG-512).
+                try:
+                    snapshot_rows = json.loads(snapshot_bytes).get("rows") or []
+                except (ValueError, AttributeError):
+                    snapshot_rows = []
+                drops = count_drops(
+                    latest_rows, expected, snapshot_rows,
+                    position_col=config.get("position_col", "position"),
+                )
+                if drops:
+                    drift_bits.append(
+                        f"{bit}; dropped more than {COUNT_DROP_HOLD_PCT:.0%}: "
+                        + ", ".join(drops)
+                    )
+                else:
+                    count_drift_note = (
+                        f"{bit} (no position dropped more than "
+                        f"{COUNT_DROP_HOLD_PCT:.0%}; alert only)"
+                    )
         if vintage_older:
             drift_bits.append(
                 f"table latest vintage {live_vintage} < manifest vintage "
@@ -686,7 +771,7 @@ def verify_source(
         if freshness["status"] == "ok":
             entry["status"] = "ok"
             entry["last_successful_import"] = verified_at
-            return entry, loud
+            return _with_count_drift(entry, count_drift_note), loud
         entry["status"] = freshness["status"]
         if freshness["status"] == "unk":
             # No snapshot at all (no source dir, no parseable ISO dir with
@@ -734,6 +819,7 @@ def verify_source(
                     f"week behind current content Week {nfl_week}; built and "
                     f"labelled as Week {vintage_week}. Window verdict "
                     f"{pub_status}: {pub_reason}"
+                    + (f"; {COUNT_DRIFT_CODE}: {count_drift_note}" if count_drift_note else "")
                 )
                 return entry, loud
             # Two or more weeks behind (or vintage unknown): blocks. The
@@ -764,7 +850,15 @@ def verify_source(
 
     entry["status"] = "ok"
     entry["last_successful_import"] = verified_at
-    return entry, loud
+    return _with_count_drift(entry, count_drift_note), loud
+
+
+def _with_count_drift(entry: dict[str, Any], note: str | None) -> dict[str, Any]:
+    """An ok entry with a small count change: a promotable alert (JEG-512)."""
+    if note and entry.get("status") == "ok":
+        entry["status"] = "warning"
+        entry["failure_reason"] = COUNT_DRIFT_PREFIX + note
+    return entry
 
 
 # ---------------------------------------------------------------------------

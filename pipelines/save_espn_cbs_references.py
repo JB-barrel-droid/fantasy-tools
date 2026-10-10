@@ -23,12 +23,13 @@ Tables (grain = upsert key; writes are idempotent on the grain):
     pulled_at=now, player_norm as join label.
 
 Identity (fail closed, same rule as the chart bake): numeric player_key only,
-resolved via public.players (full_name is the naming authority). Verified
-spelling aliases (data/inputs/player_aliases.json, the one list every
-resolver shares, each checked against public.players) are applied before
-lookup, e.g. 'Cameron Ward' -> Cam Ward (697). Exact spellings only: any other spelling is looked up verbatim and
-still fails closed. Unmatched or ambiguous names go to the review report --
-never guessed, never zero-filled.
+resolved through lib/canonical_players (JEG-438, the one resolver; ESPN and
+CBS both, JEG-539): the single normalization rule, the curated nickname
+table, the verified aliases (data/inputs/player_aliases.json, e.g. 'Cameron
+Ward' -> Cam Ward 697), the position check and active over inactive. No fuzzy
+matching. Unmatched, ambiguous or position-conflicting names go to the review
+report -- never guessed, never zero-filled. `player_norm` stays the legacy
+label form (match_source_snapshot.normalize_name), a label only.
 
 CBS QB SCORING DECISION (the known wrinkle):
   CBS publishes ONE QB column ("1QB-4") with no per-scoring split, but the
@@ -72,13 +73,9 @@ DEFAULT_CBS_JSON = GOAL_DIR / "lottery" / "data" / "sources_cache" / "cbs.json"
 sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
 from import_source_snapshot import parse_float  # noqa: E402
-# Single source of truth for the verified spelling aliases (shared with the
-# DDF two-tier leg). Verified against players.full_name 2026-09-22; the map
-# here and in build_ddf_two_tier_leg.py must never diverge.
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
-import player_aliases  # noqa: E402 -- the one verified alias list
 import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
-from canonical_players import narrow_candidates  # noqa: E402
+import canonical_players  # noqa: E402 -- the one name -> player_key resolver (JEG-438)
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import content_week  # noqa: E402 -- content week for the CBS save grain
 # Writer audit for Supabase write provenance
@@ -135,51 +132,85 @@ def _default_fetch(table: str, params: str) -> list[dict[str, Any]]:
     return [r for r in rows if isinstance(r, dict)]
 
 
+def _default_delete(table: str, params: str) -> None:
+    _sb().delete(table, params=params)
+
+
 fetch_players: Callable[[], list[dict[str, Any]]] = _default_fetch_players
 upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = _default_upsert
 count_rows: Callable[[str, str], int] = _default_count
 fetch_rows: Callable[[str, str], list[dict[str, Any]]] = _default_fetch
+delete_rows: Callable[[str, str], None] = _default_delete
+
+# ESPN's grain (2026, week 2) is one live set, rewritten on every save. A
+# prune that would remove more than this share of the stored set means the
+# pull is probably truncated: fail closed instead.
+ESPN_MAX_PRUNE_FRAC = 0.10
+ESPN_MAX_PRUNE_ABS = 25  # a handful of stale rows is ordinary churn at any size
+
+
+def prune_espn(clean: list[dict[str, Any]]) -> list[int]:
+    """Delete the (2026, week 2) rows whose player_key is not in this save.
+
+    JEG-480: the ESPN table holds one current set (each save upserts it),
+    so a player the new save no longer carries kept his old row forever:
+    2026-10-09, Riley Nowakowski and Jackson Meeks, stored under a
+    players-table identity at another position by the legacy matcher, stayed
+    beside the canonical save and failed its row count (567 vs 565). Same
+    replace rule as save_cbsros_references. Returns the deleted keys."""
+    keep = {r["player_key"] for r in clean}
+    stored = fetch_rows("espn_season_projections", "?select=player_key&season=eq.2026&week=eq.2")
+    stale = sorted({r["player_key"] for r in stored if r.get("player_key") not in keep})
+    if len(stale) > max(ESPN_MAX_PRUNE_ABS, ESPN_MAX_PRUNE_FRAC * len(stored)):
+        raise SystemExit(
+            f"Fail closed: this ESPN save would remove {len(stale)}/{len(stored)} stored players "
+            f"(>{ESPN_MAX_PRUNE_FRAC:.0%}); probable truncated pull. Upserted rows stay; nothing deleted.")
+    for start in range(0, len(stale), 200):
+        chunk = stale[start:start + 200]
+        delete_rows("espn_season_projections",
+                    f"?season=eq.2026&week=eq.2&player_key=in.({','.join(map(str, chunk))})")
+    if stale:
+        print(f"::notice title=espn stale rows removed::{len(stale)} player_keys no longer in "
+              f"ESPN's set: {stale}", flush=True)
+    return stale
 
 
 # ---------------------------------------------------------------------------
 # Identity: names -> player_key, fail closed
 # ---------------------------------------------------------------------------
 
-def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    index: dict[str, list[dict[str, Any]]] = {}
-    for record in players:
-        key = record.get("player_key")
-        name = str(record.get("full_name") or "").strip()
-        if not isinstance(key, int) or not name:
-            continue
-        index.setdefault(normalize_name(name), []).append(
-            {"player_key": key, "full_name": name,
-             "position": str(record.get("position") or "").strip().upper() or None,
-             "active": record.get("active")}
-        )
-    return index
+def build_registry(players: list[dict[str, Any]]) -> "canonical_players.Registry":
+    """The canonical resolver's registry over the fetched players rows."""
+    return canonical_players.load_registry(rows=[
+        r for r in players
+        if isinstance(r.get("player_key"), int) and str(r.get("full_name") or "").strip()])
 
 
-def resolve_name(
-    name: str, pos: str | None, index: dict[str, list[dict[str, Any]]]
+def resolve_canonical(
+    name: str, pos: str | None, registry: "canonical_players.Registry"
 ) -> tuple[int | None, dict[str, Any] | None, str | None]:
-    """Return (player_key, player_record, pos). Unresolved -> (None, None, reason).
-
-    pos comes back as the canonical players-table position (the DB write's
-    position source; the file's own spelling is never trusted for pos).
-
-    Verified spelling aliases (data/inputs/player_aliases.json, the one list
-    every resolver shares) rewrite the name to its public.players spelling
-    BEFORE lookup, so the import, the legs and the bake resolve the same
-    identities. Exact (normalized) spellings only: anything else is looked up
-    verbatim and still fails closed (no fuzzy matching, no guessing).
-    Same-name candidates narrow by position, then by the single active row.
-    """
-    norm = normalize_name(player_aliases.canonical_spelling(name))
-    rec, reason = narrow_candidates(index.get(norm, []), pos)
-    if rec is None:
+    """Resolve a publisher name through lib/canonical_players (JEG-438: the one
+    way to match a name: norm_player_name with nicknames, the verified alias
+    list, position filter, active over inactive, fail closed). Returns
+    (player_key, record, canonical position) or (None, None, reason) with
+    reason one of unmatched | ambiguous | position_conflict."""
+    key, reason = canonical_players.resolve_with_reason(name, position=pos or None, registry=registry)
+    if key is None:
         return None, None, reason
-    return rec["player_key"], rec, rec["position"]
+    rec = registry.by_key[key]
+    return key, rec, rec["position"] or None
+
+
+def warn_identity_misses(source: str, review: list[dict[str, Any]]) -> int:
+    """Print every identity miss in a saver's review list as a workflow
+    warning (JEG-480: an unmatched name is loud, not a count in a log line).
+    identity_queue.record_misses records the same names for the
+    identity-unmatched monitor. Returns the number of misses."""
+    misses = identity_queue.identity_misses(review)
+    for m in misses:
+        print(f"::warning title=identity-unmatched {source}::"
+              f"{m['name']} ({m['pos'] or '?'}): {m['reason']}", flush=True)
+    return len(misses)
 
 
 # ---------------------------------------------------------------------------
@@ -213,36 +244,53 @@ def espn_vintage(csv_path: Path, meta_path: Path) -> str:
     )
 
 
+def espn_unresolved(meta_path: Path) -> list[dict[str, Any]]:
+    """The puller's identity_unresolved list (players ESPN projects that no
+    resolver named); [] when the meta has none."""
+    if not meta_path.exists():
+        return []
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    return [m for m in (meta.get("identity_unresolved") or []) if isinstance(m, dict)]
+
+
 def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
     vintage = espn_vintage(csv_path, meta_path)
     with csv_path.open(newline="", encoding="utf-8") as handle:
         raw = list(csv.DictReader(handle))
 
-    index = build_name_index(fetch_players())
+    registry = build_registry(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
+    # Players ESPN projects that the puller could not name (meta
+    # identity_unresolved): identity misses, reported, never dropped silently.
+    for miss in espn_unresolved(meta_path):
+        review.append({
+            "reason": "unresolved_name",
+            "player": miss.get("player"),
+            "pos": miss.get("pos") or None,
+            "team": miss.get("team") or None,
+            "value": miss.get("ros_half_ppr"),
+            "detail": "no single canonical players-table identity (ESPN puller); never guessed",
+        })
     pulled_at = utc_now()
     for row in raw:
         name = str(row.get("player") or "").strip()
         projected = str(row.get("has_espn_projection") or "").strip().lower() in ("true", "1", "yes")
-        eligible = str(row.get("eligible") or "").strip().lower() in ("true", "1", "yes")
         if not name or not projected:
             review.append({"reason": "no_espn_projection", "player": name or None})
             continue
-        # Ineligible (out/IR) players: save with 0 values, not review.
-        # A player with has_espn_projection=True but eligible=False is out for
-        # the season — their projection is legitimately 0, not missing data.
-        if not eligible:
-            # Force all projection values to 0 for ineligible players
-            for col in ["ros_half_ppr", "r_pass_yds", "r_pass_tds", "r_rush_yds",
-                       "r_rush_tds", "r_receptions", "r_rec_yds", "r_rec_tds"]:
-                if col in row:
-                    row[col] = "0"
+        # GAP-ESPN-ZEROED-STORED (JEG-480): ESPN's numbers are stored as ESPN
+        # projects them, whatever the `eligible` flag says. This used to force
+        # every ineligible row to 0, and the flag's old per-position rule
+        # marked fullbacks ESPN projects as receivers ineligible (Alec Ingold
+        # 12.82 half PPR stored as 0 while the chart, built from the CSV,
+        # priced ESPN's number). A player who is out has no projected points
+        # in ESPN's own weekly blocks, so his row is 0 without being forced.
         value = parse_float(row.get("ros_half_ppr"))
         if value is None:
             review.append({"reason": "missing_or_non_numeric_value", "player": name})
             continue
-        key, _rec, pos = resolve_name(name, str(row.get("pos") or ""), index)
+        key, _rec, pos = resolve_canonical(name, str(row.get("pos") or ""), registry)
         if key is None:
             review.append(
                 {
@@ -316,7 +364,7 @@ def build_cbs_rows(json_path: Path, week: int, bake_id: str | None = None
     # is the article readers can open.
     source_url = str(payload.get("url") or "").replace(
         "://sportsfly.cbsistatic.com/", "://www.cbssports.com/") or None
-    index = build_name_index(fetch_players())
+    registry = build_registry(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -340,7 +388,7 @@ def build_cbs_rows(json_path: Path, week: int, bake_id: str | None = None
             if not name:
                 review.append({"reason": "missing_player_name", "row": cells})
                 continue
-            key, _rec, canonical_pos = resolve_name(name, pos, index)
+            key, _rec, canonical_pos = resolve_canonical(name, pos, registry)
             if key is None:
                 review.append(
                     {
@@ -467,6 +515,8 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
             audit.fail(str(e))
         raise
 
+    pruned = prune_espn(clean) if name == "espn" else []
+
     live = count_rows(table, count_params)
     if live != len(clean):
         raise SystemExit(
@@ -482,6 +532,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         "review_count": len(review),
         "review": review,
         "vintage": vintage_label,
+        "pruned": pruned,
         "run_id": audit.run_id if audit else None,
         **({"bake_id": bake_id} if name == "cbs" else {}),
     }
@@ -529,6 +580,7 @@ def main() -> int:
         review_path.write_text(json.dumps(result["review"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"review report ({len(result['review'])} rows): {review_path}")
 
+    warn_identity_misses(result["source"], result["review"])
     if not result["dry_run"]:
         identity_queue.record_misses(result["source"], result["review"])
     status = "dry-run" if result["dry_run"] else "saved"

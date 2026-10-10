@@ -1,0 +1,79 @@
+name: Player status history (Sleeper, daily)
+
+# JEG-521 G4 (c): keep a daily Sleeper injury / roster-status history instead
+# of overwriting it. pipelines/save_player_status_history.py ->
+# public.player_status_history (one row per QB/RB/WR/TE per day). Summary in
+# output/player-status-history.json is committed so the run is readable from
+# the repo.
+#
+# Scheduler owner: Supabase pg_cron player-status-history-live (daily 13:10
+# UTC) and player-status-history-sunday (16:30 UTC Sunday, game-day status),
+# supabase/migrations/jeg521_g4_weekly_store_20261009.sql. No `schedule:`.
+# workflow_dispatch is dry unless mode=write.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: player-status-history
+  cancel-in-progress: false
+
+jobs:
+  save:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Pull Sleeper and save the day's status
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          flag="--dry-run"
+          [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
+          rc=0
+          python3 pipelines/save_player_status_history.py $flag > /tmp/status.log 2>&1 || rc=$?
+          cat /tmp/status.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          tail -40 /tmp/status.log | tr '\n' ' ' | cut -c1-3000 | sed "s/^/::$level title=player status history rc=$rc::/"
+          echo
+          { echo "## Player status history"; echo '```'; tail -40 /tmp/status.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+      - name: Commit the run summary
+        if: github.event.inputs.mode == 'write'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f output/player-status-history.json  # output/ is gitignored
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Player status history: daily snapshot (JEG-521 G4, GitHub Actions)"
+            git pull --rebase --autostash origin main
+            git push
+          fi
+
+      - name: Record monitored check
+        if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id player_status_history --owner player-status-history.yml --outcome "${{ job.status }}"

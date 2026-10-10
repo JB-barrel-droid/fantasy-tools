@@ -11,7 +11,7 @@
   --v2-negative: #B33F50;
   --v2-older: #A56320;
   --v2-nav: #142B25;
-  --v2-rank-tint: #EEF6F2;
+  --v2-rank-tint: #EEF6F2; --v2-ddf: #A84410;
   --v2-focus: #087F5B;
   --v2-hover: #F7FAF9;
   --v2-hover-rank: #E3F1EA;
@@ -43,7 +43,7 @@
   :root:not([data-theme="light"]) {
     --v2-canvas: #0E1714; --v2-surface: #15211D; --v2-ink: #E4EEEA; --v2-muted: #93A39E;
     --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
-    --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
+    --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26; --v2-ddf: #F28C5B;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
     --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
     --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
@@ -53,7 +53,7 @@
 :root[data-theme="dark"] {
   --v2-canvas: #0E1714; --v2-surface: #15211D; --v2-ink: #E4EEEA; --v2-muted: #93A39E;
   --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
-  --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
+  --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26; --v2-ddf: #F28C5B;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
     --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
     --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
@@ -158,6 +158,11 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-app .v2-call { min-height: 32px; padding: 0 4px; font-size: 12px; position: relative; }
 .v2-app .v2-call::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 
+/* DDF Value inputs inside Customize (JEG-466): a nested list under the DDF Value row. */
+.v2-ddf-inputs { border: 0; margin: 4px 0 8px; padding: 0 0 0 28px; }
+.v2-ddf-inputs legend { padding: 0; font-size: 12px; font-weight: 700; color: var(--v2-muted); }
+.v2-ddf-inputs .v2-crow { min-height: 40px; }
+
 /* Main */
 .v2-main { padding-top: 28px; padding-bottom: 48px; }
 .v2-title h1 { font-size: 34px; line-height: 1.15; font-weight: 800; }
@@ -187,6 +192,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-chart .series.is-indexed { stroke-dasharray: 6 4; }
 .v2-chart .series.is-vorp { stroke-dasharray: 1.5 4; stroke-width: 2.4; }
 .v2-chart .series.is-older { opacity: .85; }
+.v2-chart .series.is-ddf { stroke-width: 3.5; }
 .v2-chart .crosshair { stroke: var(--v2-action); stroke-dasharray: 3 3; }
 .v2-chart .hover-dot { stroke: var(--v2-surface); stroke-width: 2; }
 .v2-chart .name-label { font-size: 10px; fill: var(--v2-muted); }
@@ -234,6 +240,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-tip .v2-meta { display: block; margin-bottom: 6px; }
 .v2-tip .row { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-weight: 600; }
 .v2-tip .row .val { margin-left: auto; font-variant-numeric: tabular-nums; }
+.v2-tip .row .val .why { font-size: 11px; font-weight: 400; color: var(--v2-muted); }
 .v2-tip .row.is-rank { color: var(--v2-action); }
 
 /* Drawer and popover */
@@ -298,6 +305,13 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-ttable td.player { white-space: normal; }
 .v2-ttable .player-sub { display: block; }
 .v2-ttable .num { font-size: clamp(13px, 1.1vw, 15px); }
+/* JEG-455: DDF Value's "from N sources" under our value. */
+.v2-ttable td[data-ours] .t-count { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); white-space: nowrap; }
+.v2-tcards .vals .ours .t-count { font-weight: 400; color: var(--v2-muted); }
+/* Low-confidence DDF Value (one source): symbol + label, note in the tooltip. */
+.v2-lowconf { display: inline-block; margin-left: 4px; font-size: 11px; font-weight: 600; color: var(--v2-older, var(--v2-muted)); white-space: nowrap; }
+.v2-ttable td[data-ours] .v2-lowconf, .v2-table td .v2-lowconf, .v2-dmatrix td .v2-lowconf, .v2-dhero-value .v2-lowconf { display: block; margin-left: 0; }
+.v2-ttable .t-detail .t-native { color: var(--v2-muted); font-weight: 400; }
 .v2-ttable td.best { font-size: clamp(14px, 1.15vw, 16px); }
 .v2-ttable td.best.up { color: var(--v2-action); }
 .v2-ttable td.best.down { color: var(--v2-negative); }
@@ -407,6 +421,12 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-ctable tr { cursor: default; }
 .v2-ctable td.player { white-space: normal; }
 .v2-ctable td.player .th-sub { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); }
+/* JEG-467: the DDF Value row decides the verdict: first, a brand-orange edge, bold name and a worded tag. */
+.v2-ctable tr.is-verdict td.player { font-weight: 700; box-shadow: inset 4px 0 0 var(--v2-ddf); padding-left: 12px; }
+.v2-ctable .v2-cverdict-tag { display: block; font-size: 11px; font-weight: 700; color: var(--v2-ddf); }
+/* JEG-466: the shared series picker keeps a 44 px target on every tab. */
+.v2-app select.v2-series-picker { min-height: 44px; }
+#v2Compare .v2-field-rank select.v2-series-picker { min-height: 44px; }
 .v2-ctable td[data-col="net"] .missing .why { display: block; font-size: 11px; font-weight: 400; white-space: normal; max-width: 260px; margin-left: auto; }
 @media (max-width: 767px) {
   .v2-trade-sides { grid-template-columns: 1fr; }
@@ -882,10 +902,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-chart-head .v2-legend svg { width: 16px; }
 
 .v2-legend .v2-legend-key { color: var(--v2-muted); }
-/* "Set exact values": a small link in the plot's corner, under the Y brush, with a 44 px hit area. */
-.v2-app .v2-yexact { grid-column: 1; grid-row: 2; align-self: center; position: relative; min-height: 30px; min-width: 44px;
-  padding: 0 2px; font-size: 10px; line-height: 1.15; text-align: left; white-space: normal; }
-.v2-yexact::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+/* "Set exact values" (JEG-483): a full 44 px control at the end of the chart card's title line. */
+.v2-app .v2-yexact { margin-left: auto; min-height: 44px; padding: 8px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.v2-yexact::after, #v2ExpandTable::after { content: none; }
 
 /* The plot: Y value brush | chart, X rank brush underneath. Height includes both brushes. */
 .v2-plot { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 44px;
@@ -984,6 +1003,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   .v2-vtable .v2-group-row th { top: 0; }
   .v2-vtable .v2-head-row th { top: var(--v2-group-h); box-shadow: 0 1px 0 var(--v2-border); }
   .v2-vtable .v2-head-row th.is-rank, .v2-vtable .v2-group-row th.is-rank { background: var(--v2-rank-tint); }
+  /* The hidden engine page styles a global .rank as flex; keep the # column a real table cell. */
+  .v2-vtable th.rank, .v2-vtable td.rank { display: table-cell; }
   .v2-vtable td.rank, .v2-vtable td.player { position: sticky; z-index: 1; background: var(--v2-surface); }
   .v2-vtable td.rank, .v2-vtable .v2-head-row th.rank { left: 0; }
   .v2-vtable td.player, .v2-vtable .v2-head-row th.player { left: 34px; box-shadow: 1px 0 0 var(--v2-border); }
@@ -1008,7 +1029,70 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   .v2-ybrush { display: none; }
   .v2-plot-main, #v2Main .v2-plot .v2-brush { grid-column: 1; }
   .v2-plot-main { height: 260px; }
-  .v2-app .v2-yexact { grid-column: 1; grid-row: 3; justify-self: start; font-size: 12px; min-height: 44px; }
   .v2-toolbar .v2-search { max-width: none; }
   .v2-app .v2-reset { margin-left: 0; }
+}
+
+/* JEG-483: active filter chips, Reset zoom, expanded chart and table. */
+.v2-fchips { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 6px 0 2px; }
+.v2-fchips[hidden] { display: none; }
+.v2-fchip { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px 4px 12px;
+  border: 1px solid var(--v2-tint-border); border-radius: 999px; background: var(--v2-positive); color: var(--v2-action-strong);
+  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.v2-fchip::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+.v2-fchip:hover { border-color: var(--v2-action); }
+.v2-zoom .v2-zoom-reset { width: auto; padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--v2-action-strong); }
+.v2-zoom .v2-zoom-reset[hidden] { display: none; }
+#v2ExpandChart { font-size: 20px; }
+.v2-app #v2ExpandTable { flex: none; position: relative; min-height: 30px; min-width: 44px; padding: 4px 12px; font-size: 13px; }
+#v2ExpandTable::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+body.v2-expand-open { overflow: hidden; }
+.v2-expand { position: fixed; inset: 0; z-index: 58; background: rgba(10,20,17,.35); display: flex; align-items: flex-start; justify-content: center; padding: 24px; }
+.v2-expand[hidden] { display: none; }
+.v2-expand-box { display: flex; flex-direction: column; width: min(1600px, 100%); max-height: calc(100vh - 48px); background: var(--v2-surface);
+  border: 1px solid var(--v2-border); border-radius: var(--v2-radius-card); box-shadow: 0 12px 32px rgba(20,43,37,.22); overflow: hidden; }
+.v2-expand-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 14px 20px 10px; border-bottom: 1px solid var(--v2-border); }
+.v2-expand-head h2 { font-size: 20px; font-weight: 800; margin: 0; }
+.v2-expand-head .v2-meta { margin-top: 2px !important; font-size: 12px; }
+.v2-expand-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 20px 0; }
+.v2-expand-tools[hidden] { display: none; }
+.v2-expand-tools .v2-legend { margin: 0; flex: 1 1 320px; }
+.v2-xshow { display: inline-flex; gap: 6px; }
+.v2-xshow button { min-width: 64px; min-height: 44px; padding: 6px 12px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn);
+  background: var(--v2-surface); color: var(--v2-ink); cursor: pointer; font-weight: 600; }
+.v2-xshow button.is-on { background: var(--v2-positive); border-color: var(--v2-action); color: var(--v2-action-strong); }
+.v2-expand-body { flex: 1 1 auto; min-height: 0; padding: 8px 20px 16px; display: flex; flex-direction: column; }
+.v2-expand[data-kind="chart"] .v2-expand-body .v2-plot { height: 75vh; margin-top: 4px; }
+.v2-expand #v2ExpandChart { display: none; }
+.v2-expand[data-kind="table"] .v2-expand-box { height: calc(100vh - 48px); }
+#v2Main .v2-expand .v2-table-wrap { flex: 1 1 0; min-height: 0; max-height: none; margin-top: 0; }
+@media (max-width: 767px) {
+  .v2-expand { padding: 0; }
+  .v2-expand-box, .v2-expand[data-kind] .v2-expand-box { width: 100vw; height: 100vh; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+  .v2-expand-head, .v2-expand-tools { padding-left: 16px; padding-right: 16px; }
+  .v2-expand-body { padding: 8px 16px 12px; overflow-y: auto; }
+  .v2-xshow { width: 100%; }
+  .v2-xshow button { min-width: 0; flex: 1 1 0; padding: 6px 4px; white-space: nowrap; }
+  /* Full screen there is room for the Y brush again. */
+  .v2-expand[data-kind="chart"] .v2-expand-body .v2-plot { grid-template-columns: 56px minmax(0, 1fr); height: 70vh; }
+  .v2-expand .v2-ybrush { display: block; }
+  .v2-expand .v2-plot-main { grid-column: 2; height: auto; }
+  #v2Main .v2-expand .v2-plot .v2-brush { grid-column: 2; }
+}
+body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the expanded chart */
+
+/* Manifesto (2026-10-09): plain long-form text inside the v2 shell, one column of about 70 characters. */
+#v2Manifesto { padding-top: clamp(20px, 2vw + 8px, 40px); padding-bottom: 64px; }
+.v2-mf-text { max-width: 70ch; margin: 0 auto; font-size: 17px; line-height: 1.7; }
+.v2-mf-text p, .v2-mf-text ul { margin: 0 0 1em; }
+.v2-mf-text ul { padding-left: 1.4em; }
+.v2-mf-text li + li { margin-top: .35em; }
+.v2-mf-text strong { font-weight: 700; }
+.v2-mf-text .v2-mf-eyebrow { color: var(--v2-action-strong); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px !important; }
+.v2-mf-text h1 { font-size: clamp(30px, 2vw + 20px, 44px); line-height: 1.12; font-weight: 800; margin: 0 0 28px; }
+.v2-mf-sec { margin-top: 48px; padding-top: 4px; }
+.v2-mf-text h2 { font-size: clamp(21px, .6vw + 17px, 26px); line-height: 1.3; font-weight: 800; margin: 0 0 16px; }
+@media (max-width: 767px) {
+  .v2-mf-text { font-size: 16px; line-height: 1.65; }
+  .v2-mf-sec { margin-top: 36px; }
 }

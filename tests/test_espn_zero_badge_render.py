@@ -186,6 +186,8 @@ def collect(overrides=None):
             page.fill("#v2Search", "")
             page.evaluate("() => { location.hash = '#trade-targets'; }")
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=30000)
+            # JEG-455: DDF Value is the default Our value; this check is about ESPN, so pick it.
+            page.select_option("#v2TOurs", "espn")
             page.click("#v2Targets [data-side=sell]")
             page.wait_for_function("() => document.getElementById('v2TOurs').value === 'espn'")
             out["targets"] = page.evaluate("""() => {
@@ -320,8 +322,10 @@ class EspnZeroBadgeRenderTest(unittest.TestCase):
         # (GAP-MAIN-TABLE-ESPN-DRIFT, 2026-10-08: the main table renders the
         # engine's rows and has no copy of the rule to mutate separately; this
         # one mutation reaches the chart, the main table and /v2/.)
+        # JEG-508 moved the rule into the pipeline's ESPN natives (rulings 1
+        # and 6: an ineligible player is listed by ESPN at 0).
         no_zero_widget = widget.replace(
-            "if (ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero) return 0;", "", 1)
+            'if (key === "espn" && player.espnProjectsZero && !player.espn_ppg) {', "if (false) {", 1)
         self.assertNotEqual(no_zero_widget, widget, "mutation anchor for the engine 0.0 rule is stale")
         for name, overrides in {
             "ESPN-0 missing in the engine": {"**/assets/curve-widget.js*": no_zero_widget},

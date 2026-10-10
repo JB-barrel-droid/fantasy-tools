@@ -19,10 +19,17 @@ factor == Adjusted values, for every player. That proves the intermediates
 shown are the ones the engine used, not a parallel calculation.
 
 Discrimination (test_guard_fails_on_broken_inspector): the same comparison
-must fail on three broken inspectors that each show a plausible engine number
-that is NOT the one the chart shows: the saved 12-team Indexed values at a
-10-team setting, and the browser derivation instead of the saved VORP vs
-waivers / Adjusted views at the saved setup.
+must fail on broken inspectors that each show a plausible engine number that
+is NOT the one the chart shows.
+
+JEG-508 (docs/methodology.md "Value Pipeline", VP-11): the inspector reads the
+value pipeline (getInspection().valuePipeline, rows, views, players). Every
+series is checked in every view (not only the published charts), and at every
+setting each shown value must be rebuilt from the pipeline's intermediates:
+Indexed = native x the chart's factor, VORP vs waivers = value above waivers x
+pie / the source's total, Adjusted = bench slice x bench rate + starter slice
+x starter rate. The saved-vs-derived distinction no longer changes the math
+(VP-9), so the old saved-setup mutations are retired.
 
 The static tests check the builder: noindex/nofollow, no canonical, the
 engine scripts kept, the inspector script added, and a refusal on a page
@@ -87,9 +94,7 @@ READ = """async (view) => {
     tr.querySelectorAll('td').forEach(td => { cells[td.dataset.col] = td.textContent; });
     dom[tr.dataset.row] = cells;
   });
-  return {engine, rows, dom, seriesKeys: snap.seriesKeys, setting: snap.setting,
-    modes: Object.fromEntries(Object.entries(snap.published).map(([k, p]) => [k, [p.indexed.mode, p.vorp.mode, p.adj.mode]])),
-    vorpScale: Object.fromEntries(Object.entries(snap.published).map(([k, p]) => [k, p.views ? p.views.vorpScale : null]))};
+  return {engine, rows, dom, seriesKeys: snap.seriesKeys, setting: snap.setting};
 }"""
 
 
@@ -139,7 +144,7 @@ def mismatches(view, snapshot, derived_setting):
     """Every inspector number that differs from what the engine shows."""
     errors = []
     engine, rows = snapshot["engine"], snapshot["rows"]
-    keys = snapshot["seriesKeys"] if view == "indexed" else list(PUBLISHED)
+    keys = snapshot["seriesKeys"]
     shown = {}
     for row in rows:
         for key in keys:
@@ -163,18 +168,16 @@ def mismatches(view, snapshot, derived_setting):
         for key in keys:
             if key in cells and cells[key] != _fmt3(row.get(key)):
                 errors.append(f"{view} {row['player_key']} {key}: page shows {cells[key]}, data {row.get(key)}")
-    if derived_setting and view in ("vorp", "adj"):
-        for row in rows:
-            for key in PUBLISHED:
-                value = row.get(key)
-                if value is None:
-                    continue
-                if view == "vorp":
-                    rebuilt = (row.get(f"{key}__native") or 0) * (snapshot["vorpScale"][key] or 0)
-                else:
-                    rebuilt = row.get(f"{key}__check")
-                if rebuilt is None or abs(rebuilt - value) > 1e-6:
-                    errors.append(f"{view} {row['player_key']} {key}: intermediates give {rebuilt}, shown {value}")
+    for row in rows:
+        for key in keys:
+            value, rebuilt = row.get(key), row.get(f"{key}__check")
+            if value is None or rebuilt is None:
+                continue
+            if abs(rebuilt - value) > 1e-6:
+                errors.append(f"{view} {row['player_key']} {key}: intermediates give {rebuilt}, shown {value}")
+    checked = sum(1 for row in rows for key in keys if row.get(f"{key}__check") is not None)
+    if not checked:
+        errors.append(f"{view}: no rebuilt value to check")
     return errors
 
 
@@ -272,18 +275,11 @@ class InspectorEngineParityTests(unittest.TestCase):
         derived = {k: v for k, v in SETTINGS.items() if k.startswith("10 teams")}
         # Each shows a plausible engine number that is not the one the chart shows.
         broken_variants = {
-            # Indexed: the saved 12-team values at a 10-team setting (the
-            # browser derivation reproduces them at the saved setup itself).
-            "indexed shows saved 12-team values": (
-                "row[key] = snap.series[key][k] ?? null;",
-                "row[key] = (snap.published[key] ? snap.published[key].saved12 : snap.series[key])[k] ?? null;",
-                derived),
-            # VORP vs waivers: the browser derivation instead of the saved view shown.
-            "vorp from derivation": ("        row[key] = p.vorp.values[k] ?? null;",
-                                     "        row[key] = p.views?.vorp?.[k] ?? null;", saved),
-            # Adjusted values recomputed here instead of read from the engine.
-            "adjusted recomputed": ("        row[key] = p.adj.values[k] ?? null;",
-                                    "        row[key] = row[`${key}__check`];", saved),
+            # Every tab shows the Indexed values (another tab's real numbers).
+            "every tab shows Indexed": ("        row[key] = values[key]?.[k] ?? null;",
+                                        "        row[key] = snap.views.indexed[key]?.[k] ?? null;", derived),
+            # VORP vs waivers rebuilt without the pie factor (raw value above waivers).
+            "vorp rebuilt unscaled": (": field === \"vorp\" ? p.vorp * s.vorpFactor", ": field === \"vorp\" ? p.vorp", saved),
         }
         for name, (old, new, settings) in broken_variants.items():
             with self.subTest(variant=name):

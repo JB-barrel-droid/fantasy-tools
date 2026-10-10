@@ -44,7 +44,13 @@
     playersInlineId: "players-data",
   });
 
-  const FETCH_TIMEOUT_MS = 4000;
+  // JEG-484: same-origin static assets get no short timeout. A 4s timeout on
+  // a slow first load (backgrounded tab, slow network) silently dropped the
+  // adjustment inputs, and with them every *_adjusted series and 4 of DDF
+  // Value's 7 inputs. Each asset is retried with backoff instead; the
+  // per-attempt ceiling only guards against a connection that never ends.
+  const FETCH_ATTEMPT_TIMEOUT_MS = 60000;
+  const FETCH_RETRY_DELAYS_MS = Object.freeze([500, 1500]); // 3 attempts in all
 
   // Source keys verbatim from contract §3.4.2 (api.product_options.source_keys).
   const SOURCE_KEYS = Object.freeze([
@@ -76,9 +82,6 @@
   // Pure VORP keys (browser-computed from per-game projections).
   const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp"]);
 
-  // The anchor every other curve is indexed to; the only section whose absence
-  // refuses the render (GAP-MISSING-SECTION-REFUSES-RENDER).
-  const ANCHOR_SOURCE_KEY = "espn";
 
   // As-published sources (singleScale: true in normalizeToFixedPie).
   const AS_PUBLISHED_KEYS = Object.freeze(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
@@ -103,6 +106,7 @@
     options: null,           // contract-shaped api.product_options
     activeSnapshotId: null,
     freshness: null,         // JEG-432 R5 buildSourceFreshness() at load
+    loadStatus: {},          // JEG-484: asset name -> {ok, error, attempts}
   };
 
   // ---------- Fetch helpers ----------
@@ -141,6 +145,28 @@
           reject(err);
         });
     });
+  }
+
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  // JEG-484: fetch a same-origin JSON asset with retry + backoff, recording
+  // the outcome in state.loadStatus[name] so a failure is never silent.
+  async function fetchAsset(name, path) {
+    const status = { ok: false, error: null, attempts: 0 };
+    state.loadStatus[name] = status;
+    for (let attempt = 0; attempt <= FETCH_RETRY_DELAYS_MS.length; attempt += 1) {
+      if (attempt > 0) await delay(FETCH_RETRY_DELAYS_MS[attempt - 1]);
+      status.attempts = attempt + 1;
+      try {
+        const payload = await fetchJSON(path, FETCH_ATTEMPT_TIMEOUT_MS);
+        status.ok = true;
+        status.error = null;
+        return payload;
+      } catch (err) {
+        status.error = err && err.message ? err.message : String(err);
+      }
+    }
+    throw new Error(status.error);
   }
 
   function loadPlayersInline() {
@@ -198,7 +224,7 @@
       default_scoring: "full",
       default_teams: 12,
       default_roster_shape: Object.freeze({ QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 }),
-      default_lock_order: "espn",
+      default_lock_order: "ddf_value",
       default_view_mode: "indexed",
       default_reference_source: "usatoday",
       default_position_weights: null,
@@ -264,6 +290,17 @@
         ecr_ppg: player.ecr_ppg || null,
         blend_ppg: player.blend_ppg || null,
         games_remaining: Number.isFinite(Number(player.games_remaining)) ? Number(player.games_remaining) : null,
+        // JEG-502: roster status from the active NFL universe (bake_players.py).
+        roster_status: player.roster_status || null,
+        roster_status_label: player.roster_status_label || null,
+        roster_status_inferred: player.roster_status_inferred === true,
+        injury_status: player.injury_status || null,
+        depth_chart_position: player.depth_chart_position || null,
+        depth_chart_order: Number.isFinite(Number(player.depth_chart_order)) && player.depth_chart_order !== null
+          ? Number(player.depth_chart_order) : null,
+        sleeper_id: player.sleeper_id || null,
+        universe_only: player.universe_only === true,
+        unpriced_reason: player.unpriced_reason || null,
         // Legacy aliases (removed by the v1 contract cutover).
         full_name: canonicalName,
         name: canonicalName,
@@ -794,6 +831,17 @@
     return state.playerKeysBySourceId;
   }
 
+  // getLoadStatus(): JEG-484 read-only load outcome per asset, e.g.
+  // {assets: {detail: {ok, error, attempts}, adjustments: {...}},
+  //  adjustmentsLoaded}. Available before init finishes (and after it fails).
+  function getLoadStatus() {
+    const assets = {};
+    Object.entries(state.loadStatus).forEach(([name, status]) => {
+      assets[name] = { ok: status.ok, error: status.error, attempts: status.attempts };
+    });
+    return { assets, adjustmentsLoaded: !!state.adjustments };
+  }
+
   // getProviderInfo(): debug surface for the chart health panel.
   function getProviderInfo() {
     if (!state.initialized) {
@@ -830,10 +878,12 @@
       throw new Error(`Unknown contract version ${expectedVersion}. Render refused.`);
     }
 
-    // Detail is mandatory (the chart's primary data is here).
+    // Both assets load in parallel. Detail is mandatory (the chart's primary
+    // data is here).
+    const adjustmentsPromise = fetchAsset("adjustments", LEGACY_PATHS.adjustments).catch(() => null);
     let detail;
     try {
-      detail = await fetchJSON(LEGACY_PATHS.detail, FETCH_TIMEOUT_MS);
+      detail = await fetchAsset("detail", LEGACY_PATHS.detail);
     } catch (err) {
       throw new Error(`Data contract fetch failed (${LEGACY_PATHS.detail}): ${err && err.message ? err.message : err}. Render refused.`);
     }
@@ -841,11 +891,13 @@
       throw new Error("Data contract payload is empty. Render refused.");
     }
 
-    // Adjustment inputs are best-effort: contract §5.2 fail-open semantics.
-    // We log a warning when they are absent and continue.
-    const adjustments = await fetchJSON(LEGACY_PATHS.adjustments, FETCH_TIMEOUT_MS).catch(() => null);
+    // Adjustment inputs: the chart still renders without them (contract
+    // §5.2), but only after retries, and the failure is exposed through
+    // getLoadStatus() so the page can say which inputs are missing and why.
+    const adjustments = await adjustmentsPromise;
     if (!adjustments) {
-      console.warn("[product-data] assets/adjustment-inputs.json absent; *_adjusted columns will pause per runRegressionGuards.");
+      const why = state.loadStatus.adjustments && state.loadStatus.adjustments.error;
+      console.warn(`[product-data] ${LEGACY_PATHS.adjustments} failed to load (${why || "empty payload"}); *_adjusted series are missing.`);
     }
 
     state.detail = detail;
@@ -872,13 +924,12 @@
     state.freshness = Object.freeze(buildSourceFreshness(state.snapshot.sources, {}));
     state.activeSnapshotId = state.snapshot.snapshot_id;
 
-    // Source map coverage (GAP-MISSING-SECTION-REFUSES-RENDER). The ESPN
-    // anchor is required: every other curve is indexed to it, so without it
-    // there is nothing honest to draw and the render is refused. Any other
-    // source whose section is absent is DROPPED, not fatal: its series reads
-    // as unavailable (no values, never zeros) and the rest of the chart
-    // renders. The dropped keys are exposed as getMissingSources() so the
-    // page can say which source is unavailable.
+    // Source map coverage (GAP-MISSING-SECTION-REFUSES-RENDER). A source whose
+    // section is absent is DROPPED, not fatal: its series reads as
+    // unavailable (no values, never zeros) and the rest of the chart renders.
+    // JEG-508 (VP-1.6): no source is required, ESPN included. The dropped
+    // keys are exposed as getMissingSources() so the page can say which
+    // source is unavailable.
     // cbs_adjusted is a derived column on cbs.
     const sourcesMap = state.snapshot.sources || {};
     const missing = SOURCE_KEYS.filter(k => {
@@ -886,9 +937,6 @@
       if (k === "cbs_adjusted") return !sourcesMap.cbs;
       return !sourcesMap[k];
     });
-    if (missing.includes(ANCHOR_SOURCE_KEY)) {
-      throw new Error(`sourceMapCoverage failed: the ${ANCHOR_SOURCE_KEY} anchor section is missing. Render refused.`);
-    }
     if (missing.length) {
       console.warn(`[product-data] sourceMapCoverage: ${missing.join(", ")} missing from the fixture; shown as unavailable, the rest renders.`);
     }
@@ -911,8 +959,7 @@
   }
 
   // Source sections absent from the fixture, dropped from the chart rather than
-  // refusing the render (the ESPN anchor is never in this list: its absence
-  // refuses the render instead).
+  // refusing the render (any source, ESPN included: JEG-508 VP-1.6).
   function getMissingSources() {
     return [...state.missingSources];
   }
@@ -936,6 +983,7 @@
     getPlayerKeysBySourceId,
     getProviderInfo,
     getMissingSources,
+    getLoadStatus,
     // Constants exported so consumers stop redefining them locally.
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,
@@ -972,6 +1020,7 @@
     getPlayerKeysBySourceId,
     getProviderInfo,
     getMissingSources,
+    getLoadStatus,
     handle: () => publicHandle,
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,

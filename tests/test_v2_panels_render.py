@@ -19,7 +19,10 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
   * Source freshness (10, JEG-463): one row per root source (publisher), Prior
     week where the data's freshness record says so, no pipeline jargon; a
     failed import in reference-freshness.json shows that source as Not
-    updating and warns on the header chip;
+    updating and warns on the header chip; fail closed: with the file missing
+    (404) every source shows "Freshness unknown" (no tick) and the chip says
+    "unconfirmed"; a source whose own rows are missing is unknown while the
+    rest are current;
   * toolbar (JEG-475): Search · Position · Show · Rank by · Δ · More · Reset,
     each exactly once, left to right, sticky; the chart-options box, rank
     window buttons, Reset to all / Reset zoom / Clear filters are gone; only
@@ -48,7 +51,7 @@ one fault each (pair toggle applied at once, zone preset ignored, Team box
 ignored, From / To ignored, brush drag keeps the preset, value range ignores
 the rank window, Y brush does nothing, Reset keeps the value range, Columns
 menu ignored, no SUPERFLEX stepper, bench move not reported, shares not
-applied, league Apply does nothing, no chart-and-table split, header not
+applied, freshness fails open, league Apply does nothing, no chart-and-table split, header not
 sticky, cells wide enough to scroll sideways) and requires each to fail.
 """
 from __future__ import annotations
@@ -56,6 +59,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import http.server
+import json
 import re
 import shutil
 import socketserver
@@ -82,7 +86,7 @@ def setUpModule():
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-ACTIVE = "() => window.TradeValueCurveControls.getActiveSources()"
+ACTIVE = "() => window.TradeValueV2.shown()"
 
 
 def _serve(body, route, *_):
@@ -106,7 +110,10 @@ def _built_dist():
             def log_message(self, format, *args):
                 pass
         handler = functools.partial(QuietHandler, directory=str(dist))
-        with socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
+        # Two pages load at once in check_freshness; the default backlog (5) refuses connections under load.
+        class Server(socketserver.ThreadingTCPServer):
+            request_queue_size = 128
+        with Server(("127.0.0.1", 0), handler) as server:
             server.daemon_threads = True
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
@@ -122,7 +129,7 @@ def check_sources(page, width) -> list[str]:
     box = page.evaluate("() => { const b = document.getElementById('v2Popover').getBoundingClientRect(); return {w: b.width, h: b.height}; }")
     if width <= 390 and (box["w"] < 389 or box["h"] < 800):
         errors.append(f"sources panel is not full screen at 390: {box}")
-    info = page.evaluate("() => Object.fromEntries(window.TradeValueCurveControls.getSourceInfo().map(i => [i.key, i]))")
+    info = page.evaluate("() => Object.fromEntries(window.TradeValueCurveControls.getSourceInfo({includeComposite: true}).map(i => [i.key, i]))")
     pairs = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-series]')].map(b => ({key: b.dataset.series,
       on: b.checked === true || b.getAttribute('aria-pressed') === 'true', disabled: b.disabled}))""")
     for p in pairs:
@@ -271,33 +278,90 @@ def check_freshness(page) -> list[str]:
             errors.append(f"freshness: pipeline jargon in {r['text']!r}")
     page.keyboard.press("Escape")
     # A failed import shows its source as Not updating, and the header says so.
+    # Hermetic: every other source's rows read healthy, so only FantasyPros (plus any series the
+    # engine itself pauses) can be stuck, whatever today's real data says.
+    def broken(route, *_):
+        doc = _freshness_doc()
+        for item in doc.get("items", []):
+            if str(item.get("key", "")).startswith(("source_import.", "comparison.")):
+                item["freshness_ok"] = True
+                if "weeks_behind" in item:
+                    item["weeks_behind"] = 0
+            if item.get("key") == "source_import.fantasypros":
+                item["freshness_ok"] = False
+                item["value"] = "2026-10-06"
+        route.fulfill(status=200, json=doc)
+    rows, label = _freshness_with(page, broken)
+    fp = rows.get("fantasypros")
+    if not fp or fp["status"] != "stuck" or "since 2026-10-06" not in fp["text"]:
+        errors.append(f"freshness: failed FantasyPros import not shown as Not updating: {fp}")
+    stuck = 1 + sum(1 for pub, want in roots.items() if want.get("paused") and pub != "fantasypros")
+    if f"{stuck} source{'s' if stuck != 1 else ''} not updating" not in label:
+        errors.append(f"freshness: header chip {label!r} does not warn about {stuck} stuck source(s)")
+
+    # Fail closed: a missing freshness file never shows a source as current.
+    def missing(route, *_):
+        route.fulfill(status=404, content_type="text/plain", body="not found")
+    rows, label = _freshness_with(page, missing)
+    for pub, want in roots.items():
+        r = rows.get(pub)
+        expect = "stuck" if want.get("paused") else "prior" if want.get("prior") else "unknown"
+        if not r or r["status"] != expect or (expect == "unknown" and (
+                "Freshness unknown" not in r["text"] or "✓" in r["text"] or "couldn't confirm" not in r["text"])):
+            errors.append(f"freshness: with the file missing {pub} shows {r}, want {expect}")
+    if "all sources current" in label or "unconfirmed" not in label:
+        errors.append(f"freshness: with the file missing the header chip says {label!r}")
+
+    # Fail closed: a source whose own rows are missing is unknown; every other source confirmed current.
+    def dropped(route, *_):
+        doc = _freshness_doc()
+        items = [item for item in doc.get("items", [])
+                 if item.get("key") not in ("source_import.fantasypros", "comparison.source.fantasypros")]
+        for item in items:
+            if str(item.get("key", "")).startswith(("source_import.", "comparison.")):
+                item["freshness_ok"] = True
+                if "weeks_behind" in item:
+                    item["weeks_behind"] = 0
+        doc["items"] = items
+        route.fulfill(status=200, json=doc)
+    rows, label = _freshness_with(page, dropped)
+    for pub, want in roots.items():
+        r = rows.get(pub)
+        expect = ("stuck" if want.get("paused") else "prior" if want.get("prior")
+                  else "unknown" if pub == "fantasypros" else "current")
+        if not r or r["status"] != expect:
+            errors.append(f"freshness: with FantasyPros rows removed {pub} shows {r}, want {expect}")
+    fp = rows.get("fantasypros") or {}
+    if "✓" in fp.get("text", "") or "Freshness unknown" not in fp.get("text", ""):
+        errors.append(f"freshness: FantasyPros without rows shows {fp}")
+    if "all sources current" in label or "1 source unconfirmed" not in label:
+        errors.append(f"freshness: with one source unconfirmed the header chip says {label!r}")
+    return errors
+
+
+def _freshness_doc() -> dict:
+    """The built freshness record, read from disk (a route.fetch round trip to the test server
+    was refused intermittently on Windows)."""
+    return json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8"))
+
+
+def _freshness_with(page, handler):
+    """Load Player values with reference-freshness.json served by handler; return the rows and the chip."""
     other = page.context.browser.new_page(viewport={"width": 1440, "height": 1000})
     other.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
     if getattr(page, "v2_js", None) is not None:
         other.route("**/v2/v2.js*", functools.partial(_serve, page.v2_js))
-
-    def broken(route, *_):
-        response = route.fetch()
-        doc = response.json()
-        for item in doc.get("items", []):
-            if item.get("key") == "source_import.fantasypros":
-                item["freshness_ok"] = False
-                item["value"] = "2026-10-06"
-        route.fulfill(response=response, json=doc)
-    other.route("**/assets/reference-freshness.json*", broken)
+    other.route("**/assets/reference-freshness.json*", handler)
     other.goto(page.url.split("#")[0] + "#player-values", wait_until="load", timeout=120000)
-    other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
+    other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=120000)
     other.wait_for_timeout(1500)   # the freshness record loads after the engine
+    other.wait_for_function("() => !document.getElementById('v2FreshnessLabel').textContent.includes('checking sources')", timeout=60000)
     other.click("#v2Freshness")
-    fp = other.evaluate("""() => { const tr = document.querySelector('#v2Popover tr[data-source="fantasypros"]');
-      return tr ? {status: tr.dataset.status, text: tr.lastElementChild.textContent} : null; }""")
+    rows = other.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#v2Popover tr[data-source]')].map(tr =>
+      [tr.dataset.source, {status: tr.dataset.status, text: tr.lastElementChild.textContent}]))""")
     label = other.evaluate("() => document.getElementById('v2FreshnessLabel').textContent")
-    if not fp or fp["status"] != "stuck" or "since 2026-10-06" not in fp["text"]:
-        errors.append(f"freshness: failed FantasyPros import not shown as Not updating: {fp}")
-    if "1 source not updating" not in label:
-        errors.append(f"freshness: header chip {label!r} does not warn")
     other.close()
-    return errors
+    return rows, label
 
 
 VIEW = "window.TradeValueV2"
@@ -340,7 +404,8 @@ def check_toolbar(page) -> list[str]:
         if page.locator(selector).count():
             errors.append(f"toolbar: removed control still present: {selector}")
     text = page.text_content("#v2Main")
-    for gone in ("Chart options", "Reset to all", "Reset zoom", "Clear filters"):
+    # "Reset zoom" came back in JEG-483 (shown only while zoomed; tests/test_v2_expand_render.py).
+    for gone in ("Chart options", "Reset to all", "Clear filters"):
         if gone in text:
             errors.append(f"toolbar: {gone!r} is still on Player values")
     resets = page.evaluate("() => [...document.querySelectorAll('#v2Main button')].filter(b => /^Reset$/.test(b.textContent.trim()) && b.offsetParent).length")
@@ -352,7 +417,8 @@ def check_toolbar(page) -> list[str]:
     # Chart: only direct manipulation inside (brushes, zoom), no rank-window buttons.
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
       .filter(n => n.offsetParent).map(n => n.id || n.textContent.trim())""")
-    allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi"}
+    allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
+               "v2ExpandChart", "v2ResetZoom"}   # JEG-483: expand and (while zoomed) Reset zoom
     extra = [n for n in inside if n not in allowed]
     if extra:
         errors.append(f"chart: controls other than brushes and zoom inside the chart: {extra}")
@@ -403,6 +469,11 @@ def check_x_brush(page) -> list[str]:
     page.fill("#v2ToRank", "60")
     page.evaluate("() => document.getElementById('v2ToRank').dispatchEvent(new Event('change'))")
     _settle(page)
+    # The redraw runs on the next animation frame; under load that can take longer than the settle.
+    # Wait (up to 3 s) for the drawn rows to match the window; a redraw that never comes still fails below.
+    with contextlib.suppress(Exception):
+        page.wait_for_function("() => { const v = window.TradeValueV2.view(); const w = window.TradeValueV2.state.window;"
+                               " return v.visible.length && v.visible[0].rank === w[0]; }", timeout=3000)
     snap = page.evaluate(SNAP)
     if snap["window"] != [20, 60] or snap["show"] != "Custom 20–60" or snap["firstRow"] != "20":
         errors.append(f"More From 20 To 60: window {snap['window']} Show {snap['show']!r} first row {snap['firstRow']!r}")
@@ -577,6 +648,8 @@ TABLE_FIT = """() => { const wrap = document.getElementById('v2TableWrap'); cons
 
 
 def _group_of(key):
+    if key == "ddf_value":
+        return "ddf"
     if key.endswith("_vorp"):
         return "vorp"
     if key.endswith("_adjusted"):
@@ -591,7 +664,7 @@ def check_table_fit(page, width) -> list[str]:
     fit = page.evaluate(TABLE_FIT)
     tag = f"table fit {width}: "
     if fit["scroll"] > 0:
-        errors.append(tag + f"horizontal scroll {fit['scroll']}px with the default selection")
+        errors.append(tag + f"horizontal scroll {fit['scroll']}px with the wide selection")
     if not fit["headLines"] or max(fit["headLines"]) > 2:
         errors.append(tag + f"headers over two lines: {fit['headLines']}")
     if fit["headSticky"] is not True or fit["playerSticky"] != "sticky":
@@ -679,7 +752,17 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
                 tag = f"[{width}px] "
                 if width >= 1280:
                     errors += [tag + e for e in check_fold(page, width, height)]
+                    # Fit is judged with a wider selection than the first-visit default: at 1440 six value
+                    # columns (DDF Value, ESPN, the four adjusted charts).
+                    before_shown = page.evaluate("() => window.TradeValueV2.shown()")
+                    # 1366 gets five (no ESPN), the same count the pre-DDF default had.
+                    page.evaluate("""wide => window.TradeValueV2.setShown(['ddf_value'].concat(wide ? ['espn'] : [],
+                      ['fantasycalc_adjusted', 'usatoday_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']))""", width >= 1440)
+                    page.wait_for_timeout(200)
                     errors += [tag + e for e in check_table_fit(page, width)]
+                    page.evaluate("keys => window.TradeValueV2.setShown(keys)", before_shown)
+                    page.wait_for_function("keys => JSON.stringify(window.TradeValueV2.view().active) === JSON.stringify(keys)", arg=before_shown)
+                    page.wait_for_timeout(800)
                 if width == 1440:
                     errors += [tag + e for e in check_toolbar(page)]
                     for check in (check_x_brush, check_y_brush, check_reset, check_columns):
@@ -718,7 +801,7 @@ class PanelsRenderTest(unittest.TestCase):
             "pair toggle applied at once": {"v2_js": v2.replace(
                 "          if (box.checked) draft.add(item.key); else draft.delete(item.key);",
                 "          if (box.checked) draft.add(item.key); else draft.delete(item.key);\n          toggleEngineSource(item.key);", 1)},
-            "zone preset ignored": {"v2_js": v2.replace("    const zone = zoneWindow(rows, state.windowPreset);", "    const zone = null;", 1)},
+            "zone preset ignored": {"v2_js": v2.replace("    const zone = zoneWindow(rows, preset);", "    const zone = null;", 1)},
             "Team box ignored": {"v2_js": v2.replace("state.metaCols.team !== false && (row.team || \"FA\")", "(row.team || \"FA\")", 1)},
             "From / To ignored": {"v2_js": v2.replace(
                 '      from.addEventListener("change", onBounds);\n      to.addEventListener("change", onBounds);\n', "", 1)},
@@ -741,6 +824,9 @@ class PanelsRenderTest(unittest.TestCase):
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
             "pipeline failure ignored": {"v2_js": v2.replace(
                 "find(item => item && item.freshness_ok === false);", "find(item => false);", 1)},
+            "freshness fails open": {"v2_js": v2.replace(
+                "const confirmed = Boolean(own && imp && own.freshness_ok === true && imp.freshness_ok === true);",
+                "const confirmed = true;", 1)},
             "league Apply does nothing": {"v2_js": v2.replace(
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1)},

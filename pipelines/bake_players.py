@@ -29,6 +29,11 @@ Inputs (all repo-local unless noted):
   - data/inputs/razzball_projections.csv    (Razzball per-game projections)
   - data/inputs/ecr_draft.json              (preseason draft ECR ranks,
                                               preseason reference only)
+  - data/raw/sources/{cbs,usatoday,fantasycalc,fantasypros}/<latest>/
+      snapshot.json                          (the imported published charts;
+                                              universe only: every skill player
+                                              they price gets a row,
+                                              GAP-UNIVERSE-CHART-ONLY)
 
 Outputs:
   - data/fixtures/current/players.json      (the chart fixture)
@@ -89,6 +94,7 @@ from preseason_ecr import (  # noqa: E402
 )
 sys.path.insert(0, str(ROOT / "pipelines"))
 import projection_identity  # noqa: E402
+import nfl_universe  # noqa: E402
 
 SKILL_BIN = os.environ.get(
     "SUPABASE_FOOTBALL_SIGNAL_BIN",
@@ -448,7 +454,189 @@ def fetch_espn_intake(path, registry):
 SKILL_POS = ("QB", "RB", "WR", "TE")
 
 
-def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry):
+# GAP-UNIVERSE-CHART-ONLY (Jeremy, 2026-10-08): a player any current-week
+# published chart or projection source prices gets a row, even when ESPN's
+# list does not have him. The published charts are read from the snapshots
+# the chain's import step writes before the bake (the very files the chain
+# builds those sections from), so the matcher can key every charted player
+# against players.json.
+PUBLISHED_CHART_SOURCES = ("cbs", "usatoday", "fantasycalc", "fantasypros")
+RAW_SOURCES_DIR = ROOT / "data" / "raw" / "sources"
+ESPN_ABSENT_REASON = "not on ESPN's list"
+# JEG-502 (Jeremy GL-20, 2026-10-09): every active NFL QB/RB/WR/TE gets a row,
+# priced or not. Definition and roster statuses: pipelines/lib/nfl_universe.py.
+IDENTITY_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
+ROSTER_FIELDS = ("roster_status", "roster_status_label", "injury_status",
+                 "depth_chart_position", "depth_chart_order", "sleeper_id")
+
+
+def load_identity_base(path=None):
+    """The Sleeper identity base, fail-closed: the universe needs it."""
+    path = Path(path or IDENTITY_BASE)
+    try:
+        base = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise SystemExit(f"FAIL-CLOSED: identity base {path} unreadable: {e}")
+    if base.get("schema") != "sleeper-identity-base-v2" or not base.get("by_sleeper_id"):
+        raise SystemExit(f"FAIL-CLOSED: identity base {path} has schema "
+                         f"{base.get('schema')!r} or no players")
+    return base
+
+
+def nfl_universe_keys(base, registry):
+    """({player_key: universe record}, [records with no key]).
+
+    The key is the players-table row the bake's own resolver places the
+    Sleeper name on (position first, then a unique skill-position name, the
+    same rule as the ESPN leg). A player the table does not carry yet has no
+    row this bake; sync_sleeper_players.py (Sleeper identity refresh) inserts
+    him, and meta.universe.nfl_active lists him meanwhile.
+    """
+    universe = nfl_universe.active_universe(base)
+
+    def resolve_key(name, pos):
+        key = resolve(name, position=pos, registry=registry)
+        if key is None:
+            key = resolve_skill(name, registry=registry)
+        if key is None:
+            return None
+        entry = registry.by_key.get(key) or {}
+        return key if entry.get("position") in SKILL_POS else None
+
+    keys = nfl_universe.assign_keys(universe, resolve_key)
+    out = {key: universe[sid] for sid, key in keys.items()}
+    unkeyed = [universe[sid] for sid in sorted(universe) if sid not in keys]
+    print(f"nfl universe: {len(universe)} active QB/RB/WR/TE "
+          f"({len(out)} on the players table, {len(unkeyed)} not yet)")
+    return out, unkeyed
+
+
+def _snapshot_order(path):
+    """Chronological key for a snapshot directory (week-N or a date); the
+    same ordering as rebuild_comparison_chain.snapshot_sort_key."""
+    import re
+    return (tuple(int(n) for n in re.findall(r"\d+", path.name)), path.name)
+
+
+def latest_chart_snapshots(raw_dir=None, sources=PUBLISHED_CHART_SOURCES):
+    """{source: latest snapshot.json} for each published chart, chosen the way
+    the chain chooses (rebuild_comparison_chain.find_latest_snapshot)."""
+    raw_dir = Path(raw_dir) if raw_dir else RAW_SOURCES_DIR
+    out = {}
+    for source in sources:
+        d = raw_dir / source
+        if not d.is_dir():
+            continue
+        cands = [c for c in d.iterdir() if c.is_dir() and not c.name.startswith("_")
+                 and (c / "snapshot.json").is_file()]
+        if cands:
+            out[source] = max(cands, key=_snapshot_order) / "snapshot.json"
+    return out
+
+
+def _chart_row_key(row, registry):
+    """Canonical player_key for one published-chart snapshot row, or None.
+
+    Supabase-imported rows carry the canonical player_key as source_player_id
+    (the saver's verified key, named from public.players); it is accepted
+    only when the canonical registry knows it. Any other row resolves its
+    name through the canonical registry (verified aliases applied), with
+    the position only splitting namesakes. Never guessed.
+    """
+    sid = row.get("source_player_id")
+    if registry is not None and isinstance(sid, int) and not isinstance(sid, bool) \
+            and sid in registry.by_key:
+        return sid
+    pos = (row.get("pos") or "").strip().upper()
+    key = _resolve_csv_row(row.get("player_name", ""), pos, "chart-universe", registry)
+    if key is None and pos in SKILL_POS:
+        key = _resolve_csv_row(row.get("player_name", ""), "", "chart-universe", registry)
+    return key
+
+
+def _number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def published_chart_universe(snapshots, registry):
+    """Skill players each published chart prices, plus per-chart depth.
+
+    snapshots: {source: snapshot.json path}. Returns (priced, depth):
+      priced: {player_key: {"pos", "sources": [source, ...]}}. A superflex
+        (2-QB) row counts as priced by that chart ("<source>:superflex").
+      depth: {source: {"week", "content_vintage", "by_combo":
+        {"<scoring>-<teams>": {pos: n_priced}}}} from the 1-QB rows, so the
+        engine can tell a fully loaded chart (a missing player is below its
+        floor) from one too shallow at a position.
+    """
+    priced, depth = {}, {}
+    for source, path in sorted(snapshots.items()):
+        path = Path(path)
+        snap = json.loads(path.read_text(encoding="utf-8"))
+        manifest = {}
+        mpath = path.parent / "snapshot-manifest.json"
+        if mpath.is_file():
+            manifest = json.loads(mpath.read_text(encoding="utf-8"))
+        by_combo = {}
+        n_unres = 0
+        for grain, rows in (("", snap.get("rows") or []),
+                            (":superflex", snap.get("superflex_rows") or [])):
+            seen = set()
+            for row in rows:
+                if not _number(row.get("value")):
+                    continue
+                key = _chart_row_key(row, registry)
+                entry = registry.by_key.get(key) if (key is not None and registry is not None) else None
+                if not entry:
+                    n_unres += 1
+                    continue
+                pos = entry.get("position")
+                if pos not in SKILL_POS:
+                    continue
+                label = source + grain
+                rec = priced.setdefault(key, {"pos": pos, "sources": []})
+                if label not in rec["sources"]:
+                    rec["sources"].append(label)
+                if grain:
+                    continue
+                combo = f"{row.get('scoring') or snap.get('default_scoring')}-" \
+                        f"{row.get('teams') or snap.get('default_teams')}"
+                if (combo, key) in seen:
+                    continue
+                seen.add((combo, key))
+                cell = by_combo.setdefault(combo, {p: 0 for p in SKILL_POS})
+                cell[pos] += 1
+        depth[source] = {
+            "week": manifest.get("week_designated"),
+            "content_vintage": manifest.get("content_vintage"),
+            "snapshot": str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path),
+            "by_combo": dict(sorted(by_combo.items())),
+        }
+        n_src = sum(1 for r in priced.values() if any(s.split(":")[0] == source for s in r["sources"]))
+        print(f"chart universe: {source} prices {n_src} skill players "
+              f"({n_unres} rows unresolved, skipped)")
+    for rec in priced.values():
+        rec["sources"].sort()
+    return priced, depth
+
+
+def projection_universe(intakes):
+    """Skill players a projection source prices: {key: [source, ...]}.
+
+    intakes: {source: {player_key: {scoring: ppg}}} (the bake's own
+    Razzball / CBS ROS intakes, complete three-scoring reads only). A
+    player counts as priced when his PPR per-game projection is above 0.
+    """
+    out = {}
+    for source, med in sorted(intakes.items()):
+        for key, ppg in med.items():
+            if _number(ppg.get("ppr")) and ppg["ppr"] > 0:
+                out.setdefault(key, []).append(source)
+    return out
+
+
+def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry,
+                       priced_elsewhere=None):
     """Skill players the board carries at an ESPN value of zero (JEG-392).
 
     JEG-ECR-EXIT narrowed the board to ESPN's 348 *eligible* skill players,
@@ -464,9 +652,16 @@ def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry):
       - "absent": not in the ESPN CSV at all, but priced/keyed by the
         comparison artifact (ESPN publishes no projection = 0).
 
-    Returns {player_key: {"pos", "team", "espn_status"}}. Never includes a
-    key already in espn_med; identity still resolves fail-closed through the
-    canonical registry (unresolvable names are skipped, never guessed).
+      - "absent" too (GAP-UNIVERSE-CHART-ONLY, 2026-10-08): priced by a
+        current-week published chart or projection source
+        (priced_elsewhere: {player_key: [source, ...]}) but not on ESPN's
+        list. ESPN shows "—" for these ("not on ESPN's list"), never 0;
+        a player ESPN explicitly lists stays "ineligible" (ESPN's 0).
+
+    Returns {player_key: {"pos", "team", "espn_status"[, "universe_sources"]}}.
+    Never includes a key already in espn_med; identity still resolves
+    fail-closed through the canonical registry (unresolvable names are
+    skipped, never guessed).
     """
     out = {}
     with open(espn_csv, newline="") as f:
@@ -501,6 +696,19 @@ def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry):
                 continue
             out[key] = {"pos": entry["position"], "team": "",
                         "espn_status": "absent"}
+    for key, sources in sorted((priced_elsewhere or {}).items()):
+        if key in espn_med:
+            continue
+        if key in out:
+            out[key].setdefault("universe_sources", sorted(sources))
+            continue
+        entry = registry.by_key.get(key) if registry is not None else None
+        if not entry or entry.get("position") not in SKILL_POS:
+            continue
+        out[key] = {"pos": entry["position"], "team": "",
+                    "espn_status": "absent",
+                    "universe_sources": sorted(sources),
+                    "priced_elsewhere_only": True}
     n_inel = sum(1 for v in out.values() if v["espn_status"] == "ineligible")
     print(f"espn zero universe: {len(out)} skill players at ESPN 0 "
           f"({n_inel} ineligible, {len(out) - n_inel} absent from ESPN CSV)")
@@ -566,14 +774,34 @@ def bake(args):
     # Iterate over ESPN intake keys (every charted skill player has an
     # ESPN projection). pos / team come from the ESPN CSV row; fall back
     # to the canonical registry when the CSV is silent on one.
+    # GAP-UNIVERSE-CHART-ONLY: the universe is ESPN's list plus every player
+    # a current-week published chart or projection source prices.
+    chart_snapshots = latest_chart_snapshots(getattr(args, "raw_sources_dir", None))
+    chart_priced, chart_depth = published_chart_universe(chart_snapshots, registry)
+    proj_priced = projection_universe({"razzball": rz_med, "cbsros": cbsros_med})
+    priced_elsewhere = {k: list(v["sources"]) for k, v in chart_priced.items()}
+    for k, srcs in proj_priced.items():
+        priced_elsewhere.setdefault(k, []).extend(srcs)
     espn_zero = espn_zero_universe(
         args.espn_csv, getattr(args, "comparison_fixture", None), espn_med,
-        registry)
+        registry, priced_elsewhere=priced_elsewhere)
     skill_rows = [(k, r, None) for k, r in espn_med.items()]
-    skill_rows += [(k, {"comps": {}, "pos": z["pos"], "team": z["team"]},
+    skill_rows += [(k, {"comps": {}, "pos": z["pos"], "team": z["team"],
+                        "universe_sources": z.get("universe_sources"),
+                        "priced_elsewhere_only": z.get("priced_elsewhere_only", False)},
                     z["espn_status"]) for k, z in sorted(espn_zero.items())]
+    # JEG-502: the rest of the active NFL universe, at ESPN "absent" (ESPN has
+    # no row for them) and no other leg: the engine shows 0 where a source is
+    # fully loaded and a reason elsewhere (row.missingReasons).
+    identity_base = load_identity_base(getattr(args, "identity_base", None))
+    universe, universe_unkeyed = nfl_universe_keys(identity_base, registry)
+    have = {k for k, _r, _s in skill_rows}
+    skill_rows += [(k, {"comps": {}, "pos": (registry.by_key.get(k) or {}).get("position") or u["pos"],
+                        "team": u["team"], "universe_only": True}, "absent")
+                   for k, u in sorted(universe.items()) if k not in have]
 
     players = []
+    n_unplaceable = 0
     for key, espn_row, espn_status in skill_rows:
         v = espn_row["comps"]
         pos = espn_row["pos"]
@@ -581,6 +809,14 @@ def bake(args):
         # fallback when the CSV is silent.
         team = _resolve_team_abbr(espn_row["team"], key, registry,
                                   team_abbr)
+        uni = universe.get(key)
+        if espn_row.get("universe_only"):
+            # Sleeper is the only source for these: its team, never the
+            # players table's (possibly stale) one; "" for a free agent.
+            team = uni["team"]
+        elif not team and uni and uni["team"]:
+            # JEG-502: a row no source places on a team takes Sleeper's.
+            team = uni["team"]
 
         # ESPN-PRIMARY (2026-10-05, JEG-ECR-EXIT): the board's primary
         # number IS the ESPN leg. ESPN is already rest-of-season so
@@ -629,6 +865,28 @@ def bake(args):
             # published). The ESPN-only primary value is therefore 0.
             row["espn_zeroed"] = True
             row["espn_status"] = espn_status
+            if espn_status == "absent":
+                # GAP-UNIVERSE-CHART-ONLY: missing, not 0. The page shows
+                # ESPN as "—" with this reason.
+                row["espn_missing_reason"] = ESPN_ABSENT_REASON
+        if espn_row.get("universe_sources"):
+            # Which current-week sources price this player (why he has a row
+            # although ESPN's list does not carry him at a value).
+            row["universe_sources"] = list(espn_row["universe_sources"])
+        if uni:
+            # JEG-502: roster status for search and the row's reason.
+            for field in ROSTER_FIELDS:
+                if uni.get(field) not in (None, ""):
+                    row[field] = uni[field]
+            if uni.get("roster_status_inferred"):
+                row["roster_status_inferred"] = True
+        if (uni and espn_status == "absent" and not row.get("universe_sources")
+                and not rz_complete and not cbsros_complete):
+            # In the row set only because he is in the active NFL universe
+            # (also when an earlier bake left his slug in the comparison
+            # fixture): nothing prices him.
+            row["universe_only"] = True
+            row["unpriced_reason"] = nfl_universe.unpriced_reason(uni)
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
@@ -665,6 +923,15 @@ def bake(args):
             # baked cbsros DDF leg.
             if cbsros_complete:
                 row["cbsros_ppg"] = {s: round(c[s], PPG_DECIMALS) for s in SCORINGS}
+        if (espn_row.get("priced_elsewhere_only")
+                and key not in universe
+                and not any(src.split(":")[0] in PUBLISHED_CHART_SOURCES
+                            for src in row.get("universe_sources", []))
+                and not row.get("rz_ppg") and not row.get("cbsros_ppg")):
+            # Projection-only player whose per-game projection cannot be
+            # placed (no team / games remaining): no value would show.
+            n_unplaceable += 1
+            continue
         players.append(row)
 
     # GAP-029 (Jeremy 2026-10-08, JEG-211 reconfirmed): kickers and team
@@ -749,8 +1016,15 @@ def bake(args):
     # ESPN-labeled value comes from ESPN projections only. The primary
     # blend is 100% ESPN for skill players too — espn_ros IS the primary.
     violations = []
+    seen_keys = set()
     for p in players:
         pid = f"{p['name']} (key={p['player_key']})"
+        if p["player_key"] in seen_keys:
+            violations.append(f"{pid}: two rows share this player_key")
+        seen_keys.add(p["player_key"])
+        if p.get("universe_only") and any(
+                p.get(f) for f in ("espn_ppg", "rz_ppg", "cbsros_ppg", "blend_ppg")):
+            violations.append(f"{pid}: universe-only row carries a projection")
         pricing = p.get("pricing")
         if p["pos"] not in SKILL_POSITIONS:
             violations.append(f"{pid}: position {p['pos']!r} is not carried "
@@ -822,6 +1096,30 @@ def bake(args):
         "n_rz_complete": sum(1 for p in players if p["rz_complete"]),
         "n_cbsros_complete": sum(1 for p in players
                                  if p.get("cbsros_complete")),
+        # GAP-UNIVERSE-CHART-ONLY (Jeremy, 2026-10-08): the universe is
+        # ESPN's list plus every player a current-week published chart or
+        # projection source prices. chart_depth is each chart's priced count
+        # per position and league combo (1-QB rows), for the engine's
+        # "absent from a fully loaded chart = 0, unless the chart is too
+        # shallow at that position" rule.
+        "universe": {
+            "note": ("Rows = ESPN's list (priced or listed at 0) + players "
+                     "any current-week published chart or projection source "
+                     "prices. A player not on ESPN's list is espn_status "
+                     "'absent' (ESPN shown as missing, never 0)."),
+            "n_espn_listed": sum(1 for p in players if p.get("espn_status") != "absent"),
+            "n_not_on_espn": sum(1 for p in players if p.get("espn_status") == "absent"),
+            "chart_only": sorted(
+                p["player_key"] for p in players
+                if p.get("espn_status") == "absent" and any(
+                    s.split(":")[0] in PUBLISHED_CHART_SOURCES
+                    for s in p.get("universe_sources", []))),
+            "n_projection_unplaceable_skipped": n_unplaceable,
+            "chart_depth": chart_depth,
+            # JEG-502: every active NFL QB/RB/WR/TE has a row; counts by
+            # roster status (also reported in the fidelity pulse).
+            "nfl_active": nfl_universe.summary(players, identity_base, universe_unkeyed),
+        },
         "scoring_note": "No INT/fumble data in season sources; values exclude them.",
         "ppg_note": ("Per-game points = ROS fantasy points / the games the "
                      "team plays inside ESPN's ROS window (weeks_covered "
@@ -943,6 +1241,13 @@ def main():
                     default=str(FIXTURE_DIR / "comparison-sources-data.json"),
                     help="comparison artifact whose keyed identities the board "
                          "must carry (JEG-392); ESPN-absent ones bake at 0")
+    ap.add_argument("--identity-base", default=str(IDENTITY_BASE),
+                    help="Sleeper identity base (JEG-502: the active NFL "
+                         "universe every row set must cover)")
+    ap.add_argument("--raw-sources-dir", default=str(RAW_SOURCES_DIR),
+                    help="where the imported published-chart snapshots live "
+                         "(GAP-UNIVERSE-CHART-ONLY: every player they price "
+                         "gets a row)")
     args = ap.parse_args()
     if args.razzball_snapshot is None and args.razzball_csv is None:
         latest = _latest_razzball_snapshot()

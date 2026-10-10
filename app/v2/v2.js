@@ -40,13 +40,16 @@
   const narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 767px)") : null;
   const metaWideQuery = window.matchMedia ? window.matchMedia("(min-width: 1600px)") : null;   // JEG-473
   let metaNoRoom = false;   // set when the expanded columns would make the table scroll sideways
-  const metaColumnsShown = () => Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom;
+  let expanded = null;      // JEG-483: "chart" | "table" while the expanded view is open
+  const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
   const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
   const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
+    {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
+      note: "Our value for each player, built from the inputs you choose below."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
@@ -57,11 +60,61 @@
       note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
   ];
   function seriesGroup(key) {
+    if (key === DDF_KEY) return "ddf";
     if (key.endsWith("_vorp")) return "vorp";
     if (key.endsWith("_adjusted")) return "adj";
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
     return "pub";
   }
+  // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
+  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (as published)", "ESPN value above waivers".
+  function groupSeriesName(key) {
+    if (key === DDF_KEY) return "DDF Value";
+    const meta = sourceMeta(key);
+    const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
+    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (as published)`,
+      vorp: `${name} value above waivers`}[seriesGroup(key)];
+  }
+  const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
+
+  // JEG-466: the one series picker every tab uses (Player values' Rank by, Risers & fallers,
+  // Compare's Player values shown). A native <select> with one <optgroup> per JEG-474 group,
+  // DDF Value first. Each option: symbol, group-vocabulary name, "· Wk N" when the series is
+  // on a prior week, and a disabled option carries its reason in the label and the title.
+  // entries: [{key, reason}], reason set (a string) when the series cannot be picked.
+  function renderSeriesPicker(select, entries, selected) {
+    select.replaceChildren();
+    select.classList.add("v2-series-picker");
+    SERIES_GROUPS.forEach(group => {
+      const inGroup = entries.filter(entry => seriesGroup(entry.key) === group.id);
+      if (!inGroup.length) return;
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = pickerGroupTitle(group);
+      optgroup.dataset.group = group.id;
+      inGroup.forEach(({key, reason}) => {
+        const option = document.createElement("option");
+        option.value = key;
+        option.dataset.group = group.id;
+        const item = view && view.infoByKey[key];
+        const behind = !(item && item.stale) ? null : key === DDF_KEY
+          ? {short: Number.isFinite(item.week) ? `Wk ${item.week}` : "Earlier week", label: "Some DDF Value inputs are on an earlier week."}
+          : priorWeekInfo(sourceMeta(key).publisher, item, view.refWeek);
+        let text = `${sourceMeta(key).symbol} ${groupSeriesName(key)}`;
+        if (behind) { text += ` · ${behind.short}`; option.dataset.priorWeek = behind.short; }
+        if (reason) { text += ` — ${reason}`; option.disabled = true; }
+        option.textContent = text;
+        option.title = [behind && behind.label, reason].filter(Boolean).join(" ");
+        optgroup.appendChild(option);
+      });
+      select.appendChild(optgroup);
+    });
+    const keys = entries.map(entry => entry.key);
+    select.value = keys.includes(selected) ? selected : "";
+    select.disabled = !entries.some(entry => !entry.reason);
+  }
+  const unavailableReason = item => (!item ? "not available" : item.available ? null
+    : item.paused ? "waiting on fresh inputs" : "not available for this league");
+
   // Prior-week badge for a series key: the shared JEG-459 badge, named by publisher.
   function weekBadge(key) {
     const item = view && view.infoByKey[key];
@@ -73,15 +126,32 @@
 
   // One series in plain words, whatever the width: "ESPN · Our value", "FantasyCalc chart".
   function plainSeries(publisher, method) {
+    if (publisher === "ddf") return "DDF Value";
     const name = PLAIN_NAMES[publisher] || PUBLISHER_NAMES[publisher] || publisher;
     return method === "indexed" ? `${name} chart` : `${name} · ${PLAIN_METHOD[method]}`;
   }
 
+  // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
+  // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
+  const DDF_KEY = "ddf_value";
+  const DDF_META = {label: "DDF Value", symbol: "★"};
+  const DDF_VERSION_NAMES = {charts: "trade charts only", projections: "projections only"};
   function sourceMeta(key) {
+    if (key === DDF_KEY) {
+      return {key, method: "ddf", publisher: "ddf", ...DDF_META, color: isDark() ? "#F28C5B" : "#A84410", short: "DDF Value"};
+    }
     let method;
     let publisher;
     if (key.endsWith("_vorp")) { method = "vorp"; publisher = key.slice(0, -5); }
     else if (key.endsWith("_adjusted")) { method = "dda"; publisher = key.slice(0, -9); }
+    // JEG-508: the engine's DDF inputs are now "<chart>_adj_values" (the chart's adjusted values).
+    else if (key.endsWith("_adj_values")) { method = "dda"; publisher = key.slice(0, -11); }
+    // JEG-497: "ddf_value_charts" / "ddf_value_projections" are DDF Value versions, not publisher charts.
+    else if (key.startsWith(`${DDF_KEY}_`)) {
+      const version = DDF_VERSION_NAMES[key.slice(DDF_KEY.length + 1)] || "";
+      const label = version ? `DDF Value (${version})` : "DDF Value";
+      return {key, method: "ddf", publisher: "ddf", ...DDF_META, label, color: isDark() ? "#F28C5B" : "#A84410", short: label};
+    }
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
     else { method = "indexed"; publisher = key; }
     const pub = PUBLISHERS[publisher] || {label: key, color: "#64736F", symbol: "•"};
@@ -96,6 +166,9 @@
     delta: false,
     window: null,          // [lo, hi] 1-based rank window (chart and table)
     windowPreset: SHOW_DEFAULT,   // the toolbar's "Show" (JEG-475); "custom" after a brush, zoom or exact ranks
+    zoomFrom: null,        // JEG-483: the Show preset before a zoom or brush made it Custom (Reset zoom returns to it)
+    rankZoom: false,       // JEG-483: the rank window itself was zoomed or brushed (not only the value range)
+    axisZoom: true,        // JEG-483: in the expanded chart the Y axis fits the value range
     sort: null,            // {key, dir}; null = rank-series order
     shown: PAGE_SIZE,
     hoverIndex: null,
@@ -145,6 +218,26 @@
     const retry = $("v2StateRetry");
     retry.hidden = false;
     retry.onclick = () => location.reload();
+    applyStatic();
+  }
+
+  // ---------- Manifesto (static text) ----------
+  // It needs no engine, so it shows at once, and still shows if the engine fails. The league bar and
+  // the loading / failure card belong to the value tabs; until the engine is ready they follow the hash here.
+  function applyStatic() {
+    const onManifesto = currentView() === "manifesto";
+    $("v2Manifesto").hidden = !onManifesto;
+    $("v2League").hidden = onManifesto;
+    if (!C) {
+      $("v2State").hidden = onManifesto;
+      if (onManifesto) $("v2Methods").hidden = true;
+    }
+  }
+
+  // Before the engine is ready, only the Manifesto can show; it follows the hash on its own.
+  function bindManifesto() {
+    window.addEventListener("hashchange", () => { if (!C) applyStatic(); });
+    applyStatic();
   }
 
   function setStatus(text, isError) {
@@ -158,7 +251,7 @@
   // Week labels come from the data's own freshness record (content week and
   // which series are an older week), the same record that picks first-load sources.
   function sourceInfoWithFreshness() {
-    const info = C.getSourceInfo();
+    const info = C.getSourceInfo({includeComposite: true});
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     info.forEach(item => {
       const series = freshness?.series?.[item.key];
@@ -191,15 +284,87 @@
     if (badge) parent.appendChild(badge);
   }
   const tierLabel = role => ({starter: "Starter", bench: "Bench", waiver: "Waiver"}[role] || "—");
+  // JEG-483: sort order for the Tier column (Starter, Bench, Waiver, then —).
+  const TIER_ORDER = {starter: 0, bench: 1, waiver: 2};
+
+  // Tier / roster tier (Jeremy, 2026-10-08): it follows the series a tab ranks or values by, never
+  // always ESPN. DDF Value: the engine's row.ddfTier. Any other series: the player's rank by that
+  // series against the engine's roster zones for that ranking (rank < starter_to_bench = Starter,
+  // < bench_to_waiver = Bench, else Waiver). A display mapping, not value math. null ("—") when the
+  // series has no value for the player.
+  // scope: {rows, pos, engineOrder}. rows = the list ranked within (engineOrder: C.getRows() order,
+  // so the engine's own ranking series reads row order against getZones(), as the chart's lines do).
+  const tierRanks = new WeakMap();
+  function tierFor(row, key, scope) {
+    if (!row || !key) return null;
+    if (key === DDF_KEY) return row.ddfTier || null;
+    const value = row.values ? row.values[key] : null;
+    if (!Number.isFinite(value) || !scope || !scope.rows) return null;
+    let byKey = tierRanks.get(scope.rows);
+    if (!byKey) tierRanks.set(scope.rows, byKey = new Map());
+    let entry = byKey.get(key);
+    if (!entry) {
+      const enginePos = C.getState().position;
+      const pos = scope.pos || enginePos;
+      const engineRanked = Boolean(scope.engineOrder) && key === C.getRankSource() && pos === enginePos;
+      const ranks = new Map();
+      if (engineRanked) {
+        scope.rows.forEach((r, index) => ranks.set(String(r.player_key), index + 1));
+      } else {
+        scope.rows.map((r, index) => ({r, index})).filter(({r}) => Number.isFinite(r.values?.[key]))
+          .sort((a, b) => b.r.values[key] - a.r.values[key] || a.index - b.index)
+          .forEach(({r}, index) => ranks.set(String(r.player_key), index + 1));
+      }
+      const zones = engineRanked ? C.getZones()
+        : typeof C.getZonesFor === "function" ? C.getZonesFor(key, pos)
+        : C.getRankSource() !== DDF_KEY || pos === "ALL" ? C.getZones() : null;
+      entry = {ranks, zones};
+      byKey.set(key, entry);
+    }
+    const rank = entry.ranks.get(String(row.player_key));
+    const sb = entry.zones && entry.zones.starter_to_bench;
+    const bw = entry.zones && entry.zones.bench_to_waiver;
+    if (!Number.isFinite(rank) || !Number.isFinite(sb) || !Number.isFinite(bw)) return null;
+    return rank < sb ? "starter" : rank < bw ? "bench" : "waiver";
+  }
+  const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));
+
+  // Low-confidence DDF Value (Jeremy, 2026-10-08): when exactly one input prices a player the engine
+  // still gives a DDF Value (that input's value) and flags it (row.ddfLowConfidence). Shown everywhere
+  // that value appears as "◐ 1 source" (symbol + label), with the engine's note as the tooltip.
+  const LOW_CONFIDENCE_NOTE = "Only one source prices this player";
+  const isLowConfidence = (row, key) => key === DDF_KEY && Boolean(row && row.ddfLowConfidence)
+    && Number.isFinite(row.values?.[DDF_KEY]);
+  function lowConfidenceNode(row) {
+    const node = document.createElement("span");
+    node.className = "v2-lowconf";
+    node.dataset.lowConfidence = "";
+    const count = Number.isFinite(row.ddfCount) ? row.ddfCount : 1;
+    const label = `${count} source${count === 1 ? "" : "s"}`;
+    // Jeremy (2026-10-09): tag "◐ 1 source"; the engine's note is the tooltip and part of the accessible name.
+    node.title = row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE;
+    node.setAttribute("role", "img");
+    node.setAttribute("aria-label", `${label}: ${node.title}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = "◐";
+    node.append(sym, document.createTextNode(` ${label}`));
+    return node;
+  }
+  function appendLowConfidence(parent, row, key) {
+    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));
+  }
+  // Player values: the Rank by series over the engine's ranked rows.
+  const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
 
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const active = C.getActiveSources();
+    const active = (ddfShown && infoByKey[DDF_KEY] ? [DDF_KEY] : []).concat(C.getActiveSources());
     const rankKey = C.getRankSource();
-    // Ranking series first, then DDA, Index, VORP (frame 22: one ordering everywhere).
-    const methodOrder = {dda: 0, indexed: 1, vorp: 2};
-    const ordered = active.slice().sort((a, b) => (b === rankKey) - (a === rankKey)
+    // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
+    const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
+    const ordered = active.slice().sort((a, b) => (b === DDF_KEY) - (a === DDF_KEY) || (b === rankKey) - (a === rankKey)
       || methodOrder[sourceMeta(a).method] - methodOrder[sourceMeta(b).method]);
     const plotKeys = ordered.filter(key => sourceMeta(key).method !== "vorp");
     const vorpKeys = ordered.filter(key => sourceMeta(key).method === "vorp");
@@ -213,11 +378,13 @@
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
     const n = rows.length;
-    const zone = zoneWindow(rows, state.windowPreset);
+    // A Custom that comes only from the value range keeps the remembered preset's rank window (JEG-483).
+    const preset = state.windowPreset === "custom" && !state.rankZoom ? state.zoomFrom || SHOW_DEFAULT : state.windowPreset;
+    const zone = zoneWindow(rows, preset);
     if (zone) {
       state.window = [Math.min(zone[0], Math.max(1, n)), Math.max(1, Math.min(zone[1], n))];
-    } else if (!state.window || state.windowPreset !== "custom") {
-      const hi = state.windowPreset === "all" ? n : Number(state.windowPreset) || n;
+    } else if (!state.window || preset !== "custom") {
+      const hi = preset === "all" ? n : Number(preset) || n;
       state.window = [1, Math.max(1, Math.min(n, hi))];
     } else {
       state.window = [Math.max(1, Math.min(state.window[0], n)), Math.max(1, Math.min(state.window[1], n))];
@@ -234,7 +401,8 @@
     // The Y brush's scale: the ranking series' own spread over the listed players (display only).
     const rankValues = rows.map(row => row.values[rankKey]).filter(Number.isFinite);
     const yScale = {lo: Math.floor(Math.min(0, ...rankValues)), hi: Math.max(1, Math.ceil(Math.max(0, ...rankValues)))};
-    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible, totalRows: allRows.length, omittedMissing,
+    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible,
+      tierScope: {rows: allRows, pos: C.getState().position, engineOrder: true}, totalRows: allRows.length, omittedMissing,
       rangeOn, yScale, rankValues, refWeek, state: C.getState(), roster: C.getRosterShape()};
   }
 
@@ -302,16 +470,20 @@
     const roots = rootFreshness();
     const stuck = roots.filter(r => r.status === "stuck").length;
     const behind = roots.filter(r => r.status === "prior").length;
+    // Fail closed: "all sources current" only when every root source is confirmed current.
+    const unknown = roots.filter(r => r.status === "unknown").length;
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
+    const freshNotes = [behind ? `⚠ ${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
+      unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
     $("v2FreshnessLabel").textContent = stuck ? `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`
-      : `${weekText}${behind ? `${behind} source${behind === 1 ? "" : "s"} on a prior week` : "all sources current"}`;
-    $("v2Freshness").classList.toggle("is-older", older || behind > 0);
+      : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
+    $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
     $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);
 
     // JEG-474 / JEG-466: one "Showing: …" line, a compact legend (not buttons) and one Customize control.
     const counts = SERIES_GROUPS.map(g => ({g, n: view.active.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
-    $("v2ShowingText").textContent = `${counts.map(c => `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`).join(" + ") || "nothing selected"}`
+    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)).join(" + ") || "nothing selected"}`
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();
@@ -327,14 +499,11 @@
     });
 
     const rankBy = $("v2RankBy");
-    rankBy.replaceChildren();
-    view.plotKeys.concat(view.vorpKeys).forEach(key => {
-      const option = document.createElement("option");
-      option.value = key;
-      option.textContent = `${sourceMeta(key).symbol} ${sourceMeta(key).short}`;
-      option.selected = key === view.rankKey;
-      rankBy.appendChild(option);
-    });
+    const rankKeys = view.plotKeys.concat(view.vorpKeys);
+    if (view.infoByKey[DDF_KEY] && !rankKeys.includes(DDF_KEY)) rankKeys.unshift(DDF_KEY);
+    // The series ranked by now stays pickable even when it went unavailable, so the picker shows it.
+    renderSeriesPicker(rankBy, rankKeys.map(key => ({key,
+      reason: key === view.rankKey ? null : unavailableReason(view.infoByKey[key])})), view.rankKey);
 
     $("v2Position").value = view.state.position;
     renderShow();
@@ -381,7 +550,7 @@
       const meta = sourceMeta(key);
       const span = document.createElement("span");
       const swatch = el("svg", {width: 22, height: 8, "aria-hidden": "true"});
-      el("line", {x1: 0, y1: 4, x2: 22, y2: 4, stroke: meta.color, "stroke-width": 2,
+      el("line", {x1: 0, y1: 4, x2: 22, y2: 4, stroke: meta.color, "stroke-width": meta.method === "ddf" ? 3.5 : 2,
         "stroke-dasharray": meta.method === "indexed" ? "6 4" : meta.method === "vorp" ? "1.5 4" : ""}, swatch);
       span.appendChild(swatch);
       const twice = keys.filter(k => sourceMeta(k).publisher === meta.publisher).length > 1;
@@ -397,6 +566,8 @@
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
     if (key.textContent) legend.appendChild(key);
+    // The expanded chart carries the same legend.
+    $("v2ExpandLegend").replaceChildren(...[...legend.childNodes].map(node => node.cloneNode(true)));
   }
 
   function drawSeriesChart(container, keys, opts) {
@@ -407,8 +578,12 @@
     // The rows shown: rank window ∩ value range (collect). X labels are each player's rank.
     const slice = view.visible;
     const n = slice.length;
-    const names = opts.names && (n > 1 ? (width - 52) / (n - 1) : width) >= 64;
-    const pad = {l: 40, r: 12, t: 12, b: names ? 46 : 30};
+    // Player names under the points once zoomed in far enough (Jeremy: "when you zoom in on the chart you see
+    // the names"). The expanded chart staggers them on two lines, so it names players at half the spacing.
+    const gap = n > 1 ? (width - 52) / (n - 1) : width;
+    const names = opts.names && gap >= (opts.stagger ? 34 : 64);
+    const stagger = names && opts.stagger && gap < 64;
+    const pad = {l: 40, r: 12, t: 12, b: names ? (stagger ? 58 : 46) : 30};
     if (opts.plot) opts.plot.style.setProperty("--v2-plot-pad-b", `${pad.b}px`);   // the Y brush lines up with the axis
     const lo = n ? slice[0].rank : state.window[0];
     const hi = n ? slice[n - 1].rank : state.window[1];
@@ -419,16 +594,27 @@
       const v = row.values[key];
       if (Number.isFinite(v) && v > vmax) vmax = v;
     }));
-    const {max: ymax, step: ystep} = niceScale(vmax);
-    const ymin = 0;
+    let {max: ymax, step: ystep} = niceScale(vmax);
+    let ymin = 0;
+    // JEG-483 axis zoom (expanded chart only): the Y axis spans the value range; lines outside it are clipped.
+    const axisZoom = Boolean(opts.axisZoom && view.rangeOn);
+    if (axisZoom) {
+      ymin = Math.max(0, state.range.min ?? 0);
+      ymax = state.range.max ?? ymax;
+      if (!(ymax > ymin)) ymax = ymin + 1;
+      ystep = [0.5, 1, 2, 5, 10, 20, 50].find(step => (ymax - ymin) / step <= 6) || 50;
+    }
     const x = i => pad.l + (n <= 1 ? (width - pad.l - pad.r) / 2 : (i / (n - 1)) * (width - pad.l - pad.r));
-    const y = v => pad.t + (1 - (Math.min(ymax, Math.max(ymin, v)) - ymin) / (ymax - ymin)) * (height - pad.t - pad.b);
+    const y = axisZoom
+      ? v => pad.t + (1 - (v - ymin) / (ymax - ymin)) * (height - pad.t - pad.b)
+      : v => pad.t + (1 - (Math.min(ymax, Math.max(ymin, v)) - ymin) / (ymax - ymin)) * (height - pad.t - pad.b);
     const grid = el("g", {class: "grid"}, svg);
     const axis = el("g", {class: "axis"}, svg);
-    for (let v = ymin; v <= ymax + 1e-9; v += ystep) {
+    const first = axisZoom ? Math.ceil(ymin / ystep - 1e-9) * ystep : ymin;
+    for (let v = first; v <= ymax + 1e-9; v += ystep) {
       el("line", {x1: pad.l, x2: width - pad.r, y1: y(v), y2: y(v)}, grid);
       const label = el("text", {x: pad.l - 8, y: y(v) + 4, "text-anchor": "end"}, axis);
-      label.textContent = Math.round(v);
+      label.textContent = ystep < 1 ? v.toFixed(1) : Math.round(v);
     }
     const xTicks = Math.min(5, n);
     for (let t = 0; t < xTicks; t += 1) {
@@ -437,15 +623,22 @@
       label.textContent = slice[i].rank;
     }
     if (names) {
-      {
-        slice.forEach((row, i) => {
-          const label = el("text", {x: x(i), y: height - 8, "text-anchor": "middle", class: "name-label"}, svg);
-          const last = String(row.name || "").split(" ").slice(-1)[0];
-          label.textContent = last.length > 11 ? `${last.slice(0, 10)}…` : last;
-        });
-      }
+      slice.forEach((row, i) => {
+        const label = el("text", {x: x(i), y: height - (stagger && i % 2 ? 20 : 8), "text-anchor": "middle", class: "name-label"}, svg);
+        const last = String(row.name || "").split(" ").slice(-1)[0];
+        label.textContent = last.length > 11 ? `${last.slice(0, 10)}…` : last;
+        label.dataset.playerKey = String(row.player_key);
+      });
     }
-    keys.forEach(key => {
+    let lines = svg;
+    if (axisZoom) {
+      const clipId = `${container.id}Clip`;
+      const clip = el("clipPath", {id: clipId}, el("defs", {}, svg));
+      el("rect", {x: pad.l - 6, y: pad.t - 2, width: width - pad.l - pad.r + 12, height: height - pad.t - pad.b + 4}, clip);
+      lines = el("g", {"clip-path": `url(#${clipId})`}, svg);
+    }
+    // The DDF Value line is drawn last so it sits on top of the others.
+    keys.filter(key => key !== DDF_KEY).concat(keys.includes(DDF_KEY) ? [DDF_KEY] : []).forEach(key => {
       const meta = sourceMeta(key);
       let d = "";
       let pen = false;
@@ -459,11 +652,11 @@
         }
       });
       if (!d) return;
-      const cls = `series is-${meta.method === "dda" ? "dda" : meta.method}${view.infoByKey[key]?.stale ? " is-older" : ""}`;
-      el("path", {d, class: cls, stroke: meta.color, "data-source": key}, svg);
+      const cls = `series is-${meta.method}${view.infoByKey[key]?.stale ? " is-older" : ""}`;
+      el("path", {d, class: cls, stroke: meta.color, "data-source": key}, lines);
     });
     const overlay = el("g", {class: "hover"}, svg);
-    return {svg, overlay, x, y, slice, width, height, pad, keys};
+    return {svg, overlay, x, y, slice, width, height, pad, keys, ymin, ymax, axisZoom};
   }
 
   let mainChart = null;
@@ -471,7 +664,9 @@
 
   function renderCharts() {
     renderLegend();
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, plot: $("v2Plot")});
+    const big = expanded === "chart";
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, plot: $("v2Plot"),
+      stagger: big, axisZoom: big && state.axisZoom});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
     vorpChart = view.vorpKeys.length
@@ -620,7 +815,7 @@
     appendEspnZero(h, row);
     const meta = document.createElement("span");
     meta.className = "v2-meta";
-    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}${weekNote}`;
+    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "FA"} · ${valuesTier(row)}${weekNote}`;
     tip.append(h, meta);
     keys.forEach(key => {
       const m = sourceMeta(key);
@@ -633,6 +828,14 @@
       const val = document.createElement("span");
       val.className = "val";
       val.textContent = Number.isFinite(v) ? fmt(v) + (state.delta ? `  ${deltaText(row, key)}` : "") : "—";
+      appendLowConfidence(val, row, key);
+      if (!Number.isFinite(v)) {
+        val.title = missingReason(key, row);
+        const why = document.createElement("span");
+        why.className = "why";
+        why.textContent = ` ${val.title}`;
+        val.appendChild(why);
+      }
       line.appendChild(val);
       tip.appendChild(line);
     });
@@ -708,10 +911,11 @@
   // ---------- table ----------
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
-  const TABLE_GROUPS = [["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
+  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
     ["published", "Trade charts as published"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
   const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
+    if (key === DDF_KEY) return "ddf";
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
     if (meta.method === "indexed") return "published";
@@ -727,7 +931,8 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "Tier", cls: "col-meta", get: row => tierLabel(row.espnRole), text: true}
+      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+        order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
     // Ranking series first (it is the sort basis), then the groups in their fixed order.
@@ -751,6 +956,7 @@
     if (!col) return rows;
     const dir = state.sort.dir === "asc" ? 1 : -1;
     return rows.sort((a, b) => {
+      if (col.order) return dir * (col.order(a) - col.order(b)) || a.rank - b.rank;
       const va = col.get(a);
       const vb = col.get(b);
       if (col.text) return dir * String(va).localeCompare(String(vb));
@@ -805,8 +1011,14 @@
   }
   const HEAT_WORDS = {above: "above", below: "below", same: "about level with"};
 
-  function missingReason(key) {
-    const item = view.infoByKey[key];
+  // Why a value is "—", for every tab: the engine's own reason first (row.missingReasons[key], e.g.
+  // "Not enough players to fit an adjustment"), then row.ddfReason for the DDF Value (JEG-479), then a
+  // generic line. A finite 0 is a value ("0.0"), never missing.
+  function missingReason(key, row) {
+    const own = row && row.missingReasons ? row.missingReasons[key] : null;
+    if (typeof own === "string" && own.trim()) return own;
+    if (key === DDF_KEY && row && row.ddfReason) return row.ddfReason;
+    const item = view && view.infoByKey[key];
     const name = sourceMeta(key).short;
     if (item && !item.available) return `${name} is unavailable right now, so no player has a value from it`;
     return `${name} has no value for this player`;
@@ -883,6 +1095,7 @@
         if (col.cls === "num") {
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
+            appendLowConfidence(td, row, col.source);
             const heat = col.source ? heatFor(row, col.source) : null;
             if (heat) {
               if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
@@ -903,7 +1116,7 @@
               td.appendChild(d);
             }
           } else {
-            const reason = col.source ? missingReason(col.source) : "Needs at least two of our values for this player";
+            const reason = col.source ? missingReason(col.source, row) : "Needs at least two of our values for this player";
             const dash = document.createElement("span");
             dash.className = "missing";
             dash.title = reason;
@@ -916,11 +1129,12 @@
           }
         } else {
           td.textContent = v;
+          if (col.cls === "col-meta") td.dataset.col = col.id;
           if (col.id === "name") {
             appendEspnZero(td, row);
             // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
             const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
-              state.metaCols.tier !== false && tierLabel(row.espnRole)].filter(Boolean);
+              state.metaCols.tier !== false && valuesTier(row)].filter(Boolean);
             if (parts.length) {
               const sub = document.createElement("span");
               sub.className = "player-sub";
@@ -934,7 +1148,7 @@
       tbody.appendChild(tr);
     });
     table.append(thead, tbody);
-    if (metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
+    if (expanded !== "table" && metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
       const wrap = $("v2TableWrap");
       if (wrap.scrollWidth > wrap.clientWidth + 1) { metaNoRoom = true; renderTable(true); return; }
     }
@@ -949,11 +1163,18 @@
     $("v2TableMeta").textContent = `${rows.length} of ${view.rows.length} players · ranks ${lo}–${hi}${valueText}`
       + `${weeks.length === 1 ? ` · Week ${weeks[0]}` : ""}${hidden ? ` · ${hidden} column group${hidden === 1 ? "" : "s"} hidden` : ""}`
       + " · tint = above or below the ranking value";
+    if (expanded === "table") $("v2ExpandMeta").textContent = $("v2TableMeta").textContent;
   }
 
   // ---------- player detail (frame 13 drawer, frame 14 full screen) ----------
   let lastFocus = null;
   let drawerRow = null;
+  let drawerTierFrom = null;   // which tab's series the drawer's tier follows
+  function drawerTier(row) {
+    if (drawerTierFrom === "targets" && targetsView) return tierText(row, targetsView.ours, targetsView.tierScope);
+    if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
+    return valuesTier(row);
+  }
   const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Published chart"], ["vorp", "VORP vs waivers"]];
   const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Indexed", vorp: "VORP vs waivers"};
 
@@ -983,13 +1204,17 @@
     const main = document.createElement("div");
     const eyebrow = document.createElement("p");
     eyebrow.className = "v2-eyebrow";
-    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_FULL[meta.method]}${item?.week ? ` · W${item.week}` : ""}`;
+    const methodName = METHOD_FULL[meta.method];
+    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label}${methodName ? ` · ${methodName}` : ""}${item?.week ? ` · W${item.week}` : ""}`;
     const big = document.createElement("p");
     big.className = "v2-dhero-value";
     big.dataset.source = key;
     const v = row.values[key];
-    if (Number.isFinite(v)) big.textContent = fmt(v);
-    else big.appendChild(missingNode(`No ${seriesName(key)} value for ${row.name}`, "not priced by this source"));
+    if (Number.isFinite(v)) {
+      big.textContent = fmt(v);
+      appendLowConfidence(big, row, key);
+    }
+    else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
     unit.className = "v2-meta";
     unit.textContent = meta.method === "vorp" ? "VORP vs waivers, on this source's own scale" : "Trade-value points";
@@ -1063,8 +1288,10 @@
         } else if (view.active.includes(item.key)) {
           td.dataset.source = item.key;
           const v = row.values[item.key];
-          if (Number.isFinite(v)) td.textContent = fmt(v);
-          else td.appendChild(missingNode(`No ${seriesName(item.key)} value for ${row.name}`, "not priced"));
+          if (Number.isFinite(v)) {
+            td.textContent = fmt(v);
+            appendLowConfidence(td, row, item.key);
+          } else td.appendChild(missingNode(missingReason(item.key, row), "not priced"));
         } else {
           const add = document.createElement("button");
           add.type = "button";
@@ -1097,7 +1324,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${tierLabel(row.espnRole)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -1143,8 +1370,10 @@
     return out;
   }
 
-  function openDrawer(row) {
+  // tierFrom: "targets" | "compare" | undefined (Player values); a re-open of the same row keeps it.
+  function openDrawer(row, tierFrom) {
     if ($("v2Drawer").hidden) lastFocus = document.activeElement;
+    if (tierFrom !== undefined || row !== drawerRow) drawerTierFrom = tierFrom || null;
     drawerRow = row;
     const drawer = $("v2Drawer");
     drawer.replaceChildren();
@@ -1156,7 +1385,7 @@
     title.textContent = row.name;
     const meta = document.createElement("p");
     meta.className = "v2-meta";
-    meta.textContent = `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+    meta.textContent = `${row.pos} · ${row.team || "FA"} · ${drawerTier(row)}`;
     titles.append(title, meta);
     const close = document.createElement("button");
     close.type = "button";
@@ -1279,6 +1508,7 @@
     popoverAnchor = null;
   }
   function toggleEngineSource(key) {
+    if (key === DDF_KEY) { ddfShown = !ddfShown; return true; }
     const input = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
     if (!input || input.disabled) return false;
     input.click();
@@ -1383,6 +1613,8 @@
   // Grouped by type, not publisher; each group explains itself. A draft until Done.
   function openSources(anchor) {
     const draft = new Set(view.active);
+    const composite = C.getCompositeInputs ? C.getCompositeInputs() : null;
+    const inputsDraft = composite ? new Set(composite.inputs) : null;
     openPanel(anchor || $("v2EditSources"), "Customize values", "Choose which series appear on every tab.", pop => {
       const body = panelBody(pop);
       const summary = document.createElement("p");
@@ -1426,6 +1658,49 @@
         if (item.waiverNote && item.available) label.title = item.waiverNote;
         return label;
       }
+      // The DDF Value's inputs: every allowed series, the excluded ones with the engine's reason.
+      function ddfInputs() {
+        const box = document.createElement("fieldset");
+        box.className = "v2-ddf-inputs";
+        const legend = document.createElement("legend");
+        legend.textContent = `Built from ${inputsDraft.size} input${inputsDraft.size === 1 ? "" : "s"}`;
+        box.appendChild(legend);
+        // Only "not selected" stays selectable: a held, prior-week or unavailable source is never a DDF input (JEG-479).
+        const excluded = new Map((composite.excluded || []).filter(item => item.reason !== "not selected")
+          .map(item => [item.key, item.reason]));
+        const keys = composite.allowed || [];
+        keys.forEach(key => {
+          const meta = sourceMeta(key);
+          const label = document.createElement("label");
+          label.className = `v2-crow${excluded.has(key) ? " is-disabled" : ""}`;
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.dataset.ddfInput = key;
+          input.checked = inputsDraft.has(key);
+          input.disabled = excluded.has(key) || (inputsDraft.size === 1 && inputsDraft.has(key));
+          input.addEventListener("change", () => {
+            if (input.checked) inputsDraft.add(key); else inputsDraft.delete(key);
+            render();
+            const again = groupsBox.querySelector(`[data-ddf-input="${key}"]`);
+            if (again) again.focus();
+          });
+          const name = document.createElement("span");
+          name.className = "v2-crow-name";
+          name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
+          const group = SERIES_GROUPS.find(g => g.id === seriesGroup(key));
+          name.append(document.createTextNode(`${PLAIN_NAMES[meta.publisher] || meta.label} · ${group ? group.one : meta.short}`));
+          label.append(input, name);
+          if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
+          if (excluded.has(key)) {
+            const why = document.createElement("span");
+            why.className = "v2-meta";
+            why.textContent = excluded.get(key);
+            label.appendChild(why);
+          }
+          box.appendChild(label);
+        });
+        return box;
+      }
       function render() {
         groupsBox.replaceChildren();
         SERIES_GROUPS.forEach(g => {
@@ -1456,6 +1731,7 @@
           note.className = "v2-meta";
           note.textContent = g.note;
           section.append(head, note, ...items.map(rowFor));
+          if (g.id === "ddf" && composite) section.appendChild(ddfInputs());
           if (g.id === "vorp" && items.some(item => draft.has(item.key))) section.open = true;
           groupsBox.appendChild(section);
         });
@@ -1469,6 +1745,7 @@
       reset.addEventListener("click", () => {
         draft.clear();
         (startActive || []).forEach(key => draft.add(key));
+        if (inputsDraft) { inputsDraft.clear(); (composite.defaults || []).forEach(key => inputsDraft.add(key)); }
         render();
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Done", true, () => {
@@ -1477,13 +1754,65 @@
         const drops = view.active.filter(key => !draft.has(key));
         adds.forEach(toggleEngineSource);
         drops.forEach(toggleEngineSource);
+        if (inputsDraft && C.setCompositeInputs) {
+          const info = C.getCompositeInputs();
+          const defaults = info.defaults || [];
+          const isDefaultDraft = inputsDraft.size === defaults.length && defaults.every(key => inputsDraft.has(key));
+          // The default set goes back to the engine's own defaults (null), so it follows them as they change.
+          if (isDefaultDraft) { if (!info.isDefault) C.resetCompositeInputs(); }
+          else {
+            const changed = inputsDraft.size !== info.inputs.length || info.inputs.some(key => !inputsDraft.has(key));
+            if (changed) C.setCompositeInputs([...inputsDraft]);
+          }
+        }
+        saveSelection();
         closePopover();
         refresh();
       }, {"data-apply": "sources"}]], reset);
       render();
     });
   }
-  let startActive = null;   // the first-load selection: what "Reset to default" returns to
+  let startActive = null;   // the default selection: what "Reset to default" returns to
+  let ddfShown = true;      // whether the DDF Value series is shown (it has no engine toggle)
+  const SAVE_KEY = "ddf.v2.selection";
+  function defaultShown() {
+    const info = C.getSourceInfo();
+    return [DDF_KEY].concat(info.filter(item => item.available && sourceMeta(item.key).method === "indexed").map(item => item.key));
+  }
+  // Make the shown series equal `keys` (adds before drops, so the engine never has none).
+  function applyShown(keys) {
+    const want = new Set(keys);
+    const engineNow = C.getActiveSources();
+    const available = new Set(C.getSourceInfo().filter(item => item.available).map(item => item.key));
+    const adds = [...want].filter(key => key !== DDF_KEY && available.has(key) && !engineNow.includes(key));
+    const drops = engineNow.filter(key => !want.has(key));
+    adds.forEach(toggleEngineSource);
+    if (C.getActiveSources().length > drops.length) drops.forEach(toggleEngineSource);
+    ddfShown = want.has(DDF_KEY);
+  }
+  function saveSelection() {
+    try {
+      const inputs = C.getCompositeInputs ? C.getCompositeInputs() : null;
+      localStorage.setItem(SAVE_KEY, JSON.stringify({v: 1, shown: (ddfShown ? [DDF_KEY] : []).concat(C.getActiveSources()),
+        inputs: inputs && !inputs.isDefault ? inputs.inputs : null, rank: C.getRankSource()}));
+    } catch (error) { /* storage unavailable: the choice lasts this visit only */ }
+  }
+  function loadSelection() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      return saved && saved.v === 1 && Array.isArray(saved.shown) ? saved : null;
+    } catch (error) { return null; }
+  }
+  function applyStartSelection() {
+    const hasDdf = typeof C.getCompositeInputs === "function";
+    const saved = loadSelection();
+    if (hasDdf && saved && Array.isArray(saved.inputs) && saved.inputs.length) C.setCompositeInputs(saved.inputs, false);
+    const shown = saved && saved.shown.length ? saved.shown : (hasDdf ? defaultShown() : C.getActiveSources());
+    applyShown(shown.filter(key => hasDdf || key !== DDF_KEY));
+    const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);
+    if (rank && rank !== C.getRankSource() && (rank === DDF_KEY || C.getActiveSources().includes(rank))) C.setLockOrder(rank);
+    startActive = hasDdf ? defaultShown() : C.getActiveSources().slice();
+  }
 
   // Frame 18: when a league change makes a selected series unavailable, say which one was dropped.
   let statusTimer = null;
@@ -1588,6 +1917,23 @@
   }
 
   // ---------- 11 Weights & bench ----------
+  // fe-fidelity: below a position's feasible window the engine prices it at a higher share
+  // (bench_share_used). v2 shows the share the engine used, never the request, and says when
+  // they differ. No math here: the used shares come from getBenchShareUsed().
+  function benchShown(share) {
+    const used = C.getBenchShareUsed ? C.getBenchShareUsed(share) : null;
+    const values = used ? Object.values(used).filter(Number.isFinite) : [];
+    const lo = values.length ? Math.min(...values) : share;
+    const hi = values.length ? Math.max(...values) : share;
+    const pct = v => (v * 100).toFixed(1);
+    const single = pct(lo) === pct(hi);
+    const text = single ? `${pct(lo)}%` : `${pct(lo)}–${pct(hi)}%`;
+    const starters = single ? `${pct(1 - lo)}%` : `${pct(1 - hi)}–${pct(1 - lo)}%`;
+    const differs = values.some(v => Math.abs(v - share) > 5e-4);
+    const edge = values.some(v => v > share) ? "lowest" : "highest";
+    const note = differs ? `Bench ${pct(share)}% requested · priced at ${text} (${edge} the league supports)` : "";
+    return {text, starters, note};
+  }
   function openWeights() {
     const bounds = C.getBenchBounds();
     let draft = C.getBenchShare();
@@ -1623,14 +1969,20 @@
       split.className = "v2-psplit";
       body.appendChild(split);
       const sync = () => {
-        readout.textContent = `${(draft * 100).toFixed(1)}%`;
+        const shown = benchShown(draft);
+        readout.textContent = shown.text;
         split.innerHTML = "";
         const b = document.createElement("b");
-        b.textContent = `Starters ${(100 - draft * 100).toFixed(1)}% / Bench ${(draft * 100).toFixed(1)}%`;
+        b.textContent = `Starters ${shown.starters} / Bench ${shown.text}`;
         const p = document.createElement("span");
         p.className = "v2-meta";
         p.textContent = "Feasible bounds recalculate with league structure.";
-        split.append(b, p);
+        const note = document.createElement("span");
+        note.className = "v2-meta is-older";
+        note.dataset.benchNote = "";
+        note.hidden = !shown.note;
+        note.textContent = shown.note ? `⚠ ${shown.note}` : "";
+        split.append(b, p, note);
       };
       slider.addEventListener("input", () => { draft = Number(slider.value); sync(); });
       sync();
@@ -1750,9 +2102,18 @@
           text: "Not updating", reason: `We couldn't refresh ${name}${since ? ` since ${since}` : ""}.`};
       }
       const prior = (own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
-      return {pub, name, week: base?.week, status: prior ? "prior" : "current",
-        text: prior ? "Prior week" : "Current",
-        reason: prior && view.refWeek && base?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${base.week}.` : ""};
+      if (prior) {
+        return {pub, name, week: base?.week, status: "prior", text: "Prior week",
+          reason: view.refWeek && base?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${base.week}.` : ""};
+      }
+      // Fail closed: Current only when this source's own rows say freshness_ok === true. A missing
+      // or unreadable file, or a missing row, is "Freshness unknown", never a green tick.
+      const confirmed = Boolean(own && imp && own.freshness_ok === true && imp.freshness_ok === true);
+      if (!confirmed) {
+        return {pub, name, week: base?.week, status: "unknown", text: "Freshness unknown",
+          reason: pipeline ? `We couldn't confirm when ${name} last updated.` : `Checking when ${name} last updated.`};
+      }
+      return {pub, name, week: base?.week, status: "current", text: "Current", reason: ""};
     });
   }
   function openFreshness() {
@@ -1773,8 +2134,8 @@
         const week = document.createElement("td");
         week.textContent = r.week ? `Week ${r.week}` : "—";
         const status = document.createElement("td");
-        status.className = r.status === "stuck" ? "is-bad" : r.status === "prior" ? "is-older" : "is-ok";
-        status.textContent = `${r.status === "stuck" ? "⚠ " : r.status === "current" ? "✓ " : ""}${r.text}`;
+        status.className = r.status === "stuck" ? "is-bad" : r.status === "current" ? "is-ok" : "is-older";
+        status.textContent = `${{stuck: "⚠ ", prior: "⚠ ", unknown: "? ", current: "✓ "}[r.status] || ""}${r.text}`;
         if (r.reason) {
           const why = document.createElement("span");
           why.className = "th-sub";
@@ -1989,10 +2350,21 @@
     sell: {section: "v2TSell", table: "v2TTable", cards: "v2TCards", meta: "v2TSellMeta", empty: "v2TSellEmpty", more: "v2TSellMore", less: "v2TSellLess"},
     buy: {section: "v2TBuy", table: "v2TBuyTable", cards: "v2TBuyCards", meta: "v2TBuyMeta", empty: "v2TBuyEmpty", more: "v2TBuyMore", less: "v2TBuyLess"}
   };
-  // ours: which projection-derived series is "our value". Module state, so the
-  // choice survives switching tabs like the engine-held selections do.
+  // ours: which series is "our value" (DDF Value by default, JEG-455). Module state, so the choice
+  // survives switching tabs, and remembered on this device like the DDF selection (ddf.v2.targets).
   // shown / expanded are per list: each list opens and collapses on its own.
-  const T = {search: "", chart: "all", ours: "espn",
+  const TARGETS_SAVE_KEY = "ddf.v2.targets";
+  function loadTargetsOurs() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TARGETS_SAVE_KEY) || "null");
+      return saved && saved.v === 1 && typeof saved.ours === "string" ? saved.ours : null;
+    } catch (error) { return null; }
+  }
+  function saveTargetsOurs(ours) {
+    try { localStorage.setItem(TARGETS_SAVE_KEY, JSON.stringify({v: 1, ours})); }
+    catch (error) { /* storage unavailable: the choice lasts this visit only */ }
+  }
+  const T = {search: "", chart: "all", ours: loadTargetsOurs(),
     shown: {sell: TARGETS_TOP, buy: TARGETS_TOP}, expanded: {sell: new Set(), buy: new Set()}};
   let targetsView = null;
 
@@ -2027,8 +2399,7 @@
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
   const INDEXED_INFO = "Published charts use their own point scales. We rescale each chart so its total value "
-    + "matches our ESPN-based scale for your league, which makes the numbers comparable. Rankings within a chart "
-    + "don't change; only the scale does.";
+    + "matches our ESPN-based scale for your league, which makes the numbers comparable.";
   function indexedInfoButton(context) {
     const button = document.createElement("button");
     button.type = "button";
@@ -2114,8 +2485,17 @@
       : null;
     const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
+    // Why players were left out: the engine's reasons, most common first (display only).
+    const omittedReasons = new Map();
+    if (!blocked) {
+      searched.filter(row => !Number.isFinite(row.values?.[ourKey])).forEach(row => {
+        const reason = missingReason(ourKey, row);
+        omittedReasons.set(reason, (omittedReasons.get(reason) || 0) + 1);
+      });
+    }
     targetsView = {...result, ours: ourKey, choices, used, skipped, prior: prior || [], info, infoByKey, refWeek, blocked,
-      position: C.getState().position};
+      position: C.getState().position, tierScope: {rows, pos: C.getState().position, engineOrder: true},
+      omittedReasons: [...omittedReasons].sort((a, b) => b[1] - a[1])};
   }
 
   function renderTargetControls() {
@@ -2153,11 +2533,40 @@
       const option = document.createElement("option");
       option.value = choice.key;
       option.disabled = !choice.available;
-      option.textContent = `${PUBLISHERS[choice.key].symbol} ${TT.OUR_NAMES[choice.key]}${choice.available ? "" : ` — ${choice.reason}`}`;
+      option.textContent = `${sourceMeta(choice.key).symbol} ${TT.OUR_NAMES[choice.key]}${choice.available ? "" : ` — ${choice.reason}`}`;
       oursSelect.appendChild(option);
     });
     oursSelect.value = targetsView.ours;
     $("v2TPosition").value = targetsView.position;
+  }
+
+  // DDF Value's "from N sources" (row.ddfCount), the sub-text under our value.
+  function ddfCountNode(row) {
+    if (isLowConfidence(row, DDF_KEY)) {
+      const node = lowConfidenceNode(row);
+      node.classList.add("why", "t-count");
+      node.dataset.ddfCount = String(Number.isFinite(row.ddfCount) ? row.ddfCount : 1);
+      return node;
+    }
+    if (!Number.isFinite(row.ddfCount)) return null;
+    const node = document.createElement("span");
+    node.className = "why t-count";
+    node.dataset.ddfCount = String(row.ddfCount);
+    node.textContent = `from ${row.ddfCount} source${row.ddfCount === 1 ? "" : "s"}`;
+    if (Array.isArray(row.ddfSources) && row.ddfSources.length) node.title = row.ddfSources.map(seriesName).join(", ");
+    return node;
+  }
+  // Our value: the number (with DDF Value's source count), or "—" with the engine's reason.
+  function oursValue(cell, p) {
+    if (!Number.isFinite(p.ours)) {
+      cell.appendChild(missingNode(missingReason(targetsView.ours, p.row), "no value"));
+      return;
+    }
+    cell.appendChild(document.createTextNode(fmt(p.ours)));
+    if (targetsView.ours === DDF_KEY) {
+      const count = ddfCountNode(p.row);
+      if (count) cell.appendChild(count);
+    }
   }
 
   function gapNode(cell, tag) {
@@ -2192,7 +2601,7 @@
 
   // One chart's value for a player as a labeled run: "◆ USAT [Wk 4] 17.4 +9.8".
   // Used by the phone cards and by an expanded row in the two-column layout.
-  function chartValueSpan(p, key) {
+  function chartValueSpan(p, key, withNative) {
     const cell = p.cells[key];
     const span = document.createElement("span");
     span.dataset.chart = key;
@@ -2216,6 +2625,15 @@
     val.textContent = fmt(cell.value);
     span.appendChild(val);
     span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
+    const rank = withNative && typeof C.getNativeRank === "function" ? C.getNativeRank(p.row.player_key, key) : null;
+    if (Number.isFinite(rank)) {
+      const native = document.createElement("span");
+      native.className = "t-native";
+      native.dataset.nativeRank = String(rank);
+      native.title = `${PUBLISHER_NAMES[key]}'s own rank for this player, before indexing`;
+      native.textContent = `#${rank} on ${PUBLISHER_NAMES[key]}`;
+      span.appendChild(native);
+    }
     return span;
   }
 
@@ -2285,8 +2703,8 @@
       const tr = document.createElement("tr");
       tr.tabIndex = 0;
       tr.dataset.playerKey = key;
-      tr.addEventListener("click", () => openDrawer(p.row));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row); });
+      tr.addEventListener("click", () => openDrawer(p.row, "targets"));
+      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row, "targets"); });
       const td = (cls, text) => {
         const cell = document.createElement("td");
         if (cls) cell.className = cls;
@@ -2298,10 +2716,11 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       name.appendChild(sub);
-      const ours = td("num is-rank", fmt(p.ours));
+      const ours = td("num is-rank");
       ours.dataset.ours = "";
+      oursValue(ours, p);
       targetsView.used.forEach(chart => {
         const cell = p.cells[chart];
         const c = td("num t-chart");
@@ -2353,7 +2772,7 @@
         cell.colSpan = columns;
         const line = document.createElement("div");
         line.className = "vals";
-        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart)));
+        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart, true)));
         cell.appendChild(line);
         detail.appendChild(cell);
         tbody.appendChild(detail);
@@ -2369,8 +2788,8 @@
       const li = document.createElement("li");
       li.tabIndex = 0;
       li.dataset.playerKey = String(p.row.player_key);
-      li.addEventListener("click", () => openDrawer(p.row));
-      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row); });
+      li.addEventListener("click", () => openDrawer(p.row, "targets"));
+      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
       const top = document.createElement("div");
       top.className = "top";
       const who = document.createElement("div");
@@ -2379,7 +2798,7 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       who.append(name, sub);
       const b = targetBest(side, p);
       const big = document.createElement("div");
@@ -2392,7 +2811,9 @@
       line.className = "vals";
       const ours = document.createElement("span");
       ours.className = "ours";
-      ours.textContent = `Ours ${fmt(p.ours)}`;
+      ours.dataset.ours = "";
+      ours.append(document.createTextNode("Ours "));
+      oursValue(ours, p);
       line.appendChild(ours);
       targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
       li.append(top, line);
@@ -2446,7 +2867,8 @@
       notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
     }
     if (targetsView.omittedNoOurs) {
-      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value for them.`);
+      const why = targetsView.omittedReasons.map(([reason, n]) => `${reason} (${n})`).join("; ");
+      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${targetsView.ours === DDF_KEY ? "DDF Value" : `${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value`} for them${why ? `. Why: ${why}` : ""}.`);
     }
     if (targetsView.atWaiverCells && !blocked) {
       notes.push("A chart value of 0.0 is at that chart's waiver line for your league: never a buy, no gap.");
@@ -2454,7 +2876,11 @@
     const note = $("v2TNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
-    $("v2TOursNote").textContent = window.TradeValueTargets.OUR_NAMES[targetsView.ours];
+    // The footnote follows the picked series: DDF Value is built from the chosen inputs; a projection
+    // series is that publisher's projections with our Data Driven Adjustments.
+    $("v2TOursNote").textContent = targetsView.ours === DDF_KEY
+      ? "the DDF Value, built from the inputs chosen in Customize on Player values"
+      : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]} with Data Driven Adjustments`;
     // Footnote: each compared chart that is still on an earlier week, with its badge.
     const priorNote = $("v2TPriorNote");
     priorNote.replaceChildren();
@@ -2477,7 +2903,12 @@
     });
     $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); resetLists(); renderTargets(); });
     $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; resetLists(); renderTargets(); });
-    $("v2TOurs").addEventListener("change", event => { T.ours = event.target.value; resetLists(); renderTargets(); });
+    $("v2TOurs").addEventListener("change", event => {
+      T.ours = event.target.value;
+      saveTargetsOurs(T.ours);
+      resetLists();
+      renderTargets();
+    });
     $("v2TChartInfoSlot").replaceWith(indexedInfoButton("Compare against"));
     TARGET_SIDES.forEach(side => {
       const ids = TARGET_IDS[side];
@@ -2505,9 +2936,17 @@
   // series (JEG-469). The sides are v2 module state, so they survive switching tabs.
   const TR = {give: [], receive: [], shown: null, open: new Set()};   // give/receive: [{key, name}]
   let compareView = null;
-  // JEG-469: the series the verdict reads. "Player values shown" for now; swap this one
-  // line to the DDF Value series key once the engine exposes it.
-  const verdictKey = () => TR.shown;
+  // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
+  // available it decides the verdict, whatever "Player values shown" picks; the picker drives the
+  // side cards' values and totals. With DDF Value not shown, the verdict reads the picked series.
+  let verdictSeries = null;
+  const verdictKey = () => verdictSeries;
+  // Compare tiers: rank by the verdict series over every priced player, against the All-positions zones.
+  let compareTierRows = null;
+  function compareTierScope() {
+    if (!compareTierRows) compareTierRows = C.getAllRows();
+    return {rows: compareTierRows, pos: "ALL", engineOrder: false};
+  }
   let exampleCache = null;   // {signature, pick}: the empty-state sample trade
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
@@ -2519,6 +2958,7 @@
   }
 
   function collectCompare() {
+    compareTierRows = null;
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
@@ -2526,9 +2966,12 @@
     const pointKeys = usable(view.plotKeys);
     const vorpKeys = usable(view.vorpKeys);
     const unavailable = view.active.filter(key => !view.infoByKey[key]?.available);
-    // "Player values shown": one exact series, the ranking series unless picked.
+    // "Player values shown": one exact series; DDF Value unless picked, then the ranking series.
     const shownChoices = pointKeys.concat(vorpKeys);
-    if (!shownChoices.includes(TR.shown)) TR.shown = shownChoices.includes(view.rankKey) ? view.rankKey : shownChoices[0] || null;
+    if (!shownChoices.includes(TR.shown)) {
+      TR.shown = [DDF_KEY, view.rankKey].find(key => shownChoices.includes(key)) || shownChoices[0] || null;
+    }
+    verdictSeries = pointKeys.includes(DDF_KEY) ? DDF_KEY : TR.shown;
     const TC = window.TradeValueTrade;
     // JEG-469 empty state: before any player is added, a sample trade marked "Example".
     const example = !TR.give.length && !TR.receive.length && verdictKey() ? exampleTrade(pointKeys) : null;
@@ -2609,8 +3052,9 @@
           const b = document.createElement("b");
           b.textContent = fmt(v);
           line.appendChild(b);
+          appendLowConfidence(line, row, result.key);
         } else {
-          line.appendChild(missingNode(`No ${seriesName(result.key)} value for ${row.name}`, "no value"));
+          line.appendChild(missingNode(missingReason(result.key, row), "no value"));
         }
         col.appendChild(line);
       });
@@ -2800,6 +3244,14 @@
       const source = document.createElement("td");
       source.className = "player";
       sourceCell(source, result.key);
+      // JEG-467: the series the verdict reads is marked in words, not only by its tint.
+      if (result.key === verdictKey()) {
+        tr.classList.add("is-verdict");
+        const tag = document.createElement("span");
+        tag.className = "v2-cverdict-tag";
+        tag.textContent = "★ Decides the verdict";
+        source.insertBefore(tag, source.querySelector(".th-sub"));
+      }
       const open = TR.open.has(result.key);
       const toggle = document.createElement("button");
       toggle.type = "button";
@@ -2872,21 +3324,23 @@
         name.type = "button";
         name.className = "v2-trade-name";
         name.setAttribute("aria-label", `${row.name}: player details`);
-        name.addEventListener("click", () => openDrawer(row));
+        name.addEventListener("click", () => openDrawer(row, "compare"));
       }
       name.textContent = row.name;
       appendEspnZero(name, row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = row.unpriced ? "No value in any source for this league"
-        : `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+        : `${row.pos} · ${row.team || "FA"} · ${tierText(row, verdictKey(), compareTierScope())}`;
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";
       value.dataset.source = shown || "";
       const v = shown && row.values ? row.values[shown] : null;
-      if (Number.isFinite(v)) value.textContent = fmt(v);
-      else value.appendChild(missingNode(`No ${shown ? seriesName(shown) : ""} value for ${row.name}`, "no value"));
+      if (Number.isFinite(v)) {
+        value.textContent = fmt(v);
+        appendLowConfidence(value, row, shown);
+      } else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
       if (compareView.example) {
         li.classList.add("is-example");
         li.append(who, value, document.createElement("span"));
@@ -3068,7 +3522,8 @@
     if (v.kind === "incomplete") {
       const names = v.missing.map(m => m.row.name || "a player").join(", ");
       return {kind: v.kind, title: `${name}: no verdict yet`,
-        text: `No ${name} value for ${names}, so this series cannot score the trade (a missing value is never counted as zero). Pick another series in Player values shown.`};
+        text: `No ${name} value for ${names}, so this series cannot score the trade (a missing value is never counted as zero). `
+          + (key === DDF_KEY ? "Each source's own result is in the table below." : "Pick another series in Player values shown.")};
     }
     const net = fmtGap(v.net);
     if (v.kind === "win") {
@@ -3145,16 +3600,9 @@
   }
 
   function renderShownPicker() {
-    const select = $("v2CShown");
-    select.replaceChildren();
-    compareView.shownChoices.forEach(key => {
-      const option = document.createElement("option");
-      option.value = key;
-      option.textContent = `${sourceMeta(key).symbol} ${sourceMeta(key).short}`;
-      select.appendChild(option);
-    });
-    select.value = TR.shown || "";
-    select.disabled = !compareView.shownChoices.length;
+    const entries = compareView.shownChoices.map(key => ({key, reason: null}))
+      .concat(compareView.unavailable.map(key => ({key, reason: unavailableReason(view.infoByKey[key])})));
+    renderSeriesPicker($("v2CShown"), entries, TR.shown);
   }
 
   function renderCompare() {
@@ -3188,7 +3636,7 @@
     const count = compareView.giveRows.length + compareView.receiveRows.length;
     const sc = compareView.scale;
     $("v2CMeta").textContent = ready
-      ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points, never blended. `
+      ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
     $("v2CClear").hidden = !count;
@@ -3253,8 +3701,9 @@
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
+    const linkBench = benchShown(C.getBenchShare());
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
-      + `bench ${(C.getBenchShare() * 100).toFixed(1)}%.${earlier}`);
+      + `bench ${linkBench.text}${linkBench.note ? ` (${(C.getBenchShare() * 100).toFixed(1)}% requested)` : ""}.${earlier}`);
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 8000);
   }
@@ -3349,7 +3798,10 @@
     $("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]
       .map(pos => `${pos} ${Number.isFinite(Number(weights[pos])) ? `${(Number(weights[pos]) * 100).toFixed(1)}%` : "—"}`).join(" · ");
     const bench = C.getBenchShare();
-    $("v2HowBench").textContent = Number.isFinite(bench) ? `${(bench * 100).toFixed(1)}%` : "—";
+    const benchUsed = Number.isFinite(bench) ? benchShown(bench) : null;
+    $("v2HowBench").textContent = benchUsed ? benchUsed.text : "—";
+    $("v2HowBenchNote").hidden = !(benchUsed && benchUsed.note);
+    $("v2HowBenchNote").textContent = benchUsed && benchUsed.note ? `⚠ ${benchUsed.note}` : "";
     document.querySelectorAll("#v2How [data-sources]").forEach(list => {
       const method = list.dataset.sources;
       list.replaceChildren();
@@ -3389,10 +3841,10 @@
   const weeksCache = new Map();   // series -> getHistoryWeeks result (the saved weeks do not change)
   const pairCache = new Map();    // "series:week" -> {prior, after} for an earlier week pair
 
-  function priorLabel(key) {
-    const meta = sourceMeta(key);
-    return plainSeries(meta.publisher, meta.method);
-  }
+  // Risers copy names each series in the JEG-474 group vocabulary.
+  const priorLabel = key => groupSeriesName(key);
+  // JEG-465: Risers & fallers opens on the DDF Value whenever the engine has its prior week.
+  const RISERS_DEFAULT = DDF_KEY;
 
   // Week pairs the engine can price for a series: every saved week whose week before is
   // also saved, up to the week served now. Latest first.
@@ -3432,19 +3884,11 @@
     }
     const choices = M.SERIES.map(key => ({key, prior: priorCache.get(key)}));
     if (!R.series || !choices.some(c => c.key === R.series)) {
-      R.series = (choices.find(c => c.prior.available) || choices[0]).key;
+      R.series = (choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
+        || choices.find(c => c.prior.available) || choices[0]).key;
     }
-    const select = $("v2RSeries");
-    select.replaceChildren();
-    choices.forEach(({key, prior}) => {
-      const option = document.createElement("option");
-      option.value = key;
-      option.disabled = !prior.available;
-      option.textContent = `${sourceMeta(key).symbol} ${priorLabel(key)}` + (prior.available ? "" : " — no prior week");
-      option.title = prior.available ? "" : prior.reason;
-      select.appendChild(option);
-    });
-    select.value = R.series;
+    renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
+      reason: prior.available ? null : `no prior week: ${prior.reason || "not saved"}`})), R.series);
     $("v2RPosition").value = view.state.position;
     const servedPrior = priorCache.get(R.series);
     if (servedPrior.available && !weeksCache.has(R.series)) {
@@ -3454,7 +3898,9 @@
         .then(info => { weeksCache.set(R.series, info); if (currentView() === "risers") renderRisers(); });
       return;
     }
-    const pairs = servedPrior.available ? weekPairs(R.series) : [];
+    // DDF Value: only the served pair is offered. The engine prices it over the same inputs on both
+    // sides; two getWeekValues calls could average different inputs (Back-end requests).
+    const pairs = servedPrior.available && R.series !== DDF_KEY ? weekPairs(R.series) : [];
     if (!pairs.includes(R.week)) R.week = servedPrior.available ? servedPrior.currentWeek : null;
     const weeks = $("v2RWeeks");
     weeks.replaceChildren();
@@ -3484,11 +3930,15 @@
     risersView = M.buildMovers(rows, R.series, prior);
     const label = priorLabel(R.series);
     const v = risersView;
+    const group = seriesGroup(R.series);
+    // DDF Value: both weeks average the same inputs, so say how many of them have the prior week.
+    const ddfInputs = group === "ddf" && Array.isArray(prior.sources) && Array.isArray(prior.inputs)
+      ? ` · ${prior.sources.length} of ${prior.inputs.length} sources have a prior week` : "";
     $("v2RMeta").textContent = v.available
-      ? `${label} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
-        + (sourceMeta(R.series).method === "dda"
-          ? "A projection moving is a change in that source's outlook."
-          : "A riser now costs more from a manager who trades off this chart; a faller costs less.")
+      ? `${label}${ddfInputs} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
+        + (group === "ddf" ? "A riser is worth more in a trade than last week; a faller is worth less."
+          : group === "proj" ? "A projection moving is a change in that source's outlook."
+            : "A riser now costs more from a manager who trades off this chart; a faller costs less.")
       : `No Δ for ${label}: ${v.reason}.`;
     // One bar scale for both lists, so a bar's length means the same number of points on either side.
     const shownItems = v.risers.slice(0, R.shown.rise).concat(v.fallers.slice(0, R.shown.fall));
@@ -3503,6 +3953,9 @@
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
     if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
+    if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
+      notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
+    }
     if (unavailable.length) notes.push(`No prior week: ${unavailable.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
     const note = $("v2RNote");
     note.hidden = !notes.length;
@@ -3589,6 +4042,7 @@
     : hashBase() === "#risers-fallers" ? "risers"
     : hashBase() === "#compare-trade" ? "compare"
     : hashBase() === "#how-values" ? "how"
+    : hashBase() === "#manifesto" ? "manifesto"
     : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
 
   function applyRoute() {
@@ -3598,8 +4052,10 @@
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
     $("v2How").hidden = v !== "how";
+    applyStatic();
     // The source selection applies on Compare a trade too; Trade targets has its own pickers.
-    $("v2Methods").hidden = v === "targets" || v === "risers";
+    // The Manifesto is text only: no values, so no Showing bar.
+    $("v2Methods").hidden = v === "targets" || v === "risers" || v === "manifesto";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -3607,6 +4063,7 @@
       else tab.removeAttribute("aria-current");
     });
     closePopover();
+    if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
     refresh();
   }
@@ -3615,6 +4072,7 @@
   function refreshValues() {
     collect();
     renderHeader();
+    renderFilterChips();
     renderEmpty();
     renderNotice();
     renderTable();
@@ -3625,7 +4083,7 @@
   function renderEmpty() {
     const empty = !view.visible.length;
     $("v2Empty").hidden = !empty;
-    $("v2Plot").hidden = empty;
+    $("v2Plot").hidden = empty && expanded !== "chart";   // the expanded chart keeps its brushes to widen again
     $("v2Chart").hidden = empty;
     $("v2TableCard").hidden = empty;
     if (!empty) return;
@@ -3662,6 +4120,7 @@
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
     else if (currentView() === "how") renderHow();
+    else if (currentView() === "manifesto") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
@@ -3671,28 +4130,169 @@
     if (valuesFrame) return;
     valuesFrame = requestAnimationFrame(() => { valuesFrame = 0; if (currentView() === "values") refreshValues(); });
   }
+  // JEG-483: the Show preset in force before a zoom or brush, so Reset zoom can return to it.
+  function rememberPreset() {
+    if (state.windowPreset !== "custom") state.zoomFrom = state.windowPreset;
+  }
+  // A Show preset (toolbar or the expanded chart's quick chips) ends any zoom.
+  function applyPreset(preset) {
+    state.windowPreset = preset;
+    state.zoomFrom = null;
+    state.rankZoom = false;
+    state.window = null;
+    state.shown = PAGE_SIZE;
+  }
   // A brush, zoom or exact ranks: Show becomes "Custom lo–hi".
   function setWindow(win) {
+    rememberPreset();
     state.window = win;
     state.windowPreset = "custom";
+    state.rankZoom = true;
     state.shown = PAGE_SIZE;
     scheduleValues();
   }
   // The value range (Y brush or "Set exact values") composes with the rank window; Show reads Custom.
+  // Clearing it while the rank window was never zoomed returns Show to the remembered preset.
   function setRange(range) {
+    const on = range.min !== null || range.max !== null;
+    if (on) rememberPreset();
     state.range = range;
-    if (range.min !== null || range.max !== null) state.windowPreset = "custom";
+    if (on) state.windowPreset = "custom";
+    else if (state.windowPreset === "custom" && !state.rankZoom) applyPreset(state.zoomFrom || SHOW_DEFAULT);
     state.shown = PAGE_SIZE;
     scheduleValues();
   }
+  // JEG-483 Reset zoom: undoes the zoom only (rank window and value range), back to the Show preset
+  // from before it. Search, position, sort, Δ and Rank by stay.
+  function resetZoom() {
+    state.range = {min: null, max: null};
+    applyPreset(state.zoomFrom || SHOW_DEFAULT);
+    refresh();
+  }
+  // Clears the rank window only; a value range stays.
+  function clearRankZoom() {
+    state.rankZoom = false;
+    state.window = null;
+    if (!view || !view.rangeOn) applyPreset(state.zoomFrom || SHOW_DEFAULT);
+    state.shown = PAGE_SIZE;
+    refresh();
+  }
+
+  // JEG-483: a chip per active filter next to the toolbar; each ✕ clears exactly that filter.
+  const trimNum = v => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+  function filterChips() {
+    const chips = [];
+    if (view.rangeOn) {
+      const lo = state.range.min ?? view.yScale.lo;
+      const hi = state.range.max ?? view.yScale.hi;
+      chips.push({id: "range", text: `Value ${trimNum(lo)}–${trimNum(hi)}`, clear: () => setRange({min: null, max: null})});
+    }
+    if (state.windowPreset === "custom" && state.rankZoom) {
+      chips.push({id: "ranks", text: `Ranks ${state.window[0]}–${state.window[1]}`, clear: clearRankZoom});
+    }
+    if (state.search.trim()) {
+      chips.push({id: "search", text: `Search: ${state.search.trim()}`, clear: () => {
+        state.search = ""; $("v2Search").value = ""; state.shown = PAGE_SIZE; refresh();
+      }});
+    }
+    if (view.state.position !== "ALL") {
+      chips.push({id: "position", text: `Position: ${view.state.position}`, clear: () => { C.setPosition("ALL"); refresh(); }});
+    }
+    return chips;
+  }
+  function renderFilterChips() {
+    const box = $("v2FilterChips");
+    const chips = filterChips();
+    box.replaceChildren();
+    chips.forEach(chip => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "v2-fchip";
+      b.dataset.chip = chip.id;
+      b.setAttribute("aria-label", `Clear filter ${chip.text}`);
+      b.append(document.createTextNode(`${chip.text} `));
+      const x = document.createElement("span");
+      x.setAttribute("aria-hidden", "true");
+      x.textContent = "✕";
+      b.appendChild(x);
+      b.addEventListener("click", () => {
+        chip.clear();
+        // Keep the keyboard near the chips: the first one left, else the search box.
+        requestAnimationFrame(() => (box.querySelector("button") || $("v2Search")).focus());
+      });
+      box.appendChild(b);
+    });
+    box.hidden = !chips.length;
+    // Reset zoom shows only while a zoom or brush has made Show Custom.
+    $("v2ResetZoom").hidden = state.windowPreset !== "custom";
+    document.querySelectorAll("#v2ExpandTools [data-xshow]").forEach(b => {
+      const on = b.dataset.xshow === state.windowPreset;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    $("v2AxisZoom").setAttribute("aria-pressed", String(state.axisZoom));
+    $("v2AxisZoom").textContent = `Y axis fits the value range · ${state.axisZoom ? "On" : "Off"}`;
+  }
+
+  // ---------- JEG-483 expanded chart / table ----------
+  // The live plot (or table box) moves into one overlay and back, so ids, listeners and state stay single:
+  // a brush in the expanded chart is the toolbar's brush. Desktop: a large panel over a scrim; below 768 px
+  // full screen, as the settings panels are.
+  let expandOpener = null;
+  let expandHome = null;   // {node, placeholder}
+  function openExpanded(kind) {
+    if (expanded) closeExpanded(true);
+    closePopover();
+    $("v2Tip").hidden = true;
+    const node = kind === "chart" ? $("v2Plot") : $("v2TableWrap");
+    expandOpener = kind === "chart" ? $("v2ExpandChart") : $("v2ExpandTable");
+    const placeholder = document.createElement("div");
+    placeholder.className = "v2-expand-placeholder";
+    placeholder.style.height = `${node.offsetHeight}px`;
+    node.before(placeholder);
+    expandHome = {node, placeholder};
+    expanded = kind;
+    const overlay = $("v2Expand");
+    overlay.dataset.kind = kind;
+    $("v2ExpandTitle").textContent = kind === "chart" ? "Trade value by player rank" : "All selected values";
+    $("v2ExpandMeta").textContent = kind === "chart" ? "Drag either brush or pick a range; the table and the toolbar follow." : "";
+    $("v2ExpandTools").hidden = kind !== "chart";
+    $("v2ExpandBody").appendChild(node);
+    overlay.hidden = false;
+    document.body.classList.add("v2-expand-open");
+    expandOpener.setAttribute("aria-expanded", "true");
+    if (kind === "chart") renderCharts(); else renderTable();
+    $("v2ExpandClose").focus();
+  }
+  function closeExpanded(silent) {
+    if (!expanded) return;
+    const kind = expanded;
+    expanded = null;
+    const {node, placeholder} = expandHome;
+    placeholder.replaceWith(node);
+    expandHome = null;
+    $("v2Expand").hidden = true;
+    document.body.classList.remove("v2-expand-open");
+    $("v2Tip").hidden = true;
+    if (currentView() === "values" && view) { if (kind === "chart") renderCharts(); else renderTable(); }
+    const opener = expandOpener;
+    expandOpener = null;
+    if (opener) {
+      opener.setAttribute("aria-expanded", "false");
+      if (!silent) opener.focus();
+    }
+  }
+
   // JEG-475: one Reset for search, position, Show, value range, sort and Δ. Rank by, sources,
   // columns and league settings are selections, not filters, and stay.
   function resetValues() {
     state.search = ""; $("v2Search").value = "";
     state.range = {min: null, max: null};
     state.windowPreset = SHOW_DEFAULT; state.window = null;
+    state.zoomFrom = null; state.rankZoom = false;
     state.sort = null; state.shown = PAGE_SIZE; state.delta = false;
     if (view && view.state.position !== "ALL") C.setPosition("ALL");
+    if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);
     refresh();
   }
 
@@ -3703,7 +4303,7 @@
       searchTimer = setTimeout(() => { state.search = event.target.value; state.shown = PAGE_SIZE; refresh(); }, 120);
     });
     $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); refresh(); });
-    $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; refresh(); });
+    $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; saveSelection(); refresh(); });
     $("v2DeltaBtn").addEventListener("click", () => {
       state.delta = !state.delta;
       refresh();
@@ -3711,10 +4311,19 @@
     });
     $("v2Show").addEventListener("change", event => {
       if (event.target.value === "custom") return;
-      state.windowPreset = event.target.value;
-      state.shown = PAGE_SIZE;
+      applyPreset(event.target.value);
       refresh();
     });
+    // JEG-483: Reset zoom, expanded chart / table and their controls.
+    $("v2ResetZoom").addEventListener("click", () => { resetZoom(); requestAnimationFrame(() => $("v2ZoomIn").focus()); });
+    $("v2ExpandChart").addEventListener("click", () => openExpanded("chart"));
+    $("v2ExpandTable").addEventListener("click", () => openExpanded("table"));
+    $("v2ExpandClose").addEventListener("click", () => closeExpanded());
+    $("v2Expand").addEventListener("mousedown", event => { if (event.target === $("v2Expand")) closeExpanded(); });
+    document.querySelectorAll("#v2ExpandTools [data-xshow]").forEach(button => {
+      button.addEventListener("click", () => { applyPreset(button.dataset.xshow); refresh(); });
+    });
+    $("v2AxisZoom").addEventListener("click", () => { state.axisZoom = !state.axisZoom; refresh(); });
     $("v2More").addEventListener("click", openMore);
     $("v2Columns").addEventListener("click", openColumns);
     $("v2YExact").addEventListener("click", openRange);
@@ -3725,7 +4334,7 @@
       button.addEventListener("click", () => {
         const what = button.dataset.clear;
         if (what === "search") { state.search = ""; $("v2Search").value = ""; }
-        if (what === "range") state.range = {min: null, max: null};
+        if (what === "range") { setRange({min: null, max: null}); return; }
         if (what === "position") C.setPosition("ALL");
         state.shown = PAGE_SIZE;
         refresh();
@@ -3794,7 +4403,8 @@
     $("v2Scrim").addEventListener("click", () => { if (panelOpen) closePopover(); else closeDrawer(); });
     document.addEventListener("keydown", event => {
       if (event.key === "Tab") {
-        const box = !$("v2Popover").hidden && panelOpen ? $("v2Popover") : !$("v2Drawer").hidden ? $("v2Drawer") : null;
+        const box = !$("v2Popover").hidden && panelOpen ? $("v2Popover") : !$("v2Drawer").hidden ? $("v2Drawer")
+          : expanded ? $("v2Expand") : null;
         if (!box) return;
         const items = [...box.querySelectorAll("button, a[href], input, select, [tabindex='0']")]
           .filter(n => !n.disabled && n.offsetParent !== null);
@@ -3809,6 +4419,7 @@
       if (event.key !== "Escape") return;
       if (!$("v2Popover").hidden) closePopover();
       else if (!$("v2Drawer").hidden) closeDrawer();
+      else if (expanded) closeExpanded();
     });
     document.addEventListener("mousedown", event => {
       const pop = $("v2Popover");
@@ -3844,6 +4455,7 @@
 
   async function start() {
     document.body.classList.add("v2");
+    bindManifesto();
     try {
       C = await waitForEngine();
     } catch (error) {
@@ -3851,7 +4463,7 @@
       return;
     }
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
-    startActive = C.getActiveSources().slice();
+    applyStartSelection();
     loadPipeline();
     bind();
     setStatus("");
@@ -3860,7 +4472,12 @@
     applyRoute();
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
       compare: () => compareView, tradeState: TR,
-      risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache)};
+      // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
+      chart: () => mainChart, expanded: () => expanded,
+      risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
+      // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
+      shown: () => (ddfShown ? [DDF_KEY] : []).concat(C.getActiveSources()),
+      setShown: keys => { applyShown(keys); refresh(); }};
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

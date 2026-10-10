@@ -2,6 +2,7 @@
 
 Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
+  * Manifesto is the first tab (2026-10-09);
   * at 390 px every tab sits fully on screen on one row with its short label
     (frames 02 / 04 / 06 / 08 / 16: below 768 px the navigation shortens;
     nothing hides behind a sideways scroll), and every in-build tab still
@@ -108,6 +109,9 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
               return {text: t.textContent, left: b.left, right: b.right, top: b.top, soon: t.classList.contains('is-soon'),
                 after: getComputedStyle(t, '::after').content};
             })""")
+            # Manifesto is first in the nav (Jeremy, 2026-10-09); the landing tab stays Trade targets.
+            if [tab["text"] for tab in tabs][:2] != ["Manifesto", "Player values"]:
+                errors.append(f"nav order: {[tab['text'] for tab in tabs]}, want Manifesto first")
             if len({round(tab["top"]) for tab in tabs}) != 1:
                 errors.append(f"tabs are not on one row at 390px: {[(t['text'], round(t['top'])) for t in tabs]}")
             for tab in tabs:

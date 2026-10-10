@@ -9,7 +9,610 @@ contract and points to the detailed rules that own each section.
 market, fundamental (value above waivers, usable production) and portfolio
 value, and decisions come from the gaps between them. Judge features against it.
 
+## Value Pipeline (source-neutral, 2026-10-09)
+
+**Status.** Spec for JEG-508, written from Jeremy's decisions of 2026-10-09
+(JEG-508, JEG-479 comment "value pipeline order (confirmed)", JEG-497,
+JEG-499) and **revised the same day for Jeremy's binding answers to the open
+choices OC-1 to OC-8** (quoted on JEG-508; listed as decided at the end of
+this section). Those decisions are binding. This section governs every value
+the site shows. It supersedes the paragraphs below that are marked
+**Superseded (JEG-508)**. Until the implementation PRs merge, those
+paragraphs still describe what the engine does; they are kept, not deleted, so
+the before/after is reviewable. Three implementations are written from this
+text independently: the engine (`curve-widget.js`, `value-model.js`), the
+Python reference (`pipelines/value_reference.py`) and the clean-room spec
+reference (`pipelines/spec_reference/`). They must agree to 0.05 on every
+value (`value_check`) before anything merges. Where Jeremy's words left a
+detail open, the text says **Lead's reading** and gives the rule used; an
+implementation follows the rule as written.
+
+**Jeremy's rules this implements.**
+
+- Pipeline order. Each source goes from its native values to implied value
+  above waivers (VORP). Every source then uses the same logic (flex, bench
+  share, league settings) to get from VORP to Adjusted values. DDF Value is
+  the equal-weight mean of Adjusted values only. Indexed exists only for
+  display and never feeds DDF.
+- "Build the weights at the source level based on VORP and league settings
+  and size logic. Then use the average weights at the DDF level; generally
+  speaking do as much work as possible at the source level before
+  aggregation/averages."
+- A fixed league pie for each league setting. It is split by the DDF weights,
+  and every source's Adjusted values sum to it. "You will need to fill in for
+  trade value charts where they have not scored enough players to fill out
+  the pie."
+- "ESPN has no favored position in any part of the logic or dashboard."
+- Bench share: "15% is right. There is no way 35% is rational math." (OC-2)
+- Flex: best remaining by assumed (projected) points, not VORP. (OC-4)
+- "We need to fill in more players to get to vorp for all rosterable players.
+  We need to pull vorp by using other sources." The fill-in rule (OC-5) was
+  approved as proposed.
+
+### VP-0 Definitions and conventions
+
+- **Positions** are QB, RB, WR, TE. Where a tie is broken by "position
+  order", it is this order.
+- **League setting L.** scoring; teams `T`; dedicated slots per team `D_p`;
+  flex slots per team `F` (RB/WR/TE eligible); superflex slots per team `SF`
+  (QB/RB/WR/TE eligible); bench slots per team `B` (default 6); bench share
+  `bs` (default **0.15**, OC-2; the reader's bench-share slider replaces it,
+  VP-3.4); reader position shares (default: none).
+- **Sources and natives.**
+  - *Projections* (`espn`, `cbsros`, `razzball`). Native = the source's own
+    projected points per game at the scoring, at full stored precision: the
+    per-player bake `players.json` fields `espn_ppg`, `cbsros_ppg`, `rz_ppg`
+    at the scoring. The projection sections' `combos[...].native` values in
+    `comparison-sources-data.json` are display-rounded copies (2-3 dp) and
+    are not inputs: rounding there flips near-ties in the projected-points
+    order (lead ruling 2026-10-09, see "Spec rulings" below). A player ESPN
+    marks ineligible (`espn_status` ineligible, no `espn_ppg`) is listed by
+    ESPN at native 0: he has an ESPN value and counts as 0 in `m` (JEG-496,
+    every ESPN-listed player gets a row). Only ESPN has this status; a null
+    per-game value from another projection means it does not list him.
+  - *Trade charts* (`cbs`, `fantasycalc`, `fantasypros`, `usatoday`). Native
+    = the publisher's trade value from the saved 12-team list at the scoring:
+    the section's `combos["<scoring>_12"]` (`fantasycalc`: `_12_qb1`)
+    `.native`. **Superflex overlay.** With `SF >= 1`, the saved
+    `native_superflex` sets the native of every player it lists, including
+    players only the superflex list has (CBS's 1-QB list carries 13 QBs, its
+    superflex list 35); players it does not list keep their 1-QB native.
+  - **Prior week** (VP-8): the history snapshot
+    `data/history/week-<content_week - 1>.json`, charts from `natives`,
+    projections from `ppg`, as saved. The snapshot keeps no superflex
+    overlay, so at `SF >= 1` the prior week uses the charts' 1-QB natives.
+  - **Default roster** (the settings the chain compares): QB1 RB2 WR3 TE1
+    FLEX1, bench 6; the superflex combo is PPR, 12 teams, plus SF1.
+  - A source *lists* player `i` when it has a finite native for him. His
+    position comes from the naming table (`player_key`).
+  - A chart's *estimated* players are the players VP-2.4 fills in for it.
+    "Listed" never includes them.
+- **Sort order** (a source's own order within a position): native
+  descending, then listed before estimated, then `player_key` ascending
+  (numeric). "Rank" is the 1-based position in that order.
+- **Mean points per game** `m_i` = the arithmetic mean of the natives of the
+  projections in `I` (VP-1) that list `i`. A projection that does not list
+  `i` is left out, never counted as 0. A player no projection in `I` lists
+  has no `m`. **Projected-points order** within a position: `m` descending,
+  then `player_key` ascending; players without `m` are not in it.
+- **Arithmetic.** IEEE doubles. No intermediate rounding anywhere, including
+  the bench share, ratios, fits and estimates. Display rounds to one decimal.
+  Ties mean exact equality of doubles. Sums run in sort order. A median of
+  an even count is the mean of the two middle values.
+- **Constants.** `BENCH_MIX_12 = {QB 10, RB 27, WR 33, TE 10}`.
+  `IMPUTE_MIN_FIT = 3`. `ESTIMATE_FIT_N = 10`. `DEFAULT_BENCH_SHARE = 0.15`
+  (OC-2). `PIE_PER_STARTING_SLOT = 28` (OC-1).
+- **Week.** Everything below runs once per content week. The prior week runs
+  the same steps on the prior inputs (VP-8).
+
+### VP-1 The included set
+
+1. A source is **eligible** this week when all three hold:
+   - it is not held (`validationHold` or `promotionHold` on its section);
+   - it is not unpublished (a weekly chart whose content week is older than
+     the current content week);
+   - it has values at `L` (the section exists and the scoring is saved).
+2. **Included set `I`** = the eligible sources that also have a prior-week
+   snapshot. If no eligible source has one (a first week, or no history), `I`
+   = the eligible sources and there is no prior week.
+3. `I` alone drives the mean points per game and with them the league
+   allocation and the rosterable set (VP-2.2, VP-2.4), the DDF weights
+   (VP-4), the fill-in peers (VP-2.4) and the DDF versions (VP-6.3). The
+   same `I` is used for both weeks.
+4. A source outside `I` (held, unpublished, no prior week) is still shown from
+   its kept section. It goes through VP-2, VP-3, VP-5 and VP-6.4 against the
+   same allocation, rosterable set, pie and DDF weights, with the charts in
+   `I` as its fill-in peers, so its numbers stay on the page's scale. It
+   contributes nothing to weights, peers, `m` or DDF.
+5. The reader's input selection (`setCompositeInputs`) filters only the DDF
+   averaging (VP-6.3). It never changes `I`, `m`, the weights, or any
+   source's values.
+6. ESPN has no special role anywhere. A missing ESPN is dropped like any other
+   source, and the page renders with any non-empty `I`.
+
+### VP-2 Native to value above waivers (per source, per position)
+
+Every source runs this step in its own units: points per game for
+projections, trade value for charts. Charts and projections use the same
+rules, except that only charts are filled in (VP-2.4).
+
+1. **Lists.** Build each position's listed players in sort order.
+2. **League allocation `alloc`** (the "size logic", OC-4). It runs **once per
+   setting and week, on the projected-points order**, and every source uses
+   the same counts. A source's own values never move a slot.
+   - a. Dedicated: `d_p = T x D_p`.
+   - b. Superflex: candidates are the players at 0-based index `>= d_p` of
+     their position's projected-points order, at any position. Take the
+     `T x SF` best by `m` descending, then position order, then `player_key`
+     ascending. `sf_p` = the number taken at `p`. **Lead's reading:** Jeremy's
+     "by assumed points, not VORP" covers the superflex slot as well, since it
+     is a flex slot that also admits QBs.
+   - c. Flex: candidates are the players at index `>= d_p + sf_p` of the
+     projected-points order at RB/WR/TE. Take the `T x F` best, in the same
+     order (`m` descending, position order, `player_key` ascending). `fx_p` =
+     the number taken at `p`.
+   - d. Bench: `b_p` = D'Hondt apportionment of `round_half_up(T x B)` seats
+     over `BENCH_MIX_12`. Each seat goes to the position with the largest
+     `weight / (seats + 1)`, with ties going to position order.
+   - e. Starters `S_p = d_p + sf_p + fx_p`. Rostered `N_p = S_p + b_p`. If the
+     candidates run out, the untaken slots stay empty.
+   - f. **No projection in `I`** (degenerate week). **Lead's reading:** there
+     is no projected-points order, so each source runs a–e on its own sort
+     order (superflex and flex by its own natives, the superseded OC-4 rule),
+     there is no rosterable set and nothing is estimated (VP-2.4 is skipped),
+     and VP-7.2 runs a–e on blended DDF Value.
+3. **Waiver line `w_p`**, read from the work list (the listed players plus,
+   for a chart, its estimated players at `p`, in sort order):
+   - If the work list is longer than `N_p`: `w_p` = the value at 0-based index
+     `N_p`. The method is `roster_determined` when that player is listed and
+     `estimated` when he is an estimated player.
+   - Else, if the work list is non-empty: `w_p` = its last value. The method
+     is `insufficient_coverage`.
+   - Else: `no_players`. The source does not price `p`.
+4. **Fill-in of rosterable players a chart does not list (OC-5, approved
+   2026-10-09).** Projections are not filled in (**Lead's reading:** Jeremy's
+   rule is written for charts, and a projection that does not project a
+   player is already covered by the other projections in `m`).
+   - a. **Rosterable set.** `R_p` = the first `N_p` players of position `p`'s
+     projected-points order (the league's starters plus bench spots, ranked
+     by projected points). **Fill set** `Fill_p` = the first `N_p + 1` (fewer
+     if the order is shorter). **Lead's reading:** the one extra player is the
+     first player past rosterable depth; he sets the waiver line, so a chart
+     that lists exactly the rosterable players still has a waiver line. He is
+     estimated and shown like the others.
+   - b. A chart `c` gets an estimate for every player in `Fill_p` it does not
+     list, **only at positions where it lists at least one player**. A chart
+     that lists nobody at `p` does not price `p` (`no_players`).
+   - c. **Peers** = the charts in `I` other than `c`, in source-key order,
+     using their listed natives (with the superflex overlay at `SF >= 1`),
+     never their own estimates.
+   - d. **Ratio path** (from the other charts that list him). For each peer
+     `k` that lists `i`:
+     - `shared` = the players at `p` that both `c` and `k` list, in `c`'s sort
+       order. The **fit set** is the last `min(ESTIMATE_FIT_N, |shared|)` of
+       them (the 10 lowest on `c`; all of them when fewer than 10 are shared).
+     - If the fit set has fewer than `IMPUTE_MIN_FIT` (3) players, or `k`'s sum
+       over it is `<= 0`, the peer is not usable.
+     - Otherwise `ratio_k = sum(c's natives over the fit set) / sum(k's natives
+       over the fit set)` (a ratio of sums, not a median of per-player
+       ratios), and `est_k = ratio_k x native_k(i)`.
+     - If at least one peer is usable, `raw` = the median of the `est_k`.
+   - e. **Curve path** (no chart lists him, or none of those that do is
+     usable; **Lead's reading** for the second case). Points = `c`'s listed
+     players at `p` that have `m`, in `c`'s sort order; take the last
+     `min(ESTIMATE_FIT_N, count)`. If there are at least `IMPUTE_MIN_FIT` of
+     them and their `m` values are not all equal, fit an ordinary
+     least-squares line `native = a + b x m` (unweighted, `b = sum((m - mean
+     m)(x - mean x)) / sum((m - mean m)^2)`, `a = mean x - b x mean m`) and
+     `raw = a + b x m_i`. Otherwise (**Lead's reading**), if `c` lists a
+     player at `p` with `m > 0`, take the lowest such player in `c`'s order,
+     `low`, and `raw = native_c(low) x m_i / m_low`; else `raw = 0`.
+   - f. **Order stays the chart's own.** The estimate is
+     `min(max(raw, 0), lowest listed native of c at p)`. An estimated player
+     never goes above the chart's lowest listed player at that position; at a
+     tie the listed player sorts first (VP-0). `capped` = `raw` was above the
+     cap.
+   - g. Estimates use only listed natives and `m`, never other estimates, so
+     there is no loop and the result does not depend on processing order.
+   - h. **Display and counting.** An estimated player is a full member of the
+     chart's work list: he counts in its waiver and starter lines, its groups
+     (VP-3), its VORP vs waivers and Adjusted values (VP-5), its Indexed
+     values (VP-6.4) and the DDF Value (VP-6.3). His row value on `c` is
+     shown marked **estimated**, with a reason: "Estimated: <label> doesn't
+     list him; scaled from <peer labels>" (ratio path) or "Estimated: no
+     chart lists him; from <label>'s values against projected points" (curve
+     path). This replaces CTL-006's "never displayed" for these players.
+   - i. **Below rosterable depth.** A player a chart does not list and does not
+     estimate, at a position the chart prices, is 0 on that chart in every
+     view (VP-6.2). Players below rosterable depth therefore stay at or near 0
+     for every source.
+5. **Starter line `l_p`** = the work-list value at 0-based index `S_p` (the
+   first non-starter) if it exists, else `w_p`. Then `l_p = max(l_p, w_p)`.
+6. **Per player** on the work list, listed or estimated:
+   - value above waivers `v_i = max(0, x_i - w_p)`;
+   - bench slice `bsl_i = max(0, min(x_i, l_p) - w_p)`, the part of his
+     surplus that any rostered player at `p` provides;
+   - starter slice `ssl_i = max(0, x_i - l_p)`, the premium over the first
+     non-starter;
+   - `v_i = bsl_i + ssl_i` exactly.
+   - Display role: starter if rank `<= S_p`, bench if `<= N_p`, else waiver.
+     The role is shown but does not price (OC-3: the slice only decides which
+     group a player's value counts in).
+
+### VP-3 Per-source implied weights (8 groups)
+
+1. **Group totals** over the work list, estimated players included:
+   `G_s[p, starter] = sum(ssl_i)` and `G_s[p, bench] = sum(bsl_i)`. That makes
+   8 groups, position x starter/bench.
+2. `G_s` = the sum of the 8. If `G_s = 0`, the source has no implied weights.
+   It is left out of VP-4, and its VORP vs waivers and Adjusted values are 0
+   for every player on its work list.
+3. **Mixes** (unit-free, so a chart and a projection are comparable):
+   - starter mix `sig_s[p] = G_s[p, starter] / sum over q of G_s[q, starter]`,
+     defined when that sum is `> 0`;
+   - bench mix `beta_s[p] = G_s[p, bench] / sum over q of G_s[q, bench]`,
+     defined when that sum is `> 0`.
+4. **Bench share (OC-2).** `bs` = 0.15 unless the reader has set the
+   bench-share slider, which replaces it (**Lead's reading:** the slider stays
+   as a reader override; 15% is its default, and source-implied shares are
+   never used). Each source is normalized to it at the source level: its
+   weights are `w_s[p, starter] = (1 - bs) x sig_s[p]` and
+   `w_s[p, bench] = bs x beta_s[p]`. A source whose bench mix is undefined
+   (no bench surplus) shows `w_s[p, starter] = sig_s[p]` and bench 0; one whose
+   starter mix is undefined shows `w_s[p, bench] = beta_s[p]` and starter 0.
+   These per-source weights are reported; VP-4 averages the mixes, which
+   equals averaging the normalized weights and renormalizing each half.
+
+### VP-4 DDF weights
+
+1. `Sraw[p]` = the mean of `sig_s[p]`, and `Braw[p]` = the mean of
+   `beta_s[p]`, each over the sources in `I` that have weights (VP-3.2), have
+   that mix defined and do not have `no_players` at `p`. Empty means 0.
+2. `bs* = bs` when `sum(Sraw) > 0` and `sum(Braw) > 0`; `bs* = 0` when
+   `sum(Braw) = 0` (no bench surplus anywhere, e.g. `B = 0`); `bs* = 1` when
+   only `sum(Sraw) = 0`.
+3. `W[p, starter] = (1 - bs*) x Sraw[p] / sum(Sraw)` and
+   `W[p, bench] = bs* x Braw[p] / sum(Braw)` (0 where the denominator is 0).
+   The bench groups of `W` therefore sum to exactly `bs` (15% by default) and
+   the starter groups to `1 - bs`.
+4. **Reader position shares** (BE-2 / MR-16), when set:
+   `W[p, r] = W[p, r] x share_p / (W[p, starter] + W[p, bench])`, skipped
+   where that sum is 0. Applied after 3, so with position shares set the
+   bench total follows the shares.
+5. Every source in `I` counts once (four charts and three projections, so 7
+   at full strength). There is one weight set per league setting and week,
+   shared by all three DDF versions (OC-6).
+
+### VP-5 Fixed league pie and Adjusted values
+
+1. **Pie** (OC-1): `Pie(L) = 28 x T x (sum of D_p + F + SF)`, which is 28 per
+   starting slot. It depends on neither scoring nor bench. At the default
+   roster (8 starters) it is 1,792 / 2,240 / 2,688 / 3,136 at 8 / 10 / 12 /
+   14 teams, and 3,024 at 12 teams with one superflex slot.
+2. **Budgets**: `b[g] = Pie x W[g]`. The bench budgets total
+   `Pie x bs` (15% of the pie by default) for every source.
+3. **Unfunded groups.** When a source has `G_s[g] = 0` while `b[g] > 0`, and
+   the other group at the same position has `G_s > 0`, the budget moves to
+   that other group. If both are 0 (the source has no surplus at `p`), the
+   budget stays unpaid and is reported in `unfundedGroups`. **Lead's
+   reading:** Jeremy's OC-5 answer replaced the question with the fill-in
+   (VP-2.4), which removes nearly every unfunded group; this move is kept
+   only as the residual rule (the earlier recommendation A).
+4. **Rates**: `r_s[g] = b'_s[g] / G_s[g]`, or 0 where `G_s[g] = 0`.
+5. **Adjusted value**:
+   `A_i = r_s[p, bench] x bsl_i + r_s[p, starter] x ssl_i`.
+   - Each source's group totals equal the budgets, and its total equals the
+     pie, both counted over the work list (estimated players included, and
+     shown).
+   - `A` is continuous and non-decreasing in the native, so a source's own
+     order within a position never inverts.
+   - Multiplying a source's natives by a constant changes nothing.
+6. **VORP vs waivers (display)**: `V_i = v_i x Pie / G_s`. That is one factor
+   per source, so every source's total over its work list equals the pie: the
+   same exact scale, with each source keeping its own weighting.
+
+### VP-6 Rows, DDF Value and Indexed
+
+1. **Rows.** Every player any source lists, held sources included, gets a
+   row. This includes every player on ESPN's list (JEG-496).
+2. **Row value of source `s` for player `i`**, in any view:
+   - `s` lists `i`: the view's value (`A_i`, `V_i`, or Indexed from 4).
+   - A chart that estimated `i` (VP-2.4): the view's value from his estimate,
+     marked estimated with its reason.
+   - A chart that neither lists nor estimated `i`, at a position it prices:
+     **0** in every view ("Below rosterable depth; <label> doesn't list
+     him").
+   - A projection that does not list `i`: null, "<label> doesn't project this
+     player".
+   - `no_players` at `p`: null, "<label> doesn't price <pos>".
+3. **DDF Value, three versions** (JEG-497). Each is one number across every
+   view and tab.
+   - `ddf_value` (blended): the sources in `I`.
+   - `ddf_value_charts`: the charts in `I`.
+   - `ddf_value_projections`: the projections in `I`.
+
+   Each is further narrowed by the reader's selection. Value = the
+   equal-weight mean of the numeric Adjusted row values of those sources,
+   estimated values included. Zeros count; nulls are left out. Exactly one
+   value gives that value with `lowConfidence` ("Only one source prices this
+   player"). None gives null ("No source prices this player"). A held or
+   unpublished source is never an input.
+4. **Indexed** (JEG-499, display only). For each chart `c`, `shared` = the
+   players `c` **lists** (estimated players excluded) who have a numeric
+   blended DDF Value, genuine zeros included (OC-8). Then
+   `f_c = sum(ddf_value over shared) / sum(native_c over shared)` and
+   `Indexed_i = native_i x f_c` for listed and estimated players (estimated
+   ones marked).
+   - It is one positive factor, so the chart's own order survives exactly
+     (rank guard; estimated players sit at or below the lowest listed one).
+   - If the native sum is `<= 0`, the `ddf_value` sum is `<= 0` (the factor
+     must be positive), or `shared` is empty, Indexed is null
+     for the whole chart, players below rosterable depth included: "Not
+     enough shared players to index".
+   - Otherwise players below rosterable depth follow rule 2 (0).
+   - Projections have no published scale. In the Indexed tab ("Trade charts
+     (as published)") they are available as their Adjusted values but
+     **off by default** (OC-7): not drawn until the reader turns them on.
+
+### VP-7 Slot filling, zones, tiers, ranking
+
+1. **Mean points per game** `m_i` as in VP-0.
+2. **Slot fill** = the league allocation of VP-2.2 (`S*_p = S_p`,
+   `N*_p = N_p`). The zones on the curve sit at these counts. With no
+   projection in `I`, slot fill runs VP-2.2 a–e on blended DDF Value.
+3. **Tier** (`ddfTier`). Within a position, rank by blended DDF Value
+   descending, then `m` descending (missing last), then key ascending.
+   - DDF Value 0: waiver.
+   - Rank `<= S*_p`: starter.
+   - Rank `<= N*_p`: bench.
+   - Otherwise waiver.
+   - No DDF Value: no tier.
+4. **Default ranking, lock and curve**: blended `ddf_value`, descending, then
+   key ascending; nulls last. The other two versions can be chosen like any
+   series.
+5. No source is required to render. With an empty `I`, every DDF Value is null
+   ("No source available this week") and Indexed is null. The page still
+   renders.
+
+### VP-8 Weeks and the change since last week
+
+1. The prior week runs VP-2 to VP-7 on the prior inputs:
+   - each source in `I` uses its prior-week snapshot ("Week-Over-Week
+     Snapshots");
+   - the same `L`, the same `I` and the same pie;
+   - prior-week `m` (so a prior allocation and rosterable set) and
+     prior-week peers.
+
+   That gives prior weights, prior Adjusted values, prior DDF versions and a
+   prior Indexed factor. Nothing from the current week enters the prior week.
+2. The change is the current value minus the prior value, for each DDF
+   version, when both exist. It moves when either the source or the average
+   weights moved. That settles MR-07 as option (b).
+
+### VP-9 How each league setting enters
+
+| Setting | Where it enters |
+| --- | --- |
+| Scoring | Which natives: each chart's list at that scoring; points per game at that scoring, and so `m`. |
+| Teams `T` | The league allocation (VP-2.2), and with it the rosterable set, the waiver and starter lines; the pie. |
+| Dedicated slots, flex | The league allocation (flex by projected points); the pie. |
+| Superflex `SF` | The league allocation (by projected points); the chart natives' superflex overlay; the pie. |
+| Bench per team `B` | Bench seats, so `N_p`, the rosterable set and the waiver line. Not the pie (OC-1). |
+| Bench share `bs` | 15% by default (OC-2); the reader's slider replaces it (VP-3.4). |
+| Reader position shares | Only when the reader sets them (VP-4.4). |
+
+The charts' saved lists are 12-team lists. At every `T` and roster the same
+natives are deconstructed at the reader's setting. That is the publisher's
+valuation applied to the reader's league, and it is labelled derived, as
+today.
+
+### Spec rulings (lead, 2026-10-09)
+
+The first three-way comparison on live data found the places where the text
+above left a choice. Each was settled here, and the text above now states it:
+
+- **Projection precision.** Full-precision per-game points, not the
+  display-rounded section copies (VP-0).
+- **ESPN ineligible players.** Listed at 0 and counted as 0 in `m` (VP-0).
+- **Superflex overlay.** It sets every player it lists, adding players only
+  it lists (VP-0).
+- **Prior week at superflex.** 1-QB natives, since no overlay is saved (VP-0).
+- **Default roster.** Stated in VP-0.
+- **Null Indexed factor.** The whole chart is null (VP-6.4).
+- **Zero DDF sum.** A chart whose shared players all have DDF Value 0 gets a
+  null factor, not 0 (VP-6.4; SA-17).
+- **Prior-week ESPN ineligible players.** The prior week uses the history
+  snapshot as saved. Week 4's ESPN snapshot did not save ESPN's ineligible
+  players, so in the prior week they are not listed by ESPN rather than
+  listed at 0 (SA-18). Whether to rebuild them at 0 is on the math review
+  agenda.
+- The remaining readings the clean-room reference recorded (SA-7, SA-8,
+  SA-10 to SA-16 in `pipelines/spec_reference/SPEC_AMBIGUITIES.md`) stand
+  as written there unless the three-way comparison shows a disagreement
+  they cause. At the 1-QB settings, every disagreement between the Python
+  reference and the clean-room reference on 2026-10-09 traced to the
+  projection precision above.
+
+### VP-10 Retired, and what replaces each
+
+| Retired | Replaced by |
+| --- | --- |
+| Per-player `*_adjusted` fit: `build_adjustment_inputs.py` position/tier affine cells | Each chart's own Adjusted values (VP-2 to VP-5) |
+| `adjustment-inputs.json` and its identity-fallback cells ("Not enough players to fit an adjustment", "Adjustment fit refused") | Nothing. There is no fit, so there are no fallback cells and no blank-cell rule |
+| `refitLiveCells` / `buildLiveAdjustedMap` (live refit against the ESPN two-tier leg; GAP-ADJ-CLIP-ZERO's clip) | VP-5. No clip: values are non-negative by construction |
+| `shapeToAnchorPeaksThenSharedTotal` (per-position peak pin, then shared total) | VP-5. Group totals equal pie x DDF weights by construction |
+| CBS ROS / Razzball level-matched to ESPN (option C, total only) | Each projection's own VP-2 to VP-5 |
+| The ESPN top = 70 unit: two-tier `70 / max`, `OUR_MAX`, `positionalMaxForSetup`, the Adjusted view's 70 factor | The fixed league pie (VP-5.1) |
+| ESPN group totals as DDF weights ("the anchor's total for that group") | The average of the source mixes with bench fixed at 15% (VP-3, VP-4) |
+| ESPN-measured positional pies (`espn_pies.json`) and the two-tier glide as the projections' value | VP-2.6 slices and VP-5 rates. The bench share keeps its meaning as the share of the pie paid on bench slices (15% by default), without the softplus glide |
+| Source-implied bench share (the first draft's OC-2 A) | 15% fixed default, every source normalized to it (VP-3.4) |
+| Indexed factor against the ESPN leg (`order_preserving_rescale`, `derivePublishedSetup`'s live-anchor factor, the 40-player fallback) | VP-6.4 against blended DDF Value |
+| Default lock and curve on ESPN; ESPN tier (V2-TIER-VS-ESPN-LEG) | VP-7.3 / VP-7.4 on DDF Value |
+| Slot filling and zones by ESPN points per game | VP-7.1 / VP-7.2, the mean of the included projections |
+| ESPN as the only source whose absence refuses to render | VP-1.6 / VP-7.5 |
+| Saved `vorp_views` (`build_imputed_vorps.py`) at the 12-team setup | VP-2 to VP-5 at every setting |
+| One DDF Value per view (`ddfByView`), and the charts dropping out of two views' DDF (MR-17) | VP-6.3, one number per version in every tab |
+| D'Hondt surplus-weighted flex with a preliminary waiver line ("Publisher Flex Allocation"), and the first draft's per-source greedy flex by own values | VP-2.2: one league allocation, flex and superflex by projected points (OC-4). The bench D'Hondt stays |
+| Hidden imputed extension of short charts (tail-median ratio, mean over peers, `imputed_from_other_charts`, never displayed) | VP-2.4 fill-in of the rosterable set: last-10 ratio of sums, median over peers, curve fallback, shown as estimated |
+| A chart that does not list a player gives 0 when "fully loaded", null otherwise | VP-6.2: estimated if rosterable, 0 below rosterable depth |
+| Copy that calls ESPN the anchor or the core weight | DDF Value is the core value (JEG-499) |
+
+### VP-11 Front-end contract (keeps existing names where the meaning is unchanged)
+
+- **Series in `row.values`**, in the active tab:
+
+  | Key | Indexed tab ("Trade charts (as published)") | VORP vs waivers tab | Adjusted values tab |
+  | --- | --- | --- | --- |
+  | `cbs`, `fantasycalc`, `fantasypros`, `usatoday` | Indexed (VP-6.4) | `V` (VP-5.6) | `A` (VP-5.5) |
+  | `espn`, `cbsros`, `razzball` | `A`, available, off by default (OC-7) | not drawn | `A` |
+  | `espn_vorp`, `cbsros_vorp`, `razzball_vorp` | not drawn | `V` | not drawn |
+  | `ddf_value`, `ddf_value_charts`, `ddf_value_projections` | the same in every tab | | |
+
+  `fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted` and
+  `cbs_adjusted` are retired. The front-end change that stops reading them
+  ships in the same release.
+- **Estimated values.** New row field `estimated: {sourceKey: reason}` for
+  every chart value that comes from VP-2.4. The value cell, tooltip and
+  inspector mark it "estimated" and show the reason. Estimated values are
+  drawn like listed ones.
+- **DDF row fields.** These keep their names and now describe blended
+  `ddf_value`: `ddfReason`, `ddfCount`, `ddfSources` (source keys, such as
+  `fantasycalc`), `ddfLowConfidence`, `ddfConfidenceNote`, `ddfPrior`,
+  `ddfPriorCount`, `ddfPriorLowConfidence` and `ddfTier`.
+  - New: `ddfByVersion: {blended, charts, projections}`. Each entry is
+    `{value, count, sources, reason, lowConfidence, prior, priorCount,
+    priorLowConfidence}`.
+  - `ddfByView` is retired.
+  - `missingReasons` keeps its texts, minus the two identity-fallback
+    reasons, "Adjustment data failed to load" and "Chart doesn't list players
+    this deep at <pos>". It gains "<label> doesn't price <pos>", "Not enough
+    shared players to index", "No source available this week" and "Below
+    rosterable depth; <label> doesn't list him".
+- **Composite API.** `getCompositeInputs([version])` and
+  `getCompositeValues([version])`, where `version` is `"blended"` (default),
+  `"charts"` or `"projections"`.
+  - The former `view` argument is accepted and ignored.
+  - `inputs` and `series` are source keys.
+  - `getSourceInfo({includeComposite: true})` lists all three DDF keys.
+  - `setLockOrder` accepts each of them.
+  - `getPriorWeek` / `getWeekValues` accept each of them.
+- **Diagnostics.** New `TradeValueCurveDiagnostics.valuePipeline` =
+  `{version: "value-pipeline/2", setting, pie, benchShare, included,
+  excluded: [{key, reason}], ddfWeights: {"POS|starter"...}, allocation:
+  {pos: {dedicated, superflex, flex, bench, starters, rostered}}, fillSets:
+  {pos: [player keys]}, sources: {key: {family, totalVorp, groups, weights,
+  starterMix, benchMix, rates, unfundedGroups, vorpFactor, indexedFactor,
+  positions: {pos: {method, waiver, starterLine, starters, rostered, listed,
+  nEstimated, estimates: {playerKey: {path, peers: {key: {fitPlayers, ratio,
+  estimate}}, curve, raw, cap, capped, value}}}}}}}`. The math inspector
+  reads it.
+- **Copy.** "DDF Value", "DDF Value · trade charts", "DDF Value ·
+  projections", "estimated". No copy calls ESPN the anchor.
+
+### VP-12 Validation
+
+- `value_check` compares, per setting:
+  - the 7 sources in each view they appear in (VP-11), estimated values
+    included;
+  - the three DDF versions, current and prior;
+  - `ddfWeights`, the allocation and the pie.
+
+  Tolerance is 0.05 on values and 1e-4 on weights.
+- **Worked example.** `tests/fixtures/value_pipeline_worked_example.json`
+  holds the inputs, every intermediate value and the expected outputs for a
+  2-team league (hand-checkable; summary below). Each implementation must
+  reproduce it to 1e-6 before it runs on live data.
+- **Before publishing**, run the 12-combo sweep (CLAUDE.md), check where each
+  position's curve starts, and show Jeremy the before/after on live data
+  (JEG-508 plan step 3), including the share of players at DDF 0 at Full PPR
+  12 (it was about 383 of 648 before the fill-in).
+
+### Worked example (tests/fixtures/value_pipeline_worked_example.json)
+
+**Setting.** 2 teams, QB1 RB1 WR1 TE1 FLEX1, no superflex, bench 2 per team,
+bench share 0.15. Pie = 28 x 2 x 5 = **280**.
+
+**Sources.** Projections `p1` and `p2` and charts `c1`, `c2`, `c4`, `c5` are
+included. `c3` is held; its natives are exactly 10 x `c1`. RB Juliet (a
+rookie) is projected only by `p1` (8.5) and listed by no chart.
+
+**League allocation (by projected points).**
+
+- Bench seats: `round(2 x 2) = 4`, D'Hondt over `BENCH_MIX_12` in the order
+  WR, RB, WR, RB: RB 2, WR 2.
+- Flex candidates by `m`: WR November 11.0, TE Uniform 10.2, RB Foxtrot 9.8.
+  The two flex slots go to **WR and TE**. By `c1`'s own values (the
+  superseded rule) they would go to WR November (40) and **RB Foxtrot (35)**,
+  not TE Uniform (6) (`expected.flex_contrast`).
+- Every source: QB 2/2, RB 2 starters/4 rostered, WR 3/5, TE 3/3.
+- Fill sets (first `N_p + 1` by `m`): QB Alpha, Bravo, Charlie; RB Delta,
+  Echo, Foxtrot, Juliet, Golf; WR Lima to Quebec; TE Sierra to Victor.
+
+**Fill-in estimates.**
+
+| Chart | Player | Path | Detail | Raw | Shown |
+| --- | --- | --- | --- | --- | --- |
+| c2 | WR Quebec | peers c1, c4 (median of 2) | ratios 0.956311, 0.947115 on 5 shared | 9.038975 | 9.038975 (its WR waiver line) |
+| c5 | WR Papa | peers c1, c2, c4 (median of 3) | estimates 14.072917, 12.518919, 15.0 | 14.072917 | 14.072917 |
+| c5 | WR Quebec | peers c1, c4 | estimates 9.046875, 10.0 | 9.523438 | 9.523438 (waiver line) |
+| c5 | TE Victor | peers c1, c2, c4 | estimates 4.463768, 2.961538, 5.202703 | 4.463768 | 4.463768 (waiver line) |
+| c5 | RB Golf | peers c1, c2 | ratio 186/185 on 3 shared, both | 17.594595 | 17.594595 (waiver line) |
+| c4 | RB Golf | peers c1 (fit on the last 10 of 11 shared: `145.5 / 130.5`), c2 | 22.298851, 15.692308 | 18.995579 | **2** (capped at c4's lowest listed RB) |
+| c5 | RB Juliet | curve on Delta, Echo, Foxtrot: `native = -46.824297 + 7.810356 x m` | m = 8.5 | 19.563731 | 19.563731 |
+| c1, c2, c3, c4 | RB Juliet | curve | | 26.26 / 32.30 / 262.61 / 34.42 | capped: 1 / 3 / 10 / 2 |
+
+Below rosterable depth: `c2` does not list RB Hotel and `c5` does not list QB
+Delta; both are 0 on that chart in every view.
+
+**DDF weights (bench 15%).** Starter mix mean QB 0.146323, RB 0.263452, WR
+0.313098, TE 0.277128; bench mix mean RB 0.509118, WR 0.490882. So
+`W` = QB starter 0.124374, RB starter 0.223934, RB bench 0.076368, WR starter
+0.266133, WR bench 0.073632, TE starter 0.235558 (bench 0.15 exactly). QB and
+TE have no bench seats, so their bench groups are 0.
+
+**Hand-check one value.** `p1`, RB Delta: native 18; starter line 10 (RB
+Foxtrot, index 2), waiver line 7 (RB Golf, index 4). Bench slice 3, starter
+slice 8. `p1`'s RB groups are 10.5 bench and 12 starter, so the rates are
+`280 x 0.076368 / 10.5 = 2.036472` and `280 x 0.223934 / 12 = 5.225123`, and
+`A = 3 x 2.036472 + 8 x 5.225123 =` **47.910397**. Across the six included
+sources RB Delta's blended DDF Value is **48.511113** (charts 50.223260,
+projections 45.086821).
+
+**What else it pins.**
+
+| Case | Player | Result |
+| --- | --- | --- |
+| Estimated value counts in DDF | RB Juliet | blended 0.785708 over 5 sources (c5's estimate gives 0.873833 Adjusted); projections 3.054707, low confidence (`p2` is null) |
+| Capped ratio estimate | RB Golf on c4 | estimated 2, Adjusted 0; blended 1.297383 |
+| Indexed basis excludes estimates | c5 | `f = 276.236057 / 532 = 0.519241` over its 13 listed players; RB Juliet's estimate shows 10.158285 Indexed |
+| Held source shown, never counts | c3 | Adjusted and Indexed identical to c1's (the curve estimate scales by 10, and so does the cap) |
+| Tiers | slot fill = the allocation | TE Uniform (DDF 9.048407) is a starter by the flex; RB Juliet (rank 5 of RB) is waiver |
+| Bench share slider 0.10 | `variant_bench_share_0_10` | weights and blended DDF |
+
+### Open choices: decided (Jeremy, 2026-10-09, quoted on JEG-508)
+
+All eight are decided. The "Recommended" column is the first draft's
+recommendation, kept for the record; "Decided" governs.
+
+| # | Choice | Options | Recommended (first draft) | Decided 2026-10-09 |
+| --- | --- | --- | --- | --- |
+| OC-1 | Pie total per league setting | (A) 28 per starting slot: `28 x T x starters per team` (2,688 at the 12-team default). (B) 16 per rostered slot: `16 x T x (starters + bench)` (also 2,688 at the default; grows with bench size) | A | **A**, 28 per starting slot (VP-5.1) |
+| OC-2 | Bench share default | (A) Source-implied; the slider overrides at the source level before averaging. (B) 15% applied to every source, like today. (C) 15% per position, like today's two-tier | A | **15%**: "15% is right. There is no way 35% is rational math." The DDF weights give bench 15% of the pie and every source is normalized to that; source-implied share is not used (VP-3.4, VP-4) |
+| OC-3 | How a player's value splits between starter and bench | (A) Slices. (B) Whole player in his role's group | A | **A**, slices; the slice only splits a player's value into the starter and bench groups, whose totals the DDF weights set with bench at 15% (VP-2.6) |
+| OC-4 | Flex fill per source | (A) Greedy best remaining by the source's own values. (B) Today's D'Hondt surplus-weighted flex | A | **Best remaining by assumed (projected) points, not VORP**: the mean points per game of the included projections, the same order as slot filling (VP-2.2) |
+| OC-5 | A group a source can't fund | (A) Its budget moves to the same position's other group. (B) Left unpaid and reported. (C) That source's group shown unavailable | A | **Fill-in, approved as proposed**: "We need to fill in more players to get to vorp for all rosterable players." Rosterable = starters + bench by projected points; ratio to other charts on the last ~10 shared players, median; else the chart's own curve against projected points; never above the chart's lowest listed player; marked estimated and counted (VP-2.4). The budget move stays as the residual rule (VP-5.3) |
+| OC-6 | Weights for the charts-only and projections-only versions | (A) One DDF weight set. (B) Each family's own average | A | **A**, one shared weight set (VP-4.5) |
+| OC-7 | Projections in the Indexed tab | (A) Show their Adjusted values. (B) Hide them | A | Available in "Trade charts (as published)" as their Adjusted values, **off by default** (VP-6.4, VP-11) |
+| OC-8 | Which players set a chart's Indexed factor | (A) Listed players with a blended DDF Value, zeros included. (B) DDF Value above 0 only | A | **A** (the lead's call after Jeremy found the question unclear; revisit if he wants) (VP-6.4) |
+
 ## Trade-Value Contract
+
+> **Superseded (JEG-508)** in this section: the ESPN-anchored scale, the
+> comparison of the charts against the built ESPN leg, and the adjustment
+> cells. The scale is now the fixed league pie (VP-5), Indexed is set against
+> DDF Value (VP-6.4), and there are no adjustment cells (VP-10). The identity,
+> null and zero bullets still hold. Until the implementation merges, this
+> describes the engine.
 
 The dashboard compares source values on a common, ESPN-anchored fixed-pie scale.
 The public chart should answer: how do current source trade values differ after
@@ -50,6 +653,46 @@ The stable rules are:
    by position x starter/bench group.
 3. **Indexed.** The original published trade charts are indexed to match the
    value range of the other charts.
+
+> **Superseded (JEG-508)**: the factor's target. It is still one
+> order-preserving factor per chart, but it now matches the blended DDF
+> Value's total over the shared players, not the ESPN anchor's (VP-6.4,
+> JEG-499). The roster in item 1 is the reader's league setting (VP-2.2,
+> VP-9). The DDF weights in item 2 are the average of the source weights
+> (VP-4).
+
+**Indexed is one factor per chart (JEG-482, Jeremy 2026-10-08).** "There
+shouldn't be some secondary correction layer, the math is clearly off and this
+finding is a signal that it is." A published chart's Indexed values are its
+native values times ONE factor per chart and combo:
+
+    factor  = anchor total / native total, over the players the chart prices
+              that the ESPN anchor also prices
+    indexed = native x factor
+
+so the chart's pie equals the anchor's over the same players and its own
+ranking survives exactly, across and within positions, at every league setting
+(`reindex_comparison_section.order_preserving_rescale` for the saved 12-team
+values against the fixture's ESPN leg; `ValueModel.derivePublishedSetup` /6
+against the live anchor everywhere else). Per-position and starter/bench
+repricing belongs only to VORP vs waivers and Adjusted values. The rank guard
+(`pipelines/check_rank_guard.py`, `tests/test_rank_guard.py`, written to
+`output/rank-guard.json` and `dist/modules/rank-guard.json` on every
+`make sync`) fails the build on any pair of players a chart ranks apart whose
+Indexed order differs. What it replaced: from 2026-10-01 each chart was scaled
+per (position, starter/flex/bench) bucket to the anchor's total for that bucket
+(d4629423, 6a824749), and from JEG-64 the saved values were the chart's value
+above waivers put onto our positional maxes (`translate_via_vorp.py`, removed)
+-- both repriced positions against each other, so on Week 5 FantasyCalc's #3
+(Smith-Njigba) showed #5 and the 12 saved combos carried 15,279 pairwise
+inversions.
+
+> **Superseded (JEG-508)**: the CBS ROS and Razzball matching to the ESPN
+> anchor, and the `*_adjusted` peak pin. Every projection now goes through
+> its own VP-2 to VP-5 onto the fixed pie. The rest of this paragraph and the
+> "What the views guarantee today" measurements describe the engine before
+> VP. Under VP, each source's VORP vs waivers and Adjusted totals equal the
+> pie by construction (VP-5).
 
 Value above waivers and DDF values follow the user's league-settings inputs
 (teams, scoring, roster). There is no cap at the anchor's top value: a
@@ -93,7 +736,9 @@ What holds and is gated by `make validate` (`tests/test_view_invariants.py`):
 
 What does not hold yet (measured; options on `docs/math-review-agenda.md`,
 "From views-audit" and MR-01/03/04/05; not changed before the review):
-- The published charts' Indexed totals run 0.66-1.82x the anchor's.
+- (Fixed by JEG-482: the published charts' Indexed totals now equal the
+  anchor's over the players they price -- exactly off the saved setup, against
+  the fixture's leg at it.)
 - Their VORP vs waivers totals run 0.71-1.00x.
 - Their Adjusted group totals are not the DDF weights (70 cap, mixed basis).
 
@@ -109,6 +754,13 @@ The same transformation rules apply to every source within a family:
 | --- | --- | --- | --- |
 | Projection-derived | ESPN, CBS ROS, Razzball | The publisher's own per-game projections | DDF value above waivers, priced with starter/bench utilization under the active league settings |
 | Published trade charts | CBS, FantasyCalc, FantasyPros, USA Today | The publisher's own trade values | Published/common-scale comparison plus a derived estimate under our valuation assumptions |
+
+> **Superseded (JEG-508)**: the `*_adjusted` series and their fit
+> (`build_adjustment_inputs.py`, adjustment cells) are retired. Every source,
+> projection or chart, gets Adjusted values through the same VP-2 to VP-5
+> (VP-10). The two paragraphs below describe the engine until the
+> implementation merges. The rule that each projection keeps its own inputs
+> still holds.
 
 ESPN, CBS ROS, and Razzball are exempt from separate `*_adjusted` fixture
 sections (JEG-58). Their base sections already apply our DDF methodology to
@@ -129,15 +781,11 @@ The VORP translation work (JEG-32/JEG-61/JEG-62) defines the intended next
 published-chart transformation: publisher values plus league roster settings
 determine the waiver line, publisher-native surplus determines implied
 positional weights, and our valuation assumptions determine derived values.
-The saved 12-team published values are this translation for players above the
-waiver line (JEG-64, `translate_via_vorp.py`) and 0 for players the translation
-prices at or below it; only a player the translation cannot identify keeps the
-flex-aware pie value as a fail-safe. The comparison chain computes the
-translation from the natives it is promoting (`--translation natives`), so the
-saved values are always the translation of the saved natives
-(`tests/test_vorp_translation_js_parity.py` `stored_drift_problems`, risk
-register JEG332-STORED-DRIFT). The browser runs the same translation at every
-other league setting (see "League-settings engine" below).
+This translation is the VORP vs waivers view's math (the browser's
+`translatePublishedVorp`, held to `unified.translate_ranked` by
+`tests/test_vorp_translation_js_parity.py`). Since JEG-482 it is no longer
+written into the saved Indexed values (JEG-64's `translate_via_vorp.py` stage is
+removed): those are the natives times one factor (The Three Views, above).
 
 Every derived output inherits the input's immutable source vintage. Acquisition,
 processing, fitting, and promotion times are separate operational timestamps;
@@ -154,19 +802,25 @@ source tile/curve toggle, removes its table column and reference choices,
 and yields null values rather than zeros. The source remains listed as
 unavailable for the selected scoring/team settings.
 
+> **Superseded (JEG-508)**: the factor against the live ESPN anchor, the
+> 40-player fallback to the saved factor, and the live refit of the adjusted
+> series. Indexed is set against DDF Value (VP-6.4), and VORP vs waivers and
+> Adjusted values come from VP-2 to VP-5 at every setting (VP-9). The saved
+> 12-team natives and the "derived" label stay.
+
 **League-settings engine (league-settings-001, JEG-332, 2026-10-06).** Every
 published chart (CBS, FantasyPros, USA Today, FantasyCalc) is saved once per
 scoring at 12 teams and the standard roster (QB1 RB2 WR3 TE1 FLEX1 BENCH6). At
 that setup the chart and table show the saved values unchanged. At any other
 team count or roster the browser derives the chart from the saved 12-team
-inputs with `ValueModel.derivePublishedSetup` (value-model.js): the
-value-above-waivers translation (`translatePublishedVorp`, an exact port of
-`unified.translate_ranked`, held to it by `tests/test_vorp_translation_js_parity.py`)
-runs at the chosen setting for every player above that setting's waiver line;
-every other player is worth 0 (value above waivers is zero by definition;
-`league-settings-001/3`, 2026-10-07 -- it replaced the server's fail-safe value,
-which the saved 12-team values still carry, risk register
-JEG332-BELOW-WAIVER-SAVED). The caption labels these values derived. The
+natives with `ValueModel.derivePublishedSetup` (value-model.js,
+`league-settings-001/6`, JEG-482): the natives times one factor that matches the
+live anchor's total over the chart's players at that setting (the saved factor
+when the anchor prices fewer than 40 of them), so the chart keeps its own order.
+/1-/5 priced Indexed as value above waivers translated onto our positional
+maxes, which reordered players across positions; that translation now feeds
+only the VORP vs waivers and Adjusted views. The caption labels these values
+derived. The
 adjusted series refit live against the ESPN two-tier leg at the chosen setting,
 as they already did at 12 teams. A scoring with no saved 12-team setup is still
 unavailable and borrows nothing.
@@ -186,6 +840,17 @@ by `tests/test_vorp_translation_js_parity.py`:
 
 - *Peers.* The other published charts' saved 12-team natives at the same
   scoring (CBS, FantasyCalc, FantasyPros, USA Today minus the chart itself).
+  **Superseded (JEG-508)**: the peers are the *included* sources of the same
+  family (VP-1, VP-2.4). A held or unpublished chart is not a peer, and a
+  short projection is filled from the other projections the same way. The
+  imputed players now also fill the source's pie (VP-3, VP-5), not only its
+  waiver line. The ratio, cap, loop and hiding rules below are unchanged.
+  **Superseded again (JEG-508 OC-5, Jeremy 2026-10-09)**: the ratio, cap,
+  loop and hiding rules below are replaced by the VP-2.4 fill-in. Only charts
+  are filled; the players filled are the rosterable set by projected points;
+  the ratio is fitted on the last 10 shared players and the median over peers
+  is taken; a curve against projected points covers players no chart lists;
+  and estimated players are shown, marked "estimated".
 - *Mapping into the chart's units.* Per position and peer, one ratio: the sum of
   the chart's natives over the sum of the peer's natives, on the players both
   list among the bottom half of the chart's list (value at or below its median
@@ -214,23 +879,24 @@ by `tests/test_vorp_translation_js_parity.py`:
   chart's caption line names the charts ("waiver line extrapolated from other
   charts: CBS (QB, RB, WR, TE)") and the v2 Sources and Freshness lists add the
   note to the chart's line.
-- *Coupling.* A chart's saved values now depend on the other charts' natives,
-  so the comparison chain re-translates every published chart in the promoted
-  fixture after the per-source stages (`rebuild_comparison_chain.run_retranslate`)
-  before the fit.
+- *Coupling.* The waiver line (VORP vs waivers and Adjusted) depends on the
+  other charts' natives. The saved Indexed values do not (JEG-482); the
+  comparison chain re-indexes every published chart in the promoted fixture
+  against the promoted ESPN leg and runs the rank guard before the fit
+  (`rebuild_comparison_chain.run_reindex_fixture`).
 
-Because a chart's translated value is value above waivers scaled so its top
-player sits at our positional max, a lower waiver line raises the chart's
-lower and middle values a little as well as pricing the bottom; its top value
-does not move.
+> **Superseded (JEG-508)**: VORP vs waivers is now one factor per source to
+> the fixed pie (VP-5.6). Adjusted values are now the slices re-weighted to pie
+> x DDF weights, with no 70 factor and no ESPN group totals (VP-5.5). The
+> saved `vorp_views` are retired (VP-10).
 
 **Other chart views (JEG332-VORP-VIEWS, `published-views-001/1`, 2026-10-07).**
-The "VORP vs waivers" and "Adjusted values" views show the saved `vorp_views`
-only at the setup they were built for (full PPR, 12 teams, standard roster;
-FantasyCalc, FantasyPros, USA Today). At every other scoring, team count and
-roster -- and for CBS everywhere -- `ValueModel.derivePublishedViews` derives
-them from the saved 12-team natives on the same translation and waiver line as
-Indexed, so a player at or below the waiver line is 0 in all three views:
+VA-3 decided (Jeremy, 2026-10-09: "Compute live everywhere."): the saved `vorp_views`
+(2026-10-03) are retired. At every scoring, team count and roster -- Full PPR /
+12 / standard roster included -- `ValueModel.derivePublishedViews` derives
+them from the saved 12-team natives on the same translation and waiver line, so
+a player at or below the waiver line is 0 in both views (Indexed, one factor
+on the natives, does not zero anyone; JEG-482):
 
 - *VORP vs waivers*: each player's value above the setting's waiver line in the
   publisher's units, times one factor per chart so the chart's total equals the
@@ -267,6 +933,16 @@ timestamps. Coverage is independent of freshness and validation status.
 
 ## Publisher Flex Allocation
 
+> **Superseded (JEG-508, OC-4)**: flex is now filled greedily, best remaining
+> by the source's own values, with no preliminary waiver line (VP-2.2c). The
+> same allocator serves every source, projections included. Bench seats keep
+> the D'Hondt apportionment over `BENCH_MIX_12` (VP-2.2d).
+>
+> **Superseded again (JEG-508 OC-4, Jeremy 2026-10-09)**: flex is filled by
+> best remaining by projected points (the mean points per game of the
+> included projections), not by any source's own values. One league
+> allocation serves every source (VP-2.2).
+
 The translation module shares one roster allocator (JEG-61). Dedicated
 starters are excluded from flex candidates. At each eligible position, the
 next `teams * flex_count` ranked players define the potential flex range;
@@ -296,24 +972,123 @@ the week; projection sources use the newest snapshot dated in the week. A closed
 never changes; other versions are kept, not used. Full rule and contract: docs/v2-design-notes.md
 "Back-end contract: history".
 
-## DDF Composite Value (JEG-455 / JEG-471, Jeremy 2026-10-08)
+## DDF Composite Value (JEG-455 / JEG-471 / JEG-479 / JEG-497, Jeremy 2026-10-08/09)
 
-The **DDF Composite Value** ("DDF Value" in compact spots) is, per player, the
-equal-weight mean of the **adjusted** values: our projections (ESPN, CBS ROS,
-Razzball, DDF-adjusted) and the bias-adjusted trade charts (`*_adjusted`).
-It never averages the as-published (Indexed) charts or VORP vs waivers.
+> **Superseded (JEG-508)**: steps 1, 2, 5, 6 and 8 and "one DDF Value per
+> view".
+> - The inputs are now each included source's Adjusted values (VP-6.3), with
+>   no `*_adjusted` series.
+> - There are three versions (blended, charts, projections), each one number
+>   in every view.
+> - The charts no longer drop out of any view.
+> - Tiers come from VP-7.3.
+>
+> Steps 3, 4 and 7, the zero and one-source rules, and "same inputs in both
+> weeks" carry into VP-1 and VP-6. The identity-fallback bullet under
+> "Published Charts On The Rows" is retired with the fit.
 
-- Only series that price the player count; a missing series is left out, never
-  counted as 0. ESPN's 0 for a player it lists at 0 counts (GAP-025). Each
-  value carries its source count.
-- Default inputs: every one of those series that is available and in the
-  current week (a weekly chart older than the newest week is left out, the
-  first-load rule). The reader can choose the inputs.
-- One DDF Value for every comparison column (no leave-one-out).
-- Tier: rank by DDF Value and cut at the league's slot counts (the engine's
-  value-based slot fill).
-- Δ: this week's DDF Value minus last week's, both over the same inputs; an
-  input without the prior week is dropped from both.
+The **DDF Composite Value** ("DDF Value" in compact spots) is computed per
+league setting (scoring, teams, roster, bench share, position shares) and per
+week, by these steps. It is **one number per player in each of three
+versions, the same in every view and tab**: the view tabs change what the
+chart plots, never the DDF Value. The engine and the Python reference
+implement exactly this text.
+
+1. **Inputs and their values.** Seven inputs, each contributing its
+   **Adjusted values** value only (Jeremy 2026-10-09: the Indexed and VORP vs
+   waivers values never feed it):
+
+   | Input | Value used | DDF series name |
+   |---|---|---|
+   | `espn`, `cbsros`, `razzball` | the projection's value as the rows carry it (identical in every tab) | `espn`, `cbsros`, `razzball` |
+   | `fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted`, `cbs_adjusted` | the published chart's **Adjusted values** (value above waivers re-weighted to our weights, "The Three Views" 2), with the rows' rules ("Published Charts On The Rows") | `<chart>_adj_values` |
+
+   The input keys keep their historical names; a chart input is the chart, not
+   its bias-adjusted `*_adjusted` series.
+2. **Three versions (JEG-497).** `ddf_value` averages all seven inputs,
+   `ddf_value_charts` the four charts, `ddf_value_projections` the three
+   projections. Steps 3-8 apply to each version on its own inputs.
+3. **Never an input this week** (even when a reader selects it):
+   - *Held*: the source's section, or the derived series' own section, carries
+     `validationHold: {reason, week, root, kept_week}` (the pipeline sets it
+     on every held section, raw and `*_adjusted`; `root` is the source whose
+     engine-vs-reference disagreement caused it) or `promotionHold`. Any
+     section carrying one is held. A hold on a source holds every
+     series derived from it (`fantasycalc` holds `fantasycalc_adjusted`;
+     `espn` holds `espn_vorp`; and so on). Reason: `held: <reason>`.
+   - *Not yet published*: a weekly chart whose content week is older than the
+     current content week (Tuesday flip, `pipelines/nfl_week.py`). Its prior
+     section is the only valid one, and it is not used. Reason: `not yet
+     published for week N`. Projections are rest-of-season and always current.
+4. **Selected and available.** By default every input left by step 3; a reader
+   may choose a subset (at least one), and each version uses its share of it.
+   An input with no values at this setting (missing section, no saved setup)
+   is left out.
+5. **Same inputs in both weeks.** For each remaining input, its value is
+   recomputed for the prior week at the same setting (the week before the
+   week it serves; history rule in "Week-Over-Week Snapshots"). Per version,
+   the pair is the newest served week among its inputs (`currentWeek`) and
+   the week before (`priorWeek`). An input without that prior week, or
+   serving another week, is left out of **both** weeks of that version. A
+   chart's Adjusted values for a saved week (JEG-479, Jeremy 2026-10-09
+   "Build prior week"): the same `ValueModel.derivePublishedViews` batch as
+   the current week, fed every chart's saved natives for that week (its own
+   natives and player set, its peers for the waiver-line extension, the batch
+   whose top sets the Adjusted 0-70 scale), with the current league, roster
+   and the ESPN anchor's eight group totals; no adjustment fit is involved.
+   Equal natives keep the order of the chart's served list. Every setting
+   derives the charts' views live (VA-3, Jeremy, 2026-10-09: "Compute live everywhere."), so
+   every chart has a prior week at every setting. If no input of a
+   version has a prior week (a first week, or no history), the current week
+   uses the inputs from step 4 and that version has no prior week.
+6. **Per player, per week.** The equal-weight mean of the finite values of
+   the included inputs. A value that is missing is left out, never counted as
+   0. A 0 an input does carry counts: ESPN's 0 for a player it lists at 0
+   (GAP-025), a leg's 0 at or below its floor, and a fully loaded chart's 0
+   for a player below its floor. When exactly **one** input prices the
+   player, the value is that input's value, flagged low confidence ("Only one
+   source prices this player"; Jeremy 2026-10-09, replacing the two-value
+   minimum). When none does, it is null with the reason "No source prices
+   this player". The prior week uses the same inputs and the same rule.
+7. **Δ** = this week's value − the prior week's value, when both exist.
+8. **Tier.** Rank by the current `ddf_value` and cut at the league's slot
+   counts (the engine's value-based slot fill). A one-source value counts. No
+   value, no tier.
+
+One value per version for every comparison column (no leave-one-out).
+
+### Published Charts On The Rows (Jeremy 2026-10-08/09)
+
+What a row carries for a published chart (`<chart>`, its VORP vs waivers and
+Adjusted values, and `<chart>_adjusted`), in every view and both weeks, and
+so what the DDF Value reads for a chart (its Adjusted values):
+
+- **Missing = 0 for a fully loaded chart.** A chart is fully loaded at a
+  position when its waiver line there is set by its own list: the waiver
+  method of the value-above-waivers translation (`unified.waiver_summary`,
+  `ValueModel.publishedWaiverInfo`) is `roster_determined`, i.e. the chart
+  lists more players at that position than the league rosters. A player the
+  chart does not list there is below its floor: 0 for the chart and 0 for its
+  `*_adjusted` series. A listed player a view prices only above waivers (VORP
+  vs waivers, Adjusted values) is 0 there too.
+- **Too shallow at a position.** When the waiver method is
+  `imputed_from_other_charts` (the line is extrapolated from the other
+  charts) or `insufficient_coverage` (it sits at the end of the chart's own
+  list), an unlisted player has no value: "Chart doesn't list players this
+  deep at <pos>".
+- **Identity-fallback adjustment cells are blank.** A `*_adjusted` value for a
+  player in a cell the fit fell back to identity on (`adjustment-inputs.json`
+  `fallback: "identity"`, the starter/bench partition the cells are applied
+  on) is null: "Not enough players to fit an adjustment" (fewer than 5 pairs),
+  or "Adjustment fit refused (order would invert)" (`non_positive_slope`). It
+  is never the unadjusted chart value. (The DDF Value reads a chart's Adjusted
+  values, not its `*_adjusted` series, so these cells do not reach it.)
+- Every null on a row carries its reason (`missingReasons`).
+
+These are row rules: the pie, scale and view-invariant guards measure the
+series as before (`TradeValueCurveDiagnostics` unchanged across the 12-combo
+sweep); the rows, and everything read from them (tables, DDF Value, Δ),
+carry them.
 
 The engine computes it in the browser (`curve-widget.js`,
 `ValueModel.compositeValue`); the API is in `docs/v2-design-notes.md`
@@ -390,6 +1165,19 @@ pre-superflex engine exactly (`tests/test_superflex.py`, and a 12-combo x
 three-view sweep with zero moved values). Versions: `unified-py-jeg62/3`,
 `league-settings-001/5`, `published-views-001/3`.
 
+> **Superseded (JEG-508)**: the anchor-based parts of this section. These
+> are the value-ordered roles on the anchor, the ESPN projections in
+> `positionalMaxForSetup`, and the paragraph below. There is no anchor now.
+> Every source fills the superflex slot on its own values (VP-2.2b), the pie
+> grows by one starting slot per team (VP-5.1), and the QB weights come from
+> the sources' own superflex VORP (VP-3, VP-4). That also removes MR-15's
+> "Adjusted values push superflex QBs below their 1-QB values". The publisher
+> superflex overlay and how it is saved are unchanged.
+>
+> **Updated (JEG-508 answers, 2026-10-09)**: the superflex slot is now filled
+> by projected points in the one league allocation (VP-2.2b, Lead's reading
+> of OC-4), not on each source's own values.
+
 **Not repriced by superflex (open, same as the QB stepper).** The ESPN anchor
 is the pipeline's built leg at the reference roster; a roster change reaches
 it only through `applyRosterShape`'s top-N average factor, and the raw
@@ -406,7 +1194,8 @@ browser engine (`curve-widget.js`, `value-model.js`) and the Python reference
 (`pipelines/value_reference.py`). Every chain run builds the page, runs the
 engine headless and the reference on the same snapshot, and diffs every
 value the page shows (`pipelines/value_check.py`): all 14 series and the DDF
-Value, in the three views, at 3 scorings x 8/10/12/14 teams on the default
+Value, in the three views (**superseded (JEG-508)**: the series and DDF
+versions listed in VP-11 / VP-12, with the weights and the pie), at 3 scorings x 8/10/12/14 teams on the default
 roster and with one superflex slot, plus the DDF Value's prior-week pair.
 
 - *Tolerance* 0.05 on the 0-70 scale: half of the last digit the page shows.
@@ -430,6 +1219,39 @@ roster and with one superflex slot, plus the DDF Value's prior-week pair.
   each held to the JS by its own vector check). A JS bug a port copied
   verbatim would not be caught; anything in how the series are assembled
   would.
+- *Spec reference (non-blocking).* `pipelines/spec_reference/` is a third,
+  clean-room implementation of the two-tier pricing and the value model,
+  written from this document and the data files only. `value_check.py` adds
+  its comparison as the `spec_reference` section of `value-check.json`. It
+  never holds a source. Where this text is silent, its readings are listed in
+  `docs/math-review-agenda.md` MR-18.
+
+## Player Universe (JEG-502, Jeremy 2026-10-09)
+
+"All players in the active NFL universe should be available in the search;
+even if they are not rostered, on practice squads, etc. The user knowing they
+are a 0 is better than the user questioning why they aren't in the tool."
+
+- `players.json` has a row for ESPN's list, every player a current-week chart
+  or projection prices, and every active NFL QB/RB/WR/TE.
+- Active NFL player, from the Sleeper identity base (refreshed Tue + Thu):
+  on an NFL team (active roster, practice squad, injured reserve, PUP or
+  another reserve list), or a free agent Sleeper flags active with a news item
+  in the 365 days before the pull. Rules and statuses:
+  `pipelines/lib/nfl_universe.py`; counts by status in
+  `meta.universe.nfl_active` and in the fidelity pulse.
+- Practice squad is Sleeper's own status, or inferred for a player on a team
+  with status Active and no depth-chart slot (`roster_status_inferred`).
+- A universe player nothing prices has ESPN "absent" and no projection
+  (`universe_only`, `unpriced_reason` names his status). He is not one of the
+  engine's computed rows (getAllRows, the curves, the pies); search
+  materialises him on demand (`TradeValueCurveControls.searchPlayers` /
+  `getPlayer`) with the same row rules: 0 where a chart is fully loaded, a
+  reason elsewhere.
+- Every row ties back to the players table (JEG-438). The Sleeper identity
+  refresh inserts universe players the table lacks
+  (`pipelines/sync_sleeper_players.py`, additive, `metadata.sleeper_id`);
+  until then they are listed in `meta.universe.nfl_active.not_on_players_table`.
 
 ## Detailed Rule Owners
 
@@ -452,6 +1274,10 @@ shared-player totals, and table/curve consistency. Publisher shape
 disagreement with the ESPN anchor is the product, not a defect: the
 peak-vs-anchor "source-scale agreement" check on the published charts was
 retired 2026-10-08 (GAP-026).
+
+> **Superseded (JEG-508)**: the ESPN tier is replaced by the DDF tier
+> (VP-7.3), and the two-tier legs no longer price any series (VP-10). These
+> rules describe the engine until the implementation merges.
 
 Two two-tier rules the engine and every leg builder share (server/browser
 parity, 2026-10-08):

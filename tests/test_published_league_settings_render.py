@@ -33,7 +33,7 @@ import unittest
 from pathlib import Path
 
 from tests.test_published_league_settings_engine import (
-    FIXTURE, SAVED_SHAPE, SCORINGS, browser_players, compare_maps, expected_derived,
+    FIXTURE, SAVED_SHAPE, SCORINGS, browser_inputs, browser_players,
 )
 from tests import _render_env  # noqa: E402
 
@@ -108,13 +108,13 @@ def collect(overrides=None):
                 for teams in (8, 10, 12, 14):
                     page.evaluate("([s, t]) => { const c = window.TradeValueCurveControls; "
                                   "try { c.setScoring(s); c.setTeams(t); } catch (e) {} }", [scoring, teams])
-                    out[(scoring, teams, "std")] = page.evaluate(READ_MAPS, list(PUBLISHED))
+                    out[(scoring, teams, "std")] = page.evaluate(READ_MAPS, list(PUBLISHED) + ["espn"])
             page.evaluate("() => { try { window.TradeValueCurveControls.setScoring('ppr'); "
                           "window.TradeValueCurveControls.setTeams(12); } catch (e) {} }")
             for key, value in CUSTOM_ROSTER.items():
                 page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                   i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
-            out[("ppr", 12, "custom")] = page.evaluate(READ_MAPS, list(PUBLISHED))
+            out[("ppr", 12, "custom")] = page.evaluate(READ_MAPS, list(PUBLISHED) + ["espn"])
             for key, value in SAVED_SHAPE.items():
                 page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                   i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
@@ -141,10 +141,19 @@ def verify(collected):
             if not values:
                 problems.append(f"{setting} {source}: unavailable (empty map)")
                 continue
-            expected = expected_derived(source, scoring, teams, shape, fixture, pos_of)
-            diffs, _ = compare_maps(expected, values)
-            if diffs:
-                problems.append(f"{setting} {source}: {diffs[:2]}")
+            # JEG-508 (VP-6.4; JEG-482 before it): at every setting the chart's
+            # Indexed values are its saved 12-team natives times ONE factor
+            # (now against blended DDF Value, no longer the ESPN anchor), so
+            # value / native is one constant over every listed player.
+            native, _saved, _ = browser_inputs(fixture, pos_of, source, scoring, shape.get("SUPERFLEX", 0) > 0)
+            native = {k: v for k, v in native if v > 0}
+            missing = sorted(set(native) - set(values))
+            if missing:
+                problems.append(f"{setting} {source}: listed players not plotted {missing[:5]}")
+            ratios = [values[k] / v for k, v in native.items() if k in values]
+            if not ratios or max(ratios) - min(ratios) > 1e-9 * max(ratios):
+                problems.append(f"{setting} {source}: Indexed is not one factor on the natives "
+                                f"({min(ratios or [0]):.6f}..{max(ratios or [0]):.6f})")
     return problems
 
 
@@ -160,24 +169,14 @@ class PublishedLeagueSettingsRender(unittest.TestCase):
 
     def test_guard_fails_on_broken_builds(self):
         model = (APP / "assets" / "value-model.js").read_text(encoding="utf-8")
-        widget = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
-        # "never-derive": every setting treated as the saved one, so 8/10/14 teams
-        # and custom rosters plot the saved 12-team values. (Until #386 this was
-        # "always-derive" -- deriving at the saved setup too -- which no longer
-        # differs from the saved values once those ARE the current translation,
-        # so it stopped being a broken state.)
-        never_derive = model.replace("if (Number(teams) !== SAVED_SETUP_TEAMS) return false;",
-                                     "return true;")
-        unwired = widget.replace(
-            "if (AS_PUBLISHED_KEYS.has(key) && !onSavedSetup()) return derivedPublishedSourceMap(key);", "")
-        self.assertNotEqual(never_derive, model)
-        self.assertNotEqual(unwired, widget)
-        for name, overrides in (("never-derive", {"**/assets/value-model.js*": never_derive}),
-                                ("unwired", {"**/assets/curve-widget.js*": unwired})):
-            problems = verify(collect(overrides))
-            print(f"\n[JEG-334 negative test] {name}: {len(problems)} problems, e.g. {problems[:1]}")
-            self.assertGreater(len(problems), 0, f"broken build {name} was NOT caught")
-
+        # A per-position repricing of the Indexed values (the order-breaking
+        # rescale JEG-482 retired) must be caught.
+        per_position = model.replace("row.indexed[src] = factor === null ? null : p.native * factor;",
+                                     "row.indexed[src] = factor === null ? null : p.native * factor * (p.pos === 'QB' ? 1.1 : 1);")
+        self.assertNotEqual(per_position, model)
+        problems = verify(collect({"**/assets/value-model.js*": per_position}))
+        print(f"\n[JEG-508 negative test] per-position: {len(problems)} problems, e.g. {problems[:1]}")
+        self.assertGreater(len(problems), 0, "broken build per-position was NOT caught")
 
 if __name__ == "__main__":
     unittest.main()

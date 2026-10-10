@@ -39,9 +39,10 @@ Bias-adjusted sources (*_adjusted) are not written to the table (decision
 consol-adjusted-001): they stay on the chart, served from the fixture, and the
 write logs each skipped source with its row count.
 Pre-flight (all before any write, fail closed with the list): every row has a
-key, a bake and a vintage; every source is in public.source_config (FK); no
-combo_reindexed value exceeds the table's cap (ck_combo_reindexed_cap, <= 70);
-every player_key exists in public.players (FK).
+key, a bake and a vintage; every source is in public.source_config (FK);
+every player_key exists in public.players (FK). Indexed (combo_reindexed) is an
+order-preserving rescale with no cap (JEG-482, Jeremy 2026-10-09); the table's
+old 70 CHECK was dropped by migration jeg482_drop_indexed_cap_70.
 
 Output modes:
   * --write-supabase : upsert rows into public.consolidated_values via the
@@ -65,6 +66,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "pipelines"))
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 
 # Combo keys look like: full_12, half_10, standard_14, full_12_qb1, ...
@@ -81,7 +83,6 @@ VORP_VIEW_MAP = {
 QB_VARIANT_SOURCES = {"fantasycalc", "fantasycalc_adjusted"}
 
 VALID_SCORING = {"full", "half", "standard"}
-COMBO_VALUE_CAP = 70  # live CHECK ck_combo_reindexed_cap (view <> combo_reindexed OR value <= 70)
 CONTRACT_VERSION = "1.0.0"  # public.bakes.contract_version (pipelines/publish_gate.py)
 # Content-vintage fields, most specific first (JEG-380: truthful source_generated_at).
 SGA_FIELDS = (
@@ -93,7 +94,7 @@ SGA_FIELDS = (
 )
 # Bias-adjusted sections stay on the chart (served from the fixture) but are NOT
 # written to public.consolidated_values (decision consol-adjusted-001, Jeremy
-# 2026-10-07): they can exceed the table's 70 cap by construction.
+# 2026-10-07).
 TABLE_EXCLUDED_SUFFIX = "_adjusted"
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 WRITE_REQUIRED = ("player_key", "bake_uuid", "source_generated_at", "created_at")
@@ -110,20 +111,31 @@ def parse_combo_key(combo_key):
 
 
 def current_season_week(detail):
-    """Derive (season, week) from the detail fixture.
+    """(season, content week) of the build: the content week (Tuesday flip,
+    pipelines/nfl_week.py) of the fixture's built_at, the week the page served
+    these values in.
 
-    Prefers value_weeks (content week per source family); falls back to the
-    max across sources. Season is derived from built_at year.
+    JEG-479: this used to be the max of the fixture's `value_weeks`, a block
+    nothing has updated since Week 4, so every write from Week 5 on landed in
+    week 4 and api.player_values never showed the current week.
     """
-    value_weeks = detail.get("value_weeks") or {}
-    weeks = [w for w in value_weeks.values() if isinstance(w, int)]
-    week = max(weeks) if weeks else 1
-    built_at = detail.get("built_at") or ""
+    from nfl_week import current_nfl_week
+    built_at = str(detail.get("built_at") or "")
     try:
-        season = datetime.fromisoformat(built_at).year
+        built = datetime.fromisoformat(built_at.replace("Z", "+00:00"))
     except ValueError:
-        season = datetime.now(timezone.utc).year
-    return season, week
+        built = datetime.now(timezone.utc)
+    return built.year, current_nfl_week(built.date())
+
+
+def combo_cell_field(cdata):
+    """The combo's served values: `reindexed` for the reindexed sources,
+    `values` for the leg-priced ones (cbsros, razzball), as product-data.js
+    reads them (values || reindexed)."""
+    cdata = cdata or {}
+    if cdata.get("reindexed"):
+        return "reindexed"
+    return "values" if cdata.get("values") else "reindexed"
 
 
 def build_rows(detail):
@@ -166,7 +178,8 @@ def build_rows(detail):
             if qb_variant not in (None, "none") and source not in QB_VARIANT_SOURCES:
                 diagnostics["skipped_qb_violation"].append(f"{source}/{combo_key}")
                 continue
-            reindexed = (cdata or {}).get("reindexed", {}) or {}
+            field = combo_cell_field(cdata)
+            reindexed = (cdata or {}).get(field, {}) or {}
             for player, value in reindexed.items():
                 if value is None:
                     continue  # missing stays missing (no row)
@@ -181,7 +194,7 @@ def build_rows(detail):
                     "view": "combo_reindexed",
                     "value": value,  # exact; never rounded here
                     "detail_locator": (
-                        f"sources.{source}.combos.{combo_key}.reindexed[{player!r}]"
+                        f"sources.{source}.combos.{combo_key}.{field}[{player!r}]"
                     ),
                     "bake_id": bake_id,
                 })
@@ -253,9 +266,9 @@ def reconcile(rows, detail, review_locators=()):
             #         "sources.<s>.vorp_views.views.<v>['<p>']"
             if ".combos." in locator:
                 m = re.match(
-                    r"sources\.(.+)\.combos\.(.+)\.reindexed\['(.*)'\]$", locator)
+                    r"sources\.(.+)\.combos\.(.+)\.(reindexed|values)\['(.*)'\]$", locator)
                 s, c = m.group(1), m.group(2)
-                expected = sources[s]["combos"][c]["reindexed"][m.group(3)]
+                expected = sources[s]["combos"][c][m.group(3)][m.group(4)]
             else:
                 m = re.match(
                     r"sources\.(.+)\.vorp_views\.views\.(.+)\['(.*)'\]$", locator)
@@ -279,12 +292,13 @@ def reconcile(rows, detail, review_locators=()):
             scoring, teams, qb_variant = parsed
             if qb_variant not in (None, "none") and source not in QB_VARIANT_SOURCES:
                 continue
-            for player, value in ((cdata or {}).get("reindexed", {}) or {}).items():
+            field = combo_cell_field(cdata)
+            for player, value in ((cdata or {}).get(field, {}) or {}).items():
                 if value is None:
                     continue
                 # week/season are bake-level; recompute cheaply per row is
                 # wasteful, so compare on the week-independent projection.
-                if f"sources.{source}.combos.{combo_key}.reindexed[{player!r}]" in reviewed:
+                if f"sources.{source}.combos.{combo_key}.{field}[{player!r}]" in reviewed:
                     continue
                 expected_keys.add((player, source, scoring, teams,
                                    qb_variant or "none", "combo_reindexed"))
@@ -384,11 +398,6 @@ def preflight(rows, known_sources):
     unknown = sorted({r["source"] for r in rows} - set(known_sources))
     if unknown:
         errors.append(f"sources not in public.source_config (FK fk_consolidated_values_source): {unknown}")
-    over = [r for r in rows if r["view"] == "combo_reindexed" and r["value"] > COMBO_VALUE_CAP]
-    if over:
-        sample = ", ".join(f"{r['detail_locator']}={r['value']}" for r in over[:8])
-        errors.append(f"{len(over)} combo_reindexed value(s) > {COMBO_VALUE_CAP} "
-                      f"(CHECK ck_combo_reindexed_cap): {sample}")
     nokey = [r["detail_locator"] for r in rows if not isinstance(r.get("player_key"), int)]
     if nokey:
         errors.append(f"{len(nokey)} row(s) without player_key: {nokey[:5]}")

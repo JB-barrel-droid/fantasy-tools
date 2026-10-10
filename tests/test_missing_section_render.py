@@ -11,7 +11,7 @@ build for a problem in one comparison source.
 Now:
   * page: the source is listed, greyed out and labelled unavailable, carries
     no values (never zeros), and every other curve renders with the guards
-    green; ESPN missing still refuses the render (every curve is indexed to it);
+    green; since JEG-508 (VP-1.6) a missing ESPN is dropped the same way;
   * build: build_reference_data passes with the source reported as dropped,
     and still fails when the espn section is missing.
 
@@ -123,10 +123,13 @@ class MissingSectionRenderTest(unittest.TestCase):
         v2 = load(overrides, "/")
         self.assertEqual(v2["guards"], {"fixedPieIndexed": True, "sourceMapCoverage": True}, v2)
 
-    def test_missing_anchor_still_refuses(self):
+    def test_missing_espn_is_dropped_too(self):
+        # JEG-508 (VP-1.6): ESPN has no special role; a missing ESPN section
+        # is dropped like any other and the page renders (it refused before).
         state = load({"assets/comparison-sources-data.json": fixture_without("espn")})
-        self.assertIsNone(state["guards"], state)
-        self.assertEqual(state["valued"]["fantasycalc"], 0, state)
+        self.assertEqual(state["guards"], {"fixedPieIndexed": True, "sourceMapCoverage": True}, state)
+        self.assertEqual(state["valued"]["espn"], 0, state)
+        self.assertGreater(state["valued"]["fantasycalc"], 100, state)
 
     def test_guard_fails_on_pre_fix_product_data(self):
         old = git_show("app/trade-value-chart/assets/product-data.js")

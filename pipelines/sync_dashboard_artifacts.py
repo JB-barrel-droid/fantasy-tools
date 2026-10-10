@@ -425,7 +425,7 @@ def sync_week_history(target: Path) -> None:
     # The served version of a week when it is not that week's snapshot.
     from build_week_history import load_superseded, write_served_versions
     write_served_versions(json.loads((HISTORY_DIR / "index.json").read_text()), load_superseded(HISTORY_DIR),
-                          target / "served.json")
+                          target / "served.json", load_weeks(HISTORY_DIR))
 
 
 def main() -> int:
@@ -499,6 +499,19 @@ def main() -> int:
     # The monitor's fixture copy: kept equal to the canonical fixture on every
     # sync (JEG-8), so it can never silently go stale behind the app copy.
     sync_monitor_fixture(FIXTURES, dist_modules)
+
+    # JEG-482: rank guard. Every published chart's Indexed order must equal
+    # its native order in the fixture this build publishes. Fail closed (the
+    # deploy gate): the order is the data the page promises. The result is
+    # machine-readable for the JEG-480 fidelity pulse.
+    from check_rank_guard import run as run_rank_guard
+    rank_guard = run_rank_guard(FIXTURES / "comparison-sources-data.json",
+                                ROOT / "output" / "rank-guard.json",
+                                [dist_modules / "rank-guard.json"])
+    if rank_guard["status"] != "pass":
+        bad = [f"{c['source']}/{c['combo']} ({c['inversions']})"
+               for c in rank_guard["checks"] if not c["ok"]]
+        raise SystemExit("rank guard failed: published chart order broken in " + ", ".join(bad))
 
     # JEG-424: the consolidation watcher's data. Built here, from the same
     # fixture `make validate` checks, so the page only ever shows validated

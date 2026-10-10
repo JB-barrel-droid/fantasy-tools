@@ -71,8 +71,8 @@ from _common import content_week  # noqa: E402
 # Reuse the Supabase plumbing, the fail-closed identity resolution, and the
 # shared isotonic reindex (same chart-scale contract as USA Today).
 from save_espn_cbs_references import (  # noqa: E402
-    build_name_index,
-    resolve_name,
+    build_registry,
+    resolve_canonical,
     fetch_players,
     upsert_rows,
     count_rows,
@@ -125,7 +125,7 @@ def build_fantasycalc_rows(
     week: int, bake_id: str
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
     """-> (clean_rows, review_rows, pulled_at). Values raw (pre-reindex)."""
-    index = build_name_index(fetch_players())
+    registry = build_registry(fetch_players())
 
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
@@ -154,7 +154,7 @@ def build_fantasycalc_rows(
                     }
                 )
                 continue
-            key, _rec, canonical_pos = resolve_name(name, pos, index)
+            key, _rec, canonical_pos = resolve_canonical(name, pos, registry)
             if key is None:
                 review.append(
                     {

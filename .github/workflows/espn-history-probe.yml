@@ -1,0 +1,39 @@
+name: ESPN history probe (manual)
+
+# JEG-521 G4 (d): does ESPN's fantasy API serve prior-season weekly
+# projections and actuals? Read-only; pipelines/probe_espn_history.py writes
+# output/espn-history-probe.json, committed so the answer is in the repo.
+# Manual only (no schedule): a one-off question, re-run when needed.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Probe
+        run: |
+          python3 pipelines/probe_espn_history.py | tee /tmp/probe.md
+          tr '\n' ' ' < /tmp/probe.md | sed "s/^/::notice title=espn history probe::/"
+          echo
+          cat /tmp/probe.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit the result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f output/espn-history-probe.json  # output/ is gitignored
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "ESPN history probe result (JEG-521 G4 d, GitHub Actions)"
+            git pull --rebase --autostash origin main
+            git push
+          fi

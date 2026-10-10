@@ -20,8 +20,8 @@ real chart and setting lives in tests/test_vorp_translation_js_parity.py):
   * a chart that is never short translates exactly as before;
   * imputed players never appear as the chart's values;
   * Python == JS for imputeExtension, real and synthetic, bit for bit;
-  * the saved fixture is the peer-extended translation (stored drift) and a
-    fixture still carrying the old end-of-list values fails that check;
+  * (JEG-482 removed the saved-fixture checks: the saved Indexed values are
+    no longer this translation; it is the VORP vs waivers view's math);
   * mutations of the JS port (cap dropped, fit on the whole list, peers
     ignored, sum instead of mean) are caught.
 """
@@ -36,7 +36,7 @@ from pathlib import Path
 
 from tests.test_vorp_translation_js_parity import (
     DRIVER, FIXTURE, NO_COVER_PEERS, SCORINGS, SOURCES, THIN_CHART, THIN_PEERS, VALUE_MODEL,
-    _load_peers, _load_ranked, _python, _real_vectors, run_parity, stored_drift_problems,
+    _load_peers, _load_ranked, _python, _real_vectors, run_parity,
 )
 from pipelines.vorp_translation import unified
 
@@ -205,33 +205,6 @@ class ImputationParity(unittest.TestCase):
                 failures = run_parity(vectors, broken)[0]
                 print(f"\n[V2-WAIVER-COVERAGE negative test] {name}: {len(failures)} failing vectors")
                 self.assertGreater(len(failures), 0, f"mutation {name} was NOT caught")
-
-
-class SavedFixture(unittest.TestCase):
-    def test_saved_values_are_the_peer_extended_translation(self):
-        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        self.assertEqual(stored_drift_problems(fixture)[0], [])
-        tr = fixture["sources"]["cbs"]["combos"]["full_12"]["translation"]
-        self.assertEqual(tr["waiver_imputation"]["imputed_positions"], ["QB", "RB", "WR", "TE"])
-        self.assertEqual(tr["waiver_imputation"]["peers"], ["fantasycalc", "fantasypros", "usatoday"])
-
-    def test_old_end_of_list_values_are_caught(self):
-        """Negative: the pre-change saved CBS values (waiver at the end of the
-        list, provenance without the waiver block) must fail stored drift."""
-        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        broken = copy.deepcopy(fixture)
-        pk = broken["player_keys"]
-        for scoring, combo_key in (("ppr", "full_12"), ("half_ppr", "half_12"), ("standard", "standard_12")):
-            combo = broken["sources"]["cbs"]["combos"][combo_key]
-            old = _python({"ranked_keyed": _load_ranked("cbs", scoring), "teams": 12,
-                           "bench_per_team": 6, "flex_count": 1, "slots": None, "flex_eligible": None})
-            for slug in combo["reindexed"]:
-                t = old["translated"].get(str(pk.get(slug)))
-                combo["reindexed"][slug] = t["translated"] if t else 0.0
-            combo["translation"].pop("waiver", None)
-        problems = stored_drift_problems(broken)[0]
-        print(f"\n[V2-WAIVER-COVERAGE stored-drift negative] old CBS values: {len(problems)} problems")
-        self.assertGreaterEqual(len(problems), 3)
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
   refresh leaves the last good anchor in place and every other source is
   reindexed against it. Still fail-closed: a restore that cannot be
   verified, a run in which every review-gated source held or failed, and
-  any failure in the shared stages (re-translate, fit, _adjusted).
+  any failure in the shared stages (re-index + rank guard, fit, _adjusted).
 - The fit and _adjusted sections run on the resulting fixture whenever the
   run is publishable, so a held source's _adjusted section is rebuilt from
   its kept (older) raw section, never left half-updated.
@@ -208,14 +208,16 @@ def newest_file(directory, pattern):
 
 
 def process_section(section, repo, run_fn, nfl_week=None):
-    """Reindex -> VORP-translate -> review -> promote ONE section. Fail-closed.
+    """Reindex -> review -> promote ONE section. Fail-closed.
 
     Returns "promoted". Raises ChainHalt on any hold/failure/error.
     NEVER modifies the review artifact: a hold stays a hold.
 
-    The VORP-translate step (JEG-64) is fail-safe, not fail-closed: missing
-    Supabase grains and transport errors keep the reindexed values and record
-    reindex-fallback provenance. It can never halt the chain.
+    JEG-482 removed the VORP-translate step (JEG-64) that ran between reindex
+    and review: it overwrote a published chart's Indexed values with its
+    value-above-waivers translation, which reordered the chart. Indexed is
+    the reindex stage's one-factor rescale; value above waivers is the VORP
+    vs waivers view, derived in the browser from the natives.
     """
     base = section.stem  # e.g., usatoday-standard-12-section
 
@@ -228,32 +230,6 @@ def process_section(section, repo, run_fn, nfl_week=None):
     ])
     if not ok or not reindexed.is_file():
         raise ChainHalt("reindex", f"{base}: reindex failed: {out[-300:]}")
-
-    # VORP translation (JEG-64): substitute Supabase translated values for the
-    # quantile-mapped ones on as-published sources. Fail-safe by design --
-    # never raises, never halts the chain (fallback is acceptance #3).
-    # JEG-70: pass the chain week so the stage fetches the current week's
-    # Supabase grain (fetch_translated filters week=eq) and stamps it in the
-    # provenance. Without this the stage silently reuses the default week
-    # after rollover.
-    # JEG332-STORED-DRIFT: translate from the section's OWN natives. The
-    # Supabase grain is written after promotion (run_vorp_refresh) from the
-    # previous natives, so reading it here promoted a stale translation on
-    # every native refresh (USA Today, 2026-10-02).
-    # GAP-VORP-GRAIN-WEEK-LABEL (2026-10-08): --week is only the fallback.
-    # The provenance grain is labelled with the SECTION's content week
-    # (translate_via_vorp.section_content_week), as are the stored grains
-    # (refresh_vorp_translation), so a lagging source's Week-4 natives are
-    # recorded as Week 4, never under the chain week.
-    vorp_cmd = [
-        "python3", "pipelines/translate_via_vorp.py",
-        "--section", str(reindexed), "--translation", "natives",
-    ]
-    if nfl_week is not None:
-        vorp_cmd += ["--week", str(nfl_week)]
-    tr_ok, tr_out = run_fn(vorp_cmd)
-    tr_line = tr_out.strip().splitlines()[-1] if tr_out and tr_out.strip() else "no output"
-    print(f"  vorp-translate: {'ok' if tr_ok else 'STEP-FAILED-LOGGED'}: {tr_line}")
 
     # Review. The reviewer exits non-zero when the verdict is not ready,
     # but still writes the artifact — a missing artifact is itself a failure.
@@ -726,6 +702,10 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
         reason = section_identity_mismatch(repo, source)
         if reason:
             raise ChainHalt("review", reason)
+        if source == "razzball":
+            reason = razzball_values_mismatch(repo, snapshot)
+            if reason:
+                raise ChainHalt("review", reason)
 
         result["status"] = "ok"
         result["stage"] = "complete"
@@ -780,6 +760,63 @@ def section_identity_mismatch(repo, source):
     reason = projection_identity.mismatch(source, section.get("snapshot_id"),
                                           Path(repo) / PLAYERS_REL)
     return f"section vs players.json: {reason}" if reason else None
+
+
+RZ_SCORING_COLUMNS = {"standard": "rz_std_ppg", "half_ppr": "rz_half_ppr_ppg", "ppr": "rz_ppr_ppg"}
+RZ_COMBO_SCORING = {"standard": "standard", "half": "half_ppr", "full": "ppr"}
+
+
+def razzball_values_mismatch(repo, snapshot, limit=3):
+    """Why the Razzball values about to be served are not the snapshot's, or None.
+
+    The ids prove only that the section and players.json *say* they come from
+    `snapshot` (GAP-RAZZBALL-CHART-BEHIND-STORED). This checks the numbers:
+    every per-game value in the section (natives, joined by the fixture's
+    player_keys) and in players.json (rz_ppg, by player_key) must equal that
+    player's snapshot row, and no served player may be missing from the
+    snapshot. A stale bake or section stamped with the new id holds Razzball
+    (isolated: the last good section is kept) instead of publishing old
+    numbers under the new snapshot's name.
+    """
+    try:
+        snap = json.loads(Path(snapshot).read_text(encoding="utf-8"))
+        fixture = _read_fixture(repo)
+        players = json.loads((Path(repo) / PLAYERS_REL).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return f"razzball values not checkable: {exc}"
+    by_key = {}
+    for row in snap.get("rows") or []:
+        key = row.get("player_key")
+        if isinstance(key, int) and not isinstance(key, bool):
+            by_key[key] = {s: row.get(col) for s, col in RZ_SCORING_COLUMNS.items()}
+    slug_key = fixture.get("player_keys") or {}
+    section = (fixture.get("sources") or {}).get("razzball") or {}
+    problems = []
+
+    def check(where, key, scoring, served):
+        if key not in by_key:
+            problems.append(f"{where}: not in snapshot")
+            return
+        stored = by_key[key].get(scoring)
+        if not isinstance(stored, (int, float)) or abs(float(served) - float(stored)) > 1e-9:
+            problems.append(f"{where} {scoring} {served} vs snapshot {stored}")
+
+    for combo, block in sorted((section.get("combos") or {}).items()):
+        scoring = RZ_COMBO_SCORING.get(combo.rsplit("_", 1)[0])
+        for slug, ppg in sorted((block.get("native") or {}).items()):
+            key = slug_key.get(slug)
+            if scoring and key is not None:
+                check(f"section {combo} {slug}", key, scoring, ppg)
+    for player in players.get("players") or []:
+        for scoring, ppg in sorted((player.get("rz_ppg") or {}).items()):
+            if scoring in RZ_SCORING_COLUMNS and ppg is not None:
+                check(f"players.json {player.get('name') or player.get('player_key')}",
+                      player.get("player_key"), scoring, ppg)
+    if not problems:
+        return None
+    return (f"razzball values are not snapshot {projection_identity.file_id(snapshot)[:19]}'s "
+            f"({len(problems)} differ, e.g. {'; '.join(problems[:limit])}); the section waits "
+            "for a bake and legs built from that snapshot")
 
 
 def razzball_bake_mismatch(repo, snapshot):
@@ -984,27 +1021,29 @@ def run_espn_source(source="espn", nfl_week=None, repo=REPO, run_fn=run):
     return result
 
 
-def run_retranslate(repo, run_fn, nfl_week=None):
-    """Stage 6b (V2-WAIVER-COVERAGE): re-translate every published chart in
-    the promoted fixture. Raises ChainHalt on failure.
+def run_reindex_fixture(repo, run_fn):
+    """Stage 6b (JEG-482): re-index every published chart in the promoted
+    fixture from its own natives, then hold the result to the rank guard.
+    Raises ChainHalt on failure.
 
-    A short chart's waiver line is extrapolated from the OTHER published
-    charts' saved natives, so promoting one chart can move another chart's
-    saved values. Each section was translated against the fixture as it stood
-    when that section ran; this pass makes every saved 12-team value the
-    translation of the fixture the site will show (the stored-drift parity
-    check, tests/test_vorp_translation_js_parity.py, requires it). Natives
-    are not touched; a chart whose peers did not change gets the same values.
+    Each section was indexed against the ESPN leg as it stood when that
+    section ran; the ESPN leg can be promoted later in the same run. This
+    pass indexes every saved 12-team value against the leg the site will
+    show (one factor per chart x combo, reindex_comparison_section.
+    order_preserving_rescale). The rank guard then requires every published
+    chart's Indexed order to equal its native order (fail closed: the order
+    is the data the page promises). Replaced run_retranslate, which wrote
+    value-above-waivers translations into the Indexed values.
     """
-    cmd = ["python3", "pipelines/translate_via_vorp.py",
-           "--fixture", str(repo / "data/fixtures/current/comparison-sources-data.json"),
-           "--translation", "natives"]
-    if nfl_week is not None:
-        cmd += ["--week", str(nfl_week)]
-    ok, out = run_fn(cmd)
+    fixture = str(repo / "data/fixtures/current/comparison-sources-data.json")
+    ok, out = run_fn(["python3", "pipelines/reindex_published_fixture.py", "--fixture", fixture])
     if not ok:
-        raise ChainHalt("retranslate", f"fixture re-translation failed: {out[-500:]}")
-    print("  ✓ Published charts re-translated against the promoted fixture")
+        raise ChainHalt("reindex_fixture", f"fixture re-index failed: {out[-500:]}")
+    print("  ✓ Published charts re-indexed against the promoted fixture")
+    ok, out = run_fn(["python3", "pipelines/check_rank_guard.py", "--fixture", fixture])
+    if not ok:
+        raise ChainHalt("rank_guard", f"published chart order broken: {out[-500:]}")
+    print("  ✓ Rank guard: every published chart keeps its own order")
 
 
 def run_fit(repo, run_fn):
@@ -1059,11 +1098,11 @@ def run_vorp_refresh(nfl_week, repo, run_fn):
     Demand-driven instead of a separate scheduled workflow: the chain
     already runs every 6h with Supabase access. If any of the 21
     as-published grains is older than the current NFL week, re-run the
-    unified translation now. Reads the freshly promoted fixture, so the
-    next chain run's vorp-translate stage wires the new grains.
+    unified translation now. Reads the freshly promoted fixture. The grains
+    (publisher_translated_values) are a record only since JEG-482: no saved
+    chart value is read from them.
 
-    Fail-safe: refresh failure is logged, never halts the chain (the
-    per-combo vorp-translate stage falls back to reindex).
+    Fail-safe: refresh failure is logged, never halts the chain.
     """
     try:
         # Staleness check first: cheap, writes nothing.
@@ -1245,6 +1284,18 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     results = {}
     fit_result = None
     adjusted_result = None
+    # GAP-UNIVERSE-CHART-ONLY: every players.json player (now including
+    # those only a published chart or projection prices) gets a fixture slug
+    # before any section is keyed through the fixture's player_keys.
+    try:
+        import sync_universe_keys
+        added = sync_universe_keys.sync_files(
+            repo / "data" / "fixtures" / "current" / "players.json",
+            repo / "data" / "fixtures" / "current" / "comparison-sources-data.json")
+        print(f"universe keys: {len(added)} players added to the fixture's "
+              f"player_keys" + (f": {added}" if added else ""))
+    except Exception as e:  # noqa: BLE001 -- sections keep the old universe
+        print(f"universe keys: sync failed ({e}); sections keep the fixture's keys")
     try:
         for source in SOURCES:
             print(f"\n[{source}] Starting chain...")
@@ -1294,7 +1345,7 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             print("STAGE 7: BIAS-CORRECTION FIT")
             print("=" * 60)
             try:
-                run_retranslate(repo, run_fn, nfl_week)
+                run_reindex_fixture(repo, run_fn)
                 run_fit(repo, run_fn)
                 fit_result = {"status": "ok", "detail": "fit complete"}
             except ChainHalt as h:
@@ -1331,8 +1382,8 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             print("=" * 60)
 
         # Stage 9: VORP translation refresh (JEG-70, demand-driven).
-        # Refreshes the Supabase grains when stale; the next chain run's
-        # vorp-translate stage wires them. Fail-safe: never halts the chain.
+        # Refreshes the Supabase grains (a record; JEG-482) when stale.
+        # Fail-safe: never halts the chain.
         vorp_result = {"status": "skipped", "detail": "no nfl_week"}
         if nfl_week is not None:
             print("\n" + "=" * 60)

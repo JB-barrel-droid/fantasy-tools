@@ -135,8 +135,12 @@ PUBLISHED_TOP_QB_COMBOS = {"usatoday": "full_12", "fantasycalc": "full_12_qb1",
 
 
 def top_qb_problems(comparison, players):
-    """Each present published chart's top-native QB holds its top QB value,
-    and all of them share one top QB value (the translated QB maximum)."""
+    """Each present published chart's top-native QB holds its top QB value.
+
+    JEG-482 (Jeremy, 2026-10-08) removed the second rule -- every chart
+    landing its top QB on one shared translated QB maximum -- with the
+    value-above-waivers translation it described: Indexed is the chart's
+    natives times one factor, so each chart keeps its own top QB value."""
     pos = {p["player_key"]: p.get("pos") for p in players["players"]}
     keys = comparison.get("player_keys") or {}
     problems, tops = [], {}
@@ -158,8 +162,6 @@ def top_qb_problems(comparison, players):
         if not any(values[slug] == top_value for slug in leaders):
             problems.append(f"{source}: top-native QB {leaders} is not at the top QB value {top_value}")
         tops[source] = top_value
-    if len(set(tops.values())) > 1:
-        problems.append(f"published charts disagree on the top QB value: {tops}")
     return problems
 
 
@@ -499,10 +501,9 @@ class StaticExportTest(unittest.TestCase):
         # 12-team combo (and before that at a new hand value after every
         # refresh -- the history is in git). The rule those pins stood for:
         # a published chart's top QB by its own native value takes the top
-        # QB value, and every published chart lands its top QB on the same
-        # translated QB maximum. The values themselves are re-derived from the
-        # saved natives by stored_drift_problems
-        # (tests/test_vorp_translation_js_parity.py, in make validate); the
+        # QB value (JEG-482 dropped "on one shared translated QB maximum").
+        # The values themselves are re-derived from the saved natives by
+        # tests/test_rank_guard.py (native x one factor, order kept); the
         # ESPN and CBS ROS values by test_espn_anchor_* and
         # tests/test_suffix_identity.py; the _adjusted values by
         # test_adjusted_sections_recompute_from_fit_cells.
@@ -518,7 +519,8 @@ class StaticExportTest(unittest.TestCase):
         qbs = [slug for slug in values if pos.get(broken["player_keys"].get(slug)) == "QB"
                and isinstance(native.get(slug), (int, float)) and isinstance(values[slug], (int, float))]
         top = max(qbs, key=lambda slug: native[slug])
-        values[top] = round(values[top] - 1.0, 1)  # an export bug on the chart's QB1
+        runner_up = max(values[slug] for slug in qbs if slug != top)
+        values[top] = runner_up - 1.0  # an export bug drops the chart's QB1 below its QB2
         problems = top_qb_problems(broken, self.players)
         self.assertTrue(any(source in p for p in problems), problems)
 
@@ -613,21 +615,13 @@ class StaticExportTest(unittest.TestCase):
             self.assertEqual([], adjusted_recompute_problems(
                 load_json(fixture_path), self._adjustment_inputs(), self.players))
 
-    def test_flex_aware_bucket_totals_match_anchor(self):
-        # Flex-aware per-bucket pie allocation (2026-10-01, Jeremy directive):
-        # each (position, role) bucket is scaled independently so its
-        # reindexed total equals the ESPN anchor's total over the SAME
-        # players. This replaces the old per-position fixed-pie check, which
-        # is definitionally false once buckets carry different scales: the
-        # index_total target is pre_total * the DEDICATED-bucket scale (a
-        # representative sanity value), while flex/bench buckets use their
-        # own scales.
-        #
-        # REGRESSION GUARD: on 2026-10-01 the baked fantasycalc
-        # standard_12_qb1/qb2 combos carried bucket scales that did not match
-        # the pipeline's computation (RB/bench recorded 0.0394 vs correct
-        # 0.0084 -- values 4.7x too high vs the anchor). This test FAILS
-        # against that broken state and passes on the regenerated fixture.
+    def test_published_indexed_is_one_factor_on_the_anchor_pie(self):
+        # JEG-482 (Jeremy, 2026-10-08): a published chart's Indexed values are
+        # its natives times ONE factor per combo, and that factor makes the
+        # chart's total over its priced players equal the ESPN anchor's total
+        # over the same players (the fixture's leg for that combo). Replaces
+        # test_flex_aware_bucket_totals_match_anchor, which pinned the
+        # per-(position, role) bucket scaling this rule removed.
         players = load_json(FIXTURES / "players.json")["players"]
         position_by_numkey = {p["player_key"]: p["pos"] for p in players}
         fixture_keys = self.comparison.get("player_keys", {})
@@ -635,86 +629,39 @@ class StaticExportTest(unittest.TestCase):
         qb_suffix = re.compile(r"_qb[12]$")
 
         def anchor_by_numkey(combo_name):
-            name = combo_name
-            if name not in espn_combos:
-                name = qb_suffix.sub("", combo_name)
+            name = combo_name if combo_name in espn_combos else qb_suffix.sub("", combo_name)
             vals = espn_combos[name].get("values") or {}
             return {fixture_keys[s]: v for s, v in vals.items() if s in fixture_keys}
 
         checked = 0
-        for source, source_data in self.comparison["sources"].items():
-            for combo_name, combo in source_data["combos"].items():
-                fa = (combo.get("fit") or {}).get("flex_aware_pie")
-                if not fa:
-                    continue
-                # JEG-64: combos served from VORP-translated values carry their
-                # own fit record; the quantile bucket-scale invariant does not
-                # apply to them. The skip is principled, not a hole: a
-                # translated combo MUST document the substitution in fit.
-                if (combo.get("translation") or {}).get("method") == "vorp-supabase":
-                    self.assertIn(
-                        "vorp_translation", combo.get("fit") or {},
-                        f"{source} {combo_name}: translated combo missing "
-                        "fit.vorp_translation record")
-                    continue
-                native = combo.get("native") or {}
-                reindexed = combo.get("reindexed") or {}
+        for source in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
+            for combo_name, combo in self.comparison["sources"][source]["combos"].items():
+                fit = (combo.get("fit") or {}).get("order_preserving_rescale")
+                self.assertIsNotNone(fit, f"{source} {combo_name}: no order_preserving_rescale fit")
+                factor = fit["factor"]
+                native = combo["native"]
+                reindexed = combo["reindexed"]
                 combo_keys = combo.get("player_keys") or {}
                 anchor = anchor_by_numkey(combo_name)
-                buckets = fa.get("buckets", {})
-                # Group reindexed players by (position, applied bucket scale).
-                # The applied scale identifies the bucket unambiguously.
-                groups = {}
+                chart_only = set(combo.get("not_on_espn") or [])
+                anchor_total = 0.0
+                calibrated_total = 0.0
                 for slug, value in reindexed.items():
-                    if slug not in native:
+                    self.assertAlmostEqual(value, float(native[slug]) * factor,
+                                           delta=1e-9 * max(1.0, value), msg=f"{source} {combo_name} {slug}")
+                    numkey = combo_keys.get(slug, fixture_keys.get(slug))
+                    self.assertIn(position_by_numkey.get(numkey), ("QB", "RB", "WR", "TE"))
+                    if slug in chart_only:
+                        # JEG-486: not on ESPN's list; takes the factor, not in it.
+                        self.assertNotIn(numkey, anchor)
                         continue
-                    nv, rv = float(native[slug]), float(value)
-                    if nv <= 0 or not isinstance(rv, (int, float)):
-                        continue
-                    numkey = combo_keys.get(slug) or fixture_keys.get(slug)
-                    pos = position_by_numkey.get(numkey)
-                    if pos is None or numkey not in anchor:
-                        continue
-                    ratio = rv / nv
-                    match = [b for b, m in buckets.items()
-                             if b.startswith(pos + "/") and abs(ratio - m["scale"]) < 1e-9]
-                    self.assertEqual(
-                        1, len(match),
-                        f"{source} {combo_name} {slug}: reindexed/native ratio {ratio} "
-                        f"matches no (or several) recorded {pos} bucket scales",
-                    )
-                    groups.setdefault(match[0], []).append((slug, numkey))
-                self.assertGreater(len(groups), 0,
-                                   f"{source} {combo_name}: no flex-aware buckets verified")
-                for bucket, members in groups.items():
-                    reidx_total = sum(float(reindexed[s]) for s, _ in members)
-                    anchor_total = sum(float(anchor[k]) for _, k in members)
-                    checked += 1
-                    self.assertLessEqual(
-                        abs(reidx_total - anchor_total),
-                        0.05,
-                        f"{source} {combo_name} {bucket}: reindexed total {reidx_total:.2f} "
-                        f"should match anchor total {anchor_total:.2f} over the same "
-                        f"{len(members)} players",
-                    )
-        # JEG-64: combos served from VORP-translated values no longer carry
-        # the quantile bucket invariant. When nothing remains on the
-        # quantile path, the zero must be EXPLAINED, not silent: every
-        # combo with a flex_aware_pie fit record must be translated.
-        if checked == 0:
-            untranslated = [
-                f"{source} {combo_name}"
-                for source, source_data in self.comparison["sources"].items()
-                for combo_name, combo in source_data["combos"].items()
-                if (combo.get("fit") or {}).get("flex_aware_pie")
-                and (combo.get("translation") or {}).get("method") != "vorp-supabase"
-            ]
-            self.assertEqual(
-                [], untranslated,
-                "combos on the quantile path but unchecked: "
-                + ", ".join(untranslated))
-        else:
-            self.assertGreater(checked, 0)
+                    self.assertIn(numkey, anchor, f"{source} {combo_name} {slug}: indexed without an anchor value")
+                    anchor_total += max(0.0, float(anchor[numkey]))
+                    calibrated_total += value
+                self.assertAlmostEqual(calibrated_total, anchor_total, delta=0.05,
+                                       msg=f"{source} {combo_name}: Indexed pie != anchor pie over the same players")
+                checked += 1
+        self.assertGreaterEqual(checked, 12)
 
     def test_legacy_fixed_pie_totals_match_source_metadata(self):
         # Non-flex-aware combos (legacy per-position methods) keep the old
@@ -739,8 +686,12 @@ class StaticExportTest(unittest.TestCase):
                 combo = source_data["combos"].get(key)
                 if combo is None:
                     continue
-                if (combo.get("fit") or {}).get("flex_aware_pie"):
-                    continue  # covered by test_flex_aware_bucket_totals_match_anchor
+                if (combo.get("fit") or {}).get("order_preserving_rescale"):
+                    # JEG-482: one factor per chart, so per-position totals
+                    # keep the chart's own split (post_total), not the
+                    # anchor's (target_total); covered by
+                    # test_published_indexed_is_one_factor_on_the_anchor_pie.
+                    continue
                 values = combo.get("values") or combo.get("reindexed") or {}
                 for pos, target_data in combo.get("index_total", {}).items():
                     target = target_data["target_total"]
@@ -913,25 +864,28 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
-        self.assertIn("ESPN leg’s pie", text)
+        # JEG-508: the footnote names the fixed league pie, not an ESPN leg.
+        self.assertIn("totals the league pie", text)
+        self.assertNotIn("ESPN leg’s pie", text)
         self.assertIn("fixedPieDiagnostics", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 
     def test_curve_defaults_are_grouped_and_include_raw_value_above_waivers(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         html = (APP / "index.html").read_text(encoding="utf-8")
-        self.assertIn("Bottoms Up Value Curves", text)
-        self.assertIn("Adjusted source projections", text)
-        self.assertIn("Direct published charts", text)
-        self.assertIn("Raw VORP vs waivers", text)
-        self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn"]', text)
-        self.assertIn("buildCbsAdjustedMap", text)
-        self.assertIn("buildEspnIndexedMap", text)
-        self.assertIn("buildEspnRows", text)
+        # JEG-508 (VP-6.4 / OC-7 / VP-10): the Indexed tab opens on the four
+        # published charts (projections off by default); every series comes
+        # from the value pipeline; the ESPN anchor builders are retired.
+        self.assertIn("Projections (Adjusted values)", text)
+        self.assertIn("Trade charts (Adjusted values)", text)
+        self.assertIn("Trade charts (as published)", text)
+        self.assertIn("Projections (VORP vs waivers)", text)
+        self.assertIn('DEFAULT_INDEXED_SOURCES = ["usatoday", "fantasycalc", "fantasypros", "cbs"]', text)
+        self.assertIn("ValueModel.runValuePipeline", text)
+        for retired in ("buildCbsAdjustedMap", "buildEspnIndexedMap", "buildEspnRows", "buildPublishedSourceMap"):
+            self.assertNotIn(f"function {retired}(", text)
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn("setBenchShare", text)
-        self.assertIn("buildPublishedSourceMap", text)
-        self.assertIn("rawProjectionVorp", text)
         self.assertIn("Bench %", text)
         self.assertIn("espn_vorp", text)
         self.assertIn("visiblePlayersList", html)
@@ -939,8 +893,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("yslider", html)
         self.assertNotIn("Legacy projection comparison", html)
         self.assertIn('let position = "ALL"', text)
-        self.assertIn('let lockOrder = "espn"', text)
-        self.assertIn('sourceAvailable("fantasycalc_adjusted")', text)
+        # VP-7.4: the default lock is the blended DDF Value.
+        self.assertIn('let lockOrder = "ddf_value"', text)
 
     def test_dashboard_copy_does_not_surface_old_branding(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
@@ -992,10 +946,10 @@ class StaticExportTest(unittest.TestCase):
 
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
-        # Lock order default is now "espn" (was "preseason"); ALL-position
-        # handling uses the current lockOrder value.
+        # Lock order default is the blended DDF Value (JEG-508 VP-7.4; was
+        # "espn"); ALL-position handling uses the current lockOrder value.
         self.assertIn('position === "ALL"', text)
-        self.assertIn('let lockOrder = "espn"', text)
+        self.assertIn('let lockOrder = "ddf_value"', text)
         self.assertIn("selectedRankSourceKey", text)
         self.assertIn("every curve shares", text)
         self.assertIn("sharedPlayerAxis", text)
@@ -1152,12 +1106,12 @@ class StaticExportTest(unittest.TestCase):
         # positive QB is #35 Deshaun Watson (ESPN 0.6). Verified against the
         # rebuilt fixture and the pre-fix fixture.
         # 2026-10-08: the boundary pin (35, re-pinned six times as data
-        # moved) is retired (GAP-DATA-SNAPSHOT-PINS). The rule behind it --
-        # a chart pays 0 at or below its waiver line, never a pie fallback --
-        # is recomputed per chart from the saved natives by
-        # stored_drift_problems (tests/test_vorp_translation_js_parity.py)
-        # and tests/test_short_chart_waiver.py, both in make validate. What
-        # stays here: the default QB list does reach zero-value rows.
+        # moved) is retired (GAP-DATA-SNAPSHOT-PINS). JEG-482 (same day)
+        # retired the saved-value rule behind it: a published chart's Indexed
+        # values are its natives times one factor (tests/test_rank_guard.py),
+        # so it no longer pays 0 at its waiver line; the VORP vs waivers view
+        # does (tests/test_short_chart_waiver.py). What stays here: the
+        # default QB list does reach zero-value rows.
         self.assertGreater(last_positive, 0, "no positive QB on the default board")
         self.assertLess(last_positive, len(rows), "every QB is positive: no waiver transition")
 

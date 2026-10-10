@@ -61,6 +61,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import subprocess
@@ -633,8 +634,9 @@ def write_weeks(docs: dict[int, dict], directory: Path = HISTORY_DIR) -> None:
 
 # --------------------------------------------------------------------- index
 
-def served_fingerprints(fixture: dict, players: dict) -> dict:
-    """Fingerprint of the inputs the page serves now, per source."""
+def served_published_natives(fixture: dict) -> dict:
+    """The as-published natives the page serves now, per source and scoring,
+    keyed by player_key (the fixture's sections mapped through player_keys)."""
     out = {}
     keys = fixture.get("player_keys") or {}
     for source in PUBLISHED:
@@ -651,7 +653,14 @@ def served_fingerprints(fixture: dict, players: dict) -> dict:
             if mapped:
                 natives[scoring] = mapped
         if natives:
-            out[source] = fingerprint({"kind": "published_chart", "natives": natives})
+            out[source] = natives
+    return out
+
+
+def served_fingerprints(fixture: dict, players: dict) -> dict:
+    """Fingerprint of the inputs the page serves now, per source."""
+    out = {source: fingerprint({"kind": "published_chart", "natives": natives})
+           for source, natives in served_published_natives(fixture).items()}
     for entry in projection_entries_from_players(players, "players.json"):
         out[entry["source"]] = fingerprint(entry)
     return out
@@ -672,10 +681,51 @@ def label_week(fixture: dict, source: str) -> int | None:
     return None
 
 
+def without_players(entry: dict, dropped) -> dict:
+    """A saved published-chart entry without the given players (every
+    scoring), re-fingerprinted: the version of that week a kept section
+    serves (build_index, kept-section match)."""
+    dropped = {str(k) for k in dropped}
+    out = copy.deepcopy(entry)
+    out["natives"] = {sc: {k: v for k, v in cells.items() if k not in dropped}
+                      for sc, cells in (entry.get("natives") or {}).items()}
+    out["origin"] = (f"{entry['origin']} as served: without player(s) {', '.join(sorted(dropped, key=int))}, "
+                     f"whom the served section does not carry")
+    out["fingerprint"] = fingerprint(out)
+    return out
+
+
+def kept_section_drops(entry: dict | None, served_natives: dict, universe: set[str]) -> list[str] | None:
+    """When the page serves an older build of a section (a held source keeps
+    its last promoted section, JEG-479), that section can lack a player the
+    saved week prices who has since joined the universe (player_keys): run
+    37877126939 kept CBS Week 5, built before Tyreek Hill was keyed, in the
+    same run that keyed him. Returns the universe players the saved entry
+    prices and the served section lacks when the served natives are exactly
+    the saved entry without them (same scorings, every served value equal);
+    None otherwise (including an exact match, which needs no drop)."""
+    saved = (entry or {}).get("natives") or {}
+    if not saved or not served_natives or set(saved) != set(served_natives):
+        return None
+    dropped = set()
+    for sc, cells in served_natives.items():
+        have = saved[sc]
+        if any(k not in have or _num(have[k]) != _num(v) for k, v in cells.items()):
+            return None
+        dropped |= {k for k in have if k in universe and k not in cells}
+    if not dropped:
+        return None
+    # Every scoring must lose the same players (one served version per week).
+    if any(k in cells for cells in served_natives.values() for k in dropped):
+        return None
+    return sorted(dropped, key=int)
+
+
 def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_week: int,
                 superseded: dict[int, dict] | None = None) -> dict:
     served = {}
     fps = served_fingerprints(fixture, players)
+    served_natives = served_published_natives(fixture)
     superseded = superseded or {}
     # A saved chart can price a player the page's universe does not have (CBS
     # Week 5 lists Tyreek Hill, who is not in players.json / player_keys, so
@@ -705,8 +755,38 @@ def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_wee
                  if any(entry_fp(v, source) == fp for v in (d.get("versions") or {}).get(source, []))]
         label = label_week(fixture, source)
         rec = {"label_week": label, "fingerprint": fp}
+        kept = None
+        if fp and not matches and not other and source in served_natives:
+            # A kept (e.g. held) section built on a smaller universe: the
+            # saved week less the players it does not carry. Newest week
+            # first; the snapshot before the other kept versions.
+            for week in sorted(set(docs) | set(superseded), reverse=True):
+                candidates = [("snapshot", (docs.get(week) or {}).get("sources", {}).get(source))]
+                candidates += [("superseded", v) for v in
+                               ((superseded.get(week) or {}).get("versions") or {}).get(source, [])]
+                for of, entry in candidates:
+                    dropped = kept_section_drops(entry, served_natives[source], universe)
+                    if dropped:
+                        kept = (week, of, entry, dropped)
+                        break
+                if kept:
+                    break
         if not fp:
             rec.update(week=None, reason="the page serves no inputs for this source")
+        elif kept:
+            week, of, entry, dropped = kept
+            # Served as another version of that week (served.json, derived
+            # at `make sync`), so "this week" is exactly what the chart shows.
+            rec.update(week=week, version="superseded",
+                       entry_fingerprint=without_players(entry, dropped)["fingerprint"],
+                       served_from={"version": of, "fingerprint": entry["fingerprint"],
+                                    "dropped_players": dropped},
+                       note=(f"the page serves a kept section (e.g. a held source): the saved Week {week} "
+                             f"content without {len(dropped)} player(s) the section does not carry "
+                             f"({', '.join(dropped)})"))
+            if label is not None and label != week:
+                rec["label_mismatch"] = (f"section label says Week {label}; the served inputs are "
+                                         f"the saved Week {week} content")
         elif not matches and not other:
             rec.update(week=None, reason="the served inputs match no saved week")
         else:
@@ -740,15 +820,25 @@ def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_wee
 SERVED_SCHEMA = "week-history-served/1"
 
 
-def write_served_versions(index: dict, superseded: dict[int, dict], target: Path) -> dict:
+def write_served_versions(index: dict, superseded: dict[int, dict], target: Path,
+                          docs: dict[int, dict] | None = None) -> dict:
     """assets/history/served.json: {source: entry} for every source whose
     served inputs are a superseded version of their week (index
-    served.version == "superseded"). Derived at `make sync`, not stored."""
+    served.version == "superseded"), including a kept section's version
+    (served_from: a saved version without the players that section does not
+    carry). Derived at `make sync`, not stored."""
     out = {}
     for source, rec in (index.get("served") or {}).items():
         if rec.get("version") != "superseded":
             continue
         versions = ((superseded.get(rec["week"]) or {}).get("versions") or {}).get(source, [])
+        origin = rec.get("served_from")
+        if origin:
+            base = ((docs or {}).get(rec["week"]) or {}).get("sources", {}).get(source) \
+                if origin.get("version") == "snapshot" else \
+                next((v for v in versions if v.get("fingerprint") == origin.get("fingerprint")), None)
+            versions = [without_players(base, origin.get("dropped_players") or [])] \
+                if base and base.get("fingerprint") == origin.get("fingerprint") else []
         entry = next((v for v in versions if v.get("fingerprint") == rec.get("entry_fingerprint")), None)
         if entry is not None:
             out[source] = entry
@@ -873,7 +963,7 @@ def main(argv=None) -> int:
     index = build_index(docs, json.loads(FIXTURE.read_text()), players, content_week, superseded)
     write_index(index, args.dir)
     for source, rec in index["served"].items():
-        note = rec.get("label_mismatch") or rec.get("reason") or ""
+        note = rec.get("label_mismatch") or rec.get("note") or rec.get("reason") or ""
         print(f"served {source}: week {rec['week']} {note}")
     return 0
 

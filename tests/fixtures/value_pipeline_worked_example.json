@@ -1,0 +1,6248 @@
+{
+ "schema": "value-pipeline-worked-example/2",
+ "spec": "docs/methodology.md, Value Pipeline (source-neutral, 2026-10-09), steps VP-0..VP-12 as decided 2026-10-09; summary table in the section's 'Worked example'",
+ "note": "Regenerated 2026-10-09 for Jeremy's binding answers on JEG-508 (OC-1 A pie 28 per starting slot; OC-2 bench share fixed at 15%; OC-3 slices; OC-4 flex filled by mean projected points per game; OC-5 fill-in of rosterable players a chart does not list; OC-6 one weight set; OC-7 projections in the Trade charts (as published) view as Adjusted values, off by default; OC-8 Indexed basis counts DDF zeros). Provenance: computed by a throwaway script written from the edited VP text (not committed, not an implementation), then the key numbers (allocation, fill sets, every estimate, DDF weights, budgets, rates, selected Adjusted values, DDF versions and Indexed factors) were recomputed by a second, independently written script in exact rational arithmetic (Python fractions), which agreed with every checked value to the 6 decimals shown (0 mismatches at 1e-6 over 280+ values; a perturbed copy was caught). Values are unrounded doubles shown to 6 decimals; implementations must reproduce them to 1e-6. Cases pinned: flex by projected points (WR November and TE Uniform) where c1's own values would give RB Foxtrot the flex (expected.flex_contrast); 15% bench (ddf_weights bench groups sum to 0.15); OC-5 peer-ratio estimates (c2 WR Quebec, median of 2; c5 WR Papa and TE Victor, median of 3; c4 RB Golf, 10-player fit window and capped at c4's lowest listed RB); OC-5 curve estimates for RB Juliet (no chart lists him: capped on c1, c2, c3, c4; uncapped 19.563731 on c5); players below rosterable depth a chart does not list are 0 (c2 RB Hotel, c5 QB Delta). c3 is held and equals 10 x c1, so its Adjusted and Indexed values equal c1's.",
+ "setting": {
+  "teams": 2,
+  "slots": {
+   "QB": 1,
+   "RB": 1,
+   "WR": 1,
+   "TE": 1
+  },
+  "flex": 1,
+  "flex_eligible": [
+   "RB",
+   "WR",
+   "TE"
+  ],
+  "superflex": 0,
+  "bench_per_team": 2,
+  "bench_share": 0.15
+ },
+ "constants": {
+  "BENCH_MIX_12": {
+   "QB": 10,
+   "RB": 27,
+   "WR": 33,
+   "TE": 10
+  },
+  "IMPUTE_MIN_FIT": 3,
+  "ESTIMATE_FIT_N": 10,
+  "PIE_PER_STARTING_SLOT": 28.0,
+  "DEFAULT_BENCH_SHARE": 0.15
+ },
+ "players": {
+  "101": {
+   "name": "QB Alpha",
+   "pos": "QB"
+  },
+  "102": {
+   "name": "QB Bravo",
+   "pos": "QB"
+  },
+  "103": {
+   "name": "QB Charlie",
+   "pos": "QB"
+  },
+  "104": {
+   "name": "QB Delta",
+   "pos": "QB"
+  },
+  "201": {
+   "name": "RB Delta",
+   "pos": "RB"
+  },
+  "202": {
+   "name": "RB Echo",
+   "pos": "RB"
+  },
+  "203": {
+   "name": "RB Foxtrot",
+   "pos": "RB"
+  },
+  "204": {
+   "name": "RB Golf",
+   "pos": "RB"
+  },
+  "205": {
+   "name": "RB Hotel",
+   "pos": "RB"
+  },
+  "206": {
+   "name": "RB India",
+   "pos": "RB"
+  },
+  "207": {
+   "name": "RB Juliet (rookie)",
+   "pos": "RB"
+  },
+  "208": {
+   "name": "RB Kilo",
+   "pos": "RB"
+  },
+  "209": {
+   "name": "RB Alder",
+   "pos": "RB"
+  },
+  "210": {
+   "name": "RB Birch",
+   "pos": "RB"
+  },
+  "211": {
+   "name": "RB Cedar",
+   "pos": "RB"
+  },
+  "212": {
+   "name": "RB Dogwood",
+   "pos": "RB"
+  },
+  "213": {
+   "name": "RB Elm",
+   "pos": "RB"
+  },
+  "301": {
+   "name": "WR Lima",
+   "pos": "WR"
+  },
+  "302": {
+   "name": "WR Mike",
+   "pos": "WR"
+  },
+  "303": {
+   "name": "WR November",
+   "pos": "WR"
+  },
+  "304": {
+   "name": "WR Oscar",
+   "pos": "WR"
+  },
+  "305": {
+   "name": "WR Papa",
+   "pos": "WR"
+  },
+  "306": {
+   "name": "WR Quebec",
+   "pos": "WR"
+  },
+  "307": {
+   "name": "WR Romeo",
+   "pos": "WR"
+  },
+  "308": {
+   "name": "WR Sycamore",
+   "pos": "WR"
+  },
+  "401": {
+   "name": "TE Sierra",
+   "pos": "TE"
+  },
+  "402": {
+   "name": "TE Tango",
+   "pos": "TE"
+  },
+  "403": {
+   "name": "TE Uniform",
+   "pos": "TE"
+  },
+  "404": {
+   "name": "TE Victor",
+   "pos": "TE"
+  },
+  "405": {
+   "name": "TE Whiskey",
+   "pos": "TE"
+  }
+ },
+ "inputs": {
+  "p1": {
+   "family": "projection",
+   "status": "included",
+   "values": {
+    "101": 20,
+    "102": 16,
+    "103": 12,
+    "104": 9,
+    "201": 18,
+    "202": 14,
+    "203": 10,
+    "204": 7,
+    "205": 5,
+    "206": 3,
+    "207": 8.5,
+    "208": 2,
+    "209": 1.8,
+    "210": 1.5,
+    "211": 1.2,
+    "212": 1,
+    "213": 0.6,
+    "301": 16,
+    "302": 13,
+    "303": 11,
+    "304": 8,
+    "305": 6,
+    "306": 5,
+    "307": 3,
+    "308": 2,
+    "401": 12,
+    "402": 10,
+    "403": 10.4,
+    "404": 3,
+    "405": 1.5
+   }
+  },
+  "p2": {
+   "family": "projection",
+   "status": "included",
+   "values": {
+    "101": 22,
+    "102": 15,
+    "103": 13,
+    "104": 9,
+    "201": 17,
+    "202": 15,
+    "203": 9.6,
+    "204": 8,
+    "205": 6,
+    "206": 2,
+    "208": 2.2,
+    "209": 1.8,
+    "210": 1.6,
+    "211": 1.2,
+    "212": 0.8,
+    "213": 0.6,
+    "301": 17,
+    "302": 12,
+    "303": 11,
+    "304": 10,
+    "305": 7,
+    "306": 4,
+    "307": 3,
+    "308": 2,
+    "401": 12,
+    "402": 11,
+    "403": 10,
+    "404": 3,
+    "405": 1.5
+   }
+  },
+  "c1": {
+   "family": "chart",
+   "status": "included",
+   "values": {
+    "101": 40,
+    "102": 25,
+    "103": 15,
+    "104": 8,
+    "201": 90,
+    "202": 60,
+    "203": 35,
+    "204": 20,
+    "205": 12,
+    "206": 6,
+    "208": 5,
+    "209": 4,
+    "210": 3,
+    "211": 2.5,
+    "212": 2,
+    "213": 1,
+    "301": 80,
+    "302": 50,
+    "303": 40,
+    "304": 22,
+    "305": 14,
+    "306": 9,
+    "307": 5,
+    "308": 3,
+    "401": 45,
+    "402": 18,
+    "403": 6,
+    "404": 4,
+    "405": 2
+   }
+  },
+  "c2": {
+   "family": "chart",
+   "status": "included",
+   "values": {
+    "101": 30,
+    "102": 22,
+    "103": 10,
+    "104": 6,
+    "201": 100,
+    "202": 55,
+    "203": 30,
+    "204": 15,
+    "206": 7,
+    "208": 3,
+    "301": 85,
+    "302": 45,
+    "303": 35,
+    "304": 20,
+    "305": 12,
+    "401": 50,
+    "402": 20,
+    "403": 8,
+    "404": 3
+   }
+  },
+  "c3": {
+   "family": "chart",
+   "status": "held",
+   "values": {
+    "101": 400,
+    "102": 250,
+    "103": 150,
+    "104": 80,
+    "201": 900,
+    "202": 600,
+    "203": 350,
+    "204": 200,
+    "205": 120,
+    "206": 60,
+    "208": 50,
+    "209": 40,
+    "210": 30,
+    "211": 25.0,
+    "212": 20,
+    "213": 10,
+    "301": 800,
+    "302": 500,
+    "303": 400,
+    "304": 220,
+    "305": 140,
+    "306": 90,
+    "307": 50,
+    "308": 30,
+    "401": 450,
+    "402": 180,
+    "403": 60,
+    "404": 40,
+    "405": 20
+   }
+  },
+  "c4": {
+   "family": "chart",
+   "status": "included",
+   "values": {
+    "101": 35,
+    "102": 28,
+    "103": 12,
+    "104": 7,
+    "201": 85,
+    "202": 65,
+    "203": 40,
+    "205": 10,
+    "206": 8,
+    "208": 6,
+    "209": 5,
+    "210": 4,
+    "211": 3,
+    "212": 2.5,
+    "213": 2,
+    "301": 75,
+    "302": 55,
+    "303": 38,
+    "304": 25,
+    "305": 15,
+    "306": 10,
+    "307": 6,
+    "401": 40,
+    "402": 25,
+    "403": 9,
+    "404": 5,
+    "405": 1
+   }
+  },
+  "c5": {
+   "family": "chart",
+   "status": "included",
+   "values": {
+    "101": 38,
+    "102": 24,
+    "103": 14,
+    "201": 95,
+    "202": 58,
+    "203": 33,
+    "301": 82,
+    "302": 48,
+    "303": 42,
+    "304": 21,
+    "401": 48,
+    "402": 22,
+    "403": 7
+   }
+  }
+ },
+ "expected": {
+  "included": [
+   "p1",
+   "p2",
+   "c1",
+   "c2",
+   "c4",
+   "c5"
+  ],
+  "pie": 280.0,
+  "starting_slots_per_team": 5,
+  "bench_share_applied": 0.15,
+  "mean_ppg": {
+   "101": 21.0,
+   "102": 15.5,
+   "103": 12.5,
+   "104": 9.0,
+   "201": 17.5,
+   "202": 14.5,
+   "203": 9.8,
+   "204": 7.5,
+   "205": 5.5,
+   "206": 2.5,
+   "207": 8.5,
+   "208": 2.1,
+   "209": 1.8,
+   "210": 1.55,
+   "211": 1.2,
+   "212": 0.9,
+   "213": 0.6,
+   "301": 16.5,
+   "302": 12.5,
+   "303": 11.0,
+   "304": 9.0,
+   "305": 6.5,
+   "306": 4.5,
+   "307": 3.0,
+   "308": 2.0,
+   "401": 12.0,
+   "402": 10.5,
+   "403": 10.2,
+   "404": 3.0,
+   "405": 1.5
+  },
+  "allocation": {
+   "QB": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 0,
+    "bench": 0,
+    "starters": 2,
+    "rostered": 2
+   },
+   "RB": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 0,
+    "bench": 2,
+    "starters": 2,
+    "rostered": 4
+   },
+   "WR": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 1,
+    "bench": 2,
+    "starters": 3,
+    "rostered": 5
+   },
+   "TE": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 1,
+    "bench": 0,
+    "starters": 3,
+    "rostered": 3
+   }
+  },
+  "fill_sets": {
+   "QB": [
+    101,
+    102,
+    103
+   ],
+   "RB": [
+    201,
+    202,
+    203,
+    207,
+    204
+   ],
+   "WR": [
+    301,
+    302,
+    303,
+    304,
+    305,
+    306
+   ],
+   "TE": [
+    401,
+    402,
+    403,
+    404
+   ]
+  },
+  "flex_contrast": {
+   "by_mean_projected_points": {
+    "QB": 0,
+    "RB": 0,
+    "WR": 1,
+    "TE": 1
+   },
+   "c1_by_own_values_superseded": {
+    "QB": 0,
+    "RB": 1,
+    "WR": 1,
+    "TE": 0
+   }
+  },
+  "sources": {
+   "p1": {
+    "family": "projection",
+    "status": "included",
+    "positions": {
+     "QB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 0,
+      "starters": 2,
+      "rostered": 2,
+      "listed": 4,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 12.0,
+      "starter_line": 12.0,
+      "method": "roster_determined"
+     },
+     "RB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 2,
+      "starters": 2,
+      "rostered": 4,
+      "listed": 13,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 7.0,
+      "starter_line": 10.0,
+      "method": "roster_determined"
+     },
+     "WR": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 2,
+      "starters": 3,
+      "rostered": 5,
+      "listed": 8,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 5.0,
+      "starter_line": 8.0,
+      "method": "roster_determined"
+     },
+     "TE": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 0,
+      "starters": 3,
+      "rostered": 3,
+      "listed": 5,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 3.0,
+      "starter_line": 3.0,
+      "method": "roster_determined"
+     }
+    },
+    "groups": {
+     "QB|starter": 12.0,
+     "QB|bench": 0.0,
+     "RB|starter": 12.0,
+     "RB|bench": 10.5,
+     "WR|starter": 16.0,
+     "WR|bench": 13.0,
+     "TE|starter": 23.4,
+     "TE|bench": 0.0
+    },
+    "total_vorp": 86.9,
+    "players": {
+     "101": {
+      "pos": "QB",
+      "native": 20.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 8.0,
+      "bench_slice": 0.0,
+      "starter_slice": 8.0,
+      "adjusted": 23.216515,
+      "vorp_display": 25.776755
+     },
+     "102": {
+      "pos": "QB",
+      "native": 16.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 4.0,
+      "bench_slice": 0.0,
+      "starter_slice": 4.0,
+      "adjusted": 11.608257,
+      "vorp_display": 12.888377
+     },
+     "103": {
+      "pos": "QB",
+      "native": 12.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "104": {
+      "pos": "QB",
+      "native": 9.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "201": {
+      "pos": "RB",
+      "native": 18.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 11.0,
+      "bench_slice": 3.0,
+      "starter_slice": 8.0,
+      "adjusted": 47.910397,
+      "vorp_display": 35.443038
+     },
+     "202": {
+      "pos": "RB",
+      "native": 14.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 7.0,
+      "bench_slice": 3.0,
+      "starter_slice": 4.0,
+      "adjusted": 27.009906,
+      "vorp_display": 22.554661
+     },
+     "203": {
+      "pos": "RB",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "bench",
+      "vorp": 3.0,
+      "bench_slice": 3.0,
+      "starter_slice": 0.0,
+      "adjusted": 6.109415,
+      "vorp_display": 9.666283
+     },
+     "207": {
+      "pos": "RB",
+      "native": 8.5,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 1.5,
+      "bench_slice": 1.5,
+      "starter_slice": 0.0,
+      "adjusted": 3.054707,
+      "vorp_display": 4.833142
+     },
+     "204": {
+      "pos": "RB",
+      "native": 7.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "205": {
+      "pos": "RB",
+      "native": 5.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "206": {
+      "pos": "RB",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "208": {
+      "pos": "RB",
+      "native": 2.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "209": {
+      "pos": "RB",
+      "native": 1.8,
+      "imputed": false,
+      "rank": 9,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "210": {
+      "pos": "RB",
+      "native": 1.5,
+      "imputed": false,
+      "rank": 10,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "211": {
+      "pos": "RB",
+      "native": 1.2,
+      "imputed": false,
+      "rank": 11,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "212": {
+      "pos": "RB",
+      "native": 1.0,
+      "imputed": false,
+      "rank": 12,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "213": {
+      "pos": "RB",
+      "native": 0.6,
+      "imputed": false,
+      "rank": 13,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "301": {
+      "pos": "WR",
+      "native": 16.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 11.0,
+      "bench_slice": 3.0,
+      "starter_slice": 8.0,
+      "adjusted": 42.01647,
+      "vorp_display": 35.443038
+     },
+     "302": {
+      "pos": "WR",
+      "native": 13.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 8.0,
+      "bench_slice": 3.0,
+      "starter_slice": 5.0,
+      "adjusted": 28.044461,
+      "vorp_display": 25.776755
+     },
+     "303": {
+      "pos": "WR",
+      "native": 11.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 6.0,
+      "bench_slice": 3.0,
+      "starter_slice": 3.0,
+      "adjusted": 18.729789,
+      "vorp_display": 19.332566
+     },
+     "304": {
+      "pos": "WR",
+      "native": 8.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 3.0,
+      "bench_slice": 3.0,
+      "starter_slice": 0.0,
+      "adjusted": 4.75778,
+      "vorp_display": 9.666283
+     },
+     "305": {
+      "pos": "WR",
+      "native": 6.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "bench",
+      "vorp": 1.0,
+      "bench_slice": 1.0,
+      "starter_slice": 0.0,
+      "adjusted": 1.585927,
+      "vorp_display": 3.222094
+     },
+     "306": {
+      "pos": "WR",
+      "native": 5.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "307": {
+      "pos": "WR",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "308": {
+      "pos": "WR",
+      "native": 2.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "401": {
+      "pos": "TE",
+      "native": 12.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 9.0,
+      "bench_slice": 0.0,
+      "starter_slice": 9.0,
+      "adjusted": 25.367837,
+      "vorp_display": 28.998849
+     },
+     "403": {
+      "pos": "TE",
+      "native": 10.4,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 7.4,
+      "bench_slice": 0.0,
+      "starter_slice": 7.4,
+      "adjusted": 20.857999,
+      "vorp_display": 23.843498
+     },
+     "402": {
+      "pos": "TE",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 7.0,
+      "bench_slice": 0.0,
+      "starter_slice": 7.0,
+      "adjusted": 19.73054,
+      "vorp_display": 22.554661
+     },
+     "404": {
+      "pos": "TE",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "405": {
+      "pos": "TE",
+      "native": 1.5,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     }
+    },
+    "weights": {
+     "QB|starter": 0.160883,
+     "QB|bench": 0.0,
+     "RB|starter": 0.160883,
+     "RB|bench": 0.067021,
+     "WR|starter": 0.214511,
+     "WR|bench": 0.082979,
+     "TE|starter": 0.313722,
+     "TE|bench": 0.0
+    },
+    "starter_mix": {
+     "QB": 0.189274,
+     "RB": 0.189274,
+     "WR": 0.252366,
+     "TE": 0.369085
+    },
+    "bench_mix": {
+     "QB": 0.0,
+     "RB": 0.446809,
+     "WR": 0.553191,
+     "TE": 0.0
+    },
+    "rates": {
+     "QB|starter": 2.902064,
+     "QB|bench": 0.0,
+     "RB|starter": 5.225123,
+     "RB|bench": 2.036472,
+     "WR|starter": 4.657336,
+     "WR|bench": 1.585927,
+     "TE|starter": 2.818649,
+     "TE|bench": 0.0
+    },
+    "unfunded_moved": [],
+    "vorp_display_factor": 3.222094
+   },
+   "p2": {
+    "family": "projection",
+    "status": "included",
+    "positions": {
+     "QB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 0,
+      "starters": 2,
+      "rostered": 2,
+      "listed": 4,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 13.0,
+      "starter_line": 13.0,
+      "method": "roster_determined"
+     },
+     "RB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 2,
+      "starters": 2,
+      "rostered": 4,
+      "listed": 12,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 6.0,
+      "starter_line": 9.6,
+      "method": "roster_determined"
+     },
+     "WR": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 2,
+      "starters": 3,
+      "rostered": 5,
+      "listed": 8,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 4.0,
+      "starter_line": 10.0,
+      "method": "roster_determined"
+     },
+     "TE": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 0,
+      "starters": 3,
+      "rostered": 3,
+      "listed": 5,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 3.0,
+      "starter_line": 3.0,
+      "method": "roster_determined"
+     }
+    },
+    "groups": {
+     "QB|starter": 11.0,
+     "QB|bench": 0.0,
+     "RB|starter": 12.8,
+     "RB|bench": 12.8,
+     "WR|starter": 10.0,
+     "WR|bench": 27.0,
+     "TE|starter": 24.0,
+     "TE|bench": 0.0
+    },
+    "total_vorp": 97.6,
+    "players": {
+     "101": {
+      "pos": "QB",
+      "native": 22.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 9.0,
+      "bench_slice": 0.0,
+      "starter_slice": 9.0,
+      "adjusted": 28.492995,
+      "vorp_display": 25.819672
+     },
+     "102": {
+      "pos": "QB",
+      "native": 15.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 2.0,
+      "bench_slice": 0.0,
+      "starter_slice": 2.0,
+      "adjusted": 6.331777,
+      "vorp_display": 5.737705
+     },
+     "103": {
+      "pos": "QB",
+      "native": 13.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "104": {
+      "pos": "QB",
+      "native": 9.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "201": {
+      "pos": "RB",
+      "native": 17.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 11.0,
+      "bench_slice": 3.6,
+      "starter_slice": 7.4,
+      "adjusted": 42.263244,
+      "vorp_display": 31.557377
+     },
+     "202": {
+      "pos": "RB",
+      "native": 15.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 9.0,
+      "bench_slice": 3.6,
+      "starter_slice": 5.4,
+      "adjusted": 32.466139,
+      "vorp_display": 25.819672
+     },
+     "203": {
+      "pos": "RB",
+      "native": 9.6,
+      "imputed": false,
+      "rank": 3,
+      "role": "bench",
+      "vorp": 3.6,
+      "bench_slice": 3.6,
+      "starter_slice": 0.0,
+      "adjusted": 6.013955,
+      "vorp_display": 10.327869
+     },
+     "204": {
+      "pos": "RB",
+      "native": 8.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 2.0,
+      "bench_slice": 2.0,
+      "starter_slice": 0.0,
+      "adjusted": 3.341086,
+      "vorp_display": 5.737705
+     },
+     "205": {
+      "pos": "RB",
+      "native": 6.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "208": {
+      "pos": "RB",
+      "native": 2.2,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "206": {
+      "pos": "RB",
+      "native": 2.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "209": {
+      "pos": "RB",
+      "native": 1.8,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "210": {
+      "pos": "RB",
+      "native": 1.6,
+      "imputed": false,
+      "rank": 9,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "211": {
+      "pos": "RB",
+      "native": 1.2,
+      "imputed": false,
+      "rank": 10,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "212": {
+      "pos": "RB",
+      "native": 0.8,
+      "imputed": false,
+      "rank": 11,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "213": {
+      "pos": "RB",
+      "native": 0.6,
+      "imputed": false,
+      "rank": 12,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "301": {
+      "pos": "WR",
+      "native": 17.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 13.0,
+      "bench_slice": 6.0,
+      "starter_slice": 7.0,
+      "adjusted": 56.743731,
+      "vorp_display": 37.295082
+     },
+     "302": {
+      "pos": "WR",
+      "native": 12.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 8.0,
+      "bench_slice": 6.0,
+      "starter_slice": 2.0,
+      "adjusted": 19.485042,
+      "vorp_display": 22.95082
+     },
+     "303": {
+      "pos": "WR",
+      "native": 11.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 7.0,
+      "bench_slice": 6.0,
+      "starter_slice": 1.0,
+      "adjusted": 12.033304,
+      "vorp_display": 20.081967
+     },
+     "304": {
+      "pos": "WR",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 6.0,
+      "bench_slice": 6.0,
+      "starter_slice": 0.0,
+      "adjusted": 4.581566,
+      "vorp_display": 17.213115
+     },
+     "305": {
+      "pos": "WR",
+      "native": 7.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "bench",
+      "vorp": 3.0,
+      "bench_slice": 3.0,
+      "starter_slice": 0.0,
+      "adjusted": 2.290783,
+      "vorp_display": 8.606557
+     },
+     "306": {
+      "pos": "WR",
+      "native": 4.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "307": {
+      "pos": "WR",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "308": {
+      "pos": "WR",
+      "native": 2.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "401": {
+      "pos": "TE",
+      "native": 12.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 9.0,
+      "bench_slice": 0.0,
+      "starter_slice": 9.0,
+      "adjusted": 24.733641,
+      "vorp_display": 25.819672
+     },
+     "402": {
+      "pos": "TE",
+      "native": 11.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 8.0,
+      "bench_slice": 0.0,
+      "starter_slice": 8.0,
+      "adjusted": 21.985459,
+      "vorp_display": 22.95082
+     },
+     "403": {
+      "pos": "TE",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 7.0,
+      "bench_slice": 0.0,
+      "starter_slice": 7.0,
+      "adjusted": 19.237277,
+      "vorp_display": 20.081967
+     },
+     "404": {
+      "pos": "TE",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "405": {
+      "pos": "TE",
+      "native": 1.5,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     }
+    },
+    "weights": {
+     "QB|starter": 0.161765,
+     "QB|bench": 0.0,
+     "RB|starter": 0.188235,
+     "RB|bench": 0.048241,
+     "WR|starter": 0.147059,
+     "WR|bench": 0.101759,
+     "TE|starter": 0.352941,
+     "TE|bench": 0.0
+    },
+    "starter_mix": {
+     "QB": 0.190311,
+     "RB": 0.221453,
+     "WR": 0.17301,
+     "TE": 0.415225
+    },
+    "bench_mix": {
+     "QB": 0.0,
+     "RB": 0.321608,
+     "WR": 0.678392,
+     "TE": 0.0
+    },
+    "rates": {
+     "QB|starter": 3.165888,
+     "QB|bench": 0.0,
+     "RB|starter": 4.898553,
+     "RB|bench": 1.670543,
+     "WR|starter": 7.451738,
+     "WR|bench": 0.763594,
+     "TE|starter": 2.748182,
+     "TE|bench": 0.0
+    },
+    "unfunded_moved": [],
+    "vorp_display_factor": 2.868852
+   },
+   "c1": {
+    "family": "chart",
+    "status": "included",
+    "positions": {
+     "QB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 0,
+      "starters": 2,
+      "rostered": 2,
+      "listed": 4,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 15.0,
+      "starter_line": 15.0,
+      "method": "roster_determined"
+     },
+     "RB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 2,
+      "starters": 2,
+      "rostered": 4,
+      "listed": 12,
+      "extended": true,
+      "imputation_ratios": {
+       "207": {
+        "peers": {},
+        "cap": 1,
+        "path": "curve",
+        "curve": {
+         "points": [
+          203,
+          204,
+          205,
+          206,
+          208,
+          209,
+          210,
+          211,
+          212,
+          213
+         ],
+         "slope": 3.338767,
+         "intercept": -2.118176,
+         "mean_ppg": 8.5
+        },
+        "raw": 26.261345,
+        "value": 1,
+        "capped": true
+       }
+      },
+      "waiver_value": 12.0,
+      "starter_line": 35.0,
+      "method": "roster_determined"
+     },
+     "WR": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 2,
+      "starters": 3,
+      "rostered": 5,
+      "listed": 8,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 9.0,
+      "starter_line": 22.0,
+      "method": "roster_determined"
+     },
+     "TE": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 0,
+      "starters": 3,
+      "rostered": 3,
+      "listed": 5,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 4.0,
+      "starter_line": 4.0,
+      "method": "roster_determined"
+     }
+    },
+    "groups": {
+     "QB|starter": 35.0,
+     "QB|bench": 0.0,
+     "RB|starter": 80.0,
+     "RB|bench": 77.0,
+     "WR|starter": 104.0,
+     "WR|bench": 57.0,
+     "TE|starter": 57.0,
+     "TE|bench": 0.0
+    },
+    "total_vorp": 410.0,
+    "players": {
+     "101": {
+      "pos": "QB",
+      "native": 40.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 25.0,
+      "bench_slice": 0.0,
+      "starter_slice": 25.0,
+      "adjusted": 24.874837,
+      "vorp_display": 17.073171
+     },
+     "102": {
+      "pos": "QB",
+      "native": 25.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 10.0,
+      "bench_slice": 0.0,
+      "starter_slice": 10.0,
+      "adjusted": 9.949935,
+      "vorp_display": 6.829268
+     },
+     "103": {
+      "pos": "QB",
+      "native": 15.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "104": {
+      "pos": "QB",
+      "native": 8.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "201": {
+      "pos": "RB",
+      "native": 90.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 78.0,
+      "bench_slice": 23.0,
+      "starter_slice": 55.0,
+      "adjusted": 49.494378,
+      "vorp_display": 53.268293
+     },
+     "202": {
+      "pos": "RB",
+      "native": 60.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 48.0,
+      "bench_slice": 23.0,
+      "starter_slice": 25.0,
+      "adjusted": 25.981326,
+      "vorp_display": 32.780488
+     },
+     "203": {
+      "pos": "RB",
+      "native": 35.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "bench",
+      "vorp": 23.0,
+      "bench_slice": 23.0,
+      "starter_slice": 0.0,
+      "adjusted": 6.387115,
+      "vorp_display": 15.707317
+     },
+     "204": {
+      "pos": "RB",
+      "native": 20.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 8.0,
+      "bench_slice": 8.0,
+      "starter_slice": 0.0,
+      "adjusted": 2.221605,
+      "vorp_display": 5.463415
+     },
+     "205": {
+      "pos": "RB",
+      "native": 12.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "206": {
+      "pos": "RB",
+      "native": 6.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "208": {
+      "pos": "RB",
+      "native": 5.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "209": {
+      "pos": "RB",
+      "native": 4.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "210": {
+      "pos": "RB",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 9,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "211": {
+      "pos": "RB",
+      "native": 2.5,
+      "imputed": false,
+      "rank": 10,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "212": {
+      "pos": "RB",
+      "native": 2.0,
+      "imputed": false,
+      "rank": 11,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "213": {
+      "pos": "RB",
+      "native": 1.0,
+      "imputed": false,
+      "rank": 12,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "207": {
+      "pos": "RB",
+      "native": 1,
+      "imputed": true,
+      "rank": 13,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "301": {
+      "pos": "WR",
+      "native": 80.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 71.0,
+      "bench_slice": 13.0,
+      "starter_slice": 58.0,
+      "adjusted": 46.259903,
+      "vorp_display": 48.487805
+     },
+     "302": {
+      "pos": "WR",
+      "native": 50.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 41.0,
+      "bench_slice": 13.0,
+      "starter_slice": 28.0,
+      "adjusted": 24.764505,
+      "vorp_display": 28.0
+     },
+     "303": {
+      "pos": "WR",
+      "native": 40.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 31.0,
+      "bench_slice": 13.0,
+      "starter_slice": 18.0,
+      "adjusted": 17.599372,
+      "vorp_display": 21.170732
+     },
+     "304": {
+      "pos": "WR",
+      "native": 22.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 13.0,
+      "bench_slice": 13.0,
+      "starter_slice": 0.0,
+      "adjusted": 4.702134,
+      "vorp_display": 8.878049
+     },
+     "305": {
+      "pos": "WR",
+      "native": 14.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "bench",
+      "vorp": 5.0,
+      "bench_slice": 5.0,
+      "starter_slice": 0.0,
+      "adjusted": 1.808513,
+      "vorp_display": 3.414634
+     },
+     "306": {
+      "pos": "WR",
+      "native": 9.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "307": {
+      "pos": "WR",
+      "native": 5.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "308": {
+      "pos": "WR",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "401": {
+      "pos": "TE",
+      "native": 45.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 41.0,
+      "bench_slice": 0.0,
+      "starter_slice": 41.0,
+      "adjusted": 47.442306,
+      "vorp_display": 28.0
+     },
+     "402": {
+      "pos": "TE",
+      "native": 18.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 14.0,
+      "bench_slice": 0.0,
+      "starter_slice": 14.0,
+      "adjusted": 16.199812,
+      "vorp_display": 9.560976
+     },
+     "403": {
+      "pos": "TE",
+      "native": 6.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 2.0,
+      "bench_slice": 0.0,
+      "starter_slice": 2.0,
+      "adjusted": 2.314259,
+      "vorp_display": 1.365854
+     },
+     "404": {
+      "pos": "TE",
+      "native": 4.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "405": {
+      "pos": "TE",
+      "native": 2.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     }
+    },
+    "weights": {
+     "QB|starter": 0.10779,
+     "QB|bench": 0.0,
+     "RB|starter": 0.246377,
+     "RB|bench": 0.086194,
+     "WR|starter": 0.32029,
+     "WR|bench": 0.063806,
+     "TE|starter": 0.175543,
+     "TE|bench": 0.0
+    },
+    "starter_mix": {
+     "QB": 0.126812,
+     "RB": 0.289855,
+     "WR": 0.376812,
+     "TE": 0.206522
+    },
+    "bench_mix": {
+     "QB": 0.0,
+     "RB": 0.574627,
+     "WR": 0.425373,
+     "TE": 0.0
+    },
+    "rates": {
+     "QB|starter": 0.994993,
+     "QB|bench": 0.0,
+     "RB|starter": 0.783768,
+     "RB|bench": 0.277701,
+     "WR|starter": 0.716513,
+     "WR|bench": 0.361703,
+     "TE|starter": 1.157129,
+     "TE|bench": 0.0
+    },
+    "unfunded_moved": [],
+    "vorp_display_factor": 0.682927
+   },
+   "c2": {
+    "family": "chart",
+    "status": "included",
+    "positions": {
+     "QB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 0,
+      "starters": 2,
+      "rostered": 2,
+      "listed": 4,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 10.0,
+      "starter_line": 10.0,
+      "method": "roster_determined"
+     },
+     "RB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 2,
+      "starters": 2,
+      "rostered": 4,
+      "listed": 6,
+      "extended": true,
+      "imputation_ratios": {
+       "207": {
+        "peers": {},
+        "cap": 3,
+        "path": "curve",
+        "curve": {
+         "points": [
+          201,
+          202,
+          203,
+          204,
+          206,
+          208
+         ],
+         "slope": 5.589292,
+         "intercept": -15.210476,
+         "mean_ppg": 8.5
+        },
+        "raw": 32.298509,
+        "value": 3,
+        "capped": true
+       }
+      },
+      "waiver_value": 7.0,
+      "starter_line": 30.0,
+      "method": "roster_determined"
+     },
+     "WR": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 2,
+      "starters": 3,
+      "rostered": 5,
+      "listed": 5,
+      "extended": true,
+      "imputation_ratios": {
+       "306": {
+        "peers": {
+         "c1": {
+          "usable": true,
+          "fit_players": [
+           301,
+           302,
+           303,
+           304,
+           305
+          ],
+          "num": 197,
+          "den": 206,
+          "ratio": 0.956311,
+          "peer_native": 9,
+          "estimate": 8.606796
+         },
+         "c4": {
+          "usable": true,
+          "fit_players": [
+           301,
+           302,
+           303,
+           304,
+           305
+          ],
+          "num": 197,
+          "den": 208,
+          "ratio": 0.947115,
+          "peer_native": 10,
+          "estimate": 9.471154
+         }
+        },
+        "cap": 12,
+        "path": "peers",
+        "raw": 9.038975,
+        "value": 9.038975,
+        "capped": false
+       }
+      },
+      "waiver_value": 9.038975,
+      "starter_line": 20.0,
+      "method": "estimated"
+     },
+     "TE": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 0,
+      "starters": 3,
+      "rostered": 3,
+      "listed": 4,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 3.0,
+      "starter_line": 3.0,
+      "method": "roster_determined"
+     }
+    },
+    "groups": {
+     "QB|starter": 32.0,
+     "QB|bench": 0.0,
+     "RB|starter": 95.0,
+     "RB|bench": 77.0,
+     "WR|starter": 105.0,
+     "WR|bench": 46.805125,
+     "TE|starter": 69.0,
+     "TE|bench": 0.0
+    },
+    "total_vorp": 424.805125,
+    "players": {
+     "101": {
+      "pos": "QB",
+      "native": 30.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 20.0,
+      "bench_slice": 0.0,
+      "starter_slice": 20.0,
+      "adjusted": 21.765482,
+      "vorp_display": 13.182515
+     },
+     "102": {
+      "pos": "QB",
+      "native": 22.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 12.0,
+      "bench_slice": 0.0,
+      "starter_slice": 12.0,
+      "adjusted": 13.059289,
+      "vorp_display": 7.909509
+     },
+     "103": {
+      "pos": "QB",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "104": {
+      "pos": "QB",
+      "native": 6.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "201": {
+      "pos": "RB",
+      "native": 100.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 93.0,
+      "bench_slice": 23.0,
+      "starter_slice": 70.0,
+      "adjusted": 52.588201,
+      "vorp_display": 61.298695
+     },
+     "202": {
+      "pos": "RB",
+      "native": 55.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 48.0,
+      "bench_slice": 23.0,
+      "starter_slice": 25.0,
+      "adjusted": 22.887503,
+      "vorp_display": 31.638036
+     },
+     "203": {
+      "pos": "RB",
+      "native": 30.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "bench",
+      "vorp": 23.0,
+      "bench_slice": 23.0,
+      "starter_slice": 0.0,
+      "adjusted": 6.387115,
+      "vorp_display": 15.159892
+     },
+     "204": {
+      "pos": "RB",
+      "native": 15.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 8.0,
+      "bench_slice": 8.0,
+      "starter_slice": 0.0,
+      "adjusted": 2.221605,
+      "vorp_display": 5.273006
+     },
+     "206": {
+      "pos": "RB",
+      "native": 7.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "208": {
+      "pos": "RB",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "207": {
+      "pos": "RB",
+      "native": 3,
+      "imputed": true,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "301": {
+      "pos": "WR",
+      "native": 85.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 75.961025,
+      "bench_slice": 10.961025,
+      "starter_slice": 65.0,
+      "adjusted": 50.957994,
+      "vorp_display": 50.067868
+     },
+     "302": {
+      "pos": "WR",
+      "native": 45.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 35.961025,
+      "bench_slice": 10.961025,
+      "starter_slice": 25.0,
+      "adjusted": 22.570422,
+      "vorp_display": 23.702838
+     },
+     "303": {
+      "pos": "WR",
+      "native": 35.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 25.961025,
+      "bench_slice": 10.961025,
+      "starter_slice": 15.0,
+      "adjusted": 15.473529,
+      "vorp_display": 17.11158
+     },
+     "304": {
+      "pos": "WR",
+      "native": 20.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 10.961025,
+      "bench_slice": 10.961025,
+      "starter_slice": 0.0,
+      "adjusted": 4.828189,
+      "vorp_display": 7.224694
+     },
+     "305": {
+      "pos": "WR",
+      "native": 12.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "bench",
+      "vorp": 2.961025,
+      "bench_slice": 2.961025,
+      "starter_slice": 0.0,
+      "adjusted": 1.304293,
+      "vorp_display": 1.951688
+     },
+     "306": {
+      "pos": "WR",
+      "native": 9.038975,
+      "imputed": true,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "401": {
+      "pos": "TE",
+      "native": 50.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 47.0,
+      "bench_slice": 0.0,
+      "starter_slice": 47.0,
+      "adjusted": 44.926807,
+      "vorp_display": 30.978911
+     },
+     "402": {
+      "pos": "TE",
+      "native": 20.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 17.0,
+      "bench_slice": 0.0,
+      "starter_slice": 17.0,
+      "adjusted": 16.250122,
+      "vorp_display": 11.205138
+     },
+     "403": {
+      "pos": "TE",
+      "native": 8.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 5.0,
+      "bench_slice": 0.0,
+      "starter_slice": 5.0,
+      "adjusted": 4.779448,
+      "vorp_display": 3.295629
+     },
+     "404": {
+      "pos": "TE",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     }
+    },
+    "weights": {
+     "QB|starter": 0.090365,
+     "QB|bench": 0.0,
+     "RB|starter": 0.268272,
+     "RB|bench": 0.093292,
+     "WR|starter": 0.296512,
+     "WR|bench": 0.056708,
+     "TE|starter": 0.19485,
+     "TE|bench": 0.0
+    },
+    "starter_mix": {
+     "QB": 0.106312,
+     "RB": 0.315615,
+     "WR": 0.348837,
+     "TE": 0.229236
+    },
+    "bench_mix": {
+     "QB": 0.0,
+     "RB": 0.621945,
+     "WR": 0.378055,
+     "TE": 0.0
+    },
+    "rates": {
+     "QB|starter": 1.088274,
+     "QB|bench": 0.0,
+     "RB|starter": 0.660016,
+     "RB|bench": 0.277701,
+     "WR|starter": 0.709689,
+     "WR|bench": 0.440487,
+     "TE|starter": 0.95589,
+     "TE|bench": 0.0
+    },
+    "unfunded_moved": [],
+    "vorp_display_factor": 0.659126
+   },
+   "c3": {
+    "family": "chart",
+    "status": "held",
+    "positions": {
+     "QB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 0,
+      "starters": 2,
+      "rostered": 2,
+      "listed": 4,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 150.0,
+      "starter_line": 150.0,
+      "method": "roster_determined"
+     },
+     "RB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 2,
+      "starters": 2,
+      "rostered": 4,
+      "listed": 12,
+      "extended": true,
+      "imputation_ratios": {
+       "207": {
+        "peers": {},
+        "cap": 10,
+        "path": "curve",
+        "curve": {
+         "points": [
+          203,
+          204,
+          205,
+          206,
+          208,
+          209,
+          210,
+          211,
+          212,
+          213
+         ],
+         "slope": 33.387672,
+         "intercept": -21.181762,
+         "mean_ppg": 8.5
+        },
+        "raw": 262.613448,
+        "value": 10,
+        "capped": true
+       }
+      },
+      "waiver_value": 120.0,
+      "starter_line": 350.0,
+      "method": "roster_determined"
+     },
+     "WR": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 2,
+      "starters": 3,
+      "rostered": 5,
+      "listed": 8,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 90.0,
+      "starter_line": 220.0,
+      "method": "roster_determined"
+     },
+     "TE": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 0,
+      "starters": 3,
+      "rostered": 3,
+      "listed": 5,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 40.0,
+      "starter_line": 40.0,
+      "method": "roster_determined"
+     }
+    },
+    "groups": {
+     "QB|starter": 350.0,
+     "QB|bench": 0.0,
+     "RB|starter": 800.0,
+     "RB|bench": 770.0,
+     "WR|starter": 1040.0,
+     "WR|bench": 570.0,
+     "TE|starter": 570.0,
+     "TE|bench": 0.0
+    },
+    "total_vorp": 4100.0,
+    "players": {
+     "101": {
+      "pos": "QB",
+      "native": 400.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 250.0,
+      "bench_slice": 0.0,
+      "starter_slice": 250.0,
+      "adjusted": 24.874837,
+      "vorp_display": 17.073171
+     },
+     "102": {
+      "pos": "QB",
+      "native": 250.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 100.0,
+      "bench_slice": 0.0,
+      "starter_slice": 100.0,
+      "adjusted": 9.949935,
+      "vorp_display": 6.829268
+     },
+     "103": {
+      "pos": "QB",
+      "native": 150.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "104": {
+      "pos": "QB",
+      "native": 80.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "201": {
+      "pos": "RB",
+      "native": 900.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 780.0,
+      "bench_slice": 230.0,
+      "starter_slice": 550.0,
+      "adjusted": 49.494378,
+      "vorp_display": 53.268293
+     },
+     "202": {
+      "pos": "RB",
+      "native": 600.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 480.0,
+      "bench_slice": 230.0,
+      "starter_slice": 250.0,
+      "adjusted": 25.981326,
+      "vorp_display": 32.780488
+     },
+     "203": {
+      "pos": "RB",
+      "native": 350.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "bench",
+      "vorp": 230.0,
+      "bench_slice": 230.0,
+      "starter_slice": 0.0,
+      "adjusted": 6.387115,
+      "vorp_display": 15.707317
+     },
+     "204": {
+      "pos": "RB",
+      "native": 200.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 80.0,
+      "bench_slice": 80.0,
+      "starter_slice": 0.0,
+      "adjusted": 2.221605,
+      "vorp_display": 5.463415
+     },
+     "205": {
+      "pos": "RB",
+      "native": 120.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "206": {
+      "pos": "RB",
+      "native": 60.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "208": {
+      "pos": "RB",
+      "native": 50.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "209": {
+      "pos": "RB",
+      "native": 40.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "210": {
+      "pos": "RB",
+      "native": 30.0,
+      "imputed": false,
+      "rank": 9,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "211": {
+      "pos": "RB",
+      "native": 25.0,
+      "imputed": false,
+      "rank": 10,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "212": {
+      "pos": "RB",
+      "native": 20.0,
+      "imputed": false,
+      "rank": 11,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "213": {
+      "pos": "RB",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 12,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "207": {
+      "pos": "RB",
+      "native": 10,
+      "imputed": true,
+      "rank": 13,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "301": {
+      "pos": "WR",
+      "native": 800.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 710.0,
+      "bench_slice": 130.0,
+      "starter_slice": 580.0,
+      "adjusted": 46.259903,
+      "vorp_display": 48.487805
+     },
+     "302": {
+      "pos": "WR",
+      "native": 500.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 410.0,
+      "bench_slice": 130.0,
+      "starter_slice": 280.0,
+      "adjusted": 24.764505,
+      "vorp_display": 28.0
+     },
+     "303": {
+      "pos": "WR",
+      "native": 400.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 310.0,
+      "bench_slice": 130.0,
+      "starter_slice": 180.0,
+      "adjusted": 17.599372,
+      "vorp_display": 21.170732
+     },
+     "304": {
+      "pos": "WR",
+      "native": 220.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 130.0,
+      "bench_slice": 130.0,
+      "starter_slice": 0.0,
+      "adjusted": 4.702134,
+      "vorp_display": 8.878049
+     },
+     "305": {
+      "pos": "WR",
+      "native": 140.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "bench",
+      "vorp": 50.0,
+      "bench_slice": 50.0,
+      "starter_slice": 0.0,
+      "adjusted": 1.808513,
+      "vorp_display": 3.414634
+     },
+     "306": {
+      "pos": "WR",
+      "native": 90.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "307": {
+      "pos": "WR",
+      "native": 50.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "308": {
+      "pos": "WR",
+      "native": 30.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "401": {
+      "pos": "TE",
+      "native": 450.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 410.0,
+      "bench_slice": 0.0,
+      "starter_slice": 410.0,
+      "adjusted": 47.442306,
+      "vorp_display": 28.0
+     },
+     "402": {
+      "pos": "TE",
+      "native": 180.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 140.0,
+      "bench_slice": 0.0,
+      "starter_slice": 140.0,
+      "adjusted": 16.199812,
+      "vorp_display": 9.560976
+     },
+     "403": {
+      "pos": "TE",
+      "native": 60.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 20.0,
+      "bench_slice": 0.0,
+      "starter_slice": 20.0,
+      "adjusted": 2.314259,
+      "vorp_display": 1.365854
+     },
+     "404": {
+      "pos": "TE",
+      "native": 40.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "405": {
+      "pos": "TE",
+      "native": 20.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     }
+    },
+    "weights": {
+     "QB|starter": 0.10779,
+     "QB|bench": 0.0,
+     "RB|starter": 0.246377,
+     "RB|bench": 0.086194,
+     "WR|starter": 0.32029,
+     "WR|bench": 0.063806,
+     "TE|starter": 0.175543,
+     "TE|bench": 0.0
+    },
+    "starter_mix": {
+     "QB": 0.126812,
+     "RB": 0.289855,
+     "WR": 0.376812,
+     "TE": 0.206522
+    },
+    "bench_mix": {
+     "QB": 0.0,
+     "RB": 0.574627,
+     "WR": 0.425373,
+     "TE": 0.0
+    },
+    "rates": {
+     "QB|starter": 0.099499,
+     "QB|bench": 0.0,
+     "RB|starter": 0.078377,
+     "RB|bench": 0.02777,
+     "WR|starter": 0.071651,
+     "WR|bench": 0.03617,
+     "TE|starter": 0.115713,
+     "TE|bench": 0.0
+    },
+    "unfunded_moved": [],
+    "vorp_display_factor": 0.068293
+   },
+   "c4": {
+    "family": "chart",
+    "status": "included",
+    "positions": {
+     "QB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 0,
+      "starters": 2,
+      "rostered": 2,
+      "listed": 4,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 12.0,
+      "starter_line": 12.0,
+      "method": "roster_determined"
+     },
+     "RB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 2,
+      "starters": 2,
+      "rostered": 4,
+      "listed": 11,
+      "extended": true,
+      "imputation_ratios": {
+       "204": {
+        "peers": {
+         "c1": {
+          "usable": true,
+          "fit_players": [
+           202,
+           203,
+           205,
+           206,
+           208,
+           209,
+           210,
+           211,
+           212,
+           213
+          ],
+          "num": 145.5,
+          "den": 130.5,
+          "ratio": 1.114943,
+          "peer_native": 20,
+          "estimate": 22.298851
+         },
+         "c2": {
+          "usable": true,
+          "fit_players": [
+           201,
+           202,
+           203,
+           206,
+           208
+          ],
+          "num": 204,
+          "den": 195,
+          "ratio": 1.046154,
+          "peer_native": 15,
+          "estimate": 15.692308
+         }
+        },
+        "cap": 2,
+        "path": "peers",
+        "raw": 18.995579,
+        "value": 2,
+        "capped": true
+       },
+       "207": {
+        "peers": {},
+        "cap": 2,
+        "path": "curve",
+        "curve": {
+         "points": [
+          202,
+          203,
+          205,
+          206,
+          208,
+          209,
+          210,
+          211,
+          212,
+          213
+         ],
+         "slope": 4.461202,
+         "intercept": -3.495564,
+         "mean_ppg": 8.5
+        },
+        "raw": 34.424657,
+        "value": 2,
+        "capped": true
+       }
+      },
+      "waiver_value": 8.0,
+      "starter_line": 40.0,
+      "method": "roster_determined"
+     },
+     "WR": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 2,
+      "starters": 3,
+      "rostered": 5,
+      "listed": 7,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 10.0,
+      "starter_line": 25.0,
+      "method": "roster_determined"
+     },
+     "TE": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 0,
+      "starters": 3,
+      "rostered": 3,
+      "listed": 5,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 5.0,
+      "starter_line": 5.0,
+      "method": "roster_determined"
+     }
+    },
+    "groups": {
+     "QB|starter": 39.0,
+     "QB|bench": 0.0,
+     "RB|starter": 70.0,
+     "RB|bench": 98.0,
+     "WR|starter": 93.0,
+     "WR|bench": 65.0,
+     "TE|starter": 59.0,
+     "TE|bench": 0.0
+    },
+    "total_vorp": 424.0,
+    "players": {
+     "101": {
+      "pos": "QB",
+      "native": 35.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 23.0,
+      "bench_slice": 0.0,
+      "starter_slice": 23.0,
+      "adjusted": 20.537686,
+      "vorp_display": 15.188679
+     },
+     "102": {
+      "pos": "QB",
+      "native": 28.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 16.0,
+      "bench_slice": 0.0,
+      "starter_slice": 16.0,
+      "adjusted": 14.287086,
+      "vorp_display": 10.566038
+     },
+     "103": {
+      "pos": "QB",
+      "native": 12.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "104": {
+      "pos": "QB",
+      "native": 7.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "201": {
+      "pos": "RB",
+      "native": 85.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 77.0,
+      "bench_slice": 32.0,
+      "starter_slice": 45.0,
+      "adjusted": 47.290278,
+      "vorp_display": 50.849057
+     },
+     "202": {
+      "pos": "RB",
+      "native": 65.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 57.0,
+      "bench_slice": 32.0,
+      "starter_slice": 25.0,
+      "adjusted": 29.375571,
+      "vorp_display": 37.641509
+     },
+     "203": {
+      "pos": "RB",
+      "native": 40.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "bench",
+      "vorp": 32.0,
+      "bench_slice": 32.0,
+      "starter_slice": 0.0,
+      "adjusted": 6.982188,
+      "vorp_display": 21.132075
+     },
+     "205": {
+      "pos": "RB",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 2.0,
+      "bench_slice": 2.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.436387,
+      "vorp_display": 1.320755
+     },
+     "206": {
+      "pos": "RB",
+      "native": 8.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "208": {
+      "pos": "RB",
+      "native": 6.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "209": {
+      "pos": "RB",
+      "native": 5.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "210": {
+      "pos": "RB",
+      "native": 4.0,
+      "imputed": false,
+      "rank": 8,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "211": {
+      "pos": "RB",
+      "native": 3.0,
+      "imputed": false,
+      "rank": 9,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "212": {
+      "pos": "RB",
+      "native": 2.5,
+      "imputed": false,
+      "rank": 10,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "213": {
+      "pos": "RB",
+      "native": 2.0,
+      "imputed": false,
+      "rank": 11,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "204": {
+      "pos": "RB",
+      "native": 2,
+      "imputed": true,
+      "rank": 12,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "207": {
+      "pos": "RB",
+      "native": 2,
+      "imputed": true,
+      "rank": 13,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "301": {
+      "pos": "WR",
+      "native": 75.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 65.0,
+      "bench_slice": 15.0,
+      "starter_slice": 50.0,
+      "adjusted": 44.820887,
+      "vorp_display": 42.924528
+     },
+     "302": {
+      "pos": "WR",
+      "native": 55.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 45.0,
+      "bench_slice": 15.0,
+      "starter_slice": 30.0,
+      "adjusted": 28.795644,
+      "vorp_display": 29.716981
+     },
+     "303": {
+      "pos": "WR",
+      "native": 38.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 28.0,
+      "bench_slice": 15.0,
+      "starter_slice": 13.0,
+      "adjusted": 15.174188,
+      "vorp_display": 18.490566
+     },
+     "304": {
+      "pos": "WR",
+      "native": 25.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 15.0,
+      "bench_slice": 15.0,
+      "starter_slice": 0.0,
+      "adjusted": 4.75778,
+      "vorp_display": 9.90566
+     },
+     "305": {
+      "pos": "WR",
+      "native": 15.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "bench",
+      "vorp": 5.0,
+      "bench_slice": 5.0,
+      "starter_slice": 0.0,
+      "adjusted": 1.585927,
+      "vorp_display": 3.301887
+     },
+     "306": {
+      "pos": "WR",
+      "native": 10.0,
+      "imputed": false,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "307": {
+      "pos": "WR",
+      "native": 6.0,
+      "imputed": false,
+      "rank": 7,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "401": {
+      "pos": "TE",
+      "native": 40.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 35.0,
+      "bench_slice": 0.0,
+      "starter_slice": 35.0,
+      "adjusted": 39.126664,
+      "vorp_display": 23.113208
+     },
+     "402": {
+      "pos": "TE",
+      "native": 25.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 20.0,
+      "bench_slice": 0.0,
+      "starter_slice": 20.0,
+      "adjusted": 22.358094,
+      "vorp_display": 13.207547
+     },
+     "403": {
+      "pos": "TE",
+      "native": 9.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 4.0,
+      "bench_slice": 0.0,
+      "starter_slice": 4.0,
+      "adjusted": 4.471619,
+      "vorp_display": 2.641509
+     },
+     "404": {
+      "pos": "TE",
+      "native": 5.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "405": {
+      "pos": "TE",
+      "native": 1.0,
+      "imputed": false,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     }
+    },
+    "weights": {
+     "QB|starter": 0.127011,
+     "QB|bench": 0.0,
+     "RB|starter": 0.227969,
+     "RB|bench": 0.090184,
+     "WR|starter": 0.302874,
+     "WR|bench": 0.059816,
+     "TE|starter": 0.192146,
+     "TE|bench": 0.0
+    },
+    "starter_mix": {
+     "QB": 0.149425,
+     "RB": 0.268199,
+     "WR": 0.356322,
+     "TE": 0.226054
+    },
+    "bench_mix": {
+     "QB": 0.0,
+     "RB": 0.601227,
+     "WR": 0.398773,
+     "TE": 0.0
+    },
+    "rates": {
+     "QB|starter": 0.892943,
+     "QB|bench": 0.0,
+     "RB|starter": 0.895735,
+     "RB|bench": 0.218193,
+     "WR|starter": 0.801262,
+     "WR|bench": 0.317185,
+     "TE|starter": 1.117905,
+     "TE|bench": 0.0
+    },
+    "unfunded_moved": [],
+    "vorp_display_factor": 0.660377
+   },
+   "c5": {
+    "family": "chart",
+    "status": "included",
+    "positions": {
+     "QB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 0,
+      "starters": 2,
+      "rostered": 2,
+      "listed": 3,
+      "extended": false,
+      "imputation_ratios": null,
+      "waiver_value": 14.0,
+      "starter_line": 14.0,
+      "method": "roster_determined"
+     },
+     "RB": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 0,
+      "bench": 2,
+      "starters": 2,
+      "rostered": 4,
+      "listed": 3,
+      "extended": true,
+      "imputation_ratios": {
+       "207": {
+        "peers": {},
+        "cap": 33,
+        "path": "curve",
+        "curve": {
+         "points": [
+          201,
+          202,
+          203
+         ],
+         "slope": 7.810356,
+         "intercept": -46.824297,
+         "mean_ppg": 8.5
+        },
+        "raw": 19.563731,
+        "value": 19.563731,
+        "capped": false
+       },
+       "204": {
+        "peers": {
+         "c1": {
+          "usable": true,
+          "fit_players": [
+           201,
+           202,
+           203
+          ],
+          "num": 186,
+          "den": 185,
+          "ratio": 1.005405,
+          "peer_native": 20,
+          "estimate": 20.108108
+         },
+         "c2": {
+          "usable": true,
+          "fit_players": [
+           201,
+           202,
+           203
+          ],
+          "num": 186,
+          "den": 185,
+          "ratio": 1.005405,
+          "peer_native": 15,
+          "estimate": 15.081081
+         }
+        },
+        "cap": 33,
+        "path": "peers",
+        "raw": 17.594595,
+        "value": 17.594595,
+        "capped": false
+       }
+      },
+      "waiver_value": 17.594595,
+      "starter_line": 33.0,
+      "method": "estimated"
+     },
+     "WR": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 2,
+      "starters": 3,
+      "rostered": 5,
+      "listed": 4,
+      "extended": true,
+      "imputation_ratios": {
+       "305": {
+        "peers": {
+         "c1": {
+          "usable": true,
+          "fit_players": [
+           301,
+           302,
+           303,
+           304
+          ],
+          "num": 193,
+          "den": 192,
+          "ratio": 1.005208,
+          "peer_native": 14,
+          "estimate": 14.072917
+         },
+         "c2": {
+          "usable": true,
+          "fit_players": [
+           301,
+           302,
+           303,
+           304
+          ],
+          "num": 193,
+          "den": 185,
+          "ratio": 1.043243,
+          "peer_native": 12,
+          "estimate": 12.518919
+         },
+         "c4": {
+          "usable": true,
+          "fit_players": [
+           301,
+           302,
+           303,
+           304
+          ],
+          "num": 193,
+          "den": 193,
+          "ratio": 1.0,
+          "peer_native": 15,
+          "estimate": 15.0
+         }
+        },
+        "cap": 21,
+        "path": "peers",
+        "raw": 14.072917,
+        "value": 14.072917,
+        "capped": false
+       },
+       "306": {
+        "peers": {
+         "c1": {
+          "usable": true,
+          "fit_players": [
+           301,
+           302,
+           303,
+           304
+          ],
+          "num": 193,
+          "den": 192,
+          "ratio": 1.005208,
+          "peer_native": 9,
+          "estimate": 9.046875
+         },
+         "c4": {
+          "usable": true,
+          "fit_players": [
+           301,
+           302,
+           303,
+           304
+          ],
+          "num": 193,
+          "den": 193,
+          "ratio": 1.0,
+          "peer_native": 10,
+          "estimate": 10.0
+         }
+        },
+        "cap": 21,
+        "path": "peers",
+        "raw": 9.523438,
+        "value": 9.523438,
+        "capped": false
+       }
+      },
+      "waiver_value": 9.523438,
+      "starter_line": 21.0,
+      "method": "estimated"
+     },
+     "TE": {
+      "dedicated": 2,
+      "superflex": 0,
+      "flex": 1,
+      "bench": 0,
+      "starters": 3,
+      "rostered": 3,
+      "listed": 3,
+      "extended": true,
+      "imputation_ratios": {
+       "404": {
+        "peers": {
+         "c1": {
+          "usable": true,
+          "fit_players": [
+           401,
+           402,
+           403
+          ],
+          "num": 77,
+          "den": 69,
+          "ratio": 1.115942,
+          "peer_native": 4,
+          "estimate": 4.463768
+         },
+         "c2": {
+          "usable": true,
+          "fit_players": [
+           401,
+           402,
+           403
+          ],
+          "num": 77,
+          "den": 78,
+          "ratio": 0.987179,
+          "peer_native": 3,
+          "estimate": 2.961538
+         },
+         "c4": {
+          "usable": true,
+          "fit_players": [
+           401,
+           402,
+           403
+          ],
+          "num": 77,
+          "den": 74,
+          "ratio": 1.040541,
+          "peer_native": 5,
+          "estimate": 5.202703
+         }
+        },
+        "cap": 7,
+        "path": "peers",
+        "raw": 4.463768,
+        "value": 4.463768,
+        "capped": false
+       }
+      },
+      "waiver_value": 4.463768,
+      "starter_line": 4.463768,
+      "method": "estimated"
+     }
+    },
+    "groups": {
+     "QB|starter": 34.0,
+     "QB|bench": 0.0,
+     "RB|starter": 87.0,
+     "RB|bench": 48.185353,
+     "WR|starter": 109.0,
+     "WR|bench": 50.455729,
+     "TE|starter": 63.608696,
+     "TE|bench": 0.0
+    },
+    "total_vorp": 392.249777,
+    "players": {
+     "101": {
+      "pos": "QB",
+      "native": 38.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 24.0,
+      "bench_slice": 0.0,
+      "starter_slice": 24.0,
+      "adjusted": 24.582192,
+      "vorp_display": 17.131941
+     },
+     "102": {
+      "pos": "QB",
+      "native": 24.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 10.0,
+      "bench_slice": 0.0,
+      "starter_slice": 10.0,
+      "adjusted": 10.24258,
+      "vorp_display": 7.138309
+     },
+     "103": {
+      "pos": "QB",
+      "native": 14.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "201": {
+      "pos": "RB",
+      "native": 95.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 77.405405,
+      "bench_slice": 15.405405,
+      "starter_slice": 62.0,
+      "adjusted": 51.520181,
+      "vorp_display": 55.254368
+     },
+     "202": {
+      "pos": "RB",
+      "native": 58.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 40.405405,
+      "bench_slice": 15.405405,
+      "starter_slice": 25.0,
+      "adjusted": 24.854037,
+      "vorp_display": 28.842626
+     },
+     "203": {
+      "pos": "RB",
+      "native": 33.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "bench",
+      "vorp": 15.405405,
+      "bench_slice": 15.405405,
+      "starter_slice": 0.0,
+      "adjusted": 6.836373,
+      "vorp_display": 10.996854
+     },
+     "207": {
+      "pos": "RB",
+      "native": 19.563731,
+      "imputed": true,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 1.969136,
+      "bench_slice": 1.969136,
+      "starter_slice": 0.0,
+      "adjusted": 0.873833,
+      "vorp_display": 1.40563
+     },
+     "204": {
+      "pos": "RB",
+      "native": 17.594595,
+      "imputed": true,
+      "rank": 5,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "301": {
+      "pos": "WR",
+      "native": 82.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 72.476562,
+      "bench_slice": 11.476562,
+      "starter_slice": 61.0,
+      "adjusted": 46.3919,
+      "vorp_display": 51.736008
+     },
+     "302": {
+      "pos": "WR",
+      "native": 48.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 38.476562,
+      "bench_slice": 11.476562,
+      "starter_slice": 27.0,
+      "adjusted": 23.147947,
+      "vorp_display": 27.465758
+     },
+     "303": {
+      "pos": "WR",
+      "native": 42.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 32.476562,
+      "bench_slice": 11.476562,
+      "starter_slice": 21.0,
+      "adjusted": 19.046073,
+      "vorp_display": 23.182773
+     },
+     "304": {
+      "pos": "WR",
+      "native": 21.0,
+      "imputed": false,
+      "rank": 4,
+      "role": "bench",
+      "vorp": 11.476562,
+      "bench_slice": 11.476562,
+      "starter_slice": 0.0,
+      "adjusted": 4.689514,
+      "vorp_display": 8.192325
+     },
+     "305": {
+      "pos": "WR",
+      "native": 14.072917,
+      "imputed": true,
+      "rank": 5,
+      "role": "bench",
+      "vorp": 4.549479,
+      "bench_slice": 4.549479,
+      "starter_slice": 0.0,
+      "adjusted": 1.858993,
+      "vorp_display": 3.247559
+     },
+     "306": {
+      "pos": "WR",
+      "native": 9.523438,
+      "imputed": true,
+      "rank": 6,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     },
+     "401": {
+      "pos": "TE",
+      "native": 48.0,
+      "imputed": false,
+      "rank": 1,
+      "role": "starter",
+      "vorp": 43.536232,
+      "bench_slice": 0.0,
+      "starter_slice": 43.536232,
+      "adjusted": 45.143075,
+      "vorp_display": 31.077506
+     },
+     "402": {
+      "pos": "TE",
+      "native": 22.0,
+      "imputed": false,
+      "rank": 2,
+      "role": "starter",
+      "vorp": 17.536232,
+      "bench_slice": 0.0,
+      "starter_slice": 17.536232,
+      "adjusted": 18.183462,
+      "vorp_display": 12.517904
+     },
+     "403": {
+      "pos": "TE",
+      "native": 7.0,
+      "imputed": false,
+      "rank": 3,
+      "role": "starter",
+      "vorp": 2.536232,
+      "bench_slice": 0.0,
+      "starter_slice": 2.536232,
+      "adjusted": 2.62984,
+      "vorp_display": 1.810441
+     },
+     "404": {
+      "pos": "TE",
+      "native": 4.463768,
+      "imputed": true,
+      "rank": 4,
+      "role": "waiver",
+      "vorp": 0.0,
+      "bench_slice": 0.0,
+      "starter_slice": 0.0,
+      "adjusted": 0.0,
+      "vorp_display": 0.0
+     }
+    },
+    "weights": {
+     "QB|starter": 0.09843,
+     "QB|bench": 0.0,
+     "RB|starter": 0.251866,
+     "RB|bench": 0.073274,
+     "WR|starter": 0.315556,
+     "WR|bench": 0.076726,
+     "TE|starter": 0.184148,
+     "TE|bench": 0.0
+    },
+    "starter_mix": {
+     "QB": 0.1158,
+     "RB": 0.296313,
+     "WR": 0.371242,
+     "TE": 0.216644
+    },
+    "bench_mix": {
+     "QB": 0.0,
+     "RB": 0.488492,
+     "WR": 0.511508,
+     "TE": 0.0
+    },
+    "rates": {
+     "QB|starter": 1.024258,
+     "QB|bench": 0.0,
+     "RB|starter": 0.720707,
+     "RB|bench": 0.443765,
+     "WR|starter": 0.683646,
+     "WR|bench": 0.408617,
+     "TE|starter": 1.036908,
+     "TE|bench": 0.0
+    },
+    "unfunded_moved": [],
+    "vorp_display_factor": 0.713831
+   }
+  },
+  "starter_mix_mean": {
+   "QB": 0.146323,
+   "RB": 0.263452,
+   "WR": 0.313098,
+   "TE": 0.277128
+  },
+  "bench_mix_mean": {
+   "QB": 0.0,
+   "RB": 0.509118,
+   "WR": 0.490882,
+   "TE": 0.0
+  },
+  "ddf_weights": {
+   "QB|starter": 0.124374,
+   "QB|bench": 0.0,
+   "RB|starter": 0.223934,
+   "RB|bench": 0.076368,
+   "WR|starter": 0.266133,
+   "WR|bench": 0.073632,
+   "TE|starter": 0.235558,
+   "TE|bench": 0.0
+  },
+  "group_budgets": {
+   "QB|starter": 34.824772,
+   "QB|bench": 0.0,
+   "RB|starter": 62.701473,
+   "RB|bench": 21.382951,
+   "WR|starter": 74.517378,
+   "WR|bench": 20.617049,
+   "TE|starter": 65.956377,
+   "TE|bench": 0.0
+  },
+  "indexed": {
+   "c1": {
+    "factor": 0.445882,
+    "shared_players": 29,
+    "ddf_total": 279.345243,
+    "native_total": 626.5,
+    "values": {
+     "101": 17.835291,
+     "102": 11.147057,
+     "103": 6.688234,
+     "104": 3.567058,
+     "201": 40.129404,
+     "202": 26.752936,
+     "203": 15.60588,
+     "204": 8.917645,
+     "205": 5.350587,
+     "206": 2.675294,
+     "207": 0.445882,
+     "208": 2.229411,
+     "209": 1.783529,
+     "210": 1.337647,
+     "211": 1.114706,
+     "212": 0.891765,
+     "213": 0.445882,
+     "301": 35.670582,
+     "302": 22.294114,
+     "303": 17.835291,
+     "304": 9.80941,
+     "305": 6.242352,
+     "306": 4.01294,
+     "307": 2.229411,
+     "308": 1.337647,
+     "401": 20.064702,
+     "402": 8.025881,
+     "403": 2.675294,
+     "404": 1.783529,
+     "405": 0.891765
+    }
+   },
+   "c2": {
+    "factor": 0.502289,
+    "shared_players": 19,
+    "ddf_total": 279.272512,
+    "native_total": 556,
+    "values": {
+     "101": 15.068661,
+     "102": 11.050351,
+     "103": 5.022887,
+     "104": 3.013732,
+     "201": 50.228869,
+     "202": 27.625878,
+     "203": 15.068661,
+     "204": 7.53433,
+     "205": 0.0,
+     "206": 3.516021,
+     "207": 1.506866,
+     "208": 1.506866,
+     "209": 0.0,
+     "210": 0.0,
+     "211": 0.0,
+     "212": 0.0,
+     "213": 0.0,
+     "301": 42.694539,
+     "302": 22.602991,
+     "303": 17.580104,
+     "304": 10.045774,
+     "305": 6.027464,
+     "306": 4.540175,
+     "307": 0.0,
+     "308": 0.0,
+     "401": 25.114435,
+     "402": 10.045774,
+     "403": 4.01831,
+     "404": 1.506866,
+     "405": 0.0
+    }
+   },
+   "c3": {
+    "factor": 0.044588,
+    "shared_players": 29,
+    "ddf_total": 279.345243,
+    "native_total": 6265.0,
+    "values": {
+     "101": 17.835291,
+     "102": 11.147057,
+     "103": 6.688234,
+     "104": 3.567058,
+     "201": 40.129404,
+     "202": 26.752936,
+     "203": 15.60588,
+     "204": 8.917645,
+     "205": 5.350587,
+     "206": 2.675294,
+     "207": 0.445882,
+     "208": 2.229411,
+     "209": 1.783529,
+     "210": 1.337647,
+     "211": 1.114706,
+     "212": 0.891765,
+     "213": 0.445882,
+     "301": 35.670582,
+     "302": 22.294114,
+     "303": 17.835291,
+     "304": 9.80941,
+     "305": 6.242352,
+     "306": 4.01294,
+     "307": 2.229411,
+     "308": 1.337647,
+     "401": 20.064702,
+     "402": 8.025881,
+     "403": 2.675294,
+     "404": 1.783529,
+     "405": 0.891765
+    }
+   },
+   "c4": {
+    "factor": 0.45101,
+    "shared_players": 27,
+    "ddf_total": 278.047861,
+    "native_total": 616.5,
+    "values": {
+     "101": 15.785361,
+     "102": 12.628289,
+     "103": 5.412124,
+     "104": 3.157072,
+     "201": 38.335877,
+     "202": 29.315671,
+     "203": 18.040413,
+     "204": 0.902021,
+     "205": 4.510103,
+     "206": 3.608083,
+     "207": 0.902021,
+     "208": 2.706062,
+     "209": 2.255052,
+     "210": 1.804041,
+     "211": 1.353031,
+     "212": 1.127526,
+     "213": 0.902021,
+     "301": 33.825774,
+     "302": 24.805567,
+     "303": 17.138392,
+     "304": 11.275258,
+     "305": 6.765155,
+     "306": 4.510103,
+     "307": 2.706062,
+     "308": 0.0,
+     "401": 18.040413,
+     "402": 11.275258,
+     "403": 4.059093,
+     "404": 2.255052,
+     "405": 0.45101
+    }
+   },
+   "c5": {
+    "factor": 0.519241,
+    "shared_players": 13,
+    "ddf_total": 276.236057,
+    "native_total": 532,
+    "values": {
+     "101": 19.731147,
+     "102": 12.461777,
+     "103": 7.26937,
+     "104": 0.0,
+     "201": 49.327867,
+     "202": 30.115961,
+     "203": 17.134943,
+     "204": 9.13583,
+     "205": 0.0,
+     "206": 0.0,
+     "207": 10.158285,
+     "208": 0.0,
+     "209": 0.0,
+     "210": 0.0,
+     "211": 0.0,
+     "212": 0.0,
+     "213": 0.0,
+     "301": 42.577738,
+     "302": 24.923554,
+     "303": 21.80811,
+     "304": 10.904055,
+     "305": 7.307231,
+     "306": 4.944956,
+     "307": 0.0,
+     "308": 0.0,
+     "401": 24.923554,
+     "402": 11.423296,
+     "403": 3.634685,
+     "404": 2.31777,
+     "405": 0.0
+    }
+   }
+  },
+  "slot_fill_mean_ppg": {
+   "QB": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 0,
+    "bench": 0,
+    "starters": 2,
+    "rostered": 2
+   },
+   "RB": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 0,
+    "bench": 2,
+    "starters": 2,
+    "rostered": 4
+   },
+   "WR": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 1,
+    "bench": 2,
+    "starters": 3,
+    "rostered": 5
+   },
+   "TE": {
+    "dedicated": 2,
+    "superflex": 0,
+    "flex": 1,
+    "bench": 0,
+    "starters": 3,
+    "rostered": 3
+   }
+  },
+  "default_ranking": [
+   201,
+   301,
+   401,
+   202,
+   302,
+   101,
+   402,
+   303,
+   102,
+   403,
+   203,
+   304,
+   305,
+   204,
+   207,
+   205,
+   103,
+   104,
+   206,
+   208,
+   209,
+   210,
+   211,
+   212,
+   213,
+   306,
+   307,
+   308,
+   404,
+   405
+  ],
+  "rows": {
+   "101": {
+    "name": "QB Alpha",
+    "pos": "QB",
+    "adjusted": {
+     "p1": 23.216515,
+     "p2": 28.492995,
+     "c1": 24.874837,
+     "c2": 21.765482,
+     "c3": 24.874837,
+     "c4": 20.537686,
+     "c5": 24.582192
+    },
+    "vorp_vs_waivers": {
+     "p1": 25.776755,
+     "p2": 25.819672,
+     "c1": 17.073171,
+     "c2": 13.182515,
+     "c3": 17.073171,
+     "c4": 15.188679,
+     "c5": 17.131941
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 23.911618,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 22.940049,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 25.854755,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 17.835291,
+     "c2": 15.068661,
+     "c3": 17.835291,
+     "c4": 15.785361,
+     "c5": 19.731147
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 21.0
+   },
+   "102": {
+    "name": "QB Bravo",
+    "pos": "QB",
+    "adjusted": {
+     "p1": 11.608257,
+     "p2": 6.331777,
+     "c1": 9.949935,
+     "c2": 13.059289,
+     "c3": 9.949935,
+     "c4": 14.287086,
+     "c5": 10.24258
+    },
+    "vorp_vs_waivers": {
+     "p1": 12.888377,
+     "p2": 5.737705,
+     "c1": 6.829268,
+     "c2": 7.909509,
+     "c3": 6.829268,
+     "c4": 10.566038,
+     "c5": 7.138309
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 10.913154,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 11.884723,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 8.970017,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 11.147057,
+     "c2": 11.050351,
+     "c3": 11.147057,
+     "c4": 12.628289,
+     "c5": 12.461777
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 15.5
+   },
+   "103": {
+    "name": "QB Charlie",
+    "pos": "QB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 6.688234,
+     "c2": 5.022887,
+     "c3": 6.688234,
+     "c4": 5.412124,
+     "c5": 7.26937
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 12.5
+   },
+   "104": {
+    "name": "QB Delta",
+    "pos": "QB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 3.567058,
+     "c2": 3.013732,
+     "c3": 3.567058,
+     "c4": 3.157072,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 9.0
+   },
+   "201": {
+    "name": "RB Delta",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 47.910397,
+     "p2": 42.263244,
+     "c1": 49.494378,
+     "c2": 52.588201,
+     "c3": 49.494378,
+     "c4": 47.290278,
+     "c5": 51.520181
+    },
+    "vorp_vs_waivers": {
+     "p1": 35.443038,
+     "p2": 31.557377,
+     "c1": 53.268293,
+     "c2": 61.298695,
+     "c3": 53.268293,
+     "c4": 50.849057,
+     "c5": 55.254368
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 48.511113,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 50.22326,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 45.086821,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 40.129404,
+     "c2": 50.228869,
+     "c3": 40.129404,
+     "c4": 38.335877,
+     "c5": 49.327867
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 17.5
+   },
+   "202": {
+    "name": "RB Echo",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 27.009906,
+     "p2": 32.466139,
+     "c1": 25.981326,
+     "c2": 22.887503,
+     "c3": 25.981326,
+     "c4": 29.375571,
+     "c5": 24.854037
+    },
+    "vorp_vs_waivers": {
+     "p1": 22.554661,
+     "p2": 25.819672,
+     "c1": 32.780488,
+     "c2": 31.638036,
+     "c3": 32.780488,
+     "c4": 37.641509,
+     "c5": 28.842626
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 27.095747,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 25.774609,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 29.738022,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 26.752936,
+     "c2": 27.625878,
+     "c3": 26.752936,
+     "c4": 29.315671,
+     "c5": 30.115961
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 14.5
+   },
+   "203": {
+    "name": "RB Foxtrot",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 6.109415,
+     "p2": 6.013955,
+     "c1": 6.387115,
+     "c2": 6.387115,
+     "c3": 6.387115,
+     "c4": 6.982188,
+     "c5": 6.836373
+    },
+    "vorp_vs_waivers": {
+     "p1": 9.666283,
+     "p2": 10.327869,
+     "c1": 15.707317,
+     "c2": 15.159892,
+     "c3": 15.707317,
+     "c4": 21.132075,
+     "c5": 10.996854
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 6.452694,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 6.648198,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 6.061685,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 15.60588,
+     "c2": 15.068661,
+     "c3": 15.60588,
+     "c4": 18.040413,
+     "c5": 17.134943
+    },
+    "ddf_tier": "bench",
+    "mean_ppg": 9.8
+   },
+   "204": {
+    "name": "RB Golf",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 3.341086,
+     "c1": 2.221605,
+     "c2": 2.221605,
+     "c3": 2.221605,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 5.737705,
+     "c1": 5.463415,
+     "c2": 5.273006,
+     "c3": 5.463415,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {
+     "c4": "peers",
+     "c5": "peers"
+    },
+    "ddf_blended": {
+     "value": 1.297383,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 1.110803,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 1.670543,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 8.917645,
+     "c2": 7.53433,
+     "c3": 8.917645,
+     "c4": 0.902021,
+     "c5": 9.13583
+    },
+    "ddf_tier": "bench",
+    "mean_ppg": 7.5
+   },
+   "205": {
+    "name": "RB Hotel",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.436387,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 1.320755,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.072731,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.109097,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 5.350587,
+     "c2": 0.0,
+     "c3": 5.350587,
+     "c4": 4.510103,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 5.5
+   },
+   "206": {
+    "name": "RB India",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 2.675294,
+     "c2": 3.516021,
+     "c3": 2.675294,
+     "c4": 3.608083,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 2.5
+   },
+   "207": {
+    "name": "RB Juliet (rookie)",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 3.054707,
+     "p2": null,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.873833
+    },
+    "vorp_vs_waivers": {
+     "p1": 4.833142,
+     "p2": null,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 1.40563
+    },
+    "estimated": {
+     "c1": "curve",
+     "c2": "curve",
+     "c3": "curve",
+     "c4": "curve",
+     "c5": "curve"
+    },
+    "ddf_blended": {
+     "value": 0.785708,
+     "count": 5,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.218458,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 3.054707,
+     "count": 1,
+     "low_confidence": true,
+     "sources": [
+      "p1"
+     ]
+    },
+    "indexed": {
+     "c1": 0.445882,
+     "c2": 1.506866,
+     "c3": 0.445882,
+     "c4": 0.902021,
+     "c5": 10.158285
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 8.5
+   },
+   "208": {
+    "name": "RB Kilo",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 2.229411,
+     "c2": 1.506866,
+     "c3": 2.229411,
+     "c4": 2.706062,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 2.1
+   },
+   "209": {
+    "name": "RB Alder",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 1.783529,
+     "c2": 0.0,
+     "c3": 1.783529,
+     "c4": 2.255052,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 1.8
+   },
+   "210": {
+    "name": "RB Birch",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 1.337647,
+     "c2": 0.0,
+     "c3": 1.337647,
+     "c4": 1.804041,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 1.55
+   },
+   "211": {
+    "name": "RB Cedar",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 1.114706,
+     "c2": 0.0,
+     "c3": 1.114706,
+     "c4": 1.353031,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 1.2
+   },
+   "212": {
+    "name": "RB Dogwood",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 0.891765,
+     "c2": 0.0,
+     "c3": 0.891765,
+     "c4": 1.127526,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 0.9
+   },
+   "213": {
+    "name": "RB Elm",
+    "pos": "RB",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 0.445882,
+     "c2": 0.0,
+     "c3": 0.445882,
+     "c4": 0.902021,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 0.6
+   },
+   "301": {
+    "name": "WR Lima",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 42.01647,
+     "p2": 56.743731,
+     "c1": 46.259903,
+     "c2": 50.957994,
+     "c3": 46.259903,
+     "c4": 44.820887,
+     "c5": 46.3919
+    },
+    "vorp_vs_waivers": {
+     "p1": 35.443038,
+     "p2": 37.295082,
+     "c1": 48.487805,
+     "c2": 50.067868,
+     "c3": 48.487805,
+     "c4": 42.924528,
+     "c5": 51.736008
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 47.865147,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 47.107671,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 49.3801,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 35.670582,
+     "c2": 42.694539,
+     "c3": 35.670582,
+     "c4": 33.825774,
+     "c5": 42.577738
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 16.5
+   },
+   "302": {
+    "name": "WR Mike",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 28.044461,
+     "p2": 19.485042,
+     "c1": 24.764505,
+     "c2": 22.570422,
+     "c3": 24.764505,
+     "c4": 28.795644,
+     "c5": 23.147947
+    },
+    "vorp_vs_waivers": {
+     "p1": 25.776755,
+     "p2": 22.95082,
+     "c1": 28.0,
+     "c2": 23.702838,
+     "c3": 28.0,
+     "c4": 29.716981,
+     "c5": 27.465758
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 24.468004,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 24.81963,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 23.764752,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 22.294114,
+     "c2": 22.602991,
+     "c3": 22.294114,
+     "c4": 24.805567,
+     "c5": 24.923554
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 12.5
+   },
+   "303": {
+    "name": "WR November",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 18.729789,
+     "p2": 12.033304,
+     "c1": 17.599372,
+     "c2": 15.473529,
+     "c3": 17.599372,
+     "c4": 15.174188,
+     "c5": 19.046073
+    },
+    "vorp_vs_waivers": {
+     "p1": 19.332566,
+     "p2": 20.081967,
+     "c1": 21.170732,
+     "c2": 17.11158,
+     "c3": 21.170732,
+     "c4": 18.490566,
+     "c5": 23.182773
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 16.342709,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 16.823291,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 15.381547,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 17.835291,
+     "c2": 17.580104,
+     "c3": 17.835291,
+     "c4": 17.138392,
+     "c5": 21.80811
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 11.0
+   },
+   "304": {
+    "name": "WR Oscar",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 4.75778,
+     "p2": 4.581566,
+     "c1": 4.702134,
+     "c2": 4.828189,
+     "c3": 4.702134,
+     "c4": 4.75778,
+     "c5": 4.689514
+    },
+    "vorp_vs_waivers": {
+     "p1": 9.666283,
+     "p2": 17.213115,
+     "c1": 8.878049,
+     "c2": 7.224694,
+     "c3": 8.878049,
+     "c4": 9.90566,
+     "c5": 8.192325
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 4.719494,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 4.744404,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 4.669673,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 9.80941,
+     "c2": 10.045774,
+     "c3": 9.80941,
+     "c4": 11.275258,
+     "c5": 10.904055
+    },
+    "ddf_tier": "bench",
+    "mean_ppg": 9.0
+   },
+   "305": {
+    "name": "WR Papa",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 1.585927,
+     "p2": 2.290783,
+     "c1": 1.808513,
+     "c2": 1.304293,
+     "c3": 1.808513,
+     "c4": 1.585927,
+     "c5": 1.858993
+    },
+    "vorp_vs_waivers": {
+     "p1": 3.222094,
+     "p2": 8.606557,
+     "c1": 3.414634,
+     "c2": 1.951688,
+     "c3": 3.414634,
+     "c4": 3.301887,
+     "c5": 3.247559
+    },
+    "estimated": {
+     "c5": "peers"
+    },
+    "ddf_blended": {
+     "value": 1.739073,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 1.639431,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 1.938355,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 6.242352,
+     "c2": 6.027464,
+     "c3": 6.242352,
+     "c4": 6.765155,
+     "c5": 7.307231
+    },
+    "ddf_tier": "bench",
+    "mean_ppg": 6.5
+   },
+   "306": {
+    "name": "WR Quebec",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {
+     "c2": "peers",
+     "c5": "peers"
+    },
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 4.01294,
+     "c2": 4.540175,
+     "c3": 4.01294,
+     "c4": 4.510103,
+     "c5": 4.944956
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 4.5
+   },
+   "307": {
+    "name": "WR Romeo",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 2.229411,
+     "c2": 0.0,
+     "c3": 2.229411,
+     "c4": 2.706062,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 3.0
+   },
+   "308": {
+    "name": "WR Sycamore",
+    "pos": "WR",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 1.337647,
+     "c2": 0.0,
+     "c3": 1.337647,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 2.0
+   },
+   "401": {
+    "name": "TE Sierra",
+    "pos": "TE",
+    "adjusted": {
+     "p1": 25.367837,
+     "p2": 24.733641,
+     "c1": 47.442306,
+     "c2": 44.926807,
+     "c3": 47.442306,
+     "c4": 39.126664,
+     "c5": 45.143075
+    },
+    "vorp_vs_waivers": {
+     "p1": 28.998849,
+     "p2": 25.819672,
+     "c1": 28.0,
+     "c2": 30.978911,
+     "c3": 28.0,
+     "c4": 23.113208,
+     "c5": 31.077506
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 37.790055,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 44.159713,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 25.050739,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 20.064702,
+     "c2": 25.114435,
+     "c3": 20.064702,
+     "c4": 18.040413,
+     "c5": 24.923554
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 12.0
+   },
+   "402": {
+    "name": "TE Tango",
+    "pos": "TE",
+    "adjusted": {
+     "p1": 19.73054,
+     "p2": 21.985459,
+     "c1": 16.199812,
+     "c2": 16.250122,
+     "c3": 16.199812,
+     "c4": 22.358094,
+     "c5": 18.183462
+    },
+    "vorp_vs_waivers": {
+     "p1": 22.554661,
+     "p2": 22.95082,
+     "c1": 9.560976,
+     "c2": 11.205138,
+     "c3": 9.560976,
+     "c4": 13.207547,
+     "c5": 12.517904
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 19.117915,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 18.247872,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 20.857999,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 8.025881,
+     "c2": 10.045774,
+     "c3": 8.025881,
+     "c4": 11.275258,
+     "c5": 11.423296
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 10.5
+   },
+   "403": {
+    "name": "TE Uniform",
+    "pos": "TE",
+    "adjusted": {
+     "p1": 20.857999,
+     "p2": 19.237277,
+     "c1": 2.314259,
+     "c2": 4.779448,
+     "c3": 2.314259,
+     "c4": 4.471619,
+     "c5": 2.62984
+    },
+    "vorp_vs_waivers": {
+     "p1": 23.843498,
+     "p2": 20.081967,
+     "c1": 1.365854,
+     "c2": 3.295629,
+     "c3": 1.365854,
+     "c4": 2.641509,
+     "c5": 1.810441
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 9.048407,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 3.548791,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 20.047638,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 2.675294,
+     "c2": 4.01831,
+     "c3": 2.675294,
+     "c4": 4.059093,
+     "c5": 3.634685
+    },
+    "ddf_tier": "starter",
+    "mean_ppg": 10.2
+   },
+   "404": {
+    "name": "TE Victor",
+    "pos": "TE",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {
+     "c5": "peers"
+    },
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 1.783529,
+     "c2": 1.506866,
+     "c3": 1.783529,
+     "c4": 2.255052,
+     "c5": 2.31777
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 3.0
+   },
+   "405": {
+    "name": "TE Whiskey",
+    "pos": "TE",
+    "adjusted": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "vorp_vs_waivers": {
+     "p1": 0.0,
+     "p2": 0.0,
+     "c1": 0.0,
+     "c2": 0.0,
+     "c3": 0.0,
+     "c4": 0.0,
+     "c5": 0.0
+    },
+    "estimated": {},
+    "ddf_blended": {
+     "value": 0.0,
+     "count": 6,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2",
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_charts": {
+     "value": 0.0,
+     "count": 4,
+     "low_confidence": false,
+     "sources": [
+      "c1",
+      "c2",
+      "c4",
+      "c5"
+     ]
+    },
+    "ddf_projections": {
+     "value": 0.0,
+     "count": 2,
+     "low_confidence": false,
+     "sources": [
+      "p1",
+      "p2"
+     ]
+    },
+    "indexed": {
+     "c1": 0.891765,
+     "c2": 0.0,
+     "c3": 0.891765,
+     "c4": 0.45101,
+     "c5": 0.0
+    },
+    "ddf_tier": "waiver",
+    "mean_ppg": 1.5
+   }
+  }
+ },
+ "variant_bench_share_0_10": {
+  "setting_change": {
+   "bench_share": 0.1
+  },
+  "source_weights": {
+   "p1": {
+    "QB|starter": 0.170347,
+    "QB|bench": 0.0,
+    "RB|starter": 0.170347,
+    "RB|bench": 0.044681,
+    "WR|starter": 0.227129,
+    "WR|bench": 0.055319,
+    "TE|starter": 0.332177,
+    "TE|bench": 0.0
+   },
+   "p2": {
+    "QB|starter": 0.17128,
+    "QB|bench": 0.0,
+    "RB|starter": 0.199308,
+    "RB|bench": 0.032161,
+    "WR|starter": 0.155709,
+    "WR|bench": 0.067839,
+    "TE|starter": 0.373702,
+    "TE|bench": 0.0
+   },
+   "c1": {
+    "QB|starter": 0.11413,
+    "QB|bench": 0.0,
+    "RB|starter": 0.26087,
+    "RB|bench": 0.057463,
+    "WR|starter": 0.33913,
+    "WR|bench": 0.042537,
+    "TE|starter": 0.18587,
+    "TE|bench": 0.0
+   },
+   "c2": {
+    "QB|starter": 0.095681,
+    "QB|bench": 0.0,
+    "RB|starter": 0.284053,
+    "RB|bench": 0.062195,
+    "WR|starter": 0.313953,
+    "WR|bench": 0.037805,
+    "TE|starter": 0.206312,
+    "TE|bench": 0.0
+   },
+   "c4": {
+    "QB|starter": 0.134483,
+    "QB|bench": 0.0,
+    "RB|starter": 0.241379,
+    "RB|bench": 0.060123,
+    "WR|starter": 0.32069,
+    "WR|bench": 0.039877,
+    "TE|starter": 0.203448,
+    "TE|bench": 0.0
+   },
+   "c5": {
+    "QB|starter": 0.10422,
+    "QB|bench": 0.0,
+    "RB|starter": 0.266681,
+    "RB|bench": 0.048849,
+    "WR|starter": 0.334118,
+    "WR|bench": 0.051151,
+    "TE|starter": 0.19498,
+    "TE|bench": 0.0
+   }
+  },
+  "ddf_weights": {
+   "QB|starter": 0.13169,
+   "QB|bench": 0.0,
+   "RB|starter": 0.237106,
+   "RB|bench": 0.050912,
+   "WR|starter": 0.281788,
+   "WR|bench": 0.049088,
+   "TE|starter": 0.249415,
+   "TE|bench": 0.0
+  },
+  "rows_ddf_blended": {
+   "101": 25.318184,
+   "102": 11.555104,
+   "103": 0.0,
+   "104": 0.0,
+   "201": 48.83424,
+   "202": 26.159146,
+   "203": 4.301796,
+   "204": 0.864922,
+   "205": 0.048487,
+   "206": 0.0,
+   "207": 0.523805,
+   "208": 0.0,
+   "209": 0.0,
+   "210": 0.0,
+   "211": 0.0,
+   "212": 0.0,
+   "213": 0.0,
+   "301": 48.829962,
+   "302": 24.056516,
+   "303": 15.453263,
+   "304": 3.146329,
+   "305": 1.159382,
+   "306": 0.0,
+   "307": 0.0,
+   "308": 0.0,
+   "401": 40.013,
+   "402": 20.242498,
+   "403": 9.580666,
+   "404": 0.0,
+   "405": 0.0
+  }
+ }
+}

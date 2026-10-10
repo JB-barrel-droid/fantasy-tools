@@ -18,8 +18,9 @@
 // missing one, so a chart that still pays for him is an ordinary sell target
 // with gap = chart value. A player with no ESPN row is still missing.
 //
-// Our value is one of the engine's projection-derived DDF series (Jeremy,
-// 2026-10-07): ESPN (default), CBS rest-of-season or Razzball. Never a blend.
+// Our value (Jeremy, 2026-10-08, JEG-455): DDF Value (the engine's ddf_value
+// series) is our value and the default. ESPN, CBS rest-of-season and Razzball
+// projections stay as alternatives. Each is one engine series, read as is.
 //
 // Waiver line (Jeremy, 2026-10-07: "It's illogical that 0 value players would
 // be on a buy list."). Every series here is value above waivers for the user's
@@ -28,20 +29,20 @@
 (function (root) {
   "use strict";
 
-  const OUR_KEYS = ["espn", "cbsros", "razzball"];
-  const OUR_KEY = OUR_KEYS[0];   // default
-  const OUR_NAMES = {espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
-  const OUR_SHORT = {espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
+  const OUR_KEYS = ["ddf_value", "espn", "cbsros", "razzball"];
+  const OUR_KEY = OUR_KEYS[0];   // default: DDF Value
+  const OUR_NAMES = {ddf_value: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
+  const OUR_SHORT = {ddf_value: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
   // charts: the chart keys to compare (already filtered for availability and week).
-  // opts.ours: which engine series is our value (default ESPN).
+  // opts.ours: which engine series is our value (default DDF Value).
   function buildTargets(rows, charts, opts) {
     const ourKey = (opts && opts.ours) || OUR_KEY;
-    if (!OUR_KEYS.includes(ourKey)) throw new Error(`not a projection-derived series: ${ourKey}`);
+    if (!OUR_KEYS.includes(ourKey)) throw new Error(`not an our-value series: ${ourKey}`);
     const players = [];
     let omittedNoOurs = 0;
     let atWaiverCells = 0;
