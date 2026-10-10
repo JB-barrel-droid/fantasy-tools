@@ -185,7 +185,12 @@
   function renderInputs() {
     const body = section("mi-inputs");
     const v = vp();
-    body.appendChild(para(`Pie ${fmt.n1(v.pie)} (28 per starting slot). Bench share ${fmt.pct(v.benchShare)} (applied ${fmt.pct(v.benchShareApplied)}). Included set: ${v.included.join(", ") || "none"}.`));
+    // JEG-536 (ES-14): benchShare is the readout {QB, RB, WR, TE, overall, override, ...}.
+    const bs = v.benchShare && typeof v.benchShare === "object" ? v.benchShare : null;
+    const bsText = bs
+      ? `Bench share ${fmt.pct(bs.overall)} (${bs.override ? "override" : "computed from the league settings"}; QB ${fmt.pct(bs.QB)}, RB ${fmt.pct(bs.RB)}, WR ${fmt.pct(bs.WR)}, TE ${fmt.pct(bs.TE)}; paid on fill-in parts ${fmt.pct(v.benchShareApplied)})`
+      : `Bench share ${fmt.pct(v.benchShare)} (applied ${fmt.pct(v.benchShareApplied)})`;
+    body.appendChild(para(`Pie ${fmt.n1(v.pie)} (28 per starting slot). ${bsText}. Included set: ${v.included.join(", ") || "none"}.`));
     body.appendChild(table("sources-included", "Sources this week (VP-1)", [
       {key: "key", label: "Source"}, {key: "family", label: "Family"}, {key: "included", label: "Counts in DDF"},
       {key: "reason", label: "Why not"}

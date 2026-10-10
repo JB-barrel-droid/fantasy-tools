@@ -1430,6 +1430,227 @@
     return labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
   }
 
+  // ===================================================================
+  // Expected starts (JEG-536, es-value-001; docs/methodology.md ES-0..ES-15).
+  // With input.lineup set, the two parts of ES-5 replace the VP-2.6 slices:
+  // each player's value above waivers is split into a start-worthy part and
+  // a fill-in part by the lineup share of his level, and the bench share
+  // becomes an output (ES-14). Without input.lineup the pipeline runs the
+  // VP-2.6 slices at the bench share, as before (the JEG-508 worked example).
+  //
+  // input.lineup = the resolved parameters (resolveLineupParameters below,
+  // the mirror of pipelines/derive_lineup_parameters.resolve()):
+  //   {bye, projection_confidence, positions: {pos: {m, sigma_rel, sigma_floor}}}
+  // setting.bench_share_override: null (default) or a share; when set it
+  // replaces the computed share as the bench groups' weight (VP-3.4).
+  // ===================================================================
+  var LINEUP_OBJECTIVES = ["season", "regular", "playoffs"];
+  var LINEUP_INJURY_HISTORY = ["recent", "all"];
+  var LINEUP_PROJECTION_CONFIDENCE = [0.5, 1, 1.5];
+  var LINEUP_DEFAULT_LEAGUE_WEEKS = { regular_season_end: 14, playoff_weeks: [15, 17] };
+  var BENCH_SHARE_OVERRIDE_BOUNDS = [0.01, 0.30];
+  var ES_DEFAULT_CHART_SIGMA = 0.2;     // ES-15.3: no chart pair at the position
+  var ES_CHART_COMMON_TOTAL = 1000;     // ES-15.3: the common scale's total
+
+  // ES-12 window: [lo, hi]; lo > hi = empty.
+  function lineupWindow(objective, contentWeek, leagueWeeks) {
+    var lw = leagueWeeks || LINEUP_DEFAULT_LEAGUE_WEEKS;
+    var pLo = lw.playoff_weeks[0], pHi = lw.playoff_weeks[1];
+    if (objective === "season") return [contentWeek + 1, pHi];
+    if (objective === "regular") return [contentWeek + 1, lw.regular_season_end];
+    if (objective === "playoffs") return [Math.max(pLo, contentWeek + 1), pHi];
+    throw new Error("unknown objective " + objective);
+  }
+
+  // League-wide share of team-weeks in [lo, hi] that are byes.
+  function lineupByeShare(byes, lo, hi) {
+    var weeks = hi - lo + 1;
+    var teams = Object.keys(byes || {});
+    if (!(weeks > 0) || !teams.length) return 0;
+    var withBye = 0;
+    teams.forEach(function (t) { var w = byes[t]; if (lo <= w && w <= hi) withBye += 1; });
+    return withBye / (teams.length * weeks);
+  }
+
+  // Weeks of projection drift to the window's middle.
+  function lineupDriftHorizon(win, contentWeek) {
+    if (win[1] < win[0]) return 0;
+    return Math.max(0, win[0] - contentWeek - 1) + (win[1] - win[0] + 1) / 2;
+  }
+
+  // Mirror of derive_lineup_parameters.resolve(cfg, objective, injury_history,
+  // league_weeks, content_week, projection_confidence). `settings` keys are
+  // the Python argument names; a missing one takes the config's default.
+  function resolveLineupParameters(cfg, settings) {
+    settings = settings || {};
+    var d = cfg.defaults;
+    var objective = settings.objective || d.objective;
+    var injury = settings.injury_history || d.injury_history;
+    var lwIn = settings.league_weeks || {};
+    var leagueWeeks = {
+      regular_season_end: lwIn.regular_season_end !== undefined ? lwIn.regular_season_end
+        : d.league_weeks.regular_season_end,
+      playoff_weeks: (lwIn.playoff_weeks || d.league_weeks.playoff_weeks).slice()
+    };
+    var contentWeek = settings.content_week === undefined || settings.content_week === null
+      ? cfg.content_week : settings.content_week;
+    var scale = settings.projection_confidence === undefined || settings.projection_confidence === null
+      ? d.projection_confidence : settings.projection_confidence;
+    if (LINEUP_INJURY_HISTORY.indexOf(injury) === -1) throw new Error("unknown injury history " + injury);
+    var win = lineupWindow(objective, contentWeek, leagueWeeks);
+    var bye = win[1] >= win[0] ? lineupByeShare(cfg.byes, win[0], win[1]) : 0;
+    var h = lineupDriftHorizon(win, contentWeek);
+    var out = { objective: objective, injury_history: injury, league_weeks: leagueWeeks,
+      content_week: contentWeek, projection_confidence: scale, window: win, bye: bye,
+      horizon_weeks: h, positions: {} };
+    POSITION_ORDER.forEach(function (pos) {
+      var b = cfg.positions[pos];
+      var m = (objective === "playoffs" ? b.m_late : b.m)[injury];
+      var weekly = b.sigma_weekly * Math.sqrt(h);
+      var sig = Math.sqrt(b.sigma_now * b.sigma_now + weekly * weekly);
+      out.positions[pos] = { m: m, sigma_rel: sig * scale, sigma_floor: b.sigma_floor * scale };
+    });
+    return out;
+  }
+
+  // erf to double precision: the all-positive series
+  // erf(x) = 2/sqrt(pi) exp(-x^2) sum_n 2^n x^(2n+1) / (1*3*...*(2n+1)),
+  // and +-1 beyond |x| = 6 (erfc(6) < 3e-17).
+  function esErf(x) {
+    if (x === 0) return 0;
+    var ax = Math.abs(x);
+    if (ax >= 6) return x > 0 ? 1 : -1;
+    var term = ax, sum = ax, x2 = ax * ax;
+    for (var n = 1; n < 500; n += 1) {
+      term *= 2 * x2 / (2 * n + 1);
+      sum += term;
+      if (term < sum * 1e-17) break;
+    }
+    var r = 2 / Math.sqrt(Math.PI) * Math.exp(-x2) * sum;
+    if (r > 1) r = 1;
+    return x > 0 ? r : -r;
+  }
+
+  function esPhi(z) { return 0.5 * (1 + esErf(z / Math.SQRT2)); }
+
+  // P(lo < X <= hi), X ~ N(mu, s); a point mass when s = 0; hi may be Infinity.
+  function esProbBand(mu, s, lo, hi) {
+    if (hi <= lo) return 0;
+    if (s <= 0) return lo < mu && mu <= hi ? 1 : 0;
+    var za = (lo - mu) / s;
+    if (hi === Infinity) return 1 - esPhi(za);
+    return esPhi((hi - mu) / s) - esPhi(za);
+  }
+
+  // P(Binomial(n, q) >= k).
+  function esBinomialAtLeast(n, q, k) {
+    if (k <= 0) return 1;
+    if (n <= 0 || k > n) return 0;
+    var total = 0;
+    for (var j = k; j <= n; j += 1) {
+      var c = 1;
+      for (var i = 1; i <= j; i += 1) c = c * (n - j + i) / i;
+      total += c * Math.pow(q, j) * Math.pow(1 - q, n - j);
+    }
+    return total;
+  }
+
+  // Python's round(): half to even (ES-15.2, n_p).
+  function esRoundHalfEven(x) {
+    var f = Math.floor(x), diff = x - f;
+    if (diff > 0.5) return f + 1;
+    if (diff < 0.5) return f;
+    return f % 2 === 0 ? f : f + 1;
+  }
+
+  function esMean(xs) { var s = 0; xs.forEach(function (x) { s += x; }); return s / xs.length; }
+
+  function esStdev(xs) {
+    var m = esMean(xs), ss = 0;
+    xs.forEach(function (x) { ss += (x - m) * (x - m); });
+    return Math.sqrt(ss / (xs.length - 1));
+  }
+
+  // ES-15.3 chart sigma: the charts in I on a common scale (one factor per
+  // chart, 1000 / its total over the players every one of them lists); per
+  // position, players at least two charts list ranked by their mean; the
+  // median of sd / mean over ranks [S'/2, N') where S', N' are the starters
+  // and rostered counts position p would have filling its dedicated slots,
+  // the superflex and flex slots it is eligible for, and its bench seats on
+  // its own (expected_starts_model.chart_sigma_from). Listed natives only.
+  function esChartSigma(chartKeys, listed, setting) {
+    var teams = Number(setting.teams) || 0;
+    var slots = setting.slots || {};
+    var flexElig = setting.flex_eligible || VP_FLEX_ELIGIBLE;
+    var bench = vpBenchSeats(teams, Math.max(0, Number(setting.bench_per_team) || 0));
+    var maps = chartKeys.map(function (src) {
+      var m = {};
+      POSITION_ORDER.forEach(function (pos) { listed[src][pos].forEach(function (r) { m[r.key] = r.native; }); });
+      return m;
+    });
+    var shared = maps.length ? Object.keys(maps[0]).filter(function (k) {
+      return maps.every(function (m) { return Object.prototype.hasOwnProperty.call(m, k); });
+    }).sort(vpNumKey) : [];
+    var factors = maps.map(function (m) {
+      var tot = 0;
+      shared.forEach(function (k) { tot += m[k]; });
+      return tot > 0 ? ES_CHART_COMMON_TOTAL / tot : 1;
+    });
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var acc = {};
+      chartKeys.forEach(function (src, ci) {
+        listed[src][pos].forEach(function (r) {
+          (acc[r.key] = acc[r.key] || []).push(r.native * factors[ci]);
+        });
+      });
+      var rows = Object.keys(acc).filter(function (k) { return acc[k].length >= 2; })
+        .map(function (k) { return { key: k, mean: esMean(acc[k]), sd: esStdev(acc[k]) }; })
+        .sort(function (a, b) { return a.mean !== b.mean ? b.mean - a.mean : vpNumKey(a.key, b.key); });
+      var dedicated = teams * (Number(slots[pos]) || 0);
+      var extra = teams * Math.max(0, Number(setting.superflex) || 0)
+        + (flexElig.indexOf(pos) !== -1 ? teams * Math.max(0, Number(setting.flex) || 0) : 0);
+      var starters = dedicated + Math.min(extra, Math.max(0, rows.length - dedicated));
+      var rostered = starters + bench[pos];
+      var band = rows.slice(Math.floor(starters / 2), rostered).filter(function (r) { return r.mean > 0; });
+      out[pos] = { sigma_rel: band.length ? vpMedian(band.map(function (r) { return r.sd / r.mean; }))
+        : ES_DEFAULT_CHART_SIGMA, players: rows.length, band: band.length, shared_players: shared.length,
+        starters: starters, rostered: rostered };
+    });
+    return out;
+  }
+
+  // ES-3 / ES-4 for one source and position on its work list (sorted, listed
+  // and estimated). Returns the lines, bands and each row's parts.
+  function esPositionParts(work, starters, teams, waiver, starterLine, m, bye, sigmaRel, sigmaFloor) {
+    var avail = (1 - bye) * (1 - m);
+    var q = bye + (1 - bye) * m;
+    var nPerTeam = teams ? Math.max(1, esRoundHalfEven(starters / teams)) : 1;
+    var edges = [starterLine];
+    for (var k = 1; ; k += 1) {
+      var idx = starters + k * teams;
+      if (!teams || idx >= work.length || work[idx].native <= waiver) break;
+      edges.push(work[idx].native);
+    }
+    var bands = [];
+    for (var d = 1; d < edges.length; d += 1) {
+      bands.push({ depth: d, lo: edges[d], hi: edges[d - 1], fill: esBinomialAtLeast(nPerTeam, q, d) });
+    }
+    bands.push({ depth: edges.length, lo: waiver, hi: edges[edges.length - 1],
+      fill: esBinomialAtLeast(nPerTeam, q, edges.length) });
+    var parts = work.map(function (r) {
+      var x = r.native;
+      var s = x > 0 ? Math.max(sigmaRel * x, sigmaFloor) : sigmaFloor;
+      var v = Math.max(0, x - waiver);
+      var pStart = esProbBand(x, s, starterLine, Infinity);
+      var fillProb = 0;
+      bands.forEach(function (b) { fillProb += b.fill * esProbBand(x, s, b.lo, b.hi); });
+      return { sigma: s, startWorthy: pStart, lineupShare: avail * (pStart + fillProb),
+        starterPart: avail * (v * pStart), benchPart: avail * (v * fillProb) };
+    });
+    return { avail: avail, unavailable: q, nPerTeam: nPerTeam, bands: bands, parts: parts };
+  }
+
   function runValuePipeline(input) {
     var setting = input.setting || {};
     var players = input.players || {};
@@ -1529,6 +1750,14 @@
     var pie = vpFinite(input.pie) ? input.pie
       : VP_PIE_PER_STARTING_SLOT * (Number(setting.teams) || 0) * startingSlots;
     var bsInput = vpFinite(setting.bench_share) ? setting.bench_share : VP_DEFAULT_BENCH_SHARE;
+    // ES-5 / ES-14: with lineup parameters the parts replace the slices and
+    // the bench share is computed unless the reader's override is set.
+    var lineup = input.lineup && input.lineup.positions ? input.lineup : null;
+    var esMode = !!lineup;
+    var bsOverride = vpFinite(setting.bench_share_override) ? setting.bench_share_override : null;
+    if (esMode) bsInput = bsOverride;
+    var esConfidence = esMode && vpFinite(lineup.projection_confidence) ? lineup.projection_confidence : 1;
+    var chartSigma = esMode ? esChartSigma(chartsI, listed, setting) : null;
 
     var chartPeersFor = function (src) {
       return chartsI.filter(function (k) { return k !== src; });
@@ -1625,6 +1854,7 @@
       var positions = {};
       var playersOut = {};
       var groups = vpEmptyGroups();
+      var surplusTotal = 0;
       POSITION_ORDER.forEach(function (pos) {
         var a = srcAlloc[pos];
         var own = listed[src][pos];
@@ -1660,22 +1890,46 @@
           starterLine = work.length > S ? work[S].native : waiver;
           starterLine = Math.max(starterLine, waiver);
         }
-        var bsum = 0, ssum = 0;
+        // ES-3 / ES-4: the lineup share of each row's level (expected starts).
+        var es = null;
+        if (esMode && method !== "no_players") {
+          var lp = lineup.positions[pos];
+          var sigRel = family === "chart" ? chartSigma[pos].sigma_rel * esConfidence : lp.sigma_rel;
+          var sigFloor = family === "chart" ? 0 : lp.sigma_floor;
+          es = esPositionParts(work, S, Number(setting.teams) || 0, waiver, starterLine, lp.m, lineup.bye,
+            sigRel, sigFloor);
+          es.sigmaRel = sigRel;
+          es.sigmaFloor = sigFloor;
+          es.m = lp.m;
+        }
+        var bsum = 0, ssum = 0, vsum = 0;
         work.forEach(function (r, i) {
           var rank = i + 1;
           var v = Math.max(0, r.native - waiver);
-          var bsl = Math.max(0, Math.min(r.native, starterLine) - waiver);
-          var ssl = Math.max(0, r.native - starterLine);
-          bsum += bsl; ssum += ssl;
+          var bsl, ssl, part = es ? es.parts[i] : null;
+          if (part) {
+            // ES-5: start-worthy part and fill-in part (bsl := fi, ssl := sw).
+            bsl = part.benchPart;
+            ssl = part.starterPart;
+          } else {
+            bsl = Math.max(0, Math.min(r.native, starterLine) - waiver);
+            ssl = Math.max(0, r.native - starterLine);
+          }
+          bsum += bsl; ssum += ssl; vsum += v;
           playersOut[r.key] = { pos: pos, native: r.native, estimated: r.estimated, rank: rank,
             role: rank <= S ? "starter" : (rank <= N ? "bench" : "waiver"),
-            vorp: v, benchSlice: bsl, starterSlice: ssl, adjusted: 0, vorpDisplay: 0 };
+            vorp: v, benchSlice: bsl, starterSlice: ssl, adjusted: 0, vorpDisplay: 0,
+            lineupShare: part ? part.lineupShare : null, startWorthy: part ? part.startWorthy : null };
         });
         groups[vpGroupKey(pos, "starter")] = ssum;
         groups[vpGroupKey(pos, "bench")] = bsum;
+        surplusTotal += vsum;
         positions[pos] = { dedicated: a.dedicated, superflex: a.superflex, flex: a.flex, bench: a.bench,
           starters: S, rostered: N, listed: own.length, nEstimated: Object.keys(estimates).length,
-          estimates: estimates, method: method, waiver: waiver, starterLine: starterLine };
+          estimates: estimates, method: method, waiver: waiver, starterLine: starterLine,
+          avail: es ? es.avail : null, bands: es ? es.bands : null,
+          lineup: es ? { m: es.m, unavailable: es.unavailable, nPerTeam: es.nPerTeam,
+            sigmaRel: es.sigmaRel, sigmaFloor: es.sigmaFloor } : null };
       });
       var total = 0;
       POSITION_ORDER.forEach(function (pos) {
@@ -1701,7 +1955,12 @@
         POSITION_ORDER.forEach(function (pos) {
           var sm = starterMix ? starterMix[pos] : 0;
           var bm = benchMix ? benchMix[pos] : 0;
-          if (starterMix && benchMix) {
+          if (esMode && bsInput === null) {
+            // ES-15.1: the source's own implied weights, each group's share
+            // of its parts (the bench share is an output).
+            weights[vpGroupKey(pos, "starter")] = groups[vpGroupKey(pos, "starter")] / total;
+            weights[vpGroupKey(pos, "bench")] = groups[vpGroupKey(pos, "bench")] / total;
+          } else if (starterMix && benchMix) {
             weights[vpGroupKey(pos, "starter")] = (1 - bsInput) * sm;
             weights[vpGroupKey(pos, "bench")] = bsInput * bm;
           } else {
@@ -1712,7 +1971,7 @@
       }
       out[src] = { family: family, status: inI[src] ? "included" : (sources[src].status || "excluded"),
         included: !!inI[src], label: vpLabel(sources, src), positions: positions, players: playersOut,
-        groups: groups, totalVorp: total, hasWeights: hasWeights, starterMix: starterMix,
+        groups: groups, totalVorp: total, surplusTotal: surplusTotal, hasWeights: hasWeights, starterMix: starterMix,
         benchMix: benchMix, weights: weights, allocation: srcAlloc };
     });
 
@@ -1731,12 +1990,42 @@
     });
     var sumS = 0, sumB = 0;
     POSITION_ORDER.forEach(function (pos) { sumS += Sraw[pos]; sumB += Braw[pos]; });
-    var bsStar = sumB === 0 ? 0 : (sumS === 0 ? 1 : bsInput);
+    var bsStar;
     var W = vpEmptyGroups();
-    POSITION_ORDER.forEach(function (pos) {
-      W[vpGroupKey(pos, "starter")] = sumS > 0 ? (1 - bsStar) * Sraw[pos] / sumS : 0;
-      W[vpGroupKey(pos, "bench")] = sumB > 0 ? bsStar * Braw[pos] / sumB : 0;
-    });
+    if (esMode && bsInput === null) {
+      // ES-15.1: the mean of the sources' own weights per group (over the
+      // sources VP-4.1 counts at that position), renormalized to 1. The bench
+      // share applied is the bench groups' total: an output.
+      var Wraw = vpEmptyGroups(), wTotal = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        VP_ROLES.forEach(function (role) {
+          var g = vpGroupKey(pos, role), sum = 0, n = 0;
+          included.forEach(function (src) {
+            var o = out[src];
+            if (!o.hasWeights || o.positions[pos].method === "no_players") return;
+            sum += o.weights[g]; n += 1;
+          });
+          Wraw[g] = n ? sum / n : 0;
+          wTotal += Wraw[g];
+        });
+      });
+      bsStar = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        VP_ROLES.forEach(function (role) {
+          var g = vpGroupKey(pos, role);
+          W[g] = wTotal > 0 ? Wraw[g] / wTotal : 0;
+        });
+        bsStar += W[vpGroupKey(pos, "bench")];
+      });
+    } else {
+      bsStar = sumB === 0 ? 0 : (sumS === 0 ? 1 : bsInput);
+      POSITION_ORDER.forEach(function (pos) {
+        W[vpGroupKey(pos, "starter")] = sumS > 0 ? (1 - bsStar) * Sraw[pos] / sumS : 0;
+        W[vpGroupKey(pos, "bench")] = sumB > 0 ? bsStar * Braw[pos] / sumB : 0;
+      });
+    }
+    var WBase = {};
+    Object.keys(W).forEach(function (g) { WBase[g] = W[g]; });
     var shares = setting.position_shares;
     if (shares && typeof shares === "object") {
       POSITION_ORDER.forEach(function (pos) {
@@ -1776,7 +2065,9 @@
         });
         Object.keys(rates).forEach(function (g) { rates[g] = o.groups[g] > 0 ? funded[g] / o.groups[g] : 0; });
       }
-      var vorpFactor = o.hasWeights ? pie / o.totalVorp : 0;
+      // VP-5.6: one factor per source so its value above waivers sums to the
+      // pie (ES-15.4: over the surplus, which the parts no longer equal).
+      var vorpFactor = o.hasWeights && o.surplusTotal > 0 ? pie / o.surplusTotal : 0;
       Object.keys(o.players).forEach(function (k) {
         var r = o.players[k];
         if (!o.hasWeights) { r.adjusted = 0; r.vorpDisplay = 0; return; }
@@ -1838,6 +2129,22 @@
           row.reasons[src] = c.reason;
         }
       });
+      // ES-10: the blended mean over I of the sources' lineup share of his
+      // level and of P(X > l), over the sources with him on their work list.
+      row.lineupShare = null;
+      row.startWorthy = null;
+      row.lineupShareBySource = {};
+      if (esMode) {
+        var shSum = 0, swSum = 0, shN = 0;
+        sourceKeys.forEach(function (src) {
+          var p = out[src].players[key];
+          if (!p || p.lineupShare === null) return;
+          row.lineupShareBySource[src] = p.lineupShare;
+          if (!inI[src]) return;
+          shSum += p.lineupShare; swSum += p.startWorthy; shN += 1;
+        });
+        if (shN) { row.lineupShare = shSum / shN; row.startWorthy = swSum / shN; }
+      }
       Object.keys(versionSources).forEach(function (version) {
         var keys = versionSources[version].filter(function (k) {
           return !selection || selection.indexOf(k) !== -1;
@@ -1950,11 +2257,42 @@
       return vpNumKey(a, b);
     });
 
+    // ES-14 readout: the bench tier's share of each position's blended DDF
+    // Value and of the whole (players ranked S_p+1..N_p on the projected-
+    // points order of VP-2.2, over every player in that order; blended over
+    // I, the reader's input selection ignored like the Indexed basis).
+    var readout = null;
+    if (!degenerate) {
+      readout = { QB: null, RB: null, WR: null, TE: null, overall: null,
+        override: esMode ? bsOverride !== null : true,
+        overrideValue: esMode ? bsOverride : bsInput,
+        fillInShare: bsStar,
+        method: esMode ? "expected-starts" : "fixed-share" };
+      var benchAll = 0, totalAll = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        var bench = 0, total = 0;
+        ppgOrder[pos].forEach(function (r, i) {
+          var v = indexBasis[r.key];
+          if (!vpFinite(v)) return;
+          total += v;
+          if (i >= allocation[pos].starters && i < allocation[pos].rostered) bench += v;
+        });
+        readout[pos] = total > 0 ? bench / total : null;
+        benchAll += bench; totalAll += total;
+      });
+      readout.overall = totalAll > 0 ? benchAll / totalAll : null;
+    }
+
     return {
       version: VALUE_PIPELINE_VERSION,
       setting: setting,
       pie: pie,
-      benchShare: bsInput,
+      method: esMode ? "expected-starts" : "slices",
+      benchShare: readout,
+      benchShareInput: bsInput,
+      benchShareOverride: esMode ? bsOverride : null,
+      lineup: lineup,
+      chartSigma: chartSigma,
       benchShareApplied: bsStar,
       included: included,
       excluded: excluded,
@@ -1966,6 +2304,7 @@
       starterMixMean: Sraw,
       benchMixMean: Braw,
       ddfWeights: W,
+      ddfWeightsBeforeShares: WBase,
       budgets: budgets,
       sources: out,
       indexed: indexed,
@@ -1996,15 +2335,18 @@
         });
         positions[pos] = { method: p.method, waiver: p.waiver, starterLine: p.starterLine,
           starters: p.starters, rostered: p.rostered, listed: p.listed, nEstimated: p.nEstimated,
-          estimates: estimates };
+          avail: p.avail, bands: p.bands, lineup: p.lineup, estimates: estimates };
       });
-      sources[src] = { family: o.family, included: o.included, totalVorp: o.totalVorp, groups: o.groups,
+      sources[src] = { family: o.family, included: o.included, totalVorp: o.totalVorp,
+        surplusTotal: o.surplusTotal, groups: o.groups,
         weights: o.weights, starterMix: o.starterMix, benchMix: o.benchMix, rates: o.rates,
         unfundedGroups: o.unfundedGroups, unfundedMoved: o.unfundedMoved, vorpFactor: o.vorpFactor,
         indexedFactor: o.indexedFactor === undefined ? null : o.indexedFactor, positions: positions };
     });
     return {
-      version: result.version, setting: result.setting, pie: result.pie, benchShare: result.benchShare,
+      version: result.version, setting: result.setting, pie: result.pie, method: result.method,
+      benchShare: result.benchShare, benchShareInput: result.benchShareInput,
+      benchShareOverride: result.benchShareOverride, lineup: result.lineup, chartSigma: result.chartSigma,
       benchShareApplied: result.benchShareApplied, included: result.included, excluded: result.excluded,
       degenerate: result.degenerate, ddfWeights: result.ddfWeights, allocation: result.allocation,
       slotFill: result.slotFill, fillSets: result.fillSets, sources: sources
@@ -2016,6 +2358,15 @@
     VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,
+    resolveLineupParameters: resolveLineupParameters,
+    lineupWindow: lineupWindow,
+    LINEUP_OBJECTIVES: LINEUP_OBJECTIVES,
+    LINEUP_INJURY_HISTORY: LINEUP_INJURY_HISTORY,
+    LINEUP_PROJECTION_CONFIDENCE: LINEUP_PROJECTION_CONFIDENCE,
+    LINEUP_DEFAULT_LEAGUE_WEEKS: LINEUP_DEFAULT_LEAGUE_WEEKS,
+    BENCH_SHARE_OVERRIDE_BOUNDS: BENCH_SHARE_OVERRIDE_BOUNDS,
+    esErf: esErf,
+    esBinomialAtLeast: esBinomialAtLeast,
     valuePipelineDiagnostics: valuePipelineDiagnostics,
     compositeValue: compositeValue,
     PUBLISHED_DERIVATION_VERSION: PUBLISHED_DERIVATION_VERSION,

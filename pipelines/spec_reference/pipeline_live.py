@@ -220,7 +220,15 @@ def _jkeys(d: dict | None) -> dict | None:
     return {str(k): v for k, v in d.items()}
 
 
-def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict) -> dict:
+def lineup_config(repo: Path = REPO) -> dict | None:
+    """config/lineup_parameters.json (ES-1, ES-14), or None (then the VP-2.6
+    slices run at the 15% bench share)."""
+    path = repo / "config" / "lineup_parameters.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict,
+                lineup: dict | None = None) -> dict:
     setting = vp.Setting(teams=teams, slots=dict(DEFAULT_SLOTS), flex=1, superflex=sf,
                          bench_per_team=6, bench_share=vp.DEFAULT_BENCH_SHARE)
     current, prior, eligible, excluded = {}, {}, [], []
@@ -243,7 +251,7 @@ def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict) ->
             excluded.append({"key": s, "reason": "no prior week"})
             current[s]["status"] = "no prior week"
     res = vp.run(setting, data["pos_of"], current, prior if has_prior else None, included,
-                 names=data["names"])
+                 names=data["names"], lineup=lineup)
     cur = res["current"]
     views = {"indexed": {}, "vorp": {}, "adjusted": {}}
     for s in current:
@@ -291,6 +299,7 @@ def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict) ->
                     "bench_share": setting.bench_share},
         "included": cur["included"], "excluded": excluded, "has_prior_week": has_prior,
         "pie": cur["pie"], "bench_share_applied": cur["bench_share_applied"],
+        "bench_share_readout": cur.get("bench_share_readout"),
         "ddf_weights": cur["ddf_weights"], "starter_mix_mean": cur["starter_mix_mean"],
         "bench_mix_mean": cur["bench_mix_mean"], "allocation": cur["allocation"],
         "fill_sets": cur["fill_sets"], "sources": sources, "values": views, "rows": rows,
@@ -304,11 +313,13 @@ def build(paths: dict | None = None, only: list | None = None) -> dict:
     data = load(paths)
     dropped: dict = {}
     settings = {}
+    cfg = lineup_config()
+    lineup = vp.resolve_lineup(cfg) if cfg else None   # the reader defaults (ES-14)
     for sc, t, sf in settings_list():
         sid = setting_id(sc, t, sf)
         if only and sid not in only:
             continue
-        settings[sid] = run_setting(data, sc, t, sf, dropped)
+        settings[sid] = run_setting(data, sc, t, sf, dropped, lineup)
     return {
         "schema": SCHEMA,
         "version": "spec-reference/2",

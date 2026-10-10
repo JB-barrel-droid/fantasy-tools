@@ -20,6 +20,7 @@ converts at the edges.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -48,6 +49,7 @@ class Setting:
     bench_share: float = DEFAULT_BENCH_SHARE
     flex_eligible: tuple = ("RB", "WR", "TE")
     position_shares: dict | None = None   # reader position shares (VP-4.4)
+    bench_share_override: float | None = None   # ES-14 override (off = None)
 
     @classmethod
     def from_fixture(cls, s: dict) -> "Setting":
@@ -56,7 +58,8 @@ class Setting:
                    bench_per_team=s.get("bench_per_team", 6),
                    bench_share=float(s.get("bench_share", DEFAULT_BENCH_SHARE)),
                    flex_eligible=tuple(s.get("flex_eligible") or ("RB", "WR", "TE")),
-                   position_shares=s.get("position_shares"))
+                   position_shares=s.get("position_shares"),
+                   bench_share_override=s.get("bench_share_override"))
 
     def starting_slots_per_team(self) -> int:
         return sum(int(self.slots.get(p, 0)) for p in POSITIONS) + self.flex + self.superflex
@@ -233,10 +236,136 @@ def estimate_player(c: str, i: int, p: str, listed_c: list, natives: dict, peers
     return rec
 
 
+# ---------------------------------------------------------------- ES (expected starts)
+# docs/methodology.md ES-3 .. ES-5, ES-10, ES-14 and the engine rulings ES-15.
+# `lineup` = resolved parameters {bye, projection_confidence, positions: {pos:
+# {m, sigma_rel, sigma_floor}}} (derive_lineup_parameters.resolve).
+
+def _cdf(z: float) -> float:
+    return 0.5 * math.erfc(-z / math.sqrt(2.0))
+
+
+def _prob(mu: float, sd: float, lo: float, hi: float | None) -> float:
+    """P(lo < X <= hi) for X ~ N(mu, sd); hi None = +inf; sd 0 = point mass."""
+    if hi is not None and hi <= lo:
+        return 0.0
+    if sd <= 0:
+        return 1.0 if (mu > lo and (hi is None or mu <= hi)) else 0.0
+    top = 1.0 if hi is None else _cdf((hi - mu) / sd)
+    return top - _cdf((lo - mu) / sd)
+
+
+def _fill(n: int, q: float, k: int) -> float:
+    """fill_k = P(Binomial(n, q) >= k), as 1 - P(< k) summed from the pmf."""
+    if k <= 0:
+        return 1.0
+    if k > n or n <= 0:
+        return 0.0
+    tail = 0.0
+    for j in range(k, n + 1):
+        tail += math.comb(n, j) * (q ** j) * ((1.0 - q) ** (n - j))
+    return tail
+
+
+def resolve_lineup(cfg: dict, objective: str | None = None, injury_history: str | None = None,
+                   league_weeks: dict | None = None, projection_confidence: float | None = None) -> dict:
+    """ES-12 / ES-14 from the text: the window, b over the window's
+    team-weeks, the drift horizon (gap before the window plus half its
+    length) and sigma = sqrt(now^2 + weekly^2 x horizon) x confidence."""
+    d = cfg["defaults"]
+    obj = objective or d["objective"]
+    hist = injury_history or d["injury_history"]
+    lw = dict(d["league_weeks"])
+    lw.update(league_weeks or {})
+    conf = d["projection_confidence"] if projection_confidence is None else projection_confidence
+    W = cfg["content_week"]
+    first_po, last_po = lw["playoff_weeks"]
+    lo, hi = {"season": (W + 1, last_po), "regular": (W + 1, lw["regular_season_end"]),
+              "playoffs": (max(first_po, W + 1), last_po)}[obj]
+    if hi >= lo:
+        byes = cfg["byes"]
+        b = sum(1 for wk in byes.values() if lo <= wk <= hi) / (len(byes) * (hi - lo + 1)) if byes else 0.0
+        horizon = max(0, lo - W - 1) + (hi - lo + 1) / 2.0
+    else:
+        b, horizon = 0.0, 0.0
+    pos = {}
+    for p in POSITIONS:
+        blk = cfg["positions"][p]
+        m = (blk["m_late"] if obj == "playoffs" else blk["m"])[hist]
+        sig = math.sqrt(blk["sigma_now"] ** 2 + blk["sigma_weekly"] ** 2 * horizon) * conf
+        pos[p] = {"m": m, "sigma_rel": sig, "sigma_floor": blk["sigma_floor"] * conf}
+    return {"bye": b, "projection_confidence": conf, "window": [lo, hi], "positions": pos}
+
+
+def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) -> dict:
+    """ES-15.3 (SA-ES-3): sigma for the chart family, per position."""
+    shared = None
+    for c in charts:
+        keys = set(natives[c])
+        shared = keys if shared is None else (shared & keys)
+    shared = shared or set()
+    scale = {}
+    for c in charts:
+        t = fsum_in_order(natives[c][k] for k in sorted(shared))
+        scale[c] = 1000.0 / t if t > 0 else 1.0
+    bench = dhondt_bench(setting.teams, setting.bench_per_team)
+    res = {}
+    for p in POSITIONS:
+        vals: dict = {}
+        for c in charts:
+            for k, x in natives[c].items():
+                if pos_of.get(k) == p:
+                    vals.setdefault(k, []).append(x * scale[c])
+        pts = []
+        for k, xs in vals.items():
+            if len(xs) < 2:
+                continue
+            mu = fsum_in_order(xs) / len(xs)
+            var = fsum_in_order((x - mu) ** 2 for x in xs) / (len(xs) - 1)
+            pts.append((mu, math.sqrt(var), k))
+        pts.sort(key=lambda t: (-t[0], t[2]))
+        ded = setting.teams * int(setting.slots.get(p, 0))
+        more = setting.teams * setting.superflex + (setting.teams * setting.flex if p in setting.flex_eligible else 0)
+        n_start = ded + min(more, max(0, len(pts) - ded))
+        n_rost = n_start + bench[p]
+        band = [t for t in pts[n_start // 2:n_rost] if t[0] > 0]
+        res[p] = {"sigma_rel": median([sd / mu for mu, sd, _ in band]) if band else 0.2,
+                  "players": len(pts), "band": len(band)}
+    return res
+
+
+def es_parts(values: list, S: int, T: int, w: float, line: float, m: float, bye: float,
+             sig: float, floor: float) -> dict:
+    """ES-3.2 depth edges, ES-4 lineup share, ES-5 parts for one work list."""
+    avail = (1.0 - bye) * (1.0 - m)
+    q_out = bye + (1.0 - bye) * m
+    n = max(1, round(S / T)) if T else 1        # SA-ES-2: Python round, half to even
+    e = [line]
+    while T:
+        idx = S + len(e) * T
+        if idx >= len(values) or not values[idx] > w:
+            break
+        e.append(values[idx])
+    bands = []
+    for depth in range(1, len(e) + 1):
+        lo = e[depth] if depth < len(e) else w
+        bands.append({"depth": depth, "lo": lo, "hi": e[depth - 1], "fill": _fill(n, q_out, depth)})
+    out = []
+    for x in values:
+        sd = max(sig * x, floor) if x > 0 else floor
+        surplus = max(0.0, x - w)
+        start = _prob(x, sd, line, None)
+        fill = fsum_in_order(b["fill"] * _prob(x, sd, b["lo"], b["hi"]) for b in bands)
+        out.append({"sw": avail * (surplus * start), "fi": avail * (surplus * fill),
+                    "share": avail * (start + fill), "start_worthy": start})
+    return {"avail": avail, "n_per_team": n, "bands": bands, "rows": out}
+
+
 # ---------------------------------------------------------------- one source, VP-2/3
 
 def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
-                 fill_sets: dict | None, peers: list, m: dict, bs: float) -> dict:
+                 fill_sets: dict | None, peers: list, m: dict, bs: float | None,
+                 es: dict | None = None) -> dict:
     """VP-2 (work lists, waiver/starter lines, slices) and VP-3 for one source."""
     nat = natives[s]
     listed_by_pos = {p: [] for p in POSITIONS}
@@ -246,6 +375,7 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
             listed_by_pos[p].append(k)
     positions, players = {}, {}
     groups = {g: 0.0 for g in GROUP_KEYS}
+    surplus = []
     for p in POSITIONS:
         a = alloc[p]
         listed = _sorted_listed(nat, listed_by_pos[p])
@@ -276,18 +406,38 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
         line = work_val[work[S]] if len(work) > S else w
         line = max(line, w)
         info.update(waiver_value=w, starter_line=line, method=method)
+        parts = None
+        if es is not None:
+            prm = es["lineup"]["positions"][p]
+            if family == CHART:
+                sig = es["chart_sigma"][p]["sigma_rel"] * float(es["lineup"].get("projection_confidence", 1.0))
+                floor = 0.0
+            else:
+                sig, floor = prm["sigma_rel"], prm["sigma_floor"]
+            got = es_parts([work_val[k] for k in work], S, es["teams"], w, line, prm["m"],
+                           es["lineup"]["bye"], sig, floor)
+            parts = got["rows"]
+            info.update(avail=got["avail"], bands=got["bands"],
+                        lineup={"m": prm["m"], "n_per_team": got["n_per_team"], "sigma_rel": sig,
+                                "sigma_floor": floor})
         positions[p] = info
         g_s, g_b = [], []
         for rank, k in enumerate(work, start=1):
             x = work_val[k]
             v = max(0.0, x - w)
-            bsl = max(0.0, min(x, line) - w)
-            ssl = max(0.0, x - line)
+            if parts is None:
+                bsl = max(0.0, min(x, line) - w)
+                ssl = max(0.0, x - line)
+            else:
+                bsl, ssl = parts[rank - 1]["fi"], parts[rank - 1]["sw"]
             role = "starter" if rank <= S else ("bench" if rank <= N else "waiver")
             players[k] = {"pos": p, "native": x, "imputed": k in estimates, "rank": rank,
-                          "role": role, "vorp": v, "bench_slice": bsl, "starter_slice": ssl}
+                          "role": role, "vorp": v, "bench_slice": bsl, "starter_slice": ssl,
+                          "lineup_share": parts[rank - 1]["share"] if parts else None,
+                          "start_worthy": parts[rank - 1]["start_worthy"] if parts else None}
             g_s.append(ssl)
             g_b.append(bsl)
+            surplus.append(v)
         groups[f"{p}|starter"] = fsum_in_order(g_s)
         groups[f"{p}|bench"] = fsum_in_order(g_b)
     total = fsum_in_order(groups[g] for g in GROUP_KEYS)
@@ -300,7 +450,10 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
     if has_weights:
         weights = {}
         for p in POSITIONS:
-            if sig is not None and beta is not None:
+            if bs is None:                 # ES-15.1: own implied weights
+                weights[f"{p}|starter"] = groups[f"{p}|starter"] / total
+                weights[f"{p}|bench"] = groups[f"{p}|bench"] / total
+            elif sig is not None and beta is not None:
                 weights[f"{p}|starter"] = (1 - bs) * sig[p]
                 weights[f"{p}|bench"] = bs * beta[p]
             elif sig is not None:          # bench mix undefined
@@ -310,13 +463,15 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
                 weights[f"{p}|starter"] = 0.0
                 weights[f"{p}|bench"] = beta[p]
     return {"family": family, "positions": positions, "groups": groups, "total_vorp": total,
+            "surplus_total": fsum_in_order(surplus),
             "players": players, "weights": weights, "starter_mix": sig, "bench_mix": beta,
             "has_weights": has_weights}
 
 
 # ---------------------------------------------------------------- VP-4
 
-def ddf_weights(priced: dict, included: list, bs: float, position_shares: dict | None) -> tuple:
+def ddf_weights(priced: dict, included: list, bs: float | None, position_shares: dict | None) -> tuple:
+    """VP-4; bs None = ES-15.1 (mean of the 8-group source weights, renormalized)."""
     S_raw, B_raw = {}, {}
     for p in POSITIONS:
         s_vals, b_vals = [], []
@@ -332,16 +487,29 @@ def ddf_weights(priced: dict, included: list, bs: float, position_shares: dict |
         B_raw[p] = fsum_in_order(b_vals) / len(b_vals) if b_vals else 0.0
     s_sum = fsum_in_order(S_raw[p] for p in POSITIONS)
     b_sum = fsum_in_order(B_raw[p] for p in POSITIONS)
-    if b_sum == 0:
-        bs_star = 0.0
-    elif s_sum == 0:
-        bs_star = 1.0
-    else:
-        bs_star = bs
     W = {}
-    for p in POSITIONS:
-        W[f"{p}|starter"] = (1 - bs_star) * S_raw[p] / s_sum if s_sum else 0.0
-        W[f"{p}|bench"] = bs_star * B_raw[p] / b_sum if b_sum else 0.0
+    if bs is None:
+        raw = {}
+        for g in GROUP_KEYS:
+            p = g.split("|")[0]
+            vals = [priced[s]["weights"][g] for s in included
+                    if priced.get(s) and priced[s]["has_weights"]
+                    and priced[s]["positions"][p]["method"] != "no_players"]
+            raw[g] = fsum_in_order(vals) / len(vals) if vals else 0.0
+        tot = fsum_in_order(raw[g] for g in GROUP_KEYS)
+        for g in GROUP_KEYS:
+            W[g] = raw[g] / tot if tot > 0 else 0.0
+        bs_star = fsum_in_order(W[f"{p}|bench"] for p in POSITIONS)
+    else:
+        if b_sum == 0:
+            bs_star = 0.0
+        elif s_sum == 0:
+            bs_star = 1.0
+        else:
+            bs_star = bs
+        for p in POSITIONS:
+            W[f"{p}|starter"] = (1 - bs_star) * S_raw[p] / s_sum if s_sum else 0.0
+            W[f"{p}|bench"] = bs_star * B_raw[p] / b_sum if b_sum else 0.0
     if position_shares:
         for p in POSITIONS:
             tot = W[f"{p}|starter"] + W[f"{p}|bench"]
@@ -374,7 +542,8 @@ def adjust_source(r: dict, pie: float, W: dict) -> None:
         rates = {g: 0.0 for g in GROUP_KEYS}
     else:
         rates = {g: (bprime[g] / G[g] if G[g] != 0 else 0.0) for g in GROUP_KEYS}
-    factor = pie / r["total_vorp"] if r["has_weights"] else 0.0
+    sur = r.get("surplus_total", r["total_vorp"])
+    factor = pie / sur if r["has_weights"] and sur > 0 else 0.0   # ES-15.4
     for k, pl in r["players"].items():
         p = pl["pos"]
         pl["adjusted"] = rates[f"{p}|bench"] * pl["bench_slice"] + rates[f"{p}|starter"] * pl["starter_slice"]
@@ -416,7 +585,8 @@ def ddf_version(values: dict, members: list) -> dict:
 # ---------------------------------------------------------------- one week
 
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
-             selection: list | None = None, names: dict | None = None) -> dict:
+             selection: list | None = None, names: dict | None = None,
+             lineup: dict | None = None) -> dict:
     """VP-2 .. VP-7 for one week.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
@@ -442,6 +612,12 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     else:   # VP-2.2 f (SA-3)
         alloc, fill_sets, p_order = None, None, None
     peers_all = sorted(s for s in inc if family[s] == CHART)
+    es = None
+    if lineup is not None:
+        charts_in = [s for s in inc if family[s] == CHART]
+        es = {"teams": setting.teams, "lineup": lineup,
+              "chart_sigma": es_chart_sigma(setting, natives, charts_in, pos_of)}
+        bs = setting.bench_share_override
     priced = {}
     for s in sources:
         if degenerate:
@@ -450,7 +626,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
         else:
             a = alloc
         peers = [k for k in peers_all if k != s]
-        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs)
+        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs, es)
         priced[s]["status"] = "included" if s in inc else sources[s].get("status", "excluded")
         priced[s]["allocation"] = a
     S_raw, B_raw, bs_star, W = ddf_weights(priced, inc, bs, setting.position_shares)
@@ -481,6 +657,10 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
                    "ddf_charts": ddf_version(adj, members["charts"]),
                    "ddf_projections": ddf_version(adj, members["projections"]),
                    "mean_ppg": m.get(k)}
+        shares = [(priced[s]["players"][k]["lineup_share"], priced[s]["players"][k]["start_worthy"])
+                  for s in inc if k in priced[s]["players"] and priced[s]["players"][k]["lineup_share"] is not None]
+        rows[k]["lineup_share"] = fsum_in_order(a for a, _ in shares) / len(shares) if shares else None
+        rows[k]["start_worthy"] = fsum_in_order(b for _, b in shares) / len(shares) if shares else None
 
     # VP-6.4 Indexed, every chart (held ones too)
     indexed = {}
@@ -536,10 +716,33 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     ranking = sorted(row_keys, key=lambda k: (rows[k]["ddf_blended"]["value"] is None,
                                               -(rows[k]["ddf_blended"]["value"] or 0.0), k))
     budgets = {g: pie * W[g] for g in GROUP_KEYS}
+    # ES-14 readout (SA-ES-5): bench tier = ranks S_p+1..N_p of the
+    # projected-points order; value = blended DDF Value over I, no selection.
+    readout = None
+    if not degenerate:
+        readout = {"override": (bs is not None) if es is not None else True, "override_value": bs,
+                   "fill_in_share": bs_star, "method": "expected-starts" if es is not None else "fixed-share"}
+        tb, tt = [], []
+        for p in POSITIONS:
+            pb, pt = [], []
+            for idx, k in enumerate(p_order[p]):
+                vals = [rows[k]["adjusted"][s] for s in inc if rows[k]["adjusted"].get(s) is not None]
+                if not vals:
+                    continue
+                v = fsum_in_order(vals) / len(vals)
+                pt.append(v)
+                if alloc[p]["starters"] <= idx < alloc[p]["rostered"]:
+                    pb.append(v)
+            b_, t_ = fsum_in_order(pb), fsum_in_order(pt)
+            readout[p] = b_ / t_ if t_ > 0 else None
+            tb.append(b_)
+            tt.append(t_)
+        b_, t_ = fsum_in_order(tb), fsum_in_order(tt)
+        readout["overall"] = b_ / t_ if t_ > 0 else None
     src_out = {}
     for s in sources:
         r = priced[s]
-        src_out[s] = {k: r[k] for k in ("family", "status", "positions", "groups", "total_vorp",
+        src_out[s] = {k: r[k] for k in ("family", "status", "positions", "groups", "total_vorp", "surplus_total",
                                         "players", "weights", "starter_mix", "bench_mix", "rates",
                                         "unfunded_moved", "unfunded_groups", "vorp_display_factor",
                                         "indexed_factor") if k in r}
@@ -550,6 +753,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
         "pie": pie,
         "starting_slots_per_team": setting.starting_slots_per_team(),
         "bench_share_applied": bs_star,
+        "bench_share_readout": readout,
+        "chart_sigma": es["chart_sigma"] if es is not None else None,
         "mean_ppg": m,
         "allocation": alloc,
         "fill_sets": fill_sets,
@@ -572,14 +777,14 @@ VERSIONS = (("blended", "ddf_blended"), ("charts", "ddf_charts"), ("projections"
 
 def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, included: list,
         selection: list | None = None, names: dict | None = None,
-        prior_pos_of: dict | None = None) -> dict:
+        prior_pos_of: dict | None = None, lineup: dict | None = None) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
-    cur = run_week(setting, pos_of, current, included, selection, names)
+    cur = run_week(setting, pos_of, current, included, selection, names, lineup)
     out = {"current": cur, "prior": None}
     if prior:
         prior_src = {s: prior[s] for s in included if s in prior}
-        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names)
+        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup)
         out["prior"] = pw
         for k, row in cur["rows"].items():
             prow = pw["rows"].get(k)

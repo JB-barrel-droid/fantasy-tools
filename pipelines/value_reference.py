@@ -150,6 +150,7 @@ class League:
     bench_share: float = DEFAULT_BENCH_SHARE
     flex_eligible: tuple = FLEX_ELIGIBLE
     position_shares: dict | None = None   # reader position shares (VP-4.4)
+    bench_share_override: float | None = None   # ES-14: the reader's override, off by default
 
     @property
     def starting_slots(self) -> int:
@@ -278,14 +279,125 @@ def _estimate(c: SourceInput, i: int, c_order_p: list, peers: list, m: dict) -> 
 
 
 # ---------------------------------------------------------------------------
+# Expected starts (docs/methodology.md ES-0..ES-15; JEG-536, es-value-001)
+# ---------------------------------------------------------------------------
+# With `lineup` (resolved parameters, derive_lineup_parameters.resolve) the two
+# parts of ES-5 replace the VP-2.6 slices and the bench share is an output;
+# without it the pipeline is VP-2.6 at the bench share, unchanged.
+
+LINEUP_CONFIG = REPO / "config" / "lineup_parameters.json"
+CHART_SIGMA_DEFAULT = 0.2
+CHART_COMMON_TOTAL = 1000.0
+
+
+def load_lineup_config(path: Path = LINEUP_CONFIG) -> dict:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def resolve_lineup(cfg: dict, **settings) -> dict:
+    """ES-14: reader settings -> parameters. The Python reference is
+    derive_lineup_parameters.resolve; this is a thin pass-through."""
+    import derive_lineup_parameters as dl
+    return dl.resolve(cfg, **settings)
+
+
+def _norm_cdf(z: float) -> float:
+    return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+
+
+def _p_between(mu: float, sd: float, lo: float, hi: float) -> float:
+    """P(lo < X <= hi), X ~ N(mu, sd); point mass at sd = 0; hi may be inf."""
+    if hi <= lo:
+        return 0.0
+    if sd <= 0:
+        return 1.0 if lo < mu <= hi else 0.0
+    upper = 1.0 if math.isinf(hi) else _norm_cdf((hi - mu) / sd)
+    return upper - _norm_cdf((lo - mu) / sd)
+
+
+def _at_least(n: int, q: float, k: int) -> float:
+    """P(Binomial(n, q) >= k)."""
+    if k <= 0:
+        return 1.0
+    if n <= 0 or k > n:
+        return 0.0
+    return sum(math.comb(n, j) * q ** j * (1.0 - q) ** (n - j) for j in range(k, n + 1))
+
+
+def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict) -> dict:
+    """ES-15.3: the chart family's relative spread per position, on the
+    included charts' listed natives put on one common scale."""
+    import statistics
+    lists = [sources[k].values for k in chart_keys]
+    shared = set.intersection(*(set(v) for v in lists)) if lists else set()
+    factors = []
+    for v in lists:
+        tot = sum(v[i] for i in sorted(shared))
+        factors.append(CHART_COMMON_TOTAL / tot if tot > 0 else 1.0)
+    seats = bench_seats(round_half_up(league.teams * league.bench))
+    out = {}
+    for p in POSITIONS:
+        acc = {}
+        for v, f in zip(lists, factors):
+            for i, x in v.items():
+                if pos_of.get(i) == p:
+                    acc.setdefault(i, []).append(x * f)
+        rows = sorted(((statistics.mean(xs), statistics.stdev(xs), i) for i, xs in acc.items() if len(xs) >= 2),
+                      key=lambda r: (-r[0], r[2]))
+        dedicated = league.teams * int(league.slots.get(p, 0))
+        extra = league.teams * int(league.superflex) + (
+            league.teams * int(league.flex) if p in league.flex_eligible else 0)
+        starters = dedicated + min(extra, max(0, len(rows) - dedicated))
+        rostered = starters + seats[p]
+        band = [r for r in rows[starters // 2:rostered] if r[0] > 0]
+        out[p] = {"sigma_rel": median([sd / mu for mu, sd, _ in band]) if band else CHART_SIGMA_DEFAULT,
+                  "players": len(rows), "band": len(band), "shared_players": len(shared),
+                  "starters": starters, "rostered": rostered}
+    return out
+
+
+def _expected_start_parts(xs: list, starters: int, teams: int, w: float, line: float, m_p: float,
+                          bye: float, sig_rel: float, sig_floor: float) -> dict:
+    """ES-3 / ES-4 on one work list (values best first)."""
+    avail = (1.0 - bye) * (1.0 - m_p)
+    q = bye + (1.0 - bye) * m_p
+    n_team = max(1, round(starters / teams)) if teams else 1
+    edges = [line]
+    k = 1
+    while teams:
+        j = starters + k * teams
+        if j >= len(xs) or xs[j] <= w:
+            break
+        edges.append(xs[j])
+        k += 1
+    bands = [{"depth": d, "lo": edges[d], "hi": edges[d - 1], "fill": _at_least(n_team, q, d)}
+             for d in range(1, len(edges))]
+    bands.append({"depth": len(edges), "lo": w, "hi": edges[-1], "fill": _at_least(n_team, q, len(edges))})
+    parts = []
+    for x in xs:
+        sd = max(sig_rel * x, sig_floor) if x > 0 else sig_floor
+        v = max(0.0, x - w)
+        p_start = _p_between(x, sd, line, math.inf)
+        p_fill = 0.0
+        for b in bands:
+            p_fill += b["fill"] * _p_between(x, sd, b["lo"], b["hi"])
+        parts.append({"start_worthy": p_start, "lineup_share": avail * (p_start + p_fill),
+                      "start_worthy_part": avail * (v * p_start), "fill_in_part": avail * (v * p_fill)})
+    return {"avail": avail, "unavailable": q, "n_per_team": n_team, "bands": bands, "parts": parts}
+
+
+# ---------------------------------------------------------------------------
 # VP-2 .. VP-5 for one source
 # ---------------------------------------------------------------------------
 
-def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict) -> dict:
+def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
+                  es: dict | None = None) -> dict:
     """VP-2.3, 2.5, 2.6 and VP-3.1: work lists, waiver and starter lines,
-    slices and the 8 group totals."""
+    slices (or, with `es` = {teams, lineup, chart_sigma}, the ES-5 parts)
+    and the 8 group totals."""
     positions, players = {}, {}
     groups = {g: 0.0 for g in GROUPS}
+    surplus = 0.0
     for p in POSITIONS:
         a = alloc[p]
         listed = [(i, x, False) for i, x in src.values.items() if pos_of.get(i) == p]
@@ -307,21 +419,50 @@ def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict) 
         line = work[n_start][1] if len(work) > n_start else w
         line = max(line, w)
         info.update({"waiver_value": w, "starter_line": line, "method": method})
+        parts = None
+        if es is not None:
+            lp = es["lineup"]["positions"][p]
+            if src.family == "chart":
+                sig_rel = es["chart_sigma"][p]["sigma_rel"] * es["lineup"].get("projection_confidence", 1.0)
+                sig_floor = 0.0
+            else:
+                sig_rel, sig_floor = lp["sigma_rel"], lp["sigma_floor"]
+            got = _expected_start_parts([r[1] for r in work], n_start, es["teams"], w, line, lp["m"],
+                                        es["lineup"]["bye"], sig_rel, sig_floor)
+            parts = got["parts"]
+            info.update({"avail": got["avail"], "bands": got["bands"],
+                         "lineup": {"m": lp["m"], "unavailable": got["unavailable"],
+                                    "n_per_team": got["n_per_team"], "sigma_rel": sig_rel,
+                                    "sigma_floor": sig_floor}})
         positions[p] = info
+        g_s = g_b = v_sum = 0.0
         for rank, (i, x, is_est) in enumerate(work, start=1):
             v = max(0.0, x - w)
-            bsl = max(0.0, min(x, line) - w)
-            ssl = max(0.0, x - line)
             role = "starter" if rank <= n_start else "bench" if rank <= n_rost else "waiver"
-            players[i] = {"pos": p, "native": x, "imputed": is_est, "rank": rank, "role": role,
-                          "vorp": v, "bench_slice": bsl, "starter_slice": ssl}
-            groups[f"{p}|starter"] += ssl
-            groups[f"{p}|bench"] += bsl
-    return {"positions": positions, "players": players, "groups": groups}
+            rec = {"pos": p, "native": x, "imputed": is_est, "rank": rank, "role": role, "vorp": v,
+                   "lineup_share": None, "start_worthy": None}
+            if parts is not None:
+                pt = parts[rank - 1]
+                bsl, ssl = pt["fill_in_part"], pt["start_worthy_part"]   # ES-5: bsl := fi, ssl := sw
+                rec.update({"lineup_share": pt["lineup_share"], "start_worthy": pt["start_worthy"]})
+            else:
+                bsl = max(0.0, min(x, line) - w)
+                ssl = max(0.0, x - line)
+            rec.update({"bench_slice": bsl, "starter_slice": ssl})
+            players[i] = rec
+            g_s += ssl
+            g_b += bsl
+            v_sum += v
+        groups[f"{p}|starter"] = g_s
+        groups[f"{p}|bench"] = g_b
+        surplus += v_sum
+    return {"positions": positions, "players": players, "groups": groups, "surplus_total": surplus}
 
 
-def _mixes(groups: dict, bench_share: float) -> dict:
-    """VP-3.2 - 3.4: mixes and the source's own weights."""
+def _mixes(groups: dict, bench_share: float | None) -> dict:
+    """VP-3.2 - 3.4: mixes and the source's own weights. bench_share None
+    (expected starts, no override; ES-15.1): each group's share of the
+    source's parts."""
     total = sum(groups[g] for g in GROUPS)
     s_tot = sum(groups[f"{p}|starter"] for p in POSITIONS)
     b_tot = sum(groups[f"{p}|bench"] for p in POSITIONS)
@@ -331,7 +472,9 @@ def _mixes(groups: dict, bench_share: float) -> dict:
     if total > 0:
         weights = {}
         for p in POSITIONS:
-            if sig is not None and beta is not None:
+            if bench_share is None:
+                ws, wb = groups[f"{p}|starter"] / total, groups[f"{p}|bench"] / total
+            elif sig is not None and beta is not None:
                 ws, wb = (1 - bench_share) * sig[p], bench_share * beta[p]
             elif sig is not None:
                 ws, wb = sig[p], 0.0
@@ -341,8 +484,10 @@ def _mixes(groups: dict, bench_share: float) -> dict:
     return {"total_vorp": total, "starter_mix": sig, "bench_mix": beta, "weights": weights}
 
 
-def ddf_weights(league: League, details: dict, included: list) -> dict:
-    """VP-4: the average of the included sources' mixes, bench fixed at bs."""
+def ddf_weights(league: League, details: dict, included: list, computed_share: bool = False) -> dict:
+    """VP-4: the average of the included sources' mixes, bench fixed at bs.
+    computed_share (ES-15.1): the mean of the sources' own 8-group weights,
+    renormalized; the bench share applied is then an output."""
     s_raw, b_raw = {}, {}
     for p in POSITIONS:
         sv, bv = [], []
@@ -357,17 +502,29 @@ def ddf_weights(league: League, details: dict, included: list) -> dict:
         s_raw[p] = sum(sv) / len(sv) if sv else 0.0
         b_raw[p] = sum(bv) / len(bv) if bv else 0.0
     s_sum, b_sum = sum(s_raw.values()), sum(b_raw.values())
-    bs = league.bench_share
-    if s_sum > 0 and b_sum > 0:
-        bs_eff = bs
-    elif b_sum == 0:
-        bs_eff = 0.0
-    else:
-        bs_eff = 1.0
     w = {}
-    for p in POSITIONS:
-        w[f"{p}|starter"] = (1 - bs_eff) * s_raw[p] / s_sum if s_sum > 0 else 0.0
-        w[f"{p}|bench"] = bs_eff * b_raw[p] / b_sum if b_sum > 0 else 0.0
+    if computed_share:
+        raw = {}
+        for p in POSITIONS:
+            for r in ("starter", "bench"):
+                g = f"{p}|{r}"
+                vals = [details[k]["weights"][g] for k in included
+                        if details[k]["weights"] is not None and details[k]["positions"][p]["method"] != "no_players"]
+                raw[g] = sum(vals) / len(vals) if vals else 0.0
+        tot = sum(raw[g] for g in GROUPS)
+        w = {g: (raw[g] / tot if tot > 0 else 0.0) for g in GROUPS}
+        bs_eff = sum(w[f"{p}|bench"] for p in POSITIONS)
+    else:
+        bs = league.bench_share
+        if s_sum > 0 and b_sum > 0:
+            bs_eff = bs
+        elif b_sum == 0:
+            bs_eff = 0.0
+        else:
+            bs_eff = 1.0
+        for p in POSITIONS:
+            w[f"{p}|starter"] = (1 - bs_eff) * s_raw[p] / s_sum if s_sum > 0 else 0.0
+            w[f"{p}|bench"] = bs_eff * b_raw[p] / b_sum if b_sum > 0 else 0.0
     if league.position_shares:
         for p in POSITIONS:
             share = league.position_shares.get(p)
@@ -396,7 +553,9 @@ def _price(detail: dict, budgets: dict, pie: float) -> None:
                     unpaid.append(gk)
     rates = {k: (b2[k] / g[k] if g[k] > 0 else 0.0) for k in GROUPS}
     total = detail["total_vorp"]
-    factor = pie / total if total > 0 else 0.0
+    surplus = detail.get("surplus_total", total)
+    # VP-5.6 / ES-15.4: the display factor scales the surplus to the pie.
+    factor = pie / surplus if total > 0 and surplus > 0 else 0.0
     for pl in detail["players"].values():
         if total > 0:
             pl["adjusted"] = (rates[f"{pl['pos']}|bench"] * pl["bench_slice"]
@@ -427,7 +586,7 @@ def mean_ppg(sources: dict, included: list) -> dict:
 
 
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
-                 selection: list | None = None) -> dict:
+                 selection: list | None = None, lineup: dict | None = None) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
 
     sources: {key: SourceInput} in source-key order, every source shown (held
@@ -445,6 +604,13 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     alloc = None if degenerate else allocate(league, order_m, m)
     fill_sets = {} if degenerate else {p: order_m[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     chart_peers = [sources[k] for k in inc if sources[k].family == "chart"]
+    es = None
+    if lineup is not None:
+        es = {"teams": int(league.teams), "lineup": lineup,
+              "chart_sigma": chart_sigma(league, sources, [k.key for k in chart_peers], pos_of)}
+    share_in = league.bench_share
+    if es is not None:
+        share_in = league.bench_share_override   # None = computed (ES-14)
 
     details = {}
     for key, src in sources.items():
@@ -463,19 +629,29 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                         est[i] = _estimate(src, i, own_order[p], peers, m)
                 if est:
                     estimates[p] = est
-        d = _source_lines(src, pos_of, s_alloc, estimates)
-        d.update(_mixes(d["groups"], league.bench_share))
+        d = _source_lines(src, pos_of, s_alloc, estimates, es)
+        d.update(_mixes(d["groups"], share_in))
         d.update({"family": src.family, "status": "included" if key in inc else "excluded",
                   "allocation": s_alloc})
         details[key] = d
 
-    wts = ddf_weights(league, details, inc)
+    if es is not None and share_in is not None:
+        league = League(**{**league.__dict__, "bench_share": share_in})
+    wts = ddf_weights(league, details, inc, computed_share=es is not None and share_in is None)
     pie = league.pie
     budgets = {g: pie * wts["weights"][g] for g in GROUPS}
     for d in details.values():
         _price(d, budgets, pie)
 
     rows = _rows(sources, details, pos_of, inc, selection, m)
+    for i, r in rows.items():
+        by_src = {k: details[k]["players"][i]["lineup_share"] for k in sources
+                  if i in details[k]["players"] and details[k]["players"][i]["lineup_share"] is not None}
+        in_i = [k for k in inc if k in by_src]
+        r["lineup_share_by_source"] = by_src
+        r["lineup_share"] = sum(by_src[k] for k in in_i) / len(in_i) if in_i else None
+        r["start_worthy"] = (sum(details[k]["players"][i]["start_worthy"] for k in in_i) / len(in_i)
+                             if in_i else None)
     if degenerate:
         blended = {i: r["ddf"]["blended"]["value"] for i, r in rows.items()}
         scored = {i: v for i, v in blended.items() if v is not None}
@@ -486,17 +662,47 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
         slot_fill = alloc
     _tiers(rows, slot_fill, m)
     indexed = _indexed(sources, details, rows)
+    readout = None if degenerate else bench_share_readout(rows, order_m, alloc, inc, es is not None,
+                                                         share_in, wts["bench_share_applied"])
     ranking = sorted(rows, key=lambda i: (rows[i]["ddf"]["blended"]["value"] is None,
                                           -(rows[i]["ddf"]["blended"]["value"] or 0.0), i))
     return {
         "included": inc, "degenerate": degenerate, "pie": pie,
         "starting_slots_per_team": league.starting_slots,
         "bench_share": league.bench_share, "bench_share_applied": wts["bench_share_applied"],
+        "method": "expected-starts" if es is not None else "slices",
+        "bench_share_readout": readout, "bench_share_override": share_in if es is not None else None,
+        "chart_sigma": es["chart_sigma"] if es is not None else None, "lineup": lineup,
         "mean_ppg": m, "allocation": alloc, "fill_sets": fill_sets, "slot_fill": slot_fill,
         "sources": details, "starter_mix_mean": wts["starter_mix_mean"],
         "bench_mix_mean": wts["bench_mix_mean"], "ddf_weights": wts["weights"],
         "group_budgets": budgets, "indexed": indexed, "rows": rows, "default_ranking": ranking,
     }
+
+
+def bench_share_readout(rows: dict, order_m: dict, alloc: dict, inc: list, expected_starts: bool,
+                        override, applied: float) -> dict:
+    """ES-14: the bench tier's share (ranks S_p+1..N_p on the projected-points
+    order) of each position's blended DDF Value over I and of the whole."""
+    out = {"override": (override is not None) if expected_starts else True,
+           "override_value": override, "fill_in_share": applied,
+           "method": "expected-starts" if expected_starts else "fixed-share"}
+    bench_all = total_all = 0.0
+    for p in POSITIONS:
+        bench = total = 0.0
+        for idx, i in enumerate(order_m[p]):
+            vals = [rows[i]["adjusted"][k] for k in inc if rows[i]["adjusted"].get(k) is not None]
+            if not vals:
+                continue
+            v = sum(vals) / len(vals)
+            total += v
+            if alloc[p]["starters"] <= idx < alloc[p]["rostered"]:
+                bench += v
+        out[p] = bench / total if total > 0 else None
+        bench_all += bench
+        total_all += total
+    out["overall"] = bench_all / total_all if total_all > 0 else None
+    return out
 
 
 def row_value(src: SourceInput, detail: dict, i: int, pos: str, field_name: str):
@@ -828,8 +1034,16 @@ class Setting:
 
     def __init__(self, inp: Inputs, scoring: str, teams: int, superflex: int = 0,
                  hist: History | None = None, bench_share: float | None = None,
-                 position_shares: dict | None = None, selection: list | None = None):
+                 position_shares: dict | None = None, selection: list | None = None,
+                 lineup_settings: dict | None = None, bench_share_override: float | None = None,
+                 expected_starts: bool = True):
+        """lineup_settings: derive_lineup_parameters.resolve() keyword
+        arguments (objective, injury_history, league_weeks,
+        projection_confidence); None = the config's defaults. expected_starts
+        False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline)."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
+        self.lineup = (resolve_lineup(load_lineup_config(), **(lineup_settings or {}))
+                       if expected_starts else None)
         self.shape = roster(superflex)
         self.hist = hist
         self.selection = selection
@@ -837,7 +1051,7 @@ class Setting:
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
             superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
             bench_share=DEFAULT_BENCH_SHARE if bench_share is None else float(bench_share),
-            position_shares=position_shares)
+            position_shares=position_shares, bench_share_override=bench_share_override)
         self.pos_of = {k: p["pos"] for k, p in inp.players.items()}
         self._current = None
         self._prior = None
@@ -926,7 +1140,7 @@ class Setting:
         if self._current is None:
             st = self.state()
             self._current = run_pipeline(self.league, self._sources(st["current"]), self.pos_of,
-                                         st["included"], self.selection)
+                                         st["included"], self.selection, lineup=self.lineup)
         return self._current
 
     def prior_result(self) -> dict | None:
@@ -936,7 +1150,7 @@ class Setting:
             return None
         if self._prior is None:
             self._prior = run_pipeline(self.league, self._sources(st["prior"]), self.pos_of,
-                                       st["included"], self.selection)
+                                       st["included"], self.selection, lineup=self.lineup)
         return self._prior
 
     # -- VP-11 rows --------------------------------------------------------
@@ -979,7 +1193,8 @@ class Setting:
                                   "nEstimated": len(pi["imputation_ratios"] or {})}
                               for p, pi in d["positions"].items()},
             }
-        return {"version": PIPELINE_VERSION, "pie": res["pie"], "benchShare": res["bench_share"],
+        return {"version": PIPELINE_VERSION, "pie": res["pie"], "method": res["method"],
+                "benchShare": res["bench_share_readout"], "benchShareApplied": res["bench_share_applied"],
                 "included": res["included"],
                 "excluded": [{"key": k, "reason": v} for k, v in st["excluded"].items()],
                 "ddfWeights": res["ddf_weights"], "allocation": res["slot_fill"],
@@ -990,7 +1205,10 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
     """One setting in the shape value_check compares: rows per tab, the
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
-    s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0), hist=hist)
+    s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0), hist=hist,
+                lineup_settings=setting_spec.get("lineup"),
+                bench_share_override=setting_spec.get("bench_share_override"),
+                expected_starts=setting_spec.get("expected_starts", True))
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}

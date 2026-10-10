@@ -519,7 +519,7 @@ def load_sources(inp, scoring: str, teams: int) -> tuple:
             sources.append(SourceLists(natives, pos_of, "projection", key))
     setting = ref.Setting(inp, scoring, teams)
     for key in CHARTS:
-        nat = setting.native(key)
+        nat = setting.natives(key)
         if nat:
             sources.append(SourceLists({int(k): float(v) for k, v in nat.items()}, pos_of, "chart", key))
     return sources, pos_of
@@ -529,7 +529,8 @@ def before_values(inp, hist, scoring: str, teams: int) -> dict:
     """Today's Adjusted values per source and the blended DDF Value, from the
     Python reference (the live engine's twin), at this setting."""
     import value_reference as ref
-    r = ref.compute(inp, {"scoring": scoring, "teams": teams, "superflex": 0}, hist=hist)
+    # The JEG-508 pipeline (VP-2.6 slices at 15%), not the expected starts it compares against.
+    r = ref.compute(inp, {"scoring": scoring, "teams": teams, "superflex": 0, "expected_starts": False}, hist=hist)
     rows = r["views"]["adj"]
     out = {"ddf": {}, "sources": defaultdict(dict)}
     for k, row in rows.items():
@@ -773,13 +774,42 @@ def render_report(doc: dict) -> str:
 
 # ------------------------------------------------------------------ main
 
-def bench_share_readout(inp, scoring: str, teams: int, cfg: dict, **settings) -> dict:
+def bench_share_readout(inp, scoring: str, teams: int, cfg: dict, hist=None, bench_share_override=None,
+                        **settings) -> dict:
     """The dashboard's bench-share readout (ES-14), Python reference: the
     reader's settings (objective, injury_history, league_weeks,
     projection_confidence; see derive_lineup_parameters.resolve) resolve to
-    parameters, the expected-starts rule runs, and the bench tier's share of
-    each position's value and of the whole pie is reported. The readout is an
-    output; the bench-share override replaces it only when the reader sets it."""
+    parameters, the expected-starts rule runs through the value pipeline
+    (pipelines/value_reference.py: the JEG-508 league allocation, the chart
+    fill-in and the included set, ES-5 parts in place of the slices), and the
+    bench tier's share of each position's blended DDF Value and of the whole
+    pie is reported. The readout is an output; the bench-share override
+    replaces it only when the reader sets it.
+
+    JEG-536: this used to run this module's standalone run_setting(), which
+    skips the fill-in (VP-2.4) and fills the flex per source by its own values
+    (the superseded OC-4 rule), so it differed from the pipeline the engine
+    runs by up to 1.1 points (WR at 12-team full PPR). That version is kept as
+    bench_share_readout_standalone() for the record."""
+    import value_reference as ref
+    hist = hist if hist is not None else (ref.History(ref.HISTORY) if ref.HISTORY.exists() else None)
+    s = ref.Setting(inp, scoring, teams, hist=hist, lineup_settings=settings,
+                    bench_share_override=bench_share_override)
+    s.lineup = ref.resolve_lineup(cfg, **settings)
+    res = s.result()
+    r = res["bench_share_readout"] or {}
+    lineup = res["lineup"]
+    return {"settings": {k: lineup[k] for k in ("objective", "injury_history", "league_weeks", "content_week",
+                                                 "projection_confidence", "window")},
+            "scoring": scoring, "teams": teams, "method": "value-pipeline",
+            "bench_share": {p: r.get(p) for p in POSITIONS},
+            "bench_share_overall": r.get("overall"),
+            "override": r.get("override"), "fill_in_share": res["bench_share_applied"]}
+
+
+def bench_share_readout_standalone(inp, scoring: str, teams: int, cfg: dict, **settings) -> dict:
+    """The readout on this module's standalone analysis run (run_setting), as
+    first written for JEG-533; superseded by bench_share_readout() above."""
     import derive_lineup_parameters as dl
     res = dl.resolve(cfg, **settings)
     params = {"bye": res["bye"], **{p: dict(res["positions"][p]) for p in POSITIONS}}
