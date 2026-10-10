@@ -200,8 +200,22 @@ class HeldSourceInThePulse(unittest.TestCase):
         env = T.Env()
         env.chart["sources"]["usatoday"]["validationHold"] = {
             "reason": f"fidelity: {stage}", "root": "usatoday", "stage": stage, "identity": identity,
-            "since": "2026-10-08T18:00:00Z"}
+            "since": "2026-10-08T18:00:00Z", "restored_from": "B-good"}  # served from an older chart
         return env
+
+    def test_a_held_section_kept_from_this_build_is_checked_as_usual(self):
+        """CBS rest of season 2026-10-10 00:09Z: a held projection keeps this build's section, so once the
+        chain rebuilt it from the stored save, stage 2 sees chart == stored and the hold is released."""
+        env = T.ProjEnv()
+        env.chart["sources"]["razzball"]["validationHold"] = {
+            "reason": "fidelity: stored_vs_chart", "root": "razzball", "stage": "stored_vs_chart",
+            "identity": "2026-10-08@2026-10-08T12:00:00Z", "since": "2026-10-08T18:00:00Z", "restored_from": None}
+        r, _ = env.run()
+        self.assertEqual("green", r["stages"]["stored_vs_chart"]["status"])
+        self.assertIsNone(r["hold"])
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 1.0  # still wrong
+        r, _ = env.run()
+        self.assertEqual("fidelity: stored_vs_chart", (r["hold"] or {}).get("reason"))
 
     def test_hold_releases_when_stored_matches_the_publisher_again(self):
         env = self.held_env()
