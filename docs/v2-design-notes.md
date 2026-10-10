@@ -1160,3 +1160,24 @@ removed" and the small "Set exact values" link in the JEG-470/472/473/475 sectio
 - **No engine needed:** the page shows as soon as the script runs, without the loading card, and still shows if the engine fails (`applyStatic()` in v2.js).
 - **Layout:** one 70ch text column, 17 px / 1.7 (16 px / 1.65 below 768 px), v2 tokens and Inter. No horizontal scroll at 390 px; the six short tab labels still fit on one row.
 - **Tests:** `tests/test_v2_manifesto_render.py` (test-unit), with 4 deliberately broken builds (section 7 dropped, Manifesto not first, a link added to the text, Manifesto as landing). It also checks the tab has no links, buttons or form controls. `test_v2_nav_render` checks Manifesto is first; `test_v2_a11y_render` includes the tab in its contrast sweep.
+
+## Feature contract test (JEG-506, 2026-10-09)
+
+The contract is Jeremy's Google Doc "Data Driven Football: feature contract"
+(https://docs.google.com/document/d/1UDRlVTdOiAdI6gSSklxwB-R9uINozVmIILMwbvCBiH0). The Doc is the source of truth.
+
+Workflow rule (Jeremy):
+- A change that breaks a contract line doesn't ship.
+- Changing or removing a line needs Jeremy's yes, recorded in the Doc. Then re-export the Doc and regenerate the mirror; never edit the mirror to change the contract.
+
+How it works:
+- `docs/feature-contract.md` mirrors the Doc. Regenerate it with `python scripts/sync_feature_contract.py <exported text>` (a file or `-` for stdin). CI has no Google auth, so the script only cleans text you export (Drive connector or File > Download > Markdown) and adds the header.
+- `tests/test_v2_contract_render.py`:
+  - `CHECKS` maps every ID in the mirror to a check function, or to `PENDING("JEG-xxx")` for a line marked "to build: JEG-xxx". A pending entry may carry a partial check of what already exists (GL-17 for Player values).
+  - The unit test (`ContractMirrorTest`, no browser) fails when a mirror ID has no entry, when CHECKS has an ID the Doc dropped, when a "to build" line has a live check or the wrong ticket, or when a live line is still pending. `WORDING_HOLDS` is the only exception: TT-05 is held on JEG-510 until "indexed" becomes "rescaled".
+  - `SUBPART_HOLDS` lists part of a live line that is not built yet. GL-11's "Edit league is the primary control" is held on JEG-498, because no primary styling exists yet. GL-11 still checks that #v2EditLeague and #v2Weights exist, found by ID rather than label ("Weights & bench" becomes "Position weights" in JEG-537). It also checks that league edits stay a draft until Apply. The mirror test fails if the held wording leaves the Doc line.
+  - The render test does one page load per scenario (Player values with two reloads, the other tabs in one page including a shared Compare trade, 390 px across all tabs, engine failure), then runs every live check against those snapshots. About a minute on this machine.
+  - Checks are presence plus basic behaviour. Deep correctness stays in the other `test_v2_*` suites; GL-02 checks one engine value per tab.
+  - Fixtures, so checks never pass vacuously: the freshness file is fixed (current, prior week, unknown, not updating), and every fifth priced player is flagged one-source in what `getRows` / `getAllRows` return (Week 5 has no one-source players, so GL-03 / TT-08 would otherwise see no "◐ 1 source" tag). Values are untouched.
+  - `test_guard_fails_on_broken_builds` serves broken v2.js / v2.css / shell.html through page routes and requires the named check to report a real finding for each fault (13 faults over 11 IDs, three grouped runs).
+- When a ticket ships a pending line: Jeremy drops "to build" in the Doc, the mirror is regenerated, the mirror test fails, and the shipping ticket replaces `PENDING` with a real check.
