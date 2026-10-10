@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-10T00:08:14.634858Z",
- "run_id": "f4ab187e-a47f-44c0-b98c-b1333f3728e6",
+ "checked_at": "2026-10-10T00:09:29.921458Z",
+ "run_id": "57a4d7e0-c6e3-4523-b8f7-855ddc5271ff",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -30,18 +30,8 @@
    ],
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-09@2026-10-09T23:25:31.855356Z",
-   "since": "2026-10-10T00:08:14.634858Z",
+   "since": "2026-10-10T00:09:29.921458Z",
    "summary": "1080/1104 chart values equal stored snapshot 2026-10-09 (per game, 3 decimals); 24 chart values differ from the stored snapshot, 1 stored players not on the chart, 1 chart players not stored"
-  },
-  "razzball": {
-   "stage": "publisher_vs_stored",
-   "stages": [
-    "publisher_vs_stored"
-   ],
-   "reason": "fidelity: publisher_vs_stored",
-   "identity": "2026-10-09@2026-10-09T23:25:28.250878Z",
-   "since": "2026-10-10T00:08:14.634858Z",
-   "summary": "2040/2040 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 00ef7e508ceed5cae54afdd1); 7 publisher names matche"
   }
  },
  "sources": [
@@ -1529,14 +1519,14 @@
     ],
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-09@2026-10-09T23:25:31.855356Z",
-    "since": "2026-10-10T00:08:14.634858Z",
+    "since": "2026-10-10T00:09:29.921458Z",
     "summary": "1080/1104 chart values equal stored snapshot 2026-10-09 (per game, 3 decimals); 24 chart values differ from the stored snapshot, 1 stored players not on the chart, 1 chart players not stored"
    }
   },
   {
    "source": "razzball",
    "label": "Razzball",
-   "status": "red",
+   "status": "amber",
    "stored_week": null,
    "chart_week": null,
    "content_week": 5,
@@ -1545,15 +1535,15 @@
    "stored_bake": "2026-10-09",
    "stages": {
     "publisher_vs_stored": {
-     "status": "red",
-     "summary": "2040/2040 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 00ef7e508ceed5cae54afdd1); 7 publisher names matched by the stored row's key (the canonical resolver refuses their listed position: Brady Russell, Connor Heyward, Riley Nowakowski, Max Hurleman, Jackson Meeks)",
+     "status": "amber",
+     "summary": "2040/2040 values match exactly across 3 columns; 1 publisher players not stored whose printed values are at most one printed unit (absent means 0): Scotty Miller; 7 publisher names matched by the stored row's key (the canonical resolver refuses their listed position: Brady Russell, Connor Heyward, Riley Nowakowski, Max Hurleman, Jackson Meeks)",
      "counts": {
       "publisher_players": 681,
       "stored_players": 680,
       "compared": 2040,
       "matched": 2040,
       "mismatched": 0,
-      "missing_in_stored": 1,
+      "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
       "list_churn": 0,
@@ -1586,36 +1576,8 @@
        "extra": 0
       }
      },
-     "publisher_version": "same",
-     "examples": [
-      {
-       "type": "missing",
-       "grain": "full|1",
-       "player_key": 399,
-       "name": "Scotty Miller",
-       "pos": "WR",
-       "left": "0.1",
-       "right": null
-      },
-      {
-       "type": "missing",
-       "grain": "half|1",
-       "player_key": 399,
-       "name": "Scotty Miller",
-       "pos": "WR",
-       "left": "0.1",
-       "right": null
-      },
-      {
-       "type": "missing",
-       "grain": "std|1",
-       "player_key": 399,
-       "name": "Scotty Miller",
-       "pos": "WR",
-       "left": "0.1",
-       "right": null
-      }
-     ],
+     "publisher_version": null,
+     "examples": [],
      "outside_universe": [],
      "unresolved": []
     },
@@ -1750,49 +1712,9 @@
      }
     }
    },
-   "worst_examples": [
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
-     "grain": "full|1",
-     "player_key": 399,
-     "name": "Scotty Miller",
-     "pos": "WR",
-     "left": "0.1",
-     "right": null
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
-     "grain": "half|1",
-     "player_key": 399,
-     "name": "Scotty Miller",
-     "pos": "WR",
-     "left": "0.1",
-     "right": null
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
-     "grain": "std|1",
-     "player_key": 399,
-     "name": "Scotty Miller",
-     "pos": "WR",
-     "left": "0.1",
-     "right": null
-    }
-   ],
+   "worst_examples": [],
    "held": null,
-   "hold": {
-    "stage": "publisher_vs_stored",
-    "stages": [
-     "publisher_vs_stored"
-    ],
-    "reason": "fidelity: publisher_vs_stored",
-    "identity": "2026-10-09@2026-10-09T23:25:28.250878Z",
-    "since": "2026-10-10T00:08:14.634858Z",
-    "summary": "2040/2040 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 00ef7e508ceed5cae54afdd1); 7 publisher names matche"
-   }
+   "hold": null
   }
  ],
  "not_covered": {},
@@ -1823,7 +1745,7 @@
   "cbs": "2026-10-09T23:25:46.971984+00:00",
   "espn": "2026-10-09T23:25:46.971984+00:00",
   "cbsros": "2026-10-09T21:54:25.163918+00:00",
-  "razzball": "2026-10-09T21:54:25.163918+00:00"
+  "razzball": "2026-10-09T23:25:46.971984+00:00"
  },
- "holds_changed": false
+ "holds_changed": true
 }
