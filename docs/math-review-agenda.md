@@ -1163,7 +1163,12 @@ and is the largest single move in the JEG-508 pipeline, and it is silent.
 
 **Current behaviour.** Not live. The two-tier solves for a 15% share.
 
-**Options.** (a) Keep OC-2 A and accept the flattening. (b) OC-2 D / OC-9 A:
+**Status (2026-10-09): moot.** Jeremy decided OC-2 at a fixed 15% on JEG-508
+("There is no way 35% is rational math"), so source-implied slices never
+ship. The follow-up, whether expected starts should replace the 15%, is
+JEG-533 (OC-9).
+
+**Options (as first written).** (a) Keep OC-2 A and accept the flattening. (b) OC-2 D / OC-9 A:
 the expected-starts parts (`docs/methodology.md` ES-5) replace the slices;
 the bench share becomes the pie paid on fill-in parts (5.0% to 6.1%). (c)
 Keep the slices and fix the budget (OC-9 B).
@@ -1195,7 +1200,7 @@ to every source from one status feed (Sleeper, G4 c). (b) Convert CBS and
 Razzball to per team game using the Sleeper status and an expected return
 week. (c) Leave as is and document.
 
-**Depends on:** G4 (b) and (c) of JEG-521.
+**Depends on:** G4 (b) and (c) of JEG-521. Ticket: JEG-535.
 **Sources:** `pipelines/derive_lineup_parameters.py` (`UNAVAILABLE` exclusion),
 `pipelines/bake_players.py` `espn_ppg`, `pipelines/lib/games_remaining.py`.
 
@@ -1310,7 +1315,7 @@ start-worthiness against realized finishes inside the starter count; once
 weekly projections are stored (G4 b) it should check against *projected*
 starts, the thing the share actually predicts.
 
-**Depends on:** G4 (b). **Sources:** `derive_lineup_parameters.weekly_noise`.
+**Depends on:** G4 (b). Ticket: JEG-534. **Sources:** `derive_lineup_parameters.weekly_noise`.
 
 ## MR-24 - More seasons for the hazard and noise estimates (Jeremy, JEG-525)
 
@@ -1375,7 +1380,7 @@ so if 2026 also comes in low the weight follows. The effect on the decision
 is nil: 0.03 points of bench tier. Not applied; a change to `m` is a value
 change (ES-1) and goes with `es-value-001`.
 
-**Depends on:** `es-value-001`. **Sources:** `tools/rb_hazard_trend.py`,
+**Depends on:** `es-value-001` (JEG-533). **Sources:** `tools/rb_hazard_trend.py`,
 JEG-525.
 
 ## MR-26 - The handcuff contingency is not in the share or the Stash signal (Jeremy, JEG-525)

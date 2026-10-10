@@ -132,6 +132,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_fidelity_espn
 	python3 -m unittest tests.test_fidelity_cbsros
 	python3 -m unittest tests.test_fidelity_razzball
+	python3 -m unittest tests.test_fidelity_hold
 	python3 -m unittest tests.test_security_lockdown_migration
 	python3 -m unittest tests.test_source_probe
 	python3 -m unittest tests.test_source_snapshot_match
@@ -147,6 +148,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_compare_render
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
+	python3 -m unittest tests.test_v2_contract_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_ux_render

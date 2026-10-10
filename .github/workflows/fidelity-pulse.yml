@@ -138,6 +138,22 @@ jobs:
           echo "pages dispatch HTTP $code"; cat /tmp/d.json || true
           [ "$code" = "204" ]
 
+      # JEG-520: a red holds its source, applied by the rebuild chain
+      # (pipelines/fidelity_hold.py reads the pulse just published). When a hold
+      # starts, ends or changes stage, run the chain now rather than at its next
+      # scheduled run. The chain's own completion re-runs this pulse, which sees
+      # the same holds (holds_changed false), so this cannot loop.
+      - name: Rebuild the chain when a hold starts or ends
+        if: steps.publish.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if python3 -c 'import json,sys; sys.exit(0 if json.load(open("output/fidelity-pulse.json")).get("holds_changed") else 1)'; then
+            python3 pipelines/source_probe.py dispatch-chain --reason "fidelity-hold"
+          else
+            echo "fidelity holds unchanged; no chain run needed"
+          fi
+
       # Red sources only (wrong or missing numbers); amber stays on the page.
       # Owns only fidelity-* alert keys, so it never closes health-artifacts'
       # issues (and that run never closes these). Never fails the run.

@@ -359,8 +359,10 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
             db_row(),  # clean
             db_row(player_key="not-a-key"),  # non-numeric key -> review
             db_row(player_key=None),  # null key -> review
-            db_row(player_key=869, value="N/A"),  # non-numeric value -> review
-            db_row(player_key=869, value=None),  # null value -> review, never zero-filled
+            # No published number either: a value-less row has nothing to price
+            # it by (JEG-512: fantasycalc NULL-value rows price by native_value).
+            db_row(player_key=869, value="N/A", native_value=None),  # non-numeric value -> review
+            db_row(player_key=869, value=None, native_value=None),  # null value -> review, never zero-filled
             db_row(player_key=99999),  # unresolvable key -> review, never guessed
         ]
         result = self.import_with(rows)

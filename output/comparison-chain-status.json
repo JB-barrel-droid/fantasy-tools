@@ -1,36 +1,39 @@
 {
-  "run_at": "2026-10-09T20:59:44.313706+00:00",
+  "run_at": "2026-10-10T01:01:46.489376+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "HELD at stage 'promote' (amber, failed at stage 'promote'): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: promote refused/failed: promotion refused: import health for 'fantasycalc' is 'failed', not 'ok' or a one-week lag (TABLE_DRIFT: table has 594 rows at latest vintage Week 5, manifest expects 591 -- partial/stale table, not complete)\n",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "published_with_holds",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
     "fantasycalc"
   ],
-  "hold_severity": "amber",
+  "hold_severity": "none",
   "held_detail": {
     "fantasycalc": {
-      "detail": "fantasycalc-full-12-qb1-section: promote refused/failed: promotion refused: import health for 'fantasycalc' is 'failed', not 'ok' or a one-week lag (TABLE_DRIFT: table has 594 rows at latest vintage Week 5, manifest expects 591 -- partial/stale table, not complete)\n",
-      "reason": "failed at stage 'promote'",
-      "stage": "promote",
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 0,
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "restored_from": "2026-10-09T23:25:46.971984+00:00",
+      "detail": "211/1177 values match exactly across 6 columns; column check: stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 30); 966 of 1177 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 50%; 3 outside the max(25%, 50) band: Jordan Love); 3 players entered or left th",
       "hold_severity": "amber",
-      "rolled_back": 0
+      "week": 5
     }
   },
   "runner": "github-actions",
@@ -45,24 +48,11 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "held",
-      "stage": "promote",
-      "detail": "fantasycalc-full-12-qb1-section: promote refused/failed: promotion refused: import health for 'fantasycalc' is 'failed', not 'ok' or a one-week lag (TABLE_DRIFT: table has 594 rows at latest vintage Week 5, manifest expects 591 -- partial/stale table, not complete)\n",
-      "promoted": 0,
-      "sections": 3,
-      "held": false,
-      "held_reason": "failed at stage 'promote'",
-      "failed_stage": "promote",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
+      "sections": 3
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -76,7 +66,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6792 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6804 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -100,7 +90,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (8232 values)",
+      "detail": "snapshot 2026-10-09 -> 12 DDF legs -> section; review passed (8148 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -123,7 +113,7 @@
     "fantasycalc": {
       "content_vintage": "Week 5",
       "content_week": 5,
-      "health_status": "failed",
+      "health_status": "ok",
       "lagging_one_week": false
     },
     "fantasypros": {
@@ -151,10 +141,30 @@
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-08",
+      "content_vintage": "2026-10-09",
       "content_week": 5,
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "fidelity_holds": {
+    "fantasycalc": "fidelity: publisher_vs_stored"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_static_export.StaticExportTest.test_adjusted_recompute_catches_a_hand_edit",
+      "FAIL tests.test_static_export.StaticExportTest.test_adjusted_sections_recompute_from_fit_cells"
+    ],
+    "assertions": [
+      "AssertionError: False is not true : ['fantasycalc_adjusted/full_12_qb1: 141 values differ (aaron jones: stored 19.0 != recomputed 19.4, adonai mitchell: stored 5.4 != recomputed 5.8, aj brown: stored 24.5 != recomputed 24.4)', 'fantasycalc_adjusted/half_12_qb1: 140 values differ (aaron jones: stored 22.4 != recomputed 22.9, adonai mitchell: stored 4.6 != recomputed 4.9, alec pierce: stored 4.9 != recomputed 5.1)', 'fantasycalc_adjusted/standard_12_qb1: 130 values differ (aaron jones: stored 23.6 != recomputed 24.1, adonai mitchell: stored 4.1 != recomputed 4.4, alec pierce: stored 4.4 != recomputed 4.6)']",
+      "AssertionError: Lists differ: [] != ['fantasycalc_adjusted/full_12_qb1: 141 va[529 chars].6)']"
+    ],
+    "make_targets": [
+      "Makefile:440: test-core"
+    ],
+    "detail": "FAIL tests.test_static_export.StaticExportTest.test_adjusted_recompute_catches_a_hand_edit; FAIL tests.test_static_export.StaticExportTest.test_adjusted_sections_recompute_from_fit_cells; AssertionError: False is not true : ['fantasycalc_adjusted/full_12_qb1: 141 values differ (aaron jones: stored 19.0 != recomputed 19.4, adonai mitchell: stored 5.4 != recomputed 5.8, aj brown: stored 24.5 != recomputed 24.4)', 'fantasycalc_adjusted/half_12_qb1: 140 values differ (aaron jones: stored 22.4 != recomputed 22.9, adonai mitchell: stored 4.6 != recomputed 4.9, alec pierce: stored 4.9 != recomputed 5.1)', 'fantasycalc_adjusted/standard_12_qb1: 130 values differ (aaron jones: stored 23.6 != recomputed 24.1, adonai mitchell: stored 4.1 != recomputed 4.4, alec pierce: stored 4.4 != recomputed 4.6)']; AssertionError: Lists differ: [] != ['fantasycalc_adjusted/full_12_qb1: 141 va[529 chars].6)']",
+    "recorded_at": "2026-10-10T01:02:59.775160+00:00"
   }
 }

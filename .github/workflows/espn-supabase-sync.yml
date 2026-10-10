@@ -50,6 +50,23 @@ jobs:
           cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py 2>/dev/null || true
           echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
 
+      # JEG-480 / JEG-520: a run the probe did not dispatch (manual or
+      # scheduled) still records which publisher content it read: the probe
+      # fingerprint taken before the data is read is acknowledged with it,
+      # so the fidelity pulse can tell a stored copy that differs from the
+      # same publisher version (a fault: red, held) from a publisher update
+      # made after the save (amber). Taken first, a race can only
+      # yield amber, never a false red.
+      - name: Fingerprint the publisher first (run not dispatched by the probe)
+        id: fp
+        if: github.event.inputs.probe_fp == '' && github.event.inputs.dry_run != 'true'
+        continue-on-error: true
+        run: |
+          python3 pipelines/source_probe.py probe --sources espn --dry-run --out /tmp/probe-espn.jsonl > /dev/null
+          fp=$(head -n 1 /tmp/probe-espn.jsonl | jq -r '.fingerprint // ""')
+          echo "fp=$fp" >> "$GITHUB_OUTPUT"
+          echo "publisher fingerprint, read first: ${fp:-none}"
+
       - name: Scrape ESPN projections
         # Read-only players-table access: names the identity snapshot misses
         # resolve through lib/canonical_players (JEG-480).
@@ -150,11 +167,11 @@ jobs:
       # record the ingest itself as failed.
       - name: Acknowledge probe fingerprint
         id: ack
-        if: success() && github.event.inputs.probe_fp != '' && github.event.inputs.dry_run != 'true'
+        if: success() && (github.event.inputs.probe_fp != '' || steps.fp.outputs.fp != '') && github.event.inputs.dry_run != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          PROBE_FP: ${{ github.event.inputs.probe_fp }}
+          PROBE_FP: ${{ github.event.inputs.probe_fp || steps.fp.outputs.fp }}
         run: python3 pipelines/source_probe.py ack --supabase --source espn --fingerprint "$PROBE_FP"
 
       - name: Dispatch the rebuild chain on new content

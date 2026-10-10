@@ -85,3 +85,16 @@ inversions. The ESPN, CBS ROS and Razzball lines also start where their own
 projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
 band on published charts, was retired 2026-10-08, GAP-026: publisher shape
 disagreement is the product.)
+
+## Usage: same quality, fewer tokens (JEG-524)
+
+The general rules are in the user-level "Usage Discipline" section. For this repo:
+
+- Subagents: `worker` (Sonnet) for routine lanes, `deep-worker` (Opus) for value
+  or engine math, unknown-root-cause debugging, design and final review. Brief
+  them with `docs/agent-brief-template.md`; don't paste a long shared brief.
+- Read `AGENTS.md`, then only the docs your task needs.
+  `docs/engineering-notes.md` holds the dated incident notes.
+- The lead session rotates at each GO LIVE milestone, or once context passes
+  about 150k tokens. Before telling Jeremy to start a new thread, post the
+  handoff as a comment on the active Linear ticket.

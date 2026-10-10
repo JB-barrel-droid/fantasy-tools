@@ -144,10 +144,10 @@ input[type=range]{accent-color:var(--accent)}
 <p>Everything above is about where a player's projection sits, which is what a manager decides on. On any given Sunday a starter's actual score swings far more than projections move. Measured over 2015–2025, the weekly points of a starter vary by this much around his own average. Pass catchers are noisier than quarterbacks, as suspected. This is why a low-end starter is sometimes projected below a high-end bench player in a given week. Pricing that swap needs stored weekly projections, which is a separate piece of work.</p>
 <div class="panel chartwrap"><div id="noise"></div></div>
 
-<h2>Step 9. What was chosen, and the alternatives</h2>
-<p>For each alternative: why it is not used, whether what it was after is handled somewhere else, and whether it comes back later.</p>
+<h2>Step 9. What is recommended, and the alternatives</h2>
+<p>For each alternative: why it is not recommended, whether what it was after is handled somewhere else, and whether it comes back later.</p>
 <div class="cards">
-  <div class="card"><div class="pick">Chosen</div><h3>Share of surplus, by probability</h3><p class="note">Steps 1 to 6 as shown. Bench tier holds 8.6% of the pie at 12 teams. A starter-level point is worth 1.6× a bench-level point at running back, 2.9× at wide receiver. No calibration solve, so no silent clamps.</p></div>
+  <div class="card"><div class="pick">Recommended</div><h3>Share of surplus, by probability</h3><p class="note">Steps 1 to 6 as shown. Bench tier holds 8.6% of the pie at 12 teams. A starter-level point is worth 1.6× a bench-level point at running back, 2.9× at wide receiver. No calibration solve, so no silent clamps.</p></div>
   <div class="card"><div class="pick">Measured, not chosen</div><h3>Pay for the size of the upside too</h3>
     <p class="note"><strong>Why not used.</strong> It also pays for how big a bench player would be if he became a starter. That gives back most of the starter premium: the bench tier rises to 12.0% and the premium falls to 1.2×. Players near the starter line get valued above their whole surplus. And it is driven by the uncertainty number, the least measured input.</p>
     <p class="note"><strong>Handled elsewhere?</strong> Yes. The upside becomes the Stash signal: each bench player's chance of being projected to start, shown beside his value, not added to it. One gap: a handcuff's jump when his NFL starter goes down is in neither (Step 10).</p>
@@ -156,12 +156,12 @@ input[type=range]{accent-color:var(--accent)}
     <p class="note"><strong>Why not used.</strong> It gets the same 8.6% bench tier only by forcing it. Every player keeps the same kink at the starter line, and every starter's points below the line are still paid at the bench rate. There is no per-player lineup share to show, and it needs a second rule to carry the shares into the weights.</p>
     <p class="note"><strong>Handled elsewhere?</strong> Nothing is lost. Its bench share is the chosen rule's by construction, and the chosen rule also gives each player his own share.</p>
     <p class="note"><strong>Future?</strong> No. It is a fallback only if the chosen rule cannot land in the pipeline rewrite in time, because it is the smallest code change.</p></div>
-  <div class="card"><div class="pick">Warning</div><h3>The current spec as written</h3>
-    <p class="note"><strong>Why not used.</strong> Its slices count every starter's surplus up to the starter line as bench. Summed, that is 42% of the pie on bench slices at 12 teams (39% to 49% across settings), against 15% live today.</p>
-    <p class="note"><strong>Handled elsewhere?</strong> No. Its premise, that the bench share comes from the sources rather than a slider, is kept by the chosen rule.</p>
-    <p class="note"><strong>Future?</strong> No. Whichever rule you pick replaces it (MR-19). It would land silently with the pipeline rewrite unless this decision is made first.</p></div>
+  <div class="card"><div class="pick">What ships first</div><h3>Keep the fixed 15%</h3>
+    <p class="note"><strong>Where it stands.</strong> You set the bench share at 15% with slices on the pipeline rewrite (<a href="https://linear.app/jegabee/issue/JEG-508">JEG-508</a>), and that is what ships first. The earlier warning about 39% to 49% no longer applies: that was the "source-implied" version, which you rejected.</p>
+    <p class="note"><strong>Why it isn't the recommendation.</strong> The measured bench tier is 8.0% to 9.9%, not 15%. At 15%, a starter-level point is often worth less than a bench-level point (0.7× to 1.9×). And one number is wrong for most settings: about 9.6% at 8 teams, 8.0% to 8.6% at 12 and 14, falling through the season.</p>
+    <p class="note"><strong>Future?</strong> The question is whether the 15% becomes a computed readout from your league settings, with the slider kept as an override. Decision: <a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a>.</p></div>
 </div>
-<p class="note" style="margin-top:24px">Inputs barely matter to the answer: halving or raising the missed-game rate and the uncertainty by 50% keeps the bench tier between 8.2% and 9.1%. Try it with the sliders above. Spec: docs/methodology.md, "Expected-starts value". Decision ticket: JEG-525.</p>
+<p class="note" style="margin-top:24px">Inputs barely matter to the answer: halving or raising the missed-game rate and the uncertainty by 50% keeps the bench tier between 8.2% and 9.1%. Try it with the sliders above. Spec: docs/methodology.md, "Expected-starts value". Decision ticket: <a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a>.</p>
 
 <h2>Step 10. Why analysts bench players, and which reasons this math covers</h2>
 <p>Fantasy analysts give about sixteen reasons for holding a player on the bench. The share in Steps 1 to 6 covers the ones that are about an average team: byes, injuries and the waiver alternative. Upside is handled by the Stash signal, not the pie. Anything that depends on your own roster needs the roster import. A few reasons are not covered by anything yet.</p>
@@ -191,9 +191,10 @@ input[type=range]{accent-color:var(--accent)}
 <div class="kpis"><div class="kpi lost"><div class="k">Backup, lead back playing</div><div class="v">7.2 ppg</div></div><div class="kpi start"><div class="k">Backup, lead back out</div><div class="v">12.8 ppg</div></div><div class="kpi fill"><div class="k">Missing contingent value, top-12 handcuff</div><div class="v">≈0.8 / wk</div></div></div>
 
 <h2>Follow-up tickets from this page</h2>
-<p>Every "could be added" and "future" item above has a ticket. The pie-changing ones are blocked on your decision on <a href="https://linear.app/jegabee/issue/JEG-525">JEG-525</a> and are decided on the math agenda, not one off.</p>
+<p>Every "could be added" and "future" item above has a ticket. The pie-changing ones are blocked on your decision on <a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a> and are decided on the math agenda, not one off.</p>
 <div class="panel tablewrap"><table class="ideas">
 <tr><th>Ticket</th><th>What</th><th>Waits on</th></tr>
+<tr><td><a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a></td><td>The decision: replace the fixed 15% with expected starts?</td><td>You</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-526">JEG-526</a></td><td>Handcuff jump added to the Stash signal</td><td>Your A/B/C decision</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-527">JEG-527</a></td><td>League week inputs: content week, regular season, playoff weeks, what to optimize for</td><td>Your A/B/C decision</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-528">JEG-528</a></td><td>Horizon term and near-week weighting: shorter window, one-week waiver value, playoff holding value</td><td>Stored weekly projections</td></tr>
@@ -201,6 +202,8 @@ input[type=range]{accent-color:var(--accent)}
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-530">JEG-530</a></td><td>Option value as its own series beside DDF Value</td><td>Your decision; measured uncertainty</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-531">JEG-531</a></td><td>Rookie bump: do projections already carry it?</td><td>Stored weekly projections</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-532">JEG-532</a></td><td>2015–2025 history kept in Supabase</td><td>Your approval of the schema change</td></tr>
+<tr><td><a href="https://linear.app/jegabee/issue/JEG-534">JEG-534</a></td><td>Weekly matchups and noise by position</td><td>Stored weekly projections</td></tr>
+<tr><td><a href="https://linear.app/jegabee/issue/JEG-535">JEG-535</a></td><td>Projection sources mean different things by points per game</td><td>Stored weekly projections and status history</td></tr>
 </table></div>
 </div>
 <script>

@@ -1,213 +1,60 @@
 # Fantasy Tools Agent Guide
 
-This repo is the shared working memory for the fantasy football tools. GitHub is
-the source of truth for code, project rules, and handoffs; no chat thread or LLM
-session is allowed to be the only holder of process memory.
+`CLAUDE.md` holds the working agreements and is authoritative. This file covers
+who does what, delegation and continuity. Dated incident and design notes
+(FantasyCalc drift, as-published indexing, VORP>0 calibration, CI sync,
+watchdog, cbsros/razzball Supabase wiring) live in `docs/engineering-notes.md`.
+Read that file only when your task touches those areas.
 
-## Operating Model
+## Who does what
 
-**Note (2026-10-07):** `lanes/` operational infrastructure (outbox/inbox briefs,
-runner, chatgpt_tools, openrouter_adapter, LANES.md, ROUTING.md, PLAN.md) has
-been archived to `archive/2026-10-07/lanes/`. The protocol.py module and
-plan_status.py are kept in `lanes/` for backwards-compatibility with existing
-tests. New work does not use the multi-LLM lane dispatch protocol; work goes
-directly to Claude Code. The routing table below is the current standing
-directive; the archived ROUTING.md was the per-lane capability matrix.
-
-`lanes/ROUTING.md` has been archived. The routing table below is authoritative.
-Never route work outside this table.
-
-| Work type | Default route |
+| Work type | Route |
 | --- | --- |
-| Implementation, validation, research sweeps, docs, routine fixes | minimax (M3) first — the default worker lane |
-| Architecture/design, debugging, code review | minimax (M3) first; escalate to Roman after 2 failed attempts |
-| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude (cloud session) — Jeremy 2026-10-06 (`docs/decisions.md` ops-ownership-001) |
-| Anything minimax cannot do (live browser, credentials, vision/OCR) | Claude; Roman (Muse) only as a last resort, e.g. a step that truly needs Muse's machine, when Jeremy asks |
+| Engine/value math, methodology, debugging with an unknown root cause, design, final review | Claude, Opus (`deep-worker` agent) |
+| Routine implementation with a clear spec, pullers, migration files, tests, docs, QA runs | Claude, Sonnet (`worker` agent); escalate to Opus after 2 failed gate runs |
+| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude lead session (Jeremy 2026-10-06, `docs/decisions.md` ops-ownership-001) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
 
-- **minimax (M3)** is the default FIRST option for everything it can physically do
-  (Jeremy directive 2026-10-02; M3 only, no M2.5). Workers write code/docs and
-  commit to branches; they never merge, push, or deploy, and their "tests pass"
-  claims are verified independently before integration.
-- **Claude (cloud session)** owns review, integration, merges and deploys to `main`,
-  production QA and the scheduled jobs (Jeremy 2026-10-06, ops-ownership-001).
-  Standing rules: never publish on known flaws, never display unvalidated values,
-  verify rendered production after every deploy — never ask Jeremy to re-check.
-- **Roman (Muse)** no longer owns work here except as a last resort, when Jeremy
-  asks. Muse does not push to `main`, merge or close PRs, or close Linear issues
-  on this project.
-- **Supabase first.** New schedules, checks and orchestration go on Supabase
-  (pg_cron, Edge Functions, database-side checks, the `monitoring` schema).
-  GitHub Actions is the fallback for work Supabase cannot do (site build and
-  deploy, repo tests); when a job must run in Actions, pg_cron is its scheduler.
-- **ChatGPT / minimax lanes: RETIRED.** The lanes/ outbox/inbox dispatch protocol
-  was archived 2026-10-07. Work goes to Claude Code directly. Do not create briefs
-  in `lanes/outbox/`; the directory is gone.
-- Avoid delegation for small edits, obvious fixes, simple command checks, or any
-  handoff where writing the brief would take longer than doing the work.
+- **MiniMax is not used** (Jeremy, 2026-10-09: "minimax makes mistakes on
+  everything it touches, and I only want to use M3 if we use it. 2.5 stinks.").
+  The lanes/outbox dispatch protocol was archived 2026-10-07
+  (`archive/2026-10-07/lanes/`). `lanes/protocol.py` and `lanes/plan_status.py`
+  stay only for existing tests.
+- **Muse (Roman)** works here only as a last resort and only when Jeremy asks,
+  for example a step that needs Muse's machine. Muse output is untrusted input
+  until it passes the repo pipeline. Muse never resolves player identity, edits
+  fixtures, triages `review_rows`, pushes to `main`, merges or closes PRs, or
+  closes Linear issues.
+- **Supabase first** for schedules, checks and orchestration (pg_cron, Edge
+  Functions, the `monitoring` schema). GitHub Actions does the site build,
+  deploy and repo tests; pg_cron schedules any job that must run in Actions.
 
-## Delegation hygiene
+## Delegating to subagents
 
-Whoever dispatches (usually Roman sending work to minimax):
+- Start from `docs/agent-brief-template.md`. Link to docs instead of pasting
+  them.
+- Keep tasks narrow and output-oriented. Treat agent results as raw material:
+  the lead re-reads touched files and runs the gate before integrating.
+- Ask for one output shape: findings with file:line refs, options with a
+  recommendation, a minimal patch, a debugging trace, or a risk list.
+- For review-only work, say "do not edit files" rather than removing tools.
+- Don't delegate small edits or anything where the brief takes longer than
+  the work. More templates: `docs/delegation-workflow.md`.
 
-- Own the task brief and success criteria before delegating.
-- Keep delegated tasks narrow, context-rich, and output-oriented.
-- Treat all delegated results as recommendations or raw material, not binding
-  decisions.
-- Re-read touched files locally before integrating outside output.
-- Preserve the repo's fail-closed data rules in `docs/pipeline-rules.md`.
-- Run the appropriate validation path before declaring work complete.
-- Commit and push coherent, validated slices often enough that another harness
-  can continue within about 10-20 minutes.
-- Request one of these output shapes: findings with file/line references,
-  options with tradeoffs and a recommendation, a minimal patch plan, a
-  reproduction/debugging trace, or a concise risk list and test suggestions.
-- For review-only handoffs, say "do not edit files" in the prompt rather than
-  starving the worker of normal tools.
+## Continuity
 
-## Claude Code MCP (RETIRED)
+GitHub and Linear hold the state, never a chat thread. Switching sessions or
+harnesses should cost about 10-20 minutes:
 
-This lane is unavailable (see Operating Model above). The section is kept as a
-pointer only: do not start work through `claude-code-mcp`, and do not treat it
-as a fallback for anything minimax cannot do — escalate to Roman instead.
-
-## Muse.ai / Muse Use
-
-Muse can collect and explore; the repo decides, computes, tests, and publishes.
-
-Good Muse tasks:
-
-- scrape difficult source pages and return raw CSV/JSON snapshots
-- compare the GitHub Pages dashboard against the Muse reference dashboard
-- explore UI variants or dashboard interaction ideas
-- do broad research where perfect reproducibility is not required
-- produce raw observations that can be imported through documented repo commands
-
-Muse output is untrusted input until it passes the repo pipeline. Raw data enters
-through the documented import, match, reference, review, and validation steps.
-Muse should not be the only place where a collector, formula, decision, or runbook
-lives.
-
-Do not ask Muse to resolve canonical player identity, edit fixtures, triage
-`review_rows`, or decide promotion readiness. Those steps belong to the
-deterministic repo pipeline and human-reviewed validation path.
-
-## GitHub Continuity Rule
-
-Keep `main` and any active branch current enough that switching between
-ChatGPT/Codex, Claude Code, Muse, or another harness costs no more than roughly
-10-20 minutes.
-
-Practical standard:
-
-- Start work by checking local status and recent commits.
-- Prefer small commits after a coherent behavior or documentation slice passes
-  validation.
-- Push validated commits promptly when the slice is meant to be shared.
-- If a slice cannot be committed yet, leave an explicit handoff note in the task
-  summary or an appropriate doc with current state, changed files, commands run,
-  failures, and next action.
-- Do not leave important decisions only in chat.
+- Start by checking `git status` and recent commits.
+- Commit and push validated slices promptly.
+- If a slice can't be committed yet, leave a handoff (Linear comment or doc)
+  with state, changed files, commands run, failures and the next action.
+- Don't leave decisions only in chat.
 
 ## Validation
 
-Default validation:
-
-```bash
-make validate
-```
-
-For narrower work, run the smallest meaningful command first, then run
-`make validate` before publishing or promoting data.
-
-`dist/` is generated; edit source files or fixtures, then run the
-sync/validation path.
-
-## Handoff Templates
-
-Detailed delegation templates live in `docs/delegation-workflow.md`.
-
-## FantasyCalc drift auto-trigger (2026-09-30)
-- Standing rule (Jeremy): the project reruns the FantasyCalc pipelines when
-  native doesn't match live. `pipelines/check_fantasycalc_drift.py` compares
-  the live API (top-25 by value) against the snapshot's native_value; if >20%
-  moved by >5%, it exits 1. With `--trigger` it refreshes the snapshot from
-  the live API and runs match -> reference -> section -> reindex -> fixture
-  -> monitors automatically. (Thresholds tuned 2026-09-30: FantasyCalc updates
-  through the day, so 1-3% intraday moves are normal noise — the 5%/20%
-  bands prevent constant refresh churn while still catching real corruption
-  like the JSN defect.)
-- Live-verification bypass (Jeremy 2026-10-04): when the review stage's
-  `native_drift` check fails for a source with a live API (currently only
-  FantasyCalc), it verifies the top-25 candidate natives against the live
-  site before failing. If 80%+ match within 5%, the drift is genuine (source
-  moved, not a pipeline bug) and the check passes as "live-verified". Network
-  failures fail closed (no pass on unverifiable). `--no-live-verify` skips
-  the check for CI/offline (drift fails hard). Sources without a live API
-  keep the hard fail. Regression: 4 new tests in test_review_candidate.py.
-- The 2026-09-30 JSN defect proved why: `match_source_snapshot.py` was
-  dropping `native_value`, so the pipeline used the flattened `value` (50.7)
-  instead of the raw FantasyCalc number (9914). The matcher and
-  `build_source_reference.py` now carry `native_value` through every stage.
-- Regression tests: `tests/test_fantasycalc_drift.py` (5 tests).
-- Refresh (updated 2026-10-08): the scheduled FantasyCalc producer is
-  `.github/workflows/fantasycalc-weekly-save.yml` (pg_cron
-  `trigger-fantasycalc-weekly-save`, Tue + Fri 13:07 UTC): pulls the 12-team
-  lists and saves a reindexed bake via `save_fantasycalc_references.py`.
-  `fantasycalc-drift.yml` is a manual-only drift check now.
-  `refresh_fantasycalc_supabase.py` (wrote raw natives into `value`, hardcoded
-  Week 4, no bake_id) was deleted; see docs/watchdog.md "Producer schedules".
-
-## As-published indexing: proportional scaling (2026-09-30)
-- User directive: "there is no need for rounding like this, so figure out a logic that applies to all the ones sourced from trade value charts." The per-position quantile mapping was destroying real value differences (Jeanty 6365 vs Cook 7157 → both 41.4) and scrambling cross-position rank.
-- New logic in `pipelines/reindex_comparison_section.py`: sources with `value_provenance == "published"` (FantasyCalc, USA Today, FantasyPros, CBS) use GLOBAL proportional scaling instead of per-position quantile mapping.
-- Formula: `indexed = native × (anchor_total / native_total)` over shared players. This preserves exact value ratios (Cook 12.4% above Jeanty stays 12.4% above), cross-position order, and all differences. No quantile mapping, no rounding in storage.
-- Fixed-pie invariant holds: sum(indexed) = anchor_total by construction.
-- DDF-methodology sources (ESPN) keep the per-position quantile mapping.
-- Verified: Jeanty 6365→42.36, Cook 7157→47.63 (ratio 1.1244 preserved); Taylor 70.0→51.71, Walker 57.9→42.77 (ratio 1.209 preserved).
-
-## VORP>0 overlap calibration (2026-09-30 PM)
-- Refinement to as-published proportional scaling (Jeremy): "players with vorp>0 should all add up to the same amount. Some trade charts don't go as deep into vorp>0, but they'll all have overlapping players for the first 50-150, so we can set the index on that set and then use the relative values on the remainder of the chart for the balance."
-- Implementation: scale is calibrated on the VORP>0 overlap set (players with anchor_value > 0, typically 150-170 players), not all shared players. The deep tail varies in depth by source and shouldn't drive the scale.
-- Formula: scale = sum(anchor_overlap) / sum(native_overlap); indexed = native * scale for ALL priced players.
-- Fixed-pie target is the anchor's overlap total; the source's overlap players sum to it.
-- Method name: `proportional_scaling_vorp_overlap`. Overlap slugs stored in fit metadata for test verification.
-
-## Lineage rebuild must not run in CI without snapshots (2026-10-01)
-- The 09-30 "auto-rebuild source value lineage on every deploy" step runs `build_source_value_lineage.py` in CI, where the gitignored `data/raw` snapshots are ABSENT. The builder silently fell back to TRANSFORMED combo natives and compared live raw values against them: served FantasyPros showed 0/25 live matches (live Gibbs 75.1 vs transformed 88.8) — a monitor false-red caused by the build environment, not the data.
-- Fix: `require_snapshot_natives()` in the builder now raises SystemExit when any SNAPSHOT_PATHS source loads zero natives. The write happens at end-of-main, so a CI failure leaves the committed (locally built, correct) `dist/modules/source-value-lineage.json` untouched and the deploy proceeds (step is continue-on-error).
-- Rule: any committed `dist/modules/*.json` that CI regenerates must be buildable from repo inputs alone, or the rebuild step must fail closed instead of writing degraded output. Same class as the import-health staleness bug.
-- Regression: `tests/test_lineage_snapshot_guard.py` (4 tests: empty refuses, partial refuses, full passes, real local snapshots satisfy — the last is `skipUnless` the gitignored snapshots exist, because a test asserting their presence can never pass in CI; the first version of it failed CI validation and blocked the 3c2136bf deploy). Rebuilt locally 2026-10-01: FantasyPros 25/25, CBS 25/25, FantasyCalc 22/25 (3 genuine intraday moves), USA Today 19/25 + 6 no-live (scrape 402, recorded in live_stale_sources), ESPN N/A-by-design.
-- Oddity found during the fix: `data/raw/sources/fantasycalc/week-4/snapshot.json` is force-added to git despite `.gitignore` carrying `data/raw/`; the fantasypros/usatoday snapshots are properly ignored. That's why CI loaded 196 fantasycalc natives while fp/usa loaded 0. Left as-is (removing it would change FantasyCalc lineage behavior); flagging for the next snapshot-management pass.
-
-- Retired 2026-10-08 (chore/retire-extras): the lineage builder, its CI step and `tests/test_lineage_snapshot_guard.py` are gone (last present at `aefb8f7`). The rule above still stands for every other CI-regenerated artifact.
-
-## CI sync must prefer the freshest health file, not the fixture (2026-10-01)
-- The 30-min health cron pushes a fresh `dist/modules/source-import-health.json` with every run, but CI's `make sync` (where the gitignored `output/` runtime file is absent) unconditionally fell back to the committed fixture `data/fixtures/current/source-import-health.json` and OVERWROTE the fresh pushed copy before upload. On 2026-10-01 the served monitor read `checked_at` 08:37Z while main held 10:07Z, because the last three health pushes (4e035da, 46638ad, 28b346f) had stopped including the fixture copy.
-- Fix in `pipelines/sync_dashboard_artifacts.py::import_health_source()`: candidates (runtime, checked-in dist copy, fixture) are now ranked by `checked_at` and the freshest valid payload wins; the write step skips the self-copy when the source IS the dist file. Regression: `tests/test_sync_health_freshest.py` (4 tests, incl. a simulation proving the OLD code chose the stale fixture against the broken state), wired into `make validate`'s test-unit list.
-- Rule: any committed `dist/modules/*.json` that CI rewrites must resolve to the freshest valid input, never a hardcoded fallback. Both candidates must remain committed: the fixture copy is refreshed by the health runs so the fallback path never drifts by more than one cycle. Note the 30-min cron body itself never contained the fixture-copy step -- the fix makes that omission harmless.
-- The fixture was also refreshed to the 10:37Z green gate (6/6 ok) in the same push.
-
-## Watchdog: status marker before content words; repo pulls before legacy cache (2026-10-01)
-- `ops/watchdog/_common.py::classify_run_line` used to match the standalone word FAILED before checking the run's status marker (`| OK |`, `SUCCESS`, `no-update`). Razzball's pull log legitimately writes detail notes like "1 rows failed PPG consistency" on an OK run (a tolerated single-row anomaly under the gate threshold), which false-tripped `failed` and then cascaded into a false "CRITICAL: artifact rewritten AFTER the failed run". Rule: status marker wins over detail-text words; genuine `| FAILED |` lines are unaffected. Regression test uses the real 2026-10-01 log line.
-- Weekly-article watchdog checks (`check_weekly_article`) read the newest `ops/watchdog/pulls/<src>-<date>.json` first and fall back to the legacy goal-workspace cache. The legacy cache (`lottery/data/sources_cache/*.json`) went dead after the repo ingest pipelines replaced the old lottery pullers (Sep 21); reading it first false-alarmed STALE on CBS/USA Today while Supabase already held fresh rows. When a watchdog source false-alarms stale, check which cache path the watchdog reads before assuming the ingest is broken.
-- USA Today 2026-09-29 week-3 article layout note: the QB table sits under the generic "Week N fantasy trade charts" h2 (lazy h2->table pairing); `pull_usatoday.py::_clean_title_position` infers the QB title from the 1QB/6-TD/SFLEX header signature. Also 2026-10-01: curl fetches of usatoday.com article pages now return persistent 402 while sitemap + browser render still work. FIXED same day: the 402 is header-based blocking — adding full browser `Accept`, `Accept-Language`, and `Upgrade-Insecure-Requests` headers to `ops/watchdog/_common.py::fetch` restores 200 (verified on the week-3 article). This is the shared fetch, so CBS and any other watchdog puller get the headers too. The 2026-10-01 fresh pull (238 rows, content-identical to 2026-09-30) used this path.
-
-## cbsros wired through Supabase (2026-10-01)
-- `public.cbs_ros_projections` table created (DDL: `sql/migrations/002_cbs_ros_projections.sql` — run in Supabase SQL editor; PostgREST cannot DDL). Grain: (player_key, cbs_snapshot_date). Modeled on `espn_season_projections`.
-- DDL was run via the browser SQL editor; afterward PostgREST still 404'd the table (PGRST205) until `NOTIFY pgrst, 'reload schema';` was run in the SQL editor. Expect the schema-cache lag on every future DDL.
-- PostgREST table-name rule: sbclient builds `/rest/v1/<table>`, so pass the BARE table name (`cbs_ros_projections`). The first save_cbsros run passed `"public.cbs_ros_projections"` and PostgREST looked for a table literally named that (error: "Could not find the table 'public.public.cbs_ros_projections'"). All working savers use bare names; SOURCE_TABLES keeps schema-qualified names only as manifest labels.
-- `pipelines/save_cbsros_references.py` uploads snapshot data to the table (fail-closed identity via public.players, same ALIASES as the DDF leg). 2026-09-30: 363 rows (4 fail-closed identity exclusions: Trubisky, Brooks, Knight, Okonkwo).
-- `pipelines/import_supabase_references.py`: cbsros added to DB_SOURCES/SOURCE_TABLES. `build_cbsros_snapshot()` emits the NATIVE shape (schema `trade-value-cbsros-snapshot-v1`, top-level `vintage_date`, rows with ros_*/per_game_*/gp/receptions/raw_stats) — NOT the generic comparison shape. cbsros's production chain is snapshot -> DDF leg -> section (rebuild_comparison_chain.py run_cbsros_source); the DDF leg fail-closes on a missing vintage_date, so the first DB-backed import (comparison-shaped) would have broken the chain. pos from public.players.position, team from the fixture players.json map.
-- Round-trip verified 2026-10-01: Supabase table -> import -> native snapshot -> build_cbsros_ddf_leg.py (half_ppr, 12t) produces byte-identical values/ppg for all 329 players common with the old file-backed leg, plus 4 previously-unresolvable fullbacks (Juszczyk, Heyward, Beck, Burton) now resolving at 0.0 via canonical names.
-- `.github/workflows/rebuild-chain.yml`: cbsros added to the import loop.
-- `pipelines/verify_import_health.py`: cbsros moved from SNAPSHOT_ONLY to DB-backed with table config. Health gate GREEN 2026-10-01 (6/6).
-- The force-added `data/raw/sources/cbsros/2026-09-30/snapshot.json` (commit ec4f3986) is retired: archived under `_superseded/` after the DB-backed import was verified live (health gate GREEN, DDF-leg round-trip byte-identical).
-
-## razzball wired through Supabase: code landed, table created 2026-10-02 but EMPTY (JEG-18)
-- `public.razzball_projections` was created 2026-10-02 from `sql/migrations/003_razzball_projections.sql` (Jeremy's explicit yes in the Claude session; applied with the Supabase `apply_migration` tool, followed by `NOTIFY pgrst, 'reload schema'`). Verified read-only afterwards: 21 columns, primary key plus the two indexes, RLS off like `cbs_ros_projections`, **0 rows**. No row has been written yet: the first real save has to run on the machine that has `data/raw/sources/razzball/`.
-- `pipelines/save_razzball_references.py`: snapshot -> table. Per-game columns `rz_std_ppg/rz_half_ppr_ppg/rz_ppr_ppg` -> `per_game_standard/half_ppr/ppr`; every other row field verbatim in `raw_stats`; stamped from the snapshot's `vintage_date`. Upsert key `(player_key, razzball_snapshot_date)`.
-- `pipelines/import_supabase_references.py`: `razzball` in `DB_SOURCES`/`SOURCE_TABLES`, removed from `HARD_EXCLUSIONS` (ecr/vegas/prediction markets stay). `build_razzball_snapshot()` rebuilds the native shape (schema `trade-value-razzball-snapshot-v1`) the DDF leg reads.
-- `pipelines/verify_import_health.py`: razzball is DB-backed, judged on the dated daily rule (not week-designated). `.github/workflows/rebuild-chain.yml`: razzball added to the import loop.
-- **Merge order matters:** with this merged, the import-health gate needs a Razzball snapshot from Supabase. Until the table exists and holds a vintage, the gate reports `MISSING razzball` and the 6-hourly chain goes red. Run the migration and the first real save (on the machine that has `data/raw/sources/razzball/`) BEFORE merging.
-- Tested with synthetic rows only (the real snapshot lives on the owner's machine). The puller named in JEG-18 (`pipelines/pull_razzball_ros.py`) is not in this repo, so the snapshot row shape is inferred from `data/inputs/razzball_projections.csv` and from what `build_razzball_ddf_leg.py` reads.
+`make validate` is the deploy gate (see `CLAUDE.md`). For narrower work, run
+the smallest meaningful command first, then `make validate` before publishing.
+`dist/` is generated: edit sources or fixtures, then run the sync/validation
+path.

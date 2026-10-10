@@ -423,6 +423,7 @@ Approved by Jeremy on 2026-10-07 and implemented in PR #400.
 - silence-default: explicit-tap
 - outcome: pending
 - outcome_date:
+- ticket: JEG-533 (moved from JEG-525, closed 2026-10-09 as superseded)
 - recommendation: Adopt OC-9 A: each source's value above waivers is split into a start-worthy part and a fill-in part by the expected lineup share of the player's level (docs/methodology.md ES-0 to ES-11), with m_pos, the bye share and sigma measured weekly by pipelines/derive_lineup_parameters.py; the bench share becomes an output; the default roster is WR 3 / FLEX 1 and config/roster.json is corrected when the fit retires.
 
 ### Context
@@ -432,7 +433,10 @@ production: points that reach a starting lineup. Today a flat 15% bench
 share, which nobody derived, is the only thing separating starters from
 bench, and the VP spec's recommended replacement (OC-2 A, source-implied
 slices) measures at 39% to 49% of the pie on bench slices on live data
-(MR-19). The parameters were derived from 2024-2026 player-game actuals,
+(MR-19). Update 2026-10-09: Jeremy decided OC-2 at a fixed 15% with slices
+on JEG-508, so MR-19 is moot and option C now means "keep the fixed 15%".
+This decision is the follow-up: replace the 15% with expected starts after
+JEG-508 ships. The parameters were derived from 2024-2026 player-game actuals,
 the schedule, the three projection sources' spread and their week-to-week
 movement (`output/lineup-parameters.md`).
 
