@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-10T08:01:22.002864+00:00",
+  "run_at": "2026-10-10T09:42:01.843467+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,12 +10,30 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "green",
-  "held": [],
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
+  "held": [
+    "fantasycalc"
+  ],
   "hold_severity": "none",
-  "held_detail": {},
+  "held_detail": {
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc"
+      ],
+      "restored_from": "2026-10-10T07:12:39.604852+00:00",
+      "detail": "797/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 31); stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 34); 381 of 1178 values moved since the save at 2026-10-10T07:05:26.085599Z (largest 80",
+      "hold_severity": "amber",
+      "week": 5
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -126,5 +144,41 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "fidelity_holds": {
+    "fantasycalc": "fidelity: publisher_vs_stored"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_ddf_composite_value.DdfChartPriorWeekTest.test_chart_without_saved_prior_inputs_is_left_out_of_both_weeks",
+      "FAIL tests.test_ddf_composite_value.DdfChartPriorWeekTest.test_charts_count_in_both_weeks",
+      "FAIL tests.test_ddf_composite_value.DdfChartPriorWeekTest.test_saved_setup_derives_live_too",
+      "FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_set_composite_inputs",
+      "FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_three_versions_from_adjusted_values_the_same_in_every_tab",
+      "FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_a_held_projection_is_out_of_every_version",
+      "FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_a_source_not_yet_published_for_the_week_is_never_an_input",
+      "FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_hold_on_the_derived_section_itself",
+      "FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_pipeline_hold_on_raw_and_adjusted_sections",
+      "FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_promotion_hold_is_a_hold_too",
+      "FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_unheld_fixture_has_no_held_series"
+    ],
+    "assertions": [
+      "AssertionError: Items in the first set but not the second:",
+      "AssertionError: Lists differ: [{'key': 'fantasycalc', 'series': 'fantasy[168 chars]: 5}] != []",
+      "AssertionError: {'raz[35 chars]c': 'held: fidelity: publisher_vs_stored', 'us[73 chars]ted'} != {'raz[35 chars]c': 'not selected', 'usatoday': 'not selected'[50 chars]ted'}",
+      "AssertionError: Lists differ: ['usatoday', 'fantasypros', 'cbs'] != ['fantasycalc', 'usatoday', 'fantasypros', 'cbs']",
+      "AssertionError: {'fantasycalc': 'held: fidelity: publisher_vs_stored', 'us[73 chars]ted'} != {'fantasycalc': 'not selected', 'usatoday': 'not selected'[50 chars]ted'}",
+      "AssertionError: {'raz[35 chars]c': 'held: fidelity: publisher_vs_stored', 'fa[45 chars]ted'} != {'raz[35 chars]c': 'not selected', 'fantasypros': 'not select[22 chars]ted'}",
+      "AssertionError: False is not true : {'key': 'fantasycalc', 'series': 'fantasycalc', 'reason': 'held: fidelity: publisher_vs_stored', 'heldBy': 'fantasycalc', 'holdField': 'validationHold', 'holdWeek': 5, 'holdRoot': 'fantasycalc', 'holdKeptWeek': 5}",
+      "AssertionError: {'raz[35 chars]c': 'held: fidelity: publisher_vs_stored', 'us[50 chars]ted'} != {'raz[35 chars]c': 'not selected', 'usatoday': 'not selected'[27 chars]ted'}",
+      "AssertionError: Lists differ: ['fantasycalc'] != []"
+    ],
+    "make_targets": [
+      "Makefile:482: test-core"
+    ],
+    "detail": "FAIL tests.test_ddf_composite_value.DdfChartPriorWeekTest.test_chart_without_saved_prior_inputs_is_left_out_of_both_weeks; FAIL tests.test_ddf_composite_value.DdfChartPriorWeekTest.test_charts_count_in_both_weeks; FAIL tests.test_ddf_composite_value.DdfChartPriorWeekTest.test_saved_setup_derives_live_too; FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_set_composite_inputs; FAIL tests.test_ddf_composite_value.DdfCompositeValueTest.test_three_versions_from_adjusted_values_the_same_in_every_tab; FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_a_held_projection_is_out_of_every_version; FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_a_source_not_yet_published_for_the_week_is_never_an_input; FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_hold_on_the_derived_section_itself; FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_pipeline_hold_on_raw_and_adjusted_sections; FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_promotion_hold_is_a_hold_too; FAIL tests.test_ddf_composite_value.DdfHeldSeriesTest.test_unheld_fixture_has_no_held_series; AssertionError: Items in the first set but not the second:; AssertionError: Lists differ: [{'key': 'fantasycalc', 'series': 'fantasy[168 chars]: 5}] != []; AssertionError: {'raz[35 chars]c': 'held: fidelity: publisher_vs_stored', 'us[73 chars]ted'} != {'raz[35 chars]c': 'not selected', 'usatoday': 'not selected'[50 chars]ted'}; AssertionError: Lists differ: ['usatoday', 'fantasypros', 'cbs'] != ['fantasycalc', 'usatoday', 'fantasypros', 'cbs']; AssertionError: {'fantasycalc': 'held: fidelity: publisher_vs_stored', 'us[73 chars]ted'} != {'fantasycalc': 'not selected', 'usatoday': 'not selected'[50 chars]ted'}; AssertionError: {'raz[35 chars]c': 'held: fidelity: publisher_vs_stored', 'fa[45 chars]ted'} != {'raz[35 chars]c': 'not selected', 'fantasypros': 'not select[22 chars]ted'}; AssertionError: False is not true : {'key': 'fantasycalc', 'series': 'fantasycalc', 'reason': 'held: fidelity: publisher_vs_stored', 'heldBy': 'fantasycalc', 'holdField': 'validationHold', 'holdWeek': 5, 'holdRoot': 'fantasycalc', 'holdKeptWeek': 5}; AssertionError: {'raz[35 chars]c': 'held: fidelity: publisher_vs_stored', 'us[50 chars]ted'} != {'raz[35 chars]c': 'not selected', 'usatoday': 'not selected'[27 chars]ted'}; AssertionError: Lists differ: ['fantasycalc'] != []",
+    "recorded_at": "2026-10-10T09:54:16.003096+00:00"
   }
 }
