@@ -436,6 +436,15 @@ def main() -> int:
     # old ("unknown") on a locally built monitor.
     freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, datetime.now(timezone.utc).date(),
                              import_health_path=import_health)
+    # JEG-460: source divergence soft check. A warning, never a gate: errors
+    # land in the report (status "error") and the build carries on. The
+    # per-source status rides in the health report for the dashboard chip.
+    from check_source_divergence import freshness_summary, run_soft as run_source_divergence
+    divergence = run_source_divergence(ROOT / "output" / "source-divergence.json",
+                                       [DIST / "modules" / "source-divergence.json"],
+                                       fixture_path=FIXTURES / "comparison-sources-data.json",
+                                       players_path=FIXTURES / "players.json")
+    freshness["source_divergence"] = freshness_summary(divergence)
     REFERENCE_FRESHNESS.parent.mkdir(parents=True, exist_ok=True)
     REFERENCE_FRESHNESS.write_text(json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
