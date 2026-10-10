@@ -413,8 +413,31 @@
     node.append(sym, document.createTextNode(` ${label}`));
     return node;
   }
+  // Estimated values (VP-11, JEG-541): row.estimated = {seriesKey: reason} marks a chart value the
+  // engine filled in for a rosterable player the chart doesn't list (VP-2.4). Wherever that value is
+  // shown it carries "≈ estimated" (symbol + word), with the engine's reason as the tooltip.
+  const estimatedReason = (row, key) => {
+    const reason = row && row.estimated ? row.estimated[key] : null;
+    return typeof reason === "string" && reason.trim() && Number.isFinite(row.values?.[key]) ? reason : null;
+  };
+  function estimatedNode(reason) {
+    const node = document.createElement("span");
+    node.className = "v2-estimated";
+    node.dataset.estimated = "";
+    node.title = reason;
+    node.setAttribute("role", "img");
+    node.setAttribute("aria-label", `estimated: ${reason}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = "≈";
+    node.append(sym, document.createTextNode(" estimated"));
+    return node;
+  }
+  // Every finite value v2 shows passes through here, so both value tags live in one place.
   function appendLowConfidence(parent, row, key) {
     if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));
+    const reason = estimatedReason(row, key);
+    if (reason) parent.appendChild(estimatedNode(reason));
   }
   // Player values: the Rank by series over the engine's ranked rows.
   const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
@@ -891,6 +914,13 @@
       val.className = "val";
       val.textContent = Number.isFinite(v) ? fmt(v) + (state.delta ? `  ${deltaText(row, key)}` : "") : "—";
       appendLowConfidence(val, row, key);
+      if (estimatedReason(row, key)) {
+        const why = document.createElement("span");
+        why.className = "why";
+        why.dataset.estimatedWhy = "";
+        why.textContent = ` ${estimatedReason(row, key)}`;
+        val.appendChild(why);
+      }
       if (!Number.isFinite(v)) {
         val.title = missingReason(key, row);
         const why = document.createElement("span");
@@ -1281,6 +1311,13 @@
     unit.className = "v2-meta";
     unit.textContent = meta.method === "vorp" ? "VORP vs waivers, on this source's own scale" : "Trade-value points";
     main.append(eyebrow, big, unit);
+    if (estimatedReason(row, key)) {
+      const why = document.createElement("p");
+      why.className = "v2-meta";
+      why.dataset.estimatedWhy = "";
+      why.textContent = `≈ ${estimatedReason(row, key)}`;
+      main.appendChild(why);
+    }
     hero.appendChild(main);
     const dda = view.active.filter(k => sourceMeta(k).method === "dda" && view.infoByKey[k]?.available)
       .map(k => row.values[k]).filter(Number.isFinite);
@@ -1979,22 +2016,28 @@
   }
 
   // ---------- 11 Weights & bench ----------
-  // fe-fidelity: below a position's feasible window the engine prices it at a higher share
-  // (bench_share_used). v2 shows the share the engine used, never the request, and says when
-  // they differ. No math here: the used shares come from getBenchShareUsed().
+  // fe-fidelity / JEG-541: v2 shows the bench share the engine priced with (getBenchShareUsed),
+  // never the request. Since JEG-508 there are no per-position feasibility windows: the engine
+  // uses the requested share for every position, except 0 when no source has bench players above
+  // waivers and 1 when none has starters above waivers. Before the values are built it returns
+  // null, and v2 shows "—" with that reason. No math here.
   function benchShown(share) {
     const used = C.getBenchShareUsed ? C.getBenchShareUsed(share) : null;
     const values = used ? Object.values(used).filter(Number.isFinite) : [];
-    const lo = values.length ? Math.min(...values) : share;
-    const hi = values.length ? Math.max(...values) : share;
+    if (!values.length) {
+      return {text: "—", starters: "—", note: "Bench share not available: the values are not built yet", missing: true};
+    }
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
     const pct = v => (v * 100).toFixed(1);
     const single = pct(lo) === pct(hi);
     const text = single ? `${pct(lo)}%` : `${pct(lo)}–${pct(hi)}%`;
     const starters = single ? `${pct(1 - lo)}%` : `${pct(1 - hi)}–${pct(1 - lo)}%`;
     const differs = values.some(v => Math.abs(v - share) > 5e-4);
-    const edge = values.some(v => v > share) ? "lowest" : "highest";
-    const note = differs ? `Bench ${pct(share)}% requested · priced at ${text} (${edge} the league supports)` : "";
-    return {text, starters, note};
+    const why = hi <= 0 ? "no source has bench players above waivers"
+      : lo >= 1 ? "no source has starters above waivers" : "the engine's pricing";
+    const note = differs ? `Bench ${pct(share)}% requested · priced at ${text} (${why})` : "";
+    return {text, starters, note, missing: false};
   }
   function openWeights() {
     const bounds = C.getBenchBounds();
@@ -2024,7 +2067,7 @@
       const range = document.createElement("p");
       range.className = "v2-meta";
       range.textContent = bounds
-        ? `Feasible ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% for this league · Recommended 15%`
+        ? `Range ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% · Recommended 15%`
         : "Bench allocation is unavailable for this league setup.";
       body.appendChild(range);
       const split = document.createElement("div");
@@ -2036,15 +2079,12 @@
         split.innerHTML = "";
         const b = document.createElement("b");
         b.textContent = `Starters ${shown.starters} / Bench ${shown.text}`;
-        const p = document.createElement("span");
-        p.className = "v2-meta";
-        p.textContent = "Feasible bounds recalculate with league structure.";
         const note = document.createElement("span");
         note.className = "v2-meta is-older";
         note.dataset.benchNote = "";
         note.hidden = !shown.note;
         note.textContent = shown.note ? `⚠ ${shown.note}` : "";
-        split.append(b, p, note);
+        split.append(b, note);
       };
       slider.addEventListener("input", () => { draft = Number(slider.value); sync(); });
       sync();
@@ -2679,7 +2719,7 @@
     const badge = targetBadge(key);
     if (badge) span.appendChild(badge);
     if (cell.value === null) {
-      span.appendChild(missingNode(cell.reason, "not on chart"));
+      span.appendChild(missingNode(cell.reason, "no value"));
       return span;
     }
     const val = document.createElement("span");
@@ -2687,6 +2727,7 @@
     val.textContent = fmt(cell.value);
     span.appendChild(val);
     span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
+    appendLowConfidence(span, p.row, key);   // "≈ estimated" when the engine filled it in
     const rank = withNative && typeof C.getNativeRank === "function" ? C.getNativeRank(p.row.player_key, key) : null;
     if (Number.isFinite(rank)) {
       const native = document.createElement("span");
@@ -2788,7 +2829,7 @@
         const c = td("num t-chart");
         c.dataset.chart = chart;
         if (cell.value === null) {
-          c.appendChild(missingNode(cell.reason, "not on chart"));
+          c.appendChild(missingNode(cell.reason, "no value"));
         } else if (cell.atWaiver) {
           c.append(document.createTextNode(fmt(cell.value)));
           c.appendChild(waiverNode(cell.reason));
@@ -2796,6 +2837,7 @@
           c.append(document.createTextNode(fmt(cell.value)));
           c.appendChild(gapNode(cell));
         }
+        if (cell.value !== null) appendLowConfidence(c, p.row, chart);   // "≈ estimated"
       });
       const b = targetBest(side, p);
       const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
@@ -3788,7 +3830,7 @@
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchShown(C.getBenchShare());
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
-      + `bench ${linkBench.text}${linkBench.note ? ` (${(C.getBenchShare() * 100).toFixed(1)}% requested)` : ""}.${earlier}`);
+      + `bench ${linkBench.text}${linkBench.note && !linkBench.missing ? ` (${(C.getBenchShare() * 100).toFixed(1)}% requested)` : ""}.${earlier}`);
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 8000);
   }
@@ -3907,7 +3949,14 @@
           ? (item.paused ? " — waiting on fresh inputs" : " — not available for this league")
           : item.stale ? " · older week" : "";
         // V2-WAIVER-COVERAGE: a short chart's waiver line is extrapolated; say so here too.
-        if (item.available && item.waiverNote) why.textContent += ` · ${item.waiverNote}`;
+        // JEG-541: the note is the engine's own text (it carries the engine's counts of estimated
+        // players), so it sits in its own data-engine node, like the league card.
+        if (item.available && item.waiverNote) {
+          const note = document.createElement("span");
+          note.dataset.engine = "waiver-note";
+          note.textContent = ` · ${item.waiverNote}`;
+          why.appendChild(note);
+        }
         if (why.textContent) li.appendChild(why);
         list.appendChild(li);
       });

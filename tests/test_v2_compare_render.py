@@ -9,7 +9,9 @@ own search boxes, and checks against window.TradeValueCurveControls.getAllRows()
     sums of that series' engine values for the players on each side, and
     "Get − give" is exactly their difference with a matching ▲ / ▼ / = label;
   * a player with no value in a series turns that row into "—" plus a reason
-    naming the player, never a 0;
+    naming the player, never a 0 (JEG-541: the missing value is simulated by
+    wrapping the engine's row accessors, since after JEG-508 every chart prices
+    every player and the fixture may have no natural gap);
   * VORP vs waivers series sit only in their own panel, never in the
     trade-value table;
   * the trade survives a round trip to Player values;
@@ -67,6 +69,42 @@ PICK = """(extra) => {
   return {give: [priced[0], priced[3]].map(r => [String(r.player_key), r.name]),
           receive: [priced[1], gap].filter(Boolean).map(r => [String(r.player_key), r.name])};
 }"""
+
+# JEG-541: since JEG-508 every chart gives a value (listed, estimated, or 0 below rosterable
+# depth), so the live fixture may have no star missing a selected series. The missing-value path
+# is exercised hermetically: the engine's row accessors are wrapped so one priced player lacks
+# `series` (value null, with a reason), exactly as the engine reports a null.
+SIMULATE_MISSING = """(series) => {
+  const C = window.TradeValueCurveControls;
+  const ranked = C.getAllRows().filter(r => Number.isFinite(r.values.espn) && Number.isFinite(r.values[series]))
+    .sort((a, b) => b.values.espn - a.values.espn);
+  const target = ranked[6];
+  if (!target) return null;
+  const key = String(target.player_key);
+  const reason = 'Simulated in test: no value in this series';
+  const patch = r => {
+    if (!r || String(r.player_key) !== key) return r;
+    const estimated = {...(r.estimated || {})};
+    delete estimated[series];
+    return {...r, values: {...r.values, [series]: null}, estimated,
+      missingReasons: {...(r.missingReasons || {}), [series]: reason}};
+  };
+  for (const name of ['getAllRows', 'getRows']) {
+    const original = C[name].bind(C);
+    C[name] = (...args) => original(...args).map(patch);
+  }
+  if (C.getPlayer) { const original = C.getPlayer.bind(C); C.getPlayer = (...args) => patch(original(...args)); }
+  return {key, name: target.name, series};
+}"""
+
+
+def simulate_missing(page, series):
+    """Make one priced player lack `series` (see SIMULATE_MISSING); returns {key, name, series}."""
+    simulated = page.evaluate(SIMULATE_MISSING, series)
+    if not simulated:
+        raise AssertionError(f"no priced player has {series!r} to simulate a missing value")
+    return simulated
+
 
 READ = """() => {
   const C = window.TradeValueCurveControls;
@@ -209,6 +247,7 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
                 for key in EXTRA_SERIES:
                     page.evaluate("""key => { const box = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
                       if (box && !box.checked && !box.disabled) box.click(); }""", key)
+                simulate_missing(page, "usatoday")
                 pick = page.evaluate(PICK, None)
                 for side, field in (("give", "#v2GiveSearch"), ("receive", "#v2GetSearch")):
                     results = "#v2GiveResults" if side == "give" else "#v2GetResults"
