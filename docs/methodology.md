@@ -911,17 +911,27 @@ the page shows the result.
 - **Readout.** "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your
   league settings" = the bench tier's share of each position's value and of
   the pie under A (`expected_starts_model.bench_share_readout`, the Python
-  reference). Week 5, 12-team full PPR, defaults: QB 22.7%, RB 9.1%, WR 6.4%,
-  TE 12.6%, overall 9.1%. QB is high because the quarterback curve is flat
+  reference). Week 5, 12-team full PPR, defaults: QB 22.6%, RB 9.1%, WR 6.2%,
+  TE 12.4%, overall 8.9%. QB is high because the quarterback curve is flat
   near the line: QB13-21 sit close to the starters.
 - **Measured at the defaults** (Week 5, `docs/claude-log/2026-10-09-jeg533-*`):
-  bench tier 8.5% to 9.7% across the 12 settings, zero inversions. The
+  bench tier 8.3% to 9.5% across the 12 settings, zero inversions (with the
+  measured drift below; 8.5% to 9.7% with the stand-in). The
   settings move it little (12-team full PPR): injury history all 9.08%,
   regular season 9.12%, playoffs 9.07%, content week 12 8.58%, projection
   confidence 0.5 8.64%. The parameter tables in ES-1 and ES-7 above are the
   decision build (two weeks' data before the merge of main, weeks 6-18,
   equal weighting); the approved defaults are in the claude-log files named
   here.
+- **Uncertainty measured (JEG-540, 2026-10-09).** `sigma_weekly` is now the
+  level drift of weekly projections, measured on 2018-2025 Sleeper weekly
+  projections (`derive_lineup_parameters.measured_drift`,
+  `docs/claude-log/2026-10-09-jeg540-projection-movement.md`): per week QB
+  2.3%, RB 10.4%, WR 7.3%, TE 7.2%, against the stand-in 4.6 / 10.7 / 11.2 /
+  13.8%. Matchup noise (2018-2025): 4.5 / 9.5 / 7.2 / 6.6%. With it the
+  upside (convex) form gives 11.7% at 12-team full PPR (12.3% with the
+  stand-in), the approved form 8.9%; the open choice between them is MR-21 /
+  JEG-530.
 - **Portfolio.** Where bench value differs most between readers is their own
   roster; that input is the roster import (JEG-481), not a percentage.
 

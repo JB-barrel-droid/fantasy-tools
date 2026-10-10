@@ -6,10 +6,10 @@ Content week 5, ppr scoring, 12 teams. Schema `lineup-parameters/1`. Produced by
 
 | Position | m (healthy starters) | 95% interval, equal weight | team games | m, 2024-2025 only | m, all rostered | sigma now (spread) | sigma drift (to mid-window) | sigma used | sigma floor (ppg) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| QB | 11.8% | 9.8% to 12.3% | 2,319 | 9.9% | 13.6% | 13.8% | 11.2% | 17.8% | 0.69 |
-| RB | 14.4% | 14.4% to 16.2% | 5,816 | 10.0% | 16.4% | 11.2% | 26.3% | 28.5% | 0.84 |
-| WR | 11.8% | 11.0% to 12.4% | 8,128 | 13.0% | 13.7% | 12.3% | 27.4% | 30.0% | 0.99 |
-| TE | 15.1% | 13.0% to 15.8% | 2,331 | 15.9% | 14.8% | 8.7% | 33.9% | 35.0% | 0.65 |
+| QB | 11.8% | 9.8% to 12.3% | 2,319 | 9.9% | 13.6% | 13.8% | 5.6% | 14.9% | 0.69 |
+| RB | 14.4% | 14.4% to 16.2% | 5,816 | 10.0% | 16.4% | 11.2% | 25.4% | 27.7% | 0.84 |
+| WR | 11.8% | 11.0% to 12.4% | 8,128 | 13.0% | 13.7% | 12.3% | 17.8% | 21.6% | 0.99 |
+| TE | 15.1% | 13.0% to 15.8% | 2,331 | 15.9% | 14.8% | 8.7% | 17.6% | 19.6% | 0.65 |
 
 m source: healthy starters, 2015-2025 (nflverse), selection weeks 1-5 and 1-9, measured to the season's last week minus one; weighted toward recent seasons (half-life 5 seasons, es-value-001).
 

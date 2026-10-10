@@ -102,6 +102,8 @@ SCHEDULE = REPO / "data" / "inputs" / "nfl_schedule_2024_2026.json"
 HISTORY_ACTUALS = REPO / "data" / "inputs" / "weekly_actuals_nflverse_2015_2025.csv.gz"
 HISTORY_SCHEDULE = REPO / "data" / "inputs" / "nfl_schedule_2015_2025.json"
 BYES = REPO / "data" / "inputs" / "nfl_byes_2026.json"
+# JEG-540: weekly projections, 2018-2026 (internal measurement source only).
+SLEEPER_WEEKLY = REPO / "data" / "inputs" / "weekly_projections_sleeper.csv.gz"
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
 HISTORY = REPO / "data" / "history"
 OUT = REPO / "output" / "lineup-parameters.json"
@@ -419,7 +421,11 @@ def build_config(doc: dict, byes: dict) -> dict:
         pos[p] = {"m": {"recent": st["weighted_rate"], "all": st["rate"]},
                   "m_late": {"recent": lt["weighted_rate"], "all": lt["rate"]},
                   "sigma_now": doc["recommended"][p]["sigma_rel_now"],
-                  "sigma_weekly": (doc["week_to_week_summary"].get(p) or {}).get("weekly_rel_sd") or 0.0,
+                  "sigma_weekly": ((doc.get("measured_drift") or {}).get(p) or {}).get("drift_sd_per_week")
+                                  or (doc["week_to_week_summary"].get(p) or {}).get("weekly_rel_sd") or 0.0,
+                  "sigma_weekly_source": ("measured: Sleeper weekly projections 2018-2025 (JEG-540)"
+                                          if ((doc.get("measured_drift") or {}).get(p)) else
+                                          "stand-in: week-to-week movement in data/history"),
                   "sigma_floor": doc["recommended"][p]["sigma_floor"]}
     cfg = {"schema": "lineup-parameters-config/2", "content_week": doc["content_week"],
            "source": "pipelines/derive_lineup_parameters.py (docs/methodology.md ES-1, ES-12, ES-14); generated, do not edit",
@@ -551,6 +557,57 @@ def weekly_noise(actuals, schedule, sizes, seasons=SEASONS, scoring="ppr") -> di
                 if mean > 0:
                     cvs.append(statistics.stdev(vals) / mean)
         out[pos] = {"median_cv": statistics.median(cvs) if cvs else None, "players": len(cvs)}
+    return out
+
+
+def measured_drift(path=SLEEPER_WEEKLY, sizes=None, seasons=range(2018, 2026), max_h=8) -> dict | None:
+    """Level drift of a player's projection per week, per position, measured
+    on stored weekly projections (JEG-540): for players at or above the
+    12-team rostered line in week t and projected again in week t+h, the
+    robust variance of the relative change grows as 2 x matchup noise +
+    drift x h; the slope over h = 1..8 is the drift. Replaces the three-week
+    stand-in (ES-1: "stand-in until G4 can measure"). None without the file."""
+    import gzip
+    if not Path(path).exists():
+        return None
+    sizes = sizes or pool_sizes(12)
+    players = defaultdict(dict)
+    with gzip.open(path, "rt", encoding="utf-8", newline="") as fh:
+        for r in csv.DictReader(fh):
+            if r["pos"] in POSITIONS and int(r["season"]) in seasons:
+                players[(int(r["season"]), r["sleeper_id"])][int(r["week"])] = (float(r["pts_ppr"] or 0), r["pos"])
+    by = defaultdict(lambda: defaultdict(list))
+    for (s, sid), wk in players.items():
+        for w, (p, pos) in wk.items():
+            by[(s, w)][pos].append((p, sid))
+    elig = {k: {sid for pos, lst in v.items() for _, sid in sorted(lst, reverse=True)[:sizes[pos]["rostered"]]}
+            for k, v in by.items()}
+    ch = {pos: defaultdict(list) for pos in POSITIONS}
+    for (s, sid), wk in players.items():
+        for t, (p, pos) in wk.items():
+            if p <= 0 or sid not in elig.get((s, t), ()):
+                continue
+            for h in range(1, max_h + 1):
+                nxt = wk.get(t + h)
+                if nxt and nxt[0] > 0 and t + h <= 17:
+                    ch[pos][h].append((nxt[0] - p) / p)
+    out = {}
+    for pos in POSITIONS:
+        hs, vs = [], []
+        for h in range(1, max_h + 1):
+            x = ch[pos][h]
+            if len(x) > 50:
+                med = statistics.median(x)
+                vs.append((MAD_TO_SD * statistics.median(abs(v - med) for v in x)) ** 2)
+                hs.append(h)
+        if len(hs) < 3:
+            out[pos] = None
+            continue
+        mh, mv = statistics.mean(hs), statistics.mean(vs)
+        b = sum((h - mh) * (v - mv) for h, v in zip(hs, vs)) / sum((h - mh) ** 2 for h in hs)
+        a = mv - b * mh
+        out[pos] = {"drift_sd_per_week": math.sqrt(max(b, 0.0)), "matchup_sd": math.sqrt(max(a, 0.0) / 2),
+                    "player_weeks_h1": len(ch[pos][1])}
     return out
 
 
@@ -746,7 +803,7 @@ def derive(actuals, schedule, byes_doc, players, history, teams=12, scoring="ppr
     doc = {"schema": SCHEMA, "content_week": content_week, "teams": teams, "scoring": scoring,
            "pool_sizes": sizes, "recommended": rec, "bye_share": byes, "missed_games": m,
            "missed_games_history": m_history, "missed_games_late": m_late,
-           "week_to_week_summary": movement_summary}
+           "week_to_week_summary": movement_summary, "measured_drift": measured_drift(sizes=sizes)}
     # es-value-001 defaults (season objective, recent-weighted injury history,
     # playoff weeks 15-17): the recommended parameters are the resolved ones.
     cfg = build_config(doc, byes_doc["byes"])
@@ -763,6 +820,7 @@ def derive(actuals, schedule, byes_doc, players, history, teams=12, scoring="ppr
     return {"schema": SCHEMA, "content_week": content_week, "teams": teams, "scoring": scoring,
             "pool_sizes": sizes, "recommended": rec, "bye_share": byes, "missed_games": m,
             "missed_games_history": m_history, "missed_games_late": m_late, "config": cfg,
+            "measured_drift": doc["measured_drift"],
             "cross_source": cross, "week_to_week": movement, "week_to_week_summary": movement_summary,
             "weekly_noise": noise,
             "inputs": {"actuals": str(ACTUALS.relative_to(REPO)), "schedule": str(SCHEDULE.relative_to(REPO)),
