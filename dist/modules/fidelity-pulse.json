@@ -1,8 +1,8 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-10T00:40:16.942109Z",
- "run_id": "fb1cc93a-4451-41ae-80ab-2a2d76e5d42e",
- "overall": "red",
+ "checked_at": "2026-10-10T01:04:32.433158Z",
+ "run_id": "08141630-27f3-4593-b058-3e723e964a08",
+ "overall": "amber",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
   "built_at": "2026-10-09T23:47:13.341011+00:00",
@@ -22,18 +22,7 @@
   "hold": "JEG-520: a red in publisher_vs_stored, stored_vs_chart, freshness or scrape_validity holds that source and its derived series (the chain's validationHold, reason 'fidelity: <stage>'): kept out of DDF Value, labelled, a published chart served from its last good section. Amber and unknown never hold; reference_vs_engine reds are already held by the JEG-479 value check. While held, stored_vs_chart is n/a (the chart shows the kept section) unless the hold was stored_vs_chart on the same stored save, which stays red until a newer save; freshness reads the stored week or snapshot instead of the chart's.",
   "tolerance": "per-source tolerance (JEG-520, measured in docs/fidelity-tolerances.md): FantasyCalc live-feed movement band max(25%, 50 points), red only above 10% of values outside it; article charts exact against the same article version, a later revision is 'update available' for 24 h, then stale; projections exact against the same publisher version (probe fingerprint), a changed version amber for 24 h, then stale"
  },
- "holds": {
-  "fantasycalc": {
-   "stage": "publisher_vs_stored",
-   "stages": [
-    "publisher_vs_stored"
-   ],
-   "reason": "fidelity: publisher_vs_stored",
-   "identity": "fcwk5_2026-10-10t0005_v1",
-   "since": "2026-10-10T00:40:16.942109Z",
-   "summary": "211/1177 values match exactly across 6 columns; column check: stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 30); 966 of 1177 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 50%; 3 outside the max(25%, 50) band: Jordan Love); 3 players entered or left th"
-  }
- },
+ "holds": {},
  "sources": [
   {
    "source": "usatoday",
@@ -253,20 +242,20 @@
   {
    "source": "fantasycalc",
    "label": "FantasyCalc",
-   "status": "red",
+   "status": "amber",
    "stored_week": 5,
    "chart_week": 5,
    "stored_bake": "fcwk5_2026-10-10t0005_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "red",
-     "summary": "211/1177 values match exactly across 6 columns; column check: stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 30); 966 of 1177 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 50%; 3 outside the max(25%, 50) band: Jordan Love); 3 players entered or left the bottom of the list since the save (churn)",
+     "status": "amber",
+     "summary": "18/1176 values match exactly across 6 columns; 1158 of 1176 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 50%; 3 outside the max(25%, 50) band: Jordan Love); 3 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
+      "publisher_players": 198,
       "stored_players": 197,
-      "compared": 1177,
-      "matched": 211,
-      "mismatched": 966,
+      "compared": 1176,
+      "matched": 18,
+      "mismatched": 1158,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
@@ -280,11 +269,11 @@
      "bake_saved_at": "2026-10-10T00:05:25.088955Z",
      "grains": {
       "full|1": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 2,
+       "extra": 1
       },
       "full|2": {
        "left": 198,
@@ -639,16 +628,7 @@
     }
    ],
    "held": null,
-   "hold": {
-    "stage": "publisher_vs_stored",
-    "stages": [
-     "publisher_vs_stored"
-    ],
-    "reason": "fidelity: publisher_vs_stored",
-    "identity": "fcwk5_2026-10-10t0005_v1",
-    "since": "2026-10-10T00:40:16.942109Z",
-    "summary": "211/1177 values match exactly across 6 columns; column check: stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 30); 966 of 1177 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 50%; 3 outside the max(25%, 50) band: Jordan Love); 3 players entered or left th"
-   }
+   "hold": null
   },
   {
    "source": "fantasypros",
@@ -1805,7 +1785,7 @@
  },
  "last_good": {
   "usatoday": "2026-10-09T23:47:13.341011+00:00",
-  "fantasycalc": "2026-10-09T23:25:46.971984+00:00",
+  "fantasycalc": "2026-10-09T23:47:13.341011+00:00",
   "fantasypros": "2026-10-09T23:47:13.341011+00:00",
   "cbs": "2026-10-09T23:47:13.341011+00:00",
   "espn": "2026-10-09T23:47:13.341011+00:00",
