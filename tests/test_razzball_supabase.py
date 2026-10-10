@@ -123,33 +123,42 @@ class MigrationMatchesSaverTest(unittest.TestCase):
 class IdentityResolutionTest(unittest.TestCase):
     """The first dry run against the real 2026-10-01 snapshot dropped 21 of 701 players,
     including Ja'Marr Chase, because public.players uses straight apostrophes and the
-    snapshot uses typographic ones. These pin the fixes and keep the fail-closed rules."""
+    snapshot uses typographic ones. These pin the fixes and keep the fail-closed rules.
+
+    JEG-539 (Jeremy 2026-10-10, "Use canonical resolver"): the saver resolves only through
+    lib/canonical_players. Rules changed by that decision: a suffix spelling resolves by the
+    single normalization rule (no player_norm hint needed), and a short or long first name
+    matches through the curated nickname table and the verified aliases."""
 
     PLAYERS = [
         {"player_key": 1, "full_name": "Ja'Marr Chase", "position": "WR"},
         {"player_key": 2, "full_name": "David Sills", "position": "WR"},
         {"player_key": 3, "full_name": "Josh Sills", "position": "OL"},
-        {"player_key": 4, "full_name": "Audric Estim\u00e9", "position": "RB"},
-        {"player_key": 5, "full_name": "Audric Estime", "position": "RB"},
+        {"player_key": 4, "full_name": "Audric Estime", "position": "RB", "active": True},
+        {"player_key": 5, "full_name": "Audric Estime", "position": "RB", "active": True},
         {"player_key": 6, "full_name": "Pat Twin", "position": "WR"},
         {"player_key": 7, "full_name": "Pat Twin", "position": "TE"},
         {"player_key": 8, "full_name": "Josh Palmer", "position": "WR"},
     ]
 
-    def resolve(self, name, pos, hint=None):
-        index = saver.build_name_index(self.PLAYERS)
-        return saver.resolve_name(name, pos, index, hint)
+    def resolve(self, name, pos, hint=None, players=None):
+        registry = saver.build_registry(players or self.PLAYERS)
+        return saver.resolve_name(name, pos, registry, hint)
 
     def test_typographic_apostrophe_matches_the_straight_apostrophe_name(self):
         self.assertEqual((1, None), self.resolve("Ja\u2019Marr Chase", "WR"))
         self.assertEqual((1, None), self.resolve("Ja'Marr Chase", "WR"))
 
-    def test_the_snapshots_own_player_norm_resolves_a_suffix_spelling(self):
-        self.assertEqual((None, "no_match"), self.resolve("David Sills V", "WR"))
+    def test_a_suffix_spelling_resolves_through_the_single_rule(self):
+        # Rule changed by Jeremy (JEG-539): the canonical rule strips generational suffixes,
+        # so "David Sills V" no longer needs the snapshot's player_norm.
+        self.assertEqual((2, None), self.resolve("David Sills V", "WR"))
         self.assertEqual((2, None), self.resolve("David Sills V", "WR", "david sills"))
 
-    def test_the_hint_never_overrides_a_name_that_already_resolves(self):
+    def test_the_hint_is_tried_only_when_the_name_matches_no_player(self):
         self.assertEqual((2, None), self.resolve("David Sills", "WR", "josh sills"))
+        self.assertEqual((2, None), self.resolve("D. Sills Jr", "WR", "david sills"))
+        self.assertEqual((None, "position_conflict"), self.resolve("Josh Sills", "WR", "david sills"))
 
     def test_duplicate_players_stay_ambiguous_and_are_never_guessed(self):
         self.assertEqual((None, "ambiguous"), self.resolve("Audric Estime", "RB"))
@@ -158,12 +167,18 @@ class IdentityResolutionTest(unittest.TestCase):
         self.assertEqual((6, None), self.resolve("Pat Twin", "WR"))
         self.assertEqual((7, None), self.resolve("Pat Twin", "TE"))
 
-    def test_nicknames_are_not_guessed(self):
-        # A long-form first name needs a verified alias, not a heuristic.
-        # (This used "Joshua Palmer" until 2026-10-08, when that spelling got
-        # a verified alias in build_ddf_two_tier_leg.ALIASES; see below.)
-        self.assertEqual((None, "no_match"), self.resolve("Patrick Twin", "WR", "patrick twin"))
-        self.assertEqual((None, "no_match"), self.resolve("Nobody Real", "WR", "nobody real"))
+    def test_a_listed_position_the_table_does_not_hold_is_never_guessed(self):
+        self.assertEqual((None, "position_conflict"), self.resolve("Ja'Marr Chase", "TE"))
+
+    def test_nicknames_are_matched_only_via_curated_aliases(self):
+        # Rule changed by Jeremy (JEG-539, "Use canonical resolver"); this was
+        # test_nicknames_are_not_guessed. A first-name variant matches only through the curated
+        # lists: the canonical nickname table (pat -> patrick, josh -> joshua) and the verified
+        # aliases. A variant on neither list is never guessed.
+        self.assertEqual((6, None), self.resolve("Patrick Twin", "WR", "patrick twin"))
+        self.assertEqual((8, None), self.resolve("Joshua Palmer", "WR", "joshua palmer"))
+        self.assertEqual((None, "unmatched"), self.resolve("Patty Twin", "WR", "patty twin"))
+        self.assertEqual((None, "unmatched"), self.resolve("Nobody Real", "WR", "nobody real"))
 
     def test_verified_nickname_aliases_resolve(self):
         # GAP-RAZZBALL-SUFFIX-POOL: Razzball's 2026-10-06 save sent these to
@@ -174,11 +189,10 @@ class IdentityResolutionTest(unittest.TestCase):
             {"player_key": 4214, "full_name": "Mitchell Trubisky", "position": "QB"},
             {"player_key": 785, "full_name": "Kenneth Gainwell", "position": "RB"},
         ]
-        index = saver.build_name_index(players)
         for name, pos, key in (("Joshua Palmer", "WR", 8), ("Drew Ogletree", "TE", 920),
                                ("Chigoziem Okonkwo", "TE", 4247),
                                ("Mitch Trubisky", "QB", 4214), ("Kenny Gainwell", "RB", 785)):
-            self.assertEqual((key, None), saver.resolve_name(name, pos, index, name.lower()), name)
+            self.assertEqual((key, None), self.resolve(name, pos, name.lower(), players), name)
 
 
 class SaverTest(unittest.TestCase):
@@ -217,7 +231,7 @@ class SaverTest(unittest.TestCase):
         rows = SNAPSHOT_ROWS + [snapshot_row("Nobody Real", "nobody real", "WR", "X", 1, 1, 1)]
         clean, review, _ = saver.build_razzball_rows(write_snapshot(self.tmp.name, rows=rows))
         self.assertEqual(2, len(clean))
-        self.assertEqual(["no_match"], [r["reason"] for r in review])
+        self.assertEqual(["unmatched"], [r["reason"] for r in review])  # the canonical resolver's reason
 
     def test_fail_closed_on_bad_snapshots(self):
         for vintage, rows in ((None, SNAPSHOT_ROWS), ("not-a-date", SNAPSHOT_ROWS),

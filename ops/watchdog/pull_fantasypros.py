@@ -333,16 +333,16 @@ def write_saver_inputs(url, html, week, csv_path, log_path, players=None):
     pipelines/save_fantasypros_references.py reads. Unresolved or ambiguous
     names are left out and reported, never guessed."""
     sys.path.insert(0, os.path.join(REPO, "pipelines"))
-    from save_espn_cbs_references import build_name_index, fetch_players, resolve_name
+    from save_espn_cbs_references import build_registry, fetch_players, resolve_canonical
     published = published_date(html)
     if not published:
         raise RuntimeError("FantasyPros page has no article:published_time at %s" % url)
-    index = build_name_index(players if players is not None else fetch_players())
+    registry = build_registry(players if players is not None else fetch_players())
     superflex = parse_superflex(html)
     clean, review = [], []
     for pos, name, team, value in parse_tables(html):
         # FantasyPros prints curly apostrophes (D’Andre); the players table uses straight ones.
-        key, rec, _ = resolve_name(name.replace("’", "'").replace("‘", "'"), pos, index)
+        key, rec, _ = resolve_canonical(name.replace("‘", "'"), pos, registry)
         if key is None:
             review.append((pos, name, team, value))
             continue

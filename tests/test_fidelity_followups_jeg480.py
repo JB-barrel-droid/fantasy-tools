@@ -107,7 +107,12 @@ class PullerAgreesWithTheSaverTest(unittest.TestCase):
 class RazzballCanonicalFallbackTest(unittest.TestCase):
     """2026-10-09 23:40 pulse: Razzball's "Scotty Miller" (0.1 / game) was not
     stored; the legacy matcher folds no nicknames, the canonical resolver
-    gives public.players 399 "Scott Miller"."""
+    gives public.players 399 "Scott Miller".
+
+    JEG-539 (Jeremy 2026-10-10, "Use canonical resolver"): the saver now
+    resolves only canonically. Rule changed by that decision: a legacy
+    single-candidate hit at another position (Ben VanSumeren listed RB, LB in
+    public.players) is a position conflict, not a match."""
 
     PLAYERS = [
         {"player_key": 399, "full_name": "Scott Miller", "position": "WR", "active": False},
@@ -118,25 +123,16 @@ class RazzballCanonicalFallbackTest(unittest.TestCase):
     def setUp(self):
         import save_razzball_references as rz
         self.rz = rz
-        self.index = rz.build_name_index(self.PLAYERS)
-        self.reg = canonical_players.load_registry(rows=self.PLAYERS)
+        self.reg = rz.build_registry(self.PLAYERS)
 
-    def test_a_legacy_miss_resolves_canonically(self):
-        self.assertEqual(self.rz.resolve_name("Scotty Miller", "WR", self.index, "scotty miller", self.reg),
-                         (399, None))
+    def test_a_nickname_resolves_canonically(self):
+        self.assertEqual(self.rz.resolve_name("Scotty Miller", "WR", self.reg, "scotty miller"), (399, None))
 
-    def test_without_the_registry_the_legacy_rule_is_unchanged(self):
-        self.assertEqual(self.rz.resolve_name("Scotty Miller", "WR", self.index, "scotty miller"),
-                         (None, "no_match"))
+    def test_a_position_the_table_does_not_hold_is_a_conflict(self):
+        self.assertEqual(self.rz.resolve_name("Ben VanSumeren", "RB", self.reg), (None, "position_conflict"))
 
-    def test_a_legacy_hit_is_not_second_guessed(self):
-        # The legacy matcher keeps its own answers (here its single-candidate
-        # rule); only its misses fall back.
-        self.assertEqual(self.rz.resolve_name("Ben VanSumeren", "RB", self.index, None, self.reg), (1155, None))
-
-    def test_the_fallback_still_fails_closed_on_position(self):
-        self.assertEqual(self.rz.resolve_name("Scotty Miller", "TE", self.index, None, self.reg),
-                         (None, "no_match"))
+    def test_the_resolver_fails_closed_on_position(self):
+        self.assertEqual(self.rz.resolve_name("Scotty Miller", "TE", self.reg), (None, "position_conflict"))
 
     def test_the_saver_passes_the_registry(self):
         rows = [{"player_name": "Scotty Miller", "player_norm": "scotty miller", "pos": "WR", "team": "PIT",
