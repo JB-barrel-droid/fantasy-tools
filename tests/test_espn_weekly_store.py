@@ -290,6 +290,18 @@ class StatusHistoryTest(unittest.TestCase):
         self.assertIsNone(rows[1]["player_key"])   # kept, unresolved
         self.assertEqual(how.get("unresolved"), 1)
 
+    def test_workflows_force_add_their_gitignored_summaries(self):
+        # output/ is in .gitignore: a plain `git add output/...` exits 1 and
+        # failed the first live espn-weekly-store run (38023188489) after
+        # the data was already stored. Every output/ path these jobs commit
+        # must be added with -f.
+        import re
+        for wf in ("espn-weekly-store.yml", "player-status-history.yml", "espn-history-probe.yml"):
+            text = (ROOT / ".github" / "workflows" / wf).read_text(encoding="utf-8")
+            for line in text.splitlines():
+                if re.search(r"\bgit add\b", line) and "output/" in line:
+                    self.assertRegex(line, r"git add (-f|--force) ", f"{wf}: {line.strip()}")
+
     def test_floor_is_below_a_real_full_pull(self):
         # The fail-closed floor must pass a complete Sleeper pull: the
         # committed identity base is one, and its rostered QB/RB/WR/TE alone
