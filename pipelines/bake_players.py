@@ -150,6 +150,36 @@ RZ_LEGS = (("rz_std_ppg", "standard"),
            ("rz_half_ppr_ppg", "half_ppr"),
            ("rz_ppr_ppg", "ppr"))
 
+# JEG-555: Razzball's per-game number is an expected value over the games it
+# thinks the player plays, so a player it expects to miss time (Lamar Jackson
+# "O", Mahomes' snaps/game down to 45) carries a missed-games discount that
+# ESPN and CBS ROS per-game rates (points per game played) do not. A Razzball
+# rate below RZ_OUTLIER_RATIO of the ESPN/CBS mean (references at least
+# RZ_OUTLIER_MIN_REF) is HELD: the Razzball number is dropped from the row and
+# the row says why (rz_held). Never filled, never zero.
+RZ_OUTLIER_RATIO = 0.60
+RZ_OUTLIER_MIN_REF = 3.0
+
+
+def razzball_outlier_reason(rz, espn_ppg, cbsros_ppg):
+    """Why Razzball's per-game rates are held for this player, or None.
+
+    rz / espn_ppg / cbsros_ppg are {scoring: ppg} (the latter two may be
+    None). The reference is the mean of the ESPN and CBS ROS rates present.
+    """
+    for s in SCORINGS:
+        refs = [d[s] for d in (espn_ppg, cbsros_ppg)
+                if d and isinstance(d.get(s), (int, float)) and d[s] > 0]
+        if not refs or s not in rz:
+            continue
+        ref = sum(refs) / len(refs)
+        if ref >= RZ_OUTLIER_MIN_REF and rz[s] < RZ_OUTLIER_RATIO * ref:
+            return (f"razzball {s} {rz[s]:.1f} ppg is {rz[s] / ref:.0%} of the "
+                    f"ESPN/CBS mean {ref:.1f} (< {RZ_OUTLIER_RATIO:.0%}): "
+                    "likely an expected-missed-games discount")
+    return None
+
+
 # Team-abbreviation variants for the games-remaining lookup.
 # The games table (via teams.abbreviation) is canonical; source CSVs use
 # variants. ESPN's CSV uses WSH for Washington (canonical WAS) — same class
@@ -906,7 +936,18 @@ def bake(args):
             # Razzball's displayed Games/totals are doubled (Allen: 32 games)
             # and are NEVER used. The source-accounting audit below fails the
             # build if rz_filled_ros != rz_ppg x games_remaining.
+            rz_held = None
             if rz_complete:
+                rz_held = razzball_outlier_reason(
+                    z, row.get("espn_ppg"),
+                    {s: c[s] for s in SCORINGS} if cbsros_complete else None)
+            if rz_held:
+                # JEG-555 fail-closed: held, not zeroed or filled.
+                row["rz_complete"] = False
+                row["rz_comp_count"] = 0
+                row["rz_covered"] = []
+                row["rz_held"] = rz_held
+            elif rz_complete:
                 row["rz_ppg"] = {s: round(z[s], PPG_DECIMALS) for s in SCORINGS}
                 row["rz_ros"] = {s: round(z[s] * gr, 2) for s in SCORINGS}
                 row["rz_filled_ppg"] = dict(row["rz_ppg"])
@@ -1094,6 +1135,7 @@ def bake(args):
         "n_players": len(players),
         "n_espn_complete": sum(1 for p in players if p["espn_complete"]),
         "n_rz_complete": sum(1 for p in players if p["rz_complete"]),
+        "n_rz_held": sum(1 for p in players if p.get("rz_held")),
         "n_cbsros_complete": sum(1 for p in players
                                  if p.get("cbsros_complete")),
         # GAP-UNIVERSE-CHART-ONLY (Jeremy, 2026-10-08): the universe is
