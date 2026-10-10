@@ -1,0 +1,49 @@
+name: nflverse history load (manual)
+
+# JEG-532 (from JEG-525 item e): load the closed 2015-2025 nflverse weekly
+# history into public.nflverse_player_week_actuals and
+# public.nflverse_team_weeks (supabase/migrations/jeg532_nflverse_history_20261010.sql).
+# pipelines/load_nflverse_history.py upserts on the primary keys (idempotent)
+# and, with --apply, reads every key back and fails unless the stored keys
+# equal the repo files (61,977 player-weeks, 352 team-seasons).
+#
+# Manual only: closed history, nothing to schedule. Dry unless mode=write.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nflverse-history-load
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Load and verify
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          flag=""
+          [ "${{ github.event.inputs.mode }}" = "write" ] && flag="--apply"
+          rc=0
+          python3 pipelines/load_nflverse_history.py $flag > /tmp/load.log 2>&1 || rc=$?
+          cat /tmp/load.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          tr '\n' ' ' < /tmp/load.log | cut -c1-3000 | sed "s/^/::$level title=nflverse history load rc=$rc::/"
+          echo
+          { echo "## nflverse history load"; echo '```'; cat /tmp/load.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
