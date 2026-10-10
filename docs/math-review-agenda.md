@@ -1152,3 +1152,9 @@ whichever tab is open. Published Indexed rows also appear in
 - K/DST: being removed from the pipeline (kdst lane, Jeremy's decision).
 - Freshness, cadence and monitoring: no value math (refresh-cadence,
   monitoring and ops-dashboard lanes).
+
+- **Prior-week ESPN ineligible players (JEG-508, SA-18, 2026-10-09).** The
+  current week lists ESPN's ineligible players at 0 (JEG-496), but week 4's
+  ESPN history snapshot did not save them, so the prior week leaves them out
+  of ESPN and of mean projected points. Should prior weeks rebuild them at 0
+  so week-over-week change compares like with like?
