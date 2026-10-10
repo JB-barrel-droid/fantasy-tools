@@ -259,16 +259,17 @@ class ChainAppliesTheHold(unittest.TestCase):
     def test_exactly_the_held_source_and_its_derived_sections(self):
         good = fixture("Week 4", built_at="B-good", tag="good")
         out, report = fh.apply_fidelity_holds(fixture(), {"cbs": self.HOLD}, lambda root: good, 5, TODAY)
-        self.assertEqual({"cbs", "cbs_adjusted"}, held_sections(out))
-        for sec in ("cbs", "cbs_adjusted"):
-            hold = out["sources"][sec]["validationHold"]
-            self.assertEqual("fidelity: publisher_vs_stored", hold["reason"])
-            self.assertEqual(("cbs", 4, "B-good"), (hold["root"], hold["kept_week"], hold["restored_from"]))
-            self.assertEqual(f"good:{sec}", out["sources"][sec]["tag"])  # served from the last good chart
+        # JEG-508 (VP-10/VP-11) retired the *_adjusted sections: the engine
+        # derives the deprecated cbs_adjusted alias, and its hold, from cbs.
+        self.assertEqual({"cbs"}, held_sections(out))
+        hold = out["sources"]["cbs"]["validationHold"]
+        self.assertEqual("fidelity: publisher_vs_stored", hold["reason"])
+        self.assertEqual(("cbs", 4, "B-good"), (hold["root"], hold["kept_week"], hold["restored_from"]))
+        self.assertEqual("good:cbs", out["sources"]["cbs"]["tag"])  # served from the last good chart
         for sec, s in out["sources"].items():
-            if sec not in ("cbs", "cbs_adjusted"):
+            if sec != "cbs":
                 self.assertEqual(f"new:{sec}", s["tag"], sec)  # every other source publishes this run's
-        self.assertEqual(["cbs", "cbs_adjusted"], report["cbs"]["restored"])
+        self.assertEqual(["cbs"], report["cbs"]["restored"])
 
     def test_projection_hold_keeps_its_section_labelled(self):
         out, report = fh.apply_fidelity_holds(fixture(), {"espn": self.HOLD},
@@ -279,7 +280,7 @@ class ChainAppliesTheHold(unittest.TestCase):
 
     def test_no_last_good_chart_keeps_the_section_held(self):
         out, _ = fh.apply_fidelity_holds(fixture(), {"usatoday": self.HOLD}, lambda root: None, 5, TODAY)
-        self.assertEqual({"usatoday", "usatoday_adjusted"}, held_sections(out))
+        self.assertEqual({"usatoday"}, held_sections(out))
         self.assertIsNone(out["sources"]["usatoday"]["validationHold"]["kept_week"])
 
     def test_release_only_fidelity_holds_the_pulse_dropped(self):

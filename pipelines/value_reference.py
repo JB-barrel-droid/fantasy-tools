@@ -907,16 +907,28 @@ class Setting:
                 nat = snapshot_natives(self.inp, k, entry, self.scoring) if entry else {}
                 if nat:
                     prior[k] = nat
+        prior_shown = {}
         if prior:
             included = [k for k in eligible if k in prior]
             for k in eligible:
                 if k not in prior:
                     excluded[k] = "no prior week"
+            # VP-6.1 in the prior week: a held or unpublished source that has
+            # the week saved is run and shown (its listed players get rows),
+            # never counted, as in the current week.
+            for k in SOURCES:
+                if k in eligible or not current[k] or self.inp.section(k) is None:
+                    continue
+                entry, _why = history_entry(hist, k, current_week - 1)
+                nat = snapshot_natives(self.inp, k, entry, self.scoring) if entry else {}
+                if nat:
+                    prior_shown[k] = nat
         else:
             included = list(eligible)
             current_week = None
         self._state = {"eligible": eligible, "included": included, "excluded": excluded,
-                       "current": current, "prior": prior, "current_week": current_week}
+                       "current": current, "prior": prior, "prior_shown": prior_shown,
+                       "current_week": current_week}
         return self._state
 
     def _sources(self, natives: dict) -> dict:
@@ -935,7 +947,8 @@ class Setting:
         if not st["prior"]:
             return None
         if self._prior is None:
-            self._prior = run_pipeline(self.league, self._sources(st["prior"]), self.pos_of,
+            self._prior = run_pipeline(self.league, self._sources({**st["prior_shown"], **st["prior"]}),
+                                       self.pos_of,
                                        st["included"], self.selection)
         return self._prior
 
