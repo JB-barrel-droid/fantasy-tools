@@ -1702,6 +1702,25 @@ def player_blocks(cmp: dict, left: dict, ident: Identity) -> list[str]:
                   if len(keys) >= BLOCK_MIN and len(keys) > BLOCK_SHARE * len(listed.get(pos, ())))
 
 
+def negligible_absences(cmp: dict, left: dict) -> list[dict]:
+    """Publisher players not stored whose every printed value is at most one printed unit (0.1 per game on
+    Razzball, 0.00 on ESPN). A player absent from a fully loaded chart means 0, so serving him as absent
+    differs from the publisher by at most that unit: listed (amber), never a hold. 2026-10-09 23:40Z:
+    Razzball held on Scotty Miller, printed 0.1 per game in every scoring and not stored."""
+    small: dict[int, bool] = {}
+    for m in cmp["missing"]:
+        cell = (left.get(m["grain"]) or {}).get(m["player_key"]) or {}
+        text = cell.get("text")
+        unit = 10 ** -decimals(text) if text else 0
+        ok = text is not None and abs(cell.get("value", 0)) <= unit + 1e-9
+        small[m["player_key"]] = small.get(m["player_key"], True) and ok
+    keep, gone = [], []
+    for m in cmp["missing"]:
+        (gone if small.get(m["player_key"]) else keep).append(m)
+    cmp["missing"] = keep
+    return gone
+
+
 def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident, now, universe, probe,
                                live_fingerprint: Callable[[], dict | None] | None = None):
     if pub.get("error"):
@@ -1714,6 +1733,7 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
     cmp = compare(left, right, printed=True)
     outside = split_universe(cmp, "missing", universe)
     churn = cap_tie_churn(cmp, left, right, ident)
+    negligible = negligible_absences(cmp, left)
     n_bad = problem_count(cmp)
     status, reasons = "green", []
     vintage = pub.get("vintage")
@@ -1758,6 +1778,10 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
     if unresolved:
         status = worst(status, "amber")
         reasons.append(f"{len(unresolved)} publisher names do not resolve to a canonical player")
+    if negligible:
+        status = worst(status, "amber")
+        reasons.append(f"{players(negligible)} publisher players not stored whose printed values are at most one "
+                       f"printed unit (absent means 0): {', '.join(sorted({m['name'] for m in negligible}))[:200]}")
     if stored_ident.used:
         reasons.append(f"{len(stored_ident.used)} publisher names matched by the stored row's key (the canonical "
                        f"resolver refuses their listed position: {', '.join(stored_ident.used[:5])})")
@@ -1829,12 +1853,18 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     # Exempt only rows stage 1 shows equal to the publisher now (the stored
     # value is a genuine publisher update); a row that also differs from the
     # publisher (e.g. ESPN projections stored as 0) stays red.
-    resaved = [m for m in cmp["mismatches"]
+    resaved = [m for m in cmp["mismatches"] + cmp["missing"]
                if built and verified_keys is not None and m["player_key"] in verified_keys
                and (written_at(by_key.get(m["player_key"]) or {}) or floor) > built]
+    # A chart player the stored snapshot no longer has, when the snapshot was re-saved after the chart was
+    # built: the save replaced the day's set (2026-10-09 23:25Z CBS rest of season: one player swapped at
+    # the row cap). A player the publisher still lists is missing in stage 1 (red there).
+    last_write = max((t for t in map(written_at, rows) if t is not None), default=None)
+    if built and verified_keys is not None and last_write and last_write > built:
+        resaved += cmp["extra"]
     if n_bad and resaved and len(resaved) == n_bad and not unresolved:
         status = "amber"
-        last = max(written_at(by_key[m["player_key"]]) for m in resaved)
+        last = last_write
         reasons.append(f"{len(resaved)} chart values differ because snapshot {snap} was re-saved at {iso(last)}, after "
                        f"the chart was built from it at {iso(built)}; the chart's version is overwritten, so these "
                        "cannot be checked until the next chain run rebuilds from the stored rows")
