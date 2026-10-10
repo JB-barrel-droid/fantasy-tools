@@ -56,18 +56,13 @@ class VerdictLogicTest(unittest.TestCase):
         verdict, _ = verdict_for(0.50, 0.50)
         self.assertEqual(verdict, "genuine disagreement")
 
-    def test_band_matches_chart_health(self):
-        # The builder must judge by the same band the chart judges by.
-        # value-model.js: PEAK_AGREEMENT_LOW = 0.80, PEAK_AGREEMENT_HIGH = 1.25.
+    def test_band_is_the_scale_agreement_band(self):
+        # The band is the builder's own: 0.80-1.25. The chart judged by the
+        # same band (value-model.js peakAgreement) until the chart's
+        # sourceScaleAgreement check was retired (GAP-026, 2026-10-08) and
+        # JEG-539 removed peakAgreement and its constants from the engine.
         self.assertEqual(BAND_LOW, 0.80)
         self.assertEqual(BAND_HIGH, 1.25)
-        chart_vm = (
-            Path(__file__).resolve().parent.parent
-            / "app" / "trade-value-chart" / "assets" / "value-model.js"
-        )
-        text = chart_vm.read_text(encoding="utf-8")
-        self.assertIn("PEAK_AGREEMENT_LOW = 0.80", text)
-        self.assertIn("PEAK_AGREEMENT_HIGH = 1.25", text)
 
     def test_in_band_helper(self):
         self.assertTrue(in_band(1.0))

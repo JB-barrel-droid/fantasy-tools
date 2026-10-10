@@ -217,14 +217,26 @@ class SavedSetupRule(unittest.TestCase):
 
 
 class DerivationRetired(unittest.TestCase):
-    """JEG-539: the retired browser derivation stays gone from the engine."""
+    """JEG-539 (GAP-508-DEAD-BAKES): engine code with no page caller after
+    JEG-508 stays gone -- the published derivation and the pre-pipeline
+    fixed-pie / role-map family (its parity port and tests went with it)."""
 
-    def test_engine_has_no_published_derivation(self):
+    RETIRED = (
+        # published derivation
+        "derivePublishedSetup", "derivePublishedViews", "publishedWaiverInfo",
+        "PUBLISHED_DERIVATION_VERSION", "PUBLISHED_VIEWS_VERSION",
+        # fixed pie, role map, health predicates, views-audit helpers
+        "roleMap", "sharedPieBasis", "benchShareOf", "scaleToSharedTotal",
+        "shapeToAnchorPeaksThenSharedTotal", "normalizeToFixedPie", "starterMarkupSane",
+        "fixedPieDirectionSane", "peakAgreement", "projectionRoles", "positionalTierScales",
+        "allocationCounts", "sharedTotals", "groupShares", "sharedGroupTotals", "anchorGroupTotals",
+    )
+
+    def test_engine_has_no_retired_code(self):
         source = VALUE_MODEL.read_text(encoding="utf-8")
-        for name in ("function derivePublishedSetup", "function derivePublishedViews",
-                     "function publishedWaiverInfo", "PUBLISHED_DERIVATION_VERSION",
-                     "PUBLISHED_VIEWS_VERSION"):
-            self.assertNotIn(name, source)
+        present = [name for name in self.RETIRED
+                   if re.search(r"(function |var )" + name + r"\b|^\s*" + name + r":", source, re.M)]
+        self.assertEqual(present, [])
 
 
 if __name__ == "__main__":

@@ -4,7 +4,8 @@ Written only from docs/methodology.md, docs/math-review-agenda.md, Jeremy's
 decisions recorded there and in docs/claude-log/, and the data files (fixture
 JSON, players.json, the built two-tier legs). It deliberately does NOT read or
 import the browser engine (curve-widget.js, value-model.js), the line-for-line
-Python ports (twotier_reference.py, parity/value_model_parity.py) or
+Python ports (twotier_reference.py; parity/value_model_parity.py until JEG-539
+retired it) or
 vorp_translation/unified.py, so a bug copied into those ports shows up here as
 a disagreement.
 
