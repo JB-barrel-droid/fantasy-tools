@@ -33,6 +33,15 @@ ADJUSTED = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted",
 ALL_INPUTS = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"]
 ADJUSTMENTS_GLOB = "**/assets/adjustment-inputs.json*"
 
+
+def expected_inputs(out) -> list[str]:
+    """Every DDF input except those the built fixture holds (validationHold: a JEG-479 value check or
+    JEG-520 fidelity hold). A held source is left out of DDF Value by design, so a hold never stops
+    the site. This test is about the adjustment load: on 2026-10-10 a fidelity hold on ESPN failed it,
+    and the chain could not publish the rebuild that would have released the hold."""
+    held = {e["key"] for e in out["composite"]["excluded"] if str(e.get("reason") or "").startswith("held:")}
+    return sorted(set(ALL_INPUTS) - held)
+
 STATE = """() => {
   const c = window.TradeValueCurveControls;
   const pd = window.TradeValueProductData;
@@ -94,7 +103,7 @@ class AssetLoadRetryTest(unittest.TestCase):
     def test_slow_adjustment_inputs_still_load(self):
         out = run(_slow)
         self.assertTrue(out["adjustmentsLoaded"], "adjustment inputs dropped on a slow load")
-        self.assertEqual(sorted(out["composite"]["inputs"]), sorted(ALL_INPUTS),
+        self.assertEqual(sorted(out["composite"]["inputs"]), expected_inputs(out),
                          f"DDF Value lost inputs on a slow load: excluded={out['composite']['excluded']}")
         self.assertIsNotNone(out["loadStatus"], "TradeValueCurveControls.getLoadStatus missing")
         status = out["loadStatus"]["assets"]["adjustments"]
@@ -115,7 +124,7 @@ class AssetLoadRetryTest(unittest.TestCase):
         # JEG-497: the DDF inputs do not depend on the adjustment data.
         reasons = {e["key"]: e["reason"] for e in out["composite"]["excluded"]}
         self.assertNotIn("Adjustment data failed to load", reasons.values(), reasons)
-        self.assertEqual(sorted(out["composite"]["inputs"]), sorted(ALL_INPUTS), reasons)
+        self.assertEqual(sorted(out["composite"]["inputs"]), expected_inputs(out), reasons)
 
 
 if __name__ == "__main__":

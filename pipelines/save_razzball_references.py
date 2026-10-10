@@ -16,10 +16,13 @@ and counting totals are doubled), so they are stored as per_game_standard /
 per_game_half_ppr / per_game_ppr. Every other row field is kept verbatim in
 raw_stats so the importer can rebuild the snapshot row exactly.
 
-Identity (fail closed, same rule as the other savers): numeric player_key only,
-resolved via public.players (full_name is the naming authority) after the
-verified aliases (data/inputs/player_aliases.json, shared by every resolver). Unmatched or ambiguous names go to the review report,
-never guessed, never zero-filled.
+Identity (fail closed): numeric player_key only, resolved through the
+canonical resolver, lib/canonical_players (JEG-438; Jeremy 2026-10-10, JEG-539:
+"Use canonical resolver"). That is the single normalization rule, the curated
+nickname table, the verified aliases (data/inputs/player_aliases.json), the
+position check and active over inactive. Unmatched, ambiguous or
+position-conflicting names go to the review report, never guessed, never
+zero-filled.
 """
 
 from __future__ import annotations
@@ -36,11 +39,8 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(ROOT / "pipelines"))
-from match_source_snapshot import normalize_name  # noqa: E402
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
-import player_aliases  # noqa: E402 -- the one verified alias list
 import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
-from canonical_players import narrow_candidates  # noqa: E402
 import canonical_players  # noqa: E402 -- the one name -> player_key rule (JEG-438)
 from nfl_week import current_nfl_week  # noqa: E402
 
@@ -117,73 +117,32 @@ upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = _default_upsert
 count_rows: Callable[[str, str], int] = _default_count
 
 
-def compact(norm: str) -> str:
-    """A normalized name with its spaces removed.
-
-    public.players spells "Ja'Marr Chase" with a straight apostrophe, which
-    normalize_name turns into a space ("ja marr chase"); the Razzball snapshot spells
-    it with a typographic one, which normalize_name drops ("jamarr chase"). Comparing
-    the space-free form makes the two meet without guessing any spelling.
-    """
-    return norm.replace(" ", "")
-
-
-def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    index: dict[str, list[dict[str, Any]]] = {}
-    for record in players:
-        key = record.get("player_key")
-        name = str(record.get("full_name") or "").strip()
-        if not isinstance(key, int) or not name:
-            continue
-        entry = {
-            "player_key": key,
-            "full_name": name,
-            "position": str(record.get("position") or "").strip().upper() or None,
-            "active": record.get("active"),
-        }
-        norm = normalize_name(name)
-        index.setdefault(norm, []).append(entry)
-        index.setdefault("\0" + compact(norm), []).append(entry)  # space-free fallback
-    return index
+def build_registry(players: list[dict[str, Any]]) -> "canonical_players.Registry":
+    """The canonical resolver's registry over the fetched public.players rows."""
+    return canonical_players.load_registry(rows=[
+        r for r in players
+        if isinstance(r.get("player_key"), int) and str(r.get("full_name") or "").strip()])
 
 
 def resolve_name(
     name: str,
     pos: str | None,
-    index: dict[str, list[dict[str, Any]]],
+    registry: "canonical_players.Registry",
     norm_hint: str | None = None,
-    registry: "canonical_players.Registry | None" = None,
 ) -> tuple[int | None, str | None]:
-    """Return (player_key, reason). Unresolved -> (None, reason).
+    """Return (player_key, None), or (None, reason) with reason one of
+    unmatched | ambiguous | position_conflict.
 
-    Order: the shared verified aliases (lib/player_aliases), the normalized name, the space-free form, then the
-    snapshot's own `player_norm` (the join key the DDF leg uses; it catches "David
-    Sills V" -> "david sills"). Several players under one form are narrowed by
-    position; still more than one is "ambiguous" and goes to review. Nothing is guessed.
+    Only lib/canonical_players resolves (Jeremy 2026-10-10, JEG-539). A
+    nickname or a long-form first name matches only through its curated lists:
+    the nickname table and the verified aliases. The snapshot's own
+    `player_norm` is tried, through the same resolver, only when the printed
+    name matches no player. A position conflict or an ambiguity is final.
     """
-    forms = [normalize_name(name)]
-    if norm_hint:
-        forms.append(normalize_name(norm_hint))
-    candidates: list[dict[str, Any]] = []
-    for norm in forms:
-        norm = normalize_name(player_aliases.canonical_spelling(norm))
-        candidates = index.get(norm) or index.get("\0" + compact(norm), [])
-        if candidates:
-            break
-    rec, reason = narrow_candidates(candidates, pos)
-    if rec is None and reason == "no_match" and registry is not None:
-        # JEG-480: a name this matcher finds no row for goes through the
-        # canonical resolver (lib/canonical_players: nickname table, verified
-        # aliases, position check, fail closed). 2026-10-09: Razzball's
-        # "Scotty Miller" (WR) is public.players 399 "Scott Miller"; the
-        # pulse resolves him canonically and found him not stored. Only
-        # misses fall back, so no name this matcher resolves changes.
-        for form in (name, norm_hint):
-            if form:
-                key = canonical_players.resolve(form, position=pos, registry=registry)
-                if key is not None:
-                    return key, None
-    return (rec["player_key"], None) if rec else (None, reason)
+    key, reason = canonical_players.resolve_with_reason(name, position=pos or None, registry=registry)
+    if key is None and reason == "unmatched" and norm_hint and norm_hint != name:
+        key, reason = canonical_players.resolve_with_reason(norm_hint, position=pos or None, registry=registry)
+    return (key, None) if key is not None else (None, reason)
 
 
 def parse_float(raw: Any) -> float | None:
@@ -216,11 +175,7 @@ def build_razzball_rows(
     if not rows:
         raise SystemExit("Fail closed: Razzball snapshot has no rows.")
 
-    players = fetch_players()
-    index = build_name_index(players)
-    registry = canonical_players.load_registry(rows=[
-        r for r in players
-        if isinstance(r.get("player_key"), int) and str(r.get("full_name") or "").strip()])
+    registry = build_registry(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -231,7 +186,7 @@ def build_razzball_rows(
         if not name:
             review.append({"reason": "missing_player_name", "pos": pos, "team": row.get("team")})
             continue
-        key, reason = resolve_name(name, pos, index, row.get("player_norm"), registry)
+        key, reason = resolve_name(name, pos, registry, row.get("player_norm"))
         if key is None:
             review.append(
                 {

@@ -1,0 +1,104 @@
+name: ESPN weekly store (actuals and projections)
+
+# JEG-521 G4 (a)/(b): store what measurement needs. Pipeline only; no value
+# change, nothing on the site reads these yet.
+#
+#   pipelines/pull_espn_projections.py --weekly-out /tmp/espn_weekly
+#       the same ESPN fetch the ESPN leg uses; writes every 2026 weekly actual
+#       and projection block as rows (pipelines/lib/espn_weekly.py)
+#   pipelines/save_espn_weekly.py
+#       actuals -> public.player_game_stats (under v_player_game_actuals);
+#       projections -> public.projection_snapshots (source espn, change-only);
+#       summary -> output/espn-weekly-store.json
+#   pipelines/export_weekly_store.py
+#       refreshes data/inputs/weekly_actuals_2024_2026.csv and
+#       data/inputs/espn_weekly_projections_2026.csv from Supabase
+#
+# Scheduler owner: Supabase pg_cron espn-weekly-store-live (daily 12:40 UTC)
+# and espn-weekly-store-sunday (16:20 UTC Sunday),
+# supabase/migrations/jeg521_g4_weekly_store_20261009.sql. No `schedule:`.
+# workflow_dispatch is dry unless mode=write.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: espn-weekly-store
+  cancel-in-progress: false
+
+jobs:
+  store:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Pull ESPN weekly blocks and save
+        id: save
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          flag="--dry-run"
+          [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
+          rc=0
+          {
+            python3 pipelines/pull_espn_projections.py --out /tmp/espn_projections.csv \
+              --meta /tmp/espn_meta.json --weekly-out /tmp/espn_weekly &&
+            python3 pipelines/save_espn_weekly.py --in /tmp/espn_weekly $flag
+          } > /tmp/store.log 2>&1 || rc=$?
+          grep -v "^  note:" /tmp/store.log | tail -60
+          level=notice; [ "$rc" = 0 ] || level=error
+          # Outcome as check-run annotations (logs are not readable through every proxy).
+          grep -v "^  note:" /tmp/store.log | tail -40 | tr '\n' ' ' | cut -c1-3500 | sed "s/^/::$level title=espn weekly store rc=$rc::/"
+          echo
+          { echo "## ESPN weekly store"; echo '```'; grep -v "^  note:" /tmp/store.log | tail -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+      - name: Refresh the repo copies from Supabase
+        if: github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/export_weekly_store.py | tee /tmp/export.log
+          sed "s/^/::notice title=weekly store export::/" /tmp/export.log
+
+      - name: Commit the refreshed files
+        if: github.event.inputs.mode == 'write'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/inputs/weekly_actuals_2024_2026.csv data/inputs/espn_weekly_projections_2026.csv
+          git add -f output/espn-weekly-store.json  # output/ is gitignored
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "ESPN weekly store: actuals and projections refresh (JEG-521 G4, GitHub Actions)"
+            git pull --rebase --autostash origin main
+            git push
+          fi
+
+      - name: Record monitored check
+        if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id espn_weekly_store --owner espn-weekly-store.yml --outcome "${{ job.status }}"

@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Load the 2015-2025 nflverse weekly history into Supabase (JEG-525 item e).
+"""Load the 2015-2025 nflverse weekly history into Supabase (JEG-532, from JEG-525 item e).
 
-PROPOSED. The target tables are defined in sql/proposed/jeg525_nflverse_history.sql,
-which is NOT applied: it is a production schema change waiting on Jeremy's
-approval on JEG-525. Until then this script only runs as a dry run.
+Target tables: supabase/migrations/jeg532_nflverse_history_20261010.sql
+(approved by Jeremy 2026-10-10 on JEG-532, applied with MCP apply_migration).
 
 Reads data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz and
 data/inputs/nfl_schedule_2015_2025.json (the files derive_lineup_parameters.py
 uses today) and builds rows for public.nflverse_player_week_actuals and
 public.nflverse_team_weeks. With --apply it upserts them in batches through
-PostgREST (on_conflict on the primary keys, so a rerun is idempotent) and
-then reads back the counts.
+PostgREST (on_conflict on the primary keys, so a rerun is idempotent), then
+reads every key back and fails unless the stored keys equal the file's
+(61,977 player-weeks, 352 team-seasons for the 2015-2025 files).
+
+Run from GitHub Actions: nflverse-history-load.yml (workflow_dispatch,
+mode=write).
 
 Usage:
     python3 pipelines/load_nflverse_history.py            # dry run: counts and checks only
@@ -65,6 +68,21 @@ def check(actuals: list, weeks: list) -> list:
     return problems
 
 
+def verify(actuals: list, weeks: list, stored_actuals: list, stored_weeks: list) -> list:
+    """Stored keys must equal the file's keys exactly (no missing, no extra)."""
+    problems = []
+    want_a = {(int(r["season"]), int(r["week"]), r["gsis_id"]) for r in actuals}
+    got_a = {(int(r["season"]), int(r["week"]), r["gsis_id"]) for r in stored_actuals}
+    want_w = {(int(r["season"]), int(r["week"]), r["team"]) for r in weeks}
+    got_w = {(int(r["season"]), int(r["week"]), r["team"]) for r in stored_weeks}
+    for label, want, got in (("player-weeks", want_a, got_a), ("team-weeks", want_w, got_w)):
+        if want - got:
+            problems.append(f"{len(want - got)} {label} missing")
+        if got - want:
+            problems.append(f"{len(got - want)} {label} stored but not in the file")
+    return problems
+
+
 def upsert(client, table: str, rows: list, conflict: str) -> None:
     for i in range(0, len(rows), BATCH):
         client.post(table, rows[i:i + BATCH], params=f"?on_conflict={conflict}",
@@ -73,7 +91,7 @@ def upsert(client, table: str, rows: list, conflict: str) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--apply", action="store_true", help="write to Supabase (only after the migration is applied)")
+    ap.add_argument("--apply", action="store_true", help="write to Supabase and verify the stored keys")
     args = ap.parse_args(argv)
     actuals, weeks = actual_rows(), team_week_rows()
     problems = check(actuals, weeks)
@@ -83,13 +101,21 @@ def main(argv=None) -> int:
         print("NOT LOADING:", "; ".join(problems))
         return 1
     if not args.apply:
-        print("dry run: nothing written (the target tables are proposed, sql/proposed/jeg525_nflverse_history.sql)")
+        print("dry run: nothing written")
         return 0
     sys.path.insert(0, str(REPO / "pipelines"))
     import gh_sbclient as sb
     upsert(sb, WEEKS_TABLE, weeks, "season,team,week")
     upsert(sb, ACTUALS_TABLE, actuals, "season,week,gsis_id")
-    print("upserted; verify with the counts in the migration footer")
+    stored_actuals = sb.get_all(ACTUALS_TABLE, "?select=season,week,gsis_id&order=season,week,gsis_id")
+    stored_weeks = sb.get_all(WEEKS_TABLE, "?select=season,week,team&order=season,team,week")
+    problems = verify(actuals, weeks, stored_actuals, stored_weeks)
+    print(f"stored: {len(stored_actuals)} player-weeks, {len(stored_weeks)} team-weeks, "
+          f"{len({(r['season'], r['team']) for r in stored_weeks})} team-seasons")
+    if problems:
+        print("VERIFY FAILED:", "; ".join(problems))
+        return 1
+    print("verified: stored keys equal the files")
     return 0
 
 

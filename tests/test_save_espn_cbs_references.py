@@ -189,14 +189,14 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
     # -- guard: FantasyPros "Kenny Gainwell" resolves (GAP-FP-NAME-RESOLVE) ------
     # defect: the Week 5 FantasyPros chart row "Kenny Gainwell" (RB, value 1.7)
     # went unresolved because players.full_name is "Kenneth Gainwell".
-    # pull_fantasypros.py calls resolve_name directly, so pin it there.
+    # pull_fantasypros.py calls resolve_canonical directly (JEG-539), so pin it there.
     def test_fantasypros_kenny_gainwell_resolves(self):
-        index = mod.build_name_index(PLAYERS)
-        key, rec, _ = mod.resolve_name("Kenny Gainwell", "RB", index)
+        registry = mod.build_registry(PLAYERS)
+        key, rec, _ = mod.resolve_canonical("Kenny Gainwell", "RB", registry)
         self.assertEqual(key, 785)
         self.assertEqual(rec["full_name"], "Kenneth Gainwell")
         # exact-match only: a near spelling still fails closed
-        self.assertIsNone(mod.resolve_name("Kenny Gainwel", "RB", index)[0])
+        self.assertIsNone(mod.resolve_canonical("Kenny Gainwel", "RB", registry)[0])
 
     # -- guard: the alias map is exact-match only, never fuzzy -------------------
     # defect: the alias map silently becoming a fuzzy matcher and guessing

@@ -586,9 +586,14 @@ class ProjEnv:
         self.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-08T12:00:05+00:00"}
         self.live = {"ok": True, "fingerprint": "fp-saved", "error": None}
         self.live_calls = 0
+        self.resync_workflow = None  # a source module's RESYNC_WORKFLOW (ESPN's "amber, then re-sync")
+        self.previous = None         # the last published pulse
+        self.doc = None              # the whole pulse document of the last run
 
     def run(self):
         mod = FakeProjection(list(self.pub.values()), self.vintage, self.modified, self.error)
+        if self.resync_workflow:
+            mod.RESYNC_WORKFLOW = self.resync_workflow
         outer = self
 
         class Store:
@@ -609,9 +614,11 @@ class ProjEnv:
         fp.projection_module = lambda source: mod
         try:
             doc, div = fp.run(["razzball"], fetch=FakeFetch({}), store=Store(), ident=fp.Identity.load(PLAYERS + FILLER),
-                              site_doc=self.chart, site_error=None, report=None, report_where="n/a", now=NOW)
+                              site_doc=self.chart, site_error=None, report=None, report_where="n/a", now=NOW,
+                              previous=self.previous)
         finally:
             fp.projection_module = orig
+        self.doc = doc
         return doc["sources"][0], div["razzball"]
 
 

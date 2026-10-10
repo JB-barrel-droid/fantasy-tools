@@ -195,6 +195,164 @@ class FirstLiveHolds(unittest.TestCase):
         self.assertEqual("fidelity: stored_vs_chart", (r["hold"] or {}).get("reason"))
 
 
+class ResaveAddsOrDropsLikeAChangedValue(unittest.TestCase):
+    """A player added or dropped by a same-day re-save after the chart was built is judged like a changed
+    value: amber until the next chain run, never a hold. A re-save that only deletes rows (ESPN prunes the
+    players it no longer lists; CBS rest of season replaces the day's set) leaves no newer row stamp, so the
+    save is dated by the probe fingerprint acknowledged with it."""
+
+    def env(self, acked_at):
+        env = T.ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        for row in env.stored:
+            row["_written_at"] = "2026-10-08T12:00:00+00:00"  # the kept rows' stamps did not move
+        env.stored = [r for r in env.stored if r["player_key"] != 1]  # Josh Allen dropped by the re-save
+        env.pub = {k: v for k, v in env.pub.items() if k != 1}
+        env.probe = {"acked_fp": "fp-saved", "acked_at": acked_at}
+        return env
+
+    def test_a_drop_by_a_re_save_after_the_build_does_not_hold(self):
+        r, _ = self.env("2026-10-08T23:25:03+00:00").run()
+        s2 = r["stages"]["stored_vs_chart"]
+        self.assertEqual("amber", s2["status"], s2["summary"])
+        self.assertIn("re-saved", s2["summary"])
+        self.assertIsNone(r["hold"])
+
+    def test_the_same_drop_saved_before_the_build_is_a_chart_fault_and_holds(self):
+        r, _ = self.env("2026-10-08T12:00:05+00:00").run()
+        self.assertEqual("fidelity: stored_vs_chart", (r["hold"] or {}).get("reason"))
+
+    def test_an_ack_for_a_newer_snapshot_does_not_excuse_an_older_chart(self):
+        env = self.env("2026-10-08T23:25:03+00:00")
+        for row in env.stored:
+            row["snap"] = "2026-10-07"
+        env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-07"
+        env.stored += [dict(r, snap="2026-10-08") for r in env.stored]  # the ack belongs to the 10-08 save
+        r, _ = env.run()
+        self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
+
+    def test_an_added_player_whose_value_differs_from_the_publisher_still_holds(self):
+        env = T.ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        env.stored.append({"player_key": 6, "snap": "2026-10-08", "created_at": "2026-10-08T23:25:00+00:00",
+                           "std": 0.0, "half": 0.0, "full": 0.0})  # stored as 0 by the re-save
+        env.pub[6] = ("Tyreek Hill", "WR", {"std": "3.0", "half": "3.5", "full": "4.0"})
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["tyreek hill"] = 3.5
+        env.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-08T23:25:03+00:00"}
+        r, _ = env.run()
+        self.assertEqual("fidelity: publisher_vs_stored", (r["hold"] or {}).get("reason"))
+
+
+class ChartSnapshotReplacedByANewerSave(unittest.TestCase):
+    """2026-10-10 06:17Z: ESPN keeps one current set. The 05:44Z sync re-dated it 2026-10-10, while the
+    chart still showed 2026-10-09 because the chain had not rebuilt yet. Stage 2 found "no stored ESPN
+    snapshot 2026-10-09" and held ESPN. A held ESPN failed the chain's validate, so the chart could not
+    catch up: a deadlock on correct data. A chart behind a newer stored set is amber until the next chain
+    run. Freshness turns it red after PROJECTION_RED_DAYS."""
+
+    def env(self):
+        env = T.ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-07"  # the chart's older set
+        return env  # stored holds only the 2026-10-08 set (the older one was replaced)
+
+    def test_a_chart_behind_the_one_stored_set_is_amber_not_a_hold(self):
+        r, _ = self.env().run()
+        s2 = r["stages"]["stored_vs_chart"]
+        self.assertEqual("amber", s2["status"], s2["summary"])
+        self.assertIn("2026-10-08", s2["summary"])
+        self.assertIsNone(r["hold"])
+
+    def test_a_chart_snapshot_newer_than_anything_stored_still_holds(self):
+        env = self.env()
+        env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-09"
+        r, _ = env.run()
+        self.assertEqual("fidelity: stored_vs_chart", (r["hold"] or {}).get("reason"))
+
+
+class EspnAmberThenResync(unittest.TestCase):
+    """Jeremy, 2026-10-10 (JEG-520): ESPN intraday drift is "Amber, then re-sync". ESPN revises projections
+    during the day without changing the date. A live value that differs from a row saved before ESPN's last
+    change is amber ("update available") and triggers an automatic re-sync. Only a mismatch that survives the
+    re-sync is red, which then holds the source."""
+
+    WF = "espn-supabase-sync.yml"
+
+    def moved(self):
+        env = T.ProjEnv()
+        env.resync_workflow = self.WF
+        env.pub[2] = ("Jahmyr Gibbs", "RB", {"std": "0.0", "half": "0.0", "full": "0.0"})  # ESPN moved him to IR
+        env.live = {"ok": True, "fingerprint": "fp-after-news", "error": None}  # after the 12:00 save
+        return env
+
+    def test_a_row_saved_before_espns_last_change_is_update_available_and_re_syncs(self):
+        env = self.moved()
+        r, _ = env.run()
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("amber", s1["status"], s1["summary"])
+        self.assertIn("update available", s1["summary"])
+        self.assertIsNone(r["hold"])
+        req = env.doc["resyncs"]["razzball"]
+        self.assertEqual((self.WF, True, "fp-after-news"), (req["workflow"], req["dispatch"], req["fingerprint"]))
+
+    def test_the_change_probe_seeing_new_content_also_re_syncs(self):
+        env = self.moved()
+        env.probe = dict(env.probe, last_ok=True, last_fp="fp-after-news", last_probe_at="2026-10-08T22:00:00Z")
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])
+        self.assertTrue(env.doc["resyncs"]["razzball"]["dispatch"])
+        env.probe.update(dispatched_fp="fp-after-news", dispatched_at="2026-10-08T22:00:01Z")  # probe sent it
+        env.run()
+        self.assertFalse(env.doc["resyncs"]["razzball"]["dispatch"])
+
+    def test_a_re_sync_already_requested_for_this_version_is_not_sent_again(self):
+        env = self.moved()
+        env.run()
+        env.previous = env.doc
+        env.run()
+        req = env.doc["resyncs"]["razzball"]
+        self.assertFalse(req["dispatch"])
+        self.assertEqual(env.previous["resyncs"]["razzball"]["requested_at"], req["requested_at"])
+        env.live = {"ok": True, "fingerprint": "fp-second-edit", "error": None}  # ESPN changed again
+        env.run()
+        self.assertTrue(env.doc["resyncs"]["razzball"]["dispatch"])
+
+    def test_a_mismatch_that_survives_the_re_sync_is_red_and_holds(self):
+        env = self.moved()
+        env.stored = [dict(r, created_at="2026-10-08T22:30:00+00:00") for r in env.stored]  # the re-sync's save
+        env.probe = {"acked_fp": "fp-after-news", "acked_at": "2026-10-08T22:30:04+00:00"}  # it read ESPN's edit
+        r, _ = env.run()  # stored still has Gibbs' old value: the re-sync did not fix it
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("red", s1["status"], s1["summary"])
+        self.assertEqual("fidelity: publisher_vs_stored", (r["hold"] or {}).get("reason"))
+        self.assertNotIn("razzball", env.doc["resyncs"])
+
+    def test_no_fingerprint_with_the_save_re_syncs_so_the_next_save_names_its_content(self):
+        env = T.ProjEnv()
+        env.resync_workflow = self.WF
+        env.stored[0].update(half=0.0)
+        env.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-08T09:00:00+00:00"}  # acked another save
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])
+        self.assertTrue(env.doc["resyncs"]["razzball"]["dispatch"])
+
+    def test_sources_without_a_re_sync_workflow_request_none(self):
+        env = self.moved()
+        env.resync_workflow = None
+        r, _ = env.run()
+        self.assertEqual("amber", r["stages"]["publisher_vs_stored"]["status"])
+        self.assertEqual({}, env.doc["resyncs"])
+
+    def test_espn_names_its_sync_workflow(self):
+        from fidelity_sources import espn  # noqa: PLC0415
+        self.assertEqual(self.WF, espn.RESYNC_WORKFLOW)
+        self.assertTrue((ROOT / ".github" / "workflows" / self.WF).exists())
+
+    def test_the_pulse_workflow_dispatches_the_requested_re_syncs(self):
+        wf = (ROOT / ".github" / "workflows" / "fidelity-pulse.yml").read_text(encoding="utf-8")
+        self.assertIn("--resync-dispatches", wf)
+        self.assertIn("gh workflow run", wf)
+
+
 class HeldSourceInThePulse(unittest.TestCase):
     def held_env(self, stage="publisher_vs_stored", identity="bake_v1"):
         env = T.Env()

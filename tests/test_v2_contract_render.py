@@ -2,9 +2,12 @@
 
 The contract is the Google Doc "Data Driven Football: feature contract" (Jeremy,
 2026-10-09: the Doc is the source of truth). docs/feature-contract.md mirrors it.
-Every **XX-NN** ID in the mirror must have a check in CHECKS below, or be in PENDING
-with the ticket that builds it ("to build" in the Doc). A Doc line without a check
-fails test_mirror_every_id_has_a_check, so a new line cannot slip in untested.
+Regenerate the mirror with scripts/sync_feature_contract.py; never edit it by hand.
+Every **XX-NN** ID in the mirror must be in CHECKS below: a check function for a live
+line, or PENDING("JEG-xxx") for a "to build: JEG-xxx" line (with an optional partial
+check of what already exists). A Doc line without a check, a pending line the Doc calls
+live, or a check for an ID the Doc dropped fails test_mirror_every_id_has_a_check. The
+one exception is WORDING_HOLDS (TT-05 until JEG-510 renames "indexed" to "rescaled").
 
 A check is a presence-and-basic-behaviour test: the feature is there and does its
 basic job. Deeper correctness lives in the other tests/test_v2_* suites.
@@ -19,10 +22,14 @@ failure); the checks read the snapshots those loads return. The freshness file
 is replaced with a fixed one so the freshness checks see every status
 (current, prior week, unknown, not updating) whatever the live pipeline says.
 
-Discrimination: test_guard_fails_on_broken_builds serves builds with Swap removed,
-the Manifesto tab moved, the DDF line drawn at the others' weight, Reset leaving
-Rank by alone, and a prior-week source shown without a symbol or warning, and
-requires the named checks to fail on each. Separately, the pre-fix v2.js from
+Discrimination: test_guard_fails_on_broken_builds serves broken v2.js / v2.css /
+shell.html through page routes in three grouped runs and requires the named check to
+report a real finding for each fault: nav reordered and a Manifesto section dropped
+(MF-01), Swap hidden (CT-01), "Vegas" in the header (GL-01), the DDF line at the
+others' weight (PV-02), Reset leaving Rank by (PV-09), a prior-week status without a
+symbol (GL-04), a chip without a warning and a chip claiming all current (GL-05), the
+◐ tag removed (GL-03, TT-08), Rank by defaulting to a chart (GL-08) and a 390 px layout
+that scrolls sideways (GL-13). Separately, the pre-fix v2.js from
 JEG-506's own commit (raw engine keys in the source list and How values,
 "undefined" in the player detail, a prior-week status without a symbol) fails
 GL-02, GL-04, GL-05, TT-03 and HV-01.
@@ -60,44 +67,86 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-# Agreed lines that are not live yet: (ticket). Switch each on when its ticket ships
-# and the Doc drops "to build". test_mirror_every_id_has_a_check keeps this honest.
-PENDING = {
-    "GL-07": "JEG-498", "GL-09": "JEG-497", "GL-17": "JEG-500", "GL-18": "JEG-500",
-    "GL-19": "JEG-501", "GL-20": "JEG-502", "GL-21": "JEG-510",
-    "PV-04": "JEG-503", "PV-06": "JEG-503", "PV-07": "JEG-503",
-    "TT-09": "JEG-504", "CT-02": "JEG-505",
-}
+class PENDING:
+    """CHECKS value for an agreed line that is not live yet ("to build: JEG-xxx" in the Doc).
+
+    `partial` is an optional check of the part that already exists (GL-17: Player values
+    is live under JEG-483; TT-05: the ⓘ exists, the word is JEG-510). It runs in the
+    render test like any live check. Switch the line to a real check when its ticket
+    ships and the Doc drops "to build"; test_mirror_every_id_has_a_check fails until then.
+    """
+
+    def __init__(self, ticket: str, partial=None):
+        self.ticket, self.partial = ticket, partial
+
+    def __repr__(self):
+        return f"PENDING({self.ticket!r})"
+
+
+# Live lines held as pending for a wording change that is already ticketed. The Doc line
+# has no "to build", so without this list the mirror test would demand a real check.
+# TT-05 says "rescaled"; the live UI says "indexed" until JEG-510 (GL-21) renames it.
+WORDING_HOLDS = {"TT-05": "JEG-510"}
+
+# Parts of live lines that are agreed but not built, so their check skips them. The rest of
+# the line is checked. Switch the part on when its ticket ships.
+# GL-11: "Edit league is the primary control" ships with JEG-498 (no primary styling yet;
+# coordinator, 2026-10-09). Draft-until-Apply is checked now.
+SUBPART_HOLDS = {"GL-11": ("Edit league is the primary control", "JEG-498")}
 
 ID_LINE = re.compile(r"\*\*([A-Z]{2}-\d{2})\*\*(.*)")
+TO_BUILD = re.compile(r"to build:([^)]*)")
 
 
-def contract_ids(text: str) -> dict[str, bool]:
-    """{ID: live?} for every **XX-NN** line; a line saying "to build" is not live."""
+def contract_ids(text: str) -> dict[str, str | None]:
+    """{ID: None if live, else the "to build: …" text} for every **XX-NN** line."""
     ids = {}
     for line in text.splitlines():
         m = ID_LINE.search(line)
         if m:
-            ids[m.group(1)] = "to build" not in m.group(2)
+            build = TO_BUILD.search(m.group(2))
+            ids[m.group(1)] = build.group(1).strip() if build else None
     return ids
 
 
-def mirror_errors(text: str, checks, pending) -> list[str]:
+def mirror_errors(text: str, checks, holds=WORDING_HOLDS) -> list[str]:
     ids = contract_ids(text)
     errors = []
     if not ids:
         errors.append("the mirror has no contract IDs")
-    for cid, live in ids.items():
-        if cid in checks and cid in pending:
-            errors.append(f"{cid}: both checked and pending")
-        elif cid not in checks and cid not in pending:
+    for cid, to_build in ids.items():
+        check = checks.get(cid)
+        if check is None:
             errors.append(f"{cid}: in the contract with no check (add one to CHECKS)")
-        elif cid in pending and live:
-            errors.append(f"{cid}: the contract says it is live but its check is pending ({pending[cid]}); switch it on")
-    for cid in sorted(set(checks) | set(pending)):
-        if cid not in ids:
-            errors.append(f"{cid}: has a check but is not in the contract")
+        elif to_build is not None:
+            if not isinstance(check, PENDING):
+                errors.append(f"{cid}: the contract says 'to build: {to_build}' but CHECKS has a live check; mark it PENDING")
+            elif check.ticket not in to_build:
+                errors.append(f"{cid}: pending on {check.ticket}, but the contract says 'to build: {to_build}'")
+        elif isinstance(check, PENDING):
+            if holds.get(cid) != check.ticket:
+                errors.append(f"{cid}: the contract says it is live but its check is {check!r}; switch it on")
+        elif not callable(check):
+            errors.append(f"{cid}: CHECKS value {check!r} is not a check function")
+    for cid in sorted(set(checks) - set(ids)):
+        errors.append(f"{cid}: has a check but is not in the contract")
+    for cid in sorted(set(holds) - set(ids)):
+        errors.append(f"{cid}: wording hold for a line that is not in the contract")
+    for cid, (part, _ticket) in SUBPART_HOLDS.items():
+        line = next((l for l in text.splitlines() if f"**{cid}**" in l), "")
+        if part not in line:
+            errors.append(f"{cid}: held part {part!r} is no longer in the contract line; update SUBPART_HOLDS")
     return errors
+
+
+def live_checks(checks=None) -> dict:
+    """{ID: function} for every check the render test runs: live lines and pending partials."""
+    out = {}
+    for cid, check in (checks or CHECKS).items():
+        fn = check.partial if isinstance(check, PENDING) else check
+        if fn:
+            out[cid] = fn
+    return out
 
 
 # ---------------------------------------------------------------- serving
@@ -165,6 +214,33 @@ ENGINE_FAILS = """(function fail() {
   if (s) s.textContent = 'Values unavailable'; else setTimeout(fail, 50);
 })();"""
 
+# Fixture: some weeks have no one-source DDF Value at all (Week 5: none of 738 players),
+# so GL-03 / TT-08 could never see the "◐ 1 source" tag. Flag every fifth priced player
+# (by player_key) as one-source in what the engine's row accessors return, the way the
+# freshness file is fixed above. Values are untouched; only the confidence fields change.
+LOW_CONFIDENCE_FIXTURE = """(() => {
+  const mark = row => {
+    if (row && Number(row.player_key) % 5 === 0 && Number.isFinite(row.values && row.values.ddf_value)) {
+      row.ddfLowConfidence = true; row.ddfCount = 1;
+      row.ddfConfidenceNote = 'Only one source prices this player (contract test fixture)';
+    }
+    return row;
+  };
+  let controls;
+  Object.defineProperty(window, 'TradeValueCurveControls', {configurable: true, enumerable: true,
+    get: () => controls,
+    set: value => {
+      if (value && !value.__contractFixture) {
+        for (const name of ['getRows', 'getAllRows']) {
+          const original = value[name];
+          if (typeof original === 'function') value[name] = (...args) => original.apply(value, args).map(mark);
+        }
+        value.__contractFixture = true;
+      }
+      controls = value;
+    }});
+})();"""
+
 READY = "() => window.TradeValueV2 && document.getElementById('v2State').hidden"
 
 
@@ -179,6 +255,7 @@ class Session:
         page = self.browser.new_page(viewport={"width": width, "height": height})
         page.errors = []
         page.on("pageerror", lambda e: page.errors.append(str(e)))
+        page.add_init_script(LOW_CONFIDENCE_FIXTURE)
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
         page.freshness = {"kind": freshness}
         page.route("**/assets/reference-freshness.json*",
@@ -233,6 +310,7 @@ COMMON = r"""
       title: td.title || (td.querySelector('[title]')?.title || ''), vs: td.dataset.vs || null,
       heat: /\bheat-/.test(td.className), lowconf: Boolean(td.querySelector('[data-low-confidence]')),
       lowconfTitle: td.querySelector('[data-low-confidence]')?.title || '',
+      lowconfText: (td.querySelector('[data-low-confidence]')?.textContent || '').trim(),
       delta: td.querySelector('.delta') ? {text: td.querySelector('.delta').textContent, title: td.querySelector('.delta').title} : null}))}));
   const addTrade = async () => {
     const rows = C.getRows();
@@ -264,7 +342,8 @@ VALUES_JS = "async () => {" + COMMON + r"""
     lowEngine: C.getRows().filter(r => r.ddfLowConfidence).map(r => String(r.player_key)),
     sticky: {head: getComputedStyle(document.querySelector('#v2Table thead th')).position,
              player: getComputedStyle(document.querySelector('#v2Table tbody td.player')).position},
-    leagueButtons: [...document.querySelectorAll('.v2-league-actions button')].map(b => b.id),
+    // By ID, never by label: "Weights & bench" becomes "Position weights" (JEG-537).
+    leagueButtons: {edit: shown($('v2EditLeague')), weights: Boolean($('v2Weights'))},
     leagueName: $('v2LeagueName').textContent,
     chip: {label: $('v2FreshnessLabel').textContent, cls: $('v2Freshness').className},
     native: Object.fromEntries(C.getActiveSources().map(src => [src,
@@ -352,14 +431,17 @@ VALUES_JS = "async () => {" + COMMON + r"""
   out.reset = {rank: $('v2RankBy').value, position: $('v2Position').value, search: $('v2Search').value, show: $('v2Show').value};
   // League edits are a draft until Apply
   const leagueBefore = $('v2LeagueName').textContent;
+  const engineTeams = C.getState().teams;
   $('v2EditLeague').click(); await sleep(300);
   const teams = [...document.querySelectorAll('#v2Popover [aria-label="Teams"] button')].find(b => b.getAttribute('aria-pressed') !== 'true');
   if (teams) { teams.click(); await sleep(200); }
+  const draftTeams = C.getState().teams;
   const buttons = [...document.querySelectorAll('#v2Popover button')].map(b => b.textContent.trim());
   const cancel = [...document.querySelectorAll('#v2Popover button')].find(b => b.textContent.trim() === 'Cancel');
   if (cancel) cancel.click(); else await closePop();
   await sleep(500);
   out.league = {before: leagueBefore, after: $('v2LeagueName').textContent, changed: Boolean(teams),
+    engineTeams, draftTeams, afterTeams: C.getState().teams,
     hasApply: buttons.includes('Apply'), hasCancel: Boolean(cancel)};
   // Remembered selection: pick another Rank by, then the caller reloads
   const third = [...$('v2RankBy').options].map(o => o.value).filter(v => v !== 'ddf_value').pop();
@@ -391,7 +473,13 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     rects: [rect($('v2TSell')), rect($('v2TBuy'))],
     heads: [...document.querySelectorAll('#v2TTable thead th[data-chart]')].map(th => ({chart: th.dataset.chart,
       name: own(th.querySelector('.th-line')), sub: th.querySelector('.th-sub')?.textContent || '',
+      badge: th.querySelector('.v2-prior-badge')?.textContent || null,
       info: Boolean(th.querySelector('button[data-info]'))})),
+    weeks: (() => { const fr = window.TradeValueProductData?.getSourceFreshness?.() || null;
+      return Object.fromEntries(C.getSourceInfo().map(i => { const s = fr?.series?.[i.key];
+        return [i.key, {stale: s && typeof s.is_older_week === 'boolean' ? s.is_older_week : Boolean(i.stale),
+          week: i.week || (s && s.vintage_week) || null}]; })); })(),
+    refWeek: C.getReferenceWeek ? C.getReferenceWeek() : null,
     caption: $('v2TChartCaption').textContent, captionInfo: Boolean(document.querySelector('.v2-tcompare button[data-info]')),
     lowEngine: C.getRows().filter(r => r.ddfLowConfidence).map(r => String(r.player_key)),
   };
@@ -404,12 +492,22 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     if (again) { again.click(); await sleep(200); } }
   const info = document.querySelector('.v2-tcompare button[data-info]');
   if (info) { info.click(); await sleep(300); out.info = shown($('v2Popover')) ? $('v2Popover').innerText : ''; await closePop(); }
+  // Every row, for TT-08 (one-source players are included and flagged anywhere in the lists).
+  for (const id of ['v2TSellMore', 'v2TBuyMore']) if (shown($(id))) { $(id).click(); await sleep(300); }
+  out.all = rows('#v2TTable').concat(rows('#v2TBuyTable'));
+  out.allEngine = engineFor(out.all.map(r => r.key));
   return out;
 }"""
 
-RISERS_JS = "() => {" + COMMON + r"""
+RISERS_JS = "async () => {" + COMMON + r"""
   const sel = $('v2RSeries');
-  return {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText($('v2Risers')),
+  const top = [...document.querySelectorAll('#v2RRise li[data-player-key]')].slice(0, 3).map(li => ({key: li.dataset.playerKey,
+    before: li.querySelector('[data-col="before"]')?.textContent || '', now: li.querySelector('[data-col="now"]')?.textContent || '',
+    delta: li.querySelector('[data-col="delta"]')?.textContent || ''}));
+  const prior = await C.getPriorWeek(sel.value);
+  const engineTop = top.map(r => ({before: prior?.values?.[r.key] ?? null,
+    now: prior?.currentValues ? (prior.currentValues[r.key] ?? null) : (C.getAllRows().find(x => String(x.player_key) === r.key)?.values?.[sel.value] ?? null)}));
+  return {top, engineTop,tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText($('v2Risers')),
     series: sel.value, groups: [...sel.querySelectorAll('optgroup')].map(g => g.label),
     firstGroupKeys: sel.querySelector('optgroup') ? [...sel.querySelector('optgroup').querySelectorAll('option')].map(o => o.value) : [],
     meta: $('v2RMeta').textContent, note: shown($('v2RNote')) ? $('v2RNote').textContent : '',
@@ -466,7 +564,8 @@ HOW_JS = "() => {" + COMMON + r"""
 MANIFESTO_JS = "() => {" + COMMON + r"""
   const mf = $('v2Manifesto');
   return {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText(mf),
-    h1: mf.querySelector('h1')?.textContent.trim() || '', h2: [...mf.querySelectorAll('article h2')].map(h => h.textContent.trim())};
+    h1: mf.querySelector('h1')?.textContent.trim() || '', h2: [...mf.querySelectorAll('article h2')].map(h => h.textContent.trim()),
+    links: mf.querySelectorAll('a').length};
 }"""
 
 PHONE_JS = "async (hash) => {" + COMMON + r"""
@@ -616,6 +715,23 @@ def gl02(S):
                 continue
             if shown_v is None or abs(shown_v - round(ev, 1)) > 0.051:
                 errors.append(f"{row['name']} {cell['src']}: shows {cell['text']!r}, engine {ev:.2f}")
+    # One engine value per other tab: Trade targets "Our value", Risers & fallers before / now.
+    t = S["tabs"]["targets"]
+    for row in (t["sell"] + t["buy"])[:3]:
+        ev = ((t["engine"].get(row["key"]) or {}).get("values") or {}).get(t["ours"])
+        if ev is None or abs(row["ours"] - round(ev, 1)) > 0.051:
+            errors.append(f"targets {row['name']}: Our value {row['ours']}, engine {ev}")
+    r = S["tabs"]["risers"]
+    if not r["top"]:
+        errors.append("Risers & fallers: no risers to compare with the engine")
+    for shown_r, eng_r in zip(r["top"], r["engineTop"]):
+        for col in ("before", "now"):
+            sv, ev = _num(shown_r[col]), eng_r[col]
+            if ev is None or sv is None or abs(sv - round(ev, 1)) > 0.051:
+                errors.append(f"risers {shown_r['key']} {col}: shows {shown_r[col]!r}, engine {ev}")
+        d = _num(shown_r["delta"])
+        if None not in (d, eng_r["before"], eng_r["now"]) and abs(d - (eng_r["now"] - eng_r["before"])) > 0.11:
+            errors.append(f"risers {shown_r['key']}: change {shown_r['delta']!r}, engine {eng_r['now'] - eng_r['before']:.2f}")
     # Front-end values against an independent calculation: Trade targets gaps, Compare nets, Δ.
     for row in S["tabs"]["targets"]["sell"] + S["tabs"]["targets"]["buy"]:
         for c in row["charts"]:
@@ -662,9 +778,10 @@ def gl03(S):
                 errors.append(f"{row['name']}: one-source DDF Value {eng['low']} but tag {c['lowconf']}")
             if c["lowconf"] and not c["lowconfTitle"]:
                 errors.append(f"{row['name']}: '◐ 1 source' without a tooltip")
-    if "◐ 1 source" not in "".join(json.dumps(r, ensure_ascii=False) for r in v["table"]) and \
-            any(k in {r["key"] for r in v["table"]} for k in v["lowEngine"]):
-        errors.append("a one-source DDF Value in the table has no '◐ 1 source' tag")
+            if c["lowconf"] and c["lowconfText"] != "◐ 1 source":
+                errors.append(f"{row['name']}: one-source tag reads {c['lowconfText']!r}, want '◐ 1 source'")
+    if not any((v["engine"].get(r["key"]) or {}).get("low") for r in v["table"]):
+        errors.append("no one-source DDF Value in the table to check (LOW_CONFIDENCE_FIXTURE not applied?)")
     return errors
 
 
@@ -753,14 +870,19 @@ def gl10(S):
 def gl11(S):
     v = S["values"]
     errors = []
-    order = v["s0"]["leagueButtons"]
-    if order[:2] != ["v2EditLeague", "v2Weights"]:
-        errors.append(f"league controls are {order}, want Edit league first")
+    # "Edit league is the primary control" is SUBPART_HOLDS["GL-11"] (JEG-498): no primary
+    # styling exists yet, so only presence (by ID) and draft-until-Apply are checked now.
+    buttons = v["s0"]["leagueButtons"]
+    if not (buttons["edit"] and buttons["weights"]):
+        errors.append(f"league controls missing: #v2EditLeague shown {buttons['edit']}, #v2Weights present {buttons['weights']}")
     lg = v["league"]
     if not (lg["changed"] and lg["hasApply"] and lg["hasCancel"]):
         errors.append(f"Edit league dialog: changed {lg['changed']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
     if lg["after"] != lg["before"]:
         errors.append(f"a cancelled league edit applied: {lg['before']!r} -> {lg['after']!r}")
+    if lg["draftTeams"] != lg["engineTeams"] or lg["afterTeams"] != lg["engineTeams"]:
+        errors.append(f"a league draft reached the engine before Apply: teams {lg['engineTeams']} -> "
+                      f"{lg['draftTeams']} (draft) -> {lg['afterTeams']} (cancelled)")
     return errors
 
 
@@ -813,6 +935,7 @@ def gl15(S):
         rows = [(_num(c["text"]), ranks.get(row["key"])) for row in v["table"] for c in row["cells"] if c["src"] == src]
         rows = [(val, rank) for val, rank in rows if val is not None and rank is not None]
         rows.sort(key=lambda x: (-x[0], x[1]))
+        rows = rows[:25]   # the chart's own top 25 among the shown rows
         bad = [(a, b) for a, b in zip(rows, rows[1:]) if a[0] > b[0] + 0.05 and a[1] > b[1]]
         if bad:
             errors.append(f"{src}: rescaled values out of the publisher's order, e.g. {bad[0]}")
@@ -854,6 +977,8 @@ def mf01(S):
         errors.append(f"first tab is {first}, want Manifesto")
     if not m["pages"]["v2Manifesto"] or m["h1"] != "Fantasy Football Manifesto" or len(m["h2"]) != 12:
         errors.append(f"Manifesto: shown {m['pages']['v2Manifesto']}, h1 {m['h1']!r}, {len(m['h2'])} sections")
+    if m["links"]:
+        errors.append(f"Manifesto has {m['links']} links; the text is verbatim, with none")
     if [x["view"] for x in t["tabs"] if x["current"]] != ["targets"] or not t["pages"]["v2Targets"]:
         errors.append("the landing tab is not Trade targets")
     return errors
@@ -1017,6 +1142,17 @@ def pv17(S):
     return errors
 
 
+def gl17_values(S):
+    # GL-17 is live for Player values (JEG-483); the other pages are JEG-500.
+    v = S["values"]
+    errors = []
+    if not (v["expandChart"]["shown"] and v["expandChart"]["svg"]):
+        errors.append("Player values: the chart does not expand")
+    if not (v["expandTable"]["shown"] and v["expandTable"]["table"]):
+        errors.append("Player values: the table does not expand")
+    return errors
+
+
 def tt01(S):
     h = S["tabs"]["targets"]["h1"]
     return [] if h == "Where the trade market is wrong this week" else [f"headline {h!r}"]
@@ -1062,8 +1198,9 @@ def tt04(S):
     return errors
 
 
-def tt05(S):
-    # The word "rescaled" is GL-21 (JEG-510). Until it ships, check the scale label and its ⓘ.
+def tt05_partial(S):
+    # TT-05 is held for JEG-510: the live UI says "indexed" until GL-21 renames it "rescaled".
+    # Until then, check what exists: a scale word on every chart header and the ⓘ that explains it.
     t = S["tabs"]["targets"]
     errors = []
     for h in t["heads"]:
@@ -1075,8 +1212,19 @@ def tt05(S):
 
 
 def tt06(S):
-    heads = S["tabs"]["targets"]["heads"]
-    return [f"{h['chart']}: no week badge in {h['sub']!r}" for h in heads if not re.search(r"Wk \d+", h["sub"])]
+    t = S["tabs"]["targets"]
+    errors = []
+    for h in t["heads"]:
+        info = t["weeks"].get(h["chart"]) or {}
+        if not re.search(r"Wk \d+", h["sub"]):
+            errors.append(f"{h['chart']}: no week in {h['sub']!r}")
+        if info.get("stale"):
+            want = f"Wk {info['week']}" if info.get("week") else "Earlier week"
+            if not h["badge"] or h["badge"].strip() != want:
+                errors.append(f"{h['chart']} is a week behind: badge {h['badge']!r}, want {want!r}")
+        elif h["badge"]:
+            errors.append(f"{h['chart']} is current but shows a prior-week badge {h['badge']!r}")
+    return errors
 
 
 def tt07(S):
@@ -1093,11 +1241,13 @@ def tt07(S):
 def tt08(S):
     t = S["tabs"]["targets"]
     errors = []
-    for r in t["sell"] + t["buy"]:
-        low = (t["engine"].get(r["key"]) or {}).get("low", False)
+    for r in t["all"]:
+        low = (t["allEngine"].get(r["key"]) or {}).get("low", False)
         if low != r["lowconf"]:
             errors.append(f"{r['name']}: one-source {low}, flagged {r['lowconf']}")
-    return errors
+    if not any((t["allEngine"].get(r["key"]) or {}).get("low") for r in t["all"]):
+        errors.append("no one-source player in the Sell / Buy lists to check (LOW_CONFIDENCE_FIXTURE not applied?)")
+    return errors[:5]
 
 
 def rf01(S):
@@ -1217,21 +1367,30 @@ def hv01(S):
     return errors
 
 
+# Every contract ID: a check function, or PENDING(ticket) for an agreed line not live yet.
 CHECKS = {
     "GL-01": gl01, "GL-02": gl02, "GL-03": gl03, "GL-04": gl04, "GL-05": gl05, "GL-06": gl06,
-    "GL-08": gl08, "GL-10": gl10, "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14,
-    "GL-15": gl15, "GL-16": gl16, "MF-01": mf01,
-    "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-05": pv05, "PV-08": pv08, "PV-09": pv09,
+    "GL-07": PENDING("JEG-498"), "GL-08": gl08, "GL-09": PENDING("JEG-497"), "GL-10": gl10,
+    "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
+    "GL-17": PENDING("JEG-500", partial=gl17_values), "GL-18": PENDING("JEG-500"),
+    "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502"), "GL-21": PENDING("JEG-510"),
+    "MF-01": mf01,
+    "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": PENDING("JEG-503"), "PV-05": pv05,
+    "PV-06": PENDING("JEG-503"), "PV-07": PENDING("JEG-503"), "PV-08": pv08, "PV-09": pv09,
     "PV-10": pv10, "PV-11": pv11, "PV-12": pv12, "PV-13": pv13, "PV-14": pv14, "PV-15": pv15,
     "PV-16": pv16, "PV-17": pv17,
-    "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04, "TT-05": tt05, "TT-06": tt06,
-    "TT-07": tt07, "TT-08": tt08, "RF-01": rf01,
-    "CT-01": ct01, "CT-03": ct03, "CT-04": ct04, "CT-05": ct05, "CT-06": ct06, "CT-07": ct07,
+    "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04,
+    # Wording hold (WORDING_HOLDS): "rescaled" lands with JEG-510; the ⓘ is checked meanwhile.
+    "TT-05": PENDING("JEG-510", partial=tt05_partial),
+    "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),
+    "RF-01": rf01,
+    "CT-01": ct01, "CT-02": PENDING("JEG-505"), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
+    "CT-06": ct06, "CT-07": ct07,
     "HV-01": hv01,
 }
 
 # The scenarios each check reads (a broken-build run loads only what its checks need).
-NEEDS = {cid: ("values", "tabs") for cid in CHECKS}
+NEEDS = {cid: ("values", "tabs") for cid in live_checks(CHECKS)}
 NEEDS.update({"GL-13": ("phone",), "CT-06": ("phone",), "GL-14": ("failure",),
               "GL-05": ("values",), "GL-10": ("values",), "GL-11": ("values",),
               "PV-02": ("values",), "PV-09": ("values",), "MF-01": ("tabs",), "CT-01": ("tabs",),
@@ -1240,7 +1399,8 @@ NEEDS.update({"GL-13": ("phone",), "CT-06": ("phone",), "GL-14": ("failure",),
 
 def run_contract(ids=None, overrides=None):
     """Load the scenarios the checks need and run them: ({id: errors}, page errors)."""
-    ids = list(ids or CHECKS)
+    run = live_checks(CHECKS)
+    ids = list(ids or run)
     needed = sorted({name for cid in ids for name in NEEDS[cid]})
     from playwright.sync_api import sync_playwright
     with _served() as (base, dist), sync_playwright() as playwright:
@@ -1254,7 +1414,7 @@ def run_contract(ids=None, overrides=None):
     results = {}
     for cid in ids:
         try:
-            results[cid] = CHECKS[cid](snaps)
+            results[cid] = run[cid](snaps)
         except Exception as error:   # a check that cannot read its feature fails, it never passes
             results[cid] = [f"check could not run: {type(error).__name__}: {error}"]
     page_errors = [f"{name}: {e}" for name, snap in snaps.items() for e in snap.get("errors", [])
@@ -1271,17 +1431,38 @@ def _playwright_or_skip():
 
 class ContractMirrorTest(unittest.TestCase):
     def test_mirror_every_id_has_a_check(self):
-        errors = mirror_errors(MIRROR.read_text(encoding="utf-8"), CHECKS, PENDING)
+        errors = mirror_errors(MIRROR.read_text(encoding="utf-8"), CHECKS)
         self.assertEqual(errors, [], "\n".join(errors))
 
     def test_mirror_check_catches_gaps(self):
         text = MIRROR.read_text(encoding="utf-8")
         added = text + "\n- **PV-99** A new line nobody wrote a check for.\n"
-        self.assertTrue(any("PV-99" in e for e in mirror_errors(added, CHECKS, PENDING)))
+        self.assertTrue(any(e.startswith("PV-99") for e in mirror_errors(added, CHECKS)))
+        # A pending line goes live in the Doc: its PENDING must become a real check.
         shipped = text.replace("*(to build: JEG-510)*", "")
-        self.assertTrue(any(e.startswith("GL-21") for e in mirror_errors(shipped, CHECKS, PENDING)))
+        self.assertTrue(any(e.startswith("GL-21") for e in mirror_errors(shipped, CHECKS)))
+        # A live line becomes "to build": its check must be marked pending.
+        reopened = text.replace("**TT-07** A chart value", "**TT-07** *(to build: JEG-999)* A chart value")
+        self.assertTrue(any(e.startswith("TT-07") for e in mirror_errors(reopened, CHECKS)))
+        # A pending line names a different ticket than the Doc.
+        wrong = {**CHECKS, "GL-07": PENDING("JEG-1")}
+        self.assertTrue(any(e.startswith("GL-07") for e in mirror_errors(text, wrong)))
+        # A wording hold is the only way a live line may stay pending.
+        self.assertTrue(any(e.startswith("TT-05") for e in mirror_errors(text, CHECKS, holds={})))
+        # A checked ID leaves the Doc.
         dropped = "\n".join(l for l in text.splitlines() if "**TT-07**" not in l)
-        self.assertTrue(any(e.startswith("TT-07") for e in mirror_errors(dropped, CHECKS, PENDING)))
+        self.assertTrue(any(e.startswith("TT-07") for e in mirror_errors(dropped, CHECKS)))
+
+    def test_mirror_is_sync_output(self):
+        # The mirror is what scripts/sync_feature_contract.py writes: its header, and a body
+        # the formatter leaves unchanged.
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import sync_feature_contract as sync
+        text = MIRROR.read_text(encoding="utf-8")
+        self.assertIn(sync.DOC_URL, text.split("-->", 1)[0])
+        self.assertIn("never edit this file to change the contract", text.split("-->", 1)[0])
+        body = sync.strip_header(text)
+        self.assertEqual(sync.tidy_export(body), body)
 
 
 class ContractRenderTest(unittest.TestCase):
@@ -1294,6 +1475,9 @@ class ContractRenderTest(unittest.TestCase):
         self.assertEqual(failed, {}, "contract lines broken:\n" + report)
 
     def test_guard_fails_on_broken_builds(self):
+        """Each broken build must fail the check for the line it breaks, with a real finding
+        (a check that crashed is not evidence). Builds are grouped so one run serves several
+        faults; a group only loads the scenarios its checks read."""
         _playwright_or_skip()
         shell = SHELL.read_text(encoding="utf-8")
         js = V2_JS.read_text(encoding="utf-8")
@@ -1303,6 +1487,11 @@ class ContractRenderTest(unittest.TestCase):
             self.assertEqual(text.count(old), 1, f"stale mutation anchor: {old[:80]!r}")
             return text.replace(old, new)
 
+        def caught(results, cid, fault):
+            real = [e for e in results[cid] if not e.startswith("check could not run")]
+            self.assertTrue(real, f"{cid} did not catch: {fault} (got {results[cid]})")
+
+        # Group 1 (shell): the nav reordered, Swap never shown, "Vegas" in the header.
         manifesto_tab = ('        <a class="v2-tab" href="v2/#manifesto" data-view="manifesto" data-short="Manifesto">'
                          '<span class="v2-tab-full">Manifesto</span></a>\n')
         values_tab = ('        <a class="v2-tab" href="v2/#player-values" data-view="values" data-short="Values">'
@@ -1310,19 +1499,47 @@ class ContractRenderTest(unittest.TestCase):
         broken_shell = cut(cut(shell, manifesto_tab), values_tab, values_tab + manifesto_tab)
         # Swap never shows (removing the node would crash startup, which is a different failure).
         broken_shell = cut(broken_shell, 'id="v2CSwap" hidden>', 'id="v2CSwap" hidden style="display:none !important">')
-        results, _ = run_contract(["MF-01", "CT-01"], {"shell": broken_shell})
-        self.assertTrue(results["MF-01"], "MF-01 passed with Manifesto moved after Player values")
-        self.assertTrue(results["CT-01"], "CT-01 passed with Swap removed")
+        broken_shell = cut(broken_shell, 'href="v2/#trade-targets">Data Driven Football</a>',
+                           'href="v2/#trade-targets">Data Driven Football · Vegas lines</a>')
+        results, _ = run_contract(["MF-01", "CT-01", "GL-01"], {"shell": broken_shell})
+        caught(results, "MF-01", "Manifesto moved after Player values")
+        caught(results, "CT-01", "Swap removed")
+        caught(results, "GL-01", '"Vegas" in the header')
 
+        # Group 2 (v2.js + v2.css): Reset keeps Rank by, prior-week status without a symbol,
+        # the DDF line at the others' weight, the ◐ tag removed.
         broken_js = cut(js, '    if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);\n')
         broken_js = cut(broken_js, 'prior: "⚠ ", ')
         broken_js = cut(broken_js, '`⚠ ${behind} source', '`${behind} source')
+        broken_js = cut(broken_js, "const isLowConfidence = (row, key) => key === DDF_KEY &&",
+                        "const isLowConfidence = (row, key) => false &&")
         broken_css = cut(css, ".v2-chart .series.is-ddf { stroke-width: 3.5; }", ".v2-chart .series.is-ddf { stroke-width: 2; }")
-        results, _ = run_contract(["PV-02", "PV-09", "GL-04", "GL-05"], {"v2.js": broken_js, "v2.css": broken_css})
-        self.assertTrue(results["PV-02"], "PV-02 passed with the DDF line at the others' weight")
-        self.assertTrue(results["PV-09"], "PV-09 passed with Reset leaving Rank by")
-        self.assertTrue(results["GL-04"], "GL-04 passed with a prior-week status shown without a symbol")
-        self.assertTrue(results["GL-05"], "GL-05 passed with a prior-week chip shown without a warning")
+        results, _ = run_contract(["PV-02", "PV-09", "GL-04", "GL-05", "GL-03", "TT-08"],
+                                  {"v2.js": broken_js, "v2.css": broken_css})
+        caught(results, "PV-02", "the DDF line at the others' weight")
+        caught(results, "PV-09", "Reset leaving Rank by")
+        caught(results, "GL-04", "a prior-week status shown without a symbol")
+        caught(results, "GL-05", "a prior-week chip shown without a warning")
+        caught(results, "GL-03", "the ◐ 1 source tag removed (Player values)")
+        caught(results, "TT-08", "the ◐ 1 source tag removed (Trade targets)")
+
+        # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current, the
+        # 390 px layout scrolls sideways, a Manifesto section dropped.
+        broken_js = cut(js, "const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);",
+                        'const rank = saved && saved.rank ? saved.rank : (hasDdf ? C.getActiveSources()[0] : null);')
+        broken_js = cut(broken_js, '$("v2FreshnessLabel").textContent = stuck ?', '$("v2FreshnessLabel").textContent = false ?')
+        broken_js = cut(broken_js, '`${weekText}${freshNotes.join(" · ") || "all sources current"}`',
+                        '`${weekText}all sources current`')
+        broken_css = css + "\n@media (max-width: 500px) { .v2-wrap { min-width: 480px; } }\n"
+        section = re.search(r'    <section class="v2-mf-sec" aria-labelledby="v2M1">.*?</section>\n', shell, re.S)
+        self.assertIsNotNone(section, "stale mutation anchor: Manifesto section 1")
+        broken_shell = cut(shell, section.group(0))
+        results, _ = run_contract(["GL-08", "GL-05", "GL-13", "MF-01"],
+                                  {"v2.js": broken_js, "v2.css": broken_css, "shell": broken_shell})
+        caught(results, "GL-08", "Rank by defaulting to a chart, not DDF Value")
+        caught(results, "GL-05", "a chip claiming every source is current")
+        caught(results, "GL-13", "the 390 px layout scrolling sideways")
+        caught(results, "MF-01", "a Manifesto section dropped")
 
 
 if __name__ == "__main__":

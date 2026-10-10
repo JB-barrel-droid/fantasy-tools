@@ -49,12 +49,22 @@
     {"workflow": "fidelity-pulse.yml", "scheduler": "pg_cron", "pg_cron_job": "fidelity-pulse-live",
      "records": [{"check_id": "fidelity_pulse", "file": ".github/workflows/fidelity-pulse.yml", "contains": "--check-id fidelity_pulse --owner fidelity-pulse.yml"}]},
     {"workflow": "player-identity-reconcile.yml", "scheduler": "pg_cron", "pg_cron_job": "player-identity-reconcile-nightly",
-     "records": [{"check_id": "player_identity_reconcile", "file": "pipelines/reconcile_player_identity.py", "contains": "CHECK_ID = \"player_identity_reconcile\""}]}
+     "records": [{"check_id": "player_identity_reconcile", "file": "pipelines/reconcile_player_identity.py", "contains": "CHECK_ID = \"player_identity_reconcile\""}]},
+    {"workflow": "espn-weekly-store.yml", "scheduler": "pg_cron", "pg_cron_job": "espn-weekly-store-live",
+     "records": [{"check_id": "espn_weekly_store", "file": ".github/workflows/espn-weekly-store.yml", "contains": "--check-id espn_weekly_store --owner espn-weekly-store.yml"}]},
+    {"workflow": "espn-weekly-store.yml", "scheduler": "pg_cron", "pg_cron_job": "espn-weekly-store-sunday",
+     "records": [{"check_id": "espn_weekly_store", "file": ".github/workflows/espn-weekly-store.yml", "contains": "--check-id espn_weekly_store --owner espn-weekly-store.yml"}]},
+    {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-live",
+     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
+    {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-sunday",
+     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]}
   ],
   "pg_cron_sql_jobs": [
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}
   ],
   "unmonitored_workflows": {
+    "espn-history-probe.yml": "manual one-off probe (JEG-521 G4 d); no schedule, nothing to miss",
+    "nflverse-history-load.yml": "manual one-off load of closed 2015-2025 history (JEG-532); no schedule, nothing to miss",
     "preview.yml": "pull-request preview build; no schedule, nothing to miss",
     "record-pages-deploy.yml": "event-driven recorder for pages.yml (workflow_run); it is the evidence for check site_deploy, not a pipeline",
     "loader-dry-run.yml": "push/manual dry run of the loader; no schedule",
