@@ -1096,3 +1096,12 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-mf-text { font-size: 16px; line-height: 1.65; }
   .v2-mf-sec { margin-top: 36px; }
 }
+
+/* JEG-502: players no source prices, listed only in search results. */
+.v2-unpriced { margin: 0 0 12px; padding: 10px 14px; border: 1px dashed var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); }
+.v2-unpriced-head { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.v2-unpriced-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.v2-unpriced-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; font-size: 13px; }
+.v2-unpriced-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+.v2-unpriced-why { flex-basis: 100%; }
+.v2-trade-results .v2-unpriced-why { flex-basis: 100%; font-size: 12px; }

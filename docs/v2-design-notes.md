@@ -504,6 +504,13 @@ Answered 2026-10-08 (JEG-452), position shares, in `TradeValueCurveControls`:
 refused (order would invert)", shallow charts, held or not-yet-published sources, `ddf_value`). v2 reads it through
 `missingReason()`; until it ships, v2 shows its generic reason.
 
+**BE-5 · Stale team on players no source prices (JEG-502, 2026-10-09).** In
+`data/fixtures/current/players.json`, 29 of 306 `universe_only` players have a `team` that disagrees
+with the team in their own `unpriced_reason`, which comes from the current Sleeper roster. For example,
+Scott Miller has `team` PIT, but his reason says "Practice squad (CHI)"; Phillip Dorsett has ATL
+but "Practice squad (LV)". Free agents also keep an old team. v2 shows only the position and the
+reason for these players until `team` follows the roster status (free agent = no team).
+
 ## Back-end contract: native rank (JEG-482, 2026-10-08)
 
 A published chart's Indexed ("as published") values are its native values times one factor, so the

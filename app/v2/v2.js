@@ -262,6 +262,68 @@
   }
   const fmt = v => Number.isFinite(v) ? v.toFixed(1) : "—";
 
+  // JEG-502 (Jeremy, 2026-10-09): every active NFL player is searchable. A player no source
+  // prices (engine universe_only) appears only in search results, never in a table or chart,
+  // as "0.0" with the engine's reason. The engine builds his row (C.searchPlayers); no math here.
+  const UNPRICED_REASON = "No chart or projection prices this player.";
+  const UNPRICED_SHOWN = 8;
+  const unpricedCache = new Map();   // query|position -> rows; cleared when the engine's rows change
+  function unpricedMatches(query) {
+    const q = String(query || "").trim();
+    if (!q || !C || typeof C.searchPlayers !== "function") return [];
+    const position = C.getState().position;
+    const cacheKey = `${q.toLowerCase()}|${position}`;
+    if (unpricedCache.has(cacheKey)) return unpricedCache.get(cacheKey);
+    const fits = pos => !position || position === "ALL" ? true
+      : position === "FLEX" ? ["RB", "WR", "TE"].includes(pos) : pos === position;
+    const rows = C.searchPlayers(q, {limit: 2000}).filter(row => row && row.universe_only && fits(row.pos));
+    if (unpricedCache.size > 50) unpricedCache.clear();
+    unpricedCache.set(cacheKey, rows);
+    return rows;
+  }
+  // GL-20: no source prices him, so he is worth 0.0 (the engine leaves DDF Value null for these rows since JEG-508).
+  const unpricedValue = () => "0.0";
+  const unpricedReason = row => row.unpriced_reason || UNPRICED_REASON;
+  function renderUnpriced(id, query) {
+    const box = $(id);
+    const rows = unpricedMatches(query);
+    box.replaceChildren();
+    box.hidden = !rows.length;
+    if (!rows.length) return rows;
+    const head = document.createElement("p");
+    head.className = "v2-unpriced-head";
+    head.textContent = `○ Not valued · ${rows.length} player${rows.length === 1 ? "" : "s"} matching “${String(query).trim()}”: worth 0.0`;
+    const list = document.createElement("ul");
+    list.className = "v2-unpriced-list";
+    rows.slice(0, UNPRICED_SHOWN).forEach(row => {
+      const li = document.createElement("li");
+      li.dataset.playerKey = String(row.player_key);
+      li.dataset.unpriced = "";
+      const name = document.createElement("b");
+      name.textContent = row.name;
+      const meta = document.createElement("span");
+      meta.className = "v2-meta";
+      meta.textContent = ` ${row.pos}`;   // the reason names his current status and team; row.team can be stale
+      const value = document.createElement("span");
+      value.className = "v2-unpriced-value";
+      value.dataset.source = DDF_KEY;
+      value.textContent = `DDF Value ${unpricedValue(row)}`;
+      const why = document.createElement("span");
+      why.className = "v2-meta v2-unpriced-why";
+      why.textContent = unpricedReason(row);
+      li.append(name, meta, value, why);
+      list.appendChild(li);
+    });
+    box.append(head, list);
+    if (rows.length > UNPRICED_SHOWN) {
+      const more = document.createElement("p");
+      more.className = "v2-meta";
+      more.textContent = `${rows.length - UNPRICED_SHOWN} more not valued. Type more of the name to narrow it.`;
+      box.appendChild(more);
+    }
+    return rows;
+  }
+
   // GAP-025: a label + symbol badge for players ESPN projects at 0
   // (injured/out). The engine flags them from ESPN's own row; a player ESPN has
   // no row for is missing, not 0, and gets nothing. Published values stay as
@@ -2844,6 +2906,7 @@
     collect();
     collectTargets();
     renderHeader();
+    renderUnpriced("v2TUnpriced", T.search);
     renderTargetControls();
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;
@@ -3444,7 +3507,29 @@
       li.appendChild(button);
       results.appendChild(li);
     });
-    if (!matches.length) {
+    // JEG-502: players no source prices, after the priced ones. Shown, never added to a trade.
+    const unpriced = unpricedMatches(raw).slice(0, Math.max(0, 8 - matches.length));
+    unpriced.forEach(row => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.disabled = true;
+      button.setAttribute("aria-disabled", "true");
+      button.dataset.playerKey = String(row.player_key);
+      button.dataset.unpriced = "";
+      const name = document.createElement("b");
+      name.textContent = row.name;
+      const sub = document.createElement("span");
+      sub.className = "v2-meta";
+      sub.textContent = ` ${row.pos} · DDF Value ${unpricedValue(row)}`;
+      const why = document.createElement("span");
+      why.className = "v2-meta v2-unpriced-why";
+      why.textContent = `○ Not valued: ${unpricedReason(row)}`;
+      button.append(name, sub, why);
+      li.appendChild(button);
+      results.appendChild(li);
+    });
+    if (!matches.length && !unpriced.length) {
       const li = document.createElement("li");
       li.className = "v2-meta is-empty";
       li.append(document.createTextNode(`No player matches “${raw}”. `));
@@ -3871,6 +3956,7 @@
   function renderRisers() {
     collect();
     renderHeader();
+    renderUnpriced("v2RUnpriced", R.search);
     const M = window.TradeValueMovers;
     const loading = text => {
       $("v2RMeta").textContent = text;
@@ -4073,6 +4159,7 @@
     collect();
     renderHeader();
     renderFilterChips();
+    renderUnpriced("v2Unpriced", state.search);
     renderEmpty();
     renderNotice();
     renderTable();
@@ -4088,7 +4175,10 @@
     $("v2TableCard").hidden = empty;
     if (!empty) return;
     const why = [];
-    if (state.search.trim()) why.push(`no player name contains “${state.search.trim()}”`);
+    if (state.search.trim()) {
+      why.push($("v2Unpriced").hidden ? `no player name contains “${state.search.trim()}”`
+        : `no valued player name contains “${state.search.trim()}” (those with no value are listed above)`);
+    }
     if (state.range.min !== null || state.range.max !== null) {
       why.push(`no ${sourceMeta(view.rankKey).short} value is in ${state.range.min ?? "…"}–${state.range.max ?? "…"}`);
     }
@@ -4440,6 +4530,7 @@
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
     // New rows (league, weights, sources): every prior-week recompute is stale.
     window.addEventListener("trade-value-rows-change", () => {
+      unpricedCache.clear();
       priorCache.clear();
       pairCache.clear();
       priorStamp += 1;

@@ -29,7 +29,8 @@ report a real finding for each fault: nav reordered and a Manifesto section drop
 others' weight (PV-02), Reset leaving Rank by (PV-09), a prior-week status without a
 symbol (GL-04), a chip without a warning and a chip claiming all current (GL-05), the
 ◐ tag removed (GL-03, TT-08), Rank by defaulting to a chart (GL-08) and a 390 px layout
-that scrolls sideways (GL-13). Separately, the pre-fix v2.js from
+that scrolls sideways (GL-13), and Player values search without its
+not-valued list (GL-20, a partial check until the Doc marks it live). Separately, the pre-fix v2.js from
 JEG-506's own commit (raw engine keys in the source list and How values,
 "undefined" in the player detail, a prior-week status without a symbol) fails
 GL-02, GL-04, GL-05, TT-03 and HV-01.
@@ -583,6 +584,37 @@ PHONE_JS = "async (hash) => {" + COMMON + r"""
   return out;
 }"""
 
+GL20_JS = "async () => {" + COMMON + r"""
+  // A player no source prices, from the engine's own search (practice squad first).
+  const all = C.searchPlayers('a', {limit: 5000}).concat(C.searchPlayers('e', {limit: 5000}));
+  const pick = all.find(r => r.universe_only && r.roster_status === 'practice_squad') || all.find(r => r.universe_only);
+  if (!pick) return {pick: null};
+  const key = String(pick.player_key);
+  const read = id => { const box = $(id);
+    const li = box && !box.hidden ? box.querySelector(`li[data-player-key="${key}"]`) : null;
+    return li ? li.innerText : null; };
+  const out = {pick: {key, name: pick.name, reason: pick.unpriced_reason, ddf: pick.values ? pick.values.ddf_value : null}};
+  location.hash = '#player-values'; await sleep(900);
+  fire($('v2Search'), pick.name); await sleep(700);
+  out.pv = read('v2Unpriced');
+  out.pvInTable = Boolean(document.querySelector(`#v2Table tr[data-player-key="${key}"]`));
+  fire($('v2Search'), ''); await sleep(400);
+  location.hash = '#trade-targets'; await sleep(900);
+  fire($('v2TSearch'), pick.name); await sleep(700);
+  out.tt = read('v2TUnpriced');
+  fire($('v2TSearch'), ''); await sleep(300);
+  location.hash = '#risers-fallers'; await sleep(1200);
+  fire($('v2RSearch'), pick.name); await sleep(900);
+  out.rf = read('v2RUnpriced');
+  fire($('v2RSearch'), ''); await sleep(300);
+  location.hash = '#compare-trade'; await sleep(1000);
+  fire($('v2GiveSearch'), pick.name); await sleep(500);
+  const b = document.querySelector(`#v2GiveResults button[data-player-key="${key}"]`);
+  out.ct = b ? {text: b.innerText, disabled: b.disabled} : null;
+  fire($('v2GiveSearch'), ''); await sleep(200);
+  return out;
+}"""
+
 FAILURE_JS = "() => {" + COMMON + r"""
   const card = document.querySelector('#v2State .v2-state');
   return {state: card ? card.dataset.state : null, title: $('v2StateTitle').textContent,
@@ -630,6 +662,7 @@ def scenario_tabs(s: Session) -> dict:
         page.evaluate("() => { location.hash = '#manifesto'; }")
         page.wait_for_timeout(400)
         out["manifesto"] = page.evaluate(MANIFESTO_JS)
+        out["gl20"] = page.evaluate(GL20_JS)
         out["errors"] = page.errors
         return out
     finally:
@@ -965,6 +998,25 @@ def gl16(S):
         errors.append(f"ranked by {other['key']}, tiers are not in that series' order")
     elif {r["key"]: r["tier"] for r in ddf} == {r["key"]: r["tier"] for r in other["table"] if r["key"] in {d["key"] for d in ddf}}:
         errors.append(f"tiers did not change with Rank by ({other['key']})")
+    return errors
+
+
+def gl20(S):
+    g = S["tabs"]["gl20"]
+    p = g.get("pick")
+    if not p:
+        return ["the engine's search has no player that no source prices"]
+    errors = []
+    for tab, text in (("Player values", g["pv"]), ("Trade targets", g["tt"]), ("Risers & fallers", g["rf"]),
+                      ("Compare a trade", (g["ct"] or {}).get("text"))):
+        if not text:
+            errors.append(f"{tab}: searching {p['name']!r} does not show him")
+        elif "0.0" not in text or (p["reason"] or "") not in text:
+            errors.append(f"{tab}: {p['name']} shown without 0.0 and his reason: {text!r}")
+    if g["pvInTable"]:
+        errors.append(f"{p['name']} (no value) appears in the Player values table")
+    if g["ct"] and not g["ct"]["disabled"]:
+        errors.append(f"{p['name']} (no value) can be added to a trade")
     return errors
 
 
@@ -1373,7 +1425,7 @@ CHECKS = {
     "GL-07": PENDING("JEG-498"), "GL-08": gl08, "GL-09": PENDING("JEG-497"), "GL-10": gl10,
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": PENDING("JEG-500", partial=gl17_values), "GL-18": PENDING("JEG-500"),
-    "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502"), "GL-21": PENDING("JEG-510"),
+    "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": PENDING("JEG-503"), "PV-05": pv05,
     "PV-06": PENDING("JEG-503"), "PV-07": PENDING("JEG-503"), "PV-08": pv08, "PV-09": pv09,
@@ -1393,7 +1445,7 @@ CHECKS = {
 NEEDS = {cid: ("values", "tabs") for cid in live_checks(CHECKS)}
 NEEDS.update({"GL-13": ("phone",), "CT-06": ("phone",), "GL-14": ("failure",),
               "GL-05": ("values",), "GL-10": ("values",), "GL-11": ("values",),
-              "PV-02": ("values",), "PV-09": ("values",), "MF-01": ("tabs",), "CT-01": ("tabs",),
+              "PV-02": ("values",), "PV-09": ("values",), "MF-01": ("tabs",), "CT-01": ("tabs",), "GL-20": ("tabs",),
               "GL-04": ("values", "tabs")})
 
 
@@ -1510,11 +1562,12 @@ class ContractRenderTest(unittest.TestCase):
         # the DDF line at the others' weight, the ◐ tag removed.
         broken_js = cut(js, '    if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);\n')
         broken_js = cut(broken_js, 'prior: "⚠ ", ')
+        broken_js = cut(broken_js, '    renderUnpriced("v2Unpriced", state.search);\n')
         broken_js = cut(broken_js, '`⚠ ${behind} source', '`${behind} source')
         broken_js = cut(broken_js, "const isLowConfidence = (row, key) => key === DDF_KEY &&",
                         "const isLowConfidence = (row, key) => false &&")
         broken_css = cut(css, ".v2-chart .series.is-ddf { stroke-width: 3.5; }", ".v2-chart .series.is-ddf { stroke-width: 2; }")
-        results, _ = run_contract(["PV-02", "PV-09", "GL-04", "GL-05", "GL-03", "TT-08"],
+        results, _ = run_contract(["PV-02", "PV-09", "GL-04", "GL-05", "GL-03", "TT-08", "GL-20"],
                                   {"v2.js": broken_js, "v2.css": broken_css})
         caught(results, "PV-02", "the DDF line at the others' weight")
         caught(results, "PV-09", "Reset leaving Rank by")
@@ -1522,6 +1575,7 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "GL-05", "a prior-week chip shown without a warning")
         caught(results, "GL-03", "the ◐ 1 source tag removed (Player values)")
         caught(results, "TT-08", "the ◐ 1 source tag removed (Trade targets)")
+        caught(results, "GL-20", "Player values search not listing players with no value")
 
         # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current, the
         # 390 px layout scrolls sideways, a Manifesto section dropped.

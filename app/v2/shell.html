@@ -93,6 +93,8 @@
     <!-- JEG-483: one chip per active filter; each ✕ clears only that filter. -->
     <div class="v2-fchips" id="v2FilterChips" role="group" aria-label="Active filters" hidden></div>
     <p class="v2-filter-note" id="v2FilterNote" hidden></p>
+    <!-- JEG-502: players no source prices; only in search results (Jeremy, 2026-10-09). -->
+    <section class="v2-unpriced" id="v2Unpriced" hidden aria-label="Players with no value"></section>
     <div class="v2-notice" id="v2Notice" role="status" hidden>
       <p id="v2NoticeText"></p>
       <button type="button" class="v2-btn" id="v2NoticeBtn">Choose sources</button>
@@ -234,6 +236,8 @@
       </div>
     </div>
 
+    <section class="v2-unpriced" id="v2TUnpriced" hidden aria-label="Players with no value"></section>
+
     <div class="v2-tlists">
       <section class="v2-card v2-tlist" id="v2TSell" aria-labelledby="v2TSellTitle">
         <div class="v2-tlist-head">
@@ -298,6 +302,7 @@
       </label>
     </div>
     <p class="v2-filter-note" id="v2RNote" hidden></p>
+    <section class="v2-unpriced" id="v2RUnpriced" hidden aria-label="Players with no value"></section>
     <p class="v2-meta v2-rmeta" id="v2RMeta" aria-live="polite">—</p>
 
     <div class="v2-movers">
