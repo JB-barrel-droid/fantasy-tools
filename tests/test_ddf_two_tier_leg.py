@@ -109,62 +109,7 @@ def _bench_mix_12(pool_lists):
     # pool_lists is unused (kept for signature compatibility).
     return bench_mix_for_teams(12)
 
-class TestPythonPortMatchesBrowser(unittest.TestCase):
-    def test_pinned_solve_vectors(self):
-        for vec in HAND_SOLVE:
-            e = vec["exposures"]
-            pb, ps = solve_tier_prices(e["a_b"], e["b_b"], e["a_s"], e["b_s"],
-                                       e["pie"], vec["pos"], vec["bench_share"])
-            self.assertTrue(rel_close(pb, vec["expected"]["pb"]), vec)
-            self.assertTrue(rel_close(ps, vec["expected"]["ps"]), vec)
-            got = run_harness("solve", {"vectors": [{
-                "a_b": e["a_b"], "b_b": e["b_b"], "a_s": e["a_s"],
-                "b_s": e["b_s"], "pie": e["pie"],
-                "pos": vec["pos"], "bench_share": vec["bench_share"]}]})[0]
-            self.assertNotIn("error", got, vec)
-            self.assertTrue(rel_close(pb, got["pb"]), vec)
-            self.assertTrue(rel_close(ps, got["ps"]), vec)
-
-    def test_pinned_slice_vectors(self):
-        from build_ddf_two_tier_leg import slice_exposures
-        for vec in HAND_SLICE:
-            a, b = slice_exposures(vec["x"], vec["rw"], vec["rs"], vec["tau"])
-            self.assertTrue(rel_close(a, vec["expected"]["a"]), vec)
-            self.assertTrue(rel_close(b, vec["expected"]["b"]), vec)
-
-    def test_full_pipeline_parity_on_real_espn_inputs(self):
-        """Tiers AND calibrations at feasible share bit-exact vs the browser code."""
-        _, pool_lists, pies = real_inputs()
-        bench_mix = _bench_mix_12(pool_lists)
-        pool = build_position_tiers(pool_lists, 12, dict(REF_SLOTS),
-                                    REF_FLEX_COUNT, list(REF_FLEX_ELIGIBLE), bench_mix)
-        cfg = {"teams": 12, "slots": dict(REF_SLOTS), "flexCount": REF_FLEX_COUNT,
-               "flexEligible": list(REF_FLEX_ELIGIBLE), "benchMix": bench_mix}
-        js_lists = {pos: [{"id": str(d["id"]), "x": d["x"]} for d in pool_lists[pos]]
-                    for pos in POSITIONS}
-        out = run_harness("pooltier", {"lists": js_lists, "cfg": cfg})
-        self.assertIsNone(out["error"], out["error"])
-        keys = (("rw", "rw"), ("rs", "rs"), ("tau", "tau"),
-                ("aBench", "a_bench"), ("bBench", "b_bench"),
-                ("aStart", "a_start"), ("bStart", "b_start"), ("surplus", "surplus"))
-        for pos in POSITIONS:
-            jt, pt = out["tiers"][pos], pool["tiers"][pos]
-            for jk, pk in keys:
-                self.assertTrue(rel_close(jt[jk], pt[pk]), (pos, jk, jt[jk], pt[pk]))
-            share = feasible_share_for(pt, pies[pos])
-            py_cal = calibrate_position(pt, pies[pos], share)
-            js_cal = run_harness("calibrate", {"tier": jt, "pie": pies[pos],
-                                               "share": share})
-            self.assertFalse(js_cal["invalid"], (pos, js_cal.get("reason")))
-            for k in ("pb", "ps"):
-                self.assertTrue(rel_close(js_cal[k], py_cal[k]), (pos, k, js_cal[k], py_cal[k]))
-            # And the priced projections agree player-by-player.
-            for d in pool_lists[pos][:25]:
-                js_price = run_harness("calibrate", {"tier": jt, "pie": pies[pos],
-                                                     "share": share,
-                                                     "probeX": d["x"]})["priceAt"]
-                py_price = price_for_projection(d["x"], py_cal)
-                self.assertTrue(rel_close(js_price, py_price), (pos, d))
+# JEG-508: TestPythonPortMatchesBrowser retired -- the browser two-tier port (curve-widget TradeValueTwoTier) is retired (docs/methodology.md VP-10); the page prices projections with the value pipeline.
 
 
 class TestLegGuarantees(unittest.TestCase):
@@ -299,49 +244,7 @@ class TestFailClosed(unittest.TestCase):
         self.assertGreater(cal["pb"], 0)
         self.assertGreater(cal["ps"], cal["pb"])
 
-    def test_step_up_lands_inside_the_window_not_on_its_edge(self):
-        # GAP-STEPUP-EDGE-PB0. Same JEG-74 tier: its feasible window starts at
-        # ~0.1619, above the requested 0.15. Stepping up to the window's LOWER
-        # EDGE leaves the bench rate at ~0 (1.5e-6), so every point of the QB
-        # pie goes to starter slices and the top starter's share is inflated.
-        # The rule steps STEP_INSIDE_WINDOW inside the edge instead, and the
-        # browser (TwoTier.calibratePositionFeasible) must pick the same share.
-        tier = {
-            "a_bench": 11.830519510724733, "b_bench": 1.447480489275251,
-            "a_start": 22.849352374207143, "b_start": 7.494647625792851,
-            "surplus": 43.621999999999986, "rw": 18.286, "rs": 21.5355,
-            "tau": 0.30,
-        }
-        pie = tier["surplus"]
-        share, cal, note = calibrate_feasible(tier, pie, 0.15)
-        edge = share - STEP_INSIDE_WINDOW
-        # The edge really is the edge: just below it does not calibrate.
-        with self.assertRaisesRegex(ValueError, "not positive"):
-            calibrate_position(tier, pie, edge - 0.001)
-        edge_cal = calibrate_position(tier, pie, edge)
-
-        def bench_rate_meaningful(c):
-            return c["pb"] / c["ps"] > 0.01
-
-        def top_share(c):
-            return price_for_projection(28.0, c) / pie
-
-        # Guard proves it catches the named bug: the edge (old rule) fails it.
-        self.assertFalse(bench_rate_meaningful(edge_cal), edge_cal["pb"])
-        self.assertTrue(bench_rate_meaningful(cal), (share, cal["pb"], cal["ps"]))
-        self.assertLess(top_share(cal), top_share(edge_cal) - 0.03)
-        self.assertIn("inside its lower edge", note)
-        # Browser parity: the shipped TwoTier picks the identical share/rates.
-        js = run_harness("maxfeasible", {
-            "tier": {"aBench": tier["a_bench"], "bBench": tier["b_bench"],
-                     "aStart": tier["a_start"], "bStart": tier["b_start"],
-                     "surplus": tier["surplus"], "rw": tier["rw"],
-                     "rs": tier["rs"], "tau": tier["tau"]},
-            "pie": pie, "requested": 0.15})
-        self.assertEqual(js["share"], share)
-        self.assertTrue(rel_close(js["pb"], cal["pb"]), (js["pb"], cal["pb"]))
-        self.assertTrue(rel_close(js["ps"], cal["ps"]), (js["ps"], cal["ps"]))
-
+    # JEG-508: test_step_up_lands_inside_the_window_not_on_its_edge retired -- the browser two-tier port (curve-widget TradeValueTwoTier) is retired (docs/methodology.md VP-10); the page prices projections with the value pipeline.
     def test_step_inside_halves_when_the_window_is_narrow(self):
         # A window narrower than STEP_INSIDE_WINDOW: the step halves until the
         # share is feasible, so it lands inside the window, never past its

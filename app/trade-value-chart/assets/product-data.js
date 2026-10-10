@@ -82,9 +82,6 @@
   // Pure VORP keys (browser-computed from per-game projections).
   const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp"]);
 
-  // The anchor every other curve is indexed to; the only section whose absence
-  // refuses the render (GAP-MISSING-SECTION-REFUSES-RENDER).
-  const ANCHOR_SOURCE_KEY = "espn";
 
   // As-published sources (singleScale: true in normalizeToFixedPie).
   const AS_PUBLISHED_KEYS = Object.freeze(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
@@ -227,7 +224,7 @@
       default_scoring: "full",
       default_teams: 12,
       default_roster_shape: Object.freeze({ QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 }),
-      default_lock_order: "espn",
+      default_lock_order: "ddf_value",
       default_view_mode: "indexed",
       default_reference_source: "usatoday",
       default_position_weights: null,
@@ -927,13 +924,12 @@
     state.freshness = Object.freeze(buildSourceFreshness(state.snapshot.sources, {}));
     state.activeSnapshotId = state.snapshot.snapshot_id;
 
-    // Source map coverage (GAP-MISSING-SECTION-REFUSES-RENDER). The ESPN
-    // anchor is required: every other curve is indexed to it, so without it
-    // there is nothing honest to draw and the render is refused. Any other
-    // source whose section is absent is DROPPED, not fatal: its series reads
-    // as unavailable (no values, never zeros) and the rest of the chart
-    // renders. The dropped keys are exposed as getMissingSources() so the
-    // page can say which source is unavailable.
+    // Source map coverage (GAP-MISSING-SECTION-REFUSES-RENDER). A source whose
+    // section is absent is DROPPED, not fatal: its series reads as
+    // unavailable (no values, never zeros) and the rest of the chart renders.
+    // JEG-508 (VP-1.6): no source is required, ESPN included. The dropped
+    // keys are exposed as getMissingSources() so the page can say which
+    // source is unavailable.
     // cbs_adjusted is a derived column on cbs.
     const sourcesMap = state.snapshot.sources || {};
     const missing = SOURCE_KEYS.filter(k => {
@@ -941,9 +937,6 @@
       if (k === "cbs_adjusted") return !sourcesMap.cbs;
       return !sourcesMap[k];
     });
-    if (missing.includes(ANCHOR_SOURCE_KEY)) {
-      throw new Error(`sourceMapCoverage failed: the ${ANCHOR_SOURCE_KEY} anchor section is missing. Render refused.`);
-    }
     if (missing.length) {
       console.warn(`[product-data] sourceMapCoverage: ${missing.join(", ")} missing from the fixture; shown as unavailable, the rest renders.`);
     }
@@ -966,8 +959,7 @@
   }
 
   // Source sections absent from the fixture, dropped from the chart rather than
-  // refusing the render (the ESPN anchor is never in this list: its absence
-  // refuses the render instead).
+  // refusing the render (any source, ESPN included: JEG-508 VP-1.6).
   function getMissingSources() {
     return [...state.missingSources];
   }

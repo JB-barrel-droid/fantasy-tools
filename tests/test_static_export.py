@@ -864,25 +864,28 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
-        self.assertIn("ESPN leg’s pie", text)
+        # JEG-508: the footnote names the fixed league pie, not an ESPN leg.
+        self.assertIn("totals the league pie", text)
+        self.assertNotIn("ESPN leg’s pie", text)
         self.assertIn("fixedPieDiagnostics", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 
     def test_curve_defaults_are_grouped_and_include_raw_value_above_waivers(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         html = (APP / "index.html").read_text(encoding="utf-8")
-        self.assertIn("Bottoms Up Value Curves", text)
-        self.assertIn("Adjusted source projections", text)
-        self.assertIn("Direct published charts", text)
-        self.assertIn("Raw VORP vs waivers", text)
-        self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn"]', text)
-        self.assertIn("buildCbsAdjustedMap", text)
-        self.assertIn("buildEspnIndexedMap", text)
-        self.assertIn("buildEspnRows", text)
+        # JEG-508 (VP-6.4 / OC-7 / VP-10): the Indexed tab opens on the four
+        # published charts (projections off by default); every series comes
+        # from the value pipeline; the ESPN anchor builders are retired.
+        self.assertIn("Projections (Adjusted values)", text)
+        self.assertIn("Trade charts (Adjusted values)", text)
+        self.assertIn("Trade charts (as published)", text)
+        self.assertIn("Projections (VORP vs waivers)", text)
+        self.assertIn('DEFAULT_INDEXED_SOURCES = ["usatoday", "fantasycalc", "fantasypros", "cbs"]', text)
+        self.assertIn("ValueModel.runValuePipeline", text)
+        for retired in ("buildCbsAdjustedMap", "buildEspnIndexedMap", "buildEspnRows", "buildPublishedSourceMap"):
+            self.assertNotIn(f"function {retired}(", text)
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn("setBenchShare", text)
-        self.assertIn("buildPublishedSourceMap", text)
-        self.assertIn("rawProjectionVorp", text)
         self.assertIn("Bench %", text)
         self.assertIn("espn_vorp", text)
         self.assertIn("visiblePlayersList", html)
@@ -890,8 +893,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("yslider", html)
         self.assertNotIn("Legacy projection comparison", html)
         self.assertIn('let position = "ALL"', text)
-        self.assertIn('let lockOrder = "espn"', text)
-        self.assertIn('sourceAvailable("fantasycalc_adjusted")', text)
+        # VP-7.4: the default lock is the blended DDF Value.
+        self.assertIn('let lockOrder = "ddf_value"', text)
 
     def test_dashboard_copy_does_not_surface_old_branding(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
@@ -943,10 +946,10 @@ class StaticExportTest(unittest.TestCase):
 
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
-        # Lock order default is now "espn" (was "preseason"); ALL-position
-        # handling uses the current lockOrder value.
+        # Lock order default is the blended DDF Value (JEG-508 VP-7.4; was
+        # "espn"); ALL-position handling uses the current lockOrder value.
         self.assertIn('position === "ALL"', text)
-        self.assertIn('let lockOrder = "espn"', text)
+        self.assertIn('let lockOrder = "ddf_value"', text)
         self.assertIn("selectedRankSourceKey", text)
         self.assertIn("every curve shares", text)
         self.assertIn("sharedPlayerAxis", text)

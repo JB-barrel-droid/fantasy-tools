@@ -193,7 +193,8 @@ function loadWidget() {
 async function waitForReady(timeoutMs = 10000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (window.TradeValueTwoTierLive && typeof window.TradeValueTwoTierLive.setBenchShareFraction === "function") return true;
+    // JEG-508: TradeValueTwoTierLive is retired; wait for the engine itself.
+    if (window.TradeValueCurveControls && window.TradeValueCurveControls.isReady && window.TradeValueCurveControls.isReady()) return true;
     await new Promise(r => setTimeout(r, 50));
   }
   return false;

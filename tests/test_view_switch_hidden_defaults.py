@@ -78,9 +78,11 @@ class ViewSwitchHiddenDefaultsTest(unittest.TestCase):
             raise _render_env.unavailable("dist/ not built (run make sync)")
 
     def test_engine_page_hidden_default_survives_view_switches(self):
-        out = run("/classic/", "espn")
+        # JEG-508 (OC-7): the Indexed defaults are the four published charts
+        # (ESPN is off by default), so the hidden default is a chart.
+        out = run("/classic/", "fantasycalc")
         self.assertEqual(out["pageErrors"], [])
-        self.assertNotIn("espn", out["activeBefore"])
+        self.assertNotIn("fantasycalc", out["activeBefore"])
         self.assertTrue(all(ok for _tag, ok in out["steps"]), out["steps"])
         self.assertEqual(out["activeAfter"], out["activeBefore"], "the Indexed selection was not restored")
 

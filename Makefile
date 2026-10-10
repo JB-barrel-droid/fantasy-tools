@@ -94,7 +94,7 @@ sync:
 
 guard-harness:
 	node tools/guard_harness.mjs --assert-good
-	node tools/guard_harness.mjs --simulate tier-mismatch --assert-bad
+	node tools/guard_harness.mjs --simulate espn-anchor --assert-bad
 
 # Headless render tests skip when no browser is installed, unless
 # RENDER_TESTS_REQUIRED=1 (tests/_render_env.py). CI sets it in the step that
@@ -173,7 +173,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_import_health
 	python3 -m unittest tests.test_verify_import_health
 	python3 -m unittest tests.test_promote_section
-	python3 -m unittest tests.test_adjusted_curve_pause
 	python3 -m unittest tests.test_adjusted_fixture_sections
 	python3 -m unittest tests.test_adjustment_inputs
 	python3 -m unittest tests.test_checkpoint_expected_week
@@ -219,10 +218,11 @@ test-unit-modules:
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
 	python3 -m unittest tests.test_published_views_engine
-	python3 -m unittest tests.test_published_views_render
+	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_value_check
 	python3 -m unittest tests.test_load_value_check
 	python3 -m unittest tests.test_spec_reference
+	python3 -m unittest tests.test_spec_reference_value_pipeline
 	python3 -m unittest tests.test_consolidated_current
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
@@ -262,7 +262,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_rebuild_chain_consolidation_nonblocking
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
-	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_dashboard_view_tags
 	python3 -m unittest tests.test_dist_manifest
 	python3 -m unittest tests.test_preview_workflow_matches_pages
@@ -286,7 +285,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
 	python3 -m unittest lanes.test_plan_tracker
-	python3 -m unittest tests.test_anchor_scale_guard
 	python3 -m unittest tests.test_backstop_exclusions
 	python3 -m unittest tests.test_bake_espn_intake
 	python3 -m unittest tests.test_bake_team_abbr
@@ -446,11 +444,8 @@ test-core:
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_curve_default_guard
-	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_superflex_publisher_values
-	python3 -m unittest tests.test_cbsros_8t_qb
-	python3 -m unittest tests.test_projection_total_only
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
@@ -477,9 +472,7 @@ test-core:
 	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
-	python3 -m unittest tests.test_espn_tier_matches_leg
 	python3 -m unittest tests.test_espn_listed_rows
-	python3 -m unittest tests.test_espn_anchor_matches_leg
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
@@ -493,6 +486,7 @@ test-core:
 	python3 -m unittest tests.test_vorp_translation_js_parity
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
+	python3 -m unittest tests.test_value_reference_worked_example
 
 test-all: naming naming-convention test-unit
 

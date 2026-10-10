@@ -66,14 +66,18 @@
   // to WR2/FLEX2, so on first load it derived every published column instead
   // of showing the saved values the chart above it showed (JEG332-VORP-VIEWS).
   const DEFAULT_ROSTER_SHAPE = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, SUPERFLEX:0, BENCH:6});
+  // The table has no DDF Value column, so when the chart above locks to one
+  // (its default since JEG-508), the table goes back to this sort.
+  const DEFAULT_COMPARE_SOURCE = "espn";
+  const DEFAULT_SORT = Object.freeze({column: "espn", direction: "desc"});
   const state = {
     scoring: "full",
     teams: 12,
     rosterShape: {...DEFAULT_ROSTER_SHAPE},
     benchShare: DEFAULT_BENCH_SHARE,
-    compareSource: "espn",
+    compareSource: DEFAULT_COMPARE_SOURCE,
     combos: {},
-    sort: {column: "espn", direction: "desc"},
+    sort: {...DEFAULT_SORT},
     filters: {position: "ALL", search: ""},
     columns: null
   };
@@ -404,6 +408,15 @@
   }
 
   function setLockOrder(value, publish = true) {
+    if (value === "ddf_value") {
+      if (state.compareSource === DEFAULT_COMPARE_SOURCE && state.sort.column === DEFAULT_SORT.column
+        && state.sort.direction === DEFAULT_SORT.direction) return;
+      state.compareSource = DEFAULT_COMPARE_SOURCE;
+      state.sort = {...DEFAULT_SORT};
+      renderViewControls();
+      renderTable();
+      return;
+    }
     if (!isLockKey(value)) return;
     if (SOURCE_KEYS.includes(value) && !sourceAvailable(value)) return;
     if (SOURCE_KEYS.includes(value)) {

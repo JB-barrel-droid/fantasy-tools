@@ -14,7 +14,6 @@
   const C = () => window.TradeValueCurveControls;
   const PD = () => window.TradeValueProductData;
   const GROUPS = ["starter", "bench"];
-  const ADJUSTED_NOTE = "The *_adjusted series (bias-corrected fits) are a different model from the Adjusted values view; they appear in Indexed only.";
 
   let snap = null;
   let players = new Map();
@@ -52,7 +51,6 @@
   const playerName = key => players.get(Number(key))?.name || `player ${key}`;
   const playerPos = key => players.get(Number(key))?.pos || null;
   const label = key => snap?.labels?.[key] || key;
-  const groupKey = (pos, role) => `${pos} ${role}`;
 
   // ---------- tables (render + export registry) ----------
   function csvCell(value) {
@@ -155,433 +153,149 @@
   const para = (text, className = "mi-note") => el("p", {className, text});
 
   // ---------- shared helpers over the snapshot ----------
+  // JEG-508: every number comes from the value pipeline result the chart
+  // draws (getInspection: valuePipeline, rows, views, players).
   const position = () => $("#miPosition").value;
   const inPosition = key => position() === "ALL" || playerPos(key) === position();
   const selectedSource = () => $("#miSource").value;
-  const publishedKeys = () => snap.publishedKeys;
-  const selectedPublished = () => publishedKeys().includes(selectedSource()) ? [selectedSource()] : publishedKeys();
-  const anchorRole = key => snap.anchor.roles[key] || "waiver";
-  function comboKey12(source) {
-    const base = source === "cbs_adjusted" ? "cbs" : source.replace(/_adjusted$/, "");
-    const key = window.ValueModel.sourceComboKey(base, snap.setting.scoring, 12, 1);
-    return key;
-  }
+  const vp = () => snap.valuePipeline;
+  const pipelineSources = () => Object.keys(vp()?.sources || {});
+  // The pipeline source behind a series key (a source, "*_vorp", "*_adjusted").
+  const sourceOfSeries = key => key.endsWith("_vorp") ? key.slice(0, -5) : key.replace(/_adjusted$/, "");
+  const GROUPS8 = ["QB", "RB", "WR", "TE"].flatMap(pos => GROUPS.map(role => `${pos}|${role}`));
 
   // ---------- 0. checks ----------
-  function indexedTotals(seriesKey) {
-    const values = snap.series[seriesKey] || {};
-    const anchor = snap.anchor.values;
-    let shared = 0, seriesShared = 0, anchorShared = 0, seriesAll = 0, anchorOver = 0, n = 0;
-    Object.entries(values).forEach(([key, value]) => {
-      if (!snap.positions.includes(playerPos(key)) || !isNum(value)) return;
-      n += 1;
-      seriesAll += value;
-      const a = anchor[key];
-      if (isNum(a)) {
-        shared += 1;
-        seriesShared += value;
-        anchorShared += Math.max(0, a);
-        anchorOver += Math.max(0, a);
-      }
-    });
-    return {n, shared, seriesShared, anchorShared, seriesAll, anchorOver};
-  }
   function renderChecks() {
     const body = section("mi-checks");
-    body.appendChild(para("Jeremy's three view invariants, measured on the numbers below. Indexed: every chart's total equals the anchor's over the same players. VORP vs waivers: every chart's total equals our anchor's total over its players (the sum of its eight group budgets). Adjusted values: each position x starter/bench group's total equals our weight for that group times the common top-of-scale factor. Differences are shown, not hidden; the views-audit work owns whether a difference is a defect."));
-    const indexedRows = snap.seriesKeys.filter(key => Object.keys(snap.series[key] || {}).length).map(key => {
-      const t = indexedTotals(key);
-      const delta = t.seriesShared - t.anchorShared;
-      return {_id: key, series: key, label: label(key), players: t.n, shared: t.shared,
-        series_total_shared: t.seriesShared, anchor_total_shared: t.anchorShared, delta,
-        delta_pct: t.anchorShared > 0 ? delta / t.anchorShared : null,
-        series_total_all: t.seriesAll,
-        status: key === "espn" ? "anchor" : Math.abs(delta) <= Math.max(0.5, 0.001 * t.anchorShared) ? "equal" : "differs"};
-    });
-    body.appendChild(table("checks-indexed", "Indexed: total pie per series vs the anchor (players both price)", [
-      {key: "label", label: "Series"}, {key: "players", label: "Players", fmt: "int"},
-      {key: "shared", label: "Shared with anchor", fmt: "int"},
-      {key: "series_total_shared", label: "Series sum (shared)", fmt: "n3"},
-      {key: "anchor_total_shared", label: "Anchor sum (shared)", fmt: "n3"},
-      {key: "delta", label: "Difference", fmt: "delta"}, {key: "delta_pct", label: "Difference share", fmt: "pct"},
-      {key: "series_total_all", label: "Series sum (all its players)", fmt: "n3"},
-      {key: "status", label: "Status"}
-    ], indexedRows));
-
-    const vorpRows = publishedKeys().map(key => {
-      const p = snap.published[key];
-      const displayed = sum(Object.values(p.vorp.values));
-      const target = p.views ? p.views.total : null;
-      return {_id: key, source: key, label: label(key), mode: p.vorp.mode, displayed_total: displayed,
-        target_total: target, delta: isNum(target) ? displayed - target : null,
-        status: isNum(target) && Math.abs(displayed - target) <= Math.max(0.5, 0.001 * target) ? "equal" : "differs"};
-    });
-    body.appendChild(table("checks-vorp", "VORP vs waivers: chart total vs our anchor's total over its players", [
-      {key: "label", label: "Chart"}, {key: "mode", label: "Values shown"},
-      {key: "displayed_total", label: "Chart sum (shown)", fmt: "n3"},
-      {key: "target_total", label: "Anchor sum over its players (sum of budgets)", fmt: "n3"},
-      {key: "delta", label: "Difference", fmt: "delta"}, {key: "status", label: "Status"}
-    ], vorpRows, {note: "\"saved\" = the pipeline's saved view (exists only at its own setup); \"derived\" = the browser derivation at this setting."}));
-
-    const adjRows = [];
-    publishedKeys().forEach(key => {
-      const p = snap.published[key];
-      if (!p.views) return;
-      snap.positions.forEach(pos => GROUPS.forEach(role => {
-        const shown = sum(Object.entries(p.adj.values).filter(([k]) => p.views.roles[k]?.pos === pos && p.views.roles[k]?.role === role).map(([, v]) => v));
-        const budget = Number(p.views.budgets?.[pos]?.[role]) || 0;
-        const expected = budget * snap.batch.adjScale;
-        adjRows.push({_id: `${key}|${pos}|${role}`, source: key, label: label(key), mode: p.adj.mode, group: groupKey(pos, role),
-          shown_total: shown, budget, expected, delta: shown - expected,
-          status: Math.abs(shown - expected) <= Math.max(0.05, 0.001 * expected) ? "equal" : "differs"});
-      }));
-    });
-    body.appendChild(table("checks-adjusted", "Adjusted values: each group's total vs our weight for that group", [
-      {key: "label", label: "Chart"}, {key: "mode", label: "Values shown"}, {key: "group", label: "Group"},
-      {key: "shown_total", label: "Chart group sum (shown)", fmt: "n3"},
-      {key: "budget", label: "Our group budget (anchor sum)", fmt: "n3"},
-      {key: "expected", label: "Budget x top-of-scale factor", fmt: "n3"},
-      {key: "delta", label: "Difference", fmt: "delta"}, {key: "status", label: "Status"}
-    ], adjRows, {note: `Top-of-scale factor (batch) = 70 / ${fmt.n4(snap.batch.batchMax)} = ${fmt.sci(snap.batch.adjScale)}. Groups use each chart's own starter/bench split from its translation.`}));
-
-    const fixed = (snap.fixedPie?.checks || []).map(check => ({_id: check.source, label: label(check.source), basis: check.basis,
-      shared: check.shared, total: check.total, target: check.target, delta: check.delta, ok: check.ok ? "pass" : "FAIL"}));
-    body.appendChild(table("checks-engine-fixed-pie", "The engine's own fixed-pie guard (fixedPieDiagnostics)", [
-      {key: "label", label: "Series"}, {key: "basis", label: "Basis"}, {key: "shared", label: "Shared", fmt: "int"},
-      {key: "total", label: "Total", fmt: "n3"}, {key: "target", label: "Target", fmt: "n3"},
-      {key: "delta", label: "Difference", fmt: "delta"}, {key: "ok", label: "Guard"}
-    ], fixed, {note: "basis \"pipeline\" = the guard does not check this chart in the browser."}));
+    body.appendChild(para("The fixed-pie invariant (VP-5): every source's Adjusted values over its work list (listed and estimated players) sum to the league pie, each group to its budget (pie x DDF weight), and its VORP vs waivers values to the pie. Each chart's Indexed values over the players it lists sum to their blended DDF Value (VP-6.4)."));
+    const fp = snap.fixedPie;
+    body.appendChild(table("fixed-pie", `Every source against the ${fmt.n1(fp.pie)} pie`, [
+      {key: "label", label: "Source"}, {key: "n", label: "Players (work list)", fmt: "int"},
+      {key: "total", label: "Adjusted total", fmt: "n4"}, {key: "target", label: "Pie (less unpaid)", fmt: "n4"},
+      {key: "delta", label: "Delta", fmt: "sci"}, {key: "vorpTotal", label: "VORP vs waivers total", fmt: "n4"},
+      {key: "groupsOk", label: "Groups = budgets"}, {key: "ok", label: "Holds"}
+    ], fp.checks.map(c => ({_id: c.source, label: label(c.source), ...c, groupsOk: String(c.groupsOk), ok: String(c.ok)}))));
+    body.appendChild(table("indexed-check", "Indexed: listed players' total = their blended DDF Value", [
+      {key: "label", label: "Chart"}, {key: "factor", label: "Factor", fmt: "sci"}, {key: "shared", label: "Shared players", fmt: "int"},
+      {key: "ddfTotal", label: "DDF Value total", fmt: "n4"}, {key: "delta", label: "Delta", fmt: "sci"}, {key: "ok", label: "Holds"}
+    ], Object.entries(fp.indexed).map(([k, r]) => ({_id: k, label: label(k), ...r, ok: String(r.ok)}))));
   }
 
   // ---------- 1. inputs ----------
-  function sourceMetaRows() {
-    const snapshot = PD().getSnapshot();
-    const freshness = PD().getSourceFreshness?.()?.series || {};
-    return Object.entries(snapshot.sources || {}).map(([key, meta]) => {
-      const combos = Object.keys(meta.combos || {});
-      const combo = meta.combos?.[comboKey12(key)] || null;
-      const fresh = freshness[key] || {};
-      return {_id: key, source: key, name: meta.name || label(key), url: meta.url || meta.source_url || null,
-        content_week: fresh.vintage_week ?? null, week_basis: fresh.basis || fresh.vintage_basis || null,
-        freshness: fresh.status || null, week_designated: meta.week_designated || null,
-        content_vintage: meta.content_vintage || meta.vintage || null, fetched_at: meta.fetched_at || null,
-        promoted_at: meta.promoted_at || null, fit_bake_id: meta.fit_bake_id || null,
-        native_unit: meta.native_unit || null, combos: combos.join(" "),
-        listed_at_12: combo ? Object.keys(combo.native || {}).length : null,
-        raw_vintage: meta.lineage?.raw_vintage || null, raw_sha256: meta.lineage?.raw_content_sha256 || null};
-    });
-  }
-  function identityRows(source) {
-    const snapshot = PD().getSnapshot();
-    const keysById = PD().getPlayerKeysBySourceId() || new Map();
-    const combo = snapshot.sources?.[source]?.combos?.[comboKey12(source)];
-    if (!combo) return [];
-    const nativeField = combo.native || {};
-    const shownField = combo.values || combo.reindexed || {};
-    const seen = new Map();
-    Object.keys(nativeField).forEach(id => {
-      const key = keysById.get(id);
-      if (Number.isInteger(key)) seen.set(key, (seen.get(key) || 0) + 1);
-    });
-    return Object.keys(nativeField).map(id => {
-      const key = keysById.get(id);
-      const player = Number.isInteger(key) ? players.get(key) : null;
-      let status = "resolved";
-      if (!Number.isInteger(key)) status = "unresolved: no player_key";
-      else if (!player) status = "resolved to a player not on the chart";
-      else if (!snap.positions.includes(player.pos)) status = `resolved, position ${player.pos} not charted`;
-      else if (seen.get(key) > 1) status = "review: two source names share this player_key";
-      return {_id: `${source}|${id}`, source, source_id: id, player_key: Number.isInteger(key) ? key : null,
-        player: player ? player.name : null, pos: player?.pos || null, team: player?.team || null,
-        native: Number(nativeField[id]), saved_12: isNum(Number(shownField[id])) ? Number(shownField[id]) : null, status};
-    });
-  }
   function renderInputs() {
     const body = section("mi-inputs");
-    const snapshot = PD().getSnapshot();
-    body.appendChild(para(`Bake ${snapshot.bake_id || "—"}, fixture built ${snapshot.built_at || "—"}. Published charts are saved once per scoring at 12 teams and the standard roster; every other setting is derived from those saved inputs in the browser.`));
-    body.appendChild(table("inputs-provenance", "Sources: provenance and content week", [
-      {key: "source", label: "Key"}, {key: "name", label: "Name"}, {key: "content_week", label: "Content week", fmt: "int"},
-      {key: "week_basis", label: "Week from"}, {key: "freshness", label: "Freshness"},
-      {key: "week_designated", label: "Publisher label"}, {key: "content_vintage", label: "Content date"},
-      {key: "fetched_at", label: "Fetched"}, {key: "promoted_at", label: "Promoted"}, {key: "fit_bake_id", label: "Fit bake"},
-      {key: "native_unit", label: "Native unit"}, {key: "listed_at_12", label: "Listed (12 teams, this scoring)", fmt: "int"},
-      {key: "combos", label: "Saved setups"}, {key: "url", label: "URL"},
-      {key: "raw_vintage", label: "Raw vintage"}, {key: "raw_sha256", label: "Raw content sha256"}
-    ], sourceMetaRows()));
-
-    const source = selectedSource();
-    const projectionField = {espn: "espn_ppg", cbsros: "cbsros_ppg", razzball: "rz_ppg",
-      espn_vorp: "espn_ppg", cbsros_vorp: "cbsros_ppg", razzball_vorp: "rz_ppg"}[source];
-    if (projectionField) {
-      const field = snap.setting.scoringField;
-      const rows = [];
-      players.forEach((player, key) => {
-        const ppg = player.raw?.[projectionField]?.[field];
-        if (!isNum(ppg) || !inPosition(key)) return;
-        rows.push({_id: key, player_key: key, player: player.name, pos: player.pos, team: player.team, per_game: ppg,
-          espn_projects_zero: player.raw?.espn_projects_zero === true ? "yes" : ""});
-      });
-      body.appendChild(table("inputs-values", `${label(source)}: per-game projections as saved (${field})`, [
-        {key: "player", label: "Player"}, {key: "pos", label: "Pos"}, {key: "team", label: "Team"},
-        {key: "player_key", label: "player_key", fmt: "int"}, {key: "per_game", label: "Per game (native)", fmt: "n3"},
-        {key: "espn_projects_zero", label: "ESPN projects 0"}
-      ], rows, {note: "Projection series are valued by our two-tier model in the browser; the inspector shows their inputs and outputs, not the fit internals."}));
-    } else {
-      const rows = identityRows(source).filter(row => row.player_key === null || inPosition(row.player_key));
-      body.appendChild(table("inputs-values", `${label(source)}: values as saved (12 teams, ${snap.setting.scoring})`, [
-        {key: "source_id", label: "Source name"}, {key: "player", label: "Player"}, {key: "pos", label: "Pos"},
-        {key: "team", label: "Team"}, {key: "player_key", label: "player_key", fmt: "int"},
-        {key: "native", label: "Native (publisher units)", fmt: "n3"},
-        {key: "saved_12", label: "Saved 12-team chart value", fmt: "n3"}, {key: "status", label: "Identity"}
-      ], rows, {note: source.endsWith("_adjusted") ? ADJUSTED_NOTE : null}));
-    }
-    const review = [];
-    Object.keys(snapshot.sources || {}).forEach(key => identityRows(key).forEach(row => {
-      if (row.status !== "resolved") review.push(row);
-    }));
-    body.appendChild(table("inputs-identity", "Identity: rows not resolved to a charted player (every source, this scoring, 12 teams)", [
-      {key: "source", label: "Source"}, {key: "source_id", label: "Source name"}, {key: "player_key", label: "player_key", fmt: "int"},
-      {key: "player", label: "Resolved to"}, {key: "pos", label: "Pos"}, {key: "native", label: "Native", fmt: "n3"},
-      {key: "status", label: "Status"}
-    ], review));
+    const v = vp();
+    body.appendChild(para(`Pie ${fmt.n1(v.pie)} (28 per starting slot). Bench share ${fmt.pct(v.benchShare)} (applied ${fmt.pct(v.benchShareApplied)}). Included set: ${v.included.join(", ") || "none"}.`));
+    body.appendChild(table("sources-included", "Sources this week (VP-1)", [
+      {key: "key", label: "Source"}, {key: "family", label: "Family"}, {key: "included", label: "Counts in DDF"},
+      {key: "reason", label: "Why not"}
+    ], pipelineSources().map(k => ({_id: k, key: label(k), family: v.sources[k].family,
+      included: String(v.sources[k].included), reason: (snap.excluded.find(e => e.key === k) || {}).reason || ""}))));
+    const alloc = v.slotFill || {};
+    body.appendChild(table("allocation", "League allocation (VP-2.2: slots by mean projected points)", [
+      {key: "pos", label: "Pos"}, {key: "dedicated", label: "Dedicated", fmt: "int"}, {key: "superflex", label: "Superflex", fmt: "int"},
+      {key: "flex", label: "Flex", fmt: "int"}, {key: "bench", label: "Bench", fmt: "int"}, {key: "starters", label: "Starters", fmt: "int"},
+      {key: "rostered", label: "Rostered", fmt: "int"}, {key: "fill", label: "Fill set (rostered + 1, by projected points)"}
+    ], ["QB", "RB", "WR", "TE"].map(pos => ({_id: pos, pos, ...(alloc[pos] || {}),
+      fill: (v.fillSets[pos] || []).map(playerName).join(", ")}))));
+    const weightRows = GROUPS8.map(g => {
+      const row = {_id: g, group: g.replace("|", " "), ddf: v.ddfWeights[g]};
+      pipelineSources().forEach(k => { row[k] = v.sources[k].weights ? v.sources[k].weights[g] : null; });
+      return row;
+    });
+    body.appendChild(table("weights", "Weights: each source's (bench normalized to the bench share) and the DDF weights, their average (VP-3, VP-4)", [
+      {key: "group", label: "Group"}, ...pipelineSources().map(k => ({key: k, label: label(k), fmt: "pct"})),
+      {key: "ddf", label: "DDF weight", fmt: "pct"}
+    ], weightRows));
   }
 
-  // ---------- 2. translation ----------
+  // ---------- 2. per source: waiver and starter lines, groups, rates ----------
   function renderTranslation() {
     const body = section("mi-translation");
-    body.appendChild(para("Per chart and position: how many players the league rosters (dedicated starters, flex share, bench), where the waiver line falls, and each player's value above it in the chart's own units. The waiver line is the value of the first player past the rostered count; a chart that lists too few players has its line extrapolated from the other charts (imputed_from_other_charts)."));
-    const posRows = [];
-    publishedKeys().forEach(key => {
-      const p = snap.published[key];
-      const t = p.derivation?.translation;
-      if (!t) return;
-      const groups = p.views?.groups || {};
-      const groupTotal = sum(snap.positions.flatMap(pos => GROUPS.map(role => groups[pos]?.[role])));
-      snap.positions.forEach(pos => {
-        const r = t.positions[pos];
-        if (!r) return;
-        posRows.push({_id: `${key}|${pos}`, label: label(key), pos, n_listed: r.n_listed, n_dedicated: r.n_dedicated,
-          n_flex: r.n_flex, n_bench: r.n_bench, n_rostered: r.n_rostered, n_imputed: r.n_imputed,
-          waiver_line: r.waiver_line_value, waiver_method: r.waiver_method, max_above: r.max_vorp, total_above: r.total_vorp,
-          implied_weight: r.implied_weight,
-          starter_above: groups[pos]?.starter, bench_above: groups[pos]?.bench,
-          starter_weight: groupTotal > 0 ? (groups[pos]?.starter || 0) / groupTotal : null,
-          bench_weight: groupTotal > 0 ? (groups[pos]?.bench || 0) / groupTotal : null});
+    const v = vp();
+    const rows = [];
+    pipelineSources().forEach(k => ["QB", "RB", "WR", "TE"].forEach(pos => {
+      const p = v.sources[k].positions[pos];
+      rows.push({_id: `${k}|${pos}`, source: label(k), pos, method: p.method, waiver: p.waiver, starterLine: p.starterLine,
+        starters: p.starters, rostered: p.rostered, listed: p.listed, estimated: p.nEstimated,
+        starterGroup: v.sources[k].groups[`${pos}|starter`], benchGroup: v.sources[k].groups[`${pos}|bench`],
+        starterRate: v.sources[k].rates[`${pos}|starter`], benchRate: v.sources[k].rates[`${pos}|bench`]});
+    }));
+    body.appendChild(table("lines", "Waiver line, starter line, groups and rates (VP-2.3, VP-2.5, VP-3, VP-5.4)", [
+      {key: "source", label: "Source"}, {key: "pos", label: "Pos"}, {key: "method", label: "Waiver line from"},
+      {key: "waiver", label: "Waiver line", fmt: "n3"}, {key: "starterLine", label: "Starter line", fmt: "n3"},
+      {key: "starters", label: "Starters", fmt: "int"}, {key: "rostered", label: "Rostered", fmt: "int"},
+      {key: "listed", label: "Listed", fmt: "int"}, {key: "estimated", label: "Estimated", fmt: "int"},
+      {key: "starterGroup", label: "Starter slices", fmt: "n3"}, {key: "benchGroup", label: "Bench slices", fmt: "n3"},
+      {key: "starterRate", label: "Starter rate", fmt: "sci"}, {key: "benchRate", label: "Bench rate", fmt: "sci"}
+    ], rows.filter(r => position() === "ALL" || r.pos === position())));
+    const est = [];
+    pipelineSources().forEach(k => ["QB", "RB", "WR", "TE"].forEach(pos => {
+      Object.entries(v.sources[k].positions[pos].estimates || {}).forEach(([pk, e]) => {
+        est.push({_id: `${k}|${pk}`, source: label(k), player: playerName(pk), pos, path: e.path,
+          peers: Object.entries(e.peers || {}).map(([peer, r]) => `${peer}: ${r.usable ? fmt.n4(r.ratio) + " -> " + fmt.n3(r.estimate) : "not usable"}`).join("; "),
+          curve: e.curve && e.curve.kind === "ols" ? `${fmt.n3(e.curve.intercept)} + ${fmt.n3(e.curve.slope)} x m` : (e.curve ? e.curve.kind : ""),
+          raw: e.raw, cap: e.cap, capped: String(e.capped), value: e.value, reason: e.reason});
       });
-    });
-    body.appendChild(table("translation-positions", "Rostered counts, waiver line and implied weights", [
-      {key: "label", label: "Chart"}, {key: "pos", label: "Pos"}, {key: "n_listed", label: "Listed", fmt: "int"},
-      {key: "n_dedicated", label: "Starters (dedicated)", fmt: "int"}, {key: "n_flex", label: "Flex share", fmt: "int"},
-      {key: "n_bench", label: "Bench", fmt: "int"}, {key: "n_rostered", label: "Rostered", fmt: "int"},
-      {key: "n_imputed", label: "Imputed past list", fmt: "int"}, {key: "waiver_line", label: "Waiver line (native)", fmt: "n3"},
-      {key: "waiver_method", label: "Waiver line from"}, {key: "max_above", label: "Top above waivers (native)", fmt: "n3"},
-      {key: "total_above", label: "Total above waivers (native)", fmt: "n3"},
-      {key: "implied_weight", label: "Implied position weight", fmt: "pct"},
-      {key: "starter_above", label: "Starter sum above waivers", fmt: "n3"}, {key: "bench_above", label: "Bench sum above waivers", fmt: "n3"},
-      {key: "starter_weight", label: "Implied starter weight (share)", fmt: "pct"},
-      {key: "bench_weight", label: "Implied bench weight (share)", fmt: "pct"}
-    ], posRows, {note: `Translation ${snap.versions.translation} (the VORP vs waivers view's); waiver imputation ${snap.versions.imputation}. Starter/bench sums use the chart's own order: the first (dedicated + flex) players at a position are starters. Indexed does not use this translation: it is the natives times one factor (JEG-482).`}));
-
-    selectedPublished().forEach(key => {
-      const p = snap.published[key];
-      const t = p.derivation?.translation;
-      if (!t) return;
-      const byPos = {};
-      Object.entries(p.native).forEach(([k, v]) => {
-        const pos = playerPos(k);
-        if (!pos) return;
-        (byPos[pos] = byPos[pos] || []).push({key: k, value: v});
-      });
-      const rows = [];
-      Object.entries(byPos).forEach(([pos, list]) => {
-        list.sort((a, b) => b.value - a.value).forEach((row, i) => {
-          if (!inPosition(row.key)) return;
-          const tr = t.translated[row.key];
-          const role = p.views?.roles?.[row.key]?.role || (tr ? "above waivers" : "at or below waivers");
-          rows.push({_id: `${key}|${row.key}`, player_key: Number(row.key), player: playerName(row.key), pos, rank: i + 1,
-            native: row.value, waiver_line: t.positions[pos]?.waiver_line_value,
-            above_native: tr ? tr.vorp : 0, role,
-            indexed: p.indexed.values[row.key] ?? null});
-        });
-      });
-      body.appendChild(table(`translation-players-${key}`, `${label(key)}: each player above waivers`, [
-        {key: "player", label: "Player"}, {key: "pos", label: "Pos"}, {key: "player_key", label: "player_key", fmt: "int"},
-        {key: "rank", label: "Rank at pos", fmt: "int"},
-        {key: "native", label: "Native", fmt: "n3"}, {key: "waiver_line", label: "Waiver line", fmt: "n3"},
-        {key: "above_native", label: "Above waivers (native, rounded 0.1)", fmt: "n1"}, {key: "role", label: "Role"},
-        {key: "indexed", label: "Indexed (shown)", fmt: "n3"}
-      ], rows, {note: `Indexed = native x ${p.derivation?.factor ?? "the saved factor"} (${p.indexed.mode === "saved" ? "the pipeline's saved values at this setup" : `factor measured against the anchor here, basis ${p.derivation?.basis}`}); the chart's own order is kept.`}));
-    });
+    }));
+    body.appendChild(table("estimates", "Estimated players (VP-2.4: rosterable players a chart does not list)", [
+      {key: "source", label: "Chart"}, {key: "player", label: "Player"}, {key: "pos", label: "Pos"}, {key: "path", label: "Path"},
+      {key: "peers", label: "Peers (ratio -> estimate)"}, {key: "curve", label: "Curve"}, {key: "raw", label: "Raw", fmt: "n3"},
+      {key: "cap", label: "Cap (lowest listed)", fmt: "n3"}, {key: "capped", label: "Capped"}, {key: "value", label: "Estimate", fmt: "n3"},
+      {key: "reason", label: "Shown as"}
+    ], est.filter(r => position() === "ALL" || r.pos === position())));
   }
 
-  // ---------- 3. indexed ----------
+  // ---------- 3-5. players in each view ----------
+  // Per series, the value the chart shows in that view (snap.views) and a
+  // check column rebuilt from the pipeline's intermediates.
+  function viewRows(view) {
+    const values = snap.views[view];
+    const v = vp();
+    const keys = Object.keys(snap.rows).filter(inPosition);
+    return keys.map(k => {
+      const prow = snap.rows[k];
+      const row = {_id: k, player_key: Number(k), name: playerName(k), pos: playerPos(k),
+        ddf_value: prow.ddfByVersion.blended.value, tier: prow.tier};
+      snap.seriesKeys.forEach(key => {
+        row[key] = values[key]?.[k] ?? null;
+        const source = sourceOfSeries(key);
+        const s = v.sources[source];
+        const p = snap.players[source]?.[k];
+        if (!s || !p) return;
+        row[`${key}__native`] = p.native;
+        const field = view === "indexed" && snap.publishedKeys.includes(key) ? "indexed"
+          : key.endsWith("_vorp") || (view === "vorp" && snap.publishedKeys.includes(key)) ? "vorp" : "adjusted";
+        row[`${key}__check`] = field === "indexed" ? (s.indexedFactor === null ? null : p.native * s.indexedFactor)
+          : field === "vorp" ? p.vorp * s.vorpFactor
+          : s.rates[`${p.pos}|bench`] * p.benchSlice + s.rates[`${p.pos}|starter`] * p.starterSlice;
+      });
+      return row;
+    });
+  }
+  function viewTable(id, view, title, note) {
+    const columns = [{key: "player_key", label: "Key", fmt: "int"}, {key: "name", label: "Player"}, {key: "pos", label: "Pos"},
+      {key: "ddf_value", label: "DDF Value", fmt: "n3"}, {key: "tier", label: "Tier"},
+      ...snap.seriesKeys.flatMap(key => [{key, label: label(key), fmt: "n3"},
+        {key: `${key}__check`, label: `${label(key)} rebuilt`, fmt: "n3"}])];
+    return table(id, title, columns, viewRows(view), {note, limit: 400});
+  }
   function renderIndexed() {
-    const body = section("mi-indexed");
-    body.appendChild(para("Groups are the anchor's roles at this setting (dedicated starters, then flex, then bench, by the anchor's value). Each column sums a series over the players it shares with the anchor, so the anchor column beside it is the same players. Equal totals with different group shares is the expected Indexed picture."));
-    const keys = snap.seriesKeys.filter(key => Object.keys(snap.series[key] || {}).length);
-    const groupRows = [];
-    const shareRows = [];
-    const groups = [...snap.positions.flatMap(pos => GROUPS.map(role => [pos, role])), [null, "waiver"]];
-    const sums = {};
-    keys.forEach(key => {
-      const values = snap.series[key];
-      const s = {}; const a = {};
-      Object.entries(values).forEach(([k, v]) => {
-        const pos = playerPos(k);
-        if (!snap.positions.includes(pos) || !isNum(v) || !isNum(snap.anchor.values[k])) return;
-        const role = anchorRole(k);
-        const g = role === "waiver" ? "waiver" : groupKey(pos, role);
-        s[g] = (s[g] || 0) + v;
-        a[g] = (a[g] || 0) + Math.max(0, snap.anchor.values[k]);
-      });
-      sums[key] = {s, a, st: sum(Object.values(s)), at: sum(Object.values(a))};
-    });
-    groups.forEach(([pos, role]) => {
-      const g = role === "waiver" ? "waiver" : groupKey(pos, role);
-      const row = {_id: g, group: g};
-      const share = {_id: g, group: g};
-      keys.forEach(key => {
-        row[key] = sums[key].s[g] || 0;
-        row[`${key}__anchor`] = sums[key].a[g] || 0;
-        share[key] = sums[key].st > 0 ? (sums[key].s[g] || 0) / sums[key].st : null;
-        share[`${key}__anchor`] = sums[key].at > 0 ? (sums[key].a[g] || 0) / sums[key].at : null;
-      });
-      groupRows.push(row); shareRows.push(share);
-    });
-    const total = {_id: "total", group: "Total", _className: "mi-total"};
-    keys.forEach(key => { total[key] = sums[key].st; total[`${key}__anchor`] = sums[key].at; });
-    groupRows.push(total);
-    const cols = fmtKey => [{key: "group", label: "Group"}, ...keys.flatMap(key => [
-      {key, label: label(key), fmt: fmtKey}, {key: `${key}__anchor`, label: `anchor on ${label(key)}'s players`, fmt: fmtKey}])];
-    body.appendChild(table("indexed-split-points", "Pie split, points (sum over players shared with the anchor)", cols("n2"), groupRows));
-    body.appendChild(table("indexed-split-share", "Pie split, share of each series' own total", cols("pct"), shareRows));
-
-    const rows = [];
-    const universe = new Set();
-    keys.forEach(key => Object.keys(snap.series[key]).forEach(k => universe.add(k)));
-    universe.forEach(k => {
-      if (!inPosition(k)) return;
-      const row = {_id: k, player_key: Number(k), player: playerName(k), pos: playerPos(k),
-        anchor_role: anchorRole(k), espn_role: snap.espnRoles[k] || "waiver"};
-      keys.forEach(key => { row[key] = snap.series[key][k] ?? null; });
-      rows.push(row);
-    });
-    rows.sort((x, y) => (y.espn ?? -1) - (x.espn ?? -1));
-    body.appendChild(table("indexed-players", "Every player, every series (Indexed, as the chart shows them)", [
-      {key: "player", label: "Player"}, {key: "pos", label: "Pos"}, {key: "player_key", label: "player_key", fmt: "int"},
-      {key: "anchor_role", label: "Anchor role"},
-      ...keys.map(key => ({key, label: label(key), fmt: "n3"}))
-    ], rows, {note: ADJUSTED_NOTE}));
+    section("mi-indexed").appendChild(viewTable("indexed-players", "indexed", "Indexed (trade charts as published): natives x one factor per chart",
+      "Charts: native (or estimate) x the chart's factor. Projections: their Adjusted values. Rebuilt columns recompute each value from the pipeline's intermediates."));
   }
-
-  // ---------- 4. VORP vs waivers ----------
   function renderVorp() {
-    const body = section("mi-vorp");
-    body.appendChild(para("Each chart's value above waivers (its own units) times ONE factor per chart, so the chart's total equals our anchor's total over the players it ranks. The publisher's own cross-position valuation is kept; the scale is shared."));
-    const summary = publishedKeys().map(key => {
-      const p = snap.published[key];
-      const v = p.views;
-      return {_id: key, label: label(key), mode: p.vorp.mode,
-        native_total: v ? sum(snap.positions.flatMap(pos => GROUPS.map(role => v.groups[pos]?.[role]))) : null,
-        target: v?.total ?? null, scale: v?.vorpScale ?? null,
-        shown_total: sum(Object.values(p.vorp.values)), peers: p.peers.join(" ")};
-    });
-    body.appendChild(table("vorp-summary", "Per chart: one factor onto the shared scale", [
-      {key: "label", label: "Chart"}, {key: "mode", label: "Values shown"},
-      {key: "native_total", label: "Sum above waivers (native)", fmt: "n3"},
-      {key: "target", label: "Anchor sum over its players", fmt: "n3"},
-      {key: "scale", label: "Factor (ratio)", fmt: "sci"}, {key: "shown_total", label: "Shown sum", fmt: "n3"},
-      {key: "peers", label: "Waiver-line peers"}
-    ], summary, {note: `Views ${snap.versions.views}.`}));
-    const keys = publishedKeys();
-    const universe = new Set();
-    keys.forEach(key => Object.keys(snap.published[key].vorp.values).forEach(k => universe.add(k)));
-    const rows = [];
-    universe.forEach(k => {
-      if (!inPosition(k)) return;
-      const row = {_id: k, player_key: Number(k), player: playerName(k), pos: playerPos(k)};
-      keys.forEach(key => {
-        const p = snap.published[key];
-        const role = p.views?.roles?.[k];
-        row[`${key}__native`] = role ? role.vorp : (k in p.vorp.values ? 0 : null);
-        row[`${key}__derived`] = p.views?.vorp?.[k] ?? null;
-        row[key] = p.vorp.values[k] ?? null;
-      });
-      rows.push(row);
-    });
-    rows.sort((x, y) => Math.max(...keys.map(k => y[k] ?? -1)) - Math.max(...keys.map(k => x[k] ?? -1)));
-    body.appendChild(table("vorp-players", "Each player on the shared scale, side by side", [
-      {key: "player", label: "Player"}, {key: "pos", label: "Pos"}, {key: "player_key", label: "player_key", fmt: "int"},
-      ...keys.flatMap(key => [
-        {key: `${key}__native`, label: `${label(key)}: above waivers (native)`, fmt: "n1"},
-        ...(snap.published[key].vorp.mode === "saved" ? [{key: `${key}__derived`, label: `${label(key)}: browser derivation`, fmt: "n3"}] : []),
-        {key, label: `${label(key)}: VORP vs waivers (shown)`, fmt: "n3"}])
-    ], rows));
+    section("mi-vorp").appendChild(viewTable("vorp-players", "vorp", "VORP vs waivers: value above waivers x one factor per source (total = pie)",
+      "Rebuilt = value above waivers (own units) x pie / the source's total above waivers."));
   }
-
-  // ---------- 5. adjusted ----------
   function renderAdjusted() {
-    const body = section("mi-adjusted");
-    body.appendChild(para("Players are grouped position x starter/bench by each chart's own order. Each group shares OUR anchor's total for the same group (its budget) in proportion to value above waivers; then one common factor puts the top player across every chart at 70."));
-    const rows = [];
-    publishedKeys().forEach(key => {
-      const p = snap.published[key];
-      const v = p.views;
-      if (!v) return;
-      const budgetTotal = sum(snap.positions.flatMap(pos => GROUPS.map(role => v.budgets?.[pos]?.[role])));
-      snap.positions.forEach(pos => GROUPS.forEach(role => {
-        const budget = Number(v.budgets?.[pos]?.[role]) || 0;
-        const groupTotal = v.groups?.[pos]?.[role] || 0;
-        const native = groupTotal;
-        const nativeTotal = sum(snap.positions.flatMap(q => GROUPS.map(r => v.groups?.[q]?.[r])));
-        rows.push({_id: `${key}|${pos}|${role}`, label: label(key), group: groupKey(pos, role),
-          ddf_weight: budgetTotal > 0 ? budget / budgetTotal : null, chart_weight: nativeTotal > 0 ? native / nativeTotal : null,
-          budget, group_native: groupTotal, group_factor: groupTotal > 0 ? budget / groupTotal : null,
-          final_factor: groupTotal > 0 ? budget / groupTotal * snap.batch.adjScale : null});
-      }));
-    });
-    body.appendChild(table("adjusted-groups", "Our weight per group, and each chart's normalization factor per group", [
-      {key: "label", label: "Chart"}, {key: "group", label: "Group"},
-      {key: "ddf_weight", label: "Our weight (share of budgets)", fmt: "pct"},
-      {key: "chart_weight", label: "Chart's own weight (share above waivers)", fmt: "pct"},
-      {key: "budget", label: "Budget (anchor sum, its players)", fmt: "n3"},
-      {key: "group_native", label: "Chart sum above waivers (native)", fmt: "n3"},
-      {key: "group_factor", label: "Budget / chart sum (ratio)", fmt: "sci"},
-      {key: "final_factor", label: "x top-of-scale factor (ratio)", fmt: "sci"}
-    ], rows, {note: `Top-of-scale: batch max ${fmt.n4(snap.batch.batchMax)} -> 70, factor ${fmt.sci(snap.batch.adjScale)}.`}));
-    const keys = publishedKeys();
-    const universe = new Set();
-    keys.forEach(key => Object.keys(snap.published[key].adj.values).forEach(k => universe.add(k)));
-    const players_ = [];
-    universe.forEach(k => {
-      if (!inPosition(k)) return;
-      const row = {_id: k, player_key: Number(k), player: playerName(k), pos: playerPos(k)};
-      keys.forEach(key => {
-        const p = snap.published[key];
-        const role = p.views?.roles?.[k];
-        row[`${key}__role`] = role ? role.role : "at or below waivers";
-        const groupTotal = role ? p.views.groups[role.pos][role.role] : 0;
-        const budget = role ? Number(p.views.budgets?.[role.pos]?.[role.role]) : 0;
-        row[`${key}__check`] = role && groupTotal > 0 ? role.vorp * budget / groupTotal * snap.batch.adjScale : (k in p.adj.values ? 0 : null);
-        row[key] = p.adj.values[k] ?? null;
-      });
-      players_.push(row);
-    });
-    players_.sort((x, y) => Math.max(...keys.map(k => y[k] ?? -1)) - Math.max(...keys.map(k => x[k] ?? -1)));
-    body.appendChild(table("adjusted-players", "Each player's adjusted value, side by side", [
-      {key: "player", label: "Player"}, {key: "pos", label: "Pos"}, {key: "player_key", label: "player_key", fmt: "int"},
-      ...keys.flatMap(key => [
-        {key: `${key}__role`, label: `${label(key)}: group`},
-        {key: `${key}__check`, label: `${label(key)}: above waivers x factor (check)`, fmt: "n3"},
-        {key, label: `${label(key)}: Adjusted (shown)`, fmt: "n3"}])
-    ], players_, {note: "The check column multiplies the engine's own numbers (above waivers x budget / group sum x top-of-scale factor); it equals the shown value wherever the browser derivation is what the chart shows."}));
+    section("mi-adjusted").appendChild(viewTable("adjusted-players", "adj", "Adjusted values: slices paid at the source's group rates (total = pie)",
+      "Rebuilt = bench slice x bench rate + starter slice x starter rate."));
   }
 
-  // ---------- 6. player drill-down ----------
   function settingKey() {
     const s = snap.setting;
-    return JSON.stringify([s.scoring, s.teams, s.roster, s.benchShare]);
+    return JSON.stringify([s.scoring, s.teams, s.roster, s.benchShare, s.positionShares]);
   }
   function priorFor(source) {
     const cacheKey = `${settingKey()}|${source}`;
@@ -603,56 +317,33 @@
     const k = String(key);
     const player = players.get(key);
     const ticket = renderCount;
-    const rows = await Promise.all(snap.seriesKeys.map(async source => {
-      const row = {_id: source, source, label: label(source)};
-      const p = snap.published[source];
-      if (p) {
-        const t = p.derivation?.translation;
-        const tr = t?.translated?.[k];
-        const role = p.views?.roles?.[k];
-        const groupTotal = role ? p.views.groups[role.pos][role.role] : null;
-        const budget = role ? Number(p.views.budgets?.[role.pos]?.[role.role]) : null;
-        Object.assign(row, {
-          native: p.native[k] ?? null, waiver_line: t?.positions?.[player.pos]?.waiver_line_value ?? null,
-          waiver_method: t?.positions?.[player.pos]?.waiver_method ?? null,
-          above_native: tr ? tr.vorp : (k in p.native ? 0 : null), role: role ? role.role : (k in p.native ? "at or below waivers" : null),
-          saved_12: p.saved12[k] ?? null, indexed_factor: p.derivation?.factor ?? null,
-          indexed: p.indexed.values[k] ?? null, indexed_mode: p.indexed.mode,
-          vorp_scale: p.views?.vorpScale ?? null, vorp: p.vorp.values[k] ?? null, vorp_mode: p.vorp.mode,
-          group_budget: budget, group_native: groupTotal,
-          adj_factor: groupTotal > 0 ? budget / groupTotal * snap.batch.adjScale : null,
-          adj: p.adj.values[k] ?? null, adj_mode: p.adj.mode
-        });
-      } else {
-        const field = {espn: "espn_ppg", cbsros: "cbsros_ppg", razzball: "rz_ppg", espn_vorp: "espn_ppg",
-          cbsros_vorp: "cbsros_ppg", razzball_vorp: "rz_ppg"}[source];
-        row.native = field ? (player.raw?.[field]?.[snap.setting.scoringField] ?? null) : null;
-        row.indexed = snap.series[source]?.[k] ?? null;
-        row.indexed_mode = source.endsWith("_adjusted") ? "bias-adjusted fit" : "projection model";
-      }
+    const prow = snap.rows[k];
+    const rows = await Promise.all(pipelineSources().map(async source => {
+      const p = snap.players[source]?.[k];
+      const s = vp().sources[source];
+      const pos = s.positions[player.pos] || {};
+      const row = {_id: source, label: label(source), native: p ? p.native : (snap.natives[source]?.[k] ?? null),
+        estimated: prow?.estimated?.[source] || "", rank: p ? p.rank : null, role: p ? p.role : null,
+        waiver: pos.waiver ?? null, starterLine: pos.starterLine ?? null, vorp: p ? p.vorp : null,
+        benchSlice: p ? p.benchSlice : null, starterSlice: p ? p.starterSlice : null,
+        adjusted: prow ? prow.adjusted[source] : null, vorpShown: prow ? prow.vorp[source] : null,
+        indexed: prow ? prow.indexed[source] : null, reason: prow?.reasons?.[source] || ""};
       const prior = await priorFor(source);
-      row.prior_week = prior?.priorWeek ?? prior?.week ?? null;
       row.prior = prior?.available ? (prior.values?.[k] ?? null) : null;
-      row.prior_delta = isNum(row.indexed) && isNum(row.prior) ? row.indexed - row.prior : null;
-      row.prior_note = prior?.available ? (row.prior === null ? "not priced that week" : prior.method || "") : (prior?.reason || "");
+      row.prior_note = prior?.available ? "" : (prior?.reason || "");
       return row;
     }));
     if (ticket !== renderCount) return;
-    body.appendChild(para(`${player.name} (${player.pos}, ${player.team}), player_key ${key}. Anchor role at this setting: ${anchorRole(k)}; anchor value ${fmt.n3(snap.anchor.values[k])}.`));
+    body.appendChild(para(`${player.name} (${player.pos}, ${player.team}), player_key ${key}. DDF Value ${fmt.n3(prow?.ddfByVersion?.blended?.value)} (${prow?.tier || "no"} tier); mean projected points ${fmt.n2(prow?.meanPpg)}.`));
     body.appendChild(table("player-drilldown", `${player.name}: every source, every step`, [
-      {key: "label", label: "Source"}, {key: "native", label: "Input (native)", fmt: "n3"},
-      {key: "waiver_line", label: "Waiver line", fmt: "n3"}, {key: "waiver_method", label: "Line from"},
-      {key: "above_native", label: "Above waivers (native)", fmt: "n3"}, {key: "role", label: "Group role"},
-      {key: "indexed_factor", label: "Indexed factor (one per chart)", fmt: "sci"},
-      {key: "saved_12", label: "Saved 12-team value", fmt: "n3"},
-      {key: "indexed", label: "Indexed (shown)", fmt: "n3"}, {key: "indexed_mode", label: "Indexed from"},
-      {key: "vorp_scale", label: "VORP vs waivers factor", fmt: "sci"}, {key: "vorp", label: "VORP vs waivers (shown)", fmt: "n3"},
-      {key: "vorp_mode", label: "VORP vs waivers from"},
-      {key: "group_budget", label: "Group budget", fmt: "n3"}, {key: "group_native", label: "Group sum above waivers", fmt: "n3"},
-      {key: "adj_factor", label: "Adjusted factor", fmt: "sci"}, {key: "adj", label: "Adjusted (shown)", fmt: "n3"},
-      {key: "adj_mode", label: "Adjusted from"},
-      {key: "prior_week", label: "Prior week", fmt: "int"}, {key: "prior", label: "Prior week Indexed", fmt: "n3"},
-      {key: "prior_delta", label: "Change", fmt: "delta"}, {key: "prior_note", label: "Prior week note"}
+      {key: "label", label: "Source"}, {key: "native", label: "Native", fmt: "n3"}, {key: "estimated", label: "Estimated"},
+      {key: "rank", label: "Rank", fmt: "int"}, {key: "role", label: "Role"},
+      {key: "waiver", label: "Waiver line", fmt: "n3"}, {key: "starterLine", label: "Starter line", fmt: "n3"},
+      {key: "vorp", label: "Above waivers (own units)", fmt: "n3"}, {key: "benchSlice", label: "Bench slice", fmt: "n3"},
+      {key: "starterSlice", label: "Starter slice", fmt: "n3"}, {key: "adjusted", label: "Adjusted", fmt: "n3"},
+      {key: "vorpShown", label: "VORP vs waivers", fmt: "n3"}, {key: "indexed", label: "Indexed", fmt: "n3"},
+      {key: "reason", label: "Why no value"}, {key: "prior", label: "Prior week (this tab)", fmt: "n3"},
+      {key: "prior_note", label: "Prior week note"}
     ], rows));
   }
 
@@ -685,9 +376,9 @@
     const source = $("#miSource");
     if (!source.childElementCount) {
       snap.seriesKeys.forEach(key => source.appendChild(el("option", {value: key, text: label(key)})));
-      source.value = publishedKeys()[0];
+      source.value = snap.publishedKeys[0];
     }
-    $("#miSetting").textContent = `${s.savedSetup ? "Saved setup (published charts show saved values)" : "Derived setup (published charts derived in the browser)"}; anchor bench share measured ${fmt.pct(s.displayShare)}.`;
+    $("#miSetting").textContent = s.savedSetup ? "The charts' saved setup." : "Derived: the charts' saved 12-team lists deconstructed at this league (VP-9).";
   }
   function render() {
     renderCount += 1;
