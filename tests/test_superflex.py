@@ -9,9 +9,10 @@ Checks, each proved against a broken state:
 
 1. Default identity. SUPERFLEX 0 is the default and must reproduce the old
    engine exactly: the server translation with superflex_count=0 equals the
-   omitted argument, and the browser derivation with SUPERFLEX:0 equals the
-   shape without the key, on every saved published chart x scoring x team
-   count. Broken state: superflexCount defaulting to 1.
+   omitted argument, on every saved published chart x scoring x team count,
+   and the browser's superflexCount gives 0 slots for SUPERFLEX:0 and for a
+   roster without the key (JEG-539; it used to run the retired
+   derivePublishedSetup). Broken state: superflexCount defaulting to 1.
 2. Superflex goes to quarterbacks on real projections. On the ESPN per-game
    projections the browser prices with, a 10- or 12-team superflex league
    starts 2 x teams QBs (projectionRoles, the ESPN series' roles) and the
@@ -41,8 +42,7 @@ sys.path.insert(0, str(ROOT))
 from pipelines.vorp_translation import unified  # noqa: E402
 from pipelines.vorp_translation.vorp_via_roster import rostered_for_teams  # noqa: E402
 from tests.test_published_league_settings_engine import (  # noqa: E402
-    FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, _cases, browser_inputs, browser_players,
-    compare_maps, expected_derived, run_js,
+    FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, browser_inputs, browser_players,
 )
 from tests import _render_env  # noqa: E402
 
@@ -116,10 +116,15 @@ def qb_problems(model_path=VALUE_MODEL):
     return problems
 
 
+SF_COUNT_DRIVER = r"""
+const VM = require(process.argv[1]);
+const shapes = JSON.parse(require("fs").readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify(shapes.map(s => VM.superflexCount(s))));
+"""
+
+
 def identity_problems(model_path=VALUE_MODEL):
     """SUPERFLEX 0 reproduces the default engine exactly (server and browser)."""
-    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    pos_of = browser_players()
     problems = []
     for source in SOURCES:
         for scoring in SCORINGS:
@@ -130,22 +135,21 @@ def identity_problems(model_path=VALUE_MODEL):
                 if unified.translate_ranked(keyed, teams) != unified.translate_ranked(
                         keyed, teams, superflex_count=0):
                     problems.append(f"py {source}/{scoring}/{teams}t: superflex_count=0 differs")
-    # Browser: SUPERFLEX:0 must plot exactly the server reference for the
-    # default roster (saved values at 12 teams, the derivation elsewhere).
-    probe = [(s, sc, t, "sf0", {**SAVED_SHAPE, "SUPERFLEX": 0})
-             for s in SOURCES for sc in SCORINGS for t in (8, 10, 12, 14)]
-    results = run_js(_cases(fixture, pos_of, probe), model_path)
-    for (s, sc, t, _label, _shape), r in zip(probe, results):
-        tag = f"js {s}/{sc}/{t}t"
-        if r.get("error"):
-            problems.append(f"{tag}: error {r['error']}")
-            continue
-        if r["savedSetup"] != (t == 12):
-            problems.append(f"{tag}: savedSetup {r['savedSetup']} with SUPERFLEX:0")
-        got = {int(k): v for k, v in r["values"].items()}
-        diffs, _ = compare_maps(expected_derived(s, sc, t, SAVED_SHAPE, fixture, pos_of), got)
-        if diffs:
-            problems.append(f"{tag}: SUPERFLEX:0 differs from the default roster: {diffs[:2]}")
+    # Browser: the widget passes ValueModel.superflexCount(rosterShape) to
+    # the value pipeline as setting.superflex (curve-widget pipelineSetting).
+    # A roster without the key, and SUPERFLEX:0, must both give 0 superflex
+    # slots; SUPERFLEX:1 gives 1. (Before JEG-539 this half ran the retired
+    # derivePublishedSetup on every saved chart.)
+    probe = [("no key", SAVED_SHAPE, 0), ("SUPERFLEX:0", {**SAVED_SHAPE, "SUPERFLEX": 0}, 0),
+             ("SUPERFLEX:1", {**SAVED_SHAPE, "SUPERFLEX": 1}, 1)]
+    proc = subprocess.run(["node", "-e", SF_COUNT_DRIVER, str(model_path)],
+                          input=json.dumps([shape for _, shape, _ in probe]),
+                          capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise AssertionError(proc.stderr[:2000])
+    for (label, _shape, want), got in zip(probe, json.loads(proc.stdout)):
+        if got != want:
+            problems.append(f"js superflexCount({label}) = {got}, want {want}")
     return problems
 
 

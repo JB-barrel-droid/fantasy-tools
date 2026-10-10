@@ -11,7 +11,7 @@ What an entry holds (one source, one content week):
   * published charts (usatoday, fantasycalc, fantasypros, cbs): the source's
     own as-published native values for the saved 12-team, 1-QB setup, per
     scoring -- exactly the `native` cells the engine derives a chart from
-    (ValueModel.derivePublishedSetup). Origin: Supabase public.source_trade_values
+    (ValueModel.runValuePipeline). Origin: Supabase public.source_trade_values
     / public.cbs_trade_values, one entry per bake (its latest pull).
   * projection sources (espn, cbsros, razzball): per-game projections per
     scoring, the same field the engine reads from players.json (espn_ppg,

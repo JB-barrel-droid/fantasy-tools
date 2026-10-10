@@ -912,27 +912,13 @@
   // ---------------------------------------------------------------------
   // League-settings engine for published charts (league-settings-001).
   //
-  // The backend saves ONE setup per scoring: 12 teams, standard roster. At
-  // that setup the chart shows the saved values untouched. At any other team
-  // count or roster the browser derives the published chart's Indexed values
-  // from the saved 12-team natives with the server's own recipe
-  // (pipelines/reindex_comparison_section.order_preserving_rescale):
-  //
-  //   factor  = anchor total / native total, over the saved players the
-  //             live anchor prices at this setting
-  //   indexed = native * factor, for every saved player with a native value
-  //
-  // One factor per chart, so the chart keeps its own ranking at every setting
-  // (methodology, The Three Views #3: "indexed to match the value range of
-  // the other charts"). Per-position and starter/bench repricing belongs to
-  // the VORP vs waivers and Adjusted views (derivePublishedViews).
-  //
-  // /6 (2026-10-08, JEG-482; Jeremy: "There shouldn't be some secondary
-  // correction layer, the math is clearly off"): replaced /1-/5, which priced
-  // Indexed as value above waivers translated onto our positional maxes
-  // (translatePublishedVorp) and so reordered players across positions
-  // (FantasyCalc Week 5: Smith-Njigba #3 on the chart, #5 here).
-  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/6";
+  // The backend saves ONE setup per scoring: 12 teams, standard roster.
+  // isSavedSetup says whether the reader's league is that setup. Every
+  // published chart value at any setting comes from runValuePipeline
+  // (JEG-508, VP-6.4: the chart's natives times one factor). The browser
+  // derivation that preceded it (derivePublishedSetup, league-settings-001/6)
+  // and the batch published views (derivePublishedViews,
+  // published-views-001/3) were retired by JEG-539.
   var SAVED_SETUP_TEAMS = 12;
   var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
 
@@ -943,247 +929,6 @@
     return Object.keys(SAVED_SETUP_SHAPE).every(function (key) {
       return Number(shape[key]) === SAVED_SETUP_SHAPE[key];
     });
-  }
-
-  // The translation's league arguments for a chart roster shape.
-  function settingForShape(teams, shape) {
-    return {
-      teams: Number(teams),
-      benchPerTeam: Number(shape.BENCH),
-      flexCount: Number(shape.FLEX),
-      slots: {QB: Number(shape.QB), RB: Number(shape.RB), WR: Number(shape.WR), TE: Number(shape.TE)},
-      flexEligible: flexEligible(shape),
-      superflexCount: superflexCount(shape)
-    };
-  }
-
-  // {source: Map key -> native} -> {source: {pos: [{key, value}]}} for
-  // translatePublishedVorp's peers (V2-WAIVER-COVERAGE). null when empty.
-  function peersByPosition(peers, posOf) {
-    if (!peers) return null;
-    var out = {};
-    Object.keys(peers).forEach(function (src) {
-      if (peers[src] && peers[src].size) out[src] = rankedByPosition(peers[src], posOf);
-    });
-    return Object.keys(out).length ? out : null;
-  }
-
-  // The denotation for one translation: per position how the waiver line was
-  // set (unified.waiver_summary), plus the positions whose line is
-  // extrapolated from other charts ("imputed") or still the chart's last
-  // listed value because no other chart covers enough players ("short").
-  function waiverSummary(at) {
-    var positions = {}, imputed = [], short = [];
-    POSITION_ORDER.forEach(function (pos) {
-      var p = at.positions[pos];
-      if (!p) return;
-      positions[pos] = {method: p.waiver_method, n_listed: p.n_listed,
-                        n_rostered: p.n_rostered, n_imputed: p.n_imputed};
-      if (p.waiver_method === WAIVER_IMPUTED) imputed.push(pos);
-      if (p.waiver_method === "insufficient_coverage") short.push(pos);
-    });
-    return {version: IMPUTATION_VERSION, positions: positions, imputed: imputed, short: short};
-  }
-
-  // The waiver denotation for a published chart at a setting, without
-  // deriving values (used at the saved setup, where the chart shows the saved
-  // values -- which the chain computed with the same peers). opts as
-  // derivePublishedSetup (native, peers, posOf, teams, shape).
-  function publishedWaiverInfo(opts) {
-    var shape = opts.shape || SAVED_SETUP_SHAPE;
-    var setting = settingForShape(opts.teams, shape);
-    var at = translatePublishedVorp(Object.assign({ranked: rankedByPosition(opts.native, opts.posOf),
-      peers: peersByPosition(opts.peers, opts.posOf)}, setting));
-    return waiverSummary(at);
-  }
-
-  function rankedByPosition(native, posOf) {
-    var ranked = {};
-    POSITION_ORDER.forEach(function (pos) { ranked[pos] = []; });
-    native.forEach(function (value, key) {
-      var pos = posOf(key);
-      var v = Number(value);
-      if (ranked[pos] && isFinite(v)) ranked[pos].push({key: key, value: v});
-    });
-    return ranked;
-  }
-
-  // opts: native (Map key -> saved 12-team native value at this scoring; the
-  // publisher's superflex values overlaid when the roster has a superflex
-  // slot), saved (Map key -> saved 12-team Indexed value; its KEY SET is the
-  // player set at every setting, and its values give the saved factor when no
-  // anchor is passed), anchor (Map key -> the live anchor's value at this
-  // setting), posOf(key). teams / shape / projection / peers / indexTotal are
-  // accepted for callers and unused (/6).
-  // Returns {version, values: Map, factor, basis: "anchor" | "saved", shared,
-  // nativeTotal, anchorTotal}. A saved player with no native value is left
-  // out (missing, never 0).
-  function derivePublishedSetup(opts) {
-    var native = opts.native;
-    var saved = opts.saved;
-    var anchor = opts.anchor;
-    var posOf = opts.posOf || function () { return null; };
-    var keys = [];
-    saved.forEach(function (savedValue, key) {
-      var v = Number(native.get(key));
-      if (native.has(key) && isFinite(v) && POSITION_ORDER.indexOf(posOf(key)) !== -1) keys.push(key);
-    });
-    var nativeTotal = 0, anchorTotal = 0, shared = 0;
-    if (anchor && anchor.size) {
-      keys.forEach(function (key) {
-        var a = Number(anchor.get(key));
-        if (!anchor.has(key) || !isFinite(a)) return;
-        shared += 1;
-        anchorTotal += Math.max(0, a);
-        nativeTotal += Math.max(0, Number(native.get(key)));
-      });
-    }
-    var basis = "anchor";
-    if (shared < MIN_SHARED_FOR_PIE || !(anchorTotal > 0) || !(nativeTotal > 0)) {
-      // Too few shared players to measure the anchor's range: keep the saved
-      // factor (the pipeline's, at 12 teams), measured on the saved values.
-      basis = "saved";
-      nativeTotal = 0; anchorTotal = 0; shared = 0;
-      keys.forEach(function (key) {
-        var s = Number(saved.get(key));
-        if (!isFinite(s)) return;
-        shared += 1;
-        anchorTotal += Math.max(0, s);
-        nativeTotal += Math.max(0, Number(native.get(key)));
-      });
-    }
-    var factor = nativeTotal > 0 && anchorTotal > 0 ? anchorTotal / nativeTotal : 0;
-    var values = new Map();
-    keys.forEach(function (key) { values.set(key, Math.max(0, Number(native.get(key))) * factor); });
-    return {version: PUBLISHED_DERIVATION_VERSION, values: values, factor: factor, basis: basis,
-            shared: shared, nativeTotal: nativeTotal, anchorTotal: anchorTotal};
-  }
-
-  // ---------------------------------------------------------------------
-  // The chart's other two views for published charts at any league setting
-  // (JEG332-VORP-VIEWS, 2026-10-07; Jeremy: "I'm ok with however you set up
-  // values to get the tool working" -- math to be reviewed).
-  //
-  // The saved `vorp_views` (pipelines/build_imputed_vorps.py +
-  // build_reweighted_values.py) exist for one scoring at 12 teams. Everywhere
-  // else the browser derives both views from the same league arithmetic as
-  // the VORP translation, so the two views agree on who is above waivers
-  // (everyone at or below the setting's waiver line is 0 in every view):
-  //
-  //   VORP vs waivers: each player's value above that setting's waiver line
-  //     in the publisher's own units (translatePublishedVorp `vorp`), times
-  //     ONE factor per chart so the chart's total equals our anchor's total
-  //     at this setting over the players the chart ranks (the sum of its
-  //     eight group budgets; measured on the shared set like sharedPieBasis,
-  //     so a thin chart is not forced taller). One factor, no re-tiering: the
-  //     publisher's own cross-position valuation is kept, and every curve has
-  //     the "same shared total as Indexed" (footnote copy).
-  //   Adjusted values: our position weighting applied. Players are grouped
-  //     position x role (starter = the translation's dedicated + flex count at
-  //     that position, bench = the rest of the rostered players); each group
-  //     shares OUR anchor's total for the same group in proportion to value
-  //     above waivers (build_imputed_vorps' eight-group recipe, weighted by
-  //     value above waivers instead of the raw published value so the waiver
-  //     line is a 0, not a cliff). Then ONE common factor puts the top player
-  //     across the batch (every published chart derived at this setting) at
-  //     70 -- build_reweighted_values' 70 anchor. Its blend-reference group
-  //     budgets exist for the saved setup only; here the budgets are the
-  //     anchor's own group totals at the setting.
-  //
-  // opts: sources {key: {native: Map key -> saved 12-team native value,
-  //       keys: Map|Set|Array of player keys to return (the plotted set),
-  //       budgets: {QB|RB|WR|TE: {starter, bench}} -- the anchor's group
-  //       totals over this chart's players (anchorGroupTotals with keys)}},
-  //       posOf(key), teams, shape, natives (optional {source: Map} of EVERY
-  //       published chart's saved natives at this scoring; each chart's peers
-  //       are the others. Default: the natives in `sources`).
-  // Returns {version, batchMax, adjScale, sources: {key: {vorp: Map, adj: Map,
-  // total, vorpScale, groups: {pos: {starter, bench}} (sum of value above
-  // waivers, publisher units)}}}.
-  // /2 (2026-10-07, V2-WAIVER-COVERAGE): same peers-extended waiver line.
-  // /3 (2026-10-08, JEG332-SUPERFLEX-FLEX): superflex starters count in the
-  // starter group (n_dedicated + n_superflex + n_flex); 0 reproduces /2.
-  var PUBLISHED_VIEWS_VERSION = "published-views-001/3";
-  var VIEW_TOP_OF_SCALE = 70.0;
-
-  function nativesOf(sources) {
-    var out = {};
-    Object.keys(sources || {}).forEach(function (src) { out[src] = sources[src].native; });
-    return out;
-  }
-
-  function derivePublishedViews(opts) {
-    var shape = opts.shape || SAVED_SETUP_SHAPE;
-    var setting = settingForShape(opts.teams, shape);
-    var posOf = opts.posOf;
-    var out = {version: PUBLISHED_VIEWS_VERSION, batchMax: 0, adjScale: 0, sources: {}};
-    var grouped = {};
-    Object.keys(opts.sources || {}).forEach(function (src) {
-      var input = opts.sources[src];
-      var budgets = input.budgets || {};
-      var total = 0;
-      POSITION_ORDER.forEach(function (pos) {
-        ["starter", "bench"].forEach(function (role) {
-          var b = Number((budgets[pos] || {})[role]);
-          if (isFinite(b) && b > 0) total += b;
-        });
-      });
-      var ranked = rankedByPosition(input.native, posOf);
-      var all = opts.natives || nativesOf(opts.sources);
-      var peers = {};
-      Object.keys(all).forEach(function (other) { if (other !== src) peers[other] = all[other]; });
-      var at = translatePublishedVorp(Object.assign({ranked: ranked,
-        peers: peersByPosition(peers, posOf)}, setting));
-      var sorted = sortRanked(ranked);
-      var info = new Map();
-      var groups = {};
-      var vorpSum = 0;
-      POSITION_ORDER.forEach(function (pos) {
-        var p = at.positions[pos];
-        groups[pos] = {starter: 0, bench: 0};
-        if (!p) return;
-        var nStart = p.n_dedicated + (p.n_superflex || 0) + p.n_flex;
-        sorted[pos].forEach(function (row, i) {
-          var t = at.translated[String(row.key)];
-          if (!t) return;
-          var role = i < nStart ? "starter" : "bench";
-          info.set(String(row.key), {pos: pos, role: role, vorp: t.vorp});
-          groups[pos][role] += t.vorp;
-          vorpSum += t.vorp;
-        });
-      });
-      var vorpScale = vorpSum > 0 ? total / vorpSum : 0;
-      var vorp = new Map();
-      var weighted = new Map();
-      var keys = input.keys instanceof Map ? Array.from(input.keys.keys()) : Array.from(input.keys);
-      keys.forEach(function (key) {
-        var row = info.get(String(key));
-        var v = 0, w = 0;
-        if (row) {
-          v = row.vorp * vorpScale;
-          var groupTotal = groups[row.pos][row.role];
-          var budget = Number((budgets[row.pos] || {})[row.role]);
-          w = groupTotal > 0 && isFinite(budget) && budget > 0 ? budget * row.vorp / groupTotal : 0;
-        }
-        vorp.set(key, v);
-        weighted.set(key, w);
-        if (w > out.batchMax) out.batchMax = w;
-      });
-      grouped[src] = weighted;
-      // budgets, roles (key -> {pos, role, vorp}) and translation are
-      // read-only echoes of this function's inputs and intermediates for the
-      // math inspector; no value is derived from them.
-      out.sources[src] = {vorp: vorp, total: total, vorpScale: vorpScale, groups: groups,
-                          waiver: waiverSummary(at), budgets: budgets, roles: info,
-                          translation: at};
-    });
-    out.adjScale = out.batchMax > 0 ? VIEW_TOP_OF_SCALE / out.batchMax : 0;
-    Object.keys(out.sources).forEach(function (src) {
-      var adj = new Map();
-      grouped[src].forEach(function (w, key) { adj.set(key, w * out.adjScale); });
-      out.sources[src].adj = adj;
-    });
-    return out;
   }
 
   // ---------------------------------------------------------------------
@@ -2018,13 +1763,9 @@
     runValuePipeline: runValuePipeline,
     valuePipelineDiagnostics: valuePipelineDiagnostics,
     compositeValue: compositeValue,
-    PUBLISHED_DERIVATION_VERSION: PUBLISHED_DERIVATION_VERSION,
     SAVED_SETUP_TEAMS: SAVED_SETUP_TEAMS,
     SAVED_SETUP_SHAPE: SAVED_SETUP_SHAPE,
     isSavedSetup: isSavedSetup,
-    derivePublishedSetup: derivePublishedSetup,
-    PUBLISHED_VIEWS_VERSION: PUBLISHED_VIEWS_VERSION,
-    derivePublishedViews: derivePublishedViews,
     anchorGroupTotals: anchorGroupTotals,
     sharedTotals: sharedTotals,
     groupShares: groupShares,
@@ -2039,7 +1780,6 @@
     translatePublishedVorp: translatePublishedVorp,
     IMPUTATION_VERSION: IMPUTATION_VERSION,
     imputeExtension: imputeExtension,
-    publishedWaiverInfo: publishedWaiverInfo,
     POSITION_ORDER: POSITION_ORDER,
     DEFAULT_FLEX_ELIGIBLE: DEFAULT_FLEX_ELIGIBLE,
     MIN_SHARED_FOR_PIE: MIN_SHARED_FOR_PIE,

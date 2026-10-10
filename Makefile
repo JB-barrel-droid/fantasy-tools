@@ -221,7 +221,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
-	python3 -m unittest tests.test_published_views_engine
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_value_check
 	python3 -m unittest tests.test_load_value_check
