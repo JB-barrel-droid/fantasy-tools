@@ -76,7 +76,7 @@ def build_rows(report: dict, engine: dict, reference: dict, season: int, week: i
         base = {"season": season, "week": week, "scoring": SCORING[spec["scoring"]],
                 "teams": int(spec["teams"]), "roster": "superflex" if spec.get("superflex") else "standard"}
         for view in ref.VIEWS:
-            series = list(ref.SERIES_KEYS) if view == "indexed" else list(ref.PUBLISHED)
+            series = list(ref.VIEW_SERIES[view])  # JEG-508 VP-11: the series each tab draws
             series.extend(ref.DDF_VERSIONS)
             ev = {int(k): v for k, v in ((e.get("views") or {}).get(view) or {}).items()}
             rv = {int(k): v for k, v in (r["views"].get(view) or {}).items()}
