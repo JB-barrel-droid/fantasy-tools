@@ -523,6 +523,12 @@ change to them is a value change and is reviewed as one.
   QB 58%, RB 50%, WR 52%, TE 84% this week; no floor (ES-6).
 - The result is insensitive to all of these (ES-7 sensitivity): the decision
   is about the form, not the numbers.
+- The 95% intervals in the table are binomial over team games and are too
+  narrow, because missed games come in runs (one season-ending injury is many
+  missed games). A player-cluster bootstrap gives QB 8.3% to 13.9%, RB 13.5%
+  to 17.1%, WR 10.3% to 13.0%, TE 11.8% to 17.1% (`tools/rb_hazard_trend.py`,
+  JEG-525 item d). Whether `m_RB` should weight recent seasons more is MR-25;
+  the bench tier moves by at most 0.15 points across the candidates.
 
 **ES-2 Roster.** VP-2.2 unchanged: dedicated, greedy flex (OC-4 A), D'Hondt
 bench, `S_p` and `N_p` per source. `n_p = max(1, round(S_p / T))` is the
@@ -629,34 +635,34 @@ value per point above waivers, starters over bench tier, QB / RB / WR / TE).
 
 | Position | Rank | Player | Points per game | Share of surplus | Start-worthy part |
 | --- | --- | --- | --- | --- | --- |
-| QB | 1 | Josh Allen | 23.84 | 73.7% | 72.7% |
-| QB | 7 | Tyler Shough | 20.45 | 57.1% | 54.9% |
-| QB | 12 | Dak Prescott | 19.49 | 49.5% | 46.8% |
-| QB | 13 | Jared Goff | 18.95 | 44.7% | 41.8% |
-| QB | 18 | Jordan Love | 18.11 | 36.6% | 33.4% |
-| RB | 1 | Jahmyr Gibbs | 25.71 | 82.1% | 81.6% |
-| RB | 16 | Chuba Hubbard | 14.5 | 73.4% | 69.3% |
-| RB | 31 | Josh Jacobs | 10.43 | 54.0% | 42.6% |
-| RB | 32 | Jordan Mason | 10.35 | 53.3% | 41.8% |
-| RB | 37 | Alvin Kamara | 8.5 | 34.9% | 19.5% |
-| RB | 44 | Keaton Mitchell | 7.69 | 25.9% | 10.4% |
+| QB | 1 | Josh Allen | 23.84 | 72.8% | 71.8% |
+| QB | 7 | Tyler Shough | 20.45 | 56.6% | 54.2% |
+| QB | 12 | Dak Prescott | 19.49 | 49.1% | 46.2% |
+| QB | 13 | Jared Goff | 18.95 | 44.3% | 41.3% |
+| QB | 18 | Jordan Love | 18.11 | 36.3% | 33.0% |
+| RB | 1 | Jahmyr Gibbs | 25.71 | 77.4% | 76.8% |
+| RB | 16 | Chuba Hubbard | 14.5 | 70.1% | 65.2% |
+| RB | 31 | Josh Jacobs | 10.43 | 53.6% | 40.1% |
+| RB | 32 | Jordan Mason | 10.35 | 53.0% | 39.3% |
+| RB | 37 | Alvin Kamara | 8.5 | 36.9% | 18.4% |
+| RB | 44 | Keaton Mitchell | 7.69 | 28.6% | 9.8% |
 
-- Top movers of the blended DDF Value at 12-team full PPR (before scaled to the pie):
+- Top movers of the blended DDF Value at 12-team full PPR (before scaled to the pie; eleven-season `m`, from `docs/claude-log/2026-10-09-jeg521-expected-starts-before-after.md`):
 
 | Player | Position | Tier | Before | After A | Change |
 | --- | --- | --- | --- | --- | --- |
-| Jaxon Smith-Njigba | WR | starter | 51.37 | 65.02 | +13.7 |
-| Ja'Marr Chase | WR | starter | 46.24 | 58.22 | +12.0 |
-| Jahmyr Gibbs | RB | starter | 71.88 | 83.85 | +12.0 |
-| Bijan Robinson | RB | starter | 65.39 | 76.76 | +11.4 |
-| Amon-Ra St. Brown | WR | starter | 44.48 | 55.74 | +11.3 |
-| CeeDee Lamb | WR | starter | 45.56 | 56.52 | +11.0 |
-| Puka Nacua | WR | starter | 47.17 | 58.04 | +10.9 |
-| Kenneth Walker III | RB | starter | 59.98 | 70.53 | +10.6 |
-| Chris Olave | WR | starter | 37.34 | 46.15 | +8.8 |
-| Jonathan Taylor | RB | starter | 52.65 | 61.42 | +8.8 |
-| Christian McCaffrey | RB | starter | 49.82 | 58.29 | +8.5 |
-| Romeo Doubs | WR | bench | 13.4 | 5.35 | -8.0 |
+| Jaxon Smith-Njigba | WR | starter | 51.37 | 66.99 | +15.6 |
+| Ja'Marr Chase | WR | starter | 46.24 | 59.98 | +13.7 |
+| Amon-Ra St. Brown | WR | starter | 44.48 | 57.42 | +12.9 |
+| CeeDee Lamb | WR | starter | 45.56 | 58.22 | +12.7 |
+| Puka Nacua | WR | starter | 47.17 | 59.79 | +12.6 |
+| Chris Olave | WR | starter | 37.34 | 47.52 | +10.2 |
+| Justin Jefferson | WR | starter | 35.09 | 44.12 | +9.0 |
+| Jahmyr Gibbs | RB | starter | 71.88 | 80.28 | +8.4 |
+| Zay Flowers | WR | starter | 32.3 | 40.64 | +8.3 |
+| Nico Collins | WR | starter | 33.63 | 41.88 | +8.2 |
+| Bijan Robinson | RB | starter | 65.39 | 73.52 | +8.1 |
+| Romeo Doubs | WR | bench | 13.4 | 5.44 | -8.0 |
 
 **ES-8 Left out of the pie, by decision.**
 
@@ -720,6 +726,67 @@ share per position and each source's total match
 `pipelines/expected_starts_model.py` within 0.05; the 12-combo sweep and
 `check_rank_guard.py` at zero inversions; the before/after shown to Jeremy
 before publishing (JEG-450).
+
+**ES-12 League week inputs (proposed, JEG-525 item c; not in the spec until
+approved).** Today the window is fixed: from the content week + 1 to NFL
+week 18. Proposed reader inputs, with defaults that match a standard league:
+
+| Input | Default | What it changes |
+| --- | --- | --- |
+| Content week `W` | the build's week | already used; becomes visible and settable on the dashboard |
+| Last regular-season week `R` | 14 | the "regular" window below |
+| Playoff weeks `P` | 15 to 17 | the "season" and "playoffs" windows; week 18 drops out of every window |
+| Objective | season | "season" = weeks `W+1` to the last playoff week; "regular" = `W+1` to `R`; "playoffs" = `P` only |
+
+Effect on ES-1 and ES-4, by input:
+- `b` (ES-1, ES-4.1-2) is the bye share of the objective window's team-weeks,
+  not of weeks `W+1` to 18. "Playoffs" has `b = 0` (no byes after week 14).
+- `sigma` drift (ES-1) scales with the square root of the distance from `W`
+  to the window's midpoint, so a playoff objective sees a wider bell curve
+  (the level at week 16 is further away than the average remaining week).
+- `m` (ES-1) is unchanged for "season" and "regular" (a per-game hazard).
+  For "playoffs" it is measured in the playoff weeks themselves for players
+  healthy at the end of weeks 1-5 / 1-9, which carries the season-ending
+  absences that pile up before then: QB 15.6%, RB 19.7%, WR 14.7%, TE 18.6%
+  (2015-2025) against 11.0 / 15.3 / 11.7 / 14.4% per game.
+- ES-2 to ES-5 are unchanged.
+
+Measured at Week 5, 12-team full PPR (`tools/season_window_effect.py`):
+bench tier 8.65% today (weeks 6-18), 8.65% "season" (weeks 6-17), 8.71%
+"regular" (weeks 6-14), 8.71% "playoffs" (8.47% if the per-game hazard were
+kept). The pie on fill-in parts: 5.31%, 5.43%, 5.89%, 4.71%. So the inputs
+matter for the dashboard and for what the numbers mean, but they move the
+bench share by less than a point: a playoff window removes the byes but adds
+uncertainty and accumulated injuries, and they nearly cancel. The objective
+switch does not price eliminated teams, standings or a horizon (manifesto
+sections 9 and 10, MR-22): those need the roster import (JEG-481).
+
+**ES-13 What the share does and does not capture (JEG-525 items a and b).**
+The share is for an average team in the league setting. It captures, for
+every rostered player, the chance his projection sits above the starter line
+and the chance a starter ahead of him on an average team is out (bye or
+injury). It does not capture:
+1. *The handcuff contingency (fundamental, not only portfolio).* A backup
+   running back is held for the jump he makes when his own NFL team's lead
+   back misses. Measured over 2015-2025 (`tools/handcuff_jump.py`): backups
+   score 7.2 points per game with the lead back playing and 12.8 with him
+   out; behind a top-12 lead back, 6.9 to 13.4, above the 12-team starter
+   line about 55% of the time. The share puts a symmetric bell curve on the
+   backup's own projection, which cannot produce that jump, so a pure
+   handcuff below the waiver line is valued at 0 (Week 5, ESPN: Sione Vaki
+   behind Gibbs 4.16 points per game, value 0; Justice Hill behind Henry
+   4.74, value 0) and his Stash signal `P(X > l)` is also 0. Rough size of
+   what is missing, Vaki: 0.928 (not a bye week) x 0.153 (lead back out) x
+   0.847 (Vaki himself available) x (13.4 - 4.90 surplus at the promoted
+   level) x 0.78 (projected to start at that level) = 0.79 points of surplus
+   per week reaching a lineup, the same as Keaton Mitchell's whole 0.80
+   (RB44, 7.69 points per game, share 28.6%). MR-26.
+2. *The own-handcuff hedge (portfolio).* Holding your own starter's backup
+   pays exactly in the weeks your starter is out, so its value to you is
+   higher than to the average team. That needs the roster (manifesto
+   section 6, JEG-481) and is not a property of the player.
+3. The weekly matchup swap (MR-23), discounting and the playoff objective
+   (ES-8.3, ES-12), known absences (MR-20).
 
 **ES-A Data appendix.** `data/inputs/weekly_actuals_2024_2026.csv` and
 `data/inputs/nfl_schedule_2024_2026.json` were exported on 2026-10-09 from
