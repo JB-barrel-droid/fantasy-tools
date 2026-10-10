@@ -2,11 +2,11 @@
   "fit": {
     "bench_share": 0.15,
     "combo_note": "Matches the chart's default Full-PPR 12-team view (comboKey: ppr -> 'full'; fantasycalc takes the _qb1 variant).",
-    "ddf_leg_bake_id": "ddf-20261009-espn-ppr-12t-0p15",
-    "ddf_leg_path": "data/ddf-two-tier/ddf-20261009-espn-ppr-12t-0p15/ddf_leg.json",
-    "ddf_leg_sha256": "cafd50f8a2b7fdefdaa2dea25c3e2e897230d768350776957c75cd8e2e1a7576",
+    "ddf_leg_bake_id": "ddf-20261010-espn-ppr-12t-0p15",
+    "ddf_leg_path": "data/ddf-two-tier/ddf-20261010-espn-ppr-12t-0p15/ddf_leg.json",
+    "ddf_leg_sha256": "0035bee76008a1c286dcdeb2396745d425ce0467f53b6f330bb7d28bd07c4af0",
     "espn_purity_note": "y targets are the DDF two-tier leg built from ESPN projections only (no expert blending).",
-    "espn_snapshot_date": "2026-10-09",
+    "espn_snapshot_date": "2026-10-10",
     "fixture": "data/fixtures/current/comparison-sources-data.json",
     "fixture_built_at": null,
     "fixture_players": "data/fixtures/current/players.json",
@@ -36,7 +36,7 @@
     "scoring": "ppr",
     "teams": 12
   },
-  "generated_at": "2026-10-10T05:01:51Z",
+  "generated_at": "2026-10-10T07:12:50Z",
   "review_rows": [],
   "schema": "trade-value-adjustment-inputs-v1",
   "sources": {
@@ -547,7 +547,7 @@
           "y_mean": 26.462162162162162
         }
       },
-      "n_published": 571,
+      "n_published": 572,
       "reference_combo": "full_12",
       "role_counts": {
         "bench": 72,
@@ -558,165 +558,165 @@
     "fantasycalc": {
       "cells": [
         {
-          "alpha": 1.4374481904120024,
-          "beta": 0.6369295574427144,
+          "alpha": 1.8364452379892438,
+          "beta": 0.6179920815439578,
           "n": 12,
           "position": "QB",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 17.386364995069297,
+          "x_mean": 17.27351050777249,
           "y_mean": 12.511337952258991
         },
         {
-          "alpha": -0.9041002866257961,
-          "beta": 0.9121389541110582,
-          "n": 15,
+          "alpha": -0.919054250512291,
+          "beta": 0.9282185458935349,
+          "n": 16,
           "position": "QB",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 3.9562561284609217,
-          "y_mean": 2.704555040584013
+          "x_mean": 3.7217254668557733,
+          "y_mean": 2.5355203505475123
         },
         {
-          "alpha": 11.875611298240948,
-          "beta": 0.6100213806314297,
+          "alpha": 11.941509122321833,
+          "beta": 0.6059344100498514,
           "n": 34,
           "position": "RB",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 31.04638637104239,
+          "x_mean": 31.14703727099188,
           "y_mean": 30.81457077592103
         },
         {
-          "alpha": -0.22078180106932965,
-          "beta": 1.920054887883453,
+          "alpha": 1.1594198551705066,
+          "beta": 1.5402884265945498,
           "n": 19,
           "position": "RB",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 3.5349183143885567,
+          "x_mean": 3.5104045698279744,
           "y_mean": 6.566455386741155
         },
         {
-          "alpha": 11.015751097390359,
-          "beta": 0.5406064384942207,
+          "alpha": 10.89209929781885,
+          "beta": 0.5452704041325444,
           "n": 38,
           "position": "WR",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 27.63857890134753,
+          "x_mean": 27.628944080391438,
           "y_mean": 25.95734480228936
         },
         {
-          "alpha": 5.218827942660769,
-          "beta": 0.5466789216610273,
+          "alpha": 5.385473033570532,
+          "beta": 0.5030696168069586,
           "n": 26,
           "position": "WR",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 3.032256221294413,
+          "x_mean": 2.963855141582829,
           "y_mean": 6.87649850391794
         },
         {
-          "alpha": 4.647768088827641,
-          "beta": 0.5317338487203743,
+          "alpha": 4.867611494773724,
+          "beta": 0.5188462543323685,
           "n": 12,
           "position": "TE",
           "source": "fantasycalc",
           "tier": "starter",
-          "x_mean": 17.5250791287319,
+          "x_mean": 17.53666773601684,
           "y_mean": 13.96644586307736
         },
         {
-          "alpha": -0.11748265147173864,
-          "beta": 1.3067270201217136,
-          "n": 11,
+          "alpha": -0.6430582692475659,
+          "beta": 1.5076739257597225,
+          "n": 10,
           "position": "TE",
           "source": "fantasycalc",
           "tier": "bench",
-          "x_mean": 2.6309349596489815,
-          "y_mean": 3.3204311484844156
+          "x_mean": 2.789076756829771,
+          "y_mean": 3.56196003396717
         }
       ],
       "diagnostics": {
         "QB|bench": {
-          "alpha": -0.9041002866257961,
-          "beta": 0.9121389541110582,
+          "alpha": -0.919054250512291,
+          "beta": 0.9282185458935349,
           "cell": true,
           "fallback": false,
-          "n_pairs": 15,
+          "n_pairs": 16,
           "reason": null,
-          "x_mean": 3.9562561284609217,
-          "y_mean": 2.704555040584013
+          "x_mean": 3.7217254668557733,
+          "y_mean": 2.5355203505475123
         },
         "QB|starter": {
-          "alpha": 1.4374481904120024,
-          "beta": 0.6369295574427144,
+          "alpha": 1.8364452379892438,
+          "beta": 0.6179920815439578,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 17.386364995069297,
+          "x_mean": 17.27351050777249,
           "y_mean": 12.511337952258991
         },
         "RB|bench": {
-          "alpha": -0.22078180106932965,
-          "beta": 1.920054887883453,
+          "alpha": 1.1594198551705066,
+          "beta": 1.5402884265945498,
           "cell": true,
           "fallback": false,
           "n_pairs": 19,
           "reason": null,
-          "x_mean": 3.5349183143885567,
+          "x_mean": 3.5104045698279744,
           "y_mean": 6.566455386741155
         },
         "RB|starter": {
-          "alpha": 11.875611298240948,
-          "beta": 0.6100213806314297,
+          "alpha": 11.941509122321833,
+          "beta": 0.6059344100498514,
           "cell": true,
           "fallback": false,
           "n_pairs": 34,
           "reason": null,
-          "x_mean": 31.04638637104239,
+          "x_mean": 31.14703727099188,
           "y_mean": 30.81457077592103
         },
         "TE|bench": {
-          "alpha": -0.11748265147173864,
-          "beta": 1.3067270201217136,
+          "alpha": -0.6430582692475659,
+          "beta": 1.5076739257597225,
           "cell": true,
           "fallback": false,
-          "n_pairs": 11,
+          "n_pairs": 10,
           "reason": null,
-          "x_mean": 2.6309349596489815,
-          "y_mean": 3.3204311484844156
+          "x_mean": 2.789076756829771,
+          "y_mean": 3.56196003396717
         },
         "TE|starter": {
-          "alpha": 4.647768088827641,
-          "beta": 0.5317338487203743,
+          "alpha": 4.867611494773724,
+          "beta": 0.5188462543323685,
           "cell": true,
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 17.5250791287319,
+          "x_mean": 17.53666773601684,
           "y_mean": 13.96644586307736
         },
         "WR|bench": {
-          "alpha": 5.218827942660769,
-          "beta": 0.5466789216610273,
+          "alpha": 5.385473033570532,
+          "beta": 0.5030696168069586,
           "cell": true,
           "fallback": false,
           "n_pairs": 26,
           "reason": null,
-          "x_mean": 3.032256221294413,
+          "x_mean": 2.963855141582829,
           "y_mean": 6.87649850391794
         },
         "WR|starter": {
-          "alpha": 11.015751097390359,
-          "beta": 0.5406064384942207,
+          "alpha": 10.89209929781885,
+          "beta": 0.5452704041325444,
           "cell": true,
           "fallback": false,
           "n_pairs": 38,
           "reason": null,
-          "x_mean": 27.63857890134753,
+          "x_mean": 27.628944080391438,
           "y_mean": 25.95734480228936
         }
       },
@@ -1264,5 +1264,5 @@
     "review_rows": 0,
     "sources_live": 7
   },
-  "version": "ddf-20261009-espn-ppr-12t-0p15"
+  "version": "ddf-20261010-espn-ppr-12t-0p15"
 }
