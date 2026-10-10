@@ -544,9 +544,9 @@ projections 45.086821).
 
 ### Expected-starts value (JEG-521, 2026-10-09): the proposed answer to OC-2 and OC-3
 
-**Status.** Proposed by the JEG-521 math work, waiting on Jeremy (JEG-533,
-decision `es-value-001` in `docs/decisions.md`, OC-9 below). Nothing here is
-live. JEG-508 ships first with the bench share fixed at 15% and slices
+**Status.** Approved by Jeremy 2026-10-09 20:51 (JEG-533, `es-value-001`,
+option A with the bench share as a computed readout, ES-14). Not live yet:
+it lands after JEG-508. JEG-508 ships first with the bench share fixed at 15% and slices
 (OC-2, OC-3 decided 2026-10-09); this section is the follow-up question of
 whether the 15% becomes an output of the data. When approved it replaces VP-2.6 and lands through JEG-508's pipeline with the
 Python reference and the spec reference on the same branch (`value_check` at
@@ -886,6 +886,45 @@ injury). It does not capture:
 3. The weekly matchup swap (MR-23), discounting and the playoff objective
    (ES-8.3, ES-12), known absences (MR-20).
 
+**ES-14 Reader settings and the bench-share readout (es-value-001, approved
+2026-10-09).** The bench share is not an input. The reader sets its causes;
+the page shows the result.
+
+| Setting | Where | Default | Enters |
+| --- | --- | --- | --- |
+| League size, starters, bench size | existing league options | 12 teams, QB 1 / RB 2 / WR 3 / TE 1 / FLEX 1, bench 6 | ES-2, ES-3 |
+| Last regular-season week, playoff weeks | league options (JEG-527) | 14; 15-17 | the window (ES-12) |
+| Optimize for | league options (JEG-527) | whole season | the window, and `m` in the playoff weeks for "playoffs" |
+| Injury history | Advanced | recent seasons (half-life 5 seasons, MR-25); or all seasons equal | `m` |
+| Projection confidence | Advanced | 1 (as measured); 0.5 = trust projections twice as much | multiplies `sigma`, its floor and the chart `sigma` |
+| Bench-share override | Advanced, off | off | when on, replaces the computed share as the bench group's weight (VP-3.4); the readout says "override" |
+
+- **Building blocks.** `config/lineup_parameters.json` (schema
+  `lineup-parameters-config/2`) holds per position `m` (recent, all),
+  `m_late` (the same in the season's fantasy-playoff weeks), `sigma_now`,
+  `sigma_weekly`, `sigma_floor`, the bye table, the defaults, and the
+  resolved default. `derive_lineup_parameters.resolve(cfg, objective,
+  injury_history, league_weeks, content_week, projection_confidence)` is the
+  Python reference the engine mirrors: window (ES-12), `b` over the window,
+  drift horizon = the gap before the window plus half its length, `sigma =
+  sqrt(now^2 + weekly^2 x horizon) x confidence`.
+- **Readout.** "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your
+  league settings" = the bench tier's share of each position's value and of
+  the pie under A (`expected_starts_model.bench_share_readout`, the Python
+  reference). Week 5, 12-team full PPR, defaults: QB 22.7%, RB 9.1%, WR 6.4%,
+  TE 12.6%, overall 9.1%. QB is high because the quarterback curve is flat
+  near the line: QB13-21 sit close to the starters.
+- **Measured at the defaults** (Week 5, `docs/claude-log/2026-10-09-jeg533-*`):
+  bench tier 8.5% to 9.7% across the 12 settings, zero inversions. The
+  settings move it little (12-team full PPR): injury history all 9.08%,
+  regular season 9.12%, playoffs 9.07%, content week 12 8.58%, projection
+  confidence 0.5 8.64%. The parameter tables in ES-1 and ES-7 above are the
+  decision build (two weeks' data before the merge of main, weeks 6-18,
+  equal weighting); the approved defaults are in the claude-log files named
+  here.
+- **Portfolio.** Where bench value differs most between readers is their own
+  roster; that input is the roster import (JEG-481), not a percentage.
+
 **ES-A Data appendix.** `data/inputs/weekly_actuals_2024_2026.csv` and
 `data/inputs/nfl_schedule_2024_2026.json` were exported on 2026-10-09 from
 Supabase (MCP `execute_sql`, read only) with
@@ -937,7 +976,7 @@ recommendation, kept for the record; "Decided" governs.
 
 | # | Choice | Options | Recommended | Decision |
 | --- | --- | --- | --- | --- |
-| OC-9 | After JEG-508 ships, replace the fixed 15% with expected starts (ES-9) | (A) Replace the VP-2.6 slices with the expected-starts parts (ES-5). (B) Keep the slices; set each position's bench budget from expected starts. (C) Keep the fixed 15% as decided (OC-2) | A: bench tier 8.0% to 9.9% across the 12 settings and a starter-level point worth 1.1x to 3.5x a bench-level point, against about 15% and 0.7x to 1.9x under C | Open: JEG-533, decision `es-value-001` |
+| OC-9 | After JEG-508 ships, replace the fixed 15% with expected starts (ES-9; decided A, 2026-10-09) | (A) Replace the VP-2.6 slices with the expected-starts parts (ES-5). (B) Keep the slices; set each position's bench budget from expected starts. (C) Keep the fixed 15% as decided (OC-2) | A: bench tier 8.0% to 9.9% across the 12 settings and a starter-level point worth 1.1x to 3.5x a bench-level point, against about 15% and 0.7x to 1.9x under C | **A** (Jeremy, 20:51, JEG-533): the bench share becomes a readout of the reader's settings (ES-14); one override, off by default |
 
 ## Trade-Value Contract
 

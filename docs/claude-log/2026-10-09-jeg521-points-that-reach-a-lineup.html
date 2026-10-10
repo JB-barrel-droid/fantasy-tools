@@ -68,6 +68,7 @@ input[type=range]{accent-color:var(--accent)}
 <h1>Points That Reach a Lineup</h1>
 <p class="lede">A player's trade value is his points above the waiver line, times how often those points actually land in a starting lineup. This page walks that second part, one step at a time, on real players. Change the player or the inputs and every picture recomputes.</p>
 
+<div class="panel" style="border-left:3px solid var(--start)"><p style="margin:0"><strong>Decided 2026-10-09: option A.</strong> The bench share becomes a readout of your league settings rather than a slider. The settings are league size and roster, league weeks, and what you optimize for, plus advanced injury-history and projection-confidence settings. One override stays, off by default. It goes live after the pipeline rewrite, once you have seen the before/after (<a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a>). This page uses the build the decision was made on; at the approved defaults the bench share is 8.5% to 9.7% across the 12 settings.</p></div>
 <div class="panel">
   <div class="controls">
     <div><label for="pos">Position</label><select id="pos"></select></div>
@@ -194,7 +195,7 @@ input[type=range]{accent-color:var(--accent)}
 <p>Every "could be added" and "future" item above has a ticket. The pie-changing ones are blocked on your decision on <a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a> and are decided on the math agenda, not one off.</p>
 <div class="panel tablewrap"><table class="ideas">
 <tr><th>Ticket</th><th>What</th><th>Waits on</th></tr>
-<tr><td><a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a></td><td>The decision: replace the fixed 15% with expected starts?</td><td>You</td></tr>
+<tr><td><a href="https://linear.app/jegabee/issue/JEG-533">JEG-533</a></td><td>The decision: replace the fixed 15% with expected starts</td><td>Decided: A, bench share as a readout</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-526">JEG-526</a></td><td>Handcuff jump added to the Stash signal</td><td>Your A/B/C decision</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-527">JEG-527</a></td><td>League week inputs: content week, regular season, playoff weeks, what to optimize for</td><td>Your A/B/C decision</td></tr>
 <tr><td><a href="https://linear.app/jegabee/issue/JEG-528">JEG-528</a></td><td>Horizon term and near-week weighting: shorter window, one-week waiver value, playoff holding value</td><td>Stored weekly projections</td></tr>

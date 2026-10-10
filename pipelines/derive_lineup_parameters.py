@@ -126,6 +126,13 @@ SELECTION_WINDOWS = ((1, 5), (1, 9))
 SEASONS = (2024, 2025)
 HISTORY_SEASONS = tuple(range(2015, 2026))
 MAD_TO_SD = 1.4826
+# es-value-001 (Jeremy, JEG-533, 2026-10-09): injury history weighted toward
+# recent seasons by default (half-life 5 seasons, MR-25); "all" = equal weight.
+RECENCY_HALF_LIFE = 5.0
+INJURY_HISTORY = ("recent", "all")
+OBJECTIVES = ("season", "regular", "playoffs")
+DEFAULT_LEAGUE_WEEKS = {"regular_season_end": 14, "playoff_weeks": [15, 17]}
+LATE_WEEKS = 3
 MIN_PPG_FOR_MOVEMENT = 5.0
 
 
@@ -272,25 +279,48 @@ def missed_game_rates(actuals, schedule, season, select_window, measure_window, 
     return out
 
 
+def recency_weights(seasons, half_life=RECENCY_HALF_LIFE) -> dict:
+    """Weight of each season's team games: 0.5 ** (age / half_life), age 0 =
+    the latest season (es-value-001, MR-25: five-season half-life)."""
+    last = max(seasons)
+    return {s: 0.5 ** ((last - s) / half_life) for s in seasons}
+
+
+def late_window(schedule, season, weeks=LATE_WEEKS) -> tuple:
+    """The season's fantasy-playoff weeks: the `weeks` weeks before the final
+    week (15-17 in an 18-week season, 14-16 in a 17-week one)."""
+    final = max(w for ws in schedule[season].values() for w in ws)
+    return (final - weeks, final - 1)
+
+
 def pooled_rates(actuals, schedule, sizes, seasons=SEASONS, windows=SELECTION_WINDOWS,
-                 last_week=None, scoring="ppr") -> dict:
+                 last_week=None, scoring="ppr", season_weights=None, late=False) -> dict:
     """m_pos pooled over seasons and selection windows, per group, with a
     normal-approximation 95% interval and the per-cell detail. last_week None
-    = each season's final week minus one (last_measured_week)."""
+    = each season's final week minus one (last_measured_week). late=True
+    measures in the season's fantasy-playoff weeks (late_window) instead of
+    weeks k+1 to the end. season_weights {season: w} gives `weighted_rate`
+    = sum w x missed / sum w x games beside the equal-weight `rate` (the
+    interval is the equal-weight one)."""
     cells = []
     acc = {pos: {g: Counter() for g in ("starters", "bench", "rostered")} for pos in POSITIONS}
+    wacc = {pos: {g: [0.0, 0.0] for g in ("starters", "bench", "rostered")} for pos in POSITIONS}
     for season in seasons:
         if season not in schedule:
             continue
         last = last_week if last_week is not None else last_measured_week(schedule, season)
+        w = (season_weights or {}).get(season, 1.0)
         for lo, hi in windows:
-            r = missed_game_rates(actuals, schedule, season, (lo, hi), (hi + 1, last), sizes, scoring)
-            cells.append({"season": season, "select": [lo, hi], "measure": [hi + 1, last],
+            measure = late_window(schedule, season) if late else (hi + 1, last)
+            r = missed_game_rates(actuals, schedule, season, (lo, hi), measure, sizes, scoring)
+            cells.append({"season": season, "select": [lo, hi], "measure": list(measure),
                           "rates": {pos: {g: r[pos][g]["rate"] for g in r[pos]} for pos in POSITIONS}})
             for pos in POSITIONS:
                 for g in acc[pos]:
                     for k in ("missed", "games", "temporary", "season_ending"):
                         acc[pos][g][k] += r[pos][g][k]
+                    wacc[pos][g][0] += w * r[pos][g]["missed"]
+                    wacc[pos][g][1] += w * r[pos][g]["games"]
     pooled = {}
     for pos in POSITIONS:
         pooled[pos] = {}
@@ -298,7 +328,9 @@ def pooled_rates(actuals, schedule, sizes, seasons=SEASONS, windows=SELECTION_WI
             n = c["games"]
             m = c["missed"] / n if n else None
             half = 1.96 * math.sqrt(m * (1 - m) / n) if n and m is not None else None
+            wm, wn = wacc[pos][g]
             pooled[pos][g] = {"rate": m, "games": n, "missed": c["missed"],
+                              "weighted_rate": (wm / wn) if wn else None,
                               "temporary_rate": (c["temporary"] / n) if n else None,
                               "season_ending_rate": (c["season_ending"] / n) if n else None,
                               "ci95": [max(0.0, m - half), min(1.0, m + half)] if half is not None else None}
@@ -312,6 +344,91 @@ def bye_share(byes: dict, first_week: int, last_week: int) -> dict:
     return {"first_week": first_week, "last_week": last_week, "weeks": weeks,
             "teams_with_bye_in_window": teams_with_bye, "teams": len(byes),
             "share": (teams_with_bye / (len(byes) * weeks)) if weeks > 0 and byes else 0.0}
+
+
+# --------------------------------------------------------------------------- league weeks (ES-12, ES-14)
+
+
+def objective_window(objective: str, content_week: int, league_weeks: dict | None = None) -> tuple:
+    """The weeks the value is computed over (ES-12): "season" = the week after
+    the content week to the last playoff week; "regular" = to the last
+    regular-season week; "playoffs" = the playoff weeks only. lo > hi means
+    the window is empty (for example a regular-season objective after the
+    regular season ends)."""
+    lw = {**DEFAULT_LEAGUE_WEEKS, **(league_weeks or {})}
+    p_lo, p_hi = lw["playoff_weeks"]
+    if objective == "season":
+        return (content_week + 1, p_hi)
+    if objective == "regular":
+        return (content_week + 1, lw["regular_season_end"])
+    if objective == "playoffs":
+        return (max(p_lo, content_week + 1), p_hi)
+    raise ValueError(f"unknown objective {objective!r}")
+
+
+def drift_horizon(window: tuple, content_week: int) -> float:
+    """Weeks of projection drift to the window's middle: the gap before the
+    window starts plus half its length (ES-1 used half the remaining weeks,
+    which is the same thing for a window that starts next week)."""
+    lo, hi = window
+    if hi < lo:
+        return 0.0
+    return max(0, lo - content_week - 1) + (hi - lo + 1) / 2.0
+
+
+def resolve(cfg: dict, objective: str | None = None, injury_history: str | None = None,
+            league_weeks: dict | None = None, content_week: int | None = None,
+            projection_confidence: float | None = None) -> dict:
+    """The expected-starts parameters for one set of reader settings, from the
+    building blocks in config/lineup_parameters.json (schema /2). This is the
+    Python reference the engine and the bench-share readout mirror (ES-14).
+
+    projection_confidence scales the uncertainty (sigma and its floor):
+    1 = as measured, 0.5 = projections trusted twice as much."""
+    d = cfg["defaults"]
+    objective = objective or d["objective"]
+    injury_history = injury_history or d["injury_history"]
+    league_weeks = {**d["league_weeks"], **(league_weeks or {})}
+    content_week = cfg["content_week"] if content_week is None else content_week
+    scale = d["projection_confidence"] if projection_confidence is None else projection_confidence
+    if injury_history not in INJURY_HISTORY:
+        raise ValueError(f"unknown injury history {injury_history!r}")
+    window = objective_window(objective, content_week, league_weeks)
+    lo, hi = window
+    bye = bye_share(cfg["byes"], lo, hi)["share"] if hi >= lo else 0.0
+    h = drift_horizon(window, content_week)
+    out = {"objective": objective, "injury_history": injury_history, "league_weeks": league_weeks,
+           "content_week": content_week, "projection_confidence": scale, "window": [lo, hi],
+           "bye": bye, "horizon_weeks": h, "positions": {}}
+    for p in POSITIONS:
+        b = cfg["positions"][p]
+        m = (b["m_late"] if objective == "playoffs" else b["m"])[injury_history]
+        sig = math.sqrt(b["sigma_now"] ** 2 + (b["sigma_weekly"] * math.sqrt(h)) ** 2)
+        out["positions"][p] = {"m": m, "sigma_rel": sig * scale, "sigma_floor": b["sigma_floor"] * scale}
+    return out
+
+
+def build_config(doc: dict, byes: dict) -> dict:
+    """config/lineup_parameters.json, schema /2: the building blocks per
+    position plus the defaults (es-value-001, Jeremy 2026-10-09)."""
+    m_eq = doc["missed_games_history"] or doc["missed_games"]
+    late = doc["missed_games_late"]
+    pos = {}
+    for p in POSITIONS:
+        st, lt = m_eq["pooled"][p]["starters"], late["pooled"][p]["starters"]
+        pos[p] = {"m": {"recent": st["weighted_rate"], "all": st["rate"]},
+                  "m_late": {"recent": lt["weighted_rate"], "all": lt["rate"]},
+                  "sigma_now": doc["recommended"][p]["sigma_rel_now"],
+                  "sigma_weekly": (doc["week_to_week_summary"].get(p) or {}).get("weekly_rel_sd") or 0.0,
+                  "sigma_floor": doc["recommended"][p]["sigma_floor"]}
+    cfg = {"schema": "lineup-parameters-config/2", "content_week": doc["content_week"],
+           "source": "pipelines/derive_lineup_parameters.py (docs/methodology.md ES-1, ES-12, ES-14); generated, do not edit",
+           "defaults": {"objective": "season", "injury_history": "recent",
+                        "league_weeks": dict(DEFAULT_LEAGUE_WEEKS), "projection_confidence": 1.0},
+           "recency_half_life_seasons": RECENCY_HALF_LIFE,
+           "byes": dict(byes), "positions": pos}
+    cfg["resolved_default"] = resolve(cfg)
+    return cfg
 
 
 # --------------------------------------------------------------------------- sigma
@@ -489,7 +606,7 @@ def render_report(doc: dict) -> str:
     L.append("")
     L.append("## Recommended parameters")
     L.append("")
-    L.append("| Position | m (healthy starters) | 95% interval | team games | m, 2024-2025 only | m, all rostered | "
+    L.append("| Position | m (healthy starters) | 95% interval, equal weight | team games | m, 2024-2025 only | m, all rostered | "
              "sigma now (spread) | sigma drift (to mid-window) | sigma used | sigma floor (ppg) |")
     L.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for pos in POSITIONS:
@@ -500,6 +617,24 @@ def render_report(doc: dict) -> str:
                  f"{_pct(r['sigma_rel'])} | {r['sigma_floor']:.2f} |")
     L.append("")
     L.append(f"m source: {rec['QB']['m_source']}.")
+    cfg = doc.get("config")
+    if cfg:
+        res = cfg["resolved_default"]
+        L.append("")
+        L.append(f"## Defaults and the settings readers can change (es-value-001, ES-14)")
+        L.append("")
+        L.append(f"Default: objective `{res['objective']}` (weeks {res['window'][0]}-{res['window'][1]}), injury history "
+                 f"`{res['injury_history']}` (half-life {cfg['recency_half_life_seasons']:g} seasons), playoff weeks "
+                 f"{res['league_weeks']['playoff_weeks'][0]}-{res['league_weeks']['playoff_weeks'][1]}, "
+                 f"projection confidence {res['projection_confidence']:g}. Bye share {_pct(res['bye'])}, "
+                 f"drift horizon {res['horizon_weeks']:g} weeks.")
+        L.append("")
+        L.append("| Position | m, recent seasons | m, all seasons equal | m in the playoff weeks, recent | m in the playoff weeks, all |")
+        L.append("| --- | --- | --- | --- | --- |")
+        for p in POSITIONS:
+            b = cfg["positions"][p]
+            L.append(f"| {p} | {_pct(b['m']['recent'])} | {_pct(b['m']['all'])} | {_pct(b['m_late']['recent'])} | "
+                     f"{_pct(b['m_late']['all'])} |")
     if doc.get("missed_games_history"):
         L.append("")
         L.append("## Missed-game hazard of healthy starters by season (nflverse, 2015-2025)")
@@ -588,10 +723,16 @@ def derive(actuals, schedule, byes_doc, players, history, teams=12, scoring="ppr
     first_ros = content_week + 1
     last_week = byes_doc["regular_season_weeks"][1]
     byes = bye_share(byes_doc["byes"], first_ros, last_week)
-    m = pooled_rates(actuals, schedule, sizes, scoring=scoring)
+    m = pooled_rates(actuals, schedule, sizes, scoring=scoring, season_weights=recency_weights(SEASONS))
     m_history = None
     if history_actuals is not None and history_schedule is not None:
-        m_history = pooled_rates(history_actuals, history_schedule, sizes, seasons=HISTORY_SEASONS, scoring=scoring)
+        m_history = pooled_rates(history_actuals, history_schedule, sizes, seasons=HISTORY_SEASONS, scoring=scoring,
+                                 season_weights=recency_weights(HISTORY_SEASONS))
+        m_late = pooled_rates(history_actuals, history_schedule, sizes, seasons=HISTORY_SEASONS, scoring=scoring,
+                              season_weights=recency_weights(HISTORY_SEASONS), late=True)
+    else:
+        m_late = pooled_rates(actuals, schedule, sizes, scoring=scoring, season_weights=recency_weights(SEASONS),
+                              late=True)
     cross = cross_source_sigma(players, sizes, scoring)
     pos_of = {p["player_key"]: p["pos"] for p in players}
     movement = week_to_week_sigma(history, pos_of, SCORINGS.index(scoring))
@@ -602,9 +743,26 @@ def derive(actuals, schedule, byes_doc, players, history, teams=12, scoring="ppr
     else:
         noise = weekly_noise(actuals, schedule, sizes, scoring=scoring)
     rec = recommend(m, cross, movement_summary, byes, m_history)
+    doc = {"schema": SCHEMA, "content_week": content_week, "teams": teams, "scoring": scoring,
+           "pool_sizes": sizes, "recommended": rec, "bye_share": byes, "missed_games": m,
+           "missed_games_history": m_history, "missed_games_late": m_late,
+           "week_to_week_summary": movement_summary}
+    # es-value-001 defaults (season objective, recent-weighted injury history,
+    # playoff weeks 15-17): the recommended parameters are the resolved ones.
+    cfg = build_config(doc, byes_doc["byes"])
+    res = cfg["resolved_default"]
+    for p in POSITIONS:
+        rec[p]["m_equal_weight"] = rec[p]["m"]
+        rec[p]["m"] = res["positions"][p]["m"]
+        rec[p]["m_source"] += "; weighted toward recent seasons (half-life 5 seasons, es-value-001)"
+        rec[p]["sigma_rel"] = res["positions"][p]["sigma_rel"]
+        rec[p]["sigma_rel_drift"] = math.sqrt(max(0.0, rec[p]["sigma_rel"] ** 2 - (rec[p]["sigma_rel_now"] or 0) ** 2))
+        rec[p]["m_late"] = cfg["positions"][p]["m_late"]
+    rec["bye_share"] = res["bye"]
+    byes = bye_share(byes_doc["byes"], *res["window"])
     return {"schema": SCHEMA, "content_week": content_week, "teams": teams, "scoring": scoring,
             "pool_sizes": sizes, "recommended": rec, "bye_share": byes, "missed_games": m,
-            "missed_games_history": m_history,
+            "missed_games_history": m_history, "missed_games_late": m_late, "config": cfg,
             "cross_source": cross, "week_to_week": movement, "week_to_week_summary": movement_summary,
             "weekly_noise": noise,
             "inputs": {"actuals": str(ACTUALS.relative_to(REPO)), "schedule": str(SCHEDULE.relative_to(REPO)),
@@ -637,13 +795,8 @@ def main(argv=None) -> int:
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(render_report(doc), encoding="utf-8")
     if str(args.config_out):
-        cfg = {"schema": "lineup-parameters-config/1", "content_week": doc["content_week"],
-               "source": "pipelines/derive_lineup_parameters.py (docs/methodology.md ES-1); generated, do not edit",
-               "bye_share": doc["bye_share"]["share"],
-               "positions": {p: {"m": doc["recommended"][p]["m"], "sigma_rel": doc["recommended"][p]["sigma_rel"],
-                                 "sigma_floor": doc["recommended"][p]["sigma_floor"]} for p in POSITIONS}}
         Path(args.config_out).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.config_out).write_text(json.dumps(cfg, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+        Path(args.config_out).write_text(json.dumps(doc["config"], indent=1, sort_keys=True) + "\n", encoding="utf-8")
     for pos in POSITIONS:
         r = doc["recommended"][pos]
         print(f"{pos}: m={r['m']:.3f} sigma_rel={r['sigma_rel']:.3f} (now {r['sigma_rel_now']:.3f}, "

@@ -147,5 +147,26 @@ class Live(unittest.TestCase):
             self.assertGreater(self.chart_sigma[p]["shared_players"], 50)
 
 
+
+class BenchShareReadout(unittest.TestCase):
+    """ES-14: the bench share is an output of the reader's settings (es-value-001)."""
+
+    def test_readout_by_position_and_settings(self):
+        import json
+        import value_reference as ref
+        import derive_lineup_parameters as dl
+        inp = ref.Inputs.load(ref.FIXTURE, ref.PLAYERS)
+        cfg = json.loads(dl.CONFIG.read_text(encoding="utf-8"))
+        base = es.bench_share_readout(inp, "ppr", 12, cfg)
+        self.assertEqual(set(base["bench_share"]), set(es.POSITIONS))
+        self.assertTrue(0.05 < base["bench_share_overall"] < 0.13, base["bench_share_overall"])
+        for p in es.POSITIONS:
+            self.assertTrue(0.0 <= base["bench_share"][p] < 0.25, (p, base["bench_share"][p]))
+        late = es.bench_share_readout(inp, "ppr", 12, cfg, content_week=16)
+        self.assertLess(late["fill_in_share"], base["fill_in_share"])
+        surer = es.bench_share_readout(inp, "ppr", 12, cfg, projection_confidence=0.5)
+        self.assertNotAlmostEqual(surer["bench_share_overall"], base["bench_share_overall"], places=4)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -773,6 +773,32 @@ def render_report(doc: dict) -> str:
 
 # ------------------------------------------------------------------ main
 
+def bench_share_readout(inp, scoring: str, teams: int, cfg: dict, **settings) -> dict:
+    """The dashboard's bench-share readout (ES-14), Python reference: the
+    reader's settings (objective, injury_history, league_weeks,
+    projection_confidence; see derive_lineup_parameters.resolve) resolve to
+    parameters, the expected-starts rule runs, and the bench tier's share of
+    each position's value and of the whole pie is reported. The readout is an
+    output; the bench-share override replaces it only when the reader sets it."""
+    import derive_lineup_parameters as dl
+    res = dl.resolve(cfg, **settings)
+    params = {"bye": res["bye"], **{p: dict(res["positions"][p]) for p in POSITIONS}}
+    sources, _ = load_sources(inp, scoring, teams)
+    cs = chart_sigma_from(sources, teams)
+    if res["projection_confidence"] != 1.0:
+        cs = {p: {**cs[p], "sigma_rel": cs[p]["sigma_rel"] * res["projection_confidence"]} for p in POSITIONS}
+    tiers = tiers_on_mean(sources, teams)
+    run = run_setting(sources, teams, params, cs, "A")
+    met = shares_and_ratio(ddf_mean(run["adjusted"], sorted(tiers)), tiers, teams)
+    return {"settings": {k: res[k] for k in ("objective", "injury_history", "league_weeks", "content_week",
+                                              "projection_confidence", "window")},
+            "scoring": scoring, "teams": teams,
+            "bench_share": {p: met["bench_tier_share"][p] for p in POSITIONS},
+            "bench_share_overall": met["bench_tier_share_overall"],
+            "fill_in_share": sum(v for g, v in run["weights"].items() if g.endswith("|bench")),
+            "starter_to_bench_price": met["starter_to_bench_price"]}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--params", type=Path, default=PARAMS)

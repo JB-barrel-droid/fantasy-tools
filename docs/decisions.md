@@ -421,8 +421,8 @@ Approved by Jeremy on 2026-10-07 and implemented in PR #400.
 - deadline: 2026-10-16
 - category: methodology
 - silence-default: explicit-tap
-- outcome: pending
-- outcome_date:
+- outcome: approved (option A, with the bench share as a computed readout; see Decision below)
+- outcome_date: 2026-10-09
 - ticket: JEG-533 (moved from JEG-525, closed 2026-10-09 as superseded)
 - recommendation: Adopt OC-9 A: each source's value above waivers is split into a start-worthy part and a fill-in part by the expected lineup share of the player's level (docs/methodology.md ES-0 to ES-11), with m_pos, the bye share and sigma measured weekly by pipelines/derive_lineup_parameters.py; the bench share becomes an output; the default roster is WR 3 / FLEX 1 and config/roster.json is corrected when the fit retires.
 
@@ -468,3 +468,33 @@ guard at zero inversions, and the table shown to Jeremy before publishing.
 ### Outcome Note
 
 Pending Jeremy's tap (JEG-521, JEG-450 rule).
+
+### Decision (Jeremy, 2026-10-09 20:51, JEG-533: "I'm good with this, do it")
+
+Approved, in reply to Claude's proposal on JEG-533 (20:23 and 20:43):
+
+1. **Option A.** The expected-starts parts (ES-5) replace the VP-2.6
+   slices once JEG-508 has shipped with the fixed 15%.
+2. **No bench-share slider as the input.** The bench share is an output,
+   shown as a readout by position ("Bench share this week: QB x%, RB y%,
+   WR z%, TE w%, from your league settings"), ES-14.
+3. **Reader settings are the causes, not the share.** The existing league
+   size, roster and bench size, plus league weeks (last regular-season
+   week, playoff weeks) and what to optimize for (season, regular season,
+   playoffs), ES-12 / JEG-527.
+4. **Two advanced settings behind a disclosure.** Injury history ("recent
+   seasons", the default, weighted with a five-season half-life per MR-25,
+   or "all seasons equal"), and projection confidence (scales the
+   uncertainty).
+5. **One bench-share override,** off by default.
+
+Claude's reading, flagged on JEG-533: the injury-history default is
+"recent" (the MR-25 recommendation). The approval covered the settings
+design, which offers it as a setting; Jeremy did not separately say yes to
+the default.
+
+Lands through JEG-508's pipeline after it merges. The engine, the Python
+reference and the spec reference are on one branch, `value_check` at 0, the
+12-combo sweep and the rank guard at zero inversions, and the before/after
+is shown to Jeremy on that week's data before publishing (CLAUDE.md, JEG-450).
+

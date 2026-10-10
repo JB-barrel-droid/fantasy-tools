@@ -1279,7 +1279,7 @@ gently: the fall is from byes and `sigma`, not from a shorter injury window
 `docs/methodology.md`: content week, last regular-season week (default 14),
 playoff weeks (default 15-17), and an objective (season / regular / playoffs).
 Measured effect at Week 5: bench tier 8.65% (today, weeks 6-18), 8.65%
-(season), 8.71% (regular), 8.71% (playoffs). Option (d) for this item: adopt
+(season), 8.71% (regular), 8.71% (playoffs). Option (d) adopted 2026-10-09 (es-value-001, ES-14): adopt
 ES-12's inputs now (dashboard and `b`/`sigma` windows), defer the horizon and
 standings. Tickets: JEG-527 (league week inputs), JEG-528 (horizon and
 near-week weighting), JEG-529 (waiver upside bar), JEG-531 (rookie bump
@@ -1372,7 +1372,11 @@ through injuries in 2025, so games missed understates the hit.
 | (d) 2022-2025 only | 12.6% | 8.56% | 9.04% | 5.06% | 1.67x |
 | (e) 2024-2025 only | 10.5% | 8.50% | 8.89% | 4.85% | 1.72x |
 
-**Recommendation: (b), recency weight with a five-season half-life.** It
+**Decided 2026-10-09 (es-value-001, JEG-533):** recency weight with a
+five-season half-life is the default, and readers can switch to "all
+seasons equal" (Advanced setting, ES-14).
+
+**Recommendation was: (b), recency weight with a five-season half-life.** It
 leans toward the modestly lower post-2022 level the NFL's strain data
 supports without chasing 2025, which both the analysts and the data treat
 as an outlier (its interval reaches 14%). It re-weights itself every season,

@@ -209,7 +209,11 @@ class HistoryFile(unittest.TestCase):
             self.assertIn("2015-2025", r["m_source"])
             self.assertGreater(r["m_games"], 2000)
             self.assertTrue(0.05 < r["m"] < 0.25, (pos, r["m"]))
-            self.assertAlmostEqual(r["m"], doc["missed_games_history"]["pooled"][pos]["starters"]["rate"])
+            # es-value-001 (Jeremy, 2026-10-09): m weights recent seasons (half-life 5);
+            # the equal-weight rate is kept beside it.
+            pooled = doc["missed_games_history"]["pooled"][pos]["starters"]
+            self.assertAlmostEqual(r["m"], pooled["weighted_rate"])
+            self.assertAlmostEqual(r["m_equal_weight"], pooled["rate"])
 
 
 class CommittedData(unittest.TestCase):
@@ -236,8 +240,79 @@ class CommittedData(unittest.TestCase):
             self.assertTrue(0.03 < r["sigma_rel_now"] < 0.40, (pos, r["sigma_rel_now"]))
             self.assertTrue(0.0 < r["sigma_floor"] < 3.0, (pos, r["sigma_floor"]))
             self.assertGreater(doc["missed_games"]["pooled"][pos]["starters"]["games"], 300)
-        self.assertAlmostEqual(doc["bye_share"]["share"], 30 / (32 * 13))
+        # es-value-001: the default window is the season objective, weeks 6 to the
+        # last playoff week (17), not NFL week 18 (rule changed by Jeremy, 2026-10-09).
+        self.assertAlmostEqual(doc["bye_share"]["share"], 30 / (32 * 12))
         self.assertIn("# Expected-starts parameters", dl.render_report(doc))
+
+
+class LeagueWeeksAndResolver(unittest.TestCase):
+    """es-value-001 / ES-12 / ES-14: the settings readers change, resolved to parameters."""
+
+    def cfg(self):
+        byes = {"AAA": 7, "BBB": 10, "CCC": 14, "DDD": 16}
+        pos = {p: {"m": {"recent": 0.10, "all": 0.12}, "m_late": {"recent": 0.18, "all": 0.20},
+                   "sigma_now": 0.10, "sigma_weekly": 0.10, "sigma_floor": 1.0} for p in dl.POSITIONS}
+        return {"content_week": 5, "byes": byes, "positions": pos,
+                "defaults": {"objective": "season", "injury_history": "recent",
+                             "league_weeks": {"regular_season_end": 14, "playoff_weeks": [15, 17]},
+                             "projection_confidence": 1.0}}
+
+    def test_windows_per_objective(self):
+        self.assertEqual(dl.objective_window("season", 5), (6, 17))
+        self.assertEqual(dl.objective_window("regular", 5), (6, 14))
+        self.assertEqual(dl.objective_window("playoffs", 5), (15, 17))
+        self.assertEqual(dl.objective_window("playoffs", 15), (16, 17))
+        self.assertEqual(dl.objective_window("regular", 5, {"regular_season_end": 13}), (6, 13))
+        lo, hi = dl.objective_window("regular", 15)
+        self.assertGreater(lo, hi)
+
+    def test_drift_horizon_counts_the_gap_before_the_window(self):
+        self.assertEqual(dl.drift_horizon((6, 17), 5), 6.0)
+        self.assertEqual(dl.drift_horizon((15, 17), 5), 9 + 1.5)
+        self.assertEqual(dl.drift_horizon((16, 14), 15), 0.0)
+
+    def test_resolve_bye_m_and_sigma(self):
+        cfg = self.cfg()
+        r = dl.resolve(cfg)
+        # weeks 6-17: all four byes (7, 10, 14, 16) fall inside, over 4 teams x 12 weeks
+        self.assertAlmostEqual(r["bye"], 4 / (4 * 12))
+        self.assertAlmostEqual(dl.resolve(cfg, objective="regular")["bye"], 3 / (4 * 9))
+        self.assertAlmostEqual(r["positions"]["RB"]["m"], 0.10)
+        self.assertAlmostEqual(r["positions"]["RB"]["sigma_rel"], math.sqrt(0.01 + 0.01 * 6))
+        self.assertAlmostEqual(dl.resolve(cfg, injury_history="all")["positions"]["RB"]["m"], 0.12)
+        po = dl.resolve(cfg, objective="playoffs")
+        self.assertEqual(po["window"], [15, 17])
+        self.assertAlmostEqual(po["bye"], 1 / (4 * 3))  # DDD's week-16 bye is inside 15-17 here
+        self.assertAlmostEqual(po["positions"]["RB"]["m"], 0.18)
+        half = dl.resolve(cfg, projection_confidence=0.5)["positions"]["RB"]
+        self.assertAlmostEqual(half["sigma_rel"], r["positions"]["RB"]["sigma_rel"] * 0.5)
+        self.assertAlmostEqual(half["sigma_floor"], 0.5)
+        empty = dl.resolve(cfg, objective="regular", content_week=15)
+        self.assertEqual(empty["bye"], 0.0)
+        with self.assertRaises(ValueError):
+            dl.resolve(cfg, injury_history="last year")
+
+    def test_recency_weights_halve_every_five_seasons(self):
+        w = dl.recency_weights(range(2015, 2026))
+        self.assertEqual(w[2025], 1.0)
+        self.assertAlmostEqual(w[2020], 0.5)
+        self.assertAlmostEqual(w[2015], 0.25)
+
+    def test_late_window_is_the_three_weeks_before_the_final_week(self):
+        self.assertEqual(dl.late_window({2020: {"AAA": list(range(1, 18))}}, 2020), (14, 16))
+        self.assertEqual(dl.late_window({2024: {"AAA": list(range(1, 19))}}, 2024), (15, 17))
+
+    def test_committed_config_is_schema_2_and_resolves_to_its_default(self):
+        cfg = json.loads(dl.CONFIG.read_text(encoding="utf-8"))
+        self.assertEqual(cfg["schema"], "lineup-parameters-config/2")
+        r = dl.resolve(cfg)
+        self.assertEqual(r["window"], cfg["resolved_default"]["window"])
+        for p in dl.POSITIONS:
+            for k in ("m", "sigma_rel", "sigma_floor"):
+                self.assertAlmostEqual(r["positions"][p][k], cfg["resolved_default"]["positions"][p][k])
+            self.assertTrue(0.05 < cfg["positions"][p]["m"]["recent"] < 0.25)
+            self.assertTrue(0.05 < cfg["positions"][p]["m_late"]["recent"] < 0.30)
 
 
 if __name__ == "__main__":
