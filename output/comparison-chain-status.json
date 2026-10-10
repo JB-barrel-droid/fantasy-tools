@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-10T15:27:02.341504+00:00",
+  "run_at": "2026-10-10T15:47:40.473376+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,12 +10,30 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "green",
-  "held": [],
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
+  "held": [
+    "fantasycalc"
+  ],
   "hold_severity": "none",
-  "held_detail": {},
+  "held_detail": {
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc"
+      ],
+      "restored_from": "2026-10-10T08:01:15.224329+00:00",
+      "detail": "423/1182 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 17 vs 29); 759 of 1182 values moved since the save at 2026-10-10T14:05:25.076442Z (largest 77%; 3 outside the max(25%, 50) band: Jordan Love); 2 players entered or left the",
+      "hold_severity": "amber",
+      "week": 5
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -126,5 +144,25 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "fidelity_holds": {
+    "fantasycalc": "fidelity: publisher_vs_stored"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_static_export.StaticExportTest.test_adjusted_recompute_catches_a_hand_edit",
+      "FAIL tests.test_static_export.StaticExportTest.test_adjusted_sections_recompute_from_fit_cells"
+    ],
+    "assertions": [
+      "AssertionError: False is not true : ['fantasycalc_adjusted/full_12_qb1: 160 values differ (aaron jones: stored 22.3 != recomputed 20.9, aaron rodgers: stored 0.3 != recomputed 0.1, aj brown: stored 25.8 != recomputed 25.4)', 'fantasycalc_adjusted/half_12_qb1: 163 values differ (aaron jones: stored 26.5 != recomputed 24.9, aaron rodgers: stored 0.5 != recomputed 0.1, aj brown: stored 21.7 != recomputed 21.5)', 'fantasycalc_adjusted/standard_12_qb1: 162 values differ (aaron jones: stored 27.9 != recomputed 26.1, aaron rodgers: stored 0.4 != recomputed 0.1, adonai mitchell: stored 4.1 != recomputed 4.0)']",
+      "AssertionError: Lists differ: [] != ['fantasycalc_adjusted/full_12_qb1: 160 va[526 chars].0)']"
+    ],
+    "make_targets": [
+      "Makefile:441: test-core"
+    ],
+    "detail": "FAIL tests.test_static_export.StaticExportTest.test_adjusted_recompute_catches_a_hand_edit; FAIL tests.test_static_export.StaticExportTest.test_adjusted_sections_recompute_from_fit_cells; AssertionError: False is not true : ['fantasycalc_adjusted/full_12_qb1: 160 values differ (aaron jones: stored 22.3 != recomputed 20.9, aaron rodgers: stored 0.3 != recomputed 0.1, aj brown: stored 25.8 != recomputed 25.4)', 'fantasycalc_adjusted/half_12_qb1: 163 values differ (aaron jones: stored 26.5 != recomputed 24.9, aaron rodgers: stored 0.5 != recomputed 0.1, aj brown: stored 21.7 != recomputed 21.5)', 'fantasycalc_adjusted/standard_12_qb1: 162 values differ (aaron jones: stored 27.9 != recomputed 26.1, aaron rodgers: stored 0.4 != recomputed 0.1, adonai mitchell: stored 4.1 != recomputed 4.0)']; AssertionError: Lists differ: [] != ['fantasycalc_adjusted/full_12_qb1: 160 va[526 chars].0)']",
+    "recorded_at": "2026-10-10T15:48:19.601910+00:00"
   }
 }
