@@ -16,9 +16,10 @@ Steps:
      hashes and the open math-review items, and written into
      app/values-explainer/template.html.
 
-Nothing here computes a chart value. Every number on the page is the engine's,
-except labelled sums, ratios and the two-tier reconstruction (which reports how
-closely it reproduces the engine).
+Nothing here computes a chart value. Every number on the page is the engine's
+(value-pipeline/2, docs/methodology.md "Value Pipeline"), except labelled sums
+and ratios. The builder checks that the per-source numbers it shows land on
+the values the chart draws, and the page reports the result.
 
 The narrative in the template was written against the logic files listed in
 app/values-explainer/reviewed.json. When their hashes no longer match, the page
@@ -52,14 +53,8 @@ HERMETIC_ARGS = ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCL
 LOGIC_FILES = [
     "app/trade-value-chart/assets/value-model.js",
     "app/trade-value-chart/assets/curve-widget.js",
-    "pipelines/vorp_translation/unified.py",
-    "pipelines/translate_via_vorp.py",
-    "pipelines/twotier_reference.py",
-    "pipelines/build_ddf_two_tier_leg.py",
-    "pipelines/build_adjustment_inputs.py",
-    "pipelines/build_imputed_vorps.py",
-    "pipelines/build_reweighted_values.py",
-    "pipelines/reindex_comparison_section.py",
+    "pipelines/value_reference.py",
+    "pipelines/spec_reference/value_pipeline.py",
     "docs/methodology.md",
 ]
 SETTINGS = [["ppr", 8], ["ppr", 10], ["ppr", 12], ["ppr", 14], ["half_ppr", 12], ["standard", 12]]
@@ -125,57 +120,117 @@ def r(x, nd=3):
     return None if x is None else round(float(x), nd)
 
 
+ROLE = {"starter": "s", "bench": "b", "waiver": "w"}
+CHECK_TOL = 0.01  # the page's per-source arithmetic must land on the row values
+
+
+def trim_estimate(e: dict) -> dict:
+    out = {"path": e.get("path"), "raw": r(e.get("raw")), "cap": r(e.get("cap")),
+           "capped": bool(e.get("capped")), "value": r(e.get("value"))}
+    peers = {}
+    for k, pe in (e.get("peers") or {}).items():
+        peers[k] = {"usable": pe.get("usable"), "n": len(pe.get("fitPlayers") or []),
+                    "ratio": r(pe.get("ratio"), 6), "estimate": r(pe.get("estimate"))}
+    if peers:
+        out["peers"] = peers
+    c = e.get("curve")
+    if c:
+        out["curve"] = {"kind": c.get("kind"), "n": len(c.get("points") or []), "slope": r(c.get("slope"), 6),
+                        "intercept": r(c.get("intercept"), 6), "meanPpg": r(c.get("meanPpg"))}
+    return out
+
+
+def trim_pipeline(vp: dict, full: bool = True) -> dict:
+    sources = {}
+    for k, s in (vp.get("sources") or {}).items():
+        row = {f: s.get(f) for f in ("family", "included", "totalVorp", "groups", "weights", "starterMix",
+                                       "benchMix", "rates", "unfundedGroups", "unfundedMoved",
+                                       "vorpFactor", "indexedFactor")}
+        if full:
+            row["positions"] = {}
+            for p, pp in (s.get("positions") or {}).items():
+                row["positions"][p] = {**{f: pp.get(f) for f in ("method", "waiver", "starterLine", "starters",
+                                                                 "rostered", "listed", "nEstimated")},
+                                       "estimates": {pk: trim_estimate(e) for pk, e in (pp.get("estimates") or {}).items()}}
+        sources[k] = row
+    return {f: vp.get(f) for f in ("version", "pie", "benchShare", "benchShareApplied", "included", "excluded",
+                                   "degenerate", "ddfWeights", "allocation")} | {"sources": sources}
+
+
 def trim(raw: dict) -> dict:
     """Keep what the page draws; round floats so the page stays small."""
     insp = raw["inspection"]
-    views = {v: {s: {k: r(val) for k, val in m.items()} for s, m in series.items()}
-             for v, series in raw["views"].items()}
-    published = {}
-    for key, p in insp["published"].items():
-        d = p.get("derivation") or {}
-        t = (d.get("translation") or {})
-        vw = p.get("views") or {}
-        published[key] = {
-            "native": {k: r(v, 2) for k, v in (p.get("native") or {}).items()},
-            "peers": p.get("peers"),
-            "modes": {"indexed": p["indexed"]["mode"], "vorp": p["vorp"]["mode"], "adj": p["adj"]["mode"]},
-            "ourMax": d.get("ourMax"),
-            "positions": t.get("positions"),
-            "translated": t.get("translated"),
-            "waiver": d.get("waiver"),
-            "savedIndexTotal": p.get("savedIndexTotal"),
-            "derivedVorp": {k: r(v) for k, v in (vw.get("vorp") or {}).items()},
-            "derivedAdj": {k: r(v) for k, v in (vw.get("adj") or {}).items()},
-            "vorpScale": vw.get("vorpScale"), "total": vw.get("total"),
-            "groups": vw.get("groups"), "budgets": vw.get("budgets"),
-            "roles": vw.get("roles"),
-        }
-    two = {}
-    for src, t in raw["twoTier"].items():
-        if "error" in t:
-            two[src] = t
-            continue
-        two[src] = {**{k: v for k, v in t.items() if k not in ("values", "starters", "bench")},
-                    "values": {k: r(v) for k, v in t["values"].items()},
-                    "starters": t["starters"], "bench": t["bench"]}
-    adj_inputs = json.loads((ROOT / "app/trade-value-chart/assets/adjustment-inputs.json").read_text())
-    baked = {src: e.get("diagnostics") for src, e in adj_inputs.get("sources", {}).items()}
+    vp = insp["valuePipeline"]
+    keys = list(vp["sources"])
+    charts = [k for k in keys if vp["sources"][k]["family"] == "chart"]
+    # Per source, per player on its work list (listed or estimated):
+    # [native, estimated, rank, role, value above waivers, bench slice,
+    #  starter slice, Adjusted, VORP vs waivers (display), Indexed]
+    idx = insp["views"]["indexed"]
+    src = {}
+    for k in keys:
+        out = {}
+        for pk, p in (insp["players"].get(k) or {}).items():
+            ix = idx.get(k, {}).get(pk) if k in charts else None
+            out[pk] = [r(p.get("native"), 4), 1 if p.get("estimated") else 0, p.get("rank"),
+                       ROLE.get(p.get("role"), "w"), r(p.get("vorp"), 4), r(p.get("benchSlice"), 4),
+                       r(p.get("starterSlice"), 4), r(p.get("adjusted")), r(p.get("vorpDisplay")), r(ix)]
+        src[k] = out
+
+    # Check: the per-source numbers above are the ones the chart draws.
+    rv = raw["rowValues"]
+    worst = {}
+    for k in keys:
+        for pk, p in (insp["players"].get(k) or {}).items():
+            pairs = [("adj", rv["adj"].get(k, {}).get(pk), p.get("adjusted"))]
+            vkey = k if k in charts else k + "_vorp"
+            pairs.append(("vorp", rv["vorp"].get(vkey, {}).get(pk), p.get("vorpDisplay")))
+            if k in charts:
+                pairs.append(("indexed", rv["indexed"].get(k, {}).get(pk), idx.get(k, {}).get(pk)))
+            for view, shown, ours in pairs:
+                if shown is None or ours is None:
+                    continue
+                d = abs(shown - ours)
+                if d > worst.get(f"{k}:{view}", -1):
+                    worst[f"{k}:{view}"] = d
+    off = {kv: d for kv, d in worst.items() if d > CHECK_TOL}
+
+    players = {}
+    for pk, row in insp["rows"].items():
+        meta = raw["rowMeta"].get(pk) or raw["rowMeta"].get(str(pk)) or {}
+        ddf = {}
+        for ver, b in (row.get("ddfByVersion") or {}).items():
+            ddf[ver] = [r(b.get("value")), b.get("count"), 1 if b.get("lowConfidence") else 0,
+                        r((meta.get("prior") or {}).get(ver))]
+        players[pk] = {"n": row.get("name"), "t": meta.get("team"), "p": row.get("pos"), "m": r(row.get("meanPpg")),
+                       "tier": row.get("tier"), "ddf": ddf, "est": row.get("estimated") or {},
+                       "why": row.get("reasons") or {}}
+
+    diag = raw["diagnostics"]
+    fp = diag.get("fixedPie") or {}
+    vi = diag.get("viewInvariants") or {}
+    prior = insp.get("priorValuePipeline")
     return {
         "setting": insp["setting"], "versions": insp["versions"], "labels": insp["labels"],
-        "seriesKeys": insp["seriesKeys"], "publishedKeys": insp["publishedKeys"],
-        "anchorRoles": insp["anchor"]["roles"], "batch": insp["batch"],
-        "fixedPie": insp["fixedPie"], "diagnostics": raw["diagnostics"],
-        "viewInvariants": {"indexed": raw["diagnostics"].get("viewInvariants"),
-                           "vorp": raw.get("viewInvariants_vorp"), "adj": raw.get("viewInvariants_adj")},
-        "info": raw["info"], "composite": raw["composite"],
-        "adjustmentWeights": raw["adjustmentWeights"], "bakedCells": baked,
-        "adjustmentInputsVersion": adj_inputs.get("version"),
-        "positionWeights": raw["positionWeights"], "zones": raw["zones"],
-        "players": raw["players"], "views": views, "published": published,
-        "twoTier": two,
-        "rawVorp": {k: {**{kk: vv for kk, vv in v.items() if kk != "raw"},
-                        "raw": {pk: r(pv) for pk, pv in v["raw"].items() if pv > 0}}
-                    for k, v in raw.get("rawVorp", {}).items()}, "sensitivity": raw["sensitivity"], "restored": raw["restored"],
+        "publishedKeys": insp["publishedKeys"], "sourceKeys": keys, "charts": charts,
+        "vp": trim_pipeline(vp),
+        "prior": trim_pipeline(prior, full=False) if prior else None,
+        "fillSets": {p: len(v) for p, v in (vp.get("fillSets") or {}).items()},
+        "players": players, "src": src,
+        "fixedPie": {"ok": fp.get("ok"), "pie": fp.get("pie"), "tolerance": fp.get("tolerance"),
+                     "checks": [{f: c.get(f) for f in ("source", "n", "total", "target", "vorpTotal", "groupsOk",
+                                                        "unpaid", "included", "ok")} for c in fp.get("checks") or []],
+                     "indexed": fp.get("indexed")},
+        "indexedCheck": (vi.get("indexed") or {}).get("sources"),
+        "indexedOrder": diag.get("indexedOrder"),
+        "sourcePeaks": diag.get("sourcePeaks"),
+        "publishedDerivation": diag.get("publishedDerivation"),
+        "priorAvailable": diag.get("priorAvailable"), "priorReason": diag.get("priorReason"),
+        "info": [{f: s.get(f) for f in ("key", "label", "week", "stale", "waiverNote", "included", "excludedReason",
+                                         "available", "paused")} for s in raw["info"]],
+        "composite": raw["composite"], "positionWeights": raw["positionWeights"], "zones": raw["zones"],
+        "sensitivity": raw["sensitivity"], "restored": raw["restored"],
+        "reconstruction": {"tolerance": CHECK_TOL, "worst": {k: r(v, 6) for k, v in worst.items()}, "off": off},
     }
 
 
@@ -219,7 +274,8 @@ def main(argv=None) -> int:
         args.data_out.parent.mkdir(parents=True, exist_ok=True)
         args.data_out.write_text(json.dumps(data, indent=1))
     print(f"values explainer -> {args.out} ({len(html) // 1024} KB, commit {data['meta']['commit']}, "
-          f"logic changed since review: {data['meta']['logic_changed'] or 'none'})")
+          f"logic changed since review: {data['meta']['logic_changed'] or 'none'}, "
+          f"off the drawn values: {data['reconstruction']['off'] or 'none'})")
     return 0
 
 
