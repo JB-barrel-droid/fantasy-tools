@@ -1220,7 +1220,7 @@ pie and `P(X > l)` as the G5 Stash signal.
 (recommended). (b) Convex form in the pie. (c) Share form plus a separate
 "option value" series on the pie scale, not in DDF Value.
 
-**Depends on:** `es-value-001`; G4 for a measured `sigma`.
+**Depends on:** `es-value-001`; G4 for a measured `sigma`. Option (c) ticket: JEG-530.
 **Sources:** `pipelines/expected_starts_model.py` (`form="option"`),
 `output/expected-starts-before-after.md` sensitivity rows.
 
@@ -1276,7 +1276,9 @@ playoff weeks (default 15-17), and an objective (season / regular / playoffs).
 Measured effect at Week 5: bench tier 8.65% (today, weeks 6-18), 8.65%
 (season), 8.71% (regular), 8.71% (playoffs). Option (d) for this item: adopt
 ES-12's inputs now (dashboard and `b`/`sigma` windows), defer the horizon and
-standings.
+standings. Tickets: JEG-527 (league week inputs), JEG-528 (horizon and
+near-week weighting), JEG-529 (waiver upside bar), JEG-531 (rookie bump
+against projections).
 
 ## MR-23 - Matchups and weekly variance by position (Jeremy, JEG-525)
 
@@ -1402,7 +1404,7 @@ projection with probability 1 - q, the promoted level with probability q.
 Raises bench value for 20-30 named backs; same sigma concerns as MR-21.
 
 **Recommendation:** (b) now (it fits MR-21's line: options are signals, not
-pie); revisit (c) when G4 measures projection error. **Depends on:**
+pie); revisit (c) when G4 measures projection error. Ticket: JEG-526. **Depends on:**
 `es-value-001`, MR-21. **Sources:** ES-13, JEG-525.
 
 ## MR-27 - Why analysts bench players, and which reasons the math covers (Jeremy, JEG-525)
