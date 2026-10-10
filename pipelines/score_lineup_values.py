@@ -412,7 +412,8 @@ def projected_start_calibration(start_worthy: dict, pos_of: dict, weekly_project
 def projection_error(weekly_projection: dict, weekly_actuals: dict, pos_of: dict, weeks: list,
                      starters_per_pos: dict) -> dict:
     """Per position: mean error (projection minus actual), mean absolute
-    error and n, for player-weeks with a projection above 0 and a stat line;
+    error and n, for player-weeks with a projection above 0 and a stat line
+    (conditional on playing: a projected player who sat is left out);
     `starters` restricts to the players projected inside the starter count."""
     chosen = projected_starters(weekly_projection, pos_of, weeks, starters_per_pos)
     acc = defaultdict(lambda: {"all": [], "starters": []})
@@ -558,7 +559,9 @@ def render_report(doc: dict) -> str:
                          + ("n/a" if rr is None else f"{100 * rr:.1f}%") + " |")
         if e.get("projection_error"):
             L.append("")
-            L.append("ESPN weekly projection minus actual points, player-weeks with a projection above 0 and a stat line:")
+            L.append("ESPN weekly projection minus actual points, player-weeks with a projection above 0 and a stat line. "
+                     "Conditional on playing: a player projected to play who then sat has no stat line and is left out, "
+                     "so these errors do not include the misses from inactive players.")
             L.append("")
             L.append("| Position | n | Mean error | Mean absolute error | Projected starters n | Starters mean error | Starters mean absolute error |")
             L.append("| --- | --- | --- | --- | --- | --- | --- |")
