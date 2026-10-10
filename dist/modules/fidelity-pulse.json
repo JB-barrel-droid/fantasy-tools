@@ -1,8 +1,8 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-10T06:40:21.089780Z",
- "run_id": "a70a74bd-6612-48d4-8d68-b95e1b77e639",
- "overall": "red",
+ "checked_at": "2026-10-10T07:02:22.701024Z",
+ "run_id": "9cc49f24-23dc-498f-820f-c9a7780c2dec",
+ "overall": "amber",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
   "built_at": "2026-10-10T05:01:41.065126+00:00",
@@ -23,18 +23,7 @@
   "tolerance": "per-source tolerance (JEG-520, measured in docs/fidelity-tolerances.md): FantasyCalc live-feed movement band max(25%, 50 points), red only above 10% of values outside it; article charts exact against the same article version, a later revision is 'update available' for 24 h, then stale; projections exact against the same publisher version (probe fingerprint), a changed version amber for 24 h, then stale; ESPN amber, then re-sync: red only when the mismatch survives a fresh sync",
   "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
- "holds": {
-  "espn": {
-   "stage": "stored_vs_chart",
-   "stages": [
-    "stored_vs_chart"
-   ],
-   "reason": "fidelity: stored_vs_chart",
-   "identity": "2026-10-10@2026-10-10T05:44:43.842149Z",
-   "since": "2026-10-10T06:40:21.089780Z",
-   "summary": "no stored ESPN snapshot 2026-10-09 (the chart's vintage)"
-  }
- },
+ "holds": {},
  "sources": [
   {
    "source": "usatoday",
@@ -261,17 +250,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "22/1169 values match exactly across 6 columns; 1147 of 1169 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 60%; 11 outside the max(25%, 50) band: Dallas Goedert, Daniel Jones, Jordan Love, Mike Washington); 7 players entered or left the bottom of the list since the save (churn)",
+     "summary": "18/1164 values match exactly across 6 columns; 1146 of 1164 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 65%; 15 outside the max(25%, 50) band: Dallas Goedert, Daniel Jones, Jordan Love, Mike Washington); 6 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
+      "publisher_players": 197,
       "stored_players": 197,
-      "compared": 1169,
-      "matched": 22,
-      "mismatched": 1147,
+      "compared": 1164,
+      "matched": 18,
+      "mismatched": 1146,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 7,
+      "list_churn": 6,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -281,39 +270,39 @@
      "bake_saved_at": "2026-10-10T00:05:25.088955Z",
      "grains": {
       "full|1": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 193,
+       "mismatched": 191,
        "missing": 3,
-       "extra": 2
+       "extra": 3
       },
       "full|2": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 189,
+       "mismatched": 191,
        "missing": 3,
-       "extra": 2
+       "extra": 3
       },
       "half|1": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 192,
+       "mismatched": 191,
        "missing": 3,
-       "extra": 2
+       "extra": 3
       },
       "half|2": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 189,
+       "mismatched": 191,
        "missing": 3,
-       "extra": 2
+       "extra": 3
       },
       "std|1": {
-       "left": 198,
+       "left": 197,
        "right": 197,
-       "mismatched": 193,
+       "mismatched": 191,
        "missing": 3,
-       "extra": 2
+       "extra": 3
       },
       "std|2": {
        "left": 197,
@@ -324,6 +313,26 @@
       }
      },
      "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 3442,
+       "name": "Jordan Love",
+       "pos": "QB",
+       "left": "2595",
+       "right": 1928.0,
+       "delta": -667.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 3442,
+       "name": "Jordan Love",
+       "pos": "QB",
+       "left": "2593",
+       "right": 1927.0,
+       "delta": -666.0
+      },
       {
        "type": "value_mismatch",
        "grain": "std|2",
@@ -337,32 +346,12 @@
       {
        "type": "value_mismatch",
        "grain": "half|2",
-       "player_key": 3442,
-       "name": "Jordan Love",
-       "pos": "QB",
-       "left": "2513",
-       "right": 1928.0,
-       "delta": -585.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 3442,
-       "name": "Jordan Love",
-       "pos": "QB",
-       "left": "2511",
-       "right": 1927.0,
-       "delta": -584.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|2",
        "player_key": 4158,
        "name": "C.J. Stroud",
        "pos": "QB",
-       "left": "1953",
+       "left": "1969",
        "right": 2478.0,
-       "delta": 525.0
+       "delta": 509.0
       },
       {
        "type": "value_mismatch",
@@ -370,9 +359,9 @@
        "player_key": 4158,
        "name": "C.J. Stroud",
        "pos": "QB",
-       "left": "1952",
+       "left": "1968",
        "right": 2476.0,
-       "delta": 524.0
+       "delta": 508.0
       },
       {
        "type": "value_mismatch",
@@ -386,23 +375,23 @@
       },
       {
        "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 1760,
-       "name": "Caleb Williams",
-       "pos": "QB",
-       "left": "4395",
-       "right": 4684.0,
-       "delta": 289.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
+       "grain": "full|1",
        "player_key": 3289,
        "name": "Amon-Ra St. Brown",
        "pos": "WR",
-       "left": "8028",
-       "right": 8315.0,
-       "delta": 287.0
+       "left": "8114",
+       "right": 8455.0,
+       "delta": 341.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 3289,
+       "name": "Amon-Ra St. Brown",
+       "pos": "WR",
+       "left": "8058",
+       "right": 8397.0,
+       "delta": 339.0
       }
      ],
      "outside_universe": [],
@@ -495,8 +484,8 @@
        "publisher": {
         "QB": 34,
         "RB": 59,
-        "WR": 77,
-        "TE": 28
+        "WR": 75,
+        "TE": 29
        },
        "stored": {
         "QB": 34,
@@ -546,6 +535,28 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 3442,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "left": "2595",
+     "right": 1928.0,
+     "delta": -667.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 3442,
+     "name": "Jordan Love",
+     "pos": "QB",
+     "left": "2593",
+     "right": 1927.0,
+     "delta": -666.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "std|2",
      "player_key": 3442,
      "name": "Jordan Love",
@@ -558,34 +569,12 @@
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "half|2",
-     "player_key": 3442,
-     "name": "Jordan Love",
-     "pos": "QB",
-     "left": "2513",
-     "right": 1928.0,
-     "delta": -585.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 3442,
-     "name": "Jordan Love",
-     "pos": "QB",
-     "left": "2511",
-     "right": 1927.0,
-     "delta": -584.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|2",
      "player_key": 4158,
      "name": "C.J. Stroud",
      "pos": "QB",
-     "left": "1953",
+     "left": "1969",
      "right": 2478.0,
-     "delta": 525.0
+     "delta": 509.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -594,9 +583,9 @@
      "player_key": 4158,
      "name": "C.J. Stroud",
      "pos": "QB",
-     "left": "1952",
+     "left": "1968",
      "right": 2476.0,
-     "delta": 524.0
+     "delta": 508.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -612,24 +601,24 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 1760,
-     "name": "Caleb Williams",
-     "pos": "QB",
-     "left": "4395",
-     "right": 4684.0,
-     "delta": 289.0
+     "grain": "full|1",
+     "player_key": 3289,
+     "name": "Amon-Ra St. Brown",
+     "pos": "WR",
+     "left": "8114",
+     "right": 8455.0,
+     "delta": 341.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "std|2",
+     "grain": "half|1",
      "player_key": 3289,
      "name": "Amon-Ra St. Brown",
      "pos": "WR",
-     "left": "8028",
-     "right": 8315.0,
-     "delta": 287.0
+     "left": "8058",
+     "right": 8397.0,
+     "delta": 339.0
     }
    ],
    "held": null,
@@ -1117,7 +1106,7 @@
   {
    "source": "espn",
    "label": "ESPN",
-   "status": "red",
+   "status": "amber",
    "stored_week": null,
    "chart_week": null,
    "content_week": 5,
@@ -1174,8 +1163,12 @@
      "unresolved": []
     },
     "stored_vs_chart": {
-     "status": "red",
-     "summary": "no stored ESPN snapshot 2026-10-09 (the chart's vintage)"
+     "status": "amber",
+     "summary": "the chart's snapshot 2026-10-09 is no longer stored: the stored set is now 2026-10-10; the chart is behind until the next chain run rebuilds it",
+     "chart_snapshot": "2026-10-09",
+     "behind": {
+      "snapshot": "2026-10-10"
+     }
     },
     "freshness": {
      "status": "green",
@@ -1241,16 +1234,7 @@
    },
    "worst_examples": [],
    "held": null,
-   "hold": {
-    "stage": "stored_vs_chart",
-    "stages": [
-     "stored_vs_chart"
-    ],
-    "reason": "fidelity: stored_vs_chart",
-    "identity": "2026-10-10@2026-10-10T05:44:43.842149Z",
-    "since": "2026-10-10T06:40:21.089780Z",
-    "summary": "no stored ESPN snapshot 2026-10-09 (the chart's vintage)"
-   }
+   "hold": null
   },
   {
    "source": "cbsros",
@@ -1646,10 +1630,10 @@
   "fantasycalc": "2026-10-10T05:01:41.065126+00:00",
   "fantasypros": "2026-10-10T05:01:41.065126+00:00",
   "cbs": "2026-10-10T05:01:41.065126+00:00",
-  "espn": "2026-10-10T01:06:26.110167+00:00",
+  "espn": "2026-10-10T05:01:41.065126+00:00",
   "cbsros": "2026-10-10T05:01:41.065126+00:00",
   "razzball": "2026-10-10T05:01:41.065126+00:00"
  },
  "resyncs": {},
- "holds_changed": false
+ "holds_changed": true
 }
