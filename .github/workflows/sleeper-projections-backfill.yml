@@ -6,7 +6,8 @@ name: Sleeper weekly projections backfill (JEG-540)
 # result is uploaded as a workflow artifact and committed by a session after
 # review. Sleeper is an internal source only (CLAUDE.md branding).
 #
-#   push to sleeper-backfill/*  -> run with the defaults
+#   push to sleeper-backfill/*  -> run with the defaults; the result is committed
+#                                  back to the same branch with [skip ci]
 #   workflow_dispatch           -> choose seasons and weeks
 
 on:
@@ -24,7 +25,7 @@ on:
     branches: ["sleeper-backfill/*"]
 
 permissions:
-  contents: read
+  contents: write  # commits the pulled file back to this sleeper-backfill/* branch only
 
 concurrency:
   group: sleeper-projections-backfill
@@ -45,6 +46,16 @@ jobs:
             --seasons "${{ github.event.inputs.seasons || '2018-2026' }}" \
             --weeks "${{ github.event.inputs.weeks || '1-18' }}" \
             --out out/weekly_projections_sleeper.csv.gz
+      - name: Commit the result to this branch
+        if: startsWith(github.ref_name, 'sleeper-backfill/')
+        run: |
+          mkdir -p data/inputs
+          cp out/weekly_projections_sleeper.csv.gz out/weekly_projections_sleeper.coverage.json data/inputs/
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/inputs/weekly_projections_sleeper.csv.gz data/inputs/weekly_projections_sleeper.coverage.json
+          git commit -m "Sleeper weekly projections backfill data (part of JEG-540) [skip ci]" || echo "nothing to commit"
+          git push origin HEAD:${GITHUB_REF_NAME}
       - uses: actions/upload-artifact@v4
         with:
           name: sleeper-weekly-projections
