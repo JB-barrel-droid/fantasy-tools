@@ -86,7 +86,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/inputs/weekly_actuals_2024_2026.csv data/inputs/espn_weekly_projections_2026.csv output/espn-weekly-store.json
+          git add data/inputs/weekly_actuals_2024_2026.csv data/inputs/espn_weekly_projections_2026.csv
+          git add -f output/espn-weekly-store.json  # output/ is gitignored
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
