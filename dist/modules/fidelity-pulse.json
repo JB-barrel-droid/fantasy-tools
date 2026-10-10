@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-10T12:16:26.588094Z",
- "run_id": "19cb2b0f-b3d7-4ecc-a3d0-31da970c58dd",
+ "checked_at": "2026-10-10T12:40:17.127510Z",
+ "run_id": "46abf5db-7dfc-4037-a588-434186ad2ed3",
  "overall": "amber",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -250,17 +250,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "27/1170 values match exactly across 6 columns; 1143 of 1170 values moved since the save at 2026-10-10T07:05:26.085599Z (largest 80%; 6 outside the max(25%, 50) band: Aaron Rodgers, Michael Penix); 4 players entered or left the bottom of the list since the save (churn)",
+     "summary": "16/1170 values match exactly across 6 columns; 1154 of 1170 values moved since the save at 2026-10-10T07:05:26.085599Z (largest 91%; 6 outside the max(25%, 50) band: Aaron Rodgers, Michael Penix); 6 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 197,
+      "publisher_players": 199,
       "stored_players": 197,
       "compared": 1170,
-      "matched": 27,
-      "mismatched": 1143,
+      "matched": 16,
+      "mismatched": 1154,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 4,
+      "list_churn": 6,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -270,23 +270,23 @@
      "bake_saved_at": "2026-10-10T07:05:26.085599Z",
      "grains": {
       "full|1": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 192,
-       "missing": 2,
+       "mismatched": 193,
+       "missing": 3,
        "extra": 2
       },
       "full|2": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 189,
-       "missing": 2,
+       "mismatched": 193,
+       "missing": 3,
        "extra": 2
       },
       "half|1": {
        "left": 197,
        "right": 197,
-       "mismatched": 192,
+       "mismatched": 193,
        "missing": 2,
        "extra": 2
       },
@@ -298,17 +298,17 @@
        "extra": 2
       },
       "std|1": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 192,
-       "missing": 2,
+       "mismatched": 193,
+       "missing": 3,
        "extra": 2
       },
       "std|2": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 189,
-       "missing": 2,
+       "mismatched": 193,
+       "missing": 3,
        "extra": 2
       }
      },
@@ -319,19 +319,9 @@
        "player_key": 28,
        "name": "Aaron Rodgers",
        "pos": "QB",
-       "left": "903",
+       "left": "960",
        "right": 502.0,
-       "delta": -401.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 28,
-       "name": "Aaron Rodgers",
-       "pos": "QB",
-       "left": "903",
-       "right": 502.0,
-       "delta": -401.0
+       "delta": -458.0
       },
       {
        "type": "value_mismatch",
@@ -339,19 +329,19 @@
        "player_key": 28,
        "name": "Aaron Rodgers",
        "pos": "QB",
-       "left": "892",
+       "left": "949",
        "right": 496.0,
-       "delta": -396.0
+       "delta": -453.0
       },
       {
        "type": "value_mismatch",
        "grain": "half|2",
-       "player_key": 1765,
-       "name": "Michael Penix",
+       "player_key": 28,
+       "name": "Aaron Rodgers",
        "pos": "QB",
-       "left": "1250",
-       "right": 948.0,
-       "delta": -302.0
+       "left": "903",
+       "right": 502.0,
+       "delta": -401.0
       },
       {
        "type": "value_mismatch",
@@ -359,9 +349,9 @@
        "player_key": 1765,
        "name": "Michael Penix",
        "pos": "QB",
-       "left": "1249",
+       "left": "1285",
        "right": 948.0,
-       "delta": -301.0
+       "delta": -337.0
       },
       {
        "type": "value_mismatch",
@@ -369,29 +359,39 @@
        "player_key": 1765,
        "name": "Michael Penix",
        "pos": "QB",
-       "left": "1235",
+       "left": "1270",
        "right": 937.0,
-       "delta": -298.0
+       "delta": -333.0
       },
       {
        "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 506,
-       "name": "Lamar Jackson",
-       "pos": "QB",
-       "left": "7370",
-       "right": 7619.0,
-       "delta": 249.0
+       "grain": "std|1",
+       "player_key": 3862,
+       "name": "Chase Brown",
+       "pos": "RB",
+       "left": "5650",
+       "right": 5965.0,
+       "delta": 315.0
       },
       {
        "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 506,
-       "name": "Lamar Jackson",
-       "pos": "QB",
-       "left": "7376",
-       "right": 7625.0,
-       "delta": 249.0
+       "grain": "std|1",
+       "player_key": 164,
+       "name": "Aaron Jones",
+       "pos": "RB",
+       "left": "2165",
+       "right": 1851.0,
+       "delta": -314.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 3862,
+       "name": "Chase Brown",
+       "pos": "RB",
+       "left": "5618",
+       "right": 5931.0,
+       "delta": 313.0
       }
      ],
      "outside_universe": [],
@@ -483,8 +483,8 @@
        "week_compared": 4,
        "publisher": {
         "QB": 34,
-        "RB": 59,
-        "WR": 76,
+        "RB": 58,
+        "WR": 77,
         "TE": 28
        },
        "stored": {
@@ -539,20 +539,9 @@
      "player_key": 28,
      "name": "Aaron Rodgers",
      "pos": "QB",
-     "left": "903",
+     "left": "960",
      "right": 502.0,
-     "delta": -401.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 28,
-     "name": "Aaron Rodgers",
-     "pos": "QB",
-     "left": "903",
-     "right": 502.0,
-     "delta": -401.0
+     "delta": -458.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -561,20 +550,20 @@
      "player_key": 28,
      "name": "Aaron Rodgers",
      "pos": "QB",
-     "left": "892",
+     "left": "949",
      "right": 496.0,
-     "delta": -396.0
+     "delta": -453.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "half|2",
-     "player_key": 1765,
-     "name": "Michael Penix",
+     "player_key": 28,
+     "name": "Aaron Rodgers",
      "pos": "QB",
-     "left": "1250",
-     "right": 948.0,
-     "delta": -302.0
+     "left": "903",
+     "right": 502.0,
+     "delta": -401.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -583,9 +572,9 @@
      "player_key": 1765,
      "name": "Michael Penix",
      "pos": "QB",
-     "left": "1249",
+     "left": "1285",
      "right": 948.0,
-     "delta": -301.0
+     "delta": -337.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -594,31 +583,42 @@
      "player_key": 1765,
      "name": "Michael Penix",
      "pos": "QB",
-     "left": "1235",
+     "left": "1270",
      "right": 937.0,
-     "delta": -298.0
+     "delta": -333.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "7370",
-     "right": 7619.0,
-     "delta": 249.0
+     "grain": "std|1",
+     "player_key": 3862,
+     "name": "Chase Brown",
+     "pos": "RB",
+     "left": "5650",
+     "right": 5965.0,
+     "delta": 315.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "7376",
-     "right": 7625.0,
-     "delta": 249.0
+     "grain": "std|1",
+     "player_key": 164,
+     "name": "Aaron Jones",
+     "pos": "RB",
+     "left": "2165",
+     "right": 1851.0,
+     "delta": -314.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 3862,
+     "name": "Chase Brown",
+     "pos": "RB",
+     "left": "5618",
+     "right": 5931.0,
+     "delta": 313.0
     }
    ],
    "held": null,
@@ -630,7 +630,7 @@
    "status": "amber",
    "stored_week": 5,
    "chart_week": 5,
-   "stored_bake": "fpwk5_2026-10-09t1235_v1",
+   "stored_bake": "fpwk5_2026-10-10t1235_v1",
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
@@ -650,8 +650,8 @@
      "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-5-2026/",
      "page_week": 5,
      "page_modified": "2026-10-06T16:31:34+00:00",
-     "bake_id": "fpwk5_2026-10-09t1235_v1",
-     "bake_saved_at": "2026-10-09T12:35:46.178513Z",
+     "bake_id": "fpwk5_2026-10-10t1235_v1",
+     "bake_saved_at": "2026-10-10T12:35:43.369496Z",
      "grains": {
       "full|1": {
        "left": 178,
@@ -1289,17 +1289,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "1082/1101 values match exactly across 3 columns; 19 value mismatches, 0 publisher players not stored, 1 stored players not on the page; daily update, ingest pending: the publisher changed since the save (fingerprint 88b05734afffdd984f68483e at the save, 7449fc79972d2afb4628438c now); 1 publisher names matched by the stored row's key (the canonical resolver refuses their listed position: Connor Heyward); 3 players at the page's last listed value swapped in or out (ties at the row cap: Eli Stowers, Jauan Jennings, Seydou Traore); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1085/1104 values match exactly across 3 columns; 19 value mismatches, 0 publisher players not stored, 1 stored players not on the page; daily update, ingest pending: the publisher changed since the save (fingerprint 88b05734afffdd984f68483e at the save, 7449fc79972d2afb4628438c now); 1 publisher names matched by the stored row's key (the canonical resolver refuses their listed position: Connor Heyward); 1 players at the page's last listed value swapped in or out (ties at the row cap: Jauan Jennings); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 369,
       "stored_players": 369,
-      "compared": 1101,
-      "matched": 1082,
+      "compared": 1104,
+      "matched": 1085,
       "mismatched": 19,
       "missing_in_stored": 0,
       "extra_in_stored": 1,
       "outside_universe": 0,
-      "list_churn": 3,
+      "list_churn": 1,
       "unresolved_names": 0
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -1311,22 +1311,22 @@
        "left": 369,
        "right": 369,
        "mismatched": 7,
-       "missing": 2,
-       "extra": 2
+       "missing": 1,
+       "extra": 1
       },
       "half|1": {
        "left": 369,
        "right": 369,
        "mismatched": 7,
-       "missing": 2,
-       "extra": 2
+       "missing": 1,
+       "extra": 1
       },
       "std|1": {
        "left": 369,
        "right": 369,
        "mismatched": 5,
-       "missing": 2,
-       "extra": 2
+       "missing": 1,
+       "extra": 1
       }
      },
      "publisher_version": "changed",
@@ -1824,7 +1824,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher updated 2026-10-10 (2 h ago); chart shows snapshot 2026-10-09",
+     "summary": "publisher updated 2026-10-10 (3 h ago); chart shows snapshot 2026-10-09",
      "chart_snapshot": "2026-10-09",
      "publisher_vintage": "2026-10-10"
     },
@@ -2014,5 +2014,5 @@
   "razzball": "2026-10-10T08:01:15.224329+00:00"
  },
  "resyncs": {},
- "holds_changed": true
+ "holds_changed": false
 }
