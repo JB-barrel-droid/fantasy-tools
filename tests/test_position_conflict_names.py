@@ -56,6 +56,18 @@ class PositionConflictNames(unittest.TestCase):
                 self.assertEqual(1, len(ids), f"{name}: Sleeper has namesakes")
                 self.assertEqual(pos, players[ids[0]]["pos"])
 
+    def test_the_identity_snapshot_agrees(self):
+        """The ESPN puller checks positions against data/inputs/player_identity_map.json first: the
+        04:46Z sync after the fix stored Russell, Yankoff, Nowakowski and Meeks, but dropped Connor
+        Heyward ("identity-pos-mismatch: ESPN=RB registry=TE")."""
+        snap = json.loads((ROOT / "data" / "inputs" / "player_identity_map.json").read_text(encoding="utf-8"))
+        for _key, name, _old, pos in CONFLICTS:
+            entry = snap["canonical"].get(name.lower())
+            if entry is None:
+                continue
+            with self.subTest(name=name):
+                self.assertEqual(pos, entry["pos"])
+
     def test_the_publishers_names_resolve_after_the_fix_and_not_before(self):
         before = canonical_players.Registry(
             [{"player_key": k, "full_name": n, "position": old, "active": True} for k, n, old, _p in CONFLICTS])
