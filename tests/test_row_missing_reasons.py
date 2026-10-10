@@ -15,6 +15,17 @@
    (order would invert)", never the unadjusted chart value.
 
 Headless on the built dist/ (the live page).
+
+JEG-508 (docs/methodology.md "Value Pipeline", VP-2.4 / VP-6.2 / VP-10)
+changed rules 2 and 3, and only those assertions moved:
+2'. A chart that prices a position gives EVERY row at that position a
+    number, in every view: its listed players, the rosterable players it does
+    not list (estimated, marked in row.estimated), and 0 below rosterable
+    depth ("Below rosterable depth; <label> doesn't list him"). The shallow
+    "Chart doesn't list players this deep" null is retired.
+3'. The adjustment fits (identity-fallback cells, adjustment-inputs.json) are
+    retired: the "*_adjusted" aliases carry the chart's Adjusted values, so a
+    failed adjustment-inputs load changes no value and leaves no null.
 """
 from __future__ import annotations
 
@@ -36,7 +47,7 @@ SWEEP = """async (charts) => {
   const c = window.TradeValueCurveControls;
   const view = v => document.querySelector(`#viewModeTabs [data-view-mode=${v}]`).click();
   const out = {unexplained: [], ddfMismatch: [], fullNull: [], shallowWrong: [], nulls: 0, zeros: 0,
-    shallowNulls: 0, fallbackNulls: 0, reasons: {}};
+    shallowNulls: 0, fallbackNulls: 0, estimated: 0, reasons: {}};
   const cases = [['ppr', 12], ['standard', 8], ['half_ppr', 14]];
   for (const [scoring, teams] of cases) {
     c.setScoring(scoring); c.setTeams(teams);
@@ -56,6 +67,7 @@ SWEEP = """async (charts) => {
           }
           out.reasons[reason.replace(/ at (QB|RB|WR|TE)$/, ' at <pos>').replace(/for .* teams$/, 'for <setting>')] = true;
           if (reason.startsWith("Chart doesn't list")) out.shallowNulls += 1;
+          if (reason.startsWith('Below rosterable depth')) out.shallowWrong.push(`${tag} ${r.name} ${key}: null with ${reason}`);
           if (key.endsWith('_adjusted') && (reason.startsWith('Not enough players') || reason.startsWith('Adjustment fit refused'))) out.fallbackNulls += 1;
         });
         if (r.values.ddf_value === null && r.missingReasons?.ddf_value !== r.ddfReason) {
@@ -65,18 +77,14 @@ SWEEP = """async (charts) => {
           const waiver = info[chart]?.waiver;
           if (!waiver || !info[chart].available) continue;
           const method = waiver.positions?.[r.pos]?.method;
-          for (const key of [chart, chart === 'cbs' ? 'cbs_adjusted' : `${chart}_adjusted`]) {
+          for (const key of [chart, `${chart}_adjusted`]) {
             const value = r.values[key];
             const reason = r.missingReasons?.[key] || '';
             if (!info[key]?.available) continue;
-            if (method === 'roster_determined') {
+            if (method && method !== 'no_players') {
               if (value === 0) out.zeros += 1;
-              if (value === null && !(key.endsWith('_adjusted') && (reason.startsWith('Not enough') || reason.startsWith('Adjustment fit')))) {
-                if (out.fullNull.length < 20) out.fullNull.push(`${tag} ${r.name} ${r.pos} ${key}: ${reason}`);
-              }
-            } else if (value === null && !reason.startsWith("Chart doesn't list") && !reason.startsWith('Not enough')
-                       && !reason.startsWith('Adjustment fit')) {
-              if (out.shallowWrong.length < 20) out.shallowWrong.push(`${tag} ${r.name} ${r.pos} ${key}: ${reason}`);
+              if (r.estimated?.[chart]) out.estimated += 1;
+              if (value === null && out.fullNull.length < 20) out.fullNull.push(`${tag} ${r.name} ${r.pos} ${key}: ${reason}`);
             }
           }
         }
@@ -161,29 +169,19 @@ class RowMissingReasonsTest(unittest.TestCase):
         self.assertGreater(out["nulls"], 100, "no nulls, so the reason rule went untested")
         self.assertEqual(out["unexplained"], [], "\n".join(out["unexplained"]))
         self.assertEqual(out["ddfMismatch"], [])
-        self.assertEqual(out["fullNull"], [], "a fully loaded chart left a player missing:\n" + "\n".join(out["fullNull"]))
+        self.assertEqual(out["fullNull"], [], "a chart that prices the position left a player missing:\n" + "\n".join(out["fullNull"]))
         self.assertEqual(out["shallowWrong"], [], "\n".join(out["shallowWrong"]))
-        self.assertGreater(out["zeros"], 100, "no unlisted player at a fully loaded position, so missing = 0 went untested")
-        self.assertGreater(out["shallowNulls"], 0, "no shallow position, so the shallow reason went untested")
+        self.assertGreater(out["zeros"], 100, "no player below rosterable depth, so 0 went untested")
+        self.assertGreater(out["estimated"], 0, "no estimated player, so the fill-in went untested")
+        # VP-6.2: the shallow null and the fit fallbacks are retired.
+        self.assertEqual((out["shallowNulls"], out["fallbackNulls"]), (0, 0))
 
-    def test_identity_fallback_cells_are_blank(self):
-        inputs = json.loads((DIST / "assets" / "adjustment-inputs.json").read_text(encoding="utf-8"))
-        fallback = {(src, c["position"], c["tier"]) for src, e in inputs["sources"].items()
-                    for c in e.get("cells", []) if c.get("fallback")}
-        out = run(FALLBACK)
-        self.assertEqual(out["pageErrors"], [])
-        self.assertEqual(out["problems"], [])
-        if fallback:
-            self.assertTrue(out["blanked"], f"fallback cells {sorted(fallback)} blanked no player")
-            for _name, _pos, key, reason in out["blanked"]:
-                self.assertIn(reason, FALLBACK_REASONS)
-                self.assertIn(key.replace("_adjusted", ""), {src for src, _p, _t in fallback})
-
-    def test_failed_adjustment_load_is_the_reason(self):
+    def test_failed_adjustment_load_changes_nothing(self):
+        # JEG-508: the engine no longer reads adjustment-inputs.json, so a
+        # failed load leaves every null explained and no "*_adjusted" null.
         out = run(FAILED_LOAD, route_adjustments_fail=True)
         self.assertEqual(out["unexplained"], [], "\n".join(out["unexplained"][:20]))
-        self.assertEqual(set(out["adjusted"]), {"Adjustment data failed to load"}, out["adjusted"])
-
+        self.assertNotIn("Adjustment data failed to load", out["adjusted"])
 
 if __name__ == "__main__":
     unittest.main()

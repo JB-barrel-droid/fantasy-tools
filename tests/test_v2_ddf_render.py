@@ -386,9 +386,8 @@ class DdfRenderTest(unittest.TestCase):
         js, cs = "text/javascript", "text/css"
         broken = {
             "DDF Value hidden by default": {"v2.js": (v2.replace("    return [DDF_KEY].concat(info.filter(", "    return [].concat(info.filter(", 1), js)},
-            "ranked by the engine's own default": {"v2.js": (v2.replace(
-                "const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);",
-                "const rank = saved && saved.rank ? saved.rank : null;", 1), js)},
+            # ("ranked by the engine's own default" retired with JEG-508 VP-7.4:
+            # the engine's own default lock IS the DDF Value now.)
             "inputs never reach the engine": {"v2.js": (v2.replace(
                 "if (changed) C.setCompositeInputs([...inputsDraft]);", "if (false) C.setCompositeInputs([...inputsDraft]);", 1), js)},
             "choice not remembered": {"v2.js": (v2.replace("localStorage.setItem(SAVE_KEY,", "void (SAVE_KEY,", 1), js)},

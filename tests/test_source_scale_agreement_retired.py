@@ -55,8 +55,12 @@ class TestSourceScaleAgreementRetired(unittest.TestCase):
     def test_kept_checks_still_present(self):
         source = WIDGET.read_text(encoding="utf-8")
         self.assertIn('"fixed-pie-indexed"', source)
-        self.assertIn('"adjusted-scale-agreement"', source)
         self.assertIn("fixedPieIndexed:fixedPie.ok", source)
+        # JEG-508: the adjusted-series agreement check measured the retired
+        # *_adjusted fits against the ESPN anchor's peaks (VP-10: no source
+        # is an anchor); it is retired with them. The fixed-pie guard now
+        # checks every source's group totals against the DDF weights.
+        self.assertNotIn('"adjusted-scale-agreement"', source)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,8 @@ Checks, each proved against a broken state:
    rule) and the slot ranked on surplus instead of points.
 3. The live page accepts the control. setRosterSpot('SUPERFLEX', n) and the
    classic page's Superflex input change the roster, clamp to 0..1, and the
-   published charts plot exactly the reference derivation with the slot.
+   published charts plot their superflex-overlay natives times one factor
+   (VP-6.4; before JEG-508, the anchor-matched derivation).
    Broken state: a widget without the SUPERFLEX roster key (origin/main
    before this change), where the control is missing and setRosterSpot is a
    no-op.
@@ -40,7 +41,7 @@ sys.path.insert(0, str(ROOT))
 from pipelines.vorp_translation import unified  # noqa: E402
 from pipelines.vorp_translation.vorp_via_roster import rostered_for_teams  # noqa: E402
 from tests.test_published_league_settings_engine import (  # noqa: E402
-    FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, _cases, browser_players,
+    FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, _cases, browser_inputs, browser_players,
     compare_maps, expected_derived, run_js,
 )
 from tests import _render_env  # noqa: E402
@@ -244,15 +245,24 @@ def page_problems(got):
         problems.append("no working Superflex roster input on the classic page")
     if got["sf1"]["fixedPie"] is not True:
         problems.append(f"fixedPieIndexed {got['sf1']['fixedPie']} with superflex")
+    # JEG-508 (VP-0 "Superflex", VP-6.4): with the slot, each chart's
+    # Indexed values are its natives WITH the publisher's superflex overlay
+    # times one factor (against blended DDF Value, no longer the ESPN
+    # anchor). So every listed player's value / overlay native is one
+    # constant, and every overlay player is plotted.
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     for source in SOURCES:
         values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
-        anchor = {int(k): v for k, v in got["sf1"]["maps"]["espn"].items()}
-        expected = expected_derived(source, "ppr", 12, SF_SHAPE, fixture, pos_of, anchor=anchor)
-        diffs, _ = compare_maps(expected, values)
-        if diffs:
-            problems.append(f"superflex {source}: {diffs[:2]}")
+        native, _saved, _ = browser_inputs(fixture, pos_of, source, "ppr", superflex=True)
+        native = {k: v for k, v in native if v > 0}
+        missing = sorted(set(native) - set(values))
+        if missing:
+            problems.append(f"superflex {source}: listed players not plotted {missing[:5]}")
+        ratios = [values[k] / v for k, v in native.items() if k in values]
+        if not ratios or max(ratios) - min(ratios) > 1e-9 * max(ratios):
+            problems.append(f"superflex {source}: Indexed is not one factor on the superflex natives "
+                            f"(ratios {min(ratios or [0]):.6f}..{max(ratios or [0]):.6f})")
     return problems
 
 

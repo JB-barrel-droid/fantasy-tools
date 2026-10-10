@@ -176,9 +176,10 @@ class FreshnessFlagTest(unittest.TestCase):
 
 
 def default_violations(mutations=()):
-    excluded = ["usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]
+    # JEG-508 (OC-7): the defaults are the four published charts.
+    excluded = ["usatoday", "fantasypros", "cbs"]
     res = run({"cmd": "defaults", "inputsPath": str(INPUTS), "excluded": excluded,
-               "active": ["espn", "fantasycalc_adjusted"], "deselected": [],
+               "active": ["fantasycalc"], "deselected": [],
                "mutations": list(mutations)})
     problems = []
     if set(res["defaults"]) & set(excluded):
@@ -198,8 +199,8 @@ class FirstLoadDefaultsTest(unittest.TestCase):
     def test_widget_init_wires_freshness(self):
         text = (ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("getSourceFreshness", text)
-        self.assertIn("defaultIndexedSourceKeys(adjustmentInputs, firstLoadExcluded)", text)
-        self.assertIn("userDeselectedSources, firstLoadExcluded)", text)
+        self.assertIn("defaultIndexedSourceKeys(null, firstLoadExcluded)", text)
+        self.assertIn("indexedHidden, firstLoadExcluded)", text)
 
 
 # ---------------------------------------------------------------- R1 checks
