@@ -851,62 +851,6 @@ def write_index(index: dict, directory: Path = HISTORY_DIR) -> None:
     (directory / "index.json").write_text(json.dumps(index, sort_keys=True, indent=1) + "\n")
 
 
-# ------------------------------------------------------- prior ESPN legs
-
-ESPN_LEGS_SCHEMA = "week-history-espn-legs/1"
-
-
-def espn_legs_for_week(entry: dict, players: dict) -> dict:
-    """The ESPN two-tier leg of a saved week, per scoring, built by the
-    pipeline's own leg code (build_ddf_two_tier_leg: tier pool at 12 teams,
-    calibrate_tiers at the 0.15 reference share with the feasible-share
-    fallback, one 70/max scale) from that week's saved espn_ppg, rounded to
-    1 dp as build_espn_section_from_ddf_leg writes the fixture's ESPN combos
-    (HISTORY-ESPN-PRIOR). Positions are today's canonical ones; a player no
-    longer in players.json is left out. Returns {"legs": {scoring: {key:
-    value}}} or {"reason": ...}."""
-    import build_ddf_two_tier_leg as L
-
-    pos_of = {str(p["player_key"]): p.get("pos") for p in players.get("players") or []
-              if p.get("player_key") is not None}
-    legs = {}
-    for idx, scoring in enumerate(SCORINGS):
-        lists = {pos: [] for pos in L.POSITIONS}
-        for key, triple in (entry.get("ppg") or {}).items():
-            pos = pos_of.get(str(key))
-            if pos in lists and isinstance(triple, list) and len(triple) == 3:
-                lists[pos].append({"id": int(key), "x": float(triple[idx])})
-        try:
-            pool = L.build_position_tiers(lists, 12, dict(L.REF_SLOTS), L.REF_FLEX_COUNT,
-                                          list(L.REF_FLEX_ELIGIBLE), L.bench_mix_for_teams(12))
-            calibration, _notes = L.calibrate_tiers(pool, L.DEFAULT_BENCH_SHARE)
-        except (ValueError, KeyError, TypeError) as exc:
-            return {"reason": f"the Week {entry.get('week')} ESPN leg cannot be calibrated: {exc}"}
-        raw = {d["id"]: L.price_for_projection(d["x"], calibration[pos])
-               for pos in L.POSITIONS for d in lists[pos]}
-        mx = max(raw.values(), default=0.0)
-        if not mx > 0:
-            return {"reason": f"the Week {entry.get('week')} ESPN leg has no positive value"}
-        legs[scoring] = {str(k): round(v * 70.0 / mx, 1) for k, v in sorted(raw.items())}
-    return {"legs": legs}
-
-
-def write_espn_legs(docs: dict[int, dict], players: dict, target: Path) -> dict:
-    """assets/history/espn-legs.json for every saved ESPN week (derived at
-    `make sync` with the current pipeline; not part of the committed store)."""
-    weeks = {}
-    for week, doc in sorted(docs.items()):
-        entry = doc["sources"].get("espn")
-        if entry:
-            weeks[str(week)] = {"fingerprint": entry["fingerprint"], **espn_legs_for_week(entry, players)}
-    out = {"schema": ESPN_LEGS_SCHEMA, "season": SEASON,
-           "built_by": "pipelines/build_week_history.espn_legs_for_week (build_ddf_two_tier_leg, 12 teams, "
-                       "bench share 0.15, 1 dp as build_espn_section_from_ddf_leg)",
-           "weeks": weeks}
-    target.write_text(json.dumps(out, sort_keys=True, separators=(",", ":")) + "\n")
-    return out
-
-
 # ---------------------------------------------------------------------- main
 
 def git_json(rev: str, path: str) -> dict:

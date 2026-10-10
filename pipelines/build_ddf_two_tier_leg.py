@@ -617,8 +617,8 @@ def resolve_identities(lists: dict[str, list[dict[str, Any]]],
 def calibrate_tiers(pool: dict[str, Any], bench_share: float) -> tuple[dict[str, Any], list[str]]:
     """Calibrate every position of a tier pool at the requested bench share,
     with the pipeline's feasible-share fallback (factored out of build_leg
-    2026-10-08 so a saved week's projections are priced by the same code:
-    pipelines/build_week_history.espn_legs_for_week)."""
+    2026-10-08; its week-history caller, espn_legs_for_week, was retired
+    by JEG-539)."""
     calibration: dict[str, Any] = {}
     calibration_notes = []  # Jeremy 2026-09-29: track per-position share adjustments
     for pos in POSITIONS:

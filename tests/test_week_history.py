@@ -429,42 +429,26 @@ class ChainCaptureOrderTest(unittest.TestCase):
         self.assertTrue(after, "no week-history capture between the chain and the commit")
 
 
-class EspnPriorLegTest(unittest.TestCase):
-    """HISTORY-ESPN-PRIOR: a saved ESPN week's leg is rebuilt with the
-    pipeline's leg code. Proof it is the pipeline's leg: the SERVED week's
-    rebuild equals the fixture's ESPN combos (built by
-    build_espn_section_from_ddf_leg) on every player both price."""
+class EspnLegsRetiredTest(unittest.TestCase):
+    """GAP-508-DEAD-BAKES (JEG-539): assets/history/espn-legs.json, the prior
+    ESPN two-tier legs rebuilt at `make sync`, has no reader since JEG-508
+    (the page prices a saved ESPN week from its saved espn_ppg through the
+    value pipeline). The bake and its writer are retired."""
 
-    def _diff(self, entry):
-        fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text(encoding="utf-8"))
-        players = json.loads((ROOT / "data/fixtures/current/players.json").read_text(encoding="utf-8"))
-        legs = H.espn_legs_for_week(entry, players)["legs"]
-        out = {}
-        for scoring, word in (("standard", "standard"), ("half_ppr", "half"), ("ppr", "full")):
-            combo = fixture["sources"]["espn"]["combos"][f"{word}_12"]
-            fx = {str(combo["player_keys"][s]): v for s, v in combo["values"].items()}
-            leg = legs[scoring]
-            shared = set(fx) & set(leg)
-            out[scoring] = ([k for k in shared if abs(fx[k] - leg[k]) > 1e-9],
-                            [k for k in set(fx) ^ set(leg) if (fx[k] if k in fx else leg[k]) != 0.0],
-                            len(shared))
-        return out
+    def test_week_history_has_no_espn_leg_writer(self):
+        self.assertFalse(hasattr(H, "espn_legs_for_week"))
+        self.assertFalse(hasattr(H, "write_espn_legs"))
 
-    def test_served_week_rebuild_is_the_fixture_leg(self):
-        index = json.loads((HISTORY / "index.json").read_text(encoding="utf-8"))
-        week = index["served"]["espn"]["week"]
-        self.assertIsNotNone(week)
-        for scoring, (diff, nonzero_only, shared) in self._diff(_week(week)["sources"]["espn"]).items():
-            self.assertGreater(shared, 300, scoring)
-            self.assertEqual(diff, [], scoring)
-            self.assertEqual(nonzero_only, [], scoring)  # membership differs only at 0.0
+    def test_sync_does_not_write_espn_legs(self):
+        text = (ROOT / "pipelines/sync_dashboard_artifacts.py").read_text(encoding="utf-8")
+        self.assertNotIn("espn-legs", text)
+        self.assertNotIn("write_espn_legs", text)
 
-    def test_rebuild_catches_changed_projections(self):
-        index = json.loads((HISTORY / "index.json").read_text(encoding="utf-8"))
-        entry = copy.deepcopy(_week(index["served"]["espn"]["week"])["sources"]["espn"])
-        top = max(entry["ppg"], key=lambda k: entry["ppg"][k][2])
-        entry["ppg"][top] = [x * 0.8 for x in entry["ppg"][top]]
-        self.assertTrue(any(diff for diff, _, _ in self._diff(entry).values()))
+    def test_no_page_asset_reads_espn_legs(self):
+        assets = ROOT / "app/trade-value-chart"
+        readers = [str(p.relative_to(ROOT)) for p in [*assets.glob("assets/*.js"), assets / "index.html"]
+                   if "espn-legs" in p.read_text(encoding="utf-8")]
+        self.assertEqual(readers, [])
 
 
 # ------------------------------------------------------------------ browser
@@ -733,9 +717,6 @@ def collect(overrides=None):
                 else:
                     DELTAS[source] = round(current - values[BIJAN], 1)
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
-            # ESPN at the reference share is that week's leg as the pipeline
-            # builds it (espn_legs_for_week), player for player.
-            players = json.loads((ROOT / "data/fixtures/current/players.json").read_text(encoding="utf-8"))
             for source, res in page.evaluate(ESPN_PRIOR).items():
                 # Published charts were reported above; report a projection once.
                 served = served_week(index, source, UNMATCHED)
