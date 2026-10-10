@@ -171,6 +171,24 @@ class FirstLiveHolds(unittest.TestCase):
         self.assertEqual("amber", s2["status"], s2["summary"])
         self.assertIsNone(r["hold"])
 
+    def test_a_re_saved_row_whose_stamp_did_not_move_does_not_hold(self):
+        """CBS rest of season 2026-10-09: the 23:25Z save changed Tank Dell's values, but his row kept its
+        11:25Z `_written_at` (the upsert does not move it). The snapshot's last write (a new row at 23:25Z)
+        is after the chart's 22:41Z build: amber until the next chain run, not a hold."""
+        env = T.ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        for row in env.stored:
+            row["_written_at"] = "2026-10-08T12:00:00+00:00"  # stamps that never moved
+        env.stored.append({"player_key": 4, "snap": "2026-10-08", "created_at": "2026-10-08T23:25:00+00:00",
+                           "_written_at": "2026-10-08T23:25:00+00:00", "std": 2.0, "half": 2.5, "full": 3.0})
+        env.pub[4] = ("Brock Bowers", "TE", {"std": "2.0", "half": "2.5", "full": "3.0"})
+        env.probe = {"acked_fp": "fp-saved", "acked_at": "2026-10-08T23:25:04+00:00"}
+        env.chart["sources"]["razzball"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 20.1  # the older value
+        r, _ = env.run()
+        s2 = r["stages"]["stored_vs_chart"]
+        self.assertEqual("amber", s2["status"], s2["summary"])
+        self.assertIsNone(r["hold"])
+
     def test_the_same_swap_before_the_build_is_a_chart_fault_and_holds(self):
         r, _ = self.resaved_env("2026-10-08T18:00:00+00:00").run()
         self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
