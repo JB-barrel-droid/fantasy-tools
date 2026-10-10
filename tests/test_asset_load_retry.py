@@ -29,7 +29,8 @@ def setUpModule():
 
 
 ADJUSTED = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]
-ALL_INPUTS = ["espn", "cbsros", "razzball", *ADJUSTED]
+# JEG-508 (VP-11): the DDF inputs are source keys; a chart input is the chart.
+ALL_INPUTS = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"]
 ADJUSTMENTS_GLOB = "**/assets/adjustment-inputs.json*"
 
 STATE = """() => {

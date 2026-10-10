@@ -18,6 +18,11 @@ placeholder view-mode tabs. The guard now checks the computed default set
 only: every defaultIndexedSourceKeys(inputs) key must be active or explicitly
 user-deselected. The indexedAvailable scenarios below were removed with the
 branch they tested; the remaining tests cover the live contract.
+
+JEG-508 (VP-6.4 / OC-7): the default set is the four published charts in
+the Indexed tab (projections off by default; ESPN is no longer the default
+and the "*_adjusted" fits are retired), so the scenarios below use the
+charts. The rule under test is unchanged.
 """
 import json
 import subprocess
@@ -43,13 +48,13 @@ def run_case(active, deselected):
 
 class TestDefaultCurvesSatisfied(unittest.TestCase):
     def test_user_deselected_default_does_not_throw(self):
-        """DEFECT 1 repro: user unchecks USAT Adjusted, then changes scoring.
+        """DEFECT 1 repro: user unchecks USA Today, then changes scoring.
         The guard must be satisfied (no throw)."""
         res = run_case(
-            active=["espn", "fantasycalc_adjusted", "fantasypros_adjusted", "cbs_adjusted"],
-            deselected=["usatoday_adjusted"],
+            active=["fantasycalc", "fantasypros", "cbs"],
+            deselected=["usatoday"],
         )
-        self.assertIn("usatoday_adjusted", res["defaults"])
+        self.assertIn("usatoday", res["defaults"])
         self.assertTrue(res["satisfied"],
                         "user-deselected default curve must not trip the guard")
         # Prove this test would have caught the original bug: the pre-fix
@@ -61,7 +66,7 @@ class TestDefaultCurvesSatisfied(unittest.TestCase):
         """A default curve that vanished WITHOUT the user asking must still
         fail the guard (regression-catching power preserved)."""
         res = run_case(
-            active=["espn", "fantasycalc_adjusted", "fantasypros_adjusted", "cbs_adjusted"],
+            active=["fantasycalc", "fantasypros", "cbs"],
             deselected=[],
         )
         self.assertFalse(res["satisfied"],
@@ -69,8 +74,7 @@ class TestDefaultCurvesSatisfied(unittest.TestCase):
 
     def test_all_defaults_active(self):
         res = run_case(
-            active=["espn", "fantasycalc_adjusted", "usatoday_adjusted",
-                    "fantasypros_adjusted", "cbs_adjusted"],
+            active=["usatoday", "fantasycalc", "fantasypros", "cbs"],
             deselected=[],
         )
         self.assertTrue(res["satisfied"])

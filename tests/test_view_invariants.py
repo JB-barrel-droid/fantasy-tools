@@ -1,4 +1,4 @@
-"""Chart views measured against Jeremy's invariants (views-audit, 2026-10-08).
+"""Chart views measured against Jeremy's invariants (views-audit/2, JEG-508).
 
 Jeremy, 2026-10-08:
   * Indexed: "the positions and bench/starter have different weights but the
@@ -8,37 +8,32 @@ Jeremy, 2026-10-08:
   * Adjusted values: "the differences in value of each player, when their
     positional and bench/starter weights have been normalized."
 
-Every total on one basis: the players a source and the ESPN anchor both price
-(QB/RB/WR/TE). Read live from the real page (window.TradeValueCurveHarness.
-sourceMaps) at the 3 scorings x 8/10/12/14 teams, a custom roster, and bench
-shares of 30% and 5%, in all three tabs, plus the page's own
-TradeValueCurveDiagnostics.viewInvariants (informational).
+JEG-508 (docs/methodology.md "Value Pipeline", VP-5 / VP-6.4) makes all three
+exact for every source, with no anchor: the fixed league pie is
+28 x teams x starting slots (OC-1), and
+  * VORP vs waivers: every source's values (charts and the projections'
+    *_vorp series) total the pie;
+  * Adjusted values: every source's values total the pie (less any budget a
+    source cannot fund, which the page reports);
+  * Indexed: each chart's values over the players it lists total their
+    blended DDF Value.
+Recomputed here from the plotted maps (window.TradeValueCurveHarness.
+sourceMaps), the rows and the page's pipeline result, at the 3 scorings x
+8/10/12/14 teams, a custom roster and bench shares of 30% and 5%, in all three
+tabs; the page's own viewInvariants must agree (gatedHold).
 
-GATED (wrong-number guards for what already holds; Jeremy 2026-10-08: no
-math changes before the coordinated review):
-  * Indexed: CBS ROS, Razzball, every *_adjusted series and every raw
-    value-above-waivers series total exactly the anchor's total;
-  * VORP vs waivers: the raw ESPN / CBS ROS / Razzball series total exactly
-    the anchor's total;
-  * the page's viewInvariants agrees with this independent recomputation.
-MEASURED, NOT GATED (docs/math-review-agenda.md "From views-audit"): the four
-published charts in every tab (Indexed totals 0.66-1.82x the anchor's on
-Week 5; VORP vs waivers 0.71-1.00x; Adjusted group totals proportional to the
-DDF weights at derived settings, level 0.79-0.96x, not at the saved setup).
+Before JEG-508 the basis was the ESPN anchor's shared total and the published
+charts were measured, not gated; that model is retired (VP-10).
 
-Discrimination (test_guard_fails_on_broken_engines): broken engines -- CBS
-ROS / Razzball without their total factor, the raw series without theirs --
-must fail.
-
+Discrimination (test_guard_fails_on_broken_engines): a VORP vs waivers series
+left unscaled (raw value above waivers) and an Adjusted value that pays the
+starter slice at the bench rate must fail.
 """
 from __future__ import annotations
 
 import json
 import unittest
 
-from tests.test_published_league_settings_engine import (
-    POSITIONS, browser_players,
-)
 from tests.test_published_league_settings_render import APP, _server
 from tests import _render_env  # noqa: E402
 
@@ -63,9 +58,19 @@ SETTINGS = [(s, t, None, None) for s in ("standard", "half_ppr", "ppr") for t in
 SETTINGS += [("ppr", 12, CUSTOM_ROSTER, None), ("ppr", 12, None, 30), ("half_ppr", 10, None, 5)]
 
 READ = """() => {
-  const maps = window.TradeValueCurveHarness.sourceMaps();
+  const H = window.TradeValueCurveHarness;
+  const maps = H.sourceMaps();
   const d = window.TradeValueCurveDiagnostics || {};
-  const out = {maps: {}, viewInvariants: d.viewInvariants || null, viewMode: d.viewMode};
+  const result = H.pipeline();
+  const listed = {};
+  Object.entries(result.sources).forEach(([k, src]) => {
+    listed[k] = Object.entries(src.players).filter(([, p]) => !p.estimated).map(([pk]) => Number(pk));
+  });
+  const ddf = {};
+  window.TradeValueCurveControls.getAllRows().forEach(r => { ddf[r.player_key] = r.values.ddf_value; });
+  const out = {maps: {}, viewInvariants: d.viewInvariants || null, viewMode: d.viewMode, pie: result.pie,
+    listed, ddf, unpaid: Object.fromEntries(Object.entries(result.sources).map(([k, src]) =>
+      [k, (src.unfundedGroups || []).reduce((t, g) => t + g.amount, 0)]))};
   maps.forEach((m, k) => { out.maps[k] = Object.fromEntries([...m.entries()]); });
   return out;
 }"""
@@ -137,65 +142,60 @@ def _sweep(settings, overrides=None, views=("indexed", "vorp", "adj")):
     return out
 
 
-def shared_totals(values, anchor, pos_of):
-    keys = [k for k in values if pos_of.get(k) in POSITIONS and k in anchor]
-    return len(keys), sum(max(0.0, values[k]) for k in keys), sum(max(0.0, anchor[k]) for k in keys)
+PROJECTIONS = ("espn", "cbsros", "razzball")
 
 
-GATED_INDEXED = ("cbsros", "razzball", "fantasycalc_adjusted", "usatoday_adjusted",
-                 "fantasypros_adjusted", "cbs_adjusted") + RAW_VORP
+def starting_slots(roster):
+    shape = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, **(roster or {})}
+    return shape["QB"] + shape["RB"] + shape["WR"] + shape["TE"] + shape["FLEX"]
 
 
 def verify(swept):
-    """(problems, measured): gated invariants recomputed from the plotted maps;
-    `measured` holds every source's numbers, gated or not."""
-    pos_of = browser_players()
+    """(problems, measured): each tab's invariant recomputed from the plotted
+    maps, the rows and the page's pipeline result."""
     problems, measured = [], {}
     problems += [f"page error: {e[:200]}" for e in swept.get("_errors", [])]
     for label, views in swept.items():
         if label.startswith("_"):
             continue
         parts = label.split("/")
+        teams = int(parts[1])
+        roster = CUSTOM_ROSTER if "custom" in parts else None
+        pie = 28 * teams * starting_slots(roster)
         for view, res in views.items():
             maps = {k: {int(pk): v for pk, v in m.items()} for k, m in res["maps"].items()}
-            anchor = maps["espn"]
             vi = res["viewInvariants"]
             if not vi or vi.get("gatedHold") is not True:
-                problems.append(f"{label} [{view} tab]: page viewInvariants gated rows do not hold")
+                problems.append(f"{label} [{view} tab]: page viewInvariants do not hold")
+            if abs(res["pie"] - pie) > 1e-9:
+                problems.append(f"{label}: page pie {res['pie']}, want {pie}")
 
-            def ratio(values):
-                n, total, target = shared_totals(values, anchor, pos_of)
-                return n, (total / target if target else float("nan"))
+            def total_is_pie(name, values, unpaid=0.0):
+                total = sum(values.values())
+                measured[(label, view, name)] = round(total, 6)
+                if abs(total - (pie - unpaid)) > REL_TOL * pie:
+                    problems.append(f"{label} {view} {name}: total {total:.6f}, pie {pie} (unpaid {unpaid})")
 
-            def gate(name, values):
-                n, r = ratio(values)
-                measured[(label, view, name)] = round(r, 6)
-                if n < MIN_SHARED or abs(r - 1) > REL_TOL:
-                    problems.append(f"{label} {view} {name}: shared total ratio {r:.6f} (n={n})")
-
-            if view == "indexed":
-                for key in GATED_INDEXED:
+            if view == "vorp":
+                for key in PUBLISHED + RAW_VORP:
                     if maps.get(key):
-                        gate(key, maps[key])
-                for key in PUBLISHED:
-                    if maps.get(key):
-                        measured[(label, view, key)] = round(ratio(maps[key])[1], 6)
-                        page = vi["indexed"]["sources"].get(key, {})
-                        if abs(page.get("ratio", 0) - measured[(label, view, key)]) > 1e-5:
-                            problems.append(f"{label} indexed {key}: page ratio {page.get('ratio')} "
-                                            f"!= recomputed {measured[(label, view, key)]}")
-            elif view == "vorp":
-                for key in RAW_VORP:
-                    if maps.get(key):
-                        gate(key, maps[key])
-                for key in PUBLISHED:
-                    if maps.get(key):
-                        measured[(label, view, key)] = round(ratio(maps[key])[1], 6)
+                        total_is_pie(key, maps[key])
             elif view == "adj":
+                for key in PUBLISHED + PROJECTIONS:
+                    if maps.get(key):
+                        total_is_pie(key, maps[key], res["unpaid"].get(key, 0.0))
+            elif view == "indexed":
                 for key in PUBLISHED:
-                    row = vi["adjusted"]["sources"].get(key)
-                    if row:
-                        measured[(label, view, key)] = (row["spread"], row["level"], row["mode"])
+                    values = maps.get(key)
+                    if not values:
+                        continue
+                    shared = [k for k in res["listed"][key]
+                              if isinstance(res["ddf"].get(str(k), res["ddf"].get(k)), (int, float))]
+                    ddf_total = sum(res["ddf"].get(str(k), res["ddf"].get(k)) for k in shared)
+                    idx_total = sum(values[k] for k in shared)
+                    measured[(label, view, key)] = round(idx_total, 6)
+                    if abs(idx_total - ddf_total) > REL_TOL * max(1.0, ddf_total):
+                        problems.append(f"{label} indexed {key}: total {idx_total:.6f} vs DDF {ddf_total:.6f}")
     return problems, measured
 
 
@@ -207,36 +207,25 @@ class ViewInvariants(unittest.TestCase):
     def test_every_view_holds_its_invariant(self):
         swept = _sweep(SETTINGS)
         problems, measured = verify(swept)
-        gated = sum(1 for k in measured if k[2] in GATED_INDEXED)
-        print(f"\n[views-audit] settings={len(SETTINGS)} gated checks={gated} problems={len(problems)}")
-        for key in PUBLISHED:
-            for view in ("indexed", "vorp"):
-                vals = [v for k, v in measured.items() if k[1] == view and k[2] == key]
-                if vals:
-                    print(f"  measured {view:7s} {key:12s} shared-total ratio {min(vals):.3f}-{max(vals):.3f}")
-            adj = [v for k, v in measured.items() if k[1] == "adj" and k[2] == key]
-            if adj:
-                print(f"  measured adj     {key:12s} group spread {min(a[0] for a in adj):.3f}-{max(a[0] for a in adj):.3f}"
-                      f" level {min(a[1] for a in adj):.3f}-{max(a[1] for a in adj):.3f}")
-        self.assertGreaterEqual(gated, len(SETTINGS) * len(GATED_INDEXED))
+        print(f"\n[views-audit/2] settings={len(SETTINGS)} checks={len(measured)} problems={len(problems)}")
+        self.assertGreaterEqual(len(measured), len(SETTINGS) * (len(PUBLISHED) * 3 + len(RAW_VORP) + len(PROJECTIONS)))
         self.assertEqual(problems, [], "\n".join(problems[:25]))
 
     def test_guard_fails_on_broken_engines(self):
-        widget = _widget()
-        # Off by 0.05% -- about 1 point on a ~2,200 pie, inside the page's own
-        # fixedPieIndexed tolerance (2 points), so only this gate sees it.
+        from tests.test_published_league_settings_render import APP as _APP
+        model = (_APP / "assets" / "value-model.js").read_text(encoding="utf-8")
         broken = {
-            "projection-total-off": widget.replace(
-                "    if (PROJECTION_TOTAL_ONLY_KEYS.has(key)) {\n      return ValueModel.scaleToSharedTotal({\n        values,\n        anchor: anchorMap,",
-                "    if (PROJECTION_TOTAL_ONLY_KEYS.has(key)) {\n      return ValueModel.scaleToSharedTotal({\n        values,\n        anchor: new Map([...anchorMap].map(([k, v]) => [k, v * 1.0005])),"),
-            "raw-series-off": widget.replace(
-                "      sourceMaps.set(vorpKey, ValueModel.scaleToSharedTotal({\n        values: buildVorpMap(vorpKey),\n        anchor: anchorMap,",
-                "      sourceMaps.set(vorpKey, ValueModel.scaleToSharedTotal({\n        values: buildVorpMap(vorpKey),\n        anchor: new Map([...anchorMap].map(([k, v]) => [k, v * 1.0005])),"),
+            # VORP vs waivers left as raw value above waivers (no pie factor).
+            "vorp-unscaled": model.replace("r.vorpDisplay = r.vorp * vorpFactor;", "r.vorpDisplay = r.vorp;"),
+            # The starter slice paid at the bench rate.
+            "starter-at-bench-rate": model.replace(
+                '+ rates[vpGroupKey(r.pos, "starter")] * r.starterSlice;',
+                '+ rates[vpGroupKey(r.pos, "bench")] * r.starterSlice;'),
         }
         settings = [("ppr", 12, None, None), ("standard", 10, None, None)]
         for name, body in broken.items():
-            self.assertNotEqual(body, widget, f"mutation anchor for {name} moved")
-            problems, _ = verify(_sweep(settings, {"**/assets/curve-widget.js*": body}))
+            self.assertNotEqual(body, model, f"mutation anchor for {name} moved")
+            problems, _ = verify(_sweep(settings, {"**/assets/value-model.js*": body}))
             print(f"\n[views-audit negative test] {name}: {len(problems)} problems, e.g. {problems[:1]}")
             self.assertGreater(len(problems), 0, f"broken engine {name} was NOT caught")
 

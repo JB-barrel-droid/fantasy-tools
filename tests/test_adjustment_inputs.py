@@ -281,15 +281,8 @@ class TestBakedArtifact(unittest.TestCase):
         for source, missing_cells in missing.items():
             self.assertEqual(missing_cells, [], source)
 
-    def test_pause_predicate_unpauses_live_sources(self):
-        got = run_pause([{"key": k, "inputs": self.doc} for k in PAUSED_KEYS])
-        self.assertEqual(got, [False] * 4)
-
-    def test_empty_cells_still_pause(self):
-        cells = {"sources": {"fantasycalc": {"cells": []}}}
-        got = run_pause([{"key": "fantasycalc_adjusted", "inputs": cells}])
-        self.assertEqual(got, [True])
-
+    # JEG-508: test_pause_predicate_unpauses_live_sources retired -- the *_adjusted pause predicate is retired with the adjustment fits (VP-10); the engine no longer reads adjustment-inputs.json.
+    # JEG-508: test_empty_cells_still_pause retired -- the *_adjusted pause predicate is retired with the adjustment fits (VP-10); the engine no longer reads adjustment-inputs.json.
     def test_live_asset_has_versioned_copy(self):
         # Provenance: every served fit has a versioned copy committed under
         # data/adjustment-inputs/<version>/ with the same cells.

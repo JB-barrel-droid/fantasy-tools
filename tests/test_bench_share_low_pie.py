@@ -35,6 +35,12 @@ Checks (each proved against a broken state):
    next valid slider setting repaints and the status returns to Validated.
    Broken states: the pre-fix widget and a mutation that leaves guardsPassed
    true.
+
+JEG-508 (docs/methodology.md "Value Pipeline", VP-5 / VP-10): there is no
+anchor. Check 1 now holds EVERY source to the fixed league pie (its total over
+its work list, each of its eight groups to pie x DDF weight) across the
+slider, and the slider must re-price every series. The clip-mass case (the
+anchor through the OLS cells) is retired with the cells.
 """
 from __future__ import annotations
 
@@ -59,16 +65,16 @@ PIE_TOLERANCE = 0.01
 
 # Test hook on the served copy only: lets the recovery check force a guard
 # failure at one setting without touching the shipped tolerance.
-TOLERANCE_HOOK = ("const tolerance = 2;", "const tolerance = window.__benchLowTolerance ?? 2;")
+TOLERANCE_HOOK = ("const tolerance = Math.max(1e-6, 1e-9 * (pie || 0));",
+                  "const tolerance = window.__benchLowTolerance ?? Math.max(1e-6, 1e-9 * (pie || 0));")
 
 SWEEP = """async ([settings, step]) => {
   const c = window.TradeValueCurveControls;
-  const espnValues = () => Object.fromEntries(c.getAllRows()
-    .filter(r => typeof r.values.espn === "number").map(r => [r.player_key, r.values.espn]));
+  const espnValues = () => Object.fromEntries(c.getAllRows().flatMap(r => Object.entries(r.values)
+    .filter(([k, v]) => typeof v === "number").map(([k, v]) => [`${r.player_key}|${k}`, v])));
   const anchor = () => {
     const d = window.TradeValueCurveDiagnostics;
-    const e = d.fixedPie.checks.find(x => x.source === "espn");
-    return {ok: d.fixedPieIndexed, delta: e.delta, perPos: e.perPos};
+    return {ok: d.fixedPieIndexed, checks: d.fixedPie.checks};
   };
   const problems = [];
   let checked = 0;
@@ -88,13 +94,15 @@ SWEEP = """async ([settings, step]) => {
       checked += 1;
       if (err) problems.push(`${tag}: threw ${err.slice(0, 120)}`);
       if (!rebuilt.anchor.ok) problems.push(`${tag}: fixedPieIndexed false`);
-      if (!(Math.abs(rebuilt.anchor.delta) <= %TOL%)) problems.push(`${tag}: anchor total - pie = ${rebuilt.anchor.delta.toFixed(3)}`);
-      Object.entries(rebuilt.anchor.perPos).forEach(([pos, p]) => {
-        if (!(Math.abs(p.total - p.pie) <= %TOL% + 0.001)) problems.push(`${tag}: ${pos} total ${p.total} vs pie ${p.pie}`);
+      rebuilt.anchor.checks.forEach(check => {
+        if (!(Math.abs(check.delta) <= %TOL%)) problems.push(`${tag}: ${check.source} total - pie = ${Number(check.delta).toFixed(3)}`);
+        Object.entries(check.groups || {}).forEach(([g, row]) => {
+          if (!(Math.abs(row.total - row.budget) <= %TOL%)) problems.push(`${tag}: ${check.source} ${g} total ${row.total} vs budget ${row.budget}`);
+        });
       });
       const keys = Object.keys(rebuilt.values);
       const stale = keys.filter(k => !(Math.abs((afterSlider.values[k] ?? NaN) - rebuilt.values[k]) <= 1e-9)).length;
-      if (stale) problems.push(`${tag}: slider move left ${stale} of ${keys.length} anchor values stale until a rebuild`);
+      if (stale) problems.push(`${tag}: slider move left ${stale} of ${keys.length} values stale until a rebuild`);
     }
     c.setBenchShareFraction(0.15);
   }
@@ -145,8 +153,13 @@ def mutate(widget: bytes, old: str, new: str) -> bytes:
     return text.replace(old, new).encode("utf-8")
 
 
+# The pre-JEG-508 widget's guard tolerance line (the pre-fix check runs it).
+OLD_TOLERANCE_HOOK = ("const tolerance = 2;", "const tolerance = window.__benchLowTolerance ?? 2;")
+
+
 def with_hook(widget: bytes) -> bytes:
-    return mutate(widget, *TOLERANCE_HOOK)
+    text = widget.decode("utf-8")
+    return mutate(widget, *(TOLERANCE_HOOK if TOLERANCE_HOOK[0] in text else OLD_TOLERANCE_HOOK))
 
 
 def run(widget: bytes, script: str, arg=None):
@@ -198,20 +211,11 @@ class BenchShareLowPieTest(unittest.TestCase):
         if old is None:
             self.skipTest(f"{PRE_FIX_COMMIT} not in this clone")
         problems = sweep(old, [("ppr", 12)])["problems"]
-        self.assertTrue(any("anchor total - pie" in p for p in problems), problems[:10])
+        self.assertTrue(any("total - pie" in p for p in problems), problems[:10])
         self.assertTrue(any("stale" in p for p in problems), problems[:10])
 
-    def test_sweep_catches_the_clip_mass(self):
-        # The original defect: the anchor through the OLS cells with the
-        # cell-total restoration dropped. The pie check must fail. (JEG-493
-        # took the anchor off the cells -- it is the live two-tier read
-        # directly -- so the mutation first routes it back through them.)
-        broken = mutate(built_widget(), "const espnAnchorValues = liveEspnAnchorValues() || buildEspnIndexedMap();",
-                        'const espnAnchorValues = buildLiveAdjustedMap("espn", adjustmentCellsFor("espn"));')
-        broken = mutate(broken, "if (!(sums.kept > sums.fitted) || !(sums.fitted > 0)) return;", "return;")
-        problems = sweep(broken, [("ppr", 12)])["problems"]
-        self.assertTrue(any("anchor total - pie" in p for p in problems), problems[:10])
-        self.assertFalse(any("stale" in p for p in problems), problems[:10])
+    # The group check's discrimination (groups paid at one source's own
+    # weights) is proved in tools/guard_harness.mjs --simulate espn-anchor.
 
     def test_sweep_catches_a_slider_that_does_not_reprice(self):
         broken = mutate(built_widget(), "if (engineReady) {\n      refreshAfterWeightChange(publish);",
