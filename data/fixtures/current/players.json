@@ -1,16 +1,16 @@
 {
  "meta": {
-  "as_of": "2026-10-09",
+  "as_of": "2026-10-10",
   "prior_blend_snapshot": "2026-09-23",
   "espn_snapshot": "2026-10-09",
   "rz_snapshot": "2026-10-09",
   "cbsros_snapshot": "2026-10-09",
   "espn_snapshot_id": "sha256:6e018a80890d2383c9fcbb8b0e2c964bdff400c30aa88fcc5fda13afff773ba5",
   "cbsros_snapshot_id": "sha256:8b6cee729e95263538145b5a2d834d2b84613e58493d4f33549dda2c183fd84d",
-  "rz_snapshot_id": "sha256:b7acfea7d7954dc30b0a5ab2dff55a7ef454f0ea295488762c0d0a2fab7008de",
+  "rz_snapshot_id": "sha256:f61d86c2bc62541e370ea38716e82f05161d32c37781c41cbbd940cd7e90274e",
   "n_players": 1162,
   "n_espn_complete": 355,
-  "n_rz_complete": 678,
+  "n_rz_complete": 679,
   "n_cbsros_complete": 369,
   "universe": {
    "note": "Rows = ESPN's list (priced or listed at 0) + players any current-week published chart or projection source prices. A player not on ESPN's list is espn_status 'absent' (ESPN shown as missing, never 0).",
@@ -56,19 +56,19 @@
        "QB": 34,
        "RB": 59,
        "WR": 77,
-       "TE": 28
+       "TE": 27
       },
       "ppr-12": {
        "QB": 34,
        "RB": 59,
        "WR": 77,
-       "TE": 28
+       "TE": 27
       },
       "standard-12": {
        "QB": 34,
        "RB": 59,
        "WR": 77,
-       "TE": 28
+       "TE": 27
       }
      }
     },
@@ -138,7 +138,7 @@
     },
     "n_not_in_nfl_active": 138,
     "n_practice_squad_inferred": 184,
-    "n_universe_only": 306,
+    "n_universe_only": 305,
     "n_not_on_players_table": 0,
     "not_on_players_table": []
    }
@@ -167,8 +167,8 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-09T23:46:55Z",
-   "as_of": "2026-10-09",
+   "built_at": "2026-10-10T01:06:07Z",
+   "as_of": "2026-10-10",
    "summary": {
     "live": 3,
     "stale": 0,
@@ -195,8 +195,8 @@
       "note": "Every charted player carries a current value model value."
      },
      "freshness": {
-      "snapshot_date": "2026-10-09",
-      "content_date": "2026-10-09",
+      "snapshot_date": "2026-10-10",
+      "content_date": "2026-10-10",
       "note": "Computed at bake time from the ESPN (primary) leg."
      },
      "prior": {
@@ -423,7 +423,7 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 678,
+      "priced": 679,
       "universe": 1162,
       "note": "Razzball where priced; no fill leg. Rank correlation vs ESPN primary 0.78\u20130.91, never 0.99+ \u2014 verified independent 2026-09-17."
      },
@@ -36662,9 +36662,13 @@
    "espn_complete": false,
    "espn_comp_count": 0,
    "espn_covered": [],
-   "rz_complete": false,
-   "rz_comp_count": 0,
-   "rz_covered": [],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "cbsros_complete": false,
    "cbsros_comp_count": 0,
    "cbsros_covered": [],
@@ -36677,13 +36681,34 @@
    "espn_zeroed": true,
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
+   "universe_sources": [
+    "razzball"
+   ],
    "roster_status": "practice_squad",
    "roster_status_label": "Practice squad",
    "sleeper_id": "6290",
    "roster_status_inferred": true,
-   "universe_only": true,
-   "unpriced_reason": "Practice squad (CHI). No chart or projection prices this player.",
    "games_remaining": 12,
+   "rz_ppg": {
+    "standard": 0.1,
+    "half_ppr": 0.1,
+    "ppr": 0.1
+   },
+   "rz_ros": {
+    "standard": 1.2,
+    "half_ppr": 1.2,
+    "ppr": 1.2
+   },
+   "rz_filled_ppg": {
+    "standard": 0.1,
+    "half_ppr": 0.1,
+    "ppr": 0.1
+   },
+   "rz_filled_ros": {
+    "standard": 1.2,
+    "half_ppr": 1.2,
+    "ppr": 1.2
+   },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
    "preseason_ecr_rank": 215
@@ -62315,8 +62340,6 @@
    "espn_status": "ineligible",
    "universe_sources": [
     "cbsros",
-    "fantasycalc",
-    "fantasycalc:superflex",
     "razzball",
     "usatoday"
    ],
