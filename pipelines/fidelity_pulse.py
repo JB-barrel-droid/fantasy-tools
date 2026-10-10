@@ -1848,19 +1848,19 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     # Differences on rows written after the chart's raw_built_at cannot be
     # checked against what the chart used: amber until the next chain run.
     built = parse_ts((site_section(site_doc, source).get("lineage") or {}).get("raw_built_at"))
-    floor = datetime.min.replace(tzinfo=timezone.utc)
-    by_key = {int(r["player_key"]): r for r in rows if r.get("player_key") is not None}
     # Exempt only rows stage 1 shows equal to the publisher now (the stored
     # value is a genuine publisher update); a row that also differs from the
     # publisher (e.g. ESPN projections stored as 0) stays red.
-    resaved = [m for m in cmp["mismatches"] + cmp["missing"]
-               if built and verified_keys is not None and m["player_key"] in verified_keys
-               and (written_at(by_key.get(m["player_key"]) or {}) or floor) > built]
-    # A chart player the stored snapshot no longer has, when the snapshot was re-saved after the chart was
-    # built: the save replaced the day's set (2026-10-09 23:25Z CBS rest of season: one player swapped at
-    # the row cap). A player the publisher still lists is missing in stage 1 (red there).
+    # The snapshot's last write, not each row's: an upsert that changes a row's values does not move its
+    # `_written_at` on every saver (2026-10-09 23:25Z CBS rest of season: Tank Dell re-saved with new values,
+    # his row still stamped 11:25Z). A re-save after the build covers every row stage 1 shows equal to the
+    # publisher, and chart players the snapshot no longer has (the save replaced the day's set; a player the
+    # publisher still lists is missing in stage 1, red there).
     last_write = max((t for t in map(written_at, rows) if t is not None), default=None)
-    if built and verified_keys is not None and last_write and last_write > built:
+    resaved_after_build = bool(built and verified_keys is not None and last_write and last_write > built)
+    resaved = [m for m in cmp["mismatches"] + cmp["missing"]
+               if resaved_after_build and m["player_key"] in verified_keys]
+    if resaved_after_build:
         resaved += cmp["extra"]
     if n_bad and resaved and len(resaved) == n_bad and not unresolved:
         status = "amber"
@@ -1931,8 +1931,8 @@ def section_hold(site_doc: dict | None, source: str) -> dict | None:
 
 
 def held_chart_stage(held: dict, identity: str | None) -> dict:
-    """Stage 2 for a held source: the chart serves the kept (last good) section, so comparing it with the
-    newest stored save says nothing. A hold caused by stage 2 stays red until a newer save exists: the chain
+    """Stage 2 for a held source served from an older chart's section (restored_from): comparing it with the
+    newest stored save says nothing; a held section the chain kept from this build is checked as usual. A hold caused by stage 2 stays red until a newer save exists: the chain
     would rebuild the same chart from the same save."""
     if held.get("stage") == "stored_vs_chart" and identity and held.get("identity") == identity:
         return stage("red", f"held ({held.get('reason')}) since {held.get('since')}: the chart built from stored save "
@@ -1986,9 +1986,11 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
         except Exception as e:  # noqa: BLE001
             stages["publisher_vs_stored"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     held = section_hold(site_doc, source)
+    # A held section the chain kept (not restored from an older chart) is this build's: check it as usual.
+    kept_old = bool(held and held.get("restored_from"))
     identity = f"{latest}@{iso(saved_at)}" if latest else None
     try:
-        if held:
+        if kept_old:
             stages["stored_vs_chart"] = held_chart_stage(held, identity)
         else:
             stages["stored_vs_chart"], cmp2 = stage_projection_chart(source, mod, site_doc, site_error, store, ident,
@@ -1998,7 +2000,7 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
         stages["stored_vs_chart"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     try:
         # A held chart serves the kept section: judge what the next build would serve (the stored snapshot).
-        fresh_doc = {"sources": {source: {"lineage": {"raw_vintage": latest}}}} if held and latest else site_doc
+        fresh_doc = {"sources": {source: {"lineage": {"raw_vintage": latest}}}} if kept_old and latest else site_doc
         stages["freshness"] = stage_projection_freshness(source, fresh_doc, pub, latest, now)
     except Exception as e:  # noqa: BLE001
         stages["freshness"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
@@ -2069,9 +2071,11 @@ def check_source(source: str, *, fetch: Fetcher, store, ident: Identity, site_do
         except Exception as e:  # noqa: BLE001
             stages["publisher_vs_stored"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
     held = section_hold(site_doc, source)
+    # A held section the chain kept (not restored from an older chart) is this build's: check it as usual.
+    kept_old = bool(held and held.get("restored_from"))
     identity = (stored.get("bake") or {}).get("bake_id")
     try:
-        if held:
+        if kept_old:
             stages["stored_vs_chart"] = held_chart_stage(held, identity)
         else:
             stages["stored_vs_chart"], cmp2 = stage_chart(source, site_doc, site_error, store, ident, stored)
@@ -2082,7 +2086,7 @@ def check_source(source: str, *, fetch: Fetcher, store, ident: Identity, site_do
     try:
         # A held chart serves the kept section: judge what the next build would serve (the stored week).
         fresh_doc = ({"sources": {source: {"source_provenance": {"week_designated": stored["week"]}}}}
-                     if held and stored.get("week") is not None else site_doc)
+                     if kept_old and stored.get("week") is not None else site_doc)
         stages["freshness"] = stage_freshness(source, fresh_doc, disc, stored, now)
     except Exception as e:  # noqa: BLE001
         stages["freshness"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
