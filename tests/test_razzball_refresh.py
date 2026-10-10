@@ -84,28 +84,8 @@ class VintageParityGuard(unittest.TestCase):
                                               {"sources": {"razzball": {"vintage": "2026-10-06"}}}))
 
 
-class LiveSectionParity(unittest.TestCase):
-    """Browser-side Razzball repricing == the published section (<= 0.2).
-
-    origin/main: max |live - section| 31.4 (live pool 511 players from the
-    2026-09-22 CSV, section 469 from 2026-10-01).
-    """
-
-    def test_live_razzball_matches_section(self):
-        out = subprocess.run(["node", str(HARNESS), "browser-pool", "razzball"],
-                             capture_output=True, text=True, check=True, cwd=ROOT)
-        data = json.loads(out.stdout)
-        self.assertEqual(12, len(data))
-        worst = max((s["maxErr"], combo, pos) for combo, v in data.items()
-                    for pos, s in v["stats"].items())
-        self.assertLess(worst[0], 0.2, worst)
-        for combo, v in data.items():
-            self.assertEqual([], v["withheld"], combo)
-            for pos, s in v["stats"].items():
-                # Every section player is priced live (the browser can only
-                # carry extra players with no fixture slug).
-                self.assertEqual(s["n"], s["nSection"], (combo, pos))
-                self.assertGreater(s["n"], 0, (combo, pos))
+# JEG-508: LiveSectionParity (browser two-tier Razzball == the section) is
+# retired with the browser two-tier repricing (VP-10).
 
 
 class ChainRebuildsRazzball(unittest.TestCase):

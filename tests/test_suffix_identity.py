@@ -189,19 +189,9 @@ class PublishedCbsRosMatchesLivePool(unittest.TestCase):
                                  if slug_by_key.get(k) not in values)
                 self.assertEqual(missing, [])
 
-    def test_live_matches_section_on_browser_pool(self):
-        out = subprocess.run(["node", str(HARNESS), "browser-pool"], cwd=ROOT,
-                             capture_output=True, text=True, timeout=120, check=True)
-        result = json.loads(out.stdout)
-        for combo in COMBOS:
-            for pos, stats in result[combo]["stats"].items():
-                with self.subTest(combo=combo, pos=pos):
-                    self.assertEqual((stats["nLive"], stats["n"]),
-                                     (stats["nSection"], stats["nSection"]),
-                                     f"{combo} {pos}: live pool {stats['nLive']}, "
-                                     f"section {stats['nSection']}, both {stats['n']}")
-                    self.assertLessEqual(stats["maxErr"], TOL,
-                                         f"{combo} {pos}: max |live - section| {stats['maxErr']:.3f}")
+    # JEG-508: test_live_matches_section_on_browser_pool retired with the
+    # browser's live CBS ROS two-tier repricing (VP-10): the page now runs
+    # the value pipeline on the per-game projections, not a copy of the leg.
 
 
 if __name__ == "__main__":

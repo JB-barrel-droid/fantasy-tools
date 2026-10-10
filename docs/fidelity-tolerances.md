@@ -120,6 +120,41 @@ acknowledged with the save names the content the save read.
 All three sync workflows now take a fingerprint before reading data on runs the
 probe did not dispatch, and acknowledge it, so every save names its content.
 
+**ESPN: amber, then re-sync.** Jeremy, 2026-10-10: "Amber, then re-sync." ESPN
+revises projections during the day without changing the date.
+
+- A live value that differs from a row saved before ESPN's last change is
+  amber, labelled "update available". That covers a changed fingerprint, the
+  change probe holding content no ingest has saved, and a save with no
+  recorded fingerprint.
+- The pulse then dispatches the ESPN sync (`espn-supabase-sync.yml`, the
+  module's `RESYNC_WORKFLOW`). It sends one request per ESPN version every
+  3 h (`RESYNC_RETRY_HOURS`), and none when the change probe already
+  dispatched that version. The sync acknowledges the fingerprint it read and,
+  on new content, runs the chain. The chain's completion re-runs the pulse.
+- Only a mismatch that survives the re-sync is red and holds ESPN: the save's
+  fingerprint equals ESPN's now, so stored differs from the version it read.
+  A missing or extra block of players is red at once. A save more than 24 h
+  behind a changed ESPN is still stale (red).
+
+Measured: within one day, 13 of 566 ESPN players changed between the 19:25Z
+save and 21:51Z on 2026-10-09 (one injured-reserve move). The 18:00Z and
+21:51Z pulses had 27 and 39 mismatches, and a fresh ESPN sync cleared each
+set. CBS rest of season and Razzball keep the plain rule above. Their
+changes come in daily batches, and the probe's own 4-hourly ingest covers
+them.
+
+### Same-day re-save after the chart was built (stage 2)
+
+A snapshot date can be re-saved in place after the chart was built from it.
+Stage 2 treats every player the re-save changed, added or dropped as amber
+until the next chain run, provided stage 1 shows that player equal to the
+publisher. The save time is the snapshot's last row write, or the fingerprint
+acknowledgement of that save, whichever is later. A re-save that only
+deletes rows (ESPN prunes the players it no longer lists) moves no remaining
+row's stamp. The same difference against a save made before the build is a
+chart fault and holds. So is a re-saved row that differs from the publisher.
+
 **Measured day-to-day change:** per stored snapshot date, half-PPR, players
 present on both days.
 

@@ -28,6 +28,15 @@ Checks, headless on the built dist/ (the live page):
 6. A held source (validationHold / promotionHold on its section, or on the
    derived section) and a source that has not published the current week are
    never inputs, even when requested; excluded lists the reason.
+
+JEG-508 (docs/methodology.md "Value Pipeline", VP-6.3 / VP-7.3 / VP-11)
+changed three rules this file pins, and only those assertions moved: the
+inputs and series are source keys (a chart's input is "fantasycalc", whose
+Adjusted-tab value is its Adjusted value; "fantasycalc_adjusted" and
+"fantasycalc_adj_values" are retired); the tier is VP-7.3 (rank by DDF Value
+within the position, then mean projected points, cut at the league
+allocation of VP-2.2, DDF 0 = waiver) instead of ValueModel.roleMap; a source's
+prior week is compared in the Adjusted tab, where its averaged value lives.
 """
 from __future__ import annotations
 
@@ -42,10 +51,9 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-INPUTS = ["espn", "cbsros", "razzball", "fantasycalc_adjusted", "usatoday_adjusted",
-          "fantasypros_adjusted", "cbs_adjusted"]
+INPUTS = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"]
 PROJECTIONS = ["espn", "cbsros", "razzball"]
-CHARTS = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]
+CHARTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
 VERSIONS = ["ddf_value", "ddf_value_charts", "ddf_value_projections"]
 NONE = "No source prices this player"
 ONE = "Only one source prices this player"
@@ -69,12 +77,11 @@ HELPERS = """
   const near = (a, b) => (a === null || a === undefined) ? (b === null || b === undefined) : (b !== null && b !== undefined && Math.abs(a - b) <= 1e-9);
   const isDdf = k => VERSIONS.includes(k);
   const others = () => JSON.stringify(c.getAllRows().map(r => {
-    const v = {...r.values}; VERSIONS.forEach(k => delete v[k]); return [r.player_key, r.espnRole, v];
+    const v = {...r.values}; VERSIONS.forEach(k => delete v[k]); return [r.player_key, v];
   }));
   const ddf = () => JSON.stringify(c.getAllRows().map(r => [r.player_key, r.ddfTier, r.ddfPrior, r.ddfByVersion]));
-  // A series' Adjusted-view value: a chart's "<chart>_adj_values" is the
-  // chart's value on the Adjusted tab's row; a projection's is its own.
-  const seriesValue = (adjRow, s) => s.endsWith('_adj_values') ? adjRow.values[s.replace(/_adj_values$/, '')] : adjRow.values[s];
+  // A source's Adjusted value: its value on the Adjusted tab's row (VP-11).
+  const seriesValue = (adjRow, s) => adjRow.values[s];
   // Every row against the rule. The expected Adjusted-view values come from
   // the Adjusted tab's rows; every version must also be the same on the rows
   // of the tab that was open.
@@ -155,15 +162,18 @@ SETTER = """async () => {""" + HELPERS + """
   window.addEventListener('trade-value-shared-change', e => { events.shared.push(e.detail.compositeInputs); });
   const baseOthers = others(), baseDdf = ddf();
   out.set = c.setCompositeInputs(['cbsros', 'espn', 'espn']);
-  checkMean('subset', out.problems);
+  // Two projections: players only one of them projects exercise the
+  // one-source rule (JEG-508: every chart prices every rosterable player, so
+  // the full blend rarely has a one-source player).
+  out.subsetShort = checkMean('subset', out.problems).short;
   out.subsetMoved = ddf() !== baseDdf;
   out.othersSame = others() === baseOthers;
   out.eventsAfterSet = JSON.parse(JSON.stringify(events));
   out.get = c.getCompositeInputs();
   const before = ddf();
-  out.invalid = [c.setCompositeInputs([]), c.setCompositeInputs(['fantasycalc']), c.setCompositeInputs(['espn_vorp']),
+  out.invalid = [c.setCompositeInputs([]), c.setCompositeInputs(['fantasycalc_adj_values']), c.setCompositeInputs(['espn_vorp']),
     c.setCompositeInputs(['ddf_value']), c.setCompositeInputs('espn'), c.setCompositeInputs({espn: true}),
-    c.setCompositeInputs(['espn', 'usatoday'])];
+    c.setCompositeInputs(['espn', 'ddf_value_charts'])];
   out.unchangedAfterInvalid = ddf() === before && JSON.stringify(c.getCompositeInputs()) === JSON.stringify(out.get);
   const quiet = events.shared.length;
   out.quietSet = c.setCompositeInputs(['razzball', 'cbsros'], false);
@@ -191,18 +201,30 @@ RANK = """async () => {""" + HELPERS + """
     if (c.getRankSource() !== 'ddf_value') problems.push(`${tag}: rank source fell back to ${c.getRankSource()}`);
     const shape = c.getRosterShape();
     const all = c.getAllRows();
-    // Tier = the engine's slot fill (ValueModel.roleMap) on the DDF values.
-    const values = new Map(all.filter(r => r.values.ddf_value !== null).map(r => [r.player_key, r.values.ddf_value]));
-    const byKey = new Map(all.map(r => [r.player_key, r]));
-    const roles = window.ValueModel.roleMap({values, playerOf: k => byKey.get(k), teams, shape});
+    // VP-7.3: within a position, rank by DDF Value, then mean projected
+    // points (missing last), then key; cut at the league allocation (VP-7.2);
+    // DDF 0 is waiver.
+    const alloc = Object.fromEntries(c.getAdjustmentWeights().allocation.map(a => [a.pos, a]));
+    const want = new Map();
+    P.forEach(pos => {
+      const ranked = all.filter(r => r.pos === pos && r.values.ddf_value !== null).sort((a, b) =>
+        (b.values.ddf_value - a.values.ddf_value)
+        || ((a.meanPpg === null) - (b.meanPpg === null)) || ((b.meanPpg ?? 0) - (a.meanPpg ?? 0))
+        || (a.player_key - b.player_key));
+      ranked.forEach((r, i) => want.set(r.player_key, r.values.ddf_value === 0 ? 'waiver'
+        : i + 1 <= alloc[pos].lineup ? 'starter' : i + 1 <= alloc[pos].rostered ? 'bench' : 'waiver'));
+    });
     all.forEach(r => {
-      const want = r.values.ddf_value === null ? null : (roles.get(r.player_key) || 'waiver');
-      if (r.ddfTier !== want) problems.push(`${tag} ${r.name}: ddfTier ${r.ddfTier} != ${want}`);
+      const w = want.has(r.player_key) ? want.get(r.player_key) : null;
+      if (r.ddfTier !== w) problems.push(`${tag} ${r.name}: ddfTier ${r.ddfTier} != ${w}`);
     });
     const starters = all.filter(r => r.ddfTier === 'starter').length;
     const bench = all.filter(r => r.ddfTier === 'bench').length;
-    if (starters !== teams * sum(shape)) problems.push(`${tag}: ${starters} DDF starters, slots ${teams * sum(shape)}`);
-    if (bench !== teams * shape.BENCH) problems.push(`${tag}: ${bench} DDF bench, slots ${teams * shape.BENCH}`);
+    const slots = P.reduce((a, pos) => a + alloc[pos].lineup, 0);
+    const rostered = P.reduce((a, pos) => a + alloc[pos].rostered, 0);
+    if (slots !== teams * sum(shape)) problems.push(`${tag}: allocation starts ${slots}, slots ${teams * sum(shape)}`);
+    if (starters > slots) problems.push(`${tag}: ${starters} DDF starters, slots ${slots}`);
+    if (bench > rostered - slots) problems.push(`${tag}: ${bench} DDF bench, bench seats ${rostered - slots}`);
     for (const pos of ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX']) {
       c.setPosition(pos);
       const rows = c.getRows();
@@ -252,11 +274,14 @@ PRIOR = """async () => {""" + HELPERS + """
       infoPrior: info.priorAvailable, compared: 0, short: 0};
     out.versions[v] = o;
     if (!r.available) continue;
-    // A projection is averaged exactly as its own prior week; a chart's
-    // Adjusted values may only gain zeros (below a fully loaded chart's floor).
+    // Every source is averaged exactly as its own prior week in the
+    // Adjusted tab (VP-8: one pipeline run per week).
+    view('adj');
+    const ownPrior = {};
+    for (const s of r.sources) ownPrior[s] = (await c.getPriorWeek(s)).values;
+    view('indexed');
     for (const s of r.sources) {
-      if (s.endsWith('_adj_values')) continue;
-      const own = (await c.getPriorWeek(s)).values, used = r.seriesValues[s];
+      const own = ownPrior[s], used = r.seriesValues[s];
       if (JSON.stringify(Object.keys(own).sort()) !== JSON.stringify(Object.keys(used).sort())
           || Object.keys(own).some(pk => !near(own[pk], used[pk]))) out.problems.push(`${v} ${s}: averaged prior differs from getPriorWeek`);
     }
@@ -428,13 +453,11 @@ class DdfCompositeValueTest(unittest.TestCase):
         # the load setting all four charts have a prior week and count.
         self.assertEqual(out["keys"]["ddf_value_charts"], CHARTS)
         self.assertEqual(out["keys"]["ddf_value"], INPUTS)
-        self.assertEqual(out["series"]["ddf_value_charts"],
-                         [f"{k.replace('_adjusted', '')}_adj_values" for k in CHARTS])
+        self.assertEqual(out["series"]["ddf_value_charts"], CHARTS)
         for version in VERSIONS:
             assert_pair_or_none(self, version, out["keys"][version], out["excluded"][version])
         self.assertTrue(set(PROJECTIONS) <= set(out["keys"]["ddf_value"]))
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
-        self.assertGreater(out["shortPlayers"], 0, "no player has one source, so the one-source rule went untested")
         self.assertEqual(out["activeAtEnd"], "indexed")
 
     def test_set_composite_inputs(self):
@@ -446,6 +469,7 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertFalse(out["set"]["isDefault"])
         self.assertTrue(out["subsetMoved"])
         self.assertTrue(out["othersSame"], "a DDF Value input change moved another series")
+        self.assertGreater(out["subsetShort"], 0, "no player has one source, so the one-source rule went untested")
         self.assertGreaterEqual(out["eventsAfterSet"]["rows"], 1)
         self.assertEqual(out["eventsAfterSet"]["shared"], [["espn", "cbsros"]])
         # v2 contract: a deselected input's reason is exactly "not selected"
@@ -513,7 +537,7 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
 
 
-CHART_SERIES = ["fantasycalc_adj_values", "usatoday_adj_values", "fantasypros_adj_values", "cbs_adj_values"]
+CHART_SERIES = CHARTS
 # Off the saved 12-team setup the charts' Adjusted values are derived from the
 # saved weeks too (JEG-479 "Build prior week").
 DERIVED_SETTING = "window.__setting = ['half_ppr', 10];"
@@ -561,9 +585,9 @@ class DdfChartPriorWeekTest(unittest.TestCase):
             res = out["versions"][version]
             self.assertTrue(res["available"], (version, res))
             excluded = {e["key"]: e["reason"] for e in res["excluded"]}
-            self.assertEqual(set(excluded), {"cbs_adjusted"}, (version, excluded))
-            self.assertTrue(excluded["cbs_adjusted"].startswith(f"no prior week: no Week {prior} CBS"), excluded)
-            self.assertNotIn("cbs_adj_values", res["sources"])
+            self.assertEqual(set(excluded), {"cbs"}, (version, excluded))
+            self.assertTrue(excluded["cbs"].startswith(f"no prior week: no Week {prior} CBS"), excluded)
+            self.assertNotIn("cbs", res["sources"])
             self.assertEqual([s for s in res["sources"] if s in CHART_SERIES], CHART_SERIES[:3], version)
 
     def test_saved_setup_derives_live_too(self):
@@ -584,9 +608,9 @@ class DdfChartPriorWeekTest(unittest.TestCase):
 
 HELD_INIT = "window.__heldKey = %s; window.__heldSeries = %s;"
 # The DDF series an input contributes (exact keys).
-HELD_SERIES = {"fantasycalc_adjusted": ["fantasycalc_adj_values"],
-               "usatoday_adjusted": ["usatoday_adj_values"],
-               "cbs_adjusted": ["cbs_adj_values"],
+HELD_SERIES = {"fantasycalc": ["fantasycalc"],
+               "usatoday": ["usatoday"],
+               "cbs": ["cbs"],
                "razzball": ["razzball"]}
 
 
@@ -600,7 +624,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
         if not (DIST / "index.html").exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
         # No held series: nothing is checked for leaking.
-        cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("fantasycalc_adjusted"), "null"))
+        cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("fantasycalc"), "null"))
 
     def held_run(self, data_edit, key):
         return run(HELD, data_edit=data_edit, init_script=HELD_INIT % (json.dumps(key), json.dumps(HELD_SERIES[key])))
@@ -659,29 +683,29 @@ class DdfHeldSeriesTest(unittest.TestCase):
             self.assertFalse(entry["stale"])
 
     def test_validation_hold_on_the_source_holds_its_derived_series(self):
-        out = self.held_run(hold_on("fantasycalc"), "fantasycalc_adjusted")
-        self.assert_never_included(out, "fantasycalc_adjusted", "held: " + HOLD["reason"])
-        entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc_adjusted"]
+        out = self.held_run(hold_on("fantasycalc"), "fantasycalc")
+        self.assert_never_included(out, "fantasycalc", "held: " + HOLD["reason"])
+        entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc"]
         self.assertEqual(entry["reason"], "held: " + HOLD["reason"])
         self.assertEqual((entry["heldBy"], entry["holdField"]), ("fantasycalc", "validationHold"))
         self.assertEqual((entry["holdRoot"], entry["holdWeek"], entry["holdKeptWeek"]), ("fantasycalc", 5, 4))
-        self.assertEqual(out["load"]["held"], ["fantasycalc_adjusted"])
+        self.assertEqual(out["load"]["held"], ["fantasycalc"])
 
     def test_pipeline_hold_on_raw_and_adjusted_sections(self):
-        out = self.held_run(hold_on("cbs", "cbs_adjusted"), "cbs_adjusted")
-        self.assert_never_included(out, "cbs_adjusted", "held: " + HOLD["reason"])
-        entry = {e["key"]: e for e in out["load"]["excluded"]}["cbs_adjusted"]
-        self.assertEqual((entry["heldBy"], entry["holdRoot"]), ("cbs_adjusted", "cbs"))
+        out = self.held_run(hold_on("cbs", "cbs_adjusted"), "cbs")
+        self.assert_never_included(out, "cbs", "held: " + HOLD["reason"])
+        entry = {e["key"]: e for e in out["load"]["excluded"]}["cbs"]
+        self.assertEqual((entry["heldBy"], entry["holdRoot"]), ("cbs", "cbs"))
 
     def test_hold_on_the_derived_section_itself(self):
-        out = self.held_run(hold_on("fantasycalc_adjusted"), "fantasycalc_adjusted")
-        self.assert_never_included(out, "fantasycalc_adjusted", "held: " + HOLD["reason"])
-        entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc_adjusted"]
+        out = self.held_run(hold_on("fantasycalc_adjusted"), "fantasycalc")
+        self.assert_never_included(out, "fantasycalc", "held: " + HOLD["reason"])
+        entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc"]
         self.assertEqual(entry["heldBy"], "fantasycalc_adjusted")
 
     def test_promotion_hold_is_a_hold_too(self):
-        out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc_adjusted")
-        self.assert_never_included(out, "fantasycalc_adjusted", "held: " + HOLD["reason"])
+        out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc")
+        self.assert_never_included(out, "fantasycalc", "held: " + HOLD["reason"])
 
     def test_a_held_projection_is_out_of_every_version(self):
         out = self.held_run(hold_on("razzball"), "razzball")
@@ -690,9 +714,9 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual(excluded["razzball"]["series"], "razzball")
 
     def test_a_source_not_yet_published_for_the_week_is_never_an_input(self):
-        out = self.held_run(older_week("usatoday"), "usatoday_adjusted")
-        self.assert_never_included(out, "usatoday_adjusted", "not yet published for week")
-        self.assertEqual(out["load"]["notPublished"], ["usatoday_adjusted"])
+        out = self.held_run(older_week("usatoday"), "usatoday")
+        self.assert_never_included(out, "usatoday", "not yet published for week")
+        self.assertEqual(out["load"]["notPublished"], ["usatoday"])
 
     def test_unheld_fixture_has_no_held_series(self):
         out = self.unheld

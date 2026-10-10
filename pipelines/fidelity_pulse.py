@@ -127,6 +127,14 @@ PROJECTION_RED_DAYS = 3
 # waiting for the next ingest (amber) while the save is younger than
 # PROJECTION_STALE_HOURS; after that the stored copy is stale (red).
 PROJECTION_STALE_HOURS = 24
+# Jeremy, 2026-10-10 (JEG-520): ESPN intraday drift is "Amber, then re-sync".
+# A live value that differs from a row saved before the publisher's last change
+# is amber ("update available") and the pulse dispatches the source's sync
+# workflow (a projection module's RESYNC_WORKFLOW); only a mismatch that
+# survives the re-sync (the save's fingerprint equals the one read now) is red.
+# One request per publisher version: the same fingerprint is not re-dispatched
+# for this long (by the pulse, or after the change probe dispatched it).
+RESYNC_RETRY_HOURS = 3
 ACK_MATCH_MINUTES = 15     # an ack this close to the stored save names the content that save read
 BLOCK_SHARE = 0.10         # missing + extra players above this share of a position is a block, never an update
 BLOCK_MIN = 3              # ... and at least this many players
@@ -179,7 +187,10 @@ RULES = {
                    f"update stamp is newer than the snapshot (inside {GRACE_HOURS} h), the change probe has seen "
                    "content no ingest saved yet, or the fingerprint changed since the save (a daily update; red once "
                    f"the save is older than {PROJECTION_STALE_HOURS} h: stale), and amber 'unconfirmed' when no "
-                   "fingerprint was recorded with the save or none can be read now. Stage 2: the chart's per-game native equals the stored snapshot it was built from, "
+                   "fingerprint was recorded with the save or none can be read now. ESPN (Jeremy 2026-10-10, "
+                   "'Amber, then re-sync'): every such amber is 'update available' and the pulse dispatches the ESPN "
+                   f"sync (one request per publisher version per {RESYNC_RETRY_HOURS} h); only a mismatch that "
+                   "survives the re-sync is red. Stage 2: the chart's per-game native equals the stored snapshot it was built from, "
                    "rounded half-up to the chart's printed decimals. Stage 3: chart snapshot older than "
                    f"{PROJECTION_AMBER_DAYS} d amber, {PROJECTION_RED_DAYS} d red, or the publisher's own update "
                    "date is newer than the chart's",
@@ -202,7 +213,11 @@ RULES = {
                  f"movement band max({FC_DRIFT_REL:.0%}, {FC_DRIFT_ABS} points), red only above {FC_SYSTEMIC_SHARE:.0%} "
                  "of values outside it; article charts exact against the same article version, a later revision is "
                  f"'update available' for {GRACE_HOURS} h, then stale; projections exact against the same publisher "
-                 f"version (probe fingerprint), a changed version amber for {PROJECTION_STALE_HOURS} h, then stale",
+                 f"version (probe fingerprint), a changed version amber for {PROJECTION_STALE_HOURS} h, then stale; "
+                 "ESPN amber, then re-sync: red only when the mismatch survives a fresh sync",
+    "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe "
+              "fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next "
+              "chain run for every changed, added or dropped player stage 1 shows equal to the publisher",
 }
 
 
@@ -1721,6 +1736,39 @@ def negligible_absences(cmp: dict, left: dict) -> list[dict]:
     return gone
 
 
+def probe_dispatched_at(probe: dict | None, fingerprint: str, now: datetime) -> datetime | None:
+    """When the change probe dispatched an ingest of exactly this fingerprint, if within RESYNC_RETRY_HOURS."""
+    probe = probe or {}
+    at = parse_ts(probe.get("dispatched_at"))
+    if probe.get("dispatched_fp") == fingerprint and at and now - at < timedelta(hours=RESYNC_RETRY_HOURS):
+        return at
+    return None
+
+
+def resync_requests(results: list[dict], previous: dict | None, now: datetime) -> dict:
+    """{source: request} for sources whose stage 1 asked for a re-sync (Jeremy 2026-10-10, ESPN "Amber, then
+    re-sync"). `dispatch` is False when this publisher version was already requested by the last pulse or
+    dispatched by the change probe within RESYNC_RETRY_HOURS, so one edit sends one sync."""
+    prev = (previous or {}).get("resyncs") or {}
+    out = {}
+    for r in results:
+        req = ((r.get("stages") or {}).get("publisher_vs_stored") or {}).get("resync")
+        if not req:
+            continue
+        before = prev.get(r["source"]) or {}
+        asked = parse_ts(before.get("requested_at"))
+        if (before.get("fingerprint") == req["fingerprint"] and asked
+                and now - asked < timedelta(hours=RESYNC_RETRY_HOURS)):
+            out[r["source"]] = {**req, "dispatch": False, "requested_at": before["requested_at"],
+                                "note": "already requested for this publisher version"}
+        elif req.get("probe_dispatched_at"):
+            out[r["source"]] = {**req, "dispatch": False, "requested_at": req["probe_dispatched_at"],
+                                "note": "the change probe already dispatched this version's ingest"}
+        else:
+            out[r["source"]] = {**req, "dispatch": True, "requested_at": iso(now)}
+    return out
+
+
 def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident, now, universe, probe,
                                live_fingerprint: Callable[[], dict | None] | None = None):
     if pub.get("error"):
@@ -1736,6 +1784,7 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
     negligible = negligible_absences(cmp, left)
     n_bad = problem_count(cmp)
     status, reasons = "green", []
+    resync_wf, resync_fp, resync = getattr(mod, "RESYNC_WORKFLOW", None), None, None
     vintage = pub.get("vintage")
     revised = parse_ts((pub.get("dates") or {}).get("dateModified"))
     if n_bad:
@@ -1744,10 +1793,13 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
         newer = (vintage and str(vintage) > str(snapshot)) or (revised and saved_at and revised > saved_at)
         blocks = player_blocks(cmp, left, ident)
         stale = saved_at is None or (now - saved_at) > timedelta(hours=PROJECTION_STALE_HOURS)
-        version = ("", "")
+        version, live = ("", ""), None
         if not blocks and not (newer and (not revised or (now - revised) <= timedelta(hours=GRACE_HOURS))) \
                 and not probe_changed(probe):
-            version = same_version(probe, live_fingerprint() if live_fingerprint else None, saved_at)
+            live = live_fingerprint() if live_fingerprint else None
+            version = same_version(probe, live, saved_at)
+        live_fp = (live or {}).get("fingerprint") if (live or {}).get("ok") else None
+        update = "update available" if resync_wf else "daily update"
         if blocks:
             status = "red"
             reasons.append(f"a block of players is missing or extra ({', '.join(blocks)})")
@@ -1757,20 +1809,29 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
                            f"inside the {GRACE_HOURS} h grace window")
         elif probe_changed(probe):
             status = "amber"
-            reasons.append(f"the change probe saw new publisher content at {probe.get('last_probe_at')} that no "
-                           "ingest has saved yet (ingest pending)")
+            reasons.append(f"{update + ': ' if resync_wf else ''}the change probe saw new publisher content at "
+                           f"{probe.get('last_probe_at')} that no ingest has saved yet (ingest pending)")
+            resync_fp = probe.get("last_fp")
         elif version[0] == "same":
             status = "red"
-            reasons.append(f"stored values differ from the same publisher version: {version[1]}")
+            reasons.append(f"stored values differ from the same publisher version: {version[1]}"
+                           + (" (the mismatch survived a sync of this version)" if resync_wf else ""))
         elif version[0] == "changed" and not stale:
             status = "amber"
-            reasons.append(f"daily update, ingest pending: {version[1]}")
+            reasons.append(f"{update}, ingest pending: {version[1]}")
+            resync_fp = live_fp
         elif version[0] == "changed":
             status = "red"
             reasons.append(f"stale: {version[1]} and the save is older than {PROJECTION_STALE_HOURS} h")
+            resync_fp = live_fp
         else:
             status = "amber"
-            reasons.append(f"unconfirmed: {version[1]}")
+            reasons.append(f"{update + ': ' if resync_wf else ''}unconfirmed: {version[1]}")
+            resync_fp = live_fp
+        if resync_wf and resync_fp:
+            resync = {"workflow": resync_wf, "fingerprint": resync_fp, "saved_at": iso(saved_at),
+                      "probe_dispatched_at": iso(probe_dispatched_at(probe, resync_fp, now))}
+            reasons.append(f"re-sync requested ({resync_wf}): red only if the mismatch survives it")
     if outside:
         status = worst(status, "amber")
         reasons.append(f"{len(outside)} publisher players are not stored because the page's player universe excludes "
@@ -1799,7 +1860,7 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
                + (f"; {'; '.join(reasons)}" if reasons else ""))
     return stage(status, summary, counts=counts, url=pub.get("url"), publisher_vintage=vintage,
                  stored_snapshot=snapshot, stored_saved_at=iso(saved_at), grains=cmp["grains"],
-                 publisher_version=(version[0] or None) if n_bad else None,
+                 publisher_version=(version[0] or None) if n_bad else None, resync=resync,
                  examples=worst_examples(cmp), outside_universe=outside[:EXAMPLES * 3],
                  unresolved=unresolved[:EXAMPLES]), dict(cmp, left_grains=left, right_grains=right)
 
@@ -1824,7 +1885,7 @@ def read_projection_publisher(mod, fetch, rows: list[dict]) -> dict:
 
 
 def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now, latest, latest_rows,
-                           verified_keys: set[int] | None = None):
+                           verified_keys: set[int] | None = None, acked_at: datetime | None = None):
     if site_doc is None:
         return stage("unknown", f"live chart not read: {site_error}"), {}
     if not site_section(site_doc, source):
@@ -1857,6 +1918,11 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     # publisher, and chart players the snapshot no longer has (the save replaced the day's set; a player the
     # publisher still lists is missing in stage 1, red there).
     last_write = max((t for t in map(written_at, rows) if t is not None), default=None)
+    # A re-save that only deletes rows (ESPN prunes the players it no longer lists, CBS rest of season replaces
+    # the day's set) moves no remaining row's stamp: the probe fingerprint acknowledged with the save dates it.
+    # Only for the newest snapshot, the one that save wrote.
+    if acked_at and snap == latest and (last_write is None or acked_at > last_write):
+        last_write = acked_at
     resaved_after_build = bool(built and verified_keys is not None and last_write and last_write > built)
     resaved = [m for m in cmp["mismatches"] + cmp["missing"]
                if resaved_after_build and m["player_key"] in verified_keys]
@@ -1993,8 +2059,9 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
         if kept_old:
             stages["stored_vs_chart"] = held_chart_stage(held, identity)
         else:
-            stages["stored_vs_chart"], cmp2 = stage_projection_chart(source, mod, site_doc, site_error, store, ident,
-                                                                     now, latest, latest_rows, verified_keys(cmp))
+            stages["stored_vs_chart"], cmp2 = stage_projection_chart(
+                source, mod, site_doc, site_error, store, ident, now, latest, latest_rows, verified_keys(cmp),
+                acked_at=parse_ts((probe or {}).get("acked_at")))
             divergences += [dict(d, stage="stored_vs_chart", source_url=SITE_FIXTURE) for d in divergence_items(cmp2)]
     except Exception as e:  # noqa: BLE001
         stages["stored_vs_chart"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
@@ -2180,6 +2247,7 @@ def run(sources=SOURCES, *, fetch: Fetcher, store, ident: Identity, site_doc, si
         "universe": universe if universe is not None else universe_report(),
     }
     doc["last_good"] = last_good(sources, doc["holds"], site_doc, previous)
+    doc["resyncs"] = resync_requests(results, previous, now)
     before = {k: (v or {}).get("reason") for k, v in ((previous or {}).get("holds") or {}).items() if k in sources}
     doc["holds_changed"] = before != {k: v["reason"] for k, v in doc["holds"].items()}
     return doc, divergences
@@ -2280,9 +2348,17 @@ def main(argv=None) -> int:
     ap.add_argument("--offline-dir", help="stored_<source>.json + players.json instead of Supabase (local runs)")
     ap.add_argument("--write-supabase", action="store_true", help="append the run to public.fidelity_runs")
     ap.add_argument("--no-relay", action="store_true", help="do not use the USA Today relay")
+    ap.add_argument("--resync-dispatches", metavar="PULSE_JSON",
+                    help="print the workflows a pulse document asks to dispatch (one per line) and exit")
     ap.add_argument("--previous", default=str(ROOT / "dist" / "modules" / "fidelity-pulse.json"),
                     help="the last published pulse (carries each source's last good chart forward)")
     args = ap.parse_args(argv)
+    if args.resync_dispatches:
+        doc = json.loads(Path(args.resync_dispatches).read_text(encoding="utf-8"))
+        for _source, req in sorted((doc.get("resyncs") or {}).items()):
+            if req.get("dispatch") and req.get("workflow"):
+                print(req["workflow"])
+        return 0
 
     sources = [s for s in args.sources.split(",") if s]
     unknown = [s for s in sources if s not in SOURCES]

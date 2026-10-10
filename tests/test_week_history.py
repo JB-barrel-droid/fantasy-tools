@@ -29,6 +29,15 @@ one:
    fail when the Week 4 file is served relabelled as Week 3, when the
    accessor substitutes the served (current) natives for the saved week, and
    when getPriorWeek pairs the served week with itself.
+
+JEG-508 (docs/methodology.md "Value Pipeline", VP-6.4 / VP-8 / VP-10): a
+saved week is one value-pipeline run on that week's inputs (same league,
+included set and pie). The independent check of a chart's prior Indexed
+values is now that they are the saved week's natives times ONE factor (the
+factor is set against that week's blended DDF Value, which value_check
+verifies against the Python reference); the anchor-based price, the ESPN
+prior leg (espn_legs_for_week) and the ESPN/VORP/list-order mutations are
+retired with the anchor and the two-tier leg.
 """
 from __future__ import annotations
 
@@ -566,15 +575,12 @@ ESPN_PRIOR = """async () => {
 }"""
 
 
-def _python_prior(source, week, anchor):
-    """Independent price of a saved week at Full PPR / 12 / standard roster:
-    the saved natives times one factor against the page's live anchor
-    (JEG-482), over the charted players (canonical QB/RB/WR/TE)."""
-    from tests.test_published_league_settings_engine import browser_players, one_factor
+def _saved_natives(source, week):
+    """A saved week's natives at Full PPR over the charted players."""
+    from tests.test_published_league_settings_engine import browser_players
     pos_of = browser_players()
     natives = _week(week)["sources"][source]["natives"]["ppr"]
-    native = {int(k): float(v) for k, v in natives.items() if int(k) in pos_of}
-    return one_factor(native, native, anchor)
+    return {int(k): float(v) for k, v in natives.items() if int(k) in pos_of}
 
 
 @contextlib.contextmanager
@@ -697,12 +703,10 @@ def collect(overrides=None):
             page.goto(url, wait_until="networkidle", timeout=120000)
             page.wait_for_function(READY, timeout=30000)
             prior = page.evaluate(PRIOR)
-            anchor = {int(k): v for k, v in page.evaluate(
-                "() => Object.fromEntries([...window.TradeValueCurveHarness.sourceMaps().get('espn').entries()])").items()}
             for source in sorted(set(H.PUBLISHED) & set(UNMATCHED)):
                 failures += unmatched_prior(source, prior[source]["prior"])
             for source, week in expected.items():
-                want = _python_prior(source, week, anchor)
+                native = _saved_natives(source, week)
                 got = prior[source]["prior"]
                 if not got.get("available"):
                     failures.append(f"{source}: prior week unavailable ({got.get('reason')})")
@@ -710,19 +714,22 @@ def collect(overrides=None):
                 if got.get("priorWeek") != week or got.get("week") != week:
                     failures.append(f"{source}: prior week {got.get('priorWeek')}, want {week}")
                 values = {int(k): v for k, v in got["values"].items()}
-                if set(values) != set(want):
-                    failures.append(f"{source}: {len(set(want) ^ set(values))} players differ from the saved week")
-                bad = [k for k in want if k in values and abs(values[k] - want[k]) > 1e-9]
-                if bad:
-                    failures.append(f"{source}: {len(bad)} prior values differ from the Python price, "
-                                    f"e.g. {bad[0]}: {values[bad[0]]} vs {want[bad[0]]}")
+                missing = [k for k in native if k not in values]
+                if missing:
+                    failures.append(f"{source}: {len(missing)} saved-week players not priced")
+                # VP-6.4: Indexed = the saved natives times one factor.
+                ratios = [values[k] / v for k, v in native.items() if v > 0 and k in values]
+                factor = ratios[0] if ratios else None
+                if not ratios or max(ratios) - min(ratios) > 1e-9 * max(ratios):
+                    failures.append(f"{source}: prior Indexed is not one factor on the Week {week} natives")
+                want = {k: v * factor for k, v in native.items()} if factor else {}
                 # The known player: Δ is the chart's current value minus the
                 # saved week priced at the same setting.
                 current = prior[source]["current"]
                 if BIJAN not in values or current is None:
                     failures.append(f"{source}: Bijan Robinson missing (prior {values.get(BIJAN)}, current {current})")
-                elif abs(values[BIJAN] - want[BIJAN]) > 1e-9:
-                    failures.append(f"{source}: Bijan prior {values[BIJAN]}, Python {want[BIJAN]}")
+                elif BIJAN not in want or abs(values[BIJAN] - want[BIJAN]) > 1e-9:
+                    failures.append(f"{source}: Bijan prior {values[BIJAN]}, natives x factor {want.get(BIJAN)}")
                 else:
                     DELTAS[source] = round(current - values[BIJAN], 1)
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
@@ -743,17 +750,7 @@ def collect(overrides=None):
                     failures.append(f"{source}: prior week {res['priorWeek']} with {res['n']} values")
                 if res["changed"] == 0:  # the served week passed off as the prior one
                     failures.append(f"{source}: prior week identical to the served values")
-                if source == "espn":
-                    entry = _week(served - 1)["sources"]["espn"]
-                    want = H.espn_legs_for_week(entry, players)["legs"]["ppr"]
-                    got = {k: v for k, v in res["values"].items() if v != 0}
-                    # The prior is that week's projections through the live
-                    # two-tier (JEG-493), full precision; allow the leg's own
-                    # 1-dp rounding.
-                    bad = [k for k, v in got.items() if k in want and abs(v - want[k]) > 0.06]
-                    if bad or not got:
-                        failures.append(f"espn prior != pipeline leg on {len(bad)} players, e.g. "
-                                        f"{[(k, got[k], want[k]) for k in bad[:4]]}")
+
             # An unmatched source has no served week to reproduce.
             served = [k for k in served_sources() if k.split("_")[0] not in UNMATCHED]
             self_results = page.evaluate(SELF, served)
@@ -785,34 +782,20 @@ class DeltaRecomputeTest(unittest.TestCase):
         widget = WIDGET.read_text(encoding="utf-8")
         relabelled = _week(3)
         relabelled_doc = json.dumps(dict(_week(4), week=3))
-        substitute = widget.replace("const native = historyNatives(entry);",
-                                    "const native = savedPublishedNative(source);")
+        substitute = widget.replace(
+            'const values = familyOf(key) === "projection" ? historyPpg(found.entry) : historyNatives(found.entry);',
+            "const values = currentNatives(key);")
         self.assertNotEqual(substitute, widget)
         same_week = widget.replace("const prior = served.week - 1;", "const prior = served.week;")
         self.assertNotEqual(same_week, widget)
-        espn_served_leg = widget.replace("const leg = saved?.legs?.[scoringField()];",
-                                          "const leg = legs?.weeks?.[String(week + 1)]?.legs?.[scoringField()];")
-        self.assertNotEqual(espn_served_leg, widget)
-        espn_served_ppg = widget.replace("const anchor = espnAnchorFromTwoTier(espnTwoTierFromPpg(ppg), raw);",
-                                         "const anchor = espnAnchorFromTwoTier(ddfTwoTierValues(), raw);")
-        self.assertNotEqual(espn_served_ppg, widget)
-        vorp_served = widget.replace("values: buildVorpMap(series, ppg),", "values: buildVorpMap(series),")
-        self.assertNotEqual(vorp_served, widget)
         served_ignored = widget.replace('if (servedRec?.week === week && servedRec?.version === "superseded") {',
                                         'if (false) {')
         self.assertNotEqual(served_ignored, widget)
-        id_order = widget.replace("const native = historyListOrder(key, historyNatives(found.entry));",
-                                  "const native = historyNatives(found.entry);")
-        self.assertNotEqual(id_order, widget)
         cases = {
-            "chart views ignore the publisher's order between equal values": {"assets/curve-widget.js": id_order},
             "week-4 file served relabelled as week 3": {"assets/history/week-4.json": relabelled_doc},
             "week-4 file served with week-3 content": {"assets/history/week-4.json": json.dumps(dict(relabelled, week=4))},
             "accessor substitutes the served natives": {"assets/curve-widget.js": substitute},
             "prior paired with the served week": {"assets/curve-widget.js": same_week},
-            "ESPN prior reads the served week's leg": {"assets/curve-widget.js": espn_served_leg},
-            "ESPN prior prices the served projections": {"assets/curve-widget.js": espn_served_ppg},
-            "VORP prior prices the served projections": {"assets/curve-widget.js": vorp_served},
         }
         index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8")) \
             if (DIST / "assets" / "history" / "index.json").exists() else {}
