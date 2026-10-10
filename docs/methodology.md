@@ -589,6 +589,420 @@ projections 45.086821).
 | Tiers | slot fill = the allocation | TE Uniform (DDF 9.048407) is a starter by the flex; RB Juliet (rank 5 of RB) is waiver |
 | Bench share slider 0.10 | `variant_bench_share_0_10` | weights and blended DDF |
 
+### Expected-starts value (JEG-521, 2026-10-09): the proposed answer to OC-2 and OC-3
+
+**Status.** Approved by Jeremy 2026-10-09 20:51 (JEG-533, `es-value-001`,
+option A with the bench share as a computed readout, ES-14). Not live yet:
+it lands after JEG-508. JEG-508 ships first with the bench share fixed at 15% and slices
+(OC-2, OC-3 decided 2026-10-09); this section is the follow-up question of
+whether the 15% becomes an output of the data. When approved it replaces VP-2.6 and lands through JEG-508's pipeline with the
+Python reference and the spec reference on the same branch (`value_check` at
+0 disagreements), never as a parallel edit. The measured before/after is
+`output/expected-starts-before-after.md`, produced by
+`pipelines/expected_starts_model.py` on the Week 5 build; the parameters are
+`output/lineup-parameters.json` and `config/lineup_parameters.json`, produced
+by `pipelines/derive_lineup_parameters.py`. The Week 5 reports are kept in
+`docs/claude-log/2026-10-09-jeg521-*.md` (`output/` is not committed).
+
+**ES-0 The lens, and what it is not.**
+
+1. Manifesto section 4: bench points do not count. Section 7: a roster spot is
+   compared with the best freely available alternative. Section 8: the unit is
+   the weeks a player materially improves the lineup. Put together, a rostered
+   player's fundamental value is his value above waivers times the share of
+   the remaining weeks in which that surplus enters a starting lineup. This
+   section defines that share.
+   "Enters a lineup" is decided on projections before the week, so the share
+   is about where his projection will sit, not how his games turn out.
+2. It is an additive approximation of "contribution to expected lineup
+   points over an all-waiver roster". The exact quantity depends on the
+   other players on the roster (section 6, portfolio value). That needs a
+   roster import (JEG-481) and is out of scope; the share here is for an
+   average team in the league setting.
+3. Two things the manifesto names are deliberately left out of the pie and
+   recorded in ES-8: the convex option value of a level change (section 5)
+   and the discounting of later weeks (section 9).
+
+**ES-1 Parameters.** All measured, none assumed. The script re-derives them
+each week from the repo's data; the engine reads them from
+`config/lineup_parameters.json` (generated, committed, pinned by tests). A
+change to them is a value change and is reviewed as one.
+
+| Position | m, missed-game hazard | 95% interval | team games | m, 2024-2025 only | sigma now (source spread) | sigma drift (to mid-window) | sigma used | sigma floor (points per game) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| QB | 11.0% | 9.8% to 12.3% | 2,319 | 9.9% | 14.0% | 11.6% | 18.2% | 0.69 |
+| RB | 15.3% | 14.4% to 16.2% | 5,816 | 10.0% | 11.1% | 27.9% | 30.0% | 0.89 |
+| WR | 11.7% | 11.0% to 12.4% | 8,128 | 13.0% | 12.3% | 28.2% | 30.8% | 1.01 |
+| TE | 14.4% | 13.0% to 15.8% | 2,331 | 15.9% | 8.1% | 35.3% | 36.2% | 0.64 |
+
+- `m_p`: the share of team games a healthy starter at `p` misses. From
+  `data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz` (ES-A; MR-24):
+  players in the 12-team starter pool by points per game over weeks 1-5 or
+  1-9 who played their team's last game of that window; measured on weeks
+  k+1 to the season's last week minus one, pooled over 2015 to 2025 (2,319
+  to 8,128 team games per position). The 2024-2025 Supabase export gives the
+  "2024-2025 only" column as a cross-check; it agrees within 2 points
+  except RB, where those two seasons were unusually healthy (10.0% against
+  15.3% over eleven).
+- `b`: the bye share of the remaining team-weeks, from
+  `data/inputs/nfl_byes_2026.json` and the content week: 30 of 32 teams have a
+  bye in weeks 6-18, so `b = 30 / (32 x 13) = 7.2%` at Week 5. It falls as
+  byes pass and is 0 from Week 15.
+- `sigma_p` (relative) and `sigma_floor,p` (points per game): the uncertainty
+  of a player's rest-of-season per-game level. Now = the sample standard
+  deviation over the mean of the ESPN, CBS rest of season and Razzball
+  per-game projections, median over healthy players ranked between half the
+  starters and the roster line. Drift = the demeaned robust weekly movement of
+  the same projections in `data/history`, scaled by the square root of half
+  the remaining weeks. Used = the root sum of squares. The floor is the median
+  absolute spread below the starter count. Stand-in until G4 can measure
+  realized projection error (then `sigma` becomes the measured error).
+- Chart family: the same construction on the four charts after putting each
+  on a common scale (one factor per chart over the players all four list):
+  QB 58%, RB 50%, WR 52%, TE 84% this week; no floor (ES-6).
+- The result is insensitive to all of these (ES-7 sensitivity): the decision
+  is about the form, not the numbers.
+- The 95% intervals in the table are binomial over team games and are too
+  narrow, because missed games come in runs (one season-ending injury is many
+  missed games). A player-cluster bootstrap gives QB 8.3% to 13.9%, RB 13.5%
+  to 17.1%, WR 10.3% to 13.0%, TE 11.8% to 17.1% (`tools/rb_hazard_trend.py`,
+  JEG-525 item d). Whether `m_RB` should weight recent seasons more is MR-25;
+  the bench tier moves by at most 0.15 points across the candidates.
+
+**ES-2 Roster.** VP-2.2 unchanged: dedicated, greedy flex (OC-4 A), D'Hondt
+bench, `S_p` and `N_p` per source. `n_p = max(1, round(S_p / T))` is the
+starters per team at `p`, flex winners included.
+
+- **Roster decision (JEG-521 constraint).** The default roster is QB 1 / RB 2 /
+  WR 3 / TE 1 / FLEX 1 / BENCH 6, as in `DEFAULT_ROSTER`, `REF_SLOTS`, the
+  spec reference, the worked example and the v2 steppers. `config/roster.json`
+  says WR 2 / FLEX 2 and is wrong; both shapes have 8 starters and the same
+  pie, but the engine has never priced the WR 2 / FLEX 2 shape by default.
+  The file is corrected when VP-10 retires `build_adjustment_inputs.py`,
+  which is its only consumer that moves a live number (today it sets the
+  starter and bench roles of the `*_adjusted` fit cells, so correcting it
+  before the fit retires would move live values outside this decision).
+  `reindex_comparison_section.py` loads the shape and never uses it.
+
+**ES-3 Lines and depth edges** (per source and position, own units, on the
+work list of VP-2.4).
+
+1. `w_p` and `l_p` as VP-2.3 and VP-2.5: the waiver line is the value at
+   0-based index `N_p`, the starter line the value at index `S_p` (the first
+   non-starter), floored at `w_p`.
+2. Depth edges: `e_0 = l_p`; for `k >= 1`, `e_k` = the value at index
+   `S_p + k x T` (the first player at depth `k + 1`) while that index exists and
+   its value is above `w_p`. The last band runs down to `w_p`. Depth `k` is the
+   band `(e_k, e_(k-1)]`: open below, closed above, so the first non-starter
+   (whose value is `l_p`) is at depth 1, not start-worthy.
+
+**ES-4 Lineup share of a level** at position `p`, league setting `L`.
+
+1. Availability `avail_p = (1 - b)(1 - m_p)`: the share of remaining weeks a
+   healthy player at `p` plays.
+2. A starter at `p` is unavailable in a week with probability
+   `q_p = b + (1 - b) m_p`. The depth-`k` bench player on an average team
+   plays when at least `k` of his team's `n_p` starters are out:
+   `fill_k = P(Binomial(n_p, q_p) >= k)`. At 12 teams this week:
+   RB depth 1 about 0.34, depth 2 about 0.04; WR depth 1 about 0.48.
+3. The level of a player projected at `x` is `X ~ Normal(x, s(x))` with
+   `s(x) = max(sigma_p x, sigma_floor,p)` (for a chart, `sigma_chart,p x`).
+   `X` is where his projection will sit when a manager sets a lineup, not
+   his realized points: lineups are set on projections before the games, so
+   `sigma` is the spread of projections (source disagreement and weekly
+   drift, ES-1), and Sunday's outcome noise is excluded on purpose (ES-8.2;
+   Jeremy, JEG-525 artifact comment, 2026-10-09).
+4. `share_p(x) = avail_p x [ P(X > l_p) + sum over k of fill_k x
+   P(e_k < X <= e_(k-1)) ]`. Mass below `w_p` counts nothing. `share` is
+   between 0 and `avail_p`, and non-decreasing in `x`.
+
+**ES-5 The two parts replace the slices of VP-2.6.** For every player on the
+work list, with `v_i = max(0, x_i - w_p)` unchanged:
+
+- start-worthy part `sw_i = avail_p x v_i x P(X_i > l_p)`;
+- fill-in part `fi_i = avail_p x v_i x sum_k fill_k P(e_k < X_i <= e_(k-1))`;
+- `sw_i + fi_i = v_i x share_p(x_i) <= v_i`.
+
+VP-3 to VP-7 then run unchanged with `ssl := sw` and `bsl := fi`: group
+totals, per-source weights, the DDF average of weights, the pie, the rates,
+`A_i = r[p, bench] x fi_i + r[p, starter] x sw_i`, VORP vs waivers display,
+rows, DDF Value, Indexed, tiers. The bench share becomes an output: the sum
+of the bench-group weights (the pie paid on fill-in parts, 5.0% to 6.1% this
+week) and, in diagnostics, the pie held by bench-tier players (8.0% to 9.9%).
+The slider (VP-3.4) stays as the reader's override on these groups. OC-2 is
+therefore answered "source-implied, from expected starts", and OC-3 "parts by
+expected starts, continuous in the native, never reordering a source's
+players" (zero inversions at all 12 settings, `tests/test_expected_starts_model.py`).
+
+**ES-6 Charts** use the same formula in their own units with the chart
+family's `sigma` and no floor; imputed players (VP-2.4) are in the work list
+like listed ones. A chart's `l_p` and `w_p` are its own, so its start-worthy
+probability is its own view of who starts.
+
+**ES-7 Measured effect** (`output/expected-starts-before-after.md`; before =
+today's live values scaled to the fixed pie; bench-tier share = the pie held
+by players ranked past the starters on the mean projection; price = median
+value per point above waivers, starters over bench tier, QB / RB / WR / TE).
+
+| Setting | Bench tier, before | after A | after B | after A, option form | Price before | Price after A |
+| --- | --- | --- | --- | --- | --- | --- |
+| standard/8 | 13.8% | 9.6% | 9.2% | 13.7% | 1.0 / 1.6 / 0.7 / 1.0 | 1.2 / 2.8 / 1.7 / 1.2 |
+| standard/10 | 14.5% | 9.5% | 9.1% | 13.0% | 1.0 / 1.0 / 0.9 / 1.1 | 1.2 / 2.0 / 2.3 / 1.4 |
+| standard/12 | 14.0% | 8.0% | 7.5% | 11.1% | 1.4 / 1.1 / 1.1 / 0.8 | 2.3 / 2.2 / 2.7 / 1.5 |
+| standard/14 | 14.7% | 8.3% | 7.4% | 10.8% | 1.1 / 0.9 / 0.8 / 0.7 | 2.1 / 1.9 / 1.9 / 1.6 |
+| half_ppr/8 | 14.0% | 9.6% | 9.2% | 13.8% | 1.0 / 1.7 / 0.8 / 1.0 | 1.2 / 3.5 / 1.7 / 1.2 |
+| half_ppr/10 | 14.2% | 9.4% | 9.0% | 12.9% | 1.0 / 1.2 / 0.8 / 1.1 | 1.2 / 2.1 / 1.9 / 1.3 |
+| half_ppr/12 | 14.1% | 8.2% | 8.3% | 11.5% | 1.5 / 1.3 / 1.0 / 0.8 | 2.2 / 2.5 / 2.4 / 1.1 |
+| half_ppr/14 | 14.5% | 8.3% | 7.4% | 10.9% | 1.1 / 1.2 / 0.8 / 0.7 | 2.1 / 1.9 / 2.1 / 1.3 |
+| ppr/8 | 14.5% | 9.9% | 9.5% | 14.1% | 1.0 / 1.6 / 0.9 / 1.0 | 1.2 / 2.8 / 1.6 / 1.1 |
+| ppr/10 | 14.0% | 8.7% | 8.5% | 12.4% | 1.0 / 1.5 / 0.8 / 1.9 | 1.2 / 2.5 / 2.4 / 2.2 |
+| ppr/12 | 14.8% | 8.6% | 8.6% | 12.0% | 1.5 / 1.0 / 1.0 / 0.8 | 2.2 / 1.6 / 2.9 / 1.4 |
+| ppr/14 | 14.1% | 8.2% | 7.4% | 10.8% | 1.2 / 1.2 / 0.8 / 0.6 | 2.1 / 2.0 / 2.0 / 1.1 |
+
+- Sensitivity at 12-team full PPR (option A): `m` at 0.5x to 1.5x gives
+  8.2% to 9.0%; `sigma` at 0x to 1.5x gives 8.1% to 9.1%; the first-pass
+  assumptions give 8.7%; the fill-in-only bound is 8.1% and plain value above
+  waivers (bench starts every week) 13.1%. Top-12 share of the RB pie: 56.1%
+  (before 52.0%); WR 48.5% (39.2%).
+- Moot since OC-2 was decided at a fixed 15% (2026-10-09); kept for the
+  record. The VP slices with a source-implied share (OC-2 A) would imply a bench share of
+  42% at 12-team full PPR, 49% at 8-team standard and 39% at 14-team half
+  PPR on live data (QB 47%, RB 42%, WR 43%, TE 37% at 12-team full PPR),
+  because every starter's surplus up to the starter line is a bench slice.
+  That would have been a large silent move toward the bench (MR-19).
+- Expected lineup share of the surplus, ESPN, 12-team full PPR:
+
+| Position | Rank | Player | Points per game | Share of surplus | Start-worthy part |
+| --- | --- | --- | --- | --- | --- |
+| QB | 1 | Josh Allen | 23.84 | 72.8% | 71.8% |
+| QB | 7 | Tyler Shough | 20.45 | 56.6% | 54.2% |
+| QB | 12 | Dak Prescott | 19.49 | 49.1% | 46.2% |
+| QB | 13 | Jared Goff | 18.95 | 44.3% | 41.3% |
+| QB | 18 | Jordan Love | 18.11 | 36.3% | 33.0% |
+| RB | 1 | Jahmyr Gibbs | 25.71 | 77.4% | 76.8% |
+| RB | 16 | Chuba Hubbard | 14.5 | 70.1% | 65.2% |
+| RB | 31 | Josh Jacobs | 10.43 | 53.6% | 40.1% |
+| RB | 32 | Jordan Mason | 10.35 | 53.0% | 39.3% |
+| RB | 37 | Alvin Kamara | 8.5 | 36.9% | 18.4% |
+| RB | 44 | Keaton Mitchell | 7.69 | 28.6% | 9.8% |
+
+- Top movers of the blended DDF Value at 12-team full PPR (before scaled to the pie; eleven-season `m`, from `docs/claude-log/2026-10-09-jeg521-expected-starts-before-after.md`):
+
+| Player | Position | Tier | Before | After A | Change |
+| --- | --- | --- | --- | --- | --- |
+| Jaxon Smith-Njigba | WR | starter | 51.37 | 66.99 | +15.6 |
+| Ja'Marr Chase | WR | starter | 46.24 | 59.98 | +13.7 |
+| Amon-Ra St. Brown | WR | starter | 44.48 | 57.42 | +12.9 |
+| CeeDee Lamb | WR | starter | 45.56 | 58.22 | +12.7 |
+| Puka Nacua | WR | starter | 47.17 | 59.79 | +12.6 |
+| Chris Olave | WR | starter | 37.34 | 47.52 | +10.2 |
+| Justin Jefferson | WR | starter | 35.09 | 44.12 | +9.0 |
+| Jahmyr Gibbs | RB | starter | 71.88 | 80.28 | +8.4 |
+| Zay Flowers | WR | starter | 32.3 | 40.64 | +8.3 |
+| Nico Collins | WR | starter | 33.63 | 41.88 | +8.2 |
+| Bijan Robinson | RB | starter | 65.39 | 73.52 | +8.1 |
+| Romeo Doubs | WR | bench | 13.4 | 5.44 | -8.0 |
+
+**ES-8 Left out of the pie, by decision.**
+
+1. *Convex option value* (manifesto section 5). The form
+   `avail x E[(X - w)^+ lineup(X)]` pays for the upside of a level change as
+   well as its probability. Measured: bench tier 10.8% to 14.1% across the
+   12 settings and a starter/bench price of 0.6x to 1.9x, so it gives back
+   most of the starter premium the lineup share creates, it is driven by
+   `sigma` (the least-measured input), and near the line it values a player
+   above his whole surplus. Recommendation: keep the pie on expected starts
+   and show option value as its own signal, `P(X > l_p)` for bench players,
+   which is the G5 Stash tag (MR-21).
+2. *Weekly noise* (the manager's Sunday problem): starters' weekly points vary
+   by 38% (QB) to 59% (WR, TE) of their mean (2015-2025, `output/lineup-parameters.md`).
+   `sigma` here is level uncertainty, not that. Matchup-driven starts of bench
+   players need weekly projections (G4 b) and are a follow-up.
+3. *Discounting* (section 9) and the *playoff objective* (section 10): out of
+   scope per JEG-521.
+4. *Known absences.* `m_p` is the forward hazard of a healthy player. A player
+   already out is priced by the projections: ESPN's per-game number is per
+   team game (rest-of-season total over the team's remaining games), so it
+   already carries his known absence, while CBS rest of season and Razzball
+   are per game played and do not. That is a source-neutrality gap in VP-0
+   (MR-20), not something this section fixes.
+
+**ES-9 Options for the glide (JEG-521 G1), argued.**
+
+- *A, replace the slices with the two parts (ES-5).* For: one rule for every
+  rostered player, continuous in the native, no calibration solve, so no
+  infeasible-window clamp (MR-11: five of the 24 live legs are clamped below
+  15% today, for example ESPN half PPR 12 RB at 14.2% and CBS rest of season
+  standard 12 RB at 12.8%); the bench share is an output with a meaning
+  (expected fill-in starts); the starter premium follows from `m`, `b` and
+  the depth, not from a slider; the stash signal (G5) and the drawer's
+  "expected lineup share" read straight off it. Against: a new shape within
+  the starters (top-12 share up 4 to 9 points) and the chart-unit `sigma` is
+  rougher than the projections'.
+- *B, keep the slices and set the per-position bench budget from A.* For: the
+  smallest change to the VP spec; the same bench-tier share by construction
+  (7.4% to 9.5%). Against: it keeps the kink at the starter line, pays every
+  starter's bench-level part at the bench rate (so the starter premium is a
+  by-product of a budget transfer rather than of lineup share), gives no
+  per-player share for the drawer or the stash tag, and needs a second rule
+  to carry the shares from A into the weights.
+- *C, keep the fixed 15% (OC-2 as decided).* For: no change after JEG-508.
+  Against: the bench tier stays near 15% against the 8.0% to 9.9% measured,
+  a starter-level point is often worth less than a bench-level point (0.7x
+  to 1.9x), and one number is wrong for most settings (about 9.6% at 8
+  teams, 8.0% to 8.6% at 12 and 14, falling through the season).
+- **Recommendation: A**, with the bench share shown as a computed readout and
+  the slider kept only as an override (JEG-533). B is a budget patch on a structure the manifesto
+  argues against; A is the manifesto's rule.
+
+**ES-10 Front-end and diagnostics.** `valuePipeline.sources[key].positions
+[pos]` gains `waiver`, `starterLine`, `avail`, `bands: [{depth, lo, hi,
+fill}]`; each row gains `lineupShare` (the blended mean of the sources'
+`share_p(x_i)`) and `startWorthy` (`P(X > l_p)`). The drawer's fixed
+"Starter / bench utilization weighting" text (G5) becomes the player's
+expected lineup share. Copy: "expected lineup share", "value above waivers";
+never VORP, never an abbreviation in a title.
+
+**ES-11 Validation.** The engine, the Python reference and the spec reference
+reproduce `tests/fixtures/value_pipeline_worked_example.json` with an
+expected-starts variant to 1e-6, then agree with each other to 0.05
+(`value_check`). Acceptance on live data: per setting, the engine's bench-tier
+share per position and each source's total match
+`pipelines/expected_starts_model.py` within 0.05; the 12-combo sweep and
+`check_rank_guard.py` at zero inversions; the before/after shown to Jeremy
+before publishing (JEG-450).
+
+**ES-12 League week inputs (proposed, JEG-525 item c; not in the spec until
+approved).** Today the window is fixed: from the content week + 1 to NFL
+week 18. Proposed reader inputs, with defaults that match a standard league:
+
+| Input | Default | What it changes |
+| --- | --- | --- |
+| Content week `W` | the build's week | already used; becomes visible and settable on the dashboard |
+| Last regular-season week `R` | 14 | the "regular" window below |
+| Playoff weeks `P` | 15 to 17 | the "season" and "playoffs" windows; week 18 drops out of every window |
+| Objective | season | "season" = weeks `W+1` to the last playoff week; "regular" = `W+1` to `R`; "playoffs" = `P` only |
+
+Effect on ES-1 and ES-4, by input:
+- `b` (ES-1, ES-4.1-2) is the bye share of the objective window's team-weeks,
+  not of weeks `W+1` to 18. "Playoffs" has `b = 0` (no byes after week 14).
+- `sigma` drift (ES-1) scales with the square root of the distance from `W`
+  to the window's midpoint, so a playoff objective sees a wider bell curve
+  (the level at week 16 is further away than the average remaining week).
+- `m` (ES-1) is unchanged for "season" and "regular" (a per-game hazard).
+  For "playoffs" it is measured in the playoff weeks themselves for players
+  healthy at the end of weeks 1-5 / 1-9, which carries the season-ending
+  absences that pile up before then: QB 15.6%, RB 19.7%, WR 14.7%, TE 18.6%
+  (2015-2025) against 11.0 / 15.3 / 11.7 / 14.4% per game.
+- ES-2 to ES-5 are unchanged.
+
+Measured at Week 5, 12-team full PPR (`tools/season_window_effect.py`):
+bench tier 8.65% today (weeks 6-18), 8.65% "season" (weeks 6-17), 8.71%
+"regular" (weeks 6-14), 8.71% "playoffs" (8.47% if the per-game hazard were
+kept). The pie on fill-in parts: 5.31%, 5.43%, 5.89%, 4.71%. So the inputs
+matter for the dashboard and for what the numbers mean, but they move the
+bench share by less than a point: a playoff window removes the byes but adds
+uncertainty and accumulated injuries, and they nearly cancel. The objective
+switch does not price eliminated teams, standings or a horizon (manifesto
+sections 9 and 10, MR-22): those need the roster import (JEG-481).
+
+**ES-13 What the share does and does not capture (JEG-525 items a and b).**
+The share is for an average team in the league setting. It captures, for
+every rostered player, the chance his projection sits above the starter line
+and the chance a starter ahead of him on an average team is out (bye or
+injury). It does not capture:
+1. *The handcuff contingency (fundamental, not only portfolio).* A backup
+   running back is held for the jump he makes when his own NFL team's lead
+   back misses. Measured over 2015-2025 (`tools/handcuff_jump.py`): backups
+   score 7.2 points per game with the lead back playing and 12.8 with him
+   out; behind a top-12 lead back, 6.9 to 13.4, above the 12-team starter
+   line about 55% of the time. The share puts a symmetric bell curve on the
+   backup's own projection, which cannot produce that jump, so a pure
+   handcuff below the waiver line is valued at 0 (Week 5, ESPN: Sione Vaki
+   behind Gibbs 4.16 points per game, value 0; Justice Hill behind Henry
+   4.74, value 0) and his Stash signal `P(X > l)` is also 0. Rough size of
+   what is missing, Vaki: 0.928 (not a bye week) x 0.153 (lead back out) x
+   0.847 (Vaki himself available) x (13.4 - 4.90 surplus at the promoted
+   level) x 0.78 (projected to start at that level) = 0.79 points of surplus
+   per week reaching a lineup, the same as Keaton Mitchell's whole 0.80
+   (RB44, 7.69 points per game, share 28.6%). MR-26.
+2. *The own-handcuff hedge (portfolio).* Holding your own starter's backup
+   pays exactly in the weeks your starter is out, so its value to you is
+   higher than to the average team. That needs the roster (manifesto
+   section 6, JEG-481) and is not a property of the player.
+3. The weekly matchup swap (MR-23), discounting and the playoff objective
+   (ES-8.3, ES-12), known absences (MR-20).
+
+**ES-14 Reader settings and the bench-share readout (es-value-001, approved
+2026-10-09).** The bench share is not an input. The reader sets its causes;
+the page shows the result.
+
+| Setting | Where | Default | Enters |
+| --- | --- | --- | --- |
+| League size, starters, bench size | existing league options | 12 teams, QB 1 / RB 2 / WR 3 / TE 1 / FLEX 1, bench 6 | ES-2, ES-3 |
+| Last regular-season week, playoff weeks | league options (JEG-527) | 14; 15-17 | the window (ES-12) |
+| Optimize for | league options (JEG-527) | whole season | the window, and `m` in the playoff weeks for "playoffs" |
+| Injury history | Advanced | recent seasons (half-life 5 seasons, MR-25); or all seasons equal | `m` |
+| Projection confidence | Advanced | 1 (as measured); 0.5 = trust projections twice as much | multiplies `sigma`, its floor and the chart `sigma` |
+| Bench-share override | Advanced, off | off | when on, replaces the computed share as the bench group's weight (VP-3.4); the readout says "override" |
+
+- **Building blocks.** `config/lineup_parameters.json` (schema
+  `lineup-parameters-config/2`) holds per position `m` (recent, all),
+  `m_late` (the same in the season's fantasy-playoff weeks), `sigma_now`,
+  `sigma_weekly`, `sigma_floor`, the bye table, the defaults, and the
+  resolved default. `derive_lineup_parameters.resolve(cfg, objective,
+  injury_history, league_weeks, content_week, projection_confidence)` is the
+  Python reference the engine mirrors: window (ES-12), `b` over the window,
+  drift horizon = the gap before the window plus half its length, `sigma =
+  sqrt(now^2 + weekly^2 x horizon) x confidence`.
+- **Readout.** "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your
+  league settings" = the bench tier's share of each position's value and of
+  the pie under A (`expected_starts_model.bench_share_readout`, the Python
+  reference). Week 5, 12-team full PPR, defaults: QB 22.7%, RB 9.1%, WR 6.4%,
+  TE 12.6%, overall 9.1%. QB is high because the quarterback curve is flat
+  near the line: QB13-21 sit close to the starters.
+- **Measured at the defaults** (Week 5, `docs/claude-log/2026-10-09-jeg533-*`):
+  bench tier 8.5% to 9.7% across the 12 settings, zero inversions. The
+  settings move it little (12-team full PPR): injury history all 9.08%,
+  regular season 9.12%, playoffs 9.07%, content week 12 8.58%, projection
+  confidence 0.5 8.64%. The parameter tables in ES-1 and ES-7 above are the
+  decision build (two weeks' data before the merge of main, weeks 6-18,
+  equal weighting); the approved defaults are in the claude-log files named
+  here.
+- **Portfolio.** Where bench value differs most between readers is their own
+  roster; that input is the roster import (JEG-481), not a percentage.
+
+**ES-A Data appendix.** `data/inputs/weekly_actuals_2024_2026.csv` and
+`data/inputs/nfl_schedule_2024_2026.json` were exported on 2026-10-09 from
+Supabase (MCP `execute_sql`, read only) with
+
+```sql
+select p.player_key, p.position, g.season, g.week, t.abbreviation,
+       round(a.actual_std, 2), round(a.actual_half, 2), round(a.actual_ppr, 2)
+from v_player_game_actuals a
+join games g on g.id = a.game_id
+join players p on p.id = a.player_id
+join teams t on t.id = a.team_id
+where p.position in ('QB', 'RB', 'WR', 'TE');
+-- schedule: select g.season, t.abbreviation, g.week from games g
+-- join teams t on t.id in (g.home_team_id, g.away_team_id);
+```
+
+A row exists where the player recorded a stat line. The 2026 schedule agrees
+with `nfl_byes_2026.json` for all 32 teams (test). G4 (a) should extend this
+view week by week rather than start a new table.
+
+`data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz` and
+`data/inputs/nfl_schedule_2015_2025.json` (MR-24) come from nflverse's public
+releases, `stats_player/stats_player_week_<year>.csv` and `schedules/games.csv`
+(2026-10-09): regular season, QB/RB/WR/TE, keyed by nflverse player id, team
+codes as `games_remaining.TEAM_ALIASES`. A player who dressed and recorded no
+stat has a 0-point row there, so he counts as played. On 2024-2025 it carries
+about 1.5% fewer player-games and 0.75% fewer points than the Supabase export
+(a few extra rostered players per week there, and a minor scoring-rule
+difference); the healthy-starter hazard agrees within 2 points (test). The
+cancelled 2022 Week 17 game leaves BUF and CIN with 16 games that season.
+
 ### Open choices: decided (Jeremy, 2026-10-09, quoted on JEG-508)
 
 All eight are decided. The "Recommended" column is the first draft's
@@ -604,6 +1018,12 @@ recommendation, kept for the record; "Decided" governs.
 | OC-6 | Weights for the charts-only and projections-only versions | (A) One DDF weight set. (B) Each family's own average | A | **A**, one shared weight set (VP-4.5) |
 | OC-7 | Projections in the Indexed tab | (A) Show their Adjusted values. (B) Hide them | A | Available in "Trade charts (as published)" as their Adjusted values, **off by default** (VP-6.4, VP-11) |
 | OC-8 | Which players set a chart's Indexed factor | (A) Listed players with a blended DDF Value, zeros included. (B) DDF Value above 0 only | A | **A** (the lead's call after Jeremy found the question unclear; revisit if he wants) (VP-6.4) |
+
+**Follow-up open choice (not part of JEG-508's eight).**
+
+| # | Choice | Options | Recommended | Decision |
+| --- | --- | --- | --- | --- |
+| OC-9 | After JEG-508 ships, replace the fixed 15% with expected starts (ES-9; decided A, 2026-10-09) | (A) Replace the VP-2.6 slices with the expected-starts parts (ES-5). (B) Keep the slices; set each position's bench budget from expected starts. (C) Keep the fixed 15% as decided (OC-2) | A: bench tier 8.0% to 9.9% across the 12 settings and a starter-level point worth 1.1x to 3.5x a bench-level point, against about 15% and 0.7x to 1.9x under C | **A** (Jeremy, 20:51, JEG-533): the bench share becomes a readout of the reader's settings (ES-14); one override, off by default |
 
 ## Trade-Value Contract
 

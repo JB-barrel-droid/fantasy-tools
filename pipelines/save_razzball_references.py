@@ -41,6 +41,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import player_aliases  # noqa: E402 -- the one verified alias list
 import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
 from canonical_players import narrow_candidates  # noqa: E402
+import canonical_players  # noqa: E402 -- the one name -> player_key rule (JEG-438)
 from nfl_week import current_nfl_week  # noqa: E402
 
 TABLE = "razzball_projections"  # bare name: PostgREST path is /rest/v1/<table>
@@ -151,6 +152,7 @@ def resolve_name(
     pos: str | None,
     index: dict[str, list[dict[str, Any]]],
     norm_hint: str | None = None,
+    registry: "canonical_players.Registry | None" = None,
 ) -> tuple[int | None, str | None]:
     """Return (player_key, reason). Unresolved -> (None, reason).
 
@@ -169,6 +171,18 @@ def resolve_name(
         if candidates:
             break
     rec, reason = narrow_candidates(candidates, pos)
+    if rec is None and reason == "no_match" and registry is not None:
+        # JEG-480: a name this matcher finds no row for goes through the
+        # canonical resolver (lib/canonical_players: nickname table, verified
+        # aliases, position check, fail closed). 2026-10-09: Razzball's
+        # "Scotty Miller" (WR) is public.players 399 "Scott Miller"; the
+        # pulse resolves him canonically and found him not stored. Only
+        # misses fall back, so no name this matcher resolves changes.
+        for form in (name, norm_hint):
+            if form:
+                key = canonical_players.resolve(form, position=pos, registry=registry)
+                if key is not None:
+                    return key, None
     return (rec["player_key"], None) if rec else (None, reason)
 
 
@@ -202,7 +216,11 @@ def build_razzball_rows(
     if not rows:
         raise SystemExit("Fail closed: Razzball snapshot has no rows.")
 
-    index = build_name_index(fetch_players())
+    players = fetch_players()
+    index = build_name_index(players)
+    registry = canonical_players.load_registry(rows=[
+        r for r in players
+        if isinstance(r.get("player_key"), int) and str(r.get("full_name") or "").strip()])
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -213,7 +231,7 @@ def build_razzball_rows(
         if not name:
             review.append({"reason": "missing_player_name", "pos": pos, "team": row.get("team")})
             continue
-        key, reason = resolve_name(name, pos, index, row.get("player_norm"))
+        key, reason = resolve_name(name, pos, index, row.get("player_norm"), registry)
         if key is None:
             review.append(
                 {
