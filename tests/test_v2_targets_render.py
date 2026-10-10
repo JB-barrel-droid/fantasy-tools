@@ -25,10 +25,12 @@ Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * the picked series survives a round trip to Player values and a reload
     (remembered on this device); the Methods row stays hidden on this tab;
   * simulated engine rows (SIMULATE_ROWS, until the engine ships them and
-    because current data has no chart value at 0): a one-source DDF Value
+    because current data has no chart value at 0 or null): a one-source DDF Value
     (ddfLowConfidence) is a target and shows "◐ 1 source" with the engine's
     note as its tooltip; a player with no DDF input is left out and counted
     with the engine's reason; a chart value of 0 shows "waiver line", no gap;
+    a chart value the engine does not have (JEG-541: simulated, since after
+    JEG-508 every chart prices every player) shows — with the engine's reason;
   * an opened row's "#N on <publisher>" is the engine's getNativeRank.
 
 JEG-464: the H1 and subtitle are the decided copy; the nav tab stays "Trade
@@ -134,7 +136,8 @@ READ = """([side, ours, ids]) => {
     cells: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, {
       value: text(td), gap: td.querySelector('.gap')?.textContent ?? null,
       atWaiver: Boolean(td.querySelector('.at-waiver')),
-      missing: Boolean(td.querySelector('.missing')), why: td.querySelector('.missing .why')?.textContent ?? null}]))
+      missing: Boolean(td.querySelector('.missing')), why: td.querySelector('.missing .why')?.textContent ?? null,
+      title: td.querySelector('.missing')?.title ?? null}]))
   }));
   const details = [...document.querySelectorAll(`#${ids.table} tr.t-detail`)].map(tr => ({
     key: tr.dataset.detailFor,
@@ -229,6 +232,12 @@ SIMULATE_ROWS = """() => {
     used.forEach(c => { if (fin(r.values[c]) && r.values[c] > best) { best = r.values[c]; low = k; } }); });
   const none = rows.map(r => String(r.player_key)).find(k => k !== zero.key && k !== low
     && fin(rows.find(r => String(r.player_key) === k).values.ddf_value));
+  // JEG-541: after JEG-508 every chart prices every player, so a chart value the engine does not have
+  // is simulated: the second sell target loses a chart other than its best, with the engine's reason.
+  const second = t.sell.find(p => String(p.row.player_key) !== zero.key && String(p.row.player_key) !== low
+    && used.filter(c => fin(p.row.values[c]) && p.row.values[c] > 0).length >= 2);
+  const gap = second ? {key: String(second.row.player_key), chart: used.find(c => c !== second.bestSell.chart && fin(second.row.values[c])),
+    reason: 'Simulated: not enough shared players to index'} : null;
   const note = 'Only one source prices this player', reason = 'No source prices this player';
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
@@ -238,9 +247,11 @@ SIMULATE_ROWS = """() => {
     if (k === none) return {...r, values: {...r.values, ddf_value: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
       ddfLowConfidence: false, ddfReason: reason};
     if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
+    if (gap && k === gap.key) return {...r, values: {...r.values, [gap.chart]: null},
+      missingReasons: {...(r.missingReasons || {}), [gap.chart]: gap.reason}};
     return r;
   });
-  window.__probe = {low, none, zero, note, reason};
+  window.__probe = {low, none, zero, gap, note, reason};
   document.getElementById('v2TPosition').dispatchEvent(new Event('change'));
   return window.__probe;
 }"""
@@ -370,6 +381,15 @@ def check(snapshot) -> list[str]:
                 errors.append(f"player {probe['none']} with no DDF input is listed as a {side} target")
             if snapshot["omittedNoOurs"] < 1 or probe["reason"] not in snapshot["note"]:
                 errors.append(f"player with no DDF input not counted with the engine's reason: {snapshot['note']!r}")
+        gap = probe.get("gap")
+        if our_key == DDF and side == "sell":
+            grows = [r for r in snapshot["table"] if gap and r["key"] == gap["key"]]
+            if not grows:
+                errors.append(f"the missing-chart probe {gap} is not rendered; the missing-value path went unchecked")
+            else:
+                cell = grows[0]["cells"].get(gap["chart"]) or {}
+                if not cell.get("missing") or cell.get("title") != gap["reason"]:
+                    errors.append(f"{gap['key']}/{gap['chart']}: engine has no value (reason {gap['reason']!r}) but cell shows {cell}")
         zrows = [r for r in snapshot["table"] if r["key"] == probe["zero"]["key"]]
         if our_key == DDF and side == "sell" and snapshot["table"] and not zrows:
             errors.append(f"the waiver-line probe {probe['zero']} is not rendered")

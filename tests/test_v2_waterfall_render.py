@@ -16,7 +16,9 @@ window.TradeValueCurveControls.getAllRows():
   * verdict (JEG-467): with DDF Value shown, the headline names DDF Value and
     says "you win by" / "you lose by" / "even" from DDF Value's engine sums,
     even with "Player values shown" switched to another series; the text names
-    every complete source that sees it the other way; the verdict card's
+    every complete source that sees it the other way (JEG-541: one projection
+    is simulated to disagree, SIMULATE_DISSENT, so this check always has a
+    source to name); the verdict card's
     waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
@@ -69,6 +71,36 @@ PICK = """() => {
   const gap = byEspn.find(r => !complete(r) && active.some(k => Number.isFinite(r.values[k])));
   return {give: [priced[0], priced[5]].map(r => String(r.player_key)),
           receive: [priced[2], priced[3]].map(r => String(r.player_key)), gap: gap ? String(gap.player_key) : null};
+}"""
+
+# JEG-541: the verdict must name every complete source that sees the trade the other way. After
+# JEG-508 the picked trade may have no such source on live data, which left that check idle. So one
+# shown projection is made to disagree with DDF Value: the engine's row accessors are wrapped to
+# raise one player's value in that series on the side DDF Value favours less, by enough to flip its net.
+SIMULATE_DISSENT = """(p) => {
+  const C = window.TradeValueCurveControls;
+  const rows = C.getAllRows();
+  const byKey = Object.fromEntries(rows.map(r => [String(r.player_key), r]));
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  const net = k => { const vals = p.give.concat(p.receive).map(x => byKey[x].values[k]);
+    if (!vals.every(fin)) return null;
+    return p.receive.reduce((t, x) => t + byKey[x].values[k], 0) - p.give.reduce((t, x) => t + byKey[x].values[k], 0); };
+  const ddf = net('ddf_value');
+  if (!fin(ddf) || ddf === 0) return null;
+  const series = ['espn', 'cbsros', 'razzball'].find(k => window.TradeValueV2.shown().includes(k) && fin(net(k)));
+  if (!series) return null;
+  const n = net(series);
+  if (Math.sign(n) === -Math.sign(ddf)) return {series, already: true};
+  const player = ddf > 0 ? p.give[0] : p.receive[0];
+  const boost = Math.abs(n) + 5;
+  const patch = r => (!r || String(r.player_key) !== player) ? r
+    : {...r, values: {...r.values, [series]: r.values[series] + boost}};
+  for (const name of ['getAllRows', 'getRows']) {
+    const original = C[name].bind(C);
+    C[name] = (...args) => original(...args).map(patch);
+  }
+  if (C.getPlayer) { const original = C.getPlayer.bind(C); C.getPlayer = (...args) => patch(original(...args)); }
+  return {series, player, boost};
 }"""
 
 READ = """() => {
@@ -279,6 +311,8 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                   ['espn', 'cbsros', 'razzball', 'fantasycalc_adjusted', 'usatoday_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']))""")
                 page.wait_for_timeout(200)
                 pick = page.evaluate(PICK)
+                if not page.evaluate(SIMULATE_DISSENT, pick):
+                    errors.append(tag + "could not make a source disagree with DDF Value; the dissent check went unchecked")
                 page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
                 page.wait_for_function("() => !document.getElementById('v2CTable').hidden")
                 options = page.evaluate("() => [...document.querySelectorAll('#v2CShown option')].map(o => o.value)")
