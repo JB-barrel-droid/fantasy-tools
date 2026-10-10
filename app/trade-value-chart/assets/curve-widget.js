@@ -1035,6 +1035,11 @@
     row.ddfPriorCount = blend.priorCount;
     row.ddfPriorLowConfidence = blend.priorLowConfidence;
     row.ddfTier = now ? now.tier : null;
+    // ES-10 (JEG-536): the expected lineup share of his surplus and P(level
+    // above the starter line), blended over the included sources; null
+    // without lineup parameters or when no included source has him.
+    row.lineupShare = now && Number.isFinite(now.lineupShare) ? now.lineupShare : null;
+    row.startWorthy = now && Number.isFinite(now.startWorthy) ? now.startWorthy : null;
     return blend;
   }
   function applyComposite(rows) {

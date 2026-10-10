@@ -1160,3 +1160,76 @@ removed" and the small "Set exact values" link in the JEG-470/472/473/475 sectio
 - **No engine needed:** the page shows as soon as the script runs, without the loading card, and still shows if the engine fails (`applyStatic()` in v2.js).
 - **Layout:** one 70ch text column, 17 px / 1.7 (16 px / 1.65 below 768 px), v2 tokens and Inter. No horizontal scroll at 390 px; the six short tab labels still fit on one row.
 - **Tests:** `tests/test_v2_manifesto_render.py` (test-unit), with 4 deliberately broken builds (section 7 dropped, Manifesto not first, a link added to the text, Manifesto as landing). It also checks the tab has no links, buttons or form controls. `test_v2_nav_render` checks Manifesto is first; `test_v2_a11y_render` includes the tab in its contrast sweep.
+
+## Back-end contract: bench share readout and league weeks (JEG-536, 2026-10-09)
+
+Engine side of `es-value-001` (docs/methodology.md ES-14, rulings ES-15). The front end (JEG-537)
+builds the readout and the settings against this. All on `window.TradeValueCurveControls`.
+
+**Readout.** `getBenchShareReadout()` returns, or `null` before the first build or with no projection
+included:
+
+```
+{QB, RB, WR, TE, overall,   // fractions (0.091 = 9.1%): the bench tier's share of each position's
+                            // DDF Value, and of the whole pie
+ override: false|true,      // true when the reader's override is on
+ overrideValue: null|number,// the override (0.01-0.30) when on
+ fillInShare: number,       // the pie paid on the bench groups (diagnostic, not the headline)
+ method: "expected-starts"  // or "fixed-share" if the parameters file failed to load (then 15% slices)
+ contentWeek, window: [first, last], error: null|string}
+```
+
+Copy: "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your league settings"; when
+`override` is true, "Bench share: x% (your override)" with x = `overrideValue`, and a reset link that
+calls `setBenchShareOverride(null)`. Week 5, 12-team Full PPR, defaults: QB 22.4%, RB 8.4%, WR 7.5%,
+TE 12.8%, overall 9.2%.
+
+`getBenchShare()` keeps its name and now returns the share in effect: the override when on, else
+`overall`. It is no longer 0.15 by default.
+
+**Settings.** Each setter re-prices and publishes (`trade-value-shared-change`, whose detail now
+carries `benchShareOverride` and `lineupSettings`) unless `publish` is `false`. An invalid value
+throws a `RangeError` and leaves the settings unchanged. Each setter returns the settings in effect.
+
+| Setting | Getter | Setter | Default | Values |
+| --- | --- | --- | --- | --- |
+| Last regular-season week, playoff weeks | `getLeagueWeeks()` → `{regularSeasonEnd, playoffWeeks: [first, last]}` | `setLeagueWeeks({regularSeasonEnd, playoffWeeks}, publish?)` | `14`, `[15, 17]` | weeks 1-18; playoffs start after the regular season; first ≤ last |
+| Optimize for | `getOptimizeFor()` | `setOptimizeFor(value, publish?)` | `"season"` | `"season"` (whole season), `"regular"`, `"playoffs"` |
+| Injury history (Advanced) | `getInjuryHistory()` | `setInjuryHistory(value, publish?)` | `"recent"` | `"recent"` (recent seasons, five-season half-life), `"all"` (all seasons equally) |
+| Projection confidence (Advanced) | `getProjectionConfidence()` | `setProjectionConfidence(value, publish?)` | `1` | `1.5` = Less, `1` = As measured, `0.5` = More (it multiplies the uncertainty) |
+| Bench-share override (Advanced) | `getBenchShareOverride()` → `null` or number | `setBenchShareOverride(value \| null, publish?)` | `null` (off) | 0.01-0.30, clamped; `null` turns it off |
+
+Bulk: `getLineupSettings()` → `{regularSeasonEnd, playoffWeeks, optimizeFor, injuryHistory,
+projectionConfidence, benchShareOverride}`; `setLineupSettings(partial, publish?)` takes any subset of
+those keys (one re-price); `getLineupSettingsDefaults()` → the same shape at the defaults (from
+`config/lineup_parameters.json`). `getLineupParameters()` → the resolved parameters in use
+(`{objective, injury_history, league_weeks, content_week, projection_confidence, window, bye,
+horizon_weeks, positions: {pos: {m, sigma_rel, sigma_floor}}}`), for the info text or the inspector.
+
+`setBenchShareFraction(x)` (the old slider) now sets the override; `setBenchShare(pct)` likewise.
+
+**Rows.** `getRows()` / `getAllRows()` / `getPlayer()` rows gain `lineupShare` (expected share of his
+value above waivers that reaches a lineup, 0-1) and `startWorthy` (probability his level sits above
+the starter line, 0-1), both null without lineup parameters. Drawer copy: "expected lineup share".
+
+**Diagnostics.** `TradeValueCurveDiagnostics.valuePipeline` gains `method`, `benchShare` (the readout
+object above, replacing the number), `benchShareInput`, `benchShareOverride`, `lineup`, `chartSigma`,
+and per source and position `avail`, `bands: [{depth, lo, hi, fill}]` and `lineup: {m, unavailable,
+nPerTeam, sigmaRel, sigmaFloor}` next to `waiver` and `starterLine`. `benchShareApplied` stays the
+number (the pie on the bench groups).
+
+**Share links (front end owns them).** Carry every setting; write a key only when it differs from
+`getLineupSettingsDefaults()`, read it back through `setLineupSettings` before `refresh()`:
+
+| Key | Value | Example |
+| --- | --- | --- |
+| `rs` | last regular-season week | `rs=13` |
+| `po` | playoff weeks, first-last | `po=14-16` |
+| `opt` | `season` / `regular` / `playoffs` | `opt=playoffs` |
+| `inj` | `recent` / `all` | `inj=all` |
+| `conf` | `0.5` / `1` / `1.5` | `conf=1.5` |
+| `bso` | override, 3 decimals; absent = off | `bso=0.120` |
+
+The existing `bench=` key should stop being written (it was the 15% slider). Reading an older link:
+`bench=0.150` (the old default) means no override; any other `bench=` value without `bso=` is the
+sender's override.

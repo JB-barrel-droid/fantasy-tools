@@ -592,8 +592,9 @@ projections 45.086821).
 ### Expected-starts value (JEG-521, 2026-10-09): the proposed answer to OC-2 and OC-3
 
 **Status.** Approved by Jeremy 2026-10-09 20:51 (JEG-533, `es-value-001`,
-option A with the bench share as a computed readout, ES-14). Not live yet:
-it lands after JEG-508. JEG-508 ships first with the bench share fixed at 15% and slices
+option A with the bench share as a computed readout, ES-14). Implemented in
+the engine and both references on JEG-536 (rulings ES-15); not live until
+Jeremy has seen the before/after against JEG-508's values. JEG-508 ships first with the bench share fixed at 15% and slices
 (OC-2, OC-3 decided 2026-10-09); this section is the follow-up question of
 whether the 15% becomes an output of the data. When approved it replaces VP-2.6 and lands through JEG-508's pipeline with the
 Python reference and the spec reference on the same branch (`value_check` at
@@ -971,6 +972,53 @@ the page shows the result.
   here.
 - **Portfolio.** Where bench value differs most between readers is their own
   roster; that input is the roster import (JEG-481), not a percentage.
+
+**ES-15 Engine rulings (JEG-536, 2026-10-09).** What the three
+implementations (`value-model.js`, `pipelines/value_reference.py`,
+`pipelines/spec_reference/`) do where ES-0 to ES-14 leave a detail open. The
+worked example's `variant_expected_starts` and
+`variant_expected_starts_override` pin each one to 1e-6.
+
+1. *Weights without the override (VP-3.4, VP-4).* A source's own weights are
+   each group's share of its parts, `w_s[g] = G_s[g] / G_s` (no
+   normalization to a bench share). The DDF weights are the mean of `w_s[g]`
+   per group over the sources VP-4.1 counts at that position, renormalized
+   to sum to 1; the bench share applied (`benchShareApplied`) is the bench
+   groups' total, an output. Reader position shares (VP-4.4) apply after.
+   With the override on, VP-3.4 and VP-4 run as written with `bs` = the
+   override, on the parts.
+2. *Starters per team.* `n_p = max(1, round(S_p / T))` with `round` half to
+   even (Python's `round`).
+3. *Chart sigma (ES-1, ES-6).* Computed each run from the charts in `I`,
+   listed natives only (the superflex overlay applied): each chart is scaled
+   by `1000 / its total over the players every included chart lists`; per
+   position, the players at least two charts list are ranked by their mean;
+   `sigma_chart,p` = the median of sample sd / mean over ranks `[S'/2, N')`,
+   where `S'` = the position's dedicated slots plus every superflex and flex
+   slot it is eligible for (capped at the players available past the
+   dedicated ones) and `N' = S' + its bench seats`; 0.2 when that band is
+   empty. It is multiplied by the projection confidence; it carries no drift
+   term and no floor (`expected_starts_model.chart_sigma_from`).
+4. *VORP vs waivers display (VP-5.6).* The factor is `pie / sum of v_i` over
+   the work list, so each source's VORP vs waivers still totals the pie; the
+   parts no longer sum to `v`.
+5. *Readout (ES-14).* Per position, the bench tier is ranks `S_p + 1` to
+   `N_p` of the projected-points order (VP-2.2); its share is the sum of
+   their blended DDF Value over the sum over every player in that order, and
+   `overall` the same over all four positions. Blended over `I`, the reader's
+   input selection ignored (as the Indexed basis). With the override on the
+   readout reports `override: true` and the shares the override produces.
+   `expected_starts_model.bench_share_readout()` computes it through the
+   Python reference; the module's standalone analysis run (no fill-in, flex
+   per source) differed by up to 1.1 points and is kept as
+   `bench_share_readout_standalone()`.
+6. *Lineup share and start-worthy (ES-10).* A row's `lineupShare` and
+   `startWorthy` are the means over the sources in `I` that have him on
+   their work list (listed or estimated); null for nobody.
+7. *Window.* The content week is the parameters file's (`content_week`),
+   re-derived weekly with the file. If the file does not load, the page
+   prices with the VP-2.6 slices at 15% and the readout says
+   `method: "fixed-share"` (a warning, not a stop).
 
 **ES-A Data appendix.** `data/inputs/weekly_actuals_2024_2026.csv` and
 `data/inputs/nfl_schedule_2024_2026.json` were exported on 2026-10-09 from
