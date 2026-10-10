@@ -25,6 +25,22 @@ from that week on:
      players the value set ranks as starters, against the m_pos the parameters
      assume.
 
+  4. Projected-start calibration (MR-23, needs G4 b). The same bins of
+     P(start-worthy), against the share of later team games in which ESPN's
+     weekly projection for that week put the player inside the position's
+     starter count. This is what the share predicts: the start decision is
+     made on projections before the week, not on outcomes.
+  5. Weekly projection error by position (G6): ESPN's weekly projection
+     against the realized points, for players with a stat line, overall and
+     among the players projected to start.
+
+Weekly projections come from data/inputs/espn_weekly_projections_2026.csv
+(G4 b, refreshed from Supabase public.projection_snapshots by
+pipelines/export_weekly_store.py): the last snapshot before the player's
+kickoff; rows marked pre_kickoff=false (the 2026-10 backfill of played weeks)
+are used and counted in the report. Basis: per scheduled team week (MR-20).
+Steps 4 and 5 are skipped when the file is absent.
+
 Value sets scored (all built from the saved week's inputs, 12-team full PPR
 by default): expected-starts option A (docs/methodology.md ES-5), the VP
 slices as written (OC-2 A), plain value above waivers, and the mean
@@ -62,6 +78,8 @@ SCORING_INDEX = {"standard": 0, "half_ppr": 1, "ppr": 2}
 CAPS = {"QB": 2, "RB": 6, "WR": 7, "TE": 2}
 LAST_WEEK = 17
 BINS = ((0.0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.01))
+WEEKLY_PROJECTIONS = REPO / "data" / "inputs" / "espn_weekly_projections_2026.csv"
+CSV_SCORING = {"standard": "std", "half_ppr": "half_ppr", "ppr": "ppr"}
 
 
 # ------------------------------------------------------------------ inputs
@@ -98,6 +116,24 @@ def team_of(rows: list, season: int) -> dict:
         if r["season"] == season:
             c[r["player_key"]][r["team"]] += 1
     return {k: max(v, key=v.get) for k, v in c.items()}
+
+
+def load_weekly_projections(path=WEEKLY_PROJECTIONS, scoring: str = "ppr", season: int = 2026):
+    """-> ({week: {player_key: projected points}}, {"rows", "pre_kickoff_false"}),
+    or ({}, None) when the file is absent (G4 b not yet stored)."""
+    import csv
+    path = Path(path)
+    if not path.exists():
+        return {}, None
+    out, n, post = defaultdict(dict), 0, 0
+    with open(path, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if int(r["season"]) != season:
+                continue
+            out[int(r["week"])][int(r["player_key"])] = float(r[CSV_SCORING[scoring]])
+            n += 1
+            post += r.get("pre_kickoff") == "false"
+    return dict(out), {"rows": n, "pre_kickoff_false": post}
 
 
 # ------------------------------------------------------------------ value sets
@@ -331,6 +367,73 @@ def start_worthy_calibration(start_worthy: dict, pos_of: dict, weekly_actuals: d
     return rows
 
 
+def projected_starters(weekly_projection: dict, pos_of: dict, weeks: list, starters_per_pos: dict) -> dict:
+    """{week: set(player_key)}: inside the position's starter count by that
+    week's projection (players ESPN projects at 0 or not at all are not)."""
+    out = {}
+    for w in weeks:
+        proj = weekly_projection.get(w, {})
+        chosen = set()
+        for p in POSITIONS:
+            ranked = sorted((k for k, v in proj.items() if pos_of.get(k) == p and v > 0),
+                            key=lambda k: -proj[k])
+            chosen.update(ranked[:starters_per_pos.get(p, 0)])
+        out[w] = chosen
+    return out
+
+
+def projected_start_calibration(start_worthy: dict, pos_of: dict, weekly_projection: dict, weeks: list,
+                                starters_per_pos: dict, team_of_key: dict, schedule: dict) -> list:
+    """Bins of predicted P(start-worthy) against the realized share of later
+    team games in which the weekly projection put the player inside the
+    starter count (MR-23: the thing the share predicts)."""
+    weeks = [w for w in weeks if w in weekly_projection]
+    chosen = projected_starters(weekly_projection, pos_of, weeks, starters_per_pos)
+    rows = []
+    for lo, hi in BINS:
+        hits = games = n_players = 0
+        for k, prob in start_worthy.items():
+            if not (lo <= prob < hi) or k not in pos_of:
+                continue
+            team = team_of_key.get(k)
+            if team is None or team not in schedule:
+                continue
+            n_players += 1
+            for w in weeks:
+                if w not in schedule[team]:
+                    continue
+                games += 1
+                hits += k in chosen[w]
+        rows.append({"bin": [lo, min(hi, 1.0)], "players": n_players, "team_games": games,
+                     "realized_projected_start_rate": (hits / games) if games else None})
+    return rows
+
+
+def projection_error(weekly_projection: dict, weekly_actuals: dict, pos_of: dict, weeks: list,
+                     starters_per_pos: dict) -> dict:
+    """Per position: mean error (projection minus actual), mean absolute
+    error and n, for player-weeks with a projection above 0 and a stat line;
+    `starters` restricts to the players projected inside the starter count."""
+    chosen = projected_starters(weekly_projection, pos_of, weeks, starters_per_pos)
+    acc = defaultdict(lambda: {"all": [], "starters": []})
+    for w in weeks:
+        proj, act = weekly_projection.get(w, {}), weekly_actuals.get(w, {})
+        for k, v in proj.items():
+            if v <= 0 or k not in act or pos_of.get(k) not in POSITIONS:
+                continue
+            d = v - act[k]
+            acc[pos_of[k]]["all"].append(d)
+            if k in chosen.get(w, ()):
+                acc[pos_of[k]]["starters"].append(d)
+
+    def stats(ds):
+        if not ds:
+            return {"n": 0, "mean_error": None, "mean_abs_error": None}
+        return {"n": len(ds), "mean_error": sum(ds) / len(ds),
+                "mean_abs_error": sum(abs(d) for d in ds) / len(ds)}
+    return {p: {g: stats(acc[p][g]) for g in ("all", "starters")} for p in POSITIONS}
+
+
 def missed_game_calibration(values: dict, pos_of: dict, starters_per_pos: dict, weekly_actuals: dict,
                             weeks: list, team_of_key: dict, schedule: dict, params: dict) -> dict:
     out = {}
@@ -355,7 +458,8 @@ def missed_game_calibration(values: dict, pos_of: dict, starters_per_pos: dict, 
 # ------------------------------------------------------------------ run
 
 def run(season: int, teams: int, scoring: str, params: dict, history: dict, players: list, actuals: list,
-        schedule: dict, last_week: int = LAST_WEEK) -> dict:
+        schedule: dict, last_week: int = LAST_WEEK, weekly_projection: dict | None = None,
+        weekly_projection_meta: dict | None = None) -> dict:
     pos_of = {p["player_key"]: p["pos"] for p in players}
     acts = actuals_by_week(actuals, season, scoring)
     team_key = team_of(actuals, season)
@@ -364,7 +468,10 @@ def run(season: int, teams: int, scoring: str, params: dict, history: dict, play
     out = {"schema": SCHEMA, "season": season, "teams": teams, "scoring": scoring,
            "weeks_with_actuals": weeks_with_actuals, "valuation_weeks": [], "leak_note":
            "Game-day availability is read from the actuals (a stat line = played): known at kickoff to a "
-           "manager, known after the fact here."}
+           "manager, known after the fact here.",
+           "weekly_projections": weekly_projection_meta,
+           "weeks_with_weekly_projections": sorted(weekly_projection or {})}
+    weekly_projection = weekly_projection or {}
     for vw in sorted(history):
         later = [w for w in weeks_with_actuals if vw <= w <= last_week]
         if not later:
@@ -394,6 +501,11 @@ def run(season: int, teams: int, scoring: str, params: dict, history: dict, play
                                              values, pos_of, starters_per_pos, acts, later, team_key, sched, params)}
         entry["start_worthy_calibration"] = start_worthy_calibration(
             vs["start_worthy"], pos_of, acts, later, starters_per_pos, team_key, sched)
+        if weekly_projection:
+            entry["projected_start_calibration"] = projected_start_calibration(
+                vs["start_worthy"], pos_of, weekly_projection, later, starters_per_pos, team_key, sched)
+            entry["projection_error"] = projection_error(
+                weekly_projection, acts, pos_of, [w for w in later if w in weekly_projection], starters_per_pos)
         out["valuation_weeks"].append(entry)
     return out
 
@@ -433,6 +545,37 @@ def render_report(doc: dict) -> str:
             rr = b["realized_start_worthy_rate"]
             L.append(f"| {b['bin'][0]:.1f} to {b['bin'][1]:.1f} | {b['players']} | {b['team_games']} | "
                      + ("n/a" if rr is None else f"{100 * rr:.1f}%") + " |")
+        if e.get("projected_start_calibration"):
+            L.append("")
+            L.append("Projected-start calibration (MR-23: the same bins against the share of later team games in "
+                     "which ESPN's weekly projection put the player inside the starter count):")
+            L.append("")
+            L.append("| Predicted bin | Players | Team games | Projected to start |")
+            L.append("| --- | --- | --- | --- |")
+            for b in e["projected_start_calibration"]:
+                rr = b["realized_projected_start_rate"]
+                L.append(f"| {b['bin'][0]:.1f} to {b['bin'][1]:.1f} | {b['players']} | {b['team_games']} | "
+                         + ("n/a" if rr is None else f"{100 * rr:.1f}%") + " |")
+        if e.get("projection_error"):
+            L.append("")
+            L.append("ESPN weekly projection minus actual points, player-weeks with a projection above 0 and a stat line:")
+            L.append("")
+            L.append("| Position | n | Mean error | Mean absolute error | Projected starters n | Starters mean error | Starters mean absolute error |")
+            L.append("| --- | --- | --- | --- | --- | --- | --- |")
+            for p in POSITIONS:
+                a, st = e["projection_error"][p]["all"], e["projection_error"][p]["starters"]
+                def g(x):
+                    return "n/a" if x is None else f"{x:+.2f}"
+                def h(x):
+                    return "n/a" if x is None else f"{x:.2f}"
+                L.append(f"| {p} | {a['n']} | {g(a['mean_error'])} | {h(a['mean_abs_error'])} | {st['n']} | "
+                         f"{g(st['mean_error'])} | {h(st['mean_abs_error'])} |")
+    meta = doc.get("weekly_projections")
+    if meta:
+        L.append("")
+        L.append(f"Weekly projections: {meta['rows']} player-weeks from `data/inputs/espn_weekly_projections_2026.csv`, "
+                 f"{meta['pre_kickoff_false']} of them read after kickoff (backfilled played weeks; ESPN's stored "
+                 "projection for a played week, assumed to be its pre-game one). Basis: per scheduled team week.")
     return "\n".join(L) + "\n"
 
 
@@ -453,7 +596,9 @@ def main(argv=None) -> int:
     players = json.loads(dl.PLAYERS.read_text(encoding="utf-8"))["players"]
     actuals = dl.load_actuals()
     schedule = dl.load_schedule()
-    doc = run(args.season, args.teams, args.scoring, params, history, players, actuals, schedule)
+    wproj, wmeta = load_weekly_projections(scoring=args.scoring, season=args.season)
+    doc = run(args.season, args.teams, args.scoring, params, history, players, actuals, schedule,
+              weekly_projection=wproj, weekly_projection_meta=wmeta)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(doc, indent=1, sort_keys=True), encoding="utf-8")
     args.report.write_text(render_report(doc), encoding="utf-8")

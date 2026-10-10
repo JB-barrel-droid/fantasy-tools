@@ -124,3 +124,56 @@ class Committed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProjectedStarts(unittest.TestCase):
+    """MR-23 / G4 b: calibration against projected starts and weekly projection error."""
+
+    def setUp(self):
+        # Two RB starters per week; keys 1-4 are RBs on team A, 5 is a QB.
+        self.pos_of = {1: "RB", 2: "RB", 3: "RB", 4: "RB", 5: "QB"}
+        self.proj = {1: {1: 15.0, 2: 12.0, 3: 11.0, 4: 0.0, 5: 20.0},
+                     2: {1: 14.0, 3: 13.0, 2: 9.0, 5: 18.0}}  # 4 not projected in week 2 (out)
+        self.starters = {"QB": 1, "RB": 2, "WR": 0, "TE": 0}
+
+    def test_projected_starters_skip_zero_and_missing(self):
+        chosen = sl.projected_starters(self.proj, self.pos_of, [1, 2], self.starters)
+        self.assertEqual(chosen[1], {1, 2, 5})
+        self.assertEqual(chosen[2], {1, 3, 5})
+
+    def test_calibration_counts_team_games_and_projected_starts(self):
+        sw = {1: 0.95, 2: 0.5, 3: 0.45, 4: 0.1}
+        team = {k: "AAA" for k in sw}
+        sched = {"AAA": [1, 2]}
+        rows = sl.projected_start_calibration(sw, self.pos_of, self.proj, [1, 2, 3], self.starters, team, sched)
+        by = {tuple(r["bin"]): r for r in rows}
+        self.assertEqual(by[(0.8, 1.0)]["realized_projected_start_rate"], 1.0)   # key 1: 2 of 2
+        self.assertEqual(by[(0.4, 0.6)]["team_games"], 4)                         # keys 2, 3: two games each
+        self.assertEqual(by[(0.4, 0.6)]["realized_projected_start_rate"], 0.5)   # 2 wk1, 3 wk2
+        self.assertEqual(by[(0.0, 0.2)]["realized_projected_start_rate"], 0.0)   # key 4 never
+        self.assertIsNone(by[(0.2, 0.4)]["realized_projected_start_rate"])
+
+    def test_projection_error_only_on_played_and_projected(self):
+        acts = {1: {1: 20.0, 2: 10.0, 3: 11.0, 5: 25.0}, 2: {1: 10.0, 3: 13.0}}
+        err = sl.projection_error(self.proj, acts, self.pos_of, [1, 2], self.starters)
+        rb = err["RB"]
+        # all: wk1 1:-5, 2:+2, 3:0; wk2 1:+4, 3:0 (2 has no stat line in wk2)
+        self.assertEqual(rb["all"]["n"], 5)
+        self.assertAlmostEqual(rb["all"]["mean_error"], 0.2)
+        self.assertAlmostEqual(rb["all"]["mean_abs_error"], 2.2)
+        # starters: wk1 1, 2; wk2 1, 3
+        self.assertEqual(rb["starters"]["n"], 4)
+        self.assertAlmostEqual(err["QB"]["all"]["mean_error"], -5.0)
+
+    def test_load_weekly_projections_absent_and_present(self):
+        import tempfile
+        d, meta = sl.load_weekly_projections(Path("/nonexistent.csv"))
+        self.assertEqual((d, meta), ({}, None))
+        with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as f:
+            f.write("season,week,player_key,pos,team,std,half_ppr,ppr,snapshot_at,pre_kickoff,basis\n"
+                    "2026,5,10,RB,DET,10.0,11.0,12.0,2026-10-04T12:00:00+00:00,true,team_week\n"
+                    "2026,4,10,RB,DET,9.0,10.0,11.0,2026-10-10T12:00:00+00:00,false,team_week\n"
+                    "2025,4,10,RB,DET,1.0,1.0,1.0,2025-10-10T12:00:00+00:00,true,team_week\n")
+        d, meta = sl.load_weekly_projections(Path(f.name), "half_ppr")
+        self.assertEqual(d, {5: {10: 11.0}, 4: {10: 10.0}})
+        self.assertEqual(meta, {"rows": 2, "pre_kickoff_false": 1})
