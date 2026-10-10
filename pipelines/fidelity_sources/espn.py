@@ -79,6 +79,11 @@ STORED_TABLE = "espn_season_projections"
 SNAPSHOT_COLUMN = "espn_snapshot_date"
 STORED_SELECT = "player_key,player_norm,scoring,ros_half_ppr,r_receptions,weeks_covered,espn_snapshot_date,created_at"
 CHART_DECIMALS = 2
+# Jeremy, 2026-10-10 (JEG-520): ESPN revises projections during the day without
+# changing the date. "Amber, then re-sync": a stored row saved before ESPN's
+# last change is amber and the pulse dispatches this workflow; only a mismatch
+# that survives the re-sync is red.
+RESYNC_WORKFLOW = "espn-supabase-sync.yml"
 
 SEASON = 2026
 API = (f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{SEASON}/"

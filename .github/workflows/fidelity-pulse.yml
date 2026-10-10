@@ -154,6 +154,26 @@ jobs:
             echo "fidelity holds unchanged; no chain run needed"
           fi
 
+      # JEG-520, Jeremy 2026-10-10 ("Amber, then re-sync"): a source whose
+      # publisher changed after the stored save (ESPN) is amber, and its sync
+      # runs now. The sync acknowledges the fingerprint it read and, on new
+      # content, runs the chain, whose completion re-runs this pulse: only a
+      # mismatch that survives the re-sync is red. `resyncs` dispatches one
+      # request per publisher version (RESYNC_RETRY_HOURS), so this cannot loop.
+      - name: Re-sync sources whose publisher changed since the save
+        if: env.IS_MAIN == 'true' && hashFiles('output/fidelity-pulse.json') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 pipelines/fidelity_pulse.py --resync-dispatches output/fidelity-pulse.json > /tmp/resyncs.txt
+          if [ ! -s /tmp/resyncs.txt ]; then echo "no re-sync requested"; exit 0; fi
+          while read -r wf; do
+            [ -n "$wf" ] || continue
+            echo "re-sync: $wf"
+            gh workflow run "$wf" -R "$GITHUB_REPOSITORY" --ref main \
+              || echo "::warning title=fidelity re-sync::could not dispatch $wf"
+          done < /tmp/resyncs.txt
+
       # Red sources only (wrong or missing numbers); amber stays on the page.
       # Owns only fidelity-* alert keys, so it never closes health-artifacts'
       # issues (and that run never closes these). Never fails the run.
