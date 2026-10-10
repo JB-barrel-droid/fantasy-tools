@@ -1073,12 +1073,8 @@
       line1.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
       line1.append(document.createTextNode(PLAIN_NAMES[meta.publisher] || meta.label));
       line2.textContent = METHOD_LABEL[meta.method];
-      if (item?.stale && item.week) {
-        const older = document.createElement("span");
-        older.className = "is-older";
-        older.textContent = ` · Week ${item.week}`;
-        line2.appendChild(older);
-      }
+      // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge here too.
+      if (item?.stale) line2.append(document.createTextNode(" · "), weekBadge(col.source));
       button.title = `${plainSeries(meta.publisher, meta.method)}${item?.week ? ` · Week ${item.week}` : ""}`;
     } else if (col.id === "spread") {
       line1.textContent = "Spread";
@@ -3121,7 +3117,9 @@
     td.append(document.createTextNode(seriesName(key)));
     const sub = document.createElement("span");
     sub.className = "th-sub";
-    sub.textContent = item?.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "week unknown";
+    // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
+    if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
+    else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
