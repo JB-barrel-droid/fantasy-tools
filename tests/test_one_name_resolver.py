@@ -60,12 +60,68 @@ LEGACY = {
     # norm_name is the key format of the identity snapshot's chart keys and of
     # espn_projections.csv player_norm, which the ESPN leg joins on.
     "pipelines/lib/legacy_identity.py": {"normalizer"},
-    # normalize_name is shared by six reference savers; nickname folding would
-    # resolve names they leave unresolved today, and its form is a review label.
+    # normalize_name is the `player_norm` label form of the reference savers
+    # (a label since JEG-539; only save_cbsros_references still matches on
+    # it, LEGACY_INDEX_USERS below) and the chain matcher's own key.
     "pipelines/match_source_snapshot.py": {"normalizer", "suffix"},
     # _norm is the staged bundle's player_key for ESPN rows (loader contract).
     "producers/build_staged_bundle_espn.py": {"normalizer"},
 }
+
+
+# Second shrink-only ratchet (JEG-539): files that resolve player names
+# through the legacy name index (match_source_snapshot.normalize_name keys:
+# no nickname table, a single same-name row taken at any position) instead of
+# lib/canonical_players. A file "uses" it when it builds or calls
+# build_name_index, or keys a dict lookup by normalize_name(...). Using
+# normalize_name for a `player_norm` label is not matching and is allowed.
+# 2026-10-10: 6 files -> 2. Moved to the canonical resolver with identical
+# resolved keys on current data: the CBS saver, FantasyCalc saver and
+# FantasyPros puller (0 of 139 / 198 / 178 names differ). Razzball moved by
+# Jeremy's rule ("Use canonical resolver", 2026-10-10): after the JEG-539
+# position fix, 1 of 681 names differs (Max Hurleman, now at review).
+LEGACY_INDEX_USERS = {
+    # the chain's comparison-snapshot matcher (LEGACY above; GAP-IDENTITY-LEGACY-MATCHERS)
+    "pipelines/match_source_snapshot.py",
+    # CBS ROS prints Connor Heyward "(FB)" in its TE table; the canonical
+    # resolver refuses that position, so moving it would drop a stored player.
+    "pipelines/save_cbsros_references.py",
+}
+
+
+def uses_legacy_index(source: str) -> bool:
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and any(a.name == "build_name_index" for a in node.names):
+            return True
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "build_name_index":
+            return True
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
+        if name == "build_name_index":
+            return True
+        if (name in ("setdefault", "get") and node.args and isinstance(node.args[0], ast.Call)
+                and getattr(node.args[0].func, "id", None) == "normalize_name"):
+            return True
+    return False
+
+
+def legacy_index_users() -> set[str]:
+    out = set()
+    for d in SCAN_DIRS:
+        base = ROOT / d
+        if not base.exists():
+            continue
+        for path in sorted(base.rglob("*.py")):
+            if "archive" in path.parts or "__pycache__" in path.parts:
+                continue
+            try:
+                if uses_legacy_index(path.read_text(encoding="utf-8")):
+                    out.add(path.relative_to(ROOT).as_posix())
+            except SyntaxError:
+                continue
+    return out
 
 
 def _cleans_text(fn: ast.AST) -> bool:
@@ -129,6 +185,38 @@ class OneWayToMatchANameTest(unittest.TestCase):
         stale = {f: sorted(r - self.found.get(f, set())) for f, r in LEGACY.items()
                  if r - self.found.get(f, set())}
         self.assertEqual(stale, {}, "these LEGACY entries no longer violate: remove them so they cannot come back")
+
+
+class LegacyNameIndexOnlyShrinks(unittest.TestCase):
+    """JEG-539: the savers resolve through lib/canonical_players; the legacy name index keeps only
+    the files listed in LEGACY_INDEX_USERS, and the list can only shrink."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.found = legacy_index_users()
+
+    def test_no_new_user_of_the_legacy_name_index(self):
+        self.assertEqual(sorted(self.found - LEGACY_INDEX_USERS), [],
+                         "resolve names through canonical_players (save_espn_cbs_references.build_registry / "
+                         "resolve_canonical), not a normalize_name index")
+
+    def test_the_list_only_shrinks(self):
+        self.assertEqual(sorted(LEGACY_INDEX_USERS - self.found), [],
+                         "these files no longer use the legacy name index: remove them from LEGACY_INDEX_USERS")
+
+    def test_the_savers_jeremy_moved_stay_canonical(self):
+        for rel in ("pipelines/save_razzball_references.py", "pipelines/save_espn_cbs_references.py",
+                    "pipelines/save_fantasycalc_references.py", "ops/watchdog/pull_fantasypros.py",
+                    "pipelines/save_usatoday_references.py", "pipelines/save_fantasypros_references.py"):
+            with self.subTest(rel=rel):
+                self.assertNotIn(rel, self.found)
+
+    def test_the_detector_fires_on_each_form_and_not_on_a_label(self):
+        self.assertTrue(uses_legacy_index("from save_espn_cbs_references import build_name_index\n"))
+        self.assertTrue(uses_legacy_index("idx = mod.build_name_index(rows)\n"))
+        self.assertTrue(uses_legacy_index("index.setdefault(normalize_name(n), []).append(r)\n"))
+        self.assertTrue(uses_legacy_index("hit = index.get(normalize_name(n))\n"))
+        self.assertFalse(uses_legacy_index("row = {'player_norm': normalize_name(n)}\n"))
 
 
 class TheScanDiscriminatesTest(unittest.TestCase):

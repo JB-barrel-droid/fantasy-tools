@@ -81,16 +81,16 @@ def resolvers() -> dict:
         return canonical_players.resolve(n, position=TARGET_POS, registry=Registry(registry_rows()))
 
     def saver_espn(n):
-        idx = save_espn_cbs_references.build_name_index(saver_rows())
-        return save_espn_cbs_references.resolve_name(n, TARGET_POS, idx)[0]
+        reg = save_espn_cbs_references.build_registry(saver_rows())
+        return save_espn_cbs_references.resolve_canonical(n, TARGET_POS, reg)[0]
 
     def saver_cbsros(n):
         idx = save_cbsros_references.build_name_index(saver_rows())
         return save_cbsros_references.resolve_name(n, TARGET_POS, idx)[0]
 
     def saver_razzball(n):
-        idx = save_razzball_references.build_name_index(saver_rows())
-        return save_razzball_references.resolve_name(n, TARGET_POS, idx)[0]
+        reg = save_razzball_references.build_registry(saver_rows())
+        return save_razzball_references.resolve_name(n, TARGET_POS, reg)[0]
 
     def legacy_espn_pull(n):
         m = legacy_identity.IdentityMap(chart_keys=imap["canonical"].keys(),
@@ -149,7 +149,7 @@ class EveryResolverReadsTheSharedList(unittest.TestCase):
     def test_real_aliases_resolve_to_the_same_key_in_the_key_resolvers(self):
         ident = build_ddf_two_tier_leg.FixtureIdentity.from_fixture(FIXTURE)
         reg = Registry(registry_rows())
-        idx = save_espn_cbs_references.build_name_index(saver_rows())
+        saver_reg = save_espn_cbs_references.build_registry(saver_rows())
         keys = {p["player_key"] for p in players_rows()}
         checked = 0
         for e in player_aliases.entries():
@@ -158,7 +158,8 @@ class EveryResolverReadsTheSharedList(unittest.TestCase):
             checked += 1
             with self.subTest(alias=e["alias"]):
                 self.assertEqual(canonical_players.resolve(e["alias"], e["pos"], registry=reg), e["player_key"])
-                self.assertEqual(save_espn_cbs_references.resolve_name(e["alias"], e["pos"], idx)[0], e["player_key"])
+                self.assertEqual(save_espn_cbs_references.resolve_canonical(e["alias"], e["pos"], saver_reg)[0],
+                                 e["player_key"])
                 if e["player_key"] in ident.slug_by_key:
                     self.assertEqual(ident.resolve(norm_plain(e["alias"]), e["pos"])[0], e["player_key"])
         self.assertGreaterEqual(checked, 8)
@@ -179,6 +180,16 @@ def py_files():
         base = ROOT / d
         if base.exists():
             yield from (p for p in base.rglob("*.py") if "archive" not in p.parts)
+
+
+def saver_resolve(mod, rows, name, pos):
+    """One saver's resolver: the canonical registry (ESPN/CBS/FantasyCalc/FantasyPros/USA Today and
+    Razzball, JEG-539) or the CBS ROS saver's legacy name index."""
+    if mod is save_cbsros_references:
+        return mod.resolve_name(name, pos, mod.build_name_index(rows))[0]
+    if mod is save_razzball_references:
+        return mod.resolve_name(name, pos, mod.build_registry(rows))[0]
+    return mod.resolve_canonical(name, pos, mod.build_registry(rows))[0]
 
 
 class NoPrivateAliasList(unittest.TestCase):
@@ -282,8 +293,7 @@ class DuplicatePlayersRowIsDeterministic(unittest.TestCase):
     def test_each_saver_picks_the_active_row(self):
         for mod in (save_espn_cbs_references, save_cbsros_references, save_razzball_references):
             with self.subTest(saver=mod.__name__):
-                idx = mod.build_name_index(self.ROWS)
-                self.assertEqual(mod.resolve_name("Audric Estime", "RB", idx)[0], 4642)
+                self.assertEqual(saver_resolve(mod, self.ROWS, "Audric Estime", "RB"), 4642)
 
     def test_two_active_namesakes_stay_ambiguous(self):
         rows = [dict(r, active=True) for r in self.ROWS]
@@ -305,12 +315,11 @@ class CbsRosNicknameMisses(unittest.TestCase):
     def tearDown(self):
         player_aliases._reset_for_tests(None)
 
-    def resolve_all(self):
+    def resolve_all(self, mods=(save_cbsros_references, save_espn_cbs_references, save_razzball_references)):
         out = {}
-        for mod in (save_cbsros_references, save_espn_cbs_references, save_razzball_references):
-            idx = mod.build_name_index(saver_rows())
+        for mod in mods:
             for name, pos, _key in self.CASES:
-                out[(mod.__name__, name)] = mod.resolve_name(name, pos, idx)[0]
+                out[(mod.__name__, name)] = saver_resolve(mod, saver_rows(), name, pos)
         return out
 
     def test_the_savers_resolve_both_spellings(self):
@@ -321,10 +330,13 @@ class CbsRosNicknameMisses(unittest.TestCase):
                 self.assertEqual(key, dict((n, k) for n, _p, k in self.CASES)[name])
 
     def test_without_the_aliases_they_stay_unresolved(self):
+        # The CBS ROS saver's legacy matcher only. The savers on the canonical resolver (ESPN, CBS,
+        # FantasyCalc, FantasyPros, USA Today, Razzball: JEG-539) fold "Christopher" through the
+        # curated nickname table.
         names = {norm_player_name(n) for n, _p, _k in self.CASES}
         player_aliases._reset_for_tests({f: e for f, e in player_aliases._index(
             player_aliases.json_entries()).items() if f not in names})
-        self.assertEqual(set(self.resolve_all().values()), {None})
+        self.assertEqual(set(self.resolve_all((save_cbsros_references,)).values()), {None})
 
 
 if __name__ == "__main__":
