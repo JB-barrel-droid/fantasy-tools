@@ -58,7 +58,11 @@
       charts.forEach(chart => {
         const value = row.values[chart];
         if (!finite(value)) {
-          cells[chart] = {value: null, gap: null, reason: `Not on ${CHART_NAMES[chart] || chart}'s chart`};
+          // JEG-541: the engine's own reason first (after JEG-508 a chart is null only when the engine
+          // says why, e.g. "Not enough shared players to index"), then the generic line.
+          const own = row.missingReasons ? row.missingReasons[chart] : null;
+          cells[chart] = {value: null, gap: null,
+            reason: typeof own === "string" && own.trim() ? own : `Not on ${CHART_NAMES[chart] || chart}'s chart`};
           return;
         }
         if (value <= 0) {

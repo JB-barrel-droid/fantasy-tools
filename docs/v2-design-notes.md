@@ -999,7 +999,7 @@ Supersedes the Player values parts of "Chart options (21)" and "Navigator and va
   "We couldn't confirm when X last updated."), never a tick. "Not updating" and "Prior week" are unchanged and
   take precedence. The header chip says "all sources current" only when every root source is confirmed; otherwise
   e.g. "Week 5 · ⚠ 2 sources unconfirmed" (and "checking sources…" until the file has loaded).
-- **Bench share shown is the share used.** Below a position's feasible window the engine prices at a higher share
+- **Bench share shown is the share used.** (Superseded 2026-10-10 by JEG-508: no feasible windows any more; see "After JEG-508" below.) Below a position's feasible window the engine prices at a higher share
   (`bench_share_used`; PPR 12 teams at 2%: QB 7.5%, RB/WR/TE 4.4–4.7%). v2 reads it from the new read-only
   `TradeValueCurveControls.getBenchShareUsed(share?)` (per position, null when withheld) and shows the lowest–highest
   used share in the Weights & bench readout and Starters / Bench split, on How values work, and in the shared-link
@@ -1188,3 +1188,41 @@ How it works:
   - Fixtures, so checks never pass vacuously: the freshness file is fixed (current, prior week, unknown, not updating), and every fifth priced player is flagged one-source in what `getRows` / `getAllRows` return (Week 5 has no one-source players, so GL-03 / TT-08 would otherwise see no "◐ 1 source" tag). Values are untouched.
   - `test_guard_fails_on_broken_builds` serves broken v2.js / v2.css / shell.html through page routes and requires the named check to report a real finding for each fault (13 faults over 11 IDs, three grouped runs).
 - When a ticket ships a pending line: Jeremy drops "to build" in the Doc, the mirror is regenerated, the mirror test fails, and the shipping ticket replaces `PENDING` with a real check.
+
+## After JEG-508: estimated values, bench share, hermetic missing values (JEG-541, 2026-10-10)
+
+The JEG-508 engine (PR #491) changed the v2 contract (GAP-508-V2-CONTRACT, JEG-537 comments). What v2 does now:
+
+- **Estimated values (VP-11).** The engine marks every chart value it filled in for a rosterable player the chart
+  doesn't list: `row.estimated = {seriesKey: reason}` (both the chart key and its `*_adjusted` alias carry it).
+  Wherever v2 shows that value it adds "≈ estimated" (symbol and word) with the engine's reason as the tooltip
+  and accessible name: Player values table cells, the chart tooltip (reason also shown as text), the player
+  detail's value and method matrix (reason also shown under the value), Compare a trade's per-player lines and
+  Trade targets' chart cells. Estimated values are drawn like listed ones. One helper (`appendLowConfidence`)
+  adds both the "◐ 1 source" and the "≈ estimated" tags, so every value site gets both.
+  Test: `tests.test_v2_estimated_render`.
+- **Bench share.** The two-tier calibration and its per-position feasible windows are retired (VP-10).
+  `getBenchShareUsed(share)` returns one share for all positions: the share itself, 0 when no source has bench
+  players above waivers, 1 when none has starters above waivers, null before the values are built.
+  `getBenchBounds()` is the fixed slider range `[0.01, 0.30]`. v2 still shows the used share, never the request:
+  - the panel says "Range 1.0%–30.0% · Recommended 15%" (it said "Feasible … for this league" and "Feasible
+    bounds recalculate with league structure", both false now);
+  - at 0 or 1 the note reads "Bench x% requested · priced at 0.0% (no source has bench players above waivers)";
+  - with no used share it shows "—" with "Bench share not available: the values are not built yet", never the
+    requested share.
+  The JEG-536 readout (`getBenchShareReadout()`) is not on main yet; JEG-537 builds the readout UI against it.
+- **Missing chart values.** After JEG-508 every chart prices every player at a position it prices (listed,
+  estimated, or 0 below rosterable depth), so a chart is null only when the engine says why (e.g. "Not enough
+  shared players to index"). Trade targets now shows the engine's `missingReasons[chart]` before its generic
+  "Not on X's chart".
+- **Tests no longer depend on live gaps.** The compare, offer, targets and waterfall render suites simulate the
+  condition they check by wrapping the engine's row accessors in the page (a player missing one series with a
+  reason; a projection that disagrees with DDF Value), so each deliberately broken build still fails whatever
+  this week's data looks like.
+- **How values work** puts the engine's waiver note ("estimated players at RB (4) …") in a `data-engine` node, like
+  the league card: its counts are the engine's, and the copy rule (no numbers outside engine nodes) still holds.
+
+Still on the old contract (front-end follow-up, GAP-508-V2-CONTRACT): v2 groups the deprecated
+`*_adjusted` aliases as "Trade charts (adjusted)" and its tests toggle them. The aliases carry each chart's
+Adjusted values, so the numbers are right, but the engine wants v2 to read the chart keys in the Adjusted tab and
+drop the alias group before it removes them.
