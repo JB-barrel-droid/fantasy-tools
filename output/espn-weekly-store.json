@@ -1,0 +1,331 @@
+{
+ "run_at": "2026-10-10T04:30:40+00:00",
+ "season": 2026,
+ "dry_run": false,
+ "pulled_at": "2026-10-10T04:30:25+00:00",
+ "played_weeks": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "actual_weeks": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "actuals": {
+  "rows_in": 1763,
+  "resolved": 1743,
+  "resolved_by": {
+   "espn_id->gsis_id": 267,
+   "espn_id->name": 195,
+   "name": 1281
+  },
+  "n_unresolved": 20,
+  "unresolved": [
+   {
+    "espn_id": "4241961",
+    "name": "Connor Heyward",
+    "pos": "RB",
+    "week": 1,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4243176",
+    "name": "Brady Russell",
+    "pos": "RB",
+    "week": 1,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4693370",
+    "name": "Riley Nowakowski",
+    "pos": "RB",
+    "week": 1,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4361088",
+    "name": "Colson Yankoff",
+    "pos": "TE",
+    "week": 1,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4602788",
+    "name": "Jackson Meeks",
+    "pos": "TE",
+    "week": 1,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4241961",
+    "name": "Connor Heyward",
+    "pos": "RB",
+    "week": 2,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4243176",
+    "name": "Brady Russell",
+    "pos": "RB",
+    "week": 2,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4693370",
+    "name": "Riley Nowakowski",
+    "pos": "RB",
+    "week": 2,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4361088",
+    "name": "Colson Yankoff",
+    "pos": "TE",
+    "week": 2,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4602788",
+    "name": "Jackson Meeks",
+    "pos": "TE",
+    "week": 2,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4241961",
+    "name": "Connor Heyward",
+    "pos": "RB",
+    "week": 3,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4243176",
+    "name": "Brady Russell",
+    "pos": "RB",
+    "week": 3,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4693370",
+    "name": "Riley Nowakowski",
+    "pos": "RB",
+    "week": 3,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4361088",
+    "name": "Colson Yankoff",
+    "pos": "TE",
+    "week": 3,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4602788",
+    "name": "Jackson Meeks",
+    "pos": "TE",
+    "week": 3,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4241961",
+    "name": "Connor Heyward",
+    "pos": "RB",
+    "week": 4,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4243176",
+    "name": "Brady Russell",
+    "pos": "RB",
+    "week": 4,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4693370",
+    "name": "Riley Nowakowski",
+    "pos": "RB",
+    "week": 4,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4361088",
+    "name": "Colson Yankoff",
+    "pos": "TE",
+    "week": 4,
+    "why": "name: position_conflict"
+   },
+   {
+    "espn_id": "4602788",
+    "name": "Jackson Meeks",
+    "pos": "TE",
+    "week": 4,
+    "why": "name: position_conflict"
+   }
+  ],
+  "n_no_game": 0,
+  "no_game": [],
+  "to_upsert": 20,
+  "no_offensive_line_skipped": 281,
+  "comparison_with_existing": {
+   "by_position": {
+    "QB": {
+     "n": 146,
+     "within_0.01": 146,
+     "share_within_0.01": 1.0,
+     "mean_abs_diff": 0.0
+    },
+    "RB": {
+     "n": 372,
+     "within_0.01": 372,
+     "share_within_0.01": 1.0,
+     "mean_abs_diff": 0.0
+    },
+    "TE": {
+     "n": 313,
+     "within_0.01": 313,
+     "share_within_0.01": 1.0,
+     "mean_abs_diff": 0.0
+    },
+    "WR": {
+     "n": 611,
+     "within_0.01": 611,
+     "share_within_0.01": 1.0,
+     "mean_abs_diff": 0.0
+    }
+   },
+   "existing_rows_without_espn_line": 3003,
+   "largest_differences": [
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 4.1,
+     "existing_std": 4.1,
+     "name": "Matthew Stafford"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 13.8,
+     "existing_std": 13.8,
+     "name": "Kirk Cousins"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 9.3,
+     "existing_std": 9.3,
+     "name": "Geno Smith"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 17.22,
+     "existing_std": 17.22,
+     "name": "Carson Wentz"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 14.4,
+     "existing_std": 14.4,
+     "name": "Dak Prescott"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 16.48,
+     "existing_std": 16.48,
+     "name": "Jacoby Brissett"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 5.72,
+     "existing_std": 5.72,
+     "name": "Cooper Rush"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 16.44,
+     "existing_std": 16.44,
+     "name": "Jared Goff"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 17.64,
+     "existing_std": 17.64,
+     "name": "Baker Mayfield"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": -0.3,
+     "existing_std": -0.3,
+     "name": "Nick Mullens"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 14.0,
+     "existing_std": 14.0,
+     "name": "Deshaun Watson"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 21.66,
+     "existing_std": 21.66,
+     "name": "Patrick Mahomes"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 0.52,
+     "existing_std": 0.52,
+     "name": "Sam Darnold"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 14.16,
+     "existing_std": 14.16,
+     "name": "Joe Burrow"
+    },
+    {
+     "pos": "QB",
+     "week": 1,
+     "espn_std": 26.96,
+     "existing_std": 26.96,
+     "name": "Lamar Jackson"
+    }
+   ]
+  }
+ },
+ "projections": {
+  "weeks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "rows_written": 571,
+  "unchanged_skipped": 8399,
+  "unresolved_rows": 26,
+  "no_game_skipped": 331
+ },
+ "resolved_share": 0.9887,
+ "written": {
+  "player_game_stats": 20,
+  "projection_snapshots": 571
+ }
+}
