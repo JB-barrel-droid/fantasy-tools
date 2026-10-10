@@ -64,6 +64,7 @@
   ],
   "unmonitored_workflows": {
     "espn-history-probe.yml": "manual one-off probe (JEG-521 G4 d); no schedule, nothing to miss",
+    "nflverse-history-load.yml": "manual one-off load of closed 2015-2025 history (JEG-532); no schedule, nothing to miss",
     "preview.yml": "pull-request preview build; no schedule, nothing to miss",
     "record-pages-deploy.yml": "event-driven recorder for pages.yml (workflow_run); it is the evidence for check site_deploy, not a pipeline",
     "loader-dry-run.yml": "push/manual dry run of the loader; no schedule",
