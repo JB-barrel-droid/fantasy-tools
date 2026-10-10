@@ -35,6 +35,11 @@ ticket, delegated agents naming their ticket, and "(part of JEG-xxx)" PR titles.
 Several Claude sessions work this repo at once: the back end, and the front end on the Windows PC and on the Mac. Linear decides who owns what.
 
 - **Owner label.** Every ticket a session works carries exactly one label from the `Session` group: `session:be`, `session:fe-pc` or `session:fe-mac`. The label is the owner; the Linear assignee stays Jeremy.
+- **Queue (JEG-567).** A session's queue is the Todo tickets in Jegabee that carry its own Session label. Backlog is not the queue: a ticket enters it when Jeremy moves it to Todo. At session start, and each time a ticket closes, the session reads its queue and claims the top ticket:
+  - back end: by the `BE priority` label (Now, Next, Then, Later), then Linear priority;
+  - front end: by Linear priority, then oldest first.
+- **Unrouted tickets.** A Todo ticket with no Session label has no owner yet. A session whose queue is empty routes the ones that are clearly its domain (engine, pipelines, data and research math go to `session:be`; pages and copy to a front-end session): it adds its label, comments `routed to <session>`, and works its queue. If the domain is unclear, it adds `needs-review` and asks Jeremy in a comment instead of guessing.
+- **Blocked on Jeremy.** When a ticket needs his decision, the session comments the question with the options and its recommendation, adds `needs-review`, moves the ticket to In Review, and claims its next ticket rather than waiting. Once Jeremy answers on the ticket, the owner quotes the decision with the date, removes `needs-review`, and moves the ticket back to Todo (or In Progress if it resumes now). In Progress stays reserved for work an agent is doing.
 - **Claim.** Before starting, a session:
   1. sets the ticket In Progress;
   2. checks that the label is its own;
