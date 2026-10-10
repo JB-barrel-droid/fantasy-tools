@@ -212,6 +212,65 @@ def espn_eligible(ros):
     return any(float(v or 0) != 0 for v in ros.values())
 
 
+# JEG-574: a game counts as played for a team when ESPN holds actual-stat
+# blocks for at least this many of that team's players in the week.
+MIN_TEAM_BLOCKS = 3
+# A week is played league-wide when this many teams have played it. Thursday
+# night alone (2 teams) never qualifies; a full slate (32 minus byes) does.
+MIN_PLAYED_TEAMS = 20
+
+
+def team_played_weeks(acts, team_map):
+    """JEG-574: ({team: {weeks that team's game was played}}, [league-wide
+    played weeks]) from the 2026 actual-stat blocks.
+
+    The old rule counted blocks per week (>= 20 means played), so Thursday
+    night's 20-35 skill-player blocks marked the whole week played for all 32
+    teams until the Tuesday pull. Played is now decided per team: a team has
+    played a week once ESPN holds actuals for MIN_TEAM_BLOCKS of its players.
+    The league-wide list (weeks MIN_PLAYED_TEAMS or more teams have played)
+    only labels the pull; ros windows are per team."""
+    counts = {}
+    for pos in POSITIONS:
+        for p in acts.get(pos, []):
+            if not isinstance(p, dict):
+                continue
+            pl = p.get("player", {})
+            team = team_map.get(int(pl.get("proTeamId") or 0), "")
+            if not team:
+                continue
+            for s in pl.get("stats", []):
+                wk = s.get("scoringPeriodId")
+                if (s.get("seasonId") == SEASON_ID
+                        and s.get("statSourceId") == 0
+                        and s.get("statSplitTypeId") == 1
+                        and isinstance(wk, int) and 1 <= wk <= 18
+                        and (s.get("stats") or {})):
+                    key = (team, wk)
+                    counts[key] = counts.get(key, 0) + 1
+    by_team = {}
+    for (team, wk), c in counts.items():
+        if c >= MIN_TEAM_BLOCKS:
+            by_team.setdefault(team, set()).add(wk)
+    n_teams = {}
+    for wks in by_team.values():
+        for wk in wks:
+            n_teams[wk] = n_teams.get(wk, 0) + 1
+    league = sorted(wk for wk, n in n_teams.items() if n >= MIN_PLAYED_TEAMS)
+    return by_team, league
+
+
+def team_ros_weeks(played_by_team, league_played, wk_pts):
+    """JEG-574: the weeks still to play for one team. A week is out when the
+    team played it. A week the league has played that the team did not is a
+    bye (nothing projected) and is out too; with a projection it is a game
+    not yet played (a late game when the pull ran) and stays in.
+    `wk_pts` is the team's best projected player points by week."""
+    return [w for w in range(1, 19)
+            if w not in played_by_team
+            and not (w in league_played and wk_pts.get(w, 0.0) == 0.0)]
+
+
 def unresolved_ros_half_ppr(pl, ros_weeks):
     """Half-PPR points ESPN projects for a player over `ros_weeks` (sum of
     the 2026 weekly projection blocks, first block per week), so an
@@ -358,24 +417,11 @@ def main():
         snapshot_path=IDENTITY_SNAPSHOT)
 
     # ---- 1. played weeks, detected empirically from 2026 actuals ----
-    actual_counts = {}
-    for pos in POSITIONS:
-        for p in acts[pos]:
-            if not isinstance(p, dict):
-                continue
-            pl = p.get("player", {})
-            for s in pl.get("stats", []):
-                if (s.get("seasonId") == SEASON_ID
-                        and s.get("statSourceId") == 0
-                        and s.get("statSplitTypeId") == 1
-                        and (s.get("stats") or {})):
-                    actual_counts[s.get("scoringPeriodId")] = \
-                        actual_counts.get(s.get("scoringPeriodId"), 0) + 1
-    played = sorted(w for w, c in actual_counts.items()
-                    if isinstance(w, int) and 1 <= w <= 18 and c >= 20)
+    team_played, played = team_played_weeks(acts, team_map)
     ros_weeks = [w for w in range(1, 19) if w not in played]
-    print(f"played weeks (empirical): {played}; ROS weeks: "
-          f"{ros_weeks[0]}-{ros_weeks[-1]}", flush=True)
+    print(f"played weeks (league-wide, per-team detection): {played}; "
+          f"ROS weeks: {ros_weeks[0] if ros_weeks else '-'}-"
+          f"{ros_weeks[-1] if ros_weeks else '-'}", flush=True)
     if WEEKLY_OUT is not None:
         write_weekly_blocks(WEEKLY_OUT, proj, acts, team_map, played, ros_weeks)
 
@@ -462,7 +508,23 @@ def main():
             st = p["weekly"].get(w, {})
             p["weeks"][w] = {col: float(st.get(sid, 0) or 0)
                              for sid, col in STATMAP}
-        ros = {c: round(sum(p["weeks"][w][c] for w in ros_weeks), 1)
+    # JEG-574: per-team best projected points by week (all 18 weeks), so a
+    # team's rest-of-season window starts at its own next game and a past bye
+    # is told from a game not yet played.
+    team_wk_max = {}
+    for p in priced:
+        if not p["team"]:
+            continue
+        d = team_wk_max.setdefault(p["team"], {})
+        for wk in range(1, 19):
+            pts = sum(p["weeks"][wk][c] * W[c] for c in rcols)
+            if pts > d.get(wk, 0.0):
+                d[wk] = pts
+    team_ros = {tm: team_ros_weeks(team_played.get(tm, set()), set(played), d)
+                for tm, d in team_wk_max.items()}
+    for p in priced:
+        p["ros_weeks"] = team_ros.get(p["team"]) or ros_weeks
+        ros = {c: round(sum(p["weeks"][w][c] for w in p["ros_weeks"]), 1)
                for c in rcols}
         p["ros"] = ros
         p["ros_half_ppr"] = round(sum(ros[c] * W[c] for c in rcols), 2)
@@ -519,7 +581,7 @@ def main():
                         "True", "True" if p["eligible"] else "False"] +
                        [fmt1(p["ros"][c]) for c in rcols] +
                        [fmt2(p["ros_half_ppr"]),
-                        f"{ros_weeks[0]}-{ros_weeks[-1]}",
+                        f"{p['ros_weeks'][0]}-{p['ros_weeks'][-1]}",
                         fmt2(p["season_block_half_ppr"]), vintage])
         tmp_season = tf.name
     weekly_cols = (["player", "pos", "team", "week"] + rcols +
@@ -557,27 +619,20 @@ def main():
     # ROS ppg sidecar (per-scoring legs): team bye = the ROS week where
     # the MAX weekly half_ppr across that team's priced players is 0
     # (team-level, so injured players can't fake a bye);
-    # games_remaining = len(ros_weeks) - (1 if bye in ros_weeks else 0).
+    # games_remaining = len(team ros weeks) - (1 if bye in them else 0), per team (JEG-574).
     # standard/full-PPR legs derive from receptions (verified 2026-09-16:
     # PPR - Standard equals receptions exactly):
     #   standard = half - 0.5*receptions; ppr = half + 0.5*receptions.
-    team_wk_max = {}
-    for p in priced:
-        if not p["team"]:
-            continue
-        d = team_wk_max.setdefault(p["team"], {})
-        for wk in ros_weeks:
-            pts = sum(p["weeks"][wk][c] * W[c] for c in rcols)
-            if pts > d.get(wk, 0.0):
-                d[wk] = pts
     team_bye = {}
-    for tm, d in team_wk_max.items():
-        zero = [wk for wk in ros_weeks if d.get(wk, 0.0) == 0.0]
+    for tm, tros in team_ros.items():
+        d = team_wk_max[tm]
+        zero = [wk for wk in tros if d.get(wk, 0.0) == 0.0]
         team_bye[tm] = zero[0] if zero else None
     side_players = {}
     for p in priced:
         bye = team_bye.get(p["team"])
-        gr = len(ros_weeks) - (1 if bye in ros_weeks else 0)
+        tros = p["ros_weeks"]
+        gr = len(tros) - (1 if bye in tros else 0)
         half = p["ros_half_ppr"]
         rec = p["ros"]["r_receptions"]
         ros_std = round(half - 0.5 * rec, 2)
@@ -586,6 +641,7 @@ def main():
             "display": p["display"], "pos": p["pos"], "team": p["team"],
             "player_norm": p["canon"],
             "games_remaining": gr, "bye_week": bye,
+            "ros_weeks": tros,
             "espn_complete": bool(p["eligible"]),
             "ros": {"standard": ros_std, "half_ppr": half, "ppr": ros_ppr},
             "ppg": {
