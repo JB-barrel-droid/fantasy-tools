@@ -5,6 +5,8 @@ players.json and the built ESPN two-tier legs (data/ddf-two-tier). The engine
 side is value_check.py's engine dump (`value-check-engine.json`, black box).
 
 Run: python pipelines/spec_reference/compare.py --engine-json <dump> [--out <json>]
+     python pipelines/spec_reference/compare.py pipeline [--out <json>]   (JEG-508 value
+     pipeline on the live snapshot, every value dumped; see pipeline_live.py)
 """
 from __future__ import annotations
 
@@ -310,6 +312,12 @@ def compare(engine_settings: dict, inputs: dict | None = None, tol: float = TOL,
 
 
 def main(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] == "pipeline":
+        # JEG-508 source-neutral value pipeline on the live snapshot; every
+        # value dumped for the lead's three-way diff (shape: pipeline_live).
+        from spec_reference import pipeline_live
+        return pipeline_live.main(argv[1:])
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--engine-json", required=True)
     ap.add_argument("--out")
