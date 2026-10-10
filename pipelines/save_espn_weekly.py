@@ -147,7 +147,7 @@ def projection_weeks(played: list[int], ros_weeks: list[int]) -> set[int]:
 def plan_projections(rows, index: PlayerIndex, games: dict, latest: dict,
                      weeks: set[int], now_iso: str, batch_id: str):
     """latest: {(player_key, week, format): projected_points} most recent stored."""
-    inserts, unresolved, unchanged = [], 0, 0
+    inserts, unresolved, unchanged, no_game = [], 0, 0, 0
     for r in rows:
         if r["week"] not in weeks:
             continue
@@ -156,6 +156,11 @@ def plan_projections(rows, index: PlayerIndex, games: dict, latest: dict,
             unresolved += 1
             continue
         g = games.get((r["week"], norm_abbr(r["team"])))
+        if g is None:
+            # bye, or a team the schedule does not place that week:
+            # projection_snapshots.game_id is NOT NULL, so skip and count
+            no_game += 1
+            continue
         for fmt in FORMATS:
             pts = round(ew.points(r["stats"], fmt), 2)
             prev = latest.get((e["player_key"], r["week"], fmt))
@@ -164,7 +169,7 @@ def plan_projections(rows, index: PlayerIndex, games: dict, latest: dict,
                 continue
             inserts.append({
                 "batch_id": batch_id, "player_id": e["id"], "player_key": e["player_key"],
-                "game_id": g["game_id"] if g else None, "season": r["season"],
+                "game_id": g["game_id"], "season": r["season"],
                 "week": r["week"], "source": "espn", "scoring_format": fmt,
                 "projected_points": pts, "snapshot_at": now_iso,
                 "vintage_note": (f"espn weekly projection block; basis={ew.BASIS} "
@@ -172,7 +177,8 @@ def plan_projections(rows, index: PlayerIndex, games: dict, latest: dict,
                                  f"espn_id={r['espn_id']}; scoring=v_player_game_actuals"),
             })
     return inserts, {"weeks": sorted(weeks), "rows_written": len(inserts),
-                     "unchanged_skipped": unchanged, "unresolved_rows": unresolved}
+                     "unchanged_skipped": unchanged, "unresolved_rows": unresolved,
+                     "no_game_skipped": no_game}
 
 
 # ---------------------------------------------------------------- IO

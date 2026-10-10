@@ -228,6 +228,18 @@ class PlanProjectionsTest(unittest.TestCase):
         self.assertIn("basis=team_week", ins[0]["vintage_note"])
         self.assertEqual(ins[0]["game_id"], "g1")
 
+    def test_bye_week_is_skipped_not_written_without_a_game(self):
+        # projection_snapshots.game_id is NOT NULL: a row with no scheduled game
+        # (bye, or a team the schedule does not know) fails the whole insert
+        # chunk, so it is counted and skipped, never sent with game_id None.
+        ix = PlayerIndex(PLAYERS, BASE)
+        games = sv.game_index(TEAMS, GAMES)
+        rows = [{"espn_id": "1", "name": "Jahmyr Gibbs", "pos": "RB", "team": "DET",
+                 "week": 4, "season": 2026, "stats": {}}]
+        ins, rep = sv.plan_projections(rows, ix, games, {}, {4}, "2026-10-10T00:00:00+00:00", "b")
+        self.assertEqual(ins, [])
+        self.assertEqual(rep["no_game_skipped"], 1)
+
     def test_weeks_are_played_plus_next(self):
         self.assertEqual(sv.projection_weeks([1, 2, 3, 4, 5], [6, 7, 8]), {1, 2, 3, 4, 5, 6})
 
