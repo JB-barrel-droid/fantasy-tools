@@ -1668,12 +1668,19 @@ class StoredRowIdentity:
             if r.get("player_norm") and r.get("player_key") is not None:
                 seen.setdefault((r["player_norm"], (r.get("pos") or "").upper()), set()).add(int(r["player_key"]))
         self.by_name = {k: next(iter(v)) for k, v in seen.items() if len(v) == 1}
+        self.stored_keys = {int(r["player_key"]) for r in rows if r.get("player_key") is not None}
         self.used: list[str] = []
 
     def resolve(self, name, pos):
         key, reason = self.ident.resolve(name, pos)
         if key is None:
             stored = self.by_name.get((self.norm(name), (pos or "").upper()))
+            if stored is None and reason == "position_conflict":
+                # Stored rows without a name or position (CBS rest of season): the name resolves to one
+                # player when the position is not applied, and the saver stored exactly that key
+                # (JEG-539: Connor Heyward, RB in public.players, printed in CBS's TE table as "(FB)").
+                any_pos, _ = self.ident.resolve(name, None)
+                stored = any_pos if any_pos in self.stored_keys else None
             if stored is not None:
                 self.used.append(name)
                 return stored, None

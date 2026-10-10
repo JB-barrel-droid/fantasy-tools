@@ -212,6 +212,23 @@ class PlanActualsTest(unittest.TestCase):
         self.assertEqual(rep["unresolved"][0]["name"], "Ghost Player")
 
 
+class NoOffensiveLineTest(unittest.TestCase):
+    def test_games_played_only_block_is_not_stored(self):
+        # Live 2026 weeks 1-4: 276 ESPN blocks carried only stat 210 (games
+        # played) and 155/156 (team win/loss), e.g. a backup QB every week.
+        # nflverse has no row for them; storing one would read as "played".
+        ix = PlayerIndex(PLAYERS, BASE)
+        games = sv.game_index(TEAMS, GAMES)
+        blank = {"espn_id": "1", "name": "Jahmyr Gibbs", "pos": "RB", "team": "DET",
+                 "week": 1, "season": 2026, "stats": ew.map_stats({"210": 1, "155": 1})}
+        target_only = dict(blank, stats=ew.map_stats({"210": 1, "58": 1}))
+        ups, rep = sv.plan_actuals([blank], ix, games, [])
+        self.assertEqual(ups, [])
+        self.assertEqual(rep["no_offensive_line_skipped"], 1)
+        ups, _ = sv.plan_actuals([target_only], ix, games, [])
+        self.assertEqual(len(ups), 1)   # a target with no catch is a stat line
+
+
 class PlanProjectionsTest(unittest.TestCase):
     def test_change_only(self):
         ix = PlayerIndex(PLAYERS, BASE)
@@ -227,6 +244,13 @@ class PlanProjectionsTest(unittest.TestCase):
         self.assertEqual(rep["unchanged_skipped"], 1)
         self.assertIn("basis=team_week", ins[0]["vintage_note"])
         self.assertEqual(ins[0]["game_id"], "g1")
+
+    def test_change_only_reads_this_writers_rows_only(self):
+        # The first live run skipped ~20 week-1 rows per format because
+        # another writer's source='espn' rows matched the change-only check.
+        q = sv.stored_projection_params(2026, {1, 2})
+        self.assertIn("vintage_note=like.*basis=team_week*", q)
+        self.assertIn("week=in.(1,2)", q)
 
     def test_bye_week_is_skipped_not_written_without_a_game(self):
         # projection_snapshots.game_id is NOT NULL: a row with no scheduled game
@@ -289,6 +313,27 @@ class StatusHistoryTest(unittest.TestCase):
         self.assertEqual(g["news_updated"][:10], "2025-10-09")
         self.assertIsNone(rows[1]["player_key"])   # kept, unresolved
         self.assertEqual(how.get("unresolved"), 1)
+
+    def test_workflows_force_add_their_gitignored_summaries(self):
+        # output/ is in .gitignore: a plain `git add output/...` exits 1 and
+        # failed the first live espn-weekly-store run (38023188489) after
+        # the data was already stored. Every output/ path these jobs commit
+        # must be added with -f.
+        import re
+        for wf in ("espn-weekly-store.yml", "player-status-history.yml", "espn-history-probe.yml"):
+            text = (ROOT / ".github" / "workflows" / wf).read_text(encoding="utf-8")
+            for line in text.splitlines():
+                if re.search(r"\bgit add\b", line) and "output/" in line:
+                    self.assertRegex(line, r"git add (-f|--force) ", f"{wf}: {line.strip()}")
+
+    def test_floor_is_below_a_real_full_pull(self):
+        # The fail-closed floor must pass a complete Sleeper pull: the
+        # committed identity base is one, and its rostered QB/RB/WR/TE alone
+        # (injured free agents not counted) must clear MIN_ROWS.
+        base = json.loads((ROOT / "data" / "inputs" / "sleeper_identity_base.json").read_text(encoding="utf-8"))
+        rostered = sum(1 for v in base["by_sleeper_id"].values()
+                       if v.get("pos") in sh.POSITIONS and v.get("team"))
+        self.assertGreaterEqual(rostered, sh.MIN_ROWS)
 
 
 class PullWritesWeeklyFilesTest(unittest.TestCase):

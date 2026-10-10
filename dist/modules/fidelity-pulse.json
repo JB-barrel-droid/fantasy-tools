@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-10T03:40:17.112519Z",
- "run_id": "2ff757a4-eaf4-4286-aabe-835476e0053c",
+ "checked_at": "2026-10-10T04:27:21.971962Z",
+ "run_id": "d7328a13-73a6-46b7-98ec-acdf97c16ca1",
  "overall": "amber",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -16,11 +16,12 @@
   "stored_vs_chart": "red on any difference between the live chart's native values and the stored bake the chart was built from; amber when a newer stored bake (different values) is not on the chart yet",
   "freshness": "amber when the publisher posted a newer week than the chart shows less than 24 h ago, red after that",
   "reference_vs_engine": "red when the JEG-479 value check reports a disagreement for the source; n/a while no report is published",
-  "projections": "ESPN, CBS rest of season, Razzball: stage 1 compares the publisher's own numbers with the newest stored snapshot in the publisher's unit (ESPN and CBS rest-of-season totals, Razzball per game), exactly. A difference is red when the publisher still serves the content the save read (the source probe's fingerprint recorded with the save equals the one read now: stored != same-version publisher), or when a block of players is missing or extra (more than 10% of a position, at least 3). It is amber while the publisher's own update stamp is newer than the snapshot (inside 24 h), the change probe has seen content no ingest saved yet, or the fingerprint changed since the save (a daily update; red once the save is older than 24 h: stale), and amber 'unconfirmed' when no fingerprint was recorded with the save or none can be read now. Stage 2: the chart's per-game native equals the stored snapshot it was built from, rounded half-up to the chart's printed decimals. Stage 3: chart snapshot older than 1 d amber, 3 d red, or the publisher's own update date is newer than the chart's",
+  "projections": "ESPN, CBS rest of season, Razzball: stage 1 compares the publisher's own numbers with the newest stored snapshot in the publisher's unit (ESPN and CBS rest-of-season totals, Razzball per game), exactly. A difference is red when the publisher still serves the content the save read (the source probe's fingerprint recorded with the save equals the one read now: stored != same-version publisher), or when a block of players is missing or extra (more than 10% of a position, at least 3). It is amber while the publisher's own update stamp is newer than the snapshot (inside 24 h), the change probe has seen content no ingest saved yet, or the fingerprint changed since the save (a daily update; red once the save is older than 24 h: stale), and amber 'unconfirmed' when no fingerprint was recorded with the save or none can be read now. ESPN (Jeremy 2026-10-10, 'Amber, then re-sync'): every such amber is 'update available' and the pulse dispatches the ESPN sync (one request per publisher version per 3 h); only a mismatch that survives the re-sync is red. Stage 2: the chart's per-game native equals the stored snapshot it was built from, rounded half-up to the chart's printed decimals. Stage 3: chart snapshot older than 1 d amber, 3 d red, or the publisher's own update date is newer than the chart's",
   "scrape_validity": "signals that a scrape may have missed (Jeremy 2026-10-09): a position's stored or chart player count below 95% of the prior week's is amber (alert only), below 90% red (held) when the publisher's own list for that position did not drop below 90% too (if it did, or it was not read, amber); an adjustment cell fitted on fewer than 5 players, an identity-fallback cell, or a position x tier count below 60% of the prior week's pulse is amber; JEG-482 published-rank inversions are red. A player absent from a fully loaded chart means 0; absences that may be processing errors are stages 1 and 2",
   "rollup": "a source is the worst of its stages; unknown (input unreadable) counts as amber",
   "hold": "JEG-520: a red in publisher_vs_stored, stored_vs_chart, freshness or scrape_validity holds that source and its derived series (the chain's validationHold, reason 'fidelity: <stage>'): kept out of DDF Value, labelled, a published chart served from its last good section. Amber and unknown never hold; reference_vs_engine reds are already held by the JEG-479 value check. While held, stored_vs_chart is n/a (the chart shows the kept section) unless the hold was stored_vs_chart on the same stored save, which stays red until a newer save; freshness reads the stored week or snapshot instead of the chart's.",
-  "tolerance": "per-source tolerance (JEG-520, measured in docs/fidelity-tolerances.md): FantasyCalc live-feed movement band max(25%, 50 points), red only above 10% of values outside it; article charts exact against the same article version, a later revision is 'update available' for 24 h, then stale; projections exact against the same publisher version (probe fingerprint), a changed version amber for 24 h, then stale"
+  "tolerance": "per-source tolerance (JEG-520, measured in docs/fidelity-tolerances.md): FantasyCalc live-feed movement band max(25%, 50 points), red only above 10% of values outside it; article charts exact against the same article version, a later revision is 'update available' for 24 h, then stale; projections exact against the same publisher version (probe fingerprint), a changed version amber for 24 h, then stale; ESPN amber, then re-sync: red only when the mismatch survives a fresh sync",
+  "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
  "holds": {},
  "sources": [
@@ -176,8 +177,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (596221 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T01:25:43.624820+00:00"
+     "summary": "engine and Python reference agree (963325 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T04:16:13.179959+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -249,17 +250,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "28/1172 values match exactly across 6 columns; 1144 of 1172 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 50%; 7 outside the max(25%, 50) band: Daniel Jones, Jordan Love); 7 players entered or left the bottom of the list since the save (churn)",
+     "summary": "25/1170 values match exactly across 6 columns; 1145 of 1170 values moved since the save at 2026-10-10T00:05:25.088955Z (largest 42%; 9 outside the max(25%, 50) band: Daniel Jones, Jordan Love); 5 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 201,
+      "publisher_players": 198,
       "stored_players": 197,
-      "compared": 1172,
-      "matched": 28,
-      "mismatched": 1144,
+      "compared": 1170,
+      "matched": 25,
+      "mismatched": 1145,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 7,
+      "list_churn": 5,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -271,9 +272,9 @@
       "full|1": {
        "left": 198,
        "right": 197,
-       "mismatched": 192,
-       "missing": 2,
-       "extra": 1
+       "mismatched": 193,
+       "missing": 3,
+       "extra": 2
       },
       "full|2": {
        "left": 198,
@@ -286,8 +287,8 @@
        "left": 198,
        "right": 197,
        "mismatched": 192,
-       "missing": 2,
-       "extra": 1
+       "missing": 3,
+       "extra": 2
       },
       "half|2": {
        "left": 198,
@@ -374,23 +375,23 @@
       },
       {
        "type": "value_mismatch",
-       "grain": "full|2",
+       "grain": "full|1",
        "player_key": 3289,
        "name": "Amon-Ra St. Brown",
        "pos": "WR",
-       "left": "8198",
-       "right": 8463.0,
-       "delta": 265.0
+       "left": "8185",
+       "right": 8455.0,
+       "delta": 270.0
       },
       {
        "type": "value_mismatch",
-       "grain": "std|1",
+       "grain": "half|1",
        "player_key": 3289,
        "name": "Amon-Ra St. Brown",
        "pos": "WR",
-       "left": "8042",
-       "right": 8307.0,
-       "delta": 265.0
+       "left": "8129",
+       "right": 8397.0,
+       "delta": 268.0
       }
      ],
      "outside_universe": [],
@@ -471,8 +472,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (596221 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T01:25:43.624820+00:00"
+     "summary": "engine and Python reference agree (963325 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T04:16:13.179959+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -600,24 +601,24 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|2",
+     "grain": "full|1",
      "player_key": 3289,
      "name": "Amon-Ra St. Brown",
      "pos": "WR",
-     "left": "8198",
-     "right": 8463.0,
-     "delta": 265.0
+     "left": "8185",
+     "right": 8455.0,
+     "delta": 270.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "std|1",
+     "grain": "half|1",
      "player_key": 3289,
      "name": "Amon-Ra St. Brown",
      "pos": "WR",
-     "left": "8042",
-     "right": 8307.0,
-     "delta": 265.0
+     "left": "8129",
+     "right": 8397.0,
+     "delta": 268.0
     }
    ],
    "held": null,
@@ -775,8 +776,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (596221 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T01:25:43.624820+00:00"
+     "summary": "engine and Python reference agree (963325 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T04:16:13.179959+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -997,8 +998,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (596221 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T01:25:43.624820+00:00"
+     "summary": "engine and Python reference agree (963325 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T04:16:13.179959+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -1156,6 +1157,7 @@
       }
      },
      "publisher_version": null,
+     "resync": null,
      "examples": [],
      "outside_universe": [],
      "unresolved": [
@@ -1267,8 +1269,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (596221 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T01:25:43.624820+00:00"
+     "summary": "engine and Python reference agree (963325 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T04:16:13.179959+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1384,6 +1386,7 @@
       }
      },
      "publisher_version": null,
+     "resync": null,
      "examples": [],
      "outside_universe": [],
      "unresolved": []
@@ -1439,8 +1442,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (596221 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T01:25:43.624820+00:00"
+     "summary": "engine and Python reference agree (963325 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T04:16:13.179959+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1556,6 +1559,7 @@
       }
      },
      "publisher_version": null,
+     "resync": null,
      "examples": [],
      "outside_universe": [],
      "unresolved": []
@@ -1632,8 +1636,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (596221 values compared in the whole report)",
-     "report_generated_at": "2026-10-10T01:25:43.624820+00:00"
+     "summary": "engine and Python reference agree (963325 values compared in the whole report)",
+     "report_generated_at": "2026-10-10T04:16:13.179959+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1726,5 +1730,6 @@
   "cbsros": "2026-10-10T01:06:26.110167+00:00",
   "razzball": "2026-10-10T01:06:26.110167+00:00"
  },
+ "resyncs": {},
  "holds_changed": false
 }
