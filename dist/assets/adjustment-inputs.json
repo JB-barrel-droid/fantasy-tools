@@ -4,7 +4,7 @@
     "combo_note": "Matches the chart's default Full-PPR 12-team view (comboKey: ppr -> 'full'; fantasycalc takes the _qb1 variant).",
     "ddf_leg_bake_id": "ddf-20261010-espn-ppr-12t-0p15",
     "ddf_leg_path": "data/ddf-two-tier/ddf-20261010-espn-ppr-12t-0p15/ddf_leg.json",
-    "ddf_leg_sha256": "0035bee76008a1c286dcdeb2396745d425ce0467f53b6f330bb7d28bd07c4af0",
+    "ddf_leg_sha256": "d5693745bcf4015ad8f7f814929b9aa49537a5665d4dc5f350cdd6a0756f8bb5",
     "espn_purity_note": "y targets are the DDF two-tier leg built from ESPN projections only (no expert blending).",
     "espn_snapshot_date": "2026-10-10",
     "fixture": "data/fixtures/current/comparison-sources-data.json",
@@ -36,7 +36,7 @@
     "scoring": "ppr",
     "teams": 12
   },
-  "generated_at": "2026-10-10T14:07:13Z",
+  "generated_at": "2026-10-10T15:27:01Z",
   "review_rows": [],
   "schema": "trade-value-adjustment-inputs-v1",
   "sources": {
@@ -218,8 +218,8 @@
           "position": "QB",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 13.6,
-          "y_mean": 13.6
+          "x_mean": 13.608333333333334,
+          "y_mean": 13.608333333333334
         },
         {
           "alpha": 0.0,
@@ -238,8 +238,8 @@
           "position": "RB",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 28.61851851851852,
-          "y_mean": 28.61851851851852
+          "x_mean": 28.633333333333333,
+          "y_mean": 28.633333333333333
         },
         {
           "alpha": 0.0,
@@ -248,8 +248,8 @@
           "position": "RB",
           "source": "cbsros",
           "tier": "bench",
-          "x_mean": 4.77391304347826,
-          "y_mean": 4.77391304347826
+          "x_mean": 4.778260869565218,
+          "y_mean": 4.778260869565218
         },
         {
           "alpha": 0.0,
@@ -258,8 +258,8 @@
           "position": "WR",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 20.628888888888888,
-          "y_mean": 20.628888888888888
+          "x_mean": 20.235555555555557,
+          "y_mean": 20.235555555555557
         },
         {
           "alpha": 0.0,
@@ -268,8 +268,8 @@
           "position": "WR",
           "source": "cbsros",
           "tier": "bench",
-          "x_mean": 5.506451612903225,
-          "y_mean": 5.506451612903225
+          "x_mean": 5.025806451612904,
+          "y_mean": 5.025806451612904
         },
         {
           "alpha": 0.0,
@@ -278,8 +278,8 @@
           "position": "TE",
           "source": "cbsros",
           "tier": "starter",
-          "x_mean": 12.741666666666667,
-          "y_mean": 12.741666666666667
+          "x_mean": 13.658333333333333,
+          "y_mean": 13.658333333333333
         },
         {
           "alpha": 0.0,
@@ -288,8 +288,8 @@
           "position": "TE",
           "source": "cbsros",
           "tier": "bench",
-          "x_mean": 2.69,
-          "y_mean": 2.69
+          "x_mean": 3.5,
+          "y_mean": 3.5
         }
       ],
       "diagnostics": {
@@ -310,8 +310,8 @@
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 13.6,
-          "y_mean": 13.6
+          "x_mean": 13.608333333333334,
+          "y_mean": 13.608333333333334
         },
         "RB|bench": {
           "alpha": 0.0,
@@ -320,8 +320,8 @@
           "fallback": false,
           "n_pairs": 23,
           "reason": null,
-          "x_mean": 4.77391304347826,
-          "y_mean": 4.77391304347826
+          "x_mean": 4.778260869565218,
+          "y_mean": 4.778260869565218
         },
         "RB|starter": {
           "alpha": 0.0,
@@ -330,8 +330,8 @@
           "fallback": false,
           "n_pairs": 27,
           "reason": null,
-          "x_mean": 28.61851851851852,
-          "y_mean": 28.61851851851852
+          "x_mean": 28.633333333333333,
+          "y_mean": 28.633333333333333
         },
         "TE|bench": {
           "alpha": 0.0,
@@ -340,8 +340,8 @@
           "fallback": false,
           "n_pairs": 10,
           "reason": null,
-          "x_mean": 2.69,
-          "y_mean": 2.69
+          "x_mean": 3.5,
+          "y_mean": 3.5
         },
         "TE|starter": {
           "alpha": 0.0,
@@ -350,8 +350,8 @@
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 12.741666666666667,
-          "y_mean": 12.741666666666667
+          "x_mean": 13.658333333333333,
+          "y_mean": 13.658333333333333
         },
         "WR|bench": {
           "alpha": 0.0,
@@ -360,8 +360,8 @@
           "fallback": false,
           "n_pairs": 31,
           "reason": null,
-          "x_mean": 5.506451612903225,
-          "y_mean": 5.506451612903225
+          "x_mean": 5.025806451612904,
+          "y_mean": 5.025806451612904
         },
         "WR|starter": {
           "alpha": 0.0,
@@ -370,8 +370,8 @@
           "fallback": false,
           "n_pairs": 45,
           "reason": null,
-          "x_mean": 20.628888888888888,
-          "y_mean": 20.628888888888888
+          "x_mean": 20.235555555555557,
+          "y_mean": 20.235555555555557
         }
       },
       "n_published": 369,
@@ -909,8 +909,8 @@
           "position": "QB",
           "source": "razzball",
           "tier": "starter",
-          "x_mean": 17.25,
-          "y_mean": 17.25
+          "x_mean": 16.683333333333334,
+          "y_mean": 16.683333333333334
         },
         {
           "alpha": 0.0,
@@ -919,8 +919,8 @@
           "position": "QB",
           "source": "razzball",
           "tier": "bench",
-          "x_mean": 3.966666666666667,
-          "y_mean": 3.966666666666667
+          "x_mean": 3.8444444444444446,
+          "y_mean": 3.8444444444444446
         },
         {
           "alpha": 0.0,
@@ -929,8 +929,8 @@
           "position": "RB",
           "source": "razzball",
           "tier": "starter",
-          "x_mean": 34.475675675675674,
-          "y_mean": 34.475675675675674
+          "x_mean": 34.483783783783785,
+          "y_mean": 34.483783783783785
         },
         {
           "alpha": 0.0,
@@ -939,8 +939,8 @@
           "position": "RB",
           "source": "razzball",
           "tier": "bench",
-          "x_mean": 6.963636363636363,
-          "y_mean": 6.963636363636363
+          "x_mean": 6.9363636363636365,
+          "y_mean": 6.9363636363636365
         },
         {
           "alpha": 0.0,
@@ -949,8 +949,8 @@
           "position": "WR",
           "source": "razzball",
           "tier": "starter",
-          "x_mean": 30.488571428571426,
-          "y_mean": 30.488571428571426
+          "x_mean": 30.502857142857142,
+          "y_mean": 30.502857142857142
         },
         {
           "alpha": 0.0,
@@ -959,8 +959,8 @@
           "position": "WR",
           "source": "razzball",
           "tier": "bench",
-          "x_mean": 7.1030303030303035,
-          "y_mean": 7.1030303030303035
+          "x_mean": 7.090909090909091,
+          "y_mean": 7.090909090909091
         },
         {
           "alpha": 0.0,
@@ -991,8 +991,8 @@
           "fallback": false,
           "n_pairs": 9,
           "reason": null,
-          "x_mean": 3.966666666666667,
-          "y_mean": 3.966666666666667
+          "x_mean": 3.8444444444444446,
+          "y_mean": 3.8444444444444446
         },
         "QB|starter": {
           "alpha": 0.0,
@@ -1001,8 +1001,8 @@
           "fallback": false,
           "n_pairs": 12,
           "reason": null,
-          "x_mean": 17.25,
-          "y_mean": 17.25
+          "x_mean": 16.683333333333334,
+          "y_mean": 16.683333333333334
         },
         "RB|bench": {
           "alpha": 0.0,
@@ -1011,8 +1011,8 @@
           "fallback": false,
           "n_pairs": 22,
           "reason": null,
-          "x_mean": 6.963636363636363,
-          "y_mean": 6.963636363636363
+          "x_mean": 6.9363636363636365,
+          "y_mean": 6.9363636363636365
         },
         "RB|starter": {
           "alpha": 0.0,
@@ -1021,8 +1021,8 @@
           "fallback": false,
           "n_pairs": 37,
           "reason": null,
-          "x_mean": 34.475675675675674,
-          "y_mean": 34.475675675675674
+          "x_mean": 34.483783783783785,
+          "y_mean": 34.483783783783785
         },
         "TE|bench": {
           "alpha": 0.0,
@@ -1051,8 +1051,8 @@
           "fallback": false,
           "n_pairs": 33,
           "reason": null,
-          "x_mean": 7.1030303030303035,
-          "y_mean": 7.1030303030303035
+          "x_mean": 7.090909090909091,
+          "y_mean": 7.090909090909091
         },
         "WR|starter": {
           "alpha": 0.0,
@@ -1061,8 +1061,8 @@
           "fallback": false,
           "n_pairs": 35,
           "reason": null,
-          "x_mean": 30.488571428571426,
-          "y_mean": 30.488571428571426
+          "x_mean": 30.502857142857142,
+          "y_mean": 30.502857142857142
         }
       },
       "n_published": 679,
