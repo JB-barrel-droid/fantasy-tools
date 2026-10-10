@@ -81,6 +81,11 @@ WEEKLY_CSV = FILES / "espn_weekly_projections.csv"
 META = Path(_args[_meta_idx + 1]) if _meta_idx >= 0 and _meta_idx + 1 < len(_args) else HIDDEN / "espn_projections_meta.json"
 SIDECAR = HIDDEN / "espn_ros_ppg.json"
 FORCE = "--force" in _args  # bypass the hash no-op (backfills only)
+# JEG-521 G4 (a)/(b): also write the weekly actual and projection blocks the
+# pull already fetches, as JSON rows, for save_espn_weekly.py to store.
+_wk_idx = _args.index("--weekly-out") if "--weekly-out" in _args else -1
+WEEKLY_OUT = (Path(_args[_wk_idx + 1])
+              if _wk_idx >= 0 and _wk_idx + 1 < len(_args) else None)
 
 sys.path.insert(0, str(BIN))
 # Migrated from waiver_wire/pipeline/bin/identity (archived 2026-10-07).
@@ -304,6 +309,28 @@ def resolve_identity(imap, name, pos, problems, registry=None):
     return canon, display
 
 
+def write_weekly_blocks(out_dir, proj, acts, team_map, played, ros_weeks):
+    """JEG-521 G4: every 2026 weekly actual and projection block, one row per
+    ESPN player per week (pipelines/lib/espn_weekly.py), written before the
+    payload-hash no-op so a run with unchanged projections still stores new
+    actuals. Identity is resolved by the saver, not here."""
+    import espn_weekly  # noqa: PLC0415 -- pipelines/lib on sys.path
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pulled_at = datetime.now(ZoneInfo("UTC")).isoformat(timespec="seconds")
+    for name, payload, source in (("espn_weekly_actuals.json", acts, espn_weekly.ACTUAL),
+                                  ("espn_weekly_projections.json", proj, espn_weekly.PROJECTION)):
+        rows, notes = espn_weekly.weekly_rows(payload, source, team_map, SEASON_ID)
+        doc = {"source": "espn", "stat_source": source, "season": SEASON_ID,
+               "pulled_at": pulled_at, "played_weeks": played,
+               "ros_weeks": ros_weeks, "basis": espn_weekly.BASIS,
+               "notes": notes, "rows": rows}
+        with tempfile.NamedTemporaryFile("w", dir=str(out_dir), delete=False) as tf:
+            json.dump(doc, tf)
+            tmp = tf.name
+        os.replace(tmp, out_dir / name)
+        print(f"weekly blocks: {name} {len(rows)} rows", flush=True)
+
+
 def main():
     problems = []
     t0 = time.time()
@@ -349,6 +376,9 @@ def main():
     ros_weeks = [w for w in range(1, 19) if w not in played]
     print(f"played weeks (empirical): {played}; ROS weeks: "
           f"{ros_weeks[0]}-{ros_weeks[-1]}", flush=True)
+    if WEEKLY_OUT is not None:
+        write_weekly_blocks(WEEKLY_OUT, proj, acts, team_map, played, ros_weeks)
+
     if not ros_weeks:
         log_line("FAILED", "source=espn; no ROS weeks detected; "
                            "0 rows written; snapshot preserved")

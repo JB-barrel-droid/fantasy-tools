@@ -186,6 +186,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_pull_fantasypros_parse
 	python3 -m unittest tests.test_article_discovery
 	python3 -m unittest tests.test_razzball_sync_ci
+	python3 -m unittest tests.test_espn_weekly_store
 	python3 -m unittest tests.test_load_nflverse_history
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
