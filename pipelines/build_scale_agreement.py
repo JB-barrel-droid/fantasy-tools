@@ -16,11 +16,10 @@ Output: dist/modules/scale-agreement.json
 Thresholds (documented, not tuned):
   BAND_LOW  = 0.80
   BAND_HIGH = 1.25
-  Taken directly from the chart's own Chart Health "source-scale-agreement"
-  check: curve-widget.js scaleAgreementDiagnostics() -> value-model.js
-  PEAK_AGREEMENT_LOW / PEAK_AGREEMENT_HIGH. The dashboard must judge sources
-  by the same band the chart judges them by; inventing a second band here
-  would let the two disagree about what "agreement" means.
+  Taken from the chart's former Chart Health "source-scale-agreement"
+  check (value-model.js PEAK_AGREEMENT_LOW / PEAK_AGREEMENT_HIGH). That
+  check was retired 2026-10-08 (GAP-026) and JEG-539 removed the engine's
+  peakAgreement; the band is now this builder's own.
 
 "Scale" means positional peak (max value per position group), matching the
 Chart Health check's positionalPeaks(). Peaks are robust to deep-bench
@@ -75,16 +74,14 @@ FIXTURE_PATH = os.path.join(REPO, "data/fixtures/current/comparison-sources-data
 PLAYERS_PATH = os.path.join(REPO, "data/fixtures/current/players.json")
 OUT_PATH = os.path.join(REPO, "dist/modules/scale-agreement.json")
 
-# --- Thresholds: must match the chart's Chart Health band -------------------
-# value-model.js: PEAK_AGREEMENT_LOW = 0.80, PEAK_AGREEMENT_HIGH = 1.25.
-# curve-widget.js scaleAgreementDiagnostics() uses these defaults for the
-# direct (as-published) chart keys.
+# --- Thresholds: the band of the retired Chart Health check -----------------
+# (value-model.js PEAK_AGREEMENT_LOW / HIGH until JEG-539; GAP-026 retired the
+# chart's check 2026-10-08).
 BAND_LOW = 0.80
 BAND_HIGH = 1.25
 BAND_SOURCE = (
-    "Chart Health source-scale-agreement check "
-    "(curve-widget.js scaleAgreementDiagnostics -> "
-    "value-model.js PEAK_AGREEMENT_LOW/HIGH)"
+    "band of the retired Chart Health source-scale-agreement check "
+    "(GAP-026; value-model.js PEAK_AGREEMENT_LOW/HIGH until JEG-539)"
 )
 
 POSITIONS = ["QB", "RB", "WR", "TE"]

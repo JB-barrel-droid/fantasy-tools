@@ -9,15 +9,17 @@ Checks, each proved against a broken state:
 
 1. Default identity. SUPERFLEX 0 is the default and must reproduce the old
    engine exactly: the server translation with superflex_count=0 equals the
-   omitted argument, and the browser derivation with SUPERFLEX:0 equals the
-   shape without the key, on every saved published chart x scoring x team
-   count. Broken state: superflexCount defaulting to 1.
+   omitted argument, on every saved published chart x scoring x team count,
+   and the browser's superflexCount gives 0 slots for SUPERFLEX:0 and for a
+   roster without the key (JEG-539; it used to run the retired
+   derivePublishedSetup). Broken state: superflexCount defaulting to 1.
 2. Superflex goes to quarterbacks on real projections. On the ESPN per-game
    projections the browser prices with, a 10- or 12-team superflex league
-   starts 2 x teams QBs (projectionRoles, the ESPN series' roles) and the
+   starts 2 x teams QBs (the value pipeline's league allocation, VP-2.2;
+   before JEG-539 the retired projectionRoles) and the
    translation's superflex slots go to QBs (Python and JS). Broken states:
    the superflex slot apportioned by dedicated-slot weight (the old flex
-   rule) and the slot ranked on surplus instead of points.
+   rule) and the pipeline's superflex seats filled without QBs.
 3. The live page accepts the control. setRosterSpot('SUPERFLEX', n) and the
    classic page's Superflex input change the roster, clamp to 0..1, and the
    published charts plot their superflex-overlay natives times one factor
@@ -41,11 +43,9 @@ sys.path.insert(0, str(ROOT))
 from pipelines.vorp_translation import unified  # noqa: E402
 from pipelines.vorp_translation.vorp_via_roster import rostered_for_teams  # noqa: E402
 from tests.test_published_league_settings_engine import (  # noqa: E402
-    FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, _cases, browser_inputs, browser_players,
-    compare_maps, expected_derived, run_js,
+    FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, browser_inputs, browser_players,
 )
 from tests import _render_env  # noqa: E402
-from tests._holds import held_chart_roots  # noqa: E402
 
 
 def setUpModule():
@@ -57,22 +57,28 @@ def setUpModule():
 APP = ROOT / "app" / "trade-value-chart"
 SF_SHAPE = {**SAVED_SHAPE, "SUPERFLEX": 1}
 
-# Node: projectionRoles lineup + translationRostered superflex counts on the
+# Node: the value pipeline's allocation + translationRostered superflex counts on the
 # ESPN projections, for a given value-model.js.
 QB_DRIVER = r"""
 const VM = require(process.argv[1]);
 const input = JSON.parse(require("fs").readFileSync(0, "utf8"));
 const out = input.cases.map(c => {
-  const pool = c.players.map(p => ({player_key: p[0], name: p[1], pos: p[2]}));
-  const ppg = new Map(c.players.map(p => [p[0], p[3]]));
-  const counts = VM.allocationCounts({pool, teams: c.teams, shape: c.shape,
-    rankOf: p => ppg.get(p.player_key)});
+  // The live engine's league allocation (VP-2.2, vpAllocate) on ESPN's
+  // per-game projections, as the widget runs it (curve-widget runPipeline).
+  const players = {}, values = {};
+  c.players.forEach(p => { players[p[0]] = {pos: p[2], name: p[1]}; values[p[0]] = p[3]; });
+  const result = VM.runValuePipeline({
+    setting: {teams: c.teams, slots: {QB: c.shape.QB, RB: c.shape.RB, WR: c.shape.WR, TE: c.shape.TE},
+      flex: c.shape.FLEX, superflex: VM.superflexCount(c.shape), bench_per_team: c.shape.BENCH,
+      bench_share: 0.15, position_shares: null},
+    players, sources: {espn: {family: "projection", status: "included", values, label: "ESPN"}},
+    included: ["espn"]});
   const ranked = {QB: [], RB: [], WR: [], TE: []};
   c.players.forEach(p => ranked[p[2]].push({key: String(p[0]), value: p[3]}));
   Object.values(ranked).forEach(rows => rows.sort((a, b) => b.value - a.value));
   const roster = VM.translationRostered(c.teams, 6, 1, ranked, {QB: 1, RB: 2, WR: 3, TE: 1},
     ["RB", "WR", "TE"], c.shape.SUPERFLEX || 0);
-  return {lineup: counts.lineup, roster};
+  return {allocation: result.allocation, roster};
 });
 process.stdout.write(JSON.stringify(out));
 """
@@ -102,8 +108,9 @@ def qb_problems(model_path=VALUE_MODEL):
     for case, js in zip(cases, json.loads(proc.stdout)):
         tag = f"{case['scoring']}/{case['teams']}t"
         teams = case["teams"]
-        if js["lineup"]["QB"] != 2 * teams:
-            problems.append(f"{tag}: projectionRoles starts {js['lineup']['QB']} QBs, want {2 * teams}")
+        qb = (js["allocation"] or {}).get("QB") or {}
+        if qb.get("starters") != 2 * teams:
+            problems.append(f"{tag}: the value pipeline starts {qb.get('starters')} QBs, want {2 * teams}")
         ranked = {pos: [] for pos in ("QB", "RB", "WR", "TE")}
         for key, _name, pos, val in case["players"]:
             ranked[pos].append((str(key), val))
@@ -117,10 +124,15 @@ def qb_problems(model_path=VALUE_MODEL):
     return problems
 
 
+SF_COUNT_DRIVER = r"""
+const VM = require(process.argv[1]);
+const shapes = JSON.parse(require("fs").readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify(shapes.map(s => VM.superflexCount(s))));
+"""
+
+
 def identity_problems(model_path=VALUE_MODEL):
     """SUPERFLEX 0 reproduces the default engine exactly (server and browser)."""
-    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    pos_of = browser_players()
     problems = []
     for source in SOURCES:
         for scoring in SCORINGS:
@@ -131,26 +143,21 @@ def identity_problems(model_path=VALUE_MODEL):
                 if unified.translate_ranked(keyed, teams) != unified.translate_ranked(
                         keyed, teams, superflex_count=0):
                     problems.append(f"py {source}/{scoring}/{teams}t: superflex_count=0 differs")
-    # Browser: SUPERFLEX:0 must plot exactly the server reference for the
-    # default roster (saved values at 12 teams, the derivation elsewhere).
-    # JEG-569: a held chart is served from its last good build, so its saved
-    # Indexed values are on that build's anchor, not this one's: the browser
-    # identity is checked on the charts this build made.
-    held = held_chart_roots(fixture)
-    probe = [(s, sc, t, "sf0", {**SAVED_SHAPE, "SUPERFLEX": 0})
-             for s in SOURCES if s not in held for sc in SCORINGS for t in (8, 10, 12, 14)]
-    results = run_js(_cases(fixture, pos_of, probe), model_path)
-    for (s, sc, t, _label, _shape), r in zip(probe, results):
-        tag = f"js {s}/{sc}/{t}t"
-        if r.get("error"):
-            problems.append(f"{tag}: error {r['error']}")
-            continue
-        if r["savedSetup"] != (t == 12):
-            problems.append(f"{tag}: savedSetup {r['savedSetup']} with SUPERFLEX:0")
-        got = {int(k): v for k, v in r["values"].items()}
-        diffs, _ = compare_maps(expected_derived(s, sc, t, SAVED_SHAPE, fixture, pos_of), got)
-        if diffs:
-            problems.append(f"{tag}: SUPERFLEX:0 differs from the default roster: {diffs[:2]}")
+    # Browser: the widget passes ValueModel.superflexCount(rosterShape) to
+    # the value pipeline as setting.superflex (curve-widget pipelineSetting).
+    # A roster without the key, and SUPERFLEX:0, must both give 0 superflex
+    # slots; SUPERFLEX:1 gives 1. (Before JEG-539 this half ran the retired
+    # derivePublishedSetup on every saved chart.)
+    probe = [("no key", SAVED_SHAPE, 0), ("SUPERFLEX:0", {**SAVED_SHAPE, "SUPERFLEX": 0}, 0),
+             ("SUPERFLEX:1", {**SAVED_SHAPE, "SUPERFLEX": 1}, 1)]
+    proc = subprocess.run(["node", "-e", SF_COUNT_DRIVER, str(model_path)],
+                          input=json.dumps([shape for _, shape, _ in probe]),
+                          capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise AssertionError(proc.stderr[:2000])
+    for (label, _shape, want), got in zip(probe, json.loads(proc.stdout)):
+        if got != want:
+            problems.append(f"js superflexCount({label}) = {got}, want {want}")
     return problems
 
 
@@ -178,19 +185,21 @@ class SuperflexEngine(unittest.TestCase):
         problems = qb_problems()
         self.assertEqual(problems, [], "\n".join(problems))
 
-    def test_qb_guard_catches_slot_weighting_and_surplus(self):
+    def test_qb_guard_catches_slot_weighting_and_no_qb_superflex(self):
         # The old flex rule: superflex seats apportioned by dedicated-slot
         # weight (QB 1 of 7), so QBs get ~1/7 of them.
         slot_weighted = mutated(
             "sf-slot-weighted",
             "    if (!ranked) {\n      var w = {};\n      POSITION_ORDER.forEach(function (pos) { w[pos] = slots[pos] || 0; });",
             "    if (true) {\n      var w = {};\n      POSITION_ORDER.forEach(function (pos) { w[pos] = slots[pos] || 0; });")
-        # The pre-2026-10-08 projectionRoles rule: superflex ranked on surplus.
-        on_surplus = mutated(
-            "sf-surplus",
-            "remaining(SUPERFLEX_ELIGIBLE, rankOf)",
-            "remaining(SUPERFLEX_ELIGIBLE, surplus)")
-        for name, path in (("slot-weighted", slot_weighted), ("surplus", on_surplus)):
+        # The value pipeline's superflex seats filled without QBs (the
+        # pre-superflex flex rule). Replaced the projectionRoles "surplus"
+        # mutation when JEG-539 retired projectionRoles.
+        no_qb = mutated(
+            "sf-no-qb",
+            "var sf = takeBest(POSITION_ORDER,",
+            "var sf = takeBest(VP_FLEX_ELIGIBLE,")
+        for name, path in (("slot-weighted", slot_weighted), ("no-qb", no_qb)):
             problems = qb_problems(path)
             print(f"\n[SUPERFLEX negative] {name}: {len(problems)} problems, e.g. {problems[:1]}")
             self.assertGreater(len(problems), 0, f"{name} was NOT caught")

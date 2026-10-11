@@ -198,8 +198,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_bake_cbsros_intake
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_guard_harness_recorded
-	python3 -m unittest tests.test_jeg68_starter_markup
-	python3 -m unittest tests.test_jeg69_direction_check
 	python3 -m unittest tests.test_jeg103_bench_share_readout
 	python3 -m unittest tests.test_jeg103_bench_slider_readout
 	python3 -m unittest tests.test_jeg135_rendered_flexibility
@@ -221,7 +219,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
-	python3 -m unittest tests.test_published_views_engine
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_value_check
 	python3 -m unittest tests.test_load_value_check
