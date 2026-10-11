@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-11T15:37:51.408114+00:00",
+  "run_at": "2026-10-11T15:49:36.821587+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,7 +18,6 @@
   "held": [
     "cbsros",
     "espn",
-    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -33,7 +32,7 @@
         "cbsros"
       ],
       "restored_from": null,
-      "detail": "1062/1098 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals); 36 chart values differ from the stored snapshot, 4 stored players not on the chart, 3 chart players not stored",
+      "detail": "1062/1098 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals); 36 chart values differ from the stored snapshot, 4 stored players not on the chart, 3 chart players not stored; newer stored snapshot 2026-10-11 is not on the chart yet: 124 values changed, 3 added, 3 dropped",
       "hold_severity": "amber",
       "week": 5
     },
@@ -51,19 +50,6 @@
       "hold_severity": "amber",
       "rolled_back": 0
     },
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc"
-      ],
-      "restored_from": "2026-10-11T01:05:52.626989+00:00",
-      "detail": "222/1182 values match exactly across 6 columns; column check: stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 24); 960 of 1182 values moved since the save at 2026-10-11T11:05:26.151563Z (largest 80%; 2 outside the max(25%, 50) band: Aaron Rodgers); 2 players entered or left ",
-      "hold_severity": "amber",
-      "week": 5
-    },
     "espn": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -74,7 +60,7 @@
         "espn"
       ],
       "restored_from": null,
-      "detail": "1653/1722 values match exactly across 3 columns; 69 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint f499bcb66618ec023d61d338) (the mismatch survived a",
+      "detail": "1593/1722 values match exactly across 3 columns; 129 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 9d2bf104f3e0ac0262644dec) (the mismatch survived ",
       "hold_severity": "amber",
       "week": 5
     }
@@ -215,7 +201,6 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: stored_vs_chart"
   },
@@ -230,6 +215,6 @@
       "Makefile:478: test-core"
     ],
     "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-11T15:47:41.183973+00:00"
+    "recorded_at": "2026-10-11T15:59:29.115655+00:00"
   }
 }
