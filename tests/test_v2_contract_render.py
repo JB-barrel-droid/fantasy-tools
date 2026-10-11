@@ -1195,7 +1195,7 @@ def pv12(S):
     errors = []
     if not d["shown"]:
         errors.append("clicking a row did not open the player detail")
-    for head in ("Our value", "Published chart", "VORP vs waivers"):
+    for head in ("Our value", "Rescaled chart", "VORP vs waivers"):
         if head not in d["heads"]:
             errors.append(f"player detail has no {head!r} column")
     if RAW_KEY.search(d["text"]):

@@ -466,6 +466,7 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
+	python3 -m unittest tests.test_v2_rescaled_copy
 	python3 -m unittest tests.test_v2_waterfall
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity

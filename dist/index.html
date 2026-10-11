@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20261010-2143-0c8cae2">
+<meta name="trade-chart-build" content="tv-20261010-2039-296acd62">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
@@ -1820,7 +1820,7 @@
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
     <div class="v2-title v2-ttitle">
       <h1 id="v2TargetsTitle">Where the trade market is wrong this week</h1>
-      <p>We check four published trade charts against our values for your league. Sell the players they overpay for; buy the ones they undervalue.</p>
+      <p>We check four publishers' trade charts against our values for your league. Sell the players they overpay for; buy the ones they undervalue.</p>
     </div>
 
     <div class="v2-filters v2-tfilters" role="search">
@@ -1842,7 +1842,7 @@
         <label class="v2-field v2-field-rank"><span class="v2-field-label">Compare against:</span>
           <select id="v2TChart" aria-describedby="v2TChartCaption"></select>
         </label>
-        <span class="v2-tcaption" id="v2TChartCaption">Indexed to our scale <span id="v2TChartBadge"></span></span>
+        <span class="v2-tcaption" id="v2TChartCaption">Rescaled to our point scale <span id="v2TChartBadge"></span></span>
         <span id="v2TChartInfoSlot"></span>
       </div>
     </div>
@@ -1883,7 +1883,7 @@
     </div>
 
     <p class="v2-filter-note v2-tnote" id="v2TNote" hidden></p>
-    <p class="v2-footnote" id="v2TFootnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">the DDF Value, built from the inputs chosen in Customize on Player values</span>; each published chart is indexed to the same point scale. <span id="v2TPriorNote"></span>VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">the DDF Value, built from the inputs chosen in Customize on Player values</span>; each trade chart is rescaled to the same point scale. <span id="v2TPriorNote"></span>VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -2043,8 +2043,8 @@
         <ul class="v2-how-sources" data-sources="dda"></ul>
       </li>
       <li class="v2-card" data-view-method="indexed">
-        <span class="v2-pill is-indexed">Indexed</span>
-        <h2>Source-relative index</h2>
+        <span class="v2-pill is-indexed">Rescaled</span>
+        <h2>Rescaled trade charts</h2>
         <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/></svg> Dashed line</p>
         <p>Preserves the selected publisher's relative value shape. Compare normalized points, keeping the source visible.</p>
         <p class="v2-meta">This is what a manager trading off that chart expects. Where a chart pays more than our value, sell; where it pays less, buy.</p>
@@ -2074,7 +2074,7 @@
     <section class="v2-how-evidence" aria-labelledby="v2HowRulesTitle">
       <h2 id="v2HowRulesTitle">Read the evidence, then make the call.</h2>
       <ul class="v2-how-rules">
-        <li><b>Methods can disagree.</b> The same player can gain under Data Driven Adjustments and lose under Indexed.</li>
+        <li><b>Methods can disagree.</b> The same player can gain under Data Driven Adjustments and lose under rescaled trade charts.</li>
         <li><b>— means missing.</b> A missing value is unavailable and shows — with the reason, never zero.</li>
         <li><b>Zero is real.</b> A value of zero means the player sits at or below that source's waiver line for your league.</li>
         <li><b>Older weeks are opt-in.</b> Only current-week sources are selected at first; an older week is labeled wherever it appears.</li>
@@ -2570,11 +2570,11 @@
   </div>
 
   </div>
-  <script src="assets/value-model.js?v=tv-20261010-2143-0c8cae2" defer></script>
-  <script src="assets/consolidation-index.js?v=tv-20261010-2143-0c8cae2" defer></script>
-  <script src="assets/product-data.js?v=tv-20261010-2143-0c8cae2" defer></script>
-  <script src="assets/curve-widget.js?v=tv-20261010-2143-0c8cae2" defer></script>
-  <script src="assets/comparison-dashboard.js?v=tv-20261010-2143-0c8cae2" defer></script>
+  <script src="assets/value-model.js?v=tv-20261010-2039-296acd62" defer></script>
+  <script src="assets/consolidation-index.js?v=tv-20261010-2039-296acd62" defer></script>
+  <script src="assets/product-data.js?v=tv-20261010-2039-296acd62" defer></script>
+  <script src="assets/curve-widget.js?v=tv-20261010-2039-296acd62" defer></script>
+  <script src="assets/comparison-dashboard.js?v=tv-20261010-2039-296acd62" defer></script>
   <script src="v2/targets.js" defer></script>
   <script src="v2/trade.js" defer></script>
   <script src="v2/movers.js" defer></script>
@@ -3026,7 +3026,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261010-2143-0c8cae2</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261010-2039-296acd62</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug
