@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-11T16:01:41.161359+00:00",
+  "run_at": "2026-10-11T17:01:56.177306+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 187/187 values moved > 0.05 (live mismatch 14/25 top-25 match (need 80%); e.g. jamarr chase, kenneth walker iii, christian mccaffrey); coverage:full_12_qb1/TE:fail -- candidate priced 27 < fixture 28 (dropped: michael mayer, mike gesicki; added: terrance ferguson) -- 2 dropped player(s) still priced live (e.g. michael mayer, mike gesicki) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -18,6 +18,7 @@
   "held": [
     "cbsros",
     "espn",
+    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -35,6 +36,20 @@
       "detail": "1062/1098 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals); 36 chart values differ from the stored snapshot, 4 stored players not on the chart, 3 chart players not stored; newer stored snapshot 2026-10-11 is not on the chart yet: 124 values changed, 3 added, 3 dropped",
       "hold_severity": "amber",
       "week": 5
+    },
+    "fantasycalc": {
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 187/187 values moved > 0.05 (live mismatch 14/25 top-25 match (need 80%); e.g. jamarr chase, kenneth walker iii, christian mccaffrey); coverage:full_12_qb1/TE:fail -- candidate priced 27 < fixture 28 (dropped: michael mayer, mike gesicki; added: terrance ferguson) -- 2 dropped player(s) still priced live (e.g. michael mayer, mike gesicki) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
     },
     "razzball": {
       "detail": "awaiting players bake: razzball: snapshot sha256:41b1896c40e8 != players.json rz_snapshot_id sha256:31c28544ad55; the section waits for a bake from the same snapshot",
@@ -77,11 +92,24 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 187/187 values moved > 0.05 (live mismatch 14/25 top-25 match (need 80%); e.g. jamarr chase, kenneth walker iii, christian mccaffrey); coverage:full_12_qb1/TE:fail -- candidate priced 27 < fixture 28 (dropped: michael mayer, mike gesicki; added: terrance ferguson) -- 2 dropped player(s) still priced live (e.g. michael mayer, mike gesicki) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -164,9 +192,9 @@
       "lagging_one_week": false
     },
     "fantasycalc": {
-      "content_vintage": "Week 5",
-      "content_week": 5,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "fantasypros": {
@@ -215,6 +243,6 @@
       "Makefile:478: test-core"
     ],
     "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-11T16:10:08.021432+00:00"
+    "recorded_at": "2026-10-11T17:10:56.289561+00:00"
   }
 }
