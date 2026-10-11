@@ -1,6 +1,6 @@
 <!--
-Mirror of the Google Doc (source of truth): https://docs.google.com/document/d/1UDRlVTdOiAdI6gSSklxwB-R9uINozVmIILMwbvCBiH0. Regenerate when the Doc changes; never edit this file to change the contract.
-Regenerate: python scripts/sync_feature_contract.py <exported text>. Mirrored 2026-10-09.
+Mirror of the Google Doc (source of truth): https://docs.google.com/document/d/1mI2vo4R74Fp-x14yR7ggh0T3WdcD6xjciLv7gVh4iJo. Regenerate when the Doc changes; never edit this file to change the contract.
+Regenerate: python scripts/sync_feature_contract.py --doc contract <exported text>. Mirrored 2026-10-10.
 tests/test_v2_contract_render.py reads every **XX-NN** ID below.
 -->
 
@@ -10,9 +10,9 @@ tests/test_v2_contract_render.py reads every **XX-NN** ID below.
 
 A change that breaks a line does not ship. To change or remove a line, ask Jeremy first, then record his decision and the date under that line.
 
-Each line has an ID. One contract test (tests/test_v2_contract_render.py, JEG-506) quick-checks every ID: the feature is present and its basic behaviour works. Deeper correctness tests live elsewhere. A line marked *(to build: JEG-xxx)* is agreed but not live yet; the test checks it once it ships.
+Each line has an ID. One contract test (tests/test_v2_contract_render.py, JEG-506) quick-checks every ID: the feature is present and its basic behaviour works. The repo keeps a mirror of this Doc (docs/feature-contract.md) and fails if any ID lacks a check. Deeper correctness tests live elsewhere. A line marked *(to build: JEG-xxx)* is agreed but not live yet; the test checks it once it ships.
 
-Status: v1.1 (2026-10-09). Earlier versions are superseded.
+Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
 ## Everywhere (GL)
 
@@ -21,14 +21,15 @@ Status: v1.1 (2026-10-09). Earlier versions are superseded.
   - **GL-02** Every number is right at its source:
 
   - Engine values equal the engine.
-  - Values that exist only on the front end are computed in v2 from engine values, then tested against an independent calculation. Examples: averages, gaps, trade nets, confidence.
+  - Values that exist only on the front end are computed in v2 from engine values, then tested against an independent calculation.
+  - Each front-end value gets its own named contract line once it ships: the CT-02 confidence and the TT-09 market average, then trade nets and gaps. (Jeremy, 2026-10-10.)
   - (Jeremy, 2026-10-09: "There are some values that are only calculated on the front end, in which case math must be done there.")
 
   - **GL-03** Missing values:
 
   - A player missing from a fully loaded chart is worth 0, shown as "0.0".
   - "—" appears only when the engine returns null, always with its reason.
-  - A DDF Value from a single source is shown with a "◐ 1 source" tag; the tooltip explains it.
+  - A DDF Value from a single source is shown with a "◐ 1 source" tag, and the tooltip explains it.
 
   - **GL-04** Status is never shown by colour alone. It always pairs a symbol with a word.
 
@@ -49,20 +50,14 @@ Status: v1.1 (2026-10-09). Earlier versions are superseded.
   - **GL-08** DDF is the core value everywhere. ESPN is one input, not the anchor. Defaults, tiers and wording use DDF Value.
 
   - (Jeremy, 2026-10-09: "ESPN is no longer the core weight, it is DDF".)
-  - Moving the rescaling anchor to DDF is JEG-499. It is on hold while the back end confirms the anchor with Jeremy.
-  - The source-neutral pipeline redesign (JEG-508) will update this section.
+  - Moving the rescaling anchor to DDF is JEG-499.
+  - The source-neutral pipeline (JEG-508) updates this section.
 
-  - **GL-09** Three DDF Value versions are available on every page *(to build: JEG-497)*:
-
-  - the blended DDF Value;
-  - DDF Value from trade charts only;
-  - DDF Value from player projections only.
-
-Each is one number per player, the same on every tab and view. Each is the equal-weight mean of adjusted values only. (Jeremy, 2026-10-09.)
+  - **GL-09** Three DDF Value versions are available on every page: the blended DDF Value, DDF Value from trade charts only, and DDF Value from player projections only. Blended is shown by default; the other two are off by default *(to build: JEG-497)*. Each version is one number per player, the same on every tab and view, and is the equal-weight mean of adjusted values only. (Jeremy, 2026-10-09.)
 
   - **GL-10** The reader's selection (series, DDF inputs, ranking) is remembered on this device.
 
-  - **GL-11** League options rank above weights: Edit league is the primary control, and Weights & bench is secondary when shown together. Edits are a draft until Apply. (Jeremy, 2026-10-09; JEG-498.)
+  - **GL-11** Changes to league settings are a draft until Apply. Nothing reaches the values before Apply.
 
   - **GL-12** The bench share shown is the share the engine actually priced. A floor is noted.
 
@@ -74,7 +69,7 @@ Each is one number per player, the same on every tab and view. Each is the equal
 
   - **GL-16** Tier (Starter / Bench / Waiver) follows the ranking series in use, which is DDF Value by default.
 
-  - **GL-17** Every module can be expanded beyond its default size *(to build: JEG-483 for Player values, JEG-500 for the other pages)*.
+  - **GL-17** Every module can be expanded beyond its default size *(to build: JEG-483 for Player values, done; JEG-500 for the other pages)*.
 
   - **GL-18** Every module can be collapsed with a chevron *(to build: JEG-500)*:
 
@@ -83,17 +78,28 @@ Each is one number per player, the same on every tab and view. Each is the equal
 
   - **GL-19** On desktop, ⓘ buttons open on hover as well as on click. They stay keyboard- and touch-accessible *(to build: JEG-501)*.
 
-  - **GL-20** Search finds every player in the active NFL universe, including unrostered and practice-squad players. A player with no value shows "0.0" and the reason, and always appears. *(to build: JEG-502)*
+  - **GL-20** Search finds every player in the active NFL universe, including unrostered and practice-squad players. A player with no value appears only in search results, shown as "0.0" with the reason *(to build: JEG-502)*.
 
   - (Jeremy: "The user knowing they are a 0 is better than the user questioning why they aren't in the tool.")
 
   - **GL-21** Publishers' trade charts, put on our point scale, are called **"Trade charts (rescaled)"**. Never use "as published" or a bare "indexed" as a label. One-line meaning: "Each publisher's trade values, rescaled to our point scale for your league; their ranking order is unchanged." *(to build: JEG-510)*
 
-  - (Jeremy, 2026-10-09: "anywhere we are saying 'as published' we are really saying indexing what was published; so sort out copy… else it may confuse the reader.")
+  - **GL-22** League options rank above weights. "Edit league" is the primary control. "Position weights" (renamed from "Weights & bench") is secondary when they are shown together *(to build: JEG-498, rename in JEG-537)*. (Jeremy, 2026-10-09 / 2026-10-10.)
+
+  - **GL-23** The bench share is a readout, not a slider: "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your league settings". It comes from the engine. A bench-share override is off by default; when it's on, it shows the old 1–30% slider *(to build: JEG-537)*. (Jeremy, es-value-001, 2026-10-09.)
+
+  - **GL-24** Edit league includes:
+
+  - last regular-season week (default 14);
+  - playoff weeks (default 15–17);
+  - "Optimize for": Whole season (default) / Regular season / Playoffs;
+  - a collapsed "Advanced" section at the bottom: injury history (Recent seasons default / All seasons equally); projection confidence (Less / As measured default / More); the bench-share override.
+
+Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
 
 ## Manifesto (MF)
 
-  - **MF-01** The Manifesto tab is first in the nav and carries Jeremy's text verbatim. The landing tab stays Trade targets *(JEG-494)*.
+  - **MF-01** The Manifesto tab is first in the nav and carries Jeremy's text verbatim, checked word for word against a repo copy that is updated only from his Google Doc. It is plain text with no controls. The landing tab stays Trade targets *(JEG-494)*.
 
 ## Player values (PV)
 
@@ -104,7 +110,7 @@ Each is one number per player, the same on every tab and view. Each is the equal
 
       - vertical lines at each break;
       - "Starter", "Bench" and "Waiver" across the top of the chart area, centred in their sections, in light grey;
-      - across positions, each line sits where the break really falls (some bench WRs and RBs outvalue starting QBs).
+      - across positions, each line sits where the break really falls.
   - **PV-05** An X rank brush and a Y value brush. Dragging either one updates Show and the table.
   - **PV-06** Grabbing the middle of a range brush moves both ends together *(to build: JEG-503)*.
   - **PV-07** Clicking a source name in the chart legend turns that series on or off, among the series picked in Customize *(to build: JEG-503)*.
@@ -125,14 +131,14 @@ Each is one number per player, the same on every tab and view. Each is the equal
   - **TT-02** The Sell and Buy lists are both visible: top 5 each, expandable, side by side from 1280 px.
   - **TT-03** "Our value" defaults to DDF Value, with a source count on each row.
   - **TT-04** Each row shows the largest gap and which chart it's against. The row expands to show every chart.
-  - **TT-05** Chart values are labelled "rescaled", with an ⓘ that explains the rescaling (GL-21).
-  - **TT-06** A chart that is a week behind shows a "Wk N" badge wherever it appears.
+  - **TT-05** Chart values are labelled "rescaled", with an ⓘ that explains the rescaling (GL-21) *(to build: JEG-510)*.
+  - **TT-06** A chart that is a week behind shows a "Wk N" badge wherever it appears: Trade targets, Player values and Compare a trade.
   - **TT-07** A chart value at or below 0 is never a buy or sell target.
   - **TT-08** Players with only one source are included and flagged "◐ 1 source".
   - **TT-09** Market average *(to build: JEG-504)*:
 
-      - Beside Our value, show the average of the compared rescaled charts (the ones picked in "Compare against"), and the difference between Our value and that average.
-      - When the two are equal, show one column with a note that they're equal, rather than a duplicate column.
+      - Beside Our value, show the average of the compared rescaled charts and the difference between Our value and that average.
+      - When the two are equal, show one column with a note that they're equal.
 
 ## Risers & fallers (RF)
 
@@ -147,14 +153,14 @@ Each is one number per player, the same on every tab and view. Each is the equal
 1.  Should you propose or accept this trade? This is judged by DDF Value.
 2.  Will a competing manager accept it? This is judged by the rescaled trade charts.
 
-Confidence comes from how many sources agree. It drops to Low when any DDF Value in the trade is from one source, or when the DDF margin is under 5% of the total value traded. (Jeremy, 2026-10-09.)
+Confidence comes from how many sources agree. It drops to Low when any DDF Value in the trade comes from one source, or when the DDF margin is under 5% of the total value traded.
 
   - **CT-03** The verdict is by DDF Value:
 
-  - when charts disagree, it names them as the selling point;
-  - when DDF Value is hidden, it follows the picked series and names it.
+  - When charts disagree, it names them as the selling point.
+  - When DDF Value is hidden, it follows the picked series and names it.
 
-  - **CT-04** A waterfall for each source, all on one shared scale: give steps go down, receive steps go up, then the net.
+  - **CT-04** Each source gets a waterfall, all on one shared scale: give steps go down, receive steps go up, then the net.
 
   - **CT-05** An example trade shows before any player is added. It never goes into the link.
 
@@ -170,13 +176,26 @@ Confidence comes from how many sources agree. It drops to Low when any DDF Value
 
   - **2026-10-09:**
 
-      - The Google Doc is the source of truth for contracts.
+      - The Google Doc is the source of truth.
       - DDF is the core value.
       - League options rank above weights.
-      - Front-end-only values may be computed in v2, tested independently.
+      - Front-end-only values are allowed, and are tested independently.
       - Confidence = agreement + data quality; Low below a 5% margin.
       - The market average is over the compared charts.
       - Collapse works on every card and is remembered.
       - The low-confidence marker is "◐ 1 source".
-      - DDF Value is one number per player in three versions, built from adjusted values only.
+      - DDF Value is three versions built from adjusted values only.
       - "As published" becomes "Trade charts (rescaled)".
+      - Bench share becomes a readout (es-value-001).
+  - **2026-10-10:**
+
+      - GL-11 split: draft-until-Apply stays GL-11, and the primary-control part becomes GL-22.
+      - "Weights & bench" is renamed "Position weights".
+      - TT-05 is marked to build in JEG-510.
+      - GL-02's front-end values get named lines as they ship.
+      - MF-01 is checked word for word against a repo copy.
+      - TT-06 is checked on Trade targets, Player values and Compare.
+      - The contract test may fake one-source players so the ◐ check can always fail.
+      - New lines: GL-23 (bench-share readout) and GL-24 (Edit league weeks, Optimize for, Advanced). "Optimize for" defaults to Whole season, and league options and Advanced sit in Edit league.
+      - Unvalued players appear only in search results.
+      - Blended DDF Value is shown by default; the charts-only and projections-only versions are off.

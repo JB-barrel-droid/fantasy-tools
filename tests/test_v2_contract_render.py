@@ -6,8 +6,10 @@ Regenerate the mirror with scripts/sync_feature_contract.py; never edit it by ha
 Every **XX-NN** ID in the mirror must be in CHECKS below: a check function for a live
 line, or PENDING("JEG-xxx") for a "to build: JEG-xxx" line (with an optional partial
 check of what already exists). A Doc line without a check, a pending line the Doc calls
-live, or a check for an ID the Doc dropped fails test_mirror_every_id_has_a_check. The
-one exception is WORDING_HOLDS (TT-05 until JEG-510 renames "indexed" to "rescaled").
+live, or a check for an ID the Doc dropped fails test_mirror_every_id_has_a_check.
+A line's "to build" may sit anywhere in its block (GL-24 has it on a later paragraph).
+MF-01 compares the rendered Manifesto word for word with docs/manifesto-mirror.md, the
+mirror of Jeremy's Manifesto Doc (same script, --doc manifesto).
 
 A check is a presence-and-basic-behaviour test: the feature is there and does its
 basic job. Deeper correctness lives in the other tests/test_v2_* suites.
@@ -24,8 +26,8 @@ is replaced with a fixed one so the freshness checks see every status
 
 Discrimination: test_guard_fails_on_broken_builds serves broken v2.js / v2.css /
 shell.html through page routes in three grouped runs and requires the named check to
-report a real finding for each fault: nav reordered and a Manifesto section dropped
-(MF-01), Swap hidden (CT-01), "Vegas" in the header (GL-01), the DDF line at the
+report a real finding for each fault: nav reordered, a Manifesto section dropped and
+one Manifesto word changed (MF-01), the week badge dropped from Compare rows (TT-06), Swap hidden (CT-01), "Vegas" in the header (GL-01), the DDF line at the
 others' weight (PV-02), Reset leaving Rank by (PV-09), a prior-week status without a
 symbol (GL-04), a chip without a warning and a chip claiming all current (GL-05), the
 ◐ tag removed (GL-03, TT-08), Rank by defaulting to a chart (GL-08) and a 390 px layout
@@ -84,33 +86,35 @@ class PENDING:
         return f"PENDING({self.ticket!r})"
 
 
-# Live lines held as pending for a wording change that is already ticketed. The Doc line
-# has no "to build", so without this list the mirror test would demand a real check.
-# TT-05 says "rescaled"; the live UI says "indexed" until JEG-510 (GL-21) renames it.
-WORDING_HOLDS = {"TT-05": "JEG-510"}
-
-# Parts of live lines that are agreed but not built, so their check skips them. The rest of
-# the line is checked. Switch the part on when its ticket ships.
-# GL-11: "Edit league is the primary control" ships with JEG-498 (no primary styling yet;
-# coordinator, 2026-10-09). Draft-until-Apply is checked now.
-SUBPART_HOLDS = {"GL-11": ("Edit league is the primary control", "JEG-498")}
-
-ID_LINE = re.compile(r"\*\*([A-Z]{2}-\d{2})\*\*(.*)")
+ID_LINE = re.compile(r"\*\*([A-Z]{2}-\d{2})\*\*")
 TO_BUILD = re.compile(r"to build:([^)]*)")
 
 
 def contract_ids(text: str) -> dict[str, str | None]:
-    """{ID: None if live, else the "to build: …" text} for every **XX-NN** line."""
-    ids = {}
+    """{ID: None if live, else the "to build: …" text} for every **XX-NN** ID.
+
+    A line's block runs from its ID to the next ID or heading, so a "to build" on a later
+    paragraph of the same line (GL-24: "Share links carry every setting (to build: …)")
+    counts. The first "to build" in the block wins."""
+    blocks: dict[str, list[str]] = {}
+    current = None
     for line in text.splitlines():
         m = ID_LINE.search(line)
         if m:
-            build = TO_BUILD.search(m.group(2))
-            ids[m.group(1)] = build.group(1).strip() if build else None
+            current = m.group(1)
+            blocks[current] = [line[m.end():]]
+        elif line.startswith("#"):
+            current = None
+        elif current:
+            blocks[current].append(line)
+    ids = {}
+    for cid, lines in blocks.items():
+        build = TO_BUILD.search("\n".join(lines))
+        ids[cid] = build.group(1).strip() if build else None
     return ids
 
 
-def mirror_errors(text: str, checks, holds=WORDING_HOLDS) -> list[str]:
+def mirror_errors(text: str, checks) -> list[str]:
     ids = contract_ids(text)
     errors = []
     if not ids:
@@ -125,18 +129,11 @@ def mirror_errors(text: str, checks, holds=WORDING_HOLDS) -> list[str]:
             elif check.ticket not in to_build:
                 errors.append(f"{cid}: pending on {check.ticket}, but the contract says 'to build: {to_build}'")
         elif isinstance(check, PENDING):
-            if holds.get(cid) != check.ticket:
-                errors.append(f"{cid}: the contract says it is live but its check is {check!r}; switch it on")
+            errors.append(f"{cid}: the contract says it is live but its check is {check!r}; switch it on")
         elif not callable(check):
             errors.append(f"{cid}: CHECKS value {check!r} is not a check function")
     for cid in sorted(set(checks) - set(ids)):
         errors.append(f"{cid}: has a check but is not in the contract")
-    for cid in sorted(set(holds) - set(ids)):
-        errors.append(f"{cid}: wording hold for a line that is not in the contract")
-    for cid, (part, _ticket) in SUBPART_HOLDS.items():
-        line = next((l for l in text.splitlines() if f"**{cid}**" in l), "")
-        if part not in line:
-            errors.append(f"{cid}: held part {part!r} is no longer in the contract line; update SUBPART_HOLDS")
     return errors
 
 
@@ -219,6 +216,18 @@ ENGINE_FAILS = """(function fail() {
 # so GL-03 / TT-08 could never see the "◐ 1 source" tag. Flag every fifth priced player
 # (by player_key) as one-source in what the engine's row accessors return, the way the
 # freshness file is fixed above. Values are untouched; only the confidence fields change.
+# Both fixtures patch the same globals, so one trap per global applies every registered patch.
+FIXTURE_TRAPS = """(() => {
+  const patches = window.__contractPatches = {};
+  for (const name of ['TradeValueCurveControls', 'TradeValueProductData']) {
+    patches[name] = [];
+    let current;
+    Object.defineProperty(window, name, {configurable: true, enumerable: true, get: () => current,
+      set: value => { if (value && !value.__contractFixture) { patches[name].forEach(patch => patch(value)); value.__contractFixture = true; }
+        current = value; }});
+  }
+})();"""
+
 LOW_CONFIDENCE_FIXTURE = """(() => {
   const mark = row => {
     if (row && Number(row.player_key) % 5 === 0 && Number.isFinite(row.values && row.values.ddf_value)) {
@@ -227,20 +236,42 @@ LOW_CONFIDENCE_FIXTURE = """(() => {
     }
     return row;
   };
-  let controls;
-  Object.defineProperty(window, 'TradeValueCurveControls', {configurable: true, enumerable: true,
-    get: () => controls,
-    set: value => {
-      if (value && !value.__contractFixture) {
-        for (const name of ['getRows', 'getAllRows']) {
-          const original = value[name];
-          if (typeof original === 'function') value[name] = (...args) => original.apply(value, args).map(mark);
-        }
-        value.__contractFixture = true;
-      }
-      controls = value;
-    }});
+  window.__contractPatches.TradeValueCurveControls.push(value => {
+    for (const name of ['getRows', 'getAllRows']) {
+      const original = value[name];
+      if (typeof original === 'function') value[name] = (...args) => original.apply(value, args).map(mark);
+    }
+  });
 })();"""
+
+# Fixture (TT-06, Jeremy 2026-10-10): a chart a week behind may not exist in the week's data,
+# so USA Today is served one week behind: its source info is stale on the week before the
+# reference week, and product-data's freshness says the same. Values are untouched.
+STALE_CHART = "usatoday"
+WEEK_BEHIND_FIXTURE = """(() => {
+  const KEY = '%s';
+  // Off when the page checks the all-current case (GL-05): set by Session.all_current().
+  try { if (sessionStorage.getItem('contractAllCurrent') === '1') return; } catch (e) {}
+  const trap = (name, patch) => window.__contractPatches[name].push(patch);
+  const behind = week => Number.isFinite(week) && week > 1 ? week - 1 : null;
+  trap('TradeValueCurveControls', C => {
+    const original = C.getSourceInfo;
+    if (typeof original !== 'function') return;
+    C.getSourceInfo = (...args) => original.apply(C, args).map(item => item && item.key === KEY
+      ? {...item, stale: true, week: behind(C.getReferenceWeek && C.getReferenceWeek()) || item.week} : item);
+  });
+  trap('TradeValueProductData', P => {
+    const original = P.getSourceFreshness;
+    if (typeof original !== 'function') return;
+    P.getSourceFreshness = (...args) => {
+      const f = original.apply(P, args);
+      if (!f) return f;
+      const s = (f.series && f.series[KEY]) || {};
+      return {...f, series: {...(f.series || {}), [KEY]: {...s, is_older_week: true,
+        vintage_week: behind(f.current_content_week) || s.vintage_week}}};
+    };
+  });
+})();""" % STALE_CHART
 
 READY = "() => window.TradeValueV2 && document.getElementById('v2State').hidden"
 
@@ -256,7 +287,9 @@ class Session:
         page = self.browser.new_page(viewport={"width": width, "height": height})
         page.errors = []
         page.on("pageerror", lambda e: page.errors.append(str(e)))
+        page.add_init_script(FIXTURE_TRAPS)
         page.add_init_script(LOW_CONFIDENCE_FIXTURE)
+        page.add_init_script(WEEK_BEHIND_FIXTURE)
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
         page.freshness = {"kind": freshness}
         page.route("**/assets/reference-freshness.json*",
@@ -321,6 +354,12 @@ COMMON = r"""
       if (hit) { hit.click(); await sleep(400); }
     }
   };
+  const weekInfo = () => { const fr = window.TradeValueProductData?.getSourceFreshness?.() || null;
+    return Object.fromEntries(C.getSourceInfo().map(i => { const s = fr?.series?.[i.key];
+      return [i.key, {stale: s && typeof s.is_older_week === 'boolean' ? s.is_older_week : Boolean(i.stale),
+        week: i.week || (s && s.vintage_week) || null}]; })); };
+  const badgesIn = root => root ? [...root.querySelectorAll('.v2-prior-badge')].map(b => ({key: b.dataset.priorWeek || null,
+    text: b.textContent.trim()})) : [];
   const engineFor = keys => { const rows = new Map(C.getAllRows().map(r => [String(r.player_key), r]));
     return Object.fromEntries(keys.map(k => { const r = rows.get(String(k)); return [k, r ? {values: r.values,
       low: Boolean(r.ddfLowConfidence), tier: r.ddfTier || null, pos: r.pos, name: r.name} : null]; })); };
@@ -347,6 +386,10 @@ VALUES_JS = "async () => {" + COMMON + r"""
     leagueButtons: {edit: shown($('v2EditLeague')), weights: Boolean($('v2Weights'))},
     leagueName: $('v2LeagueName').textContent,
     chip: {label: $('v2FreshnessLabel').textContent, cls: $('v2Freshness').className},
+    weeks: weekInfo(),
+    legendBadges: badgesIn($('v2ShowingLegend')),
+    headBadges: [...document.querySelectorAll('#v2Table thead th')].map(th => ({key: th.dataset.source || th.dataset.col || null,
+      text: th.textContent, badges: badgesIn(th)})).filter(h => h.badges.length || h.key),
     native: Object.fromEntries(C.getActiveSources().map(src => [src,
       Object.fromEntries(t0.map(r => [r.key, C.getNativeRank ? C.getNativeRank(r.key, src) : null]))])),
   };
@@ -476,10 +519,7 @@ TARGETS_JS = "async () => {" + COMMON + r"""
       name: own(th.querySelector('.th-line')), sub: th.querySelector('.th-sub')?.textContent || '',
       badge: th.querySelector('.v2-prior-badge')?.textContent || null,
       info: Boolean(th.querySelector('button[data-info]'))})),
-    weeks: (() => { const fr = window.TradeValueProductData?.getSourceFreshness?.() || null;
-      return Object.fromEntries(C.getSourceInfo().map(i => { const s = fr?.series?.[i.key];
-        return [i.key, {stale: s && typeof s.is_older_week === 'boolean' ? s.is_older_week : Boolean(i.stale),
-          week: i.week || (s && s.vintage_week) || null}]; })); })(),
+    weeks: weekInfo(),
     refWeek: C.getReferenceWeek ? C.getReferenceWeek() : null,
     caption: $('v2TChartCaption').textContent, captionInfo: Boolean(document.querySelector('.v2-tcompare button[data-info]')),
     lowEngine: C.getRows().filter(r => r.ddfLowConfidence).map(r => String(r.player_key)),
@@ -525,8 +565,9 @@ COMPARE_JS = "async () => {" + COMMON + r"""
     giveSearch: shown($('v2GiveSearch')), getSearch: shown($('v2GetSearch'))});
   const out = {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText($('v2Compare')), shownKey: $('v2CShown').value};
   out.example = snap();
+  out.weeks = weekInfo();
   out.rows = [...document.querySelectorAll('#v2CTable tbody tr[data-source]')].map(tr => { const wf = tr.querySelector('.v2-wf');
-    return {src: tr.dataset.source, name: own(tr.querySelector('td.player')), give: parseFloat(tr.querySelector('[data-col="give"]')?.textContent),
+    return {src: tr.dataset.source, badges: badgesIn(tr), name: own(tr.querySelector('td.player')), give: parseFloat(tr.querySelector('[data-col="give"]')?.textContent),
       receive: parseFloat(tr.querySelector('[data-col="receive"]')?.textContent), lo: wf ? wf.dataset.lo : null, hi: wf ? wf.dataset.hi : null,
       steps: wf ? [...wf.querySelectorAll('.v2-wf-step')].map(s => ({side: s.dataset.side, value: s.dataset.value})) : []}; });
   out.engine = engineFor(out.example.give.concat(out.example.get).map(p => p.key));
@@ -566,7 +607,10 @@ MANIFESTO_JS = "() => {" + COMMON + r"""
   const mf = $('v2Manifesto');
   return {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText(mf),
     h1: mf.querySelector('h1')?.textContent.trim() || '', h2: [...mf.querySelectorAll('article h2')].map(h => h.textContent.trim()),
-    links: mf.querySelectorAll('a').length};
+    links: mf.querySelectorAll('a').length,
+    controls: mf.querySelectorAll('a, button, input, select, textarea, [contenteditable]').length,
+    words: [...(mf.querySelector('article') || mf).children].filter(n => !n.classList.contains('v2-mf-eyebrow'))
+      .map(n => n.innerText).join('\n')};
 }"""
 
 PHONE_JS = "async (hash) => {" + COMMON + r"""
@@ -630,6 +674,8 @@ def scenario_values(s: Session) -> dict:
         snap = page.evaluate(VALUES_JS)
         for kind in ("prior", "current"):
             page.freshness["kind"] = kind
+            if kind == "current":   # every source current: no simulated week-behind chart either
+                page.evaluate("() => { try { sessionStorage.setItem('contractAllCurrent', '1'); } catch (e) {} }")
             page.reload(wait_until="networkidle")
             page.wait_for_function(READY, timeout=60000)
             page.wait_for_timeout(600)
@@ -903,11 +949,10 @@ def gl10(S):
 def gl11(S):
     v = S["values"]
     errors = []
-    # "Edit league is the primary control" is SUBPART_HOLDS["GL-11"] (JEG-498): no primary
-    # styling exists yet, so only presence (by ID) and draft-until-Apply are checked now.
-    buttons = v["s0"]["leagueButtons"]
-    if not (buttons["edit"] and buttons["weights"]):
-        errors.append(f"league controls missing: #v2EditLeague shown {buttons['edit']}, #v2Weights present {buttons['weights']}")
+    # GL-11 (v1.2) is draft-until-Apply only; "Edit league is primary" is GL-22 (JEG-498).
+    # Buttons are found by ID, never by label ("Weights & bench" becomes "Position weights").
+    if not v["s0"]["leagueButtons"]["edit"]:
+        errors.append("no Edit league control (#v2EditLeague)")
     lg = v["league"]
     if not (lg["changed"] and lg["hasApply"] and lg["hasCancel"]):
         errors.append(f"Edit league dialog: changed {lg['changed']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
@@ -1020,6 +1065,16 @@ def gl20(S):
     return errors
 
 
+MANIFESTO_MIRROR = ROOT / "docs" / "manifesto-mirror.md"
+
+
+def manifesto_words(mirror: str) -> list[str]:
+    """The Manifesto Doc's words: the mirror body without Markdown marks (#, **, list dashes)."""
+    body = mirror.split("-->", 1)[1] if mirror.startswith("<!--") else mirror
+    body = re.sub(r"^\s*- ", " ", body, flags=re.M)
+    return body.replace("*", "").replace("#", " ").split()
+
+
 def mf01(S):
     m = S["tabs"]["manifesto"]
     t = S["tabs"]["targets"]
@@ -1029,8 +1084,14 @@ def mf01(S):
         errors.append(f"first tab is {first}, want Manifesto")
     if not m["pages"]["v2Manifesto"] or m["h1"] != "Fantasy Football Manifesto" or len(m["h2"]) != 12:
         errors.append(f"Manifesto: shown {m['pages']['v2Manifesto']}, h1 {m['h1']!r}, {len(m['h2'])} sections")
-    if m["links"]:
-        errors.append(f"Manifesto has {m['links']} links; the text is verbatim, with none")
+    if m["controls"]:
+        errors.append(f"Manifesto has {m['controls']} links or controls; it is plain text")
+    want, got = manifesto_words(MANIFESTO_MIRROR.read_text(encoding="utf-8")), m["words"].split()
+    if want != got:
+        i = next((k for k, (a, b) in enumerate(zip(want, got)) if a != b), min(len(want), len(got)))
+        errors.append(f"Manifesto text differs from docs/manifesto-mirror.md at word {i}: "
+                      f"Doc {' '.join(want[max(0, i - 3):i + 4])!r}, page {' '.join(got[max(0, i - 3):i + 4])!r}"
+                      f" ({len(want)} vs {len(got)} words)")
     if [x["view"] for x in t["tabs"] if x["current"]] != ["targets"] or not t["pages"]["v2Targets"]:
         errors.append("the landing tab is not Trade targets")
     return errors
@@ -1242,7 +1303,9 @@ def tt04(S):
     errors = []
     names = {h["chart"]: h["name"] for h in t["heads"]}
     for r in t["sell"] + t["buy"]:
-        if not r["best"] or not r["best"]["who"] or r["best"]["who"] != names.get(r["best"]["chart"]):
+        who = (r["best"] or {}).get("who") or ""
+        name = names.get((r["best"] or {}).get("chart"))
+        if not name or not (who == name or who.startswith(name + " Wk ") or who.startswith(name + " Earlier week")):
             errors.append(f"{r['name']}: largest gap does not name its chart ({r['best']})")
     ex = t.get("expand") or {}
     if ex.get("expanded") != "true" or not all(n in ex.get("detail", "") for n in names.values()):
@@ -1251,7 +1314,7 @@ def tt04(S):
 
 
 def tt05_partial(S):
-    # TT-05 is held for JEG-510: the live UI says "indexed" until GL-21 renames it "rescaled".
+    # TT-05 is to build in JEG-510: the live UI says "indexed" until GL-21 renames it "rescaled".
     # Until then, check what exists: a scale word on every chart header and the ⓘ that explains it.
     t = S["tabs"]["targets"]
     errors = []
@@ -1263,19 +1326,42 @@ def tt05_partial(S):
     return errors
 
 
-def tt06(S):
-    t = S["tabs"]["targets"]
+def _badge_errors(where, keys, badges_for, weeks):
+    """Each stale chart among `keys` carries "Wk N" (its week) in `where`; a current one carries none."""
     errors = []
-    for h in t["heads"]:
-        info = t["weeks"].get(h["chart"]) or {}
-        if not re.search(r"Wk \d+", h["sub"]):
-            errors.append(f"{h['chart']}: no week in {h['sub']!r}")
+    for key in keys:
+        info = weeks.get(key) or {}
+        texts = [b["text"] for b in badges_for(key)]
         if info.get("stale"):
             want = f"Wk {info['week']}" if info.get("week") else "Earlier week"
-            if not h["badge"] or h["badge"].strip() != want:
-                errors.append(f"{h['chart']} is a week behind: badge {h['badge']!r}, want {want!r}")
-        elif h["badge"]:
-            errors.append(f"{h['chart']} is current but shows a prior-week badge {h['badge']!r}")
+            if want not in texts:
+                errors.append(f"{where}: {key} is a week behind but shows {texts or 'no badge'}, want {want!r}")
+        elif texts:
+            errors.append(f"{where}: {key} is current but shows {texts}")
+    return errors
+
+
+def tt06(S):
+    """A chart a week behind shows "Wk N" on Trade targets, Player values (legend and table
+    headers) and Compare rows. WEEK_BEHIND_FIXTURE puts STALE_CHART a week behind."""
+    errors = []
+    t, v, c = S["tabs"]["targets"], S["values"]["s0"], S["tabs"]["compare"]
+    if not (t["weeks"].get(STALE_CHART) or {}).get("stale"):
+        errors.append(f"{STALE_CHART} is not a week behind (WEEK_BEHIND_FIXTURE not applied?)")
+    heads = {h["chart"]: h for h in t["heads"]}
+    for key, h in heads.items():
+        if not re.search(r"Wk \d+", h["sub"]):
+            errors.append(f"Trade targets {key}: no week in {h['sub']!r}")
+    errors += _badge_errors("Trade targets header", heads, lambda k: [{"text": heads[k]["badge"].strip()}] if heads[k]["badge"] else [], t["weeks"])
+    charts = [k for k in v["active"] if k in v["weeks"]]
+    errors += _badge_errors("Player values legend", charts, lambda k: [b for b in v["legendBadges"] if b["key"] == k], v["weeks"])
+    errors += _badge_errors("Player values table header", charts,
+                            lambda k: [b for h in v["headBadges"] for b in h["badges"] if b["key"] == k], v["weeks"])
+    rows = {r["src"]: r for r in c["rows"]}
+    errors += _badge_errors("Compare row", [k for k in rows if k in c["weeks"]], lambda k: rows[k]["badges"], c["weeks"])
+    for where, keys in (("Trade targets", heads), ("Player values", charts), ("Compare", rows)):
+        if STALE_CHART not in keys:
+            errors.append(f"{where}: {STALE_CHART} is not shown, so the week badge was not checked there")
     return errors
 
 
@@ -1426,13 +1512,14 @@ CHECKS = {
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": PENDING("JEG-500", partial=gl17_values), "GL-18": PENDING("JEG-500"),
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
+    "GL-22": PENDING("JEG-498"), "GL-23": PENDING("JEG-537"), "GL-24": PENDING("JEG-537"),
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": PENDING("JEG-503"), "PV-05": pv05,
     "PV-06": PENDING("JEG-503"), "PV-07": PENDING("JEG-503"), "PV-08": pv08, "PV-09": pv09,
     "PV-10": pv10, "PV-11": pv11, "PV-12": pv12, "PV-13": pv13, "PV-14": pv14, "PV-15": pv15,
     "PV-16": pv16, "PV-17": pv17,
     "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04,
-    # Wording hold (WORDING_HOLDS): "rescaled" lands with JEG-510; the ⓘ is checked meanwhile.
+    # "rescaled" lands with JEG-510; the ⓘ and the scale word are checked meanwhile.
     "TT-05": PENDING("JEG-510", partial=tt05_partial),
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),
     "RF-01": rf01,
@@ -1499,11 +1586,23 @@ class ContractMirrorTest(unittest.TestCase):
         # A pending line names a different ticket than the Doc.
         wrong = {**CHECKS, "GL-07": PENDING("JEG-1")}
         self.assertTrue(any(e.startswith("GL-07") for e in mirror_errors(text, wrong)))
-        # A wording hold is the only way a live line may stay pending.
-        self.assertTrue(any(e.startswith("TT-05") for e in mirror_errors(text, CHECKS, holds={})))
+        # A live line may not stay pending.
+        live_tt05 = text.replace("(GL-21) *(to build: JEG-510)*", "(GL-21)")
+        self.assertTrue(any(e.startswith("TT-05") for e in mirror_errors(live_tt05, CHECKS)))
+        # "to build" on a later paragraph of the line's block still counts (GL-24).
+        self.assertEqual(contract_ids(text).get("GL-24"), "JEG-537")
         # A checked ID leaves the Doc.
         dropped = "\n".join(l for l in text.splitlines() if "**TT-07**" not in l)
         self.assertTrue(any(e.startswith("TT-07") for e in mirror_errors(dropped, CHECKS)))
+
+    def test_manifesto_mirror_is_sync_output(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import sync_feature_contract as sync
+        text = MANIFESTO_MIRROR.read_text(encoding="utf-8")
+        self.assertIn(sync.DOCS["manifesto"]["url"], text.split("-->", 1)[0])
+        body = sync.strip_header(text)
+        self.assertEqual(sync.tidy_export(body), body)
+        self.assertGreater(len(manifesto_words(text)), 1000)
 
     def test_mirror_is_sync_output(self):
         # The mirror is what scripts/sync_feature_contract.py writes: its header, and a body
@@ -1566,8 +1665,10 @@ class ContractRenderTest(unittest.TestCase):
         broken_js = cut(broken_js, '`⚠ ${behind} source', '`${behind} source')
         broken_js = cut(broken_js, "const isLowConfidence = (row, key) => key === DDF_KEY &&",
                         "const isLowConfidence = (row, key) => false &&")
+        broken_js = cut(broken_js, 'if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));',
+                        'if (false) sub.append(weekBadge(key), document.createTextNode(" older week"));')
         broken_css = cut(css, ".v2-chart .series.is-ddf { stroke-width: 3.5; }", ".v2-chart .series.is-ddf { stroke-width: 2; }")
-        results, _ = run_contract(["PV-02", "PV-09", "GL-04", "GL-05", "GL-03", "TT-08", "GL-20"],
+        results, _ = run_contract(["PV-02", "PV-09", "GL-04", "GL-05", "GL-03", "TT-08", "GL-20", "TT-06"],
                                   {"v2.js": broken_js, "v2.css": broken_css})
         caught(results, "PV-02", "the DDF line at the others' weight")
         caught(results, "PV-09", "Reset leaving Rank by")
@@ -1576,6 +1677,7 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "GL-03", "the ◐ 1 source tag removed (Player values)")
         caught(results, "TT-08", "the ◐ 1 source tag removed (Trade targets)")
         caught(results, "GL-20", "Player values search not listing players with no value")
+        caught(results, "TT-06", "the week badge dropped from Compare rows")
 
         # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current, the
         # 390 px layout scrolls sideways, a Manifesto section dropped.
@@ -1588,6 +1690,9 @@ class ContractRenderTest(unittest.TestCase):
         section = re.search(r'    <section class="v2-mf-sec" aria-labelledby="v2M1">.*?</section>\n', shell, re.S)
         self.assertIsNotNone(section, "stale mutation anchor: Manifesto section 1")
         broken_shell = cut(shell, section.group(0))
+        results, _ = run_contract(["MF-01"], {"shell": cut(shell, "<p>That is part of the game, but it is not the game.</p>",
+                                                            "<p>That is part of the game, but it is not the sport.</p>")})
+        caught(results, "MF-01", "one Manifesto word changed")
         results, _ = run_contract(["GL-08", "GL-05", "GL-13", "MF-01"],
                                   {"v2.js": broken_js, "v2.css": broken_css, "shell": broken_shell})
         caught(results, "GL-08", "Rank by defaulting to a chart, not DDF Value")
