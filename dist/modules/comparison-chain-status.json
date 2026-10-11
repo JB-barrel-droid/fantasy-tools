@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-11T12:20:30.409732+00:00",
+  "run_at": "2026-10-11T12:41:57.511789+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,6 +18,7 @@
   "held": [
     "cbsros",
     "espn",
+    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -49,6 +50,19 @@
       "weeks_behind": 0,
       "hold_severity": "amber",
       "rolled_back": 0
+    },
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc"
+      ],
+      "restored_from": "2026-10-11T01:05:52.626989+00:00",
+      "detail": "222/1182 values match exactly across 6 columns; column check: stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 24); 960 of 1182 values moved since the save at 2026-10-11T11:05:26.151563Z (largest 80%; 2 outside the max(25%, 50) band: Aaron Rodgers); 2 players entered or left ",
+      "hold_severity": "amber",
+      "week": 5
     },
     "espn": {
       "reason": "fidelity: publisher_vs_stored",
@@ -201,6 +215,7 @@
     }
   },
   "fidelity_holds": {
+    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: stored_vs_chart"
   },
@@ -215,6 +230,6 @@
       "Makefile:478: test-core"
     ],
     "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-11T12:30:29.344120+00:00"
+    "recorded_at": "2026-10-11T12:50:09.167057+00:00"
   }
 }
