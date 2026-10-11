@@ -45,6 +45,7 @@ import unittest
 
 from tests._dist_server import DIST, serve
 from tests import _render_env  # noqa: E402
+from tests._holds import HOLD_FIELDS  # noqa: E402
 
 
 def setUpModule():
@@ -359,6 +360,14 @@ def hold_on(*sections, field="validationHold"):
     return edit
 
 
+def strip_holds(fixture):
+    """This test's own unheld copy of the published fixture (JEG-569)."""
+    for section in (fixture.get("sources") or {}).values():
+        if isinstance(section, dict):
+            for field in HOLD_FIELDS:
+                section.pop(field, None)
+
+
 def older_week(section):
     """The section's publisher has not posted the current week: label it a
     week behind every other chart."""
@@ -395,10 +404,14 @@ def run(script: str, history_edit=None, data_edit=None, init_script=None, week_e
         index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
         history_edit(index)
         overrides["assets/history/index.json"] = json.dumps(index).encode("utf-8")
+    # JEG-569: the published fixture may legitimately carry a hold (a held
+    # source never takes the site down). These tests need an unheld
+    # baseline, so they strip holds from their own copy, then apply the edit.
+    fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
+    strip_holds(fixture)
     if data_edit:
-        fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
         data_edit(fixture)
-        overrides["assets/comparison-sources-data.json"] = json.dumps(fixture).encode("utf-8")
+    overrides["assets/comparison-sources-data.json"] = json.dumps(fixture).encode("utf-8")
     with sync_playwright() as p:
         browser = _launch(p)
         try:
@@ -623,7 +636,8 @@ class DdfHeldSeriesTest(unittest.TestCase):
     def setUpClass(cls):
         if not (DIST / "index.html").exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
-        # No held series: nothing is checked for leaking.
+        # No held series: nothing is checked for leaking (run() strips any
+        # hold the published fixture carries, JEG-569).
         cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("fantasycalc"), "null"))
 
     def held_run(self, data_edit, key):

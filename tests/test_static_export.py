@@ -1,6 +1,7 @@
 import copy
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -8,11 +9,15 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from tests._holds import without_held_charts
 
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
+# JEG-569: tests/test_seeded_hold_build.py runs this module on a fixture with
+# seeded holds (a temp file) to prove a held build passes the gate.
+COMPARISON = Path(os.environ.get("STATIC_EXPORT_COMPARISON") or FIXTURES / "comparison-sources-data.json")
 
 
 def load_json(path):
@@ -396,7 +401,11 @@ class StaticExportTest(unittest.TestCase):
     def setUpClass(cls):
         cls.index = (APP / "index.html").read_text(encoding="utf-8")
         cls.players = load_json(FIXTURES / "players.json")
-        cls.comparison = load_json(FIXTURES / "comparison-sources-data.json")
+        cls.comparison = load_json(COMPARISON)
+        # JEG-569: a held chart is served from its last good build, so the
+        # checks that tie a chart to THIS build's anchor and fit cells read a
+        # copy without held charts (the chain checked them when they were built).
+        cls.unheld = without_held_charts(cls.comparison)
 
     def test_inline_players_match_fixture(self):
         match = re.search(
@@ -558,17 +567,19 @@ class StaticExportTest(unittest.TestCase):
 
     def test_adjusted_sections_recompute_from_fit_cells(self):
         problems = adjusted_recompute_problems(
-            self.comparison, self._adjustment_inputs(), self.players)
+            self.unheld, self._adjustment_inputs(), self.players)
         self.assertEqual([], problems)
 
     def test_adjusted_recompute_catches_a_hand_edit(self):
         # Simulated export bug: one stored value nudged by 0.1 (the size of
         # the 2026-10-07 drift, 25.5 vs 25.3).
-        broken = copy.deepcopy(self.comparison)
-        combo = broken["sources"]["fantasycalc_adjusted"]["combos"]["full_12_qb1"]
+        # On an unheld chart: a held one is already off this build's cells.
+        broken = copy.deepcopy(self.unheld)
+        source = next(s for s in ADJUSTED_RAW_SOURCES if f"{s}_adjusted" in broken["sources"])
+        combo_name, combo = next(iter(broken["sources"][f"{source}_adjusted"]["combos"].items()))
         combo["reindexed"]["josh allen"] = round(combo["reindexed"]["josh allen"] + 0.1, 1)
         problems = adjusted_recompute_problems(broken, self._adjustment_inputs(), self.players)
-        self.assertTrue(any("fantasycalc_adjusted/full_12_qb1" in p and "josh allen" in p
+        self.assertTrue(any(f"{source}_adjusted/{combo_name}" in p and "josh allen" in p
                             for p in problems), problems)
 
     def test_adjusted_recompute_catches_builder_bugs(self):
@@ -624,8 +635,8 @@ class StaticExportTest(unittest.TestCase):
         # per-(position, role) bucket scaling this rule removed.
         players = load_json(FIXTURES / "players.json")["players"]
         position_by_numkey = {p["player_key"]: p["pos"] for p in players}
-        fixture_keys = self.comparison.get("player_keys", {})
-        espn_combos = self.comparison["sources"]["espn"]["combos"]
+        fixture_keys = self.unheld.get("player_keys", {})
+        espn_combos = self.unheld["sources"]["espn"]["combos"]
         qb_suffix = re.compile(r"_qb[12]$")
 
         def anchor_by_numkey(combo_name):
@@ -634,8 +645,12 @@ class StaticExportTest(unittest.TestCase):
             return {fixture_keys[s]: v for s, v in vals.items() if s in fixture_keys}
 
         checked = 0
-        for source in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
-            for combo_name, combo in self.comparison["sources"][source]["combos"].items():
+        charts = present_sources(self.unheld, ("fantasycalc", "usatoday", "fantasypros", "cbs"))
+        # Every chart this build made (a held chart is from its last good
+        # build, JEG-569); at least one must be left to check.
+        self.assertTrue(charts)
+        for source in charts:
+            for combo_name, combo in self.unheld["sources"][source]["combos"].items():
                 fit = (combo.get("fit") or {}).get("order_preserving_rescale")
                 self.assertIsNotNone(fit, f"{source} {combo_name}: no order_preserving_rescale fit")
                 factor = fit["factor"]
@@ -661,7 +676,7 @@ class StaticExportTest(unittest.TestCase):
                 self.assertAlmostEqual(calibrated_total, anchor_total, delta=0.05,
                                        msg=f"{source} {combo_name}: Indexed pie != anchor pie over the same players")
                 checked += 1
-        self.assertGreaterEqual(checked, 12)
+        self.assertGreaterEqual(checked, 3 * len(charts))
 
     def test_legacy_fixed_pie_totals_match_source_metadata(self):
         # Non-flex-aware combos (legacy per-position methods) keep the old
