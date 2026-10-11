@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-11T03:40:14.907538Z",
- "run_id": "6bd98282-562d-4afa-8d99-688fa1de98da",
+ "checked_at": "2026-10-11T06:40:14.822825Z",
+ "run_id": "b19d58bc-ecba-44fe-9cd2-bcbb22eb6a8c",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -24,6 +24,16 @@
   "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
  "holds": {
+  "fantasycalc": {
+   "stage": "publisher_vs_stored",
+   "stages": [
+    "publisher_vs_stored"
+   ],
+   "reason": "fidelity: publisher_vs_stored",
+   "identity": "fcwk5_2026-10-11t0405_v1",
+   "since": "2026-10-11T06:40:14.822825Z",
+   "summary": "206/1170 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 28); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 28); 964 of 1170 values moved since the save at 2026-10-11T04:05:24.332677Z (largest 200"
+  },
   "espn": {
    "stage": "publisher_vs_stored",
    "stages": [
@@ -31,7 +41,7 @@
    ],
    "reason": "fidelity: publisher_vs_stored",
    "identity": "2026-10-10@2026-10-11T00:41:27.367732Z",
-   "since": "2026-10-11T03:40:14.907538Z",
+   "since": "2026-10-11T06:40:14.822825Z",
    "summary": "1653/1722 values match exactly across 3 columns; 69 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint f499bcb66618ec023d61d338) (the mismatch survived a"
   },
   "razzball": {
@@ -264,163 +274,163 @@
   {
    "source": "fantasycalc",
    "label": "FantasyCalc",
-   "status": "amber",
+   "status": "red",
    "stored_week": 5,
    "chart_week": 5,
-   "stored_bake": "fcwk5_2026-10-10t2105_v1",
+   "stored_bake": "fcwk5_2026-10-11t0405_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "amber",
-     "summary": "9/1156 values match exactly across 6 columns; 1147 of 1156 values moved since the save at 2026-10-10T21:05:26.727487Z (largest 129%; 15 outside the max(25%, 50) band: C.J. Stroud, Cam Ward, Geno Smith, Kaelon Black, Michael Penix); 9 players entered or left the bottom of the list since the save (churn)",
+     "status": "red",
+     "summary": "206/1170 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 28); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 28); 964 of 1170 values moved since the save at 2026-10-11T04:05:24.332677Z (largest 200%; 0 outside the max(25%, 50) band: none); 5 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 198,
+      "publisher_players": 199,
       "stored_players": 196,
-      "compared": 1156,
-      "matched": 9,
-      "mismatched": 1147,
+      "compared": 1170,
+      "matched": 206,
+      "mismatched": 964,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 9,
+      "list_churn": 5,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
      "page_week": null,
      "page_modified": null,
-     "bake_id": "fcwk5_2026-10-10t2105_v1",
-     "bake_saved_at": "2026-10-10T21:05:26.727487Z",
+     "bake_id": "fcwk5_2026-10-11t0405_v1",
+     "bake_saved_at": "2026-10-11T04:05:24.332677Z",
      "grains": {
       "full|1": {
-       "left": 196,
+       "left": 198,
        "right": 196,
-       "mismatched": 190,
+       "mismatched": 195,
        "missing": 3,
-       "extra": 3
+       "extra": 1
       },
       "full|2": {
-       "left": 195,
+       "left": 198,
        "right": 196,
-       "mismatched": 190,
+       "mismatched": 192,
        "missing": 3,
-       "extra": 4
+       "extra": 1
       },
       "half|1": {
-       "left": 194,
+       "left": 196,
+       "right": 196,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
+      },
+      "half|2": {
+       "left": 196,
        "right": 195,
        "mismatched": 191,
        "missing": 2,
-       "extra": 3
-      },
-      "half|2": {
-       "left": 195,
-       "right": 195,
-       "mismatched": 193,
-       "missing": 2,
-       "extra": 2
+       "extra": 1
       },
       "std|1": {
-       "left": 196,
+       "left": 198,
        "right": 196,
-       "mismatched": 190,
+       "mismatched": 195,
        "missing": 3,
-       "extra": 3
+       "extra": 1
       },
       "std|2": {
-       "left": 196,
+       "left": 198,
        "right": 196,
-       "mismatched": 193,
+       "mismatched": 191,
        "missing": 3,
-       "extra": 3
+       "extra": 1
       }
      },
      "examples": [
       {
        "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
-       "pos": "QB",
-       "left": "2478",
-       "right": 1951.0,
-       "delta": -527.0
-      },
-      {
-       "type": "value_mismatch",
        "grain": "full|2",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
+       "player_key": 4561,
+       "name": "Brock Purdy",
        "pos": "QB",
-       "left": "2471",
-       "right": 1950.0,
-       "delta": -521.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
-       "pos": "QB",
-       "left": "2448",
-       "right": 1928.0,
-       "delta": -520.0
+       "left": "6156",
+       "right": 6352.0,
+       "delta": 196.0
       },
       {
        "type": "value_mismatch",
        "grain": "half|2",
-       "player_key": 3541,
-       "name": "Kirk Cousins",
+       "player_key": 4561,
+       "name": "Brock Purdy",
        "pos": "QB",
-       "left": "1917",
-       "right": 2387.0,
-       "delta": 470.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 3541,
-       "name": "Kirk Cousins",
-       "pos": "QB",
-       "left": "1921",
-       "right": 2386.0,
-       "delta": 465.0
+       "left": "6161",
+       "right": 6357.0,
+       "delta": 196.0
       },
       {
        "type": "value_mismatch",
        "grain": "std|2",
-       "player_key": 3541,
-       "name": "Kirk Cousins",
+       "player_key": 4561,
+       "name": "Brock Purdy",
        "pos": "QB",
-       "left": "1894",
-       "right": 2359.0,
-       "delta": 465.0
+       "left": "6087",
+       "right": 6281.0,
+       "delta": 194.0
       },
       {
        "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 319,
-       "name": "Bhayshul Tuten",
-       "pos": "RB",
-       "left": "3232",
-       "right": 3656.0,
-       "delta": 424.0
+       "grain": "half|2",
+       "player_key": 1761,
+       "name": "Jayden Daniels",
+       "pos": "QB",
+       "left": "3812",
+       "right": 3625.0,
+       "delta": -187.0
       },
       {
        "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 319,
-       "name": "Bhayshul Tuten",
-       "pos": "RB",
-       "left": "3214",
-       "right": 3636.0,
-       "delta": 422.0
+       "grain": "full|2",
+       "player_key": 1761,
+       "name": "Jayden Daniels",
+       "pos": "QB",
+       "left": "3809",
+       "right": 3623.0,
+       "delta": -186.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1761,
+       "name": "Jayden Daniels",
+       "pos": "QB",
+       "left": "3766",
+       "right": 3582.0,
+       "delta": -184.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 4203,
+       "name": "Deshaun Watson",
+       "pos": "QB",
+       "left": "959",
+       "right": 1141.0,
+       "delta": 182.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 4203,
+       "name": "Deshaun Watson",
+       "pos": "QB",
+       "left": "959",
+       "right": 1141.0,
+       "delta": 182.0
       }
      ],
      "outside_universe": [],
      "unresolved": []
     },
     "stored_vs_chart": {
-     "status": "green",
-     "summary": "1174/1174 chart values equal stored bake fcwk5_2026-10-10t2105_v1",
+     "status": "amber",
+     "summary": "1174/1174 chart values equal stored bake fcwk5_2026-10-10t2105_v1; newer stored bake fcwk5_2026-10-11t0405_v1 (week 5, saved 2026-10-11T04:05:24.332677Z) is not on the chart yet: 1149 values changed, 17 added, 16 dropped",
      "counts": {
       "chart_players": 196,
       "stored_players": 196,
@@ -436,7 +446,14 @@
      "chart_imported_at": "2026-10-11T01:05:03Z",
      "bake_id": "fcwk5_2026-10-10t2105_v1",
      "bake_saved_at": "2026-10-10T21:05:26.727487Z",
-     "behind": null,
+     "behind": {
+      "bake_id": "fcwk5_2026-10-11t0405_v1",
+      "saved_at": "2026-10-11T04:05:24.332677Z",
+      "week": 5,
+      "changed_values": 1149,
+      "added": 17,
+      "dropped": 16
+     },
      "grains": {
       "full|1": {
        "left": 196,
@@ -503,15 +520,15 @@
       "position_counts": {
        "week_compared": 4,
        "publisher": {
-        "QB": 33,
+        "QB": 34,
         "RB": 59,
-        "WR": 74,
+        "WR": 75,
         "TE": 28
        },
        "stored": {
-        "QB": 32,
-        "RB": 58,
-        "WR": 77,
+        "QB": 34,
+        "RB": 59,
+        "WR": 75,
         "TE": 28
        },
        "chart": {
@@ -556,94 +573,103 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
-     "pos": "QB",
-     "left": "2478",
-     "right": 1951.0,
-     "delta": -527.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
      "grain": "full|2",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
+     "player_key": 4561,
+     "name": "Brock Purdy",
      "pos": "QB",
-     "left": "2471",
-     "right": 1950.0,
-     "delta": -521.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
-     "pos": "QB",
-     "left": "2448",
-     "right": 1928.0,
-     "delta": -520.0
+     "left": "6156",
+     "right": 6352.0,
+     "delta": 196.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "half|2",
-     "player_key": 3541,
-     "name": "Kirk Cousins",
+     "player_key": 4561,
+     "name": "Brock Purdy",
      "pos": "QB",
-     "left": "1917",
-     "right": 2387.0,
-     "delta": 470.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 3541,
-     "name": "Kirk Cousins",
-     "pos": "QB",
-     "left": "1921",
-     "right": 2386.0,
-     "delta": 465.0
+     "left": "6161",
+     "right": 6357.0,
+     "delta": 196.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "std|2",
-     "player_key": 3541,
-     "name": "Kirk Cousins",
+     "player_key": 4561,
+     "name": "Brock Purdy",
      "pos": "QB",
-     "left": "1894",
-     "right": 2359.0,
-     "delta": 465.0
+     "left": "6087",
+     "right": 6281.0,
+     "delta": 194.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 319,
-     "name": "Bhayshul Tuten",
-     "pos": "RB",
-     "left": "3232",
-     "right": 3656.0,
-     "delta": 424.0
+     "grain": "half|2",
+     "player_key": 1761,
+     "name": "Jayden Daniels",
+     "pos": "QB",
+     "left": "3812",
+     "right": 3625.0,
+     "delta": -187.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 319,
-     "name": "Bhayshul Tuten",
-     "pos": "RB",
-     "left": "3214",
-     "right": 3636.0,
-     "delta": 422.0
+     "grain": "full|2",
+     "player_key": 1761,
+     "name": "Jayden Daniels",
+     "pos": "QB",
+     "left": "3809",
+     "right": 3623.0,
+     "delta": -186.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1761,
+     "name": "Jayden Daniels",
+     "pos": "QB",
+     "left": "3766",
+     "right": 3582.0,
+     "delta": -184.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 4203,
+     "name": "Deshaun Watson",
+     "pos": "QB",
+     "left": "959",
+     "right": 1141.0,
+     "delta": 182.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 4203,
+     "name": "Deshaun Watson",
+     "pos": "QB",
+     "left": "959",
+     "right": 1141.0,
+     "delta": 182.0
     }
    ],
    "held": null,
-   "hold": null
+   "hold": {
+    "stage": "publisher_vs_stored",
+    "stages": [
+     "publisher_vs_stored"
+    ],
+    "reason": "fidelity: publisher_vs_stored",
+    "identity": "fcwk5_2026-10-11t0405_v1",
+    "since": "2026-10-11T06:40:14.822825Z",
+    "summary": "206/1170 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 28); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 28); 964 of 1170 values moved since the save at 2026-10-11T04:05:24.332677Z (largest 200"
+   }
   },
   {
    "source": "fantasypros",
@@ -1550,7 +1576,7 @@
     ],
     "reason": "fidelity: publisher_vs_stored",
     "identity": "2026-10-10@2026-10-11T00:41:27.367732Z",
-    "since": "2026-10-11T03:40:14.907538Z",
+    "since": "2026-10-11T06:40:14.822825Z",
     "summary": "1653/1722 values match exactly across 3 columns; 69 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint f499bcb66618ec023d61d338) (the mismatch survived a"
    }
   },
