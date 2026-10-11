@@ -43,8 +43,8 @@
   let expanded = null;      // JEG-483: "chart" | "table" while the expanded view is open
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
-  const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
-  const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
+  const SHORT_METHOD = {dda: "DDA", indexed: "Rescaled", vorp: "VORP vs waivers"};
+  const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "VORP vs waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
@@ -53,9 +53,9 @@
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
-      note: "Published trade charts corrected for each publisher's known bias."},
-    {id: "pub", title: "Trade charts (as published)", one: "trade chart as published", many: "trade charts as published",
-      note: "Each publisher's own numbers, rescaled to our point scale."},
+      note: "Trade charts corrected for each publisher's known bias."},
+    {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
+      note: "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged."},
     {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
       note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
   ];
@@ -67,12 +67,12 @@
     return "pub";
   }
   // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
-  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (as published)", "ESPN value above waivers".
+  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (rescaled)", "ESPN value above waivers".
   function groupSeriesName(key) {
     if (key === DDF_KEY) return "DDF Value";
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
-    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (as published)`,
+    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (rescaled)`,
       vorp: `${name} value above waivers`}[seriesGroup(key)];
   }
   const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
@@ -128,7 +128,7 @@
   function plainSeries(publisher, method) {
     if (publisher === "ddf") return "DDF Value";
     const name = PLAIN_NAMES[publisher] || PUBLISHER_NAMES[publisher] || publisher;
-    return method === "indexed" ? `${name} chart` : `${name} · ${PLAIN_METHOD[method]}`;
+    return method === "indexed" ? `${name} chart (rescaled)` : `${name} · ${PLAIN_METHOD[method]}`;
   }
 
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
@@ -646,7 +646,7 @@
     });
     // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
     const methods = new Set(view.plotKeys.map(k => sourceMeta(k).method));
-    const words = isNarrow() ? {dda: "Solid = DDA", indexed: "Dashed = Indexed"} : {dda: "Solid = our value", indexed: "Dashed = published chart"};
+    const words = isNarrow() ? {dda: "Solid = DDA", indexed: "Dashed = rescaled"} : {dda: "Solid = our value", indexed: "Dashed = rescaled chart"};
     const key = document.createElement("span");
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
@@ -1004,7 +1004,7 @@
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
   const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
-    ["published", "Trade charts as published"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
+    ["published", "Trade charts (rescaled)"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
   const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
     if (key === DDF_KEY) return "ddf";
@@ -1267,8 +1267,8 @@
     if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
     return valuesTier(row);
   }
-  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Published chart"], ["vorp", "VORP vs waivers"]];
-  const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Indexed", vorp: "VORP vs waivers"};
+  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "VORP vs waivers"]];
+  const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Rescaled", vorp: "VORP vs waivers"};
 
   function drawerSection(title, sub) {
     const section = document.createElement("section");
@@ -1413,7 +1413,7 @@
     wrap.appendChild(table);
     const note = document.createElement("p");
     note.className = "v2-meta";
-    note.textContent = "Adjusted and Indexed share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
+    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
     section.append(wrap, note);
     return section;
   }
@@ -2444,7 +2444,7 @@
   // Review fixes (JEG-456/458/459/461/464): both lists show at once (side by
   // side from 1280 px, stacked below), each collapsed to its top 5 with its own
   // "Show all"; every available chart is compared, and a chart still on an
-  // earlier week carries a "Wk N" badge; chart values are labeled as indexed.
+  // earlier week carries a "Wk N" badge; chart values are labeled as rescaled.
   const TARGETS_TOP = 5;
   const TARGETS_PAGE = 25;
   const TARGET_SIDES = ["sell", "buy"];
@@ -2497,17 +2497,16 @@
     return badge;
   }
 
-  // Shared ⓘ (JEG-458): why published chart values are "indexed". A 44 px
+  // Shared ⓘ (JEG-458): why trade chart values are "rescaled". A 44 px
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
-  const INDEXED_INFO = "Published charts use their own point scales. We rescale each chart so its total value "
-    + "matches our ESPN-based scale for your league, which makes the numbers comparable.";
+  const INDEXED_INFO = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
   function indexedInfoButton(context) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "v2-info";
     button.dataset.info = "indexed";
-    button.setAttribute("aria-label", `What indexed means${context ? ` (${context})` : ""}`);
+    button.setAttribute("aria-label", `What rescaled means${context ? ` (${context})` : ""}`);
     button.setAttribute("aria-haspopup", "dialog");
     button.setAttribute("aria-expanded", "false");
     const glyph = document.createElement("span");
@@ -2529,7 +2528,7 @@
         pop.setAttribute("aria-labelledby", "v2InfoTitle");
         const h = document.createElement("h2");
         h.id = "v2InfoTitle";
-        h.textContent = "Indexed values";
+        h.textContent = "Rescaled values";
         const text = document.createElement("p");
         text.className = "v2-info-text";
         text.textContent = INDEXED_INFO;
@@ -2583,7 +2582,7 @@
     const searched = rows.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
     // Fails closed: an unavailable choice is never swapped for another series.
     const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
-      : engineView && engineView !== "indexed" ? "Published charts are not on the trade-value point scale in this view, so no gaps are shown."
+      : engineView && engineView !== "indexed" ? "Trade charts are not on the trade-value point scale in this view, so no gaps are shown."
       : null;
     const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
@@ -2606,7 +2605,7 @@
     select.replaceChildren();
     const all = document.createElement("option");
     all.value = "all";
-    all.textContent = "All published charts";
+    all.textContent = "All trade charts";
     select.appendChild(all);
     TT.CHART_KEYS.forEach(key => {
       const item = targetsView.infoByKey[key];
@@ -2787,10 +2786,10 @@
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
     targetsView.used.forEach(key => {
-      // JEG-458: "Wk 5 · indexed"; a chart on an earlier week shows its badge in place of the week.
+      // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
       const week = targetBadge(key) || document.createTextNode(item && item.week ? `Wk ${item.week}` : "");
-      head(PUBLISHER_NAMES[key] || key, "num t-chart", [week, document.createTextNode(`${week.textContent ? " · " : ""}indexed`)], key, true);
+      head(PUBLISHER_NAMES[key] || key, "num t-chart", [week, document.createTextNode(`${week.textContent ? " · " : ""}rescaled`)], key, true);
     });
     head("Largest gap", "num t-best", side === "sell" ? "chart pays more" : "chart pays less", null, true);
     const expandHead = head("", "t-expand");
@@ -2961,7 +2960,7 @@
       const empty = $(ids.empty);
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
-        ? "No published chart is available to compare for this selection."
+        ? "No trade chart is available to compare for this selection."
         : `No player has a ${side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
       $(ids.table).hidden = !list.length;
       $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · largest gap first. `
@@ -3609,7 +3608,7 @@
     if (s.kind === "contrast") {
       const name = PUBLISHER_NAMES[s.publisher] || s.publisher;
       title.textContent = "Same publisher. Different result.";
-      text.textContent = `${name}: the Indexed chart shows ${fmtGap(s.indexed.net)}; Data Driven Adjustments show ${fmtGap(s.dda.net)}. `
+      text.textContent = `${name}: the rescaled chart shows ${fmtGap(s.indexed.net)}; Data Driven Adjustments show ${fmtGap(s.dda.net)}. `
         + "Your league's adjustments reverse the direction. Compare the same publisher before comparing across sources.";
     } else if (s.kind === "agree") {
       const all = listSeries(s.upKeys.concat(s.downKeys, s.evenKeys));

@@ -44,9 +44,9 @@ the filters sit on one row. Two-column rows show only Player · Our value ·
 Largest gap (+ chart); a row's ▾ opens its per-chart values.
 JEG-456 (part 1): from 1024 px the table needs no horizontal scroll; Pos, Team
 and Tier are in the player sub-line.
-JEG-458: every chart column header reads "Wk N · indexed", "Compare against"
-has the caption "Indexed to our scale", and an ⓘ beside it and in each chart
-column header opens the indexed explanation with a link to How values work:
+JEG-458: every chart column header reads "Wk N · rescaled", "Compare against"
+has the caption "Rescaled to our point scale", and an ⓘ beside it and in each chart
+column header opens the rescaled explanation with a link to How values work:
 aria-expanded tracks it, Enter opens it, Esc closes it and returns focus, and it
 never opens a player or reorders rows.
 JEG-459: the "Include older-week charts" checkbox is gone; with FantasyPros
@@ -104,10 +104,10 @@ CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypr
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
 H1 = "Where the trade market is wrong this week"
-SUBTITLE = ("We check four published trade charts against our values for your league. "
+SUBTITLE = ("We check four publishers' trade charts against our values for your league. "
             "Sell the players they overpay for; buy the ones they undervalue.")
-INDEXED_TEXT = ("Published charts use their own point scales. We rescale each chart so its total value matches our "
-                "ESPN-based scale for your league, which makes the numbers comparable.")
+INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for your league. "
+                "Their ranking order is unchanged.")
 FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
 
 READ = """([side, ours, ids]) => {
@@ -481,15 +481,15 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
         errors.append("a Sell/Buy toggle is still on the tab (JEG-461: both lists show at once)")
     if lay["older"]:
         errors.append("the 'Include older-week charts' control is still on the tab (JEG-459)")
-    if not lay["caption"].startswith("Indexed to our scale"):
+    if not lay["caption"].startswith("Rescaled to our point scale"):
         errors.append(f"Compare against caption is {lay['caption']!r} (JEG-458)")
     if not lay["compareInfo"] or lay["compareInfo"]["expanded"] != "false" or not lay["compareInfo"]["label"]:
         errors.append(f"no closed, labeled ⓘ beside Compare against: {lay['compareInfo']} (JEG-458)")
     if not lay["thSubs"]:
         errors.append("no chart column headers")
     for th in lay["thSubs"]:
-        if not th["sub"].endswith("indexed") or "Wk " not in th["sub"]:
-            errors.append(f"{th['chart']} header sub-label {th['sub']!r}, expected 'Wk N · indexed' (JEG-458)")
+        if not th["sub"].endswith("rescaled") or "Wk " not in th["sub"]:
+            errors.append(f"{th['chart']} header sub-label {th['sub']!r}, expected 'Wk N · rescaled' (JEG-458)")
         if not th["info"] or th["info"]["expanded"] != "false" or not th["info"]["label"]:
             errors.append(f"{th['chart']} header has no closed, labeled ⓘ: {th['info']} (JEG-458)")
     errors += [f"hit area under 44 px: {b}" for b in lay["bad"]]
@@ -561,7 +561,7 @@ def check_prior(prior, ref_week, width) -> list[str]:
             errors.append(f"#v2TChart option {o['value']!r} reads {o['text']!r}")
     for th in prior["headers"]:
         errors += badge_ok(f"{th['chart']} column header", th["badges"], th["chart"])
-        if th["chart"] == "fantasypros" and not th["sub"].endswith("Wk 4 · indexed"):
+        if th["chart"] == "fantasypros" and not th["sub"].endswith("Wk 4 · rescaled"):
             errors.append(f"FantasyPros header sub-label {th['sub']!r}")
     fp_best = [b for b in prior["best"] if b["chart"] == "fantasypros"]
     if not fp_best:
@@ -806,7 +806,7 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "prior-week badge removed": ({"v2_js": (v2, "    if (!item || !item.stale) return null;\n    const name",
                                                     "    return null;\n    const name")}, {"viewports": desk, "numbers": False}),
             # JEG-458
-            "indexed label removed": ({"v2_js": (v2, '`${week.textContent ? " · " : ""}indexed`', '""')}, {"viewports": desk, "numbers": False}),
+            "rescaled label removed": ({"v2_js": (v2, '`${week.textContent ? " · " : ""}rescaled`', '""')}, {"viewports": desk, "numbers": False}),
             "aria-expanded never reset": ({"v2_js": (v2, 'if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");',
                                                      "")}, {"viewports": desk, "numbers": False}),
             # JEG-461

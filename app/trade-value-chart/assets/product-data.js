@@ -258,7 +258,7 @@
   const ESPN_ZERO_BADGE = Object.freeze({
     label: "ESPN: 0 (out)",
     symbol: "\u2298",
-    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out), so our ESPN value for him is 0.0. Published charts are shown as published, so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
+    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out), so our ESPN value for him is 0.0. Trade charts keep each publisher's own ranking (rescaled to our point scale), so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
   });
   function espnProjectsZero(player) {
     if (player?.espn_status === "ineligible") return true;
