@@ -19,9 +19,11 @@ It requires:
 1. the held sections are served: the chart from its last good build, the
    projection on this build's section, both labelled validationHold;
 2. the fixture-level gate checks pass on that build: tests.test_static_export
-   (run on the seeded fixture), the test_superflex identity check and the
-   test_published_league_settings_engine fixture-leg check. The render tests
-   (test_ddf_composite_value) strip holds from their own copy of dist/.
+   (run on the seeded fixture) and the test_superflex identity check. The
+   test_published_league_settings_engine fixture-leg check is no longer run
+   here: JEG-539 retired it with the derivePublishedSetup engine code it
+   pinned. The render tests (test_ddf_composite_value) strip holds from their
+   own copy of dist/.
 
 Tests that need an unheld baseline read tests/_holds.without_held_charts.
 """
@@ -117,18 +119,6 @@ class SeededHoldBuildTest(unittest.TestCase):
         finally:
             test_superflex.FIXTURE = original
         self.assertEqual(problems, [], "\n".join(problems[:10]))
-
-    def test_fixture_leg_check_passes_on_the_held_build(self):
-        from tests import test_published_league_settings_engine as engine  # noqa: PLC0415
-        original = engine.FIXTURE
-        engine.FIXTURE = self.path
-        try:
-            result = unittest.TestResult()
-            engine.PublishedLeagueSettingsEngine("test_fixture_leg_reproduces_the_saved_values").run(result)
-        finally:
-            engine.FIXTURE = original
-        problems = [text for _, text in result.failures + result.errors]
-        self.assertEqual(problems, [], "\n".join(p[-1500:] for p in problems))
 
 
 if __name__ == "__main__":
