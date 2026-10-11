@@ -41,6 +41,7 @@ sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 sys.path.insert(0, str(REPO))
 
 from pipelines.vorp_translation import unified  # noqa: E402
+from tests._holds import held_chart_roots  # noqa: E402
 
 VALUE_MODEL = REPO / "app" / "trade-value-chart" / "assets" / "value-model.js"
 DRIVER = REPO / "tests" / "published_engine_driver.js"
@@ -287,7 +288,11 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         saved Indexed values for every chart and scoring."""
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         pos_of = browser_players()
-        settings = [(src, sc, 12, "std", SAVED_SHAPE) for src in SOURCES for sc in SCORINGS]
+        # JEG-569: a held chart is served from its last good build, so its
+        # saved values are on that build's ESPN leg, not this fixture's.
+        held = held_chart_roots(fixture)
+        settings = [(src, sc, 12, "std", SAVED_SHAPE) for src in SOURCES if src not in held for sc in SCORINGS]
+        self.assertTrue(settings)
         results = run_js(_cases(fixture, pos_of, settings))
         for (src, sc, *_), res, case in zip(settings, results, _cases(fixture, pos_of, settings)):
             got = {int(k): v for k, v in res["values"].items()}
