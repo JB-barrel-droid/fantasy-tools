@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-11T12:18:30.197872Z",
- "run_id": "8ceb6a95-0879-402b-92f5-56430e831ebb",
+ "checked_at": "2026-10-11T12:40:15.602587Z",
+ "run_id": "7200cc9a-84af-4da4-93ea-40d6bcf6bbf7",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -24,6 +24,16 @@
   "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
  "holds": {
+  "fantasycalc": {
+   "stage": "publisher_vs_stored",
+   "stages": [
+    "publisher_vs_stored"
+   ],
+   "reason": "fidelity: publisher_vs_stored",
+   "identity": "fcwk5_2026-10-11t1105_v1",
+   "since": "2026-10-11T12:40:15.602587Z",
+   "summary": "222/1182 values match exactly across 6 columns; column check: stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 24); 960 of 1182 values moved since the save at 2026-10-11T11:05:26.151563Z (largest 80%; 2 outside the max(25%, 50) band: Aaron Rodgers); 2 players entered or left "
+  },
   "espn": {
    "stage": "publisher_vs_stored",
    "stages": [
@@ -31,7 +41,7 @@
    ],
    "reason": "fidelity: publisher_vs_stored",
    "identity": "2026-10-10@2026-10-11T00:41:27.367732Z",
-   "since": "2026-10-11T12:18:30.197872Z",
+   "since": "2026-10-11T12:40:15.602587Z",
    "summary": "1653/1722 values match exactly across 3 columns; 69 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint f499bcb66618ec023d61d338) (the mismatch survived a"
   },
   "cbsros": {
@@ -41,7 +51,7 @@
    ],
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-11@2026-10-11T03:25:40.554183Z",
-   "since": "2026-10-11T12:18:30.197872Z",
+   "since": "2026-10-11T12:40:15.602587Z",
    "summary": "1062/1098 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals); 36 chart values differ from the stored snapshot, 4 stored players not on the chart, 3 chart players not stored"
   }
  },
@@ -264,24 +274,24 @@
   {
    "source": "fantasycalc",
    "label": "FantasyCalc",
-   "status": "amber",
+   "status": "red",
    "stored_week": 5,
    "chart_week": 5,
    "stored_bake": "fcwk5_2026-10-11t1105_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "green",
-     "summary": "1186/1186 values match exactly across 6 columns",
+     "status": "red",
+     "summary": "222/1182 values match exactly across 6 columns; column check: stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 24); 960 of 1182 values moved since the save at 2026-10-11T11:05:26.151563Z (largest 80%; 2 outside the max(25%, 50) band: Aaron Rodgers); 2 players entered or left the bottom of the list since the save (churn)",
      "counts": {
       "publisher_players": 198,
       "stored_players": 198,
-      "compared": 1186,
-      "matched": 1186,
-      "mismatched": 0,
+      "compared": 1182,
+      "matched": 222,
+      "mismatched": 960,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 0,
+      "list_churn": 2,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -293,22 +303,22 @@
       "full|1": {
        "left": 198,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 1,
+       "extra": 1
       },
       "full|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 1,
+       "extra": 1
       },
       "half|1": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
+       "mismatched": 192,
+       "missing": 1,
        "extra": 0
       },
       "half|2": {
@@ -321,19 +331,100 @@
       "std|1": {
        "left": 198,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 1,
+       "extra": 1
       },
       "std|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 1,
+       "extra": 1
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 28,
+       "name": "Aaron Rodgers",
+       "pos": "QB",
+       "left": "904",
+       "right": 683.0,
+       "delta": -221.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 28,
+       "name": "Aaron Rodgers",
+       "pos": "QB",
+       "left": "893",
+       "right": 675.0,
+       "delta": -218.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 3892,
+       "name": "Justin Jefferson",
+       "pos": "WR",
+       "left": "6091",
+       "right": 5876.0,
+       "delta": -215.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 3892,
+       "name": "Justin Jefferson",
+       "pos": "WR",
+       "left": "6049",
+       "right": 5836.0,
+       "delta": -213.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 3892,
+       "name": "Justin Jefferson",
+       "pos": "WR",
+       "left": "5984",
+       "right": 5773.0,
+       "delta": -211.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 869,
+       "name": "Josh Allen",
+       "pos": "QB",
+       "left": "6176",
+       "right": 5973.0,
+       "delta": -203.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 869,
+       "name": "Josh Allen",
+       "pos": "QB",
+       "left": "6171",
+       "right": 5969.0,
+       "delta": -202.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 869,
+       "name": "Josh Allen",
+       "pos": "QB",
+       "left": "6102",
+       "right": 5902.0,
+       "delta": -200.0
+      }
+     ],
      "outside_universe": [],
      "unresolved": []
     },
@@ -430,7 +521,7 @@
        "week_compared": 4,
        "publisher": {
         "QB": 34,
-        "RB": 59,
+        "RB": 60,
         "WR": 76,
         "TE": 28
        },
@@ -478,9 +569,107 @@
      }
     }
    },
-   "worst_examples": [],
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 28,
+     "name": "Aaron Rodgers",
+     "pos": "QB",
+     "left": "904",
+     "right": 683.0,
+     "delta": -221.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 28,
+     "name": "Aaron Rodgers",
+     "pos": "QB",
+     "left": "893",
+     "right": 675.0,
+     "delta": -218.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 3892,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "left": "6091",
+     "right": 5876.0,
+     "delta": -215.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 3892,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "left": "6049",
+     "right": 5836.0,
+     "delta": -213.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 3892,
+     "name": "Justin Jefferson",
+     "pos": "WR",
+     "left": "5984",
+     "right": 5773.0,
+     "delta": -211.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "left": "6176",
+     "right": 5973.0,
+     "delta": -203.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "left": "6171",
+     "right": 5969.0,
+     "delta": -202.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "left": "6102",
+     "right": 5902.0,
+     "delta": -200.0
+    }
+   ],
    "held": null,
-   "hold": null
+   "hold": {
+    "stage": "publisher_vs_stored",
+    "stages": [
+     "publisher_vs_stored"
+    ],
+    "reason": "fidelity: publisher_vs_stored",
+    "identity": "fcwk5_2026-10-11t1105_v1",
+    "since": "2026-10-11T12:40:15.602587Z",
+    "summary": "222/1182 values match exactly across 6 columns; column check: stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 24); 960 of 1182 values moved since the save at 2026-10-11T11:05:26.151563Z (largest 80%; 2 outside the max(25%, 50) band: Aaron Rodgers); 2 players entered or left "
+   }
   },
   {
    "source": "fantasypros",
@@ -488,7 +677,7 @@
    "status": "amber",
    "stored_week": 5,
    "chart_week": 5,
-   "stored_bake": "fpwk5_2026-10-10t1235_v1",
+   "stored_bake": "fpwk5_2026-10-11t1235_v1",
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
@@ -508,8 +697,8 @@
      "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-5-2026/",
      "page_week": 5,
      "page_modified": "2026-10-06T16:31:34+00:00",
-     "bake_id": "fpwk5_2026-10-10t1235_v1",
-     "bake_saved_at": "2026-10-10T12:35:43.369496Z",
+     "bake_id": "fpwk5_2026-10-11t1235_v1",
+     "bake_saved_at": "2026-10-11T12:35:43.758714Z",
      "grains": {
       "full|1": {
        "left": 178,
@@ -1387,7 +1576,7 @@
     ],
     "reason": "fidelity: publisher_vs_stored",
     "identity": "2026-10-10@2026-10-11T00:41:27.367732Z",
-    "since": "2026-10-11T12:18:30.197872Z",
+    "since": "2026-10-11T12:40:15.602587Z",
     "summary": "1653/1722 values match exactly across 3 columns; 69 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint f499bcb66618ec023d61d338) (the mismatch survived a"
    }
   },
@@ -1817,7 +2006,7 @@
     ],
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-11@2026-10-11T03:25:40.554183Z",
-    "since": "2026-10-11T12:18:30.197872Z",
+    "since": "2026-10-11T12:40:15.602587Z",
     "summary": "1062/1098 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals); 36 chart values differ from the stored snapshot, 4 stored players not on the chart, 3 chart players not stored"
    }
   },
@@ -2031,7 +2220,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher updated 2026-10-11 (2 h ago); chart shows snapshot 2026-10-10; stored has 2026-10-11",
+     "summary": "publisher updated 2026-10-11 (3 h ago); chart shows snapshot 2026-10-10; stored has 2026-10-11",
      "chart_snapshot": "2026-10-10",
      "publisher_vintage": "2026-10-11"
     },
