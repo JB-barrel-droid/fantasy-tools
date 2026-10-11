@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-11T19:03:51.450570+00:00",
+  "run_at": "2026-10-11T19:27:03.016278+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -7,7 +7,7 @@
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
-    "cbsros": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: cbsros: snapshot sha256:77818aec6229 != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
+    "cbsros": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: cbsros: snapshot sha256:f4291257ecee != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
     "razzball": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: razzball: snapshot sha256:41b1896c40e8 != players.json rz_snapshot_id sha256:31c28544ad55; the section waits for a bake from the same snapshot"
   },
   "failed": [
@@ -96,7 +96,7 @@
       "source": "cbsros",
       "status": "held",
       "stage": "snapshot",
-      "detail": "awaiting players bake: cbsros: snapshot sha256:77818aec6229 != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
+      "detail": "awaiting players bake: cbsros: snapshot sha256:f4291257ecee != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
       "promoted": 0,
       "sections": 1,
       "held_reason": "failed at stage 'snapshot'",
@@ -199,6 +199,6 @@
       "Makefile:478: test-core"
     ],
     "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-11T19:13:50.002599+00:00"
+    "recorded_at": "2026-10-11T19:35:58.626813+00:00"
   }
 }
