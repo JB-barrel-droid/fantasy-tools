@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-11T18:13:39.369555+00:00",
+  "run_at": "2026-10-11T18:52:24.456898+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -17,7 +17,6 @@
   "outcome": "failed",
   "held": [
     "cbsros",
-    "espn",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -49,20 +48,6 @@
       "weeks_behind": 0,
       "hold_severity": "amber",
       "rolled_back": 0
-    },
-    "espn": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "espn",
-        "espn_vorp"
-      ],
-      "sections": [
-        "espn"
-      ],
-      "restored_from": null,
-      "detail": "1593/1722 values match exactly across 3 columns; 129 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 9d2bf104f3e0ac0262644dec) (the mismatch survived ",
-      "hold_severity": "amber",
-      "week": 5
     }
   },
   "runner": "github-actions",
@@ -201,7 +186,6 @@
     }
   },
   "fidelity_holds": {
-    "espn": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
@@ -215,6 +199,6 @@
       "Makefile:478: test-core"
     ],
     "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-11T18:23:27.290940+00:00"
+    "recorded_at": "2026-10-11T19:02:11.666562+00:00"
   }
 }
