@@ -12,7 +12,7 @@ exists in chat or a session transcript.
   otherwise rediscover.
 - Update the same row when the issue is fixed, controlled, or deliberately
   deferred.
-- Put session-by-session evidence in `docs/claude-log.md`; keep this file to
+- Put session-by-session evidence in `docs/claude-log/`; keep this file to
   current status, evidence, and next action.
 - Do not create another gap tracker or backlog. The live plan is
   `execution/current-plan.md`.
