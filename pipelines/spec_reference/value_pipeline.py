@@ -21,14 +21,29 @@ converts at the edges.
 from __future__ import annotations
 
 import math
+import sys
 from dataclasses import dataclass
 from fractions import Fraction
+from pathlib import Path
+
+# Roster convention module (JEG-560)
+_REPO = Path(__file__).resolve().parents[2]
+if str(_REPO / "pipelines") not in sys.path:
+    sys.path.insert(0, str(_REPO / "pipelines"))
+if str(_REPO / "pipelines" / "lib") not in sys.path:
+    sys.path.insert(0, str(_REPO / "pipelines" / "lib"))
+
+from lib.roster_convention import (
+    bench_seats as _convention_bench_seats,
+    starter_line as _convention_starter_line,
+    POSITIONS as _CONV_POSITIONS,
+)
 
 POSITIONS = ("QB", "RB", "WR", "TE")
 POS_ORDER = {p: i for i, p in enumerate(POSITIONS)}
 GROUP_KEYS = tuple(f"{p}|{r}" for p in POSITIONS for r in ("starter", "bench"))
 
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}  # legacy, kept for two-tier (JEG-561)
 IMPUTE_MIN_FIT = 3
 ESTIMATE_FIT_N = 10
 DEFAULT_BENCH_SHARE = 0.15
@@ -129,17 +144,15 @@ def score_order(scores: dict, pos_of: dict) -> dict:
 
 # ---------------------------------------------------------------- VP-2.2 allocation
 
-def dhondt_bench(teams: int, bench_per_team) -> dict:
-    seats = round_half_up(Fraction(teams) * Fraction(str(bench_per_team)))
-    got = {p: 0 for p in POSITIONS}
-    for _ in range(seats):
-        best = None
-        for p in POSITIONS:   # position order breaks ties (strict > keeps the first)
-            q = Fraction(BENCH_MIX_12[p], got[p] + 1)
-            if best is None or q > best[0]:
-                best = (q, p)
-        got[best[1]] += 1
-    return got
+def dhondt_bench(setting) -> dict:
+    """VP-2.2d: D'Hondt bench seats via roster convention (market bench
+    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights."""
+    slots = {p: int(setting.slots.get(p, 0)) for p in _CONV_POSITIONS}
+    seats = _convention_bench_seats(
+        slots, setting.teams, setting.bench_per_team,
+        superflex=(setting.superflex > 0),
+    )
+    return {p: seats.get(p, 0) for p in POSITIONS}
 
 
 def allocate(setting: Setting, order: dict, scores: dict) -> dict:
@@ -159,7 +172,7 @@ def allocate(setting: Setting, order: dict, scores: dict) -> dict:
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    bench = dhondt_bench(T, setting.bench_per_team)
+    bench = dhondt_bench(setting)
     out = {}
     for p in POSITIONS:
         starters = ded[p] + sf[p] + fx[p]
@@ -308,7 +321,7 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) 
     for c in charts:
         t = fsum_in_order(natives[c][k] for k in sorted(shared))
         scale[c] = 1000.0 / t if t > 0 else 1.0
-    bench = dhondt_bench(setting.teams, setting.bench_per_team)
+    bench = dhondt_bench(setting)
     res = {}
     for p in POSITIONS:
         vals: dict = {}
@@ -403,7 +416,12 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
             info.update(waiver_value=None, starter_line=None, method="no_players")
             positions[p] = info
             continue
-        line = work_val[work[S]] if len(work) > S else w
+        # Convention rule 3 (JEG-560): midpoint of last starter and first
+        # non-starter, replacing the old first-non-starter rule.
+        work_values = [work_val[k] for k in work]
+        line = _convention_starter_line(work_values, S)
+        if line is None:
+            line = w
         line = max(line, w)
         info.update(waiver_value=w, starter_line=line, method=method)
         parts = None

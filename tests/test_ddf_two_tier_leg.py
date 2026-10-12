@@ -40,7 +40,6 @@ from build_ddf_two_tier_leg import (  # noqa: E402
     REF_FLEX_ELIGIBLE,
     REF_SLOTS,
     bench_mix_for_teams,
-    REF_BENCH_SLOTS,
     build_leg,
     build_position_tiers,
     calibrate_feasible,
@@ -105,7 +104,8 @@ def feasible_share_for(tier, pie, requested=DEFAULT_BENCH_SHARE):
 
 def _bench_mix_12(pool_lists):
     """Derived bench mix for the 12-team reference shape."""
-    # New interface: bench_mix_for_teams(teams) uses the BENCH_MIX_12 constant.
+    # JEG-561: bench_mix_for_teams now uses the roster convention module's
+    # D'Hondt allocation (replacing the legacy BENCH_MIX_12 scaling).
     # pool_lists is unused (kept for signature compatibility).
     return bench_mix_for_teams(12)
 

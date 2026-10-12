@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 from datetime import date, datetime
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +65,7 @@ def parse_date(value: Any) -> date | None:
     if not isinstance(value, str) or not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+        return parse_iso_timestamp(value).date()
     except ValueError:
         pass
     try:
