@@ -16,8 +16,8 @@ Owner ticket: JEG-604. Post: "How much is a bench player worth?" (JEG-544, Todo)
 |---|---|---|---|
 | QB bench share 22.6% is an artifact | JEG-546 | Answered | [qb-bench-share.md](qb-bench-share.md) |
 | Value pie and waiver lines per position | JEG-547 | Mostly answered by the convention (waiver line = first player past the market-bench rosters) | [roster-convention-audit.md](roster-convention-audit.md) |
-| Bench-share bounds (8.6% / 13.3% in the approved-defaults log, 8.1% / 13.1% in methodology ES-7) | JEG-548 | Wave 6, not done | needs the convention (JEG-562) |
-| Decompose the 8.9% (start-worthy versus fill-in, displacement) | JEG-549 | Wave 6, not done | |
+| Bench-share bounds (8.6% / 13.3% in the approved-defaults log, 8.1% / 13.1% in methodology ES-7) | JEG-548 | Reconciled; script committed; re-run after JEG-562 | [bench-share-bounds.md](bench-share-bounds.md), `tools/bench_research/bench_share_bounds.py` |
+| Decompose the 8.9% (start-worthy versus fill-in, displacement) | JEG-549 | Answered (displacement absorbs 83% of SW gain); re-run after JEG-562 | [bench-share-decomposition.md](bench-share-decomposition.md), `tools/bench_research/bench_share_decomposition.py` |
 | Starter downside (does the start-worthy term apply to starters; Hubbard RB16 at 71.6% against a 78.9% ceiling) | JEG-550 | Wave 7, not done | |
 | Fill-in rates (34% / 4% / 48%, decision build) | JEG-551 | Wave 6, must be recomputed | |
 | Ceiling as a function of week (78.9% was arithmetic, not printed by the repo) | JEG-552 | Wave 7, not done | |
