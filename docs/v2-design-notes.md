@@ -1319,3 +1319,14 @@ Still on the old contract (front-end follow-up, GAP-508-V2-CONTRACT): v2 groups 
 `*_adjusted` aliases as "Trade charts (adjusted)" and its tests toggle them. The aliases carry each chart's
 Adjusted values, so the numbers are right, but the engine wants v2 to read the chart keys in the Adjusted tab and
 drop the alias group before it removes them.
+
+## Trade targets: market average beside Our value (JEG-504, 2026-10-12; contract TT-09)
+
+- `marketAverage(ours, cells)` in `app/v2/targets.js` gives each target player `market = {value, count, left, diff, equal}`:
+  the mean of the compared charts' rescaled values that price the player (a finite 0 counts; a null is left out and
+  counted in `left`), `diff` = our value minus the mean. It follows the "Compare against" picker (`used`).
+- Display (`marketValue` in v2.js): a "Market average" column after Our value in the table, a "Market avg" run on phone
+  cards. Shows the average, "avg of N" (plus "· K left out"), and "▲ +1.2" / "▼ −1.2" (symbol + sign; ▲ = our value is higher).
+  When the average equals our value to one decimal the cell shows only "= market average", with no number or difference.
+  No chart prices the player: "—" with a reason.
+- Tests: `tests/test_v2_targets.py` (recomputation, with mutations) and `tests/test_v2_targets_render.py` (`check_market`).
