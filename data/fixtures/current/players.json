@@ -6,7 +6,7 @@
   "rz_snapshot": "2026-10-11",
   "cbsros_snapshot": "2026-10-12",
   "espn_snapshot_id": "sha256:950c62b13f1a0a5323d41267153a1fb275a85e8ea3e001fe8d8c867c92ed0811",
-  "cbsros_snapshot_id": "sha256:1d19568776064acba955f5bfa8250f66f5ef543905f2e83c0af945b4f363dda4",
+  "cbsros_snapshot_id": "sha256:f0a32630d06bab362e67c5127886af97a8050fcabcda242da97ad4150a0d2980",
   "rz_snapshot_id": "sha256:5b7290e017aacbb0180c5b96728587a43de3f1d3f7f5aba6a3b8b0fcdf28c06f",
   "n_players": 1163,
   "n_espn_complete": 369,
@@ -55,20 +55,20 @@
      "by_combo": {
       "half_ppr-12": {
        "QB": 34,
-       "RB": 59,
-       "WR": 78,
+       "RB": 58,
+       "WR": 79,
        "TE": 26
       },
       "ppr-12": {
        "QB": 34,
-       "RB": 60,
-       "WR": 78,
+       "RB": 59,
+       "WR": 79,
        "TE": 26
       },
       "standard-12": {
        "QB": 34,
-       "RB": 60,
-       "WR": 78,
+       "RB": 59,
+       "WR": 79,
        "TE": 26
       }
      }
@@ -168,7 +168,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-12T21:49:03Z",
+   "built_at": "2026-10-12T22:11:30Z",
    "as_of": "2026-10-12",
    "summary": {
     "live": 3,
@@ -61207,8 +61207,6 @@
    "espn_status": "ineligible",
    "universe_sources": [
     "cbsros",
-    "fantasycalc",
-    "fantasycalc:superflex",
     "razzball",
     "usatoday"
    ],
@@ -66463,8 +66461,6 @@
    "espn_status": "ineligible",
    "universe_sources": [
     "cbsros",
-    "fantasycalc",
-    "fantasycalc:superflex",
     "razzball"
    ],
    "roster_status": "active_roster",
