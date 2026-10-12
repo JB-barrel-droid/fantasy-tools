@@ -4,24 +4,21 @@ Read this first. It is short on purpose.
 
 ## Pre-launch: ship, and keep the numbers honest
 
-Jeremy, 2026-10-07: the site has no users yet. One owner (Claude) writes,
-reviews and merges, so the multi-agent policing built up in late September has
-been retired. Optimize for getting fresh data live every week. Protect only what
-makes the numbers worth looking at. Methodology can be refined after launch.
+Jeremy, 2026-10-07: no users yet, and one owner (Claude) writes, reviews and
+merges, so the late-September multi-agent policing is retired. Get fresh data
+live every week, protect only what keeps the numbers honest, refine methodology
+after launch.
 
-The live plan is the Linear ticket **JEG-440 (GO LIVE)**. Linear is the source
-of truth for status. In Progress means someone (an agent) is actively working
-on it now; Done means merged and live. There is no cap on parallel work
-(Jeremy, 2026-10-09): parallelize as much as possible with subagents, limited
-only by what can run without causing issues: no two agents editing the same
-code path, value changes paired with the Python reference on one branch, and
-merges ordered so main stays green.
+The live plan is Linear ticket **JEG-440 (GO LIVE)**; Linear is the source of
+truth. In Progress means an agent is working it now; Done means merged and
+live. Parallel work is uncapped (Jeremy, 2026-10-09), limited only by: no two
+agents on one code path, value changes paired with the Python reference on one
+branch, merges ordered so main stays green.
 
 ## Linear (team Jegabee, project Trade Value Chart)
 
-Follow the user-level "Work Tracking in Linear" rules for all work here. They
-cover: a ticket per workstream, status comments, decisions quoted on the
-ticket, delegated agents naming their ticket, and "(part of JEG-xxx)" PR titles.
+Follow the user-level Linear rules (ticket per workstream, status comments,
+quoted decisions, agents naming their ticket, "(part of JEG-xxx)" PR titles).
 
 - The back end owns tickets for pipelines, Supabase, engine math and
   workflows. The v2 front-end session owns its own tickets.
@@ -91,18 +88,6 @@ Several Claude sessions work this repo at once: the back end, and the front end 
   copy of the player-news pipeline's inputs.
 - **Muse owns nothing here.** Claude owns merges, deploys, QA and schedules.
   Schedules run from Supabase pg_cron; GitHub Actions does the build and deploy.
-
-## Copy rules (user-facing text)
-
-- Do not reference "Vegas" (Jeremy, 2026-09-30). The public charts are named by
-  publisher (USA Today, FantasyCalc, FantasyPros, CBS). Frame comparisons as
-  trade targets (sell where a chart pays more than we would, buy where less).
-- No abbreviations in titles or headlines (PPR, FC, USAT, FP, Wk).
-- The brand is **Data Driven Football** only. No FantasyPros, Muse, or Meta
-  branding anywhere user-facing.
-- The only allowed user-facing use of "VORP" is the exact phrase **"VORP vs
-  waivers"** (decision copy-vorp-001). `espn_vorp` as an internal data key is
-  exempt.
 
 ## Before changing the trade-value chart
 
