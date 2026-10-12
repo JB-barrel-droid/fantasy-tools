@@ -147,8 +147,8 @@ Ticket drafts are written to Jeremy's Linear standard (implementation-ready). Li
 - **Background:** JEG-109 added the dashboard signal but did not author the alert. The dashboard signal is downstream of `gh-actions.json`; the alert is upstream.
 - **In scope:** Decide (with Jeremy/Muse) whether `pipelines/build_github_actions_status.py` should write an `alert_needed: bool` per workflow, and the rebuild-chain.yml step should `gh api repos/.../issues` on each failing-streak workflow. If full implementation is outside the monitor-cleanup scope, scope a follow-up ticket.
 - **Out of scope:** Building the alert destination (Slack, PagerDuty) — a separate infrastructure ticket.
-- **Acceptance criteria:** (1) Decision recorded in `docs/claude-log.md`. (2) If implementing: a workflow run with `consecutive_failures >= 3` opens a labeled GitHub Issue within 5 minutes; negative test with `consecutive_failures == 2` does not. (3) `git status` shows only the dashboard file, the rebuild-chain.yml change, and the test.
-- **Relevant files:** `pipelines/build_github_actions_status.py`; `.github/workflows/rebuild-chain.yml` (the `Refresh GitHub Actions status` step at line 111-128); `docs/claude-log.md`.
+- **Acceptance criteria:** (1) Decision recorded in `archive/2026-10-12-docs/claude-log.md`. (2) If implementing: a workflow run with `consecutive_failures >= 3` opens a labeled GitHub Issue within 5 minutes; negative test with `consecutive_failures == 2` does not. (3) `git status` shows only the dashboard file, the rebuild-chain.yml change, and the test.
+- **Relevant files:** `pipelines/build_github_actions_status.py`; `.github/workflows/rebuild-chain.yml` (the `Refresh GitHub Actions status` step at line 111-128); `archive/2026-10-12-docs/claude-log.md`.
 
 ### Item 5 — Trade-values chart datapoints coverage
 
@@ -192,10 +192,10 @@ Ticket drafts are written to Jeremy's Linear standard (implementation-ready). Li
 - **Title:** "Monitor: surface and own QA-004 (Curves unavailable in some league setups) and QA-007 (Coverage baseline confusion)"
 - **Problem:** The hardcoded QA card (`modules/dashboard.html:1494-1531`) lists QA-004 and QA-007 as `open`. QA-004 is a chart-build coverage gap; QA-007 is a coverage-baseline definition gap. The monitor notes the data path; the card does not own the resolution.
 - **Background:** QA-004: `comparison-sources-data.json` does not include all scoring/team combos. QA-007: "596-player canonical snapshot" vs "610 total" — different baselines in different places.
-- **In scope:** (1) Add an "Open QA findings" sub-row under the Trade QA section that links each open finding to its owner lane. (2) Decision recorded in `docs/claude-log.md`: for QA-004, decide whether to expand the build to generate all combos (build coverage) or disable UI options (UX decision). For QA-007, decide the canonical player universe and add a regression test.
+- **In scope:** (1) Add an "Open QA findings" sub-row under the Trade QA section that links each open finding to its owner lane. (2) Decision recorded in `archive/2026-10-12-docs/claude-log.md`: for QA-004, decide whether to expand the build to generate all combos (build coverage) or disable UI options (UX decision). For QA-007, decide the canonical player universe and add a regression test.
 - **Out of scope:** Implementing the chosen fix; this ticket records the decision and links to a follow-up implementation ticket.
-- **Acceptance criteria:** (1) The Trade QA section lists each open finding with its owner and a link. (2) `docs/claude-log.md` records the decision for QA-004 and QA-007 with citations.
-- **Relevant files:** `modules/dashboard.html` (line 1494-1531 + new sub-row); `docs/claude-log.md`.
+- **Acceptance criteria:** (1) The Trade QA section lists each open finding with its owner and a link. (2) `archive/2026-10-12-docs/claude-log.md` records the decision for QA-004 and QA-007 with citations.
+- **Relevant files:** `modules/dashboard.html` (line 1494-1531 + new sub-row); `archive/2026-10-12-docs/claude-log.md`.
 
 #### T-314 — Wire VORP / Adj view counts into the fleet-health headline
 - **Title:** "Monitor: VORP view / Adj view counts are not in the headline fleet-health tally"

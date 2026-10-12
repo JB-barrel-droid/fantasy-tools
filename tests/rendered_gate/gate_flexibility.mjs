@@ -327,7 +327,7 @@ async function main() {
     expectChanged("bench-keyboard gesture", mouseFraction, keyFraction, report.mismatches);
     expectClose("bench-keyboard readout", afterKey.readoutBench, keyFraction * 100, 0.05, report.mismatches);
 
-    // Back to default via the published "Reset to 15%" button (the same path
+    // Back to default via the published reset ("Use computed") button (the same path
     // an away-and-back round-trip takes when the user re-enters the default).
     await page.evaluate(() => {
       const btn = document.querySelector("#weightsBenchSlot .bench-share-reset");
@@ -343,7 +343,9 @@ async function main() {
       readoutBench: afterBenchReturn.readoutBench,
       tableHash: hashAfterBenchReturn ? sha256(hashAfterBenchReturn) : null,
     });
-    expectClose("bench-return readout", afterBenchReturn.readoutBench, 15.0, 0.05, report.mismatches);
+    // es-value-001 (Jeremy, 2026-10-09; JEG-536): the reset returns to the
+    // bench share computed from the league settings, not a fixed 15%.
+    expectClose("bench-return readout", afterBenchReturn.readoutBench, baselineWeights.readoutBench, 0.05, report.mismatches);
     if (!baselineHash || !hashAfterBenchReturn || sha256(hashAfterBenchReturn) !== report.baseline.tableHash) {
       report.mismatches.push("bench-return: table hash does not match baseline");
     }
