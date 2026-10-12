@@ -467,10 +467,15 @@ def fetch_espn_intake(path, registry):
             if key in espn_med:
                 print(f"espn intake WARNING: duplicate key: {key} "
                       f"({r.get('player')})")
+            # JEG-535 (MR-20a): espn_projected_games = count of ROS weeks
+            # where ESPN projects any scoring stat. This is the per-game-
+            # played denominator, harmonizing ESPN with CBS/Razzball.
+            epg_raw = (r.get("espn_projected_games") or "").strip()
             espn_med[key] = {
                 "comps": comps,
                 "pos": pos,
                 "team": (r.get("team") or "").strip(),
+                "espn_projected_games": int(epg_raw) if epg_raw else None,
             }
     print(f"espn intake: {len(espn_med)} priced players "
           f"({n_rows} rows, {n_unpriced} unpriced excluded, "
@@ -929,6 +934,13 @@ def bake(args):
         # (team already variant-normalized by _resolve_team_abbr).
         gr = games_left.get(canonical_team(team))
         row["games_remaining"] = gr
+        # JEG-535 (MR-20a): espn_expected_games = the count of ROS weeks
+        # where ESPN projects any scoring stat for this player. This is
+        # the per-game-played denominator, harmonizing ESPN with CBS and
+        # Razzball (which publish per-game-played rates). games_remaining
+        # stays as team games for backward compatibility.
+        eg = espn_row.get("espn_projected_games")
+        row["espn_expected_games"] = eg
         # JEG-392: ESPN-zeroed rows publish no ESPN per-game projection and
         # no ESPN-relative deltas (ESPN has none to compare against), the
         # same contract the pre-JEG-ECR-EXIT fixture used for ESPN-unpriced
@@ -936,9 +948,12 @@ def bake(args):
         # therefore see exactly the ESPN-priced players, as before.
         has_espn = not espn_status
         if gr:
+            # JEG-535: espn_ppg and blend_ppg use espn_expected_games (per
+            # game played) when available, falling back to team games.
+            espn_denom = eg if eg else gr
             if has_espn:
-                row["blend_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
-                row["espn_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
+                row["blend_ppg"] = {s: round(v / espn_denom, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
+                row["espn_ppg"] = {s: round(v / espn_denom, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
             # Razzball: rz_ros = rz_ppg x the pipeline's OWN games_remaining.
             # Razzball's displayed Games/totals are doubled (Allen: 32 games)
             # and are NEVER used. The source-accounting audit below fails the
