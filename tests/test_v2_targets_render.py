@@ -673,6 +673,46 @@ def _popover_checks(page, width) -> list[str]:
             focused: document.activeElement === b, drawer: !document.getElementById('v2Drawer').hidden}; }""", selector)
         if after["open"] or after["expanded"] != "false" or not after["focused"] or after["drawer"]:
             errors.append(f"{selector}: after Esc {after}")
+    errors += _hover_checks(page)
+    return errors
+
+
+def _hover_checks(page) -> list[str]:
+    """JEG-501: a mouse hover opens the ⓘ after a short delay and the popover can be entered;
+    leaving both closes it; a click while hover-opened pins it. (Playwright mouse = hover-capable.)"""
+    errors = []
+    sel = ".v2-tcompare button[data-info]"
+    is_open = "() => !document.getElementById('v2Popover').hidden"
+    page.mouse.move(2, 2)
+    page.locator(sel).first.scroll_into_view_if_needed()
+    box = page.locator(sel).first.bounding_box()
+    cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    page.mouse.move(cx, cy)
+    if page.evaluate(is_open):
+        errors.append("hover: popover opened with no delay")
+    page.wait_for_timeout(450)
+    if not page.evaluate(is_open) or page.get_attribute(sel, "aria-expanded") != "true":
+        errors.append("hover: popover did not open after the delay")
+        return errors
+    pb = page.locator("#v2Popover").bounding_box()
+    page.mouse.move(pb["x"] + pb["width"] / 2, pb["y"] + pb["height"] / 2, steps=8)
+    page.wait_for_timeout(500)
+    if not page.evaluate(is_open):
+        errors.append("hover: popover closed while the pointer was inside it")
+    page.mouse.move(2, 2)
+    page.wait_for_timeout(600)
+    if page.evaluate(is_open) or page.get_attribute(sel, "aria-expanded") != "false":
+        errors.append("hover: popover stayed open after the pointer left")
+    page.mouse.move(cx, cy)
+    page.wait_for_timeout(450)
+    page.mouse.click(cx, cy)
+    page.mouse.move(2, 2)
+    page.wait_for_timeout(600)
+    if not page.evaluate(is_open):
+        errors.append("hover: a click on a hover-opened popover must pin it")
+    page.keyboard.press("Escape")
+    if page.evaluate(is_open):
+        errors.append("hover: Esc did not close a pinned popover")
     return errors
 
 
