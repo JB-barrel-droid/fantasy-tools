@@ -1712,8 +1712,8 @@ class ContractRenderTest(unittest.TestCase):
         broken_js = cut(broken_js, 'prior: "⚠ ", ')
         broken_js = cut(broken_js, '    renderUnpriced("v2Unpriced", state.search);\n')
         broken_js = cut(broken_js, '`⚠ ${behind} source', '`${behind} source')
-        broken_js = cut(broken_js, "const isLowConfidence = (row, key) => key === DDF_KEY &&",
-                        "const isLowConfidence = (row, key) => false &&")
+        broken_js = cut(broken_js, "const flagged = key === DDF_KEY ? Boolean(row && row.ddfLowConfidence) : Boolean(entry && entry.lowConfidence);",
+                        "const flagged = false;")
         broken_js = cut(broken_js, 'if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));',
                         'if (false) sub.append(weekBadge(key), document.createTextNode(" older week"));')
         broken_css = cut(css, ".v2-chart .series.is-ddf { stroke-width: 3.5; }", ".v2-chart .series.is-ddf { stroke-width: 2; }")

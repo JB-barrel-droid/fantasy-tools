@@ -17,7 +17,9 @@ Contract: GL-09 front end of JEG-497. Customize, the grouped picker (Rank by, Ri
 
 ### Verified (check named)
 - tests.test_v2_ddf_versions_render (new, both tests), tests.test_v2_ddf_render, tests.test_v2_targets, tests.test_v2_movers pass.
-- `make validate` (py3.12): see the PR for the exit status.
+- `make validate` (py3.12) exited 0 before the last main merge (JEG-560).
+- After the merge: tests.test_v2_compare_render, test_v2_risers_render, test_v2_contract_render (GL-09 partial runs), test_v2_ddf_render, test_v2_ddf_versions_render pass. Stale mutation anchors and the risers picker group map (versions belong to "DDF Value") were updated in those tests; no assertion was loosened.
+- Four render tests fail on origin/main without this change too (checked in a clean worktree of main): test_v2_targets_render (both tests: Sell/Buy toggle check, "equal case" mutation), test_v2_panels_render (chart controls, bench re-clamp note), test_v2_waterfall_render (layout at 1366x768). They are not from JEG-542; they look like fallout from the JEG-500 card chevrons. Left as is.
 
 ### Claimed, not confirmed
 - The 12-combo engine sweep was not run: no value, curve or ranking math changed (the only engine edit is the lock-key allowlist), and `fixedPieIndexed` is untouched.
