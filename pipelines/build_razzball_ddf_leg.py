@@ -84,7 +84,38 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def load_razzball_lists(snapshot_path: Path, scoring: str, fixture_path: Path):
+def baked_references(players_path: Path) -> dict[int, dict]:
+    """players.json rows by player_key: the ESPN and CBS ROS rates the bake held against.
+
+    players.json is baked from this snapshot (razzball_bake_mismatch gates the
+    chain). No players.json: no references, nothing held.
+    """
+    if not players_path.is_file():
+        return {}
+    return {p["player_key"]: p for p in
+            json.loads(players_path.read_text(encoding="utf-8")).get("players", [])
+            if isinstance(p.get("player_key"), int)}
+
+
+def hold_reason(row: dict, ref: dict | None) -> str | None:
+    """Why the bake holds this Razzball row (JEG-555), or None.
+
+    The bake's own rule (bake_players.razzball_outlier_reason) on the row's
+    three per-game rates against the ESPN and CBS ROS rates baked on the
+    player's row, so the main table (this leg -> the chain's Razzball section)
+    and the chart (players.json rz_ppg) drop the same players (JEG-611).
+    """
+    if ref is None:
+        return None
+    z = {s: row.get(col) for s, col in SCORING_PG.items()}
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in z.values()):
+        return None
+    import bake_players  # lazy: only the rule is needed
+    return bake_players.razzball_outlier_reason(z, ref.get("espn_ppg"), ref.get("cbsros_ppg"))
+
+
+def load_razzball_lists(snapshot_path: Path, scoring: str, fixture_path: Path,
+                        players_path: Path | None = None):
     """Return (resolved, review_rows, aliases_used, meta).
 
     resolved: {pos: [{player_key, player_norm, player, pos, team, x: per-game}]}.
@@ -102,6 +133,10 @@ def load_razzball_lists(snapshot_path: Path, scoring: str, fixture_path: Path):
         raise SystemExit("Fail closed: Razzball snapshot has no vintage_date.")
     pg_key = SCORING_PG[scoring]
     ident = FixtureIdentity.from_fixture(fixture_path)
+    # JEG-611: the bake's missed-games hold (JEG-555) applies here too, so the
+    # main table does not carry the discounted rates the chart no longer uses.
+    refs = baked_references(
+        players_path if players_path is not None else fixture_path.parent / "players.json")
 
     resolved: dict[str, list[dict[str, Any]]] = {pos: [] for pos in POSITIONS}
     review: list[dict[str, Any]] = []
@@ -123,6 +158,12 @@ def load_razzball_lists(snapshot_path: Path, scoring: str, fixture_path: Path):
         key, how, alias = ident.resolve(norm, pos)
         if key is None:
             review.append(identity_review_row(how, name, norm, pos))
+            continue
+        held = hold_reason(row, refs.get(key))
+        if held:
+            # Held, not zeroed or filled; listed so the exclusion is visible.
+            review.append({"reason": "rz_held", "player": name, "pos": pos,
+                           "player_key": key, "detail": held})
             continue
         if alias:
             aliases_used.append({"razzball_norm": norm, "canonical_id": alias,

@@ -688,6 +688,16 @@ def scenario_values(s: Session) -> dict:
         page.close()
 
 
+# Every card on screen on a data tab, and the controls modules.js gave it (GL-17, GL-18).
+MODULES_JS = """() => [...document.querySelectorAll('main:not([hidden]) section.v2-card')]
+  .filter(c => c.offsetParent !== null && !c.classList.contains('v2-state') && !c.classList.contains('v2-skel'))
+  .map(c => { const h = c.querySelector('h2'); const chev = c.querySelector(':scope > .v2-mod-ctl .v2-mod-chevron');
+    const exp = c.querySelector(':scope > .v2-mod-ctl .v2-mod-expand');
+    return {title: h ? h.textContent.trim() : c.className, chevron: Boolean(chev),
+      aria: chev ? chev.getAttribute('aria-expanded') : null, expand: Boolean(exp),
+      h: chev ? chev.getBoundingClientRect().height : 0}; })"""
+
+
 def scenario_tabs(s: Session) -> dict:
     page = s.open("")
     try:
@@ -709,6 +719,11 @@ def scenario_tabs(s: Session) -> dict:
         page.wait_for_timeout(400)
         out["manifesto"] = page.evaluate(MANIFESTO_JS)
         out["gl20"] = page.evaluate(GL20_JS)
+        out["modules"] = {}
+        for tab in ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade"):
+            page.evaluate("h => { location.hash = h; }", tab)
+            page.wait_for_timeout(500)
+            out["modules"][tab] = page.evaluate(MODULES_JS)
         out["errors"] = page.errors
         return out
     finally:
@@ -1255,14 +1270,31 @@ def pv17(S):
     return errors
 
 
-def gl17_values(S):
-    # GL-17 is live for Player values (JEG-483); the other pages are JEG-500.
+def gl17(S):
+    # Player values' chart and table open full screen (JEG-483); every other card spans its row (JEG-500).
     v = S["values"]
     errors = []
     if not (v["expandChart"]["shown"] and v["expandChart"]["svg"]):
         errors.append("Player values: the chart does not expand")
     if not (v["expandTable"]["shown"] and v["expandTable"]["table"]):
         errors.append("Player values: the table does not expand")
+    for tab, cards in S["tabs"]["modules"].items():
+        if not cards:
+            errors.append(f"{tab}: no cards found")
+        errors += [f"{tab}: {c['title']!r} has no expand control" for c in cards if not c["expand"]]
+    return errors
+
+
+def gl18(S):
+    # Every card has a 44 px chevron that announces its state; the collapsed summary and the
+    # remembered state are in tests/test_v2_modules_render.py.
+    errors = []
+    for tab, cards in S["tabs"]["modules"].items():
+        for c in cards:
+            if not c["chevron"]:
+                errors.append(f"{tab}: {c['title']!r} has no collapse chevron")
+            elif c["aria"] not in ("true", "false") or c["h"] < 44:
+                errors.append(f"{tab}: {c['title']!r} chevron aria-expanded {c['aria']!r}, {c['h']:.0f} px tall")
     return errors
 
 
@@ -1510,7 +1542,7 @@ CHECKS = {
     "GL-01": gl01, "GL-02": gl02, "GL-03": gl03, "GL-04": gl04, "GL-05": gl05, "GL-06": gl06,
     "GL-07": PENDING("JEG-498"), "GL-08": gl08, "GL-09": PENDING("JEG-497"), "GL-10": gl10,
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
-    "GL-17": PENDING("JEG-500", partial=gl17_values), "GL-18": PENDING("JEG-500"),
+    "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
     "GL-22": PENDING("JEG-498"), "GL-23": PENDING("JEG-537"), "GL-24": PENDING("JEG-537"),
     "MF-01": mf01,

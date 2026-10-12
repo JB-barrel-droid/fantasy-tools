@@ -35,7 +35,6 @@ ROOT = Path(__file__).resolve().parent.parent
 HARNESS = ROOT / "tests" / "source_freshness_harness.js"
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 INDEX = ROOT / "app" / "trade-value-chart" / "index.html"
-INPUTS = ROOT / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
 
 sys.path.insert(0, str(ROOT / "pipelines"))
 from nfl_week import current_nfl_week  # noqa: E402
@@ -72,9 +71,11 @@ def fixture_sources():
 
 def all_week(sources, week):
     out = copy.deepcopy(sources)
+    # An *_adjusted series has no section since JEG-539; it is dated by its chart's.
     for key in WEEKLY_CHART_KEYS:
-        out[key]["week_designated"] = f"Week {week}"
-        out[key]["content_vintage"] = f"Week {week}"
+        if key in out:
+            out[key]["week_designated"] = f"Week {week}"
+            out[key]["content_vintage"] = f"Week {week}"
     return out
 
 
@@ -87,9 +88,8 @@ def mixed_sources():
     week-5 refresh, so the EXCLUDE_ROS_TOO mutation excluded nothing and its
     negative test went red without the guard having changed."""
     out = all_week(fixture_sources(), 4)
-    for key in ("fantasycalc", "fantasycalc_adjusted"):
-        out[key]["week_designated"] = "Week 5"
-        out[key]["content_vintage"] = "Week 5"
+    out["fantasycalc"]["week_designated"] = "Week 5"
+    out["fantasycalc"]["content_vintage"] = "Week 5"
     for key in ROS_KEYS:
         if key in out:
             # Dated by pull date (a Week 4 day), as rest-of-season legs are:
@@ -178,7 +178,7 @@ class FreshnessFlagTest(unittest.TestCase):
 def default_violations(mutations=()):
     # JEG-508 (OC-7): the defaults are the four published charts.
     excluded = ["usatoday", "fantasypros", "cbs"]
-    res = run({"cmd": "defaults", "inputsPath": str(INPUTS), "excluded": excluded,
+    res = run({"cmd": "defaults", "excluded": excluded,
                "active": ["fantasycalc"], "deselected": [],
                "mutations": list(mutations)})
     problems = []

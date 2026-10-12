@@ -57,7 +57,7 @@ def last_good_build(fixture: dict) -> dict:
     week of publisher drift (so they are NOT on this build's anchor)."""
     good = copy.deepcopy(fixture)
     good["built_at"] = LAST_GOOD_BUILT_AT
-    for sec in (CHART, f"{CHART}_adjusted"):
+    for sec in (CHART,):  # the *_adjusted sections are retired (JEG-539)
         for combo in good["sources"][sec]["combos"].values():
             for field in ("native", "reindexed", "values"):
                 if isinstance(combo.get(field), dict):

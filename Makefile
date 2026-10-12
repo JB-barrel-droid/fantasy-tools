@@ -176,8 +176,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_import_health
 	python3 -m unittest tests.test_verify_import_health
 	python3 -m unittest tests.test_promote_section
-	python3 -m unittest tests.test_adjusted_fixture_sections
-	python3 -m unittest tests.test_adjustment_inputs
 	python3 -m unittest tests.test_checkpoint_expected_week
 	python3 -m unittest tests.test_checkpoint_pages_deploy
 	python3 -m unittest tests.test_c10_committed_fixture_baseline
@@ -224,6 +222,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_load_value_check
 	python3 -m unittest tests.test_spec_reference
 	python3 -m unittest tests.test_spec_reference_value_pipeline
+	python3 -m unittest tests.test_derive_lineup_parameters
+	python3 -m unittest tests.test_expected_starts_model
+	python3 -m unittest tests.test_score_lineup_values
 	python3 -m unittest tests.test_consolidated_current
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
@@ -443,6 +444,7 @@ test-core:
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_ppg_tie_parity
 	python3 -m unittest tests.test_kdst_removed
+	python3 -m unittest tests.test_market_bench
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_curve_default_guard
@@ -453,6 +455,7 @@ test-core:
 	python3 -m unittest tests.test_player_aliases
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_player_alias_table
+	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
 	python3 -m unittest tests.test_chain_commits_legs
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
@@ -465,6 +468,7 @@ test-core:
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets
 	python3 -m unittest tests.test_v2_compare
+	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
@@ -480,6 +484,7 @@ test-core:
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
+	python3 -m unittest tests.test_bench_share_readout_matches_reference
 	python3 -m unittest tests.test_position_weights_setter
 	python3 -m unittest tests.test_ddf_composite_value
 	python3 -m unittest tests.test_view_switch_hidden_defaults
@@ -491,6 +496,8 @@ test-core:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_value_reference_worked_example
+	python3 -m unittest tests.test_roster_convention
+	python3 -m unittest tests.test_roster_convention_parity
 
 test-all: naming naming-convention test-unit
 

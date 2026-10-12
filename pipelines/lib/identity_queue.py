@@ -32,7 +32,7 @@ from typing import Any, Callable
 _LIB = os.path.dirname(os.path.abspath(__file__))
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
-from canonical_players import norm_player_name  # noqa: E402 -- the single normalization rule
+from canonical_players import SILENT_REASONS, norm_player_name  # noqa: E402 -- the single normalization rule
 
 TABLE = "player_name_aliases"
 OPEN_STATUSES = ("unmatched", "review", "provisional")
@@ -57,6 +57,8 @@ def identity_misses(review: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         name = str(r.get("player_name") or r.get("player") or r.get("name") or "").strip()
         reason = str(r.get("reason") or "")
+        if reason in SILENT_REASONS:
+            continue  # inactive players are never flagged (JEG-539)
         if not name or not (reason in IDENTITY_REASONS or IDENTITY_DETAIL in str(r.get("detail") or "")):
             continue
         norm = norm_player_name(name)

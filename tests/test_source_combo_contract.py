@@ -1,13 +1,29 @@
 """Exact source configuration identity shared by table and curves (JEG-65)."""
 import json
+import re
 import subprocess
 import unittest
 from pathlib import Path
 
-from tests.test_two_tier_frontend import extract_function
-
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / 'app' / 'trade-value-chart' / 'assets'
+
+
+def extract_function(text, name):
+    """Top-level `function name(...) {...}` by brace matching. Inlined when
+    JEG-508 (#491) deleted tests/test_two_tier_frontend.py, which held it."""
+    m = re.search(r"function %s\(.*?\) \{" % re.escape(name), text)
+    if not m:
+        raise ValueError("function %s not found" % name)
+    depth = 0
+    for i in range(m.start(), len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[m.start():i + 1]
+    raise ValueError("function %s not closed" % name)
 
 
 class SourceComboContractTests(unittest.TestCase):
@@ -39,7 +55,9 @@ const window = {{}};
 // tests/test_product_data_wiring.py).
 window.TradeValueProductData = {{
   getPlayerValues: (q) => {{
-    const sourceKey = q.source === 'cbs_adjusted' ? 'cbs' : q.source;
+    // An *_adjusted series has no section of its own (JEG-508 / JEG-539 retired
+    // them); product-data.js rawSourceKey reads the raw chart's section.
+    const sourceKey = q.source.replace(/_adjusted$/, '');
     const key = ValueModel.sourceComboKey(sourceKey, q.scoring, q.teams, 1);
     const combo = key && data.sources[sourceKey] && data.sources[sourceKey].combos[key];
     return combo ? {{values: new Map()}} : null;
@@ -91,7 +109,7 @@ for (const source of ['usatoday','fantasypros','cbs','usatoday_adjusted','fantas
   assert.equal(sourceComboExists(source), true);
 }
 for (const source of ['usatoday','fantasypros','cbs','usatoday_adjusted','fantasypros_adjusted']) {
-  delete data.sources[source].combos.full_12;
+  delete data.sources[source.replace(/_adjusted$/, '')].combos.full_12;
 }
 for (const n of [10, 12]) {
   state.teams = n;
@@ -113,8 +131,8 @@ for (const n of [8,10,12,14]) {
       assert.notEqual(one, two);
       // Only the 12-team 1-QB setup is saved (league-settings-001); the lookup
       // must never borrow it for another size or the 2-QB grain.
-      assert.equal(Boolean(data.sources[source].combos[one]), n === 12);
-      assert.equal(data.sources[source].combos[two], undefined);
+      assert.equal(Boolean(data.sources[source.replace(/_adjusted$/, '')].combos[one]), n === 12);
+      assert.equal(data.sources[source.replace(/_adjusted$/, '')].combos[two], undefined);
       assert.equal(ValueModel.sourceComboKey(source, score, n, 3), null);
       const onlyTwo = {[two]: {native:{test:10}}};
       assert.equal(onlyTwo[one], undefined);

@@ -318,35 +318,23 @@ class TestCheckerModule(unittest.TestCase):
 class TestStateA_MissingLineageBlock(unittest.TestCase):
     """State A: a derived section has NO `lineage` block."""
 
-    def test_adjusted_section_without_lineage_is_named_mismatch(self):
+    def test_retired_adjusted_sections_are_not_examined(self):
+        """JEG-539: the *_adjusted sections are retired, so a leftover one with no
+        lineage block is not a mismatch (the old checker named it)."""
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             fx_path, _ = _write_fixture_with_raw_and_adjusted(tmp)
-            # Strip the lineage off `fantasycalc_adjusted` (and leave the
-            # other three alone, so we can assert WHICH sections are named).
             fx = json.loads(fx_path.read_text(encoding="utf-8"))
             fx["sources"]["fantasycalc_adjusted"].pop("lineage", None)
             fx_path.write_text(json.dumps(fx))
-
             out_path = tmp / "out.json"
             rc, _, _, artifact = _run_checker(
                 fx_path, output_path=out_path,
                 leg_dir=tmp / "no-legs", candidates_dir=tmp / "no-candidates",
                 repo_root=tmp,
             )
-            self.assertNotEqual(rc, 0,
-                                "missing lineage block must be a mismatch (exit 1)")
-            names = {m["section"] for m in artifact["mismatches"]}
-            self.assertIn("fantasycalc_adjusted", names,
-                          "missing-lineage section must be named in mismatches")
-            # The other three adjusted sections still carry lineage -> not in mismatch.
-            self.assertNotIn("usatoday_adjusted", names)
-            self.assertNotIn("fantasypros_adjusted", names)
-            self.assertNotIn("cbs_adjusted", names)
-            # The named mismatch cites the reason.
-            m = next(m for m in artifact["mismatches"]
-                     if m["section"] == "fantasycalc_adjusted")
-            self.assertEqual(m["reason"], "missing_lineage_block")
+            self.assertEqual(rc, 0, artifact["mismatches"])
+            self.assertEqual([], [m for m in artifact["mismatches"] if m["section"].endswith("_adjusted")])
 
     def test_cbsros_section_without_lineage_is_named_mismatch(self):
         with tempfile.TemporaryDirectory() as td:
@@ -375,45 +363,6 @@ class TestStateA_MissingLineageBlock(unittest.TestCase):
             names = {m["section"] for m in artifact["mismatches"]}
             self.assertIn("cbsros", names,
                           "cbsros missing lineage must be named in mismatches")
-
-
-class TestStateB_AdjustedVintageMismatch(unittest.TestCase):
-    """State B: adjusted section claims raw_vintage Week 3, current raw is Week 4."""
-
-    def test_adjusted_vintage_mismatch_is_named(self):
-        with tempfile.TemporaryDirectory() as td:
-            tmp = Path(td)
-            # Raws are Week 4 (content_vintage=Week 4). Adjusted section's
-            # lineage claims raw_vintage=Week 3 -> mismatch.
-            stale_lineage = {
-                "raw_vintage": "Week 3",  # stale
-                "raw_content_sha256": "f" * 64,
-                "raw_built_at": "2026-09-30T00:00:00Z",
-                "vintage_source": "content_vintage",
-            }
-            fx_path, _ = _write_fixture_with_raw_and_adjusted(
-                tmp, raw_content_vintage="Week 4",
-                raw_built_at="2026-10-02T00:00:00Z",
-                adj_lineage=stale_lineage,
-            )
-            out_path = tmp / "out.json"
-            rc, _, _, artifact = _run_checker(
-                fx_path, output_path=out_path,
-                leg_dir=tmp / "no-legs", candidates_dir=tmp / "no-candidates",
-                repo_root=tmp,
-            )
-            self.assertNotEqual(rc, 0, "stale raw_vintage must fail closed")
-            names = {m["section"] for m in artifact["mismatches"]}
-            self.assertTrue(
-                any(n.endswith("_adjusted") for n in names),
-                f"at least one _adjusted section must be named; got {names}",
-            )
-            # At least one of the four must name the raw_vintage mismatch.
-            reasons = {(m["section"], m["reason"]) for m in artifact["mismatches"]}
-            vintage_mismatches = [s for (s, r) in reasons
-                                  if r == "lineage_raw_vintage_mismatch"]
-            self.assertEqual(len(vintage_mismatches), 4,
-                             f"all four adjusted sections must flag; got {vintage_mismatches}")
 
 
 class TestStateC_CbsrosRealWorldCase(unittest.TestCase):
@@ -469,54 +418,38 @@ class TestStateC_CbsrosRealWorldCase(unittest.TestCase):
 class TestStateD_ShaMismatch(unittest.TestCase):
     """State D: lineage.raw_content_sha256 does not match the recomputed sha."""
 
-    def test_adjusted_sha_mismatch_is_named(self):
+    def test_cbsros_sha_mismatch_is_named(self):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
-            # Write a fixture where _adjusted sections carry the correct
-            # raw_vintage / vintage_source but a deliberately wrong sha.
-            players, fkeys, _, slug_to_pos = _make_players(n_per_pos=4)
-            raw_section = _make_raw_fixture_section(
-                fkeys=fkeys, slug_to_pos=slug_to_pos,
-                base_value=50.0, vintage="Week 3",
-                built_at="2026-09-30T00:00:00Z",
+            fx_path, _ = _write_fixture_with_raw_and_adjusted(tmp)
+            leg_root = tmp / "legs"
+            leg_path = _write_ddf_leg(
+                leg_root / "ddf-20261002-cbsros-ppr-12t-0p15",
+                bake_id="ddf-20261002-cbsros-ppr-12t-0p15",
+                snapshot_date="2026-10-02",
                 content_vintage="Week 4",
             )
-            # Build a known-correct lineage, then sabotage the sha only.
-            triples = collect_fixture_section_triples(raw_section)
-            good_sha = compute_raw_sha(triples)
-            stale_lineage = {
-                "raw_vintage": "Week 4",
-                "raw_content_sha256": good_sha,  # start correct
-                "raw_built_at": raw_section["built_at"],
-                "vintage_source": "content_vintage",
-            }
-            fx_path, _ = _write_fixture_with_raw_and_adjusted(
-                tmp, raw_content_vintage="Week 4",
-                raw_built_at=raw_section["built_at"],
-                adj_lineage=stale_lineage,
-            )
-            # Sabotage: overwrite every _adjusted section's sha to a wrong value.
             fx = json.loads(fx_path.read_text(encoding="utf-8"))
-            for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
-                key = f"{src}_adjusted"
-                fx["sources"][key]["lineage"]["raw_content_sha256"] = "0" * 64
+            leg_doc = json.loads(leg_path.read_text(encoding="utf-8"))
+            fx["sources"]["cbsros"] = {
+                "name": "CBS ROS", "kind": "model projections",
+                "combos": {"full_12": {"values": {}, "native": {}, "n": 0}},
+                "lineage": {
+                    "raw_vintage": "Week 4",
+                    "raw_content_sha256": "0" * 64,  # wrong
+                    "raw_built_at": leg_doc["generated_at"],
+                    "vintage_source": "content_vintage",
+                },
+            }
             fx_path.write_text(json.dumps(fx))
-
-            out_path = tmp / "out.json"
             rc, _, _, artifact = _run_checker(
-                fx_path, output_path=out_path,
-                leg_dir=tmp / "no-legs", candidates_dir=tmp / "no-candidates",
+                fx_path, output_path=tmp / "out.json",
+                leg_dir=leg_root, candidates_dir=tmp / "no-candidates",
                 repo_root=tmp,
             )
             self.assertNotEqual(rc, 0, "wrong sha must fail closed")
-            sha_mismatches = [m for m in artifact["mismatches"]
-                              if m["reason"] == "lineage_raw_content_sha256_mismatch"]
-            self.assertEqual(len(sha_mismatches), 4,
-                             f"all four adjusted sections must flag wrong sha; "
-                             f"got {sha_mismatches}")
-            # The claimed sha is the sabotaged one.
-            for m in sha_mismatches:
-                self.assertEqual(m["claimed"], "0" * 64)
+            reasons = {m["reason"] for m in artifact["mismatches"] if m["section"] == "cbsros"}
+            self.assertIn("lineage_raw_content_sha256_mismatch", reasons)
 
 
 class TestInvariants(unittest.TestCase):
@@ -527,13 +460,18 @@ class TestInvariants(unittest.TestCase):
             tmp = Path(td)
             fx_path, _ = _write_fixture_with_raw_and_adjusted(tmp)
             fx = json.loads(fx_path.read_text(encoding="utf-8"))
-            fx["sources"]["fantasycalc_adjusted"].pop("lineage", None)
+            fx["sources"]["cbsros"] = {"name": "CBS ROS", "kind": "model projections",
+                                       "combos": {}, "lineage": None}
             fx_path.write_text(json.dumps(fx))
+            leg_root = tmp / "legs"
+            _write_ddf_leg(leg_root / "ddf-20261002-cbsros-ppr-12t-0p15",
+                           bake_id="ddf-20261002-cbsros-ppr-12t-0p15",
+                           snapshot_date="2026-10-02", content_vintage="Week 4")
 
             out_path = tmp / "out.json"
             rc, _, _, artifact = _run_checker(
                 fx_path, output_path=out_path,
-                leg_dir=tmp / "no-legs", candidates_dir=tmp / "no-candidates",
+                leg_dir=leg_root, candidates_dir=tmp / "no-candidates",
                 repo_root=tmp,
             )
             self.assertNotEqual(rc, 0)

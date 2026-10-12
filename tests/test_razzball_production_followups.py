@@ -42,7 +42,7 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 # Pre-fix code, kept verbatim so the tests prove they discriminate.
 OLD_GUARD_EXPR = "SOURCE_KEYS.length === 9 && SOURCE_KEYS.every(key => sourceMaps.has(key))"
 OLD_BADGE_FN = """function columnBadge(key) {
-    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
+    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "rescaled");
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }"""
 
@@ -145,7 +145,7 @@ class ColumnBadgeTest(unittest.TestCase):
 
     def test_other_badges_unchanged(self):
         fn = _extract_fn(DASH_JS.read_text(encoding="utf-8"), "columnBadge")
-        self.assertEqual(self._run_badge(fn, "usatoday"), "as published · reindexed")
+        self.assertEqual(self._run_badge(fn, "usatoday"), "rescaled")
         self.assertEqual(self._run_badge(fn, "espn_vorp"), "raw VORP vs waivers")
         self.assertEqual(self._run_badge(fn, "cbsros_vorp"), "raw VORP vs waivers")
         self.assertEqual(self._run_badge(fn, "razzball_vorp"), "raw VORP vs waivers")
@@ -153,7 +153,7 @@ class ColumnBadgeTest(unittest.TestCase):
 
     def test_old_badge_mislabels_razzball(self):
         self.assertEqual(self._run_badge(OLD_BADGE_FN, "razzball"),
-                         "as published · reindexed",
+                         "rescaled",
                          "old badge unexpectedly honest -- test would not discriminate")
 
 
@@ -183,8 +183,8 @@ class HealthPanelTest(unittest.TestCase):
         """The panel throws unless every ordered source validates live."""
         order, _ = self._order_and_labels()
         validation = json.loads(FIXTURE.read_text(encoding="utf-8"))["source_validation"]
-        live = [k for k in order
-                if (validation.get("cbs") if k == "cbs_adjusted" else validation.get(k)) == "live"]
+        # An *_adjusted series is validated with its chart (the sections are retired, JEG-539).
+        live = [k for k in order if validation.get(k.removesuffix("_adjusted")) == "live"]
         self.assertEqual(len(live), len(order),
                          f"panel would throw 'required sources did not pass validation': {order}")
 

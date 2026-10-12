@@ -120,7 +120,7 @@ def check_others_publish_despite_hold(status, after, held="fantasycalc"):
     for s in GATED:
         if s != held:
             assert after["sources"][s]["week_designated"] == "Week 5", s
-    assert status["fit"]["status"] == "ok" and status["adjusted_sections"]["status"] == "ok"
+    assert status["reindex_fixture"]["status"] == "ok"
 
 
 def check_held_section_kept_exactly(before, after, source="fantasycalc"):
@@ -135,7 +135,7 @@ def check_held_candidate_never_promoted(fake):
 def check_fails_closed(status):
     assert status["success"] is False
     assert status["outcome"] == "failed"
-    assert status["fit"]["status"] == "skipped"
+    assert status["reindex_fixture"]["status"] == "skipped"
 
 
 class PerSourceHoldTest(unittest.TestCase):

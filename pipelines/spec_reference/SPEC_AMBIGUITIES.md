@@ -115,6 +115,26 @@ Status 2026-10-09 (after the lead's "Spec rulings" in PR #484): SA-1, SA-2, SA-3
   literally: as saved. The text should say whether the prior week should
   rebuild ineligible players at 0 too.
 
+## Expected starts (JEG-536, 2026-10-09)
+
+The ES-5 parts were added from docs/methodology.md ES-3 to ES-5, ES-10,
+ES-12 and ES-14; the details those leave open are settled in ES-15 and
+followed here as written:
+
+- **SA-ES-1** Source weights without the override: each group's share of the
+  source's parts; DDF weights = their mean per group (VP-4.1's sources),
+  renormalized (ES-15.1).
+- **SA-ES-2** `n_p` rounds half to even (ES-15.2).
+- **SA-ES-3** Chart sigma from the included charts' listed natives on a common
+  scale, times the projection confidence, no drift, no floor (ES-15.3).
+- **SA-ES-4** VORP vs waivers factor = pie / sum of `v` (ES-15.4).
+- **SA-ES-5** Readout: bench tier on the projected-points order, blended DDF
+  Value over `I` (ES-15.5).
+- **SA-ES-6** `lineup_share` / `start_worthy` averaged over the sources in `I`
+  with the player on their work list (ES-15.6).
+- `resolve_lineup` re-implements ES-12 / ES-14 from the text; a test holds
+  it to `derive_lineup_parameters.resolve()`.
+
 ## Observations on live data (not ambiguities, for the lead)
 
 - PPR 12 (live snapshot, 2026-10-09): every included source totals the pie

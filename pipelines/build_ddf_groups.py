@@ -96,7 +96,7 @@ def _empty_groups() -> dict[tuple[str, str], dict[str, Any]]:
 
 def find_latest_leg(leg_dir: Path = DEFAULT_LEG_DIR) -> Path:
     """Select the freshest */ddf_leg.json, by content vintage then generated_at
-    then path. Same selection logic build_adjustment_inputs uses, so the
+    then path. Same selection logic build_adjustment_inputs used (retired, JEG-539), so the
     groups artifact tracks the leg the rest of the bake consumes.
     Raises SystemExit (fail-closed) when no leg exists.
     """

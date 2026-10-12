@@ -31,11 +31,10 @@ import unittest
 
 REPO = Path(__file__).resolve().parent.parent
 HARNESS = Path(__file__).resolve().parent / "curve_guard_harness.js"
-INPUTS = REPO / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
 
 
 def run_case(active, deselected):
-    payload = {"inputsPath": str(INPUTS), "active": active, "deselected": deselected}
+    payload = {"active": active, "deselected": deselected}
     proc = subprocess.run(
         ["node", str(HARNESS)],
         input=json.dumps(payload).encode(),

@@ -96,9 +96,14 @@ class SuffixVariantsResolve(unittest.TestCase):
         entries = [(norm, pos, 10.0) for (norm, pos) in CBSROS_SUFFIX_KEYS]
         with tempfile.TemporaryDirectory() as d:
             snap = write_snapshot(Path(d), entries)
-            for loader in (cbsros_leg.load_cbsros_lists, razzball_leg.load_razzball_lists):
+            # This is an identity test on a flat 10 ppg. Razzball's JEG-611 hold
+            # would (rightly) hold Walker at 10 against his real 20+ ppg
+            # ESPN/CBS references, so the Razzball loader reads no references.
+            no_refs = Path(d) / "players.json"
+            for loader in (cbsros_leg.load_cbsros_lists,
+                           lambda *a: razzball_leg.load_razzball_lists(*a, players_path=no_refs)):
                 resolved, review, _, _ = loader(snap, "ppr", FIXTURE)
-                with self.subTest(loader=loader.__module__):
+                with self.subTest(loader=getattr(loader, "__module__", "")):
                     self.assertEqual([r for r in review if "identity" in r["reason"]], [])
                     got = {(d["source_norm"], d["pos"]): d["player_key"]
                            for rows in resolved.values() for d in rows}

@@ -117,7 +117,8 @@ class TestBuilderEmitsRows(unittest.TestCase):
         self.assertIn(
             "data/fixtures/current/players.naming-manifest.json", names
         )
-        self.assertIn(
+        # Retired 2026-10-12 (JEG-539): the fit's adjustment-inputs.json is gone.
+        self.assertNotIn(
             "app/trade-value-chart/assets/adjustment-inputs.json", names
         )
         # Retired 2026-10-08 (chore/retire-extras): player-news.json has no

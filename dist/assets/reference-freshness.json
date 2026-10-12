@@ -1,7 +1,7 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "267eacd54d406e71ed5e569e9d3f679c0adba8ea212bdfe48f71e999eb9b5299",
-    "players.json": "615a5e2b330b2d41bd31dc740d98ff7d3b5997d2b5f4331a76277f730af3ed6e",
+    "comparison-sources-data.json": "1021b85ab1b3f9acd07b4beb99e11919797a581dc831d8587a203eb201141ce6",
+    "players.json": "5a2b6935de442caa61678d8514bc0c318079d1bdc83fa09422f1ba0d5d806d9e",
     "source-import-health.json": "b09b3c94d2a4e4d35ce2ebaa94c86fc4da92c56d395b1b55009444b7f96b4c25"
   },
   "chart_inputs": [
@@ -21,7 +21,7 @@
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-12T15:44:24-05:00",
+  "generated_at": "2026-10-12T16:47:23-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -61,7 +61,7 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "same_day",
-      "value": "2026-10-12T20:01:41.673910+00:00"
+      "value": "2026-10-12T21:22:22.672370+00:00"
     },
     {
       "age_days": 0,
@@ -74,7 +74,7 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "same_day",
-      "value": "2026-10-12T20:01:22Z"
+      "value": "2026-10-12T21:21:59Z"
     },
     {
       "age_days": 0,
@@ -87,7 +87,7 @@
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T20:01:22Z; content_vintage is Week 5 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T21:21:59Z; content_vintage is Week 5 source provenance, not pull time",
       "status": "same_day",
       "value": "Week 5"
     },
@@ -102,7 +102,7 @@
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T20:01:22Z; content_vintage is 2026-10-12 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T21:21:59Z; content_vintage is 2026-10-12 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-12"
     },
@@ -117,7 +117,7 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T20:01:22Z; content_vintage is 2026-10-12 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T21:21:59Z; content_vintage is 2026-10-12 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-12"
     },
@@ -132,7 +132,7 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T20:01:22Z; content_vintage is Week 5 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T21:21:59Z; content_vintage is Week 5 source provenance, not pull time",
       "status": "same_day",
       "value": "Week 5"
     },
@@ -147,7 +147,7 @@
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T20:01:22Z; content_vintage is 2026-10-06 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T21:21:59Z; content_vintage is 2026-10-06 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-06"
     },
@@ -162,7 +162,7 @@
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T20:01:22Z; content_vintage is 2026-10-11 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T21:21:59Z; content_vintage is 2026-10-11 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-11"
     },
@@ -177,7 +177,7 @@
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T20:01:22Z; content_vintage is 2026-10-06 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T21:21:59Z; content_vintage is 2026-10-06 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-06"
     },
@@ -375,18 +375,14 @@
   },
   "source_validation": {
     "cbs": "live",
-    "cbs_adjusted": "live",
     "cbsros": "live",
     "ecr": "stale",
     "espn": "live",
     "fantasycalc": "live",
-    "fantasycalc_adjusted": "live",
     "fantasypros": "live",
-    "fantasypros_adjusted": "live",
     "prediction_markets": "live",
     "razzball": "live",
-    "usatoday": "live",
-    "usatoday_adjusted": "live"
+    "usatoday": "live"
   },
   "summary": {
     "all_known_dates_same_day": false,
@@ -395,7 +391,7 @@
     "chart_input_keys": [
       "players.as_of"
     ],
-    "comparison_built_at": "2026-10-12T20:01:41.673910+00:00",
+    "comparison_built_at": "2026-10-12T21:22:22.672370+00:00",
     "comparison_oldest_published_week": 5,
     "comparison_sources_behind": [],
     "comparison_sources_pending_promotion": [],

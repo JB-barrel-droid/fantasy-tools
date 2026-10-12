@@ -142,7 +142,7 @@ the constraint — **debuggability is**.
   full month of cross-job history).
 - **90 days**: ~3× the storage, but covers a quarter. Useful if an
   incident post-mortem surfaces 60+ days later; the workspace
-  post-mortems in `docs/claude-log.md` regularly reference jobs
+  post-mortems in `archive/2026-10-12-docs/claude-log.md` regularly reference jobs
   weeks old.
 
 **Recommendation: keep 30 days.** The draft is right; do not change

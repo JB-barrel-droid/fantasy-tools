@@ -379,6 +379,7 @@ class TestRealFixtureReview(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         cand = {"schema": "trade-value-source-reference-v1",
                 "source_key": "usatoday", "asof": "2026-09-19",
+                "value_provenance": "published",
                 "reindex_status": "pending", "combos": {}}
         for combo_name, combo in c["sources"]["usatoday"]["combos"].items():
             cand["combos"][combo_name] = {

@@ -24,9 +24,7 @@ For each source this checks, end to end:
                            (value-check.json), when one is published.
   5. scrape_validity       Signals the scrape may have missed: sudden player
                            count drops per position (vs the prior week's
-                           history) and per position x tier (vs the prior
-                           week's pulse), thin or identity-fallback adjustment
-                           cells, JEG-482 published-rank inversions.
+                           history) and JEG-482 published-rank inversions.
 
 Sources: the trade charts (USA Today, FantasyCalc, FantasyPros, CBS) are read
 here; the projection sources (ESPN, CBS rest of season, Razzball) through
@@ -142,8 +140,6 @@ BLOCK_MIN = 3              # ... and at least this many players
 DROP_AMBER = 0.95          # a position's player count below this share of the prior week is amber (alert only)
 DROP_RED = 0.90            # ... below this share (a drop of more than 10%), red and held, when the publisher's
                            # own list did not drop with it (Jeremy 2026-10-09, JEG-520: hold only on big drops)
-THIN_CELL = 5              # an adjustment cell fitted on fewer players is thin (amber)
-TIER_DROP = 0.60           # a tier's count below this share of the prior week's pulse is amber
 SCORINGS = ("std", "half", "full")
 STAGES = ("publisher_vs_stored", "stored_vs_chart", "freshness", "reference_vs_engine", "scrape_validity")
 RANK = {"green": 0, "n/a": 0, "amber": 1, "unknown": 1, "red": 2}
@@ -199,9 +195,9 @@ RULES = {
                        f"player count below {DROP_AMBER:.0%} of the prior week's is amber (alert only), below "
                        f"{DROP_RED:.0%} red (held) when the publisher's own list for that position did not drop below "
                        f"{DROP_RED:.0%} too (if it did, or it was not read, amber); "
-                       f"an adjustment cell fitted on fewer than {THIN_CELL} players, an identity-fallback cell, or a "
-                       f"position x tier count below {TIER_DROP:.0%} of the prior week's pulse is amber; JEG-482 "
-                       "published-rank inversions are red. A player absent from a fully loaded chart means 0; "
+                       "JEG-482 published-rank inversions are red; so is a sentinel star (Allen, Lamar Jackson, "
+                       "Mahomes, Gibbs, Nacua, Bowers) on a projection source's chart outside his per-game band "
+                       "(JEG-592). A player absent from a fully loaded chart means 0; "
                        "absences that may be processing errors are stages 1 and 2",
     "rollup": "a source is the worst of its stages; unknown (input unreadable) counts as amber",
     "hold": "JEG-520: a red in publisher_vs_stored, stored_vs_chart, freshness or scrape_validity holds that source "
@@ -569,11 +565,14 @@ class Identity:
 
 def publisher_grains(rows: list[PubRow], ident: Identity) -> tuple[dict, list[dict]]:
     """{grain: {player_key: cell}} and the names that did not resolve."""
+    from canonical_players import SILENT_REASONS  # noqa: PLC0415
     grains: dict[str, dict] = {}
     unresolved = []
     for r in rows:
         key, reason = ident.resolve(r.name, r.pos)
         if key is None:
+            if reason in SILENT_REASONS:
+                continue  # an inactive player at another position: nothing to compare, no flag (JEG-539)
             unresolved.append({"name": r.name, "pos": r.pos, "team": r.team, "reason": reason,
                                "values": dict(sorted(r.values.items()))})
             continue
@@ -631,18 +630,6 @@ class SupabaseStore:
         """The source probe's fingerprint of what the publisher serves now (same function the ingest acks)."""
         import source_probe  # noqa: PLC0415
         return source_probe.run_probe(source)
-
-    def prior_pulse(self) -> dict:
-        """{source: {week: tier_counts}} from earlier pulse runs (latest run per source and week)."""
-        rows = self.sb.get("fidelity_runs", "?select=source,week,checks,finished_at&check_name=eq.fidelity_pulse"
-                                            "&order=finished_at.desc&limit=500")
-        out: dict = {}
-        for r in rows:
-            tiers = (((r.get("checks") or {}).get("scrape_validity") or {}).get("signals") or {}).get("tier_counts")
-            if tiers and r.get("week") is not None:
-                out.setdefault(r["source"], {}).setdefault(int(r["week"]), tiers)
-        return out
-
 
 class OfflineStore:
     """Test / local seam: stored_<source>.json files ({"rows": [...]}) and players.json."""
@@ -1276,11 +1263,11 @@ def stage_freshness(source: str, site_doc: dict | None, disc: dict, stored: dict
 
 
 # --------------------------------------------------------------------------
-# Stage 5: scrape-validity signals (Jeremy 2026-10-09: thin or odd adjustment
-# fits are signals that the scrape may have missed the mark)
+# Stage 5: scrape-validity signals (Jeremy 2026-10-09: sudden count drops and
+# rank inversions are signals that the scrape may have missed the mark; the
+# adjustment-fit signals were retired with the fit, JEG-539)
 # --------------------------------------------------------------------------
 
-SITE_ADJUSTMENT = SITE + "assets/adjustment-inputs.json"
 SITE_HISTORY = SITE + "assets/history/week-{week}.json"
 RANK_GUARD_PATHS = ("output/rank-guard.json", "dist/modules/rank-guard.json")
 RANK_GUARD_URL = SITE + "modules/rank-guard.json"
@@ -1309,9 +1296,7 @@ def load_json_any(paths, url, fetch: Fetcher | None, what: str):
 def load_extras(fetch: Fetcher, site_doc: dict | None, now: datetime, store=None) -> dict:
     """Inputs of the scrape-validity stage, read once per run."""
     from nfl_week import content_week  # noqa: PLC0415
-    extras = {"history": {}, "prior_pulse": {}}
-    extras["adjustment"], extras["adjustment_where"] = load_json_any(
-        (), SITE_ADJUSTMENT + f"?pulse={int(time.time())}", fetch, "adjustment-inputs.json")
+    extras = {"history": {}}
     extras["rank_guard"], extras["rank_guard_where"] = load_json_any(
         RANK_GUARD_PATHS, RANK_GUARD_URL, fetch, "JEG-482 rank-guard report (rank-guard.json)")
     weeks = {content_week(now.date()) - 1}
@@ -1321,11 +1306,6 @@ def load_extras(fetch: Fetcher, site_doc: dict | None, now: datetime, store=None
             weeks.add(w - 1)
     for w in sorted(x for x in weeks if x and x > 0):
         extras["history"][w], _ = load_json_any((), SITE_HISTORY.format(week=w), fetch, f"week {w} history")
-    if store is not None and hasattr(store, "prior_pulse"):
-        try:
-            extras["prior_pulse"] = store.prior_pulse() or {}
-        except Exception:  # noqa: BLE001 - a missing baseline is reported, not fatal
-            extras["prior_pulse"] = {}
     return extras
 
 
@@ -1377,12 +1357,46 @@ def rank_guard_inversions(doc: dict | None, source: str) -> int | None:
     return walk(entry)
 
 
+# JEG-592 (class of JEG-555): a projection source can print a self-consistent but wrong number (Razzball's
+# Lamar Jackson 7.1 and Mahomes 10.5 against ESPN/CBS 20 to 23), which every transport check passes because
+# publisher, stored row and chart all agree. Sentinels pin an expected half-PPR per-game band for stars
+# (the three scorings differ only for RB/WR/TE and only by points per catch, so one band at 1/2 PPR is
+# checked). A sentinel the chart carries outside its band is red and holds the source; a sentinel the chart
+# does not carry is not a fault (the bake's outlier guard, JEG-555, drops a number on purpose). Bands are wide
+# (about 70% of the lowest source's value to 125% of the highest, 2026-10-12): they catch a discounted or
+# scrambled row, not drift.
+SENTINELS = (
+    ("Josh Allen", "QB", 17.0, 30.0),
+    ("Lamar Jackson", "QB", 16.0, 30.0),
+    ("Patrick Mahomes", "QB", 15.0, 28.0),
+    ("Jahmyr Gibbs", "RB", 15.0, 30.0),
+    ("Puka Nacua", "WR", 12.0, 24.0),
+    ("Brock Bowers", "TE", 8.5, 18.0),
+)
+
+
+def sentinel_failures(source: str, chart: dict | None, ident: Identity) -> list[dict]:
+    """Sentinel players whose chart per-game value (1/2 PPR) is outside the expected band."""
+    if source not in PROJECTIONS or not chart:
+        return []
+    grain = chart.get("half|1") or {}
+    out = []
+    for name, pos, lo, hi in SENTINELS:
+        key, _ = ident.resolve(name, pos)
+        cell = grain.get(key) if key is not None else None
+        if cell is None:
+            continue
+        value = float(cell["value"])
+        if not lo <= value <= hi:
+            out.append({"name": name, "pos": pos, "value": value, "expected": [lo, hi]})
+    return out
+
+
 def stage_scrape_validity(source: str, extras: dict, ident: Identity, *, publisher: dict | None,
                           stored: dict | None, chart: dict | None, chart_week: int | None, now: datetime,
                           universe: set[int] | None = None) -> dict:
     """Signals that a scrape may have missed: sudden player-count drops per
-    position (vs the prior week) and per position x tier (vs the prior week's
-    pulse), thin or identity-fallback adjustment cells, and published-rank
+    position (vs the prior week) and published-rank
     inversions (JEG-482). Absences from a fully loaded chart mean 0 by design;
     the absences that may be processing errors (on the publisher page, not
     stored; stored, not on the chart) are stages 1 and 2."""
@@ -1426,43 +1440,6 @@ def stage_scrape_validity(source: str, extras: dict, ident: Identity, *, publish
         reasons.append(f"no week {prior_week} history to compare position counts with")
     signals["count_drops"] = drops
 
-    adj = extras.get("adjustment")
-    entry = ((adj or {}).get("sources") or {}).get(source) if adj else None
-    if entry:
-        diag = entry.get("diagnostics") or {}
-        cells = entry.get("cells") or []
-        tiers = {f"{c.get('position')}|{c.get('tier')}": c.get("n") for c in cells}
-        signals["tier_counts"] = tiers
-        fallbacks = [{"cell": f"{c.get('position')}|{c.get('tier')}", "n": c.get("n"), "fallback": c.get("fallback"),
-                      "reason": (diag.get(f"{c.get('position')}|{c.get('tier')}") or {}).get("reason")}
-                     for c in cells if c.get("fallback")]
-        thin = [{"cell": f"{c.get('position')}|{c.get('tier')}", "n": c.get("n")}
-                for c in cells if isinstance(c.get("n"), int) and c["n"] < THIN_CELL and not c.get("fallback")]
-        signals["fallback_cells"], signals["thin_cells"] = fallbacks, thin
-        if fallbacks:
-            status = worst(status, "amber")
-            reasons.append("identity-fallback fit cells: " + ", ".join(
-                f"{f['cell']} (n={f['n']}, {f['reason'] or f['fallback']})" for f in fallbacks))
-        if thin:
-            status = worst(status, "amber")
-            reasons.append("thin fit cells: " + ", ".join(f"{t['cell']} n={t['n']}" for t in thin))
-        prior_tiers = ((extras.get("prior_pulse") or {}).get(source) or {}).get(prior_week)
-        if prior_tiers:
-            tier_drops = [{"cell": k, "now": v, "prior_week": prior_tiers.get(k)} for k, v in tiers.items()
-                          if isinstance(v, int) and isinstance(prior_tiers.get(k), int) and prior_tiers[k] >= 5
-                          and v < TIER_DROP * prior_tiers[k]]
-            signals["tier_drops"] = tier_drops
-            if tier_drops:
-                status = worst(status, "amber")
-                reasons.append("tier count dropped vs week " + str(prior_week) + ": " + ", ".join(
-                    f"{t['cell']} {t['prior_week']}->{t['now']}" for t in tier_drops))
-        else:
-            signals["tier_drops"] = None
-            reasons.append(f"no week {prior_week} pulse baseline for tier counts yet")
-    else:
-        reasons.append(f"adjustment inputs not read ({extras.get('adjustment_where')})" if adj is None
-                       else "no adjustment cells for this source")
-
     inv = rank_guard_inversions(extras.get("rank_guard"), source)
     signals["rank_inversions"] = inv
     if extras.get("rank_guard") is None:
@@ -1470,9 +1447,15 @@ def stage_scrape_validity(source: str, extras: dict, ident: Identity, *, publish
     elif inv:
         status = "red"
         reasons.append(f"rank guard: {inv} published-rank inversions (JEG-482)")
+    bad = sentinel_failures(source, chart, ident)
+    signals["sentinel_failures"] = bad
+    if bad:
+        status = "red"
+        reasons.append("sentinel players outside their per-game band (JEG-592): " + ", ".join(
+            f"{b['name']} {b['value']:g} (expected {b['expected'][0]:g} to {b['expected'][1]:g})" for b in bad))
     signals["note"] = ("a player absent from a fully loaded chart means 0 by design; absences that may be "
                        "processing errors are flagged in publisher_vs_stored and stored_vs_chart")
-    flagged = [r for r in reasons if not r.startswith(("no week", "rank guard: not yet", "adjustment inputs not"))]
+    flagged = [r for r in reasons if not r.startswith(("no week", "rank guard: not yet"))]
     summary = ("; ".join(flagged) if flagged else "no scrape-validity signal") + (
         "; " + "; ".join(r for r in reasons if r not in flagged) if len(flagged) != len(reasons) else "")
     return stage(status, summary, signals=signals)

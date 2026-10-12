@@ -37,10 +37,10 @@
     razzball_vorp: "Razzball raw VORP vs waivers"
   };
   const TIPS = {
-    usatoday: "Editorial chart, as published and reindexed",
-    fantasycalc: "Crowd-sourced values, as published and reindexed",
-    fantasypros: "Analyst-consensus chart, as published and reindexed",
-    cbs: "Editorial chart, as published and reindexed",
+    usatoday: "Editorial chart, rescaled",
+    fantasycalc: "Crowd-sourced values, rescaled",
+    fantasypros: "Analyst-consensus chart, rescaled",
+    cbs: "Editorial chart, rescaled",
     cbsros: "CBS rest-of-season projections, computed like ESPN's VORP vs waivers leg",
     razzball: "Razzball rest-of-season projections, computed like ESPN's VORP vs waivers leg",
     cbs_adjusted: "Derived from CBS values and the current adjustment ratios, then rescaled to the common value pie",
@@ -182,19 +182,14 @@
     // every league setting when the saved 12-team setup for this scoring does.
     // (Self-contained on purpose: tests/test_source_combo_contract.py runs
     // this function extracted from the file.)
-    const publishedBase = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const publishedBase = key.replace(/_adjusted$/, "");
     if (["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(publishedBase)) {
       return Boolean((typeof window !== "undefined" && window.TradeValueProductData)
-        ? window.TradeValueProductData.getPlayerValues({source: key === "cbs_adjusted" ? "cbs" : key,
+        ? window.TradeValueProductData.getPlayerValues({source: publishedBase,
             scoring: state.scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view: "combo_reindexed"})
         : null);
     }
     // JEG-363: sourceComboExists reads via product-data.js (api.player_values).
-    if (key === "cbs_adjusted") {
-      return Boolean((typeof window !== "undefined" && window.TradeValueProductData)
-        ? window.TradeValueProductData.getPlayerValues({source: "cbs", scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
-        : null);
-    }
     return Boolean((typeof window !== "undefined" && window.TradeValueProductData)
       ? window.TradeValueProductData.getPlayerValues({source: key, scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
       : null);
@@ -305,16 +300,9 @@
     return map?.has(playerKey) ? map.get(playerKey) : null;
   }
 
-  // Content week from the freshness record; adjusted series add their fit date.
+  // Content week from the freshness record (an adjusted series is dated by its chart).
   function sourceDate(key) {
-    const text = freshnessText(key);
-    if (!key.endsWith("_adjusted")) return text;
-    const snap = window.TradeValueProductData?.getSnapshot?.() || null;
-    const sources = (snap && snap.sources) || {};
-    const source = sources[key] || (key === "cbs_adjusted" ? sources.cbs : null) || {};
-    const match = String(source.fit_bake_id || "").match(/(\d{4})-?(\d{2})-?(\d{2})/);
-    const fit = match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00Z`))}` : "fit date unavailable";
-    return `${text} · ${fit}`;
+    return freshnessText(key);
   }
 
   function sourceMeta(key) {
@@ -338,7 +326,7 @@
       // are not the publisher's published values reindexed. Read the method
       // from the fixture, not the key name, so future DDF legs label honestly.
       if (data?.sources?.[key]?.method_group === "ddf-methodology") return "Data Driven Football methodology";
-      return "as published · reindexed";
+      return "rescaled";
     }
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }
@@ -348,7 +336,7 @@
   function headerBadge(key) {
     const viewed = state.viewMode && state.viewMode !== "indexed" && state.viewTitle
       && ["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(key);
-    return viewed ? `as published · ${state.viewTitle}` : columnBadge(key);
+    return viewed ? `rescaled · ${state.viewTitle}` : columnBadge(key);
   }
 
   function sortValue(row, column) {
@@ -538,7 +526,7 @@
     const head = `<tr>${sortHeader("name", "Player")}${keys.map(key => sortHeader(key, columnLabel(key))).join("")}</tr>`;
     const body = list.map(row => {
       // GAP-025 (was JEG-50): badge players ESPN projects at 0 (injured/out),
-      // from the player's own ESPN fields; published values stay as published.
+      // from the player's own ESPN fields; published values are shown unchanged.
       // A player ESPN has no row for is missing, not 0, and gets no badge.
       const zero = row.espn_projects_zero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
       const zeroBadge = zero ? ` <span class="espn-zero-badge" data-espn-zero title="${esc(zero.title)}"><span aria-hidden="true">${zero.symbol}</span> ${esc(zero.label)}</span>` : "";
@@ -700,9 +688,9 @@
     const rolloverAware = renderKeys.every(key => !sourceComboExists(key)
       ? !allColumnKeys().includes(key)
       : PURE_VORP_KEYS.includes(key)
-        || (["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, ""))
-          ? Boolean(savedBaseCell(key === "cbs_adjusted" ? "cbs" : key))
-          : Boolean(selectedCombo(key === "cbs_adjusted" ? "cbs" : key))));
+        || (["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(key.replace(/_adjusted$/, ""))
+          ? Boolean(savedBaseCell(key.replace(/_adjusted$/, "")))
+          : Boolean(selectedCombo(key.replace(/_adjusted$/, "")))));
     const diagnostics = {allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, scoring:state.scoring, teams:state.teams, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
     window.TradeValueComparisonDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["allSources", "fullPpr12TeamQbsAvailable", "configurableColumns", "rolloverAware"].includes(key) && value !== true);
@@ -719,7 +707,7 @@
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
       // Pure VORP columns validate against their own source's projections
       // (each VORP curve is computed from that source's per-game numbers).
-      const validationKeyFor = key => PURE_VORP_KEYS.includes(key) ? VORP_SOURCE_DEFS[key].validationKey : (key === "cbs_adjusted" ? "cbs" : key);
+      const validationKeyFor = key => PURE_VORP_KEYS.includes(key) ? VORP_SOURCE_DEFS[key].validationKey : key.replace(/_adjusted$/, "");
       // JEG-363: source_validation via api.product_snapshot.source_validation.
       const srcValidation = (typeof window !== "undefined" && window.TradeValueProductData)
         ? window.TradeValueProductData.getSnapshot().source_validation || {}

@@ -1572,6 +1572,8 @@
 
   // ---------- popovers (sources 09, league 12, weights 11, freshness 10, range) ----------
   let popoverAnchor = null;
+  let hoverOpened = false;
+  let hoverHold = null; // the hovered info button's timers, so the popover can hold or release it
   function openPopover(anchor, build) {
     const pop = $("v2Popover");
     pop.replaceChildren();
@@ -1589,7 +1591,7 @@
     const first = pop.querySelector("input, select, button");
     if (first) first.focus();
   }
-  function closePopover() {
+  function closePopover(skipFocus) {
     const pop = $("v2Popover");
     if (pop.hidden) return;
     pop.hidden = true;
@@ -1599,8 +1601,9 @@
     }
     // An anchor that announces its state (the ⓘ buttons) reads collapsed again.
     if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");
-    if (popoverAnchor && popoverAnchor.focus) popoverAnchor.focus();
+    if (skipFocus !== true && popoverAnchor && popoverAnchor.focus) popoverAnchor.focus();
     popoverAnchor = null;
+    hoverOpened = false;
   }
   function toggleEngineSource(key) {
     if (key === DDF_KEY) { ddfShown = !ddfShown; return true; }
@@ -2512,11 +2515,13 @@
     ["keydown", "keyup"].forEach(type => button.addEventListener(type, event => {
       if (event.key === "Enter" || event.key === " ") event.stopPropagation();
     }));
-    button.addEventListener("click", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (popoverAnchor === button && !$("v2Popover").hidden) { closePopover(); return; }
-      closePopover();
+    // JEG-501: on hover-capable pointers the popover opens after a short
+    // delay and stays while the pointer is on the button or the popover (a
+    // grace period lets it cross the gap). A click pins it; touch, click,
+    // keyboard and Esc behave as before.
+    const canHover = event => event.pointerType === "mouse" && window.matchMedia && window.matchMedia("(hover: hover)").matches;
+    const showInfo = fromHover => {
+      closePopover(true);
       openPopover(button, pop => {
         pop.classList.remove("is-panel");
         pop.classList.add("v2-info-pop");
@@ -2544,8 +2549,41 @@
         pop.append(h, text, foot);
       });
       button.setAttribute("aria-expanded", "true");
+      hoverOpened = fromHover;
       const link = $("v2Popover").querySelector("a");
-      if (link) link.focus();
+      if (link && !fromHover) link.focus();
+    };
+    let openTimer = null;
+    let closeTimer = null;
+    const popOpenForButton = () => popoverAnchor === button && !$("v2Popover").hidden;
+    const cancelTimers = () => { clearTimeout(openTimer); clearTimeout(closeTimer); };
+    const scheduleHoverClose = () => {
+      cancelTimers();
+      closeTimer = setTimeout(() => { if (popOpenForButton() && hoverOpened) closePopover(true); }, 250);
+    };
+    button.addEventListener("pointerenter", event => {
+      if (!canHover(event)) return;
+      cancelTimers();
+      hoverHold = {cancel: () => clearTimeout(closeTimer), schedule: scheduleHoverClose};
+      if (popOpenForButton()) return;
+      openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);
+    });
+    button.addEventListener("pointerleave", event => {
+      if (!canHover(event)) return;
+      clearTimeout(openTimer);
+      if (popOpenForButton() && hoverOpened) scheduleHoverClose();
+    });
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearTimeout(openTimer);
+      if (popOpenForButton()) {
+        if (hoverOpened) { hoverOpened = false; clearTimeout(closeTimer); return; }
+        closePopover();
+        return;
+      }
+      closePopover();
+      showInfo(false);
     });
     return button;
   }
@@ -2666,6 +2704,40 @@
     }
   }
 
+  // JEG-504: the market average of the compared charts, beside our value. Equal to one
+  // decimal: a note instead of a duplicate number. Otherwise the average with its count
+  // ("avg of 4", plus "1 left out" for a chart that does not price the player) and
+  // our value minus the average, with a symbol (▲ ours is higher, ▼ lower) and a sign.
+  function marketValue(cell, p) {
+    const m = p.market;
+    cell.dataset.market = "";
+    if (m.value === null) {
+      cell.appendChild(missingNode("No compared chart prices this player", "no chart value"));
+      return;
+    }
+    if (m.equal) {
+      cell.dataset.marketEqual = "";
+      const note = document.createElement("span");
+      note.className = "why t-equal";
+      note.textContent = "= market average";
+      note.title = `The average of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+      cell.appendChild(note);
+      return;
+    }
+    cell.appendChild(document.createTextNode(fmt(m.value)));
+    const count = document.createElement("span");
+    count.className = "why t-count";
+    count.dataset.marketCount = String(m.count);
+    count.textContent = `avg of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
+    if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
+    const diff = document.createElement("span");
+    diff.className = "why t-diff";
+    diff.dataset.marketDiff = m.diff.toFixed(1);
+    diff.title = "Our value minus the market average";
+    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${fmtGap(m.diff)}`;
+    cell.append(diff, count);
+  }
+
   function gapNode(cell, tag) {
     const node = document.createElement(tag || "span");
     node.className = `delta gap ${cell.gap > 0 ? "up" : cell.gap < 0 ? "down" : ""}`;
@@ -2781,6 +2853,7 @@
     };
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
+    head("Market average", "num t-avg", "compared charts");
     targetsView.used.forEach(key => {
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
@@ -2819,6 +2892,7 @@
       const ours = td("num is-rank");
       ours.dataset.ours = "";
       oursValue(ours, p);
+      marketValue(td("num t-avg"), p);
       targetsView.used.forEach(chart => {
         const cell = p.cells[chart];
         const c = td("num t-chart");
@@ -2914,6 +2988,11 @@
       ours.append(document.createTextNode("Ours "));
       oursValue(ours, p);
       line.appendChild(ours);
+      const avg = document.createElement("span");
+      avg.className = "avg";
+      if (!p.market.equal) avg.append(document.createTextNode("Market avg "));
+      marketValue(avg, p);
+      line.appendChild(avg);
       targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
       li.append(top, line);
       ol.appendChild(li);
@@ -3081,6 +3160,9 @@
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
+    // JEG-505: "Will they accept?" reads the published value charts: the as-published (rescaled) series.
+    const chartKeys = pointKeys.filter(key => sourceMeta(key).method === "indexed" && window.TradeValueTargets.CHART_KEYS.includes(key));
+    const lowConfidence = giveRows.concat(receiveRows).some(row => isLowConfidence(row, DDF_KEY));
     // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
     // series keeps its own (those scales are not comparable).
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
@@ -3088,6 +3170,7 @@
     compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
+      headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence}) : null,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
@@ -3678,7 +3761,54 @@
     return {kind: v.kind, sym: "=", title: `${name}: an even trade, 0.0`, text: parts.join(" ") + notCounted};
   }
 
+  // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
+  // (symbol + word), with the reasons on a second muted line. Never colour alone.
+  const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
+  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
+  const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
+  function renderHeadlines() {
+    const box = $("v2CHeads");
+    const heads = compareView.headlines;
+    box.hidden = !heads;
+    if (!heads) return;
+    ["propose", "accept"].forEach(line => {
+      const p = box.querySelector(`[data-line="${line}"]`);
+      const h = heads[line];
+      p.replaceChildren();
+      p.dataset.answer = h.answer || "none";
+      p.dataset.confidence = h.confidence || "none";
+      const q = document.createElement("span");
+      q.className = "q";
+      q.textContent = `${HEAD_QUESTIONS[line]} `;
+      p.appendChild(q);
+      const a = document.createElement("b");
+      a.className = "a";
+      if (!h.answer) {
+        a.textContent = "Not yet";
+        p.append(a, document.createTextNode(line === "propose"
+          ? " A value is missing, so DDF Value cannot score this trade."
+          : " No trade chart prices every player in this trade."));
+        return;
+      }
+      const sym = document.createElement("span");
+      sym.setAttribute("aria-hidden", "true");
+      sym.textContent = `${HEAD_SYMBOLS[h.answer]} `;
+      a.append(sym, document.createTextNode(h.answer));
+      const c = document.createElement("span");
+      c.className = "c";
+      const cs = document.createElement("span");
+      cs.setAttribute("aria-hidden", "true");
+      cs.textContent = `${CONFIDENCE_SYMBOLS[h.confidence]} `;
+      c.append(cs, document.createTextNode(`${h.confidence} confidence`));
+      const why = document.createElement("span");
+      why.className = "why";
+      why.textContent = h.reasons.join("; ");
+      p.append(a, document.createTextNode(" · "), c, why);
+    });
+  }
+
   function renderVerdict() {
+    renderHeadlines();
     const copy = verdictCopy();
     const card = $("v2CVerdict");
     card.dataset.verdict = copy.kind;
@@ -4557,6 +4687,8 @@
       else if (!$("v2Drawer").hidden) closeDrawer();
       else if (expanded) closeExpanded();
     });
+    $("v2Popover").addEventListener("pointerenter", () => { if (hoverOpened && hoverHold) hoverHold.cancel(); });
+    $("v2Popover").addEventListener("pointerleave", () => { if (hoverOpened && hoverHold) hoverHold.schedule(); });
     document.addEventListener("mousedown", event => {
       const pop = $("v2Popover");
       if (pop.hidden || pop.contains(event.target) || (popoverAnchor && popoverAnchor.contains(event.target))) return;
