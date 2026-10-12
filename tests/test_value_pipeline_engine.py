@@ -27,6 +27,7 @@ import unittest
 from pathlib import Path
 
 from tests import _render_env
+from tests import _es_worked_example as esx
 
 ROOT = Path(__file__).resolve().parents[1]
 VALUE_MODEL = ROOT / "app" / "trade-value-chart" / "assets" / "value-model.js"
@@ -44,10 +45,12 @@ def _node():
     return node
 
 
-def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None) -> dict:
+def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None, variant: str | None = None) -> dict:
     cmd = [_node(), str(DRIVER), str(model), str(FIXTURE)]
     if bench_share is not None:
         cmd += ["--bench-share", repr(bench_share)]
+    if variant is not None:
+        cmd += ["--variant", variant]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if proc.returncode != 0:
         raise AssertionError(f"driver failed: {proc.stderr[-2000:]}")
@@ -183,6 +186,56 @@ class GuardDiscriminationTest(unittest.TestCase):
         self.assert_fails([("Sraw[pos] = sn ? ss / sn : 0;",
                             "Sraw[pos] = out[included[0]].starterMix[pos];")])
 
+
+
+class ExpectedStartsVariantTest(unittest.TestCase):
+    """JEG-536 (ES-11): the engine reproduces the worked example's
+    expected-starts variants to 1e-6: chart sigma, every source's lines,
+    bands, parts, groups, own weights and rates, the DDF weights, every row's
+    DDF Value, lineup share and start-worthy probability, the readout; and the
+    0.10 override. Fails before JEG-536: the engine ignores `lineup` and
+    prices the VP-2.6 slices at 15%."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.doc = esx.load()
+
+    def test_variants_reproduced(self):
+        for name in esx.VARIANTS:
+            with self.subTest(variant=name):
+                problems = esx.variant_problems(self.doc, name, run_engine(variant=name))
+                self.assertEqual(problems, [], "\n".join(problems[:40]))
+
+    def test_variant_is_walked(self):
+        self.assertGreater(esx.count_leaves(self.doc["variant_expected_starts"]["expected"]), 1500)
+        exp = self.doc["variant_expected_starts"]["expected"]
+        self.assertFalse(exp["bench_share_readout"]["override"])
+        # A second depth band and two starters per team are pinned.
+        self.assertEqual(len(exp["sources"]["p1"]["positions"]["WR"]["bands"]), 2)
+        self.assertEqual(exp["sources"]["p1"]["positions"]["WR"]["lineup"]["n_per_team"], 2)
+
+    def assert_variant_fails(self, replacements):
+        model = _mutated(replacements)
+        try:
+            actual = run_engine(model, variant="variant_expected_starts")
+        except AssertionError:
+            return
+        finally:
+            model.unlink()
+        self.assertNotEqual(esx.variant_problems(self.doc, "variant_expected_starts", actual), [])
+
+    def test_guard_catches_slices_kept(self):
+        self.assert_variant_fails([('if (esMode && method !== "no_players") {', 'if (false) {')])
+
+    def test_guard_catches_fixed_share(self):
+        self.assert_variant_fails([("if (esMode) bsInput = bsOverride;", "if (esMode) bsInput = 0.15;")])
+
+    def test_guard_catches_unscaled_chart_sigma(self):
+        self.assert_variant_fails([("chartSigma[pos].sigma_rel * esConfidence", "chartSigma[pos].sigma_rel")])
+
+    def test_guard_catches_one_band_only(self):
+        self.assert_variant_fails([("if (!teams || idx >= work.length || work[idx].native <= waiver) break;",
+                                    "break;")])
 
 if __name__ == "__main__":
     unittest.main()

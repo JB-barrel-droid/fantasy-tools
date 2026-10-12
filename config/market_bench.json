@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "ticket": "JEG-558",
+  "decision": "Jeremy, 2026-10-10: freeze measured values; no annual re-derivation job. 2-QB measured separately, not extrapolated.",
+  "measured_on": "2026-10-10",
+  "snapshots_committed_on": "2026-10-12",
+  "unit": "backups_per_starter",
+  "method": "Position share of listed players x 15 rounds = rostered per team; minus starters (1 QB / 2 RB / 2 WR / 1 TE / FLEX split RB/WR / K / DEF; 2-QB format: 2 QB); divided by starters. Human picks in FFC 12-team PPR 15-round drafts with K and DEF. Tables listing fewer than 12 x 15 x 0.9 players are rejected as truncated (one_qb 2022 excluded).",
+  "convention_use": "Roster convention rule 1 picks two_qb when the roster has 2 QB slots or a superflex slot, else one_qb. FFC labels the format '2 QB' and does not separate superflex; use it for both until superflex-specific data exists.",
+  "reproduce": "python3 pipelines/derive_market_bench.py --derive (reads data/inputs/market_bench/ffc_adp_<format>_<year>.json). Re-derived values differ from the frozen ones by at most 0.02 (one_qb QB 0.87 vs 0.88, K 0.02 vs 0.00: the original K/DEF and skill-only draft sets were measured on slightly different tables); the frozen values are authoritative.",
+  "one_qb": {
+    "seasons": [2016, 2018, 2020, 2024],
+    "excluded_seasons": {"2022": "table truncated"},
+    "sources": [
+      "https://fantasyfootballcalculator.com/adp/ppr/12-team/all/2016",
+      "https://fantasyfootballcalculator.com/adp/ppr/12-team/all/2018",
+      "https://fantasyfootballcalculator.com/adp/ppr/12-team/all/2020",
+      "https://fantasyfootballcalculator.com/adp/ppr/12-team/all/2024"
+    ],
+    "drafts": {"kdef_set": 7224, "skill_only_set": 8857},
+    "backups_per_starter": {"QB": 0.88, "RB": 0.83, "WR": 1.03, "TE": 0.40, "K": 0.00, "DEF": 0.06}
+  },
+  "two_qb": {
+    "seasons": [2018, 2020, 2022, 2024],
+    "sources": [
+      "https://fantasyfootballcalculator.com/adp/2qb/12-team/all/2018",
+      "https://fantasyfootballcalculator.com/adp/2qb/12-team/all/2020",
+      "https://fantasyfootballcalculator.com/adp/2qb/12-team/all/2022",
+      "https://fantasyfootballcalculator.com/adp/2qb/12-team/all/2024"
+    ],
+    "drafts": {"2018": 772, "2020": 916, "2022": 1699, "2024": 3580},
+    "note": "A 12-team 2-QB league rosters about 31 QBs of 32 NFL starters, so QB backups are supply-capped; scaling the 1-QB ratio would predict 1.76 backup QBs per team against 0.56 observed.",
+    "backups_per_starter": {"QB": 0.28, "RB": 0.69, "WR": 0.85, "TE": 0.44, "K": 0.06, "DEF": 0.08}
+  }
+}
