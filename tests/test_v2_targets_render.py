@@ -210,7 +210,7 @@ LAYOUT = """(sides) => {
   return {h1: q('#v2TargetsTitle').textContent.trim(), sub: q('#v2Targets .v2-title p').textContent.trim(),
     h1Bottom: q('#v2TargetsTitle').getBoundingClientRect().bottom, subBottom: q('#v2Targets .v2-title p').getBoundingClientRect().bottom,
     tabFull: tab.querySelector('.v2-tab-full').textContent.trim(), tabShort: tab.dataset.short,
-    toggles: document.querySelectorAll('#v2Targets button[data-side], #v2Targets [aria-pressed]').length,
+    toggles: document.querySelectorAll('#v2Targets button[data-side], #v2Targets [aria-pressed]:not(.v2-mod-btn)').length,
     older: Boolean(q('#v2TOlder')) || /older-week charts/i.test(q('#v2Targets').textContent),
     filters, caption: q('#v2TChartCaption')?.textContent.trim() || '',
     compareInfo: compareInfo ? {expanded: compareInfo.getAttribute('aria-expanded'), label: compareInfo.getAttribute('aria-label') || ''} : null,
@@ -483,7 +483,9 @@ def check(snapshot) -> list[str]:
         values = engine.get(detail["key"], {})
         for chart, run in detail["cells"].items():
             rank = (natives.get(chart) or {}).get(detail["key"])
-            want = f"#{rank} on {CHART_NAMES[chart]}" if rank is not None else None
+            # A cell the engine has no value for shows its reason, not a rank (the simulated gap row
+            # keeps its real native rank in the engine, so a missing cell is expected to omit it).
+            want = f"#{rank} on {CHART_NAMES[chart]}" if rank is not None and not run["missing"] else None
             if natives and run["native"] != want:
                 errors.append(f"opened row {detail['key']}/{chart}: native rank {run['native']!r}, engine {want!r}")
         if set(detail["cells"]) != set(snapshot["used"]):

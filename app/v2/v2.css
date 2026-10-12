@@ -776,6 +776,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 #v2Compare .v2-card { padding: clamp(14px, 1.2vw, 16px); margin-top: var(--v2-cgap); }
 #v2Compare .v2-card-head h2, #v2Compare .v2-trade-side h2 { font-size: 16px; }
 .v2-chead { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
+/* Compare card head only: the verdict's headline rows (.v2-cheads > .v2-chead, JEG-505) share the class name and must flow as text. */
 .v2-chead .v2-title h1 { font-size: 27px; }
 .v2-chead .v2-title p { margin-top: 2px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #v2Compare.has-trade .v2-chead .v2-title p { display: none; }
@@ -811,7 +812,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-cverdict[data-verdict="incomplete"] { border-left-color: var(--v2-older); }
 /* JEG-505: the two headline answers above the verdict. */
 .v2-cheads { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 6px; }
-#v2Compare .v2-cheads .v2-chead { margin: 0 !important; font-size: 15px; font-weight: 400; }
+#v2Compare .v2-cheads .v2-chead { display: block; margin: 0 !important; font-size: 15px; font-weight: 400; }
 .v2-chead .q { font-weight: 700; }
 .v2-chead .a, .v2-chead .c { font-weight: 800; white-space: nowrap; }
 .v2-chead .c { font-weight: 600; }
@@ -830,7 +831,10 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 #v2Compare .v2-trade-side .v2-search { flex: none; }
 #v2Compare .v2-cstory p { margin-top: 2px !important; font-size: 13px; color: var(--v2-muted); }
 @media (min-width: 1280px) {
-  #v2Compare .v2-trade-sides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 1.05fr); }
+  #v2Compare .v2-trade-sides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(420px, 1.6fr); }
+  /* With the two headline answers (JEG-505) the verdict card must still end above the fold at 1366x768. */
+  #v2Compare .v2-cverdict { gap: 3px; }
+  #v2Compare .v2-cverdict .v2-cheads { gap: 4px; margin-bottom: 2px; }
 }
 @media (min-width: 768px) and (max-width: 1279px) {
   #v2Compare .v2-cverdict { grid-column: 1 / -1; }

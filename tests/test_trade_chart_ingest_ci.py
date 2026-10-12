@@ -84,8 +84,8 @@ def ingest_argv(text, ref_name, inputs=None, source="cbs"):
         ctx["steps.cfg.outputs.mode"] = outs["mode"]
         (td / "bin").mkdir()
         fake = td / "bin" / "python3"
-        fake.write_text('#!/bin/bash\necho "$@" > "$FAKE_ARGV"\necho "[fake] ok"\n',
-                        encoding="utf-8", newline="\n")
+        # write_bytes keeps LF endings on any OS and Python (write_text(newline=) is 3.10+ only).
+        fake.write_bytes(b'#!/bin/bash\necho "$@" > "$FAKE_ARGV"\necho "[fake] ok"\n')
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
         r = subprocess.run([bash, "-e", "-c", prelude + render(script_of(find_step(text, "Ingest")), ctx)],
                            cwd=td, env=env, capture_output=True, text=True)
