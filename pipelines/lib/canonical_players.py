@@ -207,11 +207,24 @@ def load_registry(rows=None):
     return Registry(rows)
 
 
+# Reasons that are not an identity problem. "inactive": the name belongs only
+# to inactive players and the source lists it at a position the table does not
+# hold. Such a player has no value to carry (Jeremy 2026-10-12, JEG-539: never
+# raise a review flag for inactive or irrelevant players, Max Hurleman), so
+# savers skip the row, the identity queue never records it and the pulse does
+# not count it as unresolved. An ACTIVE player at the wrong position stays a
+# position_conflict: the position is ESPN's or Sleeper's, as public.players
+# holds it, never the projection or ranker source's (same date, no per-source
+# exception).
+SILENT_REASONS = frozenset({"inactive"})
+
+
 def resolve_with_reason(name, position=None, registry=None, allow_inactive=True):
     """Resolve a raw source name to a canonical player_key.
 
     Returns (player_key | None, reason) where reason is one of:
-      ok | dst | unmatched | ambiguous | position_conflict
+      ok | dst | unmatched | ambiguous | position_conflict | inactive
+    (inactive is in SILENT_REASONS: no flag, no review row).
     """
     reg = registry or load_registry()
     pos = (position or "").upper() or None
@@ -230,6 +243,8 @@ def resolve_with_reason(name, position=None, registry=None, allow_inactive=True)
     if pos:
         pc = [c for c in cands if c["position"] == pos]
         if not pc:
+            if not any(c["active"] for c in cands):
+                return None, "inactive"
             return None, "position_conflict"
         cands = pc
 

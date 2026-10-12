@@ -252,7 +252,6 @@ function readJson(file) {
 function setupWidgetEnvironment(fixtureDir) {
   const players = readJson(path.join(fixtureDir, "players.json"));
   const comparisonPath = path.join(fixtureDir, "comparison-sources-data.json");
-  const adjustmentPath = path.join(ROOT, "app", "trade-value-chart", "assets", "adjustment-inputs.json");
 
   globalThis.window = globalThis;
   globalThis.__guardHarnessConsole = {errors: [], warnings: []};
@@ -279,11 +278,7 @@ function setupWidgetEnvironment(fixtureDir) {
   globalThis.dispatchEvent = () => true;
   globalThis.fetch = async url => {
     const name = String(url).split("?")[0];
-    const file = name.endsWith("comparison-sources-data.json")
-      ? comparisonPath
-      : name.endsWith("adjustment-inputs.json")
-        ? adjustmentPath
-        : null;
+    const file = name.endsWith("comparison-sources-data.json") ? comparisonPath : null;
     if (!file || !fs.existsSync(file)) {
       return {ok: false, status: 404, json: async () => ({})};
     }

@@ -54,7 +54,7 @@ ENGINE = """async () => { const C = window.TradeValueCurveControls; const out = 
   C.setScoring("ppr"); C.setTeams(12); return out; }"""
 
 SEMANTICS = """async () => {
-  const url = 'assets/adjustment-inputs.json';
+  const url = 'assets/comparison-sources-data.json';
   const a = await fetch(url); const b = await fetch(url);
   const both = [(await a.json()) !== null, (await b.json()) !== null];
   const ctl = new AbortController(); ctl.abort();

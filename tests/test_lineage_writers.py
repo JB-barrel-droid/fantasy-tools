@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for JEG-132 R5a (writers) -- lineage block emission on derived sections.
 
-The five builders (build_adjusted_fixture_sections,
+The builders (build_adjusted_fixture_sections was retired with the fit, JEG-539;
 build_cbsros_section_from_ddf_leg, build_espn_section_from_ddf_leg,
 build_razzball_section_from_ddf_leg, build_comparison_source_section) must
 record an immutable `lineage` block on every DERIVED section they write, with:
@@ -113,24 +113,6 @@ def _make_raw_fixture_section(*, fkeys, slug_to_pos, base_value: float = 50.0,
         # R4a-stamped fresh shape: content_vintage wins over legacy fields.
         section["content_vintage"] = content_vintage
     return section
-
-
-def _write_inputs_json(path: Path, *, n_per_pos: int = 4, base_value: float = 50.0):
-    """Write a minimal adjustment-inputs.json with bias cells."""
-    cells = []
-    for pos in POSITIONS:
-        for tier in ("starter", "bench"):
-            cells.append({"position": pos, "tier": tier,
-                          "alpha": 1.0, "beta": 1.0})
-    payload = {
-        "version": "test-bake-v1",
-        "sources": {
-            src: {"cells": cells} for src in ("fantasycalc", "usatoday",
-                                               "fantasypros", "cbs")
-        },
-    }
-    path.write_text(json.dumps(payload))
-    return payload
 
 
 def _write_fixture_with_raw_sources(tmp: Path, *, fkeys, n_per_pos: int = 4):
@@ -281,84 +263,6 @@ class TestLineageBlockHelper(unittest.TestCase):
             lineage["raw_content_sha256"],
             compute_raw_sha([(1, 1.0, 10.0), (2, 2.0, 20.0)]),
         )
-
-
-class TestAdjustedFixtureSectionsLineage(unittest.TestCase):
-    """build_adjusted_fixture_sections stamps lineage on every _adjusted section."""
-
-    def _setup(self):
-        tmp = Path(tempfile.mkdtemp())
-        players, fkeys, _, slug_to_pos = _make_players_and_keys(n_per_pos=4)
-        fx_path, players_path = _write_fixture_with_raw_sources(tmp, fkeys=fkeys)
-        inputs_path = tmp / "adjustment-inputs.json"
-        _write_inputs_json(inputs_path)
-        # Players.json inside the temp fixture dir already exists; but the
-        # builder looks at the repo default. Mirror it into a local path
-        # and patch the defaults via argv to point at the temp.
-        local_players_path = tmp / "players.json"
-        local_players_path.write_text(json.dumps({"players": players}))
-        return tmp, fx_path, inputs_path, local_players_path, fkeys, slug_to_pos
-
-    def test_adjusted_sections_carry_lineage_block(self):
-        tmp, fx_path, inputs_path, players_path, fkeys, slug_to_pos = self._setup()
-        import build_adjusted_fixture_sections as bafs
-        stats = bafs.build_adjusted_sections(fx_path, inputs_path, players_path)
-        # All four sources must build (fail-closed builder).
-        for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
-            self.assertEqual(stats[src]["status"], "built",
-                             f"{src} _adjusted section failed to build")
-        fixture = json.loads(fx_path.read_text(encoding="utf-8"))
-        for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
-            adj_key = f"{src}_adjusted"
-            self.assertIn(adj_key, fixture["sources"],
-                          f"adjusted section {adj_key} missing from fixture")
-            section = fixture["sources"][adj_key]
-            self.assertIn("lineage", section,
-                          f"{adj_key} missing lineage block (JEG-132 R5a)")
-            lineage = section["lineage"]
-            self.assertEqual(set(lineage.keys()),
-                             {"raw_vintage", "raw_content_sha256",
-                              "raw_built_at", "vintage_source"},
-                             "Lineage schema must be exactly the 4 R5a fields")
-            # R4a stamps content_vintage on the raw sections -> content_vintage path.
-            self.assertEqual(lineage["vintage_source"], "content_vintage",
-                             f"{adj_key}: raw carries content_vintage; "
-                             "legacy_fallback would be a silent failure")
-            self.assertEqual(lineage["raw_vintage"], "Week 3",
-                             f"{adj_key}: raw_vintage must be the raw section's content_vintage")
-
-    def test_adjusted_lineage_sha_matches_raw_recomputation(self):
-        tmp, fx_path, inputs_path, players_path, fkeys, slug_to_pos = self._setup()
-        import build_adjusted_fixture_sections as bafs
-        bafs.build_adjusted_sections(fx_path, inputs_path, players_path)
-        fixture = json.loads(fx_path.read_text(encoding="utf-8"))
-        for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
-            adj_key = f"{src}_adjusted"
-            raw_section = fixture["sources"][src]
-            adj_section = fixture["sources"][adj_key]
-            triples = collect_fixture_section_triples(raw_section)
-            expected_sha = compute_raw_sha(triples)
-            self.assertEqual(
-                adj_section["lineage"]["raw_content_sha256"], expected_sha,
-                f"{adj_key}: lineage SHA must match raw triples recomputation"
-            )
-
-    def test_adjusted_does_not_mutate_raw_sections(self):
-        tmp, fx_path, inputs_path, players_path, fkeys, slug_to_pos = self._setup()
-        # Snapshot the raw section's keys before running the builder.
-        before = json.loads(fx_path.read_text(encoding="utf-8"))
-        raw_keys_before = {src: set(before["sources"][src].keys())
-                           for src in ("fantasycalc", "usatoday",
-                                       "fantasypros", "cbs")}
-        import build_adjusted_fixture_sections as bafs
-        bafs.build_adjusted_sections(fx_path, inputs_path, players_path)
-        after = json.loads(fx_path.read_text(encoding="utf-8"))
-        for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
-            keys_after = set(after["sources"][src].keys())
-            self.assertEqual(keys_after, raw_keys_before[src],
-                             f"raw {src} keys changed; builder must not mutate inputs")
-            self.assertNotIn("lineage", after["sources"][src],
-                             f"raw {src} got a lineage block; raw sections must NOT")
 
 
 # The section builders resolve their paths at module load; the tests below

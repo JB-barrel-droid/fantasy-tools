@@ -58,14 +58,6 @@ from lib.lineage_block import (  # noqa: E402
 )
 
 
-# Map: derived fixture-section key -> (raw-input kind, raw-input key).
-# raw-input kind = "fixture" | "leg".
-ADJUSTED_PARENTS = {
-    "fantasycalc_adjusted": ("fixture", "fantasycalc"),
-    "usatoday_adjusted": ("fixture", "usatoday"),
-    "fantasypros_adjusted": ("fixture", "fantasypros"),
-    "cbs_adjusted": ("fixture", "cbs"),
-}
 LEG_DERIVED = {
     "espn":     {"mark": "-espn-",     "filename": "ddf_leg.json",          "snapshot_field": "espn_snapshot_date"},
     "cbsros":   {"mark": "-cbsros-",   "filename": "ddf_leg_cbsros.json",   "snapshot_field": "cbsros_snapshot_date"},
@@ -227,41 +219,7 @@ def check_fixture_sections(fixture: dict, mismatches: list) -> int:
     examined (for the artifact's `checked` field)."""
     sources = fixture.get("sources") or {}
     checked = 0
-    # 1) Adjusted sections derived from a parent raw fixture section.
-    for derived_key, (_, raw_key) in ADJUSTED_PARENTS.items():
-        if derived_key not in sources:
-            continue  # not all adjusted sources are always present
-        checked += 1
-        section = sources[derived_key]
-        lineage = section.get("lineage")
-        if lineage is None:
-            mismatches.append(mismatch(
-                derived_key,
-                "missing_lineage_block",
-                claimed=None,
-                actual="derived section has no `lineage` block (provenance not stamped)",
-            ))
-            continue
-        raw = sources.get(raw_key)
-        if raw is None:
-            mismatches.append(mismatch(
-                derived_key,
-                "raw_parent_missing",
-                claimed=None,
-                actual=f"raw parent section {raw_key!r} not present in fixture",
-            ))
-            continue
-        actual_lineage = recompute_fixture_lineage(raw)
-        for field in ("raw_vintage", "raw_content_sha256",
-                      "raw_built_at", "vintage_source"):
-            if lineage.get(field) != actual_lineage[field]:
-                mismatches.append(mismatch(
-                    derived_key,
-                    f"lineage_{field}_mismatch",
-                    claimed=lineage.get(field),
-                    actual=actual_lineage[field],
-                ))
-    # 2) Leg-derived sections (espn / cbsros / razzball).
+    # Leg-derived sections (espn / cbsros / razzball).
     for derived_key in LEG_DERIVED:
         if derived_key not in sources:
             continue

@@ -53,12 +53,6 @@ METHODOLOGY_POSITION_SOURCES = [
     ("cbs", "CBS"),
     ("espn", "ESPN"),
 ]
-METHODOLOGY_ADJUSTED_PAIRS = [
-    ("usatoday", "usatoday_adjusted", "USA Today"),
-    ("fantasycalc", "fantasycalc_adjusted", "FantasyCalc"),
-    ("fantasypros", "fantasypros_adjusted", "FantasyPros"),
-    ("cbs", "cbs_adjusted", "CBS"),
-]
 # The two-tier value model behind the adjusted view. Baked here so the
 # methodology section can describe the actual bench/starter split.
 METHODOLOGY_BENCH_SHARE = 0.15
@@ -82,8 +76,7 @@ def build_methodology_payload(fixtures: Path, players_data: dict) -> dict:
       position_shares: per-position share of each source's fixed pie -- the
         'same pie, different slicing' visual. Sources without that combo
         (e.g. USA Today only ships 12-team) are omitted from that combo.
-      adjustments: biggest as-published -> adjusted movers per adjusted
-        series -- the 'correcting toward our view' visual.
+      adjustments: empty since JEG-539 (the *_adjusted sections are retired).
     Derived from the same fixture the curves render, so the section can
     never drift from the chart.
     """
@@ -127,70 +120,6 @@ def build_methodology_payload(fixtures: Path, players_data: dict) -> dict:
                     ),
                     "n": len(vals),
                 }
-            adjustments = {}
-            for pub, adj, label in METHODOLOGY_ADJUSTED_PAIRS:
-                pub_vals = series_values(pub, _methodology_combo(pub, scoring, teams))
-                adj_vals = series_values(adj, _methodology_combo(adj, scoring, teams))
-                if not pub_vals or not adj_vals:
-                    continue
-                # Build full player list with tier (starter/bench) for the
-                # interactive recalibration lab. Tier is by rank within
-                # position: top (teams x starters) are starters.
-                by_pos = {}
-                for name, after in adj_vals.items():
-                    if name not in pub_vals:
-                        continue
-                    pos = pos_of(name)
-                    if pos not in by_pos:
-                        by_pos[pos] = []
-                    by_pos[pos].append((after, name))
-                tier_of = {}
-                for pos, plist in by_pos.items():
-                    plist.sort(key=lambda x: -x[0])
-                    n_starters = teams * METHODOLOGY_ROSTER.get(pos, 0)
-                    for i, (_, name) in enumerate(plist):
-                        tier_of[name] = "starter" if i < n_starters else "bench"
-                movers = []
-                all_players = []
-                for name, before in pub_vals.items():
-                    if name not in adj_vals:
-                        continue
-                    after = adj_vals[name]
-                    delta = after - before
-                    pos = pos_of(name)
-                    tier = tier_of.get(name, "bench")
-                    entry = {
-                        "name": display_name(name),
-                        "pos": pos,
-                        "tier": tier,
-                        "before": round(before, 1),
-                        "after": round(after, 1),
-                        "delta": round(delta, 1),
-                    }
-                    all_players.append(entry)
-                    if before > 8:
-                        movers.append((delta, entry))
-                movers.sort(key=lambda m: -abs(m[0]))
-                # Default position weights from ESPN's shares at this combo
-                # (the "pie" the recalibration targets).
-                espn_vals = series_values("espn", _methodology_combo("espn", scoring, teams))
-                default_weights = {"QB": 25.0, "RB": 25.0, "WR": 25.0, "TE": 25.0}
-                if espn_vals:
-                    tot = sum(espn_vals.values())
-                    if tot > 0:
-                        w = {"QB": 0.0, "RB": 0.0, "WR": 0.0, "TE": 0.0}
-                        for n, v in espn_vals.items():
-                            p = pos_of(n)
-                            if p in w:
-                                w[p] += v
-                        default_weights = {p: round(s / tot * 100, 1) for p, s in w.items()}
-                adjustments[pub] = {
-                    "label": label,
-                    "movers": [e for _, e in movers[:6]],
-                    "players": sorted(all_players, key=lambda x: -x["after"]),
-                    "default_weights": default_weights,
-                    "n_players": len(all_players),
-                }
             # Only keep combos that have at least one source; an empty combo
             # would render a blank methodology section.
             if position_shares:
@@ -199,7 +128,9 @@ def build_methodology_payload(fixtures: Path, players_data: dict) -> dict:
                     "scoring_label": METHODOLOGY_SCORING_LABELS[scoring],
                     "teams": teams,
                     "position_shares": position_shares,
-                    "adjustments": adjustments,
+                    # The *_adjusted sections and the fit behind the movers were
+                    # retired (JEG-539), so the movers/recalibration lab is empty.
+                    "adjustments": {},
                 }
 
     return {

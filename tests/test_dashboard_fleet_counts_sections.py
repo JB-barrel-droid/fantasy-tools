@@ -32,15 +32,12 @@ class FleetCountsTopLevelSectionsTest(unittest.TestCase):
             "otherwise it can claim '0 broken' while a section is bad",
         )
 
-    def test_counter_tallies_adj_pipeline_stages(self):
+    def test_adj_pipeline_stages_are_retired(self):
+        # JEG-539 (Jeremy 2026-10-12): the fit and the *_adjusted sections are
+        # retired, so the A1-A5 adj-curve stages are neither built nor counted.
         text = HTML.read_text(encoding="utf-8")
-        m = re.search(r"// Count all checkpoints.*?(?=// Auto-open|\Z)", text, re.S)
-        self.assertTrue(m, "fleet counter block not found -- test wiring is stale")
-        self.assertIn(
-            "adj_curve_pipeline",
-            m.group(0),
-            "fleet headline must count the adj_curve_pipeline stages",
-        )
+        self.assertNotIn("adj_curve_pipeline", text)
+        self.assertNotIn('id="adjCurveCard"', text)
 
     def test_methodology_section_rendered(self):
         text = HTML.read_text(encoding="utf-8")
