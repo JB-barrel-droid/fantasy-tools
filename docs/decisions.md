@@ -414,3 +414,283 @@ Option 1, chosen by Jeremy (2026-10-07, explicit).
 ### Outcome Note
 
 Approved by Jeremy on 2026-10-07 and implemented in PR #400.
+
+## es-value-001: Expected starts replace the flat bench-share slices; the bench share is a readout
+- id: es-value-001
+- created: 2026-10-09
+- deadline: 2026-10-16
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-09
+- recommendation: Option A: expected-starts parts replace the VP-2.6 slices; the bench share is an output shown by position, caused by reader settings, with one override off by default.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from the Linear ticket JEG-533. The flat 15% bench share had no derivation; measured shares were 8.0-9.9% across the 12 settings.
+
+### Problem
+
+Should the fixed 15% bench share stay as a slider, move down, or be replaced by a computed value?
+
+### Options
+
+1. A: expected starts replace the slices; bench share is a computed readout by position; one advanced override.
+2. B: move the slider default to about 9% (total right, no per-player lineup share).
+3. Leave at 15%.
+
+### Recommendation
+
+Option A.
+
+### Outcome Note
+
+Jeremy, 2026-10-09 20:51 on JEG-533: "I'm good with this, do it." Reader settings are its causes (league weeks and objective; Advanced: injury history and projection confidence). One reading flagged for Jeremy: the injury-history default is recent seasons (five-season half-life, MR-25); he did not separately confirm it. Built in JEG-536 (engine) and JEG-537 (front end). Spec ES-14.
+
+## roster-convention-001: One roster convention everywhere; market bench is separate from fundamental bench
+- id: roster-convention-001
+- created: 2026-10-10
+- deadline: 2026-10-17
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-10
+- recommendation: Bench seats, tiers, starter and waiver lines and flex follow one definition (JS and Python twin). Market bench (backups per starter from real drafts: QB 0.86, RB 0.85, WR 1.05, TE 0.39) sets tiers and the waiver line; the fundamental bench module never does.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-556 and its child tickets (JEG-558, 559, 560, 561, 562, 564). An audit found the same step implemented differently in several live paths (bench seats, tier basis, starter line, waiver line on short lists, flex, roster shape).
+
+### Problem
+
+Which single rule defines bench seats, tiers, lines and flex, and how are the descriptive and prescriptive bench logic kept apart?
+
+### Options
+
+1. One convention with market bench from draft ratios (candidate C1 of five scored).
+2. Keep per-path rules.
+3. Fixed 10:27:33:10 mix.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-10 on JEG-556: "I don't want some corner case logic for QBs that should be applied in other places too, the transformations logic should be consistent." And: "Like market values vs fundamental values, there is also market bench expectations vs fundamental bench strategy, and we need to separate the logic for the two." The market bench sets the waiver line (replacement is what real leagues leave on waivers); the fundamental bench is its own module (JEG-564) and never sets tiers or lines. Evidence: Fantasy Football Calculator 12-team PPR drafts 2016-2024 (8,857 drafts). Not found in the ticket comments read for this back-fill: Jeremy's answers to "Decision needed" items 3 (waiver line on short lists: last listed value vs imputation) and 4 (starter line: midpoint vs first non-starter); check JEG-559 and JEG-560 before relying on either.
+
+## default-roster-001: Default roster is the most common real league, with kickers and defenses as starters
+- id: default-roster-001
+- created: 2026-10-10
+- deadline: 2026-10-17
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-10
+- recommendation: Default league becomes 12 teams, 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / 1 K / 1 DEF, 7 bench; K and DEF are starters but not valued and stay outside the value pie.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-556 comments and JEG-563. RotoWire's count of 35,000 leagues shows this as the most common build; the previous default was 1/2/3/1/FLEX with 6 bench and no K/DEF.
+
+### Problem
+
+Should the default roster match the most common real league?
+
+### Options
+
+1. Switch the default to the most common league.
+2. Keep 1/2/3/1/FLEX, 6 bench.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-10: "We should expect our leagues to have kickers and defenses as starter positions too". Default switch decided the same day (JEG-563, front end JEG-565). Measured: leagues hold about 0.00 backup kickers and 0.06 backup defenses per starter (they stream), so K and DEF take two starting spots and almost no bench spots. Expected effect at 12-team PPR: bench 12 QB / 27 RB / 40 WR / 5 TE, about 10.5% of league value on benches, zero inversions in all 12 settings. It changes every default value; shipping needs the before/after table, 12-setting sweep and rank guard. Status 2026-10-12: JEG-563 not yet shipped (blocked behind the engine work).
+
+## copy-rescaled-001: Trade charts are labeled "rescaled", not "as published" or "indexed"
+- id: copy-rescaled-001
+- created: 2026-10-09
+- deadline: 2026-10-16
+- category: copy
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-09
+- recommendation: User-facing label is "Trade charts (rescaled)"; internal keys such as `indexed` are unchanged.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-510 (contract line GL-21). Follow-up JEG-615 finished the legacy dashboard strings.
+
+### Problem
+
+What wording describes a publisher's values after we index them to our scale?
+
+### Options
+
+1. "Trade charts (rescaled)".
+2. Keep "as published".
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-09 (GL-21): "anywhere we are saying "as published" we are really saying indexing what was published; so sort out copy to properly say the wording, else it may confuse the reader". Meaning line: "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged." The scale anchor (ESPN or DDF) is not described until JEG-499 settles.
+
+## fe-contract-2026-10-09: Three DDF Value types on every page, full NFL player search, trade headline with confidence
+- id: fe-contract-2026-10-09
+- created: 2026-10-09
+- deadline: 2026-10-16
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-09
+- recommendation: Build contract lines GL-09, GL-20 and CT-02 as Jeremy worded them.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-497 (GL-09), JEG-502 (GL-20) and JEG-505 (CT-02). The source of truth for contract wording is the repo `docs/feature-contract.md` (JEG-602 makes the Google Doc a mirror).
+
+### Problem
+
+Record the contract lines that exist only in ticket text.
+
+### Options
+
+1. Record the quotes here and in the contract.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-09, GL-09: "All DDF Value Types should be available on every page - The total blended one, the one sourced from trade value charts only, and the one sourced from player projections only." GL-20: "All players in the active NFL universe should be available in the search; even if they are not rostered, on practice squads, etc. The user knowing they are a 0 is better than the use questioning why they aren't in the tool." CT-02: "The headline language needs to be simple and answer - Should you propose or accept this trade? + level of confidence. And will a competing manager accept this trade based on published value charts? + level of confidence." Confidence is agreement plus data quality (JEG-505).
+
+## research-tab-001: A Research tab holds posts on the tool's opinionated choices
+- id: research-tab-001
+- created: 2026-10-10
+- deadline: 2026-10-17
+- category: publish
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-10
+- recommendation: Add a Research tab after the Manifesto tab; Claude drafts posts from methodology and decisions, Jeremy approves.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-543.
+
+### Problem
+
+Where do evidence write-ups for specific choices live?
+
+### Options
+
+1. A Research tab linking back to the Manifesto tab.
+2. Fold them into the Manifesto.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-10: "a section that is posts about anything opinionated in the tool and how we arrive at those opinions; perhaps blog like posts live there too." The Manifesto stays its own tab, first in the nav. Research claims link to a repo doc and a script (JEG-604, JEG-566).
+
+## timestamp-parse-001: ISO timestamp parsing tolerates 1-digit fractional seconds on Python 3.9
+- id: timestamp-parse-001
+- created: 2026-10-12
+- deadline: 2026-10-19
+- category: engineering
+- silence-default: proceed
+- outcome: proceeded
+- outcome_date: 2026-10-12
+- recommendation: One helper (`pipelines/lib/timestamps.py`, `parse_iso_timestamp`) pads or truncates the fraction so parsing works on 3.9 and 3.11+.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-625: `datetime.fromisoformat` on 3.9 rejects "...30.1+00:00", so `latest_save._ts` returned None.
+
+### Problem
+
+Fix the parser or require a newer Python?
+
+### Options
+
+1. Tolerant parser helper.
+2. Require Python 3.11+.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-12 (JEG-625): "make the parser tolerant so it works on 3.9 and 3.11+." Implementation tracked in JEG-625.
+
+## usage-minimax-001: MiniMax is not used
+- id: usage-minimax-001
+- created: 2026-10-09
+- deadline: 2026-10-16
+- category: ops
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-09
+- recommendation: Do not route work to MiniMax; M2.5 is banned and M3 is not configured.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from Jeremy's usage rules (user-level Claude instructions). Draft briefs in the archive name a minimax lane that is retired.
+
+### Problem
+
+Is MiniMax a worker lane?
+
+### Options
+
+1. Not used.
+2. Use M3 for routine work.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-09: MiniMax not used; M2.5 is banned; M3 is not configured.
+
+## docs-location-001: Docs stay as Markdown in the repo with a browsable index
+- id: docs-location-001
+- created: 2026-10-12
+- deadline: 2026-10-19
+- category: publish
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-12
+- recommendation: Keep the .md files in the repo `docs/`; add `docs/README.md` (naming conventions, one line per doc) and a generated index artifact.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-596 and JEG-619.
+
+### Problem
+
+Where do the durable docs live and how are they navigated?
+
+### Options
+
+1. Repo Markdown plus an index artifact.
+2. Move docs into a hosted doc tool.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-12 (JEG-596): keep .md in GitHub plus an easy-to-browse index with clear naming conventions and one-line descriptions per doc. Built in JEG-619 (PR 536).
