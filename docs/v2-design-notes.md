@@ -1183,7 +1183,7 @@ How it works:
   - `docs/manifesto-mirror.md` mirrors Jeremy's Manifesto Doc ("Fantasy Football Manifesto V2"): `python scripts/sync_feature_contract.py --doc manifesto <export>`.
   - `docs/manifesto.md` is not used. It carries a repo-written terminology note, so it is not a copy of the Doc.
 - `tests/test_v2_contract_render.py`:
-  - `CHECKS` maps every ID in the mirror to a check function, or to `PENDING("JEG-xxx")` for a line marked "to build: JEG-xxx". A pending entry may carry a partial check of what already exists: GL-17 for Player values, and TT-05's ⓘ until JEG-510.
+  - `CHECKS` maps every ID in the mirror to a check function, or to `PENDING("JEG-xxx")` for a line marked "to build: JEG-xxx". A pending entry may carry a partial check of what already exists: TT-05's ⓘ until JEG-510 (GL-17 and GL-18 went live with JEG-500).
   - A line's "to build" counts anywhere in its block, from its ID to the next ID or heading. GL-24 has it on a later paragraph.
   - The unit test (`ContractMirrorTest`, no browser) fails in four cases:
     - a mirror ID has no entry;
@@ -1245,3 +1245,14 @@ Still on the old contract (front-end follow-up, GAP-508-V2-CONTRACT): v2 groups 
 `*_adjusted` aliases as "Trade charts (adjusted)" and its tests toggle them. The aliases carry each chart's
 Adjusted values, so the numbers are right, but the engine wants v2 to read the chart keys in the Adjusted tab and
 drop the alias group before it removes them.
+
+## Module cards: expand and collapse (JEG-500)
+
+`app/v2/modules.js` (loaded before v2.js, no engine code, no edits inside v2.js) gives every data card a
+44 px chevron (`aria-expanded`) and an expand control. Collapsed, a card keeps its head and shows one summary
+line read from the card's own text (e.g. "Sell: 230 of 738 players ..."); the rest is hidden. Collapsed cards are
+remembered in `localStorage` key `ddf.v2.modules` (`{v: 1, collapsed: {headingId: true}}`). Expand: the
+chart and table on Player values reuse their JEG-483 full-screen dialog; every other card spans its grid row
+and drops inner scroll caps (`aria-pressed`, not remembered). To cover a new card, add one entry to `CARDS` in
+modules.js. How values work and Manifesto are reading pages and are not modules. Tests:
+`tests/test_v2_modules_render.py` (all four data tabs, reload, 6 broken builds) and GL-17 / GL-18 in the contract test.
