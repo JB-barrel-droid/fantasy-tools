@@ -25,6 +25,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 import hashlib
@@ -195,9 +196,9 @@ def parse_iso(s):
     try:
         # Handle date-only like "2026-09-29"
         if re.match(r'^\d{4}-\d{2}-\d{2}$', s):
-            return datetime.fromisoformat(s + "T00:00:00+00:00")
-        return datetime.fromisoformat(s.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
+            return parse_iso_timestamp(s + "T00:00:00+00:00")
+        return parse_iso_timestamp(s)
+    except (ValueError, AttributeError, TypeError):
         return None
 
 

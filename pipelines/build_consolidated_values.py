@@ -63,6 +63,7 @@ import json
 import re
 import sys
 from datetime import datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -122,7 +123,7 @@ def current_season_week(detail):
     from nfl_week import current_nfl_week
     built_at = str(detail.get("built_at") or "")
     try:
-        built = datetime.fromisoformat(built_at.replace("Z", "+00:00"))
+        built = parse_iso_timestamp(built_at)
     except ValueError:
         built = datetime.now(timezone.utc)
     return built.year, current_nfl_week(built.date())
@@ -342,7 +343,7 @@ def _parse_instant(value):
         if len(text) == 10:
             dt = datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         else:
-            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            dt = parse_iso_timestamp(text)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
     except ValueError:

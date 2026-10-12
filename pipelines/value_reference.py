@@ -44,7 +44,15 @@ sys.path.insert(0, str(REPO / "pipelines"))
 sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 sys.path.insert(0, str(REPO))
 
-VERSION = "value-reference-002/1"
+from lib.roster_convention import (
+    bench_seats as _convention_bench_seats,
+    starter_line as _convention_starter_line,
+    waiver_line as _convention_waiver_line,
+    market_bench_ratios as _convention_market_bench_ratios,
+    POSITIONS as _CONV_POSITIONS,
+)
+
+VERSION = "value-reference-002/2"
 PIPELINE_VERSION = "value-pipeline/2"
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
@@ -177,13 +185,15 @@ class SourceInput:
 # VP-2.2 league allocation
 # ---------------------------------------------------------------------------
 
-def bench_seats(total: int) -> dict:
-    """VP-2.2d: D'Hondt over BENCH_MIX_12; ties go to position order."""
-    seats = {p: 0 for p in POSITIONS}
-    for _ in range(max(0, total)):
-        best = max(POSITIONS, key=lambda p: (BENCH_MIX_12[p] / (seats[p] + 1), -POS_ORDER[p]))
-        seats[best] += 1
-    return seats
+def bench_seats(league: League) -> dict:
+    """VP-2.2d: D'Hondt bench seats via roster convention (market bench
+    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights."""
+    slots = {p: int(league.slots.get(p, 0)) for p in _CONV_POSITIONS}
+    seats = _convention_bench_seats(
+        slots, league.teams, league.bench,
+        superflex=(league.superflex > 0),
+    )
+    return {p: seats.get(p, 0) for p in POSITIONS}
 
 
 def allocate(league: League, order: dict, score: dict) -> dict:
@@ -205,7 +215,7 @@ def allocate(league: League, order: dict, score: dict) -> dict:
     fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
-    b = bench_seats(round_half_up(t * league.bench))
+    b = bench_seats(league)
     out = {}
     for p in POSITIONS:
         s = d[p] + sf[p] + fx[p]
@@ -334,7 +344,7 @@ def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict) -
     for v in lists:
         tot = sum(v[i] for i in sorted(shared))
         factors.append(CHART_COMMON_TOTAL / tot if tot > 0 else 1.0)
-    seats = bench_seats(round_half_up(league.teams * league.bench))
+    seats = bench_seats(league)
     out = {}
     for p in POSITIONS:
         acc = {}
@@ -416,7 +426,12 @@ def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
             info.update({"waiver_value": None, "starter_line": None, "method": "no_players"})
             positions[p] = info
             continue
-        line = work[n_start][1] if len(work) > n_start else w
+        # Convention rule 3 (JEG-560): midpoint of last starter and first
+        # non-starter, replacing the old first-non-starter rule.
+        work_values = [r[1] for r in work]
+        line = _convention_starter_line(work_values, n_start)
+        if line is None:
+            line = w
         line = max(line, w)
         info.update({"waiver_value": w, "starter_line": line, "method": method})
         parts = None

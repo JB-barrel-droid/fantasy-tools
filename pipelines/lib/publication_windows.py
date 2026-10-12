@@ -30,6 +30,10 @@ Usage:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+try:
+    from lib.timestamps import parse_iso_timestamp
+except ImportError:  # pipelines/lib itself on sys.path
+    from timestamps import parse_iso_timestamp
 from typing import Any, Literal
 
 Status = Literal["ok", "yellow", "red", "stale"]
@@ -234,7 +238,7 @@ def slip_is_stale(rule: dict[str, Any] | None, now: datetime | None = None) -> b
     if not measured_at_raw:
         return False
     try:
-        measured_at = datetime.fromisoformat(str(measured_at_raw).replace("Z", "+00:00"))
+        measured_at = parse_iso_timestamp(str(measured_at_raw))
     except (TypeError, ValueError):
         return False
     if now is None:

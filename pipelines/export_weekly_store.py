@@ -107,8 +107,8 @@ def projection_rows(snaps: list[dict], kickoff: dict, meta: dict) -> list[list]:
 
 
 def _ts(s):
-    from datetime import datetime  # noqa: PLC0415
-    return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    from lib.timestamps import parse_iso_timestamp  # noqa: PLC0415
+    return parse_iso_timestamp(str(s))
 
 
 def _num(v):

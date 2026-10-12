@@ -29,6 +29,7 @@ import re
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
@@ -193,7 +194,7 @@ def check_freshness(source: str, fixture: dict, max_age_days: float = 2.0) -> li
 
     try:
         # Parse ISO timestamp
-        ts = datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
+        ts = parse_iso_timestamp(fetched_at)
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         age = datetime.now(timezone.utc) - ts
