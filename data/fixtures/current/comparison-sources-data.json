@@ -26,7 +26,7 @@
     "transformed_at": "2026-10-03T21:04:32.183609+00:00",
     "transformer": "pipelines/transform_batch70_to_comparison.py"
   },
-  "built_at": "2026-10-12T18:01:40.836245+00:00",
+  "built_at": "2026-10-12T20:01:41.673910+00:00",
   "display": {
     "aaron anderson": "Aaron Anderson",
     "aaron jones": "Aaron Jones",
@@ -3410,7 +3410,7 @@
       "name": "CBS",
       "native_unit": "CBS chart points (their ~5\u201347 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-12T18:01:40Z",
+      "promoted_at": "2026-10-12T20:01:41Z",
       "promoted_from_review": "cbs-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-08T12:59:38+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: CBS publishes 1QB-4 / 1QB-6 / 2QB, so the 1QB-4 column is reused for every scoring mode. QBs with '--' in the 1QB columns carry 2QB-only value and are not covered in 1QB.",
@@ -3423,7 +3423,7 @@
         "snapshot_fetched_at": "2026-10-08T12:59:38+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/cbs/week-5/snapshot-manifest.json",
         "source": "cbs",
-        "source_pulled_at": "2026-10-12T18:01:09Z",
+        "source_pulled_at": "2026-10-12T20:01:16Z",
         "source_url": "https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-5-trade-chart/",
         "vintage_kind": "week_designated",
         "week_designated": 5
@@ -12701,7 +12701,17 @@
       "snapshot_id": "sha256:dcbd56e6a65f4bd7c360bcf9b8739e785f058c6c8d367d55aba5ceab35d041c3",
       "source_url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
       "vintage": "2026-10-10",
-      "week_designated": "rest of season"
+      "week_designated": "rest of season",
+      "validationHold": {
+        "reason": "fidelity: stored_vs_chart",
+        "week": 5,
+        "root": "cbsros",
+        "kept_week": null,
+        "stage": "stored_vs_chart",
+        "identity": "2026-10-12@2026-10-12T15:25:41.456175Z",
+        "since": "2026-10-12T18:40:14.640311Z",
+        "restored_from": null
+      }
     },
     "espn": {
       "claimed_settings": "ESPN season fantasy projections (Mike Clay model) where priced; ECR fills the rest. Valued through our pinned starter model.",
@@ -41266,7 +41276,7 @@
         "vintage": "2026-10-10",
         "reason": "ESPN's fantasy projections (Mike Clay model per ESPN) refit through the DDF two-tier leg at vintage 2026-10-10."
       },
-      "fetched_at": "2026-10-12T18:01:39Z",
+      "fetched_at": "2026-10-12T20:01:40Z",
       "kind": "model projections, valued by our model",
       "lineage": {
         "raw_vintage": "2026-10-10",
@@ -41286,17 +41296,7 @@
       "snapshot_id": "sha256:f311cfff6d9eb1a347e14ed3fc723681a4b93ecce23f02c71693afcd3eacd681",
       "update_cadence": "daily (morning pull)",
       "value_provenance": "modeled",
-      "week_designated": "rest of season",
-      "validationHold": {
-        "reason": "fidelity: publisher_vs_stored",
-        "week": 5,
-        "root": "espn",
-        "kept_week": null,
-        "stage": "publisher_vs_stored",
-        "identity": "2026-10-11@2026-10-12T03:25:49.017933Z",
-        "since": "2026-10-12T15:40:13.941504Z",
-        "restored_from": null
-      }
+      "week_designated": "rest of season"
     },
     "fantasycalc": {
       "claimed_settings": "Redraft, rest-of-season. Scoring x team count x 1-QB/2-QB per pull. FantasyCalc's 2QB setting is their own implementation, not necessarily superflex.",
@@ -43903,17 +43903,7 @@
           }
         }
       },
-      "week_designated": "Week 5",
-      "validationHold": {
-        "reason": "fidelity: publisher_vs_stored",
-        "week": 5,
-        "root": "fantasycalc",
-        "kept_week": 5,
-        "stage": "publisher_vs_stored",
-        "identity": "fcwk5_2026-10-12t1505_v1",
-        "since": "2026-10-12T15:40:13.941504Z",
-        "restored_from": "2026-10-11T01:05:52.626989+00:00"
-      }
+      "week_designated": "Week 5"
     },
     "fantasypros": {
       "claimed_settings": "12-team, 1-QB leagues. One base Value column (plus 2QB Value for QBs and TEP Value for TEs); the base Value is scoring-agnostic and is reused for STD / Half / Full PPR.",
@@ -45254,7 +45244,7 @@
       "name": "FantasyPros",
       "native_unit": "FantasyPros analyst-consensus chart points (~1.0\u201375.1 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-12T18:01:36Z",
+      "promoted_at": "2026-10-12T20:01:36Z",
       "promoted_from_review": "fantasypros-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-12T09:35:46.658624+00:00; reindex mapping updated.",
       "provenance_note": "FantasyPros publishes one base Value column. It is treated as scoring-agnostic and reused across the three scoring combos; values are indexed with one factor per combo to the other charts' range, so its own order is kept (JEG-482).",
@@ -45267,7 +45257,7 @@
         "snapshot_fetched_at": "2026-10-12T09:35:46.658624+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasypros/2026-10-06/snapshot-manifest.json",
         "source": "fantasypros",
-        "source_pulled_at": "2026-10-12T18:01:07Z",
+        "source_pulled_at": "2026-10-12T20:01:14Z",
         "source_url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-5-2026/",
         "vintage_kind": "week_designated",
         "week_designated": 5
@@ -65363,7 +65353,7 @@
       "name": "USA Today",
       "native_unit": "USA Today chart points (their ~0\u201370 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-12T18:01:32Z",
+      "promoted_at": "2026-10-12T20:01:33Z",
       "promoted_from_review": "usatoday-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-09T00:00:00+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: USA Today publishes one QB column set (1QB / 6-pt-TD / Superflex), so the 1QB column is reused for every scoring mode.",
@@ -65376,7 +65366,7 @@
         "snapshot_fetched_at": "2026-10-09T00:00:00+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/usatoday/2026-10-06/snapshot-manifest.json",
         "source": "usatoday",
-        "source_pulled_at": "2026-10-12T18:01:05Z",
+        "source_pulled_at": "2026-10-12T20:01:13Z",
         "source_url": "https://www.usatoday.com/story/sports/fantasy/football/2026/10/06/fantasy-trade-value-charts-week-5-ros-rankings/92125556007/",
         "vintage_kind": "week_designated",
         "week_designated": 5
