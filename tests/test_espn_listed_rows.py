@@ -15,13 +15,15 @@ built ESPN leg (the combo the page reads) has a row in the engine
 (getAllRows) and in the Python reference (value_reference.Setting.rows), and
 that a player ESPN projects at zero shows ESPN 0 on both.
 
-Discrimination (test_guard_fails_on_pre_fix_widget): the engine check fails on
-the pre-fix curve-widget.js (0dbf4bc7, read from git).
+Discrimination (test_guard_fails_on_broken_widget): the engine check fails on
+the current curve-widget.js with the ESPN-zero rule removed. JEG-614: it used
+to serve the 0dbf4bc7 widget from git, which crashed against today's
+value-model.js (ValueModel.projectionRoles missing), so the page never became
+ready and the test timed out instead of failing on missing rows.
 """
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 import unittest
 from datetime import date
@@ -37,7 +39,16 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-PRE_FIX_COMMIT = "0dbf4bc7"
+WIDGET = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
+# The bug, re-created on the current widget: an ESPN-listed player ESPN projects
+# at zero contributes no ESPN native, so no source prices him and he has no row.
+FIXED_SNIPPET = b"""if (key === "espn" && player.espnProjectsZero && !player.espn_ppg) {
+        values.set(playerKey, 0);
+        return;
+      }"""
+BROKEN_SNIPPET = b"""if (key === "espn" && player.espnProjectsZero && !player.espn_ppg) {
+        return;
+      }"""
 SCORINGS = ("standard", "half_ppr", "ppr")
 TEAMS = (8, 10, 12, 14)
 ENGINE_SCORING = {"standard": "standard", "half_ppr": "half", "ppr": "full"}
@@ -125,29 +136,11 @@ class EngineEspnListedRowsTest(unittest.TestCase):
         self.assertEqual(found, {}, json.dumps(found, indent=1)[:3000])
         self.assertEqual(rows[("ppr", 12)][ACHANE], 0)
 
-    def test_guard_fails_on_pre_fix_widget(self):
-        proc = subprocess.run(["git", "show", f"{PRE_FIX_COMMIT}:app/trade-value-chart/assets/curve-widget.js"],
-                              cwd=ROOT, capture_output=True)
-        if proc.returncode != 0:
-            self.skipTest(f"{PRE_FIX_COMMIT} not in this clone")
-        # The pre-fix widget needs its own era's engine and surfaces. main moved on (JEG-508, #514 removed
-        # ValueModel.projectionRoles; JEG-539 removed getAdjustmentInputs and the *_adjusted source_validation
-        # entries), so give it its commit's value-model.js, a null for the adjustment inputs it asks
-        # product-data.js for, and the validation entries it requires. Without this the page never booted
-        # and the test errored on a full-history clone of main.
-        old_model = subprocess.run(["git", "show", f"{PRE_FIX_COMMIT}:app/trade-value-chart/assets/value-model.js"],
-                                   cwd=ROOT, capture_output=True)
-        product = (DIST / "assets" / "product-data.js").read_bytes()
-        shimmed = product.replace(b"    getLoadStatus,\n    handle:",
-                                  b"    getLoadStatus,\n    getAdjustmentInputs: () => null,\n    handle:", 1)
-        self.assertNotEqual(product, shimmed, "product-data.js public API changed; update the shim")
-        fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
-        for root in ("cbs", "fantasycalc", "usatoday", "fantasypros"):
-            fixture["source_validation"][f"{root}_adjusted"] = "live"
-        found = problems(read_engine({"assets/curve-widget.js": proc.stdout,
-                                      "assets/value-model.js": old_model.stdout,
-                                      "assets/product-data.js": shimmed,
-                                      "assets/comparison-sources-data.json": json.dumps(fixture).encode()}), self.inp)
+    def test_guard_fails_on_broken_widget(self):
+        source = WIDGET.read_bytes()
+        self.assertIn(FIXED_SNIPPET, source, "widget changed: update the guard's mutation")
+        broken = source.replace(FIXED_SNIPPET, BROKEN_SNIPPET)
+        found = problems(read_engine({"assets/curve-widget.js": broken}), self.inp)
         self.assertEqual(len(found), len(SCORINGS) * len(TEAMS), sorted(found))
 
 

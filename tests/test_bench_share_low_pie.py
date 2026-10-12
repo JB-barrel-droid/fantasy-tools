@@ -45,10 +45,9 @@ anchor through the OLS cells) is retired with the cells.
 from __future__ import annotations
 
 import json
-import subprocess
 import unittest
 
-from tests._dist_server import DIST, ENGINE_PAGE, ROOT, chromium_executable, serve
+from tests._dist_server import DIST, ENGINE_PAGE, chromium_executable, serve
 from tests import _render_env  # noqa: E402
 
 
@@ -58,7 +57,6 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-PRE_FIX_COMMIT = "aefb8f7"
 WIDGET = "assets/curve-widget.js"
 SETTINGS = [("ppr", 12), ("standard", 8), ("half_ppr", 10), ("ppr", 14)]
 PIE_TOLERANCE = 0.01
@@ -136,11 +134,6 @@ RECOVERY = """async () => {
 }"""
 
 
-def git_show(path, commit=PRE_FIX_COMMIT):
-    proc = subprocess.run(["git", "show", f"{commit}:{path}"], cwd=ROOT, capture_output=True)
-    return proc.stdout if proc.returncode == 0 else None
-
-
 def built_widget() -> bytes:
     return (DIST / WIDGET).read_bytes()
 
@@ -153,13 +146,8 @@ def mutate(widget: bytes, old: str, new: str) -> bytes:
     return text.replace(old, new).encode("utf-8")
 
 
-# The pre-JEG-508 widget's guard tolerance line (the pre-fix check runs it).
-OLD_TOLERANCE_HOOK = ("const tolerance = 2;", "const tolerance = window.__benchLowTolerance ?? 2;")
-
-
 def with_hook(widget: bytes) -> bytes:
-    text = widget.decode("utf-8")
-    return mutate(widget, *(TOLERANCE_HOOK if TOLERANCE_HOOK[0] in text else OLD_TOLERANCE_HOOK))
+    return mutate(widget, *TOLERANCE_HOOK)
 
 
 def run(widget: bytes, script: str, arg=None):
@@ -206,13 +194,12 @@ class BenchShareLowPieTest(unittest.TestCase):
         self.assertGreater(result["checked"], 100, result)
         self.assertEqual(result["problems"], [], "\n".join(result["problems"][:40]))
 
-    def test_sweep_catches_the_pre_fix_widget(self):
-        old = git_show("app/trade-value-chart/assets/curve-widget.js")
-        if old is None:
-            self.skipTest(f"{PRE_FIX_COMMIT} not in this clone")
-        problems = sweep(old, [("ppr", 12)])["problems"]
-        self.assertTrue(any("total - pie" in p for p in problems), problems[:10])
-        self.assertTrue(any("stale" in p for p in problems), problems[:10])
+    # JEG-614: the two "catches the pre-fix widget" tests (aefb8f7) are removed.
+    # They served the old widget from git into today's page; it crashes against
+    # the current value-model.js, so they timed out instead of discriminating,
+    # and the anchor they targeted no longer exists. Their discrimination now
+    # lives in the mutation tests below (stale slider, sticky guardsPassed) and
+    # the group check's.
 
     # The group check's discrimination (groups paid at one source's own
     # weights) is proved in tools/guard_harness.mjs --simulate espn-anchor.
@@ -226,13 +213,6 @@ class BenchShareLowPieTest(unittest.TestCase):
     def test_guard_failure_blanks_then_recovers(self):
         state = run(with_hook(built_widget()), RECOVERY)
         self.assertTrue(recovered(state), json.dumps(state, indent=1))
-
-    def test_recovery_check_catches_the_pre_fix_widget(self):
-        old = git_show("app/trade-value-chart/assets/curve-widget.js")
-        if old is None:
-            self.skipTest(f"{PRE_FIX_COMMIT} not in this clone")
-        state = run(with_hook(old), RECOVERY)
-        self.assertFalse(recovered(state), json.dumps(state, indent=1))
 
     def test_recovery_check_catches_a_sticky_guards_passed(self):
         broken = mutate(with_hook(built_widget()), "      guardsPassed = false;\n      clearCanvasForFailedGuard();\n", "")
