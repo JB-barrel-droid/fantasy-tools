@@ -42,7 +42,7 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 # Pre-fix code, kept verbatim so the tests prove they discriminate.
 OLD_GUARD_EXPR = "SOURCE_KEYS.length === 9 && SOURCE_KEYS.every(key => sourceMaps.has(key))"
 OLD_BADGE_FN = """function columnBadge(key) {
-    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
+    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "rescaled");
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }"""
 
@@ -145,7 +145,7 @@ class ColumnBadgeTest(unittest.TestCase):
 
     def test_other_badges_unchanged(self):
         fn = _extract_fn(DASH_JS.read_text(encoding="utf-8"), "columnBadge")
-        self.assertEqual(self._run_badge(fn, "usatoday"), "as published · reindexed")
+        self.assertEqual(self._run_badge(fn, "usatoday"), "rescaled")
         self.assertEqual(self._run_badge(fn, "espn_vorp"), "raw VORP vs waivers")
         self.assertEqual(self._run_badge(fn, "cbsros_vorp"), "raw VORP vs waivers")
         self.assertEqual(self._run_badge(fn, "razzball_vorp"), "raw VORP vs waivers")
@@ -153,7 +153,7 @@ class ColumnBadgeTest(unittest.TestCase):
 
     def test_old_badge_mislabels_razzball(self):
         self.assertEqual(self._run_badge(OLD_BADGE_FN, "razzball"),
-                         "as published · reindexed",
+                         "rescaled",
                          "old badge unexpectedly honest -- test would not discriminate")
 
 

@@ -610,7 +610,7 @@ class StaticExportTest(unittest.TestCase):
         # from the value pipeline; the ESPN anchor builders are retired.
         self.assertIn("Projections (Adjusted values)", text)
         self.assertIn("Trade charts (Adjusted values)", text)
-        self.assertIn("Trade charts (as published)", text)
+        self.assertIn("Trade charts (rescaled)", text)
         self.assertIn("Projections (VORP vs waivers)", text)
         self.assertIn('DEFAULT_INDEXED_SOURCES = ["usatoday", "fantasycalc", "fantasypros", "cbs"]', text)
         self.assertIn("ValueModel.runValuePipeline", text)

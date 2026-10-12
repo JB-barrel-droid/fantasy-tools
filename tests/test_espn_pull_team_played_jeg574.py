@@ -135,28 +135,34 @@ class PullMainPerTeamWindowTest(unittest.TestCase):
             csv_text = (d / "files" / "season.csv").read_text()
         return side, meta, csv_text
 
-    def test_team_that_has_not_played_week5_keeps_it_in_its_window(self):
+    def test_thursday_teams_share_the_league_window(self):
+        # JEG-624: JEG-574 gave Thursday teams "6-18" and the rest "5-18" in
+        # one CSV; the bake (window_from_rows) failed closed on the mix.
         side, meta, _ = self.run_pull(PLAYED_THURSDAY)
         self.assertEqual([1, 2, 3, 4], meta["played_weeks"])
-        by_team = {}
-        for pl in side["players"].values():
-            by_team[pl["team"]] = pl
-        played = {TEAMS[t] for t in PLAYED_THURSDAY}
+        by_team = {pl["team"]: pl for pl in side["players"].values()}
         for team, pl in by_team.items():
-            first = 6 if team in played else 5
-            self.assertEqual(list(range(first, 19)), pl["ros_weeks"], team)
-            # one bye (week 9) is inside every window
-            self.assertEqual(18 - first + 1 - 1, pl["games_remaining"], team)
+            self.assertEqual(list(range(5, 19)), pl["ros_weeks"], team)
+            self.assertEqual(13, pl["games_remaining"], team)  # 14 weeks, one bye
             self.assertEqual(9, pl["bye_week"], team)
             # 50 rush yards x 0.1 = 5 half-PPR points per game week
             self.assertAlmostEqual(5.0 * pl["games_remaining"], pl["ros"]["half_ppr"], places=1)
 
-    def test_weeks_covered_label_is_per_team(self):
+    def test_csv_carries_a_single_weeks_covered_window(self):
+        # JEG-624 guard: the real consumer accepts the pull's CSV.
+        import csv
+        import io
+        import games_remaining as gr
         _, _, csv_text = self.run_pull(PLAYED_THURSDAY)
-        labels = {line.split(",")[3]: line.split(",")[csv_text.splitlines()[0].split(",").index("weeks_covered")]
-                  for line in csv_text.splitlines()[1:]}
-        for tid in TEAM_IDS:
-            self.assertEqual("6-18" if tid in PLAYED_THURSDAY else "5-18", labels[TEAMS[tid]])
+        rows = list(csv.DictReader(io.StringIO(csv_text)))
+        self.assertEqual({"5-18"}, {r["weeks_covered"] for r in rows})
+        self.assertEqual((5, 18), gr.window_from_rows(rows))
+
+    def test_guard_fails_on_the_mixed_state(self):
+        # Negative test: the pre-fix mix of per-team windows must be rejected.
+        import games_remaining as gr
+        with self.assertRaises(SystemExit):
+            gr.window_from_rows([{"weeks_covered": "5-18"}, {"weeks_covered": "6-18"}])
 
 
 if __name__ == "__main__":

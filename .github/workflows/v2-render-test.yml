@@ -1,0 +1,36 @@
+name: v2 render test
+
+# JEG-618 (option B of JEG-585). The v2 contract render test must pass before a
+# front-end change merges. It is NOT part of the deploy gate: pages.yml and
+# rebuild-chain.yml do not call this workflow, so a UI test can never hold a
+# scheduled data refresh. Make this a required check on main to block merges.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-render-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  v2-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Browser for the render test
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - run: make sync
+      - run: python3 -m unittest tests.test_v2_contract_render

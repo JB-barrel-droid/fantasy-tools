@@ -194,7 +194,9 @@ RULES = {
                        f"player count below {DROP_AMBER:.0%} of the prior week's is amber (alert only), below "
                        f"{DROP_RED:.0%} red (held) when the publisher's own list for that position did not drop below "
                        f"{DROP_RED:.0%} too (if it did, or it was not read, amber); "
-                       "JEG-482 published-rank inversions are red. A player absent from a fully loaded chart means 0; "
+                       "JEG-482 published-rank inversions are red; so is a sentinel star (Allen, Lamar Jackson, "
+                       "Mahomes, Gibbs, Nacua, Bowers) on a projection source's chart outside his per-game band "
+                       "(JEG-592). A player absent from a fully loaded chart means 0; "
                        "absences that may be processing errors are stages 1 and 2",
     "rollup": "a source is the worst of its stages; unknown (input unreadable) counts as amber",
     "hold": "JEG-520: a red in publisher_vs_stored, stored_vs_chart, freshness or scrape_validity holds that source "
@@ -1354,6 +1356,41 @@ def rank_guard_inversions(doc: dict | None, source: str) -> int | None:
     return walk(entry)
 
 
+# JEG-592 (class of JEG-555): a projection source can print a self-consistent but wrong number (Razzball's
+# Lamar Jackson 7.1 and Mahomes 10.5 against ESPN/CBS 20 to 23), which every transport check passes because
+# publisher, stored row and chart all agree. Sentinels pin an expected half-PPR per-game band for stars
+# (the three scorings differ only for RB/WR/TE and only by points per catch, so one band at 1/2 PPR is
+# checked). A sentinel the chart carries outside its band is red and holds the source; a sentinel the chart
+# does not carry is not a fault (the bake's outlier guard, JEG-555, drops a number on purpose). Bands are wide
+# (about 70% of the lowest source's value to 125% of the highest, 2026-10-12): they catch a discounted or
+# scrambled row, not drift.
+SENTINELS = (
+    ("Josh Allen", "QB", 17.0, 30.0),
+    ("Lamar Jackson", "QB", 16.0, 30.0),
+    ("Patrick Mahomes", "QB", 15.0, 28.0),
+    ("Jahmyr Gibbs", "RB", 15.0, 30.0),
+    ("Puka Nacua", "WR", 12.0, 24.0),
+    ("Brock Bowers", "TE", 8.5, 18.0),
+)
+
+
+def sentinel_failures(source: str, chart: dict | None, ident: Identity) -> list[dict]:
+    """Sentinel players whose chart per-game value (1/2 PPR) is outside the expected band."""
+    if source not in PROJECTIONS or not chart:
+        return []
+    grain = chart.get("half|1") or {}
+    out = []
+    for name, pos, lo, hi in SENTINELS:
+        key, _ = ident.resolve(name, pos)
+        cell = grain.get(key) if key is not None else None
+        if cell is None:
+            continue
+        value = float(cell["value"])
+        if not lo <= value <= hi:
+            out.append({"name": name, "pos": pos, "value": value, "expected": [lo, hi]})
+    return out
+
+
 def stage_scrape_validity(source: str, extras: dict, ident: Identity, *, publisher: dict | None,
                           stored: dict | None, chart: dict | None, chart_week: int | None, now: datetime,
                           universe: set[int] | None = None) -> dict:
@@ -1409,6 +1446,12 @@ def stage_scrape_validity(source: str, extras: dict, ident: Identity, *, publish
     elif inv:
         status = "red"
         reasons.append(f"rank guard: {inv} published-rank inversions (JEG-482)")
+    bad = sentinel_failures(source, chart, ident)
+    signals["sentinel_failures"] = bad
+    if bad:
+        status = "red"
+        reasons.append("sentinel players outside their per-game band (JEG-592): " + ", ".join(
+            f"{b['name']} {b['value']:g} (expected {b['expected'][0]:g} to {b['expected'][1]:g})" for b in bad))
     signals["note"] = ("a player absent from a fully loaded chart means 0 by design; absences that may be "
                        "processing errors are flagged in publisher_vs_stored and stored_vs_chart")
     flagged = [r for r in reasons if not r.startswith(("no week", "rank guard: not yet"))]
