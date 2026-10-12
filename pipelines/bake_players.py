@@ -917,6 +917,13 @@ def bake(args):
             # fixture): nothing prices him.
             row["universe_only"] = True
             row["unpriced_reason"] = nfl_universe.unpriced_reason(uni)
+            # JEG-606: Sleeper is the authoritative team for unpriced
+            # players. A player whose espn_row came from espn_zero (the
+            # comparison fixture) has team="" there; _resolve_team_abbr
+            # falls back to the registry, which can be stale. Override
+            # with the universe record's current team.
+            team = uni["team"]
+            row["team"] = team
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
