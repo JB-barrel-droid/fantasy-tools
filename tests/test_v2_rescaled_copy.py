@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 V2 = Path(__file__).resolve().parents[1] / "app" / "v2"
-SCRIPTS = ("v2.js", "targets.js", "movers.js", "trade.js")
+SCRIPTS = ("v2.js", "targets.js", "movers.js", "trade.js", "modules.js")
 
 BANNED = [
     (re.compile(r"as[ -]published", re.I), "as published"),

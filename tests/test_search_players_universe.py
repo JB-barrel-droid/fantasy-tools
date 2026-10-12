@@ -127,10 +127,10 @@ class SearchPlayersUniverseTest(unittest.TestCase):
         self.assertTrue(hit["materialized"])
         # 0.0, not "not found": the fully loaded charts price him at 0.
         self.assertTrue({"usatoday", "fantasycalc", "fantasypros"} & set(out["zeros"]), out["zeros"])
-        # DDF Value (JEG-479 #465: Adjusted values only) follows the same rule
-        # as a computed row: 0 when an included input prices him at 0, else
-        # null with its reason (covered by `unexplained` below).
-        self.assertIn(hit["values"]["ddf_value"], (0, None))
+        # JEG-606: DDF Value for a universe_only player is 0, not null.
+        # VP-6.2 gives him 0 for every chart that prices his position, so
+        # the composite averages those zeros to 0.
+        self.assertEqual(0, hit["values"]["ddf_value"])
         self.assertIn("blended", hit["ddfByVersion"])
         # Every null has a reason (the v2 row contract).
         self.assertEqual([], out["unexplained"])

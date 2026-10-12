@@ -397,7 +397,9 @@
     if (!week || key === "espn") return base;
     return `${base} Wk ${week}`;
   }
-  const lockLabel = key => key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
+  // "DDF Value" already names a value, so it takes no "value" suffix (JEG-608).
+  const lockLabel = key => key === "disagreement" ? "Largest disagreement"
+    : key === "ddf_value" ? sourceLabel(key) : `${sourceLabel(key)} value`;
   const flexEligiblePositions = () => [...DEFAULT_FLEX_ELIGIBLE];
   const isPosition = player => position === "ALL" || (position === "FLEX" ? flexEligiblePositions().includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
@@ -560,9 +562,9 @@
   // Adjusted values; a "*_vorp" series its VORP vs waivers; a "*_adjusted"
   // alias its chart's Adjusted values.
   function seriesField(key, view = viewMode) {
-    if (PURE_VORP_KEYS.includes(key)) return "vorp";
+    if (PURE_VORP_KEYS.includes(key)) return VIEW_MODE_ORDER[1];
     if (ADJUSTED_INDEXED_KEYS.includes(key)) return "adjusted";
-    if (AS_PUBLISHED_KEYS.has(key)) return view === "vorp" ? "vorp" : view === "adj" ? "adjusted" : "indexed";
+    if (AS_PUBLISHED_KEYS.has(key)) return view === VIEW_MODE_ORDER[1] ? VIEW_MODE_ORDER[1] : view === "adj" ? "adjusted" : "indexed";
     return "adjusted";
   }
 
@@ -1003,15 +1005,32 @@
     if (!row.missingReasons) row.missingReasons = {};
     const now = pipeline?.rows?.[row.player_key];
     const before = pipelinePrior?.rows?.[row.player_key];
+    // JEG-606: universe_only players have no pipeline row, but VP-6.2
+    // already set their individual chart values to 0 in buildRow.
+    // Compute the composite from row.values so ddf_value is 0 (not null).
+    const useRowValues = !now && row.universe_only;
     row.ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
       const name = COMPOSITE_VERSION_NAMES[version];
-      const cur = now?.ddfByVersion?.[name];
+      let value, count, sources, reason;
+      if (useRowValues) {
+        const inputs = COMPOSITE_VERSIONS[version];
+        const finite = inputs.filter(k => Number.isFinite(row.values[k]));
+        value = finite.length ? finite.reduce((s, k) => s + row.values[k], 0) / finite.length : null;
+        count = finite.length;
+        sources = finite;
+        reason = value !== null ? null
+          : (!pipelineState.included.length ? COMPOSITE_EMPTY_REASON : COMPOSITE_NONE_REASON);
+      } else {
+        const cur = now?.ddfByVersion?.[name];
+        const pri_unused = null; // handled below
+        value = cur && Number.isFinite(cur.value) ? cur.value : null;
+        count = cur ? cur.count : 0;
+        sources = cur ? [...cur.sources] : [];
+        reason = value !== null ? null
+          : (!pipelineState.included.length ? COMPOSITE_EMPTY_REASON : COMPOSITE_NONE_REASON);
+      }
       const pri = before?.ddfByVersion?.[name];
-      const value = cur && Number.isFinite(cur.value) ? cur.value : null;
-      const count = cur ? cur.count : 0;
-      const reason = value !== null ? null
-        : (!pipelineState.included.length ? COMPOSITE_EMPTY_REASON : COMPOSITE_NONE_REASON);
-      const entry = {value, count, sources: cur ? [...cur.sources] : [], reason,
+      const entry = {value, count, sources, reason,
         lowConfidence: count === 1,
         confidenceNote: count === 1 ? COMPOSITE_ONE_SOURCE_NOTE : null,
         prior: pri && Number.isFinite(pri.value) ? pri.value : null,

@@ -1,33 +1,29 @@
-"""GAP-ESPN-BELOW-LEG: a projected player below a leg's pricing line is 0.0, not —.
+"""GAP-ESPN-BELOW-LEG: a projected player is never "—" on a projection leg.
 
 Jeremy (2026-10-07): a player ESPN projects above 0 but below its waiver line is
-worth 0.0 on our value, like the injured/out case (GAP-025), so a chart that
-still pays for him is a sell target with gap = chart value. The same rule holds
-for the CBS ROS and Razzball legs. Players with no row in the source stay —.
+worth 0.0 on our value, not "—", so a chart that still pays for him is a sell
+target with gap = chart value. The same holds for the CBS ROS and Razzball legs.
+Players with no projection in the source stay "—".
 
-"Below the leg" is checked here independently of the code under test: from the
-engine's raw source maps (TradeValueCurveHarness.sourceMaps, which this rule
-must not touch) and the page's own #players-data projections, a player missing
-from a leg is expected at 0 only when his per-game projection is at or below
-the lowest projection the leg prices at his position. Above that line, or at a
-position the leg prices no one (a withheld position), he must stay
-missing: zeroing there would invent a value.
-
-Headless against a temp copy of the built dist/ (dist/v2 rebuilt from app/v2):
-  * every combo of 12-team and 8-team PPR: getRows() matches the expectation
-    for espn / cbsros / razzball on every row;
+JEG-608 (2026-10-12): the rule is kept, the mechanism changed. It used to be a
+display patch (buildLegFloors / rowValue zeroed a missing player projected at
+or below the lowest priced projection at his position). JEG-508 (#491) made
+every projected player a priced native (currentNatives), so a below-line player
+is priced at 0 by the pipeline and is never missing; the patch was deleted.
+The test no longer reads the engine's own maps for its expectation. It checks
+from the page's #players-data projections, independent of the code:
+  * every combo of 12-team and 8-team PPR: for espn / cbsros / razzball, a
+    player with a per-game projection at the scoring shows a number (>= 0), a
+    player without one shows nothing (ESPN-0 "ineligible" players show 0);
   * Darren Waller (12-team PPR): engine ESPN 0.0, and on v2 Trade targets
     (ESPN as our value) a sell row with ours 0.0 and gap = chart value for
-    every compared chart that pays for him;
-  * if a leg prices no one at a position (CBS ROS quarterbacks at 8 teams
-    until GAP-CBSROS-8T-NO-QB was fixed), its players there stay missing.
-Discrimination: test_guard_fails_on_broken_builds serves the origin/main rule
-(below-leg players missing), a rule that zeroes every projected player missing
-from a leg (no floor).
+    every compared chart that pays for him.
+Discrimination: test_guard_fails_on_broken_builds serves a build that drops
+low-projection players from the legs' natives (the old "missing below the
+line" state), and one that drops every CBS ROS quarterback.
 
 The main comparison table is not checked: its ESPN column reads the built
-fixture leg, which already carries 0 for these players (299 zeros at the
-default setting), so the rule is not needed there.
+fixture leg, which already carries 0 for these players.
 """
 from __future__ import annotations
 
@@ -55,35 +51,8 @@ PROBE = "Darren Waller"
 SETTINGS = (("ppr", 12), ("ppr", 8))
 
 WIDGET_RULE = "if (ppg !== null && Number.isFinite(floor) && ppg <= floor) return 0;"
-# The "no floor" mutation is only caught where a leg prices no one at a
-# position: players projected above any floor must then stay missing. Until
-# 2026-10-08 that state came from disabling the GAP-CBSROS-8T-NO-QB upward
-# step (CBS ROS priced no 8-team quarterbacks without it), but with fresh CBS
-# ROS data the leg prices them anyway, the mutation went uncaught and this
-# test went red. The withheld position is now forced, independent of the
-# week's data: the display path (row values, leg floors, and the harness view
-# this test reads) sees a CBS ROS leg with no quarterbacks. The pricing and
-# fixed-pie guards keep the real map, so the page still initialises.
-WITHHOLD_VIEW = (
-    'const withheldView = (key, map) => key === "cbsros" && map ? new Map([...map]'
-    '.filter(([k]) => canonicalByKey.get(k)?.pos !== "QB")) : map;\n  ')
-WITHHOLD_ANCHORS = (
-    ("  function buildLegFloors() {", WITHHOLD_VIEW + "function buildLegFloors() {"),
-    ("legFloorsOf(sourceMaps.get(key),", "legFloorsOf(withheldView(key, sourceMaps.get(key)),"),
-    ("    const map = sourceMaps.get(key);\n    if (map?.has(player.player_key))",
-     "    const map = withheldView(key, sourceMaps.get(key));\n    if (map?.has(player.player_key))"),
-    ("sourceMaps: () => new Map(sourceMaps),",
-     "sourceMaps: () => new Map([...sourceMaps].map(([k, m]) => [k, withheldView(k, m)])),"),
-)
-
-
-def withhold_qbs(widget: str) -> str:
-    """The widget's display path with the CBS ROS leg pricing no quarterbacks."""
-    for anchor, repl in WITHHOLD_ANCHORS:
-        if widget.count(anchor) != 1:
-            raise AssertionError(f"mutation anchor is stale: {anchor!r}")
-        widget = widget.replace(anchor, repl, 1)
-    return widget
+# Mutations of the pipeline's natives (currentNatives in curve-widget.js).
+NATIVE_RULE = "if (Number.isFinite(ppg)) values.set(playerKey, ppg);"
 
 
 def players():
@@ -92,32 +61,16 @@ def players():
     return {p["player_key"]: p for p in json.loads(match.group(1))["players"]}
 
 
-def expected(rows, maps, field_scoring, by_key):
-    """{(player_key, leg): expected value or None} for players missing from a leg."""
+def expected(rows, field_scoring, by_key):
+    """{(player_key, leg): True if the leg must show a number, else False},
+    from the page's own projections (never from the engine's maps)."""
     out = {}
-    for leg, field in LEGS.items():
-        legmap = {int(k): v for k, v in maps.get(leg, {}).items()}
-        if not legmap:
-            continue
-        floors = {}
-        for key in legmap:
-            p = by_key.get(key) or {}
+    for row in rows:
+        p = by_key.get(row["player_key"]) or {}
+        for leg, field in LEGS.items():
             ppg = (p.get(field) or {}).get(field_scoring)
-            if isinstance(ppg, (int, float)):
-                floors[p["pos"]] = min(floors.get(p["pos"], float("inf")), ppg)
-        for row in rows:
-            key = row["player_key"]
-            if key in legmap:
-                out[(key, leg)] = legmap[key]
-                continue
-            p = by_key.get(key) or {}
-            ppg = (p.get(field) or {}).get(field_scoring)
-            if leg == "espn" and row.get("espnProjectsZero"):
-                out[(key, leg)] = 0  # GAP-025, covered by test_espn_zero_badge_render
-            elif isinstance(ppg, (int, float)) and p.get("pos") in floors and ppg <= floors[p["pos"]]:
-                out[(key, leg)] = 0
-            else:
-                out[(key, leg)] = None
+            projected = isinstance(ppg, (int, float))
+            out[(row["player_key"], leg)] = projected or (leg == "espn" and bool(row.get("espnProjectsZero")))
     return out
 
 
@@ -197,24 +150,17 @@ def check(out) -> list[str]:
     by_key = players()
     for setting, data in out["settings"].items():
         scoring = setting.rsplit("_", 1)[0]
-        want = expected(data["rows"], data["maps"], scoring, by_key)
+        want = expected(data["rows"], scoring, by_key)
         rows = {r["player_key"]: r for r in data["rows"]}
-        bad = [(rows[k]["name"], leg, rows[k]["values"][leg], v) for (k, leg), v in want.items()
-               if rows[k]["values"][leg] != v]
+        bad = []
+        for (key, leg), shown in want.items():
+            value = rows[key]["values"][leg]
+            if shown != (isinstance(value, (int, float)) and value >= 0):
+                bad.append((rows[key]["name"], leg, value, "number" if shown else "nothing"))
         if bad:
-            errors.append(f"{setting}: {len(bad)} cells differ from the below-leg rule, e.g. {bad[:3]} (name, leg, got, want)")
-        zeros = sum(1 for (k, leg), v in want.items() if v == 0 and k not in {int(x) for x in data["maps"].get(leg, {})}
-                    and not (leg == "espn" and rows[k].get("espnProjectsZero")))
-        if not zeros:
-            errors.append(f"{setting}: no below-leg player in the data (nothing to test)")
-    eight = out["settings"].get("ppr_8")
-    if eight:
-        qbs = [r for r in eight["rows"] if (by_key.get(r["player_key"]) or {}).get("pos") == "QB"
-               and isinstance(((by_key.get(r["player_key"]) or {}).get("cbsros_ppg") or {}).get("ppr"), (int, float))]
-        if not any(int(k) in {q["player_key"] for q in qbs} for k in eight["maps"].get("cbsros", {})):
-            zeroed = [q["name"] for q in qbs if q["values"]["cbsros"] is not None]
-            if zeroed:
-                errors.append(f"ppr_8: CBS ROS prices no QB, yet QBs show a CBS ROS value: {zeroed[:3]}")
+            errors.append(f"{setting}: {len(bad)} cells differ from the projection rule, e.g. {bad[:3]} (name, leg, got, want)")
+        if not any(want.values()):
+            errors.append(f"{setting}: no projected player in the data (nothing to test)")
     probe = next((r for r in out["settings"]["ppr_12"]["rows"] if r["name"] == PROBE), None)
     if not probe:
         errors.append(f"{PROBE} is not an engine row at 12-team PPR")
@@ -248,25 +194,24 @@ class BelowLegZeroRenderTest(unittest.TestCase):
 
     def test_guard_fails_on_broken_builds(self):
         widget = WIDGET_JS.read_text(encoding="utf-8")
+        self.assertEqual(widget.count(NATIVE_RULE), 1, "mutation anchor is stale")
         mutations = {
-            # origin/main before this change: below-leg players are missing.
-            "below-leg missing in the engine": {"**/assets/curve-widget.js*": widget.replace(WIDGET_RULE, "", 1)},
-            # Zero every projected player missing from a leg, floor ignored,
-            # on a build where CBS ROS withholds 8-team QBs (upward step off).
-            "no floor (zero any projected player)": {"**/assets/curve-widget.js*": withhold_qbs(widget.replace(
-                WIDGET_RULE, "if (ppg !== null) return 0;", 1))},
+            # The pre-JEG-508 state: a player projected below the line is missing.
+            "below-line players missing": widget.replace(
+                NATIVE_RULE, "if (Number.isFinite(ppg) && ppg > 3) values.set(playerKey, ppg);", 1),
+            # A leg that prices no quarterbacks (the old CBS ROS 8-team state).
+            "CBS ROS prices no QB": widget.replace(
+                NATIVE_RULE, 'if (Number.isFinite(ppg) && !(key === "cbsros" && player.pos === "QB")) '
+                             "values.set(playerKey, ppg);", 1),
         }
-        # Control: the correct rule on the withheld-QB build passes, so the
-        # mutation above is caught for the floor, not for the withholding.
-        control = withhold_qbs(widget)
-        self.assertNotEqual(control, widget, "leg-map anchor is stale")
-        self.assertEqual(check(collect({"**/assets/curve-widget.js*": control})), [],
-                         "correct rule fails on the withheld-QB build")
-        for name, overrides in mutations.items():
+        # Control: the unmodified widget through the same override path passes.
+        self.assertEqual(check(collect({"**/assets/curve-widget.js*": widget})), [],
+                         "unmodified widget fails the render checks")
+        for name, body in mutations.items():
             with self.subTest(mutation=name):
-                body = next(iter(overrides.values()))
                 self.assertNotEqual(body, widget, f"mutation anchor for {name!r} is stale")
-                self.assertNotEqual(check(collect(overrides)), [], f"render checks did not catch: {name}")
+                self.assertNotEqual(check(collect({"**/assets/curve-widget.js*": body})), [],
+                                    f"render checks did not catch: {name}")
 
 
 if __name__ == "__main__":
