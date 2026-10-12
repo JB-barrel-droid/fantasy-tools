@@ -536,23 +536,29 @@ def last_published_fixture(repo: Path = REPO, rev: str = "HEAD") -> dict | None:
 
 def apply_holds(fixture: dict, last_good: dict | None, holds: dict, week: int | None,
                 reason_of: dict | None = None) -> dict:
-    """Return a fixture with every held root's sections restored from
-    `last_good` and marked validationHold. holds: {root: [sections]}."""
+    """Return a fixture with held roots marked validationHold.
+    holds: {root: [sections]}.
+
+    JEG-569 part 2 (Jeremy, 2026-10-12): combos are KEPT so the engine
+    can include the held source in the pipeline (weights, pie, universe).
+    Removing a source from the pipeline renormalizes every other source's
+    values.  The page hides a held source's curves via validationHold."""
     out = copy.deepcopy(fixture)
     sources = out.setdefault("sources", {})
-    prior = (last_good or {}).get("sources") or {}
     for root, sections in holds.items():
         reason = (reason_of or {}).get(root) or f"engine and Python reference disagree on {root}"
+        # Include derivative _adjusted sections
+        all_secs = list(sections)
         for sec in sections:
-            if sec in prior:
-                sources[sec] = copy.deepcopy(prior[sec])
-                kept_week = ref.section_week(prior[sec], date.today())[0]
-            else:
-                kept_week = None  # nothing published before: keep this run's, still held
+            adj = f"{sec}_adjusted"
+            if adj not in all_secs:
+                all_secs.append(adj)
+        for sec in all_secs:
             target = sources.get(sec)
             if isinstance(target, dict):
+                # Keep combos intact so the engine can compute with them.
                 target["validationHold"] = {"reason": reason, "week": week,
-                                            "root": root, "kept_week": kept_week}
+                                            "root": root}
     return out
 
 
@@ -675,7 +681,7 @@ def cmd_hold(args) -> int:
             fixture_path.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
         print("value check: no source to hold")
         return 0
-    held = apply_holds(fixture, last_published_fixture(), report["hold"], week)
+    held = apply_holds(fixture, None, report["hold"], week)
     fixture_path.write_text(json.dumps(held, indent=2) + "\n", encoding="utf-8")
     try:
         status = json.loads(STATUS.read_text(encoding="utf-8"))
@@ -686,7 +692,7 @@ def cmd_hold(args) -> int:
                       encoding="utf-8")
     for root, sections in report["hold"].items():
         print(f"::warning title=Value check hold ({root})::engine and Python reference disagree; "
-              f"{', '.join(sections)} kept on the last published section, marked validationHold")
+              f"{', '.join(sections)} held, values stripped (no computation on old data)")
     return 0
 
 

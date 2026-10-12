@@ -371,7 +371,7 @@ class WaterfallRenderTest(unittest.TestCase):
                 "net: sums.net, complete: sums.net !== null,",
                 "net: sums.net === null ? 0 : sums.net, complete: true,", 1), js)},
             "no 3-column layout": {"v2.css": (css.replace(
-                "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 1.05fr);",
+                "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(420px, 1.6fr);",
                 "grid-template-columns: 1fr 1fr;", 1), styles)},
         }
         sources = {"v2.js": v2, "v2.css": css, "trade.js": trade}
