@@ -1200,6 +1200,13 @@ to every source from one status feed (Sleeper, G4 c). (b) Convert CBS and
 Razzball to per team game using the Sleeper status and an expected return
 week. (c) Leave as is and document.
 
+**Interim defaults (Jeremy, 2026-10-12; to be revisited in the full math
+review).** Option (a): convert ESPN to per-game-played using its weekly
+blocks (count non-zero ROS weeks as the denominator); CBS and Razzball stay
+as-is. Keep `games_remaining` as team games for backward compatibility and
+add `espn_expected_games` as the new field. Emit `espn_projected_games` (the
+count) from the ESPN pull in `espn_projections.csv`. Implemented: JEG-535.
+
 **Depends on:** G4 (b) and (c) of JEG-521. Ticket: JEG-535.
 **Sources:** `pipelines/derive_lineup_parameters.py` (`UNAVAILABLE` exclusion),
 `pipelines/bake_players.py` `espn_ppg`, `pipelines/lib/games_remaining.py`.
