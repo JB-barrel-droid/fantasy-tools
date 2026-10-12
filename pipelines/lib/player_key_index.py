@@ -58,8 +58,12 @@ class PlayerIndex:
             return None, f"position {c['position']}"
         return c, "ok"
 
-    def resolve_sleeper(self, sleeper_id, name="", pos=""):
-        """-> (entry, how) or (None, reason)."""
+    def resolve_sleeper(self, sleeper_id, name="", pos="", live_gsis=None):
+        """-> (entry, how) or (None, reason).
+
+        live_gsis is the gsis_id on today's Sleeper record; it is tried before
+        the committed identity base's gsis_id (JEG-575).
+        """
         sid = str(sleeper_id)
         if sid in self.by_sleeper:
             e, why = self._one(self.by_sleeper[sid], pos)
@@ -67,12 +71,13 @@ class PlayerIndex:
                 return e, "sleeper_id"
             if why != "none":
                 return None, f"sleeper_id {why}"
-        gsis = (self.sleeper.get(sid) or {}).get("gsis_id")
-        if gsis and gsis in self.by_gsis:
-            e, why = self._one(self.by_gsis[gsis], pos)
-            if e:
-                return e, "gsis_id"
-            return None, f"gsis_id {why}"
+        for gsis in (live_gsis, (self.sleeper.get(sid) or {}).get("gsis_id")):
+            gsis = str(gsis) if gsis else None
+            if gsis and gsis in self.by_gsis:
+                e, why = self._one(self.by_gsis[gsis], pos)
+                if e:
+                    return e, "gsis_id"
+                return None, f"gsis_id {why}"
         return self._by_name(name or (self.sleeper.get(sid) or {}).get("name", ""), pos)
 
     def resolve_espn(self, espn_id, name="", pos=""):
