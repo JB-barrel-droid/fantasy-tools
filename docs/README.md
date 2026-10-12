@@ -22,7 +22,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [math-review-agenda.md](math-review-agenda.md) | Maintained | Queue of math and logic questions for the coordinated full review (JEG-450). |
 | [fidelity-tolerances.md](fidelity-tolerances.md) | Maintained | Tolerances and hold rules for the fidelity pulse. |
 | [league-settings-inventory.md](league-settings-inventory.md) | Maintained | Inventory of league settings the backend saves and uses. |
-| [decisions.md](decisions.md) | Maintained | Durable record of time-boxed decisions and their outcomes. |
+| [decisions.md](decisions.md) | Maintained | Durable record of time-boxed decisions and their outcomes; back-filled to 2026-10-12 (JEG-598). |
 | [decisions/drafts/fantasypros-half12-drift.md](decisions/drafts/fantasypros-half12-drift.md) | Record | Draft decision on FantasyPros half-PPR 12-team drift. |
 | [risk-register.md](risk-register.md) | Maintained | Open and fixed correctness risks, one row per GAP id. |
 | [feature-contract.md](feature-contract.md) | Maintained | Front-end feature contract with numbered IDs (GL-xx etc.). |
