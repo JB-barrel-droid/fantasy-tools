@@ -520,10 +520,12 @@ def main():
             pts = sum(p["weeks"][wk][c] * W[c] for c in rcols)
             if pts > d.get(wk, 0.0):
                 d[wk] = pts
-    team_ros = {tm: team_ros_weeks(team_played.get(tm, set()), set(played), d)
-                for tm, d in team_wk_max.items()}
+    # JEG-624: every row sums the one league window (ros_weeks). JEG-574's
+    # per-team window put "5-18" and "6-18" in one CSV and the bake failed
+    # closed; a team that played Thursday keeps that game in its ROS until the
+    # league rolls over (MIN_PLAYED_TEAMS), then the whole CSV moves together.
     for p in priced:
-        p["ros_weeks"] = team_ros.get(p["team"]) or ros_weeks
+        p["ros_weeks"] = ros_weeks
         ros = {c: round(sum(p["weeks"][w][c] for w in p["ros_weeks"]), 1)
                for c in rcols}
         p["ros"] = ros
@@ -624,9 +626,8 @@ def main():
     # PPR - Standard equals receptions exactly):
     #   standard = half - 0.5*receptions; ppr = half + 0.5*receptions.
     team_bye = {}
-    for tm, tros in team_ros.items():
-        d = team_wk_max[tm]
-        zero = [wk for wk in tros if d.get(wk, 0.0) == 0.0]
+    for tm, d in team_wk_max.items():
+        zero = [wk for wk in ros_weeks if d.get(wk, 0.0) == 0.0]
         team_bye[tm] = zero[0] if zero else None
     side_players = {}
     for p in priced:
