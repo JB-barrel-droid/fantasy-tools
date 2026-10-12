@@ -535,6 +535,12 @@ def main():
                      for sid, col in STATMAP)
         p["season_block_half_ppr"] = round(sb_pts, 2)
         p["eligible"] = espn_eligible(ros)
+        # JEG-535 (MR-20 option a): count of ROS weeks where ESPN projects
+        # any scoring stat. This is the number of games ESPN expects the
+        # player to play -- the per-game-played denominator.
+        p["espn_projected_games"] = sum(
+            1 for w in p["ros_weeks"]
+            if any(p["weeks"][w][c] != 0 for c in rcols))
 
     priced.sort(key=lambda p: -p["ros_half_ppr"])
 
@@ -572,8 +578,8 @@ def main():
 
     season_cols = (["player", "player_norm", "pos", "team",
                    "has_espn_projection", "eligible"] + rcols +
-                   ["ros_half_ppr", "weeks_covered", "season_block_half_ppr",
-                    "espn_snapshot_date"])
+                   ["ros_half_ppr", "weeks_covered", "espn_projected_games",
+                    "season_block_half_ppr", "espn_snapshot_date"])
     with tempfile.NamedTemporaryFile("w", dir=str(FILES), delete=False,
                                      newline="") as tf:
         w = csv.writer(tf)
@@ -584,6 +590,7 @@ def main():
                        [fmt1(p["ros"][c]) for c in rcols] +
                        [fmt2(p["ros_half_ppr"]),
                         f"{p['ros_weeks'][0]}-{p['ros_weeks'][-1]}",
+                        str(p["espn_projected_games"]),
                         fmt2(p["season_block_half_ppr"]), vintage])
         tmp_season = tf.name
     weekly_cols = (["player", "pos", "team", "week"] + rcols +
@@ -634,6 +641,9 @@ def main():
         bye = team_bye.get(p["team"])
         tros = p["ros_weeks"]
         gr = len(tros) - (1 if bye in tros else 0)
+        # JEG-535 (MR-20a): per-game-played denominator = the count of ROS
+        # weeks where ESPN projects any scoring stat for this player.
+        eg = p["espn_projected_games"]
         half = p["ros_half_ppr"]
         rec = p["ros"]["r_receptions"]
         ros_std = round(half - 0.5 * rec, 2)
@@ -641,14 +651,18 @@ def main():
         side_players[p["canon"]] = {
             "display": p["display"], "pos": p["pos"], "team": p["team"],
             "player_norm": p["canon"],
-            "games_remaining": gr, "bye_week": bye,
+            "games_remaining": gr, "espn_expected_games": eg,
+            "bye_week": bye,
             "ros_weeks": tros,
             "espn_complete": bool(p["eligible"]),
             "ros": {"standard": ros_std, "half_ppr": half, "ppr": ros_ppr},
+            # JEG-535: ppg uses espn_expected_games (per game played),
+            # not games_remaining (per team game). This harmonizes ESPN
+            # with CBS and Razzball, which publish per-game-played rates.
             "ppg": {
-                "standard": round(ros_std / gr, 2) if gr else 0.0,
-                "half_ppr": round(half / gr, 2) if gr else 0.0,
-                "ppr": round(ros_ppr / gr, 2) if gr else 0.0},
+                "standard": round(ros_std / eg, 2) if eg else 0.0,
+                "half_ppr": round(half / eg, 2) if eg else 0.0,
+                "ppr": round(ros_ppr / eg, 2) if eg else 0.0},
         }
     sidecar = {"source": "espn", "leg_label": "ESPN projections",
                "vintage": vintage, "payload_hash": digest,

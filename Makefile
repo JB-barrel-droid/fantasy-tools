@@ -106,6 +106,11 @@ guard-harness:
 # then exits 1 listing the failures (2026-10-08: one playwright timeout
 # stopped the suite and hid every module after it). `make test-unit-modules`
 # runs the same list and stops at the first failure.
+# The node harnesses pin their own playwright-core, whose bundled Chromium build
+# often is not the one installed. Use $CHROMIUM_PATH, else the first browser the
+# Python render tests would use (tests/_render_env.py), else Playwright's default.
+NODE_CHROMIUM = $(or $(CHROMIUM_PATH),$(shell python3 -c "from playwright.sync_api import sync_playwright; from tests import _render_env as e; p = sync_playwright().start(); print(e.chromium_executable(p) or ''); p.stop()" 2>/dev/null))
+
 test-unit:
 	python3 tests/run_suite.py test-unit-modules
 
@@ -340,10 +345,10 @@ test-unit-modules:
 	# Dashboard render harnesses (JEG-308/310/312/318) that no target ran
 	# until 2026-10-08. They need tests/rendered_gate's playwright-core
 	# (npm ci --prefix tests/rendered_gate) and a Chromium (CHROMIUM_PATH).
-	node tests/rendered_gate/freshness-hero.mjs dist
-	node tests/rendered_gate/razzball_pill_harness.mjs dist
-	node tests/rendered_gate/source-import-health-table.mjs dist
-	node tests/rendered_gate/trade-qa-open-findings.mjs dist
+	CHROMIUM_PATH="$(NODE_CHROMIUM)" node tests/rendered_gate/freshness-hero.mjs dist
+	CHROMIUM_PATH="$(NODE_CHROMIUM)" node tests/rendered_gate/razzball_pill_harness.mjs dist
+	CHROMIUM_PATH="$(NODE_CHROMIUM)" node tests/rendered_gate/source-import-health-table.mjs dist
+	CHROMIUM_PATH="$(NODE_CHROMIUM)" node tests/rendered_gate/trade-qa-open-findings.mjs dist
 
 
 # Integration tests: multi-stage pipeline paths (cascade, savers, imports,
@@ -460,6 +465,7 @@ test-core:
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
 	python3 -m unittest tests.test_razzball_one_save
+	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_fc_week4_value_repair_sql
 	python3 -m unittest tests.test_producers_schedule_tidy

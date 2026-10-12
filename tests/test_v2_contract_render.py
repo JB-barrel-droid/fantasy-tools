@@ -511,7 +511,7 @@ TARGETS_JS = "async () => {" + COMMON + r"""
       text: own(tr.querySelector('td[data-best]')), who: tr.querySelector('td[data-best] .t-who')?.textContent || ''} : null}));
   const out = {
     tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText($('v2Targets')),
-    h1: $('v2TargetsTitle').textContent.trim(), ours: $('v2TOurs').value,
+    h1: $('v2TargetsTitle').textContent.trim(), ours: $('v2TOurs').value, oursOptions: [...$('v2TOurs').options].map(o => o.value),
     sell: rows('#v2TTable'), buy: rows('#v2TBuyTable'),
     sellMore: shown($('v2TSellMore')), buyMore: shown($('v2TBuyMore')),
     rects: [rect($('v2TSell')), rect($('v2TBuy'))],
@@ -948,6 +948,23 @@ def gl08(S):
     tiers_by_ddf = all(r["tier"] in TIERS for r in v["table"][:10])
     if not tiers_by_ddf:
         errors.append("Player values rows show no tier under DDF Value")
+    return errors
+
+
+def gl09(S):
+    """GL-09 (JEG-542): the three DDF Value versions are offered everywhere; blended is on, the others off."""
+    versions = ["ddf_value", "ddf_value_charts", "ddf_value_projections"]
+    v, t = S["values"]["s0"], S["tabs"]
+    errors = []
+    on = [k for k in versions if k in v["shown"]]
+    if on != ["ddf_value"]:
+        errors.append(f"DDF Value versions shown by default {on}, want only the blended one")
+    for where, options in (("Rank by", v["rankOptions"]), ("Risers & fallers", t["risers"]["firstGroupKeys"]),
+                           ("Compare's Player values shown", [o[0] for o in t["compare"]["shownOptions"]]),
+                           ("Trade targets' Our value", t["targets"]["oursOptions"])):
+        missing = [k for k in versions if k not in options]
+        if missing:
+            errors.append(f"{where} does not offer {missing}")
     return errors
 
 
@@ -1540,7 +1557,7 @@ def hv01(S):
 # Every contract ID: a check function, or PENDING(ticket) for an agreed line not live yet.
 CHECKS = {
     "GL-01": gl01, "GL-02": gl02, "GL-03": gl03, "GL-04": gl04, "GL-05": gl05, "GL-06": gl06,
-    "GL-07": PENDING("JEG-498"), "GL-08": gl08, "GL-09": PENDING("JEG-497"), "GL-10": gl10,
+    "GL-07": PENDING("JEG-498"), "GL-08": gl08, "GL-09": PENDING("JEG-497", partial=gl09), "GL-10": gl10,
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
@@ -1695,8 +1712,8 @@ class ContractRenderTest(unittest.TestCase):
         broken_js = cut(broken_js, 'prior: "⚠ ", ')
         broken_js = cut(broken_js, '    renderUnpriced("v2Unpriced", state.search);\n')
         broken_js = cut(broken_js, '`⚠ ${behind} source', '`${behind} source')
-        broken_js = cut(broken_js, "const isLowConfidence = (row, key) => key === DDF_KEY &&",
-                        "const isLowConfidence = (row, key) => false &&")
+        broken_js = cut(broken_js, "const flagged = key === DDF_KEY ? Boolean(row && row.ddfLowConfidence) : Boolean(entry && entry.lowConfidence);",
+                        "const flagged = false;")
         broken_js = cut(broken_js, 'if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));',
                         'if (false) sub.append(weekBadge(key), document.createTextNode(" older week"));')
         broken_css = cut(css, ".v2-chart .series.is-ddf { stroke-width: 3.5; }", ".v2-chart .series.is-ddf { stroke-width: 2; }")

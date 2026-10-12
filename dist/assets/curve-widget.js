@@ -408,7 +408,7 @@
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key)
     && !pipelineState.hidden?.has(seriesSource(key) || key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key));
-  const isLockKey = key => ["disagreement", COMPOSITE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
+  const isLockKey = key => ["disagreement", COMPOSITE_KEY, "ddf_value_charts", "ddf_value_projections",...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   // VP-7.4: the default lock is the blended DDF Value.
   const defaultValueLock = () => COMPOSITE_KEY;
   const sourceValidationStatus = key => {

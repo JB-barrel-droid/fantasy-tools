@@ -54,6 +54,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 LABEL = "ops-alert"
@@ -74,7 +75,7 @@ def parse_ts(value):
         return None
     v = value.strip().replace("Z", "+00:00")
     try:
-        dt = datetime.fromisoformat(v)
+        dt = parse_iso_timestamp(v)
     except ValueError:
         try:
             dt = datetime.strptime(v[:10], "%Y-%m-%d")

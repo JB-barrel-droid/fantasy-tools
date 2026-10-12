@@ -321,8 +321,8 @@ class CompareTradeRenderTest(unittest.TestCase):
             "headline answer flipped": {"trade.js": trade.replace('v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even"',
                                                                    'v.kind === "win" ? "No" : v.kind === "lose" ? "Yes" : "Even"', 1)},
             "VORP mixed into trade values": {"v2.js": v2.replace(
-                "const pointKeys = usable(view.plotKeys);",
-                "const pointKeys = usable(view.plotKeys.concat(view.vorpKeys));", 1)},
+                "let pointKeys = usable(view.plotKeys);",
+                "let pointKeys = usable(view.plotKeys.concat(view.vorpKeys));", 1)},
         }
         for name, overrides in broken.items():
             with self.subTest(mutation=name):

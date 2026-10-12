@@ -9,21 +9,39 @@ contract and points to the detailed rules that own each section.
 market, fundamental (value above waivers, usable production) and portfolio
 value, and decisions come from the gaps between them. Judge features against it.
 
+## The steps, and the code that does each (JEG-597, checked 2026-10-12)
+
+Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 532 JEG-539, PR 557 JEG-560 and PR 558 JEG-561). Each row names the spec section, the function that does it in the browser engine (`app/trade-value-chart/assets/value-model.js`, the monolith `runValuePipeline`, whose `// --- VP-x` comments mark each step) and in the Python reference (`pipelines/value_reference.py`), and the roster convention it uses **today**. The convention that is meant to replace the differences is `roster-convention-001` in `docs/decisions.md` (JEG-556); it lands path by path in JEG-560, 561 and 563.
+
+| Step | Spec | Engine | Python reference | Roster convention used today |
+| --- | --- | --- | --- | --- |
+| Inputs and included set | VP-0, VP-1 | `runValuePipeline`, "VP-1 included set" | `Inputs`, `Setting`, `run_pipeline` | Reader's selection of sources; no roster. |
+| Value above waivers, per source | VP-2 | `runValuePipeline`, "VP-2 / VP-3 per source"; fill-in `estimateFor` | `_source_lines`, `_estimate` | The user's roster. Starters by dedicated slot, then superflex, then flex by mean projected points (`vpAllocate`, `allocate`). **Browser engine, as of a66f3f40:** bench seats by D'Hondt over `BENCH_MIX_12` with the user's teams times bench (`vpBenchSeats`); starter line = the value of the first non-starter, floored at the waiver line. **Python reference, since PR 557 (JEG-560):** bench seats and the starter line come from the roster convention module (`pipelines/lib/roster_convention.py`: market-bench ratios, D'Hondt; starter line = midpoint of the last starter and first non-starter). **The two disagree**, so `value_check compare` reports disagree on every source until the engine is migrated (risk register `GAP-VALUECHECK-REFERENCE-AHEAD`). Waiver line (both) = the value of the first player past the rostered count; on a short list after fill-in, the last listed value. Jeremy's 2026-10-12 decision for short lists is "estimate from other charts"; neither implementation does that yet (parity test, JEG-559). |
+| Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. |
+| Source weights and DDF weights | VP-3, VP-4 | "VP-4 DDF weights" | `_mixes`, `ddf_weights` | Each source's eight group totals (position x starter or bench) give its mix (VP-3); the DDF weights are the average of the included sources' mixes (VP-4). |
+| Fixed pie, rates, Adjusted | VP-5 | "VP-5 budgets, rates, Adjusted" | `_price` | One pie per league setting; each source's Adjusted sums to it (VP-5.6). |
+| Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of Adjusted values only; Indexed is display only and never feeds DDF. |
+| Tiers and ranking | VP-7 | "VP-7 slot fill, tiers, ranking" | `_tiers` | Tier basis is the blended DDF value, with seat counts from the allocation above (`slot_fill`). |
+| Weeks and change since last week | VP-8 | `valuePipelineDiagnostics`, prior-week run | `History`, `history_entry` | Each week's own inputs and weights. |
+
+Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --strict` agreed to 0.05 on every value (915,234 values, zero mismatches) and `tools/engine_dump.py` passed all 13 settings; at a66f3f40 the compare disagrees (see the row above). The 12-combo sweep in `runbooks/sweep-and-rank-guard.md`. Retired in this pipeline: the fit and `*_adjusted` sections (PR 532), the fixed-pie and `roleMap` family, `derivePublishedSetup` and `derivePublishedViews` (PR 514). VP-10 lists what replaced each.
+
+**Reading order.** The sections below keep their history. Where a paragraph says "Superseded (JEG-508)", "proposed", "pending" or "not live", the status line in this block governs and the paragraph is kept for the before/after. A paragraph in "Source Families And Adjustments", "Published-Chart Configuration Coverage" or "Publisher Flex Allocation" that describes the fit, the two-tier legs as a value source, or the ESPN anchor describes retired behavior.
+
 ## Value Pipeline (source-neutral, 2026-10-09)
 
-**Status.** Spec for JEG-508, written from Jeremy's decisions of 2026-10-09
+**Status (2026-10-12).** Live. The spec was written for JEG-508 from Jeremy's decisions of 2026-10-09
 (JEG-508, JEG-479 comment "value pipeline order (confirmed)", JEG-497,
-JEG-499) and **revised the same day for Jeremy's binding answers to the open
-choices OC-1 to OC-8** (quoted on JEG-508; listed as decided at the end of
-this section). Those decisions are binding. This section governs every value
-the site shows. It supersedes the paragraphs below that are marked
-**Superseded (JEG-508)**. Until the implementation PRs merge, those
-paragraphs still describe what the engine does; they are kept, not deleted, so
-the before/after is reviewable. Three implementations are written from this
-text independently: the engine (`curve-widget.js`, `value-model.js`), the
-Python reference (`pipelines/value_reference.py`) and the clean-room spec
-reference (`pipelines/spec_reference/`). They must agree to 0.05 on every
-value (`value_check`) before anything merges. Where Jeremy's words left a
+JEG-499) and revised the same day for Jeremy's binding answers to the open
+choices OC-1 to OC-8 (quoted on JEG-508; listed as decided at the end of
+this section). It governs every value the site shows. The engine, the Python
+reference and the clean-room spec reference
+(`pipelines/spec_reference/`) implement it and agree to 0.05 on every
+value (`value_check`). The expected-starts follow-up (OC-9, `es-value-001`)
+replaced the fixed 15% bench share and the VP-2.6 slices; PR 499 (JEG-536)
+merged that on 2026-10-12. The fit and `*_adjusted` sections were removed
+in PR 532 (JEG-539). Paragraphs marked **Superseded (JEG-508)** are kept, not
+deleted, so the before/after is reviewable. Where Jeremy's words left a
 detail open, the text says **Lead's reading** and gives the rule used; an
 implementation follows the rule as written.
 
@@ -593,12 +611,16 @@ projections 45.086821).
 
 **Status.** Approved by Jeremy 2026-10-09 20:51 (JEG-533, `es-value-001`,
 option A with the bench share as a computed readout, ES-14). Implemented in
-the engine and both references on JEG-536 (rulings ES-15); not live until
-Jeremy has seen the before/after against JEG-508's values. JEG-508 ships first with the bench share fixed at 15% and slices
-(OC-2, OC-3 decided 2026-10-09); this section is the follow-up question of
-whether the 15% becomes an output of the data. When approved it replaces VP-2.6 and lands through JEG-508's pipeline with the
+the engine and both references on JEG-536 (rulings ES-15). **Live since PR 499
+merged on 2026-10-12** (the 12-combo sweep passed in all 12 combos). The
+bench-share readout moves again with JEG-562 and JEG-563, and two logged
+figures for it disagree (the PR 499 log gives 4.5% to 6.7%; the JEG-544 re-run
+gives 7.8% to 10.0% overall), so do not quote a bench-share figure from this page.
+JEG-508 shipped first with the bench share fixed at 15% and slices
+(OC-2, OC-3 decided 2026-10-09); this section answered the follow-up question of
+whether the 15% becomes an output of the data (yes, OC-9). It replaced VP-2.6 and landed through JEG-508's pipeline with the
 Python reference and the spec reference on the same branch (`value_check` at
-0 disagreements), never as a parallel edit. The measured before/after is
+0 disagreements), never as a parallel edit. The paragraphs below still read in the future tense ("proposed", "when approved"); they are the design record. The measured before/after is
 `output/expected-starts-before-after.md`, produced by
 `pipelines/expected_starts_model.py` on the Week 5 build; the parameters are
 `output/lineup-parameters.json` and `config/lineup_parameters.json`, produced

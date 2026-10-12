@@ -36,7 +36,8 @@ import argparse
 import copy
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -130,7 +131,7 @@ def update_chain_status(status: dict, report: dict, week: int | None) -> dict:
 
 def pulse_age_hours(pulse: dict, now: datetime) -> float | None:
     try:
-        checked = datetime.fromisoformat(str(pulse.get("checked_at")).replace("Z", "+00:00"))
+        checked = parse_iso_timestamp(str(pulse.get("checked_at")))
     except ValueError:
         return None
     return (now - checked).total_seconds() / 3600
