@@ -38,6 +38,20 @@
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
+  // JEG-504 (Jeremy, 2026-10-09, TT-09): the mean of the compared charts' rescaled values
+  // that price the player, beside our value. A finite 0 counts (at or below that chart's
+  // waiver line); a null is left out and counted in `left`. diff = our value − the average,
+  // and equal says the two match to one decimal as shown, so the page shows a note instead
+  // of a duplicate number. No chart prices the player: value null, no diff.
+  function marketAverage(ours, cells) {
+    const values = Object.values(cells).map(cell => cell.value).filter(finite);
+    const left = Object.keys(cells).length - values.length;
+    if (!values.length) return {value: null, count: 0, left, diff: null, equal: false};
+    const value = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const diff = ours - value;
+    return {value, count: values.length, left, diff, equal: ours.toFixed(1) === value.toFixed(1)};
+  }
+
   // charts: the chart keys to compare (already filtered for availability and week).
   // opts.ours: which engine series is our value (default DDF Value).
   function buildTargets(rows, charts, opts) {
@@ -75,7 +89,7 @@
         if (gap > 0 && (!bestSell || gap > bestSell.gap)) bestSell = {chart, gap};
         if (gap < 0 && (!bestBuy || gap < bestBuy.gap)) bestBuy = {chart, gap};
       });
-      players.push({row, order: index + 1, ours, cells, bestSell, bestBuy});
+      players.push({row, order: index + 1, ours, cells, bestSell, bestBuy, market: marketAverage(ours, cells)});
     });
     const sell = players.filter(p => p.bestSell)
       .sort((a, b) => b.bestSell.gap - a.bestSell.gap || a.order - b.order);

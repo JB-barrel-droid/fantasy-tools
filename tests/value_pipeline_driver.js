@@ -19,6 +19,16 @@ const doc = JSON.parse(fs.readFileSync(args[1], "utf8"));
 const setting = Object.assign({}, doc.setting);
 const bsFlag = args.indexOf("--bench-share");
 if (bsFlag !== -1) setting.bench_share = Number(args[bsFlag + 1]);
+// --variant <name>: a fixture variant with lineup parameters (JEG-536,
+// expected starts): its `lineup` and `setting_change` apply.
+const varFlag = args.indexOf("--variant");
+let lineup = null;
+if (varFlag !== -1) {
+  const variant = doc[args[varFlag + 1]];
+  if (!variant) throw new Error(`no variant ${args[varFlag + 1]}`);
+  lineup = variant.lineup || null;
+  Object.assign(setting, variant.setting_change || {});
+}
 
 const sources = {};
 Object.entries(doc.inputs || doc.sources).forEach(([key, s]) => {
@@ -26,7 +36,7 @@ Object.entries(doc.inputs || doc.sources).forEach(([key, s]) => {
 });
 const result = ValueModel.runValuePipeline({
   setting, players: doc.players, sources,
-  included: doc.included, compositeInputs: doc.compositeInputs,
+  included: doc.included, compositeInputs: doc.compositeInputs, lineup,
 });
 
 const intKeys = (keys) => keys.map(Number);
@@ -35,6 +45,12 @@ const out = {
   included: result.included,
   pie: result.pie,
   bench_share_applied: result.benchShareApplied,
+  method: result.method,
+  chart_sigma: result.chartSigma
+    ? Object.fromEntries(Object.entries(result.chartSigma).map(([p, c]) => [p, c.sigma_rel])) : null,
+  bench_share_readout: result.benchShare ? {QB: result.benchShare.QB, RB: result.benchShare.RB,
+    WR: result.benchShare.WR, TE: result.benchShare.TE, overall: result.benchShare.overall,
+    override: result.benchShare.override, fill_in_share: result.benchShare.fillInShare} : null,
   mean_ppg: result.meanPpg,
   allocation: result.allocation,
   slot_fill_mean_ppg: result.slotFill,
@@ -69,16 +85,18 @@ Object.entries(result.sources).forEach(([src, o]) => {
     positions[pos] = {dedicated: p.dedicated, superflex: p.superflex, flex: p.flex, bench: p.bench,
       starters: p.starters, rostered: p.rostered, listed: p.listed, extended: p.nEstimated > 0,
       imputation_ratios: p.nEstimated > 0 ? ratios : null, waiver_value: p.waiver,
-      starter_line: p.starterLine, method: p.method};
+      starter_line: p.starterLine, method: p.method, avail: p.avail, bands: p.bands,
+      lineup: p.lineup ? {n_per_team: p.lineup.nPerTeam, sigma_rel: p.lineup.sigmaRel,
+        sigma_floor: p.lineup.sigmaFloor, m: p.lineup.m} : null};
   });
   const playersOut = {};
   Object.entries(o.players).forEach(([k, r]) => {
     playersOut[k] = {pos: r.pos, native: r.native, imputed: r.estimated, rank: r.rank, role: r.role,
       vorp: r.vorp, bench_slice: r.benchSlice, starter_slice: r.starterSlice, adjusted: r.adjusted,
-      vorp_display: r.vorpDisplay};
+      vorp_display: r.vorpDisplay, lineup_share: r.lineupShare, start_worthy: r.startWorthy};
   });
   out.sources[src] = {family: o.family, status: o.status, positions, groups: o.groups,
-    total_vorp: o.totalVorp, players: playersOut, weights: o.weights, starter_mix: o.starterMix,
+    total_vorp: o.totalVorp, surplus_total: o.surplusTotal, players: playersOut, weights: o.weights, starter_mix: o.starterMix,
     bench_mix: o.benchMix, rates: o.rates, unfunded_moved: o.unfundedMoved,
     unfunded_groups: o.unfundedGroups, vorp_display_factor: o.vorpFactor};
 });
@@ -96,6 +114,6 @@ Object.entries(result.rows).forEach(([k, row]) => {
     ddf_blended: ddf(row.ddfByVersion.blended), ddf_charts: ddf(row.ddfByVersion.charts),
     ddf_projections: ddf(row.ddfByVersion.projections), indexed: Object.fromEntries(
       Object.entries(row.indexed).filter(([src]) => result.sources[src].family === "chart")),
-    ddf_tier: row.tier, mean_ppg: row.meanPpg};
+    ddf_tier: row.tier, mean_ppg: row.meanPpg, lineup_share: row.lineupShare, start_worthy: row.startWorthy};
 });
 process.stdout.write(JSON.stringify(out));
