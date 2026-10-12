@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-12T03:36:50.025551+00:00",
+  "run_at": "2026-10-12T03:48:36.325175+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,23 +18,24 @@
   "held": [
     "cbsros",
     "espn",
+    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "amber",
   "held_detail": {
     "cbsros": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "restored_from": null,
-      "detail": "1062/1098 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals); 36 chart values differ from the stored snapshot, 4 stored players not on the chart, 3 chart players not stored; newer stored snapshot 2026-10-11 is not on the chart yet: 188 values changed, 5 added, 5 dropped",
+      "detail": "awaiting players bake: cbsros: snapshot sha256:56cbe99b2249 != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 5
+      },
+      "weeks_behind": 0,
       "hold_severity": "amber",
-      "week": 5
+      "rolled_back": 0
     },
     "razzball": {
       "detail": "awaiting players bake: razzball: snapshot sha256:41b1896c40e8 != players.json rz_snapshot_id sha256:31c28544ad55; the section waits for a bake from the same snapshot",
@@ -50,6 +51,19 @@
       "hold_severity": "amber",
       "rolled_back": 0
     },
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc"
+      ],
+      "restored_from": "2026-10-11T01:05:52.626989+00:00",
+      "detail": "218/1167 values match exactly across 6 columns; column check: stored std|1 list is closest to the live full|1 list (mean |diff| 23 vs 35); stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 36); 949 of 1167 values moved since the save at 2026-10-12T01:05:27.718546Z (largest 73%",
+      "hold_severity": "amber",
+      "week": 5
+    },
     "espn": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -60,7 +74,7 @@
         "espn"
       ],
       "restored_from": null,
-      "detail": "1590/1722 values match exactly across 3 columns; 132 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint f9bd6b5cee9c1b7ba46e11fb) (the mismatch survived ",
+      "detail": "1662/1728 values match exactly across 3 columns; 66 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint c6c1edfd1deddec5eb4d3ae7) (the mismatch survived a",
       "hold_severity": "amber",
       "week": 5
     }
@@ -201,20 +215,24 @@
     }
   },
   "fidelity_holds": {
-    "espn": "fidelity: publisher_vs_stored",
-    "cbsros": "fidelity: stored_vs_chart"
+    "fantasycalc": "fidelity: publisher_vs_stored",
+    "espn": "fidelity: publisher_vs_stored"
   },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget"
+      "FAIL tests.test_seeded_hold_build.SeededHoldBuildTest.test_static_export_passes_on_the_held_build",
+      "FAIL tests.test_static_export.StaticExportTest.test_real_builder_reproduces_the_fixture"
     ],
-    "assertions": [],
+    "assertions": [
+      "AssertionError: 1 != 0 : test_static_export fails on a held build:",
+      "AssertionError: Lists differ: [] != ['fantasycalc_adjusted/standard_12_qb1: 2 [101 chars].7)']"
+    ],
     "make_targets": [
-      "Makefile:478: test-core"
+      "Makefile:441: test-core"
     ],
-    "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-12T03:46:42.982200+00:00"
+    "detail": "FAIL tests.test_seeded_hold_build.SeededHoldBuildTest.test_static_export_passes_on_the_held_build; FAIL tests.test_static_export.StaticExportTest.test_real_builder_reproduces_the_fixture; AssertionError: 1 != 0 : test_static_export fails on a held build:; AssertionError: Lists differ: [] != ['fantasycalc_adjusted/standard_12_qb1: 2 [101 chars].7)']",
+    "recorded_at": "2026-10-12T03:49:18.223819+00:00"
   }
 }
