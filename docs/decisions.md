@@ -529,7 +529,7 @@ Option 1.
 
 ### Outcome Note
 
-Jeremy, 2026-10-10 on JEG-556: "I don't want some corner case logic for QBs that should be applied in other places too, the transformations logic should be consistent." And: "Like market values vs fundamental values, there is also market bench expectations vs fundamental bench strategy, and we need to separate the logic for the two." The market bench sets the waiver line (replacement is what real leagues leave on waivers); the fundamental bench is its own module (JEG-564) and never sets tiers or lines. Evidence: Fantasy Football Calculator 12-team PPR drafts 2016-2024 (8,857 drafts). Not found in the ticket comments read for this back-fill: Jeremy's answers to "Decision needed" items 3 (waiver line on short lists: last listed value vs imputation) and 4 (starter line: midpoint vs first non-starter); check JEG-559 and JEG-560 before relying on either.
+Jeremy, 2026-10-10 on JEG-556: "I don't want some corner case logic for QBs that should be applied in other places too, the transformations logic should be consistent." And: "Like market values vs fundamental values, there is also market bench expectations vs fundamental bench strategy, and we need to separate the logic for the two." The market bench sets the waiver line (replacement is what real leagues leave on waivers); the fundamental bench is its own module (JEG-564) and never sets tiers or lines. Evidence: Fantasy Football Calculator 12-team PPR drafts 2016-2024 (8,857 drafts). Jeremy, 2026-10-12 on JEG-556 (decision 3, waiver line on short lists): estimate from other charts (impute from published-chart behavior; not the last listed value, not 0.0). Decision 4, starter line: the midpoint of the last starter and the first non-starter (today's live two-tier behavior). Both are recorded in the convention module by JEG-559 (PR 546); its parity test marks four divergences as expected failures that go green as JEG-560, 561 and 563 land. Earlier (2026-10-10) Jeremy had said to fill short lists "the simplest way" at the last listed value; the 2026-10-12 answer replaces that.
 
 ## default-roster-001: Default roster is the most common real league, with kickers and defenses as starters
 - id: default-roster-001
@@ -746,3 +746,35 @@ Option 1.
 ### Outcome Note
 
 Jeremy, 2026-10-12 (JEG-596): keep .md in GitHub plus an easy-to-browse index with clear naming conventions and one-line descriptions per doc. Built in JEG-619 (PR 536).
+
+## name-resolver-001: One canonical player-name resolver; a position conflict is final
+- id: name-resolver-001
+- created: 2026-10-10
+- deadline: 2026-10-17
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-12
+- recommendation: Every saver and builder resolves names through the canonical resolver and the player table; no per-source exception; use the ESPN or Sleeper position; never flag inactive players.
+
+### Context
+
+Back-filled 2026-10-12 (JEG-598) from JEG-75, JEG-438 and JEG-539 (PRs 498, 497, 501, 514, 532).
+
+### Problem
+
+How do sources that name or position a player differently map to one identity?
+
+### Options
+
+1. One canonical resolver and table; conflicts go to review; no per-source exceptions.
+2. A curated per-source exception list.
+3. Keep legacy matchers for some savers.
+
+### Recommendation
+
+Option 1.
+
+### Outcome Note
+
+Jeremy, 2026-10-02 (JEG-75): all player naming resolves through the canonical player naming table. Jeremy, 2026-10-07 (JEG-438): all player name concepts tie back to the player name table; partial solves are replaced. Jeremy, 2026-10-10 (JEG-539): "Use canonical resolver" for Razzball, so the test "nicknames are not guessed" became "matched only via curated aliases"; CBS, FantasyPros and FantasyCalc followed with zero resolved keys changed on current data. Jeremy, 2026-10-12 (JEG-539 Q2, Connor Heyward): use the ESPN or Sleeper position (where the game is played), not CBS; no per-source exception, so CBS rest of season loses Heyward. Q3 (Max Hurleman and inactive players): never flag; add to the player table and move on. Q1: the front end drops the deprecated fit and `*_adjusted` aliases and the back end retires the fit. Implemented in PR 532; the one remaining legacy matcher is the chain's own (GAP-IDENTITY-LEGACY-MATCHERS).
