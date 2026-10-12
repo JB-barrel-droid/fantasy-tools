@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-12T00:02:09.146341+00:00",
+  "run_at": "2026-10-12T00:53:47.420744+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -17,7 +17,7 @@
   "outcome": "failed",
   "held": [
     "cbsros",
-    "fantasycalc",
+    "espn",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -50,16 +50,17 @@
       "hold_severity": "amber",
       "rolled_back": 0
     },
-    "fantasycalc": {
+    "espn": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
-        "fantasycalc"
+        "espn",
+        "espn_vorp"
       ],
       "sections": [
-        "fantasycalc"
+        "espn"
       ],
-      "restored_from": "2026-10-11T01:05:52.626989+00:00",
-      "detail": "24/1160 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 36 vs 56); 1136 of 1160 values moved since the save at 2026-10-11T18:05:27.905482Z (largest 175%; 4 outside the max(25%, 50) band: Baker Mayfield, Daniel Jones, Justin Herbe",
+      "restored_from": null,
+      "detail": "1590/1722 values match exactly across 3 columns; 132 value mismatches, 0 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint f9bd6b5cee9c1b7ba46e11fb) (the mismatch survived ",
       "hold_severity": "amber",
       "week": 5
     }
@@ -200,7 +201,7 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
+    "espn": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
@@ -214,6 +215,6 @@
       "Makefile:478: test-core"
     ],
     "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-12T00:12:02.924099+00:00"
+    "recorded_at": "2026-10-12T01:03:30.671687+00:00"
   }
 }
