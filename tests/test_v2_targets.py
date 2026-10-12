@@ -169,8 +169,9 @@ def check(result: dict) -> list[str]:
         errors.append(f"only unavailable charts are skipped, with a reason: {skipped}")
     if result["onlyCharts"]["used"] != ["fantasycalc"]:
         errors.append(f"single-chart filter wrong: {result['onlyCharts']}")
-    if result["ourKeys"] != ["ddf_value", "espn", "cbsros", "razzball"]:
-        errors.append(f"our value choices must be DDF Value, then the three projections: {result['ourKeys']}")
+    # GL-09 (JEG-542): the three DDF Value versions are offered on every page, blended first.
+    if result["ourKeys"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"]:
+        errors.append(f"our value choices must be the three DDF Value versions, then the three projections: {result['ourKeys']}")
     cb = result["cbsros"]
     cb_sell = [(p["key"], p["ours"], p["bestSell"]) for p in cb["sell"]]
     cb_buy = [(p["key"], p["ours"], p["bestBuy"]) for p in cb["buy"]]
@@ -214,8 +215,8 @@ MUTATIONS = {
                                       "const values = Object.values(cells).map(cell => cell.value).filter(v => finite(v) && v > 0);"),
     "difference sign flipped": ("const diff = ours - value;", "const diff = value - ours;"),
     "equal never flagged": ("equal: ours.toFixed(1) === value.toFixed(1)}", "equal: false}"),
-    "DDF Value dropped from the choices": ('const OUR_KEYS = ["ddf_value", "espn", "cbsros", "razzball"];',
-                                           'const OUR_KEYS = ["espn", "cbsros", "razzball"];'),
+    "DDF Value dropped from the choices": ('const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];',
+                                           'const OUR_KEYS = ["ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];'),
 }
 
 

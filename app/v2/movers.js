@@ -17,7 +17,7 @@
   // charts (Indexed) and the projection sources the engine recomputes. ESPN is the common
   // scale and has no recomputed prior week (engine reason, risk HISTORY-ESPN-PRIOR).
   // The page's picker groups them (JEG-474); this order is only the order within a group.
-  const SERIES = ["ddf_value", "fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros", "razzball", "espn"];
+  const SERIES = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros", "razzball", "espn"];
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 

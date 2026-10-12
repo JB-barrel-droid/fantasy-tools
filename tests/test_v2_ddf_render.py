@@ -394,7 +394,7 @@ class DdfRenderTest(unittest.TestCase):
             "Reset keeps Rank by": {"v2.js": (v2.replace(
                 "    if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);\n", "", 1), js)},
             "DDF line not on top": {"v2.js": (v2.replace(
-                "keys.filter(key => key !== DDF_KEY).concat(keys.includes(DDF_KEY) ? [DDF_KEY] : []).forEach(key => {",
+                "keys.filter(key => !isDdfKey(key)).concat(DDF_KEYS.filter(key => keys.includes(key))).forEach(key => {",
                 "keys.forEach(key => {", 1), js)},
             "DDF line not heavier": {"v2.css": (css.replace(".v2-chart .series.is-ddf { stroke-width: 3.5; }", "", 1), cs)},
             "DDF table value rounded down": {"v2.js": (v2.replace(
@@ -405,7 +405,7 @@ class DdfRenderTest(unittest.TestCase):
                 "const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));",
                 "const tierText = row => tierLabel(row.espnRole);", 1), js)},
             "low-confidence marker missing": {"v2.js": (v2.replace(
-                "    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));", "", 1), js)},
+                "    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row, key));", "", 1), js)},
             "engine missing reason ignored": {"v2.js": (v2.replace(
                 '    if (typeof own === "string" && own.trim()) return own;\n', "", 1), js)},
             "DDF Δ from the row value": {"movers.js": (movers.replace(

@@ -29,10 +29,10 @@
 (function (root) {
   "use strict";
 
-  const OUR_KEYS = ["ddf_value", "espn", "cbsros", "razzball"];
+  const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];
   const OUR_KEY = OUR_KEYS[0];   // default: DDF Value
-  const OUR_NAMES = {ddf_value: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
-  const OUR_SHORT = {ddf_value: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
+  const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
+  const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
 
