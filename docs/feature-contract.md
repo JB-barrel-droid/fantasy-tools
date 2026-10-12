@@ -69,9 +69,9 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
   - **GL-16** Tier (Starter / Bench / Waiver) follows the ranking series in use, which is DDF Value by default.
 
-  - **GL-17** Every module can be expanded beyond its default size *(to build: JEG-483 for Player values, done; JEG-500 for the other pages)*.
+  - **GL-17** Every module can be expanded beyond its default size *(Player values: JEG-483; the other pages: JEG-500, done)*.
 
-  - **GL-18** Every module can be collapsed with a chevron *(to build: JEG-500)*:
+  - **GL-18** Every module can be collapsed with a chevron *(JEG-500, done)*:
 
   - Collapsed, it shows its title and a one-line summary, so nothing gets lost.
   - The state is remembered on this device.
