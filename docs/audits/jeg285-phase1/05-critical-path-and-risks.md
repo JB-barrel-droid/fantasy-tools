@@ -1,7 +1,7 @@
 # 05 — Critical Path, Silent Stalls, Manual Interventions, GitHub-Logs-Only State
 
 **Phase:** JEG-285 Phase 1 (Discovery / current-state inventory)
-**Method:** read every workflow + every `pipelines/pull_*.py` + `pipelines/save_*_references.py` + `pipelines/import_supabase_references.py` + `pipelines/verify_import_health.py` + `pipelines/rebuild_comparison_chain.py` + `pipelines/check_fantasycalc_drift.py` + `ops/watchdog/*` + `docs/risk-register.md` + `docs/health/claude-best-practices.md` + `docs/health/muse-best-practices.md` + `docs/claude-log.md` (2026-10-02 entry). Cross-checked every risk against the code that produces it.
+**Method:** read every workflow + every `pipelines/pull_*.py` + `pipelines/save_*_references.py` + `pipelines/import_supabase_references.py` + `pipelines/verify_import_health.py` + `pipelines/rebuild_comparison_chain.py` + `pipelines/check_fantasycalc_drift.py` + `ops/watchdog/*` + `docs/risk-register.md` + `docs/health/claude-best-practices.md` + `docs/health/muse-best-practices.md` + `archive/2026-10-12-docs/claude-log.md` (2026-10-02 entry). Cross-checked every risk against the code that produces it.
 **Scope:** trade-value chart cutover. `weekly_vegas/` and `waiver_wire/` risks noted only as siblings; their internals are Phase-2 territory.
 
 The brief asks for four buckets of risk for the cutover: **critical-path datasets**, **jobs that silently stall or continue on stale inputs**, **jobs needing manual intervention**, **state that exists only in GitHub logs**. This file inventories each bucket.
@@ -66,7 +66,7 @@ These are the workflows that exit 0 (or stay silent) while their data goes stale
 ### B2. Rebuild chain — red publish, no notify
 
 - **The fail-open path** — `rebuild-chain.yml` is on a 6-hourly cron (`'17 */6 * * *'` line 20). On a red chain the workflow publishes only the status (line 92–100), commits it, and fails the job (line 133–137). The status is visible on the monitor.
-- **The silent stall** — runs 3 to 9 (all on record) failed; the latest green rebuild was a **local** run (`runner: "local"` per `output/comparison-chain-status.json` per `docs/health/claude-best-practices.md` and `docs/claude-log.md` 2026-10-02). **There is no notify step** — no `actions/github-script` issue action, no Slack webhook, no email on red. A red chain is found by an audit, not by the system.
+- **The silent stall** — runs 3 to 9 (all on record) failed; the latest green rebuild was a **local** run (`runner: "local"` per `output/comparison-chain-status.json` per `docs/health/claude-best-practices.md` and `archive/2026-10-12-docs/claude-log.md` 2026-10-02). **There is no notify step** — no `actions/github-script` issue action, no Slack webhook, no email on red. A red chain is found by an audit, not by the system.
 - **The stale-input risk** — `make sync` copies the (possibly stale) fixture into `dist/modules/`; the deploy gate on `pages.yml` (lines 47–51) blocks only if the last commit touched a file **outside** `dist/modules/`. The chain's "Automated chain status (chain failed; fixture not updated)" commit touches `dist/modules/comparison-chain-status.json` — `dist/modules/` only — so the deploy gate does **not** block a subsequent daily `pages.yml` run. A red chain + a daily Pages run = the live site is one `comparison-chain-status.json` file ahead of the actual chain status.
 - **File + line citations** — `.github/workflows/rebuild-chain.yml:17–22, 73–137`, `.github/workflows/pages.yml:42–51`, `docs/health/claude-best-practices.md` (rows P2, P5, B5, item 5), `docs/risk-register.md` GAP-019 / GAP-007.
 
@@ -161,10 +161,10 @@ These are the things the repo records only as GitHub Actions log output or as cr
 
 ### D2. The comparison-chain "runner" field
 
-- **What** — `output/comparison-chain-status.json` records `runner: "local"` (per `docs/claude-log.md` 2026-10-02). The status file is gitignored and runtime-only; the "this green rebuild came from my laptop, not from CI" signal lives nowhere else.
+- **What** — `output/comparison-chain-status.json` records `runner: "local"` (per `archive/2026-10-12-docs/claude-log.md` 2026-10-02). The status file is gitignored and runtime-only; the "this green rebuild came from my laptop, not from CI" signal lives nowhere else.
 - **Where to recover it** — the status file (gitignored, runtime). Once overwritten by the next chain run, the prior `runner: "local"` label is lost.
 - **Cutover risk** — if Phase 2 moves the chain to a Supabase cron, the `runner` field must be set to `supabase-cron` (or similar). The signal — "did production run on the production cron or on someone's laptop?" — must remain in the status file.
-- **File + line citations** — `docs/health/claude-best-practices.md` P5, `docs/claude-log.md` 2026-10-02.
+- **File + line citations** — `docs/health/claude-best-practices.md` P5, `archive/2026-10-12-docs/claude-log.md` 2026-10-02.
 
 ### D3. Per-stage stage-1/2/3 wall-clock + step outputs
 
