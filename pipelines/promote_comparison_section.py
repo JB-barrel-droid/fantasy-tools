@@ -45,6 +45,7 @@ import json
 import re
 import sys
 from datetime import date, datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -223,7 +224,7 @@ def l1_age_warning(checked_at, now=None):
     """(age_hours or None, warning or None) for the import-health checked_at."""
     now = now or datetime.now(timezone.utc)
     try:
-        ts = datetime.fromisoformat(str(checked_at).replace("Z", "+00:00"))
+        ts = parse_iso_timestamp(str(checked_at))
     except ValueError:
         return None, f"import health checked_at {checked_at!r} is unreadable: its age is unknown"
     if ts.tzinfo is None:

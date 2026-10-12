@@ -23,6 +23,10 @@ import os
 import sys
 import urllib.parse
 from datetime import datetime, timezone
+try:
+    from lib.timestamps import parse_iso_timestamp
+except ImportError:  # pipelines/lib itself on sys.path
+    from timestamps import parse_iso_timestamp
 from typing import Any, Callable
 
 _LIB = os.path.dirname(os.path.abspath(__file__))
@@ -69,7 +73,7 @@ def _parse_ts(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
     try:
-        dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        dt = parse_iso_timestamp(value.strip())
     except ValueError:
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)

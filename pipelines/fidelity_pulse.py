@@ -81,6 +81,7 @@ import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from html.parser import HTMLParser
 from pathlib import Path
@@ -234,7 +235,7 @@ def parse_ts(value) -> datetime | None:
         return None
     s = str(value).strip().replace("Z", "+00:00").replace(" ", "T", 1)
     try:
-        dt = datetime.fromisoformat(s)
+        dt = parse_iso_timestamp(s)
     except ValueError:
         try:
             dt = datetime.fromisoformat(s[:10])

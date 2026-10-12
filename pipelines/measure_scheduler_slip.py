@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import datetime, date, timezone, timedelta
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 from typing import Any
 
@@ -140,7 +141,7 @@ def get_intended_cron_time(cron: str, reference_time: datetime) -> datetime | No
 def parse_iso_datetime(dt_str: str) -> datetime:
     """Parse ISO datetime string to timezone-aware datetime."""
     dt_str = dt_str.replace("Z", "+00:00")
-    return datetime.fromisoformat(dt_str)
+    return parse_iso_timestamp(dt_str)
 
 
 def is_scheduled_run(event: str) -> bool:
