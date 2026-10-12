@@ -467,6 +467,7 @@ test-core:
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets
 	python3 -m unittest tests.test_v2_compare
+	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy

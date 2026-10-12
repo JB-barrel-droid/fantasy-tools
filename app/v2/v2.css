@@ -808,6 +808,13 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-cverdict[data-verdict="win"] { border-left-color: var(--v2-action); }
 .v2-cverdict[data-verdict="lose"] { border-left-color: var(--v2-negative); }
 .v2-cverdict[data-verdict="incomplete"] { border-left-color: var(--v2-older); }
+/* JEG-505: the two headline answers above the verdict. */
+.v2-cheads { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 6px; }
+#v2Compare .v2-cheads .v2-chead { margin: 0 !important; font-size: 15px; font-weight: 400; }
+.v2-chead .q { font-weight: 700; }
+.v2-chead .a, .v2-chead .c { font-weight: 800; white-space: nowrap; }
+.v2-chead .c { font-weight: 600; }
+.v2-chead .why { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; color: var(--v2-muted); }
 .v2-cverdict h2 { font-size: 20px; font-weight: 800; line-height: 1.25; }
 .v2-cverdict[data-verdict="win"] .v2-cverdict-sym { color: var(--v2-action-strong); }
 .v2-cverdict[data-verdict="lose"] .v2-cverdict-sym { color: var(--v2-negative); }
