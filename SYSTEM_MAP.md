@@ -68,7 +68,8 @@ source data -> reference compute -> dashboard build -> frontend/site
 - Supabase is the production source store, but production writes require explicit
   user approval.
 - Missing values remain missing; zeros must trace to a source-published zero.
-- Adjusted source projects are live-derived from raw refs plus
-  `adjustment-inputs.json`; they are not native upstream adjusted artifacts.
+- The `*_adjusted` series are the engine's Adjusted values of the raw chart (the
+  front end derives them in the browser). The fit, `adjustment-inputs.json` and the
+  `*_adjusted` fixture sections were retired in JEG-539 (2026-10-12).
 - The raw ESPN value-above-waivers series is separate from indexed trade value
   and must stay labeled as such.

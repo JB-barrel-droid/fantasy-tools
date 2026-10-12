@@ -128,11 +128,17 @@ class RazzballCanonicalFallbackTest(unittest.TestCase):
     def test_a_nickname_resolves_canonically(self):
         self.assertEqual(self.rz.resolve_name("Scotty Miller", "WR", self.reg, "scotty miller"), (399, None))
 
-    def test_a_position_the_table_does_not_hold_is_a_conflict(self):
-        self.assertEqual(self.rz.resolve_name("Ben VanSumeren", "RB", self.reg), (None, "position_conflict"))
+    def test_a_position_the_table_does_not_hold_is_never_guessed(self):
+        # Rule changed by Jeremy (2026-10-12, JEG-539): this was position_conflict (a review row). An
+        # inactive player at a position the table does not hold is "inactive": never matched, never flagged.
+        self.assertEqual(self.rz.resolve_name("Ben VanSumeren", "RB", self.reg), (None, "inactive"))
 
     def test_the_resolver_fails_closed_on_position(self):
-        self.assertEqual(self.rz.resolve_name("Scotty Miller", "TE", self.reg), (None, "position_conflict"))
+        self.assertEqual(self.rz.resolve_name("Scotty Miller", "TE", self.reg), (None, "inactive"))
+
+    def test_an_active_player_at_the_wrong_position_is_still_a_conflict(self):
+        reg = self.rz.build_registry([{"player_key": 869, "full_name": "Josh Allen", "position": "QB", "active": True}])
+        self.assertEqual(self.rz.resolve_name("Josh Allen", "TE", reg), (None, "position_conflict"))
 
     def test_the_saver_passes_the_registry(self):
         rows = [{"player_name": "Scotty Miller", "player_norm": "scotty miller", "pos": "WR", "team": "PIT",

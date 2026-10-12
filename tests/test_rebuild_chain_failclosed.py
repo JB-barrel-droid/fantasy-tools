@@ -181,15 +181,6 @@ class WireFake:
             fpath.write_text(json.dumps(existing))
             return True, ""
 
-        if script == "build_adjustment_inputs.py":
-            live = (repo / "app" / "trade-value-chart" / "assets"
-                    / "adjustment-inputs.json")
-            self._touch(live, json.dumps({"cells": []}))
-            return True, ""
-
-        if script == "build_adjusted_fixture_sections.py":
-            return True, ""
-
         if script == "build_ddf_two_tier_leg.py":
             # Fake a DDF leg bake: write a leg dir with the snapshot vintage
             # so the ESPN review gate's newest-leg check passes.
@@ -393,28 +384,33 @@ class FailClosedTest(unittest.TestCase):
         self.assertEqual(result["stage"], "review")
         self.assertNotIn("promote_comparison_section.py", fake.calls)
 
-    # --- fit gating --------------------------------------------------------
-    def test_fit_skipped_when_any_source_fails(self):
+    # --- shared re-index gating (the fit and *_adjusted stages are retired, JEG-539) --
+    def test_reindex_skipped_when_any_source_fails(self):
         """Only usatoday has a snapshot; the other four sources fail at the
-        snapshot stage, so the fit must not run."""
+        snapshot stage, so the shared re-index must not run."""
         fake = WireFake(self.repo, verdicts={"*": "ready"})
         status = chain.execute_chain(nfl_week=4, repo=self.repo, run_fn=fake)
-        self.assertNotIn("build_adjustment_inputs.py", fake.calls)
+        self.assertNotIn("reindex_published_fixture.py", fake.calls)
         self.assertFalse(status["success"])
-        self.assertEqual(status["fit"]["status"], "skipped")
+        self.assertEqual(status["reindex_fixture"]["status"], "skipped")
 
-    def test_fit_runs_when_all_sources_succeed(self):
+    def test_reindex_runs_and_no_fit_when_all_sources_succeed(self):
         repo = make_repo(self.tmp / "all", tuple(chain.SOURCES))
         fake = WireFake(repo, verdicts={"*": "ready"})
         status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=fake)
-        self.assertIn("build_adjustment_inputs.py", fake.calls)
+        self.assertIn("reindex_published_fixture.py", fake.calls)
+        # JEG-539 (Jeremy 2026-10-12): the fit and the *_adjusted sections are retired.
+        self.assertNotIn("build_adjustment_inputs.py", fake.calls)
+        self.assertNotIn("build_adjusted_fixture_sections.py", fake.calls)
         self.assertTrue(status["success"])
-        self.assertEqual(status["fit"]["status"], "ok")
+        self.assertEqual(status["reindex_fixture"]["status"], "ok")
+        self.assertNotIn("fit", status)
+        self.assertNotIn("adjusted_sections", status)
 
-    def test_fixture_reindexed_and_rank_guarded_after_promotion_before_fit(self):
+    def test_fixture_reindexed_and_rank_guarded_after_promotion(self):
         """JEG-482: after every promotion the whole fixture is re-indexed from
         its natives against the promoted ESPN leg, then the rank guard runs,
-        both before the fit reads the fixture. No section is translated."""
+        No section is translated."""
         repo = make_repo(self.tmp / "reidx", tuple(chain.SOURCES))
         fake = WireFake(repo, verdicts={"*": "ready"})
         seen = []
@@ -438,7 +434,6 @@ class FailClosedTest(unittest.TestCase):
         guard = names.index("check_rank_guard.py")
         self.assertLess(last_promote, reidx)
         self.assertLess(reidx, guard)
-        self.assertLess(guard, names.index("build_adjustment_inputs.py"))
 
     def test_rank_guard_failure_fails_chain(self):
         repo = make_repo(self.tmp / "guard", tuple(chain.SOURCES))
@@ -452,8 +447,8 @@ class FailClosedTest(unittest.TestCase):
 
         status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=bad)
         self.assertFalse(status["success"])
-        self.assertEqual(status["fit"]["stage"], "rank_guard")
-        self.assertNotIn("build_adjustment_inputs.py", fake.calls)
+        self.assertEqual(status["reindex_fixture"]["stage"], "rank_guard")
+        self.assertIn("reindex_fixture", status["failed"])
 
     def test_reindex_fixture_failure_fails_chain(self):
         repo = make_repo(self.tmp / "reidx2", tuple(chain.SOURCES))
@@ -467,8 +462,8 @@ class FailClosedTest(unittest.TestCase):
 
         status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=bad)
         self.assertFalse(status["success"])
-        self.assertEqual(status["fit"]["stage"], "reindex_fixture")
-        self.assertNotIn("build_adjustment_inputs.py", fake.calls)
+        self.assertEqual(status["reindex_fixture"]["stage"], "reindex_fixture")
+        self.assertIn("reindex_fixture", status["failed"])
 
     # --- status durability -------------------------------------------------
     def test_status_written_on_unexpected_exception(self):
@@ -507,41 +502,6 @@ class FailClosedTest(unittest.TestCase):
         self.assertEqual(result["stage"], "complete")
         self.assertEqual(result["promoted"], result["sections"])
         self.assertGreater(result["sections"], 0)
-
-    # --- stage 8 (adjusted sections) gating --------------------------------
-    def test_adjusted_sections_skipped_when_fit_fails(self):
-        """Stage 8 runs only after a successful fit; a failed fit skips it
-        and the chain reports failure."""
-        repo = make_repo(self.tmp / "adj", tuple(chain.SOURCES))
-        fake = WireFake(repo, verdicts={"*": "ready"})
-        orig = fake.__call__
-
-        def no_fit(cmd, **kwargs):
-            if Path(cmd[1]).name == "build_adjustment_inputs.py":
-                fake.calls.append("build_adjustment_inputs.py")
-                return False, "fit exploded"
-            return orig(cmd, **kwargs)
-
-        status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=no_fit)
-        self.assertNotIn("build_adjusted_fixture_sections.py", fake.calls)
-        self.assertFalse(status["success"])
-        self.assertEqual(status["fit"]["status"], "failed")
-
-    def test_adjusted_sections_failure_fails_chain(self):
-        """A Stage 8 failure is terminal: chain success is False."""
-        repo = make_repo(self.tmp / "adj2", tuple(chain.SOURCES))
-        fake = WireFake(repo, verdicts={"*": "ready"})
-        orig = fake.__call__
-
-        def bad_adjusted(cmd, **kwargs):
-            if Path(cmd[1]).name == "build_adjusted_fixture_sections.py":
-                fake.calls.append("build_adjusted_fixture_sections.py")
-                return False, "adjusted build exploded"
-            return orig(cmd, **kwargs)
-
-        status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=bad_adjusted)
-        self.assertFalse(status["success"])
-        self.assertIn("adjusted_sections", status["failed"])
 
     # --- cbsros chain: DDF-leg path, never the quantile-reindex path ---------
     def _run_cbsros(self, repo=None, run_fn=None):

@@ -85,8 +85,8 @@ def resolvers() -> dict:
         return save_espn_cbs_references.resolve_canonical(n, TARGET_POS, reg)[0]
 
     def saver_cbsros(n):
-        idx = save_cbsros_references.build_name_index(saver_rows())
-        return save_cbsros_references.resolve_name(n, TARGET_POS, idx)[0]
+        reg = save_cbsros_references.build_registry(saver_rows())
+        return save_cbsros_references.resolve_name(n, TARGET_POS, reg)[0]
 
     def saver_razzball(n):
         reg = save_razzball_references.build_registry(saver_rows())
@@ -183,11 +183,9 @@ def py_files():
 
 
 def saver_resolve(mod, rows, name, pos):
-    """One saver's resolver: the canonical registry (ESPN/CBS/FantasyCalc/FantasyPros/USA Today and
-    Razzball, JEG-539) or the CBS ROS saver's legacy name index."""
-    if mod is save_cbsros_references:
-        return mod.resolve_name(name, pos, mod.build_name_index(rows))[0]
-    if mod is save_razzball_references:
+    """One saver's resolver: the canonical registry (ESPN/CBS/FantasyCalc/FantasyPros/USA Today,
+    Razzball and CBS rest of season, JEG-539)."""
+    if mod is save_cbsros_references or mod is save_razzball_references:
         return mod.resolve_name(name, pos, mod.build_registry(rows))[0]
     return mod.resolve_canonical(name, pos, mod.build_registry(rows))[0]
 
@@ -329,14 +327,18 @@ class CbsRosNicknameMisses(unittest.TestCase):
             with self.subTest(saver=mod, name=name):
                 self.assertEqual(key, dict((n, k) for n, _p, k in self.CASES)[name])
 
-    def test_without_the_aliases_they_stay_unresolved(self):
-        # The CBS ROS saver's legacy matcher only. The savers on the canonical resolver (ESPN, CBS,
-        # FantasyCalc, FantasyPros, USA Today, Razzball: JEG-539) fold "Christopher" through the
-        # curated nickname table.
+    def test_every_saver_is_on_the_canonical_resolver_now(self):
+        # Rule changed by Jeremy (2026-10-12, JEG-539): this was "without the aliases they stay
+        # unresolved" for the CBS ROS saver's legacy matcher, which folded no nicknames. All savers,
+        # CBS rest of season included, now resolve through lib/canonical_players, whose nickname
+        # table folds his first name on its own; the alias list is not needed for Brooks.
         names = {norm_player_name(n) for n, _p, _k in self.CASES}
         player_aliases._reset_for_tests({f: e for f, e in player_aliases._index(
             player_aliases.json_entries()).items() if f not in names})
-        self.assertEqual(set(self.resolve_all((save_cbsros_references,)).values()), {None})
+        got = self.resolve_all((save_cbsros_references,))
+        self.assertEqual(got[("save_cbsros_references", "Christopher Brooks")], 2515)
+        # Zonovan Knight is on no nickname list, so he still needs the verified alias.
+        self.assertIsNone(got[("save_cbsros_references", "Zonovan Knight")])
 
 
 if __name__ == "__main__":

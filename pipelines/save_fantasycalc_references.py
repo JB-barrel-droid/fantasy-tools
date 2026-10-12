@@ -77,6 +77,7 @@ from save_espn_cbs_references import (  # noqa: E402
     upsert_rows,
     count_rows,
 )
+from canonical_players import SILENT_REASONS  # noqa: E402 -- inactive players are never flagged (JEG-539)
 from save_usatoday_references import (  # noqa: E402
     apply_reindex,
     USAT_UPSERT_CONFLICT_VERSIONED,
@@ -156,6 +157,8 @@ def build_fantasycalc_rows(
                 continue
             key, _rec, canonical_pos = resolve_canonical(name, pos, registry)
             if key is None:
+                if canonical_pos in SILENT_REASONS:
+                    continue  # an inactive player at another position: no value, no flag (JEG-539)
                 review.append(
                     {
                         "name": name,

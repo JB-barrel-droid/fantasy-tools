@@ -130,7 +130,24 @@ class EngineEspnListedRowsTest(unittest.TestCase):
                               cwd=ROOT, capture_output=True)
         if proc.returncode != 0:
             self.skipTest(f"{PRE_FIX_COMMIT} not in this clone")
-        found = problems(read_engine({"assets/curve-widget.js": proc.stdout}), self.inp)
+        # The pre-fix widget needs its own era's engine and surfaces. main moved on (JEG-508, #514 removed
+        # ValueModel.projectionRoles; JEG-539 removed getAdjustmentInputs and the *_adjusted source_validation
+        # entries), so give it its commit's value-model.js, a null for the adjustment inputs it asks
+        # product-data.js for, and the validation entries it requires. Without this the page never booted
+        # and the test errored on a full-history clone of main.
+        old_model = subprocess.run(["git", "show", f"{PRE_FIX_COMMIT}:app/trade-value-chart/assets/value-model.js"],
+                                   cwd=ROOT, capture_output=True)
+        product = (DIST / "assets" / "product-data.js").read_bytes()
+        shimmed = product.replace(b"    getLoadStatus,\n    handle:",
+                                  b"    getLoadStatus,\n    getAdjustmentInputs: () => null,\n    handle:", 1)
+        self.assertNotEqual(product, shimmed, "product-data.js public API changed; update the shim")
+        fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
+        for root in ("cbs", "fantasycalc", "usatoday", "fantasypros"):
+            fixture["source_validation"][f"{root}_adjusted"] = "live"
+        found = problems(read_engine({"assets/curve-widget.js": proc.stdout,
+                                      "assets/value-model.js": old_model.stdout,
+                                      "assets/product-data.js": shimmed,
+                                      "assets/comparison-sources-data.json": json.dumps(fixture).encode()}), self.inp)
         self.assertEqual(len(found), len(SCORINGS) * len(TEAMS), sorted(found))
 
 

@@ -788,18 +788,15 @@ class ProjectionSameVersion(unittest.TestCase):
 
 
 def healthy_extras(source="usatoday"):
-    """Adjustment cells with healthy counts, last week's history equal to this week, no rank report."""
-    cells = [{"position": p, "tier": t, "n": n} for p, t, n in
-             (("QB", "starter", 12), ("QB", "bench", 8), ("RB", "starter", 32), ("RB", "bench", 21),
-              ("WR", "starter", 40), ("WR", "bench", 31), ("TE", "starter", 12), ("TE", "bench", 8))]
+    """Last week's history equal to this week, no rank report."""
     natives = {"half_ppr": {str(k): float(v[2]["half"]) for k, v in TABLES[source].items()}}
-    return {"adjustment": {"sources": {source: {"cells": cells, "diagnostics": {}}}}, "adjustment_where": "test",
-            "history": {4: {"sources": {source: {"natives": natives}}}},
-            "rank_guard": None, "rank_guard_where": "not yet available", "prior_pulse": {}}
+    return {"history": {4: {"sources": {source: {"natives": natives}}}},
+            "rank_guard": None, "rank_guard_where": "not yet available"}
 
 
 class Stage5ScrapeValidity(unittest.TestCase):
-    """Jeremy 2026-10-09: thin or odd fits are signals the scrape may have missed."""
+    """Jeremy 2026-10-09: sudden drops are signals the scrape may have missed. The fit-cell signals
+    (thin, identity-fallback, tier drops) were removed with the fit, JEG-539."""
 
     def run_with(self, extras, env=None):
         env = env or Env()
@@ -812,20 +809,6 @@ class Stage5ScrapeValidity(unittest.TestCase):
         r = self.run_with(healthy_extras())
         self.assertEqual("green", r["stages"]["scrape_validity"]["status"], r["stages"]["scrape_validity"])
         self.assertEqual("green", r["status"])
-
-    def test_identity_fallback_cell_amber_with_reason(self):
-        ex = healthy_extras()
-        ex["adjustment"]["sources"]["usatoday"]["cells"][7].update(fallback="identity")
-        ex["adjustment"]["sources"]["usatoday"]["diagnostics"] = {"TE|bench": {"reason": "non_positive_slope"}}
-        s5 = self.run_with(ex)["stages"]["scrape_validity"]
-        self.assertEqual("amber", s5["status"])
-        self.assertIn("TE|bench", s5["summary"])
-        self.assertIn("non_positive_slope", s5["summary"])
-
-    def test_thin_cell_amber(self):
-        ex = healthy_extras()
-        ex["adjustment"]["sources"]["usatoday"]["cells"][1].update(n=1)
-        self.assertEqual("amber", self.run_with(ex)["stages"]["scrape_validity"]["status"])
 
     def test_sudden_position_drop_vs_prior_week(self):
         ex = healthy_extras()
@@ -882,14 +865,6 @@ class Stage5ScrapeValidity(unittest.TestCase):
         self.assertEqual("amber", s5["status"], s5["summary"])
         s5 = self.run_with(ex, world(17))["stages"]["scrape_validity"]  # 18 of 21: -14%
         self.assertEqual("red", s5["status"], s5["summary"])
-
-    def test_tier_drop_vs_prior_pulse(self):
-        ex = healthy_extras()
-        ex["prior_pulse"] = {"usatoday": {4: {"RB|bench": 21, "WR|bench": 31}}}
-        ex["adjustment"]["sources"]["usatoday"]["cells"][3].update(n=9)  # RB bench 21 -> 9
-        s5 = self.run_with(ex)["stages"]["scrape_validity"]
-        self.assertEqual("amber", s5["status"])
-        self.assertEqual("RB|bench", s5["signals"]["tier_drops"][0]["cell"])
 
     def test_history_counts_reads_projection_ppg_weeks(self):
         ident = fp.Identity.load(PLAYERS + FILLER)

@@ -4,9 +4,10 @@
 FAIL-CLOSED. Stages run strictly in order per source:
   match -> reference -> section -> reindex -> review -> promote
 then, only if EVERY source succeeded:
-  fit (bias-correction adjustment cells)
-then, only if the fit succeeded:
-  adjusted fixture sections (deterministic application of the fit cells)
+  re-index and rank guard on the combined fixture
+(JEG-539, Jeremy 2026-10-12: the bias-correction fit and the *_adjusted
+fixture sections are retired; the chart's Adjusted values come from the
+engine, never from a baked fit.)
 
 cbsros (CBS rest-of-season projections) runs its own stage path instead:
   snapshot -> DDF leg (12 legs) -> section -> review/verify
@@ -36,7 +37,7 @@ Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
   own week label. The held candidate is never promoted. Everything else still
   fails the whole chain closed: any non-hold failure (snapshot, match,
   section, reindex, promote refusal, error, a malformed review), any ESPN or
-  cbsros failure (ESPN is the reindex anchor and the fit target; both write
+  cbsros failure (ESPN is the reindex anchor; both write
   the fixture before their review gate), a restore that cannot be verified,
   and a run in which EVERY review-gated source held (nothing new to publish).
 - Source resiliency (Jeremy 2026-10-08, decision source-resiliency-001):
@@ -51,10 +52,7 @@ Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
   refresh leaves the last good anchor in place and every other source is
   reindexed against it. Still fail-closed: a restore that cannot be
   verified, a run in which every review-gated source held or failed, and
-  any failure in the shared stages (re-index + rank guard, fit, _adjusted).
-- The fit and _adjusted sections run on the resulting fixture whenever the
-  run is publishable, so a held source's _adjusted section is rebuilt from
-  its kept (older) raw section, never left half-updated.
+  any failure in the shared stages (re-index + rank guard).
 - Chain status is written through a finally block so partial/interrupted
   runs are always recorded for the monitoring dashboard. Held sources are
   listed in `held` / `held_detail` with an amber (one week behind) or red
@@ -65,7 +63,7 @@ Usage:
 
 Exit code: 0 only if every source either completed fully or was held and
 restored (isolated hold), at least one review-gated source promoted, and the
-fit and _adjusted stages ran cleanly. Anything else exits non-zero so the
+shared re-index stage ran cleanly. Anything else exits non-zero so the
 GitHub Actions workflow stops before committing the fixture.
 """
 
@@ -95,7 +93,7 @@ SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs", "cbsros", "r
 # written only by promote_comparison_section.py (so it can be restored
 # exactly). ESPN and cbsros are deliberately absent: their section builders
 # write the fixture BEFORE their review gate, ESPN's DDF legs are the reindex
-# anchor and the fit target, and their "review" is a structural check whose
+# anchor, and their "review" is a structural check whose
 # failure means a malformed section, not a judgement call. Any failure there
 # fails the whole chain closed, as before.
 HOLD_ISOLATED_SOURCES = ("usatoday", "fantasycalc", "fantasypros", "cbs")
@@ -107,7 +105,7 @@ HOLD_ISOLATED_SOURCES = ("usatoday", "fantasycalc", "fantasypros", "cbs")
 FAILURE_ISOLATED_SOURCES = tuple(SOURCES)
 
 # Sources whose stages also write DDF legs under data/ddf-two-tier that later
-# stages read (the fit reads the newest ESPN leg). A failed run of these
+# stages read. A failed run of these
 # sources restores its legs together with its fixture section.
 LEG_FILES = {"espn": "ddf_leg.json", "cbsros": "ddf_leg_cbsros.json",
              "razzball": "ddf_leg_razzball.json"}
@@ -132,8 +130,8 @@ LEG_SECTION_SCRIPTS = {
                  "pipelines/build_razzball_section_from_ddf_leg.py"),
 }
 
-# Stage names in strict execution order (fit runs last, gated on all sources).
-STAGE_ORDER = ["match", "reference", "section", "reindex", "review", "promote", "fit"]
+# Stage names in strict execution order.
+STAGE_ORDER = ["match", "reference", "section", "reindex", "review", "promote"]
 
 
 class ChainHalt(Exception):
@@ -1046,52 +1044,6 @@ def run_reindex_fixture(repo, run_fn):
     print("  ✓ Rank guard: every published chart keeps its own order")
 
 
-def run_fit(repo, run_fn):
-    """Stage 7: bias-correction fit. Raises ChainHalt on failure.
-
-    Only called when every source succeeded. Fits affine adjustment cells
-    per (source, position, tier) against the DDF leg and syncs the live
-    asset for deployment.
-    """
-    ok, out = run_fn([
-        "python3", "pipelines/build_adjustment_inputs.py",
-        "--fixture", str(repo / "data/fixtures/current/comparison-sources-data.json"),
-    ])
-    if not ok:
-        raise ChainHalt("fit", f"fit failed: {out[-500:]}")
-    print("  ✓ Fit complete — adjustment-inputs.json updated")
-    src = repo / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
-    dst = repo / "dist" / "assets" / "adjustment-inputs.json"
-    if src.is_file():
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
-        print(f"  ✓ Synced to {dst}")
-    else:
-        raise ChainHalt("fit", f"fit exited 0 but live asset missing: {src}")
-
-
-def run_adjusted_sections(repo, run_fn):
-    """Stage 8: build _adjusted fixture sections. Raises ChainHalt on failure.
-
-    Only called when the fit succeeded. Applies the fitted cells to the
-    raw published values, generating {source}_adjusted sections in the
-    fixture for the comparison dashboard and build_reference_data.py.
-
-    Jeremy 2026-09-29: "Fitting every week can't be an ad hoc modeling
-    project." The _adjusted sections are generated deterministically from
-    the fit cells — same inputs, same outputs, every week.
-    """
-    ok, out = run_fn([
-        "python3", "pipelines/build_adjusted_fixture_sections.py",
-        "--fixture", str(repo / "data/fixtures/current/comparison-sources-data.json"),
-        "--inputs", str(repo / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"),
-        "--players", str(repo / "data" / "fixtures" / "current" / "players.json"),
-    ])
-    if not ok:
-        raise ChainHalt("adjusted_sections", f"adjusted sections failed: {out[-500:]}")
-    print("  ✓ _adjusted fixture sections built")
-
-
 def run_vorp_refresh(nfl_week, repo, run_fn):
     """Stage 9 (JEG-70): refresh VORP translation grains if stale.
 
@@ -1181,22 +1133,20 @@ def source_vintages(repo):
     return out
 
 
-def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner):
+def write_chain_status(repo, results, reindex_result, nfl_week, runner):
     """Write the chain status JSON for the monitoring dashboard.
 
     `success` (the exit code, and what lets the workflow publish the fixture)
     requires: every source reached and either ok or an isolated hold; at
-    least one review-gated source promoted; fit and _adjusted both ok.
+    least one review-gated source promoted; the shared re-index ok.
     """
     failed = [s for s, r in results.items() if r["status"] not in ("ok", "held")]
     failed += [s for s in SOURCES if s not in results]  # never reached
     held = sorted(s for s, r in results.items() if r["status"] == "held")
     if all_review_gated_held(results):
         failed.append("all_review_gated_sources_held")
-    if fit_result is None or fit_result["status"] != "ok":
-        failed.append("fit")
-    if adjusted_result is None or adjusted_result["status"] != "ok":
-        failed.append("adjusted_sections")
+    if reindex_result is None or reindex_result["status"] != "ok":
+        failed.append("reindex_fixture")
     success = len(failed) == 0
     severities = [results[s].get("hold_severity") for s in held]
     hold_severity = ("red" if "red" in severities else "amber") if held else "none"
@@ -1226,8 +1176,7 @@ def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, run
         # (An earlier revision mislabeled local runs as "muse-cron".)
         "runner": runner,
         "detail": results,
-        "fit": fit_result,
-        "adjusted_sections": adjusted_result,
+        "reindex_fixture": reindex_result,
         "source_vintages": source_vintages(repo),
     }
     for rel in ("output/comparison-chain-status.json",
@@ -1282,8 +1231,7 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     print("=" * 60)
 
     results = {}
-    fit_result = None
-    adjusted_result = None
+    reindex_result = None
     # GAP-UNIVERSE-CHART-ONLY: every players.json player (now including
     # those only a published chart or projection prices) gets a fixture slug
     # before any section is keyed through the fixture's player_keys.
@@ -1330,56 +1278,30 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
         if not failed_sources and all_review_gated_held(results):
             failed_sources = ["all review-gated sources held"]
         if failed_sources:
-            # The fit reads the combined fixture — it must not run against
-            # a partially-rebuilt fixture. (An isolated hold is not partial:
-            # its section was restored to the last promoted one.)
-            fit_result = {
+            # The re-index reads the combined fixture, so it must not run
+            # against a partially-rebuilt one. (An isolated hold is not
+            # partial: its section was restored to the last promoted one.)
+            reindex_result = {
                 "status": "skipped",
                 "detail": f"skipped: sources failed: {', '.join(failed_sources)}",
             }
             print("\n" + "=" * 60)
-            print("STAGE 7: BIAS-CORRECTION FIT — SKIPPED (chain failed)")
+            print("STAGE 7: RE-INDEX + RANK GUARD — SKIPPED (chain failed)")
             print("=" * 60)
         else:
             print("\n" + "=" * 60)
-            print("STAGE 7: BIAS-CORRECTION FIT")
+            print("STAGE 7: RE-INDEX + RANK GUARD")
             print("=" * 60)
             try:
                 run_reindex_fixture(repo, run_fn)
-                run_fit(repo, run_fn)
-                fit_result = {"status": "ok", "detail": "fit complete"}
+                reindex_result = {"status": "ok", "detail": "re-index and rank guard ok"}
             except ChainHalt as h:
-                fit_result = {"status": "failed", "stage": h.stage, "detail": h.detail}
+                reindex_result = {"status": "failed", "stage": h.stage, "detail": h.detail}
                 print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
             except Exception as e:
-                fit_result = {"status": "failed", "stage": "error",
-                              "detail": f"unexpected error: {e}"}
+                reindex_result = {"status": "failed", "stage": "error",
+                                  "detail": f"unexpected error: {e}"}
                 print(f"  ✗ ERROR: {e}")
-
-        # Stage 8: build _adjusted fixture sections (only if fit succeeded).
-        # The comparison dashboard and build_reference_data.py require these.
-        if fit_result is not None and fit_result["status"] == "ok":
-            print("\n" + "=" * 60)
-            print("STAGE 8: ADJUSTED FIXTURE SECTIONS")
-            print("=" * 60)
-            try:
-                run_adjusted_sections(repo, run_fn)
-                adjusted_result = {"status": "ok", "detail": "_adjusted sections built"}
-            except ChainHalt as h:
-                adjusted_result = {"status": "failed", "stage": h.stage, "detail": h.detail}
-                print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
-            except Exception as e:
-                adjusted_result = {"status": "failed", "stage": "error",
-                                   "detail": f"unexpected error: {e}"}
-                print(f"  ✗ ERROR: {e}")
-        elif fit_result is not None:
-            adjusted_result = {
-                "status": "skipped",
-                "detail": f"skipped: fit {fit_result['status']}",
-            }
-            print("\n" + "=" * 60)
-            print("STAGE 8: ADJUSTED FIXTURE SECTIONS — SKIPPED")
-            print("=" * 60)
 
         # Stage 9: VORP translation refresh (JEG-70, demand-driven).
         # Refreshes the Supabase grains (a record; JEG-482) when stale.
@@ -1411,15 +1333,13 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
         print("=" * 60)
         for source, r in results.items():
             print(f"  {source}: {describe_result(r)}")
-        if fit_result is not None:
-            print(f"  fit: {fit_result['status']}")
-        if adjusted_result is not None:
-            print(f"  adjusted_sections: {adjusted_result['status']}")
+        if reindex_result is not None:
+            print(f"  reindex_fixture: {reindex_result['status']}")
         print(f"  vorp_refresh: {vorp_result['status']}")
     finally:
         # Always record the run, even on interruption or unexpected error.
-        # results/fit_result/adjusted_result may be partially populated — write what's known.
-        status_data = write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner)
+        # results/reindex_result may be partially populated — write what's known.
+        status_data = write_chain_status(repo, results, reindex_result, nfl_week, runner)
         print(f"\nStatus written to output/comparison-chain-status.json "
               f"(success={status_data['success']}, outcome={status_data['outcome']}, "
               f"held={status_data['held']})")

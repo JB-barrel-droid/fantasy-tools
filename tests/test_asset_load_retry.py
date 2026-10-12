@@ -1,19 +1,17 @@
-"""JEG-484: a slow first load must not silently drop the adjusted series.
+"""JEG-484: a slow or flaky first load must not drop the chart's data.
 
-product-data.js used to fetch assets/adjustment-inputs.json with a 4s timeout
-and fail open (.catch(() => null)). On a slow load the timeout fired, every
-*_adjusted series paused and DDF Value fell from 7 inputs to 3, with only a
-console.warn to show for it.
+product-data.js used to fetch its assets with a 4s timeout and fail open. On a
+slow load the timeout fired and series paused, with only a console.warn to
+show for it. Since JEG-539 (Jeremy 2026-10-12) the fixture
+(assets/comparison-sources-data.json) is the only asset: the fit's
+adjustment-inputs.json and the *_adjusted sections are retired.
 
 Headless on the built dist/:
-1. The adjustment-inputs response is delayed past the old 4s timeout: the
-   adjusted series still load, DDF Value keeps all 7 inputs.
-2. The adjustment-inputs request fails every time: it is retried (3 attempts),
-   then getLoadStatus() reports the failure. Since JEG-497 (Jeremy 2026-10-09)
-   the DDF Value reads each chart's Adjusted values, not the fitted *_adjusted
-   series, so a failed adjustment load no longer removes any DDF input; the
-   rows' *_adjusted nulls carry "Adjustment data failed to load"
-   (tests/test_row_missing_reasons.py).
+1. The fixture response is delayed past the old 4s timeout: it still loads and
+   DDF Value keeps all its inputs.
+2. The fixture request fails: it is retried and loads, and
+   getLoadStatus() reports the attempts.
+3. The page no longer requests adjustment-inputs.json at all.
 """
 from __future__ import annotations
 
@@ -31,13 +29,14 @@ def setUpModule():
 ADJUSTED = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]
 # JEG-508 (VP-11): the DDF inputs are source keys; a chart input is the chart.
 ALL_INPUTS = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"]
-ADJUSTMENTS_GLOB = "**/assets/adjustment-inputs.json*"
+DETAIL_GLOB = "**/assets/comparison-sources-data.json*"
+RETIRED_GLOB = "**/assets/adjustment-inputs.json*"
 
 
 def expected_inputs(out) -> list[str]:
     """Every DDF input except those the built fixture holds (validationHold: a JEG-479 value check or
     JEG-520 fidelity hold). A held source is left out of DDF Value by design, so a hold never stops
-    the site. This test is about the adjustment load: on 2026-10-10 a fidelity hold on ESPN failed it,
+    the site. This test is about the asset load: on 2026-10-10 a fidelity hold on ESPN failed it,
     and the chain could not publish the rebuild that would have released the hold."""
     held = {e["key"] for e in out["composite"]["excluded"] if str(e.get("reason") or "").startswith("held:")}
     return sorted(set(ALL_INPUTS) - held)
@@ -46,14 +45,13 @@ STATE = """() => {
   const c = window.TradeValueCurveControls;
   const pd = window.TradeValueProductData;
   return {
-    adjustmentsLoaded: pd.getProviderInfo().adjustmentsLoaded,
     loadStatus: c.getLoadStatus ? c.getLoadStatus() : null,
     composite: c.getCompositeInputs(),
   };
 }"""
 
 
-def run(route_handler):
+def run(route_handler, glob=DETAIL_GLOB):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
@@ -72,7 +70,7 @@ def run(route_handler):
                     calls.append(time.monotonic())
                     route_handler(route)
 
-                page.route(ADJUSTMENTS_GLOB, handler)
+                page.route(glob, handler)
                 page.goto(base + "/", wait_until="domcontentloaded")
                 page.wait_for_function(
                     "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
@@ -90,8 +88,18 @@ def _slow(route):
     route.continue_()
 
 
-def _broken(route):
-    route.abort("failed")
+def _fail_first_two():
+    """The page also fetches the fixture inline (index.html), so the first request may not be
+    product-data's. Failing two guarantees one of them hits its first attempt."""
+    seen = []
+
+    def handler(route):
+        seen.append(1)
+        if len(seen) <= 2:
+            route.abort("failed")
+        else:
+            route.continue_()
+    return handler
 
 
 class AssetLoadRetryTest(unittest.TestCase):
@@ -100,31 +108,28 @@ class AssetLoadRetryTest(unittest.TestCase):
         if not (DIST / "index.html").exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
 
-    def test_slow_adjustment_inputs_still_load(self):
+    def test_slow_fixture_still_loads(self):
         out = run(_slow)
-        self.assertTrue(out["adjustmentsLoaded"], "adjustment inputs dropped on a slow load")
         self.assertEqual(sorted(out["composite"]["inputs"]), expected_inputs(out),
                          f"DDF Value lost inputs on a slow load: excluded={out['composite']['excluded']}")
         self.assertIsNotNone(out["loadStatus"], "TradeValueCurveControls.getLoadStatus missing")
-        status = out["loadStatus"]["assets"]["adjustments"]
+        status = out["loadStatus"]["assets"]["detail"]
         self.assertTrue(status["ok"])
         self.assertIsNone(status["error"])
-        self.assertTrue(out["loadStatus"]["adjustmentsLoaded"])
-        self.assertTrue(out["loadStatus"]["assets"]["detail"]["ok"])
 
-    def test_failed_adjustment_inputs_are_reported(self):
-        out = run(_broken)
-        self.assertIsNotNone(out["loadStatus"], "TradeValueCurveControls.getLoadStatus missing")
-        status = out["loadStatus"]["assets"]["adjustments"]
-        self.assertFalse(status["ok"])
-        self.assertTrue(status["error"])
-        self.assertEqual(status["attempts"], 3)
-        self.assertEqual(out["requests"], 3, "the adjustment inputs were not retried")
-        self.assertFalse(out["loadStatus"]["adjustmentsLoaded"])
-        # JEG-497: the DDF inputs do not depend on the adjustment data.
-        reasons = {e["key"]: e["reason"] for e in out["composite"]["excluded"]}
-        self.assertNotIn("Adjustment data failed to load", reasons.values(), reasons)
-        self.assertEqual(sorted(out["composite"]["inputs"]), expected_inputs(out), reasons)
+    def test_failed_fixture_request_is_retried_and_reported(self):
+        out = run(_fail_first_two())
+        status = out["loadStatus"]["assets"]["detail"]
+        self.assertTrue(status["ok"], status)
+        self.assertGreaterEqual(status["attempts"], 2, "the failed fixture request was not retried")
+        self.assertGreaterEqual(out["requests"], 3)
+        self.assertEqual(sorted(out["composite"]["inputs"]), expected_inputs(out))
+
+    def test_adjustment_inputs_are_not_requested(self):
+        """JEG-539: fails on the old page, which fetched assets/adjustment-inputs.json."""
+        out = run(lambda route: route.continue_(), glob=RETIRED_GLOB)
+        self.assertEqual(out["requests"], 0, "the page still requests the retired adjustment-inputs.json")
+        self.assertNotIn("adjustments", out["loadStatus"]["assets"])
 
 
 if __name__ == "__main__":

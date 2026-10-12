@@ -351,12 +351,11 @@ jobs:
       - name: Sync rebuilt fixture into dist (chain succeeded)
         if: steps.chain.outcome == 'success'
         run: |
-          # Sync the rebuilt fixture, chain status, and fit output into dist for Pages
+          # Sync the rebuilt fixture and chain status into dist for Pages
           cp data/fixtures/current/comparison-sources-data.json dist/modules/comparison-sources-data.json
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null || true
           # JEG-479: the engine vs reference report, for the monitor and the fidelity pulse.
           cp output/value-check.json dist/modules/value-check.json 2>/dev/null || true
-          cp app/trade-value-chart/assets/adjustment-inputs.json dist/assets/adjustment-inputs.json 2>/dev/null || true
 
       # GAP-044: detect derived sections that lag their input, generically.
       # check_input_lineage.py recomputes every derived section's raw input
@@ -428,8 +427,8 @@ jobs:
         if: steps.chain.outcome == 'failure'
         run: |
           # The chain fails closed, so the fixture on disk can hold promotions from
-          # sources that passed while others were held, with fit and adjusted
-          # sections skipped. Never publish that partial fixture: publish only the
+          # sources that passed while others were held, with the shared
+          # re-index skipped. Never publish that partial fixture: publish only the
           # status, so a red chain is visible on the monitor.
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null \
             || echo "No chain status was written; nothing to publish."
@@ -483,8 +482,6 @@ jobs:
                     dist/modules/source-import-health.json \
                     dist/modules/comparison-chain-status.json \
                     dist/modules/github-actions.json \
-                    dist/assets/adjustment-inputs.json \
-                    app/trade-value-chart/assets/adjustment-inputs.json \
                     output/source-import-health.json \
                     output/comparison-chain-status.json || true
             # GAP-044: input lineage (written by the step above). Own add, so
@@ -492,10 +489,6 @@ jobs:
             git add dist/modules/input-lineage.json 2>/dev/null || true
             # JEG-479: engine vs Python reference report (own add, may be absent).
             git add dist/modules/value-check.json 2>/dev/null || true
-            # The served fit's versioned provenance copy (written by the same
-            # fit stage as the asset above; tests/test_adjustment_inputs.py
-            # requires it for the served version).
-            git add data/adjustment-inputs || true
             # Week history: the saved weeks and their index (built against
             # this fixture by the chain's make sync).
             git add data/history || true

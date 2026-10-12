@@ -11,10 +11,18 @@ editor; PostgREST cannot DDL).
 Grain (upsert key): (player_key, cbs_snapshot_date). Writes are idempotent.
 
 Identity (fail closed, same rule as save_espn_cbs_references.py): numeric
-player_key only, resolved via public.players (full_name is the naming
-authority). The verified aliases (data/inputs/player_aliases.json, the one
-list every resolver shares) are applied before lookup. Unmatched or ambiguous
-names go to the review report -- never guessed, never zero-filled.
+player_key only, resolved through lib/canonical_players, the one resolver
+(JEG-438; JEG-539): public.players is the naming authority, the nickname table
+and the verified aliases (data/inputs/player_aliases.json) are applied before
+lookup, and the printed position must be one the table holds for that name.
+Jeremy 2026-10-12 (JEG-539): when a source's position conflicts with the
+player's, the position is ESPN's or Sleeper's (where the game is played), as
+public.players holds it, and there is no per-source exception. CBS rest of
+season prints Connor Heyward in its TE table; public.players says RB, so that
+row is a position conflict and is not stored. Unmatched, ambiguous or
+position-conflicting names go to the review report -- never guessed, never
+zero-filled. An inactive player whose listed position the table does not hold
+is skipped without a flag (canonical_players.SILENT_REASONS).
 """
 
 from __future__ import annotations
@@ -30,11 +38,9 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(ROOT / "pipelines"))
-from match_source_snapshot import normalize_name  # noqa: E402
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
-import player_aliases  # noqa: E402 -- the one verified alias list
 import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
-from canonical_players import narrow_candidates  # noqa: E402
+import canonical_players  # noqa: E402 -- the one name -> player_key rule (JEG-438)
 from nfl_week import current_nfl_week  # noqa: E402
 
 
@@ -130,31 +136,30 @@ count_rows: Callable[[str, str], int] = _default_count
 delete_rows: Callable[[str, str, set[int]], None] = _default_delete
 
 
-def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    index: dict[str, list[dict[str, Any]]] = {}
-    for record in players:
-        key = record.get("player_key")
-        name = str(record.get("full_name") or "").strip()
-        if not isinstance(key, int) or not name:
-            continue
-        index.setdefault(normalize_name(name), []).append(
-            {
-                "player_key": key,
-                "full_name": name,
-                "position": str(record.get("position") or "").strip().upper() or None,
-                "active": record.get("active"),
-            }
-        )
-    return index
+def build_registry(players: list[dict[str, Any]]) -> "canonical_players.Registry":
+    """The canonical resolver's registry over the fetched public.players rows."""
+    return canonical_players.load_registry(rows=[
+        r for r in players
+        if isinstance(r.get("player_key"), int) and str(r.get("full_name") or "").strip()])
 
 
 def resolve_name(
-    name: str, pos: str | None, index: dict[str, list[dict[str, Any]]]
+    name: str,
+    pos: str | None,
+    registry: "canonical_players.Registry",
+    norm_hint: str | None = None,
 ) -> tuple[int | None, str | None]:
-    """Return (player_key, reason). Unresolved -> (None, reason)."""
-    norm = normalize_name(player_aliases.canonical_spelling(name))
-    rec, reason = narrow_candidates(index.get(norm, []), pos)
-    return (rec["player_key"], None) if rec else (None, reason)
+    """Return (player_key, None), or (None, reason) with reason one of
+    unmatched | ambiguous | position_conflict | inactive.
+
+    Only lib/canonical_players resolves (JEG-539). The snapshot's own
+    `player_norm` is tried, through the same resolver, only when the printed
+    name matches no player. A position conflict or an ambiguity is final.
+    """
+    key, reason = canonical_players.resolve_with_reason(name, position=pos or None, registry=registry)
+    if key is None and reason == "unmatched" and norm_hint and norm_hint != name:
+        key, reason = canonical_players.resolve_with_reason(norm_hint, position=pos or None, registry=registry)
+    return (key, None) if key is not None else (None, reason)
 
 
 def parse_float(raw: Any) -> float | None:
@@ -185,7 +190,7 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
     if not rows:
         raise SystemExit("Fail closed: CBS ROS snapshot has no rows.")
 
-    index = build_name_index(fetch_players())
+    registry = build_registry(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -196,8 +201,10 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
         if not name:
             review.append({"reason": "missing_player_name", "row": row})
             continue
-        key, reason = resolve_name(name, pos, index)
+        key, reason = resolve_name(name, pos, registry, row.get("player_norm"))
         if key is None:
+            if reason in canonical_players.SILENT_REASONS:
+                continue  # an inactive player at another position: no value, no flag (JEG-539)
             review.append(
                 {
                     "reason": reason,

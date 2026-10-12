@@ -131,9 +131,11 @@ class IdentityResolutionTest(unittest.TestCase):
     matches through the curated nickname table and the verified aliases."""
 
     PLAYERS = [
-        {"player_key": 1, "full_name": "Ja'Marr Chase", "position": "WR"},
-        {"player_key": 2, "full_name": "David Sills", "position": "WR"},
-        {"player_key": 3, "full_name": "Josh Sills", "position": "OL"},
+        # Active, so a wrong listed position stays a position_conflict (an inactive player at a
+        # position the table does not hold is "inactive" and never flagged: JEG-539, Jeremy 2026-10-12).
+        {"player_key": 1, "full_name": "Ja'Marr Chase", "position": "WR", "active": True},
+        {"player_key": 2, "full_name": "David Sills", "position": "WR", "active": True},
+        {"player_key": 3, "full_name": "Josh Sills", "position": "OL", "active": True},
         {"player_key": 4, "full_name": "Audric Estime", "position": "RB", "active": True},
         {"player_key": 5, "full_name": "Audric Estime", "position": "RB", "active": True},
         {"player_key": 6, "full_name": "Pat Twin", "position": "WR"},

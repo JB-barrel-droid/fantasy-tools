@@ -287,7 +287,7 @@ class ChainSourceVintagesTest(unittest.TestCase):
                             "content_week": 4,
                             "failure_reason": "LAGGING_ONE_WEEK (non-blocking): x"},
                 }}))
-            status = chain.write_chain_status(repo, {}, None, None, 5, "local")
+            status = chain.write_chain_status(repo, {}, None, 5, "local")
         sv = status["source_vintages"]
         self.assertEqual(sv["cbs"]["content_vintage"], "Week 4")
         self.assertTrue(sv["cbs"]["lagging_one_week"])

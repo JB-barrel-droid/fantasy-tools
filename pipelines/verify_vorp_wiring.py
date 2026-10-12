@@ -26,33 +26,7 @@ ORDERING_TESTS = [
     ("fantasycalc", "half_12_qb1", "jaxon smithnjigba", "puka nacua"),
 ]
 
-# JEG-73: Adjusted sections must preserve the raw ordering for the same players.
-# If raw has A > B, the _adjusted section must also have A > B.
-# Covers every 12-team combo (the chart defaults) on all 4 adjusted sources,
-# so a stale adjusted section on ANY source/combo trips the check.
-# Pairs are the raw top-2 of each combo (verified 2026-10-02); the affine
-# (position, tier) adjustment cells are monotonic, so a flip means staleness.
-ADJUSTED_ORDERING_TESTS = [
-    # (source, combo, higher_name, lower_name)
-    # fantasycalc: canonical JEG-73 case + top pair on every 12-team combo
-    ("fantasycalc", "half_12_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "full_12_qb1", "jahmyr gibbs", "bijan robinson"),
-    ("fantasycalc", "full_12_qb2", "jahmyr gibbs", "bijan robinson"),
-    ("fantasycalc", "half_12_qb1", "jahmyr gibbs", "bijan robinson"),
-    ("fantasycalc", "half_12_qb2", "jahmyr gibbs", "bijan robinson"),
-    ("fantasycalc", "standard_12_qb1", "jahmyr gibbs", "bijan robinson"),
-    ("fantasycalc", "standard_12_qb2", "jahmyr gibbs", "bijan robinson"),
-    # usatoday / fantasypros / cbs: all three 12-team combos each
-    ("usatoday", "full_12", "jahmyr gibbs", "jonathan taylor"),
-    ("usatoday", "half_12", "jahmyr gibbs", "bijan robinson"),
-    ("usatoday", "standard_12", "jahmyr gibbs", "ceedee lamb"),
-    ("fantasypros", "full_12", "jahmyr gibbs", "bijan robinson"),
-    ("fantasypros", "half_12", "jahmyr gibbs", "bijan robinson"),
-    ("fantasypros", "standard_12", "jahmyr gibbs", "bijan robinson"),
-    ("cbs", "full_12", "jahmyr gibbs", "bijan robinson"),
-    ("cbs", "half_12", "jahmyr gibbs", "bijan robinson"),
-    ("cbs", "standard_12", "jahmyr gibbs", "bijan robinson"),
-]
+# (The JEG-73 *_adjusted ordering checks were retired with the sections, JEG-539.)
 
 def load_supabase_translated(source: str, scoring: str, teams: int, week: int) -> dict[str, float]:
     """Load translated values from Supabase, keyed by normalized name."""
@@ -120,47 +94,6 @@ def main() -> int:
         for e in errors:
             print(f"  - {e}")
         return 1
-
-    # JEG-73: Check _adjusted sections preserve raw ordering for all 4 sources.
-    # A stale adjusted section (built from old raw values) will show wrong orderings.
-    print("\nChecking _adjusted sections (JEG-73)...")
-    for source, combo_key, higher_name, lower_name in ADJUSTED_ORDERING_TESTS:
-        adj_source = f"{source}_adjusted"
-        if adj_source not in fixture["sources"]:
-            errors.append(f"{adj_source}: section missing from fixture")
-            continue
-        combo = fixture["sources"][adj_source]["combos"].get(combo_key, {})
-        adj_reindexed = combo.get("reindexed", {})
-        # Also get raw for comparison
-        raw_combo = fixture["sources"][source]["combos"].get(combo_key, {})
-        raw_reindexed = raw_combo.get("reindexed", {})
-
-        higher_slug = next((s for s in adj_reindexed if higher_name in s.lower()), None)
-        lower_slug = next((s for s in adj_reindexed if lower_name in s.lower()), None)
-
-        if not higher_slug or not lower_slug:
-            errors.append(f"{adj_source}/{combo_key}: could not find {higher_name} or {lower_name}")
-            continue
-
-        # Raw ordering must be correct first
-        higher_raw = raw_reindexed.get(higher_slug, 0)
-        lower_raw = raw_reindexed.get(lower_slug, 0)
-        if higher_raw <= lower_raw:
-            errors.append(f"{source}/{combo_key}: raw ordering wrong, cannot check adjusted")
-            continue
-
-        # Adjusted must preserve raw ordering
-        higher_adj = adj_reindexed.get(higher_slug, 0)
-        lower_adj = adj_reindexed.get(lower_slug, 0)
-        if higher_adj <= lower_adj:
-            errors.append(
-                f"{adj_source}/{combo_key}: STALE ADJUSTED SECTION: raw has "
-                f"{higher_name} ({higher_raw:.1f}) > {lower_name} ({lower_raw:.1f}), "
-                f"but adjusted has {higher_adj:.1f} <= {lower_adj:.1f}. "
-                f"Run pipelines/build_adjusted_fixture_sections.py to rebuild."
-            )
-        else:
-            print(f"OK {adj_source}/{combo_key}: {higher_name} ({higher_adj:.1f}) > {lower_name} ({lower_adj:.1f})")
 
     if errors:
         print("\nFAILURES:")
