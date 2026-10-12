@@ -545,7 +545,13 @@
   // Player keys are numeric strings; every output map is keyed by String(key).
   // ===================================================================
   var VALUE_PIPELINE_VERSION = "value-pipeline/2";
-  var VP_BENCH_MIX_12 = { QB: 10, RB: 27, WR: 33, TE: 10 };
+  // JEG-630: market bench ratios from config/market_bench.json (frozen,
+  // Jeremy 2026-10-10). Convention rule 1: bench weight = starters * ratio,
+  // then D'Hondt. Replaces the hardcoded VP_BENCH_MIX_12 {10,27,33,10}.
+  var MARKET_BENCH_RATIOS = {
+    one_qb: {QB: 0.88, RB: 0.83, WR: 1.03, TE: 0.40},
+    two_qb: {QB: 0.28, RB: 0.69, WR: 0.85, TE: 0.44}
+  };
   var VP_IMPUTE_MIN_FIT = 3;
   var VP_ESTIMATE_FIT_N = 10;
   var VP_DEFAULT_BENCH_SHARE = 0.15;
@@ -568,23 +574,23 @@
   // round_half_up for the bench seat total (VP-2.2d).
   function vpRoundHalfUp(x) { return Math.floor(x + 0.5); }
 
-  // VP-2.2d: D'Hondt, each seat to the largest weight / (seats + 1), ties to
-  // position order.
-  function vpBenchSeats(teams, benchPerTeam) {
-    var seats = vpRoundHalfUp(teams * benchPerTeam);
-    var out = { QB: 0, RB: 0, WR: 0, TE: 0 };
-    for (var s = 0; s < seats; s += 1) {
-      var best = null, bestScore = -Infinity;
-      POSITION_ORDER.forEach(function (pos) {
-        var w = VP_BENCH_MIX_12[pos];
-        if (!(w > 0)) return;
-        var seatScore = w / (out[pos] + 1);
-        if (seatScore > bestScore) { bestScore = seatScore; best = pos; }
-      });
-      if (best === null) break;
-      out[best] += 1;
-    }
-    return out;
+  // VP-2.2d: D'Hondt bench seats via roster convention (market bench ratios,
+  // JEG-630). weight_p = starters_p * backups_per_starter_p, then D'Hondt
+  // over POSITION_ORDER. Ties to position order (earliest wins).
+  // slots: {QB:n, RB:n, WR:n, TE:n} dedicated per team.
+  // opts.superflex: true when the roster has a superflex slot.
+  // opts.flexFilled: optional {pos: count} of flex starters already assigned.
+  function vpBenchSeats(slots, teams, benchPerTeam, opts) {
+    opts = opts || {};
+    var key = (opts.superflex || ((slots && slots.QB) || 1) >= 2) ? "two_qb" : "one_qb";
+    var ratios = MARKET_BENCH_RATIOS[key];
+    var ff = opts.flexFilled || {};
+    var weights = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var starters = ((slots && slots[pos]) || 0) + (ff[pos] || 0);
+      weights[pos] = starters * (ratios[pos] || 0);
+    });
+    return apportionSlots(weights, vpRoundHalfUp(teams * benchPerTeam));
   }
 
   function vpNumKey(a, b) { return Number(a) - Number(b); }
@@ -598,7 +604,8 @@
     var slots = setting.slots || {};
     var sfSlots = Math.max(0, Number(setting.superflex) || 0);
     var flexSlots = Math.max(0, Number(setting.flex) || 0);
-    var bench = vpBenchSeats(teams, Math.max(0, Number(setting.bench_per_team) || 0));
+    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
+                             {superflex: sfSlots > 0});
     var alloc = {};
     POSITION_ORDER.forEach(function (pos) {
       alloc[pos] = { dedicated: teams * (Number(slots[pos]) || 0), superflex: 0, flex: 0,
@@ -808,7 +815,8 @@
     var teams = Number(setting.teams) || 0;
     var slots = setting.slots || {};
     var flexElig = setting.flex_eligible || VP_FLEX_ELIGIBLE;
-    var bench = vpBenchSeats(teams, Math.max(0, Number(setting.bench_per_team) || 0));
+    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
+                             {superflex: (Number(setting.superflex) || 0) > 0});
     var maps = chartKeys.map(function (src) {
       var m = {};
       POSITION_ORDER.forEach(function (pos) { listed[src][pos].forEach(function (r) { m[r.key] = r.native; }); });
@@ -1113,7 +1121,18 @@
           method = "no_players";
         }
         if (method !== "no_players") {
-          starterLine = work.length > S ? work[S].native : waiver;
+          // Convention rule 3 (JEG-630): midpoint of last starter and first
+          // non-starter, replacing the old first-non-starter rule.
+          if (S > 0 && work.length >= S) {
+            var lastStarter = work[S - 1].native;
+            if (work.length > S) {
+              starterLine = (lastStarter + work[S].native) / 2.0;
+            } else {
+              starterLine = lastStarter;
+            }
+          } else {
+            starterLine = waiver;
+          }
           starterLine = Math.max(starterLine, waiver);
         }
         // ES-3 / ES-4: the lineup share of each row's level (expected starts).
