@@ -97,7 +97,7 @@ FORCED_REASON = "test: no saved week before this one"
 
 
 def expected_group(key):
-    if key == DDF:
+    if key in (DDF, "ddf_value_charts", "ddf_value_projections"):   # GL-09 (JEG-542): the three versions
         return "DDF Value"
     if key.endswith("_vorp"):
         return "Value above waivers (Advanced)"

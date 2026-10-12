@@ -906,8 +906,8 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "pick not remembered": ({"v2_js": (v2, "      saveTargetsOurs(T.ours);\n", "")}, numbers_only),
             "one-source player left out": ({"targets_js": (targets, "      if (!finite(ours)) {",
                                                            "      if (!finite(ours) || row.ddfLowConfidence) {")}, numbers_only),
-            "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, DDF_KEY)) {\n      const node = lowConfidenceNode(row);",
-                                                         "    if (false) {\n      const node = lowConfidenceNode(row);")}, numbers_only),
+            "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, key)) {\n      const node = lowConfidenceNode(row, key);",
+                                                         "    if (false) {\n      const node = lowConfidenceNode(row, key);")}, numbers_only),
             # JEG-504
             "market difference symbol flipped": ({"v2_js": (v2, 'diff.textContent = `${m.diff > 0 ? "▲" : "▼"}', 'diff.textContent = `${m.diff > 0 ? "▼" : "▲"}')}, numbers_only),
             "market average counts only compared-and-positive": ({"targets_js": (targets, "const values = Object.values(cells).map(cell => cell.value).filter(finite);",

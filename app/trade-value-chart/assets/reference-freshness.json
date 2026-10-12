@@ -1,7 +1,7 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "47494b50022b8cf27c0a8e83110829494d3d9aab50cfdfe799c5e9dc692f5563",
-    "players.json": "e0bb3a8706f47d1b0952d47f3f741e906f6751c391369742e7490512a04f7d7d",
+    "comparison-sources-data.json": "3c219b434c0e9ffe70425988c7b1cf26b0fe8db901331d9d2fd74a750033ade9",
+    "players.json": "25704316899dfab712aee6ef03e2c111659b12475a3860c08a8016f9c51b3649",
     "source-import-health.json": "b09b3c94d2a4e4d35ce2ebaa94c86fc4da92c56d395b1b55009444b7f96b4c25"
   },
   "chart_inputs": [
@@ -21,7 +21,7 @@
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-12T17:15:31-05:00",
+  "generated_at": "2026-10-12T17:49:36-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -52,29 +52,29 @@
     },
     {
       "age_days": 0,
-      "changed_since_prior_report": false,
+      "changed_since_prior_report": true,
       "color": "green",
       "enforced": true,
       "freshness_ok": true,
       "key": "comparison.built_at",
       "label": "Comparison fixture last rebuilt (any source promotion; not input freshness)",
       "max_age_days": 2,
-      "note": "unchanged",
+      "note": "changed",
       "status": "same_day",
-      "value": "2026-10-12T21:49:22.435598+00:00"
+      "value": "2026-10-12T22:11:56.783348+00:00"
     },
     {
       "age_days": 0,
-      "changed_since_prior_report": false,
+      "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
       "freshness_ok": true,
       "key": "source_import.checked_at",
       "label": "L1 import health checked_at",
       "max_age_days": 2,
-      "note": "unchanged",
+      "note": "changed",
       "status": "same_day",
-      "value": "2026-10-12T21:49:03Z"
+      "value": "2026-10-12T22:11:31Z"
     },
     {
       "age_days": 0,
@@ -87,7 +87,7 @@
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T21:49:03Z; content_vintage is Week 5 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T22:11:31Z; content_vintage is Week 5 source provenance, not pull time",
       "status": "same_day",
       "value": "Week 5"
     },
@@ -102,7 +102,7 @@
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T21:49:03Z; content_vintage is 2026-10-12 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T22:11:31Z; content_vintage is 2026-10-12 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-12"
     },
@@ -117,7 +117,7 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T21:49:03Z; content_vintage is 2026-10-12 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T22:11:31Z; content_vintage is 2026-10-12 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-12"
     },
@@ -132,7 +132,7 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T21:49:03Z; content_vintage is Week 5 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T22:11:31Z; content_vintage is Week 5 source provenance, not pull time",
       "status": "same_day",
       "value": "Week 5"
     },
@@ -147,7 +147,7 @@
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T21:49:03Z; content_vintage is 2026-10-06 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T22:11:31Z; content_vintage is 2026-10-06 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-06"
     },
@@ -162,7 +162,7 @@
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T21:49:03Z; content_vintage is 2026-10-11 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T22:11:31Z; content_vintage is 2026-10-11 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-11"
     },
@@ -177,7 +177,7 @@
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T21:49:03Z; content_vintage is 2026-10-06 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-12T22:11:31Z; content_vintage is 2026-10-06 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-06"
     },
@@ -296,14 +296,14 @@
   ],
   "source_divergence": {
     "cbs": {
-      "bias": 1.22,
+      "bias": 1.18,
       "headline_combo": "full_12",
       "label": "CBS",
-      "message": "CBS disagrees with the other charts on 16% of players this week (usually 16%).",
-      "outlier_rate": 0.162,
+      "message": "CBS disagrees with the other charts on 14% of players this week (usually 16%).",
+      "outlier_rate": 0.137,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.156,
+      "usual_outlier_rate": 0.159,
       "week": 5
     },
     "cbsros": {
@@ -329,25 +329,25 @@
       "week": 5
     },
     "fantasycalc": {
-      "bias": 0.39,
+      "bias": 0.35,
       "headline_combo": "full_12_qb1",
       "label": "FantasyCalc",
-      "message": "FantasyCalc disagrees with the other charts on 47% of players this week (usually 46%). Under review.",
-      "outlier_rate": 0.474,
+      "message": "FantasyCalc disagrees with the other charts on 43% of players this week (usually 47%).",
+      "outlier_rate": 0.426,
       "resolution_issue": null,
-      "status": "investigate",
-      "usual_outlier_rate": 0.461,
+      "status": "ok",
+      "usual_outlier_rate": 0.467,
       "week": 5
     },
     "fantasypros": {
-      "bias": -0.09,
+      "bias": -0.14,
       "headline_combo": "standard_12",
       "label": "FantasyPros",
-      "message": "FantasyPros disagrees with the other charts on 48% of players this week (usually 45%). Reviewed.",
-      "outlier_rate": 0.477,
+      "message": "FantasyPros disagrees with the other charts on 50% of players this week (usually 45%). Reviewed.",
+      "outlier_rate": 0.503,
       "resolution_issue": "JEG-482",
       "status": "reviewed",
-      "usual_outlier_rate": 0.448,
+      "usual_outlier_rate": 0.452,
       "week": 5
     },
     "razzball": {
@@ -362,14 +362,14 @@
       "week": 5
     },
     "usatoday": {
-      "bias": -0.63,
+      "bias": -0.53,
       "headline_combo": "full_12",
       "label": "USA Today",
-      "message": "USA Today disagrees with the other charts on 31% of players this week (usually 25%).",
-      "outlier_rate": 0.314,
+      "message": "USA Today disagrees with the other charts on 30% of players this week (usually 26%).",
+      "outlier_rate": 0.301,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.253,
+      "usual_outlier_rate": 0.255,
       "week": 5
     }
   },
@@ -391,7 +391,7 @@
     "chart_input_keys": [
       "players.as_of"
     ],
-    "comparison_built_at": "2026-10-12T21:49:22.435598+00:00",
+    "comparison_built_at": "2026-10-12T22:11:56.783348+00:00",
     "comparison_oldest_published_week": 5,
     "comparison_sources_behind": [],
     "comparison_sources_pending_promotion": [],
@@ -404,7 +404,7 @@
     "l1_unhealthy_count": 0,
     "max_age_days": 2,
     "stale_count": 0,
-    "unchanged_count": 4,
+    "unchanged_count": 2,
     "unknown_count": 0
   },
   "today": "2026-10-12"

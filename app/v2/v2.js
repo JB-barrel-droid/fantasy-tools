@@ -60,7 +60,7 @@
       note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
   ];
   function seriesGroup(key) {
-    if (key === DDF_KEY) return "ddf";
+    if (isDdfKey(key)) return "ddf";
     if (key.endsWith("_vorp")) return "vorp";
     if (key.endsWith("_adjusted")) return "adj";
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
@@ -69,7 +69,7 @@
   // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
   // "FantasyCalc chart (adjusted)", "FantasyCalc chart (rescaled)", "ESPN value above waivers".
   function groupSeriesName(key) {
-    if (key === DDF_KEY) return "DDF Value";
+    if (isDdfKey(key)) return sourceMeta(key).label;
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
     return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (rescaled)`,
@@ -96,7 +96,7 @@
         option.value = key;
         option.dataset.group = group.id;
         const item = view && view.infoByKey[key];
-        const behind = !(item && item.stale) ? null : key === DDF_KEY
+        const behind = !(item && item.stale) ? null : isDdfKey(key)
           ? {short: Number.isFinite(item.week) ? `Wk ${item.week}` : "Earlier week", label: "Some DDF Value inputs are on an earlier week."}
           : priorWeekInfo(sourceMeta(key).publisher, item, view.refWeek);
         let text = `${sourceMeta(key).symbol} ${groupSeriesName(key)}`;
@@ -134,11 +134,22 @@
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
   // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
   const DDF_KEY = "ddf_value";
-  const DDF_META = {label: "DDF Value", symbol: "★"};
-  const DDF_VERSION_NAMES = {charts: "trade charts only", projections: "projections only"};
+  // JEG-542 / GL-09: three DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the
+  // charts-only and projections-only versions are off until picked. `field` is the engine's row.ddfByVersion key.
+  const DDF_VERSIONS = {
+    ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B"},
+    ddf_value_charts: {field: "charts", label: "DDF Value · trade charts", symbol: "✦", light: "#8A5A00", dark: "#E6B450"},
+    ddf_value_projections: {field: "projections", label: "DDF Value · projections", symbol: "✧", light: "#7A3E8E", dark: "#C795DA"}
+  };
+  const DDF_KEYS = Object.keys(DDF_VERSIONS);
+  const isDdfKey = key => Object.prototype.hasOwnProperty.call(DDF_VERSIONS, key);
+  // One version's entry on an engine row: {value, count, sources, reason, lowConfidence, confidenceNote, prior, ...}.
+  const ddfEntry = (row, key) => (row && row.ddfByVersion && isDdfKey(key) ? row.ddfByVersion[DDF_VERSIONS[key].field] : null) || null;
   function sourceMeta(key) {
-    if (key === DDF_KEY) {
-      return {key, method: "ddf", publisher: "ddf", ...DDF_META, color: isDark() ? "#F28C5B" : "#A84410", short: "DDF Value"};
+    if (isDdfKey(key)) {
+      const version = DDF_VERSIONS[key];
+      return {key, method: "ddf", publisher: "ddf", label: version.label, symbol: version.symbol,
+        color: isDark() ? version.dark : version.light, short: version.label};
     }
     let method;
     let publisher;
@@ -146,12 +157,6 @@
     else if (key.endsWith("_adjusted")) { method = "dda"; publisher = key.slice(0, -9); }
     // JEG-508: the engine's DDF inputs are now "<chart>_adj_values" (the chart's adjusted values).
     else if (key.endsWith("_adj_values")) { method = "dda"; publisher = key.slice(0, -11); }
-    // JEG-497: "ddf_value_charts" / "ddf_value_projections" are DDF Value versions, not publisher charts.
-    else if (key.startsWith(`${DDF_KEY}_`)) {
-      const version = DDF_VERSION_NAMES[key.slice(DDF_KEY.length + 1)] || "";
-      const label = version ? `DDF Value (${version})` : "DDF Value";
-      return {key, method: "ddf", publisher: "ddf", ...DDF_META, label, color: isDark() ? "#F28C5B" : "#A84410", short: label};
-    }
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
     else { method = "indexed"; publisher = key; }
     const pub = PUBLISHERS[publisher] || {label: key, color: "#64736F", symbol: "•"};
@@ -360,6 +365,7 @@
   function tierFor(row, key, scope) {
     if (!row || !key) return null;
     if (key === DDF_KEY) return row.ddfTier || null;
+    if (isDdfKey(key)) return ddfTierFor(row, key, scope);
     const value = row.values ? row.values[key] : null;
     if (!Number.isFinite(value) || !scope || !scope.rows) return null;
     let byKey = tierRanks.get(scope.rows);
@@ -389,22 +395,39 @@
     if (!Number.isFinite(rank) || !Number.isFinite(sb) || !Number.isFinite(bw)) return null;
     return rank < sb ? "starter" : rank < bw ? "bench" : "waiver";
   }
+  // A DDF Value version other than the blend has no engine tier: rank by that version in the same rows and
+  // read the blend's roster zones (the same starter / bench cut-offs), so the three read alike.
+  function ddfTierFor(row, key, scope) {
+    if (!Number.isFinite(row.values?.[key]) || !scope || !scope.rows) return null;
+    const blended = scope.rows.filter(r => r.ddfTier);
+    if (!blended.length) return null;
+    const counts = {starter: 0, bench: 0};
+    blended.forEach(r => { if (r.ddfTier in counts) counts[r.ddfTier] += 1; });
+    const ahead = scope.rows.filter(r => Number.isFinite(r.values?.[key]) && r.values[key] > row.values[key]).length;
+    return ahead < counts.starter ? "starter" : ahead < counts.starter + counts.bench ? "bench" : "waiver";
+  }
   const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));
 
   // Low-confidence DDF Value (Jeremy, 2026-10-08): when exactly one input prices a player the engine
   // still gives a DDF Value (that input's value) and flags it (row.ddfLowConfidence). Shown everywhere
   // that value appears as "◐ 1 source" (symbol + label), with the engine's note as the tooltip.
   const LOW_CONFIDENCE_NOTE = "Only one source prices this player";
-  const isLowConfidence = (row, key) => key === DDF_KEY && Boolean(row && row.ddfLowConfidence)
-    && Number.isFinite(row.values?.[DDF_KEY]);
-  function lowConfidenceNode(row) {
+  const isLowConfidence = (row, key) => {
+    const entry = ddfEntry(row, key);
+    // The blend also honours the flat row.ddfLowConfidence the engine keeps for it.
+    const flagged = key === DDF_KEY ? Boolean(row && row.ddfLowConfidence) : Boolean(entry && entry.lowConfidence);
+    return flagged && Number.isFinite(row.values?.[key]);
+  };
+  function lowConfidenceNode(row, key = DDF_KEY) {
+    const entry = ddfEntry(row, key);
     const node = document.createElement("span");
     node.className = "v2-lowconf";
     node.dataset.lowConfidence = "";
-    const count = Number.isFinite(row.ddfCount) ? row.ddfCount : 1;
+    const count = key === DDF_KEY ? (Number.isFinite(row.ddfCount) ? row.ddfCount : 1)
+      : (entry && Number.isFinite(entry.count) ? entry.count : 1);
     const label = `${count} source${count === 1 ? "" : "s"}`;
     // Jeremy (2026-10-09): tag "◐ 1 source"; the engine's note is the tooltip and part of the accessible name.
-    node.title = row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE;
+    node.title = (key === DDF_KEY ? row.ddfConfidenceNote : entry && entry.confidenceNote) || LOW_CONFIDENCE_NOTE;
     node.setAttribute("role", "img");
     node.setAttribute("aria-label", `${label}: ${node.title}`);
     const sym = document.createElement("span");
@@ -435,7 +458,7 @@
   }
   // Every finite value v2 shows passes through here, so both value tags live in one place.
   function appendLowConfidence(parent, row, key) {
-    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));
+    if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row, key));
     const reason = estimatedReason(row, key);
     if (reason) parent.appendChild(estimatedNode(reason));
   }
@@ -445,7 +468,7 @@
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const active = (ddfShown && infoByKey[DDF_KEY] ? [DDF_KEY] : []).concat(C.getActiveSources());
+    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources());
     const rankKey = C.getRankSource();
     // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
     const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
@@ -568,7 +591,7 @@
 
     // JEG-474 / JEG-466: one "Showing: …" line, a compact legend (not buttons) and one Customize control.
     const counts = SERIES_GROUPS.map(g => ({g, n: view.active.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
-    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)).join(" + ") || "nothing selected"}`
+    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)).join(" + ") || "nothing selected"}`
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();
@@ -584,8 +607,9 @@
     });
 
     const rankBy = $("v2RankBy");
-    const rankKeys = view.plotKeys.concat(view.vorpKeys);
-    if (view.infoByKey[DDF_KEY] && !rankKeys.includes(DDF_KEY)) rankKeys.unshift(DDF_KEY);
+    // The DDF Value versions lead the picker (all three, shown or not), then the other shown series.
+    const rankKeys = DDF_KEYS.filter(key => view.infoByKey[key])
+      .concat(view.plotKeys.concat(view.vorpKeys).filter(key => !isDdfKey(key)));
     // The series ranked by now stays pickable even when it went unavailable, so the picker shows it.
     renderSeriesPicker(rankBy, rankKeys.map(key => ({key,
       reason: key === view.rankKey ? null : unavailableReason(view.infoByKey[key])})), view.rankKey);
@@ -641,7 +665,7 @@
       const twice = keys.filter(k => sourceMeta(k).publisher === meta.publisher).length > 1;
       const name = meta.method === "vorp" || twice || isNarrow() ? meta.short : (PLAIN_NAMES[meta.publisher] || meta.label);
       span.append(document.createTextNode(`${meta.symbol} ${name}`));
-      span.title = plainSeries(meta.publisher, meta.method);
+      span.title = seriesName(key);
       legend.appendChild(span);
     });
     // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
@@ -723,7 +747,7 @@
       lines = el("g", {"clip-path": `url(#${clipId})`}, svg);
     }
     // The DDF Value line is drawn last so it sits on top of the others.
-    keys.filter(key => key !== DDF_KEY).concat(keys.includes(DDF_KEY) ? [DDF_KEY] : []).forEach(key => {
+    keys.filter(key => !isDdfKey(key)).concat(DDF_KEYS.filter(key => keys.includes(key))).forEach(key => {
       const meta = sourceMeta(key);
       let d = "";
       let pen = false;
@@ -1007,7 +1031,7 @@
     ["published", "Trade charts (rescaled)"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
   const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
-    if (key === DDF_KEY) return "ddf";
+    if (isDdfKey(key)) return "ddf";
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
     if (meta.method === "indexed") return "published";
@@ -1105,7 +1129,8 @@
   function missingReason(key, row) {
     const own = row && row.missingReasons ? row.missingReasons[key] : null;
     if (typeof own === "string" && own.trim()) return own;
-    if (key === DDF_KEY && row && row.ddfReason) return row.ddfReason;
+    const ddfReason = isDdfKey(key) ? (key === DDF_KEY && row && row.ddfReason) || (ddfEntry(row, key) || {}).reason : null;
+    if (ddfReason) return ddfReason;
     const item = view && view.infoByKey[key];
     const name = sourceMeta(key).short;
     if (item && !item.available) return `${name} is unavailable right now, so no player has a value from it`;
@@ -1606,7 +1631,7 @@
     hoverOpened = false;
   }
   function toggleEngineSource(key) {
-    if (key === DDF_KEY) { ddfShown = !ddfShown; return true; }
+    if (isDdfKey(key)) { if (ddfShownSet.has(key)) ddfShownSet.delete(key); else ddfShownSet.add(key); return true; }
     const input = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
     if (!input || input.disabled) return false;
     input.click();
@@ -1756,30 +1781,39 @@
         if (item.waiverNote && item.available) label.title = item.waiverNote;
         return label;
       }
-      // The DDF Value's inputs: every allowed series, the excluded ones with the engine's reason.
-      function ddfInputs() {
+      // A DDF Value version's inputs: its allowed series, the excluded ones with the engine's reason.
+      // JEG-542: one list under each of the three versions. The inputs are one shared choice (the engine's
+      // setCompositeInputs), so a tick under one version moves the same input under the others. The blend
+      // lists every input; trade charts only lists the trade charts; projections only lists the projections.
+      function ddfInputs(versionKey) {
         const box = document.createElement("fieldset");
         box.className = "v2-ddf-inputs";
+        box.dataset.ddfVersion = versionKey;
         const legend = document.createElement("legend");
-        legend.textContent = `Built from ${inputsDraft.size} input${inputsDraft.size === 1 ? "" : "s"}`;
+        const inFamily = key => versionKey === DDF_KEY || (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj");
+        const used = [...inputsDraft].filter(inFamily).length;
+        legend.textContent = `Built from ${used} input${used === 1 ? "" : "s"}`;
         box.appendChild(legend);
         // Only "not selected" stays selectable: a held, prior-week or unavailable source is never a DDF input (JEG-479).
         const excluded = new Map((composite.excluded || []).filter(item => item.reason !== "not selected")
           .map(item => [item.key, item.reason]));
-        const keys = composite.allowed || [];
+        const keys = (composite.allowed || []).filter(inFamily);
         keys.forEach(key => {
           const meta = sourceMeta(key);
           const label = document.createElement("label");
           label.className = `v2-crow${excluded.has(key) ? " is-disabled" : ""}`;
           const input = document.createElement("input");
           input.type = "checkbox";
-          input.dataset.ddfInput = key;
+          // The blend's boxes keep data-ddf-input; the other versions' boxes are keyed by version too.
+          if (versionKey === DDF_KEY) input.dataset.ddfInput = key;
+          else input.dataset.ddfVersionInput = `${versionKey}:${key}`;
           input.checked = inputsDraft.has(key);
           input.disabled = excluded.has(key) || (inputsDraft.size === 1 && inputsDraft.has(key));
           input.addEventListener("change", () => {
             if (input.checked) inputsDraft.add(key); else inputsDraft.delete(key);
             render();
-            const again = groupsBox.querySelector(`[data-ddf-input="${key}"]`);
+            const again = groupsBox.querySelector(versionKey === DDF_KEY ? `[data-ddf-input="${key}"]`
+              : `[data-ddf-version-input="${versionKey}:${key}"]`);
             if (again) again.focus();
           });
           const name = document.createElement("span");
@@ -1828,8 +1862,12 @@
           const note = document.createElement("p");
           note.className = "v2-meta";
           note.textContent = g.note;
-          section.append(head, note, ...items.map(rowFor));
-          if (g.id === "ddf" && composite) section.appendChild(ddfInputs());
+          section.append(head, note);
+          // The DDF group lists three versions, each with its own inputs under it (JEG-542).
+          items.forEach(item => {
+            section.appendChild(rowFor(item));
+            if (g.id === "ddf" && composite && isDdfKey(item.key)) section.appendChild(ddfInputs(item.key));
+          });
           if (g.id === "vorp" && items.some(item => draft.has(item.key))) section.open = true;
           groupsBox.appendChild(section);
         });
@@ -1871,7 +1909,9 @@
     });
   }
   let startActive = null;   // the default selection: what "Reset to default" returns to
-  let ddfShown = true;      // whether the DDF Value series is shown (it has no engine toggle)
+  // Which DDF Value versions are shown (they have no engine toggle). Blended on, the other two off (GL-09).
+  const ddfShownSet = new Set([DDF_KEY]);
+  const ddfShownList = () => DDF_KEYS.filter(key => ddfShownSet.has(key));
   const SAVE_KEY = "ddf.v2.selection";
   function defaultShown() {
     const info = C.getSourceInfo();
@@ -1882,16 +1922,17 @@
     const want = new Set(keys);
     const engineNow = C.getActiveSources();
     const available = new Set(C.getSourceInfo().filter(item => item.available).map(item => item.key));
-    const adds = [...want].filter(key => key !== DDF_KEY && available.has(key) && !engineNow.includes(key));
+    const adds = [...want].filter(key => !isDdfKey(key) && available.has(key) && !engineNow.includes(key));
     const drops = engineNow.filter(key => !want.has(key));
     adds.forEach(toggleEngineSource);
     if (C.getActiveSources().length > drops.length) drops.forEach(toggleEngineSource);
-    ddfShown = want.has(DDF_KEY);
+    ddfShownSet.clear();
+    DDF_KEYS.filter(key => want.has(key)).forEach(key => ddfShownSet.add(key));
   }
   function saveSelection() {
     try {
       const inputs = C.getCompositeInputs ? C.getCompositeInputs() : null;
-      localStorage.setItem(SAVE_KEY, JSON.stringify({v: 1, shown: (ddfShown ? [DDF_KEY] : []).concat(C.getActiveSources()),
+      localStorage.setItem(SAVE_KEY, JSON.stringify({v: 1, shown: ddfShownList().concat(C.getActiveSources()),
         inputs: inputs && !inputs.isDefault ? inputs.inputs : null, rank: C.getRankSource()}));
     } catch (error) { /* storage unavailable: the choice lasts this visit only */ }
   }
@@ -1906,9 +1947,9 @@
     const saved = loadSelection();
     if (hasDdf && saved && Array.isArray(saved.inputs) && saved.inputs.length) C.setCompositeInputs(saved.inputs, false);
     const shown = saved && saved.shown.length ? saved.shown : (hasDdf ? defaultShown() : C.getActiveSources());
-    applyShown(shown.filter(key => hasDdf || key !== DDF_KEY));
+    applyShown(shown.filter(key => hasDdf || !isDdfKey(key)));
     const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);
-    if (rank && rank !== C.getRankSource() && (rank === DDF_KEY || C.getActiveSources().includes(rank))) C.setLockOrder(rank);
+    if (rank && rank !== C.getRankSource() && (isDdfKey(rank) || C.getActiveSources().includes(rank))) C.setLockOrder(rank);
     startActive = hasDdf ? defaultShown() : C.getActiveSources().slice();
   }
 
@@ -2676,19 +2717,22 @@
   }
 
   // DDF Value's "from N sources" (row.ddfCount), the sub-text under our value.
-  function ddfCountNode(row) {
-    if (isLowConfidence(row, DDF_KEY)) {
-      const node = lowConfidenceNode(row);
+  function ddfCountNode(row, key = DDF_KEY) {
+    const entry = ddfEntry(row, key);
+    const count = key === DDF_KEY ? row.ddfCount : entry && entry.count;
+    const sources = key === DDF_KEY ? row.ddfSources : entry && entry.sources;
+    if (isLowConfidence(row, key)) {
+      const node = lowConfidenceNode(row, key);
       node.classList.add("why", "t-count");
-      node.dataset.ddfCount = String(Number.isFinite(row.ddfCount) ? row.ddfCount : 1);
+      node.dataset.ddfCount = String(Number.isFinite(count) ? count : 1);
       return node;
     }
-    if (!Number.isFinite(row.ddfCount)) return null;
+    if (!Number.isFinite(count)) return null;
     const node = document.createElement("span");
     node.className = "why t-count";
-    node.dataset.ddfCount = String(row.ddfCount);
-    node.textContent = `from ${row.ddfCount} source${row.ddfCount === 1 ? "" : "s"}`;
-    if (Array.isArray(row.ddfSources) && row.ddfSources.length) node.title = row.ddfSources.map(seriesName).join(", ");
+    node.dataset.ddfCount = String(count);
+    node.textContent = `from ${count} source${count === 1 ? "" : "s"}`;
+    if (Array.isArray(sources) && sources.length) node.title = sources.map(seriesName).join(", ");
     return node;
   }
   // Our value: the number (with DDF Value's source count), or "—" with the engine's reason.
@@ -2698,8 +2742,8 @@
       return;
     }
     cell.appendChild(document.createTextNode(fmt(p.ours)));
-    if (targetsView.ours === DDF_KEY) {
-      const count = ddfCountNode(p.row);
+    if (isDdfKey(targetsView.ours)) {
+      const count = ddfCountNode(p.row, targetsView.ours);
       if (count) cell.appendChild(count);
     }
   }
@@ -3047,7 +3091,7 @@
     }
     if (targetsView.omittedNoOurs) {
       const why = targetsView.omittedReasons.map(([reason, n]) => `${reason} (${n})`).join("; ");
-      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${targetsView.ours === DDF_KEY ? "DDF Value" : `${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value`} for them${why ? `. Why: ${why}` : ""}.`);
+      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${isDdfKey(targetsView.ours) ? sourceMeta(targetsView.ours).label : `${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value`} for them${why ? `. Why: ${why}` : ""}.`);
     }
     if (targetsView.atWaiverCells && !blocked) {
       notes.push("A chart value of 0.0 is at that chart's waiver line for your league: never a buy, no gap.");
@@ -3057,8 +3101,8 @@
     note.textContent = notes.join(" ");
     // The footnote follows the picked series: DDF Value is built from the chosen inputs; a projection
     // series is that publisher's projections with our Data Driven Adjustments.
-    $("v2TOursNote").textContent = targetsView.ours === DDF_KEY
-      ? "the DDF Value, built from the inputs chosen in Customize on Player values"
+    $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
+      ? `${targetsView.ours === DDF_KEY ? "the DDF Value" : `the ${sourceMeta(targetsView.ours).label} version`}, built from the inputs chosen in Customize on Player values`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]} with Data Driven Adjustments`;
     // Footnote: each compared chart that is still on an earlier week, with its badge.
     const priorNote = $("v2TPriorNote");
@@ -3133,7 +3177,7 @@
 
   function seriesName(key) {
     const meta = sourceMeta(key);
-    return plainSeries(meta.publisher, meta.method);
+    return isDdfKey(key) ? meta.label : plainSeries(meta.publisher, meta.method);
   }
 
   function collectCompare() {
@@ -3142,14 +3186,19 @@
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
     const usable = keys => keys.filter(key => view.infoByKey[key]?.available);
-    const pointKeys = usable(view.plotKeys);
+    let pointKeys = usable(view.plotKeys);
     const vorpKeys = usable(view.vorpKeys);
     const unavailable = view.active.filter(key => !view.infoByKey[key]?.available);
     // "Player values shown": one exact series; DDF Value unless picked, then the ranking series.
+    // GL-09: all three DDF Value versions are offered here, shown in Customize or not.
+    const ddfOffered = DDF_KEYS.filter(key => view.infoByKey[key]?.available && !pointKeys.includes(key));
     const shownChoices = pointKeys.concat(vorpKeys);
-    if (!shownChoices.includes(TR.shown)) {
+    if (!shownChoices.includes(TR.shown) && !ddfOffered.includes(TR.shown)) {
       TR.shown = [DDF_KEY, view.rankKey].find(key => shownChoices.includes(key)) || shownChoices[0] || null;
     }
+    // A picked version that is not shown joins the series the trade is read in.
+    if (ddfOffered.includes(TR.shown)) pointKeys = pointKeys.concat(TR.shown);
+    shownChoices.splice(0, shownChoices.length, ...pointKeys.concat(ddfOffered.filter(key => !pointKeys.includes(key)), vorpKeys));
     verdictSeries = pointKeys.includes(DDF_KEY) ? DDF_KEY : TR.shown;
     const TC = window.TradeValueTrade;
     // JEG-469 empty state: before any player is added, a sample trade marked "Example".
@@ -3162,7 +3211,7 @@
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
     // JEG-505: "Will they accept?" reads the published value charts: the as-published (rescaled) series.
     const chartKeys = pointKeys.filter(key => sourceMeta(key).method === "indexed" && window.TradeValueTargets.CHART_KEYS.includes(key));
-    const lowConfidence = giveRows.concat(receiveRows).some(row => isLowConfidence(row, DDF_KEY));
+    const lowConfidence = giveRows.concat(receiveRows).some(row => isLowConfidence(row, isDdfKey(verdictSeries) ? verdictSeries : DDF_KEY));
     // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
     // series keeps its own (those scales are not comparable).
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
@@ -3730,7 +3779,7 @@
       const names = v.missing.map(m => m.row.name || "a player").join(", ");
       return {kind: v.kind, title: `${name}: no verdict yet`,
         text: `No ${name} value for ${names}, so this series cannot score the trade (a missing value is never counted as zero). `
-          + (key === DDF_KEY ? "Each source's own result is in the table below." : "Pick another series in Player values shown.")};
+          + (isDdfKey(key) ? "Each source's own result is in the table below." : "Pick another series in Player values shown.")};
     }
     const net = fmtGap(v.net);
     if (v.kind === "win") {
@@ -4162,7 +4211,7 @@
     }
     // DDF Value: only the served pair is offered. The engine prices it over the same inputs on both
     // sides; two getWeekValues calls could average different inputs (Back-end requests).
-    const pairs = servedPrior.available && R.series !== DDF_KEY ? weekPairs(R.series) : [];
+    const pairs = servedPrior.available && !isDdfKey(R.series) ? weekPairs(R.series) : [];
     if (!pairs.includes(R.week)) R.week = servedPrior.available ? servedPrior.currentWeek : null;
     const weeks = $("v2RWeeks");
     weeks.replaceChildren();
@@ -4745,7 +4794,7 @@
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
       // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
-      shown: () => (ddfShown ? [DDF_KEY] : []).concat(C.getActiveSources()),
+      shown: () => ddfShownList().concat(C.getActiveSources()),
       setShown: keys => { applyShown(keys); refresh(); }};
   }
 
