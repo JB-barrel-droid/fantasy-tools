@@ -835,6 +835,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   /* With the two headline answers (JEG-505) the verdict card must still end above the fold at 1366x768. */
   #v2Compare .v2-cverdict { gap: 3px; }
   #v2Compare .v2-cverdict .v2-cheads { gap: 4px; margin-bottom: 2px; }
+  #v2Compare .v2-cverdict > div > p { margin-top: 4px !important; font-size: 13px; line-height: 1.4; }
+  #v2Compare .v2-cverdict h2 { font-size: 18px; }
+  #v2Compare .v2-cstory summary { min-height: 28px; }
 }
 @media (min-width: 768px) and (max-width: 1279px) {
   #v2Compare .v2-cverdict { grid-column: 1 / -1; }
