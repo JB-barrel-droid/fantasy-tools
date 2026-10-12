@@ -460,6 +460,7 @@ test-core:
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
 	python3 -m unittest tests.test_razzball_one_save
+	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_fc_week4_value_repair_sql
 	python3 -m unittest tests.test_producers_schedule_tidy

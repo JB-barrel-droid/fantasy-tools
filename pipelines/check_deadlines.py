@@ -25,6 +25,7 @@ import argparse
 import json
 import sys
 from datetime import datetime, date, timezone, timedelta
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 from typing import Any
 
@@ -107,13 +108,13 @@ def parse_iso_datetime(dt_str: str) -> datetime:
     dt_str = dt_str.replace("Z", "+00:00")
     if "+" in dt_str and "-" not in dt_str.split("+")[0]:
         # Already has timezone
-        return datetime.fromisoformat(dt_str)
+        return parse_iso_timestamp(dt_str)
     elif "-" in dt_str and "+" not in dt_str:
         # Has timezone offset
-        return datetime.fromisoformat(dt_str)
+        return parse_iso_timestamp(dt_str)
     else:
         # No timezone info - assume UTC
-        return datetime.fromisoformat(dt_str).replace(tzinfo=timezone.utc)
+        return parse_iso_timestamp(dt_str).replace(tzinfo=timezone.utc)
 
 
 def grace_window_minutes(source: str, rule: dict | None) -> int | None:

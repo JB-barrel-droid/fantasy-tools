@@ -40,6 +40,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,8 +123,8 @@ def block(builder, *args):
 
 def _duration_s(run: dict) -> int | None:
     try:
-        a = datetime.fromisoformat(run["run_started_at"].replace("Z", "+00:00"))
-        b = datetime.fromisoformat(run["updated_at"].replace("Z", "+00:00"))
+        a = parse_iso_timestamp(run["run_started_at"])
+        b = parse_iso_timestamp(run["updated_at"])
         return max(0, int((b - a).total_seconds()))
     except Exception:  # noqa: BLE001
         return None
