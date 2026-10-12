@@ -1,24 +1,31 @@
 """v2 bench share, rendered: the share shown is the share the engine priced with.
 
-Below the league's feasible window (PPR, 12 teams: about 4.4% for RB / WR /
-TE and 7.5% for QB) the engine prices each position at a higher feasible share
-and records it as bench_share_used on its calibration. v2 must show that share,
-not the requested one.
+JEG-541 (after JEG-508): the two-tier calibration and its per-position feasible
+windows are retired (VP-10). getBenchShareUsed(share) now returns one share for
+every position: the share itself, 0 when no source has bench players above
+waivers, 1 when none has starters above waivers, and null before the values are
+built. getBenchBounds() is the fixed slider range. v2 must show the used share,
+never the request, and "—" with a reason when there is none.
 
 Builds dist/v2 into a temp copy of the built dist/ and loads Player values
 headless at 1440 x 900:
 
-  * Weights & bench: dragging the slider to 2% shows the engine's used shares
-    (lowest to highest across positions) in the readout and the Starters /
-    Bench split, plus one note naming the requested 2%; Apply keeps it;
-  * the engine accessor getBenchShareUsed() agrees with the calibration the
-    engine actually priced with (TradeValueTwoTierLive.calibration);
-  * How values work shows the same used share and note;
-  * at 15% (inside the window) the shares shown are 15% and there is no note;
+  * Weights & bench: the slider range is getBenchBounds(), named as a range,
+    not a league-feasible window;
+  * at 2% the readout and the Starters / Bench split show the engine's used
+    share with no note; Apply keeps it and getBenchShareUsed() agrees; How
+    values work shows the same;
+  * hermetic edge: with getBenchShareUsed wrapped to return 0 for every
+    position (what the engine returns when no source has bench players above
+    waivers), the panel and How values show 0.0% and name the requested share;
+  * hermetic null: with getBenchShareUsed returning null, the panel and How
+    values show "—" with a reason, never the requested share;
+  * at 15% the shares shown are 15% and there is no note;
   * no page errors.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js showing the
-requested share instead of the used one, and requires the checks to fail.
+requested share instead of the used one, and with the retired "Feasible ...
+for this league" copy, and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -35,11 +42,14 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-USED = """share => { const cal = window.TradeValueTwoTierLive.calibration(share);
-  const out = {}; for (const pos of ['QB', 'RB', 'WR', 'TE']) { const c = cal && cal[pos];
-    out[pos] = c && !c.invalid && Number.isFinite(c.bench_share_used) ? c.bench_share_used : null; }
-  return out; }"""
+USED = """share => window.TradeValueCurveControls.getBenchShareUsed(share)"""
 
+# Wrap the engine's accessor: `mode` "zero" returns 0 for every position, "null" returns null,
+# anything else restores the engine's own.
+FORCE_USED = """mode => { const C = window.TradeValueCurveControls;
+  if (!C.__usedOriginal) C.__usedOriginal = C.getBenchShareUsed;
+  C.getBenchShareUsed = mode === 'zero' ? (() => ({QB: 0, RB: 0, WR: 0, TE: 0}))
+    : mode === 'null' ? (() => null) : C.__usedOriginal; }"""
 
 
 def _numbers(text: str) -> list[float]:
@@ -54,7 +64,7 @@ def _bench_numbers(text: str) -> list[float]:
 
 def _check_shown(tag, numbers, used) -> list[str]:
     """numbers shown (one value, or low and high) must equal the engine's used shares."""
-    finite = [v for v in used.values() if v is not None]
+    finite = [v for v in (used or {}).values() if v is not None]
     if not finite:
         return [f"{tag}: engine priced no position"]
     lo, hi = min(finite), max(finite)
@@ -69,6 +79,7 @@ def _panel(page) -> dict:
       const note = pop.querySelector('[data-bench-note]');
       return {readout: pop.querySelector('output.v2-pbig')?.textContent || '',
         split: pop.querySelector('.v2-psplit b')?.textContent || '',
+        text: pop.textContent,
         note: note && !note.hidden ? note.textContent : ''}; }""")
 
 
@@ -76,52 +87,81 @@ def _set_slider(page, share):
     page.evaluate("v => { const s = document.getElementById('v2BenchSlider'); s.value = String(v); s.dispatchEvent(new Event('input')); }", share)
 
 
-def check_bench(page) -> list[str]:
-    errors = []
-    bounds = page.evaluate("() => window.TradeValueCurveControls.getBenchBounds()")
-    if not bounds or bounds[0] > 0.02:
-        return [f"bench: feasible slider bounds {bounds} do not reach 2%"]
-    low = page.evaluate(USED, 0.02)
-    if not any(v is not None and v > 0.02 + 1e-6 for v in low.values()):
-        return [f"bench: the engine priced 2% at {low}; the fixture no longer exercises the floor"]
-    accessor = page.evaluate("() => window.TradeValueCurveControls.getBenchShareUsed ? window.TradeValueCurveControls.getBenchShareUsed(0.02) : null")
-    if accessor != low:
-        errors.append(f"bench: getBenchShareUsed(0.02) {accessor} != engine calibration {low}")
-
-    # Below the floor, in the draft (before Apply).
-    page.click("#v2Weights")
-    _set_slider(page, 0.02)
-    shown = _panel(page)
-    errors += _check_shown("bench draft readout", _numbers(shown["readout"]), low)
-    errors += _check_shown("bench draft split", _bench_numbers(shown["split"]), low)
-    if "2.0% requested" not in shown["note"] or "lowest the league supports" not in shown["note"]:
-        errors.append(f"bench: no requested-vs-used note at 2%: {shown['note']!r}")
-    page.click('#v2Popover [data-apply="weights"]')
-    if abs(page.evaluate("() => window.TradeValueCurveControls.getBenchShare()") - 0.02) > 1e-6:
-        errors.append("bench: Apply did not request 2%")
-    applied = page.evaluate("() => window.TradeValueCurveControls.getBenchShareUsed ? window.TradeValueCurveControls.getBenchShareUsed() : null")
-    if applied != low:
-        errors.append(f"bench: getBenchShareUsed() after Apply {applied} != {low}")
-    page.click("#v2Weights")
-    shown = _panel(page)
-    errors += _check_shown("bench applied readout", _numbers(shown["readout"]), low)
-    errors += _check_shown("bench applied split", _bench_numbers(shown["split"]), low)
-    if "2.0% requested" not in shown["note"]:
-        errors.append(f"bench: no note after Apply at 2%: {shown['note']!r}")
-    page.keyboard.press("Escape")
-
-    # How values work names the same used share.
+def _how(page) -> dict:
     page.evaluate("() => { location.hash = '#how-values'; }")
     page.wait_for_function("() => !document.getElementById('v2How').hidden")
     how = page.evaluate("""() => ({bench: document.getElementById('v2HowBench').textContent,
       note: [...document.querySelectorAll('#v2How [data-bench-note]')].filter(n => !n.hidden).map(n => n.textContent).join(' ')})""")
-    errors += _check_shown("bench How values", _numbers(how["bench"]), low)
-    if "2.0% requested" not in how["note"]:
-        errors.append(f"bench: How values has no requested-vs-used note: {how['note']!r}")
     page.evaluate("() => { location.hash = '#player-values'; }")
     page.wait_for_function("() => !document.getElementById('v2Main').hidden")
+    return how
 
-    # Inside the window: shown as requested, no note.
+
+def check_bench(page) -> list[str]:
+    errors = []
+    C = "window.TradeValueCurveControls"
+    bounds = page.evaluate(f"() => {C}.getBenchBounds()")
+    if not bounds or bounds[0] > 0.02:
+        return [f"bench: slider bounds {bounds} do not reach 2%"]
+
+    # The range copy is the engine's fixed range, not a league-feasible window.
+    page.click("#v2Weights")
+    shown = _panel(page)
+    want_range = f"{bounds[0] * 100:.1f}%–{bounds[1] * 100:.1f}%"
+    if want_range not in shown["text"]:
+        errors.append(f"bench: range {want_range} not shown: {shown['text'][:200]!r}")
+    if re.search(r"feasible", shown["text"], re.I):
+        errors.append("bench: the panel still claims a league-feasible window (retired by JEG-508)")
+
+    # 2%: priced as requested, no note, in the draft and after Apply.
+    low = page.evaluate(USED, 0.02)
+    _set_slider(page, 0.02)
+    shown = _panel(page)
+    errors += _check_shown("bench draft readout", _numbers(shown["readout"]), low)
+    errors += _check_shown("bench draft split", _bench_numbers(shown["split"]), low)
+    if shown["note"]:
+        errors.append(f"bench: a requested-vs-used note at 2% where the engine priced 2%: {shown['note']!r}")
+    page.click('#v2Popover [data-apply="weights"]')
+    if abs(page.evaluate(f"() => {C}.getBenchShare()") - 0.02) > 1e-6:
+        errors.append("bench: Apply did not request 2%")
+    applied = page.evaluate(f"() => {C}.getBenchShareUsed()")
+    if applied != low:
+        errors.append(f"bench: getBenchShareUsed() after Apply {applied} != {low}")
+    page.click("#v2Weights")
+    shown = _panel(page)
+    errors += _check_shown("bench applied readout", _numbers(shown["readout"]), applied)
+    errors += _check_shown("bench applied split", _bench_numbers(shown["split"]), applied)
+    page.keyboard.press("Escape")
+    how = _how(page)
+    errors += _check_shown("bench How values", _numbers(how["bench"]), applied)
+
+    # Hermetic edge: the engine prices bench at 0 (no source has bench players above waivers).
+    page.evaluate(FORCE_USED, "zero")
+    page.click("#v2Weights")
+    shown = _panel(page)
+    zero = {"QB": 0, "RB": 0, "WR": 0, "TE": 0}
+    errors += _check_shown("bench used-0 readout", _numbers(shown["readout"]), zero)
+    if "2.0% requested" not in shown["note"] or "0.0%" not in shown["note"]:
+        errors.append(f"bench: no requested-vs-used note when the engine priced 0: {shown['note']!r}")
+    page.keyboard.press("Escape")
+    how = _how(page)
+    errors += _check_shown("bench used-0 How values", _numbers(how["bench"]), zero)
+    if "2.0% requested" not in how["note"]:
+        errors.append(f"bench: How values has no requested-vs-used note at used 0: {how['note']!r}")
+
+    # Hermetic null: no used share, so "—" with a reason, never the requested 2%.
+    page.evaluate(FORCE_USED, "null")
+    page.click("#v2Weights")
+    shown = _panel(page)
+    if shown["readout"].strip() != "—" or not shown["note"]:
+        errors.append(f"bench: with no used share the readout is {shown['readout']!r}, note {shown['note']!r}")
+    page.keyboard.press("Escape")
+    how = _how(page)
+    if how["bench"].strip() != "—" or not how["note"]:
+        errors.append(f"bench: with no used share How values shows {how['bench']!r}, note {how['note']!r}")
+    page.evaluate(FORCE_USED, "restore")
+
+    # 15%: shown as requested, no note.
     normal = page.evaluate(USED, 0.15)
     page.click("#v2Weights")
     _set_slider(page, 0.15)
@@ -133,11 +173,9 @@ def check_bench(page) -> list[str]:
     if shown["note"]:
         errors.append(f"bench: a note at 15%: {shown['note']!r}")
     page.keyboard.press("Escape")
-    page.evaluate("() => { location.hash = '#how-values'; }")
-    page.wait_for_function("() => !document.getElementById('v2How').hidden")
-    note = page.evaluate("() => [...document.querySelectorAll('#v2How [data-bench-note]')].filter(n => !n.hidden).map(n => n.textContent).join('')")
-    if note:
-        errors.append(f"bench: How values has a note at 15%: {note!r}")
+    how = _how(page)
+    if how["note"]:
+        errors.append(f"bench: How values has a note at 15%: {how['note']!r}")
     return errors
 
 
@@ -181,7 +219,10 @@ class BenchUsedRenderTest(unittest.TestCase):
         broken = {
             "requested share shown instead of the used one": v2.replace(
                 "    const used = C.getBenchShareUsed ? C.getBenchShareUsed(share) : null;",
-                "    const used = null;", 1),
+                "    const used = {QB: share, RB: share, WR: share, TE: share};", 1),
+            "retired feasible-window copy": v2.replace(
+                "? `Range ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% · Recommended 15%`",
+                "? `Feasible ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% for this league · Recommended 15%`", 1),
         }
         for name, body in broken.items():
             with self.subTest(mutation=name):

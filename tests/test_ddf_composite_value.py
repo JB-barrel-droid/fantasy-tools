@@ -45,6 +45,7 @@ import unittest
 
 from tests._dist_server import DIST, serve
 from tests import _render_env  # noqa: E402
+from tests._holds import HOLD_FIELDS  # noqa: E402
 
 
 def setUpModule():
@@ -354,9 +355,16 @@ def hold_on(*sections, field="validationHold"):
     """The pipeline's shape: {reason, week, root, kept_week} on each held section."""
     def edit(fixture):
         for section in sections:
-            root = "cbs" if section == "cbs_adjusted" else section.replace("_adjusted", "")
-            fixture["sources"][section][field] = {**HOLD, "root": root, "kept_week": HOLD["week"] - 1}
+            fixture["sources"][section][field] = {**HOLD, "root": section, "kept_week": HOLD["week"] - 1}
     return edit
+
+
+def strip_holds(fixture):
+    """This test's own unheld copy of the published fixture (JEG-569)."""
+    for section in (fixture.get("sources") or {}).values():
+        if isinstance(section, dict):
+            for field in HOLD_FIELDS:
+                section.pop(field, None)
 
 
 def older_week(section):
@@ -395,10 +403,14 @@ def run(script: str, history_edit=None, data_edit=None, init_script=None, week_e
         index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
         history_edit(index)
         overrides["assets/history/index.json"] = json.dumps(index).encode("utf-8")
+    # JEG-569: the published fixture may legitimately carry a hold (a held
+    # source never takes the site down). These tests need an unheld
+    # baseline, so they strip holds from their own copy, then apply the edit.
+    fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
+    strip_holds(fixture)
     if data_edit:
-        fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
         data_edit(fixture)
-        overrides["assets/comparison-sources-data.json"] = json.dumps(fixture).encode("utf-8")
+    overrides["assets/comparison-sources-data.json"] = json.dumps(fixture).encode("utf-8")
     with sync_playwright() as p:
         browser = _launch(p)
         try:
@@ -623,7 +635,8 @@ class DdfHeldSeriesTest(unittest.TestCase):
     def setUpClass(cls):
         if not (DIST / "index.html").exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
-        # No held series: nothing is checked for leaking.
+        # No held series: nothing is checked for leaking (run() strips any
+        # hold the published fixture carries, JEG-569).
         cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("fantasycalc"), "null"))
 
     def held_run(self, data_edit, key):
@@ -691,17 +704,13 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual((entry["holdRoot"], entry["holdWeek"], entry["holdKeptWeek"]), ("fantasycalc", 5, 4))
         self.assertEqual(out["load"]["held"], ["fantasycalc"])
 
-    def test_pipeline_hold_on_raw_and_adjusted_sections(self):
-        out = self.held_run(hold_on("cbs", "cbs_adjusted"), "cbs")
+    def test_pipeline_hold_on_the_raw_section_holds_its_adjusted_series(self):
+        # JEG-539: the *_adjusted sections are retired, so a hold lives on the raw section only and
+        # the derived series follows it (this was a hold on both sections, and one on the derived section).
+        out = self.held_run(hold_on("cbs"), "cbs")
         self.assert_never_included(out, "cbs", "held: " + HOLD["reason"])
         entry = {e["key"]: e for e in out["load"]["excluded"]}["cbs"]
         self.assertEqual((entry["heldBy"], entry["holdRoot"]), ("cbs", "cbs"))
-
-    def test_hold_on_the_derived_section_itself(self):
-        out = self.held_run(hold_on("fantasycalc_adjusted"), "fantasycalc")
-        self.assert_never_included(out, "fantasycalc", "held: " + HOLD["reason"])
-        entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc"]
-        self.assertEqual(entry["heldBy"], "fantasycalc_adjusted")
 
     def test_promotion_hold_is_a_hold_too(self):
         out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc")

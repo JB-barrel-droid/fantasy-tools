@@ -183,8 +183,8 @@ class HealthPanelTest(unittest.TestCase):
         """The panel throws unless every ordered source validates live."""
         order, _ = self._order_and_labels()
         validation = json.loads(FIXTURE.read_text(encoding="utf-8"))["source_validation"]
-        live = [k for k in order
-                if (validation.get("cbs") if k == "cbs_adjusted" else validation.get(k)) == "live"]
+        # An *_adjusted series is validated with its chart (the sections are retired, JEG-539).
+        live = [k for k in order if validation.get(k.removesuffix("_adjusted")) == "live"]
         self.assertEqual(len(live), len(order),
                          f"panel would throw 'required sources did not pass validation': {order}")
 

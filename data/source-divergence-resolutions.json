@@ -1,0 +1,13 @@
+{
+  "about": "Resolutions for the JEG-460 source divergence soft check (pipelines/check_source_divergence.py). One entry per source-week that was investigated. resolution is one of parser_fix, mapping_fix, accepted (genuine opinion); a note is required. A recorded source-week shows as 'reviewed' instead of warn/investigate; the computed status stays in the report.",
+  "resolutions": [
+    {
+      "source": "fantasypros",
+      "week": 5,
+      "resolution": "mapping_fix",
+      "issue": "JEG-482",
+      "decided": "2026-10-10",
+      "note": "The Week 5 +6 point bias was lead 1 on JEG-460: the old isotonic reindex did not keep the chart's own scale. JEG-482 (#439, merged 2026-10-09) made Indexed the natives times one factor. Measured with this check on the fixture either side of #439 (full_12): bias +6.16 -> +0.08, outlier rate 66% -> 46%. The remaining ~47% outlier rate matches FantasyPros' own Weeks 2-4 (44-48%), so it is FantasyPros' normal disagreement, not a new break."
+    }
+  ]
+}

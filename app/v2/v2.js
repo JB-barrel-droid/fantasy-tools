@@ -43,8 +43,8 @@
   let expanded = null;      // JEG-483: "chart" | "table" while the expanded view is open
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
-  const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
-  const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
+  const SHORT_METHOD = {dda: "DDA", indexed: "Rescaled", vorp: "VORP vs waivers"};
+  const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "VORP vs waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
@@ -53,9 +53,9 @@
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
-      note: "Published trade charts corrected for each publisher's known bias."},
-    {id: "pub", title: "Trade charts (as published)", one: "trade chart as published", many: "trade charts as published",
-      note: "Each publisher's own numbers, rescaled to our point scale."},
+      note: "Trade charts corrected for each publisher's known bias."},
+    {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
+      note: "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged."},
     {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
       note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
   ];
@@ -67,12 +67,12 @@
     return "pub";
   }
   // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
-  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (as published)", "ESPN value above waivers".
+  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (rescaled)", "ESPN value above waivers".
   function groupSeriesName(key) {
     if (key === DDF_KEY) return "DDF Value";
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
-    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (as published)`,
+    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (rescaled)`,
       vorp: `${name} value above waivers`}[seriesGroup(key)];
   }
   const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
@@ -128,7 +128,7 @@
   function plainSeries(publisher, method) {
     if (publisher === "ddf") return "DDF Value";
     const name = PLAIN_NAMES[publisher] || PUBLISHER_NAMES[publisher] || publisher;
-    return method === "indexed" ? `${name} chart` : `${name} · ${PLAIN_METHOD[method]}`;
+    return method === "indexed" ? `${name} chart (rescaled)` : `${name} · ${PLAIN_METHOD[method]}`;
   }
 
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
@@ -262,6 +262,68 @@
   }
   const fmt = v => Number.isFinite(v) ? v.toFixed(1) : "—";
 
+  // JEG-502 (Jeremy, 2026-10-09): every active NFL player is searchable. A player no source
+  // prices (engine universe_only) appears only in search results, never in a table or chart,
+  // as "0.0" with the engine's reason. The engine builds his row (C.searchPlayers); no math here.
+  const UNPRICED_REASON = "No chart or projection prices this player.";
+  const UNPRICED_SHOWN = 8;
+  const unpricedCache = new Map();   // query|position -> rows; cleared when the engine's rows change
+  function unpricedMatches(query) {
+    const q = String(query || "").trim();
+    if (!q || !C || typeof C.searchPlayers !== "function") return [];
+    const position = C.getState().position;
+    const cacheKey = `${q.toLowerCase()}|${position}`;
+    if (unpricedCache.has(cacheKey)) return unpricedCache.get(cacheKey);
+    const fits = pos => !position || position === "ALL" ? true
+      : position === "FLEX" ? ["RB", "WR", "TE"].includes(pos) : pos === position;
+    const rows = C.searchPlayers(q, {limit: 2000}).filter(row => row && row.universe_only && fits(row.pos));
+    if (unpricedCache.size > 50) unpricedCache.clear();
+    unpricedCache.set(cacheKey, rows);
+    return rows;
+  }
+  // GL-20: no source prices him, so he is worth 0.0 (the engine leaves DDF Value null for these rows since JEG-508).
+  const unpricedValue = () => "0.0";
+  const unpricedReason = row => row.unpriced_reason || UNPRICED_REASON;
+  function renderUnpriced(id, query) {
+    const box = $(id);
+    const rows = unpricedMatches(query);
+    box.replaceChildren();
+    box.hidden = !rows.length;
+    if (!rows.length) return rows;
+    const head = document.createElement("p");
+    head.className = "v2-unpriced-head";
+    head.textContent = `○ Not valued · ${rows.length} player${rows.length === 1 ? "" : "s"} matching “${String(query).trim()}”: worth 0.0`;
+    const list = document.createElement("ul");
+    list.className = "v2-unpriced-list";
+    rows.slice(0, UNPRICED_SHOWN).forEach(row => {
+      const li = document.createElement("li");
+      li.dataset.playerKey = String(row.player_key);
+      li.dataset.unpriced = "";
+      const name = document.createElement("b");
+      name.textContent = row.name;
+      const meta = document.createElement("span");
+      meta.className = "v2-meta";
+      meta.textContent = ` ${row.pos}`;   // the reason names his current status and team; row.team can be stale
+      const value = document.createElement("span");
+      value.className = "v2-unpriced-value";
+      value.dataset.source = DDF_KEY;
+      value.textContent = `DDF Value ${unpricedValue(row)}`;
+      const why = document.createElement("span");
+      why.className = "v2-meta v2-unpriced-why";
+      why.textContent = unpricedReason(row);
+      li.append(name, meta, value, why);
+      list.appendChild(li);
+    });
+    box.append(head, list);
+    if (rows.length > UNPRICED_SHOWN) {
+      const more = document.createElement("p");
+      more.className = "v2-meta";
+      more.textContent = `${rows.length - UNPRICED_SHOWN} more not valued. Type more of the name to narrow it.`;
+      box.appendChild(more);
+    }
+    return rows;
+  }
+
   // GAP-025: a label + symbol badge for players ESPN projects at 0
   // (injured/out). The engine flags them from ESPN's own row; a player ESPN has
   // no row for is missing, not 0, and gets nothing. Published values stay as
@@ -351,8 +413,31 @@
     node.append(sym, document.createTextNode(` ${label}`));
     return node;
   }
+  // Estimated values (VP-11, JEG-541): row.estimated = {seriesKey: reason} marks a chart value the
+  // engine filled in for a rosterable player the chart doesn't list (VP-2.4). Wherever that value is
+  // shown it carries "≈ estimated" (symbol + word), with the engine's reason as the tooltip.
+  const estimatedReason = (row, key) => {
+    const reason = row && row.estimated ? row.estimated[key] : null;
+    return typeof reason === "string" && reason.trim() && Number.isFinite(row.values?.[key]) ? reason : null;
+  };
+  function estimatedNode(reason) {
+    const node = document.createElement("span");
+    node.className = "v2-estimated";
+    node.dataset.estimated = "";
+    node.title = reason;
+    node.setAttribute("role", "img");
+    node.setAttribute("aria-label", `estimated: ${reason}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = "≈";
+    node.append(sym, document.createTextNode(" estimated"));
+    return node;
+  }
+  // Every finite value v2 shows passes through here, so both value tags live in one place.
   function appendLowConfidence(parent, row, key) {
     if (isLowConfidence(row, key)) parent.appendChild(lowConfidenceNode(row));
+    const reason = estimatedReason(row, key);
+    if (reason) parent.appendChild(estimatedNode(reason));
   }
   // Player values: the Rank by series over the engine's ranked rows.
   const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
@@ -561,7 +646,7 @@
     });
     // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
     const methods = new Set(view.plotKeys.map(k => sourceMeta(k).method));
-    const words = isNarrow() ? {dda: "Solid = DDA", indexed: "Dashed = Indexed"} : {dda: "Solid = our value", indexed: "Dashed = published chart"};
+    const words = isNarrow() ? {dda: "Solid = DDA", indexed: "Dashed = rescaled"} : {dda: "Solid = our value", indexed: "Dashed = rescaled chart"};
     const key = document.createElement("span");
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
@@ -829,6 +914,13 @@
       val.className = "val";
       val.textContent = Number.isFinite(v) ? fmt(v) + (state.delta ? `  ${deltaText(row, key)}` : "") : "—";
       appendLowConfidence(val, row, key);
+      if (estimatedReason(row, key)) {
+        const why = document.createElement("span");
+        why.className = "why";
+        why.dataset.estimatedWhy = "";
+        why.textContent = ` ${estimatedReason(row, key)}`;
+        val.appendChild(why);
+      }
       if (!Number.isFinite(v)) {
         val.title = missingReason(key, row);
         const why = document.createElement("span");
@@ -912,7 +1004,7 @@
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
   const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
-    ["published", "Trade charts as published"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
+    ["published", "Trade charts (rescaled)"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
   const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
     if (key === DDF_KEY) return "ddf";
@@ -981,12 +1073,8 @@
       line1.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
       line1.append(document.createTextNode(PLAIN_NAMES[meta.publisher] || meta.label));
       line2.textContent = METHOD_LABEL[meta.method];
-      if (item?.stale && item.week) {
-        const older = document.createElement("span");
-        older.className = "is-older";
-        older.textContent = ` · Week ${item.week}`;
-        line2.appendChild(older);
-      }
+      // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge here too.
+      if (item?.stale) line2.append(document.createTextNode(" · "), weekBadge(col.source));
       button.title = `${plainSeries(meta.publisher, meta.method)}${item?.week ? ` · Week ${item.week}` : ""}`;
     } else if (col.id === "spread") {
       line1.textContent = "Spread";
@@ -1175,8 +1263,8 @@
     if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
     return valuesTier(row);
   }
-  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Published chart"], ["vorp", "VORP vs waivers"]];
-  const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Indexed", vorp: "VORP vs waivers"};
+  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "VORP vs waivers"]];
+  const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Rescaled", vorp: "VORP vs waivers"};
 
   function drawerSection(title, sub) {
     const section = document.createElement("section");
@@ -1219,6 +1307,13 @@
     unit.className = "v2-meta";
     unit.textContent = meta.method === "vorp" ? "VORP vs waivers, on this source's own scale" : "Trade-value points";
     main.append(eyebrow, big, unit);
+    if (estimatedReason(row, key)) {
+      const why = document.createElement("p");
+      why.className = "v2-meta";
+      why.dataset.estimatedWhy = "";
+      why.textContent = `≈ ${estimatedReason(row, key)}`;
+      main.appendChild(why);
+    }
     hero.appendChild(main);
     const dda = view.active.filter(k => sourceMeta(k).method === "dda" && view.infoByKey[k]?.available)
       .map(k => row.values[k]).filter(Number.isFinite);
@@ -1314,7 +1409,7 @@
     wrap.appendChild(table);
     const note = document.createElement("p");
     note.className = "v2-meta";
-    note.textContent = "Adjusted and Indexed share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
+    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
     section.append(wrap, note);
     return section;
   }
@@ -1917,22 +2012,28 @@
   }
 
   // ---------- 11 Weights & bench ----------
-  // fe-fidelity: below a position's feasible window the engine prices it at a higher share
-  // (bench_share_used). v2 shows the share the engine used, never the request, and says when
-  // they differ. No math here: the used shares come from getBenchShareUsed().
+  // fe-fidelity / JEG-541: v2 shows the bench share the engine priced with (getBenchShareUsed),
+  // never the request. Since JEG-508 there are no per-position feasibility windows: the engine
+  // uses the requested share for every position, except 0 when no source has bench players above
+  // waivers and 1 when none has starters above waivers. Before the values are built it returns
+  // null, and v2 shows "—" with that reason. No math here.
   function benchShown(share) {
     const used = C.getBenchShareUsed ? C.getBenchShareUsed(share) : null;
     const values = used ? Object.values(used).filter(Number.isFinite) : [];
-    const lo = values.length ? Math.min(...values) : share;
-    const hi = values.length ? Math.max(...values) : share;
+    if (!values.length) {
+      return {text: "—", starters: "—", note: "Bench share not available: the values are not built yet", missing: true};
+    }
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
     const pct = v => (v * 100).toFixed(1);
     const single = pct(lo) === pct(hi);
     const text = single ? `${pct(lo)}%` : `${pct(lo)}–${pct(hi)}%`;
     const starters = single ? `${pct(1 - lo)}%` : `${pct(1 - hi)}–${pct(1 - lo)}%`;
     const differs = values.some(v => Math.abs(v - share) > 5e-4);
-    const edge = values.some(v => v > share) ? "lowest" : "highest";
-    const note = differs ? `Bench ${pct(share)}% requested · priced at ${text} (${edge} the league supports)` : "";
-    return {text, starters, note};
+    const why = hi <= 0 ? "no source has bench players above waivers"
+      : lo >= 1 ? "no source has starters above waivers" : "the engine's pricing";
+    const note = differs ? `Bench ${pct(share)}% requested · priced at ${text} (${why})` : "";
+    return {text, starters, note, missing: false};
   }
   function openWeights() {
     const bounds = C.getBenchBounds();
@@ -1962,7 +2063,7 @@
       const range = document.createElement("p");
       range.className = "v2-meta";
       range.textContent = bounds
-        ? `Feasible ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% for this league · Recommended 15%`
+        ? `Range ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% · Recommended 15%`
         : "Bench allocation is unavailable for this league setup.";
       body.appendChild(range);
       const split = document.createElement("div");
@@ -1974,15 +2075,12 @@
         split.innerHTML = "";
         const b = document.createElement("b");
         b.textContent = `Starters ${shown.starters} / Bench ${shown.text}`;
-        const p = document.createElement("span");
-        p.className = "v2-meta";
-        p.textContent = "Feasible bounds recalculate with league structure.";
         const note = document.createElement("span");
         note.className = "v2-meta is-older";
         note.dataset.benchNote = "";
         note.hidden = !shown.note;
         note.textContent = shown.note ? `⚠ ${shown.note}` : "";
-        split.append(b, p, note);
+        split.append(b, note);
       };
       slider.addEventListener("input", () => { draft = Number(slider.value); sync(); });
       sync();
@@ -2342,7 +2440,7 @@
   // Review fixes (JEG-456/458/459/461/464): both lists show at once (side by
   // side from 1280 px, stacked below), each collapsed to its top 5 with its own
   // "Show all"; every available chart is compared, and a chart still on an
-  // earlier week carries a "Wk N" badge; chart values are labeled as indexed.
+  // earlier week carries a "Wk N" badge; chart values are labeled as rescaled.
   const TARGETS_TOP = 5;
   const TARGETS_PAGE = 25;
   const TARGET_SIDES = ["sell", "buy"];
@@ -2395,17 +2493,16 @@
     return badge;
   }
 
-  // Shared ⓘ (JEG-458): why published chart values are "indexed". A 44 px
+  // Shared ⓘ (JEG-458): why trade chart values are "rescaled". A 44 px
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
-  const INDEXED_INFO = "Published charts use their own point scales. We rescale each chart so its total value "
-    + "matches our ESPN-based scale for your league, which makes the numbers comparable.";
+  const INDEXED_INFO = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
   function indexedInfoButton(context) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "v2-info";
     button.dataset.info = "indexed";
-    button.setAttribute("aria-label", `What indexed means${context ? ` (${context})` : ""}`);
+    button.setAttribute("aria-label", `What rescaled means${context ? ` (${context})` : ""}`);
     button.setAttribute("aria-haspopup", "dialog");
     button.setAttribute("aria-expanded", "false");
     const glyph = document.createElement("span");
@@ -2427,7 +2524,7 @@
         pop.setAttribute("aria-labelledby", "v2InfoTitle");
         const h = document.createElement("h2");
         h.id = "v2InfoTitle";
-        h.textContent = "Indexed values";
+        h.textContent = "Rescaled values";
         const text = document.createElement("p");
         text.className = "v2-info-text";
         text.textContent = INDEXED_INFO;
@@ -2481,7 +2578,7 @@
     const searched = rows.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
     // Fails closed: an unavailable choice is never swapped for another series.
     const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
-      : engineView && engineView !== "indexed" ? "Published charts are not on the trade-value point scale in this view, so no gaps are shown."
+      : engineView && engineView !== "indexed" ? "Trade charts are not on the trade-value point scale in this view, so no gaps are shown."
       : null;
     const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
@@ -2504,7 +2601,7 @@
     select.replaceChildren();
     const all = document.createElement("option");
     all.value = "all";
-    all.textContent = "All published charts";
+    all.textContent = "All trade charts";
     select.appendChild(all);
     TT.CHART_KEYS.forEach(key => {
       const item = targetsView.infoByKey[key];
@@ -2617,7 +2714,7 @@
     const badge = targetBadge(key);
     if (badge) span.appendChild(badge);
     if (cell.value === null) {
-      span.appendChild(missingNode(cell.reason, "not on chart"));
+      span.appendChild(missingNode(cell.reason, "no value"));
       return span;
     }
     const val = document.createElement("span");
@@ -2625,6 +2722,7 @@
     val.textContent = fmt(cell.value);
     span.appendChild(val);
     span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
+    appendLowConfidence(span, p.row, key);   // "≈ estimated" when the engine filled it in
     const rank = withNative && typeof C.getNativeRank === "function" ? C.getNativeRank(p.row.player_key, key) : null;
     if (Number.isFinite(rank)) {
       const native = document.createElement("span");
@@ -2684,10 +2782,10 @@
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
     targetsView.used.forEach(key => {
-      // JEG-458: "Wk 5 · indexed"; a chart on an earlier week shows its badge in place of the week.
+      // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
       const week = targetBadge(key) || document.createTextNode(item && item.week ? `Wk ${item.week}` : "");
-      head(PUBLISHER_NAMES[key] || key, "num t-chart", [week, document.createTextNode(`${week.textContent ? " · " : ""}indexed`)], key, true);
+      head(PUBLISHER_NAMES[key] || key, "num t-chart", [week, document.createTextNode(`${week.textContent ? " · " : ""}rescaled`)], key, true);
     });
     head("Largest gap", "num t-best", side === "sell" ? "chart pays more" : "chart pays less", null, true);
     const expandHead = head("", "t-expand");
@@ -2726,7 +2824,7 @@
         const c = td("num t-chart");
         c.dataset.chart = chart;
         if (cell.value === null) {
-          c.appendChild(missingNode(cell.reason, "not on chart"));
+          c.appendChild(missingNode(cell.reason, "no value"));
         } else if (cell.atWaiver) {
           c.append(document.createTextNode(fmt(cell.value)));
           c.appendChild(waiverNode(cell.reason));
@@ -2734,6 +2832,7 @@
           c.append(document.createTextNode(fmt(cell.value)));
           c.appendChild(gapNode(cell));
         }
+        if (cell.value !== null) appendLowConfidence(c, p.row, chart);   // "≈ estimated"
       });
       const b = targetBest(side, p);
       const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
@@ -2844,6 +2943,7 @@
     collect();
     collectTargets();
     renderHeader();
+    renderUnpriced("v2TUnpriced", T.search);
     renderTargetControls();
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;
@@ -2856,7 +2956,7 @@
       const empty = $(ids.empty);
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
-        ? "No published chart is available to compare for this selection."
+        ? "No trade chart is available to compare for this selection."
         : `No player has a ${side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
       $(ids.table).hidden = !list.length;
       $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · largest gap first. `
@@ -3016,7 +3116,9 @@
     td.append(document.createTextNode(seriesName(key)));
     const sub = document.createElement("span");
     sub.className = "th-sub";
-    sub.textContent = item?.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "week unknown";
+    // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
+    if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
+    else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
@@ -3444,7 +3546,29 @@
       li.appendChild(button);
       results.appendChild(li);
     });
-    if (!matches.length) {
+    // JEG-502: players no source prices, after the priced ones. Shown, never added to a trade.
+    const unpriced = unpricedMatches(raw).slice(0, Math.max(0, 8 - matches.length));
+    unpriced.forEach(row => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.disabled = true;
+      button.setAttribute("aria-disabled", "true");
+      button.dataset.playerKey = String(row.player_key);
+      button.dataset.unpriced = "";
+      const name = document.createElement("b");
+      name.textContent = row.name;
+      const sub = document.createElement("span");
+      sub.className = "v2-meta";
+      sub.textContent = ` ${row.pos} · DDF Value ${unpricedValue(row)}`;
+      const why = document.createElement("span");
+      why.className = "v2-meta v2-unpriced-why";
+      why.textContent = `○ Not valued: ${unpricedReason(row)}`;
+      button.append(name, sub, why);
+      li.appendChild(button);
+      results.appendChild(li);
+    });
+    if (!matches.length && !unpriced.length) {
       const li = document.createElement("li");
       li.className = "v2-meta is-empty";
       li.append(document.createTextNode(`No player matches “${raw}”. `));
@@ -3482,7 +3606,7 @@
     if (s.kind === "contrast") {
       const name = PUBLISHER_NAMES[s.publisher] || s.publisher;
       title.textContent = "Same publisher. Different result.";
-      text.textContent = `${name}: the Indexed chart shows ${fmtGap(s.indexed.net)}; Data Driven Adjustments show ${fmtGap(s.dda.net)}. `
+      text.textContent = `${name}: the rescaled chart shows ${fmtGap(s.indexed.net)}; Data Driven Adjustments show ${fmtGap(s.dda.net)}. `
         + "Your league's adjustments reverse the direction. Compare the same publisher before comparing across sources.";
     } else if (s.kind === "agree") {
       const all = listSeries(s.upKeys.concat(s.downKeys, s.evenKeys));
@@ -3703,7 +3827,7 @@
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchShown(C.getBenchShare());
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
-      + `bench ${linkBench.text}${linkBench.note ? ` (${(C.getBenchShare() * 100).toFixed(1)}% requested)` : ""}.${earlier}`);
+      + `bench ${linkBench.text}${linkBench.note && !linkBench.missing ? ` (${(C.getBenchShare() * 100).toFixed(1)}% requested)` : ""}.${earlier}`);
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 8000);
   }
@@ -3822,7 +3946,14 @@
           ? (item.paused ? " — waiting on fresh inputs" : " — not available for this league")
           : item.stale ? " · older week" : "";
         // V2-WAIVER-COVERAGE: a short chart's waiver line is extrapolated; say so here too.
-        if (item.available && item.waiverNote) why.textContent += ` · ${item.waiverNote}`;
+        // JEG-541: the note is the engine's own text (it carries the engine's counts of estimated
+        // players), so it sits in its own data-engine node, like the league card.
+        if (item.available && item.waiverNote) {
+          const note = document.createElement("span");
+          note.dataset.engine = "waiver-note";
+          note.textContent = ` · ${item.waiverNote}`;
+          why.appendChild(note);
+        }
         if (why.textContent) li.appendChild(why);
         list.appendChild(li);
       });
@@ -3871,6 +4002,7 @@
   function renderRisers() {
     collect();
     renderHeader();
+    renderUnpriced("v2RUnpriced", R.search);
     const M = window.TradeValueMovers;
     const loading = text => {
       $("v2RMeta").textContent = text;
@@ -4073,6 +4205,7 @@
     collect();
     renderHeader();
     renderFilterChips();
+    renderUnpriced("v2Unpriced", state.search);
     renderEmpty();
     renderNotice();
     renderTable();
@@ -4088,7 +4221,10 @@
     $("v2TableCard").hidden = empty;
     if (!empty) return;
     const why = [];
-    if (state.search.trim()) why.push(`no player name contains “${state.search.trim()}”`);
+    if (state.search.trim()) {
+      why.push($("v2Unpriced").hidden ? `no player name contains “${state.search.trim()}”`
+        : `no valued player name contains “${state.search.trim()}” (those with no value are listed above)`);
+    }
     if (state.range.min !== null || state.range.max !== null) {
       why.push(`no ${sourceMeta(view.rankKey).short} value is in ${state.range.min ?? "…"}–${state.range.max ?? "…"}`);
     }
@@ -4440,6 +4576,7 @@
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
     // New rows (league, weights, sources): every prior-week recompute is stale.
     window.addEventListener("trade-value-rows-change", () => {
+      unpricedCache.clear();
       priorCache.clear();
       pairCache.clear();
       priorStamp += 1;

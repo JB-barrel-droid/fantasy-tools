@@ -691,7 +691,7 @@ def check_table_fit(page, width) -> list[str]:
             errors.append(tag + f"{col} is in group {group}, its method says {_group_of(col)}")
         if group and group_cell not in (group, "rank-series"):
             errors.append(tag + f"{col} sits under group cell {group_cell!r}, not {group!r}")
-    if not set(fit["groupLabels"]) & {"Projections", "Trade charts adjusted", "Trade charts as published", "VORP vs waivers"}:
+    if not set(fit["groupLabels"]) & {"Projections", "Trade charts adjusted", "Trade charts (rescaled)", "VORP vs waivers"}:
         errors.append(tag + f"no method group header: {fit['groupLabels']}")
     return errors
 

@@ -465,8 +465,10 @@ class RebuildChainWorkflowTest(unittest.TestCase):
 
     def test_green_chain_pushes_fixture_and_monitor_copy(self):
         green = run_scenario(WORKFLOW, "success")
-        for rel in (FIXTURE, MONITOR_FIXTURE, MONITOR_STATUS, OUT_STATUS, ADJ_APP):
+        for rel in (FIXTURE, MONITOR_FIXTURE, MONITOR_STATUS, OUT_STATUS):
             self.assertIn(rel, green["changed"])
+        # JEG-539: the retired fit's asset is no longer staged (the scenario still writes one).
+        self.assertNotIn(ADJ_APP, green["changed"])
 
     def test_staging_the_fixture_on_failure_is_caught(self):
         mutated = WORKFLOW.replace(

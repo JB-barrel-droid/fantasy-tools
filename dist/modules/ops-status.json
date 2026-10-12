@@ -1,129 +1,154 @@
 {
  "blocks": {
   "alerts": {
-   "as_of": "2026-10-10T19:07:45.010278+00:00",
+   "as_of": "2026-10-12T19:12:08.645194+00:00",
    "label": "ops-alert",
-   "open": [],
+   "open": [
+    {
+     "created_at": "2026-10-12T18:41:06Z",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/issues/533",
+     "key": "fidelity-red-cbsros",
+     "number": 533,
+     "title": "[ops-alert] CBS rest of season: data fidelity check is red",
+     "updated_at": "2026-10-12T18:41:06Z"
+    },
+    {
+     "created_at": "2026-10-12T06:41:11Z",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/issues/527",
+     "key": "fidelity-red-razzball",
+     "number": 527,
+     "title": "[ops-alert] Razzball: data fidelity check is red",
+     "updated_at": "2026-10-12T18:41:07Z"
+    },
+    {
+     "created_at": "2026-10-11T19:10:45Z",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/issues/523",
+     "key": "rebuild-chain-failing",
+     "number": 523,
+     "title": "[ops-alert] Rebuild chain is failing: the site is not getting fresh numbers",
+     "updated_at": "2026-10-12T19:12:04Z"
+    }
+   ],
    "status": "ok"
   },
   "deploy": {
-   "as_of": "2026-10-10T19:07:43.328474+00:00",
-   "last_success_sha": "43e7379bc1362dece88fbd502b2c7756696bd69e",
+   "as_of": "2026-10-12T19:12:07.445182+00:00",
+   "last_success_sha": "02074fd12b8cad2987957ce0b6ddfcce47e5fd5a",
    "live_http_status": 200,
-   "live_tag": "tv-20261010-1850-43e7379",
+   "live_tag": "tv-20261012-1850-02074fd",
    "live_url": "https://jb-barrel-droid.github.io/fantasy-tools/",
-   "main_committed_at": "2026-10-10T19:07:36Z",
-   "main_sha": "53176395beec37abfb342ccffab81bbf26cad713",
+   "main_committed_at": "2026-10-12T19:12:00Z",
+   "main_sha": "99275331a70fbccf16c69dc8ddeb093607e98f3c",
    "pages_runs": [
     {
      "conclusion": null,
-     "created_at": "2026-10-10T19:07:38Z",
-     "duration_s": 3,
+     "created_at": "2026-10-12T19:12:02Z",
+     "duration_s": 4,
      "event": "workflow_dispatch",
-     "head_sha": "53176395beec37abfb342ccffab81bbf26cad713",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38078554001",
-     "id": 38078554001,
-     "status": "waiting",
-     "updated_at": "2026-10-10T19:07:41Z"
+     "head_sha": "99275331a70fbccf16c69dc8ddeb093607e98f3c",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38296044813",
+     "id": 38296044813,
+     "status": "queued",
+     "updated_at": "2026-10-12T19:12:06Z"
     },
     {
      "conclusion": "success",
-     "created_at": "2026-10-10T18:50:30Z",
-     "duration_s": 1025,
+     "created_at": "2026-10-12T18:50:55Z",
+     "duration_s": 1218,
      "event": "workflow_dispatch",
-     "head_sha": "43e7379bc1362dece88fbd502b2c7756696bd69e",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38077408596",
-     "id": 38077408596,
+     "head_sha": "02074fd12b8cad2987957ce0b6ddfcce47e5fd5a",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38293673294",
+     "id": 38293673294,
      "status": "completed",
-     "updated_at": "2026-10-10T19:07:35Z"
+     "updated_at": "2026-10-12T19:11:13Z"
     },
     {
      "conclusion": "success",
-     "created_at": "2026-10-10T18:41:03Z",
-     "duration_s": 903,
+     "created_at": "2026-10-12T18:40:59Z",
+     "duration_s": 917,
      "event": "workflow_dispatch",
-     "head_sha": "b22399b8dabf5d556dd30223572f41a1f05364d3",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38076765710",
-     "id": 38076765710,
+     "head_sha": "f50f37a68c5be47324e1cab55c631f95c5099a87",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38292562048",
+     "id": 38292562048,
      "status": "completed",
-     "updated_at": "2026-10-10T18:56:06Z"
+     "updated_at": "2026-10-12T18:56:16Z"
     },
     {
      "conclusion": "success",
-     "created_at": "2026-10-10T18:06:52Z",
-     "duration_s": 888,
+     "created_at": "2026-10-12T18:19:37Z",
+     "duration_s": 894,
+     "event": "workflow_dispatch",
+     "head_sha": "0e3db8e946532c3b830d90ed771c17fbec7eb6c4",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38290146351",
+     "id": 38290146351,
+     "status": "completed",
+     "updated_at": "2026-10-12T18:34:31Z"
+    },
+    {
+     "conclusion": "success",
+     "created_at": "2026-10-12T17:50:38Z",
+     "duration_s": 896,
      "event": "push",
-     "head_sha": "a9da5536a136093a2d2576ae6c189fc8f458a160",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38074470468",
-     "id": 38074470468,
+     "head_sha": "027b258f00da1afc936d62821c8ce5befa8da2ec",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38286906302",
+     "id": 38286906302,
      "status": "completed",
-     "updated_at": "2026-10-10T18:21:40Z"
+     "updated_at": "2026-10-12T18:05:34Z"
     },
     {
      "conclusion": "success",
-     "created_at": "2026-10-10T15:48:35Z",
-     "duration_s": 1220,
+     "created_at": "2026-10-12T17:10:47Z",
+     "duration_s": 921,
      "event": "workflow_dispatch",
-     "head_sha": "6bb9240065ee26c163a3a49d793a43581f5472b9",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38065104928",
-     "id": 38065104928,
+     "head_sha": "ecaba08d86bb2a05c1e449c0e5c97cf10e3a03a0",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38282491248",
+     "id": 38282491248,
      "status": "completed",
-     "updated_at": "2026-10-10T16:08:55Z"
+     "updated_at": "2026-10-12T17:26:08Z"
+    },
+    {
+     "conclusion": "success",
+     "created_at": "2026-10-12T16:10:29Z",
+     "duration_s": 949,
+     "event": "workflow_dispatch",
+     "head_sha": "d883ba3871d0fa9cfced6d20a8f9c674e844fa9c",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38275532327",
+     "id": 38275532327,
+     "status": "completed",
+     "updated_at": "2026-10-12T16:26:18Z"
     },
     {
      "conclusion": "cancelled",
-     "created_at": "2026-10-10T15:46:01Z",
-     "duration_s": 156,
-     "event": "workflow_dispatch",
-     "head_sha": "2d79c2534b6d55685eda01ece011ff5e66564a81",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38064935080",
-     "id": 38064935080,
+     "created_at": "2026-10-12T16:05:55Z",
+     "duration_s": 276,
+     "event": "push",
+     "head_sha": "938662297d4b27cf14a3129e3778885914697706",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38275010937",
+     "id": 38275010937,
      "status": "completed",
-     "updated_at": "2026-10-10T15:48:37Z"
+     "updated_at": "2026-10-12T16:10:31Z"
     },
     {
      "conclusion": "success",
-     "created_at": "2026-10-10T15:40:53Z",
-     "duration_s": 896,
+     "created_at": "2026-10-12T15:52:45Z",
+     "duration_s": 1124,
      "event": "workflow_dispatch",
-     "head_sha": "0483b022269e20bfe56ba91a5294dff43097526d",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38064587529",
-     "id": 38064587529,
+     "head_sha": "d1a5d28f0ecb8a1c540c7e711ec3f436ac2213eb",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38273416515",
+     "id": 38273416515,
      "status": "completed",
-     "updated_at": "2026-10-10T15:55:49Z"
+     "updated_at": "2026-10-12T16:11:29Z"
     },
     {
      "conclusion": "success",
-     "created_at": "2026-10-10T14:31:23Z",
-     "duration_s": 829,
+     "created_at": "2026-10-12T15:40:54Z",
+     "duration_s": 1096,
      "event": "workflow_dispatch",
-     "head_sha": "8fe7f2dac8346f41dae245fc8a888daec39b41f2",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38059936682",
-     "id": 38059936682,
+     "head_sha": "09d2b66dc392e3a0295ff8dcf6a1a978b258c6a4",
+     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38272010988",
+     "id": 38272010988,
      "status": "completed",
-     "updated_at": "2026-10-10T14:45:12Z"
-    },
-    {
-     "conclusion": "success",
-     "created_at": "2026-10-10T13:11:51Z",
-     "duration_s": 1470,
-     "event": "workflow_dispatch",
-     "head_sha": "3c4ce00880715818eee5cd3b75f63e6df15c97de",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38054794949",
-     "id": 38054794949,
-     "status": "completed",
-     "updated_at": "2026-10-10T13:36:21Z"
-    },
-    {
-     "conclusion": "success",
-     "created_at": "2026-10-10T13:11:43Z",
-     "duration_s": 774,
-     "event": "workflow_dispatch",
-     "head_sha": "3c56d7121046938e95a982d1a9faea95ed62b330",
-     "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38054785519",
-     "id": 38054785519,
-     "status": "completed",
-     "updated_at": "2026-10-10T13:24:37Z"
+     "updated_at": "2026-10-12T15:59:10Z"
     }
    ],
    "status": "ok",
@@ -131,7 +156,7 @@
    "verdict_reason": "live site serves the last successful deploy; main has moved since"
   },
   "identity": {
-   "as_of": "2026-10-10T19:07:45.122363+00:00",
+   "as_of": "2026-10-12T19:12:08.818541+00:00",
    "by_source": [
     {
      "last_seen_at": "2026-10-08T20:24:56.680837+00:00",
@@ -161,13 +186,13 @@
      "verified": 65
     },
     {
-     "last_seen_at": "2026-10-10T15:25:40.949463+00:00",
+     "last_seen_at": "2026-10-11T07:25:37.919874+00:00",
      "provisional": 0,
-     "queued": 1,
+     "queued": 0,
      "review": 0,
      "source": "razzball",
-     "unmatched": 1,
-     "verified": 1
+     "unmatched": 0,
+     "verified": 2
     },
     {
      "last_seen_at": "2026-10-07T14:11:07.364015+00:00",
@@ -179,11 +204,11 @@
      "verified": 6
     }
    ],
-   "queue_total": 1,
+   "queue_total": 0,
    "status": "ok"
   },
   "players_bake": {
-   "as_of": "2026-10-10T15:26:34Z",
+   "as_of": "2026-10-10T19:28:42Z",
    "n_players": 1162,
    "players_as_of": "2026-10-10",
    "snapshots": {
@@ -195,19 +220,19 @@
    "status": "ok"
   },
   "synthetic": {
-   "as_of": "2026-10-10T19:07:44.676257+00:00",
+   "as_of": "2026-10-12T19:12:08.246552+00:00",
    "report": {
     "expectedBuilds": [
-     "tv-20261010-1201-fcf7c2d",
-     "tv-20261010-1142-04ba209",
-     "tv-20261010-1142-04ba209"
+     "tv-20261012-1210-a5d2823",
+     "tv-20261012-1156-06b6b4d",
+     "tv-20261012-1156-06b6b4d"
     ],
-    "liveTag": "tv-20261010-1142-04ba209",
+    "liveTag": "tv-20261012-1156-06b6b4d",
     "pageErrors": [],
     "pages": [
      {
       "httpStatus": 200,
-      "liveTag": "tv-20261010-1142-04ba209",
+      "liveTag": "tv-20261012-1156-06b6b4d",
       "name": "root",
       "pageErrors": [],
       "passed": true,
@@ -248,7 +273,7 @@
      },
      {
       "httpStatus": 200,
-      "liveTag": "tv-20261010-1142-04ba209",
+      "liveTag": "tv-20261012-1156-06b6b4d",
       "name": "v2",
       "pageErrors": [],
       "passed": true,
@@ -265,7 +290,7 @@
      },
      {
       "httpStatus": 200,
-      "liveTag": "tv-20261010-1142-04ba209",
+      "liveTag": "tv-20261012-1156-06b6b4d",
       "name": "classic-redirect",
       "pageErrors": [],
       "passed": true,
@@ -286,26 +311,26 @@
     ],
     "passed": true,
     "problems": [
-     "live serves previous build tv-20261010-1142-04ba209 (deploy in flight?) -- accepted"
+     "live serves previous build tv-20261012-1156-06b6b4d (deploy in flight?) -- accepted"
     ],
     "url": "https://jb-barrel-droid.github.io/fantasy-tools/"
    },
    "run": {
     "conclusion": "success",
-    "created_at": "2026-10-10T12:15:01Z",
-    "duration_s": 69,
+    "created_at": "2026-10-12T12:15:01Z",
+    "duration_s": 75,
     "event": "workflow_dispatch",
-    "head_sha": "fcf7c2d6c3d7ecdc54f2d83a60269d3ced75bc34",
-    "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38051267364",
-    "id": 38051267364,
+    "head_sha": "a5d282365fba24567fc4a2e1774050c22d28aaa4",
+    "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/38247841482",
+    "id": 38247841482,
     "status": "completed",
-    "updated_at": "2026-10-10T12:16:10Z"
+    "updated_at": "2026-10-12T12:16:16Z"
    },
    "status": "ok"
   }
  },
- "checkout_sha": "53176395beec37abfb342ccffab81bbf26cad713",
- "generated_at": "2026-10-10T19:07:45.132587+00:00",
+ "checkout_sha": "99275331a70fbccf16c69dc8ddeb093607e98f3c",
+ "generated_at": "2026-10-12T19:12:08.835007+00:00",
  "producer": "Health artifacts (non-Muse producer + watch)",
  "schema": "ddf-ops-status-v1"
 }

@@ -1,6 +1,7 @@
 import copy
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -8,27 +9,21 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from tests._holds import without_held_charts
 
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
+# JEG-569: tests/test_seeded_hold_build.py runs this module on a fixture with
+# seeded holds (a temp file) to prove a held build passes the gate.
+COMPARISON = Path(os.environ.get("STATIC_EXPORT_COMPARISON") or FIXTURES / "comparison-sources-data.json")
 
 
 def load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-# --- Independent recompute of the _adjusted sections (GAP-MAIN-STATIC-PIN) ---
-# The _adjusted values are refit on every rebuild, so hand pins on them broke
-# main on each legitimate refresh (2026-10-07: 0b0ddee moved Allen 25.5 ->
-# 25.3). Instead, re-derive every _adjusted combo from the raw section, the
-# adjustment-inputs.json cells and the raw combo's pie targets, with no code
-# shared with pipelines/build_adjusted_fixture_sections.py, and require the
-# fixture to match exactly. A builder bug (wrong cell, missing pie rescale,
-# hand edit) fails; a refit does not need a re-pin.
-ADJ_POSITIONS = ("QB", "RB", "WR", "TE")
-ADJUSTED_RAW_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs")
 # Every source the fixture may carry. ESPN is the anchor and must be present;
 # any other source may be absent (the page drops a missing non-ESPN section,
 # so a fixture without one must not fail validate), but a section that IS
@@ -36,8 +31,10 @@ ADJUSTED_RAW_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs")
 ANCHOR_SOURCE = "espn"
 KNOWN_SOURCES = (
     "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball", "espn",
-    "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted",
 )
+# JEG-539 (Jeremy 2026-10-12): the *_adjusted sections and the fit behind them
+# are retired; the fixture must not carry them.
+RETIRED_SECTION_SUFFIX = "_adjusted"
 
 
 def present_sources(comparison, candidates):
@@ -46,89 +43,6 @@ def present_sources(comparison, candidates):
     if ANCHOR_SOURCE not in sources:
         raise AssertionError("the ESPN anchor section is missing from the fixture")
     return [source for source in candidates if source in sources]
-
-def recompute_adjusted_combo(fixture, inputs, players, source, combo_name):
-    roster = json.loads((ROOT / "config" / "roster.json").read_text(encoding="utf-8"))
-    shape, flex_ok = roster["roster_shape"], roster["flex_eligible"]
-    canon = {}
-    for p in players["players"]:
-        try:
-            key = int(p.get("player_key"))
-        except (TypeError, ValueError):
-            continue
-        if p.get("pos") in ADJ_POSITIONS:
-            r = p.get("preseasonRank") or p.get("preseason_ecr_rank")
-            try:
-                r = float(r) if r is not None else None
-            except (TypeError, ValueError):
-                r = None
-            canon[key] = (p["pos"], r, str(p.get("full_name") or p.get("name") or "").lower())
-    cells = {}
-    for c in inputs["sources"][source]["cells"]:
-        a, b = c.get("alpha"), c.get("beta")
-        if (isinstance(a, (int, float)) and isinstance(b, (int, float))
-                and math.isfinite(a) and math.isfinite(b) and b > 0):
-            cells[(str(c["position"]).upper(), str(c["tier"]).lower())] = (a, b)
-    keys = fixture["player_keys"]
-    combo = fixture["sources"][source]["combos"][combo_name]
-    raw = combo.get("values") or combo.get("reindexed")
-    rows, seen = [], set()
-    for slug, v in raw.items():
-        try:
-            k = int(keys.get(slug))
-        except (TypeError, ValueError):
-            continue
-        if k not in canon or k in seen:
-            continue
-        try:
-            v = float(v)
-        except (TypeError, ValueError):
-            continue
-        if not math.isfinite(v):
-            continue
-        seen.add(k)
-        rows.append((slug, k, max(0.0, v)))
-    rows.sort(key=lambda r: (-r[2], 0 if canon[r[1]][1] is not None else 1, canon[r[1]][1] or 0,
-                             ADJ_POSITIONS.index(canon[r[1]][0]), canon[r[1]][2], r[1]))
-    teams = int(re.search(r"_(\d+)(?:_|$)", combo_name).group(1))
-    role = {}
-    for pos in ADJ_POSITIONS:
-        for r in [r for r in rows if canon[r[1]][0] == pos][: teams * shape[pos]]:
-            role[r[0]] = "starter"
-    for r in [r for r in rows if canon[r[1]][0] in flex_ok and r[0] not in role][: teams * shape["FLEX"]]:
-        role[r[0]] = "starter"
-    for r in [r for r in rows if r[0] not in role][: teams * shape["BENCH"]]:
-        role[r[0]] = "bench"
-    out = {}
-    for slug, k, v in rows:
-        cell = cells.get((canon[k][0], role.get(slug)))
-        out[slug] = round(max(0.0, cell[0] + cell[1] * v) if cell else v, 1)
-    def rescale(slugs, target):
-        total = sum(out[s] for s in slugs)
-        if not (target and total > 0):
-            return
-        for s in slugs:
-            out[s] = round(out[s] * target / total, 1)
-        residual = round(target - sum(out[s] for s in slugs), 1)
-        step = 0.1 if residual > 0 else -0.1
-        order = sorted(slugs, key=lambda s: (-out[s], s))
-        i = 0
-        while abs(residual) >= 0.05 and i < len(order) * 20:
-            s = order[i % len(order)]
-            if out[s] + step >= 0:
-                out[s] = round(out[s] + step, 1)
-                residual = round(residual - step, 1)
-            i += 1
-    totals = combo.get("index_total") or {}
-    for pos in ADJ_POSITIONS:
-        slugs = [s for s, k, _ in rows if canon[k][0] == pos]
-        if slugs:
-            rescale(slugs, (totals.get(pos) or {}).get("target_total") or 0.0)
-    g = (totals.get("global") or {}).get("target_total")
-    if g:
-        rescale(list(out), g)
-    return out
-
 
 PUBLISHED_TOP_QB_COMBOS = {"usatoday": "full_12", "fantasycalc": "full_12_qb1",
                            "fantasypros": "full_12", "cbs": "full_12"}
@@ -162,28 +76,6 @@ def top_qb_problems(comparison, players):
         if not any(values[slug] == top_value for slug in leaders):
             problems.append(f"{source}: top-native QB {leaders} is not at the top QB value {top_value}")
         tops[source] = top_value
-    return problems
-
-
-def adjusted_recompute_problems(fixture, inputs, players):
-    problems = []
-    for source in ADJUSTED_RAW_SOURCES:
-        section = fixture["sources"].get(f"{source}_adjusted")
-        if section is None:
-            # Absent with its raw chart: the source is not on the site.
-            # Absent while the raw chart is present: the fit stage dropped it.
-            if source in fixture["sources"]:
-                problems.append(f"{source}_adjusted section missing")
-            continue
-        for combo_name, combo in section["combos"].items():
-            expected = recompute_adjusted_combo(fixture, inputs, players, source, combo_name)
-            stored = combo.get("reindexed") or {}
-            diffs = sorted(s for s in set(expected) | set(stored)
-                           if expected.get(s) != stored.get(s))
-            if diffs:
-                sample = ", ".join(f"{s}: stored {stored.get(s)} != recomputed {expected.get(s)}"
-                                   for s in diffs[:3])
-                problems.append(f"{source}_adjusted/{combo_name}: {len(diffs)} values differ ({sample})")
     return problems
 
 
@@ -396,7 +288,11 @@ class StaticExportTest(unittest.TestCase):
     def setUpClass(cls):
         cls.index = (APP / "index.html").read_text(encoding="utf-8")
         cls.players = load_json(FIXTURES / "players.json")
-        cls.comparison = load_json(FIXTURES / "comparison-sources-data.json")
+        cls.comparison = load_json(COMPARISON)
+        # JEG-569: a held chart is served from its last good build, so the
+        # checks that tie a chart to THIS build's anchor and fit cells read a
+        # copy without held charts (the chain checked them when they were built).
+        cls.unheld = without_held_charts(cls.comparison)
 
     def test_inline_players_match_fixture(self):
         match = re.search(
@@ -553,67 +449,14 @@ class StaticExportTest(unittest.TestCase):
         problems = universe_problems(players, self.comparison)
         self.assertTrue(any("missing from players.json" in p for p in problems), problems)
 
-    def _adjustment_inputs(self):
-        return load_json(APP / "assets" / "adjustment-inputs.json")
-
-    def test_adjusted_sections_recompute_from_fit_cells(self):
-        problems = adjusted_recompute_problems(
-            self.comparison, self._adjustment_inputs(), self.players)
-        self.assertEqual([], problems)
-
-    def test_adjusted_recompute_catches_a_hand_edit(self):
-        # Simulated export bug: one stored value nudged by 0.1 (the size of
-        # the 2026-10-07 drift, 25.5 vs 25.3).
-        broken = copy.deepcopy(self.comparison)
-        combo = broken["sources"]["fantasycalc_adjusted"]["combos"]["full_12_qb1"]
-        combo["reindexed"]["josh allen"] = round(combo["reindexed"]["josh allen"] + 0.1, 1)
-        problems = adjusted_recompute_problems(broken, self._adjustment_inputs(), self.players)
-        self.assertTrue(any("fantasycalc_adjusted/full_12_qb1" in p and "josh allen" in p
-                            for p in problems), problems)
-
-    def test_adjusted_recompute_catches_builder_bugs(self):
-        # Run the REAL builder with two simulated bugs and require the guard
-        # to flag each: (a) the per-position pie rescale skipped, (b) the
-        # starter and bench cells swapped.
-        from pipelines import build_adjusted_fixture_sections as builder
-
-        inputs = self._adjustment_inputs()
-        swapped = copy.deepcopy(inputs)
-        for entry in swapped["sources"].values():
-            for cell in entry.get("cells") or []:
-                cell["tier"] = {"starter": "bench", "bench": "starter"}.get(cell.get("tier"), cell.get("tier"))
-        cases = {"no_rescale": inputs, "swapped_cells": swapped}
-        for label, case_inputs in cases.items():
-            with self.subTest(bug=label), TemporaryDirectory() as td:
-                fixture_path = Path(td) / "fixture.json"
-                inputs_path = Path(td) / "inputs.json"
-                fixture_path.write_text(json.dumps(self.comparison), encoding="utf-8")
-                inputs_path.write_text(json.dumps(case_inputs), encoding="utf-8")
-                original = builder._rescale_exact
-                if label == "no_rescale":
-                    builder._rescale_exact = lambda *a, **k: None
-                try:
-                    builder.build_adjusted_sections(
-                        fixture_path, inputs_path, FIXTURES / "players.json")
-                finally:
-                    builder._rescale_exact = original
-                problems = adjusted_recompute_problems(
-                    load_json(fixture_path), inputs, self.players)
-                self.assertTrue(problems, f"{label}: guard missed the builder bug")
-
-    def test_real_builder_reproduces_the_fixture(self):
-        # Correct-state control for the test above: the unmodified builder on
-        # the committed inputs passes the guard.
-        from pipelines import build_adjusted_fixture_sections as builder
-
-        with TemporaryDirectory() as td:
-            fixture_path = Path(td) / "fixture.json"
-            fixture_path.write_text(json.dumps(self.comparison), encoding="utf-8")
-            builder.build_adjusted_sections(
-                fixture_path, APP / "assets" / "adjustment-inputs.json",
-                FIXTURES / "players.json")
-            self.assertEqual([], adjusted_recompute_problems(
-                load_json(fixture_path), self._adjustment_inputs(), self.players))
+    def test_fixture_carries_no_retired_adjusted_sections(self):
+        """JEG-539: the fit and the *_adjusted sections are gone from published data."""
+        sources = self.comparison.get("sources") or {}
+        self.assertEqual([], sorted(k for k in sources if k.endswith(RETIRED_SECTION_SUFFIX)))
+        validation = self.comparison.get("source_validation") or {}
+        self.assertEqual([], sorted(k for k in validation if k.endswith(RETIRED_SECTION_SUFFIX)))
+        self.assertFalse((APP / "assets" / "adjustment-inputs.json").exists(),
+                         "the fit's adjustment-inputs.json must not be published")
 
     def test_published_indexed_is_one_factor_on_the_anchor_pie(self):
         # JEG-482 (Jeremy, 2026-10-08): a published chart's Indexed values are
@@ -624,8 +467,8 @@ class StaticExportTest(unittest.TestCase):
         # per-(position, role) bucket scaling this rule removed.
         players = load_json(FIXTURES / "players.json")["players"]
         position_by_numkey = {p["player_key"]: p["pos"] for p in players}
-        fixture_keys = self.comparison.get("player_keys", {})
-        espn_combos = self.comparison["sources"]["espn"]["combos"]
+        fixture_keys = self.unheld.get("player_keys", {})
+        espn_combos = self.unheld["sources"]["espn"]["combos"]
         qb_suffix = re.compile(r"_qb[12]$")
 
         def anchor_by_numkey(combo_name):
@@ -634,8 +477,12 @@ class StaticExportTest(unittest.TestCase):
             return {fixture_keys[s]: v for s, v in vals.items() if s in fixture_keys}
 
         checked = 0
-        for source in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
-            for combo_name, combo in self.comparison["sources"][source]["combos"].items():
+        charts = present_sources(self.unheld, ("fantasycalc", "usatoday", "fantasypros", "cbs"))
+        # Every chart this build made (a held chart is from its last good
+        # build, JEG-569); at least one must be left to check.
+        self.assertTrue(charts)
+        for source in charts:
+            for combo_name, combo in self.unheld["sources"][source]["combos"].items():
                 fit = (combo.get("fit") or {}).get("order_preserving_rescale")
                 self.assertIsNotNone(fit, f"{source} {combo_name}: no order_preserving_rescale fit")
                 factor = fit["factor"]
@@ -661,7 +508,7 @@ class StaticExportTest(unittest.TestCase):
                 self.assertAlmostEqual(calibrated_total, anchor_total, delta=0.05,
                                        msg=f"{source} {combo_name}: Indexed pie != anchor pie over the same players")
                 checked += 1
-        self.assertGreaterEqual(checked, 12)
+        self.assertGreaterEqual(checked, 3 * len(charts))
 
     def test_legacy_fixed_pie_totals_match_source_metadata(self):
         # Non-flex-aware combos (legacy per-position methods) keep the old
@@ -719,138 +566,6 @@ class StaticExportTest(unittest.TestCase):
                         tolerance,
                         f"{source} {key} {pos} total {total:.1f} should match fixed-pie target {target}",
                     )
-
-    def test_espn_adjusted_values_track_peer_sources(self):
-        players = load_json(FIXTURES / "players.json")["players"]
-        by_name = {player["name"]: player for player in players}
-        by_key = {player["player_key"]: player for player in players}
-        position_order = ["QB", "RB", "WR", "TE"]
-        roster = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 2, "BENCH": 6}
-        teams = 12
-        bench_share = 0.15
-
-        def player_rank(player):
-            return player.get("preseason_ecr_rank") or 9999
-
-        def combo_key(source):
-            if source in {"fantasycalc", "fantasycalc_adjusted"}:
-                return "full_12_qb1"
-            return "full_12"
-
-        def source_values(source):
-            combo = self.comparison["sources"][source]["combos"][combo_key(source)]
-            raw = combo.get("values") or combo.get("reindexed") or {}
-            return {
-                self.comparison["player_keys"][source_id]: value
-                for source_id, value in raw.items()
-                if isinstance(value, (int, float))
-            }
-
-        def roles_from_values(values):
-            rows = sorted(
-                [
-                    (player_key, value, by_key[player_key])
-                    for player_key, value in values.items()
-                    if player_key in by_key and by_key[player_key]["pos"] in position_order and value > 0
-                ],
-                key=lambda row: (-row[1], player_rank(row[2]), row[2]["name"]),
-            )
-            roles = {}
-            for pos in position_order:
-                for player_key, _, _ in [row for row in rows if row[2]["pos"] == pos][: teams * roster[pos]]:
-                    roles[player_key] = "starter"
-            for player_key, _, player in [row for row in rows if row[2]["pos"] in {"RB", "WR", "TE"} and row[0] not in roles][: teams * roster["FLEX"]]:
-                roles[player_key] = "starter"
-            for player_key, _, _ in [row for row in rows if row[0] not in roles][: teams * roster["BENCH"]]:
-                roles[player_key] = "bench"
-            return roles
-
-        def espn_projection_roles():
-            rows = sorted(
-                [
-                    (player["player_key"], player.get("espn_ppg", {}).get("ppr"), player)
-                    for player in players
-                    if player["pos"] in position_order and isinstance(player.get("espn_ppg", {}).get("ppr"), (int, float))
-                ],
-                key=lambda row: (-row[1], player_rank(row[2]), row[2]["name"]),
-            )
-            roles = {}
-            for pos in position_order:
-                for player_key, _, _ in [row for row in rows if row[2]["pos"] == pos][: teams * roster[pos]]:
-                    roles[player_key] = "starter"
-            for player_key, _, player in [row for row in rows if row[2]["pos"] in {"RB", "WR", "TE"} and row[0] not in roles][: teams * roster["FLEX"]]:
-                roles[player_key] = "starter"
-            for player_key, _, _ in [row for row in rows if row[0] not in roles][: teams * roster["BENCH"]]:
-                roles[player_key] = "bench"
-            return roles
-
-        fixed_pies = sorted(
-            sum(item["target_total"] for item in source_data["combos"][combo_key(source)]["index_total"].values())
-            for source, source_data in self.comparison["sources"].items()
-            if combo_key(source) in source_data["combos"]
-        )
-        middle = len(fixed_pies) // 2
-        target_total = fixed_pies[middle] if len(fixed_pies) % 2 else (fixed_pies[middle - 1] + fixed_pies[middle]) / 2
-
-        def split_to_fixed_pie(values, roles):
-            starter_total = sum(max(0, value) for player_key, value in values.items() if roles.get(player_key) == "starter")
-            bench_total = sum(max(0, value) for player_key, value in values.items() if roles.get(player_key) == "bench")
-            adjusted = {}
-            for player_key, value in values.items():
-                if roles.get(player_key) == "starter":
-                    adjusted[player_key] = max(0, value) * (target_total * (1 - bench_share) / starter_total)
-                elif roles.get(player_key) == "bench":
-                    adjusted[player_key] = max(0, value) * (target_total * bench_share / bench_total)
-                else:
-                    adjusted[player_key] = 0
-            return adjusted
-
-        espn = split_to_fixed_pie(source_values("espn"), espn_projection_roles())
-        peers = {
-            source: split_to_fixed_pie(source_values(source), roles_from_values(source_values(source)))
-            for source in present_sources(
-                self.comparison, ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"])
-        }
-        self.assertTrue(peers, "no adjusted peer chart to compare ESPN against")
-
-        # 2026-09-30: Josh Allen excluded from peer-tracking guard.
-        # Fresh ESPN data reveals a genuine ESPN-vs-peers disagreement on Allen
-        # (ESPN's Mike Clay projection is significantly higher than peer sources).
-        # This was masked by stale data (old ESPN Allen 18.2 agreed with peers;
-        # fresh 27.2 does not). TODO: Investigate whether this is a real
-        # projection disagreement or a DDF leg issue. Do not re-add Allen to
-        # this guard without resolving the underlying disagreement.
-        # 2026-09-30 PM: Trey McBride excluded as well. Fresh ESPN (190.85
-        # Half-PPR from 09-30 CSV: 104.3 rec, 907 yds, 8 TD) diverges 25.5%
-        # from peer median. Peer sources (FantasyCalc, FantasyPros, USA Today,
-        # CBS) are on older snapshots and may not reflect McBride's current
-        # projection. TODO: Investigate when peers refresh.
-        # 2026-09-30 PM2: Threshold 0.22 -> 0.35. The test's pie-split
-        # transformation amplifies small raw divergences (Gibbs: 1.7% raw
-        # -> 31.3% after pie-split). Raw ESPN vs peer values are actually
-        # close; the pie-split is a test artifact, not production logic.
-        # TODO: Rewrite test to validate production behavior, not pie-split.
-        # 2026-09-30 PM3: Threshold 0.35 -> 0.40. FP natives fixed to use
-        # native_value (correct published values) instead of flattened
-        # value field. This changed the peer median, increasing the
-        # measured divergence for Gibbs from 0.35 to 0.384. The underlying
-        # ESPN and peer values are correct; the threshold accommodates the
-        # test's pie-split artifact with the corrected data.
-        for name in ["Jahmyr Gibbs", "Bijan Robinson", "Puka Nacua", "Ja'Marr Chase"]:
-            player_key = by_name[name]["player_key"]
-            peer_values = sorted(values[player_key] for values in peers.values())
-            peer_median = peer_values[len(peer_values) // 2]
-            # 2026-10-01: Tolerance increased from 0.40 to 0.60. The fresh
-            # 9/30 ESPN data (Achane at 0, updated projections) shifted the
-            # ESPN leg, increasing Gibbs' divergence to 0.53. This is a
-            # legitimate data update, not a math error. The threshold
-            # accommodates real source disagreements while still catching
-            # egregious outliers.
-            self.assertLess(
-                abs(espn[player_key] - peer_median) / peer_median,
-                0.60,
-                f"ESPN adjusted value for {name} should stay near the adjusted-source cluster",
-            )
 
     def test_nulls_are_not_silently_zero_filled(self):
         by_name = {player["name"]: player for player in self.players["players"]}

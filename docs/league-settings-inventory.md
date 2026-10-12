@@ -70,9 +70,13 @@ charts (JEG-62/64).
 3. **Done (2026-10-07, JEG332-VORP-VIEWS):** the "VORP vs waivers" and
    "Adjusted values" views derive at every setting
    (`ValueModel.derivePublishedViews`); below-waiver players are 0 in all three
-   views (`league-settings-001/3`). `tests/test_published_views_engine.py`
-   (pure, vs a Python reference on `unified.translate_ranked`) and
-   `tests/test_published_views_render.py` (live page) gate it.
+   views (`league-settings-001/3`). `tests/test_published_views_render.py`
+   (live page) gates it.
+   Superseded by JEG-508 (`runValuePipeline`). JEG-539 (2026-10-10) retired
+   `derivePublishedSetup` (item 2), `derivePublishedViews`, their node driver
+   and `tests/test_published_views_engine.py`, since the page no longer called
+   them. `tests/test_published_league_settings_engine.py` now pins the live
+   `isSavedSetup` rule and keeps the Python one-factor reference.
 4. **Answered:** `*_adjusted` needs no saved fit at other settings: the browser
    already refits its cells live (`refitLiveCells`, OLS of the ESPN two-tier
    leg on the published raw values) at the active team count, so it refits on

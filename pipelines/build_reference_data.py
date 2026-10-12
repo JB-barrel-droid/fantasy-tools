@@ -32,9 +32,6 @@ REQUIRED_LIVE_SOURCES = (
     "cbs",
     "espn",
     "cbsros",
-    "fantasycalc_adjusted",
-    "usatoday_adjusted",
-    "fantasypros_adjusted",
 )
 # The only sections whose absence fails the build (the anchor every curve is
 # indexed to). Other REQUIRED_LIVE_SOURCES must be live when present.

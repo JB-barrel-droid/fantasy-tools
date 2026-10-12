@@ -4,24 +4,21 @@ Read this first. It is short on purpose.
 
 ## Pre-launch: ship, and keep the numbers honest
 
-Jeremy, 2026-10-07: the site has no users yet. One owner (Claude) writes,
-reviews and merges, so the multi-agent policing built up in late September has
-been retired. Optimize for getting fresh data live every week. Protect only what
-makes the numbers worth looking at. Methodology can be refined after launch.
+Jeremy, 2026-10-07: no users yet, and one owner (Claude) writes, reviews and
+merges, so the late-September multi-agent policing is retired. Get fresh data
+live every week, protect only what keeps the numbers honest, refine methodology
+after launch.
 
-The live plan is the Linear ticket **JEG-440 (GO LIVE)**. Linear is the source
-of truth for status. In Progress means someone (an agent) is actively working
-on it now; Done means merged and live. There is no cap on parallel work
-(Jeremy, 2026-10-09): parallelize as much as possible with subagents, limited
-only by what can run without causing issues: no two agents editing the same
-code path, value changes paired with the Python reference on one branch, and
-merges ordered so main stays green.
+The live plan is Linear ticket **JEG-440 (GO LIVE)**; Linear is the source of
+truth. In Progress means an agent is working it now; Done means merged and
+live. Parallel work is uncapped (Jeremy, 2026-10-09), limited only by: no two
+agents on one code path, value changes paired with the Python reference on one
+branch, merges ordered so main stays green.
 
 ## Linear (team Jegabee, project Trade Value Chart)
 
-Follow the user-level "Work Tracking in Linear" rules for all work here. They
-cover: a ticket per workstream, status comments, decisions quoted on the
-ticket, delegated agents naming their ticket, and "(part of JEG-xxx)" PR titles.
+Follow the user-level Linear rules (ticket per workstream, status comments,
+quoted decisions, agents naming their ticket, "(part of JEG-xxx)" PR titles).
 
 - The back end owns tickets for pipelines, Supabase, engine math and
   workflows. The v2 front-end session owns its own tickets.
@@ -42,7 +39,7 @@ Several Claude sessions work this repo at once: the back end, and the front end 
 - **Blocked on Jeremy.** When a ticket needs his decision, the session comments the question with the options and its recommendation, adds `needs-review`, moves the ticket to In Review, and claims its next ticket rather than waiting. Once Jeremy answers on the ticket, the owner quotes the decision with the date, removes `needs-review`, and moves the ticket back to Todo (or In Progress if it resumes now). In Progress stays reserved for work an agent is doing.
 - **Claim.** Before starting, a session:
   1. sets the ticket In Progress;
-  2. checks that the label is its own;
+  2. checks that the `Session` label is its own and that the ticket carries one `Model tier` label (T1 deep, T2 build, T3 light; table in `AGENTS.md`);
   3. comments `taken by <session> · <UTC time> · branch <name>`.
 
   It doesn't start a ticket that carries another session's label without a takeover.
@@ -60,6 +57,7 @@ Several Claude sessions work this repo at once: the back end, and the front end 
   The previous owner, on returning, reads the comment and doesn't resume.
 - **Idle hands.** A session with an empty queue may pick up another session's **Todo** tickets (not In Progress ones), oldest priority first. It swaps the label and comments `picked up by <session>`.
 - **Handoff.** A session that is stopping comments on each of its In Progress tickets with its state and branch, then moves them back to Todo so another session can claim them.
+- **Hot files.** One In Progress ticket per hot file (list in `AGENTS.md`); a ticket names its hot files under `Touches`.
 - **Merge order.** Always rebase on `main` before pushing. The contract test (`tests/test_v2_contract_render.py`) and `make validate` must pass.
 
 ## Standing constraints
@@ -91,18 +89,6 @@ Several Claude sessions work this repo at once: the back end, and the front end 
 - **Muse owns nothing here.** Claude owns merges, deploys, QA and schedules.
   Schedules run from Supabase pg_cron; GitHub Actions does the build and deploy.
 
-## Copy rules (user-facing text)
-
-- Do not reference "Vegas" (Jeremy, 2026-09-30). The public charts are named by
-  publisher (USA Today, FantasyCalc, FantasyPros, CBS). Frame comparisons as
-  trade targets (sell where a chart pays more than we would, buy where less).
-- No abbreviations in titles or headlines (PPR, FC, USAT, FP, Wk).
-- The brand is **Data Driven Football** only. No FantasyPros, Muse, or Meta
-  branding anywhere user-facing.
-- The only allowed user-facing use of "VORP" is the exact phrase **"VORP vs
-  waivers"** (decision copy-vorp-001). `espn_vorp` as an internal data key is
-  exempt.
-
 ## Before changing the trade-value chart
 
 Run the 12-combo headless sweep (3 scorings × 4 league sizes) against the built
@@ -117,6 +103,23 @@ inversions. The ESPN, CBS ROS and Razzball lines also start where their own
 projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
 band on published charts, was retired 2026-10-08, GAP-026: publisher shape
 disagreement is the product.)
+
+## Values explainer (living artifact)
+
+Jeremy reads how every source's values are made at the claude.ai artifact
+https://claude.ai/artifact/RALxprAWirGvjw8uwZwbfW ("DDF Value Logic"). It is
+built by `make values-explainer` (`pipelines/build_values_explainer.py`, page
+template and engine extractor in `app/values-explainer/`) into
+`output/values-explainer/index.html`, and every number on it is read from the
+chart engine. Keep it current:
+
+- After any change to value math (the files in `LOGIC_FILES` in the builder),
+  rebuild and republish to that URL in the same session. If the logic changed,
+  update the narrative in `template.html` to match, then
+  `make values-explainer MARK_REVIEWED=1` so the page stops flagging it.
+- A daily scheduled task rebuilds and republishes it from `main`. When the page
+  says "Logic changed since this explanation was reviewed", the narrative is
+  stale: fix the text, not the numbers.
 
 ## Usage: same quality, fewer tokens (JEG-524)
 

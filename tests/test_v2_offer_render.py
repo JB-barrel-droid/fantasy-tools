@@ -8,7 +8,9 @@ against the engine's own rows (TradeValueCurveControls.getAllRows()):
   * "Player values shown": every player's value on both sides is that exact
     series' engine value, or — when the engine has none (never 0);
   * each side's "<series> total" is the sum of those values, or incomplete
-    (no number) when any player on that side has no value;
+    (no number) when any player on that side has no value (JEG-541: one
+    player's FantasyCalc value is simulated missing, since after JEG-508 every
+    chart prices every player);
   * the story card's kind matches the complete rows' signs: a same-publisher,
     same-week Data Driven Adjustments vs Indexed sign flip is "contrast"; all
     one way is "agree"; otherwise "split";
@@ -45,6 +47,7 @@ import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests.test_v2_compare_render import simulate_missing  # noqa: E402
 
 
 def setUpModule():
@@ -249,6 +252,8 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                               ["espn", "fantasycalc_adjusted", "fantasypros_adjusted", "usatoday_adjusted", *EXTRA_SERIES])
                 # The one-series notice above hid DDF Value; show it again so the picker offers it.
                 page.evaluate("() => window.TradeValueV2.setShown(['ddf_value'].concat(window.TradeValueV2.shown()))")
+                # JEG-541: a hermetic missing value (see test_v2_compare_render.SIMULATE_MISSING).
+                simulate_missing(page, "fantasycalc")
                 pick = page.evaluate(PICK)
                 page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
                 page.wait_for_function("() => !document.getElementById('v2Compare').hidden && !document.getElementById('v2CTable').hidden")

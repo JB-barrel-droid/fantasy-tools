@@ -16,8 +16,7 @@
 // materialised (Roman applies the DDL in sql/contract/api_v1.sql separately
 // and runs `NOTIFY pgrst, 'reload schema'`). To keep the chart rendering
 // during the strangler-fig window, this adapter reads the legacy fixtures
-// (assets/comparison-sources-data.json,
-// assets/adjustment-inputs.json, the #players-data inline island) and
+// (assets/comparison-sources-data.json and the #players-data inline island) and
 // projects them into the contract's frozen surface shapes. The fixture
 // paths remain ONLY here; consumers call into the semantic methods.
 //
@@ -40,14 +39,12 @@
   // strings must NOT appear anywhere in app/trade-value-chart/ except here.
   const LEGACY_PATHS = Object.freeze({
     detail: "assets/comparison-sources-data.json",
-    adjustments: "assets/adjustment-inputs.json",
     playersInlineId: "players-data",
   });
 
   // JEG-484: same-origin static assets get no short timeout. A 4s timeout on
-  // a slow first load (backgrounded tab, slow network) silently dropped the
-  // adjustment inputs, and with them every *_adjusted series and 4 of DDF
-  // Value's 7 inputs. Each asset is retried with backoff instead; the
+  // a slow first load (backgrounded tab, slow network) silently dropped an
+  // asset. Each asset is retried with backoff instead; the
   // per-attempt ceiling only guards against a connection that never ends.
   const FETCH_ATTEMPT_TIMEOUT_MS = 60000;
   const FETCH_RETRY_DELAYS_MS = Object.freeze([500, 1500]); // 3 attempts in all
@@ -79,6 +76,10 @@
     "cbs_adjusted",
   ]);
 
+  // An *_adjusted series has no fixture section of its own: it is the raw
+  // published chart's Adjusted values, so its section is the chart's.
+  const rawSourceKey = key => (key.endsWith("_adjusted") ? key.slice(0, -"_adjusted".length) : key);
+
   // Pure VORP keys (browser-computed from per-game projections).
   const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp"]);
 
@@ -96,7 +97,6 @@
     initialized: false,
     initError: null,
     detail: null,            // raw legacy comparison-sources-data.json
-    adjustments: null,       // raw legacy adjustment-inputs.json
     players: [],             // canonical players from inline island
     playerByKey: new Map(),  // player_key -> player record
     playerKeysBySourceId: new Map(), // sourceId -> playerKey (legacy fixture)
@@ -258,7 +258,7 @@
   const ESPN_ZERO_BADGE = Object.freeze({
     label: "ESPN: 0 (out)",
     symbol: "\u2298",
-    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out), so our ESPN value for him is 0.0. Published charts are shown as published, so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
+    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out), so our ESPN value for him is 0.0. Trade charts keep each publisher's own ranking (rescaled to our point scale), so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
   });
   function espnProjectsZero(player) {
     if (player?.espn_status === "ineligible") return true;
@@ -419,16 +419,12 @@
     const currentWeek = contentWeekForDay(today);
     const src = sources && typeof sources === "object" ? sources : {};
     const seriesKeys = Array.isArray(options.seriesKeys) ? options.seriesKeys : SOURCE_KEYS;
-    // An *_adjusted series is our adjustment applied to the raw published
-    // chart (curve-widget buildLiveAdjustedMap), so it is as old as that
-    // chart: date it by the raw source, as curve-widget weekForSource does.
+    // An *_adjusted series is the raw published chart's Adjusted values
+    // (curve-widget), so it is as old as that chart: date it by the raw
+    // source, as curve-widget weekForSource does.
     const metaFor = key => {
       const base = VINTAGE_SOURCE_FOR_SERIES[key] || key;
-      if (base.endsWith("_adjusted")) {
-        const raw = base === "cbs_adjusted" ? "cbs" : base.replace(/_adjusted$/, "");
-        if (src[raw]) return src[raw];
-      }
-      return src[base] || null;
+      return src[rawSourceKey(base)] || null;
     };
     const rows = {};
     seriesKeys.forEach(key => {
@@ -550,7 +546,7 @@
         Number.isFinite(Number(p[ppgField] && p[ppgField][field]))).length;
       return {kind: "ppg", count, savedTeams: null};
     }
-    const sourceKey = ctx.sources[seriesKey] ? seriesKey : (seriesKey === "cbs_adjusted" ? "cbs" : seriesKey);
+    const sourceKey = rawSourceKey(seriesKey);
     const combos = (ctx.sources[sourceKey] && ctx.sources[sourceKey].combos) || {};
     const prefix = SCORING_PREFIX[ctx.scoring];
     const savedTeams = [...new Set(Object.keys(combos)
@@ -682,7 +678,7 @@
     if (PURE_VORP_KEYS.includes(source)) return null;
 
     const detail = state.detail;
-    const sourceKey = source === "cbs_adjusted" ? "cbs" : source;
+    const sourceKey = rawSourceKey(source);
     const comboKeyStr = comboKeyFor(sourceKey, scoring, teams, qbVariant);
     const combo = detail.sources?.[sourceKey]?.combos?.[comboKeyStr];
     if (!combo) return null;
@@ -805,16 +801,6 @@
 
   // ---------- Transitional helpers (not contract surfaces) ----------
 
-  // getAdjustmentInputs(): the raw adjustment-inputs.json payload. The
-  // contract does not yet have a surface for the stage-2 alpha/beta cells
-  // (the JEG-322 publish gate will land them in api.player_values eventually).
-  // Returning the legacy payload from a single module keeps the deep-path
-  // reads out of consumers. Returns null when inputs absent/malformed.
-  function getAdjustmentInputs() {
-    if (!state.initialized) return null;
-    return state.adjustments;
-  }
-
   // getPlayerByKey(playerKey): convenience accessor so consumers don't have
   // to iterate getPlayers() on every chart tick.
   function getPlayerByKey(playerKey) {
@@ -832,14 +818,13 @@
   }
 
   // getLoadStatus(): JEG-484 read-only load outcome per asset, e.g.
-  // {assets: {detail: {ok, error, attempts}, adjustments: {...}},
-  //  adjustmentsLoaded}. Available before init finishes (and after it fails).
+  // {assets: {detail: {ok, error, attempts}}}. Available before init finishes (and after it fails).
   function getLoadStatus() {
     const assets = {};
     Object.entries(state.loadStatus).forEach(([name, status]) => {
       assets[name] = { ok: status.ok, error: status.error, attempts: status.attempts };
     });
-    return { assets, adjustmentsLoaded: !!state.adjustments };
+    return { assets };
   }
 
   // getProviderInfo(): debug surface for the chart health panel.
@@ -852,7 +837,6 @@
       contractVersion: CONTRACT_VERSION,
       bakeId: state.snapshot?.bake_id || null,
       playersLoaded: state.players.length,
-      adjustmentsLoaded: !!state.adjustments,
       consolidationProvider: state.consolidation?.providerInfo?.() || null,
       initError: state.initError,
     };
@@ -878,9 +862,7 @@
       throw new Error(`Unknown contract version ${expectedVersion}. Render refused.`);
     }
 
-    // Both assets load in parallel. Detail is mandatory (the chart's primary
-    // data is here).
-    const adjustmentsPromise = fetchAsset("adjustments", LEGACY_PATHS.adjustments).catch(() => null);
+    // Detail is mandatory (the chart's primary data is here).
     let detail;
     try {
       detail = await fetchAsset("detail", LEGACY_PATHS.detail);
@@ -891,17 +873,7 @@
       throw new Error("Data contract payload is empty. Render refused.");
     }
 
-    // Adjustment inputs: the chart still renders without them (contract
-    // §5.2), but only after retries, and the failure is exposed through
-    // getLoadStatus() so the page can say which inputs are missing and why.
-    const adjustments = await adjustmentsPromise;
-    if (!adjustments) {
-      const why = state.loadStatus.adjustments && state.loadStatus.adjustments.error;
-      console.warn(`[product-data] ${LEGACY_PATHS.adjustments} failed to load (${why || "empty payload"}); *_adjusted series are missing.`);
-    }
-
     state.detail = detail;
-    state.adjustments = adjustments;
 
     // Players from the inline island; throw on missing (contract §8.2).
     const playersPayload = loadPlayersInline();
@@ -930,12 +902,11 @@
     // JEG-508 (VP-1.6): no source is required, ESPN included. The dropped
     // keys are exposed as getMissingSources() so the page can say which
     // source is unavailable.
-    // cbs_adjusted is a derived column on cbs.
+    // An *_adjusted series is derived from its chart's section.
     const sourcesMap = state.snapshot.sources || {};
     const missing = SOURCE_KEYS.filter(k => {
       if (PURE_VORP_KEYS.includes(k)) return false; // pure VORP has no fixture entry
-      if (k === "cbs_adjusted") return !sourcesMap.cbs;
-      return !sourcesMap[k];
+      return !sourcesMap[rawSourceKey(k)];
     });
     if (missing.length) {
       console.warn(`[product-data] sourceMapCoverage: ${missing.join(", ")} missing from the fixture; shown as unavailable, the rest renders.`);
@@ -978,7 +949,6 @@
     getSourceFreshness,
     getPairRegistry,
     // Transitional helpers (not contract surfaces).
-    getAdjustmentInputs,
     getPlayerByKey,
     getPlayerKeysBySourceId,
     getProviderInfo,
@@ -1015,7 +985,6 @@
     PAIR_METHODS,
     PAIR_SOURCES,
     // Transitional + meta.
-    getAdjustmentInputs,
     getPlayerByKey,
     getPlayerKeysBySourceId,
     getProviderInfo,

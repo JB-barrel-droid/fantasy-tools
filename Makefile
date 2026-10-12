@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
+.PHONY: help values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -134,6 +134,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_fidelity_razzball
 	python3 -m unittest tests.test_fidelity_hold
 	python3 -m unittest tests.test_position_conflict_names
+	python3 -m unittest tests.test_source_divergence
 	python3 -m unittest tests.test_security_lockdown_migration
 	python3 -m unittest tests.test_source_probe
 	python3 -m unittest tests.test_source_snapshot_match
@@ -162,6 +163,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_a11y_render
 	python3 -m unittest tests.test_v2_weight_render
 	python3 -m unittest tests.test_v2_bench_used_render
+	python3 -m unittest tests.test_v2_estimated_render
 	python3 -m unittest tests.test_v2_expand_render
 	python3 -m unittest tests.test_espn_zero_badge_render
 	python3 -m unittest tests.test_per_source_rescale
@@ -174,8 +176,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_import_health
 	python3 -m unittest tests.test_verify_import_health
 	python3 -m unittest tests.test_promote_section
-	python3 -m unittest tests.test_adjusted_fixture_sections
-	python3 -m unittest tests.test_adjustment_inputs
 	python3 -m unittest tests.test_checkpoint_expected_week
 	python3 -m unittest tests.test_checkpoint_pages_deploy
 	python3 -m unittest tests.test_c10_committed_fixture_baseline
@@ -196,8 +196,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_bake_cbsros_intake
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_guard_harness_recorded
-	python3 -m unittest tests.test_jeg68_starter_markup
-	python3 -m unittest tests.test_jeg69_direction_check
 	python3 -m unittest tests.test_jeg103_bench_share_readout
 	python3 -m unittest tests.test_jeg103_bench_slider_readout
 	python3 -m unittest tests.test_jeg135_rendered_flexibility
@@ -219,7 +217,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
-	python3 -m unittest tests.test_published_views_engine
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_value_check
 	python3 -m unittest tests.test_load_value_check
@@ -442,6 +439,7 @@ validate: reference sync guard-harness test-core test-integration
 
 test-core:
 	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_rank_guard
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_ppg_tie_parity
@@ -456,6 +454,7 @@ test-core:
 	python3 -m unittest tests.test_player_aliases
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_player_alias_table
+	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
 	python3 -m unittest tests.test_chain_commits_legs
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
@@ -469,6 +468,7 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
+	python3 -m unittest tests.test_v2_rescaled_copy
 	python3 -m unittest tests.test_v2_waterfall
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
@@ -499,6 +499,11 @@ test-all: naming naming-convention test-unit
 # Operating-model plan status (JEG-96). Reads lanes/plan.json + lanes/linear_fixture.json.
 plan-status:
 	@python3 lanes/plan_status.py
+
+# Values explainer (internal page; published as a claude.ai artifact).
+# Needs Playwright Chromium. MARK_REVIEWED=1 after re-checking the narrative.
+values-explainer:
+	python3 pipelines/build_values_explainer.py $(if $(MARK_REVIEWED),--mark-reviewed,)
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart

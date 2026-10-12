@@ -89,7 +89,7 @@ def fmt(v):
 
 
 # JEG-474 group vocabulary, in order. Written out here, not read from v2.js.
-GROUPS = ["DDF Value", "Projections", "Trade charts (adjusted)", "Trade charts (as published)",
+GROUPS = ["DDF Value", "Projections", "Trade charts (adjusted)", "Trade charts (rescaled)",
           "Value above waivers (Advanced)"]
 DDF = "ddf_value"
 FORCED_OFF = "usatoday"   # getPriorWeek is patched to say this series has no prior week
@@ -105,7 +105,7 @@ def expected_group(key):
         return "Trade charts (adjusted)"
     if key in ("espn", "cbsros", "razzball"):
         return "Projections"
-    return "Trade charts (as published)"
+    return "Trade charts (rescaled)"
 
 
 # The shared picker (JEG-466) as rendered, plus the engine's stale flags for the prior-week badge.

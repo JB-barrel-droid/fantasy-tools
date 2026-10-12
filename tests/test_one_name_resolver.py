@@ -61,8 +61,7 @@ LEGACY = {
     # espn_projections.csv player_norm, which the ESPN leg joins on.
     "pipelines/lib/legacy_identity.py": {"normalizer"},
     # normalize_name is the `player_norm` label form of the reference savers
-    # (a label since JEG-539; only save_cbsros_references still matches on
-    # it, LEGACY_INDEX_USERS below) and the chain matcher's own key.
+    # (a label since JEG-539) and the chain matcher's own key.
     "pipelines/match_source_snapshot.py": {"normalizer", "suffix"},
     # _norm is the staged bundle's player_key for ESPN rows (loader contract).
     "producers/build_staged_bundle_espn.py": {"normalizer"},
@@ -79,13 +78,15 @@ LEGACY = {
 # resolved keys on current data: the CBS saver, FantasyCalc saver and
 # FantasyPros puller (0 of 139 / 198 / 178 names differ). Razzball moved by
 # Jeremy's rule ("Use canonical resolver", 2026-10-10): after the JEG-539
-# position fix, 1 of 681 names differs (Max Hurleman, now at review).
+# position fix, 1 of 681 names differs (Max Hurleman).
+# 2026-10-12: 2 files -> 1. The CBS rest-of-season saver moved too. Jeremy's
+# decision: a position conflict goes to ESPN's or Sleeper's position, as
+# public.players holds it, with no per-source exception, so CBS ROS's TE-table
+# Connor Heyward (RB in public.players) is a position conflict and is not
+# stored. That was the last reason to keep it on the legacy matcher.
 LEGACY_INDEX_USERS = {
     # the chain's comparison-snapshot matcher (LEGACY above; GAP-IDENTITY-LEGACY-MATCHERS)
     "pipelines/match_source_snapshot.py",
-    # CBS ROS prints Connor Heyward "(FB)" in its TE table; the canonical
-    # resolver refuses that position, so moving it would drop a stored player.
-    "pipelines/save_cbsros_references.py",
 }
 
 

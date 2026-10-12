@@ -131,7 +131,7 @@ def resolve_name(
     norm_hint: str | None = None,
 ) -> tuple[int | None, str | None]:
     """Return (player_key, None), or (None, reason) with reason one of
-    unmatched | ambiguous | position_conflict.
+    unmatched | ambiguous | position_conflict | inactive.
 
     Only lib/canonical_players resolves (Jeremy 2026-10-10, JEG-539). A
     nickname or a long-form first name matches only through its curated lists:
@@ -188,6 +188,8 @@ def build_razzball_rows(
             continue
         key, reason = resolve_name(name, pos, registry, row.get("player_norm"))
         if key is None:
+            if reason in canonical_players.SILENT_REASONS:
+                continue  # an inactive player at another position: no value, no flag (JEG-539)
             review.append(
                 {
                     "reason": reason,

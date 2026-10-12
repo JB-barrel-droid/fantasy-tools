@@ -1,21 +1,33 @@
 # Agent brief template
 
 The lead gives each subagent a short task prompt that points here, instead of
-pasting a long shared brief (JEG-524). Pick the agent by the task:
-`worker` (Sonnet) for routine work with a clear spec, `deep-worker` (Opus) for
-value/engine math, unknown-root-cause debugging, design or final review.
+pasting a long shared brief (JEG-524). Pick the agent by the
+`Model tier` label on the ticket (table in `AGENTS.md`): T1 deep
+(`deep-worker`, Opus) for value/engine math, unknown-root-cause debugging,
+design or final review; T2 build (`worker`, Sonnet) for implementation against
+a written spec; T3 light (Haiku or the `delegate` fast tier) for copy edits,
+doc moves, research sweeps, capture and triage. T2 escalates to T1 after 2
+failed gate runs.
 
 ## Task prompt (lead fills in, about 15-30 lines)
 
 ```
 Ticket: JEG-___ (team Jegabee). Read docs/agent-brief-template.md "Standing rules" first.
+Model tier: T1 | T2 | T3 (the ticket's label; the minimum model)
 Goal: <one or two sentences: the outcome, not the steps>
+Touches: <hot files from AGENTS.md, or "none">. Two In Progress tickets may not share a hot file.
 Lane / files you own: <paths>. Do not edit: <paths owned by other running agents>
 Read only what applies: <specific docs and risk-register rows, e.g. docs/methodology.md section X>
 Known context: <2-5 bullets the agent can't get from docs: decisions, what was tried>
-Done means: <named checks that must pass, e.g. make validate, test that fails on origin/main>
 Moves chart numbers? <yes: run the 12-combo sweep in CLAUDE.md / no>
 Output shape: <patch on branch | findings with file:line | options + recommendation>
+
+Done when (runnable; paste each command's exit code and last ~20 lines in the handback):
+- Test that fails without the change: <python3 -m unittest tests.test_<x>, and the mutation or origin/main state it fails on>
+- Gate: make validate
+- Value changes only: python3 pipelines/value_check.py compare (0 differences) and
+  python3 pipelines/check_rank_guard.py (0 inversions); 12-combo sweep for chart changes
+- Published output changes only: python3 verify_live.py tv-YYYYMMDD-HHMM-<sha>
 ```
 
 ## Standing rules (agents read this section)
@@ -25,8 +37,11 @@ Output shape: <patch on branch | findings with file:line | options + recommendat
   (archived) or touch `~/Projects/"fantasy tools"` beyond `Claude outputs/`.
 - Make your own worktree: `cd ~/code/fantasy-tools && git fetch origin && git worktree add ~/code/wt/<lane> -b <branch> origin/main`.
   Work only there.
-- Push your branch only. Never push to `main` and never open or merge PRs
-  unless the prompt says so. The lead integrates.
+- Push your branch (`be/<ticket>` or `fe/<ticket>`) only. Never push to `main`
+  and never open or merge PRs unless the prompt says so. The lead integrates;
+  other model families never merge (`AGENTS.md`).
+- T3 output is untrusted until the gate passes. T3 never resolves player
+  identity, edits fixtures, or touches `config/` values.
 
 **Data and production**
 - Supabase project `iskiybsimubiujwuchsl` is read-only for agents. Write

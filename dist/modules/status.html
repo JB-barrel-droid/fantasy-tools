@@ -441,8 +441,7 @@ function renderChain(feeds) {
   });
   card("backend", "chain", "Rebuild chain", st, feedLine(feeds.chain) +
     `<dl class="kv"><dt>Outcome</dt><dd>${esc(outcome)}${c.held?.length ? ` · held: ${esc(c.held.join(", "))} (${esc(c.hold_severity)})` : ""}${c.failed?.length ? ` · failed: ${esc(c.failed.join(", "))}` : ""}</dd>
-     <dt>Fit</dt><dd>${esc(c.fit?.status || "—")} <span class="why">${esc(c.fit?.detail || "")}</span></dd>
-     <dt>Adjusted sections</dt><dd>${esc(c.adjusted_sections?.status || "—")} <span class="why">${esc(c.adjusted_sections?.detail || "")}</span></dd>
+     <dt>Re-index + rank guard</dt><dd>${esc(c.reindex_fixture?.status || "—")} <span class="why">${esc(c.reindex_fixture?.detail || "")}</span></dd>
      <dt>Post-rebuild validate</dt><dd>${pv ? `${pill(pv.status === "failed" ? "bad" : "ok", pv.status)} <span class="why">${esc(pv.detail || "")}</span>` : c.success ? "passed (the chain only publishes after make validate passes)" : "—"}</dd>
      <dt>Runner</dt><dd>${esc(c.runner || "—")} · NFL week ${esc(c.nfl_week ?? "—")}</dd></dl>` +
     table(["Status", "Source", "Stage", "Promoted", "Content", "Detail"], rows), { wide: true });

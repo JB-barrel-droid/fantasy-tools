@@ -25,10 +25,12 @@ Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * the picked series survives a round trip to Player values and a reload
     (remembered on this device); the Methods row stays hidden on this tab;
   * simulated engine rows (SIMULATE_ROWS, until the engine ships them and
-    because current data has no chart value at 0): a one-source DDF Value
+    because current data has no chart value at 0 or null): a one-source DDF Value
     (ddfLowConfidence) is a target and shows "◐ 1 source" with the engine's
     note as its tooltip; a player with no DDF input is left out and counted
     with the engine's reason; a chart value of 0 shows "waiver line", no gap;
+    a chart value the engine does not have (JEG-541: simulated, since after
+    JEG-508 every chart prices every player) shows — with the engine's reason;
   * an opened row's "#N on <publisher>" is the engine's getNativeRank.
 
 JEG-464: the H1 and subtitle are the decided copy; the nav tab stays "Trade
@@ -42,9 +44,9 @@ the filters sit on one row. Two-column rows show only Player · Our value ·
 Largest gap (+ chart); a row's ▾ opens its per-chart values.
 JEG-456 (part 1): from 1024 px the table needs no horizontal scroll; Pos, Team
 and Tier are in the player sub-line.
-JEG-458: every chart column header reads "Wk N · indexed", "Compare against"
-has the caption "Indexed to our scale", and an ⓘ beside it and in each chart
-column header opens the indexed explanation with a link to How values work:
+JEG-458: every chart column header reads "Wk N · rescaled", "Compare against"
+has the caption "Rescaled to our point scale", and an ⓘ beside it and in each chart
+column header opens the rescaled explanation with a link to How values work:
 aria-expanded tracks it, Enter opens it, Esc closes it and returns focus, and it
 never opens a player or reorders rows.
 JEG-459: the "Include older-week charts" checkbox is gone; with FantasyPros
@@ -102,10 +104,10 @@ CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypr
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
 H1 = "Where the trade market is wrong this week"
-SUBTITLE = ("We check four published trade charts against our values for your league. "
+SUBTITLE = ("We check four publishers' trade charts against our values for your league. "
             "Sell the players they overpay for; buy the ones they undervalue.")
-INDEXED_TEXT = ("Published charts use their own point scales. We rescale each chart so its total value matches our "
-                "ESPN-based scale for your league, which makes the numbers comparable.")
+INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for your league. "
+                "Their ranking order is unchanged.")
 FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
 
 READ = """([side, ours, ids]) => {
@@ -134,7 +136,8 @@ READ = """([side, ours, ids]) => {
     cells: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, {
       value: text(td), gap: td.querySelector('.gap')?.textContent ?? null,
       atWaiver: Boolean(td.querySelector('.at-waiver')),
-      missing: Boolean(td.querySelector('.missing')), why: td.querySelector('.missing .why')?.textContent ?? null}]))
+      missing: Boolean(td.querySelector('.missing')), why: td.querySelector('.missing .why')?.textContent ?? null,
+      title: td.querySelector('.missing')?.title ?? null}]))
   }));
   const details = [...document.querySelectorAll(`#${ids.table} tr.t-detail`)].map(tr => ({
     key: tr.dataset.detailFor,
@@ -229,6 +232,12 @@ SIMULATE_ROWS = """() => {
     used.forEach(c => { if (fin(r.values[c]) && r.values[c] > best) { best = r.values[c]; low = k; } }); });
   const none = rows.map(r => String(r.player_key)).find(k => k !== zero.key && k !== low
     && fin(rows.find(r => String(r.player_key) === k).values.ddf_value));
+  // JEG-541: after JEG-508 every chart prices every player, so a chart value the engine does not have
+  // is simulated: the second sell target loses a chart other than its best, with the engine's reason.
+  const second = t.sell.find(p => String(p.row.player_key) !== zero.key && String(p.row.player_key) !== low
+    && used.filter(c => fin(p.row.values[c]) && p.row.values[c] > 0).length >= 2);
+  const gap = second ? {key: String(second.row.player_key), chart: used.find(c => c !== second.bestSell.chart && fin(second.row.values[c])),
+    reason: 'Simulated: not enough shared players to index'} : null;
   const note = 'Only one source prices this player', reason = 'No source prices this player';
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
@@ -238,9 +247,11 @@ SIMULATE_ROWS = """() => {
     if (k === none) return {...r, values: {...r.values, ddf_value: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
       ddfLowConfidence: false, ddfReason: reason};
     if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
+    if (gap && k === gap.key) return {...r, values: {...r.values, [gap.chart]: null},
+      missingReasons: {...(r.missingReasons || {}), [gap.chart]: gap.reason}};
     return r;
   });
-  window.__probe = {low, none, zero, note, reason};
+  window.__probe = {low, none, zero, gap, note, reason};
   document.getElementById('v2TPosition').dispatchEvent(new Event('change'));
   return window.__probe;
 }"""
@@ -370,6 +381,15 @@ def check(snapshot) -> list[str]:
                 errors.append(f"player {probe['none']} with no DDF input is listed as a {side} target")
             if snapshot["omittedNoOurs"] < 1 or probe["reason"] not in snapshot["note"]:
                 errors.append(f"player with no DDF input not counted with the engine's reason: {snapshot['note']!r}")
+        gap = probe.get("gap")
+        if our_key == DDF and side == "sell":
+            grows = [r for r in snapshot["table"] if gap and r["key"] == gap["key"]]
+            if not grows:
+                errors.append(f"the missing-chart probe {gap} is not rendered; the missing-value path went unchecked")
+            else:
+                cell = grows[0]["cells"].get(gap["chart"]) or {}
+                if not cell.get("missing") or cell.get("title") != gap["reason"]:
+                    errors.append(f"{gap['key']}/{gap['chart']}: engine has no value (reason {gap['reason']!r}) but cell shows {cell}")
         zrows = [r for r in snapshot["table"] if r["key"] == probe["zero"]["key"]]
         if our_key == DDF and side == "sell" and snapshot["table"] and not zrows:
             errors.append(f"the waiver-line probe {probe['zero']} is not rendered")
@@ -461,15 +481,15 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
         errors.append("a Sell/Buy toggle is still on the tab (JEG-461: both lists show at once)")
     if lay["older"]:
         errors.append("the 'Include older-week charts' control is still on the tab (JEG-459)")
-    if not lay["caption"].startswith("Indexed to our scale"):
+    if not lay["caption"].startswith("Rescaled to our point scale"):
         errors.append(f"Compare against caption is {lay['caption']!r} (JEG-458)")
     if not lay["compareInfo"] or lay["compareInfo"]["expanded"] != "false" or not lay["compareInfo"]["label"]:
         errors.append(f"no closed, labeled ⓘ beside Compare against: {lay['compareInfo']} (JEG-458)")
     if not lay["thSubs"]:
         errors.append("no chart column headers")
     for th in lay["thSubs"]:
-        if not th["sub"].endswith("indexed") or "Wk " not in th["sub"]:
-            errors.append(f"{th['chart']} header sub-label {th['sub']!r}, expected 'Wk N · indexed' (JEG-458)")
+        if not th["sub"].endswith("rescaled") or "Wk " not in th["sub"]:
+            errors.append(f"{th['chart']} header sub-label {th['sub']!r}, expected 'Wk N · rescaled' (JEG-458)")
         if not th["info"] or th["info"]["expanded"] != "false" or not th["info"]["label"]:
             errors.append(f"{th['chart']} header has no closed, labeled ⓘ: {th['info']} (JEG-458)")
     errors += [f"hit area under 44 px: {b}" for b in lay["bad"]]
@@ -541,7 +561,7 @@ def check_prior(prior, ref_week, width) -> list[str]:
             errors.append(f"#v2TChart option {o['value']!r} reads {o['text']!r}")
     for th in prior["headers"]:
         errors += badge_ok(f"{th['chart']} column header", th["badges"], th["chart"])
-        if th["chart"] == "fantasypros" and not th["sub"].endswith("Wk 4 · indexed"):
+        if th["chart"] == "fantasypros" and not th["sub"].endswith("Wk 4 · rescaled"):
             errors.append(f"FantasyPros header sub-label {th['sub']!r}")
     fp_best = [b for b in prior["best"] if b["chart"] == "fantasypros"]
     if not fp_best:
@@ -786,7 +806,7 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "prior-week badge removed": ({"v2_js": (v2, "    if (!item || !item.stale) return null;\n    const name",
                                                     "    return null;\n    const name")}, {"viewports": desk, "numbers": False}),
             # JEG-458
-            "indexed label removed": ({"v2_js": (v2, '`${week.textContent ? " · " : ""}indexed`', '""')}, {"viewports": desk, "numbers": False}),
+            "rescaled label removed": ({"v2_js": (v2, '`${week.textContent ? " · " : ""}rescaled`', '""')}, {"viewports": desk, "numbers": False}),
             "aria-expanded never reset": ({"v2_js": (v2, 'if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");',
                                                      "")}, {"viewports": desk, "numbers": False}),
             # JEG-461

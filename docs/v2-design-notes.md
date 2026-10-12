@@ -504,6 +504,13 @@ Answered 2026-10-08 (JEG-452), position shares, in `TradeValueCurveControls`:
 refused (order would invert)", shallow charts, held or not-yet-published sources, `ddf_value`). v2 reads it through
 `missingReason()`; until it ships, v2 shows its generic reason.
 
+**BE-5 · Stale team on players no source prices (JEG-502, 2026-10-09).** In
+`data/fixtures/current/players.json`, 29 of 306 `universe_only` players have a `team` that disagrees
+with the team in their own `unpriced_reason`, which comes from the current Sleeper roster. For example,
+Scott Miller has `team` PIT, but his reason says "Practice squad (CHI)"; Phillip Dorsett has ATL
+but "Practice squad (LV)". Free agents also keep an old team. v2 shows only the position and the
+reason for these players until `team` follows the roster status (free agent = no team).
+
 ## Back-end contract: native rank (JEG-482, 2026-10-08)
 
 A published chart's Indexed ("as published") values are its native values times one factor, so the
@@ -992,7 +999,7 @@ Supersedes the Player values parts of "Chart options (21)" and "Navigator and va
   "We couldn't confirm when X last updated."), never a tick. "Not updating" and "Prior week" are unchanged and
   take precedence. The header chip says "all sources current" only when every root source is confirmed; otherwise
   e.g. "Week 5 · ⚠ 2 sources unconfirmed" (and "checking sources…" until the file has loaded).
-- **Bench share shown is the share used.** Below a position's feasible window the engine prices at a higher share
+- **Bench share shown is the share used.** (Superseded 2026-10-10 by JEG-508: no feasible windows any more; see "After JEG-508" below.) Below a position's feasible window the engine prices at a higher share
   (`bench_share_used`; PPR 12 teams at 2%: QB 7.5%, RB/WR/TE 4.4–4.7%). v2 reads it from the new read-only
   `TradeValueCurveControls.getBenchShareUsed(share?)` (per position, null when withheld) and shows the lowest–highest
   used share in the Weights & bench readout and Starters / Bench split, on How values work, and in the shared-link
@@ -1161,25 +1168,43 @@ removed" and the small "Set exact values" link in the JEG-470/472/473/475 sectio
 - **Layout:** one 70ch text column, 17 px / 1.7 (16 px / 1.65 below 768 px), v2 tokens and Inter. No horizontal scroll at 390 px; the six short tab labels still fit on one row.
 - **Tests:** `tests/test_v2_manifesto_render.py` (test-unit), with 4 deliberately broken builds (section 7 dropped, Manifesto not first, a link added to the text, Manifesto as landing). It also checks the tab has no links, buttons or form controls. `test_v2_nav_render` checks Manifesto is first; `test_v2_a11y_render` includes the tab in its contrast sweep.
 
-## Feature contract test (JEG-506, 2026-10-09)
+## Feature contract test (JEG-506, 2026-10-09; contract v1.2 2026-10-10)
 
-The contract is Jeremy's Google Doc "Data Driven Football: feature contract"
-(https://docs.google.com/document/d/1UDRlVTdOiAdI6gSSklxwB-R9uINozVmIILMwbvCBiH0). The Doc is the source of truth.
+The contract is Jeremy's Google Doc "Data Driven Football: feature contract" v1.2
+(https://docs.google.com/document/d/1mI2vo4R74Fp-x14yR7ggh0T3WdcD6xjciLv7gVh4iJo; v1.1 was a different Doc). The Doc is the source of truth.
 
 Workflow rule (Jeremy):
 - A change that breaks a contract line doesn't ship.
-- Changing or removing a line needs Jeremy's yes, recorded in the Doc. Then re-export the Doc and regenerate the mirror; never edit the mirror to change the contract.
+- Changing or removing a line needs Jeremy's yes, recorded in the Doc. Then re-export the Doc and regenerate the mirror. Never edit a mirror to change the contract.
 
 How it works:
-- `docs/feature-contract.md` mirrors the Doc. Regenerate it with `python scripts/sync_feature_contract.py <exported text>` (a file or `-` for stdin). CI has no Google auth, so the script only cleans text you export (Drive connector or File > Download > Markdown) and adds the header.
+- Two mirrors, both written by `scripts/sync_feature_contract.py` from text you export (Drive connector or File > Download > Markdown). CI has no Google auth, so the script only cleans that text and adds the header.
+  - `docs/feature-contract.md` mirrors the contract: `python scripts/sync_feature_contract.py <export>`. A new contract version in a new Doc means updating `DOCS["contract"]["url"]` in the script.
+  - `docs/manifesto-mirror.md` mirrors Jeremy's Manifesto Doc ("Fantasy Football Manifesto V2"): `python scripts/sync_feature_contract.py --doc manifesto <export>`.
+  - `docs/manifesto.md` is not used. It carries a repo-written terminology note, so it is not a copy of the Doc.
 - `tests/test_v2_contract_render.py`:
-  - `CHECKS` maps every ID in the mirror to a check function, or to `PENDING("JEG-xxx")` for a line marked "to build: JEG-xxx". A pending entry may carry a partial check of what already exists (GL-17 for Player values).
-  - The unit test (`ContractMirrorTest`, no browser) fails when a mirror ID has no entry, when CHECKS has an ID the Doc dropped, when a "to build" line has a live check or the wrong ticket, or when a live line is still pending. `WORDING_HOLDS` is the only exception: TT-05 is held on JEG-510 until "indexed" becomes "rescaled".
-  - `SUBPART_HOLDS` lists part of a live line that is not built yet. GL-11's "Edit league is the primary control" is held on JEG-498, because no primary styling exists yet. GL-11 still checks that #v2EditLeague and #v2Weights exist, found by ID rather than label ("Weights & bench" becomes "Position weights" in JEG-537). It also checks that league edits stay a draft until Apply. The mirror test fails if the held wording leaves the Doc line.
-  - The render test does one page load per scenario (Player values with two reloads, the other tabs in one page including a shared Compare trade, 390 px across all tabs, engine failure), then runs every live check against those snapshots. About a minute on this machine.
-  - Checks are presence plus basic behaviour. Deep correctness stays in the other `test_v2_*` suites; GL-02 checks one engine value per tab.
-  - Fixtures, so checks never pass vacuously: the freshness file is fixed (current, prior week, unknown, not updating), and every fifth priced player is flagged one-source in what `getRows` / `getAllRows` return (Week 5 has no one-source players, so GL-03 / TT-08 would otherwise see no "◐ 1 source" tag). Values are untouched.
-  - `test_guard_fails_on_broken_builds` serves broken v2.js / v2.css / shell.html through page routes and requires the named check to report a real finding for each fault (13 faults over 11 IDs, three grouped runs).
+  - `CHECKS` maps every ID in the mirror to a check function, or to `PENDING("JEG-xxx")` for a line marked "to build: JEG-xxx". A pending entry may carry a partial check of what already exists: GL-17 for Player values, and TT-05's ⓘ until JEG-510.
+  - A line's "to build" counts anywhere in its block, from its ID to the next ID or heading. GL-24 has it on a later paragraph.
+  - The unit test (`ContractMirrorTest`, no browser) fails in four cases:
+    - a mirror ID has no entry;
+    - CHECKS has an ID the Doc dropped;
+    - a "to build" line has a live check or the wrong ticket;
+    - a live line is still pending.
+  - The render test does one page load per scenario, then runs every live check against those snapshots:
+    - Player values, with two reloads;
+    - the other tabs in one page, including a shared Compare trade;
+    - 390 px across all tabs;
+    - engine failure.
+  - Checks are presence plus basic behaviour; deep correctness stays in the other `test_v2_*` suites.
+    - GL-02 checks one engine value per tab.
+    - GL-11 (v1.2) is draft-until-Apply only, found by #v2EditLeague. "Edit league is primary" became GL-22 (JEG-498).
+    - MF-01 compares the rendered Manifesto with `docs/manifesto-mirror.md` word for word, ignoring Markdown marks, and checks that it has no links or controls.
+    - TT-06 checks the "Wk N" badge on the Trade targets headers, the Player values legend and table headers, and the Compare rows.
+  - Fixtures keep the checks from passing vacuously. Values are untouched in all three.
+    - The freshness file is fixed: current, prior week, unknown and not updating.
+    - Every fifth priced player is flagged one-source in `getRows` / `getAllRows`, so the ◐ checks (GL-03, TT-08) can always fail.
+    - USA Today is served one week behind through `getSourceInfo` and `getSourceFreshness`, so TT-06 always has a badge to check. It is switched off for the all-current reload in GL-05.
+  - `test_guard_fails_on_broken_builds` serves broken v2.js / v2.css / shell.html through page routes. It requires the named check to report a real finding for each fault: 15 faults over 12 IDs.
 - When a ticket ships a pending line: Jeremy drops "to build" in the Doc, the mirror is regenerated, the mirror test fails, and the shipping ticket replaces `PENDING` with a real check.
 
 ## Back-end contract: bench share readout and league weeks (JEG-536, 2026-10-09)
@@ -1254,3 +1279,43 @@ number (the pie on the bench groups).
 The existing `bench=` key should stop being written (it was the 15% slider). Reading an older link:
 `bench=0.150` (the old default) means no override; any other `bench=` value without `bso=` is the
 sender's override.
+
+- TT-06 UI change (v1.2): the Player values table header and the Compare row now use the shared "Wk N" badge for a chart a week behind. Before, they showed "· Week N" / "Week N · older week" text.
+
+## After JEG-508: estimated values, bench share, hermetic missing values (JEG-541, 2026-10-10)
+
+The JEG-508 engine (PR #491) changed the v2 contract (GAP-508-V2-CONTRACT, JEG-537 comments). What v2 does now:
+
+- **Estimated values (VP-11).** The engine marks every chart value it filled in for a rosterable player the chart
+  doesn't list: `row.estimated = {seriesKey: reason}` (both the chart key and its `*_adjusted` alias carry it).
+  Wherever v2 shows that value it adds "≈ estimated" (symbol and word) with the engine's reason as the tooltip
+  and accessible name: Player values table cells, the chart tooltip (reason also shown as text), the player
+  detail's value and method matrix (reason also shown under the value), Compare a trade's per-player lines and
+  Trade targets' chart cells. Estimated values are drawn like listed ones. One helper (`appendLowConfidence`)
+  adds both the "◐ 1 source" and the "≈ estimated" tags, so every value site gets both.
+  Test: `tests.test_v2_estimated_render`.
+- **Bench share.** The two-tier calibration and its per-position feasible windows are retired (VP-10).
+  `getBenchShareUsed(share)` returns one share for all positions: the share itself, 0 when no source has bench
+  players above waivers, 1 when none has starters above waivers, null before the values are built.
+  `getBenchBounds()` is the fixed slider range `[0.01, 0.30]`. v2 still shows the used share, never the request:
+  - the panel says "Range 1.0%–30.0% · Recommended 15%" (it said "Feasible … for this league" and "Feasible
+    bounds recalculate with league structure", both false now);
+  - at 0 or 1 the note reads "Bench x% requested · priced at 0.0% (no source has bench players above waivers)";
+  - with no used share it shows "—" with "Bench share not available: the values are not built yet", never the
+    requested share.
+  The JEG-536 readout (`getBenchShareReadout()`) is not on main yet; JEG-537 builds the readout UI against it.
+- **Missing chart values.** After JEG-508 every chart prices every player at a position it prices (listed,
+  estimated, or 0 below rosterable depth), so a chart is null only when the engine says why (e.g. "Not enough
+  shared players to index"). Trade targets now shows the engine's `missingReasons[chart]` before its generic
+  "Not on X's chart".
+- **Tests no longer depend on live gaps.** The compare, offer, targets and waterfall render suites simulate the
+  condition they check by wrapping the engine's row accessors in the page (a player missing one series with a
+  reason; a projection that disagrees with DDF Value), so each deliberately broken build still fails whatever
+  this week's data looks like.
+- **How values work** puts the engine's waiver note ("estimated players at RB (4) …") in a `data-engine` node, like
+  the league card: its counts are the engine's, and the copy rule (no numbers outside engine nodes) still holds.
+
+Still on the old contract (front-end follow-up, GAP-508-V2-CONTRACT): v2 groups the deprecated
+`*_adjusted` aliases as "Trade charts (adjusted)" and its tests toggle them. The aliases carry each chart's
+Adjusted values, so the numbers are right, but the engine wants v2 to read the chart keys in the Adjusted tab and
+drop the alias group before it removes them.

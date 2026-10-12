@@ -24,6 +24,10 @@ section, held: its values are baked into players.json together with the ESPN
 anchor (tests/test_static_export.py checks the triple), so restoring the
 section alone would fail validate and stop every source from publishing.
 Never the whole site: one source at a time.
+A held build must pass `make validate` (JEG-569): checks that tie a chart to
+this build's anchor or fit cells read the fixture without its held charts
+(tests/_holds.py), and tests/test_seeded_hold_build.py seeds a held chart and
+a held projection and runs those checks on that build.
 
 A hold lasts while the pulse reports it: a section whose fidelity hold the
 latest pulse no longer lists is released (its validationHold removed).
