@@ -32,4 +32,9 @@ Retired code that still defined its own rules at audit time: `curve-widget.js be
 
 ## Status 2026-10-12
 
-JEG-559 landed. JEG-560 (live value paths), JEG-561 (baked legs, week history, DDF groups) and JEG-563 (default roster switch) are not done. Until they are, the live site still contains the divergent rules in the audit table.
+- JEG-559 landed (PR 546): the convention module and the parity test.
+- JEG-560 landed (PR 557): the Python reference and the spec reference use the convention for bench seats and the starter line; the waiver line already matched. **The JS engine was not migrated**, so the engine and the reference now disagree (`GAP-VALUECHECK-REFERENCE-AHEAD` in the risk register).
+- JEG-561 landed (PR 558): the baked two-tier legs and DDF groups use the convention's bench allocation.
+- JEG-563 (default roster switch) and JEG-562 (expected starts and tier basis on the convention) are not done. The short-list waiver rule ("estimate from other charts") is not implemented by either path yet.
+
+Re-check the code before relying on this status: main moves fast.

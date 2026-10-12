@@ -36,7 +36,7 @@ Expected: `wrote 13 settings -> /tmp/engine-values.json` (about 7 seconds; headl
 python3 pipelines/value_check.py compare --rerun-engine --strict --report /tmp/value-check.json
 ```
 
-Expected: `Verdict: **agree**` and a per-source table with 0 mismatches (2026-10-12: 915,234 values compared across usatoday, fantasycalc, fantasypros, cbs, espn and cbsros; the count moves with the fixture). `--strict` exits 1 on any disagreement. `--engine-json` takes the check's own dump, not the `engine_dump.py` file above (passing that one fails with an AttributeError).
+Expected: `Verdict: **agree**` and a per-source table with 0 mismatches (2026-10-12: 915,234 values compared across usatoday, fantasycalc, fantasypros, cbs, espn and cbsros; the count moves with the fixture). `--strict` exits 1 on any disagreement. **Known red at a66f3f40 (2026-10-12):** the verdict is `disagree` on every source because PR 557 migrated the Python reference to the roster convention but not the JS engine (`GAP-VALUECHECK-REFERENCE-AHEAD`, JEG-560). Expect `agree` once the engine is migrated. `--engine-json` takes the check's own dump, not the `engine_dump.py` file above (passing that one fails with an AttributeError).
 
 ## If a check is red
 
