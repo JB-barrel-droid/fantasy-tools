@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-12T17:01:54.918115+00:00",
+  "run_at": "2026-10-12T18:01:42.321857+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,11 +10,9 @@
     "cbsros": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: cbsros: snapshot sha256:98c29ea83573 != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
     "razzball": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: razzball: snapshot sha256:5b7290e017aa != players.json rz_snapshot_id sha256:31c28544ad55; the section waits for a bake from the same snapshot"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "published_with_holds",
   "held": [
     "cbsros",
     "espn",
@@ -218,18 +216,5 @@
     "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget"
-    ],
-    "assertions": [],
-    "make_targets": [
-      "Makefile:478: test-core"
-    ],
-    "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
-    "recorded_at": "2026-10-12T17:10:32.775769+00:00"
   }
 }
