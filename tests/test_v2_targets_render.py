@@ -122,6 +122,10 @@ READ = """([side, ours, ids]) => {
   const ownText = node => (node ? [...node.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join("") : null);
   const count = node => { const c = node && node.querySelector('.t-count'); return c ? {text: c.textContent, n: c.dataset.ddfCount,
     low: c.hasAttribute('data-low-confidence'), title: c.title, aria: c.getAttribute('aria-label')} : null; };
+  const marketOf = n => (n ? {equal: n.hasAttribute('data-market-equal'), text: ownText(n), note: n.querySelector('.t-equal')?.textContent ?? null,
+    n: n.querySelector('.t-count')?.dataset.marketCount ?? null, count: n.querySelector('.t-count')?.textContent ?? null,
+    diff: n.querySelector('.t-diff')?.dataset.marketDiff ?? null, diffText: n.querySelector('.t-diff')?.textContent ?? null,
+    missing: Boolean(n.querySelector('.missing'))} : null);
   const tierOf = sub => (sub ? sub.textContent.split(' · ').pop() : null);
   const runOf = span => ({value: span.querySelector('.val')?.textContent ?? null, gap: span.querySelector('.gap')?.textContent ?? null,
     native: span.querySelector('.t-native')?.textContent ?? null,
@@ -131,6 +135,7 @@ READ = """([side, ours, ids]) => {
     ours: ownText(tr.querySelector('[data-ours]')),
     count: count(tr.querySelector('[data-ours]')),
     tier: tierOf(tr.querySelector('.player-sub')),
+    market: marketOf(tr.querySelector('td[data-market]')),
     best: text(tr.querySelector('td.best')),
     bestChart: tr.querySelector('td.best').dataset.best,
     cells: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, {
@@ -147,6 +152,7 @@ READ = """([side, ours, ids]) => {
     ours: ownText(li.querySelector('.ours')),
     count: count(li.querySelector('.ours')),
     tier: tierOf(li.querySelector('.top .v2-meta')),
+    market: marketOf(li.querySelector('.vals .avg')),
     cells: Object.fromEntries([...li.querySelectorAll('.vals [data-chart]')].map(s => [s.dataset.chart, runOf(s)]))
   }));
   return {side, ours, engine, ddf, order, position: st.position, teams: st.teams, roster: C.getRosterShape(),
@@ -316,6 +322,30 @@ def check_run(where, values, our_key, cell):
     return []
 
 
+def check_market(where, values, our_key, used, market) -> list[str]:
+    """JEG-504: the market average of the compared charts, and ours minus it, recomputed from engine values."""
+    if market is None:
+        return [f"{where}: no market average shown"]
+    priced = [values[c] for c in used if finite(values.get(c))]
+    if not priced:
+        return [] if market["missing"] else [f"{where}: no chart prices the player but the average shows {market}"]
+    mean = sum(priced) / len(priced)
+    ours = values[our_key]
+    if fmt(mean) == fmt(ours):
+        if not market["equal"] or market["note"] != "= market average" or market["diff"] is not None or market["n"] is not None:
+            return [f"{where}: average {mean} equals ours {ours} to one decimal; expected only the note, got {market}"]
+        return []
+    diff = ours - mean
+    symbol = "▲" if diff > 0 else "▼"
+    if (market["equal"] or market["text"].removeprefix("Market avg ").strip() != fmt(mean) or market["n"] != str(len(priced)) or market["diff"] != f"{diff:.1f}"
+            or market["diffText"] != f"{symbol} {fmt_gap(diff)}"):
+        return [f"{where}: market average {market}, expected {fmt(mean)} of {len(priced)}, difference {symbol} {fmt_gap(diff)}"]
+    left = len(used) - len(priced)
+    if left and f"{left} left out" not in (market["count"] or ""):
+        return [f"{where}: {left} chart(s) without a value are not noted: {market['count']!r}"]
+    return []
+
+
 def expected_tiers(snapshot) -> dict:
     """Tier per player for the picked series: DDF Value → the engine's ddfTier; a projection → the
     player's rank by that series (engine row order breaks ties) against the league's roster zones."""
@@ -416,6 +446,7 @@ def check(snapshot) -> list[str]:
             errors.append(f"{row['key']}: ours {row['ours']!r} != engine {our_key} {ours!r}")
             continue
         errors += check_ours_extras(f"row {row['key']}", snapshot, row["key"], row)
+        errors += check_market(f"row {row['key']}", values, our_key, snapshot["used"], row["market"])
         gaps = {}
         for chart, cell in row["cells"].items():
             value = values.get(chart)
@@ -464,6 +495,7 @@ def check(snapshot) -> list[str]:
             errors.append(f"card {card['key']}: {card['ours']!r} vs engine {our_key} {values.get(our_key)!r}")
             continue
         errors += check_ours_extras(f"card {card['key']}", snapshot, card["key"], card)
+        errors += check_market(f"card {card['key']}", values, our_key, snapshot["used"], card["market"])
         errors += check_run(f"card {card['key']}", values, our_key, card["cells"])
     return errors
 
@@ -876,6 +908,11 @@ class TradeTargetsRenderTest(unittest.TestCase):
                                                            "      if (!finite(ours) || row.ddfLowConfidence) {")}, numbers_only),
             "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, DDF_KEY)) {\n      const node = lowConfidenceNode(row);",
                                                          "    if (false) {\n      const node = lowConfidenceNode(row);")}, numbers_only),
+            # JEG-504
+            "market difference symbol flipped": ({"v2_js": (v2, 'diff.textContent = `${m.diff > 0 ? "▲" : "▼"}', 'diff.textContent = `${m.diff > 0 ? "▼" : "▲"}')}, numbers_only),
+            "market average counts only compared-and-positive": ({"targets_js": (targets, "const values = Object.values(cells).map(cell => cell.value).filter(finite);",
+                                                                                 "const values = Object.values(cells).map(cell => cell.value).filter(v => finite(v) && v > 0);")}, numbers_only),
+            "equal case duplicates the number": ({"targets_js": (targets, "equal: ours.toFixed(1) === value.toFixed(1)}", "equal: false}")}, numbers_only),
             "native rank off by one": ({"v2_js": (v2, "native.textContent = `#${rank} on", "native.textContent = `#${rank + 1} on")}, numbers_only),
         }
         for name, (mutation, opts) in broken.items():
