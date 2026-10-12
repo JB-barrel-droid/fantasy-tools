@@ -195,11 +195,14 @@ def check_league(page) -> list[str]:
     # depend on the roster, so the test makes the engine re-clamp on the next team change.
     page.evaluate("""() => { const C = window.TradeValueCurveControls; const setTeams = C.setTeams;
       C.setTeams = t => { setTeams(t); C.setBenchShareFraction(0.2); }; }""")
+    # Since JEG-536 the bench share in effect is the computed readout, not a fixed 15%,
+    # so the toast names whatever the engine reports just before the change.
+    bench_before = page.evaluate("() => window.TradeValueCurveControls.getBenchShare()")
     page.click("#v2EditLeague")
     page.click('#v2Popover .v2-pseg button[data-value="14"]')
     page.click('#v2Popover [data-apply="league"]')
     toast = page.evaluate("() => document.getElementById('v2Status').hidden ? '' : document.getElementById('v2Status').textContent")
-    if "Bench share moved from 15.0% to 20.0%" not in toast:
+    if f"Bench share moved from {bench_before * 100:.1f}% to 20.0%" not in toast:
         errors.append(f"league: bench re-clamp not reported: {toast!r}")
     page.evaluate("() => window.TradeValueCurveControls.setBenchShareFraction(0.15)")
     page.click("#v2EditLeague")
@@ -415,8 +418,10 @@ def check_toolbar(page) -> list[str]:
     if sticky != "sticky":
         errors.append(f"toolbar: position {sticky}, want sticky")
     # Chart: only direct manipulation inside (brushes, zoom), no rank-window buttons.
+    # The card's own expand and collapse buttons (.v2-mod-ctl, JEG-500) are not chart
+    # controls; tests/test_v2_modules_render.py covers them.
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
-      .filter(n => n.offsetParent).map(n => n.id || n.textContent.trim())""")
+      .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl')).map(n => n.id || n.textContent.trim())""")
     allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
                "v2ExpandChart", "v2ResetZoom"}   # JEG-483: expand and (while zoomed) Reset zoom
     extra = [n for n in inside if n not in allowed]

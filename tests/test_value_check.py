@@ -137,7 +137,11 @@ class SeededMismatch(unittest.TestCase):
                 self.assertIn("fantasycalc", section["validationHold"]["reason"])
             else:
                 self.assertNotIn("_marker", section, sec)
-                self.assertNotIn("validationHold", section, sec)
+                # Other sources keep whatever hold the live fixture already
+                # carries (a fidelity-pulse hold is real data state, so the
+                # test must not assume the fixture has none).
+                self.assertEqual(section.get("validationHold"),
+                                 fixture["sources"][sec].get("validationHold"), sec)
         # The reference keeps a held source out of the DDF Value (VP-1).
         inp = ref.Inputs.load()
         inp.fixture = held
