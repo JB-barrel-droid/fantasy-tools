@@ -495,6 +495,8 @@ test-core:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_value_reference_worked_example
+	python3 -m unittest tests.test_roster_convention
+	python3 -m unittest tests.test_roster_convention_parity
 
 test-all: naming naming-convention test-unit
 
