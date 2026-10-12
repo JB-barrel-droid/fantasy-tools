@@ -47,7 +47,21 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 sys.path.insert(0, str(REPO))
+
+from lib.roster_convention import (
+    allocate_league as _conv_allocate_league,
+    starter_line as _conv_starter_line,
+    waiver_line as _conv_waiver_line,
+    POSITIONS as _CONV_POSITIONS,
+    SKILL_POSITIONS as _CONV_SKILL_POSITIONS,
+    FLEX_ELIGIBLE as _CONV_FLEX_ELIGIBLE,
+    DEFAULT_SLOTS,
+    DEFAULT_FLEX,
+    DEFAULT_SUPERFLEX,
+    DEFAULT_BENCH,
+)
 
 PARAMS = REPO / "output" / "lineup-parameters.json"
 OUT = REPO / "output" / "expected-starts-before-after.json"
@@ -59,11 +73,7 @@ SCORINGS = ("standard", "half_ppr", "ppr")
 TEAM_COUNTS = (8, 10, 12, 14)
 PROJECTIONS = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
 CHARTS = ("fantasycalc", "usatoday", "fantasypros", "cbs")
-ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
-FLEX_ELIGIBLE = ("RB", "WR", "TE")
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 PIE_PER_STARTING_SLOT = 28.0
-STARTERS_PER_TEAM = ROSTER["QB"] + ROSTER["RB"] + ROSTER["WR"] + ROSTER["TE"] + ROSTER["FLEX"]
 TOP_MOVERS = 30
 # First-pass assumptions (JEG-521 description), kept only for the sensitivity table.
 FIRST_PASS = {"m": {"QB": 0.11, "RB": 0.17, "WR": 0.14, "TE": 0.13}, "sigma_rel": 0.25}
@@ -121,48 +131,64 @@ def binomial_at_least(n: int, q: float, k: int) -> float:
     return sum(math.comb(n, j) * q ** j * (1 - q) ** (n - j) for j in range(k, n + 1))
 
 
-# ------------------------------------------------------------------ roster allocation (VP-2.2)
+# ------------------------------------------------------------------ roster allocation (VP-2.2, convention)
 
-def dhondt(seats: int, weights: dict, order=POSITIONS) -> dict:
-    alloc = {p: 0 for p in weights}
-    for _ in range(max(0, seats)):
-        best, best_q = None, -1.0
-        for p in order:
-            q = weights[p] / (alloc[p] + 1)
-            if q > best_q + 1e-15:
-                best, best_q = p, q
-        alloc[best] += 1
-    return alloc
+def alloc(lists: dict, teams: int,
+          slots: dict = DEFAULT_SLOTS,
+          flex: int = DEFAULT_FLEX,
+          superflex: int = DEFAULT_SUPERFLEX,
+          bench: int = DEFAULT_BENCH) -> dict:
+    """Convention-based league allocation (JEG-562).
 
+    lists: {pos: [values sorted descending]} for at least the skill positions.
+    Returns per skill position {dedicated, flex, starters, bench, rostered}.
+    Uses allocate_league from roster_convention which handles K/DEF bench
+    seats, the market bench ratios, and superflex.
+    """
+    player_order = {}
+    player_scores = {}
+    for p in _CONV_POSITIONS:
+        vals = lists.get(p, [])
+        order = []
+        for k, v in enumerate(vals):
+            key = (p, k)
+            order.append(key)
+            player_scores[key] = v
+        player_order[p] = order
 
-def alloc(lists: dict, teams: int, roster=ROSTER) -> dict:
-    """lists: {pos: [values sorted descending]}. Returns per position
-    {dedicated, flex, starters, bench, rostered}. Greedy flex (OC-4 A)."""
-    d = {p: teams * roster[p] for p in POSITIONS}
-    cands = []
-    for p in FLEX_ELIGIBLE:
-        for i, v in enumerate(lists[p][d[p]:], start=d[p]):
-            cands.append((-v, POSITIONS.index(p), i, p))
-    cands.sort()
-    fx = {p: 0 for p in POSITIONS}
-    for c in cands[:teams * roster["FLEX"]]:
-        fx[c[3]] += 1
-    bench = dhondt(round(teams * roster["BENCH"] + 1e-9), dict(BENCH_MIX_12))
+    a = _conv_allocate_league(
+        slots, teams, bench, flex, superflex,
+        player_order=player_order,
+        player_scores=player_scores,
+    )
+    # Return only skill positions (what the callers use)
     out = {}
     for p in POSITIONS:
-        s = d[p] + fx[p]
-        out[p] = {"dedicated": d[p], "flex": fx[p], "starters": s, "bench": bench[p], "rostered": s + bench[p]}
+        out[p] = {
+            "dedicated": a[p]["dedicated"],
+            "flex": a[p]["flex"],
+            "starters": a[p]["starters"],
+            "bench": a[p]["bench"],
+            "rostered": a[p]["rostered"],
+        }
     return out
 
 
 def lines(values: list, starters: int, rostered: int) -> tuple:
-    """Waiver line w (value at index N, else the last listed) and starter line
-    l (value at index S, else w), with l >= w. VP-2.3 / VP-2.5 without imputation."""
+    """Convention rules 3 and 4: starter line = midpoint of last starter and
+    first non-starter; waiver line = first player not rostered. Returns (w, l)
+    with l >= w.  (JEG-562: replaces first-non-starter rule with midpoint.)"""
     if not values:
         return None, None
-    w = values[rostered] if len(values) > rostered else values[-1]
-    l = values[starters] if len(values) > starters else w
-    return w, max(l, w)
+    w = _conv_waiver_line(values, rostered)
+    l = _conv_starter_line(values, starters)
+    if w is None:
+        w = values[-1] if values else None
+    if l is None:
+        l = w
+    if w is not None and l is not None:
+        l = max(l, w)
+    return w, l
 
 
 # ------------------------------------------------------------------ expected-starts components (ES-4..6)
@@ -266,7 +292,7 @@ def run_setting(sources: list, teams: int, params: dict, chart_sigma: dict, vari
                 form: str = "share") -> dict:
     """sources: list of SourceLists (included set I). params: {pos: {m, sigma_rel,
     sigma_floor}, bye}. Returns adjusted values per source, DDF, weights, shares."""
-    pie = PIE_PER_STARTING_SLOT * teams * STARTERS_PER_TEAM
+    pie = PIE_PER_STARTING_SLOT * teams * _starters_per_team()
     bye = params["bye"]
     per_source = {}
     for src in sources:
@@ -367,9 +393,10 @@ def reweight_option_b(W: dict, per_source: dict, sources: list, teams: int) -> d
 
 # ------------------------------------------------------------------ metrics
 
-def tiers_on_mean(sources: list, teams: int) -> dict:
+def tiers_on_mean(sources: list, teams: int, **alloc_kw) -> dict:
     """{key: (pos, tier, mean_ppg)} from the projections' mean points per game
-    (VP-7); the bench tier is what 'bench share' is measured on."""
+    (VP-7); kept for backward compatibility. New code should use
+    tiers_on_values for convention rule 6."""
     acc = defaultdict(list)
     pos_of = {}
     for src in sources:
@@ -380,15 +407,37 @@ def tiers_on_mean(sources: list, teams: int) -> dict:
                 acc[k].append(v)
                 pos_of[k] = p
     mean = {k: statistics.mean(v) for k, v in acc.items()}
-    lists = {p: sorted((v for k, v in mean.items() if pos_of[k] == p), reverse=True) for p in POSITIONS}
-    counts = alloc(lists, teams)
-    ranked = {p: sorted((k for k in mean if pos_of[k] == p), key=lambda k: (-mean[k], k)) for p in POSITIONS}
+    return tiers_on_values(mean, pos_of, teams, **alloc_kw)
+
+
+def tiers_on_values(values: dict, pos_of: dict, teams: int, **alloc_kw) -> dict:
+    """Convention rule 6: tier each player by rank on the list being valued.
+
+    {key: {"pos", "tier", "value", "v"}} where tier is "starter", "bench"
+    or "waiver" based on the player's rank in `values` within their position.
+    "v" is the player's value above the waiver line.
+
+    JEG-562: replaces tiers_on_mean for bench-share measurement. When
+    measuring DDF bench share, pass the DDF values as `values`; when
+    measuring per-source, pass that source's values. This is the fix for
+    the inflated 22.6% QB bench share (JEG-546).
+    """
+    lists = {p: sorted((v for k, v in values.items() if pos_of.get(k) == p and v is not None),
+                        reverse=True)
+             for p in POSITIONS}
+    counts = alloc(lists, teams, **alloc_kw)
+    ranked = {p: sorted((k for k in values if pos_of.get(k) == p and values[k] is not None),
+                         key=lambda k: (-values[k], k))
+              for p in POSITIONS}
     out = {}
     for p in POSITIONS:
-        w, l = lines(lists[p], counts[p]["starters"], counts[p]["rostered"])
+        w, _l = lines(lists[p], counts[p]["starters"], counts[p]["rostered"])
         for i, k in enumerate(ranked[p]):
-            tier = "starter" if i < counts[p]["starters"] else ("bench" if i < counts[p]["rostered"] else "waiver")
-            out[k] = {"pos": p, "tier": tier, "mean": mean[k], "v": max(0.0, mean[k] - w) if w is not None else 0.0}
+            tier = ("starter" if i < counts[p]["starters"]
+                    else ("bench" if i < counts[p]["rostered"] else "waiver"))
+            val = values[k]
+            out[k] = {"pos": p, "tier": tier, "value": val,
+                      "v": max(0.0, val - w) if (w is not None and val is not None) else 0.0}
     return out
 
 
@@ -546,30 +595,64 @@ def before_values(inp, hist, scoring: str, teams: int) -> dict:
 
 # ------------------------------------------------------------------ the comparison
 
+def _starters_per_team(slots: dict = DEFAULT_SLOTS, flex: int = DEFAULT_FLEX,
+                       superflex: int = DEFAULT_SUPERFLEX) -> int:
+    return sum(int(slots.get(p, 0)) for p in POSITIONS) + flex + superflex
+
+
+def _projection_mean(sources: list) -> tuple[dict, dict]:
+    """Mean projection PPG and pos_of from the projection sources."""
+    acc = defaultdict(list)
+    pos_of = {}
+    for src in sources:
+        if src.family != "projection":
+            continue
+        for p in POSITIONS:
+            for k, v in src.lists[p]:
+                acc[k].append(v)
+                pos_of[k] = p
+    mean = {k: statistics.mean(v) for k, v in acc.items()}
+    return mean, pos_of
+
+
 def compare_setting(inp, hist, scoring: str, teams: int, params: dict, names: dict) -> dict:
     sources, pos_of = load_sources(inp, scoring, teams)
     chart_sigma = chart_sigma_from(sources, teams)
-    tiers = tiers_on_mean(sources, teams)
-    keys = sorted(tiers)
+    mean_ppg, _ = _projection_mean(sources)
+    # All player keys across all sources
+    all_keys = set()
+    for src in sources:
+        for p in POSITIONS:
+            all_keys.update(src.keys(p))
     before = before_values(inp, hist, scoring, teams)
-    pie = PIE_PER_STARTING_SLOT * teams * STARTERS_PER_TEAM
-    b_total = sum(v for k, v in before["ddf"].items() if k in tiers)
-    before_scaled = {k: v * pie / b_total for k, v in before["ddf"].items() if k in tiers} if b_total else {}
+    spt = _starters_per_team()
+    pie = PIE_PER_STARTING_SLOT * teams * spt
+    # Before: tier on the before DDF values (convention rule 6)
+    b_keys = {k for k in before["ddf"] if k in pos_of}
+    b_total = sum(before["ddf"][k] for k in b_keys)
+    before_scaled = {k: before["ddf"][k] * pie / b_total for k in b_keys} if b_total else {}
+    before_tiers = tiers_on_values(before_scaled, pos_of, teams)
     out = {"setting": {"scoring": scoring, "teams": teams}, "pie": pie, "before_total_unscaled": b_total,
            "chart_sigma": chart_sigma, "variants": {}}
-    out["before"] = shares_and_ratio(before_scaled, tiers, teams)
+    out["before"] = shares_and_ratio(before_scaled, before_tiers, teams)
     for variant, form in (("A", "share"), ("A-option", "option"), ("B", "share")):
         run = run_setting(sources, teams, params, chart_sigma, variant[0], form)
-        ddf = ddf_mean(run["adjusted"], keys)
-        metrics = shares_and_ratio(ddf, tiers, teams)
+        ddf = ddf_mean(run["adjusted"], sorted(all_keys))
+        # Convention rule 6: tier on the DDF values being measured
+        ddf_tiers = tiers_on_values(
+            {k: v for k, v in ddf.items() if v is not None}, pos_of, teams)
+        metrics = shares_and_ratio(ddf, ddf_tiers, teams)
         fill_share = sum(v for g, v in run["weights"].items() if g.endswith("|bench"))
         movers = []
-        for k in keys:
+        for k in sorted(all_keys):
             a, b = ddf.get(k), before_scaled.get(k)
             if a is None or b is None:
                 continue
-            movers.append({"key": k, "name": names.get(k, str(k)), "pos": tiers[k]["pos"], "tier": tiers[k]["tier"],
-                           "mean_ppg": round(tiers[k]["mean"], 2), "before": round(b, 2), "after": round(a, 2),
+            t = ddf_tiers.get(k) or before_tiers.get(k)
+            if t is None:
+                continue
+            movers.append({"key": k, "name": names.get(k, str(k)), "pos": t["pos"], "tier": t["tier"],
+                           "mean_ppg": round(mean_ppg.get(k, 0), 2), "before": round(b, 2), "after": round(a, 2),
                            "change": round(a - b, 2)})
         movers.sort(key=lambda m: -abs(m["change"]))
         proj_sources = [s for s in sources if s.family == "projection"]
@@ -577,10 +660,11 @@ def compare_setting(inp, hist, scoring: str, teams: int, params: dict, names: di
             "weights": run["weights"], "fill_state_share": fill_share, "metrics": metrics,
             "inversions": inversions(run["adjusted"], sources),
             "top_movers": movers[:TOP_MOVERS],
-            "top_values": sorted(({"key": k, "name": names.get(k, str(k)), "pos": tiers[k]["pos"], "value": round(v, 2)}
-                                  for k, v in ddf.items() if v is not None), key=lambda r: -r["value"])[:10],
+            "top_values": sorted(({"key": k, "name": names.get(k, str(k)), "pos": ddf_tiers[k]["pos"], "value": round(v, 2)}
+                                  for k, v in ddf.items() if v is not None and k in ddf_tiers),
+                                 key=lambda r: -r["value"])[:10],
             "source_bench_tier_share": {s.key: _source_bench_tier(run, s) for s in sources},
-            "lineup_share_examples": _share_examples(run, proj_sources, names, tiers),
+            "lineup_share_examples": _share_examples(run, proj_sources, names, ddf_tiers),
         }
     return out
 
@@ -620,15 +704,22 @@ def _share_examples(run, proj_sources, names, tiers) -> list:
 def sensitivity(inp, scoring: str, teams: int, params: dict) -> list:
     """Bench-tier share and starter/bench price at one setting across m and
     sigma multipliers, the first-pass assumptions, and the two bounds."""
-    sources, _ = load_sources(inp, scoring, teams)
+    sources, pos_of = load_sources(inp, scoring, teams)
     chart_sigma = chart_sigma_from(sources, teams)
-    tiers = tiers_on_mean(sources, teams)
-    keys = sorted(tiers)
+    # Collect all keys from all sources for DDF
+    all_keys = set()
+    for src in sources:
+        for p in POSITIONS:
+            all_keys.update(src.keys(p))
+    keys = sorted(all_keys)
     rows = []
 
     def run(label, prm, csig=None, form="share"):
         r = run_setting(sources, teams, prm, csig or chart_sigma, "A", form)
         ddf = ddf_mean(r["adjusted"], keys)
+        # Convention rule 6: tier on the DDF values being measured
+        tiers = tiers_on_values(
+            {k: v for k, v in ddf.items() if v is not None}, pos_of, teams)
         met = shares_and_ratio(ddf, tiers, teams)
         rows.append({"label": label, "top_tier_share": met["top_tier_share"], "m": {p: round(prm[p]["m"], 3) for p in POSITIONS},
                      "sigma_rel": {p: round(prm[p]["sigma_rel"], 3) for p in POSITIONS},
@@ -673,7 +764,10 @@ def sensitivity(inp, scoring: str, teams: int, params: dict) -> list:
                 vals[k] = max(0.0, x - w) if w is not None else 0.0
         tot = sum(vals.values())
         plain[src.key] = {k: v * r["pie"] / tot for k, v in vals.items()} if tot else vals
-    met = shares_and_ratio(ddf_mean(plain, keys), tiers, teams)
+    plain_ddf = ddf_mean(plain, keys)
+    plain_tiers = tiers_on_values(
+        {k: v for k, v in plain_ddf.items() if v is not None}, pos_of, teams)
+    met = shares_and_ratio(plain_ddf, plain_tiers, teams)
     rows.append({"label": "upper bound: plain value above waivers (bench starts every week)",
                  "top_tier_share": met["top_tier_share"],
                  "m": {p: 0.0 for p in POSITIONS}, "sigma_rel": {p: 0.0 for p in POSITIONS},
@@ -809,17 +903,25 @@ def bench_share_readout(inp, scoring: str, teams: int, cfg: dict, hist=None, ben
 
 def bench_share_readout_standalone(inp, scoring: str, teams: int, cfg: dict, **settings) -> dict:
     """The readout on this module's standalone analysis run (run_setting), as
-    first written for JEG-533; superseded by bench_share_readout() above."""
+    first written for JEG-533; superseded by bench_share_readout() above.
+    JEG-562: now tiers by DDF values (convention rule 6), not projection mean."""
     import derive_lineup_parameters as dl
     res = dl.resolve(cfg, **settings)
     params = {"bye": res["bye"], **{p: dict(res["positions"][p]) for p in POSITIONS}}
-    sources, _ = load_sources(inp, scoring, teams)
+    sources, pos_of = load_sources(inp, scoring, teams)
     cs = chart_sigma_from(sources, teams)
     if res["projection_confidence"] != 1.0:
         cs = {p: {**cs[p], "sigma_rel": cs[p]["sigma_rel"] * res["projection_confidence"]} for p in POSITIONS}
-    tiers = tiers_on_mean(sources, teams)
+    all_keys = set()
+    for src in sources:
+        for p in POSITIONS:
+            all_keys.update(src.keys(p))
     run = run_setting(sources, teams, params, cs, "A")
-    met = shares_and_ratio(ddf_mean(run["adjusted"], sorted(tiers)), tiers, teams)
+    ddf = ddf_mean(run["adjusted"], sorted(all_keys))
+    # Convention rule 6: tier on the DDF values being measured
+    tiers = tiers_on_values(
+        {k: v for k, v in ddf.items() if v is not None}, pos_of, teams)
+    met = shares_and_ratio(ddf, tiers, teams)
     return {"settings": {k: res[k] for k in ("objective", "injury_history", "league_weeks", "content_week",
                                               "projection_confidence", "window")},
             "scoring": scoring, "teams": teams,
