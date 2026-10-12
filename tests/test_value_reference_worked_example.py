@@ -277,5 +277,46 @@ class CheckerCatchesBrokenRules(unittest.TestCase):
         self.assertTrue(check(fx, run(fx, 0.35)))
 
 
+
+class ExpectedStartsVariant(unittest.TestCase):
+    """JEG-536 (ES-11): the Python reference reproduces the expected-starts
+    variants (tools/worked_example_expected_starts.py writes them from this
+    module; the engine and the spec reference reproduce them independently)."""
+
+    def run_variant(self, name: str, **league_change):
+        sys.path.insert(0, str(REPO))
+        from tests import _es_worked_example as esx
+        fx = load()
+        var = fx[name]
+        s = {**fx["setting"], **var["setting_change"]}
+        league = ref.League(teams=s["teams"], slots=dict(s["slots"]), flex=s["flex"], superflex=s["superflex"],
+                            bench=s["bench_per_team"], bench_share=s["bench_share"],
+                            flex_eligible=tuple(s["flex_eligible"]),
+                            bench_share_override=league_change.get("bench_share_override",
+                                                                   s.get("bench_share_override")))
+        pos_of = {int(i): p["pos"] for i, p in fx["players"].items()}
+        included = [k for k, v in fx["inputs"].items() if v["status"] == "included"]
+        res = ref.run_pipeline(league, sources_of(fx), pos_of, included, lineup=var["lineup"])
+        return esx.variant_problems(fx, name, res)
+
+    def test_variants_reproduced(self):
+        sys.path.insert(0, str(REPO))
+        from tests import _es_worked_example as esx
+        for name in esx.VARIANTS:
+            self.assertEqual(self.run_variant(name), [])
+
+    def test_fixed_share_is_caught(self):
+        self.assertNotEqual(self.run_variant("variant_expected_starts", bench_share_override=0.15), [])
+
+    def test_no_fill_in_band_is_caught(self):
+        with mock.patch.object(ref, "_at_least", lambda n, q, k: 0.0):
+            self.assertNotEqual(self.run_variant("variant_expected_starts"), [])
+
+    def test_generator_is_up_to_date(self):
+        import subprocess
+        proc = subprocess.run([sys.executable, str(REPO / "tools" / "worked_example_expected_starts.py"), "--check"],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
 if __name__ == "__main__":
     unittest.main()
