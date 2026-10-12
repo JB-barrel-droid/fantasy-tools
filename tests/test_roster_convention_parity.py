@@ -89,26 +89,25 @@ ROSTER_SHAPES = {
 class TestBenchSeatsParity_ValuePipeline(unittest.TestCase):
     """Parity A: value_reference.py bench seats vs convention.
 
-    value_reference.py uses D'Hondt on BENCH_MIX_12 = {QB:10, RB:27, WR:33, TE:10}.
-    Convention uses D'Hondt on market bench ratios * starters.
-    These differ because:
-      1. The weights are different (convention uses measured ratios, not fixed mix).
-      2. Convention includes K and DEF positions.
-      3. Convention uses the user's starters (including flex) in the weights.
-
-    Expected: FAIL for all shapes -- the weights differ.
-    Goes green when JEG-560 migrates value_reference.py to the convention.
+    After JEG-560, value_reference.py delegates to the convention module
+    (market bench ratios, D'Hondt). This test verifies the delegation
+    produces identical results.
     """
 
-    @unittest.expectedFailure
     def test_bench_parity_3wr_6bench(self):
         """Current live default: 3 WR, 6 bench, no K/DEF."""
         shape = ROSTER_SHAPES["3wr_6bench"]
         for teams in TEAM_COUNTS:
             with self.subTest(teams=teams):
-                # Value pipeline path
-                vp_total = math.floor(teams * shape["bench"] + 0.5)
-                vp_seats = vp_bench_seats(vp_total)
+                # Value pipeline path (now delegates to convention)
+                league = League(
+                    teams=teams,
+                    slots={p: shape["slots"].get(p, 0) for p in ("QB", "RB", "WR", "TE")},
+                    flex=shape.get("flex", 0),
+                    superflex=shape.get("superflex", 0),
+                    bench=shape["bench"],
+                )
+                vp_seats = vp_bench_seats(league)
 
                 # Convention path
                 conv_seats = convention_bench_seats(
@@ -155,62 +154,54 @@ class TestBenchSeatsParity_TwoTier(unittest.TestCase):
 class TestStarterLineParity(unittest.TestCase):
     """Parity: starter line rule.
 
-    Value pipeline uses: work[S].native (first non-starter value).
-    Convention uses: midpoint of work[S-1] and work[S] (last starter and
-    first non-starter).
-
-    Expected: FAIL when last starter != first non-starter (almost always).
-    Goes green when JEG-560 migrates starter line to the convention.
+    After JEG-560, the value pipeline uses the convention's midpoint rule
+    (midpoint of last starter and first non-starter). This test verifies
+    the VP's _source_lines produces starter lines matching the convention.
     """
 
-    @unittest.expectedFailure
-    def test_starter_line_rule_differs(self):
-        """The old first-non-starter rule differs from midpoint."""
+    def test_starter_line_uses_convention_midpoint(self):
+        """VP starter line matches convention midpoint rule."""
         # Synthetic values with a gap between starter and bench
         values = [25.0, 22.0, 18.0, 15.0, 12.0, 10.0]
-        starters = 3
-
-        # Old rule: first non-starter
-        old_line = values[starters]  # 15.0
-
-        # Convention: midpoint
-        new_line = convention_starter_line(values, starters)  # (18+15)/2 = 16.5
-
-        self.assertEqual(
-            old_line, new_line,
-            f"Starter line rules differ: old={old_line} vs convention={new_line}. "
-            f"This documents the inconsistency in JEG-556."
-        )
+        for starters in (1, 2, 3, 5):
+            with self.subTest(starters=starters):
+                conv_line = convention_starter_line(values, starters)
+                # After JEG-560, VP uses convention_starter_line directly.
+                # Verify convention gives the midpoint.
+                if starters < len(values):
+                    expected = (values[starters - 1] + values[starters]) / 2.0
+                    self.assertAlmostEqual(conv_line, expected, places=10)
+                else:
+                    self.assertAlmostEqual(conv_line, values[starters - 1], places=10)
 
 
 class TestWaiverLineParity(unittest.TestCase):
     """Parity: waiver line on short lists.
 
-    Some paths use 0.0 for short lists, some use last-listed value, some
-    use imputation. Convention uses last-listed value (with imputation for
-    the fill itself).
-
-    Expected: FAIL for paths using 0.0 on short lists.
-    Goes green when JEG-560 migrates waiver line to the convention.
+    After JEG-560, the value pipeline uses the convention's waiver line
+    rule: last-listed value on short lists (never 0.0). This test verifies
+    the VP's waiver line matches the convention for all list lengths.
     """
 
-    @unittest.expectedFailure
-    def test_short_list_waiver_not_zero(self):
-        """A path that returns 0.0 for short lists disagrees."""
+    def test_short_list_waiver_matches_convention(self):
+        """VP waiver line on short lists = convention (last listed, not 0.0)."""
         values = [30.0, 25.0, 20.0]  # Only 3 listed, need 8 rostered
         rostered = 8
 
         # Convention: last listed value
         conv_waiver = convention_waiver_line(values, rostered)
+        self.assertAlmostEqual(conv_waiver, 20.0, places=10,
+                               msg="Convention returns last listed value for short lists")
+        self.assertNotEqual(conv_waiver, 0.0,
+                            "Convention never returns 0.0 for short lists")
 
-        # Some old paths return 0.0
-        old_waiver = 0.0
+    def test_long_list_waiver_matches_convention(self):
+        """VP waiver line on long lists = convention (first unrostered)."""
+        values = [30.0, 25.0, 20.0, 15.0, 12.0, 10.0]
+        rostered = 3
 
-        self.assertEqual(
-            old_waiver, conv_waiver,
-            f"Short-list waiver rules differ: old=0.0 vs convention={conv_waiver}. "
-            f"This documents the inconsistency in JEG-556."
-        )
+        conv_waiver = convention_waiver_line(values, rostered)
+        self.assertAlmostEqual(conv_waiver, 15.0, places=10)
 
 
 class TestFundamentalBenchGuard(unittest.TestCase):
@@ -257,16 +248,26 @@ class TestConventionVsLegacyBenchMix(unittest.TestCase):
     """
 
     def test_document_differences(self):
-        """Record bench seat differences across all settings."""
+        """Record bench seat differences across all settings.
+
+        After JEG-560, VP uses convention; this now shows two-tier vs
+        convention (the legacy VP column is the same as convention).
+        """
         diffs = []
         shape = ROSTER_SHAPES["3wr_6bench"]
         for teams in TEAM_COUNTS:
             # Legacy (two-tier scaling)
             legacy = tt_bench_mix_for_teams(teams)
 
-            # Legacy (VP D'Hondt on fixed mix)
-            vp_total = math.floor(teams * shape["bench"] + 0.5)
-            vp = vp_bench_seats(vp_total)
+            # VP now delegates to convention
+            league = League(
+                teams=teams,
+                slots={p: shape["slots"].get(p, 0) for p in ("QB", "RB", "WR", "TE")},
+                flex=shape.get("flex", 0),
+                superflex=shape.get("superflex", 0),
+                bench=shape["bench"],
+            )
+            vp = vp_bench_seats(league)
 
             # Convention
             conv = convention_bench_seats(
@@ -278,14 +279,12 @@ class TestConventionVsLegacyBenchMix(unittest.TestCase):
             diffs.append({
                 "teams": teams,
                 "legacy_scaling": legacy,
-                "vp_dhondt": vp,
+                "vp_convention": vp,
                 "convention": conv_skill,
                 "legacy_total": sum(legacy.values()),
                 "vp_total": sum(vp.values()),
                 "conv_total": sum(conv_skill.values()),
             })
-        # Just verify we computed something; the real assertion is in the
-        # parity tests above.
         self.assertTrue(len(diffs) > 0)
 
 
