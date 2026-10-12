@@ -1572,6 +1572,8 @@
 
   // ---------- popovers (sources 09, league 12, weights 11, freshness 10, range) ----------
   let popoverAnchor = null;
+  let hoverOpened = false;
+  let hoverHold = null; // the hovered info button's timers, so the popover can hold or release it
   function openPopover(anchor, build) {
     const pop = $("v2Popover");
     pop.replaceChildren();
@@ -1589,7 +1591,7 @@
     const first = pop.querySelector("input, select, button");
     if (first) first.focus();
   }
-  function closePopover() {
+  function closePopover(skipFocus) {
     const pop = $("v2Popover");
     if (pop.hidden) return;
     pop.hidden = true;
@@ -1599,8 +1601,9 @@
     }
     // An anchor that announces its state (the ⓘ buttons) reads collapsed again.
     if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");
-    if (popoverAnchor && popoverAnchor.focus) popoverAnchor.focus();
+    if (skipFocus !== true && popoverAnchor && popoverAnchor.focus) popoverAnchor.focus();
     popoverAnchor = null;
+    hoverOpened = false;
   }
   function toggleEngineSource(key) {
     if (key === DDF_KEY) { ddfShown = !ddfShown; return true; }
@@ -2512,11 +2515,13 @@
     ["keydown", "keyup"].forEach(type => button.addEventListener(type, event => {
       if (event.key === "Enter" || event.key === " ") event.stopPropagation();
     }));
-    button.addEventListener("click", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (popoverAnchor === button && !$("v2Popover").hidden) { closePopover(); return; }
-      closePopover();
+    // JEG-501: on hover-capable pointers the popover opens after a short
+    // delay and stays while the pointer is on the button or the popover (a
+    // grace period lets it cross the gap). A click pins it; touch, click,
+    // keyboard and Esc behave as before.
+    const canHover = event => event.pointerType === "mouse" && window.matchMedia && window.matchMedia("(hover: hover)").matches;
+    const showInfo = fromHover => {
+      closePopover(true);
       openPopover(button, pop => {
         pop.classList.remove("is-panel");
         pop.classList.add("v2-info-pop");
@@ -2544,8 +2549,41 @@
         pop.append(h, text, foot);
       });
       button.setAttribute("aria-expanded", "true");
+      hoverOpened = fromHover;
       const link = $("v2Popover").querySelector("a");
-      if (link) link.focus();
+      if (link && !fromHover) link.focus();
+    };
+    let openTimer = null;
+    let closeTimer = null;
+    const popOpenForButton = () => popoverAnchor === button && !$("v2Popover").hidden;
+    const cancelTimers = () => { clearTimeout(openTimer); clearTimeout(closeTimer); };
+    const scheduleHoverClose = () => {
+      cancelTimers();
+      closeTimer = setTimeout(() => { if (popOpenForButton() && hoverOpened) closePopover(true); }, 250);
+    };
+    button.addEventListener("pointerenter", event => {
+      if (!canHover(event)) return;
+      cancelTimers();
+      hoverHold = {cancel: () => clearTimeout(closeTimer), schedule: scheduleHoverClose};
+      if (popOpenForButton()) return;
+      openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);
+    });
+    button.addEventListener("pointerleave", event => {
+      if (!canHover(event)) return;
+      clearTimeout(openTimer);
+      if (popOpenForButton() && hoverOpened) scheduleHoverClose();
+    });
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearTimeout(openTimer);
+      if (popOpenForButton()) {
+        if (hoverOpened) { hoverOpened = false; clearTimeout(closeTimer); return; }
+        closePopover();
+        return;
+      }
+      closePopover();
+      showInfo(false);
     });
     return button;
   }
@@ -4557,6 +4595,8 @@
       else if (!$("v2Drawer").hidden) closeDrawer();
       else if (expanded) closeExpanded();
     });
+    $("v2Popover").addEventListener("pointerenter", () => { if (hoverOpened && hoverHold) hoverHold.cancel(); });
+    $("v2Popover").addEventListener("pointerleave", () => { if (hoverOpened && hoverHold) hoverHold.schedule(); });
     document.addEventListener("mousedown", event => {
       const pop = $("v2Popover");
       if (pop.hidden || pop.contains(event.target) || (popoverAnchor && popoverAnchor.contains(event.target))) return;
