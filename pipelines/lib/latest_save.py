@@ -14,6 +14,10 @@ save is the rows with the newest ``pulled_at``; older rows are superseded.
 from __future__ import annotations
 
 from datetime import datetime
+try:
+    from lib.timestamps import parse_iso_timestamp
+except ImportError:  # pipelines/lib itself on sys.path
+    from timestamps import parse_iso_timestamp
 from typing import Any
 
 
@@ -21,7 +25,7 @@ def _ts(value: Any) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parse_iso_timestamp(str(value))
     except ValueError:
         return None
 
