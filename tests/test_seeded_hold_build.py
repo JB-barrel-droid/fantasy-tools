@@ -5,10 +5,14 @@ Jeremy (JEG-569 part 2, 2026-10-12): "gray out the source, run no calcs on
 it, gray out its derivatives. No computation on old data."
 
 This test seeds that state on the committed fixture: one published chart
-(FantasyCalc) and one projection (Razzball) held, both with combos stripped.
+(FantasyCalc) and one projection (Razzball) held, with validationHold set.
+Combos are KEPT so the engine includes the held source in the pipeline
+(weights, pie, universe) -- removing a source renormalizes every other
+source's values.  The page hides a held source's curves via validationHold.
+
 It requires:
 
-1. held sections have their combos emptied and carry a validationHold;
+1. held sections keep their combos and carry a validationHold;
 2. the fixture-level gate checks pass on that build: tests.test_static_export
    (run on the seeded fixture) and the test_superflex identity check.
 
@@ -59,16 +63,19 @@ class SeededHoldBuildTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def test_held_chart_has_empty_combos(self):
+    def test_held_chart_keeps_combos_and_has_hold(self):
+        """JEG-569 part 2: combos are kept so the engine can include the held
+        source in the pipeline (weights, pie, universe). The validationHold
+        flag tells the page to gray it out."""
         section = self.held["sources"][CHART]
-        self.assertEqual(section["combos"], {})
+        self.assertTrue(section.get("combos"), f"{CHART} combos should be preserved (not stripped)")
         hold = section["validationHold"]
         self.assertEqual(hold["reason"], "fidelity: publisher_vs_stored")
         self.assertEqual(hold["root"], CHART)
 
-    def test_held_projection_has_empty_combos(self):
+    def test_held_projection_keeps_combos_and_has_hold(self):
         section = self.held["sources"][PROJECTION]
-        self.assertEqual(section["combos"], {})
+        self.assertTrue(section.get("combos"), f"{PROJECTION} combos should be preserved (not stripped)")
         hold = section["validationHold"]
         self.assertEqual(hold["reason"], "fidelity: publisher_vs_stored")
         self.assertEqual(hold["root"], PROJECTION)

@@ -126,6 +126,8 @@ READ = """() => {
     vorp: document.getElementById('v2CVorpCard').hidden ? [] : read(document.getElementById('v2CVorpTable')),
     marked: [...document.querySelectorAll('#v2CTable tbody tr.is-verdict')].map(tr => ({key: tr.dataset.source,
       tag: tr.querySelector('.v2-cverdict-tag')?.textContent ?? null})),
+    heads: [...document.querySelectorAll('#v2CHeads .v2-chead')].map(p => ({line: p.dataset.line, answer: p.dataset.answer,
+      confidence: p.dataset.confidence, text: p.textContent, hidden: document.getElementById('v2CHeads').hidden})),
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
 
@@ -189,6 +191,27 @@ def check(snap) -> list[str]:
             errors.append(f"DDF Value row not marked as deciding the verdict: {snap['marked']}")
     else:
         errors.append("DDF Value is not shown; its row went unchecked")
+    # JEG-505: the two headline lines, each an answer and a confidence in words (and symbols), and the
+    # first line's answer is the sign of DDF Value's net recomputed from the engine.
+    heads = {h["line"]: h for h in snap["heads"]}
+    if set(heads) != {"propose", "accept"} or any(h["hidden"] for h in heads.values()):
+        errors.append(f"the verdict card must open with two headline lines: {snap['heads']}")
+    else:
+        for line, question in (("propose", "Should you propose or accept?"), ("accept", "Will they accept?")):
+            h = heads[line]
+            if not h["text"].startswith(question):
+                errors.append(f"{line} line must start with {question!r}: {h['text']!r}")
+            if h["answer"] != "none" and (f"{h['confidence']} confidence" not in h["text"] or not any(g in h["text"] for g in "▲▼=≈")):
+                errors.append(f"{line} line must carry a symbol and a confidence word: {h['text']!r}")
+        engine = snap["engine"]
+        ddf = [engine[k]["values"].get("ddf_value") for k in snap["give"] + snap["receive"]]
+        if all(isinstance(v, (int, float)) for v in ddf):
+            give_sum = sum(engine[k]["values"]["ddf_value"] for k in snap["give"])
+            receive_sum = sum(engine[k]["values"]["ddf_value"] for k in snap["receive"])
+            ddf_net = receive_sum - give_sum
+            want = "Yes" if ddf_net >= 0.05 else "No" if ddf_net <= -0.05 else "Even"
+            if heads["propose"]["answer"] != want:
+                errors.append(f"propose line says {heads['propose']['answer']!r}, DDF net {ddf_net:.2f} says {want!r}")
     errors += check_picker(snap["picker"], "Player values shown")
     if snap["firstShown"] != "ddf_value":
         errors.append(f"Player values shown opened on {snap['firstShown']!r}, not DDF Value")
@@ -295,6 +318,8 @@ class CompareTradeRenderTest(unittest.TestCase):
             "missing read as zero": {"trade.js": trade.replace(
                 "const value = row.values ? row.values[key] : null;",
                 "const value = (row.values ? row.values[key] : null) ?? 0;")},
+            "headline answer flipped": {"trade.js": trade.replace('v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even"',
+                                                                   'v.kind === "win" ? "No" : v.kind === "lose" ? "Yes" : "Even"', 1)},
             "VORP mixed into trade values": {"v2.js": v2.replace(
                 "const pointKeys = usable(view.plotKeys);",
                 "const pointKeys = usable(view.plotKeys.concat(view.vorpKeys));", 1)},

@@ -536,12 +536,13 @@ def last_published_fixture(repo: Path = REPO, rev: str = "HEAD") -> dict | None:
 
 def apply_holds(fixture: dict, last_good: dict | None, holds: dict, week: int | None,
                 reason_of: dict | None = None) -> dict:
-    """Return a fixture with every held root's sections' combos stripped
-    and marked validationHold. holds: {root: [sections]}.
+    """Return a fixture with held roots marked validationHold.
+    holds: {root: [sections]}.
 
-    JEG-569 part 2 (Jeremy, 2026-10-12): no computation on old data.
-    Held sections keep their metadata but combos are emptied.
-    Derivative sections (*_adjusted) are also stripped."""
+    JEG-569 part 2 (Jeremy, 2026-10-12): combos are KEPT so the engine
+    can include the held source in the pipeline (weights, pie, universe).
+    Removing a source from the pipeline renormalizes every other source's
+    values.  The page hides a held source's curves via validationHold."""
     out = copy.deepcopy(fixture)
     sources = out.setdefault("sources", {})
     for root, sections in holds.items():
@@ -555,7 +556,7 @@ def apply_holds(fixture: dict, last_good: dict | None, holds: dict, week: int | 
         for sec in all_secs:
             target = sources.get(sec)
             if isinstance(target, dict):
-                target["combos"] = {}
+                # Keep combos intact so the engine can compute with them.
                 target["validationHold"] = {"reason": reason, "week": week,
                                             "root": root}
     return out

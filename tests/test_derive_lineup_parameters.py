@@ -315,5 +315,23 @@ class LeagueWeeksAndResolver(unittest.TestCase):
             self.assertTrue(0.05 < cfg["positions"][p]["m_late"]["recent"] < 0.30)
 
 
+class MeasuredDrift(unittest.TestCase):
+    """JEG-540: sigma's weekly drift is measured on stored weekly projections."""
+
+    def test_drift_is_measured_and_plausible(self):
+        d = dl.measured_drift()
+        self.assertIsNotNone(d, "data/inputs/weekly_projections_sleeper.csv.gz missing")
+        for p in dl.POSITIONS:
+            self.assertTrue(0.005 < d[p]["drift_sd_per_week"] < 0.25, (p, d[p]))
+            self.assertGreater(d[p]["player_weeks_h1"], 1000)
+        # running backs move most; quarterbacks least
+        self.assertGreater(d["RB"]["drift_sd_per_week"], d["QB"]["drift_sd_per_week"])
+
+    def test_committed_config_uses_the_measured_drift(self):
+        cfg = json.loads(dl.CONFIG.read_text(encoding="utf-8"))
+        for p in dl.POSITIONS:
+            self.assertTrue(cfg["positions"][p]["sigma_weekly_source"].startswith("measured"), p)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -397,11 +397,16 @@
     if (!week || key === "espn") return base;
     return `${base} Wk ${week}`;
   }
-  const lockLabel = key => key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
+  // "DDF Value" already names a value, so it takes no "value" suffix (JEG-608).
+  const lockLabel = key => key === "disagreement" ? "Largest disagreement"
+    : key === "ddf_value" ? sourceLabel(key) : `${sourceLabel(key)} value`;
   const flexEligiblePositions = () => [...DEFAULT_FLEX_ELIGIBLE];
   const isPosition = player => position === "ALL" || (position === "FLEX" ? flexEligiblePositions().includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
-  const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
+  // JEG-569 part 2: hidden (held) sources have values in the pipeline but are
+  // not available for display. They participate in weights/pie only.
+  const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key)
+    && !pipelineState.hidden?.has(seriesSource(key) || key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key));
   const isLockKey = key => ["disagreement", COMPOSITE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   // VP-7.4: the default lock is the blended DDF Value.
@@ -560,9 +565,9 @@
   // Adjusted values; a "*_vorp" series its VORP vs waivers; a "*_adjusted"
   // alias its chart's Adjusted values.
   function seriesField(key, view = viewMode) {
-    if (PURE_VORP_KEYS.includes(key)) return "vorp";
+    if (PURE_VORP_KEYS.includes(key)) return VIEW_MODE_ORDER[1];
     if (ADJUSTED_INDEXED_KEYS.includes(key)) return "adjusted";
-    if (AS_PUBLISHED_KEYS.has(key)) return view === "vorp" ? "vorp" : view === "adj" ? "adjusted" : "indexed";
+    if (AS_PUBLISHED_KEYS.has(key)) return view === VIEW_MODE_ORDER[1] ? VIEW_MODE_ORDER[1] : view === "adj" ? "adjusted" : "indexed";
     return "adjusted";
   }
 
@@ -661,15 +666,17 @@
   }
 
   // VP-1.1: why a source is not eligible this week, or null.
-  // JEG-569 part 2 (Jeremy, 2026-10-12): a held source is grayed out with
-  // run: false -- no computation on old data. Its curve is not drawn.
+  // JEG-569 part 2 (Jeremy, 2026-10-12): a held source is included in the
+  // pipeline (so it contributes to weights, pie and universe) but its curves
+  // and values are hidden from the display. Removing a held source from the
+  // pipeline would renormalize every other source's values.
   function eligibilityReason(key, natives) {
     if (sourceMissingFromData(key)) return {reason: "missing from this build", run: false};
-    // Check holds first: a held source is not computed, period.
     const block = compositeBlock(key);
-    if (block && block.heldBy) return {reason: block.reason, run: false, block};
+    // Held sources: run in the pipeline (run: true) but hidden from display.
+    if (block && block.heldBy) return {reason: block.reason, run: true, hidden: true, block};
     if (sourceValidationStatus(key) !== undefined && sourceValidationStatus(key) !== "live") {
-      return {reason: "held: did not pass source validation", run: false};
+      return {reason: "held: did not pass source validation", run: true, hidden: true};
     }
     if (!natives.size) return {reason: `not available for ${scoreLabel()} / ${teams} teams`, run: false};
     if (block) return {reason: block.reason, run: true, block};
@@ -744,15 +751,27 @@
     const runReasons = {};
     const excluded = [];
     const eligible = [];
+    const hidden = new Set(); // JEG-569 part 2: held sources that run in the pipeline but are hidden from display
     PIPELINE_SOURCE_KEYS.forEach(key => {
       const values = currentNatives(key);
       const why = eligibilityReason(key, values);
       if (why) {
-        excluded.push({key, series: key, reason: why.reason, ...(why.block || {})});
+        excluded.push({key, series: key, reason: why.reason, ...(why.block || {}), hidden: !!why.hidden});
         if (!why.run) { runReasons[key] = why.reason; return; }
-      } else {
-        eligible.push(key);
+        // JEG-569 part 2: held sources are eligible (pipeline includes them for
+        // weights and pie) but hidden from curves and display.
+        if (why.hidden) {
+          hidden.add(key);
+          eligible.push(key);
+          natives[key] = values;
+          return;
+        }
+        // Not-yet-published or other run:true excluded sources: add natives but
+        // do not add to eligible (same as main's else-branch behavior).
+        natives[key] = values;
+        return;
       }
+      eligible.push(key);
       natives[key] = values;
     });
     // VP-1.2: I = the eligible sources with a prior-week snapshot, paired on
@@ -772,11 +791,11 @@
       });
     }
     pipelineNatives = natives;
-    pipeline = runPipeline(natives, included);
+    pipeline = runPipeline(natives, included, {hidden: [...hidden]});
     // ES-14: the bench share in effect is an output unless overridden.
     benchShare = benchShareOverride ?? pipeline.benchShare?.overall ?? DEFAULT_BENCH_SHARE;
     pipelineState = {
-      eligible, included,
+      eligible, included, hidden,
       excluded: PIPELINE_SOURCE_KEYS.map(key => excluded.find(e => e.key === key)).filter(Boolean),
       priorAvailable,
       priorReason: priorAvailable ? null : (eligible.length
@@ -824,7 +843,7 @@
         });
         const included = pipelineState.included.filter(key => natives[key]);
         result = Object.keys(natives).length
-          ? {result: runPipeline(natives, included, {pie: pipeline.pie}), dropped}
+          ? {result: runPipeline(natives, included, {pie: pipeline.pie, hidden: [...(pipelineState.hidden || [])]}), dropped}
           : {reason: `no source has Week ${week} saved`, dropped};
       }
     }
@@ -979,10 +998,14 @@
       if (entry) excluded.push({...entry});
       else if (compositeInputs && !compositeInputs.includes(key)) excluded.push({key, series: key, reason: "not selected"});
     });
+    // JEG-569 part 2: hidden sources are in the pipeline inputs (for
+    // stable weights/pie) but excluded from the display-facing series
+    // (they don't contribute to the DDF blend shown to the user).
+    const series = inputs.filter(key => !pipelineState.hidden?.has(key));
     return {
       version,
       inputs,
-      series: [...inputs],
+      series,
       requested: compositeInputs ? [...compositeInputs] : null,
       isDefault: compositeInputs === null,
       defaults: [...pipelineState.included],
@@ -1005,15 +1028,32 @@
     if (!row.missingReasons) row.missingReasons = {};
     const now = pipeline?.rows?.[row.player_key];
     const before = pipelinePrior?.rows?.[row.player_key];
+    // JEG-606: universe_only players have no pipeline row, but VP-6.2
+    // already set their individual chart values to 0 in buildRow.
+    // Compute the composite from row.values so ddf_value is 0 (not null).
+    const useRowValues = !now && row.universe_only;
     row.ddfByVersion = Object.fromEntries(COMPOSITE_VERSION_KEYS.map(version => {
       const name = COMPOSITE_VERSION_NAMES[version];
-      const cur = now?.ddfByVersion?.[name];
+      let value, count, sources, reason;
+      if (useRowValues) {
+        const inputs = COMPOSITE_VERSIONS[version];
+        const finite = inputs.filter(k => Number.isFinite(row.values[k]));
+        value = finite.length ? finite.reduce((s, k) => s + row.values[k], 0) / finite.length : null;
+        count = finite.length;
+        sources = finite;
+        reason = value !== null ? null
+          : (!pipelineState.included.length ? COMPOSITE_EMPTY_REASON : COMPOSITE_NONE_REASON);
+      } else {
+        const cur = now?.ddfByVersion?.[name];
+        const pri_unused = null; // handled below
+        value = cur && Number.isFinite(cur.value) ? cur.value : null;
+        count = cur ? cur.count : 0;
+        sources = cur ? [...cur.sources] : [];
+        reason = value !== null ? null
+          : (!pipelineState.included.length ? COMPOSITE_EMPTY_REASON : COMPOSITE_NONE_REASON);
+      }
       const pri = before?.ddfByVersion?.[name];
-      const value = cur && Number.isFinite(cur.value) ? cur.value : null;
-      const count = cur ? cur.count : 0;
-      const reason = value !== null ? null
-        : (!pipelineState.included.length ? COMPOSITE_EMPTY_REASON : COMPOSITE_NONE_REASON);
-      const entry = {value, count, sources: cur ? [...cur.sources] : [], reason,
+      const entry = {value, count, sources, reason,
         lowConfidence: count === 1,
         confidenceNote: count === 1 ? COMPOSITE_ONE_SOURCE_NOTE : null,
         prior: pri && Number.isFinite(pri.value) ? pri.value : null,
@@ -1071,7 +1111,7 @@
     const now = pick(pipeline);
     const before = pipelinePrior ? pick(pipelinePrior) : null;
     const inputs = versionInputs(version);
-    return {version, inputs, series: [...inputs], currentWeek: pipelineState.currentWeek,
+    return {version, inputs, series: inputs.filter(key => !pipelineState.hidden?.has(key)), currentWeek: pipelineState.currentWeek,
       priorWeek: pipelineState.priorWeek, priorAvailable: pipelineState.priorAvailable, priorReason: pipelineState.priorReason,
       current: now.values, currentCounts: now.counts,
       prior: before ? before.values : null, priorCounts: before ? before.counts : null,
@@ -1090,7 +1130,7 @@
       longLabel: COMPOSITE_LABELS[version][1],
       composite: true,
       inputs,
-      series: [...inputs],
+      series: inputs.filter(key => !pipelineState.hidden?.has(key)),
       isDefault: compositeInputs === null,
       week: pipelineState.currentWeek ?? activeReferenceWeek(),
       priorWeek: pipelineState.priorWeek,
@@ -2579,7 +2619,7 @@
   const COMPOSITE_HISTORY_METHOD = "ValueModel.runValuePipeline: equal-weight mean of the included sources' Adjusted values (VP-6.3)";
   const compositeExtra = version => {
     const inputs = versionInputs(version);
-    return {version, inputs, series: [...inputs], excluded: compositeInputsInfo(version).excluded,
+    return {version, inputs, series: inputs.filter(key => !pipelineState.hidden?.has(key)), excluded: compositeInputsInfo(version).excluded,
       minSources: COMPOSITE_MIN_SOURCES};
   };
   function ddfValuesOf(result, version) {
@@ -2639,7 +2679,7 @@
     const results = await Promise.all(inputs.map(key => getHistoryWeeks(key)));
     const weeks = [...new Set(results.flatMap(result => result.weeks))].sort((a, b) => a - b);
     return {source: version, servedWeek: pipelineState.priorAvailable ? pipelineState.currentWeek : null, weeks,
-      inputs: [...inputs], series: [...inputs]};
+      inputs: [...inputs], series: inputs.filter(key => !pipelineState.hidden?.has(key))};
   }
 
   // Math inspector (internal page, read-only). Every input and intermediate
@@ -3724,7 +3764,7 @@
         pipeline: () => pipeline,
         pipelinePrior: () => pipelinePrior,
         pipelineSetting,
-        runPipelineWith: extra => runPipeline(pipelineNatives, pipelineState.included, extra || {}),
+        runPipelineWith: extra => runPipeline(pipelineNatives, pipelineState.included, {hidden: [...(pipelineState.hidden || [])], ...(extra || {})}),
         sourceMaps: () => new Map(sourceMaps),
         state: () => ({scoring, teams, benchShare, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length})
       };

@@ -138,7 +138,7 @@ class LockRevertNoticeRenderTest(unittest.TestCase):
             text = notice.inner_text()
             self.assertIn("Player lock order was reset", text)
             self.assertIn("USA Today", text)
-            self.assertIn("ESPN adjusted", text)
+            self.assertIn("DDF Value", text)
             self.assertEqual(
                 page.locator(".lock-revert-notice").count(),
                 1,
@@ -156,10 +156,11 @@ class LockRevertNoticeRenderTest(unittest.TestCase):
 
             caption = page.locator("#curveContext").inner_text()
             self.assertIn(
-                "locked to ESPN adjusted value",
+                "locked to DDF Value",
                 caption,
                 "caption must re-render with the post-reset lock order",
             )
+            self.assertNotIn("DDF Value value", caption, "doubled 'value' suffix")
             self.assertNotIn(
                 "USA Today",
                 caption,

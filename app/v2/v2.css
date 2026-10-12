@@ -668,7 +668,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 /* Below 768 px the tabs use short labels on one row (frames 02 / 04 / 06 / 08 / 16). */
 @media (max-width: 767px) {
   .v2-tabs { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
-  .v2-tab { padding: 8px 8px; flex: 1 1 auto; justify-content: center; }
+  /* 7 px side padding leaves slack in the 358 px row, so the shortest tab can keep a 44 px hit area (JEG-607). */
+  .v2-tab { padding: 8px 6px; min-width: 44px; flex: 1 1 auto; justify-content: center; }
   .v2-tab .v2-tab-full { display: none; }
   .v2-tab::before { content: attr(data-short); }
 }
@@ -808,6 +809,13 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-cverdict[data-verdict="win"] { border-left-color: var(--v2-action); }
 .v2-cverdict[data-verdict="lose"] { border-left-color: var(--v2-negative); }
 .v2-cverdict[data-verdict="incomplete"] { border-left-color: var(--v2-older); }
+/* JEG-505: the two headline answers above the verdict. */
+.v2-cheads { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 6px; }
+#v2Compare .v2-cheads .v2-chead { margin: 0 !important; font-size: 15px; font-weight: 400; }
+.v2-chead .q { font-weight: 700; }
+.v2-chead .a, .v2-chead .c { font-weight: 800; white-space: nowrap; }
+.v2-chead .c { font-weight: 600; }
+.v2-chead .why { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; color: var(--v2-muted); }
 .v2-cverdict h2 { font-size: 20px; font-weight: 800; line-height: 1.25; }
 .v2-cverdict[data-verdict="win"] .v2-cverdict-sym { color: var(--v2-action-strong); }
 .v2-cverdict[data-verdict="lose"] .v2-cverdict-sym { color: var(--v2-negative); }
@@ -956,13 +964,16 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 
 /* Layout: chart left, table right from 1280 px, so both are above the fold at 1366 × 768 and 1440 × 900. */
 @media (min-width: 1280px) {
-  .v2-values-grid { display: grid; grid-template-columns: minmax(420px, 1fr) fit-content(64%); gap: var(--v2-gap);
+  .v2-values-grid { display: grid; grid-template-columns: minmax(420px, 1fr) fit-content(66%); gap: var(--v2-gap);
     align-items: stretch; margin-top: 6px; }
   #v2Main .v2-values-grid > .v2-card { margin-top: 0; min-width: 0; }
   /* The table card takes the chart card's height (it adds nothing to the row) and scrolls inside. */
   .v2-values-grid > .v2-table-card { height: 0; min-height: 100%; display: flex; flex-direction: column; }
   .v2-values-grid > .v2-table-card .v2-table-wrap { flex: 1 1 0; min-height: 0; }
   .v2-values-grid > .v2-table-card[hidden] { display: none; }
+  /* JEG-500: a collapsed chart no longer sets the row's height, so the table keeps its own. */
+  .v2-values-grid:has(> .v2-chart-card[data-collapsed="true"]) > .v2-table-card { height: auto; min-height: 0; }
+  .v2-values-grid:has(> .v2-chart-card[data-collapsed="true"]) > .v2-table-card .v2-table-wrap { flex: none; max-height: calc(100vh - 220px); }
 }
 
 /* JEG-473 table fit. */
@@ -1113,3 +1124,21 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-unpriced-value { font-variant-numeric: tabular-nums; font-weight: 600; }
 .v2-unpriced-why { flex-basis: 100%; }
 .v2-trade-results .v2-unpriced-why { flex-basis: 100%; font-size: 12px; }
+
+/* JEG-500 (GL-17, GL-18): every module card expands and collapses. modules.js adds the controls. */
+.v2-mod { position: relative; }
+.v2-mod-ctl { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; z-index: 2; }
+.v2-mod-btn { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--v2-muted, inherit); font: inherit; font-size: 22px; line-height: 1; cursor: pointer; border-radius: 8px; }
+.v2-mod-btn:hover { background: var(--v2-border); }
+.v2-mod-btn[hidden] { display: none; }
+.v2-mod-chevron span { display: inline-block; transition: transform .15s; }
+.v2-mod[data-collapsed="true"] .v2-mod-chevron span { transform: rotate(-90deg); }
+.v2-mod > .v2-mod-head { padding-right: 96px; }
+.v2-mod-sum { margin: 4px 0 0; padding-right: 96px; }
+.v2-mod-sum:empty { display: none; }
+.v2-mod[data-collapsed="true"] > :not(.v2-mod-ctl):not(.v2-mod-head):not(.v2-mod-sum) { display: none !important; }
+.v2-mod[data-collapsed="true"] { align-self: start; }
+.v2-mod[data-collapsed="true"] > .v2-mod-head .v2-meta { display: none !important; }
+.v2-mod[data-collapsed="true"] > .v2-mod-head > :not(h2):not(.v2-eyebrow):not(:has(h2)) { display: none !important; }
+.v2-mod[data-xl="true"] { grid-column: 1 / -1; }
+.v2-mod[data-xl="true"] .v2-table-wrap { max-height: none; }

@@ -14,9 +14,12 @@ source and every series derived from it (value_check.SOURCE_DERIVED) are
 marked `validationHold: {reason: "fidelity: <stage>", ...}`, the same field
 the page reads for JEG-479 holds: labelled, and kept out of DDF Value.
 
-Gray out, no computation (Jeremy, 2026-10-12, JEG-569 part 2): a held
-source's section has its combos stripped (set to {}). The page shows the
-source grayed out with no values. No old data is served or computed on.
+Gray out (Jeremy, 2026-10-12, JEG-569 part 2): a held source is grayed
+out with no values shown, but its combos are KEPT in the fixture so the
+engine can include the source in the pipeline (weights, pie, universe).
+Removing a source from the pipeline would renormalize every other
+source's values. The page hides a held source's curves via the
+validationHold flag.
 
 A held build must pass `make validate` (JEG-569): checks that need an
 unheld baseline read tests/_holds.without_held_sources, and
@@ -72,9 +75,11 @@ def _held_sections(root: str) -> list[str]:
 def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[dict, dict]:
     """Return (fixture with holds applied, {root: {sections}}).
 
-    JEG-569 part 2 (Jeremy, 2026-10-12): held sections have their combos
-    stripped -- no old data is served or computed on. The section keeps its
-    metadata and the validationHold flag so the page can gray it out."""
+    JEG-569 part 2 (Jeremy, 2026-10-12): a held source is grayed out on the
+    page.  Its combos are KEPT so the engine can still include the source in
+    the pipeline (weights, pie, universe) -- otherwise removing a source
+    renormalizes every other source's values.  The page hides a held source's
+    curves and values; the validationHold flag is the signal."""
     out = copy.deepcopy(fixture)
     sources = out.setdefault("sources", {})
     report = {}
@@ -83,7 +88,7 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
         for sec in sections:
             target = sources.get(sec)
             if isinstance(target, dict):
-                target["combos"] = {}
+                # Keep combos intact so the engine can compute with them.
                 target.pop("validationHold", None)
                 target["validationHold"] = {
                     "reason": hold.get("reason") or HOLD_PREFIX + hold["stage"], "week": week, "root": root,

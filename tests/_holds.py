@@ -5,8 +5,10 @@ Jeremy (JEG-569 part 2, 2026-10-12): "gray out the source, run no calcs on it,
 gray out its derivatives. Where grayed out, remove their columns, values and
 sections from the respective pages. No computation on old data."
 
-A held source's section has its combos stripped (set to {}). Tests that need
-an unheld baseline strip held sources from their own copy of the fixture.
+A held source carries a validationHold flag but its combos are KEPT so the
+engine includes the source in the pipeline (weights, pie, universe).
+Tests that need an unheld baseline strip held sources from their own copy
+of the fixture.
 
 tests/test_seeded_hold_build.py seeds holds and runs these checks on the
 held build, so a test that forgets to strip fails there.
