@@ -30,19 +30,15 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [kdst-source-audit.md](kdst-source-audit.md) | Record | K/DST source diagnosis, evidence from 2026-10-01 (JEG-19). |
 | [player-scenario-regression-tests.md](player-scenario-regression-tests.md) | Maintained | Football-question scenarios used as regression tests on current players. |
 | [QA_FRAMEWORKS.md](QA_FRAMEWORKS.md) | Maintained | Systematic QA frameworks for whole dimensions of the dashboard. |
-| [TRADE_DASHBOARD_QA_ROUND1.md](TRADE_DASHBOARD_QA_ROUND1.md) | Record | QA round 1 findings, 2026-09-30. |
 
 ## Architecture and data
 
 | Doc | Status | What it is |
 |---|---|---|
-| [architecture-current.md](architecture-current.md) | Maintained (stale, 2026-09-19) | Current-state architecture. |
+| [architecture-current.md](architecture-current.md) | Maintained | Current state: every file the site reads, the job that writes it, pg_cron schedule, what Supabase is for (JEG-599). |
 | [architecture-target.md](architecture-target.md) | Proposal | Target architecture (JEG-341-A). |
-| [dependency-map.md](dependency-map.md) | Maintained (stale, 2026-09-19) | Which stage depends on which. |
 | [modular-pipeline.md](modular-pipeline.md) | Maintained | Modular pipeline stages and their contracts. |
 | [pipeline-rules.md](pipeline-rules.md) | Maintained | Standing rules for every pipeline stage. |
-| [migration-plan.md](migration-plan.md) | Record | Migration plan, 2026-09-19. |
-| [migration-status.md](migration-status.md) | Record | Migration status, 2026-09-20. |
 | [MODULES.md](MODULES.md) | Maintained | One instruction, one lane module rules. |
 | [planning/](planning/) | Record | Consolidation layer scope, its Codex review, and the JEG-302 monitor cleanup scope. |
 | [contract/](contract/) | Maintained | Front-end read contract v1, FE dependency inventory, v3 backend requirements (JEG-327). |
@@ -58,7 +54,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [supabase-naming-conventions.md](supabase-naming-conventions.md) | Maintained | Naming rules for tables, views and functions. |
 | [supabase-source-mapping.md](supabase-source-mapping.md) | Maintained | How scraped references map into Supabase. |
 | [SUPABASE_WRITER_AUDIT.md](SUPABASE_WRITER_AUDIT.md) | Record | Audit of Supabase writers' missing safeguards. |
-| [supabase-features-recommendation.md](supabase-features-recommendation.md) | Record | Research-only Supabase feature recommendations. |
+| [supabase-tables.md](supabase-tables.md) | Maintained | Every public table and view, who writes it, who reads it, and whether it is live or legacy (JEG-600). |
 | [import-health-schema.md](import-health-schema.md) | Maintained | Import health tables (each section states its status). |
 
 ## Operations, process and agents
@@ -75,7 +71,6 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [agent-brief-template.md](agent-brief-template.md) | Maintained | Template for subagent briefs. |
 | [director_operating_model.md](director_operating_model.md) | Record | Operating model for the lead session. |
 | [merge-charter.md](merge-charter.md) | Record | Pre-authorized auto-merge tiers for lane PRs. |
-| [chatgpt-batch-prompt.md](chatgpt-batch-prompt.md) | Record | Prompt for batch work in ChatGPT. |
 | [health/](health/) | Record | Health program (JEG-78): best-practices standard, per-lane assessments, gap analysis, doc-vs-code tests, production-verified rule. |
 | [../runbooks/](../runbooks/) | Maintained | Runbooks: consolidated values loader, weekly dashboard freshness. |
 
@@ -84,11 +79,8 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | Doc | Status | What it is |
 |---|---|---|
 | [claude-log/](claude-log/) | Record | One log file per PR, since 2026-10-07; see its README. |
-| [claude-log.md](claude-log.md) | Record (frozen) | Original single-file session log. |
-| [jeg92-pilot-retrofits.md](jeg92-pilot-retrofits.md) | Record | JEG-92 acceptance-section pilot. |
 | [audits/](audits/) | Record | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation. |
-| [briefs-draft/](briefs-draft/) | Record | Draft implementation briefs for JEG-137, 138, 180, 200. |
-| [../archive/](../archive/) | Record | Archived concepts by date; see its README. |
+| [../archive/](../archive/) | Record | Archived material by date; see its README. `2026-10-12-docs/` holds the frozen claude-log.md, JEG-92 pilot, QA round 1, migration plan/status, ChatGPT batch prompt and draft briefs (JEG-605). |
 
 ## Tracker
 

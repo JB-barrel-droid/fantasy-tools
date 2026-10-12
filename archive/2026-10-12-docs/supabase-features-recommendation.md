@@ -17,7 +17,7 @@ The four features:
 
 ## Cross-cutting ground rules every recommendation respects
 
-These are pulled from `docs/pipeline-rules.md`, `docs/claude-log.md` (JEG-104,
+These are pulled from `docs/pipeline-rules.md`, `archive/2026-10-12-docs/claude-log.md` (JEG-104,
 GAP-023, GAP-012, GAP-036), and the migrations — they are **not** new
 constraints, just the floor under which every recommendation below sits:
 
@@ -474,7 +474,7 @@ bad row" layer.
 
 ### JEG-104 was a constraint bug — what the class deserves
 
-`docs/claude-log.md` lines 3–16 (JEG-104 migration replay correction):
+`archive/2026-10-12-docs/claude-log.md` lines 3–16 (JEG-104 migration replay correction):
 migration 005 originally tried to drop a UNIQUE constraint and CREATE a
 replacement, but the original SQL dropped the *index* of an inline-named
 constraint without preserving the replacement. Both tests in
@@ -727,11 +727,11 @@ daily review path until the replacement surface exists".
 
 ---
 
-## 6. Process entry — appended to `docs/claude-log.md`
+## 6. Process entry — appended to `archive/2026-10-12-docs/claude-log.md`
 
 (The new entry is committed in the same change as this file. Per
 `AGENTS.md`: "Any session that changes anything in this repo appends an
-entry to `docs/claude-log.md` before it ends.")
+entry to `archive/2026-10-12-docs/claude-log.md` before it ends.")
 
 The session produced one file change only (`docs/supabase-features-recommendation.md`).
 No code, no schema, no workflow edits. No DB access attempted.

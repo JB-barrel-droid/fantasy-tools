@@ -64,3 +64,20 @@ against their inputs anyway.
 None. There are no active pg_cron jobs for the waiver-wire or weekly-signals
 products (their cron/ directories contained only runbook markdown files, not
 SQL migrations).
+
+## 2026-10-12 - docs-history (JEG-605)
+
+Moved from `docs/` to `archive/2026-10-12-docs/`. Not maintained: each is a dated record of finished work. Nothing deleted; history stays in the repo's commit log.
+
+| Path | Date range | Why archived |
+|---|---|---|
+| `claude-log.md` | up to 2026-10-06 | Frozen single-file session log; new entries go to `docs/claude-log/` (one file per PR). |
+| `jeg92-pilot-retrofits.md` | 2026-09 | JEG-92 acceptance-section pilot, finished. |
+| `TRADE_DASHBOARD_QA_ROUND1.md` | 2026-09-30 | QA round 1 findings, superseded by later rounds and tests. |
+| `migration-plan.md`, `migration-status.md` | 2026-09-19 to 09-20 | Migration work described is finished. |
+| `chatgpt-batch-prompt.md` | 2026-09 | ChatGPT lane retired. |
+| `briefs-draft/` | 2026-09 | Draft briefs for JEG-137, 138, 180, 200 (minimax lane retired). |
+| `supabase-features-recommendation.md` (JEG-600) | 2026-10 | 744-line research-only Supabase recommendations; the short version is a section of `docs/supabase-tables.md`. |
+| `dependency-map.md` (added with JEG-599) | 2026-09-19 | Muse-migration component classification; superseded by `docs/architecture-current.md`. |
+
+`docs/claude-log/` stays in place because new per-PR entries are still written there.
