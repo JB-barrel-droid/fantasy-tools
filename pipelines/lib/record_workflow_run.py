@@ -26,6 +26,10 @@ import argparse
 import json
 import sys
 from datetime import datetime, timezone, timedelta
+try:
+    from lib.timestamps import parse_iso_timestamp
+except ImportError:  # pipelines/lib itself on sys.path
+    from timestamps import parse_iso_timestamp
 from pathlib import Path
 
 
@@ -78,7 +82,7 @@ def compute_cron_at(cron: str, started_at: datetime) -> str | None:
 
 def parse_iso(value: str) -> datetime:
     """Parse an ISO datetime, tolerating the Z suffix."""
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parse_iso_timestamp(value)
 
 
 def main() -> int:
