@@ -914,6 +914,12 @@
     });
     var inI = {};
     included.forEach(function (k) { inI[k] = true; });
+    // JEG-569 part 2: hidden (held) sources participate in the pipeline
+    // (weights, pie, universe) so no other source's Adjusted/VORP values
+    // change.  They are excluded from the DDF blend and Indexed basis.
+    var hiddenKeys = Array.isArray(input.hidden) ? input.hidden : [];
+    var isHidden = {};
+    hiddenKeys.forEach(function (k) { isHidden[k] = true; });
 
     // --- Lists (VP-0, VP-2.1): finite natives at a known position.
     var listed = {}; // src -> {pos: [{key, native}] sorted}
@@ -1394,8 +1400,13 @@
         var keys = versionSources[version].filter(function (k) {
           return !selection || selection.indexOf(k) !== -1;
         });
+        // JEG-569 part 2: hidden (held) sources are excluded from the DDF
+        // blend.  They contributed to weights and pie so no other source's
+        // Adjusted/VORP values change; the DDF blend is recomputed from the
+        // remaining visible sources.
         var used = [], sum = 0;
         keys.forEach(function (k) {
+          if (isHidden[k]) return;
           var v = row.adjusted[k];
           if (!vpFinite(v)) return;
           used.push(k); sum += v;
@@ -1414,10 +1425,13 @@
     // (VP-1.5): the reader's input selection "never changes ... any source's
     // values", and Indexed is a source's values, so the basis ignores the
     // selection; with no selection it is exactly the displayed blended value.
+    // JEG-569 part 2: hidden sources are excluded from the basis (consistent
+    // with the DDF blend) so fixedPieIndexed holds.
     var indexBasis = {};
     rowKeys.forEach(function (key) {
       var sum = 0, n = 0;
       included.forEach(function (k) {
+        if (isHidden[k]) return;
         var v = rows[key].adjusted[k];
         if (!vpFinite(v)) return;
         sum += v; n += 1;

@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-10-02T20:17:25.593998+00:00",
+  "generated_at": "2026-10-12T23:37:11.743833+00:00",
   "anchor": "espn",
   "anchor_combo": "full_12",
   "band": [
     0.8,
     1.25
   ],
-  "band_source": "Chart Health source-scale-agreement check (curve-widget.js scaleAgreementDiagnostics -> value-model.js PEAK_AGREEMENT_LOW/HIGH)",
+  "band_source": "band of the retired Chart Health source-scale-agreement check (GAP-026; value-model.js PEAK_AGREEMENT_LOW/HIGH until JEG-539)",
   "positions": [
     "QB",
     "RB",
@@ -14,12 +14,12 @@
     "TE"
   ],
   "scale_definition": "positional peak (max value per position group), matching Chart Health positionalPeaks()",
-  "status": "warn",
-  "status_reason": "sources genuinely disagree with the anchor at the native level -- needs accept-vs-fix call, not a pipeline fix",
+  "status": "bad",
+  "status_reason": "at least one cell is an indexation artifact -- the reindex moved a source off the anchor's scale",
   "verdict_counts": {
-    "agreement": 11,
-    "genuine disagreement": 13,
-    "indexation artifact": 0,
+    "agreement": 8,
+    "genuine disagreement": 11,
+    "indexation artifact": 5,
     "insufficient data": 0
   },
   "sources": {
@@ -27,48 +27,48 @@
       "combo": "full_12",
       "cells": {
         "QB": {
-          "anchor_scale": 26.9,
+          "anchor_scale": 31.5,
           "native_scale": 29.1,
-          "reindexed_scale": 25.0,
-          "native_vs_anchor": 1.082,
-          "reindexed_vs_native": 0.859,
-          "reindexed_vs_anchor": 0.929,
-          "native_shape_vs_anchor_shape": 1.008,
-          "verdict": "agreement",
-          "verdict_reason": "published shape 1.01x and reindexed 0.93x of anchor, both in band"
+          "reindexed_scale": 22.41,
+          "native_vs_anchor": 0.924,
+          "reindexed_vs_native": 0.77,
+          "reindexed_vs_anchor": 0.712,
+          "native_shape_vs_anchor_shape": 0.861,
+          "verdict": "indexation artifact",
+          "verdict_reason": "published shape tracks anchor (0.86x) but reindexed is 0.71x of anchor -- the reindex moved it"
         },
         "RB": {
           "anchor_scale": 70.0,
           "native_scale": 75.1,
-          "reindexed_scale": 70.0,
+          "reindexed_scale": 57.85,
           "native_vs_anchor": 1.073,
-          "reindexed_vs_native": 0.932,
-          "reindexed_vs_anchor": 1.0,
+          "reindexed_vs_native": 0.77,
+          "reindexed_vs_anchor": 0.826,
           "native_shape_vs_anchor_shape": 1.0,
           "verdict": "agreement",
-          "verdict_reason": "published shape 1.00x and reindexed 1.00x of anchor, both in band"
+          "verdict_reason": "published shape 1.00x and reindexed 0.83x of anchor, both in band"
         },
         "WR": {
-          "anchor_scale": 40.6,
+          "anchor_scale": 46.9,
           "native_scale": 51.3,
-          "reindexed_scale": 49.3,
-          "native_vs_anchor": 1.264,
-          "reindexed_vs_native": 0.961,
-          "reindexed_vs_anchor": 1.214,
-          "native_shape_vs_anchor_shape": 1.178,
+          "reindexed_scale": 39.51,
+          "native_vs_anchor": 1.094,
+          "reindexed_vs_native": 0.77,
+          "reindexed_vs_anchor": 0.843,
+          "native_shape_vs_anchor_shape": 1.02,
           "verdict": "agreement",
-          "verdict_reason": "published shape 1.18x and reindexed 1.21x of anchor, both in band"
+          "verdict_reason": "published shape 1.02x and reindexed 0.84x of anchor, both in band"
         },
         "TE": {
-          "anchor_scale": 24.3,
+          "anchor_scale": 30.6,
           "native_scale": 28.0,
-          "reindexed_scale": 30.0,
-          "native_vs_anchor": 1.152,
-          "reindexed_vs_native": 1.071,
-          "reindexed_vs_anchor": 1.235,
-          "native_shape_vs_anchor_shape": 1.074,
-          "verdict": "agreement",
-          "verdict_reason": "published shape 1.07x and reindexed 1.23x of anchor, both in band"
+          "reindexed_scale": 21.57,
+          "native_vs_anchor": 0.915,
+          "reindexed_vs_native": 0.77,
+          "reindexed_vs_anchor": 0.705,
+          "native_shape_vs_anchor_shape": 0.853,
+          "verdict": "indexation artifact",
+          "verdict_reason": "published shape tracks anchor (0.85x) but reindexed is 0.70x of anchor -- the reindex moved it"
         }
       }
     },
@@ -76,48 +76,48 @@
       "combo": "full_12",
       "cells": {
         "QB": {
-          "anchor_scale": 26.9,
-          "native_scale": 40.0,
-          "reindexed_scale": 25.0,
-          "native_vs_anchor": 1.487,
-          "reindexed_vs_native": 0.625,
-          "reindexed_vs_anchor": 0.929,
-          "native_shape_vs_anchor_shape": 1.352,
-          "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.35x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "anchor_scale": 31.5,
+          "native_scale": 36.0,
+          "reindexed_scale": 22.39,
+          "native_vs_anchor": 1.143,
+          "reindexed_vs_native": 0.622,
+          "reindexed_vs_anchor": 0.711,
+          "native_shape_vs_anchor_shape": 1.039,
+          "verdict": "indexation artifact",
+          "verdict_reason": "published shape tracks anchor (1.04x) but reindexed is 0.71x of anchor -- the reindex moved it"
         },
         "RB": {
           "anchor_scale": 70.0,
           "native_scale": 77.0,
-          "reindexed_scale": 70.0,
+          "reindexed_scale": 47.89,
           "native_vs_anchor": 1.1,
-          "reindexed_vs_native": 0.909,
-          "reindexed_vs_anchor": 1.0,
+          "reindexed_vs_native": 0.622,
+          "reindexed_vs_anchor": 0.684,
           "native_shape_vs_anchor_shape": 1.0,
-          "verdict": "agreement",
-          "verdict_reason": "published shape 1.00x and reindexed 1.00x of anchor, both in band"
+          "verdict": "indexation artifact",
+          "verdict_reason": "published shape tracks anchor (1.00x) but reindexed is 0.68x of anchor -- the reindex moved it"
         },
         "WR": {
-          "anchor_scale": 40.6,
-          "native_scale": 64.0,
-          "reindexed_scale": 46.0,
-          "native_vs_anchor": 1.576,
-          "reindexed_vs_native": 0.719,
-          "reindexed_vs_anchor": 1.133,
-          "native_shape_vs_anchor_shape": 1.433,
+          "anchor_scale": 46.9,
+          "native_scale": 71.0,
+          "reindexed_scale": 44.15,
+          "native_vs_anchor": 1.514,
+          "reindexed_vs_native": 0.622,
+          "reindexed_vs_anchor": 0.941,
+          "native_shape_vs_anchor_shape": 1.376,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.43x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.38x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         },
         "TE": {
-          "anchor_scale": 24.3,
-          "native_scale": 53.0,
-          "reindexed_scale": 30.0,
-          "native_vs_anchor": 2.181,
-          "reindexed_vs_native": 0.566,
-          "reindexed_vs_anchor": 1.235,
-          "native_shape_vs_anchor_shape": 1.983,
+          "anchor_scale": 30.6,
+          "native_scale": 64.0,
+          "reindexed_scale": 39.8,
+          "native_vs_anchor": 2.092,
+          "reindexed_vs_native": 0.622,
+          "reindexed_vs_anchor": 1.301,
+          "native_shape_vs_anchor_shape": 1.901,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.98x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.90x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         }
       }
     },
@@ -125,48 +125,48 @@
       "combo": "full_12_qb1",
       "cells": {
         "QB": {
-          "anchor_scale": 26.9,
-          "native_scale": 6013.0,
-          "reindexed_scale": 25.0,
-          "native_vs_anchor": 223.532,
-          "reindexed_vs_native": 0.004,
-          "reindexed_vs_anchor": 0.929,
-          "native_shape_vs_anchor_shape": 1.445,
+          "anchor_scale": 31.5,
+          "native_scale": 6024.0,
+          "reindexed_scale": 45.66,
+          "native_vs_anchor": 191.238,
+          "reindexed_vs_native": 0.008,
+          "reindexed_vs_anchor": 1.45,
+          "native_shape_vs_anchor_shape": 1.266,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.45x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.27x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         },
         "RB": {
           "anchor_scale": 70.0,
-          "native_scale": 10825.0,
-          "reindexed_scale": 70.0,
-          "native_vs_anchor": 154.643,
-          "reindexed_vs_native": 0.006,
-          "reindexed_vs_anchor": 1.0,
+          "native_scale": 10575.0,
+          "reindexed_scale": 80.16,
+          "native_vs_anchor": 151.071,
+          "reindexed_vs_native": 0.008,
+          "reindexed_vs_anchor": 1.145,
           "native_shape_vs_anchor_shape": 1.0,
           "verdict": "agreement",
-          "verdict_reason": "published shape 1.00x and reindexed 1.00x of anchor, both in band"
+          "verdict_reason": "published shape 1.00x and reindexed 1.15x of anchor, both in band"
         },
         "WR": {
-          "anchor_scale": 40.6,
-          "native_scale": 7678.0,
-          "reindexed_scale": 42.3,
-          "native_vs_anchor": 189.113,
-          "reindexed_vs_native": 0.006,
-          "reindexed_vs_anchor": 1.042,
-          "native_shape_vs_anchor_shape": 1.223,
-          "verdict": "agreement",
-          "verdict_reason": "published shape 1.22x and reindexed 1.04x of anchor, both in band"
+          "anchor_scale": 46.9,
+          "native_scale": 8490.0,
+          "reindexed_scale": 64.36,
+          "native_vs_anchor": 181.023,
+          "reindexed_vs_native": 0.008,
+          "reindexed_vs_anchor": 1.372,
+          "native_shape_vs_anchor_shape": 1.198,
+          "verdict": "indexation artifact",
+          "verdict_reason": "published shape tracks anchor (1.20x) but reindexed is 1.37x of anchor -- the reindex moved it"
         },
         "TE": {
-          "anchor_scale": 24.3,
-          "native_scale": 6164.0,
-          "reindexed_scale": 30.0,
-          "native_vs_anchor": 253.663,
-          "reindexed_vs_native": 0.005,
-          "reindexed_vs_anchor": 1.235,
-          "native_shape_vs_anchor_shape": 1.64,
+          "anchor_scale": 30.6,
+          "native_scale": 6234.0,
+          "reindexed_scale": 47.26,
+          "native_vs_anchor": 203.725,
+          "reindexed_vs_native": 0.008,
+          "reindexed_vs_anchor": 1.544,
+          "native_shape_vs_anchor_shape": 1.349,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.64x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.35x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         }
       }
     },
@@ -174,48 +174,48 @@
       "combo": "full_12",
       "cells": {
         "QB": {
-          "anchor_scale": 26.9,
-          "native_scale": 23.0,
-          "reindexed_scale": 25.0,
-          "native_vs_anchor": 0.855,
-          "reindexed_vs_native": 1.087,
-          "reindexed_vs_anchor": 0.929,
-          "native_shape_vs_anchor_shape": 1.129,
+          "anchor_scale": 31.5,
+          "native_scale": 22.0,
+          "reindexed_scale": 27.52,
+          "native_vs_anchor": 0.698,
+          "reindexed_vs_native": 1.251,
+          "reindexed_vs_anchor": 0.874,
+          "native_shape_vs_anchor_shape": 0.905,
           "verdict": "agreement",
-          "verdict_reason": "published shape 1.13x and reindexed 0.93x of anchor, both in band"
+          "verdict_reason": "published shape 0.91x and reindexed 0.87x of anchor, both in band"
         },
         "RB": {
           "anchor_scale": 70.0,
-          "native_scale": 53.0,
-          "reindexed_scale": 70.0,
-          "native_vs_anchor": 0.757,
-          "reindexed_vs_native": 1.321,
-          "reindexed_vs_anchor": 1.0,
+          "native_scale": 54.0,
+          "reindexed_scale": 67.55,
+          "native_vs_anchor": 0.771,
+          "reindexed_vs_native": 1.251,
+          "reindexed_vs_anchor": 0.965,
           "native_shape_vs_anchor_shape": 1.0,
           "verdict": "agreement",
-          "verdict_reason": "published shape 1.00x and reindexed 1.00x of anchor, both in band"
+          "verdict_reason": "published shape 1.00x and reindexed 0.96x of anchor, both in band"
         },
         "WR": {
-          "anchor_scale": 40.6,
-          "native_scale": 43.0,
-          "reindexed_scale": 44.5,
-          "native_vs_anchor": 1.059,
-          "reindexed_vs_native": 1.035,
-          "reindexed_vs_anchor": 1.096,
-          "native_shape_vs_anchor_shape": 1.399,
-          "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.40x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "anchor_scale": 46.9,
+          "native_scale": 44.0,
+          "reindexed_scale": 55.04,
+          "native_vs_anchor": 0.938,
+          "reindexed_vs_native": 1.251,
+          "reindexed_vs_anchor": 1.173,
+          "native_shape_vs_anchor_shape": 1.216,
+          "verdict": "agreement",
+          "verdict_reason": "published shape 1.22x and reindexed 1.17x of anchor, both in band"
         },
         "TE": {
-          "anchor_scale": 24.3,
-          "native_scale": 33.0,
-          "reindexed_scale": 30.0,
-          "native_vs_anchor": 1.358,
-          "reindexed_vs_native": 0.909,
-          "reindexed_vs_anchor": 1.235,
-          "native_shape_vs_anchor_shape": 1.794,
+          "anchor_scale": 30.6,
+          "native_scale": 31.0,
+          "reindexed_scale": 38.78,
+          "native_vs_anchor": 1.013,
+          "reindexed_vs_native": 1.251,
+          "reindexed_vs_anchor": 1.267,
+          "native_shape_vs_anchor_shape": 1.313,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.79x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.31x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         }
       }
     },
@@ -223,48 +223,48 @@
       "combo": "full_12",
       "cells": {
         "QB": {
-          "anchor_scale": 26.9,
-          "native_scale": 24.36,
-          "reindexed_scale": 20.0,
-          "native_vs_anchor": 0.905,
-          "reindexed_vs_native": 0.821,
-          "reindexed_vs_anchor": 0.743,
-          "native_shape_vs_anchor_shape": 2.543,
+          "anchor_scale": 31.5,
+          "native_scale": 24.82,
+          "reindexed_scale": 21.6,
+          "native_vs_anchor": 0.788,
+          "reindexed_vs_native": 0.87,
+          "reindexed_vs_anchor": 0.686,
+          "native_shape_vs_anchor_shape": 2.222,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 2.54x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 2.22x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         },
         "RB": {
           "anchor_scale": 70.0,
-          "native_scale": 24.93,
+          "native_scale": 24.11,
           "reindexed_scale": 70.0,
-          "native_vs_anchor": 0.356,
-          "reindexed_vs_native": 2.808,
+          "native_vs_anchor": 0.344,
+          "reindexed_vs_native": 2.904,
           "reindexed_vs_anchor": 1.0,
-          "native_shape_vs_anchor_shape": 1.0,
+          "native_shape_vs_anchor_shape": 0.972,
           "verdict": "agreement",
-          "verdict_reason": "published shape 1.00x and reindexed 1.00x of anchor, both in band"
+          "verdict_reason": "published shape 0.97x and reindexed 1.00x of anchor, both in band"
         },
         "WR": {
-          "anchor_scale": 40.6,
-          "native_scale": 18.86,
-          "reindexed_scale": 37.9,
-          "native_vs_anchor": 0.464,
-          "reindexed_vs_native": 2.01,
-          "reindexed_vs_anchor": 0.933,
-          "native_shape_vs_anchor_shape": 1.304,
+          "anchor_scale": 46.9,
+          "native_scale": 21.07,
+          "reindexed_scale": 41.7,
+          "native_vs_anchor": 0.449,
+          "reindexed_vs_native": 1.979,
+          "reindexed_vs_anchor": 0.889,
+          "native_shape_vs_anchor_shape": 1.267,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.30x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.27x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         },
         "TE": {
-          "anchor_scale": 24.3,
-          "native_scale": 17.29,
-          "reindexed_scale": 32.9,
-          "native_vs_anchor": 0.711,
-          "reindexed_vs_native": 1.903,
-          "reindexed_vs_anchor": 1.354,
-          "native_shape_vs_anchor_shape": 1.997,
+          "anchor_scale": 30.6,
+          "native_scale": 17.32,
+          "reindexed_scale": 29.8,
+          "native_vs_anchor": 0.566,
+          "reindexed_vs_native": 1.72,
+          "reindexed_vs_anchor": 0.974,
+          "native_shape_vs_anchor_shape": 1.597,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 2.00x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.60x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         }
       }
     },
@@ -272,15 +272,15 @@
       "combo": "full_12",
       "cells": {
         "QB": {
-          "anchor_scale": 26.9,
-          "native_scale": 20.9,
-          "reindexed_scale": 44.5,
-          "native_vs_anchor": 0.777,
-          "reindexed_vs_native": 2.129,
-          "reindexed_vs_anchor": 1.654,
-          "native_shape_vs_anchor_shape": 2.229,
+          "anchor_scale": 31.5,
+          "native_scale": 21.5,
+          "reindexed_scale": 46.2,
+          "native_vs_anchor": 0.683,
+          "reindexed_vs_native": 2.149,
+          "reindexed_vs_anchor": 1.467,
+          "native_shape_vs_anchor_shape": 1.958,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 2.23x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.96x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         },
         "RB": {
           "anchor_scale": 70.0,
@@ -294,26 +294,26 @@
           "verdict_reason": "published shape 1.00x and reindexed 1.00x of anchor, both in band"
         },
         "WR": {
-          "anchor_scale": 40.6,
-          "native_scale": 17.9,
-          "reindexed_scale": 44.7,
-          "native_vs_anchor": 0.441,
-          "reindexed_vs_native": 2.497,
-          "reindexed_vs_anchor": 1.101,
-          "native_shape_vs_anchor_shape": 1.265,
+          "anchor_scale": 46.9,
+          "native_scale": 21.0,
+          "reindexed_scale": 55.3,
+          "native_vs_anchor": 0.448,
+          "reindexed_vs_native": 2.633,
+          "reindexed_vs_anchor": 1.179,
+          "native_shape_vs_anchor_shape": 1.285,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.26x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.28x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         },
         "TE": {
-          "anchor_scale": 24.3,
-          "native_scale": 15.2,
-          "reindexed_scale": 34.7,
-          "native_vs_anchor": 0.626,
-          "reindexed_vs_native": 2.283,
-          "reindexed_vs_anchor": 1.428,
-          "native_shape_vs_anchor_shape": 1.795,
+          "anchor_scale": 30.6,
+          "native_scale": 15.3,
+          "reindexed_scale": 28.2,
+          "native_vs_anchor": 0.5,
+          "reindexed_vs_native": 1.843,
+          "reindexed_vs_anchor": 0.922,
+          "native_shape_vs_anchor_shape": 1.434,
           "verdict": "genuine disagreement",
-          "verdict_reason": "published shape 1.79x of anchor's shape is outside the 0.8-1.25x band before any indexation"
+          "verdict_reason": "published shape 1.43x of anchor's shape is outside the 0.8-1.25x band before any indexation"
         }
       }
     }

@@ -352,10 +352,12 @@ HOLD = {"reason": "engine and reference disagree", "week": 5}
 
 
 def hold_on(*sections, field="validationHold"):
-    """The pipeline's shape: {reason, week, root, kept_week} on each held section."""
+    """The pipeline's shape: {reason, week, root} on each held section, combos stripped
+    (JEG-569 part 2: no computation on old data)."""
     def edit(fixture):
         for section in sections:
-            fixture["sources"][section][field] = {**HOLD, "root": section, "kept_week": HOLD["week"] - 1}
+            fixture["sources"][section][field] = {**HOLD, "root": section}
+            fixture["sources"][section]["combos"] = {}
     return edit
 
 
@@ -627,9 +629,10 @@ HELD_SERIES = {"fantasycalc": ["fantasycalc"],
 
 
 class DdfHeldSeriesTest(unittest.TestCase):
-    """JEG-479 (Jeremy 2026-10-08): a held source and its derived series, and a
-    source that has not published the current week, never enter the DDF
-    Value, even when a reader selects them."""
+    """JEG-479 / JEG-569 part 2: a held source stays in the pipeline (weights,
+    pie, universe) so no other source's Adjusted/VORP values change, but is
+    excluded from the DDF blend and hidden from display.  A source not published
+    for the current week is genuinely excluded from everything."""
 
     @classmethod
     def setUpClass(cls):
@@ -642,16 +645,39 @@ class DdfHeldSeriesTest(unittest.TestCase):
     def held_run(self, data_edit, key):
         return run(HELD, data_edit=data_edit, init_script=HELD_INIT % (json.dumps(key), json.dumps(HELD_SERIES[key])))
 
+    def assert_held_but_included(self, out, key, reason_start):
+        """JEG-569 part 2: a held source participates in the pipeline (weights,
+        pie, universe) but is excluded from the DDF blend and hidden from
+        display.  It is reported as held and in the pipeline inputs."""
+        self.assertEqual(out["pageErrors"], [])
+        self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
+        # The held source IS in the pipeline inputs for its family versions.
+        family_versions = {"ddf_value"}
+        if key in PROJECTIONS:
+            family_versions.add("ddf_value_projections")
+        if key in CHARTS:
+            family_versions.add("ddf_value_charts")
+        for version, info in out["loadByVersion"].items():
+            if version in family_versions:
+                self.assertIn(key, info["inputs"], f"{version}: held source should be in inputs")
+        # It IS in the defaults (the pipeline's included set).
+        self.assertIn(key, out["load"]["defaults"])
+        # It is reported as held.
+        self.assertIn(key, out["load"]["held"])
+        # No page errors or problems.
+        self.assertTrue(out["allRequested"]["ok"])
+        # The held source is in the prior week too.
+        prior = out["prior"]
+        self.assertTrue(prior["available"], prior)
+
     def assert_never_included(self, out, key, reason_start):
+        """A source genuinely missing (not yet published for the week)."""
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         base = self.unheld["loadByVersion"]
         members = {"ddf_value": INPUTS, "ddf_value_charts": CHARTS, "ddf_value_projections": PROJECTIONS}
         for version, info in out["loadByVersion"].items():
             self.assertNotIn(key, info["inputs"], version)
-            # The other inputs: as without the hold, unless the hold removed
-            # the only input with a prior week (then the version has none and
-            # averages every eligible input, methodology step 5).
             if info["priorAvailable"]:
                 self.assertEqual(info["inputs"], [k for k in base[version]["inputs"] if k != key], version)
             if key in members[version]:
@@ -697,34 +723,32 @@ class DdfHeldSeriesTest(unittest.TestCase):
 
     def test_validation_hold_on_the_source_holds_its_derived_series(self):
         out = self.held_run(hold_on("fantasycalc"), "fantasycalc")
-        self.assert_never_included(out, "fantasycalc", "held: " + HOLD["reason"])
-        entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc"]
-        self.assertEqual(entry["reason"], "held: " + HOLD["reason"])
-        self.assertEqual((entry["heldBy"], entry["holdField"]), ("fantasycalc", "validationHold"))
-        self.assertEqual((entry["holdRoot"], entry["holdWeek"], entry["holdKeptWeek"]), ("fantasycalc", 5, 4))
-        self.assertEqual(out["load"]["held"], ["fantasycalc"])
+        self.assert_held_but_included(out, "fantasycalc", "held: " + HOLD["reason"])
 
     def test_pipeline_hold_on_the_raw_section_holds_its_adjusted_series(self):
         # JEG-539: the *_adjusted sections are retired, so a hold lives on the raw section only and
         # the derived series follows it (this was a hold on both sections, and one on the derived section).
         out = self.held_run(hold_on("cbs"), "cbs")
-        self.assert_never_included(out, "cbs", "held: " + HOLD["reason"])
-        entry = {e["key"]: e for e in out["load"]["excluded"]}["cbs"]
-        self.assertEqual((entry["heldBy"], entry["holdRoot"]), ("cbs", "cbs"))
+        self.assert_held_but_included(out, "cbs", "held: " + HOLD["reason"])
 
     def test_promotion_hold_is_a_hold_too(self):
         out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc")
-        self.assert_never_included(out, "fantasycalc", "held: " + HOLD["reason"])
+        self.assert_held_but_included(out, "fantasycalc", "held: " + HOLD["reason"])
 
-    def test_a_held_projection_is_out_of_every_version(self):
+    def test_a_held_projection_is_in_every_version(self):
+        """JEG-569 part 2: a held projection is still included in the pipeline."""
         out = self.held_run(hold_on("razzball"), "razzball")
-        self.assert_never_included(out, "razzball", "held: " + HOLD["reason"])
-        excluded = {e["key"]: e for e in out["loadByVersion"]["ddf_value_projections"]["excluded"]}
-        self.assertEqual(excluded["razzball"]["series"], "razzball")
+        self.assert_held_but_included(out, "razzball", "held: " + HOLD["reason"])
 
     def test_a_source_not_yet_published_for_the_week_is_never_an_input(self):
         out = self.held_run(older_week("usatoday"), "usatoday")
-        self.assert_never_included(out, "usatoday", "not yet published for week")
+        self.assertEqual(out["pageErrors"], [])
+        self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
+        # A source not published for the current week is genuinely excluded
+        # (unlike held sources which stay in the pipeline, JEG-569 part 2).
+        for version, info in out["loadByVersion"].items():
+            self.assertNotIn("usatoday", info["inputs"], version)
+        self.assertNotIn("usatoday", out["load"]["defaults"])
         self.assertEqual(out["load"]["notPublished"], ["usatoday"])
 
     def test_unheld_fixture_has_no_held_series(self):

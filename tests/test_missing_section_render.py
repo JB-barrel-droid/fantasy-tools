@@ -55,7 +55,7 @@ READ = """() => {
     guards: d ? {fixedPieIndexed: d.fixedPieIndexed, sourceMapCoverage: d.sourceMapCoverage} : null,
     info: Object.fromEntries(info.map(s => [s.key, {available: s.available, unavailable: s.unavailable}])),
     valued: {usatoday: valued("usatoday"), usatoday_adjusted: valued("usatoday_adjusted"),
-             espn: valued("espn"), fantasycalc: valued("fantasycalc"), cbsros: valued("cbsros")},
+             espn: valued("espn"), fantasycalc: valued("fantasycalc"), fantasypros: valued("fantasypros")},
     toggleDisabled: toggle ? toggle.disabled : null,
     toggleText: toggle ? toggle.closest("label").innerText : null,
   };
@@ -96,7 +96,7 @@ def load(overrides, path="/classic/"):
 def renders_with_source_dropped(state):
     return (state["guards"] == {"fixedPieIndexed": True, "sourceMapCoverage": True}
             and state["valued"]["espn"] > 100 and state["valued"]["fantasycalc"] > 100
-            and state["valued"]["cbsros"] > 100
+            and state["valued"]["fantasypros"] > 100
             and state["valued"]["usatoday"] == 0 and state["valued"]["usatoday_adjusted"] == 0
             and state["info"].get("usatoday", {}).get("available") is False
             and state["info"].get("usatoday", {}).get("unavailable") is True)
