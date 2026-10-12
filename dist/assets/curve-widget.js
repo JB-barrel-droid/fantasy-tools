@@ -397,7 +397,9 @@
     if (!week || key === "espn") return base;
     return `${base} Wk ${week}`;
   }
-  const lockLabel = key => key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
+  // "DDF Value" already names a value, so it takes no "value" suffix (JEG-608).
+  const lockLabel = key => key === "disagreement" ? "Largest disagreement"
+    : key === "ddf_value" ? sourceLabel(key) : `${sourceLabel(key)} value`;
   const flexEligiblePositions = () => [...DEFAULT_FLEX_ELIGIBLE];
   const isPosition = player => position === "ALL" || (position === "FLEX" ? flexEligiblePositions().includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
@@ -560,9 +562,9 @@
   // Adjusted values; a "*_vorp" series its VORP vs waivers; a "*_adjusted"
   // alias its chart's Adjusted values.
   function seriesField(key, view = viewMode) {
-    if (PURE_VORP_KEYS.includes(key)) return "vorp";
+    if (PURE_VORP_KEYS.includes(key)) return VIEW_MODE_ORDER[1];
     if (ADJUSTED_INDEXED_KEYS.includes(key)) return "adjusted";
-    if (AS_PUBLISHED_KEYS.has(key)) return view === "vorp" ? "vorp" : view === "adj" ? "adjusted" : "indexed";
+    if (AS_PUBLISHED_KEYS.has(key)) return view === VIEW_MODE_ORDER[1] ? VIEW_MODE_ORDER[1] : view === "adj" ? "adjusted" : "indexed";
     return "adjusted";
   }
 
