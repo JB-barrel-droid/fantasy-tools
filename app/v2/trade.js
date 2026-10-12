@@ -149,6 +149,70 @@
       allAgree: complete.length > 0 && agreeKeys.length === complete.length, ...base};
   }
 
+  // JEG-505 headline (contract CT-02). Two plain answers with a confidence level:
+  //   propose: "Should you propose or accept?" by the verdict series (DDF Value). Yes / No / Even.
+  //            Agreement = the share of the other complete series on the same side as the verdict series.
+  //   accept:  "Will they accept?" from the published value charts (chartKeys): the share of complete
+  //            charts on which the other manager wins or breaks even (our net <= 0, as shown).
+  //            Likely at two thirds or more, Unlikely at one third or less, otherwise Toss-up.
+  // Confidence is High / Medium / Low:
+  //   agreement   >= 75% of sources on the answer's side = High, >= 60% = Medium, else Low;
+  //   few sources fewer than 3 complete sources caps at Medium;
+  //   thin margin the verdict series' net under 5% of the value traded (give + receive) reads Low, even when
+  //               every source agrees (Jeremy, 2026-10-09; the ticket proposed 3%);
+  //   data        a low-confidence (one-source) DDF Value in the trade lowers the verdict line one level.
+  const THIN_MARGIN = 0.05;
+  const LEVELS = ["Low", "Medium", "High"];
+  const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
+  const capped = (level, cap) => LEVELS[Math.min(LEVELS.indexOf(level), LEVELS.indexOf(cap))];
+  function tradeHeadlines(rows, key, ctx) {
+    const head = rows.find(row => row.key === key);
+    const traded = head && head.net !== null ? head.give + head.receive : null;
+    const thinFlag = traded !== null && (traded <= 0 || Math.abs(head.net) < THIN_MARGIN * traded);
+    const margin = traded > 0 ? Math.abs(head.net) / traded : null;
+    const levelFor = share => (share >= 0.75 ? "High" : share >= 0.6 ? "Medium" : "Low");
+    // Line 1: should you propose or accept.
+    const v = tradeVerdict(rows, key);
+    let propose;
+    if (!head || v.kind === null || v.kind === "incomplete") {
+      propose = {answer: null, confidence: null, reasons: []};
+    } else {
+      const reasons = [];
+      const answer = v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even";
+      const agree = v.agreeKeys.length;
+      let level;
+      if (!v.others) { level = "Medium"; reasons.push("no other complete source to compare with"); }
+      else {
+        const share = agree / v.others;
+        level = levelFor(share);
+        reasons.push(`${agree} of ${v.others} other sources agree`);
+      }
+      if (v.others < 3 && v.others > 0) { level = capped(level, "Medium"); reasons.push("fewer than 3 other sources"); }
+      if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
+      if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
+      propose = {answer, confidence: level, agree, of: v.others, margin, reasons};
+    }
+    // Line 2: will they accept, from the published charts.
+    const chartSet = new Set((ctx && ctx.chartKeys) || []);
+    const charts = rows.filter(row => chartSet.has(row.key) && row.net !== null);
+    let accept;
+    if (!charts.length) {
+      accept = {answer: null, confidence: null, reasons: []};
+    } else {
+      const yes = charts.filter(row => signOf(row.net) <= 0).length;
+      const share = yes / charts.length;
+      const answer = share >= 2 / 3 ? "Likely" : share <= 1 / 3 ? "Unlikely" : "Toss-up";
+      const same = answer === "Likely" ? yes : answer === "Unlikely" ? charts.length - yes : Math.max(yes, charts.length - yes);
+      const agreement = same / charts.length;
+      let level = levelFor(agreement);
+      const reasons = [`${yes} of ${charts.length} trade charts have the other manager winning or even`];
+      if (charts.length < 3) { level = capped(level, "Medium"); reasons.push("fewer than 3 trade charts"); }
+      if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
+      accept = {answer, confidence: level, yes, of: charts.length, reasons};
+    }
+    return {propose, accept};
+  }
+
   // JEG-469 empty state: a sample 2-for-2 from the top `pool` players (by the verdict
   // series) that every series prices. Prefers a trade the verdict series calls a win
   // that the most other series call a loss (the page's point), then the smallest win.
@@ -174,7 +238,7 @@
     return best ? {give: best.give, receive: best.receive} : {give: [top[1], top[3]], receive: [top[0], top[2]]};
   }
 
-  const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, pickExample};
+  const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);

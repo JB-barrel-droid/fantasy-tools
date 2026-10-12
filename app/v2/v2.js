@@ -3160,6 +3160,9 @@
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
+    // JEG-505: "Will they accept?" reads the published value charts: the as-published (rescaled) series.
+    const chartKeys = pointKeys.filter(key => sourceMeta(key).method === "indexed" && window.TradeValueTargets.CHART_KEYS.includes(key));
+    const lowConfidence = giveRows.concat(receiveRows).some(row => isLowConfidence(row, DDF_KEY));
     // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
     // series keeps its own (those scales are not comparable).
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
@@ -3167,6 +3170,7 @@
     compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
+      headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence}) : null,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
@@ -3757,7 +3761,54 @@
     return {kind: v.kind, sym: "=", title: `${name}: an even trade, 0.0`, text: parts.join(" ") + notCounted};
   }
 
+  // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
+  // (symbol + word), with the reasons on a second muted line. Never colour alone.
+  const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
+  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
+  const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
+  function renderHeadlines() {
+    const box = $("v2CHeads");
+    const heads = compareView.headlines;
+    box.hidden = !heads;
+    if (!heads) return;
+    ["propose", "accept"].forEach(line => {
+      const p = box.querySelector(`[data-line="${line}"]`);
+      const h = heads[line];
+      p.replaceChildren();
+      p.dataset.answer = h.answer || "none";
+      p.dataset.confidence = h.confidence || "none";
+      const q = document.createElement("span");
+      q.className = "q";
+      q.textContent = `${HEAD_QUESTIONS[line]} `;
+      p.appendChild(q);
+      const a = document.createElement("b");
+      a.className = "a";
+      if (!h.answer) {
+        a.textContent = "Not yet";
+        p.append(a, document.createTextNode(line === "propose"
+          ? " A value is missing, so DDF Value cannot score this trade."
+          : " No trade chart prices every player in this trade."));
+        return;
+      }
+      const sym = document.createElement("span");
+      sym.setAttribute("aria-hidden", "true");
+      sym.textContent = `${HEAD_SYMBOLS[h.answer]} `;
+      a.append(sym, document.createTextNode(h.answer));
+      const c = document.createElement("span");
+      c.className = "c";
+      const cs = document.createElement("span");
+      cs.setAttribute("aria-hidden", "true");
+      cs.textContent = `${CONFIDENCE_SYMBOLS[h.confidence]} `;
+      c.append(cs, document.createTextNode(`${h.confidence} confidence`));
+      const why = document.createElement("span");
+      why.className = "why";
+      why.textContent = h.reasons.join("; ");
+      p.append(a, document.createTextNode(" · "), c, why);
+    });
+  }
+
   function renderVerdict() {
+    renderHeadlines();
     const copy = verdictCopy();
     const card = $("v2CVerdict");
     card.dataset.verdict = copy.kind;

@@ -1341,3 +1341,24 @@ modules.js. How values work and Manifesto are reading pages and are not modules.
   When the average equals our value to one decimal the cell shows only "= market average", with no number or difference.
   No chart prices the player: "—" with a reason.
 - Tests: `tests/test_v2_targets.py` (recomputation, with mutations) and `tests/test_v2_targets_render.py` (`check_market`).
+
+## Compare a trade: headline answers with confidence (JEG-505, 2026-10-12; contract CT-02)
+
+Two plain lines open the verdict card (`TradeValueTrade.tradeHeadlines`, rendered by `renderHeadlines`); the existing
+verdict, waterfall and story stay below. Each line is an answer (symbol + word) and a confidence (dots + word); a
+second muted line gives the reasons.
+
+1. **"Should you propose or accept?"** by DDF Value (the verdict series): Yes (▲) / No (▼) / Even (=), or "Not yet" when a
+   DDF value is missing. Agreement = share of the other complete series (same set as the verdict) on the same side.
+2. **"Will they accept?"** from the published charts only (as-published series, method `indexed`): the share of complete
+   charts on which the other manager wins or breaks even (our net <= 0 as shown). Likely (▲) at 2/3 or more, Unlikely (▼)
+   at 1/3 or less, otherwise Toss-up (≈). Agreement = share on the answer's side (Toss-up: the larger side).
+
+Confidence rules (High / Medium / Low):
+- agreement 75% or more = High, 60% or more = Medium, else Low;
+- fewer than 3 sources (line 2: charts; line 1: other series) caps at Medium; no other source at all reads Medium;
+- **thin margin:** DDF net under 5% of the value traded (give + receive, DDF series) reads Low on both lines even when every
+  source agrees. Jeremy, 2026-10-09 (JEG-505 comment); the ticket had proposed 3%;
+- a one-source (low-confidence) DDF Value in the trade lowers line 1 by one level (line 2 does not read DDF).
+Tests: `tests/test_v2_headlines.py` (constructed trades recomputed from raw values, with mutations) and the headline check in
+`tests/test_v2_compare_render.py`.
