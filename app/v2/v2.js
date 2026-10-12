@@ -3787,7 +3787,7 @@
         a.textContent = "Not yet";
         p.append(a, document.createTextNode(line === "propose"
           ? " A value is missing, so DDF Value cannot score this trade."
-          : " No published chart prices every player in this trade."));
+          : " No trade chart prices every player in this trade."));
         return;
       }
       const sym = document.createElement("span");

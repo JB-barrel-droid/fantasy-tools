@@ -205,8 +205,8 @@
       const same = answer === "Likely" ? yes : answer === "Unlikely" ? charts.length - yes : Math.max(yes, charts.length - yes);
       const agreement = same / charts.length;
       let level = levelFor(agreement);
-      const reasons = [`${yes} of ${charts.length} published charts have the other manager winning or even`];
-      if (charts.length < 3) { level = capped(level, "Medium"); reasons.push("fewer than 3 published charts"); }
+      const reasons = [`${yes} of ${charts.length} trade charts have the other manager winning or even`];
+      if (charts.length < 3) { level = capped(level, "Medium"); reasons.push("fewer than 3 trade charts"); }
       if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
       accept = {answer, confidence: level, yes, of: charts.length, reasons};
     }
