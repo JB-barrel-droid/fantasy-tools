@@ -72,7 +72,7 @@ def build_rows(sleeper: dict, index: PlayerIndex, snapshot_date: str, fetched_at
         if not p.get("team") and not p.get("injury_status"):
             continue
         name = (p.get("full_name") or f"{p.get('first_name', '')} {p.get('last_name', '')}").strip()
-        e, why = index.resolve_sleeper(sid, name, pos)
+        e, why = index.resolve_sleeper(sid, name, pos, live_gsis=p.get("gsis_id"))
         how[why if e else "unresolved"] = how.get(why if e else "unresolved", 0) + 1
         news = p.get("news_updated")
         row = {
