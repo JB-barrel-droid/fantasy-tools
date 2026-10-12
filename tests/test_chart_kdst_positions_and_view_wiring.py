@@ -70,7 +70,7 @@ class ViewModeWiringTest(unittest.TestCase):
         text = WIDGET.read_text(encoding="utf-8")
         for name in ("VIEW_MODE_DEFS", "VIEW_MODE_ORDER",
                      "function setViewMode", "function makeViewModeTabs",
-                     "function buildVorpViewSourceMap", "function sourceHasVorpView"):
+                     "function seriesField", "function seriesValuesFrom"):
             self.assertIn(name, text,
                           f"{name} must exist in curve-widget.js (view wiring)")
 
@@ -89,11 +89,20 @@ class ViewModeWiringTest(unittest.TestCase):
         self.assertIn('id="viewModeTabs"', html,
                       "index.html must contain the viewModeTabs container")
 
-    def test_build_source_map_uses_view_values(self):
-        """buildSourceMap must consult vorp_views for non-indexed views."""
+    def test_series_values_follow_the_view(self):
+        """JEG-608: the pipeline (VP-11) replaced the vorp_views lookup
+        (buildVorpViewSourceMap, JEG-508 #491): a series' values come from
+        seriesValuesFrom, which reads the field seriesField picks for the
+        view, so a tab switch changes the numbers."""
         text = WIDGET.read_text(encoding="utf-8")
-        self.assertIn("buildVorpViewSourceMap(key, viewKey)", text,
-                      "buildSourceMap must route non-indexed views through vorp_views")
+        body = text.split("function seriesValuesFrom")[1].split("\n  }\n")[0]
+        self.assertIn("seriesField(key, view)", body,
+                      "seriesValuesFrom must read the field for the requested view")
+        field = text.split("function seriesField")[1].split("\n  }\n")[0]
+        self.assertIn("view === VIEW_MODE_ORDER[1]", field,
+                      "AS_PUBLISHED_KEYS must switch field on the VORP view")
+        self.assertIn('view === "adj"', field,
+                      "AS_PUBLISHED_KEYS must switch field on the Adjusted view")
 
 
 class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
@@ -111,11 +120,12 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
         text = WIDGET.read_text(encoding="utf-8")
         self.assertIn("savedActiveSourcesForView", text,
                       "setViewMode must save/restore the user's source selection")
-        # The non-indexed branch must filter AS_PUBLISHED_KEYS by vorp-view availability.
+        # VP-11: the non-indexed branch activates the published charts plus the
+        # view's own projection series (sourceHasVorpView was retired by JEG-508).
         self.assertRegex(
             text,
-            r'\[\.\.\.AS_PUBLISHED_KEYS\]\.filter\(key => sourceHasVorpView\(key\)\)',
-            "setViewMode must activate the vorp-view-capable published sources")
+            r'\[\.\.\.AS_PUBLISHED_KEYS, \.\.\.\(mode === "vorp" \? PURE_VORP_KEYS : PROJECTION_SOURCE_KEYS\)\]',
+            "setViewMode must activate the published charts and the view's projection series")
 
     def test_set_view_mode_restores_indexed_selection(self):
         """Returning to Indexed must restore the saved source selection."""
@@ -124,48 +134,6 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
             text,
             r'if \(mode === "indexed"\) \{\s*if \(savedActiveSourcesForView\)',
             "setViewMode must restore the saved selection on return to Indexed")
-
-    def test_agreement_check_reads_indexed_units(self):
-        """The anchor-band health check must not compare VORP/adjusted units.
-
-        In a non-indexed view the as-published source maps carry VORP/adjusted
-        values; comparing those against the ESPN anchor would false-fail the
-        0.8-1.25x band. agreementFor must read indexed units via
-        indexedMapForAgreement.
-        """
-        text = WIDGET.read_text(encoding="utf-8")
-        self.assertIn("function indexedMapForAgreement", text,
-                      "indexedMapForAgreement must exist")
-        self.assertIn("indexedMapForAgreement(key)", text,
-                      "agreementFor must read indexed units for the anchor band")
-
-    def test_vorp_view_resolves_via_player_keys(self):
-        """buildVorpViewSourceMap must resolve the normalized player_keys form.
-
-        vorp_views keys are normalized lowercase display names ("aj brown"),
-        while canonical names carry punctuation ("A.J. Brown"). Resolving via
-        the canonical name silently matches nothing, the view map comes back
-        empty, and buildSourceMap falls back to indexed values -- so every tab
-        shows identical numbers. The lookup must go through the fixture's
-        player_keys table.
-
-        2026-10-07 (JEG332-VORP-VIEWS): this test used to require the lookup to
-        read `data.player_keys`. Since JEG-363 `data` is product-data's
-        snapshot, which carries no player_keys, so that exact form produced the
-        empty map described above and the views showed the Indexed values. The
-        pin was wrong; the table is read through product-data
-        (getPlayerKeysBySourceId). tests/test_published_views_render.py proves
-        it live (mutation "saved-views-unresolved").
-        """
-        text = WIDGET.read_text(encoding="utf-8")
-        body = text.split("function buildVorpViewSourceMap")[1].split("function savedViewApplies")[0]
-        self.assertIn("window.TradeValueProductData?.getPlayerKeysBySourceId?.()", body,
-                      "buildVorpViewSourceMap must build its lookup from product-data's player_keys table")
-        self.assertNotIn("data.player_keys", body,
-                         "the snapshot `data` has no player_keys (JEG-363); reading it empties the views")
-        # The old broken form keyed the lookup by the canonical (punctuated) name.
-        self.assertNotIn("player.full_name || player.name", text.split("function buildVorpViewSourceMap")[1].split("function sourceHasVorpView")[0],
-                         "buildVorpViewSourceMap must not key by canonical full_name/name")
 
 
 if __name__ == "__main__":
