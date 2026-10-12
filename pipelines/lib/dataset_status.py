@@ -75,7 +75,7 @@ def _utcnow():    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ
 #   reindexed-as-given      = their published values times one factor per combo
 #                             (JEG-482: their order kept); no methodology.
 _METHOD_TV = ("trade-value-methodology", "Our methodology")
-_METHOD_GIVEN = ("reindexed-as-given", "As published (reindexed)")
+_METHOD_GIVEN = ("reindexed-as-given", "Rescaled (reindexed)")
 
 
 def _leg(v, leg="ppr"):
@@ -460,7 +460,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
 
 
     # ---- Comparison sources (optional side input) ------------------------------
-    # FantasyCalc / USA Today / FantasyPros (as published, reindexed) and
+    # FantasyCalc / USA Today / FantasyPros (rescaled) and
     # their bias-adjusted variants (corrected toward our methodology via
     # source_value_adjustments fits). The comparison-sources asset is the
     # single side input: data/fixtures/current/comparison-sources-data.json.
@@ -474,7 +474,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         method_description=(
             "FantasyCalc's published crowd trade values, isotonic-reindexed "
             "onto the chart's 0-70 scale against our own values. No current "
-            "value model methodology applied — shown as published, biases "
+            "value model methodology applied — shown rescaled, biases "
             "and all."),
         completeness_note=(
             "QB/RB/WR/TE only — no K/DST coverage. Native unit is "
@@ -491,7 +491,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
             "USA Today's published chart values (QB values are implied from "
             "their single 1QB column), isotonic-reindexed onto the 0-70 scale "
             "against our own values. No current value model methodology "
-            "applied — shown as published, biases and all."),
+            "applied — shown rescaled, biases and all."),
         completeness_note=(
             "QB/RB/WR/TE only — no K/DST coverage. Editorial chart points on "
             "their own ~0–70 scale, per scoring column."),

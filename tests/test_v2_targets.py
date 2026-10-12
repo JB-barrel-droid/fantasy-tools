@@ -60,17 +60,36 @@ INFO = [
     {"key": "razzball", "available": False, "stale": False},
 ]
 
+MARKET_ROWS = [
+    {"player_key": 21, "name": "I", "values": {"ddf_value": 10.0, "usatoday": 14.0, "fantasycalc": 6.0, "cbs": 10.0}},
+    {"player_key": 22, "name": "J", "values": {"ddf_value": 10.0, "usatoday": 22.0, "fantasycalc": None, "cbs": 0.0}},
+]
+
+
+def recompute_market(row: dict, charts: list[str]) -> dict:
+    """The independent calculation: mean of the finite chart values (a 0 counts), ours minus it."""
+    ours = row["values"]["ddf_value"]
+    priced = [row["values"][c] for c in charts if row["values"].get(c) is not None]
+    mean = sum(priced) / len(priced)
+    return {"value": mean, "count": len(priced), "left": len(charts) - len(priced), "diff": ours - mean,
+            "equal": f"{ours:.1f}" == f"{mean:.1f}"}
+
+
 HARNESS = """
 const T = require(process.argv[1]);
 const input = JSON.parse(process.argv[2]);
 const brief = p => ({key: p.row.player_key, ours: p.ours, cells: p.cells,
-  bestSell: p.bestSell, bestBuy: p.bestBuy});
+  bestSell: p.bestSell, bestBuy: p.bestBuy, market: p.market});
 const d = T.buildTargets(input.rows, input.charts);
 const r = T.buildTargets(input.rows, input.charts, {ours: "espn"});
 const c = T.buildTargets(input.rows, input.charts, {ours: "cbsros"});
 // Jeremy, 2026-10-08: a one-source DDF Value (ddfLowConfidence) is still a target.
 const lc = T.buildTargets([{player_key: 9, name: "H", values: {ddf_value: 3.0, usatoday: 9.0}, ddfCount: 1, ddfLowConfidence: true}], ["usatoday"]);
+// JEG-504: market average cases. I: the average equals our value (10.0) to one decimal;
+// J: one chart does not price the player (left out), one at its waiver line (a finite 0 counts).
+const mk = T.buildTargets(input.market, ["usatoday", "fantasycalc", "cbs"]);
 console.log(JSON.stringify({
+  market: [...mk.sell, ...mk.buy].map(brief),
   lowConfidence: lc.sell.map(p => [p.row.player_key, p.ours, p.bestSell.gap]),
   ddf: {ours: d.ours, sell: d.sell.map(brief), buy: d.buy.map(brief), compared: d.compared, omitted: d.omittedNoOurs},
   sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, omitted: r.omittedNoOurs,
@@ -87,7 +106,7 @@ def run_targets(path: Path) -> dict:
     node = shutil.which("node")
     if not node:
         raise unittest.SkipTest("node is not available")
-    payload = json.dumps({"rows": ROWS, "charts": CHARTS, "info": INFO})
+    payload = json.dumps({"rows": ROWS, "charts": CHARTS, "info": INFO, "market": MARKET_ROWS})
     out = subprocess.run([node, "-e", HARNESS, str(path), payload], capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
@@ -164,6 +183,16 @@ def check(result: dict) -> list[str]:
     rz = choices.get("razzball", {})
     if rz.get("available") is not False or not rz.get("reason"):
         errors.append(f"an unavailable series must be offered disabled with a reason: {rz}")
+    # JEG-504: the market average and difference equal a recomputation from the engine values.
+    market = {p["key"]: p["market"] for p in result["market"]}
+    for row in MARKET_ROWS:
+        want = recompute_market(row, ["usatoday", "fantasycalc", "cbs"])
+        got = market.get(row["player_key"])
+        if got is None or got["count"] != want["count"] or got["left"] != want["left"] or got["equal"] != want["equal"] \
+                or abs(got["value"] - want["value"]) > 1e-9 or abs(got["diff"] - want["diff"]) > 1e-9:
+            errors.append(f"market average for {row['name']} must be {want}, got {got}")
+    if not market.get(21, {}).get("equal") or market.get(22, {}).get("equal"):
+        errors.append(f"an average equal to our value to one decimal is flagged equal (and only then): {market}")
     return errors
 
 
@@ -180,6 +209,11 @@ MUTATIONS = {
     # JEG-455
     "default reverted to ESPN": ("const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[1];"),
     "one-source player left out": ("      if (!finite(ours)) {", "      if (!finite(ours) || row.ddfLowConfidence) {"),
+    # JEG-504
+    "average ignores a finite zero": ("const values = Object.values(cells).map(cell => cell.value).filter(finite);",
+                                      "const values = Object.values(cells).map(cell => cell.value).filter(v => finite(v) && v > 0);"),
+    "difference sign flipped": ("const diff = ours - value;", "const diff = value - ours;"),
+    "equal never flagged": ("equal: ours.toFixed(1) === value.toFixed(1)}", "equal: false}"),
     "DDF Value dropped from the choices": ('const OUR_KEYS = ["ddf_value", "espn", "cbsros", "razzball"];',
                                            'const OUR_KEYS = ["espn", "cbsros", "razzball"];'),
 }
