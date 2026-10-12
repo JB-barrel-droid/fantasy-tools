@@ -19,9 +19,9 @@ Owner ticket: JEG-604. Post: "How much is a bench player worth?" (JEG-544, Todo)
 | Bench-share bounds (8.6% / 13.3% in the approved-defaults log, 8.1% / 13.1% in methodology ES-7) | JEG-548 | Wave 6, not done | needs the convention (JEG-562) |
 | Decompose the 8.9% (start-worthy versus fill-in, displacement) | JEG-549 | Wave 6, not done | |
 | Starter downside (does the start-worthy term apply to starters; Hubbard RB16 at 71.6% against a 78.9% ceiling) | JEG-550 | Wave 7, not done | |
-| Fill-in rates (34% / 4% / 48%, decision build) | JEG-551 | Wave 6, must be recomputed | |
+| Fill-in rates (34% / 4% / 48%, decision build) | JEG-551 | **Done** (2026-10-12) | JEG-551 comment; approved defaults give RB depth-1 50.9%, depth-2 11.5%, WR depth-1 46.3% |
 | Ceiling as a function of week (78.9% was arithmetic, not printed by the repo) | JEG-552 | Wave 7, not done | |
-| Bench-slots effect | JEG-553 | Wave 6; use the market bench rule and the 7-bench default | |
+| Bench-slots effect | JEG-553 | **Done** (2026-10-12) | JEG-553 comment; 4-8 bench slots changes overall bench share by only 0.2pp (8.8% to 9.0%), zero inversions |
 | Worked example by rank at a fixed reference point | JEG-554 | Wave 7, not done | |
 | Commit the scripts | JEG-566 | Wave 7 | `tools/bench_research` (does not exist yet) |
 
