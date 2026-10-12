@@ -668,7 +668,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 /* Below 768 px the tabs use short labels on one row (frames 02 / 04 / 06 / 08 / 16). */
 @media (max-width: 767px) {
   .v2-tabs { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
-  .v2-tab { padding: 8px 8px; flex: 1 1 auto; justify-content: center; }
+  /* 7 px side padding leaves slack in the 358 px row, so the shortest tab can keep a 44 px hit area (JEG-607). */
+  .v2-tab { padding: 8px 6px; min-width: 44px; flex: 1 1 auto; justify-content: center; }
   .v2-tab .v2-tab-full { display: none; }
   .v2-tab::before { content: attr(data-short); }
 }
@@ -963,7 +964,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 
 /* Layout: chart left, table right from 1280 px, so both are above the fold at 1366 × 768 and 1440 × 900. */
 @media (min-width: 1280px) {
-  .v2-values-grid { display: grid; grid-template-columns: minmax(420px, 1fr) fit-content(64%); gap: var(--v2-gap);
+  .v2-values-grid { display: grid; grid-template-columns: minmax(420px, 1fr) fit-content(66%); gap: var(--v2-gap);
     align-items: stretch; margin-top: 6px; }
   #v2Main .v2-values-grid > .v2-card { margin-top: 0; min-width: 0; }
   /* The table card takes the chart card's height (it adds nothing to the row) and scrolls inside. */
