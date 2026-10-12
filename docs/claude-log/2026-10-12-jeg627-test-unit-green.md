@@ -13,3 +13,6 @@ Root causes, one fix each (code assumed wrong first; assertion changed only wher
 - Four rendered_gate scripts against dist with CHROMIUM_PATH set: exit clean.
 ### Claimed, not confirmed
 - Full `make test-unit` end to end was not re-run to completion (machine loaded; panels render test alone takes 4 min).
+
+### Update: validate is still red on one test, not from this PR
+- `make validate` on main (and on this branch after merging main) fails only `tests.test_bench_share_readout_matches_reference` (checked by running every test-core and test-integration line separately). Bisect: 71b5f891 OK, 590401bf (JEG-560, #557) FAIL. JEG-560 moved the Python reference's bench seats onto the roster convention; `value-model.js` still uses the legacy mix. Number-changing JS migration, tracked as JEG-630. This PR changes no published output (tests, a manifest entry, a node helper, the Makefile).
