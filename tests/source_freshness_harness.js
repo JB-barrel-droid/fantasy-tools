@@ -13,7 +13,7 @@
 //   {cmd: "freshness", sources, today}                 -> buildSourceFreshness()
 //   {cmd: "registry", fixturePath, indexPath, sources?, scoring, teams, today,
 //    minShared?, pausedSeries?: [...]}                 -> buildPairRegistry()
-//   {cmd: "defaults", inputsPath, excluded, active, deselected}
+//   {cmd: "defaults", excluded, active, deselected}
 //        -> {defaults, satisfied} from curve-widget's TradeValueCurvePause
 "use strict";
 const fs = require("fs");
@@ -61,7 +61,8 @@ if (payload.cmd === "defaults") {
   vm.runInContext(fs.readFileSync(path.join(ASSETS, "value-model.js"), "utf8"), context);
   vm.runInContext(loadSource("curve-widget.js", mutations), context);
   const P = context.TradeValueCurvePause;
-  const inputs = JSON.parse(fs.readFileSync(payload.inputsPath, "utf8"));
+  // The widget ignores its `inputs` argument since JEG-508; the retired adjustment-inputs.json is not read (JEG-539).
+  const inputs = null;
   const excluded = new Set(payload.excluded || []);
   out = {
     defaults: P.defaultIndexedSourceKeys(inputs, excluded),

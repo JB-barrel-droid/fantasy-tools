@@ -3,7 +3,7 @@
 // defaultCurvesSatisfied regression-guard predicate from
 // globalThis.TradeValueCurvePause against simulated active/deselected sets.
 // Usage: node curve_guard_harness.js < payload.json
-// payload: {inputsPath, active: [...keys], deselected: [...keys]}
+// payload: {active: [...keys], deselected: [...keys]}
 // Output: {satisfied: bool, defaults: [...keys], oldPredicateWouldThrow: bool}
 //
 // JEG-211 note: the old indexed-publisher guard branch
@@ -28,7 +28,8 @@ if (!P || typeof P.defaultCurvesSatisfied !== "function") {
 }
 
 const payload = JSON.parse(fs.readFileSync(0, "utf8"));
-const inputs = JSON.parse(fs.readFileSync(payload.inputsPath, "utf8"));
+// The widget ignores its `inputs` argument since JEG-508; the retired adjustment-inputs.json is not read (JEG-539).
+const inputs = null;
 const active = new Set(payload.active || []);
 const deselected = new Set(payload.deselected || []);
 const defaults = P.defaultIndexedSourceKeys(inputs);

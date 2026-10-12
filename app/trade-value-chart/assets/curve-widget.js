@@ -399,7 +399,8 @@
     const sv = (typeof window !== "undefined" && window.TradeValueProductData)
       ? window.TradeValueProductData.getSnapshot().source_validation
       : null;
-    return key === "cbs_adjusted" ? sv?.cbs : sv?.[key];
+    // An *_adjusted series is validated with its chart (the sections are retired, JEG-539).
+    return sv?.[key.replace(/_adjusted$/, "")];
   };
   // GAP-MISSING-SECTION-REFUSES-RENDER: a source whose whole section is
   // absent from the fixture is dropped by product-data. It is listed, greyed

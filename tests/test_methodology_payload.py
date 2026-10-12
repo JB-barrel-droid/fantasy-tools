@@ -49,10 +49,9 @@ class TestMethodologyPayload(unittest.TestCase):
             set(combo["position_shares"].keys()),
             {"usatoday", "fantasycalc", "fantasypros", "cbs", "espn"},
         )
-        self.assertEqual(
-            set(combo["adjustments"].keys()),
-            {"usatoday", "fantasycalc", "fantasypros", "cbs"},
-        )
+        # JEG-539 (Jeremy 2026-10-12): the *_adjusted sections the movers were built from are
+        # retired, so the payload carries no adjustments (the page renders an empty lab).
+        self.assertEqual(combo["adjustments"], {})
 
     def test_partial_sources_omitted_not_fabricated(self):
         # Published sources (USA Today / FantasyPros / CBS / FantasyCalc) ship only

@@ -72,6 +72,7 @@ from save_espn_cbs_references import (  # noqa: E402
     upsert_rows,
     count_rows,
 )
+from canonical_players import SILENT_REASONS  # noqa: E402 -- inactive players are never flagged (JEG-539)
 # Writer audit for Supabase write provenance
 from lib.writer_audit import WriterAudit  # noqa: E402
 
@@ -224,6 +225,8 @@ def build_usatoday_rows(
         ):
             key, _rec, canonical_pos = resolve_canonical(name, pos, registry)
             if key is None:
+                if canonical_pos in SILENT_REASONS:
+                    continue  # an inactive player at another position: no value, no flag (JEG-539)
                 review.append(
                     {
                         "name": name,

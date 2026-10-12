@@ -355,8 +355,7 @@ def hold_on(*sections, field="validationHold"):
     """The pipeline's shape: {reason, week, root, kept_week} on each held section."""
     def edit(fixture):
         for section in sections:
-            root = "cbs" if section == "cbs_adjusted" else section.replace("_adjusted", "")
-            fixture["sources"][section][field] = {**HOLD, "root": root, "kept_week": HOLD["week"] - 1}
+            fixture["sources"][section][field] = {**HOLD, "root": section, "kept_week": HOLD["week"] - 1}
     return edit
 
 
@@ -705,17 +704,13 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual((entry["holdRoot"], entry["holdWeek"], entry["holdKeptWeek"]), ("fantasycalc", 5, 4))
         self.assertEqual(out["load"]["held"], ["fantasycalc"])
 
-    def test_pipeline_hold_on_raw_and_adjusted_sections(self):
-        out = self.held_run(hold_on("cbs", "cbs_adjusted"), "cbs")
+    def test_pipeline_hold_on_the_raw_section_holds_its_adjusted_series(self):
+        # JEG-539: the *_adjusted sections are retired, so a hold lives on the raw section only and
+        # the derived series follows it (this was a hold on both sections, and one on the derived section).
+        out = self.held_run(hold_on("cbs"), "cbs")
         self.assert_never_included(out, "cbs", "held: " + HOLD["reason"])
         entry = {e["key"]: e for e in out["load"]["excluded"]}["cbs"]
         self.assertEqual((entry["heldBy"], entry["holdRoot"]), ("cbs", "cbs"))
-
-    def test_hold_on_the_derived_section_itself(self):
-        out = self.held_run(hold_on("fantasycalc_adjusted"), "fantasycalc")
-        self.assert_never_included(out, "fantasycalc", "held: " + HOLD["reason"])
-        entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc"]
-        self.assertEqual(entry["heldBy"], "fantasycalc_adjusted")
 
     def test_promotion_hold_is_a_hold_too(self):
         out = self.held_run(hold_on("fantasycalc", field="promotionHold"), "fantasycalc")

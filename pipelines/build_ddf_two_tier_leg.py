@@ -2,7 +2,7 @@
 """Build the DDF two-tier value-above-waivers leg from ESPN projections.
 
 Stage 2 of the repo pipeline: ESPN projections -> DDF two-tier leg ->
-versioned adjustment inputs (pipelines/build_adjustment_inputs.py).
+versioned legs (the adjustment inputs they once fed were retired, JEG-539).
 
 This is a pure-Python port of the browser's TwoTier calibration in
 app/trade-value-chart/assets/curve-widget.js (itself a port of

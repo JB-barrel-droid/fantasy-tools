@@ -26,7 +26,7 @@ as the ESPN leg). Unresolvable identities go to review_rows, never guessed.
 Output: data/ddf-two-tier/<bake_id>/ddf_leg_cbsros.json
   bake_id = ddf-<YYYYMMDD>-cbsros-<scoring>-<teams>t-0p15
 The filename is deliberately NOT ddf_leg.json: several ESPN-path tools glob
-*/ddf_leg.json (build_adjustment_inputs.find_leg, build_espn_raw_values,
+*/ddf_leg.json (build_espn_raw_values,
 build_espn_section_from_ddf_leg, build_index_math.verify_espn). A CBS leg
 named ddf_leg.json would poison those globs.
 

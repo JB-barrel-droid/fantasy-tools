@@ -20,9 +20,9 @@ Conventions (mirror pipelines/bake_players.py meta):
   present and sane or the builder raises. Per-dataset side inputs degrade
   to explicit "unavailable" entries — loud in the UI, never silent.
 
-The full source taxonomy (9 entries) is preserved: our_value, espn,
-fantasycalc, usatoday, fantasypros, fantasycalc_adjusted, usatoday_adjusted,
-fantasypros_adjusted, razzball (kdst removed with K/DST, GAP-029 2026-10-08).
+The source taxonomy (6 entries): our_value, espn, fantasycalc, usatoday,
+fantasypros, razzball (the three *_adjusted entries were retired with the fit,
+JEG-539; kdst removed with K/DST, GAP-029 2026-10-08).
 Nothing may be dropped — a missing side input degrades its entry to explicit
 "unavailable", never to omission.
 
@@ -523,40 +523,8 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         prior={"available": False, "prior_date": None,
                "delta_summary": "First FantasyPros snapshot — no prior."})
 
-    def _adjusted_entry(key, label, short):
-        prov = ((src.get(key) or {}).get("provenance_note") or "")
-        fit = None
-        for tok in prov.split():
-            if tok.startswith("fit"):
-                fit = tok.strip("(,)").strip(").")
-                break
-        return _comparison_entry(
-            key, src.get(key),
-            name=f"{label} (bias-adjusted)",
-            role=f"Comparison source: {label} values corrected toward our methodology.",
-            method=_METHOD_TV,
-            method_description=(
-                f"{label}'s published values corrected by the "
-                f"source_value_adjustments fit (bake {fit}) — per-position x "
-                "role linear correction against the Monday reassessed "
-                "methodology leg. Already on the 0-70 scale." if fit else
-                f"{label}'s published values corrected by the "
-                "source_value_adjustments fit — per-position x role linear "
-                "correction against the Monday reassessed methodology leg. "
-                "Already on the 0-70 scale."),
-            completeness_note="QB/RB/WR/TE only — no K/DST coverage.",
-            ui_note=f"Chart Comparison tab: '{short} Adjusted' source column.",
-            fit_note=f"fit {fit}" if fit else None,
-            prior={"available": False, "prior_date": None,
-                   "delta_summary": "First bias-adjusted bake — no prior."})
-
-    fc_adj_entry = _adjusted_entry("fantasycalc_adjusted", "FantasyCalc", "FC")
-    usat_adj_entry = _adjusted_entry("usatoday_adjusted", "USA Today", "USAT")
-    fp_adj_entry = _adjusted_entry("fantasypros_adjusted", "FantasyPros", "FP")
-
     datasets = [ddf_entry, espn_entry,
                 fc_entry, usatoday_entry, fantasypros_entry,
-                fc_adj_entry, usat_adj_entry, fp_adj_entry,
                 rz_entry]
     summary = {
         "live": sum(1 for d in datasets if d["status"] == "live"),

@@ -39,7 +39,7 @@ def setUpModule():
 
 
 PRE_FIX_COMMIT = "dac0ff2"
-DROP = ("usatoday", "usatoday_adjusted")
+DROP = ("usatoday",)  # the usatoday_adjusted section is retired (JEG-539); its alias series drops with its chart
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 READ = """() => {
   const c = window.TradeValueCurveControls;

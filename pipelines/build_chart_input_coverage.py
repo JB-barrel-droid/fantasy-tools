@@ -145,14 +145,6 @@ def build_items(now: str) -> list[dict[str]]:
         "last_checked": rf_generated,
     })
 
-    # 4. app/trade-value-chart/assets/adjustment-inputs.json — monitored.
-    items.append({
-        "name": "app/trade-value-chart/assets/adjustment-inputs.json",
-        "freshness_source": "reference-freshness.json (fit.combo_note / fixture_built_at branch)",
-        "monitor_check": True,
-        "last_checked": rf_generated,
-    })
-
     # 5. data/fixtures/current/actuals_*.json — aggregate freshness.
     # JEG-317 collapses the per-file rows into one row carrying the mtime of
     # the most recent file; the dashboard renders age bands from this mtime

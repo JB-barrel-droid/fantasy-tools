@@ -159,7 +159,6 @@ class SourceGeneratedAtTest(unittest.TestCase):
         self.assertEqual(got["cbsros"], (f"{d['cbsros']['vintage'][:10]}T00:00:00+00:00", "vintage"))
         self.assertEqual(got["espn"][1], "espn_snapshot")
         self.assertEqual(got["fantasypros"][1], "source_provenance.content_vintage")
-        self.assertEqual(got["usatoday_adjusted"][1], "lineage.raw_vintage")
         # "Week 5" is not an instant: the acquisition time is used
         self.assertEqual(got["fantasycalc"][1], "fetched_at")
         self.assertTrue(all(v[0] for v in got.values()), got)
@@ -209,36 +208,27 @@ class PreflightTest(unittest.TestCase):
 
 class AdjustedExcludedTest(unittest.TestCase):
     """Decision consol-adjusted-001 (Jeremy 2026-10-07): *_adjusted sections are
-    not written to public.consolidated_values, explicitly and with a log line."""
+    not written to public.consolidated_values. JEG-539 (Jeremy 2026-10-12)
+    retired the sections themselves, so the current fixture carries none; the
+    table guard stays for any stale one."""
 
-    def test_current_fixture_writes_core_sources_only_and_logs_the_skip(self):
-        # 2026-10-07: 15 adjusted combo values exceed 70; the write must go
-        # through anyway because adjusted sources are not table rows.
+    def test_current_fixture_has_no_adjusted_rows_and_writes_every_row(self):
         import contextlib
         import io
         detail = load_detail()
+        self.assertEqual([], [s for s in detail["sources"] if s.endswith("_adjusted")])
         rows, _ = bcv.build_rows(detail)
+        self.assertEqual([], [r for r in rows if r["source"].endswith("_adjusted")])
         sb = FakeSb(sorted(detail["sources"]), sorted(set(detail["player_keys"].values())))
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
+        with contextlib.redirect_stdout(io.StringIO()):
             n = bcv.write_supabase(rows, detail, "sha-test", sb=sb)
-        written = {r["source"] for r in sb.values}
-        self.assertFalse([s for s in written if s.endswith("_adjusted")], written)
-        adjusted = {}
-        for r in rows:
-            if r["source"].endswith("_adjusted"):
-                adjusted[r["source"]] = adjusted.get(r["source"], 0) + 1
-        self.assertEqual(n, len(rows) - sum(adjusted.values()))
-        self.assertEqual(set(adjusted), {"cbs_adjusted", "fantasycalc_adjusted",
-                                         "fantasypros_adjusted", "usatoday_adjusted"})
-        for src, cnt in adjusted.items():
-            self.assertIn(f"skipped {src}: {cnt} rows not written to consolidated_values", out.getvalue())
-        self.assertFalse([b for b in sb.bakes if b["source"].endswith("_adjusted")])
+        self.assertEqual(n, len(rows))
 
-    def test_adjusted_rows_stay_in_the_served_export(self):
-        # The chart/export side is unchanged: build_rows still emits them.
-        rows, _ = bcv.build_rows(load_detail())
-        self.assertTrue(any(r["source"] == "usatoday_adjusted" for r in rows))
+    def test_a_stale_adjusted_section_is_still_kept_out_of_the_table(self):
+        kept, skipped = bcv.split_for_table([
+            {"source": "cbs", "player": "a"}, {"source": "usatoday_adjusted", "player": "a"}])
+        self.assertEqual([r["source"] for r in kept], ["cbs"])
+        self.assertEqual(skipped, {"usatoday_adjusted": 1})
 
 
 class SourceConfigTest(unittest.TestCase):

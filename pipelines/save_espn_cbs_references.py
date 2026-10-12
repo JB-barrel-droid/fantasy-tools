@@ -193,7 +193,7 @@ def resolve_canonical(
     way to match a name: norm_player_name with nicknames, the verified alias
     list, position filter, active over inactive, fail closed). Returns
     (player_key, record, canonical position) or (None, None, reason) with
-    reason one of unmatched | ambiguous | position_conflict."""
+    reason one of unmatched | ambiguous | position_conflict | inactive."""
     key, reason = canonical_players.resolve_with_reason(name, position=pos or None, registry=registry)
     if key is None:
         return None, None, reason
@@ -292,6 +292,8 @@ def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any
             continue
         key, _rec, pos = resolve_canonical(name, str(row.get("pos") or ""), registry)
         if key is None:
+            if pos in canonical_players.SILENT_REASONS:
+                continue  # an inactive player at another position: no value, no flag (JEG-539)
             review.append(
                 {
                     "reason": "unresolved_name",
@@ -390,6 +392,8 @@ def build_cbs_rows(json_path: Path, week: int, bake_id: str | None = None
                 continue
             key, _rec, canonical_pos = resolve_canonical(name, pos, registry)
             if key is None:
+                if canonical_pos in canonical_players.SILENT_REASONS:
+                    continue  # an inactive player at another position: no value, no flag (JEG-539)
                 review.append(
                     {
                         "reason": "unresolved_name",

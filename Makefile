@@ -176,8 +176,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_import_health
 	python3 -m unittest tests.test_verify_import_health
 	python3 -m unittest tests.test_promote_section
-	python3 -m unittest tests.test_adjusted_fixture_sections
-	python3 -m unittest tests.test_adjustment_inputs
 	python3 -m unittest tests.test_checkpoint_expected_week
 	python3 -m unittest tests.test_checkpoint_pages_deploy
 	python3 -m unittest tests.test_c10_committed_fixture_baseline
@@ -453,6 +451,7 @@ test-core:
 	python3 -m unittest tests.test_player_aliases
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_player_alias_table
+	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
 	python3 -m unittest tests.test_chain_commits_legs
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change

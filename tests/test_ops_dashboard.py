@@ -91,7 +91,7 @@ def green_site() -> dict:
     ]}
     chain = {"run_at": ago(2), "nfl_week": 5, "success": True, "outcome": "green", "held": [], "failed": [],
              "hold_severity": "none", "held_detail": {}, "runner": "github-actions",
-             "fit": {"status": "ok", "detail": "fit complete"}, "adjusted_sections": {"status": "ok", "detail": "built"},
+             "reindex_fixture": {"status": "ok", "detail": "re-index and rank guard ok"},
              "detail": {s: {"status": "ok", "stage": "complete", "detail": "promoted 3/3", "promoted": 3, "sections": 3} for s in SOURCES},
              "source_vintages": {s: {"content_vintage": "2026-10-06", "content_week": 5, "lagging_one_week": False} for s in SOURCES}}
     health = {"checked_at": ago(1), "nfl_week": 5, "sources": {s: {

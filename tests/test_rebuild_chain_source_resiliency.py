@@ -109,8 +109,7 @@ def check_failed_source_kept_and_others_publish(run, failed):
     for s in GATED:
         if s != failed:
             assert after["sources"][s]["week_designated"] == "Week 5", f"{s} did not publish"
-    assert status["fit"]["status"] == "ok", status["fit"]
-    assert status["adjusted_sections"]["status"] == "ok", status["adjusted_sections"]
+    assert status["reindex_fixture"]["status"] == "ok", status["reindex_fixture"]
 
 
 def check_legs_kept(run, source="espn"):
@@ -178,7 +177,7 @@ class SourceResiliencyTest(unittest.TestCase):
         check_legs_kept(run)
         for s in GATED:
             self.assertEqual(run["after"]["sources"][s]["week_designated"], "Week 5", s)
-        self.assertEqual(run["status"]["fit"]["status"], "ok")
+        self.assertEqual(run["status"]["reindex_fixture"]["status"], "ok")
 
     def test_espn_builder_that_corrupts_the_fixture_is_restored(self):
         """ESPN's builder dies after writing a truncated fixture."""
