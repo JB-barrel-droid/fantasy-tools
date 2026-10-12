@@ -43,6 +43,7 @@ import os
 import sys
 import urllib.request
 from datetime import datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -150,8 +151,7 @@ def _parse_iso(ts: str | None) -> datetime | None:
     if not ts:
         return None
     try:
-        # GitHub returns "...Z"; datetime.fromisoformat wants +00:00 in 3.10
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return parse_iso_timestamp(ts)
     except ValueError:
         return None
 

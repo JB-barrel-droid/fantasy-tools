@@ -38,6 +38,7 @@ import sys
 import time
 import urllib.request
 from datetime import datetime, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,7 +57,7 @@ def parse_ts(value):
     if not isinstance(value, str) or not value.strip():
         return None
     try:
-        dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        dt = parse_iso_timestamp(value.strip())
     except ValueError:
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)

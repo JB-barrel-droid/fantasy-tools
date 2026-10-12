@@ -72,6 +72,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 from typing import Any, Callable
 
@@ -154,7 +155,7 @@ UNPROBED = "unprobed"
 def _ts(value: str | None) -> datetime | None:
     if not value:
         return None
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return parse_iso_timestamp(str(value))
 
 
 def decide(state: dict[str, Any] | None, probe: dict[str, Any], now: datetime,
