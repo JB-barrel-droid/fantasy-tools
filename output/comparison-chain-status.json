@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-12T21:22:24.029698+00:00",
+  "run_at": "2026-10-12T21:49:31.963231+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -7,33 +7,18 @@
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
-    "cbsros": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: cbsros: snapshot sha256:1d1956877606 != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
-    "razzball": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: razzball: snapshot sha256:5b7290e017aa != players.json rz_snapshot_id sha256:31c28544ad55; the section waits for a bake from the same snapshot"
+    "cbsros": "promoted 1/1",
+    "razzball": "promoted 1/1"
   },
   "failed": [],
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros",
     "fantasycalc",
     "razzball"
   ],
   "hold_severity": "amber",
   "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "restored_from": null,
-      "detail": "1062/1098 chart values equal stored snapshot 2026-10-10 (per game, 3 decimals); 36 chart values differ from the stored snapshot, 4 stored players not on the chart, 3 chart players not stored; newer stored snapshot 2026-10-12 is not on the chart yet: 955 values changed, 12 added, 15 dropped",
-      "hold_severity": "amber",
-      "week": 5
-    },
     "fantasycalc": {
       "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12_qb1/TE:fail -- candidate priced 26 < fixture 28 (dropped: aj barner, oronde gadsden ii, pat freiermuth; added: terrance ferguson) -- 1 dropped player(s) still priced live (e.g. aj barner) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
       "reason": "review hold",
@@ -106,7 +91,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6876 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6936 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -120,43 +105,19 @@
     },
     "cbsros": {
       "source": "cbsros",
-      "status": "held",
-      "stage": "snapshot",
-      "detail": "awaiting players bake: cbsros: snapshot sha256:1d1956877606 != players.json cbsros_snapshot_id sha256:dcbd56e6a65f; the section waits for a bake from the same snapshot",
-      "promoted": 0,
-      "sections": 1,
-      "held_reason": "failed at stage 'snapshot'",
-      "failed_stage": "snapshot",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "rest of season",
-        "content_vintage": null,
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "snapshot 2026-10-12 -> 12 DDF legs -> section; review passed (4404 values)",
+      "promoted": 1,
+      "sections": 1
     },
     "razzball": {
       "source": "razzball",
-      "status": "held",
-      "stage": "snapshot",
-      "detail": "awaiting players bake: razzball: snapshot sha256:5b7290e017aa != players.json rz_snapshot_id sha256:31c28544ad55; the section waits for a bake from the same snapshot",
-      "promoted": 0,
-      "sections": 1,
-      "held_reason": "failed at stage 'snapshot'",
-      "failed_stage": "snapshot",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "rest of season",
-        "content_vintage": null,
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "snapshot 2026-10-11 -> 12 DDF legs -> section; review passed (7452 values)",
+      "promoted": 1,
+      "sections": 1
     }
   },
   "reindex_fixture": {
@@ -208,7 +169,6 @@
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   }
 }
