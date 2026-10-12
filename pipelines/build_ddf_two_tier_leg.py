@@ -84,14 +84,23 @@ from games_remaining import (  # noqa: E402
 )
 from canonical_players import has_generational_suffix, norm_player_name  # noqa: E402 -- the single normalization rule
 import player_aliases  # noqa: E402 -- the single verified alias list
+from roster_convention import (  # noqa: E402 -- JEG-561: convention module for bench allocation
+    bench_seats as _convention_bench_seats,
+    DEFAULT_BENCH,
+)
 
-# Reference league shape (mirrors the widget's TwoTier constants exactly).
+# Reference league shape: unchanged from the live engine. The convention
+# module (JEG-556) handles bench allocation; the reference shape stays the
+# same so the VORP translation path (JEG-560) is not touched here.
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
 REF_FLEX_COUNT = 1
 REF_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 
-# Backward-compatible alias for the pre-rename constant name.
+# Backward compat: other modules (vorp_via_roster, value_reference) import
+# BENCH_MIX_12 from here. Keep the constant until those are migrated (JEG-560).
+# The leg itself no longer uses it — bench_mix_for_teams delegates to the
+# convention module's D'Hondt allocation.
+BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 REF_BENCH_SLOTS = BENCH_MIX_12
 
 # Verified spelling aliases live in ONE list, data/inputs/player_aliases.json,
@@ -299,11 +308,14 @@ def solve_tier_prices(a_bench: float, b_bench: float, a_start: float, b_start: f
 
 
 def bench_mix_for_teams(teams: int) -> dict[str, int]:
-    # Round-half-up (matches the widget; Python round() would banker's-round).
-    return {pos: int(math.floor(BENCH_MIX_12[pos] * teams / 12 + 0.5)) for pos in POSITIONS}
+    """Convention rule 1: D'Hondt bench allocation using market bench ratios.
 
-
-# NOTE: bench_mix_for (6-arg) was removed; use bench_mix_for_teams(teams).
+    Replaces the legacy floor(BENCH_MIX_12 * teams/12 + 0.5) formula
+    (JEG-561, part of JEG-556). Uses the convention module's bench_seats
+    with the leg's own REF_SLOTS and DEFAULT_BENCH per team.
+    """
+    seats = _convention_bench_seats(REF_SLOTS, teams, DEFAULT_BENCH)
+    return {p: seats[p] for p in POSITIONS}
 
 
 def build_position_tiers(lists: dict[str, list[dict[str, Any]]], teams: int,

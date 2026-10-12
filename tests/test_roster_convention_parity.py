@@ -126,32 +126,28 @@ class TestBenchSeatsParity_ValuePipeline(unittest.TestCase):
 class TestBenchSeatsParity_TwoTier(unittest.TestCase):
     """Parity B: build_ddf_two_tier_leg.py bench_mix_for_teams vs convention.
 
-    Two-tier uses: BENCH_MIX_12[pos] * teams / 12, round half up.
-    Convention uses D'Hondt on market bench ratios * starters.
-
-    Expected: FAIL -- the two-tier path uses a completely different rule
-    (per-position scaling instead of D'Hondt).
-    Goes green when JEG-561 migrates two-tier legs to the convention.
+    JEG-561: Two-tier now delegates to the convention module's D'Hondt
+    allocation using REF_SLOTS (skill-position subset of DEFAULT_SLOTS)
+    and DEFAULT_BENCH. This test is GREEN.
     """
 
-    @unittest.expectedFailure
     def test_bench_parity_per_team_count(self):
-        shape = ROSTER_SHAPES["3wr_6bench"]
+        from build_ddf_two_tier_leg import REF_SLOTS, DEFAULT_BENCH
         for teams in TEAM_COUNTS:
             with self.subTest(teams=teams):
-                # Two-tier path
+                # Two-tier path (now delegates to convention)
                 tt_seats = tt_bench_mix_for_teams(teams)
 
-                # Convention path (using current live slots for fair comparison)
+                # Convention path (same parameters: leg's REF_SLOTS + DEFAULT_BENCH)
                 conv_seats = convention_bench_seats(
-                    shape["slots"], teams, shape["bench"],
+                    REF_SLOTS, teams, DEFAULT_BENCH,
                     superflex=False,
                 )
                 conv_skill = {p: conv_seats[p] for p in ("QB", "RB", "WR", "TE")}
                 self.assertEqual(
                     tt_seats, conv_skill,
                     f"Bench seats differ at {teams} teams: two-tier={tt_seats} vs "
-                    f"convention={conv_skill}"
+                    f"convention={conv_skill}; REF_SLOTS={REF_SLOTS} bench_per_team={DEFAULT_BENCH}"
                 )
 
 
