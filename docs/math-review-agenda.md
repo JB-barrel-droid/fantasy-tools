@@ -23,8 +23,8 @@ measured" means nobody has run that option yet.
 
 Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`
 "Value Pipeline (source-neutral, 2026-10-09)" (VP-0 to VP-12) now gives the
-rule for the items below. The open choices it lists (OC-1 to OC-8) are
-waiting on Jeremy. The items stay below as history and for the measurements.
+rule for the items below. The open choices it lists (OC-1 to OC-8) were
+decided 2026-10-09. The items stay below as history and for the measurements.
 
 | Item | Where it is answered |
 | --- | --- |
@@ -44,11 +44,35 @@ waiting on Jeremy. The items stay below as history and for the measurements.
 | MR-16 | VP-4.3 |
 | MR-17 | VP-6.3: Adjusted values only, three versions |
 | MR-18 | SG-1/2/3/10 go with the two-tier legs. SG-5 is VP-2.2. SG-6 is VP-5.6. SG-7/8 are VP-3 to VP-5. SG-9 is VP-2.2 and VP-2.4. SG-11 is OC-8 |
-| OC-2, OC-3 | Proposed answer: "Expected-starts value" (ES-0 to ES-11, JEG-521, 2026-10-09), decision `es-value-001` pending. MR-19 to MR-27 below came out of that work |
+| OC-2, OC-3 | Answered: "Expected-starts value" (ES-0 to ES-14, JEG-521), decision `es-value-001` approved by Jeremy 2026-10-09 20:51 (JEG-533), live since PR 499 (JEG-536, 2026-10-12). MR-19 to MR-27 below came out of that work |
 | GAP-ADJ-CLIP-ZERO | Retired, with the live cells |
 
 MR-13 (gate) and MR-14 (consumers) are still open: pin the VP invariants once
 the open choices are answered.
+
+## Disposition of every item (JEG-597, 2026-10-12)
+
+Each item is closed (answered by a decision and live code) or carried (still waits for the coordinated review, JEG-450, parked until the roster convention is live and the value goals are scored). The sections below are history and measurements; this table is the status.
+
+| Item | Disposition | Where it is answered or carried |
+| --- | --- | --- |
+| OC-1 to OC-8 | Closed | Decided 2026-10-09 (methodology, "Open choices: decided"). |
+| OC-2 (bench share) | Closed | Fixed 15% decided 2026-10-09, then replaced: the bench share is a readout of expected starts (OC-9, `es-value-001`, Jeremy 2026-10-09 20:51). Live in PR 499. |
+| OC-3 (starter and bench split) | Closed | Slices decided 2026-10-09, then replaced by the expected-starts parts (ES-5, same decision). |
+| OC-9 | Closed | Decided A (JEG-533). |
+| MR-01 to MR-12, MR-15, MR-16, MR-17 | Closed as questions | Answered by the Value Pipeline spec (table above). Their measurements stay as history. |
+| MR-18 SG-5 (raw series roster) | Closed | VP-2.2: one league allocation for every source, on the user's roster; the engine's 168 rostered players at ppr/12 was never a counting bug (JEG-493). The remaining difference in how the bench is split across positions is carried by the roster convention (`roster-convention-001`, JEG-556/560). |
+| MR-18 other SG items | Closed | SG-1/2/3/10 went with the two-tier legs; SG-6 is VP-5.6; SG-7/8 are VP-3 to VP-5; SG-9 is VP-2.2 and VP-2.4; SG-11 is OC-8. |
+| MR-19 (VP slices imply 39% to 49% bench) | Closed, moot | The slices are replaced by expected starts. |
+| GAP-ADJ-CLIP-ZERO | Closed | Retired with the live cells (VP-10) and the fit (PR 532). |
+| MR-13, MR-14 (deploy gate after review; consumers comparing across views) | Carried | Pin the VP invariants once the review settles them. Owner JEG-450. |
+| MR-20 (per-game basis differs across projection sources) | Carried | JEG-535 (wave 4). |
+| MR-21 (option value) | Carried | JEG-530 (parked, BE: Later). |
+| MR-22 (bench value through the season) | Carried | JEG-528 (parked, BE: Later). |
+| MR-23 (matchups and weekly variance) | Carried | JEG-534 (parked, BE: Later). |
+| MR-26 (handcuff contingency) | Carried | JEG-526 (parked, BE: Later). |
+| MR-24, MR-25, MR-27 (more seasons, RB health, why analysts bench players) | Carried | JEG-450; no separate ticket. |
+| VA-1 to VA-7, "Option A" and `viewInvariants` | Carried | JEG-450. VA-7 is the CBS ROS direction row `GAP-CBSROS-DIRECTION-RED` in the risk register. Check VA-4, VA-5 and VA-6 against the fit retirement before reviewing; parts of them describe the retired fit. |
 
 ## How the review runs
 
@@ -1199,6 +1223,13 @@ the projection, and it sits there for one source only.
 to every source from one status feed (Sleeper, G4 c). (b) Convert CBS and
 Razzball to per team game using the Sleeper status and an expected return
 week. (c) Leave as is and document.
+
+**Interim defaults (Jeremy, 2026-10-12; to be revisited in the full math
+review).** Option (a): convert ESPN to per-game-played using its weekly
+blocks (count non-zero ROS weeks as the denominator); CBS and Razzball stay
+as-is. Keep `games_remaining` as team games for backward compatibility and
+add `espn_expected_games` as the new field. Emit `espn_projected_games` (the
+count) from the ESPN pull in `espn_projections.csv`. Implemented: JEG-535.
 
 **Depends on:** G4 (b) and (c) of JEG-521. Ticket: JEG-535.
 **Sources:** `pipelines/derive_lineup_parameters.py` (`UNAVAILABLE` exclusion),

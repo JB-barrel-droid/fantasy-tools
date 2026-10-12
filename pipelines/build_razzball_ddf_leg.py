@@ -52,7 +52,6 @@ from build_ddf_two_tier_leg import (  # noqa: E402 -- the shared math, not dupli
     write_leg_json,
     drop_duplicate_keys,
     identity_review_row,
-    BENCH_MIX_12,
     DEFAULT_BENCH_SHARE,
     POSITIONS,
     REF_FLEX_COUNT,

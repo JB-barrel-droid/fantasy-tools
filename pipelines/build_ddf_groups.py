@@ -71,7 +71,6 @@ from build_ddf_two_tier_leg import (  # noqa: E402
     REF_FLEX_ELIGIBLE,
     REF_SLOTS,
     bench_mix_for_teams,
-    utc_now as _leg_utc_now,
 )
 
 SCHEMA = "trade-value-ddf-groups-v1"

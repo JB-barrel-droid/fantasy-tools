@@ -46,6 +46,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+
+from roster_convention import (  # noqa: E402 -- JEG-561: convention for cohort size
+    bench_seats, DEFAULT_BENCH, DEFAULT_SLOTS, SKILL_POSITIONS,
+)
 
 # Published sources eligible for averaging (must match SOURCE_KINDS "published")
 PUBLISHED_SOURCES = ("fantasycalc", "usat", "fantasypros", "cbs")
@@ -94,7 +99,11 @@ def consensus_group(entries: list[tuple[str, float, str]]) -> str:
 
 
 def configured_target_count(publisher_roster: dict) -> int:
-    """Rostered-player cohort size implied by option-c-publisher-roster-v1."""
+    """Rostered-player cohort size implied by option-c-publisher-roster-v1.
+
+    Uses the roster convention module (JEG-561) to derive the bench allocation
+    via D'Hondt, then sums starters + bench across skill positions.
+    """
     if not isinstance(publisher_roster, dict):
         raise ValueError("publisher_roster required to derive league target count")
     teams = publisher_roster.get("teams")
@@ -107,7 +116,14 @@ def configured_target_count(publisher_roster: dict) -> int:
             or type(flex_count) is not int or flex_count < 0
             or type(bench_total) is not int or bench_total < 0):
         raise ValueError("invalid publisher_roster for league target derivation")
-    return teams * (sum(slots.values()) + flex_count) + bench_total
+    # Starters = dedicated + flex, across the league
+    starters_total = teams * (sum(slots.values()) + flex_count)
+    # Bench from convention's D'Hondt allocation using the publisher_roster's
+    # own slots and DEFAULT_BENCH per team (JEG-561). The bench_total from the
+    # manifest is superseded by the convention's principled allocation.
+    bench = bench_seats(slots, teams, DEFAULT_BENCH)
+    bench_total_conv = sum(bench[p] for p in slots)
+    return starters_total + bench_total_conv
 
 
 def exclude_by_rank_and_sources(players, roster_size=168, min_sources=2,

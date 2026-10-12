@@ -59,11 +59,18 @@ def _load_espn_ros(week, season):
             try:
                 rec = float(r["r_receptions"] or 0)
                 half = float(r["ros_half_ppr"] or 0)
-                # weeks_covered is "5-18" -> 14 weeks. ROS per-game:
-                wks = 14
-                m = re.match(r"(\d+)-(\d+)", r.get("weeks_covered") or "")
-                if m:
-                    wks = max(1, int(m.group(2)) - int(m.group(1)) + 1)
+                # JEG-535 (MR-20a): use espn_projected_games (count of
+                # non-zero ROS weeks) as the per-game-played denominator,
+                # harmonizing ESPN with CBS/Razzball. Falls back to the
+                # weeks_covered window length for old CSVs.
+                epg_raw = (r.get("espn_projected_games") or "").strip()
+                if epg_raw:
+                    wks = max(1, int(epg_raw))
+                else:
+                    wks = 14
+                    m = re.match(r"(\d+)-(\d+)", r.get("weeks_covered") or "")
+                    if m:
+                        wks = max(1, int(m.group(2)) - int(m.group(1)) + 1)
                 half_pg = half / wks
                 std_pg = half_pg - 0.5 * (rec / wks)
                 full_pg = half_pg + 0.5 * (rec / wks)
