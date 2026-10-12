@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-12T06:01:43.371850+00:00",
+  "run_at": "2026-10-12T06:53:55.913505+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,7 +18,6 @@
   "held": [
     "cbsros",
     "espn",
-    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -38,29 +37,16 @@
       "rolled_back": 0
     },
     "razzball": {
-      "detail": "awaiting players bake: razzball: snapshot sha256:41b1896c40e8 != players.json rz_snapshot_id sha256:31c28544ad55; the section waits for a bake from the same snapshot",
-      "reason": "failed at stage 'snapshot'",
-      "stage": "snapshot",
-      "kept_section": {
-        "present": true,
-        "week_designated": "rest of season",
-        "content_vintage": null,
-        "content_week": 5
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber",
-      "rolled_back": 0
-    },
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
-        "fantasycalc"
+        "razzball",
+        "razzball_vorp"
       ],
       "sections": [
-        "fantasycalc"
+        "razzball"
       ],
-      "restored_from": "2026-10-11T01:05:52.626989+00:00",
-      "detail": "218/1167 values match exactly across 6 columns; column check: stored std|1 list is closest to the live full|1 list (mean |diff| 23 vs 35); stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 36); 949 of 1167 values moved since the save at 2026-10-12T01:05:27.718546Z (largest 73%",
+      "restored_from": null,
+      "detail": "1802/2046 chart values equal stored snapshot 2026-10-10 (per game, 1 decimals); 244 chart values differ from the stored snapshot, 0 stored players not on the chart, 5 chart players not stored; 1 stored players are left off the chart because the page's player universe excludes them (Irvin Charles); n",
       "hold_severity": "amber",
       "week": 5
     },
@@ -215,24 +201,20 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
-    "espn": "fidelity: publisher_vs_stored"
+    "espn": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_seeded_hold_build.SeededHoldBuildTest.test_static_export_passes_on_the_held_build",
-      "FAIL tests.test_static_export.StaticExportTest.test_real_builder_reproduces_the_fixture"
+      "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget"
     ],
-    "assertions": [
-      "AssertionError: 1 != 0 : test_static_export fails on a held build:",
-      "AssertionError: Lists differ: [] != ['fantasycalc_adjusted/standard_12_qb1: 2 [101 chars].7)']"
-    ],
+    "assertions": [],
     "make_targets": [
-      "Makefile:441: test-core"
+      "Makefile:478: test-core"
     ],
-    "detail": "FAIL tests.test_seeded_hold_build.SeededHoldBuildTest.test_static_export_passes_on_the_held_build; FAIL tests.test_static_export.StaticExportTest.test_real_builder_reproduces_the_fixture; AssertionError: 1 != 0 : test_static_export fails on a held build:; AssertionError: Lists differ: [] != ['fantasycalc_adjusted/standard_12_qb1: 2 [101 chars].7)']",
-    "recorded_at": "2026-10-12T06:02:22.967285+00:00"
+    "detail": "ERROR tests.test_espn_listed_rows.EngineEspnListedRowsTest.test_guard_fails_on_pre_fix_widget",
+    "recorded_at": "2026-10-12T07:03:05.586788+00:00"
   }
 }
