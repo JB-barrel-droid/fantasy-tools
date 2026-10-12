@@ -71,7 +71,7 @@
     {label:"Projections (Adjusted values)", keys:["espn", "cbsros", "razzball"]},
     {label:"Trade charts (Adjusted values)", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
     {label:"Projections (VORP vs waivers)", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
-    {label:"Trade charts (as published)", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
+    {label:"Trade charts (rescaled)", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
   // Pure raw value-above-waivers curves: projection-minus-waiver VORP from
   // each source's own per-game projections, before starter/bench
@@ -216,7 +216,7 @@
   })();
 
   // JEG-508 (docs/methodology.md "Value Pipeline", VP-6.4 / OC-7): the
-  // Indexed tab ("Trade charts (as published)") opens on the four published
+  // Indexed tab ("Trade charts (rescaled)") opens on the four published
   // charts. Projections are available there as their Adjusted values but off
   // by default. No source is favoured. Pure in (excluded) so it is
   // unit-testable; `inputs` is accepted and ignored (the retired adjustment

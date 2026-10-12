@@ -37,10 +37,10 @@
     razzball_vorp: "Razzball raw VORP vs waivers"
   };
   const TIPS = {
-    usatoday: "Editorial chart, as published and reindexed",
-    fantasycalc: "Crowd-sourced values, as published and reindexed",
-    fantasypros: "Analyst-consensus chart, as published and reindexed",
-    cbs: "Editorial chart, as published and reindexed",
+    usatoday: "Editorial chart, rescaled",
+    fantasycalc: "Crowd-sourced values, rescaled",
+    fantasypros: "Analyst-consensus chart, rescaled",
+    cbs: "Editorial chart, rescaled",
     cbsros: "CBS rest-of-season projections, computed like ESPN's VORP vs waivers leg",
     razzball: "Razzball rest-of-season projections, computed like ESPN's VORP vs waivers leg",
     cbs_adjusted: "Derived from CBS values and the current adjustment ratios, then rescaled to the common value pie",
@@ -326,7 +326,7 @@
       // are not the publisher's published values reindexed. Read the method
       // from the fixture, not the key name, so future DDF legs label honestly.
       if (data?.sources?.[key]?.method_group === "ddf-methodology") return "Data Driven Football methodology";
-      return "as published · reindexed";
+      return "rescaled";
     }
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }
@@ -336,7 +336,7 @@
   function headerBadge(key) {
     const viewed = state.viewMode && state.viewMode !== "indexed" && state.viewTitle
       && ["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(key);
-    return viewed ? `as published · ${state.viewTitle}` : columnBadge(key);
+    return viewed ? `rescaled · ${state.viewTitle}` : columnBadge(key);
   }
 
   function sortValue(row, column) {
@@ -526,7 +526,7 @@
     const head = `<tr>${sortHeader("name", "Player")}${keys.map(key => sortHeader(key, columnLabel(key))).join("")}</tr>`;
     const body = list.map(row => {
       // GAP-025 (was JEG-50): badge players ESPN projects at 0 (injured/out),
-      // from the player's own ESPN fields; published values stay as published.
+      // from the player's own ESPN fields; published values are shown unchanged.
       // A player ESPN has no row for is missing, not 0, and gets no badge.
       const zero = row.espn_projects_zero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
       const zeroBadge = zero ? ` <span class="espn-zero-badge" data-espn-zero title="${esc(zero.title)}"><span aria-hidden="true">${zero.symbol}</span> ${esc(zero.label)}</span>` : "";
