@@ -600,17 +600,19 @@
     return values;
   }
 
-  // VP-1.1: why a source is not eligible this week, or null. A source that is
-  // held or not yet published is still shown (VP-1.4); one without values
-  // at this setting is not run at all.
+  // VP-1.1: why a source is not eligible this week, or null.
+  // JEG-569 part 2 (Jeremy, 2026-10-12): a held source is grayed out with
+  // run: false -- no computation on old data. Its curve is not drawn.
   function eligibilityReason(key, natives) {
     if (sourceMissingFromData(key)) return {reason: "missing from this build", run: false};
-    if (!natives.size) return {reason: `not available for ${scoreLabel()} / ${teams} teams`, run: false};
+    // Check holds first: a held source is not computed, period.
     const block = compositeBlock(key);
-    if (block) return {reason: block.reason, run: true, block};
+    if (block && block.heldBy) return {reason: block.reason, run: false, block};
     if (sourceValidationStatus(key) !== undefined && sourceValidationStatus(key) !== "live") {
-      return {reason: "held: did not pass source validation", run: true};
+      return {reason: "held: did not pass source validation", run: false};
     }
+    if (!natives.size) return {reason: `not available for ${scoreLabel()} / ${teams} teams`, run: false};
+    if (block) return {reason: block.reason, run: true, block};
     return null;
   }
 
@@ -1910,10 +1912,14 @@
       ? ` ${olderWeekKeys.map(sourceLabel).join(", ")} ${olderWeekKeys.length === 1 ? "is" : "are"} from an older week and start${olderWeekKeys.length === 1 ? "s" : ""} off; turn ${olderWeekKeys.length === 1 ? "it" : "them"} on below.`
       : "";
     const included = pipelineState.included.length;
+    const heldKeys = COMPOSITE_INPUT_KEYS.filter(compositeKeyHeld);
+    const heldNote = heldKeys.length
+      ? ` ${heldKeys.map(sourceLabel).join(", ")} ${heldKeys.length === 1 ? "is" : "are"} held and grayed out (no computation on held data).`
+      : "";
     const ddfText = included
       ? `DDF Value is the mean of ${included} source${included === 1 ? "" : "s"}' Adjusted values, every source on one league pie.`
       : "No source is available this week, so there is no DDF Value.";
-    status.innerHTML = `<strong>Validated:</strong> ${ddfText} The published trade charts are shown by default; projections and value-above-waivers series can be turned on below.${olderWeekNote}`;
+    status.innerHTML = `<strong>Validated:</strong> ${ddfText} The published trade charts are shown by default; projections and value-above-waivers series can be turned on below.${olderWeekNote}${heldNote}`;
     activeNotices.forEach(note => status.appendChild(note));
   }
 

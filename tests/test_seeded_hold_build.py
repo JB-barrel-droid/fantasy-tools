@@ -1,35 +1,21 @@
-"""A build with seeded holds passes the gate and serves the held sections (JEG-569).
+"""A build with seeded holds passes the gate (JEG-569).
 
-Jeremy (JEG-520): "hold a source, never take the whole site down". On
-2026-10-10 (rebuild-chain runs 38088565756 and 38089772479) the fidelity pulse
-held FantasyCalc, pipelines/fidelity_hold.py restored its section from the
-15:26Z build as designed, and post-rebuild `make validate` failed in
-test_static_export (the restored chart's Indexed pie and _adjusted values are
-on the 15:26Z anchor and fit cells, not this build's), test_superflex and
-test_published_league_settings_engine (the same saved values against this
-build's anchor) and test_ddf_composite_value (its baseline required an unheld
-live fixture). The chain then published no
-source at all.
+Jeremy (JEG-520): "hold a source, never take the whole site down".
+Jeremy (JEG-569 part 2, 2026-10-12): "gray out the source, run no calcs on
+it, gray out its derivatives. No computation on old data."
 
 This test seeds that state on the committed fixture: one published chart
-(FantasyCalc) held and restored from a last good build whose values differ
-from this one's, and one projection (Razzball) held on its current section.
+(FantasyCalc) and one projection (Razzball) held, both with combos stripped.
 It requires:
 
-1. the held sections are served: the chart from its last good build, the
-   projection on this build's section, both labelled validationHold;
+1. held sections have their combos emptied and carry a validationHold;
 2. the fixture-level gate checks pass on that build: tests.test_static_export
-   (run on the seeded fixture) and the test_superflex identity check. The
-   test_published_league_settings_engine fixture-leg check is no longer run
-   here: JEG-539 retired it with the derivePublishedSetup engine code it
-   pinned. The render tests (test_ddf_composite_value) strip holds from their
-   own copy of dist/.
+   (run on the seeded fixture) and the test_superflex identity check.
 
-Tests that need an unheld baseline read tests/_holds.without_held_charts.
+Tests that need an unheld baseline read tests/_holds.without_held_sources.
 """
 from __future__ import annotations
 
-import copy
 import json
 import os
 import subprocess
@@ -45,42 +31,26 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 import fidelity_hold as fh  # noqa: E402
 
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
-LAST_GOOD_BUILT_AT = "2026-10-03T12:00:00+00:00"
 CHART, PROJECTION = "fantasycalc", "razzball"
 HOLDS = {root: {"stage": "publisher_vs_stored", "reason": "fidelity: publisher_vs_stored",
                 "identity": f"seeded-{root}", "since": "2026-10-10T21:40:15Z", "summary": "seeded hold"}
          for root in (CHART, PROJECTION)}
 
 
-def last_good_build(fixture: dict) -> dict:
-    """An earlier build: the chart's values 7% off this build's, as after a
-    week of publisher drift (so they are NOT on this build's anchor)."""
-    good = copy.deepcopy(fixture)
-    good["built_at"] = LAST_GOOD_BUILT_AT
-    for sec in (CHART, f"{CHART}_adjusted"):
-        for combo in good["sources"][sec]["combos"].values():
-            for field in ("native", "reindexed", "values"):
-                if isinstance(combo.get(field), dict):
-                    combo[field] = {k: round(float(v) * 1.07, 4) if isinstance(v, (int, float)) else v
-                                    for k, v in combo[field].items()}
-    return good
-
-
-def seeded_build() -> tuple[dict, dict, dict]:
+def seeded_build() -> tuple[dict, dict]:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     for section in fixture["sources"].values():
         if isinstance(section, dict):
             section.pop("validationHold", None)
             section.pop("promotionHold", None)
-    good = last_good_build(fixture)
-    held, report = fh.apply_fidelity_holds(fixture, HOLDS, lambda root: good, 5)
-    return fixture, good, held
+    held, report = fh.apply_fidelity_holds(fixture, HOLDS, 5)
+    return fixture, held
 
 
 class SeededHoldBuildTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.current, cls.good, cls.held = seeded_build()
+        cls.current, cls.held = seeded_build()
         cls.tmp = tempfile.TemporaryDirectory()
         cls.path = Path(cls.tmp.name) / "comparison-sources-data.json"
         cls.path.write_text(json.dumps(cls.held), encoding="utf-8")
@@ -89,19 +59,28 @@ class SeededHoldBuildTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def test_held_chart_is_served_from_its_last_good_build(self):
-        section = copy.deepcopy(self.held["sources"][CHART])
-        hold = section.pop("validationHold")
-        self.assertEqual(section, self.good["sources"][CHART])
+    def test_held_chart_has_empty_combos(self):
+        section = self.held["sources"][CHART]
+        self.assertEqual(section["combos"], {})
+        hold = section["validationHold"]
         self.assertEqual(hold["reason"], "fidelity: publisher_vs_stored")
-        self.assertEqual(hold["restored_from"], LAST_GOOD_BUILT_AT)
         self.assertEqual(hold["root"], CHART)
 
-    def test_held_projection_keeps_this_builds_section_labelled(self):
-        section = copy.deepcopy(self.held["sources"][PROJECTION])
-        hold = section.pop("validationHold")
-        self.assertEqual(section, self.current["sources"][PROJECTION])
-        self.assertEqual((hold["reason"], hold["root"]), ("fidelity: publisher_vs_stored", PROJECTION))
+    def test_held_projection_has_empty_combos(self):
+        section = self.held["sources"][PROJECTION]
+        self.assertEqual(section["combos"], {})
+        hold = section["validationHold"]
+        self.assertEqual(hold["reason"], "fidelity: publisher_vs_stored")
+        self.assertEqual(hold["root"], PROJECTION)
+
+    def test_unheld_source_keeps_its_combos(self):
+        """At least one unheld source must keep its combos intact."""
+        for key in ("usatoday", "fantasypros", "cbs", "espn", "cbsros"):
+            section = self.held["sources"].get(key)
+            if isinstance(section, dict) and not section.get("validationHold"):
+                self.assertTrue(section.get("combos"), f"{key} combos should not be empty")
+                return
+        self.fail("no unheld source found to verify")
 
     def test_static_export_passes_on_the_held_build(self):
         env = {**os.environ, "STATIC_EXPORT_COMPARISON": str(self.path)}

@@ -352,11 +352,13 @@ HOLD = {"reason": "engine and reference disagree", "week": 5}
 
 
 def hold_on(*sections, field="validationHold"):
-    """The pipeline's shape: {reason, week, root, kept_week} on each held section."""
+    """The pipeline's shape: {reason, week, root} on each held section, combos stripped
+    (JEG-569 part 2: no computation on old data)."""
     def edit(fixture):
         for section in sections:
             root = "cbs" if section == "cbs_adjusted" else section.replace("_adjusted", "")
-            fixture["sources"][section][field] = {**HOLD, "root": root, "kept_week": HOLD["week"] - 1}
+            fixture["sources"][section][field] = {**HOLD, "root": root}
+            fixture["sources"][section]["combos"] = {}
     return edit
 
 
@@ -702,7 +704,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
         entry = {e["key"]: e for e in out["load"]["excluded"]}["fantasycalc"]
         self.assertEqual(entry["reason"], "held: " + HOLD["reason"])
         self.assertEqual((entry["heldBy"], entry["holdField"]), ("fantasycalc", "validationHold"))
-        self.assertEqual((entry["holdRoot"], entry["holdWeek"], entry["holdKeptWeek"]), ("fantasycalc", 5, 4))
+        self.assertEqual((entry["holdRoot"], entry["holdWeek"]), ("fantasycalc", 5))
         self.assertEqual(out["load"]["held"], ["fantasycalc"])
 
     def test_pipeline_hold_on_raw_and_adjusted_sections(self):
