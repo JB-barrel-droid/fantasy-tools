@@ -281,7 +281,7 @@
     return table(id, title, columns, viewRows(view), {note, limit: 400});
   }
   function renderIndexed() {
-    section("mi-indexed").appendChild(viewTable("indexed-players", "indexed", "Indexed (trade charts as published): natives x one factor per chart",
+    section("mi-indexed").appendChild(viewTable("indexed-players", "indexed", "Indexed (trade charts rescaled): natives x one factor per chart",
       "Charts: native (or estimate) x the chart's factor. Projections: their Adjusted values. Rebuilt columns recompute each value from the pipeline's intermediates."));
   }
   function renderVorp() {
