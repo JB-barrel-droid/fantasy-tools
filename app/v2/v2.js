@@ -2666,6 +2666,40 @@
     }
   }
 
+  // JEG-504: the market average of the compared charts, beside our value. Equal to one
+  // decimal: a note instead of a duplicate number. Otherwise the average with its count
+  // ("avg of 4", plus "1 left out" for a chart that does not price the player) and
+  // our value minus the average, with a symbol (▲ ours is higher, ▼ lower) and a sign.
+  function marketValue(cell, p) {
+    const m = p.market;
+    cell.dataset.market = "";
+    if (m.value === null) {
+      cell.appendChild(missingNode("No compared chart prices this player", "no chart value"));
+      return;
+    }
+    if (m.equal) {
+      cell.dataset.marketEqual = "";
+      const note = document.createElement("span");
+      note.className = "why t-equal";
+      note.textContent = "= market average";
+      note.title = `The average of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+      cell.appendChild(note);
+      return;
+    }
+    cell.appendChild(document.createTextNode(fmt(m.value)));
+    const count = document.createElement("span");
+    count.className = "why t-count";
+    count.dataset.marketCount = String(m.count);
+    count.textContent = `avg of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
+    if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
+    const diff = document.createElement("span");
+    diff.className = "why t-diff";
+    diff.dataset.marketDiff = m.diff.toFixed(1);
+    diff.title = "Our value minus the market average";
+    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${fmtGap(m.diff)}`;
+    cell.append(diff, count);
+  }
+
   function gapNode(cell, tag) {
     const node = document.createElement(tag || "span");
     node.className = `delta gap ${cell.gap > 0 ? "up" : cell.gap < 0 ? "down" : ""}`;
@@ -2781,6 +2815,7 @@
     };
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
+    head("Market average", "num t-avg", "compared charts");
     targetsView.used.forEach(key => {
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
@@ -2819,6 +2854,7 @@
       const ours = td("num is-rank");
       ours.dataset.ours = "";
       oursValue(ours, p);
+      marketValue(td("num t-avg"), p);
       targetsView.used.forEach(chart => {
         const cell = p.cells[chart];
         const c = td("num t-chart");
@@ -2914,6 +2950,11 @@
       ours.append(document.createTextNode("Ours "));
       oursValue(ours, p);
       line.appendChild(ours);
+      const avg = document.createElement("span");
+      avg.className = "avg";
+      if (!p.market.equal) avg.append(document.createTextNode("Market avg "));
+      marketValue(avg, p);
+      line.appendChild(avg);
       targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
       li.append(top, line);
       ol.appendChild(li);
