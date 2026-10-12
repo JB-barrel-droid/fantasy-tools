@@ -14,7 +14,7 @@ the source of truth for ticket status.
 - `execution/current-plan.md` is the only live plan.
 - `docs/risk-register.md` is the durable gap/risk/follow-up register.
 - `docs/claude-log/` is the session evidence log (one file per PR/session;
-  `docs/claude-log/README.md` has the format; `docs/claude-log.md` is the
+  `docs/claude-log/README.md` has the format; `archive/2026-10-12-docs/claude-log.md` is the
   frozen pre-2026-10-07 archive).
 - `README.md`, `SYSTEM_MAP.md`, `docs/methodology.md`,
   `docs/modular-pipeline.md`, and `docs/pipeline-rules.md` are the standing
