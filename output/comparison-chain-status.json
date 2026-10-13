@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-13T03:02:03.062513+00:00",
+  "run_at": "2026-10-13T03:32:57.123738+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -118,7 +118,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-12 -> 12 DDF legs -> section; review passed (7692 values)",
+      "detail": "snapshot 2026-10-12 -> 12 DDF legs -> section; review passed (7596 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -180,45 +180,15 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_override_is_reported_and_priced",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults"
+      "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game"
     ],
     "assertions": [
-      "AssertionError: 0.14399332650241478 != 0.14714818277343866 within 0.0005 delta (0.0031548562710238814 difference) : QB",
-      "AssertionError: 0.13462303335216586 != 0.142868156994161 within 0.0005 delta (0.008245123641995145 difference) : ppr/12 {'optimizeFor': 'playoffs'} QB",
-      "AssertionError: 0.1710685274640541 != 0.0724385843687111 within 0.0005 delta (0.098629943095343 difference) : half_ppr/10 {'injuryHistory': 'all', 'projectionConfidence': 0.5} QB",
-      "AssertionError: 0.1116832467173791 != 0.17983984067897268 within 0.0005 delta (0.06815659396159358 difference) : standard/14 {'optimizeFor': 'regular', 'regularSeasonEnd': 13, 'playoffWeeks': [14, 16]} QB",
-      "AssertionError: 0.2021594240815447 != 0.1023798310507686 within 0.0005 delta (0.09977959303077609 difference) : standard/8 QB",
-      "AssertionError: 0.180063004725332 != 0.09384690084539284 within 0.0005 delta (0.08621610387993915 difference) : standard/10 QB",
-      "AssertionError: 0.13503519147438953 != 0.14183860610015175 within 0.0005 delta (0.0068034146257622274 difference) : standard/12 QB",
-      "AssertionError: 0.11073909745363737 != 0.17765606519273958 within 0.0005 delta (0.0669169677391022 difference) : standard/14 QB",
-      "AssertionError: 0.20278826710805178 != 0.1023798310507686 within 0.0005 delta (0.10040843605728318 difference) : half_ppr/8 QB",
-      "AssertionError: 0.1797253179403857 != 0.09384690084539284 within 0.0005 delta (0.08587841709499287 difference) : half_ppr/10 QB",
-      "AssertionError: 0.1350036199405931 != 0.1418386061001517 within 0.0005 delta (0.006834986159558604 difference) : half_ppr/12 QB",
-      "AssertionError: 0.11059903618119289 != 0.17765606519273963 within 0.0005 delta (0.06705702901154674 difference) : half_ppr/14 QB",
-      "AssertionError: 0.20364709028615816 != 0.1023798310507686 within 0.0005 delta (0.10126725923538955 difference) : ppr/8 QB",
-      "AssertionError: 0.17923453020950367 != 0.09384690084539282 within 0.0005 delta (0.08538762936411085 difference) : ppr/10 QB",
-      "AssertionError: 0.13495828566079962 != 0.14183860610015167 within 0.0005 delta (0.00688032043935205 difference) : ppr/12 QB",
-      "AssertionError: 0.1104454965604697 != 0.17765606519273963 within 0.0005 delta (0.06721056863226993 difference) : ppr/14 QB"
+      "AssertionError: Lists differ: [('A.J. Brown', 16.036364, 14.7), ('Baker [140 chars].58)] != []"
     ],
     "make_targets": [
-      "Makefile:502: test-core"
+      "Makefile:458: test-core"
     ],
-    "detail": "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_override_is_reported_and_priced; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; AssertionError: 0.14399332650241478 != 0.14714818277343866 within 0.0005 delta (0.0031548562710238814 difference) : QB; AssertionError: 0.13462303335216586 != 0.142868156994161 within 0.0005 delta (0.008245123641995145 difference) : ppr/12 {'optimizeFor': 'playoffs'} QB; AssertionError: 0.1710685274640541 != 0.0724385843687111 within 0.0005 delta (0.098629943095343 difference) : half_ppr/10 {'injuryHistory': 'all', 'projectionConfidence': 0.5} QB; AssertionError: 0.1116832467173791 != 0.17983984067897268 within 0.0005 delta (0.06815659396159358 difference) : standard/14 {'optimizeFor': 'regular', 'regularSeasonEnd': 13, 'playoffWeeks': [14, 16]} QB; AssertionError: 0.2021594240815447 != 0.1023798310507686 within 0.0005 delta (0.09977959303077609 difference) : standard/8 QB; AssertionError: 0.180063004725332 != 0.09384690084539284 within 0.0005 delta (0.08621610387993915 difference) : standard/10 QB; AssertionError: 0.13503519147438953 != 0.14183860610015175 within 0.0005 delta (0.0068034146257622274 difference) : standard/12 QB; AssertionError: 0.11073909745363737 != 0.17765606519273958 within 0.0005 delta (0.0669169677391022 difference) : standard/14 QB; AssertionError: 0.20278826710805178 != 0.1023798310507686 within 0.0005 delta (0.10040843605728318 difference) : half_ppr/8 QB; AssertionError: 0.1797253179403857 != 0.09384690084539284 within 0.0005 delta (0.08587841709499287 difference) : half_ppr/10 QB; AssertionError: 0.1350036199405931 != 0.1418386061001517 within 0.0005 delta (0.006834986159558604 difference) : half_ppr/12 QB; AssertionError: 0.11059903618119289 != 0.17765606519273963 within 0.0005 delta (0.06705702901154674 difference) : half_ppr/14 QB; AssertionError: 0.20364709028615816 != 0.1023798310507686 within 0.0005 delta (0.10126725923538955 difference) : ppr/8 QB; AssertionError: 0.17923453020950367 != 0.09384690084539282 within 0.0005 delta (0.08538762936411085 difference) : ppr/10 QB; AssertionError: 0.13495828566079962 != 0.14183860610015167 within 0.0005 delta (0.00688032043935205 difference) : ppr/12 QB; AssertionError: 0.1104454965604697 != 0.17765606519273963 within 0.0005 delta (0.06721056863226993 difference) : ppr/14 QB",
-    "recorded_at": "2026-10-13T03:12:15.701119+00:00"
+    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.036364, 14.7), ('Baker [140 chars].58)] != []",
+    "recorded_at": "2026-10-13T03:34:08.393149+00:00"
   }
 }
