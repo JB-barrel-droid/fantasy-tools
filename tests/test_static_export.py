@@ -37,12 +37,21 @@ KNOWN_SOURCES = (
 RETIRED_SECTION_SUFFIX = "_adjusted"
 
 
-def present_sources(comparison, candidates):
-    """The candidates the fixture carries. Fails if the ESPN anchor is gone."""
+def present_sources(comparison, candidates, require_anchor=True):
+    """The candidates the fixture carries with non-empty combos. Fails if the
+    ESPN anchor is gone unless require_anchor is False (for tests on an unheld
+    fixture where the anchor itself may be held, JEG-569 part 2)."""
     sources = comparison.get("sources") or {}
-    if ANCHOR_SOURCE not in sources:
+    if require_anchor and ANCHOR_SOURCE not in sources:
         raise AssertionError("the ESPN anchor section is missing from the fixture")
-    return [source for source in candidates if source in sources]
+    return [source for source in candidates if source in sources
+            and isinstance(sources[source], dict) and sources[source].get("combos")]
+
+
+def all_source_keys(comparison):
+    """Every source key in the fixture, including held ones with empty combos."""
+    return [k for k, v in (comparison.get("sources") or {}).items()
+            if isinstance(v, dict)]
 
 PUBLISHED_TOP_QB_COMBOS = {"usatoday": "full_12", "fantasycalc": "full_12_qb1",
                            "fantasypros": "full_12", "cbs": "full_12"}
@@ -383,11 +392,15 @@ class StaticExportTest(unittest.TestCase):
 
     def test_comparison_sources_contract(self):
         # Only known sources; ESPN required; any other may be absent, and
-        # every present one must validate live.
-        present = present_sources(self.comparison, KNOWN_SOURCES)
-        self.assertEqual(set(present), set(self.comparison["sources"]),
+        # every present unheld one must validate live.
+        all_keys = all_source_keys(self.comparison)
+        self.assertEqual(set(all_keys), set(self.comparison["sources"]),
                          "fixture carries a source this contract does not know")
-        for source in present:
+        # Known sources: every key must be in the known set.
+        for key in all_keys:
+            self.assertIn(key, KNOWN_SOURCES, f"unknown source {key}")
+        # Unheld sources must validate live.
+        for source in present_sources(self.comparison, KNOWN_SOURCES):
             self.assertEqual("live", self.comparison["source_validation"][source])
         self.assertEqual("stale", self.comparison["source_validation"]["ecr"])
 
@@ -465,10 +478,14 @@ class StaticExportTest(unittest.TestCase):
         # over the same players (the fixture's leg for that combo). Replaces
         # test_flex_aware_bucket_totals_match_anchor, which pinned the
         # per-(position, role) bucket scaling this rule removed.
+        # JEG-569 part 2: skip when the ESPN anchor is held (no values to check against).
+        espn_section = self.unheld.get("sources", {}).get("espn")
+        if not isinstance(espn_section, dict) or not espn_section.get("combos"):
+            return  # ESPN held; no anchor to check against
         players = load_json(FIXTURES / "players.json")["players"]
         position_by_numkey = {p["player_key"]: p["pos"] for p in players}
         fixture_keys = self.unheld.get("player_keys", {})
-        espn_combos = self.unheld["sources"]["espn"]["combos"]
+        espn_combos = espn_section["combos"]
         qb_suffix = re.compile(r"_qb[12]$")
 
         def anchor_by_numkey(combo_name):
@@ -477,9 +494,9 @@ class StaticExportTest(unittest.TestCase):
             return {fixture_keys[s]: v for s, v in vals.items() if s in fixture_keys}
 
         checked = 0
-        charts = present_sources(self.unheld, ("fantasycalc", "usatoday", "fantasypros", "cbs"))
-        # Every chart this build made (a held chart is from its last good
-        # build, JEG-569); at least one must be left to check.
+        charts = present_sources(self.unheld, ("fantasycalc", "usatoday", "fantasypros", "cbs"),
+                                require_anchor=False)
+        # Every unheld chart this build made; at least one must be left to check.
         self.assertTrue(charts)
         for source in charts:
             for combo_name, combo in self.unheld["sources"][source]["combos"].items():

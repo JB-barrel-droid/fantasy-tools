@@ -601,7 +601,8 @@ def mean_ppg(sources: dict, included: list) -> dict:
 
 
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
-                 selection: list | None = None, lineup: dict | None = None) -> dict:
+                 selection: list | None = None, lineup: dict | None = None,
+                 hidden: set | None = None) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
 
     sources: {key: SourceInput} in source-key order, every source shown (held
@@ -658,7 +659,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     for d in details.values():
         _price(d, budgets, pie)
 
-    rows = _rows(sources, details, pos_of, inc, selection, m)
+    rows = _rows(sources, details, pos_of, inc, selection, m, hidden or set())
     for i, r in rows.items():
         by_src = {k: details[k]["players"][i]["lineup_share"] for k in sources
                   if i in details[k]["players"] and details[k]["players"][i]["lineup_share"] is not None}
@@ -733,20 +734,21 @@ def row_value(src: SourceInput, detail: dict, i: int, pos: str, field_name: str)
     return None, f"{src.label} doesn't project this player"
 
 
-def _ddf(values: dict, keys: list) -> dict:
-    used = [k for k in keys if values.get(k) is not None]
+def _ddf(values: dict, keys: list, hidden: set | None = None) -> dict:
+    # JEG-569 part 2: hidden (held) sources are excluded from the DDF blend.
+    h = hidden or set()
+    used = [k for k in keys if k not in h and values.get(k) is not None]
     if not used:
         return {"value": None, "count": 0, "low_confidence": False, "sources": [],
                 "reason": "No source prices this player"}
-    total = 0.0
-    for k in used:
-        total += values[k]
+    total = sum(values[k] for k in used)
     n = len(used)
     return {"value": total / n, "count": n, "low_confidence": n == 1, "sources": used,
             "reason": "Only one source prices this player" if n == 1 else None}
 
 
-def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: dict) -> dict:
+def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: dict,
+          hidden: set | None = None) -> dict:
     """VP-6.1 - 6.3: one row per player any source lists."""
     universe = set()
     for s in sources.values():
@@ -769,7 +771,7 @@ def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: d
         ddf = {}
         for version, fam in DDF_FAMILY.items():
             keys = [k for k in inc if (fam is None or sources[k].family == fam) and (sel is None or k in sel)]
-            ddf[version] = _ddf(adj, keys)
+            ddf[version] = _ddf(adj, keys, hidden)
         if not inc:
             for v in ddf.values():
                 v["reason"] = "No source available this week"
@@ -1167,7 +1169,8 @@ class Setting:
         if self._current is None:
             st = self.state()
             self._current = run_pipeline(self.league, self._sources(st["current"]), self.pos_of,
-                                         st["included"], self.selection, lineup=self.lineup)
+                                         st["included"], self.selection, lineup=self.lineup,
+                                         hidden=st.get("hidden"))
         return self._current
 
     def prior_result(self) -> dict | None:
@@ -1178,7 +1181,8 @@ class Setting:
         if self._prior is None:
             self._prior = run_pipeline(self.league, self._sources({**st["prior_shown"], **st["prior"]}),
                                        self.pos_of,
-                                       st["included"], self.selection, lineup=self.lineup)
+                                       st["included"], self.selection, lineup=self.lineup,
+                                       hidden=st.get("hidden"))
         return self._prior
 
     # -- VP-11 rows --------------------------------------------------------

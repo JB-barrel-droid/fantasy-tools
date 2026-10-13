@@ -208,7 +208,12 @@ class ViewInvariants(unittest.TestCase):
         swept = _sweep(SETTINGS)
         problems, measured = verify(swept)
         print(f"\n[views-audit/2] settings={len(SETTINGS)} checks={len(measured)} problems={len(problems)}")
-        self.assertGreaterEqual(len(measured), len(SETTINGS) * (len(PUBLISHED) * 3 + len(RAW_VORP) + len(PROJECTIONS)))
+        # JEG-569 part 2: a held source (validationHold in the fixture) is absent from the output, so its
+        # views are not measured; count only the sources the fixture does not hold.
+        sources = json.loads((_render_env.ROOT / "data/fixtures/current/comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
+        held = {k for k, v in sources.items() if isinstance(v, dict) and v.get("validationHold")}
+        live = lambda keys: sum(1 for k in keys if k.replace("_vorp", "") not in held)
+        self.assertGreaterEqual(len(measured), len(SETTINGS) * (live(PUBLISHED) * 3 + live(RAW_VORP) + live(PROJECTIONS)))
         self.assertEqual(problems, [], "\n".join(problems[:25]))
 
     def test_guard_fails_on_broken_engines(self):

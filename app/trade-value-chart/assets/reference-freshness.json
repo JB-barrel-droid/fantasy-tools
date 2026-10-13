@@ -6,7 +6,7 @@
   },
   "chart_inputs": [
     {
-      "age_days": 0,
+      "age_days": 1,
       "changed_since_prior_report": false,
       "chart_input": true,
       "color": "green",
@@ -16,16 +16,16 @@
       "label": "Players artifact as_of",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-12"
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-12T18:47:05-05:00",
+  "generated_at": "2026-10-12T19:47:29-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
-      "age_days": 0,
+      "age_days": 1,
       "changed_since_prior_report": false,
       "color": "green",
       "enforced": false,
@@ -34,11 +34,11 @@
       "label": "Players artifact as_of",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-12"
     },
     {
-      "age_days": 0,
+      "age_days": 1,
       "changed_since_prior_report": false,
       "color": "green",
       "enforced": false,
@@ -47,11 +47,11 @@
       "label": "ESPN projection snapshot",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-12"
     },
     {
-      "age_days": 0,
+      "age_days": 1,
       "changed_since_prior_report": false,
       "color": "green",
       "enforced": true,
@@ -60,35 +60,35 @@
       "label": "Comparison fixture last rebuilt (any source promotion; not input freshness)",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-12T22:11:56.783348+00:00"
-    },
-    {
-      "age_days": 0,
-      "changed_since_prior_report": false,
-      "color": "green",
-      "enforced": false,
-      "freshness_ok": true,
-      "key": "source_import.checked_at",
-      "label": "L1 import health checked_at",
-      "max_age_days": 2,
-      "note": "unchanged",
-      "status": "same_day",
-      "value": "2026-10-12T23:26:32Z"
     },
     {
       "age_days": 0,
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
       "freshness_ok": true,
+      "key": "source_import.checked_at",
+      "label": "L1 import health checked_at",
+      "max_age_days": 2,
+      "note": "changed",
+      "status": "same_day",
+      "value": "2026-10-13T00:01:24Z"
+    },
+    {
+      "age_days": 0,
+      "changed_since_prior_report": true,
+      "color": "green",
+      "enforced": false,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): cbs content Week 5 is one week behind current content Week 6; built and labelled as Week 5. Window verdict stale: STALE_VINTAGE: content vintage Week 5 != current Week 6. No verified publication schedule for cbs; Believed to publish mid-week (typically Wednesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.",
+      "freshness_ok": false,
       "key": "source_import.cbs",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T23:26:32Z; content_vintage is Week 5 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-13T00:01:24Z; content_vintage is Week 5 source provenance, not pull time",
+      "status": "stale",
       "value": "Week 5"
     },
     {
@@ -96,14 +96,14 @@
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): cbsros content Week 5 is one week behind current content Week 6; built and labelled as Week 5. Window verdict yellow: AWAITING_PUBLICATION: content vintage Week 5, current Week 6. cbsros publishes on Wed; not due yet (1 day(s) until publish day).",
+      "freshness_ok": false,
       "key": "source_import.cbsros",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T23:26:32Z; content_vintage is 2026-10-12 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-13T00:01:24Z; content_vintage is 2026-10-12 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-10-12"
     },
     {
@@ -117,7 +117,7 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T23:26:32Z; content_vintage is 2026-10-12 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-13T00:01:24Z; content_vintage is 2026-10-12 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-12"
     },
@@ -126,14 +126,14 @@
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): fantasycalc content Week 5 is one week behind current content Week 6; built and labelled as Week 5. Window verdict stale: STALE_VINTAGE: content vintage Week 5 != current Week 6. No verified publication schedule for fantasycalc; Believed to publish early in the NFL week (typically by Tuesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.",
+      "freshness_ok": false,
       "key": "source_import.fantasycalc",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T23:26:32Z; content_vintage is Week 5 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-13T00:01:24Z; content_vintage is Week 5 source provenance, not pull time",
+      "status": "stale",
       "value": "Week 5"
     },
     {
@@ -141,14 +141,14 @@
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): fantasypros content Week 5 is one week behind current content Week 6; built and labelled as Week 5. Window verdict stale: STALE_VINTAGE: content vintage Week 5 != current Week 6. No verified publication schedule for fantasypros; Believed to publish early in the NFL week (typically Monday/Tuesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.",
+      "freshness_ok": false,
       "key": "source_import.fantasypros",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T23:26:32Z; content_vintage is 2026-10-06 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-13T00:01:24Z; content_vintage is 2026-10-06 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-10-06"
     },
     {
@@ -162,7 +162,7 @@
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T23:26:32Z; content_vintage is 2026-10-12 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-13T00:01:24Z; content_vintage is 2026-10-12 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-12"
     },
@@ -171,20 +171,20 @@
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): usatoday content Week 5 is one week behind current content Week 6; built and labelled as Week 5. Window verdict yellow: AWAITING_PUBLICATION: content vintage Week 5, current Week 6. usatoday publishes on Tue; within 1-day grace period (day 0).",
+      "freshness_ok": false,
       "key": "source_import.usatoday",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-12T23:26:32Z; content_vintage is 2026-10-06 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-13T00:01:24Z; content_vintage is 2026-10-06 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-10-06"
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 5,
+      "color": "yellow",
+      "current_content_week": 6,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.usatoday",
@@ -193,14 +193,14 @@
       "pending_promotion": false,
       "published_week": 5,
       "saved_week": 5,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 5",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 5,
+      "color": "yellow",
+      "current_content_week": 6,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.fantasycalc",
@@ -209,14 +209,14 @@
       "pending_promotion": false,
       "published_week": 5,
       "saved_week": 5,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 5",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 5,
+      "color": "yellow",
+      "current_content_week": 6,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.fantasypros",
@@ -225,14 +225,14 @@
       "pending_promotion": false,
       "published_week": 5,
       "saved_week": 5,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 5",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 5,
+      "color": "yellow",
+      "current_content_week": 6,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.cbs",
@@ -241,14 +241,14 @@
       "pending_promotion": false,
       "published_week": 5,
       "saved_week": 5,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 5",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 5,
+      "color": "yellow",
+      "current_content_week": 6,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.espn",
@@ -257,14 +257,14 @@
       "pending_promotion": false,
       "published_week": 5,
       "saved_week": 5,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 5",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 5,
+      "color": "yellow",
+      "current_content_week": 6,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.cbsros",
@@ -273,14 +273,14 @@
       "pending_promotion": false,
       "published_week": 5,
       "saved_week": 5,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 5",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 5,
+      "color": "yellow",
+      "current_content_week": 6,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.razzball",
@@ -289,9 +289,9 @@
       "pending_promotion": false,
       "published_week": 5,
       "saved_week": 5,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 5",
-      "weeks_behind": 0
+      "weeks_behind": 1
     }
   ],
   "source_divergence": {
@@ -385,7 +385,7 @@
     "usatoday": "live"
   },
   "summary": {
-    "all_known_dates_same_day": true,
+    "all_known_dates_same_day": false,
     "chart_input_at_risk_count": 0,
     "chart_input_count": 1,
     "chart_input_keys": [
@@ -393,19 +393,33 @@
     ],
     "comparison_built_at": "2026-10-12T22:11:56.783348+00:00",
     "comparison_oldest_published_week": 5,
-    "comparison_sources_behind": [],
+    "comparison_sources_behind": [
+      "cbs",
+      "cbsros",
+      "espn",
+      "fantasycalc",
+      "fantasypros",
+      "razzball",
+      "usatoday"
+    ],
     "comparison_sources_pending_promotion": [],
     "enforced_expired_count": 0,
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 0,
-    "expired_keys": [],
-    "l1_unhealthy_count": 0,
+    "expired_count": 5,
+    "expired_keys": [
+      "source_import.cbs",
+      "source_import.cbsros",
+      "source_import.fantasycalc",
+      "source_import.fantasypros",
+      "source_import.usatoday"
+    ],
+    "l1_unhealthy_count": 5,
     "max_age_days": 2,
-    "stale_count": 0,
-    "unchanged_count": 4,
+    "stale_count": 8,
+    "unchanged_count": 3,
     "unknown_count": 0
   },
-  "today": "2026-10-12"
+  "today": "2026-10-13"
 }

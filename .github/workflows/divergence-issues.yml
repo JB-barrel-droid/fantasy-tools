@@ -1,0 +1,33 @@
+name: Divergence issues
+
+# JEG-610: open one Linear sub-issue under JEG-460 for each source-week the
+# divergence check flags warn or investigate. Needs the repository secret
+# LINEAR_API_KEY (a Linear personal API key, created in Linear under
+# Settings > Security & access > Personal API keys, added in GitHub under
+# Settings > Secrets and variables > Actions). Without it the step only prints
+# what it would open.
+on:
+  push:
+    branches: [main]
+    paths:
+      - dist/modules/source-divergence.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: divergence-issues
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Open sub-issues for unresolved flags
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: python3 pipelines/open_divergence_issues.py

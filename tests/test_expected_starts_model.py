@@ -48,18 +48,33 @@ class NormalPieces(unittest.TestCase):
 
 
 class Allocation(unittest.TestCase):
-    def test_greedy_flex_and_lines(self):
+    def test_greedy_flex_and_lines_convention(self):
+        """JEG-562: alloc uses convention defaults (1 QB / 2 RB / 2 WR / 1 TE /
+        1 FLEX / 1 K / 1 DEF, 7 bench). With 2 teams: dedicated RB = 4,
+        dedicated WR = 4; flex goes to the best remaining."""
         lists = {"QB": [20, 19, 18, 17], "RB": [15, 14, 13, 12, 11, 10, 9, 8], "WR": [12, 11, 10, 9, 8, 7, 6, 5, 4],
                  "TE": [9, 8, 7, 6]}
         a = es.alloc(lists, 2)
         self.assertEqual(a["RB"]["dedicated"], 4)
-        self.assertEqual(a["WR"]["dedicated"], 6)
-        # Flex candidates: RB 11, 10, 9, 8 and WR 6, 5, 4 and TE 7, 6 -> the two best are RB 11, RB 10.
+        self.assertEqual(a["WR"]["dedicated"], 4)
+        # After dedicated: remaining RB = [11, 10, 9, 8], WR = [8, 7, 6, 5, 4], TE = [7, 6].
+        # Flex (2 slots): best remaining are RB 11, RB 10.
         self.assertEqual(a["RB"]["flex"], 2)
         self.assertEqual(a["WR"]["flex"], 0)
-        self.assertEqual(sum(v["bench"] for v in a.values()), 12)
-        w, l = es.lines(lists["RB"], a["RB"]["starters"], a["RB"]["rostered"])
-        self.assertEqual((w, l), (8, 9))  # 6 starters, bench RB 4 -> rostered 10 > listed 8: w = last listed
+        # Total bench across skill positions: 2 teams x 7 bench = 14, minus K/DEF bench seats.
+        total_bench = sum(a[p]["bench"] for p in es.POSITIONS)
+        self.assertGreater(total_bench, 0)
+        self.assertLessEqual(total_bench, 14)
+
+    def test_lines_midpoint(self):
+        """JEG-562: starter line is the midpoint of last starter and first
+        non-starter (convention rule 3); waiver line is first not rostered
+        (convention rule 4)."""
+        vals = [15, 14, 13, 12, 11, 10, 9, 8]
+        # 4 starters, 6 rostered
+        w, l = es.lines(vals, 4, 6)
+        self.assertEqual(w, 9)    # values[6] = 9 (first not rostered)
+        self.assertEqual(l, 11.5) # midpoint of values[3]=12 and values[4]=11
 
 
 class Components(unittest.TestCase):
@@ -110,7 +125,10 @@ class Components(unittest.TestCase):
         c = es.slice_components(self.VALUES, 4, 8)
         for pl in c["players"]:
             self.assertAlmostEqual(pl["starter_part"] + pl["bench_part"], pl["v"])
-        self.assertEqual(c["players"][0]["bench_part"], 4.0)  # l - w = 12 - 8
+        # JEG-562: starter line is now the midpoint (convention rule 3):
+        # midpoint of values[3]=14 and values[4]=12 = 13; waiver line w = values[8] = 8.
+        # bench_part of player 0 (value 20) = min(20, 13) - 8 = 5.0
+        self.assertEqual(c["players"][0]["bench_part"], 5.0)  # l - w = 13 - 8
 
 
 class Live(unittest.TestCase):

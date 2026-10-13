@@ -623,7 +623,15 @@ def served_sources():
                           "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
     if "espn" not in sources:
         raise AssertionError("the ESPN anchor section is missing from the fixture")
-    return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources]
+    # JEG-569 part 2: a held section is dropped from the output (no computation on
+    # old data), so it has no served week or prior week to check.
+    return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources and _base(k) not in held_roots(sources)]
+
+
+def held_roots(sources=None):
+    sources = sources or json.loads((ROOT / "data" / "fixtures" / "current" /
+                                     "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
+    return {k for k, v in sources.items() if isinstance(v, dict) and v.get("validationHold")}
 
 
 def served_week(index, series, unmatched):
@@ -717,7 +725,10 @@ def collect(overrides=None):
                 else:
                     DELTAS[source] = round(current - values[BIJAN], 1)
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
+            held = held_roots()
             for source, res in page.evaluate(ESPN_PRIOR).items():
+                if _base(source) in held:
+                    continue
                 # Published charts were reported above; report a projection once.
                 served = served_week(index, source, UNMATCHED)
                 if served is None:
