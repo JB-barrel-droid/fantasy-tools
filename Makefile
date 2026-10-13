@@ -129,6 +129,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_coverage_intro_dynamic_universe
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
+	python3 -m unittest tests.test_pull_draftsharks
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
@@ -473,6 +474,7 @@ test-core:
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets
+	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
