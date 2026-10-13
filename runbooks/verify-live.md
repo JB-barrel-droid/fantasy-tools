@@ -18,13 +18,13 @@ curl -s https://jb-barrel-droid.github.io/fantasy-tools/ | grep -o "tv-2026[0-9-
 
 Expected: a tag like `tv-20261012-1634-a7bb2bf` (2026-10-12 value). The sha is the merge commit or a newer generated-output commit from the chain, which is normal. `make sync` prints the tag of a local build.
 
-## 3. verify_live.py (known false failure)
+## 3. verify_live.py
 
 ```
 python3 verify_live.py [expected_build_tag]
 ```
 
-Prints the HTTP status, the live build tag and PASS or FAIL per marker. **As of 2026-10-12 it exits 1 on a healthy site**: two markers ("news timing badges", "news max-3 cap" in `assets/comparison-dashboard.js`) belong to features that no longer exist (JEG-629). Until that is fixed, read only `HTTP 200`, `Live build tag: ...` and, when you pass the tag, `PASS: build tag matches expected <tag>`. Ignore the two stale FAILs.
+Prints the HTTP status, the live build tag and PASS or FAIL per marker. Exit 0 = healthy (HTTP 200, tag matches when passed, every marker present); exit 1 = wrong tag, missing marker or fetch failure. Its markers are checked against the built `dist/` by `tests/test_verify_live.py` (in `make test-core`), so a marker for a removed feature fails CI instead of the live check (JEG-629).
 
 ## 4. The scheduled live check
 

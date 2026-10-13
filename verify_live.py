@@ -17,6 +17,7 @@ BASE = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # Markers that must be present in the deployed files for the current fix set.
 HTML_MARKERS = [
     ("monthDayTime", "time-of-update formatter in index.html"),
+    ('src="v2/v2.js', "v2 shell script in index.html"),
 ]
 JS_MARKERS = {
     "assets/curve-widget.js": [
@@ -25,8 +26,8 @@ JS_MARKERS = {
         ("quadraticCurveTo", "curve smoothing"),
     ],
     "assets/comparison-dashboard.js": [
-        ("post-values", "news timing badges"),
-        ("slice(0, 3)", "news max-3 cap"),
+        ("function sourceFreshness", "source freshness labels"),
+        ("function loadComparisonData", "comparison data loader"),
     ],
 }
 
@@ -37,8 +38,13 @@ def fetch(path):
         return r.status, r.read().decode("utf-8", errors="replace")
 
 
-def main():
-    expected = sys.argv[1] if len(sys.argv) > 1 else None
+def main(argv=None, fetch_fn=None):
+    """fetch_fn(path) -> (status, text) is injectable so tests can point at dist/."""
+    global fetch
+    argv = sys.argv[1:] if argv is None else argv
+    if fetch_fn is not None:
+        fetch = fetch_fn
+    expected = argv[0] if argv else None
     ok = True
 
     try:
