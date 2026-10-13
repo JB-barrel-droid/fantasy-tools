@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-13T15:02:55.062337+00:00",
+  "run_at": "2026-10-13T15:27:16.536167+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -147,8 +147,8 @@
       "lagging_one_week": true
     },
     "espn": {
-      "content_vintage": "2026-10-12",
-      "content_week": 5,
+      "content_vintage": "2026-10-13",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     },
@@ -180,15 +180,15 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order"
+      "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"('standard', 8, 'null') fantasycalc: no [4079 chars]nks'] != []"
+      "AssertionError: Lists differ: [('A.J. Brown', 16.049091, 14.71), ('Baker[136 chars].57)] != []"
     ],
     "make_targets": [
-      "Makefile:457: test-core"
+      "Makefile:458: test-core"
     ],
-    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order; AssertionError: Lists differ: [\"('standard', 8, 'null') fantasycalc: no [4079 chars]nks'] != []",
-    "recorded_at": "2026-10-13T15:04:07.479482+00:00"
+    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.049091, 14.71), ('Baker[136 chars].57)] != []",
+    "recorded_at": "2026-10-13T15:28:26.140393+00:00"
   }
 }
