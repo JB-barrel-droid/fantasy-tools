@@ -414,32 +414,34 @@ class ChainAppliesTheHold(unittest.TestCase):
     HOLD = {"stage": "publisher_vs_stored", "reason": "fidelity: publisher_vs_stored", "identity": "b2",
             "since": "2026-10-09T21:51:00Z", "summary": "39 value mismatches"}
 
-    def test_exactly_the_held_source_and_its_derived_sections(self):
-        good = fixture("Week 4", built_at="B-good", tag="good")
-        out, report = fh.apply_fidelity_holds(fixture(), {"cbs": self.HOLD}, lambda root: good, 5, TODAY)
-        # JEG-508 (VP-10/VP-11) retired the *_adjusted sections: the engine
-        # derives the deprecated cbs_adjusted alias, and its hold, from cbs.
-        self.assertEqual({"cbs"}, held_sections(out))
+    def test_held_source_has_combos_stripped(self):
+        out, report = fh.apply_fidelity_holds(fixture(), {"cbs": self.HOLD}, 5)
+        # JEG-569 part 2: combos stripped, section kept with hold metadata.
+        held = {sec for sec, s in out["sources"].items()
+                if isinstance(s, dict) and s.get("validationHold")}
+        self.assertIn("cbs", held)
+        self.assertEqual(out["sources"]["cbs"]["combos"], {})
         hold = out["sources"]["cbs"]["validationHold"]
         self.assertEqual("fidelity: publisher_vs_stored", hold["reason"])
-        self.assertEqual(("cbs", 4, "B-good"), (hold["root"], hold["kept_week"], hold["restored_from"]))
-        self.assertEqual("good:cbs", out["sources"]["cbs"]["tag"])  # served from the last good chart
+        self.assertEqual("cbs", hold["root"])
+        # _adjusted derivative also stripped
+        if "cbs_adjusted" in out["sources"]:
+            self.assertEqual(out["sources"]["cbs_adjusted"]["combos"], {})
+        # every other source keeps its combos
         for sec, s in out["sources"].items():
-            if sec != "cbs":
-                self.assertEqual(f"new:{sec}", s["tag"], sec)  # every other source publishes this run's
-        self.assertEqual(["cbs"], report["cbs"]["restored"])
+            if sec not in held and isinstance(s, dict) and "combos" in s:
+                self.assertTrue(s["combos"], f"{sec} combos should not be empty")
 
-    def test_projection_hold_keeps_its_section_labelled(self):
-        out, report = fh.apply_fidelity_holds(fixture(), {"espn": self.HOLD},
-                                              lambda root: fixture(tag="good"), 5, TODAY)
-        self.assertEqual({"espn"}, held_sections(out))
-        self.assertEqual("new:espn", out["sources"]["espn"]["tag"])
-        self.assertEqual([], report["espn"]["restored"])
+    def test_projection_hold_strips_combos(self):
+        out, report = fh.apply_fidelity_holds(fixture(), {"espn": self.HOLD}, 5)
+        self.assertEqual(out["sources"]["espn"]["combos"], {})
+        hold = out["sources"]["espn"]["validationHold"]
+        self.assertEqual("fidelity: publisher_vs_stored", hold["reason"])
+        self.assertEqual("espn", hold["root"])
 
-    def test_no_last_good_chart_keeps_the_section_held(self):
-        out, _ = fh.apply_fidelity_holds(fixture(), {"usatoday": self.HOLD}, lambda root: None, 5, TODAY)
-        self.assertEqual({"usatoday"}, held_sections(out))
-        self.assertIsNone(out["sources"]["usatoday"]["validationHold"]["kept_week"])
+    def test_hold_without_last_good_strips_combos(self):
+        out, _ = fh.apply_fidelity_holds(fixture(), {"usatoday": self.HOLD}, 5)
+        self.assertEqual(out["sources"]["usatoday"]["combos"], {})
 
     def test_release_only_fidelity_holds_the_pulse_dropped(self):
         fx = fixture()
@@ -454,7 +456,7 @@ class ChainAppliesTheHold(unittest.TestCase):
         self.assertEqual({"usatoday"}, held_sections(fx))
 
     def test_chain_status_lists_the_hold(self):
-        _, report = fh.apply_fidelity_holds(fixture(), {"cbs": self.HOLD}, lambda root: None, 5, TODAY)
+        _, report = fh.apply_fidelity_holds(fixture(), {"cbs": self.HOLD}, 5)
         status = fh.update_chain_status({"status": "green", "held": []}, report, 5)
         self.assertEqual(["cbs"], status["held"])
         self.assertEqual("published_with_holds", status["status"])
@@ -464,24 +466,8 @@ class ChainAppliesTheHold(unittest.TestCase):
         self.assertEqual(["cbs"], sorted(fh.pulse_holds({"holds": {"cbs": self.HOLD, "nope": self.HOLD}})))
 
 
-class LastGoodFixtureFromGit(unittest.TestCase):
-    def test_finds_the_commit_with_that_built_at(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            repo = Path(tmp)
-            run = lambda *a: subprocess.run(["git", *a], cwd=tmp, check=True, capture_output=True)  # noqa: E731
-            run("init", "-q")
-            run("config", "user.email", "t@example.com")
-            run("config", "user.name", "t")
-            path = repo / vc.FIXTURE_REL
-            path.parent.mkdir(parents=True)
-            for built, tag in (("B1", "one"), ("B2", "two"), ("B3", "three")):
-                path.write_text(json.dumps(fixture(built_at=built, tag=tag), indent=2))
-                run("add", "-A")
-                run("commit", "-qm", built)
-            got = fh.fixture_with_built_at("B2", repo=repo)
-            self.assertEqual("two:cbs", got["sources"]["cbs"]["tag"])
-            self.assertIsNone(fh.fixture_with_built_at("B9", repo=repo))
-            self.assertIsNone(fh.fixture_with_built_at(None, repo=repo))
+# LastGoodFixtureFromGit removed: fixture_with_built_at retired by JEG-569
+# part 2 (no restoration from last-good builds; combos are stripped).
 
 
 if __name__ == "__main__":

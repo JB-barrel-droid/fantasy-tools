@@ -9,4 +9,15 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [qb-bench-share.md](qb-bench-share.md) | The 22.6% QB bench share, why it was an artifact, and what superseded it. |
 | [research-post-1-facts.md](research-post-1-facts.md) | JEG-544 decisions and the fact tickets, with status. |
 
+## Post drafts
+
+| Post | File | Ticket | Status |
+|---|---|---|---|
+| 1. How much is a bench player worth? | [posts/01-bench-player-value.md](posts/01-bench-player-value.md) | JEG-544 | Draft; numbers pending JEG-562 |
+| 2. How many backups should a fantasy roster hold? | [posts/02-how-many-backups.md](posts/02-how-many-backups.md) | JEG-557 | Draft; scripts pending JEG-566 |
+| 3. Why DDF Value is the core | [posts/03-why-ddf-value.md](posts/03-why-ddf-value.md) | JEG-545 | Draft |
+| 4. How we rescale trade charts | [posts/04-how-we-rescale-trade-charts.md](posts/04-how-we-rescale-trade-charts.md) | JEG-545 | Draft |
+| 5. Missing = 0 and the one-source rule | [posts/05-missing-zero-one-source.md](posts/05-missing-zero-one-source.md) | JEG-545 | Draft |
+| 6. Trade confidence | [posts/06-trade-confidence.md](posts/06-trade-confidence.md) | JEG-545 | Draft; partially gated on JEG-505 |
+
 Rules: do not freeze a number that is known to be wrong; mark figures computed on an older engine as stale with the date; name the script or say "none yet". Scripts go to `tools/bench_research` (JEG-566).

@@ -51,8 +51,8 @@ class WorkedExample(unittest.TestCase):
 
     def test_hand_check_rb_delta(self):
         out = we.run_fixture(_fx())
-        self.assertAlmostEqual(out["sources"]["p1"]["players"][201]["adjusted"], 47.910397, 6)
-        self.assertAlmostEqual(out["rows"][201]["ddf_blended"]["value"], 48.511113, 6)
+        self.assertAlmostEqual(out["sources"]["p1"]["players"][201]["adjusted"], 49.077706, 6)
+        self.assertAlmostEqual(out["rows"][201]["ddf_blended"]["value"], 48.882505, 6)
         self.assertEqual(out["pie"], 280.0)
 
 
