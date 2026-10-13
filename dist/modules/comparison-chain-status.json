@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-13T15:27:16.536167+00:00",
+  "run_at": "2026-10-13T15:37:06.914191+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 191/191 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, chris bell, isaac teslaa, malachi fields, michael pittman; added: mack hollins) -- 1 dropped player(s) still priced live (e.g. chris bell) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -20,7 +20,7 @@
     "fantasycalc",
     "razzball"
   ],
-  "hold_severity": "none",
+  "hold_severity": "amber",
   "held_detail": {
     "fantasycalc": {
       "reason": "fidelity: publisher_vs_stored",
@@ -76,11 +76,24 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 191/191 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, chris bell, isaac teslaa, malachi fields, michael pittman; added: mack hollins) -- 1 dropped player(s) still priced live (e.g. chris bell) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -141,10 +154,10 @@
       "lagging_one_week": false
     },
     "fantasypros": {
-      "content_vintage": "2026-10-06",
-      "content_week": 5,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "2026-10-13",
+      "content_week": 6,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "espn": {
       "content_vintage": "2026-10-13",
@@ -189,6 +202,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.049091, 14.71), ('Baker[136 chars].57)] != []",
-    "recorded_at": "2026-10-13T15:28:26.140393+00:00"
+    "recorded_at": "2026-10-13T15:38:06.973507+00:00"
   }
 }
