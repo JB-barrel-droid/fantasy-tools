@@ -1,11 +1,11 @@
 {
-  "run_at": "2026-10-13T11:46:31.101271+00:00",
+  "run_at": "2026-10-13T12:02:35.124165+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
-    "espn": "promoted 1/1",
+    "espn": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: no snapshot.json found under data/raw/sources",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
@@ -17,10 +17,25 @@
   "outcome": "failed",
   "held": [
     "cbsros",
+    "espn",
     "razzball"
   ],
-  "hold_severity": "none",
+  "hold_severity": "amber",
   "held_detail": {
+    "espn": {
+      "detail": "no snapshot.json found under data/raw/sources",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -31,7 +46,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint ae4eac51e084435a20bd8104); 1 publisher names do not",
+      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint fbb2d0a20ec1637c6989634c); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -78,11 +93,23 @@
     },
     "espn": {
       "source": "espn",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6948 values)",
-      "promoted": 1,
-      "sections": 1
+      "status": "held",
+      "stage": "snapshot",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "promoted": 0,
+      "sections": 1,
+      "held_reason": "failed at stage 'snapshot'",
+      "failed_stage": "snapshot",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "cbs": {
       "source": "cbs",
@@ -133,9 +160,9 @@
       "lagging_one_week": true
     },
     "espn": {
-      "content_vintage": "2026-10-12",
-      "content_week": 5,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "cbs": {
@@ -165,15 +192,17 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game"
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs",
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [('A.J. Brown', 16.036364, 14.7), ('Baker [140 chars].58)] != []"
+      "AssertionError: Lists differ: [\"usatoday served week != chart: ['Mack Ho[1952 chars]rs)\"] != []",
+      "AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[1270 chars]rs)\"] != []"
     ],
     "make_targets": [
-      "Makefile:458: test-core"
+      "Makefile:496: test-core"
     ],
-    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.036364, 14.7), ('Baker [140 chars].58)] != []",
-    "recorded_at": "2026-10-13T11:47:43.427260+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"usatoday served week != chart: ['Mack Ho[1952 chars]rs)\"] != []; AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[1270 chars]rs)\"] != []",
+    "recorded_at": "2026-10-13T12:10:07.377114+00:00"
   }
 }
