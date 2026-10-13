@@ -212,7 +212,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -231,12 +231,27 @@
   // the loading / failure card belong to the value tabs; until the engine is ready they follow the hash here.
   function applyStatic() {
     const onManifesto = currentView() === "manifesto";
+    const onResearch = currentView() === "research";
+    const onText = onManifesto || onResearch;
     $("v2Manifesto").hidden = !onManifesto;
-    $("v2League").hidden = onManifesto;
+    $("v2Research").hidden = !onResearch;
+    if (onResearch) showResearchPage();
+    $("v2League").hidden = onText;
     if (!C) {
-      $("v2State").hidden = onManifesto;
-      if (onManifesto) $("v2Methods").hidden = true;
+      $("v2State").hidden = onText;
+      if (onText) $("v2Methods").hidden = true;
     }
+  }
+
+  // Research (JEG-543): #research is the index, #research/<slug> one post. Both are static text built into the
+  // page, so they show without the engine. An unknown slug falls back to the index.
+  function showResearchPage() {
+    const slug = decodeURIComponent(hashBase().slice("#research/".length));
+    const posts = [...document.querySelectorAll("#v2Research .v2-rs-post")];
+    const post = hashBase().startsWith("#research/") ? posts.find(node => node.dataset.slug === slug) : null;
+    posts.forEach(node => { node.hidden = node !== post; });
+    $("v2ResearchIndex").hidden = Boolean(post);
+    if (post) window.scrollTo(0, 0);
   }
 
   // Before the engine is ready, only the Manifesto can show; it follows the hash on its own.
@@ -4354,6 +4369,7 @@
     : hashBase() === "#compare-trade" ? "compare"
     : hashBase() === "#how-values" ? "how"
     : hashBase() === "#manifesto" ? "manifesto"
+    : (hashBase() === "#research" || hashBase().startsWith("#research/")) ? "research"
     : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
 
   function applyRoute() {
@@ -4366,7 +4382,7 @@
     applyStatic();
     // The source selection applies on Compare a trade too; Trade targets has its own pickers.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = v === "targets" || v === "risers" || v === "manifesto";
+    $("v2Methods").hidden = v === "targets" || v === "risers" || v === "manifesto" || v === "research";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -4435,7 +4451,7 @@
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
     else if (currentView() === "how") renderHow();
-    else if (currentView() === "manifesto") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "manifesto" || currentView() === "research") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
