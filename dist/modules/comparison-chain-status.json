@@ -1,12 +1,12 @@
 {
-  "run_at": "2026-10-13T21:01:53.490461+00:00",
+  "run_at": "2026-10-13T21:37:01.457713+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
-    "cbs": "promoted 3/3",
+    "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 61/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
@@ -16,11 +16,26 @@
   "success": false,
   "outcome": "failed",
   "held": [
+    "cbs",
     "cbsros",
     "razzball"
   ],
-  "hold_severity": "none",
+  "hold_severity": "amber",
   "held_detail": {
+    "cbs": {
+      "detail": "cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 61/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber",
+      "rolled_back": 1
+    },
     "cbsros": {
       "reason": "fidelity: stored_vs_chart",
       "held_series": [
@@ -86,11 +101,26 @@
     },
     "cbs": {
       "source": "cbs",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 61/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 1,
+      "rolled_back_records": [
+        "cbs-2026-10-13-promotion.rolled-back.json"
+      ],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "cbsros": {
       "source": "cbsros",
@@ -139,10 +169,10 @@
       "lagging_one_week": false
     },
     "cbs": {
-      "content_vintage": "Week 5",
-      "content_week": 5,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "Week 6",
+      "content_week": 6,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "cbsros": {
       "content_vintage": "2026-10-13",
@@ -174,6 +204,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[136 chars].57)] != []",
-    "recorded_at": "2026-10-13T21:02:56.474506+00:00"
+    "recorded_at": "2026-10-13T21:38:17.298663+00:00"
   }
 }
