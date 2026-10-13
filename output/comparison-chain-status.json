@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-13T15:37:06.914191+00:00",
+  "run_at": "2026-10-13T16:01:48.361278+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -31,7 +31,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "410/1168 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 28); 758 of 1168 values moved since the save at 2026-10-13T12:05:29.819806Z (largest 123%; 4 outside the max(25%, 50) band: Malik Willis, Tyler Shough); 5 players en",
+      "detail": "599/1172 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 41); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 41); stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 50); 573 of",
       "hold_severity": "amber",
       "week": 6
     },
@@ -45,7 +45,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint fbb2d0a20ec1637c6989634c); 1 publisher names do not",
+      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 0e101e30a08fac79fa6cb786); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -202,6 +202,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.049091, 14.71), ('Baker[136 chars].57)] != []",
-    "recorded_at": "2026-10-13T15:38:06.973507+00:00"
+    "recorded_at": "2026-10-13T16:03:00.242799+00:00"
   }
 }
