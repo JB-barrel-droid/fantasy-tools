@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-13T09:01:54.367305+00:00",
+  "run_at": "2026-10-13T09:42:34.163907+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -17,24 +17,10 @@
   "outcome": "failed",
   "held": [
     "cbsros",
-    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "none",
   "held_detail": {
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
-      ],
-      "detail": "785/1171 values match exactly across 6 columns; column check: stored std|2 list is closest to the live full|2 list (mean |diff| 26 vs 59); stored half|2 list is closest to the live full|2 list (mean |diff| 10 vs 60); 386 of 1171 values moved since the save at 2026-10-13T05:05:28.899165Z (largest 400",
-      "hold_severity": "amber",
-      "week": 6
-    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -59,7 +45,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-12 is not on the chart yet: 376 values changed, 21 added, 6 dropped",
+      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-12 is not on the chart yet: 372 values changed, 21 added, 6 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -172,7 +158,6 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   },
@@ -180,15 +165,15 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order"
+      "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"('standard', 8, 'null') fantasycalc: no [4079 chars]nks'] != []"
+      "AssertionError: Lists differ: [('A.J. Brown', 16.036364, 14.7), ('Baker [140 chars].58)] != []"
     ],
     "make_targets": [
-      "Makefile:457: test-core"
+      "Makefile:458: test-core"
     ],
-    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order; AssertionError: Lists differ: [\"('standard', 8, 'null') fantasycalc: no [4079 chars]nks'] != []",
-    "recorded_at": "2026-10-13T09:02:53.777348+00:00"
+    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.036364, 14.7), ('Baker [140 chars].58)] != []",
+    "recorded_at": "2026-10-13T09:43:42.176474+00:00"
   }
 }
