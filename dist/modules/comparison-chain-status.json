@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-13T03:32:57.123738+00:00",
+  "run_at": "2026-10-13T03:43:07.017666+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -31,7 +31,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "417/1167 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 43); stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 35); stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 43); store",
+      "detail": "27/1161 values match exactly across 6 columns; column check: stored half|1 list is closest to the live std|1 list (mean |diff| 37 vs 59); 1134 of 1161 values moved since the save at 2026-10-12T22:05:27.100140Z (largest 267%; 5 outside the max(25%, 50) band: Cam Ward, Khalil Shakir, Malik Willis); 10",
       "hold_severity": "amber",
       "week": 6
     },
@@ -45,7 +45,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint ae4eac51e084435a20bd8104); 1 publisher names do not",
+      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint ae4eac51e084435a20bd8104); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -59,7 +59,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-12 is not on the chart yet: 321 values changed, 21 added, 2 dropped",
+      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-12 is not on the chart yet: 376 values changed, 21 added, 6 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -94,7 +94,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6936 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6948 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -189,6 +189,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.036364, 14.7), ('Baker [140 chars].58)] != []",
-    "recorded_at": "2026-10-13T03:34:08.393149+00:00"
+    "recorded_at": "2026-10-13T03:44:17.994721+00:00"
   }
 }
