@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-13T06:02:07.258790+00:00",
+  "run_at": "2026-10-13T07:01:46.483608+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -31,7 +31,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "27/1161 values match exactly across 6 columns; column check: stored half|1 list is closest to the live std|1 list (mean |diff| 37 vs 59); 1134 of 1161 values moved since the save at 2026-10-12T22:05:27.100140Z (largest 267%; 5 outside the max(25%, 50) band: Cam Ward, Khalil Shakir, Malik Willis); 10",
+      "detail": "785/1171 values match exactly across 6 columns; column check: stored std|2 list is closest to the live full|2 list (mean |diff| 26 vs 59); stored half|2 list is closest to the live full|2 list (mean |diff| 10 vs 60); 386 of 1171 values moved since the save at 2026-10-13T05:05:28.899165Z (largest 400",
       "hold_severity": "amber",
       "week": 6
     },
@@ -45,7 +45,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint ae4eac51e084435a20bd8104); 1 publisher names do not",
+      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint ae4eac51e084435a20bd8104); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -189,6 +189,6 @@
       "Makefile:457: test-core"
     ],
     "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order; AssertionError: Lists differ: [\"('standard', 8, 'null') fantasycalc: no [4079 chars]nks'] != []",
-    "recorded_at": "2026-10-13T06:03:04.539174+00:00"
+    "recorded_at": "2026-10-13T07:02:37.963718+00:00"
   }
 }
