@@ -299,7 +299,7 @@
   // default; on, it replaces the computed share as the bench groups' weight.
   let benchShareOverride = null;
   let lineupSettings = {regularSeasonEnd: 14, playoffWeeks: [15, 17], optimizeFor: "season",
-    injuryHistory: "recent", projectionConfidence: 1};
+    injuryHistory: "recent", projectionConfidence: 1, contentWeek: null};
   // config/lineup_parameters.json, served as assets/lineup-parameters.json.
   let lineupConfig = null;
   let lineupConfigError = null;
@@ -596,6 +596,8 @@
       league_weeks: {regular_season_end: lineupSettings.regularSeasonEnd,
         playoff_weeks: [...lineupSettings.playoffWeeks]},
       projection_confidence: lineupSettings.projectionConfidence,
+      // JEG-527: null = the build's week; a reader-set week moves only the window (ES-12).
+      content_week: lineupSettings.contentWeek,
     };
   }
   function resolvedLineup() {
@@ -621,6 +623,7 @@
         optimizeFor: d.objective || "season",
         injuryHistory: d.injury_history || "recent",
         projectionConfidence: d.projection_confidence ?? 1,
+        contentWeek: null,
       };
     } catch (error) {
       // A warning, not a stop (CLAUDE.md): the page prices with the VP-2.6
@@ -2119,6 +2122,10 @@
     if (p.optimizeFor !== undefined) next.optimizeFor = p.optimizeFor;
     if (p.injuryHistory !== undefined) next.injuryHistory = p.injuryHistory;
     if (p.projectionConfidence !== undefined) next.projectionConfidence = Number(p.projectionConfidence);
+    if (p.contentWeek !== undefined) next.contentWeek = p.contentWeek === null ? null : Number(p.contentWeek);
+    if (next.contentWeek !== null && !(Number.isInteger(next.contentWeek) && next.contentWeek >= 1 && next.contentWeek <= 17)) {
+      throw new RangeError("Content week must be a week from 1 to 17");
+    }
     const [pLo, pHi] = next.playoffWeeks;
     const week = n => Number.isInteger(n) && n >= 1 && n <= 18;
     if (!week(next.regularSeasonEnd)) throw new RangeError("Last regular-season week must be a week from 1 to 18");
@@ -2153,7 +2160,7 @@
     return {regularSeasonEnd: d?.league_weeks?.regular_season_end ?? 14,
       playoffWeeks: [...(d?.league_weeks?.playoff_weeks || [15, 17])],
       optimizeFor: d?.objective || "season", injuryHistory: d?.injury_history || "recent",
-      projectionConfidence: d?.projection_confidence ?? 1, benchShareOverride: null};
+      projectionConfidence: d?.projection_confidence ?? 1, benchShareOverride: null, contentWeek: null};
   }
   // ES-14 readout: {QB, RB, WR, TE, overall, override, overrideValue,
   // fillInShare, method, contentWeek, window}; null before the first build or
@@ -2843,6 +2850,10 @@
     getLeagueWeeks: () => ({regularSeasonEnd: lineupSettings.regularSeasonEnd, playoffWeeks: [...lineupSettings.playoffWeeks]}),
     setLeagueWeeks: (weeks, publish = true) => setLineupSettings({regularSeasonEnd: weeks?.regularSeasonEnd,
       playoffWeeks: weeks?.playoffWeeks}, publish),
+    // JEG-527: the week the values are for. null sets it back to the build's week.
+    getContentWeek: () => lineupSettings.contentWeek ?? lineupConfig?.content_week ?? null,
+    getBuildContentWeek: () => lineupConfig?.content_week ?? null,
+    setContentWeek: (value, publish = true) => setLineupSettings({contentWeek: value}, publish),
     getOptimizeFor: () => lineupSettings.optimizeFor,
     setOptimizeFor: (value, publish = true) => setLineupSettings({optimizeFor: value}, publish),
     getInjuryHistory: () => lineupSettings.injuryHistory,
