@@ -98,6 +98,10 @@ def summarize(rows):
         "top12_rb2_ppg_with": statistics.mean(a for a, _, _ in top) if top else None,
         "top12_rb2_ppg_without": statistics.mean(b for _, b, _ in top) if top else None,
         "top12_share_above_starter_line": (sum(1 for _, b, r in top if b > r["starter_line"]) / len(top)) if top else None,
+        # JEG-526: the promoted level as a multiple of that season's 12-team RB31
+        # line, so it carries across scoring formats and league sizes.
+        "promoted_to_starter_line": statistics.mean(b / r["starter_line"] for _, b, r in paired),
+        "top12_promoted_to_starter_line": (statistics.mean(b / r["starter_line"] for _, b, r in top) if top else None),
         "mean_starter_line": statistics.mean(r["starter_line"] for r in rows),
         "mean_waiver_line": statistics.mean(r["waiver_line"] for r in rows),
     }
@@ -107,6 +111,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", type=Path, default=REPO / "output" / "handcuff-jump.md")
     ap.add_argument("--out", type=Path, default=REPO / "output" / "handcuff-jump.json")
+    ap.add_argument("--config", type=Path, default=None,
+                    help="also write the committed measurement the engine reads (config/handcuff_jump.json)")
     args = ap.parse_args(argv)
     rows, _ = analyse(dl.load_actuals_nflverse(), dl.load_schedule(dl.HISTORY_SCHEDULE))
     s = summarize(rows)
@@ -126,6 +132,17 @@ def main(argv=None):
          f"{s['top12_rb2_ppg_without']:.1f} points per game; above the starter line when the lead back is out: "
          f"{100 * s['top12_share_above_starter_line']:.0f}%"]
     args.report.write_text("\n".join(L) + "\n", encoding="utf-8")
+    if args.config:
+        cfg = {"schema": "handcuff-jump-config/1",
+               "source": "tools/handcuff_jump.py, nflverse 2015-2025, full PPR, weeks 1-9 selection, weeks 10+ measured",
+               "lead_back_top_cutoff": 12,
+               "promoted_to_starter_line": {"top12": round(s["top12_promoted_to_starter_line"], 4),
+                                            "all": round(s["promoted_to_starter_line"], 4)},
+               "promoted_ppg_ppr": {"top12": round(s["top12_rb2_ppg_without"], 2),
+                                    "all": round(s["rb2_ppg_without_lead"], 2)},
+               "backup_ppg_with_lead_ppr": round(s["rb2_ppg_with_lead"], 2),
+               "paired_backups": s["paired_backups"], "top12_paired": s["top12_paired"]}
+        args.config.write_text(json.dumps(cfg, indent=1) + "\n", encoding="utf-8")
     print("\n".join(L))
     return 0
 
