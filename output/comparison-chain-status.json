@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-14T18:01:52.874540+00:00",
+  "run_at": "2026-10-14T18:42:40.152508+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -20,7 +20,8 @@
     "cbsros",
     "fantasycalc",
     "fantasypros",
-    "razzball"
+    "razzball",
+    "usatoday"
   ],
   "hold_severity": "amber",
   "held_detail": {
@@ -38,8 +39,21 @@
       "hold_severity": "amber",
       "rolled_back": 1
     },
-    "fantasycalc": {
+    "usatoday": {
       "reason": "fidelity: freshness",
+      "held_series": [
+        "usatoday"
+      ],
+      "sections": [
+        "usatoday",
+        "usatoday_adjusted"
+      ],
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 24 h ago); chart shows week 5; stored rows already have week 6",
+      "hold_severity": "amber",
+      "week": 6
+    },
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
         "fantasycalc"
       ],
@@ -47,7 +61,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "content week 6 opened 28 h ago; chart still shows FantasyCalc week 5",
+      "detail": "983/1171 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 41); 188 of 1171 values moved since the save at 2026-10-14T16:05:29.159421Z (largest 103%; 2 outside the max(25%, 50) band: Baker Mayfield, Deshaun Watson); 6 players",
       "hold_severity": "amber",
       "week": 6
     },
@@ -60,7 +74,7 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 27 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 30 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -74,7 +88,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 42538fb7c86ff55dda32b229); 1 publisher names do not",
+      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 42538fb7c86ff55dda32b229); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -216,7 +230,8 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: freshness",
+    "usatoday": "fidelity: freshness",
+    "fantasycalc": "fidelity: publisher_vs_stored",
     "fantasypros": "fidelity: freshness",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
@@ -228,12 +243,12 @@
       "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[136 chars].57)] != []"
+      "AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[134 chars].83)] != []"
     ],
     "make_targets": [
       "Makefile:458: test-core"
     ],
-    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[136 chars].57)] != []",
-    "recorded_at": "2026-10-14T18:02:41.566504+00:00"
+    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[134 chars].83)] != []",
+    "recorded_at": "2026-10-14T18:43:41.136793+00:00"
   }
 }
