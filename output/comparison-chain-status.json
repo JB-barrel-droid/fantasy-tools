@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-14T09:01:54.810258+00:00",
+  "run_at": "2026-10-14T09:07:01.254727+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 191/191 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, dezhaun stribling, isaac teslaa, malachi fields, michael pittman; added: isaiah williams) -- 1 dropped player(s) still priced live (e.g. dezhaun stribling) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 61/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
@@ -17,7 +17,6 @@
   "outcome": "failed",
   "held": [
     "cbs",
-    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -35,20 +34,6 @@
       "weeks_behind": 1,
       "hold_severity": "amber",
       "rolled_back": 1
-    },
-    "fantasycalc": {
-      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 191/191 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, dezhaun stribling, isaac teslaa, malachi fields, michael pittman; added: isaiah williams) -- 1 dropped player(s) still priced live (e.g. dezhaun stribling) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
-      "reason": "review hold",
-      "stage": "review",
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 1,
-      "hold_severity": "amber",
-      "rolled_back": 0
     },
     "razzball": {
       "reason": "fidelity: stored_vs_chart",
@@ -77,24 +62,11 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "held",
-      "stage": "review",
-      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 191/191 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, dezhaun stribling, isaac teslaa, malachi fields, michael pittman; added: isaiah williams) -- 1 dropped player(s) still priced live (e.g. dezhaun stribling) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
-      "sections": 3,
-      "held": true,
-      "held_reason": "review hold",
-      "failed_stage": "review",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 1,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
+      "sections": 3
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -216,6 +188,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[136 chars].57)] != []",
-    "recorded_at": "2026-10-14T09:03:00.199151+00:00"
+    "recorded_at": "2026-10-14T09:08:07.930727+00:00"
   }
 }
