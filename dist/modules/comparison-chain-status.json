@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-14T15:37:43.222760+00:00",
+  "run_at": "2026-10-14T15:42:58.933303+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -19,6 +19,7 @@
     "cbs",
     "cbsros",
     "fantasycalc",
+    "fantasypros",
     "razzball"
   ],
   "hold_severity": "amber",
@@ -46,7 +47,20 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "content week 6 opened 25 h ago; chart still shows FantasyCalc week 5",
+      "detail": "content week 6 opened 28 h ago; chart still shows FantasyCalc week 5",
+      "hold_severity": "amber",
+      "week": 6
+    },
+    "fantasypros": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "fantasypros"
+      ],
+      "sections": [
+        "fantasypros",
+        "fantasypros_adjusted"
+      ],
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 27 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -74,7 +88,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-13 is not on the chart yet: 1363 values changed, 34 added, 13 dropped",
+      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-14 is not on the chart yet: 1361 values changed, 34 added, 13 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -203,6 +217,7 @@
   },
   "fidelity_holds": {
     "fantasycalc": "fidelity: freshness",
+    "fantasypros": "fidelity: freshness",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   },
@@ -219,6 +234,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[136 chars].57)] != []",
-    "recorded_at": "2026-10-14T15:39:00.017976+00:00"
+    "recorded_at": "2026-10-14T15:44:15.958104+00:00"
   }
 }
