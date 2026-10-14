@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-14T21:02:17.730263+00:00",
+  "run_at": "2026-10-14T21:42:57.805092+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -48,7 +48,7 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 24 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 27 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -61,7 +61,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "983/1171 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 41); 188 of 1171 values moved since the save at 2026-10-14T16:05:29.159421Z (largest 103%; 2 outside the max(25%, 50) band: Baker Mayfield, Deshaun Watson); 6 players",
+      "detail": "26/1158 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 48 vs 74); 1132 of 1158 values moved since the save at 2026-10-14T16:05:29.159421Z (largest 493%; 15 outside the max(25%, 50) band: Baker Mayfield, C.J. Stroud, Cam Ward, De",
       "hold_severity": "amber",
       "week": 6
     },
@@ -74,12 +74,12 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 30 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 33 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
     "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
         "cbsros",
         "cbsros_vorp"
@@ -88,7 +88,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 42538fb7c86ff55dda32b229); 1 publisher names do not",
+      "detail": "1063/1089 chart values equal stored snapshot 2026-10-12 (per game, 3 decimals); 26 chart values differ from the stored snapshot, 1 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-14 is not on the chart yet: 276 values changed, 1 added, 1 dropped",
       "hold_severity": "amber",
       "week": 6
     },
@@ -102,7 +102,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-14 is not on the chart yet: 1361 values changed, 34 added, 13 dropped",
+      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-14 is not on the chart yet: 1372 values changed, 35 added, 13 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -233,7 +233,7 @@
     "usatoday": "fidelity: freshness",
     "fantasycalc": "fidelity: publisher_vs_stored",
     "fantasypros": "fidelity: freshness",
-    "cbsros": "fidelity: publisher_vs_stored",
+    "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
@@ -249,6 +249,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[134 chars].83)] != []",
-    "recorded_at": "2026-10-14T21:03:29.822029+00:00"
+    "recorded_at": "2026-10-14T21:43:59.542464+00:00"
   }
 }
