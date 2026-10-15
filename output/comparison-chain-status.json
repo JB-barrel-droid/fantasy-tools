@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-15T03:27:02.704452+00:00",
+  "run_at": "2026-10-15T03:42:52.633745+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -40,7 +40,7 @@
       "rolled_back": 1
     },
     "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: freshness",
       "held_series": [
         "fantasycalc"
       ],
@@ -48,7 +48,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "595/1175 values match exactly across 6 columns; column check: stored half|2 list is closest to the live full|2 list (mean |diff| 10 vs 63); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 54); stored std|2 list is closest to the live full|2 list (mean |diff| 26 vs 63); 580 of",
+      "detail": "content week 6 opened 40 h ago; chart still shows FantasyCalc week 5",
       "hold_severity": "amber",
       "week": 6
     },
@@ -61,7 +61,7 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 30 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 33 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -74,7 +74,7 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 36 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 39 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -88,7 +88,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 39496b6ef00df1ad7296588c); 1 publisher names do not",
+      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 39496b6ef00df1ad7296588c); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -102,7 +102,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-14 is not on the chart yet: 1366 values changed, 35 added, 13 dropped",
+      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-14 is not on the chart yet: 1369 values changed, 34 added, 11 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -244,7 +244,7 @@
   },
   "fidelity_holds": {
     "usatoday": "fidelity: freshness",
-    "fantasycalc": "fidelity: publisher_vs_stored",
+    "fantasycalc": "fidelity: freshness",
     "fantasypros": "fidelity: freshness",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
@@ -262,6 +262,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[134 chars].83)] != []",
-    "recorded_at": "2026-10-15T03:28:15.188098+00:00"
+    "recorded_at": "2026-10-15T03:43:54.258926+00:00"
   }
 }
