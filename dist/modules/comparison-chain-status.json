@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-15T06:06:51.979647+00:00",
+  "run_at": "2026-10-15T06:42:57.299724+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: fantasycalc-half-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12_qb1:warn -- 186/187 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, isaac teslaa, malachi fields, michael pittman; added: efton chism iii, germie bernard) -- 1 dropped player(s) still priced live (e.g. michael pittman) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 65/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
@@ -39,6 +39,19 @@
       "hold_severity": "amber",
       "rolled_back": 1
     },
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "detail": "605/1171 values match exactly across 6 columns; column check: stored std|1 list is closest to the live full|1 list (mean |diff| 23 vs 38); stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 52); stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 39); 566 o",
+      "hold_severity": "amber",
+      "week": 6
+    },
     "usatoday": {
       "reason": "fidelity: freshness",
       "held_series": [
@@ -48,20 +61,7 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 33 h ago); chart shows week 5; stored rows already have week 6",
-      "hold_severity": "amber",
-      "week": 6
-    },
-    "fantasycalc": {
-      "reason": "fidelity: freshness",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
-      ],
-      "detail": "content week 6 opened 40 h ago; chart still shows FantasyCalc week 5",
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 36 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -74,7 +74,7 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 39 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 42 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -88,7 +88,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 39496b6ef00df1ad7296588c); 1 publisher names do not",
+      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 39496b6ef00df1ad7296588c); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -119,11 +119,26 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasycalc-half-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12_qb1:warn -- 186/187 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, isaac teslaa, malachi fields, michael pittman; added: efton chism iii, germie bernard) -- 1 dropped player(s) still priced live (e.g. michael pittman) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 1,
+      "rolled_back_records": [
+        "fantasycalc-2026-10-15-promotion.rolled-back.json"
+      ],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -231,7 +246,7 @@
   },
   "fidelity_holds": {
     "usatoday": "fidelity: freshness",
-    "fantasycalc": "fidelity: freshness",
+    "fantasycalc": "fidelity: publisher_vs_stored",
     "fantasypros": "fidelity: freshness",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
@@ -249,6 +264,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('A.J. Brown', 16.046364, 14.71), ('Baker[134 chars].83)] != []",
-    "recorded_at": "2026-10-15T06:07:47.766397+00:00"
+    "recorded_at": "2026-10-15T06:44:09.179024+00:00"
   }
 }
