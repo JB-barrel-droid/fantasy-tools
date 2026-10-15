@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-15T15:02:18.727929+00:00",
+  "run_at": "2026-10-15T15:43:03.916014+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -34,7 +34,7 @@
         "cbs",
         "cbs_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 24 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 27 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -47,12 +47,12 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 42 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 45 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
     "fantasycalc": {
-      "reason": "fidelity: freshness",
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
         "fantasycalc"
       ],
@@ -60,7 +60,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "content week 6 opened 49 h ago; chart still shows FantasyCalc week 5",
+      "detail": "789/1172 values match exactly across 6 columns; column check: stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 24); stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 33); 383 of 1172 values moved since the save at 2026-10-15T13:05:28.051197Z (largest 150%",
       "hold_severity": "amber",
       "week": 6
     },
@@ -73,7 +73,7 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 48 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 51 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -230,7 +230,7 @@
   },
   "fidelity_holds": {
     "usatoday": "fidelity: freshness",
-    "fantasycalc": "fidelity: freshness",
+    "fantasycalc": "fidelity: publisher_vs_stored",
     "fantasypros": "fidelity: freshness",
     "cbs": "fidelity: freshness",
     "cbsros": "fidelity: publisher_vs_stored",
@@ -249,6 +249,6 @@
       "Makefile:455: test-core"
     ],
     "detail": "FAIL tests.test_static_export.StaticExportTest.test_published_indexed_is_one_factor_on_the_anchor_pie; AssertionError: [] is not true",
-    "recorded_at": "2026-10-15T15:03:01.587198+00:00"
+    "recorded_at": "2026-10-15T15:43:45.460455+00:00"
   }
 }
