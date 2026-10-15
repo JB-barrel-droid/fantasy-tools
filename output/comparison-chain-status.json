@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-15T13:02:00.416053+00:00",
+  "run_at": "2026-10-15T13:06:51.157609+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 187/188 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, isaac teslaa, malachi fields, michael pittman; added: efton chism iii, germie bernard) -- 1 dropped player(s) still priced live (e.g. michael pittman) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 65/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
@@ -38,19 +38,6 @@
       "hold_severity": "amber",
       "week": 6
     },
-    "fantasycalc": {
-      "reason": "fidelity: freshness",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
-      ],
-      "detail": "content week 6 opened 49 h ago; chart still shows FantasyCalc week 5",
-      "hold_severity": "amber",
-      "week": 6
-    },
     "usatoday": {
       "reason": "fidelity: freshness",
       "held_series": [
@@ -61,6 +48,19 @@
         "usatoday_adjusted"
       ],
       "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 42 h ago); chart shows week 5; stored rows already have week 6",
+      "hold_severity": "amber",
+      "week": 6
+    },
+    "fantasycalc": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "detail": "content week 6 opened 49 h ago; chart still shows FantasyCalc week 5",
       "hold_severity": "amber",
       "week": 6
     },
@@ -118,24 +118,11 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "held",
-      "stage": "review",
-      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 187/188 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 75 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, isaac teslaa, malachi fields, michael pittman; added: efton chism iii, germie bernard) -- 1 dropped player(s) still priced live (e.g. michael pittman) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
-      "sections": 3,
-      "held": true,
-      "held_reason": "review hold",
-      "failed_stage": "review",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 1,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
+      "sections": 3
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -262,6 +249,6 @@
       "Makefile:455: test-core"
     ],
     "detail": "FAIL tests.test_static_export.StaticExportTest.test_published_indexed_is_one_factor_on_the_anchor_pie; AssertionError: [] is not true",
-    "recorded_at": "2026-10-15T13:02:41.353328+00:00"
+    "recorded_at": "2026-10-15T13:07:32.235275+00:00"
   }
 }
