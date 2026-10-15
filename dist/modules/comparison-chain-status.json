@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-15T18:02:19.876719+00:00",
+  "run_at": "2026-10-15T18:43:26.574330+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -34,7 +34,7 @@
         "cbs",
         "cbs_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 27 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 30 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -47,7 +47,7 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 45 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 48 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -60,7 +60,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "789/1172 values match exactly across 6 columns; column check: stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 24); stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 33); 383 of 1172 values moved since the save at 2026-10-15T13:05:28.051197Z (largest 150%",
+      "detail": "9/1168 values match exactly across 6 columns; column check: stored std|1 list is closest to the live half|1 list (mean |diff| 29 vs 46); 1159 of 1168 values moved since the save at 2026-10-15T13:05:28.051197Z (largest 500%; 9 outside the max(25%, 50) band: Baker Mayfield, Daniel Jones, Jameis Winsto",
       "hold_severity": "amber",
       "week": 6
     },
@@ -73,12 +73,12 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 51 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 54 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
     "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
         "cbsros",
         "cbsros_vorp"
@@ -87,7 +87,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 05c824c8ad085a3efc393c42); 1 publisher names do not",
+      "detail": "1063/1089 chart values equal stored snapshot 2026-10-12 (per game, 3 decimals); 26 chart values differ from the stored snapshot, 1 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 305 values changed, 2 added, 2 dropped",
       "hold_severity": "amber",
       "week": 6
     },
@@ -175,7 +175,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-14 -> 12 DDF legs -> section; review passed (7620 values)",
+      "detail": "snapshot 2026-10-14 -> 12 DDF legs -> section; review passed (7608 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -204,7 +204,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-14",
+      "content_vintage": "2026-10-15",
       "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
@@ -233,7 +233,7 @@
     "fantasycalc": "fidelity: publisher_vs_stored",
     "fantasypros": "fidelity: freshness",
     "cbs": "fidelity: freshness",
-    "cbsros": "fidelity: publisher_vs_stored",
+    "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
@@ -249,6 +249,6 @@
       "Makefile:455: test-core"
     ],
     "detail": "FAIL tests.test_static_export.StaticExportTest.test_published_indexed_is_one_factor_on_the_anchor_pie; AssertionError: [] is not true",
-    "recorded_at": "2026-10-15T18:03:03.313066+00:00"
+    "recorded_at": "2026-10-15T18:44:07.995713+00:00"
   }
 }
