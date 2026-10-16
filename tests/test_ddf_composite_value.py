@@ -403,6 +403,26 @@ def normalize_chart_weeks(fixture):
                 section["content_vintage"] = week_start.isoformat()
 
 
+def normalize_served_weeks(hist_index, fixture):
+    """JEG-676: bump the history index's served weeks to the current content week.
+
+    The JS determines each source's served week from the history index (via
+    content fingerprinting at build time), not from the fixture's
+    week_designated.  When normalize_chart_weeks bumps fixture sections to the
+    current content week, the history index must agree or the JS sees a source
+    as serving a stale week and excludes it.  Projections ("rest of season")
+    also need bumping: they serve every week, so the history must report the
+    same week as the charts for the prior-week pairing to include them."""
+    week = content_week()
+    served = hist_index.get("served") or {}
+    for key in list(served):
+        entry = served[key]
+        if isinstance(entry, dict) and entry.get("week") != week:
+            entry["week"] = week
+            if "label_week" in entry and entry["label_week"] is not None:
+                entry["label_week"] = week
+
+
 def older_week(section):
     """The section's publisher has not posted the current week: label it a
     week behind every other chart."""
@@ -435,10 +455,6 @@ def run(script: str, history_edit=None, data_edit=None, init_script=None, week_e
         doc = json.loads((DIST / path).read_text(encoding="utf-8"))
         edit(doc)
         overrides[path] = json.dumps(doc).encode("utf-8")
-    if history_edit:
-        index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
-        history_edit(index)
-        overrides["assets/history/index.json"] = json.dumps(index).encode("utf-8")
     # JEG-569: the published fixture may legitimately carry a hold (a held
     # source never takes the site down). These tests need an unheld
     # baseline, so they strip holds from their own copy, then apply the edit.
@@ -448,6 +464,18 @@ def run(script: str, history_edit=None, data_edit=None, init_script=None, week_e
     fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
     strip_holds(fixture)
     normalize_chart_weeks(fixture)
+    # JEG-676: the JS reads the served week from the history index (content
+    # fingerprint match), not from the fixture's week_designated.  After
+    # bumping the fixture, bump the index too so the JS agrees.
+    index_path = DIST / "assets" / "history" / "index.json"
+    if index_path.exists():
+        hist_index = json.loads(index_path.read_text(encoding="utf-8"))
+        if history_edit:
+            history_edit(hist_index)
+        normalize_served_weeks(hist_index, fixture)
+        overrides["assets/history/index.json"] = json.dumps(hist_index).encode("utf-8")
+    elif history_edit:
+        raise ValueError("history_edit supplied but no history index exists")
     if data_edit:
         data_edit(fixture)
     overrides["assets/comparison-sources-data.json"] = json.dumps(fixture).encode("utf-8")
@@ -626,7 +654,9 @@ class DdfChartPriorWeekTest(unittest.TestCase):
             self.assertGreater(res["compared"], 100, version)
 
     def test_chart_without_saved_prior_inputs_is_left_out_of_both_weeks(self):
-        prior = served_week("cbs") - 1
+        # JEG-676: use the normalized served week (content_week), not the
+        # on-disk history week, since normalize_served_weeks bumps all sources.
+        prior = content_week() - 1
 
         def drop_cbs(doc):
             doc["sources"].pop("cbs")
