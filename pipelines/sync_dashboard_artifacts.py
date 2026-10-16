@@ -382,6 +382,10 @@ def main() -> int:
     # JEG-536 (ES-1, ES-14): the expected-starts building blocks the engine
     # resolves the reader's league weeks and advanced settings against.
     shutil.copy2(ROOT / "config" / "lineup_parameters.json", APP / "assets" / "lineup-parameters.json")
+    # JEG-534 MR-23 option (a): lineup signal (display only).
+    lineup_signal = ROOT / "config" / "lineup_signal.json"
+    if lineup_signal.exists():
+        shutil.copy2(lineup_signal, APP / "assets" / "lineup-signal.json")
     # JEG-137 R10: the per-source dataset cards read assets/deadline-checker.json
     # for the slip measurement behind the Grace/Slip rows. Only copied when a
     # checker run has produced it -- the page falls back to the 6h default

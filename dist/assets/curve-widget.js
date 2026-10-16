@@ -307,6 +307,8 @@
   // config/lineup_parameters.json, served as assets/lineup-parameters.json.
   let lineupConfig = null;
   let lineupConfigError = null;
+  // JEG-534 MR-23 option (a): config/lineup_signal.json, display only.
+  let lineupSignal = null;
   // Reader position shares (VP-4.4 / BE-2): null = none (the DDF weights
   // as computed); otherwise {QB, RB, WR, TE} fractions summing to exactly 1.
   let positionWeights = null;
@@ -636,6 +638,17 @@
       lineupConfigError = error;
       console.warn("Lineup parameters unavailable; bench share fixed at 15%:", error);
     }
+  }
+
+  // JEG-534 MR-23: load lineup signal (display only, does not change values).
+  async function loadLineupSignal() {
+    try {
+      const response = await fetch("assets/lineup-signal.json");
+      if (!response.ok) return;
+      const doc = await response.json();
+      if (doc?.schema !== "lineup-signal/1") return;
+      lineupSignal = doc;
+    } catch (_) { /* optional data, not a stop */ }
   }
 
   let pipelinePlayersCache = null;
@@ -2866,6 +2879,8 @@
     // ES-14 (JEG-536): the readout and the reader settings that cause it.
     // Field list: docs/v2-design-notes.md "Back-end contract: bench share".
     getBenchShareReadout: () => benchShareReadout(),
+    // JEG-534 MR-23 option (a): the lineup signal data (display only).
+    getLineupSignal: () => lineupSignal ? {...lineupSignal} : null,
     getBenchShareOverride: () => benchShareOverride,
     setBenchShareOverride,
     getLeagueWeeks: () => ({regularSeasonEnd: lineupSettings.regularSeasonEnd, playoffWeeks: [...lineupSettings.playoffWeeks]}),
@@ -3759,6 +3774,8 @@
       await preloadCompositeHistory();
       // JEG-536 (ES-14): the expected-starts building blocks, before the first build.
       await loadLineupConfig();
+      // JEG-534 MR-23: lineup signal (display only).
+      await loadLineupSignal();
       // JEG-432 R5: weekly charts older than the newest week on the board
       // start switched off (the reader can still turn them on).
       const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
