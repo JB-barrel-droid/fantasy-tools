@@ -558,6 +558,16 @@
     const chip = tagChip(row);
     if (chip) parent.appendChild(chip);
   }
+  // The chip sits NEXT TO the sub-line, never inside it: the sub-line's text ("QB · KC · Starter") is the
+  // tier a reader or screen reader gets, and the chip is its own element (it was concatenating "StarterStart").
+  function subWithTag(sub, row) {
+    const chip = tagChip(row);
+    if (!chip) return sub;
+    const wrap = document.createElement("span");
+    wrap.className = "v2-subrow";
+    wrap.append(sub, chip);
+    return wrap;
+  }
   function lineupShareText(row) {
     if (!Number.isFinite(row.lineupShare)) return null;
     return `Expected lineup share: ${Math.round(row.lineupShare * 100)}% how much of this player's production reaches a lineup.`;
@@ -1520,8 +1530,7 @@
               const sub = document.createElement("span");
               sub.className = "player-sub";
               sub.textContent = parts.join(" · ");
-              td.appendChild(sub);
-              appendTag(sub, row);   // on the sub-line, so a row stays as tall as before (JEG-470)
+              td.appendChild(subWithTag(sub, row));   // beside the sub-line, so a row stays as tall as before (JEG-470)
             } else appendTag(td, row);
           }
         }
@@ -3482,8 +3491,7 @@
       const sub = document.createElement("span");
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
-      appendTag(sub, p.row);   // on the sub-line: no taller row (JEG-470)
-      name.appendChild(sub);
+      name.appendChild(subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const ours = td("num is-rank");
       ours.dataset.ours = "";
       oursValue(ours, p);
@@ -3568,8 +3576,7 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
-      appendTag(sub, p.row);   // on the sub-line: no taller row (JEG-470)
-      who.append(name, sub);
+      who.append(name, subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const b = targetBest(side, p);
       const big = document.createElement("div");
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;
