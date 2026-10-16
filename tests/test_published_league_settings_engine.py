@@ -39,7 +39,7 @@ INDEX = REPO / "app" / "trade-value-chart" / "index.html"
 SOURCES = ("cbs", "fantasypros", "usatoday", "fantasycalc")
 SCORINGS = ("standard", "half_ppr", "ppr")
 POSITIONS = ("QB", "RB", "WR", "TE")
-SAVED_SHAPE = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
+SAVED_SHAPE = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "BENCH": 7}
 TOL = 1e-9
 
 SHAPES = [

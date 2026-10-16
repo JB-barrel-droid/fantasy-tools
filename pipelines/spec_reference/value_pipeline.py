@@ -70,7 +70,7 @@ class Setting:
     def from_fixture(cls, s: dict) -> "Setting":
         return cls(teams=int(s["teams"]), slots=dict(s["slots"]), flex=int(s.get("flex", 0)),
                    superflex=int(s.get("superflex", 0)),
-                   bench_per_team=s.get("bench_per_team", 6),
+                   bench_per_team=s.get("bench_per_team", 7),
                    bench_share=float(s.get("bench_share", DEFAULT_BENCH_SHARE)),
                    flex_eligible=tuple(s.get("flex_eligible") or ("RB", "WR", "TE")),
                    position_shares=s.get("position_shares"),

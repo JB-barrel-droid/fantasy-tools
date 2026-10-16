@@ -55,10 +55,10 @@ TOL = 1e-9
 
 ROSTER_SHAPES = [
     # (label, slots, flex_eligible)
-    ("qb2", {"QB": 2, "RB": 2, "WR": 3, "TE": 1}, None),
-    ("rb3", {"QB": 1, "RB": 3, "WR": 3, "TE": 1}, None),
+    ("qb2", {"QB": 2, "RB": 2, "WR": 2, "TE": 1}, None),
+    ("rb3", {"QB": 1, "RB": 3, "WR": 2, "TE": 1}, None),
     ("wr4", {"QB": 1, "RB": 2, "WR": 4, "TE": 1}, None),
-    ("te2", {"QB": 1, "RB": 2, "WR": 3, "TE": 2}, None),
+    ("te2", {"QB": 1, "RB": 2, "WR": 2, "TE": 2}, None),
     ("deep", {"QB": 2, "RB": 3, "WR": 4, "TE": 2}, None),
     ("max5", {"QB": 5, "RB": 5, "WR": 5, "TE": 5}, None),
     ("superflex", None, ["QB", "RB", "WR", "TE"]),
@@ -90,18 +90,18 @@ def _real_vectors():
             base = {"source": source, "scoring": scoring, "ranked_keyed": ranked,
                     "peers": _load_peers(source, scoring)}
             for teams in (8, 10, 12, 14):
-                for bench in (0, 3, 6, 9, 14):
+                for bench in (0, 3, 7, 9, 14):
                     for flex in (0, 1, 2, 5):
                         vectors.append({**base, "teams": teams, "bench_per_team": bench,
                                         "flex_count": flex, "slots": None,
                                         "flex_eligible": None})
                 for label, slots, elig in ROSTER_SHAPES:
-                    vectors.append({**base, "teams": teams, "bench_per_team": 6,
+                    vectors.append({**base, "teams": teams, "bench_per_team": 7,
                                     "flex_count": 1, "slots": slots,
                                     "flex_eligible": elig, "shape": label})
                 # JEG332-SUPERFLEX-FLEX option A: a dedicated superflex slot.
                 for label, flex, sf in SUPERFLEX_SHAPES:
-                    vectors.append({**base, "teams": teams, "bench_per_team": 6,
+                    vectors.append({**base, "teams": teams, "bench_per_team": 7,
                                     "flex_count": flex, "slots": None, "flex_eligible": None,
                                     "superflex_count": sf, "shape": label})
     return vectors
@@ -123,19 +123,19 @@ def _synthetic_vectors():
     thin = {"QB": keyed("QB", [30, 20, 10]), "RB": keyed("RB", [60, 50, 40, 30]),
             "WR": keyed("WR", [50, 45, 40, 35, 30]), "TE": keyed("TE", [20, 10])}
     vectors.append({"label": "thin", "ranked_keyed": thin, "teams": 12,
-                    "bench_per_team": 6, "flex_count": 1, "slots": None, "flex_eligible": None})
+                    "bench_per_team": 7, "flex_count": 1, "slots": None, "flex_eligible": None})
     # Empty position + all-equal values (zero VORP everywhere at RB).
     empty = {"QB": [], "RB": keyed("RB", [10] * 40), "WR": keyed("WR", range(80, 0, -1)),
              "TE": keyed("TE", range(30, 0, -1))}
     vectors.append({"label": "empty", "ranked_keyed": empty, "teams": 10,
-                    "bench_per_team": 6, "flex_count": 2, "slots": None, "flex_eligible": None})
+                    "bench_per_team": 7, "flex_count": 2, "slots": None, "flex_eligible": None})
     # V2-WAIVER-COVERAGE: thin chart + peers that cover it (imputed waiver),
     # and peers that share too few players to fit (old fallback kept).
     vectors.append({"label": "thin-peers", "ranked_keyed": THIN_CHART, "peers": THIN_PEERS,
-                    "teams": 12, "bench_per_team": 6, "flex_count": 1, "slots": None,
+                    "teams": 12, "bench_per_team": 7, "flex_count": 1, "slots": None,
                     "flex_eligible": None})
     vectors.append({"label": "thin-no-cover", "ranked_keyed": THIN_CHART, "peers": NO_COVER_PEERS,
-                    "teams": 12, "bench_per_team": 6, "flex_count": 1, "slots": None,
+                    "teams": 12, "bench_per_team": 7, "flex_count": 1, "slots": None,
                     "flex_eligible": None})
     return vectors
 
@@ -265,7 +265,7 @@ class VorpTranslationJsParity(unittest.TestCase):
 
     def test_12_team_default_js_equals_python(self):
         vectors = [v for v in _real_vectors()
-                   if v["teams"] == 12 and v["bench_per_team"] == 6
+                   if v["teams"] == 12 and v["bench_per_team"] == 7
                    and v["flex_count"] == 1 and v["slots"] is None and v["flex_eligible"] is None
                    and "superflex_count" not in v]
         self.assertEqual(len(vectors), len(SOURCES) * len(SCORINGS))
@@ -312,7 +312,7 @@ class VorpTranslationJsParity(unittest.TestCase):
 # agree EXACTLY (same IEEE operations in the same order), the saved setup must
 # give OUR_MAX exactly, and the maxes must actually move the way the rule says.
 # ---------------------------------------------------------------------------
-STD_SHAPE = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+STD_SHAPE = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
 
 
 def _max_vectors():
@@ -321,17 +321,17 @@ def _max_vectors():
         proj = unified.load_projection_ranked(scoring)
         base = {"kind": "max", "scoring": scoring, "projection": proj}
         for teams in (8, 10, 12, 14):
-            for bench in (0, 3, 6, 9, 14):
+            for bench in (0, 3, 7, 9, 14):
                 for flex in (0, 1, 2, 5):
                     vectors.append({**base, "teams": teams, "bench_per_team": bench,
                                     "flex_count": flex, "slots": None, "flex_eligible": None})
             for label, slots, elig in ROSTER_SHAPES:
                 for flex in (1, 2):
-                    vectors.append({**base, "teams": teams, "bench_per_team": 6,
+                    vectors.append({**base, "teams": teams, "bench_per_team": 7,
                                     "flex_count": flex, "slots": slots,
                                     "flex_eligible": elig, "shape": label})
             for label, flex, sf in SUPERFLEX_SHAPES:
-                vectors.append({**base, "teams": teams, "bench_per_team": 6,
+                vectors.append({**base, "teams": teams, "bench_per_team": 7,
                                 "flex_count": flex, "slots": None, "flex_eligible": None,
                                 "superflex_count": sf, "shape": label})
     # Synthetic: a position with no surplus at the reference (all equal) and an
@@ -342,7 +342,7 @@ def _max_vectors():
             "TE": keyed("TE", [5.0] * 40)}
     for teams in (8, 12, 14):
         vectors.append({"kind": "max", "label": f"flat-{teams}", "projection": flat, "teams": teams,
-                        "bench_per_team": 6, "flex_count": 1, "slots": None, "flex_eligible": None})
+                        "bench_per_team": 7, "flex_count": 1, "slots": None, "flex_eligible": None})
     return vectors
 
 
@@ -398,10 +398,10 @@ def _derived_translation_vectors():
             proj = unified.load_projection_ranked(scoring)
             for teams in (8, 10, 12, 14):
                 for label, slots, elig, bench, flex in (
-                        ("std", None, None, 6, 1), ("qb2", {**STD_SHAPE, "QB": 2}, None, 6, 1),
-                        ("wr4flex2", {**STD_SHAPE, "WR": 4}, None, 6, 2),
+                        ("std", None, None, 7, 1), ("qb2", {**STD_SHAPE, "QB": 2}, None, 7, 1),
+                        ("wr4flex2", {**STD_SHAPE, "WR": 4}, None, 7, 2),
                         ("bench10", None, None, 10, 1),
-                        ("superflex2", None, ["QB", "RB", "WR", "TE"], 6, 2)):
+                        ("superflex2", None, ["QB", "RB", "WR", "TE"], 7, 2)):
                     our_max = unified.positional_max_for_setup(proj, teams, bench, flex,
                                                                slots=slots, flex_eligible=elig)
                     vectors.append({"source": source, "scoring": scoring, "ranked_keyed": ranked,
@@ -409,10 +409,10 @@ def _derived_translation_vectors():
                                     "slots": slots, "flex_eligible": elig, "shape": label,
                                     "our_max": our_max})
                 for label, flex, sf in SUPERFLEX_SHAPES:
-                    our_max = unified.positional_max_for_setup(proj, teams, 6, flex,
+                    our_max = unified.positional_max_for_setup(proj, teams, 7, flex,
                                                                superflex_count=sf)
                     vectors.append({"source": source, "scoring": scoring, "ranked_keyed": ranked,
-                                    "teams": teams, "bench_per_team": 6, "flex_count": flex,
+                                    "teams": teams, "bench_per_team": 7, "flex_count": flex,
                                     "slots": None, "flex_eligible": None, "shape": label,
                                     "superflex_count": sf, "our_max": our_max})
     return vectors
@@ -424,17 +424,17 @@ def direction_problems(max_fn):
     problems = []
     for scoring in SCORINGS:
         proj = unified.load_projection_ranked(scoring)
-        saved = max_fn(proj, 12, 6, 1, slots=None, flex_eligible=None)
+        saved = max_fn(proj, 12, 7, 1, slots=None, flex_eligible=None)
         if saved != unified.OUR_MAX:
             problems.append(f"{scoring}: saved setup {saved} != OUR_MAX")
-        qb2 = max_fn(proj, 12, 6, 1, slots={**STD_SHAPE, "QB": 2}, flex_eligible=None)
+        qb2 = max_fn(proj, 12, 7, 1, slots={**STD_SHAPE, "QB": 2}, flex_eligible=None)
         if not qb2["QB"] > unified.OUR_MAX["QB"] + 10:
             problems.append(f"{scoring}: 2-QB roster left QB max at {qb2['QB']:.1f}")
-        wr = max_fn(proj, 12, 6, 2, slots={**STD_SHAPE, "WR": 4}, flex_eligible=None)
+        wr = max_fn(proj, 12, 7, 2, slots={**STD_SHAPE, "WR": 4}, flex_eligible=None)
         if not wr["WR"] > unified.OUR_MAX["WR"] + 2:
             problems.append(f"{scoring}: WR4/FLEX2 left WR max at {wr['WR']:.1f}")
         for teams in (8, 10, 14):
-            m = max_fn(proj, teams, 6, 1, slots=None, flex_eligible=None)
+            m = max_fn(proj, teams, 7, 1, slots=None, flex_eligible=None)
             if abs(max(m.values()) - unified.TOP_OF_SCALE) > 1e-9:
                 problems.append(f"{scoring}/{teams}: top max {max(m.values())} != 70")
             if all(abs(m[p] - unified.OUR_MAX[p]) < 0.05 for p in m):
@@ -458,7 +458,7 @@ class PositionalMaxParity(unittest.TestCase):
 
     def test_saved_setup_is_exactly_our_max_both_sides(self):
         vecs = [v for v in self.vectors if v.get("scoring") and v["teams"] == 12
-                and v["bench_per_team"] == 6 and v["flex_count"] == 1
+                and v["bench_per_team"] == 7 and v["flex_count"] == 1
                 and v["slots"] is None and v["flex_eligible"] is None
                 and "superflex_count" not in v]
         self.assertEqual(len(vecs), len(SCORINGS))
