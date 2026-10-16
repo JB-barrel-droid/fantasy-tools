@@ -31,3 +31,18 @@ blocked every chain run since the CBS coverage drop triggered the review hold.
   with the value_check change reverted (chain hold would be released).
 - Claimed: the chain will pass `make validate` on the next run because
   test_week_history will exclude CBS from the served-week check.
+
+## Follow-up: test assertion fixes (PR #619)
+
+First chain run after PR #617 failed because three test files compared
+held sections with exact equality against their pre-hold state, which now
+fails because the section correctly contains `validationHold`.
+
+- `tests/test_bake_on_change.py` (2 tests): verify hold metadata, compare
+  content without it
+- `tests/test_razzball_refresh.py` (2 tests): same pattern
+- `tests/test_rebuild_chain_per_source_hold.py` (helper): same pattern
+
+Verified: all 58 tests in the three files pass locally.
+Assertions are strictly stronger: they now check both preserved content
+AND correct hold metadata (reason prefix "chain hold: ", correct root).

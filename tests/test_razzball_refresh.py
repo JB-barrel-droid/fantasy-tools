@@ -132,7 +132,15 @@ class ChainRebuildsRazzball(unittest.TestCase):
         self.assertTrue(status["success"], status["failed"])
         self.assertIn("awaiting players bake", status["detail"]["razzball"]["detail"])
         self.assertNotIn("build_razzball_ddf_leg.py", fake.calls)
-        self.assertEqual(kept, fixture["sources"]["razzball"])
+        section = fixture["sources"]["razzball"]
+        # JEG-676: isolate_hold now adds validationHold so downstream tests
+        # (test_week_history) exclude the held source from served-week checks.
+        self.assertIn("validationHold", section)
+        self.assertEqual("chain hold: failed at stage 'snapshot'",
+                         section["validationHold"]["reason"])
+        self.assertEqual(section["validationHold"]["root"], "razzball")
+        without_hold = {k: v for k, v in section.items() if k != "validationHold"}
+        self.assertEqual(kept, without_hold)
 
     def test_a_razzball_leg_failure_is_isolated(self):
         repo = make_repo(Path(self.tmp.name) / "legfail", tuple(chain.SOURCES))
@@ -148,7 +156,15 @@ class ChainRebuildsRazzball(unittest.TestCase):
         status = chain.execute_chain(nfl_week=5, repo=repo, run_fn=failing)
         self.assertEqual(["razzball"], status["held"])
         self.assertTrue(status["success"], status["failed"])
-        self.assertEqual(kept, json.loads(fpath.read_text(encoding="utf-8"))["sources"]["razzball"])
+        section = json.loads(fpath.read_text(encoding="utf-8"))["sources"]["razzball"]
+        # JEG-676: isolate_hold now adds validationHold so downstream tests
+        # (test_week_history) exclude the held source from served-week checks.
+        self.assertIn("validationHold", section)
+        self.assertEqual("chain hold: failed at stage 'leg'",
+                         section["validationHold"]["reason"])
+        self.assertEqual(section["validationHold"]["root"], "razzball")
+        without_hold = {k: v for k, v in section.items() if k != "validationHold"}
+        self.assertEqual(kept, without_hold)
 
     def test_bake_gate_reasons(self):
         # Since GAP-BAKE-ON-CHANGE (2026-10-08) the gate compares the
