@@ -19,3 +19,7 @@ Nothing touches value_reference.py, the engine, DDF Value or Indexed.
 - Open: drawer display ("If his starter misses: ...") is front-end (v2.js). Depth chart
   data is thin (32 teams have RB1/RB2 orders) and stale in places (guarded by the
   projection check). Lead back already out (IR) is not modelled.
+
+## Merge note (2026-10-15)
+- Dropped the incidental regeneration of `config/lineup_parameters.json` (sigma values) from this slice; main's version kept, so the pie and DDF Value are untouched (ddf-group-vorps total_vorp 3063.8466 unchanged).
+- Verified: `tests.test_stash_signals` (11 ok). Not green: `make validate` stops at `tests.test_asset_load_retry` (2 failures, "not yet published for week 6"), which fails identically in ~/code/fantasy-tools, so pre-existing. `value_check compare --strict` reports disagree in this worktree for held sources; unrelated to this diff (no engine or DDF config changes). Claimed, not confirmed: the 12-combo engine_dump sweep was not run since the diff changes no engine inputs.
