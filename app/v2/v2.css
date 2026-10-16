@@ -350,7 +350,16 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 /* Source divergence chip (JEG-609): the same slot and size as the prior-week badge; amber for Check, green for Reviewed. */
 .v2-div-chip { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; text-decoration: none; }
 .v2-tdiv { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
-/* Our names (JEG-490): the info button beside "On the chart", the primaries on How values work. */
+/* Source links and the indexed-value math (JEG-457). */
+.v2-srclink { color: inherit; text-decoration: underline; text-decoration-color: var(--v2-border); text-underline-offset: 2px; }
+.v2-srclink:hover, .v2-srclink:focus-visible { text-decoration-color: currentColor; }
+.v2-srclink-head { font-size: 11px; margin-left: 2px; color: var(--v2-muted); text-decoration: none; padding: 0 3px; }
+.v2-srclink-open { font-size: 12px; margin-left: 8px; }
+.has-math { cursor: help; text-decoration: underline dotted var(--v2-muted); text-underline-offset: 3px; }
+.has-math:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-mathtip { min-width: 260px; max-width: min(360px, calc(100vw - 16px)); }
+.v2-mathtip .val.is-published { font-size: 16px; color: var(--v2-action-strong); }
+/* Our names (JEG-490): */ the info button beside "On the chart", the primaries on How values work. */
 .v2-showing .v2-info { vertical-align: middle; }
 .v2-how-names { margin-top: 16px; }
 .v2-how-primaries { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; max-width: 70ch; }

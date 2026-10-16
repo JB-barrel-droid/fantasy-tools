@@ -2828,6 +2828,16 @@
       const ranks = nativeRanksFor(source);
       return ranks ? Object.fromEntries(ranks) : null;
     },
+    // JEG-457 (read-only): the math behind one published chart's Indexed value, from the engine's own derivation:
+    // the number as the publisher prints it ("native", at the active scoring) and the ONE factor the chart is
+    // indexed with, so native x factor = the Indexed value the engine shows. Either is null when the chart does
+    // not price him (or could not be indexed). null for a source that is not a published chart.
+    getPublishedMath: (playerKey, source) => {
+      if (!AS_PUBLISHED_KEYS.has(source)) return null;
+      const native = nativeSourceMaps.get(source)?.get(Number(playerKey));
+      const factor = pipeline?.sources?.[source]?.indexedFactor;
+      return {native: Number.isFinite(native) ? native : null, factor: Number.isFinite(factor) ? factor : null};
+    },
     isReady: () => engineReady,
     getRankSource: () => selectedRankSourceKey(),
     getActiveSources: () => activeSourceKeys(),

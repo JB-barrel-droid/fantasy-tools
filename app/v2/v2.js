@@ -121,6 +121,54 @@
     return badge;
   }
 
+  // JEG-457: every source name links to the publisher's page for the served week (new tab). The addresses ship
+  // with the data (assets/comparison-sources-data.json); a source with none (ESPN) stays plain text. Projection
+  // sources with a page per position pick the page for the player's position in row context, and the QB page in
+  // header context. One helper, so every place agrees.
+  let sourcePages = {};
+  let sourcePagesLoading = null;
+  function loadSourcePages() {
+    if (sourcePagesLoading) return sourcePagesLoading;
+    sourcePagesLoading = fetch("assets/comparison-sources-data.json")
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then(doc => {
+        const sources = (doc && doc.sources) || {};
+        sourcePages = {};
+        Object.entries(sources).forEach(([key, s]) => {
+          const url = s && (s.url || s.source_url);
+          if (typeof url === "string" && /^https?:\/\//.test(url)) sourcePages[key] = url;
+        });
+        if (C && view) refresh();   // the links arrive after the first draw
+        return sourcePages;
+      });
+    return sourcePagesLoading;
+  }
+  function sourceUrl(key, position) {
+    const publisher = sourceMeta(key).publisher;
+    const url = sourcePages[publisher];
+    if (!url) return "";
+    const pos = ["QB", "RB", "WR", "TE"].includes(position) ? position : "QB";
+    if (publisher === "cbsros") return url.replace("/QB/", `/${pos}/`);
+    if (publisher === "razzball") return url.replace("-qb-", `-${pos.toLowerCase()}-`);
+    return url;
+  }
+  // A link (or, with no address, plain text) for a source name. Clicking never reaches a row, sort or label behind it.
+  function sourceLink(key, text, position) {
+    const url = sourceUrl(key, position);
+    if (!url) return document.createTextNode(text);
+    const a = document.createElement("a");
+    a.className = "v2-srclink";
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.dataset.sourceLink = sourceMeta(key).publisher;
+    a.textContent = text;
+    a.setAttribute("aria-label", `${text}: open the publisher's page in a new tab`);
+    ["click", "keydown", "pointerdown"].forEach(type => a.addEventListener(type, event => event.stopPropagation()));
+    return a;
+  }
+
   // JEG-609 (JEG-460): source divergence "Check" chip. assets/reference-freshness.json publishes
   // source_divergence.<source> = {status: ok | warn | investigate | reviewed | n/a, message, resolution_issue}.
   // warn or investigate shows "Check" with the message as its tooltip; reviewed shows "Reviewed" and, where a
@@ -663,7 +711,7 @@
       const li = document.createElement("li");
       li.title = seriesName(key);
       li.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span>`;
-      li.append(document.createTextNode(` ${PLAIN_NAMES[meta.publisher] || meta.label}`));
+      li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
       if (item?.stale) li.appendChild(weekBadge(key));
       appendDivergence(li, key);
       legend.appendChild(li);
@@ -1334,6 +1382,12 @@
           renderTable();
         });
         th.appendChild(button);
+        if (col.source && sourceUrl(col.source)) {
+          const link = sourceLink(col.source, "↗");
+          link.classList.add("v2-srclink-head");
+          link.setAttribute("aria-label", `${PUBLISHER_NAMES[sourceMeta(col.source).publisher] || col.label}: open the publisher's page in a new tab`);
+          th.appendChild(link);
+        }
       }
       hr.appendChild(th);
     });
@@ -1533,7 +1587,7 @@
       th.scope = "row";
       th.className = `player${any?.stale ? " is-older" : ""}`;
       th.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
-      th.append(document.createTextNode(`${PUBLISHER_NAMES[pub]}${any?.week ? ` · W${any.week}` : ""}`));
+      th.append(sourceLink(pub, PUBLISHER_NAMES[pub], row.pos), document.createTextNode(any?.week ? ` · W${any.week}` : ""));
       const prov = document.createElement("span");
       prov.className = "th-sub";
       // Provenance only when it says more than the week already in the label.
@@ -1917,7 +1971,7 @@
         const name = document.createElement("span");
         name.className = "v2-crow-name";
         name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
-        name.append(document.createTextNode(PLAIN_NAMES[meta.publisher] || meta.label));
+        name.append(sourceLink(item.key, PLAIN_NAMES[meta.publisher] || meta.label));
         label.append(box, name);
         if (item.stale) label.appendChild(weekBadge(item.key));
         appendDivergence(label, item.key);
@@ -1969,7 +2023,7 @@
           name.className = "v2-crow-name";
           name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
           const group = SERIES_GROUPS.find(g => g.id === seriesGroup(key));
-          name.append(document.createTextNode(`${PLAIN_NAMES[meta.publisher] || meta.label} · ${group ? group.one : meta.short}`));
+          name.append(sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label), document.createTextNode(` · ${group ? group.one : meta.short}`));
           label.append(input, name);
           if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
           appendDivergence(label, key);
@@ -3094,6 +3148,106 @@
     cell.append(diff, count);
   }
 
+  // JEG-457: hover, focus or tap a chart value on Trade targets and see where it comes from, starting with the number
+  // as the publisher prints it so it can be matched against the page. native and factor come from the engine's own
+  // derivation (getPublishedMath), never recomputed here; indexed = native x factor is the engine's, so the
+  // lines add up to the cell (rounded to one decimal for points, three for the factor).
+  let mathTipOwner = null;
+  let mathTipOpenedAt = 0;
+  function mathTipLines(p, chart, cell) {
+    const name = PUBLISHER_NAMES[chart] || chart;
+    const item = targetsView && targetsView.infoByKey[chart];
+    const week = item && item.week ? `, Week ${item.week}` : "";
+    const lines = [];
+    const math = C.getPublishedMath ? C.getPublishedMath(p.row.player_key, chart) : null;
+    if (cell.value === null) return {head: `${name}${week}`, lines: [[cell.reason || `Not on ${name}'s chart`, ""]], plain: true};
+    const estimated = estimatedReason(p.row, chart);
+    if (!math || math.native === null || math.factor === null) {
+      return {head: `${name}${week}`, plain: true, lines: [[estimated ? `Estimated: ${estimated}` : "The engine has no published number to show for this value.", ""],
+        ["= rescaled value", fmt(cell.value)]].concat(cell.gap !== null && Number.isFinite(p.ours) ? [["− our value", fmt(p.ours)], ["= gap", fmtGap(cell.gap)]] : [])};
+    }
+    lines.push([`${name}${week} (original)`, String(math.native)]);
+    lines.push(["× rescale factor", math.factor.toFixed(3)]);
+    lines.push(["= rescaled value", fmt(cell.value)]);
+    if (cell.gap !== null && Number.isFinite(p.ours)) {
+      lines.push(["− our value", fmt(p.ours)]);
+      lines.push(["= gap", fmtGap(cell.gap)]);
+    } else if (cell.atWaiver) {
+      lines.push(["At this chart's waiver line for your league", ""]);
+    }
+    return {head: null, lines, native: true};
+  }
+  function showMathTip(owner, p, chart, cell) {
+    const tip = $("v2MathTip");
+    const info = mathTipLines(p, chart, cell);
+    tip.replaceChildren();
+    if (info.head) { const h = document.createElement("div"); h.className = "v2-meta"; h.textContent = info.head; tip.appendChild(h); }
+    info.lines.forEach(([label, value], index) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const l = document.createElement("span");
+      l.textContent = label;
+      row.appendChild(l);
+      if (value !== "") {
+        const v = document.createElement("span");
+        v.className = "val";
+        if (info.native && index === 0) v.classList.add("is-published");
+        v.textContent = value;
+        row.appendChild(v);
+      }
+      tip.appendChild(row);
+    });
+    const url = sourceUrl(chart, p.row.pos);
+    if (url) {
+      const a = document.createElement("a");
+      a.className = "v2-srclink";
+      a.href = url; a.target = "_blank"; a.rel = "noopener";
+      a.textContent = `Open ${PUBLISHER_NAMES[chart]} chart ↗`;
+      const foot = document.createElement("div");
+      foot.className = "v2-meta";
+      foot.appendChild(a);
+      tip.appendChild(foot);
+    }
+    tip.hidden = false;
+    tip.style.pointerEvents = url ? "auto" : "none";
+    const rect = owner.getBoundingClientRect();
+    const width = tip.offsetWidth;
+    tip.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.left))}px`;
+    const below = rect.bottom + 8;
+    tip.style.top = `${below + tip.offsetHeight > window.innerHeight ? Math.max(8, rect.top - tip.offsetHeight - 8) : below}px`;
+    mathTipOwner = owner;
+    mathTipOpenedAt = Date.now();
+  }
+  function hideMathTip() {
+    $("v2MathTip").hidden = true;
+    mathTipOwner = null;
+  }
+  // The tip keeps open while the pointer is on it (its link), so the closing waits a beat.
+  let mathTipTimer = null;
+  function attachPublishedMath(owner, p, chart, cell) {
+    owner.tabIndex = 0;
+    owner.classList.add("has-math");
+    owner.dataset.mathFor = chart;
+    owner.setAttribute("aria-describedby", "v2MathTip");
+    let openedAt = 0;
+    const open = () => { clearTimeout(mathTipTimer); openedAt = Date.now(); showMathTip(owner, p, chart, cell); };
+    const close = () => { clearTimeout(mathTipTimer); mathTipTimer = setTimeout(hideMathTip, 150); };
+    owner.addEventListener("mouseenter", open);
+    owner.addEventListener("mouseleave", close);
+    owner.addEventListener("focus", open);
+    owner.addEventListener("blur", close);
+    owner.addEventListener("click", event => {
+      if (event.target.closest("a")) return;
+      event.stopPropagation();
+      // A tap focuses (which opens it) and then clicks: a click just after opening keeps it open; a later one closes.
+      if (mathTipOwner === owner && !$("v2MathTip").hidden && Date.now() - openedAt > 400) hideMathTip(); else open();
+    });
+    owner.addEventListener("keydown", event => {
+      if (event.key === "Escape") hideMathTip();
+      if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+    });
+  }
+
   function gapNode(cell, tag) {
     const node = document.createElement(tag || "span");
     node.className = `delta gap ${cell.gap > 0 ? "up" : cell.gap < 0 ? "down" : ""}`;
@@ -3158,7 +3312,7 @@
     sym.setAttribute("aria-hidden", "true");
     sym.style.color = pubColor(key);
     sym.textContent = `${PUBLISHERS[key].symbol} `;
-    label.append(sym, document.createTextNode(PUBLISHERS[key].label));
+    label.append(sym, sourceLink(key, PUBLISHERS[key].label, p.row.pos));
     span.appendChild(label);
     const badge = targetBadge(key);
     if (badge) span.appendChild(badge);
@@ -3170,6 +3324,7 @@
     val.className = "val";
     val.textContent = fmt(cell.value);
     span.appendChild(val);
+    attachPublishedMath(val, p, key, cell);
     span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
     appendLowConfidence(span, p.row, key);   // "≈ estimated" when the engine filled it in
     const rank = withNative && typeof C.getNativeRank === "function" ? C.getNativeRank(p.row.player_key, key) : null;
@@ -3204,7 +3359,7 @@
         sym.textContent = `${PUBLISHERS[key].symbol} `;
         line.appendChild(sym);
       }
-      line.append(document.createTextNode(text));
+      line.append(key ? sourceLink(key, text) : document.createTextNode(text));
       if (info) line.appendChild(indexedInfoButton(text));
       th.appendChild(line);
       if (sub) {
@@ -3277,6 +3432,7 @@
           c.appendChild(gapNode(cell));
         }
         if (cell.value !== null) appendLowConfidence(c, p.row, chart);   // "≈ estimated"
+        attachPublishedMath(c, p, chart, cell);
       });
       const b = targetBest(side, p);
       const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
@@ -3440,6 +3596,13 @@
     note.textContent = notes.join(" ");
     // The footnote follows the picked series: DDF Value is built from the chosen inputs; a projection
     // series is that publisher's projections with our Data Driven Adjustments.
+    const chartLink = $("v2TChartLink");
+    chartLink.replaceChildren();
+    if (T.chart !== "all" && sourceUrl(T.chart)) {
+      const link = sourceLink(T.chart, `Open ${PUBLISHER_NAMES[T.chart]} chart ↗`);
+      link.classList.add("v2-srclink-open");
+      chartLink.appendChild(link);
+    }
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
       ? `${targetsView.ours === DDF_KEY ? "the DDF Value" : `the ${sourceMeta(targetsView.ours).label} version`}, built from the inputs chosen in Customize on Player values`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]} with Data Driven Adjustments`;
@@ -3761,7 +3924,7 @@
     sym.setAttribute("aria-hidden", "true");
     sym.textContent = `${meta.symbol} `;
     td.appendChild(sym);
-    td.append(document.createTextNode(seriesName(key)));
+    td.append(sourceLink(key, seriesName(key)));
     const sub = document.createElement("span");
     sub.className = "th-sub";
     // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
@@ -5539,6 +5702,9 @@
       closePopover();
     });
     let resizeTimer = null;
+    // A scroll closes the tip, except the small one a tap or focus itself causes just after opening it.
+    window.addEventListener("scroll", () => { if (Date.now() - mathTipOpenedAt > 500) hideMathTip(); }, true);
+    document.addEventListener("keydown", event => { if (event.key === "Escape") hideMathTip(); });
     window.addEventListener("resize", () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
@@ -5578,6 +5744,7 @@
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
     applyStartSelection();
     loadPipeline();
+    loadSourcePages();
     bind();
     setStatus("");
     readTradeHash();   // may set a status: a shared link's league settings were applied
