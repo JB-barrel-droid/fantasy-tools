@@ -73,6 +73,14 @@ Several Claude sessions work this repo at once: the back end, and the front end 
   needs. The full suite (`make test-unit`) runs in preview CI and does not
   block. Staleness, review holds, coverage drift, import health and monitoring
   are warnings: label them on the page and don't stop the site.
+- **A shorter or longer chart list is filled in, not held** (Jeremy,
+  2026-10-16: "When lists get longer or shorter we need to follow the
+  conventions we've set, filling in where needed from other charts to get to
+  full rosters in leagues."). The fill-in rule (OC-5, VP-2.4) fills every
+  chart to the league's rosterable set from the other charts. The coverage
+  review passes the list and names the dropped and added players as a
+  warning. It holds only when fill-in cannot reach the rosterable set or a
+  dropped player is a pipeline loss. See `runbooks/source-held.md` 3b.
 - **Bug fixes ship with a test that fails without the fix.** That test is the
   proof. No PR checklist or written proof is needed.
 - **Do not adjust tests to go green.** If a test fails, assume the code is

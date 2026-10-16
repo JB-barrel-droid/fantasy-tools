@@ -843,3 +843,33 @@ Jeremy, 2026-10-16:
 3. MR-26 handcuffs (JEG-526, JEG-529): "Leave out for now, we can come back to this post launch". The stash signal PR 578 was converted to draft and parked. Both tickets moved to Backlog, label Parked.
 4. MR-23 weekly matchups (JEG-534): lineup hint only, values untouched (option a, confirmed).
 5. PR 637 direction-check thresholds (2-QB +3, peak >28): KEEP loosened, then have QB values reviewed (new ticket, High).
+
+## coverage-fill-in-001: A shorter or longer chart list is filled in, not held (JEG-667)
+- id: coverage-fill-in-001
+- created: 2026-10-16
+- deadline: 2026-10-16
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-16
+- recommendation: The coverage review passes a list that got shorter or longer when the VP-2.4 fill-in (OC-5, approved 2026-10-09) reaches the rosterable set; the dropped and added names are a warning in the review and the chain status. Hold only when fill-in cannot reach the rosterable set or a dropped player is a pipeline loss.
+
+### Context
+
+CBS's Week 6 half-PPR list is shorter (WR 41 vs floor 43, TE 10 vs 14), and the coverage review held CBS. The fill-in rule already fills a short chart to full rosters from the other charts.
+
+### Problem
+
+The coverage gate held a source for a shorter list that the fill-in already covers.
+
+### Options
+
+(A) Keep holding until a human accepts each drop. (B) Pass when fill-in reaches the rosterable set, name the changes as a warning, keep the hold for pipeline losses and for positions fill-in cannot reach.
+
+### Recommendation
+
+B.
+
+### Outcome Note
+
+Jeremy, 2026-10-16: "When lists get longer or shorter we need to follow the conventions we've set, filling in where needed from other charts to get to full rosters in leagues. I've shared this multiple times and it needs to be clear in the project." Implemented in `pipelines/review_comparison_candidate.py` (`coverage_fill_in_reaches`), test `tests/test_coverage_fill_in.py`. Rule text: `CLAUDE.md` (Standing constraints) and `runbooks/source-held.md` section 3b.

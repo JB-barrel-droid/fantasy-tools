@@ -434,8 +434,10 @@ function renderChain(feeds) {
   if (pv && pv.status === "failed") st = "bad";
   const rows = SOURCES.map(([key, name]) => {
     const d = c.detail?.[key] || {}, v = c.source_vintages?.[key] || {}, held = c.held_detail?.[key];
-    const s = held ? (held.hold_severity === "red" ? "bad" : "warn") : (c.failed || []).includes(key) ? "bad" : norm(d.status);
-    return `<tr data-status="${s}"><td>${pill(s, held ? "Held" : undefined)}</td><td>${esc(name)}</td><td>${esc(d.stage || "—")}</td>
+    const listChanged = (c.list_changes?.[key] || []).length > 0;  // JEG-667: filled in, names are a warning
+    const s = held ? (held.hold_severity === "red" ? "bad" : "warn") : (c.failed || []).includes(key) ? "bad"
+      : listChanged ? worst(norm(d.status), "warn") : norm(d.status);
+    return `<tr data-status="${s}"><td>${pill(s, held ? "Held" : listChanged ? "List changed" : undefined)}</td><td>${esc(name)}</td><td>${esc(d.stage || "—")}</td>
       <td>${d.promoted != null ? `${esc(d.promoted)}/${esc(d.sections)}` : "—"}</td><td>${esc(v.content_vintage || "—")}${v.lagging_one_week ? ` ${pill("warn", "One week behind")}` : ""}</td>
       <td class="why">${esc(held ? `${held.reason || ""} ${held.detail || ""}`.trim() : d.detail || "—")}</td></tr>`;
   });
