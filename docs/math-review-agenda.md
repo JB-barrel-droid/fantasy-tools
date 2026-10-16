@@ -77,8 +77,8 @@ Each item is closed (answered by a decision and live code) or carried (still wai
 | MR-20 (per-game basis differs across projection sources) | Carried | JEG-535 (wave 4). |
 | MR-21 (option value) | Carried | JEG-530 (parked, BE: Later). The waiver-upside bar (JEG-529) is built display-only in `pipelines/stash_signals.py`. |
 | MR-22 (bench value through the season) | Carried | JEG-528 (parked, BE: Later). |
-| MR-23 (matchups and weekly variance) | Carried | JEG-534 (parked, BE: Later). |
-| MR-26 (handcuff contingency) | Carried | JEG-526: option (b) built as a Python reference (`pipelines/stash_signals.py`, 2026-10-12, recommended default, awaiting Jeremy's review under JEG-450); drawer display is the open front-end half. |
+| MR-23 (matchups and weekly variance) | Decided 2026-10-16 | Lineup hint only, values untouched (option a, confirmed by Jeremy 2026-10-16). JEG-534. |
+| MR-26 (handcuff contingency) | Parked 2026-10-16 | Jeremy, 2026-10-16: "Leave out for now, we can come back to this post launch". PR 578 is draft; JEG-526 and JEG-529 are Backlog, label Parked. Earlier state: JEG-526: option (b) built as a Python reference (`pipelines/stash_signals.py`, 2026-10-12, recommended default, awaiting Jeremy's review under JEG-450); drawer display is the open front-end half. |
 | MR-24, MR-25, MR-27 (more seasons, RB health, why analysts bench players) | Carried | JEG-450; no separate ticket. |
 | VA-1 to VA-7, "Option A" and `viewInvariants` | Carried | JEG-450. VA-7 **decided 2026-10-15 (Jeremy): retired** (see "Math review answers 2026-10-15"). Check VA-4, VA-5 and VA-6 against the fit retirement before reviewing; parts of them describe the retired fit. |
 
@@ -1530,3 +1530,10 @@ the trade-target views; not covered.
   net <= 0 (as shown, so under 0.05 is even), counting only charts that price
   every player in the package. Should the rival test weight charts by how
   likely managers are to use them?
+
+## Decisions 2026-10-16 (Jeremy; decisions.md jeremy-review-2026-10-16)
+
+- **MR-26 handcuffs:** "Leave out for now, we can come back to this post launch." Revisit after launch. The stash signal (PR 578) is a parked draft.
+- **MR-23 weekly matchups:** lineup hint only, values untouched (option a, confirmed).
+- **MR-20 / JEG-535 direction-check thresholds (PR 637):** keep the loosened thresholds (2-QB +3, peak >28), then have QB values reviewed. After the per-game basis the top QB value over replacement in 2-QB fell from about 60 to about 32 (1-QB is 25); nobody has judged whether 32 is right. Open: examples of QB values on a 2-QB board, and whether to cap part-timers' inflated per-game rates.
+- **JEG-505 compare-trade cutoffs and JEG-477 taller chart:** product decisions, recorded in decisions.md.

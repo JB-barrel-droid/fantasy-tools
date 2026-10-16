@@ -307,6 +307,8 @@
   // config/lineup_parameters.json, served as assets/lineup-parameters.json.
   let lineupConfig = null;
   let lineupConfigError = null;
+  // JEG-534 MR-23 option (a): config/lineup_signal.json, display only.
+  let lineupSignal = null;
   // Reader position shares (VP-4.4 / BE-2): null = none (the DDF weights
   // as computed); otherwise {QB, RB, WR, TE} fractions summing to exactly 1.
   let positionWeights = null;
@@ -638,6 +640,17 @@
     }
   }
 
+  // JEG-534 MR-23: load lineup signal (display only, does not change values).
+  async function loadLineupSignal() {
+    try {
+      const response = await fetch("assets/lineup-signal.json");
+      if (!response.ok) return;
+      const doc = await response.json();
+      if (doc?.schema !== "lineup-signal/1") return;
+      lineupSignal = doc;
+    } catch (_) { /* optional data, not a stop */ }
+  }
+
   let pipelinePlayersCache = null;
   function pipelinePlayers() {
     if (!pipelinePlayersCache) {
@@ -677,6 +690,15 @@
   // pipeline (so it contributes to weights, pie and universe) but its curves
   // and values are hidden from the display. Removing a held source from the
   // pipeline would renormalize every other source's values.
+  // JEG-610 item 2: source keys excluded by a divergence 'exclude' resolution.
+  // Read from the snapshot (injected by sync_dashboard_artifacts.py).
+  const divergenceExcluded = key => {
+    const exc = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getSnapshot().divergence_exclusions
+      : [];
+    return Array.isArray(exc) && exc.indexOf(key) !== -1;
+  };
+
   function eligibilityReason(key, natives) {
     if (sourceMissingFromData(key)) return {reason: "missing from this build", run: false};
     const block = compositeBlock(key);
@@ -684,6 +706,12 @@
     if (block && block.heldBy) return {reason: block.reason, run: true, hidden: true, block};
     if (sourceValidationStatus(key) !== undefined && sourceValidationStatus(key) !== "live") {
       return {reason: "held: did not pass source validation", run: true, hidden: true};
+    }
+    // JEG-610 item 2: divergence 'exclude' resolution -> held semantics
+    // (JEG-569: stays in the pool for weights and pie, hidden from DDF blend,
+    // Indexed basis and bench-share readout, grayed out in the UI).
+    if (divergenceExcluded(key)) {
+      return {reason: "divergence: excluded from blends", run: true, hidden: true};
     }
     if (!natives.size) return {reason: `not available for ${scoreLabel()} / ${teams} teams`, run: false};
     if (block) return {reason: block.reason, run: true, block};
@@ -2866,6 +2894,8 @@
     // ES-14 (JEG-536): the readout and the reader settings that cause it.
     // Field list: docs/v2-design-notes.md "Back-end contract: bench share".
     getBenchShareReadout: () => benchShareReadout(),
+    // JEG-534 MR-23 option (a): the lineup signal data (display only).
+    getLineupSignal: () => lineupSignal ? {...lineupSignal} : null,
     getBenchShareOverride: () => benchShareOverride,
     setBenchShareOverride,
     getLeagueWeeks: () => ({regularSeasonEnd: lineupSettings.regularSeasonEnd, playoffWeeks: [...lineupSettings.playoffWeeks]}),
@@ -3759,6 +3789,8 @@
       await preloadCompositeHistory();
       // JEG-536 (ES-14): the expected-starts building blocks, before the first build.
       await loadLineupConfig();
+      // JEG-534 MR-23: lineup signal (display only).
+      await loadLineupSignal();
       // JEG-432 R5: weekly charts older than the newest week on the board
       // start switched off (the reader can still turn them on).
       const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;

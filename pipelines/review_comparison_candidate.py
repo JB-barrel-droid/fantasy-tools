@@ -385,6 +385,39 @@ def vintage_week(section):
     return int(m.group(1)) if m else None
 
 
+COVERAGE_ACCEPTED_REL = "data/triage/coverage-accepted.json"
+
+
+def coverage_acceptance(entries, source, combo_name, pos, week, dropped, c_n,
+                        cand_native):
+    """Return a note when a recorded human decision accepts this coverage drop.
+
+    JEG-667. The coverage check holds a candidate that prices fewer players
+    than the fixture; the chain never overrides a hold, so a genuine roster
+    rotation needs a recorded, dated decision (written by
+    ``pipelines/coverage_triage.py accept``). An entry applies only to its own
+    (source, combo, position) and content week, so it cannot go stale into
+    next week's candidate. Two kinds:
+      - ``names``: every dropped player is named in the entry and none is still
+        listed by the source (a listed-but-unpriced player is a pipeline loss);
+      - ``floor``: the candidate prices at least ``floor`` players (the
+        reviewed candidate's count becomes the new floor).
+    """
+    for e in entries or []:
+        if (e.get("source"), e.get("combo"), e.get("pos")) != (source, combo_name, pos):
+            continue
+        if e.get("week") != week:
+            continue
+        who = f"{e.get('approved_by')} {e.get('approved_on')}: {e.get('reason')}"
+        if e.get("floor") is not None and c_n >= int(e["floor"]):
+            return f"accepted floor {e['floor']} ({who})"
+        names = set(e.get("names") or [])
+        if names and dropped and set(dropped) <= names \
+                and not any(s in cand_native for s in dropped):
+            return f"accepted rotation of {len(dropped)} named player(s) ({who})"
+    return None
+
+
 def newer_vintage(cand, fx_section, fx_combo=None):
     """Return a description when the candidate is a newer publication than the
     fixture section (higher designated week, or same/unknown week with a later
@@ -411,7 +444,8 @@ def newer_vintage(cand, fx_section, fx_combo=None):
 
 
 def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
-                     players_path=None, no_live_verify=False):
+                     players_path=None, no_live_verify=False,
+                     coverage_accepted_path=None):
     cand = _load_json(reindexed_path)
     if cand.get("schema") != "trade-value-comparison-section-reindexed-v1":
         raise SystemExit(f"review: unsupported schema {cand.get('schema')}")
@@ -425,6 +459,12 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
     player_keys = fixture.get("player_keys", {})
     source = cand["source_key"]
     fx_section = fixture["sources"].get(source)
+
+    accepted_path = Path(coverage_accepted_path) if coverage_accepted_path \
+        else REPO / COVERAGE_ACCEPTED_REL
+    coverage_accepted = (_load_json(accepted_path).get("entries", [])
+                         if accepted_path.is_file() else [])
+    cand_week = vintage_week(cand)
 
     triaged = {}
     if triage_path:
@@ -697,6 +737,13 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                     verify_detail = f"{verify_detail}; {churn_detail}"
                     if churn_ok:
                         status = "warn"
+                if status == "fail" and not live_contradicts:
+                    accepted = coverage_acceptance(
+                        coverage_accepted, source, combo_name, pos, cand_week,
+                        dropped, c_n, combo["native"])
+                    if accepted:
+                        status = "warn"
+                        verify_detail = f"{verify_detail}; {accepted}"
                 checks.append(_check(
                     f"coverage:{combo_name}/{pos}", status,
                     f"candidate priced {c_n} < fixture {f_n} ({named}) -- {verify_detail}"))

@@ -1,0 +1,23 @@
+{
+  "schema": "lineup-signal/1",
+  "description": "JEG-534 MR-23 option (a): lineup signal only. Per-position rates from weekly projections 2018-2025 (PPR, 12-team starter counts). Bench tier = next 12 ranks; low-end starters = 6 ranks inside the cut. Display only; does not modify value calculations.",
+  "source": "tools/weekly_matchup_swaps.py",
+  "pair_swap_rate": {
+    "QB": 0.201,
+    "RB": 0.283,
+    "WR": 0.243,
+    "TE": 0.154
+  },
+  "weeks_any_bench_beats_lowest_starter": {
+    "QB": 0.941,
+    "RB": 0.980,
+    "WR": 0.950,
+    "TE": 0.846
+  },
+  "starter_weekly_projection_spread": {
+    "QB": 0.066,
+    "RB": 0.188,
+    "WR": 0.109,
+    "TE": 0.135
+  }
+}
