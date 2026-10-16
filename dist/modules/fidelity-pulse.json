@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-16T04:37:37.548817Z",
- "run_id": "bceb9988-5109-49d2-b8ed-fc995d85a5c3",
+ "checked_at": "2026-10-16T05:09:55.939417Z",
+ "run_id": "91b81274-d7fc-46b4-b34c-f46a730d4cea",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -31,7 +31,7 @@
    ],
    "reason": "fidelity: freshness",
    "identity": "fcwk6_2026-10-16t0305_v1",
-   "since": "2026-10-16T04:37:37.548817Z",
+   "since": "2026-10-16T05:09:55.939417Z",
    "summary": "content week 6 opened 65 h ago; chart still shows FantasyCalc week 5"
   },
   "cbsros": {
@@ -42,8 +42,8 @@
    ],
    "reason": "fidelity: publisher_vs_stored",
    "identity": "2026-10-16@2026-10-16T03:25:32.953790Z",
-   "since": "2026-10-16T04:37:37.548817Z",
-   "summary": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not"
+   "since": "2026-10-16T05:09:55.939417Z",
+   "summary": "1095/1095 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not"
   },
   "razzball": {
    "stage": "stored_vs_chart",
@@ -209,7 +209,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 58 h ago); chart shows week 5; stored rows already have week 6",
+     "summary": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 59 h ago); chart shows week 5; stored rows already have week 6",
      "chart_week": 5,
      "publisher_week": 6,
      "publisher_url": "https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/",
@@ -652,7 +652,7 @@
     ],
     "reason": "fidelity: freshness",
     "identity": "fcwk6_2026-10-16t0305_v1",
-    "since": "2026-10-16T04:37:37.548817Z",
+    "since": "2026-10-16T05:09:55.939417Z",
     "summary": "content week 6 opened 65 h ago; chart still shows FantasyCalc week 5"
    }
   },
@@ -1019,7 +1019,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 40 h ago); chart shows week 5; stored rows already have week 6",
+     "summary": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 41 h ago); chart shows week 5; stored rows already have week 6",
      "chart_week": 5,
      "publisher_week": 6,
      "publisher_url": "https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/",
@@ -1229,17 +1229,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "red",
-     "summary": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not resolve to a canonical player; 3 players at the page's last listed value swapped in or out (ties at the row cap: Andrew Beck, Carter Runyon, Patrick Herbert); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1095/1095 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not resolve to a canonical player; 1 players at the page's last listed value swapped in or out (ties at the row cap: Michael Burton); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 367,
       "stored_players": 365,
-      "compared": 1092,
-      "matched": 1092,
+      "compared": 1095,
+      "matched": 1095,
       "mismatched": 0,
       "missing_in_stored": 1,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 3,
+      "list_churn": 1,
       "unresolved_names": 1
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -1251,22 +1251,22 @@
        "left": 367,
        "right": 365,
        "mismatched": 0,
-       "missing": 3,
-       "extra": 1
+       "missing": 2,
+       "extra": 0
       },
       "half|1": {
        "left": 367,
        "right": 365,
        "mismatched": 0,
-       "missing": 3,
-       "extra": 1
+       "missing": 2,
+       "extra": 0
       },
       "std|1": {
        "left": 367,
        "right": 365,
        "mismatched": 0,
-       "missing": 3,
-       "extra": 1
+       "missing": 2,
+       "extra": 0
       }
      },
      "publisher_version": "same",
@@ -1592,8 +1592,8 @@
     ],
     "reason": "fidelity: publisher_vs_stored",
     "identity": "2026-10-16@2026-10-16T03:25:32.953790Z",
-    "since": "2026-10-16T04:37:37.548817Z",
-    "summary": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not"
+    "since": "2026-10-16T05:09:55.939417Z",
+    "summary": "1095/1095 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not"
    }
   },
   {
@@ -1856,7 +1856,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher updated 2026-10-15 (1 h ago); chart shows snapshot 2026-10-11; stored has 2026-10-15",
+     "summary": "publisher updated 2026-10-15 (2 h ago); chart shows snapshot 2026-10-11; stored has 2026-10-15",
      "chart_snapshot": "2026-10-11",
      "publisher_vintage": "2026-10-15"
     },
