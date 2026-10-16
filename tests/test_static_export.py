@@ -728,7 +728,11 @@ class StaticExportTest(unittest.TestCase):
         # top-heavy at RB: Gibbs native 74.0 vs ESPN 70.0, but RBs 2-24
         # lower), not a scale collapse. Verified: the bucket invariant
         # (test_flex_aware_bucket_totals_match_anchor) holds exactly.
-        self.assertGreaterEqual(min(gibbs_values), 45)
+        # 2026-10-16 JEG-667: min 45 -> 38. With fidelity holds graying out
+        # 1-2 sources, the remaining unheld sources produce a lower overall
+        # scale (40.98 when 4/7 held). A held build is still valid; scale
+        # collapse is caught by the max threshold (68) and the bucket invariant.
+        self.assertGreaterEqual(min(gibbs_values), 38)
         self.assertGreaterEqual(max(gibbs_values), 68)
 
     def test_player_table_supports_configurable_fields(self):

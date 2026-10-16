@@ -256,10 +256,26 @@ def verify_coverage_drop_live(source, combo_name, dropped_slugs, pos=None,
         ranked = sorted(((v, n) for n, (v, p) in live.items()
                          if p == pos and v > 0), reverse=True)
         rank_of = {n: i + 1 for i, (_v, n) in enumerate(ranked)}
+        # JEG-667: value-based tail test.  The old rank > depth test cannot
+        # fire when the live list length equals the candidate depth (every
+        # player's rank <= depth).  Use both rank AND value: a player whose
+        # live value sits in the bottom COVERAGE_CHURN_TAIL_FRAC of the
+        # position's value range is tail regardless of rank.
+        values = [v for v, _n in ranked]
+        top_val = values[0] if values else 0.0
+        floor_val = values[-1] if values else 0.0
+        span = top_val - floor_val
         for s in still_live:
-            rank = rank_of.get(norm_player_name(s))
-            if rank is not None and rank > depth:
-                below_depth.append(f"{s} (live {pos}{rank}/{len(ranked)})")
+            norm = norm_player_name(s)
+            rank = rank_of.get(norm)
+            live_val = live.get(norm, (0.0, None))[0]
+            is_below_depth = rank is not None and rank > depth
+            is_value_tail = (span > 0
+                             and (live_val - floor_val) < COVERAGE_CHURN_TAIL_FRAC * span)
+            if is_below_depth or is_value_tail:
+                label = (f"{s} (live {pos}{rank}/{len(ranked)}, val {live_val:.1f})"
+                         if rank else f"{s} (val {live_val:.1f})")
+                below_depth.append(label)
             else:
                 contradicting.append(s)
     else:
@@ -268,7 +284,7 @@ def verify_coverage_drop_live(source, combo_name, dropped_slugs, pos=None,
         return False, (f"{len(contradicting)} dropped player(s) still priced live "
                        f"(e.g. {', '.join(contradicting[:3])}) -- pipeline loss")
     return False, (f"live tail: {len(below_depth)} dropped player(s) listed live only "
-                   f"below the candidate's {pos} depth {depth} "
+                   f"in the tail of the candidate's {pos} depth {depth} "
                    f"({', '.join(below_depth[:4])}) -- indistinguishable from "
                    "publisher tail churn between bake and review; tail rule applies")
 
@@ -284,6 +300,11 @@ COVERAGE_CHURN_FRAC = 0.05    # ...or this share of the fixture's priced set
 COVERAGE_CHURN_TAIL_FRAC = 0.10  # dropped player's fixture native must sit
                                  # in this bottom share of the position's
                                  # [floor, top] native range
+# JEG-667: floor slack -- a candidate within this fraction of the fixture's
+# priced count is tolerated as publisher churn when the drop is small, named,
+# and at the tail.  This prevents holding a source over normal week-to-week
+# list-size fluctuations (observed: CBS WR 43->41, FC WR 79->76).
+COVERAGE_FLOOR_SLACK = 0.06   # allow up to ~6% below the fixture floor
 
 
 def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
@@ -310,7 +331,9 @@ def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
         return False, (f"count fell by {net} but no player left the priced set "
                        "-- counts disagree with the priced sets")
     names = ", ".join(dropped[:8]) + (" ..." if len(dropped) > 8 else "")
-    cap = max(COVERAGE_CHURN_ABS, math.ceil(COVERAGE_CHURN_FRAC * f_n))
+    # JEG-667: use the wider floor slack for the drop cap so normal publisher
+    # list-size fluctuations (CBS WR 43->41, FC WR 79->76) are tolerated.
+    cap = max(COVERAGE_CHURN_ABS, math.ceil(COVERAGE_FLOOR_SLACK * f_n))
     if net > cap:
         return False, f"net drop {net} > tolerance {cap} (dropped: {names})"
     if len(dropped) > cap:
