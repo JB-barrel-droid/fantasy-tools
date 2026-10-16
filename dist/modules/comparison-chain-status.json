@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T17:38:37.132450+00:00",
+  "run_at": "2026-10-16T17:42:36.606961+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -165,15 +165,19 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_v2_rescaled_copy.RescaledCopyTest.test_no_old_labels_in_v2_copy"
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"v2.js: 'published chart' in 'Choose at l[34 chars]e.'\"] != []"
+      "AssertionError: [] == [] : week-4 file served relabelled as week 3 was not caught",
+      "AssertionError: [] == [] : week-4 file served with week-3 content was not caught",
+      "AssertionError: Lists differ: ['usatoday'] != ['espn', 'usatoday']"
     ],
     "make_targets": [
-      "Makefile:504: test-core"
+      "Makefile:511: test-core"
     ],
-    "detail": "FAIL tests.test_v2_rescaled_copy.RescaledCopyTest.test_no_old_labels_in_v2_copy; AssertionError: Lists differ: [\"v2.js: 'published chart' in 'Choose at l[34 chars]e.'\"] != []",
-    "recorded_at": "2026-10-16T17:40:35.264948+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: [] == [] : week-4 file served relabelled as week 3 was not caught; AssertionError: [] == [] : week-4 file served with week-3 content was not caught; AssertionError: Lists differ: ['usatoday'] != ['espn', 'usatoday']",
+    "recorded_at": "2026-10-16T17:51:41.402166+00:00"
   }
 }
