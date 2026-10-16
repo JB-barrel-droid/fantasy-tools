@@ -44,6 +44,6 @@ import tools.bench_research.mix_proto as mp
 
 ## Status
 
-Step 1 of JEG-566 (commit scripts). Steps 2-3 (re-run on merged convention
-and new default roster, emit chart-ready CSV/JSON) are gated on JEG-562 and
-JEG-563.
+All three steps of JEG-566 complete (2026-10-16): scripts committed, re-run on
+the settled convention (JEG-562/563/630), chart-ready JSON emitted to
+`output/bench-research/`.

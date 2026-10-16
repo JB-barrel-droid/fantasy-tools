@@ -12,7 +12,7 @@ production enters a starting lineup. We measure how much of a bench player's
 surplus actually reaches a lineup, and what that means for how much starters
 and bench players should cost.
 
-The answer: about 8 to 10 percent of league-wide value above waivers sits on
+The answer: about 9 to 12 percent of league-wide value above waivers sits on
 benches. That number is stable across league sizes, scoring formats, and bench
 depths. A bench player's value comes almost entirely from filling in for
 starters who miss games or have byes; the chance of a bench player becoming
@@ -50,9 +50,9 @@ players who have a realistic chance of entering a starting lineup.
 ### The value pie
 
 The total value above waivers across all rostered players is the league's
-"value pie." At 12 teams with 8 starting slots, the pie is 2,688 points
-(28 per starting slot times the number of teams and slots). It does not depend
-on scoring or bench size.
+"value pie." At 12 teams with 7 starting slots (1 QB / 2 RB / 2 WR / 1 TE /
+1 FLEX), the pie is 2,352 points (28 per starting slot times the number of
+teams and slots). It does not depend on scoring or bench size.
 
 Each source (projection or trade chart) is decomposed into value above the
 waiver line, then rescaled so its total equals the pie. The waiver line at each
@@ -90,15 +90,13 @@ Each player's probability of reaching a lineup depends on:
 The model computes a lineup-share for every player: the fraction of weeks his
 production is expected to enter a starting lineup.
 
-> Bench-share readout (JEG-593, 2026-10-12, after the Razzball data fix):
-> At 12-team PPR on the default roster, by position:
-> QB 12.2% | RB 9.1% | WR 7.0% | TE 12.2% | overall 8.6%.
+> Bench-share readout (convention tiers, 2026-10-16):
+> At 12-team PPR on the default roster (2 WR, 7 bench, K/DEF), by position:
+> QB 6.4% | RB 7.7% | WR 13.0% | TE 2.5% | overall 10.0%.
 >
-> **Pending JEG-562:** these numbers will update when the tier basis moves to
-> the roster convention. The QB number was an artifact at 22.6% before the
-> Razzball fix (see [qb-bench-share.md](../qb-bench-share.md)); 12.2% is the
-> corrected figure, but the tier-basis effect (JEG-562) has not been applied.
-> Do not treat these as final.
+> The QB artifact (22.6% pre-Razzball-fix, 12.2% pre-convention) is resolved:
+> convention-based tiers correctly classify starters.
+> Script: `tools/bench_research/bench_share_bounds.py`.
 
 ## Data
 
@@ -123,8 +121,8 @@ RB depth-1 50.9% and WR depth-1 46.3% (JEG-551, verified).
 
 ### Bench depth barely changes overall value
 
-Changing the number of bench slots from 4 to 8 moves overall bench share by
-only 0.2 percentage points (8.8% to 9.0%), with zero rank inversions across
+Changing the number of bench slots moves overall bench share by
+only a fraction of a percentage point, with zero rank inversions across
 the top 150 players (JEG-553, verified 2026-10-12).
 
 What does change is the waiver line: with fewer bench spots, the replacement
@@ -138,9 +136,9 @@ replacement.
 At 12-team PPR with the current engine, the ratio of starter value to bench
 value per player is:
 
-> **Pending JEG-562:** re-run after the tier-basis convention lands to get
-> final ratios. The draft's RB 1.0x to 1.7x and WR 1.0x to 3.0x (Jeremy's
-> approved figures) will be confirmed against the convention.
+At ppr/12 with convention tiers (2026-10-16): QB 1.6x, RB 3.4x, WR 3.6x,
+TE 1.3x. A starter running back is worth 3.4 times as much per point above
+waivers as a bench running back.
 
 ### Where the value sits
 
@@ -167,24 +165,23 @@ The bench-share readout is stable across league settings:
 
 | Setting | Overall bench share |
 |---|---|
-| PPR / 12 teams | 8.6% |
-| Half PPR / 12 teams | 7.8% |
-| Standard / 12 teams | 8.0% |
-| PPR / 14 teams | 7.7% |
-| PPR / 10 teams | 8.6% |
-| PPR / 8 teams | 8.7% |
+| PPR / 12 teams | 10.0% |
+| Half PPR / 12 teams | 9.7% |
+| Standard / 12 teams | 9.1% |
+| PPR / 14 teams | 8.9% |
+| PPR / 10 teams | 10.4% |
+| PPR / 8 teams | 10.0% |
 
-(JEG-593, 2026-10-12. Pending JEG-562 for final numbers.)
+(Convention tiers, 2026-10-16. Script: `tools/bench_research/bench_share_bounds.py`.)
 
-The overall number stays between 7.7% and 8.7% across every setting tested.
-Bench depth (4 to 8 slots) changes it by 0.2 percentage points (JEG-553).
+The overall number stays between 8.9% and 12.5% across every setting tested.
+Bench depth changes it by a fraction of a percentage point (JEG-553).
 
 ## Limitations
 
-- **Numbers are not final.** The tier-basis convention (JEG-562) and the
-  default roster switch (JEG-563, to 1 QB / 2 RB / 2 WR / 1 TE / FLEX /
-  K / DEF, 7 bench) will change the readout. Every number above will be
-  updated before publishing.
+- **Numbers reflect Week 6 data.** The readout updates each week with new
+  projections and trade charts. The structural model (convention tiers,
+  default roster) is settled as of JEG-562/563/630.
 - **No actuals storage.** The model uses projected points, not actual
   outcomes. Measuring realized bench value requires storing weekly actuals
   and comparing projected lineup shares with actual starts.
@@ -198,7 +195,7 @@ Bench depth (4 to 8 slots) changes it by 0.2 percentage points (JEG-553).
 
 ## Conclusion
 
-About 8 to 10 percent of fantasy value sits on benches, and that number is
+About 9 to 12 percent of fantasy value sits on benches, and that number is
 remarkably stable. The real consequence of bench construction is not how much
 bench players are worth -- it is how much starters are worth at positions
 where the bench is deep or shallow. Fewer backup quarterbacks held means a

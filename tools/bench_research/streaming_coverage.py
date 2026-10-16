@@ -37,13 +37,13 @@ def load_actuals():
         reader = csv.DictReader(f)
         for row in reader:
             pid = row["player_id"]
-            pos = row.get("position", "")
+            pos = row.get("pos") or row.get("position", "")
             if pos not in POSITIONS:
                 continue
             pos_map[pid] = pos
             season = int(row["season"])
             week = int(row["week"])
-            pts = float(row.get("fantasy_points_ppr", 0) or 0)
+            pts = float(row.get("ppr") or row.get("fantasy_points_ppr", 0) or 0)
             logs[pid][season][week] = pts
     return logs, pos_map
 
@@ -51,7 +51,8 @@ def load_actuals():
 def measure_streaming(teams=12, min_games=3):
     """Compare held first backup vs best waiver stream on hole weeks."""
     logs, pos_map = load_actuals()
-    sched = json.loads(SCHEDULE.read_text())
+    sched_raw = json.loads(SCHEDULE.read_text())
+    sched = sched_raw.get("seasons", sched_raw) if isinstance(sched_raw, dict) else sched_raw
 
     held_total = defaultdict(float)
     stream_total = defaultdict(float)

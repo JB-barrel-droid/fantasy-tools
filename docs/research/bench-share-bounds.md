@@ -76,7 +76,7 @@ Every point above the waiver line counts. No missed games (m = 0), no byes (bye 
 
 This is what bench share would be if bench players started every week and never missed games.
 
-## Both bounds, all 12 settings (current data, approved-defaults parameters)
+## Both bounds, all 12 settings (pre-convention, approved-defaults parameters)
 
 Run: `python3 tools/bench_research/bench_share_bounds.py --from-log --params recent`
 
@@ -95,6 +95,45 @@ Run: `python3 tools/bench_research/bench_share_bounds.py --from-log --params rec
 | ppr/12 | 8.3% | 8.8% | 13.4% | +0.5pp |
 | ppr/14 | 8.0% | 8.7% | 13.8% | +0.7pp |
 
-## What changes after JEG-562
+## Final bounds on settled convention (2026-10-16)
 
-JEG-562 moves tier definitions to the roster convention (waiver line = first player past market-bench rosters; starter line = midpoint of last starter and first non-starter). This will change which players fall in the bench tier and shift both bounds. The scripts will need re-running on the convention-based tiers. The reconciliation (why the two logs disagreed) does not change.
+After JEG-562 (expected starts on convention), JEG-563 (default roster 2 WR / 7
+bench / K / DEF), and JEG-630 (JS engine parity), re-run on current config
+parameters. The convention changes tier definitions (waiver line = first player
+past market-bench rosters; starter line = midpoint of last starter and first
+non-starter), which shifts the bench tier boundaries. Default roster is 1 QB /
+2 RB / 2 WR / 1 TE / 1 FLEX / K / DEF, 7 bench.
+
+Run: `python3 tools/bench_research/bench_share_bounds.py` (config params)
+
+| Setting | Fill-in floor | Recommended | Plain VORP ceiling | Gap (rec - floor) |
+|---|---|---|---|---|
+| standard/8 | 11.7% | 11.5% | 21.6% | -0.1pp |
+| standard/10 | 10.1% | 9.9% | 21.2% | -0.3pp |
+| standard/12 | 8.6% | 8.8% | 20.8% | +0.2pp |
+| standard/14 | 8.5% | 9.0% | 20.0% | +0.5pp |
+| half_ppr/8 | 12.2% | 12.2% | 21.7% | +0.0pp |
+| half_ppr/10 | 10.2% | 10.4% | 20.2% | +0.1pp |
+| half_ppr/12 | 9.0% | 9.3% | 19.5% | +0.4pp |
+| half_ppr/14 | 8.2% | 8.6% | 19.0% | +0.4pp |
+| ppr/8 | 9.6% | 9.8% | 19.0% | +0.2pp |
+| ppr/10 | 9.8% | 10.1% | 20.4% | +0.3pp |
+| ppr/12 | 9.3% | 9.7% | 20.2% | +0.4pp |
+| ppr/14 | 8.5% | 8.7% | 19.9% | +0.3pp |
+
+Key changes from the convention: the VORP ceiling rose (more bench players in
+the tier with 7 bench and the convention's D'Hondt allocation), while
+the fill-in floor and recommended share rose modestly (about +1pp at ppr/12).
+The recommended bench share at ppr/12 is now **9.7%** (was 8.8% pre-convention).
+
+Per-position bounds at ppr/12:
+
+| Position | Fill-in floor | Recommended | Plain VORP | Start-worthy share of gap |
+|---|---|---|---|---|
+| QB | 6.9% | 6.4% | 9.0% | -24% |
+| RB | 7.5% | 7.4% | 14.5% | -2% |
+| WR | 11.7% | 12.8% | 27.2% | 7% |
+| TE | 2.8% | 2.6% | 2.9% | -149% |
+| Overall | 9.3% | 9.7% | 20.2% | 4% |
+
+Commit: on main at the build tag after JEG-562/563/630 merged.

@@ -17,7 +17,7 @@ leagues actually hold and what the numbers say is worth holding.
 
 > Evidence: [bench-rule-research.md](../bench-rule-research.md).
 > Draft data: `pipelines/derive_market_bench.py`, `config/market_bench.json`.
-> Analysis scripts: JEG-566 (pending; not yet committed to `tools/bench_research`).
+> Analysis scripts: `tools/bench_research/` (JEG-566, committed).
 
 ## The question
 
@@ -57,7 +57,7 @@ moved real starters into the bench tier.
 ## Does the bench mix even matter?
 
 Mostly no. Changing the bench allocation -- even giving zero bench spots to
-quarterbacks -- keeps overall bench share between 8.3% and 8.7%, with top-150
+quarterbacks -- keeps overall bench share within a narrow band, with top-150
 rank correlation above 0.98.
 
 What does matter is the waiver line at shallow positions. Fewer backup
@@ -262,10 +262,8 @@ holding).
   superflex from true 2-QB.
 - Real-league rostered-percentage data (from platform APIs) would be the
   natural validation but was not reachable.
-- Value-effect tables (how many bench seats under each rule, which players
-  move) were computed on the 2026-10-10 engine, before the roster convention
-  (JEG-562) and new default roster (JEG-563). Direction and size are correct;
-  exact numbers will update.
+- Value-effect tables now use the settled convention (JEG-562/563/630) with
+  the default roster 1 QB / 2 RB / 2 WR / 1 TE / FLEX / K / DEF, 7 bench.
 
 ---
 
@@ -274,10 +272,10 @@ holding).
 | Claim | Source | Script |
 |---|---|---|
 | Draft ratios (8,857 drafts) | [bench-rule-research.md](../bench-rule-research.md) section 1 | `pipelines/derive_market_bench.py` |
-| Scorecard (10 rules) | [bench-rule-research.md](../bench-rule-research.md) section 2 | JEG-566 pending |
-| Starts per week by depth | [bench-rule-research.md](../bench-rule-research.md) section 3 | JEG-566 pending |
-| Insurance vs upside, net of waivers | [bench-rule-research.md](../bench-rule-research.md) section 3 | JEG-566 pending |
-| QB bench share artifact | [qb-bench-share.md](../qb-bench-share.md) | JEG-566 pending |
-| Superflex / 2-QB | JEG-557 comment (2026-10-10) | JEG-566 pending |
+| Scorecard (10 rules) | [bench-rule-research.md](../bench-rule-research.md) section 2 | `tools/bench_research/scorecard.py` |
+| Starts per week by depth | [bench-rule-research.md](../bench-rule-research.md) section 3 | `tools/bench_research/depth_round_starts.py` |
+| Insurance vs upside, net of waivers | [bench-rule-research.md](../bench-rule-research.md) section 3 | `tools/bench_research/insurance_upside.py`, `waiver_rule.py` |
+| QB bench share artifact | [qb-bench-share.md](../qb-bench-share.md) | `tools/bench_research/qb_diag.py` |
+| Superflex / 2-QB | JEG-557 comment (2026-10-10) | `tools/bench_research/draft_composition.py` |
 | K/DEF streaming | JEG-557 comment (2026-10-10) | `pipelines/derive_market_bench.py` |
 | Field survey | JEG-557 description, section 8 | links in description |
