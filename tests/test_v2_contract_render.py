@@ -605,12 +605,13 @@ COMPARE_JS = "async () => {" + COMMON + r"""
   out.engine = engineFor(out.example.give.concat(out.example.get).map(p => p.key));
   out.shownOptions = [...$('v2CShown').options].map(o => [o.value, o.textContent]);
   // DDF Value hidden: the verdict follows the picked series and names it.
-  const before = V.shown();
-  V.setShown(before.filter(k => k !== 'ddf_value')); await sleep(500);
+  // JEG-498: Compare reads its own Customize list, not the Player values one.
+  const before = V.pageKeys('compare');
+  V.setPageKeys('compare', before.filter(k => k !== 'ddf_value')); await sleep(500);
   const other = [...$('v2CShown').options].map(o => o.value).find(v => v !== 'ddf_value');
   fire($('v2CShown'), other); await sleep(400);
   out.otherShown = {key: other, label: [...$('v2CShown').options].find(o => o.value === other)?.textContent || '', title: $('v2CVerdictTitle').textContent};
-  V.setShown(before); await sleep(500);
+  V.setPageKeys('compare', before); await sleep(500);
   fire($('v2CShown'), 'ddf_value'); await sleep(400);
   // Add a player of our own to each side: the example leaves, and the link carries the league settings.
   await addTrade();
