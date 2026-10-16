@@ -514,6 +514,7 @@ test-core:
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_roster_convention_parity
+	python3 -m unittest tests.test_player_tags
 	python3 -m unittest tests.test_contract_qa_report
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
