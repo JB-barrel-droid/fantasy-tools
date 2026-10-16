@@ -19,6 +19,14 @@ a crash, a parity break, or a value that contradicts a rule already decided).
 Numbers below are cited from the log or test that measured them. "Not
 measured" means nobody has run that option yet.
 
+## Decided (JEG-450, Q1 GAP-TIER-FROM-ESPN, 2026-10-15)
+
+Jeremy decided 2026-10-15: the tier column is labelled "ESPN Tier" in v2
+everywhere the Starter / Bench / Waiver tier is shown (Player values column and
+Columns popover, the player drawer). It always comes from ESPN's slot fill, so
+the label says so rather than the tier following the selected source. Closes
+`GAP-TIER-FROM-ESPN` in `docs/risk-register.md`.
+
 ## Answered by the Value Pipeline spec (JEG-508, 2026-10-09)
 
 Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`
@@ -67,12 +75,12 @@ Each item is closed (answered by a decision and live code) or carried (still wai
 | GAP-ADJ-CLIP-ZERO | Closed | Retired with the live cells (VP-10) and the fit (PR 532). |
 | MR-13, MR-14 (deploy gate after review; consumers comparing across views) | Carried | Pin the VP invariants once the review settles them. Owner JEG-450. |
 | MR-20 (per-game basis differs across projection sources) | Carried | JEG-535 (wave 4). |
-| MR-21 (option value) | Carried | JEG-530 (parked, BE: Later). |
+| MR-21 (option value) | Carried | JEG-530 (parked, BE: Later). The waiver-upside bar (JEG-529) is built display-only in `pipelines/stash_signals.py`. |
 | MR-22 (bench value through the season) | Carried | JEG-528 (parked, BE: Later). |
 | MR-23 (matchups and weekly variance) | Carried | JEG-534 (parked, BE: Later). |
-| MR-26 (handcuff contingency) | Carried | JEG-526 (parked, BE: Later). |
+| MR-26 (handcuff contingency) | Carried | JEG-526: option (b) built as a Python reference (`pipelines/stash_signals.py`, 2026-10-12, recommended default, awaiting Jeremy's review under JEG-450); drawer display is the open front-end half. |
 | MR-24, MR-25, MR-27 (more seasons, RB health, why analysts bench players) | Carried | JEG-450; no separate ticket. |
-| VA-1 to VA-7, "Option A" and `viewInvariants` | Carried | JEG-450. VA-7 is the CBS ROS direction row `GAP-CBSROS-DIRECTION-RED` in the risk register. Check VA-4, VA-5 and VA-6 against the fit retirement before reviewing; parts of them describe the retired fit. |
+| VA-1 to VA-7, "Option A" and `viewInvariants` | Carried | JEG-450. VA-7 **decided 2026-10-15 (Jeremy): retired** (see "Math review answers 2026-10-15"). Check VA-4, VA-5 and VA-6 against the fit retirement before reviewing; parts of them describe the retired fit. |
 
 ## How the review runs
 
@@ -1348,6 +1356,18 @@ starts, the thing the share actually predicts.
 
 **Depends on:** G4 (b). Ticket: JEG-534. **Sources:** `derive_lineup_parameters.weekly_noise`.
 
+**First measurement (2026-10-15, `tools/weekly_matchup_swaps.py`, stored weekly
+projections 2018-2025, PPR, 12-team starter counts).** Bench-tier players
+(next 12 season ranks) beat a low-end starter (6 ranks inside the cut) on a
+given week's projection in QB 20%, RB 28%, WR 24%, TE 15% of pairs, and some
+bench player beats the lowest starter in 85% (TE) to 98% (RB) of weeks. The
+weekly *projection* spread of starters is QB 7%, RB 19%, WR 11%, TE 14% of
+their mean, far under the 38-59% outcome noise, so the start decision sees a
+much narrower spread than Sunday does. Recommendation: option (a), a lineup
+signal only, until the swap is shown to carry points the season share misses;
+(b) and (c) wait. The G6 re-point to projected starts is still open.
+
+
 ## MR-24 - More seasons for the hazard and noise estimates (Jeremy, JEG-525)
 
 **Question.** The missed-game hazard and weekly noise used 2024-2025 (443 to
@@ -1444,7 +1464,14 @@ projection with probability 1 - q, the promoted level with probability q.
 Raises bench value for 20-30 named backs; same sigma concerns as MR-21.
 
 **Recommendation:** (b) now (it fits MR-21's line: options are signals, not
-pie); revisit (c) when G4 measures projection error. Ticket: JEG-526. **Depends on:**
+pie); revisit (c) when G4 measures projection error. Ticket: JEG-526.
+**Built 2026-10-12 (default b, not yet reviewed):** `pipelines/stash_signals.py`.
+The promoted level is a measured multiple of the setting's starter line by
+lead-back tier (top-12 lead 1.22x, otherwise 1.19x; `config/handcuff_jump.json`,
+re-derived by `tools/handcuff_jump.py --config`), `m` is the resolved RB hazard
+for both backs, `b` the resolved bye share, and P(start at promoted level) the
+pie's own normal. Depth-2 backs only; a stale chart (the "backup" out-projects
+the "lead") defers to projections. Not in the pie, DDF Value or Indexed. **Depends on:**
 `es-value-001`, MR-21. **Sources:** ES-13, JEG-525.
 
 ## MR-27 - Why analysts bench players, and which reasons the math covers (Jeremy, JEG-525)
@@ -1475,6 +1502,13 @@ the trade-target views; not covered.
 
 **Depends on:** nothing; informs MR-21, MR-22, MR-23, MR-26.
 
+## Math review answers 2026-10-15 (Jeremy, JEG-450; decisions.md math-review-2026-10-15)
+
+- Q1 GAP-TIER-FROM-ESPN: label the tier column "ESPN Tier" (implemented by another agent).
+- Q2 GAP-ADJ-IDENTITY-FALLBACK-UNLABELLED: closed as moot, the fit is retired.
+- Q3 GAP-CBSROS-DIRECTION-RED (VA-7): retire the CBS ROS and Razzball direction and markup checks; they judge starter/bench scales that price nothing those sources display. Keep any check that still guards displayed values.
+- Q4 OC-8: keep zeros counted in the Indexed factor (option A, confirmed).
+
 ## Outside this review
 
 - K/DST: being removed from the pipeline (kdst lane, Jeremy's decision).
@@ -1486,3 +1520,13 @@ the trade-target views; not covered.
   ESPN history snapshot did not save them, so the prior week leaves them out
   of ESPN and of mean projected points. Should prior weeks rebuild them at 0
   so week-over-week change compares like with like?
+
+- **Find a trade ranking and search bounds (JEG-481, 2026-10-12).** Ranking
+  among listed trades is DDF Value edge times (1 - 0.10 per player beyond a
+  1-for-1), so simpler trades rank first (Jeremy, 2026-10-09: "favor simpler
+  trades"); the 10% is a default, not a decision. Packages of more than 2-for-2
+  are searched among the top players by DDF Value per side so the subsets stay
+  under 6,000 per side. "Fair to the rival" is at least 3 of 4 trade charts at
+  net <= 0 (as shown, so under 0.05 is even), counting only charts that price
+  every player in the package. Should the rival test weight charts by how
+  likely managers are to use them?

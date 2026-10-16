@@ -112,7 +112,7 @@ def finite(v):
 def method(key):
     if key.endswith("_vorp"):
         return "vorp"
-    if key.endswith("_adjusted") or key in ("espn", "cbsros", "razzball"):
+    if key in ("espn", "cbsros", "razzball"):
         return "dda"
     return "indexed"
 
@@ -249,7 +249,7 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                 page.evaluate("""keys => { for (const key of keys) {
                   const box = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
                   if (box && !box.checked && !box.disabled) box.click(); } }""",
-                              ["espn", "fantasycalc_adjusted", "fantasypros_adjusted", "usatoday_adjusted", *EXTRA_SERIES])
+                              ["espn", "fantasycalc", "fantasypros", "usatoday", *EXTRA_SERIES])
                 # The one-series notice above hid DDF Value; show it again so the picker offers it.
                 page.evaluate("() => window.TradeValueV2.setShown(['ddf_value'].concat(window.TradeValueV2.shown()))")
                 # JEG-541: a hermetic missing value (see test_v2_compare_render.SIMULATE_MISSING).

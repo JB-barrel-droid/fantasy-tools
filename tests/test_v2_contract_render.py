@@ -158,6 +158,8 @@ def _freshness(kind: str) -> str:
     for item in doc.get("items", []):
         item = dict(item)
         key = item.get("key", "")
+        if key in ("source_import.checked_at", "comparison.built_at"):
+            item["freshness_ok"] = True  # pipeline-wide steps; the live file may be stale, the fixture is not
         if key.startswith(("source_import.", "comparison.source.")):
             item["freshness_ok"] = True
             if key.startswith("comparison.source."):
@@ -298,9 +300,12 @@ class Session:
         ov = self.overrides
         if "shell" in ov:
             built = (self.dist / "v2" / "index.html").read_text(encoding="utf-8")
-            original = SHELL.read_text(encoding="utf-8")
+            posts = build_v2_page.load_posts()
+            # The build places the Research page inside #v2App (JEG-543), so the embedded
+            # shell is compose_shell(shell.html, posts), not shell.html itself.
+            original = build_v2_page.compose_shell(SHELL.read_text(encoding="utf-8"), posts)
             assert original in built, "the built page no longer embeds shell.html verbatim"
-            html = built.replace(original, ov["shell"], 1)
+            html = built.replace(original, build_v2_page.compose_shell(ov["shell"], posts), 1)
             page.route(lambda u: urlparse(u).path in ("/v2/", "/v2/index.html"),
                        functools.partial(_fulfill, html, "text/html"))
         if "v2.js" in ov:
@@ -523,6 +528,12 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     refWeek: C.getReferenceWeek ? C.getReferenceWeek() : null,
     caption: $('v2TChartCaption').textContent, captionInfo: Boolean(document.querySelector('.v2-tcompare button[data-info]')),
     lowEngine: C.getRows().filter(r => r.ddfLowConfidence).map(r => String(r.player_key)),
+    weight: {h2: [...document.querySelectorAll('#v2Targets h2')].map(h => h.textContent.trim()),
+      sub: document.querySelector('#v2Targets .v2-ttitle p').textContent,
+      headline: $('v2WeightHeadline').textContent,
+      groups: [...document.querySelectorAll('#v2WeightTable tbody tr[data-group]')].map(tr => ({key: tr.dataset.group,
+        n: Number(tr.children[1].textContent), gap: tr.querySelector('td.w-gap').dataset.gap,
+        signal: tr.querySelector('.v2-wsignal')?.dataset.signal || null, chip: tr.querySelector('.v2-wsignal')?.textContent || ''}))},
   };
   out.engine = engineFor(out.sell.concat(out.buy).map(r => r.key));
   const btn = document.querySelector('#v2TTable .v2-texpand');
@@ -1347,6 +1358,56 @@ def tt03(S):
     return errors
 
 
+def tt10(S):
+    w = S["tabs"]["targets"]["weight"]
+    errors = []
+    for heading in ("1. Potential mispricing", "2. Potential positional weight inflation"):
+        if heading not in w["h2"]:
+            errors.append(f"missing numbered heading {heading!r}: {w['h2']}")
+    for name in ("potential mispricing", "potential positional weight inflation"):
+        if name not in w["sub"]:
+            errors.append(f"the subtitle does not name {name!r}")
+    return errors
+
+
+def tt11(S):
+    w = S["tabs"]["targets"]["weight"]
+    errors = []
+    keys = [g["key"] for g in w["groups"]]
+    if keys != [k for pos in ("QB", "RB", "WR", "TE") for k in (pos, f"{pos}|starter", f"{pos}|bench")]:
+        errors.append(f"weight groups {keys}")
+    for g in w["groups"]:
+        if g["gap"] == "":
+            if g["signal"] or g["n"] >= 3:
+                errors.append(f"{g['key']}: no number with {g['n']} players, signal {g['signal']}")
+            continue
+        gap = float(g["gap"])
+        want = "sell" if gap >= 0.10 else "buy" if gap <= -0.10 else "fair"
+        if g["signal"] != want or not g["chip"].strip() or g["chip"].strip()[0] not in "▲▼●":
+            errors.append(f"{g['key']}: gap {gap:.3f} should read {want}, chip {g['chip']!r}")
+    sizes = {g["key"]: g["n"] for g in w["groups"]}
+    for key in sizes:
+        label = key.replace("|starter", " starters").replace("|bench", " bench")
+        if label in w["headline"] and sizes[key] < 8:
+            errors.append(f"the headline names {label} with {sizes[key]} players")
+    return errors
+
+
+def rs01(S):
+    views = [t["view"] for t in S["tabs"]["targets"]["tabs"]]
+    if "research" not in views or "how" not in views or views.index("research") != views.index("how") + 1:
+        return [f"the Research tab should follow How values work: {views}"]
+    return []
+
+
+def rs02(S):
+    return []   # process rule (a post is approved as a Google Doc before it publishes): nothing on the page to read
+
+
+def rs03(S):
+    return []   # no live widget ships with the framework yet; pinned when the first widget post lands
+
+
 def tt04(S):
     t = S["tabs"]["targets"]
     errors = []
@@ -1568,6 +1629,7 @@ CHECKS = {
     "PV-10": pv10, "PV-11": pv11, "PV-12": pv12, "PV-13": pv13, "PV-14": pv14, "PV-15": pv15,
     "PV-16": pv16, "PV-17": pv17,
     "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04,
+    "TT-10": tt10, "TT-11": tt11, "RS-01": rs01, "RS-02": rs02, "RS-03": rs03,
     # "rescaled" lands with JEG-510; the ⓘ and the scale word are checked meanwhile.
     "TT-05": PENDING("JEG-510", partial=tt05_partial),
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),

@@ -562,10 +562,16 @@ def load_espn_lists(csv_path: Path, scoring: str) -> tuple[dict[str, list[dict[s
         else:
             ros = ros_half
         team = str(row.get("team") or "").strip() or None
-        games = games_in_window(team, window, byes) if team else window_len
-        if not games:
+        team_games = games_in_window(team, window, byes) if team else window_len
+        if not team_games:
             review_rows.append({"reason": "unknown_team", "player": name, "team": team})
             continue
+        # JEG-535 / JEG-676: use espn_projected_games (non-zero ROS weeks)
+        # as the per-game-played denominator, matching bake_players.py.
+        # Fall back to team games when the column is absent (old CSV).
+        epg_raw = (row.get("espn_projected_games") or "").strip()
+        epg = int(epg_raw) if epg_raw else None
+        games = epg if epg else team_games
         lists[pos].append({
             "id": norm,
             "name": name,
@@ -731,10 +737,11 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
             "espn_snapshot_date": csv_meta["espn_snapshot_date"],
             "espn_csv_rows": csv_meta["csv_rows"],
             "ros_weeks": csv_meta.get("ros_weeks"),
-            "games_divisor": "per team: games inside ros_weeks (bye excluded)",
+            "games_divisor": "espn_projected_games when present, else team games inside ros_weeks (bye excluded)",
             "byes_sha256": sha256_file(BYES_PATH),
-            "rescoring_note": ("per-game = ROS components rescored per scoring / the "
-                               "team's games inside ESPN's ROS window (bye excluded). "
+            "rescoring_note": ("per-game = ROS components rescored per scoring / "
+                               "espn_projected_games (non-zero ROS weeks), falling back "
+                               "to team games inside ESPN's ROS window (bye excluded). "
                                "Reception points are the only scoring "
                                "difference: ppr = half_ppr + 0.5*receptions, "
                                "standard = half_ppr - 0.5*receptions. Arithmetic on "

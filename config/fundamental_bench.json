@@ -1,0 +1,26 @@
+{
+  "_source": "JEG-556 comment 'Bench value net of the waiver alternative' (2015-2025 history, pooled across 3 scorings x 4 league sizes for stability)",
+  "_method": "No hindsight: lineups set on season-to-date PPG; held backup compared with best deeper player available that week on actual points; signed, split into insurance and upside",
+  "_ticket": "JEG-564",
+  "_units": "net points per week per held player, pooled across all 12 settings",
+
+  "ladder": [
+    {"position": "RB", "depth": 1, "insurance": 0.33, "upside": 0.07, "total": 0.40, "label": "1st backup RB"},
+    {"position": "WR", "depth": 1, "insurance": 0.15, "upside": 0.05, "total": 0.20, "label": "1st backup WR"},
+    {"position": "WR", "depth": 2, "insurance": 0.12, "upside": 0.05, "total": 0.17, "label": "2nd backup WR"},
+    {"position": "QB", "depth": 1, "insurance": 0.15, "upside": 0.02, "total": 0.17, "label": "1st backup QB"},
+    {"position": "RB", "depth": 2, "insurance": 0.12, "upside": 0.03, "total": 0.15, "label": "2nd backup RB"},
+    {"position": "TE", "depth": 1, "insurance": 0.04, "upside": 0.05, "total": 0.09, "label": "1st backup TE"},
+    {"position": "RB", "depth": 3, "insurance": 0.03, "upside": 0.01, "total": 0.04, "label": "3rd backup RB"},
+    {"position": "WR", "depth": 3, "insurance": 0.03, "upside": 0.01, "total": 0.04, "label": "3rd backup WR"},
+    {"position": "QB", "depth": 2, "insurance": 0.00, "upside": 0.00, "total": 0.00, "label": "2nd backup QB"},
+    {"position": "TE", "depth": 2, "insurance": 0.00, "upside": 0.00, "total": 0.00, "label": "2nd backup TE"}
+  ],
+
+  "findings": {
+    "qb_te_upside_zero": "QB and TE upside nets to about zero in every setting; whatever a backup QB/TE might become, you can pick it up when it happens",
+    "second_qb_te_worthless": "Second QB/TE backups are worth about zero net of waivers",
+    "rb_most_reliable": "RB is the most reliable bench value (first backup +0.24 to +0.55 across settings)",
+    "everything_small": "Net of waivers, a bench spot is worth 0-0.5 points a week"
+  }
+}

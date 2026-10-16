@@ -325,6 +325,27 @@ def _p_between(mu: float, sd: float, lo: float, hi: float) -> float:
     return upper - _norm_cdf((lo - mu) / sd)
 
 
+def _norm_pdf(z: float) -> float:
+    return math.exp(-0.5 * z * z) / math.sqrt(2.0 * math.pi)
+
+
+def _band_surplus(mu: float, sd: float, w: float, lo: float, hi: float) -> float:
+    """E[(X - w)⁺ × 1{lo < X <= hi}] for X ~ N(mu, sd), w <= lo.
+
+    JEG-530: the convex option form (manifesto §5): pays for the SIZE of the
+    upside in each band, not just the probability of being in it. Port of
+    expected_starts_model.band_surplus."""
+    if hi <= lo:
+        return 0.0
+    if sd <= 0:
+        return (mu - w) if (lo < mu <= hi and mu > w) else 0.0
+    za = (lo - mu) / sd
+    if math.isinf(hi):
+        return (mu - w) * (1.0 - _norm_cdf(za)) + sd * _norm_pdf(za)
+    zc = (hi - mu) / sd
+    return (mu - w) * (_norm_cdf(zc) - _norm_cdf(za)) + sd * (_norm_pdf(za) - _norm_pdf(zc))
+
+
 def _at_least(n: int, q: float, k: int) -> float:
     """P(Binomial(n, q) >= k)."""
     if k <= 0:
@@ -391,8 +412,14 @@ def _expected_start_parts(xs: list, starters: int, teams: int, w: float, line: f
         p_fill = 0.0
         for b in bands:
             p_fill += b["fill"] * _p_between(x, sd, b["lo"], b["hi"])
+        # JEG-530: option form parts (band_surplus = E[(X-w)+ x 1{band}]).
+        opt_start = _band_surplus(x, sd, w, line, math.inf)
+        opt_fill = 0.0
+        for b in bands:
+            opt_fill += b["fill"] * _band_surplus(x, sd, w, b["lo"], b["hi"])
         parts.append({"start_worthy": p_start, "lineup_share": avail * (p_start + p_fill),
-                      "start_worthy_part": avail * (v * p_start), "fill_in_part": avail * (v * p_fill)})
+                      "start_worthy_part": avail * (v * p_start), "fill_in_part": avail * (v * p_fill),
+                      "option_starter_part": avail * opt_start, "option_fill_in_part": avail * opt_fill})
     return {"avail": avail, "unavailable": q, "n_per_team": n_team, "bands": bands, "parts": parts}
 
 
@@ -459,11 +486,14 @@ def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
             if parts is not None:
                 pt = parts[rank - 1]
                 bsl, ssl = pt["fill_in_part"], pt["start_worthy_part"]   # ES-5: bsl := fi, ssl := sw
+                opt_bsl, opt_ssl = pt["option_fill_in_part"], pt["option_starter_part"]
                 rec.update({"lineup_share": pt["lineup_share"], "start_worthy": pt["start_worthy"]})
             else:
                 bsl = max(0.0, min(x, line) - w)
                 ssl = max(0.0, x - line)
-            rec.update({"bench_slice": bsl, "starter_slice": ssl})
+                opt_bsl, opt_ssl = None, None
+            rec.update({"bench_slice": bsl, "starter_slice": ssl,
+                        "option_bench_slice": opt_bsl, "option_starter_slice": opt_ssl})
             players[i] = rec
             g_s += ssl
             g_b += bsl
@@ -551,7 +581,7 @@ def ddf_weights(league: League, details: dict, included: list, computed_share: b
     return {"starter_mix_mean": s_raw, "bench_mix_mean": b_raw, "bench_share_applied": bs_eff, "weights": w}
 
 
-def _price(detail: dict, budgets: dict, pie: float) -> None:
+def _price(detail: dict, budgets: dict, pie: float, timing_factor: float = 1.0) -> None:
     """VP-5.3 - 5.6 for one source, in place."""
     g = detail["groups"]
     b2 = dict(budgets)
@@ -572,13 +602,23 @@ def _price(detail: dict, budgets: dict, pie: float) -> None:
     # VP-5.6 / ES-15.4: the display factor scales the surplus to the pie.
     factor = pie / surplus if total > 0 and surplus > 0 else 0.0
     for pl in detail["players"].values():
+        rb = rates[f"{pl['pos']}|bench"]
+        rs = rates[f"{pl['pos']}|starter"]
         if total > 0:
-            pl["adjusted"] = (rates[f"{pl['pos']}|bench"] * pl["bench_slice"]
-                              + rates[f"{pl['pos']}|starter"] * pl["starter_slice"])
+            pl["adjusted"] = rb * pl["bench_slice"] + rs * pl["starter_slice"]
             pl["vorp_display"] = pl["vorp"] * factor
+            # JEG-530: option-form adjusted (band_surplus parts, share-form rates).
+            if pl["option_bench_slice"] is not None and pl["option_starter_slice"] is not None:
+                pl["option_adjusted"] = rb * pl["option_bench_slice"] + rs * pl["option_starter_slice"]
+            else:
+                pl["option_adjusted"] = pl["adjusted"]
+            # JEG-528: timing-adjusted (bench part scaled by remaining-season fraction).
+            pl["timing_adjusted"] = rb * pl["bench_slice"] * timing_factor + rs * pl["starter_slice"]
         else:
             pl["adjusted"] = 0.0
             pl["vorp_display"] = 0.0
+            pl["option_adjusted"] = 0.0
+            pl["timing_adjusted"] = 0.0
     detail.update({"rates": rates, "budgets_paid": b2, "unfunded_moved": moved, "unfunded_groups": unpaid,
                    "vorp_display_factor": factor})
 
@@ -656,8 +696,15 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     wts = ddf_weights(league, details, inc, computed_share=es is not None and share_in is None)
     pie = league.pie
     budgets = {g: pie * wts["weights"][g] for g in GROUPS}
+    # JEG-528: timing factor = remaining-season fraction.
+    FULL_SEASON_WEEKS = 17  # LINEUP_DEFAULT_LEAGUE_WEEKS.playoff_weeks[1]
+    timing_factor = 1.0
+    if lineup is not None and lineup.get("window") is not None:
+        w0, w1 = lineup["window"]
+        if w1 >= w0:
+            timing_factor = min(1.0, (w1 - w0 + 1) / FULL_SEASON_WEEKS)
     for d in details.values():
-        _price(d, budgets, pie)
+        _price(d, budgets, pie, timing_factor)
 
     rows = _rows(sources, details, pos_of, inc, selection, m, hidden or set())
     for i, r in rows.items():
@@ -668,6 +715,28 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
         r["lineup_share"] = sum(by_src[k] for k in in_i) / len(in_i) if in_i else None
         r["start_worthy"] = (sum(details[k]["players"][i]["start_worthy"] for k in in_i) / len(in_i)
                              if in_i else None)
+        # JEG-530: option value = mean over I of (option_adjusted - adjusted).
+        # JEG-528: timing value = mean over I of (adjusted - timing_adjusted).
+        opt_sum, opt_n, time_sum, time_n = 0.0, 0, 0.0, 0
+        if es is not None:
+            h = hidden or set()
+            for k in inc:
+                if k in h:
+                    continue
+                pl = details[k]["players"].get(i)
+                if pl is None:
+                    continue
+                adj_v = pl["adjusted"]
+                oa = pl.get("option_adjusted")
+                ta = pl.get("timing_adjusted")
+                if oa is not None and adj_v is not None:
+                    opt_sum += oa - adj_v
+                    opt_n += 1
+                if ta is not None and adj_v is not None:
+                    time_sum += adj_v - ta
+                    time_n += 1
+        r["option_value"] = opt_sum / opt_n if opt_n else None
+        r["timing_value"] = time_sum / time_n if time_n else None
     if degenerate:
         blended = {i: r["ddf"]["blended"]["value"] for i, r in rows.items()}
         scored = {i: v for i, v in blended.items() if v is not None}
@@ -688,6 +757,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
         "bench_share": league.bench_share, "bench_share_applied": wts["bench_share_applied"],
         "method": "expected-starts" if es is not None else "slices",
         "bench_share_readout": readout, "bench_share_override": share_in if es is not None else None,
+        "timing_factor": timing_factor,
         "chart_sigma": es["chart_sigma"] if es is not None else None, "lineup": lineup,
         "mean_ppg": m, "allocation": alloc, "fill_sets": fill_sets, "slot_fill": slot_fill,
         "sources": details, "starter_mix_mean": wts["starter_mix_mean"],

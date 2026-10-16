@@ -130,6 +130,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_pull_draftsharks
+	python3 -m unittest tests.test_pull_fantasysharks
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
@@ -158,11 +159,14 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
 	python3 -m unittest tests.test_v2_contract_render
+	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
+	python3 -m unittest tests.test_v2_season_weeks_render
+	python3 -m unittest tests.test_weekly_matchup_swaps
 	python3 -m unittest tests.test_v2_offer_render
 	python3 -m unittest tests.test_v2_waterfall_render
 	python3 -m unittest tests.test_v2_ddf_render
@@ -482,6 +486,7 @@ test-core:
 	python3 -m unittest tests.test_v2_targets
 	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
+	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
@@ -512,6 +517,12 @@ test-core:
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_roster_convention_parity
+	python3 -m unittest tests.test_player_tags
+	python3 -m unittest tests.test_contract_qa_report
+
+# Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
+qa-report:
+	python3 scripts/contract_qa_report.py
 
 test-all: naming naming-convention test-unit
 

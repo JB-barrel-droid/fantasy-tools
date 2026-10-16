@@ -48,7 +48,7 @@ TABS = {
     "#player-values": ["v2ChartTitle", "v2TableTitle"],
     "#trade-targets": ["v2TSellTitle", "v2TBuyTitle"],
     "#risers-fallers": ["v2RRiseTitle", "v2RFallTitle"],
-    "#compare-trade": ["v2GiveTitle", "v2GetTitle", "v2CVerdictTitle", "v2CResultTitle"],
+    "#compare-trade": ["v2GiveTitle", "v2GetTitle", "v2CVerdictTitle", "v2CResultTitle", "v2FindTitle"],
 }
 REUSED_EXPAND = {"v2ChartTitle", "v2TableTitle"}
 

@@ -669,7 +669,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 @media (max-width: 767px) {
   .v2-tabs { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
   /* 7 px side padding leaves slack in the 358 px row, so the shortest tab can keep a 44 px hit area (JEG-607). */
-  .v2-tab { padding: 8px 6px; min-width: 44px; flex: 1 1 auto; justify-content: center; }
+  /* Seven tabs since Research (JEG-543): 13 px type and 2 px padding keep the row inside 358 px. */
+  .v2-tab { padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 13px; }
   .v2-tab .v2-tab-full { display: none; }
   .v2-tab::before { content: attr(data-short); }
 }
@@ -1123,6 +1124,17 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-mf-sec { margin-top: 36px; }
 }
 
+/* Research (JEG-543): the index and posts reuse the Manifesto's reading column. */
+#v2Research { padding-top: clamp(20px, 2vw + 8px, 40px); padding-bottom: 64px; }
+.v2-mf-text a { color: var(--v2-action-strong); }
+.v2-rs-list { list-style: none; margin: 28px 0 0; padding: 0; }
+.v2-rs-list li { display: grid; gap: 4px; padding: 16px 0; border-top: 1px solid var(--v2-border); }
+.v2-rs-link { font-size: 19px; font-weight: 700; text-decoration: none; }
+.v2-rs-link:hover { text-decoration: underline; }
+.v2-rs-date, .v2-rs-meta { color: var(--v2-muted, #5b6472); font-size: 14px; }
+.v2-mf-text .v2-mf-eyebrow a { color: inherit; text-decoration: none; }
+.v2-rs-back { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--v2-border); }
+
 /* JEG-502: players no source prices, listed only in search results. */
 .v2-unpriced { margin: 0 0 12px; padding: 10px 14px; border: 1px dashed var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); }
 .v2-unpriced-head { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
@@ -1149,3 +1161,35 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-mod[data-collapsed="true"] > .v2-mod-head > :not(h2):not(.v2-eyebrow):not(:has(h2)) { display: none !important; }
 .v2-mod[data-xl="true"] { grid-column: 1 / -1; }
 .v2-mod[data-xl="true"] .v2-table-wrap { max-height: none; }
+
+/* Trade targets: two numbered checks (JEG-476, JEG-489). */
+.v2-tcheck { margin: 4px 0 8px; }
+.v2-tcheck h2, .v2-weight h2 { font-size: var(--v2-title-2); margin: 0; }
+.v2-tcheck p { margin: 2px 0 0; max-width: 72ch; }
+.v2-weight { margin-top: 24px; padding: var(--v2-pad-card) var(--v2-pad-card-x); }
+.v2-weight > p { max-width: 72ch; margin: 4px 0; }
+.v2-weight-headline { font-weight: 600; margin: 10px 0 !important; }
+.v2-weight .v2-table-wrap { overflow-x: auto; max-width: 100%; position: relative; }
+.v2-wtable td, .v2-wtable th { white-space: nowrap; }
+.v2-wtable tr.is-tier td.player { padding-left: 22px; font-weight: 400; color: var(--v2-muted); }
+.v2-wtable tr.is-pos td.player { font-weight: 700; }
+.v2-wtable td.w-gap.h-up-1 { background: var(--v2-heat-up-1); } .v2-wtable td.w-gap.h-up-2 { background: var(--v2-heat-up-2); } .v2-wtable td.w-gap.h-up-3 { background: var(--v2-heat-up-3); }
+.v2-wtable td.w-gap.h-down-1 { background: var(--v2-heat-down-1); } .v2-wtable td.w-gap.h-down-2 { background: var(--v2-heat-down-2); } .v2-wtable td.w-gap.h-down-3 { background: var(--v2-heat-down-3); }
+.v2-wsignal { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; font-weight: 600; }
+.v2-wsignal.is-sell { color: var(--v2-action-strong); }
+.v2-wsignal.is-buy { color: var(--v2-negative); }
+.v2-wsignal.is-fair { color: var(--v2-muted); }
+.v2-wtable tr.w-detail td { white-space: normal; background: var(--v2-hover); padding: 6px; }
+.v2-wplayers { width: 100%; }
+.v2-weight-how { margin-top: 10px; font-size: 13px; max-width: 72ch; }
+.v2-weight-how summary { cursor: pointer; min-height: 32px; }
+
+/* JEG-481: Find a trade (finder.js). */
+.v2-find-side { position: relative; }
+.v2-find-side h3 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
+.v2-find-side .v2-trade-results { left: 0; right: 0; }
+#v2Find .v2-trade-sides { margin-top: 12px; }
+#v2Find .v2-ctoolbar { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#v2FindOut { margin-top: 12px; }
+.v2-find-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.v2-find-list li { display: grid; gap: 4px; border-top: 1px solid var(--v2-border); padding: 12px 0; }

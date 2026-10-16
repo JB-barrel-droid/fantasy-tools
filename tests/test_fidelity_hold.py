@@ -37,7 +37,8 @@ def fixture(week_label="Week 5", built_at="2026-10-09T20:00:00+00:00", tag="new"
     secs = {}
     for root, d in vc.SOURCE_DERIVED.items():
         for sec in d["sections"]:
-            secs[sec] = {"week_designated": week_label, "tag": f"{tag}:{sec}"}
+            secs[sec] = {"week_designated": week_label, "tag": f"{tag}:{sec}",
+                         "combos": {"ppr_12": {"native": {"a": 1.0}}}}
     return {"built_at": built_at, "sources": secs}
 
 
@@ -414,34 +415,35 @@ class ChainAppliesTheHold(unittest.TestCase):
     HOLD = {"stage": "publisher_vs_stored", "reason": "fidelity: publisher_vs_stored", "identity": "b2",
             "since": "2026-10-09T21:51:00Z", "summary": "39 value mismatches"}
 
-    def test_held_source_has_combos_stripped(self):
+    def test_held_source_keeps_combos(self):
         out, report = fh.apply_fidelity_holds(fixture(), {"cbs": self.HOLD}, 5)
-        # JEG-569 part 2: combos stripped, section kept with hold metadata.
+        # JEG-569 part 2 (Jeremy, 2026-10-12): the held source is grayed out but its combos are KEPT so the
+        # engine still includes it in the pipeline; the validationHold flag is the signal.
         held = {sec for sec, s in out["sources"].items()
                 if isinstance(s, dict) and s.get("validationHold")}
         self.assertIn("cbs", held)
-        self.assertEqual(out["sources"]["cbs"]["combos"], {})
+        self.assertTrue(out["sources"]["cbs"]["combos"])
         hold = out["sources"]["cbs"]["validationHold"]
         self.assertEqual("fidelity: publisher_vs_stored", hold["reason"])
         self.assertEqual("cbs", hold["root"])
         # _adjusted derivative also stripped
         if "cbs_adjusted" in out["sources"]:
-            self.assertEqual(out["sources"]["cbs_adjusted"]["combos"], {})
-        # every other source keeps its combos
+            self.assertTrue(out["sources"]["cbs_adjusted"]["combos"])
+        # every source keeps its combos
         for sec, s in out["sources"].items():
-            if sec not in held and isinstance(s, dict) and "combos" in s:
+            if isinstance(s, dict) and "combos" in s:
                 self.assertTrue(s["combos"], f"{sec} combos should not be empty")
 
-    def test_projection_hold_strips_combos(self):
+    def test_projection_hold_keeps_combos(self):
         out, report = fh.apply_fidelity_holds(fixture(), {"espn": self.HOLD}, 5)
-        self.assertEqual(out["sources"]["espn"]["combos"], {})
+        self.assertTrue(out["sources"]["espn"]["combos"])
         hold = out["sources"]["espn"]["validationHold"]
         self.assertEqual("fidelity: publisher_vs_stored", hold["reason"])
         self.assertEqual("espn", hold["root"])
 
-    def test_hold_without_last_good_strips_combos(self):
+    def test_hold_without_last_good_keeps_combos(self):
         out, _ = fh.apply_fidelity_holds(fixture(), {"usatoday": self.HOLD}, 5)
-        self.assertEqual(out["sources"]["usatoday"]["combos"], {})
+        self.assertTrue(out["sources"]["usatoday"]["combos"])
 
     def test_release_only_fidelity_holds_the_pulse_dropped(self):
         fx = fixture()

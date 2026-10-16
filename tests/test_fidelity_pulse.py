@@ -502,6 +502,17 @@ class Stage3Freshness(unittest.TestCase):
                 self.assertEqual(want, st(res, "usatoday", "freshness"))
                 self.assertEqual(want, st(res, "usatoday"))
 
+    def test_stored_already_has_the_new_week_is_not_red(self):
+        # JEG-676: the chart lags only because the chain has not published; red here held every source
+        # at once on a new week and deadlocked publishing.
+        env = Env()
+        env.usat_week_entries.append((URLS["usatoday"].replace("week-5", "week-6").replace(
+            "92125556007", "92125556999"), "2026-10-07T12:00:00Z"))
+        for r in env.stored["usatoday"]:
+            r["week"] = 6
+        res, _, _ = env.run(["usatoday"])
+        self.assertEqual("amber", st(res, "usatoday", "freshness"))
+
     def test_cbs_and_fantasypros_newer_week(self):
         env = Env()
         env.cbs_next = cbs_html(CBS, week=6).replace("2026-10-06T21:36:46Z", "2026-10-06T00:00:00Z")
@@ -700,6 +711,16 @@ class ProjectionStages(unittest.TestCase):
         env.vintage = "2026-10-04"
         r, _ = env.run()
         self.assertEqual("red", r["stages"]["freshness"]["status"])
+
+    def test_stored_snapshot_newer_than_old_chart_is_judged_on_stored(self):
+        # JEG-676: a chart 6 d old would be red, but the stored snapshot (what the next build serves) is fresh.
+        env = ProjEnv()
+        for row in env.stored:
+            row["snap"] = "2026-10-10"
+        env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-04"
+        env.vintage = None
+        r, _ = env.run()
+        self.assertNotEqual("red", r["stages"]["freshness"]["status"])
 
     def test_publisher_newer_than_chart(self):
         env = ProjEnv()

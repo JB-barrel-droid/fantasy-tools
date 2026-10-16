@@ -52,8 +52,6 @@
       note: "Our value for each player, built from the inputs you choose below."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
-    {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
-      note: "Trade charts corrected for each publisher's known bias."},
     {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
       note: "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged."},
     {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
@@ -62,17 +60,16 @@
   function seriesGroup(key) {
     if (isDdfKey(key)) return "ddf";
     if (key.endsWith("_vorp")) return "vorp";
-    if (key.endsWith("_adjusted")) return "adj";
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
     return "pub";
   }
   // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
-  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (rescaled)", "ESPN value above waivers".
+  // "FantasyCalc chart (rescaled)", "ESPN value above waivers".
   function groupSeriesName(key) {
     if (isDdfKey(key)) return sourceMeta(key).label;
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
-    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (rescaled)`,
+    return {proj: `${name} projection`, pub: `${name} chart (rescaled)`,
       vorp: `${name} value above waivers`}[seriesGroup(key)];
   }
   const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
@@ -154,7 +151,6 @@
     let method;
     let publisher;
     if (key.endsWith("_vorp")) { method = "vorp"; publisher = key.slice(0, -5); }
-    else if (key.endsWith("_adjusted")) { method = "dda"; publisher = key.slice(0, -9); }
     // JEG-508: the engine's DDF inputs are now "<chart>_adj_values" (the chart's adjusted values).
     else if (key.endsWith("_adj_values")) { method = "dda"; publisher = key.slice(0, -11); }
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
@@ -212,7 +208,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -231,12 +227,27 @@
   // the loading / failure card belong to the value tabs; until the engine is ready they follow the hash here.
   function applyStatic() {
     const onManifesto = currentView() === "manifesto";
+    const onResearch = currentView() === "research";
+    const onText = onManifesto || onResearch;
     $("v2Manifesto").hidden = !onManifesto;
-    $("v2League").hidden = onManifesto;
+    $("v2Research").hidden = !onResearch;
+    if (onResearch) showResearchPage();
+    $("v2League").hidden = onText;
     if (!C) {
-      $("v2State").hidden = onManifesto;
-      if (onManifesto) $("v2Methods").hidden = true;
+      $("v2State").hidden = onText;
+      if (onText) $("v2Methods").hidden = true;
     }
+  }
+
+  // Research (JEG-543): #research is the index, #research/<slug> one post. Both are static text built into the
+  // page, so they show without the engine. An unknown slug falls back to the index.
+  function showResearchPage() {
+    const slug = decodeURIComponent(hashBase().slice("#research/".length));
+    const posts = [...document.querySelectorAll("#v2Research .v2-rs-post")];
+    const post = hashBase().startsWith("#research/") ? posts.find(node => node.dataset.slug === slug) : null;
+    posts.forEach(node => { node.hidden = node !== post; });
+    $("v2ResearchIndex").hidden = Boolean(post);
+    if (post) window.scrollTo(0, 0);
   }
 
   // Before the engine is ready, only the Manifesto can show; it follows the hash on its own.
@@ -255,8 +266,10 @@
   // ---------- derived view ----------
   // Week labels come from the data's own freshness record (content week and
   // which series are an older week), the same record that picks first-load sources.
+  const isEngineAlias = key => key.endsWith("_adjusted");
   function sourceInfoWithFreshness() {
-    const info = C.getSourceInfo({includeComposite: true});
+    // JEG-626: the engine still lists the deprecated "<chart>_adjusted" aliases; v2 reads the raw chart series.
+    const info = C.getSourceInfo({includeComposite: true}).filter(item => !isEngineAlias(item.key));
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     info.forEach(item => {
       const series = freshness?.series?.[item.key];
@@ -468,7 +481,7 @@
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources());
+    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources().filter(key => !isEngineAlias(key)));
     const rankKey = C.getRankSource();
     // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
     const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
@@ -1027,15 +1040,14 @@
   // ---------- table ----------
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
-  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
+  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"],
     ["published", "Trade charts (rescaled)"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
-  const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
     if (isDdfKey(key)) return "ddf";
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
     if (meta.method === "indexed") return "published";
-    return KIND[meta.publisher] === "Projection-based" ? "projections" : "adjusted";
+    return "projections";
   }
   const groupOrder = id => TABLE_GROUPS.findIndex(([g]) => g === id);
 
@@ -1047,7 +1059,7 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+      {id: "tier", label: "ESPN Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
@@ -1444,7 +1456,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · ESPN Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -1921,7 +1933,7 @@
   function applyShown(keys) {
     const want = new Set(keys);
     const engineNow = C.getActiveSources();
-    const available = new Set(C.getSourceInfo().filter(item => item.available).map(item => item.key));
+    const available = new Set(C.getSourceInfo().filter(item => item.available && !isEngineAlias(item.key)).map(item => item.key));
     const adds = [...want].filter(key => !isDdfKey(key) && available.has(key) && !engineNow.includes(key));
     const drops = engineNow.filter(key => !want.has(key));
     adds.forEach(toggleEngineSource);
@@ -1979,9 +1991,35 @@
   let leagueDefaults = null;   // the engine's state at first load: what "Reset defaults" returns to
   const ROSTER_SLOTS = [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5],
     ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];
+  // JEG-527: the reader's season weeks as a draft (null when the engine has no lineup parameters).
+  function seasonWeeksState(defaults) {
+    if (!C.getLeagueWeeks || !C.getContentWeek || !C.setLeagueWeeks || !C.setOptimizeFor || !C.setContentWeek) return null;
+    const build = C.getBuildContentWeek ? C.getBuildContentWeek() : null;
+    if (!Number.isInteger(build)) return null;
+    const weeks = defaults ? C.getLineupSettingsDefaults() : null;
+    const cur = C.getLeagueWeeks();
+    const src = weeks ? {regularSeasonEnd: weeks.regularSeasonEnd, playoffWeeks: weeks.playoffWeeks, optimizeFor: weeks.optimizeFor}
+      : {regularSeasonEnd: cur.regularSeasonEnd, playoffWeeks: cur.playoffWeeks, optimizeFor: C.getOptimizeFor()};
+    return {build, content: weeks ? build : C.getContentWeek(), regularEnd: src.regularSeasonEnd,
+      playoffLo: src.playoffWeeks[0], playoffHi: src.playoffWeeks[1], optimize: src.optimizeFor};
+  }
+  // Returns "" or the reason the engine refused the weeks (the panel then stays open).
+  function applySeasonWeeks(w) {
+    const cur = C.getLeagueWeeks();
+    try {
+      if (w.regularEnd !== cur.regularSeasonEnd || w.playoffLo !== cur.playoffWeeks[0] || w.playoffHi !== cur.playoffWeeks[1]) {
+        C.setLeagueWeeks({regularSeasonEnd: w.regularEnd, playoffWeeks: [w.playoffLo, w.playoffHi]});
+      }
+      if (w.optimize !== C.getOptimizeFor()) C.setOptimizeFor(w.optimize);
+      if (w.content !== C.getContentWeek()) C.setContentWeek(w.content === w.build ? null : w.content);
+    } catch (error) {
+      return error.message || "Those season weeks are not valid.";
+    }
+    return "";
+  }
   function openLeague() {
     const s = view.state;
-    const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}};
+    const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}, weeks: seasonWeeksState(false)};
     openPanel($("v2EditLeague"), "Your league", "One league setup for charts, tables and trades.", pop => {
       const body = panelBody(pop);
       const content = document.createElement("div");
@@ -2027,16 +2065,77 @@
         note.className = "v2-meta";
         note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. Position weights and bench allocation live in Weights & bench.";
         content.appendChild(note);
+        if (draft.weeks) renderSeasonWeeks();
+      }
+      // JEG-527 / GL-24: the season weeks the value counts and what to optimize for. The engine
+      // does the math (window, byes, drift, playoff-week injury rate); v2 only collects the inputs.
+      function renderSeasonWeeks() {
+        const w = draft.weeks;
+        eyebrow(content, "Season weeks");
+        const stepLine = (id, label, key, min, max, after) => {
+          const line = document.createElement("div");
+          line.className = "v2-pstep";
+          const name = document.createElement("span");
+          name.id = id;
+          name.textContent = label;
+          const stepper = document.createElement("div");
+          stepper.className = "v2-stepper";
+          const value = document.createElement("output");
+          value.setAttribute("aria-labelledby", name.id);
+          value.textContent = String(w[key]);
+          const mk = (text, delta, aria) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = text;
+            b.setAttribute("aria-label", `${aria} ${label}`);
+            b.disabled = delta < 0 ? w[key] <= min : w[key] >= max;
+            b.addEventListener("click", () => {
+              w[key] = Math.max(min, Math.min(max, w[key] + delta));
+              if (after) after();
+              render();
+              const again = content.querySelector(`[aria-label="${aria} ${label}"]`);
+              if (again && !again.disabled) again.focus();
+            });
+            return b;
+          };
+          stepper.append(mk("−", -1, "Earlier"), value, mk("+", 1, "Later"));
+          line.append(name, stepper);
+          content.appendChild(line);
+        };
+        stepLine("v2StepContentWeek", "Week the values are for", "content", 1, 17);
+        stepLine("v2StepRegularEnd", "Last regular-season week", "regularEnd", 1, 17, () => {
+          if (w.playoffLo <= w.regularEnd) w.playoffLo = w.regularEnd + 1;
+          if (w.playoffHi < w.playoffLo) w.playoffHi = w.playoffLo;
+        });
+        stepLine("v2StepPlayoffLo", "First playoff week", "playoffLo", w.regularEnd + 1, 18, () => {
+          if (w.playoffHi < w.playoffLo) w.playoffHi = w.playoffLo;
+        });
+        stepLine("v2StepPlayoffHi", "Last playoff week", "playoffHi", w.playoffLo, 18);
+        eyebrow(content, "Optimize for");
+        content.appendChild(segmented("Optimize for", [["season", "Whole season"], ["regular", "Regular season"], ["playoffs", "Playoffs"]],
+          w.optimize, v => { w.optimize = v; }));
+        const lo = w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
+        const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
+        const weeksNote = document.createElement("p");
+        weeksNote.className = "v2-meta";
+        weeksNote.dataset.seasonWeeksNote = "";
+        weeksNote.textContent = hi >= lo
+          ? `Counts weeks ${lo} to ${hi}. ${w.content === w.build ? "" : `The projections are still the build's (week ${w.build}); only the weeks counted move. `}Week 18 is never counted.`
+          : "No weeks are left in this window, so there is nothing to count for bench players.";
+        content.appendChild(weeksNote);
       }
       render();
       panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
         const cur = view.state;
         const shape = C.getRosterShape();
+        let weekError = "";
         leagueChange(() => {
           if (draft.scoring !== cur.scoring) C.setScoring(draft.scoring);
           if (draft.teams !== cur.teams) C.setTeams(draft.teams);
           ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });
+          if (draft.weeks) weekError = applySeasonWeeks(draft.weeks);
         });
+        if (weekError) { setStatus(weekError); return; }
         closePopover();
       }, {"data-apply": "league"}]], (() => {
         const reset = document.createElement("button");
@@ -2048,6 +2147,7 @@
           draft.scoring = leagueDefaults.scoring;
           draft.teams = leagueDefaults.teams;
           draft.roster = {...leagueDefaults.roster};
+          if (draft.weeks) draft.weeks = seasonWeeksState(true);
           render();
         });
         return reset;
@@ -2461,7 +2561,7 @@
       note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
       pop.appendChild(note);
       eyebrow(pop, "Player details");
-      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
+      [["pos", "Position"], ["team", "Team"], ["tier", "ESPN Tier"]].forEach(([id, label]) => {
         box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
       });
       const done = document.createElement("div");
@@ -3112,6 +3212,179 @@
       if (!badge) return;
       priorNote.append(badge, document.createTextNode(` ${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
     });
+    renderWeightCheck();
+  }
+
+  // ---------- Check 2: potential positional weight inflation (JEG-476, JEG-489) ----------
+  // All numbers come from TradeValueTargets.weightCheck over the engine's rows (DDF Value against the
+  // consensus and each chart, grouped by position and by DDF starter / bench tier). Nothing is computed here.
+  const WEIGHT_SIGNAL_TEXT = {sell: ["▲", "Sell this group"], buy: ["▼", "Buy this group"], fair: ["●", "Fairly priced"]};
+  const WEIGHT_TIER_TEXT = {starter: "Starters", bench: "Bench"};
+  const weightOpen = new Set();
+  const fmtPct = gap => {
+    if (!Number.isFinite(gap)) return "—";
+    const text = Math.abs(gap * 100).toFixed(0);
+    return text === "0" ? "0%" : `${gap > 0 ? "+" : "−"}${text}%`;
+  };
+  const weightGroupName = group => group.tier ? `${group.pos} ${WEIGHT_TIER_TEXT[group.tier].toLowerCase()}` : group.pos;
+  const weightHeat = gap => {
+    if (!Number.isFinite(gap)) return "";
+    const size = Math.abs(gap);
+    const step = size >= 0.20 ? 3 : size >= 0.10 ? 2 : size >= 0.05 ? 1 : 0;
+    return step ? ` h-${gap > 0 ? "up" : "down"}-${step}` : "";
+  };
+
+  function weightHeadline(result) {
+    const h = result.headline;
+    const pct = g => `${Math.abs(g.consensus.gap * 100).toFixed(0)}%`;
+    if (!h.over && !h.under) return "No group of 8 or more players is priced differently from DDF Value by the consensus.";
+    const parts = [];
+    if (h.over) parts.push(`the consensus prices ${weightGroupName(h.over)} ${pct(h.over)} above DDF Value (${h.over.consensus.n} players)`);
+    if (h.under) parts.push(`${h.over ? "and " : "the consensus prices "}${weightGroupName(h.under)} ${pct(h.under)} below it (${h.under.consensus.n} players)`);
+    const lead = h.over && h.under ? "Best group arbitrage: " : "Largest group gap: ";
+    return `${lead}${parts.join(" ")}.`;
+  }
+
+  function signalChip(signal) {
+    const chip = document.createElement("span");
+    chip.className = `v2-wsignal is-${signal}`;
+    chip.dataset.signal = signal;
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = `${WEIGHT_SIGNAL_TEXT[signal][0]} `;
+    chip.append(sym, document.createTextNode(WEIGHT_SIGNAL_TEXT[signal][1]));
+    return chip;
+  }
+
+  function renderWeightCheck() {
+    const TT = window.TradeValueTargets;
+    const table = $("v2WeightTable");
+    const empty = $("v2WeightEmpty");
+    const headline = $("v2WeightHeadline");
+    table.replaceChildren();
+    const ours = targetsView.infoByKey[DDF_KEY];
+    const reason = !ours || !ours.available ? "DDF Value is not available for this league right now."
+      : targetsView.blocked ? targetsView.blocked
+      : !targetsView.used.length ? "No trade chart is available to compare for this selection." : null;
+    empty.hidden = !reason;
+    empty.textContent = reason || "";
+    table.parentElement.hidden = Boolean(reason);
+    if (reason) { headline.textContent = ""; return; }
+    const charts = targetsView.used;
+    const result = TT.weightCheck(C.getAllRows(), charts, {ours: DDF_KEY});
+    headline.textContent = weightHeadline(result);
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    const th = (text, cls) => {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      if (cls) cell.className = cls;
+      cell.textContent = text;
+      hr.appendChild(cell);
+      return cell;
+    };
+    th("Group", "player");
+    th("Players", "num");
+    th("Consensus gap", "num");
+    th("Signal");
+    charts.forEach(key => { const cell = th(PUBLISHER_NAMES[key] || key, "num t-chart"); cell.dataset.chart = key; });
+    const expand = th("", "t-expand");
+    const sr = document.createElement("span");
+    sr.className = "v2-sr";
+    sr.textContent = "Players";
+    expand.appendChild(sr);
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    result.groups.forEach(group => {
+      const tr = document.createElement("tr");
+      tr.dataset.group = group.key;
+      tr.className = group.tier ? "is-tier" : "is-pos";
+      const td = (cls, text) => {
+        const cell = document.createElement("td");
+        if (cls) cell.className = cls;
+        if (text !== undefined) cell.textContent = text;
+        tr.appendChild(cell);
+        return cell;
+      };
+      td("player", group.tier ? WEIGHT_TIER_TEXT[group.tier] : group.pos);
+      td("num", String(group.n));
+      const gapCell = td(`num w-gap${weightHeat(group.consensus.gap)}`, group.consensus.gap === null ? "—" : fmtPct(group.consensus.gap));
+      gapCell.dataset.gap = group.consensus.gap === null ? "" : String(group.consensus.gap);
+      if (group.consensus.gap === null) gapCell.title = group.n ? `Only ${group.n} player${group.n === 1 ? "" : "s"} in this group are priced by both sides; at least ${TT.WEIGHT_MIN_SHOW} are needed.` : "No players in this group are priced by both sides.";
+      const signalCell = td("w-signal");
+      if (group.consensus.signal) signalCell.appendChild(signalChip(group.consensus.signal));
+      charts.forEach(chart => {
+        const cell = group.cells[chart];
+        const c = td(`num t-chart w-gap${weightHeat(cell.gap)}`, cell.gap === null ? "—" : fmtPct(cell.gap));
+        c.dataset.chart = chart;
+        if (cell.gap !== null) c.dataset.gap = String(cell.gap);
+      });
+      const open = weightOpen.has(group.key);
+      const ec = td("t-expand");
+      if (group.n) {
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "v2-texpand";
+        toggle.dataset.weightExpand = group.key;
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.setAttribute("aria-label", `Players in ${weightGroupName(group)}`);
+        const glyph = document.createElement("span");
+        glyph.setAttribute("aria-hidden", "true");
+        glyph.textContent = open ? "▴" : "▾";
+        toggle.appendChild(glyph);
+        toggle.addEventListener("click", () => {
+          if (weightOpen.has(group.key)) weightOpen.delete(group.key); else weightOpen.add(group.key);
+          renderWeightCheck();
+          const again = table.querySelector(`[data-weight-expand="${CSS.escape(group.key)}"]`);
+          if (again) again.focus();
+        });
+        ec.appendChild(toggle);
+      }
+      tbody.appendChild(tr);
+      if (open) {
+        const detail = document.createElement("tr");
+        detail.className = "t-detail w-detail";
+        detail.dataset.detailFor = group.key;
+        const cell = document.createElement("td");
+        cell.colSpan = hr.children.length;
+        const wrap = document.createElement("div");
+        wrap.className = "v2-table-wrap";
+        const inner = document.createElement("table");
+        inner.className = "v2-table v2-wplayers";
+        const ih = document.createElement("tr");
+        ["Player", "DDF Value", "Consensus", "Gap"].concat(charts.map(key => PUBLISHER_NAMES[key] || key)).forEach((label, index) => {
+          const h = document.createElement("th");
+          h.scope = "col";
+          h.className = index ? "num" : "player";
+          h.textContent = label;
+          ih.appendChild(h);
+        });
+        const ibody = document.createElement("tbody");
+        result.playersOf(group).forEach(p => {
+          const row = document.createElement("tr");
+          row.dataset.playerKey = String(p.row.player_key);
+          const cells = [p.row.name, fmt(p.ours), fmt(p.market), fmtGap(p.gap)].concat(charts.map(key => fmt(p.charts[key])));
+          cells.forEach((text, index) => {
+            const c = document.createElement("td");
+            c.className = index ? "num" : "player";
+            c.textContent = text;
+            row.appendChild(c);
+          });
+          row.tabIndex = 0;
+          row.addEventListener("click", () => openDrawer(p.row, "targets"));
+          row.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
+          ibody.appendChild(row);
+        });
+        const head = document.createElement("thead");
+        head.appendChild(ih);
+        inner.append(head, ibody);
+        wrap.appendChild(inner);
+        cell.appendChild(wrap);
+        detail.appendChild(cell);
+        tbody.appendChild(detail);
+      }
+    });
+    table.append(thead, tbody);
   }
 
   function bindTargets() {
@@ -3969,6 +4242,15 @@
       const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
       const custom = defaults && ["QB", "RB", "WR", "TE"].some(pos => Math.abs(Number(shares[pos]) - Number(defaults[pos])) > 5e-4);
       if (custom) parts.push(`shares=${["QB", "RB", "WR", "TE"].map(pos => `${pos}${Number(shares[pos]).toFixed(3)}`).join("_")}`);
+      // JEG-527: season weeks only when they differ from the defaults (a default link stays short).
+      const w = seasonWeeksState(false);
+      const d = w && seasonWeeksState(true);
+      if (w) {
+        if (w.regularEnd !== d.regularEnd) parts.push(`regend=${w.regularEnd}`);
+        if (w.playoffLo !== d.playoffLo || w.playoffHi !== d.playoffHi) parts.push(`playoffs=${w.playoffLo}-${w.playoffHi}`);
+        if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
+        if (w.content !== w.build) parts.push(`week=${w.content}`);
+      }
     }
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
@@ -3992,7 +4274,25 @@
       if (m) shares[m[1]] = Number(m[2]);
     });
     const sharesGiven = Object.keys(shares).length === 4 && Boolean(C.setPositionWeights);
-    if (!scoringChange && !rosterChange.length && !benchChange && !sharesGiven) return;
+    // JEG-527: a link that carries a league also carries its season weeks; missing ones mean the defaults.
+    const wkNow = params.has("scoring") ? seasonWeeksState(false) : null;
+    let weeksChange = null;
+    if (wkNow) {
+      const wkDef = seasonWeeksState(true);
+      const po = /^(\d+)-(\d+)$/.exec(params.get("playoffs") || "");
+      const optimize = params.get("optimize") || wkDef.optimize;
+      const week = params.has("week") ? Number(params.get("week")) : wkDef.build;
+      const want = {build: wkDef.build, content: Number.isInteger(week) ? week : wkDef.build,
+        regularEnd: params.has("regend") && Number.isInteger(Number(params.get("regend"))) ? Number(params.get("regend")) : wkDef.regularEnd,
+        playoffLo: po ? Number(po[1]) : wkDef.playoffLo, playoffHi: po ? Number(po[2]) : wkDef.playoffHi,
+        optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
+      if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
+    }
+    if (!scoringChange && !rosterChange.length && !benchChange && !sharesGiven && !weeksChange) return;
+    if (weeksChange) {
+      const error = applySeasonWeeks(weeksChange);
+      if (error) console.warn("Link season weeks ignored:", error);
+    }
     if (scoringChange || rosterChange.length) {
       leagueChange(() => {
         if (scoringChange) C.setScoring(scoring);
@@ -4354,6 +4654,7 @@
     : hashBase() === "#compare-trade" ? "compare"
     : hashBase() === "#how-values" ? "how"
     : hashBase() === "#manifesto" ? "manifesto"
+    : (hashBase() === "#research" || hashBase().startsWith("#research/")) ? "research"
     : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
 
   function applyRoute() {
@@ -4366,7 +4667,7 @@
     applyStatic();
     // The source selection applies on Compare a trade too; Trade targets has its own pickers.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = v === "targets" || v === "risers" || v === "manifesto";
+    $("v2Methods").hidden = v === "targets" || v === "risers" || v === "manifesto" || v === "research";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -4435,7 +4736,7 @@
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
     else if (currentView() === "how") renderHow();
-    else if (currentView() === "manifesto") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "manifesto" || currentView() === "research") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 

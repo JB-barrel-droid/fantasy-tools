@@ -657,8 +657,6 @@ def _group_of(key):
         return "ddf"
     if key.endswith("_vorp"):
         return "vorp"
-    if key.endswith("_adjusted"):
-        return "adjusted"
     if key in ("espn", "cbsros", "razzball"):
         return "projections"
     return "published"
@@ -758,11 +756,11 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
                 if width >= 1280:
                     errors += [tag + e for e in check_fold(page, width, height)]
                     # Fit is judged with a wider selection than the first-visit default: at 1440 six value
-                    # columns (DDF Value, ESPN, the four adjusted charts).
+                    # columns (DDF Value, ESPN, the four raw charts).
                     before_shown = page.evaluate("() => window.TradeValueV2.shown()")
                     # 1366 gets five (no ESPN), the same count the pre-DDF default had.
                     page.evaluate("""wide => window.TradeValueV2.setShown(['ddf_value'].concat(wide ? ['espn'] : [],
-                      ['fantasycalc_adjusted', 'usatoday_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']))""", width >= 1440)
+                      ['fantasycalc', 'usatoday', 'fantasypros', 'cbs']))""", width >= 1440)
                     page.wait_for_timeout(200)
                     errors += [tag + e for e in check_table_fit(page, width)]
                     page.evaluate("keys => window.TradeValueV2.setShown(keys)", before_shown)
