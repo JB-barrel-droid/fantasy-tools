@@ -337,11 +337,11 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-table .at-waiver { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); }
 .v2-tcards .at-waiver { color: var(--v2-muted); }
 /* Two-column layout: a compact column set per card; each row opens its per-chart values. */
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .v2-tlists { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .v2-ttable .t-chart { display: none; }
 }
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .v2-ttable .t-expand, .v2-ttable tr.t-detail { display: none; }
   .v2-ttable th, .v2-ttable td { padding-inline: clamp(4px, .55vw, 8px); }
 }
@@ -1244,7 +1244,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-list li { display: grid; gap: 4px; border-top: 1px solid var(--v2-border); padding: 12px 0; }
 
 /* Player values chart: Starter / Bench / Waiver lines and labels, draggable brush fill, legend toggles (JEG-503). */
-.v2-chart .zone-line { stroke: var(--v2-muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: .55; }
+.v2-chart .zone-line { stroke: var(--v2-muted); stroke-width: 1; opacity: .55; }
+.v2-chart .zone-line.approx { stroke-dasharray: 4 4; }
 .v2-chart .zone-label { fill: var(--v2-muted); font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; opacity: .75; pointer-events: none; }
 .v2-brush-fill, .v2-ybrush-fill { cursor: grab; touch-action: none; }
 .v2-brush-fill.is-dragging, .v2-ybrush-fill.is-dragging { cursor: grabbing; }
@@ -1264,3 +1265,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-tag-start { border-color: var(--v2-tint-border); background: var(--v2-positive); color: var(--v2-action-strong); }
 .v2-tag-stash { border-color: var(--v2-index-border); background: var(--v2-index-bg); color: var(--v2-index-ink); }
 .v2-tag-drop { border-color: var(--v2-negative); color: var(--v2-negative); }
+
+/* JEG-579: side by side from 1024 px (the fold is the module chevron); an expanded list stays in its own column, capped at about 60vh and scrolling inside. */
+@media (min-width: 1024px) {
+  .v2-tlist .v2-t-desktop { max-height: 60vh; overflow: auto; }
+}
+
+/* JEG-579: overall and position rank sub-labels, 1200 px and wider only. */
+.v2-srank, .v2-prank { display: none; }
+@media (min-width: 1200px) {
+  .v2-srank, .v2-prank { display: block; font-size: 11px; font-weight: 400; line-height: 1.2; color: var(--v2-muted); white-space: nowrap; }
+}
+/* A chip on a sub-line stays compact (JEG-470: rows no taller than needed). */
+.player-sub .v2-tag, .v2-meta .v2-tag { margin-left: 4px; padding: 0 5px; font-size: 10px; line-height: 1.3; }
