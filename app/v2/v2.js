@@ -116,6 +116,7 @@
   function weekBadge(key) {
     const item = view && view.infoByKey[key];
     const badge = priorWeekBadge(sourceMeta(key).publisher, {...item, stale: true}, view && view.refWeek);
+    if (!badge) return null;   // the shared badge says nothing when the series is current
     badge.classList.add("v2-wk");
     badge.dataset.priorWeek = key;
     return badge;
@@ -784,7 +785,8 @@
       li.title = seriesName(key);
       li.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span>`;
       li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
-      if (item?.stale) li.appendChild(weekBadge(key));
+      const badge = item?.stale ? weekBadge(key) : null;
+      if (badge) li.appendChild(badge);
       appendDivergence(li, key);
       legend.appendChild(li);
     });
@@ -2036,7 +2038,7 @@
   function pageDefault(page) {
     const TT = window.TradeValueTargets;
     if (page === "targets") return [DDF_KEY].concat(TT.CHART_KEYS);
-    if (page === "risers") return [DDF_KEY];
+    if (page === "risers") return [RISERS_DEFAULT];
     return [DDF_KEY].concat(C.getSourceInfo().filter(item => !isEngineAlias(item.key) && sourceMeta(item.key).method === "indexed").map(item => item.key));
   }
   function pageKeys(page) {
@@ -2234,6 +2236,14 @@
           const need = pageNeed(page, draft);
           if (need) { err.textContent = need; err.hidden = false; return; }
           savePageKeys(page, [...draft]);
+          // The page follows its new set: Trade targets reads the first ticked value as ours, Risers opens on the first
+          // ticked series. The on-page pickers still offer every series for a one-off look.
+          if (page === "targets") {
+            const TT = window.TradeValueTargets;
+            const ticked = TT.OUR_KEYS.filter(key => draft.has(key));
+            if (!ticked.includes(T.ours)) { T.ours = ticked[0]; saveTargetsOurs(T.ours); }
+          }
+          if (page === "risers") R.series = null;
           closePopover();
           refresh();
           return;
@@ -3156,10 +3166,8 @@
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
     const mine = new Set(pageKeys("targets"));
-    const choices = TT.ourChoices(info).filter(choice => mine.has(choice.key));
-    // JEG-498: our value is one of the versions ticked in this page's Customize (DDF Value when it is ticked).
-    const ourKey = choices.some(choice => choice.key === T.ours) ? T.ours
-      : (choices.find(choice => choice.key === TT.OUR_KEY) || choices[0] || {key: TT.OUR_KEY}).key;
+    const choices = TT.ourChoices(info);
+    const ourKey = TT.OUR_KEYS.includes(T.ours) ? T.ours : TT.OUR_KEY;
     const ours = infoByKey[ourKey];
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
@@ -5179,12 +5187,12 @@
       priorsFor(M.SERIES).then(() => { if (currentView() === "risers") renderRisers(); });
       return;
     }
-    // JEG-498: the picker offers the series ticked in this page's Customize (DDF Value by default).
-    const mineSeries = new Set(pageKeys("risers"));
-    const picked = M.SERIES.filter(key => mineSeries.has(key));
-    const choices = (picked.length ? picked : [RISERS_DEFAULT]).map(key => ({key, prior: priorCache.get(key)}));
+    const choices = M.SERIES.map(key => ({key, prior: priorCache.get(key)}));
     if (!R.series || !choices.some(c => c.key === R.series)) {
-      R.series = (choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
+      // JEG-498: the page opens on the first series ticked in its Customize (DDF Value by default) that has a prior week.
+      const mineSeries = new Set(pageKeys("risers"));
+      const ticked = choices.filter(c => mineSeries.has(c.key));
+      R.series = (ticked.find(c => c.prior.available) || choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
         || choices.find(c => c.prior.available) || choices[0]).key;
     }
     renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
@@ -5922,7 +5930,9 @@
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
       // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
       shown: () => ddfShownList().concat(C.getActiveSources()),
-      setShown: keys => { applyShown(keys); refresh(); }};
+      setShown: keys => { applyShown(keys); refresh(); },
+      // JEG-498: the other pages' Customize lists (what their Done saves).
+      pageKeys, setPageKeys: (page, keys) => { savePageKeys(page, keys); refresh(); }};
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

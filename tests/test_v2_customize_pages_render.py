@@ -4,13 +4,13 @@ Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
   * Player values, Trade targets, Risers & fallers and Compare a trade each show a Customize button with a 44 px hit area;
   * each page's Customize lists every dataset the engine knows, and the ticked set is the page's default:
-    Trade targets = DDF Value + the as-published charts, Risers = DDF Value only, Compare = DDF Value + every chart;
+    Trade targets = DDF Value + the as-published charts, Risers opens on DDF Value, Compare = DDF Value + every chart;
   * a change on one page applies to that page only (the others keep their set), and it is remembered on the device
     (it survives a reload);
   * Edit league is the primary button of the league bar and Position weights is the secondary one.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with Compare reading Player values' set, with every page
-sharing one saved list and with the Risers picker ignoring its Customize; each must fail the checks.
+sharing one saved list and with Risers ignoring its ticked series; each must fail the checks.
 """
 from __future__ import annotations
 
@@ -143,9 +143,24 @@ def run_checks(v2_js=None) -> list[str]:
             if "ddf_value" not in on.get("compare", set()) or not want_charts <= on.get("compare", set()):
                 errors.append(f"[compare] default should be DDF Value + every chart, got {sorted(on.get('compare', []))}")
             go("risers")
-            picker = page.evaluate("() => [...document.querySelectorAll('#v2RSeries option')].map(o => o.value)")
-            if picker != ["ddf_value"]:
-                errors.append(f"[risers] the series picker should offer only the ticked DDF Value, got {picker}")
+            opened = page.evaluate("() => window.TradeValueV2.risersState.series")
+            if opened != "ddf_value":
+                errors.append(f"[risers] opens on {opened!r}, want its ticked DDF Value")
+            # Ticking another series (and not DDF Value) moves the page to it, when the engine has its prior week.
+            other = page.evaluate("""async () => { const C = window.TradeValueCurveControls;
+              for (const key of ['fantasycalc', 'usatoday', 'fantasypros', 'cbs']) { if ((await C.getPriorWeek(key)).available) return key; }
+              return null; }""")
+            if other:
+                page.evaluate("(key) => window.TradeValueV2.setPageKeys('risers', [key])", other)
+                page.evaluate("() => { window.TradeValueV2.risersState.series = null; }")
+                page.evaluate("() => { location.hash = '#player-values'; }")
+                go("risers")
+                try:
+                    page.wait_for_function("(key) => window.TradeValueV2.risersState.series === key", arg=other, timeout=15000)
+                except Exception:
+                    now = page.evaluate("() => window.TradeValueV2.risersState.series")
+                    errors.append(f"[risers] ticked {other!r} but the page opened on {now!r}")
+                page.evaluate("() => window.TradeValueV2.setPageKeys('risers', ['ddf_value'])")
 
             # One page's change stays on that page, and it is remembered across a reload.
             drop = next((k for k in CHARTS if k in available), None)
@@ -207,7 +222,7 @@ class CustomizePagesRenderTest(unittest.TestCase):
             "every page shares one saved list": (
                 "const saved = pageSaved[page];", "const saved = pageSaved.compare;"),
             "risers picker ignores its Customize": (
-                "const picked = M.SERIES.filter(key => mineSeries.has(key));", "const picked = M.SERIES.slice();"),
+                "const ticked = choices.filter(c => mineSeries.has(c.key));", "const ticked = [];"),
         }
         for name, (anchor, replacement) in broken.items():
             with self.subTest(mutation=name):
