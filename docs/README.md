@@ -46,7 +46,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [contract/](contract/) | Maintained | Front-end read contract v1, FE dependency inventory, v3 backend requirements (JEG-327). |
 | [design/vorp-reweight.md](design/vorp-reweight.md) | Record | Eight-group VORP reweight design (JEG-209/231), with `reweight_example.py` and a desktop mockup PNG. |
 | [product/jeg-303-dashboard-ideas.md](product/jeg-303-dashboard-ideas.md) | Record | Dashboard idea scoping (JEG-303). |
-| [v2-design-notes.md](v2-design-notes.md) | Maintained | Notes on the v2 front end design. |
+| [v2-design-notes.md](v2-design-notes.md) | Maintained | v2 front end design notes and back-end contracts; dated build-log sections archived 2026-10-15 (JEG-602). |
 | [fixture-transition-proposal.md](fixture-transition-proposal.md) | Record | Decision to pause stale adjusted curves, staged 2026-09-22. |
 
 ## Supabase
@@ -82,7 +82,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 |---|---|---|
 | [claude-log/](claude-log/) | Record | One log file per PR, since 2026-10-07; see its README. |
 | [audits/](audits/) | Record | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation. |
-| [../archive/](../archive/) | Record | Archived material by date; see its README. `2026-10-12-docs/` holds the frozen claude-log.md, JEG-92 pilot, QA round 1, migration plan/status, ChatGPT batch prompt and draft briefs (JEG-605). |
+| [../archive/](../archive/) | Record | Archived material by date; see its README. `2026-10-15-docs/` holds the v2 design-notes build log (JEG-602). `2026-10-12-docs/` holds the frozen claude-log.md, JEG-92 pilot, QA round 1, migration plan/status, ChatGPT batch prompt and draft briefs (JEG-605). |
 
 ## Tracker
 
