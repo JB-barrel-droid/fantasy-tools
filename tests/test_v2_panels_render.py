@@ -419,9 +419,10 @@ def check_toolbar(page) -> list[str]:
         errors.append(f"toolbar: position {sticky}, want sticky")
     # Chart: only direct manipulation inside (brushes, zoom), no rank-window buttons.
     # The card's own expand and collapse buttons (.v2-mod-ctl, JEG-500) are not chart
-    # controls; tests/test_v2_modules_render.py covers them.
+    # controls; tests/test_v2_modules_render.py covers them. Nor are the legend's series toggles
+    # (JEG-503, PV-07: Jeremy asked for them); tests/test_v2_chart_zones_render.py covers those.
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
-      .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl')).map(n => n.id || n.textContent.trim())""")
+      .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl') && !n.classList.contains('v2-legend-item')).map(n => n.id || n.textContent.trim())""")
     allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
                "v2ExpandChart", "v2ResetZoom"}   # JEG-483: expand and (while zoomed) Reset zoom
     extra = [n for n in inside if n not in allowed]
@@ -819,7 +820,7 @@ class PanelsRenderTest(unittest.TestCase):
             "Reset keeps the value range": {"v2_js": v2.replace(
                 "    state.range = {min: null, max: null};\n    state.windowPreset = SHOW_DEFAULT;", "    state.windowPreset = SHOW_DEFAULT;", 1)},
             "Columns menu ignored": {"v2_js": v2.replace(
-                "      .filter(key => key === view.rankKey || !state.hiddenGroups.has(tableGroup(key)));", ";", 1)},
+                "      .filter(key => key === view.rankKey || (!state.hiddenGroups.has(tableGroup(key)) && !state.hiddenSeries.has(key)));", ";", 1)},
             "no SUPERFLEX stepper": {"v2_js": v2.replace(
                 '    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];', '    ["BENCH", "Bench slots", 0, 14]];', 1)},
             "bench move not reported": {"v2_js": v2.replace(

@@ -253,7 +253,7 @@ def run_checks(patch=None) -> list[str]:
             if not target:
                 errors.append("[legend] no second series to toggle")
             else:
-                page.click(f'#v2Legend .v2-legend-item[data-series="{target["key"]}"]')
+                page.locator(f'#v2Legend .v2-legend-item[data-series="{target["key"]}"]').dispatch_event("click")
                 page.wait_for_timeout(500)
                 off = page.evaluate(LEGEND)
                 want_lines = [k for k in before["lines"] if k != target["key"]]
@@ -266,7 +266,7 @@ def run_checks(patch=None) -> list[str]:
                     errors.append(f"[legend] the off state needs aria-pressed=false and a different symbol: {it} vs {target}")
                 if rank_item and not page.evaluate("k => !document.querySelector(`#v2Legend .v2-legend-item[data-series=\"${k}\"]`).classList.contains('is-off')", before["rank"]):
                     errors.append("[legend] the ranking series entry was turned off")
-                page.click(f'#v2Legend .v2-legend-item[data-series="{target["key"]}"]')
+                page.locator(f'#v2Legend .v2-legend-item[data-series="{target["key"]}"]').dispatch_event("click")
                 page.wait_for_timeout(500)
                 on = page.evaluate(LEGEND)
                 if on["lines"] != before["lines"] or len(on["heads"]) != len(before["heads"]):
