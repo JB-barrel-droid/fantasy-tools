@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-16T11:49:55.243464Z",
- "run_id": "b5035f6f-2672-4ae8-9145-86da3c4b2f50",
+ "checked_at": "2026-10-16T12:40:14.634374Z",
+ "run_id": "b86dc762-f10f-4fea-83d8-960df013159a",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -31,7 +31,7 @@
    ],
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-15@2026-10-15T21:42:05.461898Z",
-   "since": "2026-10-16T11:49:55.243464Z",
+   "since": "2026-10-16T12:40:14.634374Z",
    "summary": "1617/1743 chart values equal stored snapshot 2026-10-15 (per game, 2 decimals); 126 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored"
   },
   "cbsros": {
@@ -52,7 +52,7 @@
    ],
    "reason": "fidelity: publisher_vs_stored",
    "identity": null,
-   "since": "2026-10-16T11:49:55.243464Z",
+   "since": "2026-10-16T12:40:14.634374Z",
    "summary": "no stored Draft Sharks rows"
   },
   "fantasysharks": {
@@ -62,7 +62,7 @@
    ],
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
-   "since": "2026-10-16T11:49:55.243464Z",
+   "since": "2026-10-16T12:40:14.634374Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -279,18 +279,18 @@
    "stored_bake": "fcwk6_2026-10-16t1005_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "green",
-     "summary": "1186/1186 values match exactly across 6 columns",
+     "status": "amber",
+     "summary": "30/1176 values match exactly across 6 columns; 1146 of 1176 values moved since the save at 2026-10-16T10:05:26.690000Z (largest 200%; 0 outside the max(25%, 50) band: none); 4 players entered or left the bottom of the list since the save (churn)",
      "counts": {
       "publisher_players": 198,
       "stored_players": 198,
-      "compared": 1186,
-      "matched": 1186,
-      "mismatched": 0,
+      "compared": 1176,
+      "matched": 30,
+      "mismatched": 1146,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 0,
+      "list_churn": 4,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -302,47 +302,128 @@
       "full|1": {
        "left": 198,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 1,
+       "extra": 1
       },
       "full|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 1,
+       "extra": 1
       },
       "half|1": {
        "left": 197,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 2,
+       "extra": 2
       },
       "half|2": {
        "left": 197,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 2,
+       "extra": 2
       },
       "std|1": {
-       "left": 198,
+       "left": 197,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 191,
+       "missing": 1,
+       "extra": 2
       },
       "std|2": {
-       "left": 198,
+       "left": 197,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 191,
+       "missing": 1,
+       "extra": 2
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 869,
+       "name": "Josh Allen",
+       "pos": "QB",
+       "left": "6326",
+       "right": 6133.0,
+       "delta": -193.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 869,
+       "name": "Josh Allen",
+       "pos": "QB",
+       "left": "6331",
+       "right": 6138.0,
+       "delta": -193.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|1",
+       "player_key": 869,
+       "name": "Josh Allen",
+       "pos": "QB",
+       "left": "6255",
+       "right": 6064.0,
+       "delta": -191.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 3594,
+       "name": "Patrick Mahomes",
+       "pos": "QB",
+       "left": "5372",
+       "right": 5517.0,
+       "delta": 145.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 3594,
+       "name": "Patrick Mahomes",
+       "pos": "QB",
+       "left": "5376",
+       "right": 5521.0,
+       "delta": 145.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 3594,
+       "name": "Patrick Mahomes",
+       "pos": "QB",
+       "left": "5312",
+       "right": 5455.0,
+       "delta": 143.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1063,
+       "name": "Kyren Williams",
+       "pos": "RB",
+       "left": "5985",
+       "right": 6126.0,
+       "delta": 141.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 1063,
+       "name": "Kyren Williams",
+       "pos": "RB",
+       "left": "5951",
+       "right": 6091.0,
+       "delta": 140.0
+      }
+     ],
      "outside_universe": [],
      "unresolved": []
     },
@@ -475,7 +556,96 @@
      }
     }
    },
-   "worst_examples": [],
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "left": "6326",
+     "right": 6133.0,
+     "delta": -193.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "left": "6331",
+     "right": 6138.0,
+     "delta": -193.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|1",
+     "player_key": 869,
+     "name": "Josh Allen",
+     "pos": "QB",
+     "left": "6255",
+     "right": 6064.0,
+     "delta": -191.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 3594,
+     "name": "Patrick Mahomes",
+     "pos": "QB",
+     "left": "5372",
+     "right": 5517.0,
+     "delta": 145.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 3594,
+     "name": "Patrick Mahomes",
+     "pos": "QB",
+     "left": "5376",
+     "right": 5521.0,
+     "delta": 145.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 3594,
+     "name": "Patrick Mahomes",
+     "pos": "QB",
+     "left": "5312",
+     "right": 5455.0,
+     "delta": 143.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1063,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "left": "5985",
+     "right": 6126.0,
+     "delta": 141.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 1063,
+     "name": "Kyren Williams",
+     "pos": "RB",
+     "left": "5951",
+     "right": 6091.0,
+     "delta": 140.0
+    }
+   ],
    "held": {
     "reason": "fidelity: freshness",
     "week": 6,
@@ -492,7 +662,7 @@
    "status": "green",
    "stored_week": 6,
    "chart_week": 6,
-   "stored_bake": "fpwk6_2026-10-15t0935_v1",
+   "stored_bake": "fpwk6_2026-10-16t1235_v1",
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
@@ -512,8 +682,8 @@
      "url": "https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/",
      "page_week": 6,
      "page_modified": "2026-10-13T13:08:06+00:00",
-     "bake_id": "fpwk6_2026-10-15t0935_v1",
-     "bake_saved_at": "2026-10-15T09:35:30.487169Z",
+     "bake_id": "fpwk6_2026-10-16t1235_v1",
+     "bake_saved_at": "2026-10-16T12:35:45.940352Z",
      "grains": {
       "full|1": {
        "left": 178,
@@ -841,7 +1011,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 47 h ago); chart shows week 5; stored rows already have week 6",
+     "summary": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 48 h ago); chart shows week 5; stored rows already have week 6",
      "chart_week": 5,
      "publisher_week": 6,
      "publisher_url": "https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/",
@@ -1253,7 +1423,7 @@
     ],
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-15@2026-10-15T21:42:05.461898Z",
-    "since": "2026-10-16T11:49:55.243464Z",
+    "since": "2026-10-16T12:40:14.634374Z",
     "summary": "1617/1743 chart values equal stored snapshot 2026-10-15 (per game, 2 decimals); 126 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored"
    }
   },
@@ -2027,7 +2197,7 @@
     ],
     "reason": "fidelity: publisher_vs_stored",
     "identity": null,
-    "since": "2026-10-16T11:49:55.243464Z",
+    "since": "2026-10-16T12:40:14.634374Z",
     "summary": "no stored Draft Sharks rows"
    }
   },
@@ -2088,7 +2258,7 @@
     ],
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
-    "since": "2026-10-16T11:49:55.243464Z",
+    "since": "2026-10-16T12:40:14.634374Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2126,5 +2296,5 @@
   "fantasysharks": "2026-10-16T07:19:25.781124+00:00"
  },
  "resyncs": {},
- "holds_changed": true
+ "holds_changed": false
 }
