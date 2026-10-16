@@ -102,7 +102,12 @@ class ChainHoldsOnIdentity(unittest.TestCase):
         self.assertIn("awaiting players bake", status["detail"]["cbsros"]["detail"])
         self.assertNotIn("build_cbsros_ddf_leg.py", fake.calls)
         fixture = json.loads((repo / chain.FIXTURE_REL).read_text(encoding="utf-8"))
-        self.assertEqual(kept, fixture["sources"]["cbsros"])
+        section = fixture["sources"]["cbsros"]
+        # JEG-676: isolate_hold now adds validationHold.
+        self.assertIn("validationHold", section)
+        self.assertEqual(section["validationHold"]["root"], "cbsros")
+        without_hold = {k: v for k, v in section.items() if k != "validationHold"}
+        self.assertEqual(kept, without_hold)
 
     def test_resave_with_the_gate_removed_publishes_a_mismatched_section(self):
         # The broken state (origin/main): no identity gate, the section moves
@@ -142,7 +147,12 @@ class ChainHoldsOnIdentity(unittest.TestCase):
         self.assertEqual(["cbsros"], status["held"])
         self.assertEqual("review", status["detail"]["cbsros"]["failed_stage"])
         fixture = json.loads((repo / chain.FIXTURE_REL).read_text(encoding="utf-8"))
-        self.assertEqual(kept, fixture["sources"]["cbsros"])
+        section = fixture["sources"]["cbsros"]
+        # JEG-676: isolate_hold now adds validationHold.
+        self.assertIn("validationHold", section)
+        self.assertEqual(section["validationHold"]["root"], "cbsros")
+        without_hold = {k: v for k, v in section.items() if k != "validationHold"}
+        self.assertEqual(kept, without_hold)
 
     def test_players_json_without_ids_holds_rather_than_guesses(self):
         repo, _, _ = self._repo("legacy")
