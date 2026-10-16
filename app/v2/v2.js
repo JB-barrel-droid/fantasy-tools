@@ -52,8 +52,6 @@
       note: "Our value for each player, built from the inputs you choose below."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
-    {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
-      note: "Trade charts corrected for each publisher's known bias."},
     {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
       note: "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged."},
     {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
@@ -62,17 +60,16 @@
   function seriesGroup(key) {
     if (isDdfKey(key)) return "ddf";
     if (key.endsWith("_vorp")) return "vorp";
-    if (key.endsWith("_adjusted")) return "adj";
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
     return "pub";
   }
   // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
-  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (rescaled)", "ESPN value above waivers".
+  // "FantasyCalc chart (rescaled)", "ESPN value above waivers".
   function groupSeriesName(key) {
     if (isDdfKey(key)) return sourceMeta(key).label;
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
-    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (rescaled)`,
+    return {proj: `${name} projection`, pub: `${name} chart (rescaled)`,
       vorp: `${name} value above waivers`}[seriesGroup(key)];
   }
   const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
@@ -154,7 +151,6 @@
     let method;
     let publisher;
     if (key.endsWith("_vorp")) { method = "vorp"; publisher = key.slice(0, -5); }
-    else if (key.endsWith("_adjusted")) { method = "dda"; publisher = key.slice(0, -9); }
     // JEG-508: the engine's DDF inputs are now "<chart>_adj_values" (the chart's adjusted values).
     else if (key.endsWith("_adj_values")) { method = "dda"; publisher = key.slice(0, -11); }
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
@@ -271,8 +267,10 @@
   // ---------- derived view ----------
   // Week labels come from the data's own freshness record (content week and
   // which series are an older week), the same record that picks first-load sources.
+  const isEngineAlias = key => key.endsWith("_adjusted");
   function sourceInfoWithFreshness() {
-    const info = C.getSourceInfo({includeComposite: true});
+    // JEG-626: the engine still lists the deprecated "<chart>_adjusted" aliases; v2 reads the raw chart series.
+    const info = C.getSourceInfo({includeComposite: true}).filter(item => !isEngineAlias(item.key));
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     info.forEach(item => {
       const series = freshness?.series?.[item.key];
@@ -484,7 +482,7 @@
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources());
+    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources().filter(key => !isEngineAlias(key)));
     const rankKey = C.getRankSource();
     // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
     const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
@@ -1101,15 +1099,14 @@
   // ---------- table ----------
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
-  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
+  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"],
     ["published", "Trade charts (rescaled)"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
-  const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
     if (isDdfKey(key)) return "ddf";
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
     if (meta.method === "indexed") return "published";
-    return KIND[meta.publisher] === "Projection-based" ? "projections" : "adjusted";
+    return "projections";
   }
   const groupOrder = id => TABLE_GROUPS.findIndex(([g]) => g === id);
 
@@ -1121,7 +1118,7 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+      {id: "tier", label: "ESPN Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
@@ -1518,7 +1515,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · ESPN Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -1995,7 +1992,7 @@
   function applyShown(keys) {
     const want = new Set(keys);
     const engineNow = C.getActiveSources();
-    const available = new Set(C.getSourceInfo().filter(item => item.available).map(item => item.key));
+    const available = new Set(C.getSourceInfo().filter(item => item.available && !isEngineAlias(item.key)).map(item => item.key));
     const adds = [...want].filter(key => !isDdfKey(key) && available.has(key) && !engineNow.includes(key));
     const drops = engineNow.filter(key => !want.has(key));
     adds.forEach(toggleEngineSource);
@@ -2623,7 +2620,7 @@
       note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
       pop.appendChild(note);
       eyebrow(pop, "Player details");
-      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
+      [["pos", "Position"], ["team", "Team"], ["tier", "ESPN Tier"]].forEach(([id, label]) => {
         box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
       });
       const done = document.createElement("div");

@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T02:02:01.328902+00:00",
+  "run_at": "2026-10-16T02:49:16.918310+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,26 +18,24 @@
   "held": [
     "cbs",
     "cbsros",
-    "espn",
     "fantasycalc",
-    "fantasypros",
-    "razzball",
-    "usatoday"
+    "razzball"
   ],
   "hold_severity": "amber",
   "held_detail": {
     "cbs": {
-      "reason": "fidelity: freshness",
-      "held_series": [
-        "cbs"
-      ],
-      "sections": [
-        "cbs",
-        "cbs_adjusted"
-      ],
-      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 36 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 65/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 1,
       "hold_severity": "amber",
-      "week": 6
+      "rolled_back": 1
     },
     "fantasycalc": {
       "reason": "fidelity: publisher_vs_stored",
@@ -48,47 +46,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "7/1160 values match exactly across 6 columns; 1153 values differ, 21 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 9 players entered or left the bottom of the list since the save (churn)",
-      "hold_severity": "amber",
-      "week": 6
-    },
-    "usatoday": {
-      "reason": "fidelity: freshness",
-      "held_series": [
-        "usatoday"
-      ],
-      "sections": [
-        "usatoday",
-        "usatoday_adjusted"
-      ],
-      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 54 h ago); chart shows week 5; stored rows already have week 6",
-      "hold_severity": "amber",
-      "week": 6
-    },
-    "fantasypros": {
-      "reason": "fidelity: freshness",
-      "held_series": [
-        "fantasypros"
-      ],
-      "sections": [
-        "fantasypros",
-        "fantasypros_adjusted"
-      ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 60 h ago); chart shows week 5; stored rows already have week 6",
-      "hold_severity": "amber",
-      "week": 6
-    },
-    "espn": {
-      "reason": "fidelity: freshness",
-      "held_series": [
-        "espn",
-        "espn_vorp"
-      ],
-      "sections": [
-        "espn",
-        "espn_adjusted"
-      ],
-      "detail": "chart shows snapshot 2026-10-12 (4 d old); the publisher prints no update date",
+      "detail": "0/1156 values match exactly across 6 columns; 1156 values differ, 35 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 9 players entered or left the bottom of the list since the save (churn)",
       "hold_severity": "amber",
       "week": 6
     },
@@ -257,11 +215,7 @@
     }
   },
   "fidelity_holds": {
-    "usatoday": "fidelity: freshness",
     "fantasycalc": "fidelity: publisher_vs_stored",
-    "fantasypros": "fidelity: freshness",
-    "cbs": "fidelity: freshness",
-    "espn": "fidelity: freshness",
     "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
@@ -269,15 +223,17 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex"
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs",
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: [] is not true"
+      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[682 chars]rs)\"] != []",
+      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[697 chars]rs)\"] != []"
     ],
     "make_targets": [
-      "Makefile:455: test-core"
+      "Makefile:501: test-core"
     ],
-    "detail": "FAIL tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex; AssertionError: [] is not true",
-    "recorded_at": "2026-10-16T02:02:30.179917+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[682 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[697 chars]rs)\"] != []",
+    "recorded_at": "2026-10-16T02:58:03.899474+00:00"
   }
 }
