@@ -3,7 +3,8 @@
 Jeremy's decisions (2026-10-07): show each publisher's value as published and
 add a badge saying ESPN projects 0 for the player (injured/out); and ("Yes, use
 0") our ESPN value for such a player is 0.0, not missing, so a chart that still
-pays for him is an ordinary sell target with gap = chart value. A player ESPN
+pays for him has gap = chart value (and, under the JEG-677 consensus rule, he is a
+sell target when 2+ charts price him, their median is above 0 and most of them pay). A player ESPN
 has no row for is missing, not 0: no badge, and his ESPN value stays — .
 
 Expected sets come from the built page's own #players-data island, read here in
@@ -22,9 +23,9 @@ no-ESPN-row player, it checks:
   * main page: the comparison table row (badge, ESPN column 0.0 or —) and the
     chart tooltip;
   * /v2/: the Player values table row and the player drawer; Trade targets
-    (sell side, ESPN as our value) lists every ESPN-0 player a compared chart
-    pays for, with our value 0.0 and each chart's gap equal to its value, and
-    never lists a no-ESPN-row player; the retired separate ESPN-0 list is gone;
+    (sell side, ESPN as our value) lists exactly the ESPN-0 players the consensus
+    rule makes a target, with our value 0.0 and each chart's gap equal to its
+    value, and never lists a no-ESPN-row player; the retired separate ESPN-0 list is gone;
   * the badge has a text label and a symbol, not color alone.
 
 Discrimination: test_guard_fails_on_broken_builds serves an engine without the
@@ -125,7 +126,8 @@ def collect(overrides=None):
                     and any(isinstance(r["values"].get(c), (int, float)) and r["values"][c] > 0 for c in CHARTS)]
             absent_rows = [r for r in rows if r["player_key"] in absent]
             out["paid"] = [{"key": r["player_key"], "name": r["name"],
-                            "charts": {c: r["values"].get(c) for c in CHARTS if isinstance(r["values"].get(c), (int, float)) and r["values"][c] > 0}}
+                            "charts": {c: r["values"].get(c) for c in CHARTS if isinstance(r["values"].get(c), (int, float)) and r["values"][c] > 0},
+                            "all": {c: r["values"].get(c) for c in CHARTS}}
                            for r in paid]
             out["engine_values"] = {str(r["player_key"]): {"espn": r["values"].get("espn"), "espn_vorp": r["values"].get("espn_vorp")}
                                     for r in rows if r["player_key"] in zero or r["player_key"] in absent}
@@ -186,7 +188,7 @@ def collect(overrides=None):
             page.fill("#v2Search", "")
             page.evaluate("() => { location.hash = '#trade-targets'; }")
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=30000)
-            # JEG-455: DDF Value is the default Our value; this check is about ESPN, so pick it.
+            # JEG-677: DDF Projections is the default Our value; this check is about ESPN, so pick it.
             page.select_option("#v2TOurs", "espn")
             page.click("#v2Targets [data-side=sell]")
             page.wait_for_function("() => document.getElementById('v2TOurs').value === 'espn'")
@@ -196,7 +198,10 @@ def collect(overrides=None):
                 sell: t.sell.map(p => ({key: p.row.player_key, ours: p.ours,
                   cells: Object.fromEntries(Object.entries(p.cells).map(([c, v]) => [c, {value: v.value, gap: v.gap}]))}))};
             }""")
-            # The probe's rendered row in the sell table.
+            # The probe's rendered row in the sell table: the first ESPN-0 player the consensus rule lists.
+            probe_zero = next((r for r in out["paid"]
+                               if consensus_listed([r["all"].get(c) for c in out["targets"]["used"]])), None)
+            out["targets_probe"] = probe_zero
             if probe_zero:
                 page.fill("#v2TSearch", probe_zero["name"])
                 page.wait_for_timeout(400)
@@ -206,7 +211,7 @@ def collect(overrides=None):
                   return {ours: tr.querySelector('[data-ours]').textContent,
                     badge: tr.querySelector('[data-espn-zero]')?.textContent || null,
                     gaps: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, td.querySelector('.gap')?.textContent ?? null]))};
-                }""", probe_zero["player_key"])
+                }""", probe_zero["key"])
             out["v2_errors"] = list(errors)
             page.close()
         finally:
@@ -214,6 +219,17 @@ def collect(overrides=None):
     return out
 
 
+
+
+def consensus_listed(values) -> bool:
+    """JEG-677 Check 1 for a player whose our value is 0 (ESPN 0): 2+ priced charts, a consensus (median) above 0,
+    and a strict majority of the charts paying above 0. A chart at its waiver line counts as pricing him at 0."""
+    priced = sorted(v for v in values if isinstance(v, (int, float)))
+    if len(priced) < 2:
+        return False
+    mid = len(priced) // 2
+    consensus = priced[mid] if len(priced) % 2 else (priced[mid - 1] + priced[mid]) / 2
+    return consensus > 0 and sum(1 for v in priced if v > 0) * 2 > len(priced)
 
 
 def check(out) -> list[str]:
@@ -283,8 +299,10 @@ def check(out) -> list[str]:
         if not paid_used:
             continue
         item = sell.get(p["key"])
+        want_listed = consensus_listed([p["all"].get(c) for c in used])
+        if bool(item) != want_listed:
+            errors.append(f"Trade targets: {p['name']} (ESPN 0, paid {paid_used}) listed={bool(item)}, the consensus rule says {want_listed}")
         if not item:
-            errors.append(f"Trade targets: {p['name']} (ESPN 0, paid {paid_used}) is not in the sell list")
             continue
         if item["ours"] != 0:
             errors.append(f"Trade targets: {p['name']} our value {item['ours']!r}, expected 0")
@@ -296,13 +314,15 @@ def check(out) -> list[str]:
         if key in absent:
             errors.append(f"Trade targets: no-ESPN-row player {key} is in the sell list")
     row = out.get("targets_row")
-    if out["paid"] and any(set(p["charts"]) & used for p in out["paid"][:1]):
+    if not out["targets_probe"]:
+        errors.append("Trade targets: no ESPN-0 player passes the consensus rule (the rendered ESPN-0 row went untested)")
+    else:
         if not row:
             errors.append(f"Trade targets: {out['probe']['zero']} not rendered in the sell table")
         else:
             if row["ours"] != "0.0" or not badge_ok(row["badge"]):
                 errors.append(f"Trade targets: {out['probe']['zero']} row shows ours {row['ours']!r}, badge {row['badge']!r}")
-            for chart, value in out["paid"][0]["charts"].items():
+            for chart, value in out["targets_probe"]["charts"].items():
                 if chart in used and row["gaps"].get(chart) != f"+{value:.1f}":
                     errors.append(f"Trade targets: {out['probe']['zero']} {chart} gap {row['gaps'].get(chart)!r}, expected +{value:.1f}")
     if out["main_errors"] or out["v2_errors"]:
