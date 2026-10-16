@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T07:02:14.516973+00:00",
+  "run_at": "2026-10-16T07:19:44.657059+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,11 +10,9 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "published_with_holds",
   "held": [
     "cbs",
     "cbsros",
@@ -205,22 +203,5 @@
     "fantasycalc": "fidelity: freshness",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_vorp_translation_js_parity.PositionalMaxParity.test_maxes_follow_league_settings",
-      "FAIL tests.test_vorp_translation_js_parity.PositionalMaxParity.test_translation_onto_derived_maxes_js_equals_python"
-    ],
-    "assertions": [
-      "AssertionError: Lists differ: ['standard: 2-QB roster left QB max at 32.[83 chars]2.3'] != []",
-      "AssertionError: 32.3 not greater than 35"
-    ],
-    "make_targets": [
-      "Makefile:514: test-core"
-    ],
-    "detail": "FAIL tests.test_vorp_translation_js_parity.PositionalMaxParity.test_maxes_follow_league_settings; FAIL tests.test_vorp_translation_js_parity.PositionalMaxParity.test_translation_onto_derived_maxes_js_equals_python; AssertionError: Lists differ: ['standard: 2-QB roster left QB max at 32.[83 chars]2.3'] != []; AssertionError: 32.3 not greater than 35",
-    "recorded_at": "2026-10-16T07:17:25.094282+00:00"
   }
 }
