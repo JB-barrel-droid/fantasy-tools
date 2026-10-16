@@ -19,6 +19,14 @@ a crash, a parity break, or a value that contradicts a rule already decided).
 Numbers below are cited from the log or test that measured them. "Not
 measured" means nobody has run that option yet.
 
+## Decided (JEG-450, Q1 GAP-TIER-FROM-ESPN, 2026-10-15)
+
+Jeremy decided 2026-10-15: the tier column is labelled "ESPN Tier" in v2
+everywhere the Starter / Bench / Waiver tier is shown (Player values column and
+Columns popover, the player drawer). It always comes from ESPN's slot fill, so
+the label says so rather than the tier following the selected source. Closes
+`GAP-TIER-FROM-ESPN` in `docs/risk-register.md`.
+
 ## Answered by the Value Pipeline spec (JEG-508, 2026-10-09)
 
 Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`

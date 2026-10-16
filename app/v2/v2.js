@@ -1059,7 +1059,7 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+      {id: "tier", label: "ESPN Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
@@ -1456,7 +1456,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · ESPN Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -2561,7 +2561,7 @@
       note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
       pop.appendChild(note);
       eyebrow(pop, "Player details");
-      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
+      [["pos", "Position"], ["team", "Team"], ["tier", "ESPN Tier"]].forEach(([id, label]) => {
         box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
       });
       const done = document.createElement("div");
