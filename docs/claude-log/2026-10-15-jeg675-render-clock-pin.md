@@ -14,3 +14,10 @@ Contract: root-cause the red render suites on origin/main after JEG-631 and fix 
 
 ### Claimed, not confirmed
 - Other render suites not in the red list may also be clock-sensitive; the central pin covers them, but each was not run individually.
+
+### Addenda (same PR)
+- The equal-to-market guard ("equal case duplicates the number") had only been fed by Razzball rows; with Razzball held it could not prove it catches its bug. SIMULATE_ROWS now seeds a player whose market average equals our value, and the guard fails again on the mutation (tests.test_v2_targets_render guard test, green only because the mutation is caught).
+- JEG-476 (merged during this work) added a section heading and a longer subtitle, pushing the top 5 below the 1366x768 fold. Fixed in CSS (short laptop screens: explainer line hidden, tighter spacing), assertion unchanged.
+- Verified: tests.test_v2_targets_render, panels, waterfall, asset_load_retry, trade_chart_ingest_ci, v2_group_weight_render, v2_contract_render, freshness_display_render all OK (50 tests).
+- Not mine, still red on main: tests.test_bench_share_readout_matches_reference (17 failures; fails identically with the clock pin disabled), the JEG-630 engine lane. `make validate` stops there in test-core, so the later suites were run targeted as above. value_check compare not run: no value-affecting file changed.
+- Seen, not fixed: at 1366 the nav's Research tab is clipped ("Res") by the status chip (JEG-543).
