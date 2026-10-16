@@ -782,11 +782,13 @@ value per point above waivers, starters over bench tier, QB / RB / WR / TE).
 | ppr/12 | 14.8% | 8.6% | 8.6% | 12.0% | 1.5 / 1.0 / 1.0 / 0.8 | 2.2 / 1.6 / 2.9 / 1.4 |
 | ppr/14 | 14.1% | 8.2% | 7.4% | 10.8% | 1.2 / 1.2 / 0.8 / 0.6 | 2.1 / 2.0 / 2.0 / 1.1 |
 
-- Sensitivity at 12-team full PPR (option A): `m` at 0.5x to 1.5x gives
-  8.2% to 9.0%; `sigma` at 0x to 1.5x gives 8.1% to 9.1%; the first-pass
-  assumptions give 8.7%; the fill-in-only bound is 8.1% and plain value above
-  waivers (bench starts every week) 13.1%. Top-12 share of the RB pie: 56.1%
-  (before 52.0%); WR 48.5% (39.2%).
+- Sensitivity at 12-team full PPR (option A, convention tiers, 2026-10-16):
+  `m` at 0.5x to 1.5x gives 9.3% to 10.7%; `sigma` at 0x to 1.5x gives
+  9.1% to 10.7%; the fill-in-only bound is 9.3% and plain value above
+  waivers (bench starts every week) 20.2%. The VORP ceiling rose from the
+  pre-convention 13.4% because the convention's D'Hondt allocation with 7
+  bench assigns more bench seats. Displacement absorbs 82% of the gross
+  start-worthy gain (docs/research/bench-share-decomposition.md).
 - Moot since OC-2 was decided at a fixed 15% (2026-10-09); kept for the
   record. The VP slices with a source-implied share (OC-2 A) would imply a bench share of
   42% at 12-team full PPR, 49% at 8-team standard and 39% at 14-team half
@@ -984,18 +986,16 @@ the page shows the result.
 - **Readout.** "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your
   league settings" = the bench tier's share of each position's value and of
   the pie under A (`expected_starts_model.bench_share_readout`, the Python
-  reference). Week 5, 12-team full PPR, defaults: QB 22.6%, RB 9.1%, WR 6.2%,
-  TE 12.4%, overall 8.9%. QB is high because the quarterback curve is flat
-  near the line: QB13-21 sit close to the starters.
-- **Measured at the defaults** (Week 5, `docs/claude-log/2026-10-09-jeg533-*`):
-  bench tier 8.3% to 9.5% across the 12 settings, zero inversions (with the
-  measured drift below; 8.5% to 9.7% with the stand-in). The
-  settings move it little (12-team full PPR): injury history all 9.08%,
-  regular season 9.12%, playoffs 9.07%, content week 12 8.58%, projection
-  confidence 0.5 8.64%. The parameter tables in ES-1 and ES-7 above are the
-  decision build (two weeks' data before the merge of main, weeks 6-18,
-  equal weighting); the approved defaults are in the claude-log files named
-  here.
+  reference). Week 6, 12-team full PPR, defaults (convention tiers,
+  2026-10-16): QB 6.4%, RB 7.7%, WR 13.0%, TE 2.5%, overall 10.0%. The QB
+  artifact (22.6% pre-convention) is resolved: convention-based tiers no
+  longer misclassify Lamar Jackson and Patrick Mahomes as bench players
+  (JEG-546/555/562).
+- **Measured at the defaults** (convention tiers, Week 6, 2026-10-16): bench
+  tier 8.7% to 12.5% across the 12 settings (config params on the settled
+  convention with default roster 2 WR / 7 bench / K / DEF). The 12-team full
+  PPR readout is 10.0%. The earlier decision-build numbers (8.3% to 9.5%,
+  Week 5) used pre-convention tiers and the 3 WR / 6 bench roster.
 - **Uncertainty measured (JEG-540, 2026-10-09).** `sigma_weekly` is now the
   level drift of weekly projections, measured on 2018-2025 Sleeper weekly
   projections (`derive_lineup_parameters.measured_drift`,

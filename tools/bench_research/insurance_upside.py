@@ -38,11 +38,9 @@ SCHEDULE = REPO / "data" / "inputs" / "nfl_schedule_2015_2025.json"
 
 def load_actuals(scoring="ppr"):
     """Load weekly actuals keyed by player_id -> season -> week -> points."""
-    pts_col = {
-        "ppr": "fantasy_points_ppr",
-        "half_ppr": "fantasy_points_half_ppr",
-        "standard": "fantasy_points",
-    }.get(scoring, "fantasy_points_ppr")
+    # Column names: new format uses 'ppr'/'half_ppr'/'std'; old used 'fantasy_points_ppr' etc.
+    pts_col_new = {"ppr": "ppr", "half_ppr": "half_ppr", "standard": "std"}.get(scoring, "ppr")
+    pts_col_old = {"ppr": "fantasy_points_ppr", "half_ppr": "fantasy_points_half_ppr", "standard": "fantasy_points"}.get(scoring, "fantasy_points_ppr")
 
     logs = defaultdict(lambda: defaultdict(dict))
     pos_map = {}
@@ -50,13 +48,13 @@ def load_actuals(scoring="ppr"):
         reader = csv.DictReader(f)
         for row in reader:
             pid = row["player_id"]
-            pos = row.get("position", "")
+            pos = row.get("pos") or row.get("position", "")
             if pos not in POSITIONS:
                 continue
             pos_map[pid] = pos
             season = int(row["season"])
             week = int(row["week"])
-            pts = float(row.get(pts_col, 0) or 0)
+            pts = float(row.get(pts_col_new) or row.get(pts_col_old, 0) or 0)
             logs[pid][season][week] = pts
     return logs, pos_map
 
@@ -67,7 +65,8 @@ def measure_insurance_upside(teams=12, scoring="ppr", starters_per_pos=None, min
         starters_per_pos = {"QB": 1, "RB": 3, "WR": 4, "TE": 1}
 
     logs, pos_map = load_actuals(scoring)
-    sched = json.loads(SCHEDULE.read_text())
+    sched_raw = json.loads(SCHEDULE.read_text())
+    sched = sched_raw.get("seasons", sched_raw) if isinstance(sched_raw, dict) else sched_raw
 
     # Accumulate per position and depth offset
     ins = defaultdict(lambda: defaultdict(float))

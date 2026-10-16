@@ -46,7 +46,7 @@ def decompose(inp, scoring: str, teams: int, params: dict, names_map: dict | Non
     chart_sigma = es.chart_sigma_from(sources, teams)
     tiers = es.tiers_on_mean(sources, teams)
     keys = sorted(tiers)
-    pie = es.PIE_PER_STARTING_SLOT * teams * es.STARTERS_PER_TEAM
+    pie = es.PIE_PER_STARTING_SLOT * teams * es._starters_per_team()
 
     # Run with full parameters (recommended)
     rec_run = es.run_setting(sources, teams, params, chart_sigma, "A")

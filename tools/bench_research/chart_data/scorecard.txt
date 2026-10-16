@@ -1,0 +1,24 @@
+Bench rule scorecard
+
+Rule                                QB      RB      WR      TE  MAE
+------------------------------------------------------------------------
+Observed                          0.86    0.85    1.05    0.39
+
+A: fixed 10:27:33:10              0.75    0.81    0.99    0.75  0.142
+B: lineup holes                   0.72    0.95    0.84    0.80  0.216
+C1: draft ratio/starter           0.86    0.85    1.05    0.39  0.000
+C2: draft ratio/team              0.86    0.85    1.04    0.39  0.002
+C3: C1 QB halved                  0.43    0.85    1.05    0.39  0.107
+
+
+Summary (matching JEG-557 finding 10):
+Rule                                  Error  Adapts
+-------------------------------------------------------
+A: fixed 10:27:33:10                  0.142      no
+B: lineup holes                       0.216     yes
+C1: draft ratio/starter               0.000     yes
+C2: draft ratio/team                  0.002      no
+C3: C1 QB halved                      0.107     yes
+
+Chosen rule: C1 (draft ratio per starter)
+Ratios: QB 0.86, RB 0.85, WR 1.05, TE 0.39
