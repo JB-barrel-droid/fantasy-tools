@@ -1108,7 +1108,18 @@ def stage_publisher(source: str, pub: dict, stored: dict, ident: Identity, now: 
                            "since the save (churn)")
     elif n_bad:
         after_save = revised and saved_at and revised > saved_at
-        if after_save and (now - revised) <= timedelta(hours=GRACE_HOURS):
+        # JEG-667: when all values match and the discrepancy is just a few
+        # missing/extra players (not value mismatches), downgrade to amber.
+        # A single unresolved name or a player the universe excludes should
+        # not hold the entire source when no values are wrong.
+        values_ok = len(cmp["mismatches"]) == 0
+        small_roster_gap = (players(cmp["missing"]) + players(cmp["extra"])) <= 2
+        if values_ok and small_roster_gap:
+            status = worst(status, "amber")
+            reasons.insert(0, f"0 value mismatches, {players(cmp['missing'])} publisher players not "
+                              f"stored, {players(cmp['extra'])} stored players not on the page "
+                              "(small roster gap, values intact: amber)")
+        elif after_save and (now - revised) <= timedelta(hours=GRACE_HOURS):
             status = worst(status, "amber")
             reasons.append(f"update available: the publisher revised the page at {iso(revised)}, after the "
                            f"save at {iso(saved_at)} (a newer article version, not bad data; stale after "
@@ -1118,8 +1129,8 @@ def stage_publisher(source: str, pub: dict, stored: dict, ident: Identity, now: 
             if after_save:
                 reasons.append(f"stale: the publisher revised the page at {iso(revised)}, after the save at "
                                f"{iso(saved_at)}, and the revision is still not stored after {GRACE_HOURS} h")
-        reasons.insert(0, f"{len(cmp['mismatches'])} value mismatches, {players(cmp['missing'])} publisher players not "
-                          f"stored, {players(cmp['extra'])} stored players not on the page")
+            reasons.insert(0, f"{len(cmp['mismatches'])} value mismatches, {players(cmp['missing'])} publisher players not "
+                              f"stored, {players(cmp['extra'])} stored players not on the page")
     if source != "fantasycalc":
         if pub.get("week_problem"):
             status = "red"
@@ -1195,6 +1206,20 @@ def stage_chart(source: str, site_doc: dict | None, site_error: str | None, stor
     if n_bad:
         reasons.append(f"{len(cmp['mismatches'])} chart values differ from the stored bake, "
                        f"{players(cmp['missing'])} stored players not on the chart, {players(cmp['extra'])} chart players not stored")
+    # JEG-667: when a newer bake exists and the chart-vs-stored gap is only
+    # value mismatches (no missing/extra players), the chart is stale rather
+    # than wrong.  The next chain run rebuilds from the newer bake.  Holding
+    # here blocks the very build that would cure the staleness.
+    latest_bake = stored.get("bake")
+    has_newer_bake = (latest_bake and bake and latest_bake["bake_id"] != bake["bake_id"]
+                      and (latest_bake.get("saved_at") or datetime.min.replace(tzinfo=timezone.utc))
+                      > (bake.get("saved_at") or datetime.min.replace(tzinfo=timezone.utc)))
+    only_value_drift = (len(cmp["mismatches"]) > 0
+                        and players(cmp["missing"]) == 0
+                        and players(cmp["extra"]) == 0)
+    if status == "red" and has_newer_bake and only_value_drift:
+        status = "amber"
+        reasons.append("chart is stale (newer stored bake exists); the next chain build will cure this")
     if unresolved:
         reasons.append(f"{len(unresolved)} chart names have no player key")
     if outside:
@@ -1965,6 +1990,15 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
             status = worst(status, "amber")
             reasons.append(f"newer stored snapshot {latest} is not on the chart yet: {behind['changed_values']} "
                            f"values changed, {behind['added']} added, {behind['dropped']} dropped")
+    # JEG-667: when a newer snapshot exists and the chart-vs-stored gap is only
+    # value mismatches (no missing/extra), the chart is stale, not wrong.
+    # Holding here blocks the chain run that would rebuild with fresh values.
+    if (status == "red" and behind
+            and len(cmp["mismatches"]) > 0
+            and players(cmp["missing"]) == 0
+            and players(cmp["extra"]) == 0):
+        status = "amber"
+        reasons.append("chart is stale (newer stored snapshot exists); the next chain build cures this")
     counts = {"chart_players": len({k for g in right.values() for k in g}),
               "stored_players": len({k for g in left.values() for k in g}),
               "compared": cmp["compared"], "matched": cmp["matched"], "mismatched": len(cmp["mismatches"]),
