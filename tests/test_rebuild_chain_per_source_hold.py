@@ -124,7 +124,16 @@ def check_others_publish_despite_hold(status, after, held="fantasycalc"):
 
 
 def check_held_section_kept_exactly(before, after, source="fantasycalc"):
-    assert after["sources"][source] == before["sources"][source], after["sources"][source]
+    section = after["sources"][source]
+    # JEG-676: isolate_hold now adds validationHold so downstream tests
+    # (test_week_history) exclude the held source from served-week checks.
+    # Strip it for the byte-exact comparison of the original content.
+    hold = section.pop("validationHold", None)
+    assert section == before["sources"][source], section
+    assert hold is not None, f"{source}: isolate_hold must set validationHold"
+    assert hold["reason"].startswith("chain hold: "), hold
+    assert hold["root"] == source, hold
+    section["validationHold"] = hold  # restore for other checks
 
 
 def check_held_candidate_never_promoted(fake):
