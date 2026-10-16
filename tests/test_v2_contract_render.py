@@ -579,7 +579,10 @@ COMPARE_JS = "async () => {" + COMMON + r"""
     title: $('v2CVerdictTitle').textContent, verdict: $('v2CVerdictText').textContent, hash: location.hash,
     share: shown($('v2CShare')), swap: shown($('v2CSwap')), clear: shown($('v2CClear')),
     give: side('v2GivePlayers'), get: side('v2GetPlayers'),
-    giveSearch: shown($('v2GiveSearch')), getSearch: shown($('v2GetSearch'))});
+    giveSearch: shown($('v2GiveSearch')), getSearch: shown($('v2GetSearch')),
+    deal: {shown: shown($('v2CDeal')), cells: document.querySelectorAll('#v2CDealGrid td').length,
+      current: document.querySelectorAll('#v2CDealGrid td[aria-current]').length, nets: document.querySelectorAll('#v2CDealNets li').length,
+      read: $('v2CDealRead').textContent, text: $('v2CDealText').textContent, split: /The sources split/.test($('v2Compare').innerText)}});
   const out = {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText($('v2Compare')), shownKey: $('v2CShown').value};
   out.example = snap();
   out.weeks = weekInfo();
@@ -1601,6 +1604,19 @@ def ct04(S):
     return errors
 
 
+def ct08(S):
+    """The deal read is always on a ready trade: nine cells, three nets, one outlined cell unless a net is missing."""
+    d = S["tabs"]["compare"]["added"]["deal"]
+    errors = []
+    if not d["shown"] or d["cells"] != 9 or d["nets"] != 3:
+        errors.append(f"deal read: shown {d['shown']}, {d['cells']} cells, {d['nets']} nets")
+    if d["current"] > 1 or (d["current"] == 0) != bool(not d["read"]):
+        errors.append(f"deal read: {d['current']} outlined cells with read {d['read']!r} ({d['text']!r})")
+    if d["split"]:
+        errors.append("the old 'The sources split.' copy is still on the page")
+    return errors
+
+
 def ct05(S):
     e = S["tabs"]["compare"]["example"]
     errors = []
@@ -1672,7 +1688,7 @@ CHECKS = {
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),
     "RF-01": rf01,
     "CT-01": ct01, "CT-02": PENDING("JEG-505"), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
-    "CT-06": ct06, "CT-07": ct07,
+    "CT-06": ct06, "CT-07": ct07, "CT-08": ct08,
     "HV-01": hv01,
 }
 
