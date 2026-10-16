@@ -1235,7 +1235,7 @@ def pv04(S):
     in_view = [n for n in ("starter_to_bench", "bench_to_waiver") if z["ranks"] and z["ranks"][0] < z["engine"][n] < z["ranks"][-1]]
     if sorted(line["name"] for line in z["lines"]) != sorted(in_view):
         errors.append(f"break lines {[line['name'] for line in z['lines']]}, engine zones {z['engine']} over ranks {z['ranks'][:1]}..{z['ranks'][-1:]}")
-    if not z["labels"] or any(label not in ("Starter", "Bench", "Waiver") for label in z["labels"]):
+    if not z["labels"] or any(label not in ("Starters", "Bench", "Waiver") for label in z["labels"]):
         errors.append(f"zone labels {z['labels']}")
     return errors
 
