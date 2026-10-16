@@ -118,6 +118,8 @@ ENGINE_JS = """async ([settings, views, viewSeries, versions]) => {
   for (const s of settings) {
     clickView('indexed');
     c.setScoring(s.scoring, false); c.setTeams(s.teams, false); c.setRosterSpot('SUPERFLEX', s.superflex, false);
+    // JEG-702: the QB stepper (settings without a qb key run the default 1).
+    c.setRosterSpot('QB', s.qb || 1, false);
     // JEG-527: reset lineup to defaults, then apply any overrides.
     if (lineupDefaults && typeof c.setLineupSettings === 'function') {
       c.setLineupSettings({...lineupDefaults, benchShareOverride: null, contentWeek: null}, false);

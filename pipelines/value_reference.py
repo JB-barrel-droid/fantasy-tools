@@ -132,6 +132,9 @@ def settings(superflex_too: bool = True) -> list[dict]:
 
 def setting_id(s: dict) -> str:
     base = f"{s['scoring']}/{s['teams']}/sf{s['superflex']}"
+    # JEG-702: the QB stepper (1 is the default and keeps the old ids).
+    if int(s.get("qb", 1) or 1) != 1:
+        base += f"/qb{int(s['qb'])}"
     lineup = s.get("lineup")
     if not lineup:
         return base
@@ -1216,7 +1219,7 @@ class Setting:
     """Everything the page computes at one (scoring, teams, roster)."""
 
     def __init__(self, inp: Inputs, scoring: str, teams: int, superflex: int = 0,
-                 hist: History | None = None, bench_share: float | None = None,
+                 hist: History | None = None, qb: int = 1, bench_share: float | None = None,
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None):
@@ -1229,7 +1232,8 @@ class Setting:
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.lineup = (resolve_lineup(load_lineup_config(), **(lineup_settings or {}))
                        if expected_starts else None)
-        self.shape = roster(superflex)
+        # JEG-702: qb = the page's QB stepper (dedicated QB slots per team).
+        self.shape = {**roster(superflex), "QB": int(qb)}
         self.hist = hist
         self.selection = selection
         self.divergence_exclusions = divergence_exclusions or set()
@@ -1433,6 +1437,7 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
     s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0), hist=hist,
+                qb=setting_spec.get("qb", 1),
                 lineup_settings=setting_spec.get("lineup"),
                 bench_share_override=setting_spec.get("bench_share_override"),
                 expected_starts=setting_spec.get("expected_starts", True),

@@ -63,19 +63,12 @@ OUR_MAX = {
     'TE': 30.0,
 }
 
-# JEG332-DERIVED-PEAKS (2026-10-07): OUR_MAX is the calibration at the saved
-# setup (12 teams, QB1 RB2 WR2 TE1 FLEX1 BENCH7, JEG-563). At any other league setting
-# the positional maxes follow OUR model's scarcity there: each position's max
-# is OUR_MAX scaled by how much the top player's value above waivers (ESPN
-# per-game projections, the anchor's input, through the SAME roster/waiver
-# math as the translation) grows or shrinks against the saved setup; then all
-# four are rescaled so the top position sits at TOP_OF_SCALE (70), the chart's
-# convention that the top player is 70 (the ESPN anchor's RB peak is ~70 at
-# every setting). At the saved setup every ratio is exactly 1 and k = 1, so
-# the maxes are OUR_MAX exactly. Browser port: value-model.js
-# positionalMaxForSetup (parity: tests/test_vorp_translation_js_parity.py).
-POSITIONAL_MAX_VERSION = "espn-vaw-ratio/1"
-TOP_OF_SCALE = max(OUR_MAX.values())
+# JEG-702 (Jeremy 2026-10-16, Q1: "Both: point the checks at the live engine
+# and retire the unused code."): the league-following positional maxes
+# (positional_max_for_setup, projection_max_vorp, POSITIONAL_MAX_VERSION) and
+# the browser port of this translation were retired; no page priced from
+# them after JEG-482. The 2-QB direction check now runs on the value pipeline
+# (tests/test_two_qb_direction.py).
 SAVED_SETUP_TEAMS = 12
 
 
@@ -365,7 +358,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
 # chart that leaves a player out values him at most at its last listed
 # value). Proportional, so monotone in every other chart's value. The
 # extension is ordered by that imputed value (ties: player key), appended
-# after the chart's own list. Browser port: value-model.js imputeExtension.
+# after the chart's own list. (Its browser port was retired by JEG-702.)
 IMPUTATION_VERSION = "other-charts-tail-ratio/1"
 IMPUTE_MIN_FIT = 3
 WAIVER_IMPUTED = "imputed_from_other_charts"
@@ -434,8 +427,7 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 7.0
                      superflex_count: int = 0) -> dict:
     """Pure core of translate_source: no fixture, no naming table, no I/O.
 
-    our_max: positional maxes to translate onto (default OUR_MAX, today's
-    fixed anchors). positional_max_for_setup supplies league-following maxes.
+    our_max: positional maxes to translate onto (default OUR_MAX).
 
     superflex_count: dedicated superflex slots per team (JEG332-SUPERFLEX-FLEX
     option A; vorp_via_roster.allocate_superflex). Default 0 = unchanged
@@ -455,11 +447,9 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 7.0
     Returns {'positions': {...}, 'translated': {...}} exactly as
     translate_source reports them.
 
-    JEG-332: this is the reference the browser port
-    (app/trade-value-chart/assets/value-model.js translatePublishedVorp) is
-    held to by tests/test_vorp_translation_js_parity.py. slots/flex_eligible
-    default to the server's standard roster, so translate_source output is
-    unchanged; the browser passes the chart's roster steppers.
+    slots/flex_eligible default to the server's standard roster, so
+    translate_source output is unchanged. (The browser port this was the
+    reference for was retired by JEG-702.)
     """
     if our_max is None:
         our_max = OUR_MAX
@@ -552,80 +542,6 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 7.0
         result['positions'][pos]['implied_weight'] = round(w, 4)
 
     return result
-
-
-def projection_max_vorp(projection_ranked: dict, teams: int, bench_per_team: float = 7.0,
-                        flex_count: Optional[int] = None, slots: Optional[dict] = None,
-                        flex_eligible: Optional[list] = None,
-                        superflex_count: int = 0) -> dict[str, float]:
-    """Top player's value above waivers per position, unrounded.
-
-    projection_ranked: {pos: [(player_key, name, per_game_points), ...]}
-    sorted descending. Rostered counts and the waiver line use exactly the
-    translation's rules (rostered_for_teams; waiver = first unrostered, or
-    the last player when coverage runs out).
-    """
-    ranked = {pos: [(pkey, float(val)) for pkey, _name, val in rows]
-              for pos, rows in projection_ranked.items()}
-    roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=ranked,
-                                slots=slots, flex_eligible=flex_eligible,
-                                superflex_count=superflex_count)
-    out = {}
-    for pos in POSITIONS:
-        rows = ranked.get(pos) or []
-        if not rows:
-            continue
-        n = roster[pos]['rostered']
-        waiver = rows[n][1] if len(rows) > n else rows[-1][1]
-        out[pos] = max(0.0, rows[0][1] - waiver)
-    return out
-
-
-def positional_max_for_setup(projection_ranked: dict, teams: int, bench_per_team: float = 7.0,
-                             flex_count: Optional[int] = None, slots: Optional[dict] = None,
-                             flex_eligible: Optional[list] = None,
-                             superflex_count: int = 0) -> dict[str, float]:
-    """League-following positional maxes (JEG332-DERIVED-PEAKS rule).
-
-    raw[pos] = OUR_MAX[pos] * M_pos(setting) / M_pos(saved setup), where M is
-    projection_max_vorp; then every raw max is multiplied by
-    TOP_OF_SCALE / max(raw) so the top position sits at 70. A position with no
-    reference surplus keeps OUR_MAX. At the saved setup this returns OUR_MAX
-    exactly.
-    """
-    ref = projection_max_vorp(projection_ranked, SAVED_SETUP_TEAMS)
-    at = projection_max_vorp(projection_ranked, teams, bench_per_team, flex_count,
-                             slots=slots, flex_eligible=flex_eligible,
-                             superflex_count=superflex_count)
-    raw = {}
-    for pos in POSITIONS:
-        r = ref.get(pos, 0.0)
-        raw[pos] = OUR_MAX[pos] * (at.get(pos, 0.0) / r) if r > 0 else OUR_MAX[pos]
-    top = max(raw.values())
-    if not top > 0:
-        return dict(OUR_MAX)
-    k = TOP_OF_SCALE / top
-    return {pos: raw[pos] * k for pos in POSITIONS}
-
-
-def load_projection_ranked(scoring: str, players_path: Optional[Path] = None) -> dict:
-    """ESPN per-game projections from the naming table, ranked per position.
-
-    Returns {pos: [(player_key, name, espn_ppg), ...]} sorted descending --
-    the same numbers the browser reads from player.espn_ppg[scoring].
-    """
-    if players_path is None:
-        players_path = REPO / "data" / "fixtures" / "current" / "players.json"
-    players = json.loads(players_path.read_text())["players"]
-    out: dict[str, list] = {pos: [] for pos in POSITIONS}
-    for p in players:
-        pos = p.get("pos")
-        val = (p.get("espn_ppg") or {}).get(scoring)
-        if pos in out and p.get("player_key") is not None and isinstance(val, (int, float)):
-            out[pos].append((str(p["player_key"]), p.get("name"), float(val)))
-    for pos in out:
-        out[pos].sort(key=lambda row: -row[2])
-    return out
 
 
 def _sb():
