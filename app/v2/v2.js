@@ -3164,11 +3164,11 @@
     const estimated = estimatedReason(p.row, chart);
     if (!math || math.native === null || math.factor === null) {
       return {head: `${name}${week}`, plain: true, lines: [[estimated ? `Estimated: ${estimated}` : "The engine has no published number to show for this value.", ""],
-        ["= indexed value", fmt(cell.value)]].concat(cell.gap !== null && Number.isFinite(p.ours) ? [["− our value", fmt(p.ours)], ["= gap", fmtGap(cell.gap)]] : [])};
+        ["= rescaled value", fmt(cell.value)]].concat(cell.gap !== null && Number.isFinite(p.ours) ? [["− our value", fmt(p.ours)], ["= gap", fmtGap(cell.gap)]] : [])};
     }
-    lines.push([`${name}${week} (as published)`, String(math.native)]);
-    lines.push(["× index factor", math.factor.toFixed(3)]);
-    lines.push(["= indexed value", fmt(cell.value)]);
+    lines.push([`${name}${week} (original)`, String(math.native)]);
+    lines.push(["× rescale factor", math.factor.toFixed(3)]);
+    lines.push(["= rescaled value", fmt(cell.value)]);
     if (cell.gap !== null && Number.isFinite(p.ours)) {
       lines.push(["− our value", fmt(p.ours)]);
       lines.push(["= gap", fmtGap(cell.gap)]);
