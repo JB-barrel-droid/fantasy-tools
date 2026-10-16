@@ -656,6 +656,7 @@ def _built_dist(html_sub=None):
 
 def _open(browser, url, width, height, targets_js, v2_js, v2_css):
     page = browser.new_page(viewport={"width": width, "height": height})
+    page.add_init_script(_render_env.pin_today_script())
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     # Only the local build is under test; the web font is not.
@@ -803,7 +804,21 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                     errors += [tag + e for e in _popover_checks(page, width)]
                     errors += [tag + e for e in _paging_checks(page, width)]
                 full_numbers = numbers and width in (1440, 390)
-                for ours in (OURS if full_numbers else (DDF,) if numbers else ()):
+                # A series the fidelity gate holds in the committed fixture
+                # (validationHold) is rightly not offered; check the rest and
+                # that the held one is shown disabled, not silently dropped.
+                choices = {c["key"]: c for c in page.evaluate("() => window.TradeValueV2.targets().choices")}
+                offered = tuple(k for k in OURS if choices.get(k, {}).get("available"))
+                for held in (k for k in OURS if k not in offered):
+                    if not full_numbers:
+                        continue
+                    option = page.evaluate("(k) => { const o = document.querySelector(`#v2TOurs option[value='${k}']`); "
+                                           "return o ? {disabled: o.disabled, text: o.textContent} : null; }", held)
+                    if option is not None and not option["disabled"]:
+                        errors.append(tag + f"Our value {held} is unavailable ({choices.get(held, {}).get('reason')}) but its option is selectable")
+                if numbers and DDF not in offered:
+                    errors.append(tag + f"DDF Value must always be offered: {sorted(offered)}")
+                for ours in (offered if full_numbers else (DDF,) if numbers else ()):
                     if ours != DDF:
                         page.select_option("#v2TOurs", ours)
                         # The pick must survive a trip to Player values and back.
@@ -828,12 +843,12 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                         if width < 768 and snap["overflow"] > 0:
                             errors.append(tag + f"horizontal overflow {snap['overflow']}px")
                 if full_numbers:
-                    # Remembered on this device: the last pick (Razzball) is back after a reload.
+                    # Remembered on this device: the last offered pick is back after a reload.
                     page.reload(wait_until="networkidle")
                     page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=40000)
                     picked = page.evaluate("() => [document.getElementById('v2TOurs').value, window.TradeValueV2.targets().ours]")
-                    if picked != [OURS[-1], OURS[-1]]:
-                        errors.append(tag + f"Our value after a reload is {picked}, expected {OURS[-1]!r} (remembered)")
+                    if picked != [offered[-1], offered[-1]]:
+                        errors.append(tag + f"Our value after a reload is {picked}, expected {offered[-1]!r} (remembered)")
                 if layout and width in (1440, 390):
                     ref_week = page.evaluate(SIMULATE_PRIOR)
                     page.wait_for_timeout(200)

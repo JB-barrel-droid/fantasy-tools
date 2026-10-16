@@ -284,6 +284,10 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 #v2Targets .v2-ttitle p { margin-top: 4px !important; }
 .v2-tfilters { margin: 14px 0 0; gap: 8px 12px; }
 .v2-tfilters .v2-search { flex: 1 1 160px; max-width: 280px; }
+/* A select is as wide as its longest option. A held series reads "Razzball
+   projections - not available for this league", which stretched Our value to
+   482px and wrapped Compare against to a second row at 1366 (JEG-461). */
+@media (min-width: 768px) { .v2-tfilters .v2-field-rank select { max-width: 240px; } }
 .v2-tcompare { display: inline-flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
 .v2-tcaption { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--v2-muted); white-space: nowrap; }
 .v2-tlists { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 16px; align-items: start; }

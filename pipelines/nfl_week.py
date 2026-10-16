@@ -30,6 +30,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import sys
 from datetime import date, timedelta
 
@@ -40,9 +41,17 @@ REGULAR_SEASON_WEEKS = 18
 LAST_GAME_WEEK = 22                        # through the Super Bowl
 
 
+def today() -> date:
+    """Today's date; FANTASY_TOOLS_TODAY (YYYY-MM-DD) pins it so the render
+    tests build and read the committed fixture on the fixture's own date
+    instead of drifting red each Tuesday when the real content week flips."""
+    pinned = os.environ.get("FANTASY_TOOLS_TODAY", "").strip()
+    return date.fromisoformat(pinned) if pinned else date.today()
+
+
 def content_week(day: date | None = None) -> int:
     """Content week (Tuesday flip) for a date; 1 before the season, capped at 18."""
-    day = day or date.today()
+    day = day or today()
     days_since = (day - CONTENT_WEEK_1_START).days
     if days_since < 0:
         return 1

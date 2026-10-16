@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -24,6 +25,13 @@ DIST = ROOT / "dist"
 REFERENCE_FRESHNESS = ROOT / "output" / "reference-freshness.json"
 RUNTIME_IMPORT_HEALTH = ROOT / "output" / "source-import-health.json"
 FIXTURE_IMPORT_HEALTH = FIXTURES / "source-import-health.json"
+
+
+def _pinned_or_utc_today() -> date:
+    """UTC today, or FANTASY_TOOLS_TODAY when the render tests pin the clock."""
+    if os.environ.get("FANTASY_TOOLS_TODAY", "").strip():
+        return date.fromisoformat(os.environ["FANTASY_TOOLS_TODAY"].strip())
+    return datetime.now(timezone.utc).date()
 
 
 def read_json(path: Path) -> dict:
@@ -362,7 +370,8 @@ def main() -> int:
     # UTC, like every timestamp the report reads: a local date ran a day
     # behind them each evening in Chicago, so fresh inputs read as -1 days
     # old ("unknown") on a locally built monitor.
-    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, datetime.now(timezone.utc).date(),
+    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS,
+                             _pinned_or_utc_today(),
                              import_health_path=import_health)
     # JEG-460: source divergence soft check. A warning, never a gate: errors
     # land in the report (status "error") and the build carries on. The

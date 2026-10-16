@@ -28,6 +28,23 @@ SYNC = ROOT / "pipelines" / "sync_dashboard_artifacts.py"
 
 _built = False
 
+
+def pinned_today() -> str:
+    """The fixture's own date (players.json as_of), YYYY-MM-DD.
+
+    The render tests read the committed fixture, so they must run on its day:
+    on the real clock every chart reads one content week behind after the
+    Tuesday flip and the prior-week badges, filters and rows change under the
+    test (render suites red 2026-10-13, JEG-631 follow-up)."""
+    import json
+    return json.loads((ROOT / "data" / "fixtures" / "current" / "players.json").read_text())["meta"]["as_of"][:10]
+
+
+def pin_today_script() -> str:
+    """Init script that pins the page's calendar day (product-data.js reads
+    window.TRADE_VALUE_TODAY). Pass to page.add_init_script() before goto."""
+    return f"window.TRADE_VALUE_TODAY = {pinned_today()!r};"
+
 # Hermetic browser (2026-10-08): every host but the local test server fails
 # to resolve, so a test never waits on, or depends on, an external request
 # (the Google Fonts fetch made networkidle waits time out intermittently).
@@ -57,6 +74,7 @@ def ensure_built() -> None:
         return
     proc = subprocess.run(
         [sys.executable, str(SYNC)], cwd=str(ROOT),
+        env={**os.environ, "FANTASY_TOOLS_TODAY": pinned_today()},
         capture_output=True, text=True, timeout=600,
     )
     if proc.returncode != 0:

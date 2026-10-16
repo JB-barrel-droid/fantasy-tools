@@ -351,6 +351,7 @@ def _freshness_doc() -> dict:
 def _freshness_with(page, handler):
     """Load Player values with reference-freshness.json served by handler; return the rows and the chip."""
     other = page.context.browser.new_page(viewport={"width": 1440, "height": 1000})
+    other.add_init_script(_render_env.pin_today_script())
     other.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
     if getattr(page, "v2_js", None) is not None:
         other.route("**/v2/v2.js*", functools.partial(_serve, page.v2_js))
@@ -743,6 +744,7 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
         try:
             for width, height in viewports:
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_today_script())
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
