@@ -130,6 +130,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_pull_draftsharks
+	python3 -m unittest tests.test_pull_fantasysharks
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
@@ -513,6 +514,7 @@ test-core:
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_roster_convention_parity
+	python3 -m unittest tests.test_player_tags
 
 test-all: naming naming-convention test-unit
 
