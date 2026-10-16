@@ -380,6 +380,7 @@ VALUES_JS = "async () => {" + COMMON + r"""
     customize: $('v2EditSources').textContent.trim(),
     rankBy: $('v2RankBy').value, rankOptions: [...$('v2RankBy').options].map(o => o.value),
     shown: V.shown(), active: C.getActiveSources(),
+    names: {label: document.querySelector('.v2-showing b').textContent.trim(), info: document.querySelectorAll('.v2-showing button[data-info=names]').length},
     fit: {ticks: [...V.chart().svg.querySelectorAll('.axis text[text-anchor="end"]')].map(t => Number(t.textContent)),
       values: V.chart().slice.flatMap(r => V.chart().keys.map(k => r.values[k])).filter(v => Number.isFinite(v) && v > 0)},
     zeroPlayers: {hidden: V.view().hiddenZero, listed: V.view().rows.filter(r => !V.view().plotKeys.concat(V.view().vorpKeys)
@@ -626,6 +627,7 @@ HOW_JS = "() => {" + COMMON + r"""
     cards: [...how.querySelectorAll('[data-view-method]')].map(li => ({method: li.dataset.viewMethod,
       title: li.querySelector('h2')?.textContent || '', items: [...li.querySelectorAll('.v2-how-sources li')].map(x => x.textContent.trim())})),
     outside: clone.textContent, bench: $('v2HowBench').textContent, benchNote: $('v2HowBenchNote').hidden ? '' : $('v2HowBenchNote').textContent,
+    primaries: [...how.querySelectorAll('#v2HowNames [data-primary]')].map(li => li.querySelector('b').textContent), edge: how.innerText.includes('Where the edge comes from'),
     readout: C.getBenchShareReadout(), slider: Boolean(document.getElementById('v2BenchSlider')),
     activeKeys: C.getActiveSources()};
 }"""
@@ -1356,6 +1358,24 @@ def pv16(S):
     return errors
 
 
+def gl26(S):
+    n = S["values"]["s0"]["names"]
+    errors = []
+    if n["label"] != "On the chart:" or n["info"] != 1:
+        errors.append(f"the header row reads {n['label']!r} with {n['info']} definition buttons, want 'On the chart:' and one")
+    return errors
+
+
+def hv02(S):
+    h = S["tabs"]["how"]
+    errors = []
+    if h["primaries"] != ["DDF Value", "DDF Projections", "Trade chart average"] or not h["edge"]:
+        errors.append(f"How values work leads with {h['primaries']}, edge section {h['edge']}")
+    if "Data Driven Adjustments" in h["outside"] or re.search(r"\bDDA\b", h["outside"]):
+        errors.append("How values work still says Data Driven Adjustments / DDA")
+    return errors
+
+
 def pv18(S):
     f = S["values"]["s0"]["fit"]
     if not f["values"] or not f["ticks"]:
@@ -1761,7 +1781,7 @@ CHECKS = {
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
-    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25,
+    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26,
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
@@ -1775,7 +1795,7 @@ CHECKS = {
     "RF-01": rf01, "RF-02": rf02,
     "CT-01": ct01, "CT-02": PENDING("JEG-505"), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
     "CT-06": ct06, "CT-07": ct07, "CT-08": ct08,
-    "HV-01": hv01,
+    "HV-01": hv01, "HV-02": hv02,
 }
 
 # The scenarios each check reads (a broken-build run loads only what its checks need).

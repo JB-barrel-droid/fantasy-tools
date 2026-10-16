@@ -1996,6 +1996,7 @@
           const title = document.createElement("h3");
           title.textContent = g.id === "vorp" ? `Advanced · ${g.title}` : g.title;
           head.appendChild(title);
+          if (g.id === "ddf") head.appendChild(namesInfoButton("Customize"));
           const selectable = items.filter(item => item.available);
           const allOn = selectable.length > 0 && selectable.every(item => draft.has(item.key));
           const all = document.createElement("button");
@@ -2833,12 +2834,24 @@
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
   const INDEXED_INFO = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
-  function indexedInfoButton(context) {
+  // JEG-490: our three names, defined once and used wherever they are shown (the "On the chart" row, Risers,
+  // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
+  const NAME_DEFS = [
+    ["DDF Value", "Fair value: the price a player is really worth."],
+    ["DDF Projections", "What production supports: the value of the projected stats."],
+    ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
+  const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
+  const INFO_SPECS = {
+    indexed: {kind: "indexed", what: "rescaled", title: "Rescaled values", lines: [INDEXED_INFO]},
+    names: {kind: "names", what: "our names", title: "Our names", lines: NAME_DEFS.map(([name, text]) => [name, text]).concat([["", EDGE_DEF]])}
+  };
+  function namesInfoButton(context) { return indexedInfoButton(context, INFO_SPECS.names); }
+  function indexedInfoButton(context, spec = INFO_SPECS.indexed) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "v2-info";
-    button.dataset.info = "indexed";
-    button.setAttribute("aria-label", `What rescaled means${context ? ` (${context})` : ""}`);
+    button.dataset.info = spec.kind;
+    button.setAttribute("aria-label", `What ${spec.what} means${context ? ` (${context})` : ""}`);
     button.setAttribute("aria-haspopup", "dialog");
     button.setAttribute("aria-expanded", "false");
     const glyph = document.createElement("span");
@@ -2862,10 +2875,17 @@
         pop.setAttribute("aria-labelledby", "v2InfoTitle");
         const h = document.createElement("h2");
         h.id = "v2InfoTitle";
-        h.textContent = "Rescaled values";
-        const text = document.createElement("p");
+        h.textContent = spec.title;
+        const text = document.createElement("div");
         text.className = "v2-info-text";
-        text.textContent = INDEXED_INFO;
+        spec.lines.forEach(line => {
+          const p = document.createElement("p");
+          if (Array.isArray(line)) {
+            if (line[0]) { const b = document.createElement("b"); b.textContent = line[0]; p.append(b, document.createTextNode(` ${line[1]}`)); }
+            else p.textContent = line[1];
+          } else p.textContent = line;
+          text.appendChild(p);
+        });
         const foot = document.createElement("div");
         foot.className = "v2-info-foot";
         const link = document.createElement("a");
@@ -3607,6 +3627,9 @@
     });
     $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); resetLists(); renderTargets(); });
     $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; resetLists(); renderTargets(); });
+    $("v2NamesInfoSlot").replaceWith(namesInfoButton("On the chart"));
+    $("v2RNamesInfoSlot").replaceWith(namesInfoButton("Movement"));
+    $("v2RDisagreeInfoSlot").replaceWith(namesInfoButton("Where the market and the projections disagree"));
     $("v2TOurs").addEventListener("change", event => {
       T.ours = event.target.value;
       saveTargetsOurs(T.ours);
@@ -4282,7 +4305,7 @@
       const def = document.createElement("span");
       def.className = "v2-deal-def v2-meta";
       def.hidden = true;
-      def.textContent = question;
+      def.textContent = `${NAME_DEFS.find(([n]) => n === name)[1]} ${question}`;
       info.addEventListener("click", () => { def.hidden = !def.hidden; info.setAttribute("aria-expanded", String(!def.hidden)); });
       const value = document.createElement("b");
       value.className = "v2-deal-net";
