@@ -21,7 +21,7 @@
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-15T22:01:26-05:00",
+  "generated_at": "2026-10-15T22:11:16-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -74,7 +74,7 @@
       "max_age_days": 2,
       "note": "changed",
       "status": "same_day",
-      "value": "2026-10-16T02:48:22Z"
+      "value": "2026-10-16T03:01:20Z"
     },
     {
       "age_days": 0,
@@ -87,7 +87,7 @@
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-16T02:48:22Z; content_vintage is Week 6 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-16T03:01:20Z; content_vintage is Week 6 source provenance, not pull time",
       "status": "same_day",
       "value": "Week 6"
     },
@@ -102,7 +102,7 @@
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-16T02:48:22Z; content_vintage is 2026-10-15 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-16T03:01:20Z; content_vintage is 2026-10-15 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-15"
     },
@@ -117,7 +117,7 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-16T02:48:22Z; content_vintage is 2026-10-15 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-16T03:01:20Z; content_vintage is 2026-10-15 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-15"
     },
@@ -132,7 +132,7 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-16T02:48:22Z; content_vintage is Week 6 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-16T03:01:20Z; content_vintage is Week 6 source provenance, not pull time",
       "status": "same_day",
       "value": "Week 6"
     },
@@ -147,7 +147,7 @@
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-16T02:48:22Z; content_vintage is 2026-10-13 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-16T03:01:20Z; content_vintage is 2026-10-13 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-13"
     },
@@ -162,7 +162,7 @@
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-16T02:48:22Z; content_vintage is 2026-10-15 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-16T03:01:20Z; content_vintage is 2026-10-15 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-15"
     },
@@ -177,7 +177,7 @@
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-16T02:48:22Z; content_vintage is 2026-10-13 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-16T03:01:20Z; content_vintage is 2026-10-13 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-13"
     },
@@ -299,12 +299,12 @@
       "bias": 1.18,
       "headline_combo": "full_12",
       "label": "CBS",
-      "message": "CBS disagrees with the other charts on 14% of players this week (usually 15%).",
+      "message": "CBS disagrees with the other charts on 14% of players this week (usually 16%).",
       "outlier_rate": 0.137,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.149,
-      "week": 6
+      "usual_outlier_rate": 0.159,
+      "week": 5
     },
     "cbsros": {
       "bias": -3.72,
@@ -315,7 +315,7 @@
       "resolution_issue": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "espn": {
       "bias": 1.06,
@@ -326,29 +326,29 @@
       "resolution_issue": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "fantasycalc": {
       "bias": 0.35,
       "headline_combo": "full_12_qb1",
       "label": "FantasyCalc",
-      "message": "FantasyCalc disagrees with the other charts on 43% of players this week (usually 46%).",
+      "message": "FantasyCalc disagrees with the other charts on 43% of players this week (usually 47%).",
       "outlier_rate": 0.426,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.462,
-      "week": 6
+      "usual_outlier_rate": 0.467,
+      "week": 5
     },
     "fantasypros": {
       "bias": -0.14,
       "headline_combo": "standard_12",
       "label": "FantasyPros",
-      "message": "FantasyPros disagrees with the other charts on 50% of players this week (usually 46%). Under review.",
+      "message": "FantasyPros disagrees with the other charts on 50% of players this week (usually 45%). Reviewed.",
       "outlier_rate": 0.503,
-      "resolution_issue": null,
-      "status": "investigate",
-      "usual_outlier_rate": 0.46,
-      "week": 6
+      "resolution_issue": "JEG-482",
+      "status": "reviewed",
+      "usual_outlier_rate": 0.452,
+      "week": 5
     },
     "razzball": {
       "bias": 2.66,
@@ -359,18 +359,18 @@
       "resolution_issue": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "usatoday": {
       "bias": -0.53,
       "headline_combo": "full_12",
       "label": "USA Today",
-      "message": "USA Today disagrees with the other charts on 30% of players this week (usually 27%).",
+      "message": "USA Today disagrees with the other charts on 30% of players this week (usually 26%).",
       "outlier_rate": 0.301,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.269,
-      "week": 6
+      "usual_outlier_rate": 0.255,
+      "week": 5
     }
   },
   "source_validation": {
