@@ -85,12 +85,20 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-nav { background: var(--v2-nav); color: #fff; }
 .v2-nav-inner { max-width: 1440px; margin: 0 auto; padding: 0 48px; display: flex; align-items: center; gap: 32px; min-height: 64px; }
 .v2-brand { color: #fff; text-decoration: none; font-size: 22px; font-weight: 700; white-space: nowrap; }
-.v2-tabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.v2-tabs { display: flex; gap: 4px; flex: 1 0 auto; overflow-x: auto; scrollbar-width: none; }
 .v2-tab { color: rgba(255,255,255,.78); text-decoration: none; padding: 8px 16px; border-radius: var(--v2-radius-btn); white-space: nowrap; min-height: 36px; display: inline-flex; align-items: center; }
 .v2-tab.is-active { background: rgba(255,255,255,.12); color: #fff; font-weight: 600; }
 .v2-tab.is-soon { color: rgba(255,255,255,.45); cursor: not-allowed; }
 .v2-tab.is-soon::after { content: "soon"; font-size: 10px; margin-left: 6px; padding: 1px 6px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; }
 .v2-freshness { background: none; border: 0; color: rgba(255,255,255,.85); font-size: 12px; display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 44px; white-space: nowrap; }
+/* JEG-675: with seven tabs the long "prior week" label squeezed the tab row, and Research slid under the freshness
+   button. The tabs keep their width; the label gives way with an ellipsis. */
+.v2-freshness { flex: 0 1 auto; min-width: 0; }
+.v2-freshness #v2FreshnessLabel { overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 1024px) { .v2-nav-inner { gap: 24px; } .v2-tab { padding: 8px 12px; } }
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .v2-nav-inner { padding: 0 24px; gap: 16px; } .v2-brand { font-size: 18px; } .v2-tab { padding: 8px 8px; }
+}
 .v2-dot { width: 8px; height: 8px; border-radius: 50%; background: #9BE3C1; display: inline-block; }
 .v2-freshness.is-older .v2-dot { background: var(--v2-older); }
 
@@ -284,6 +292,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 #v2Targets .v2-ttitle p { margin-top: 4px !important; }
 .v2-tfilters { margin: 14px 0 0; gap: 8px 12px; }
 .v2-tfilters .v2-search { flex: 1 1 160px; max-width: 280px; }
+/* The pickers size to their longest option ("DDF Value, built from player projections only"), which pushed the
+   Compare control onto a second filter row at 1440 and 1366. Cap them; the selected text is short (JEG-675). */
+@media (min-width: 768px) { #v2Targets .v2-tfilters .v2-field-rank select { max-width: 200px; text-overflow: ellipsis; } }
 .v2-tcompare { display: inline-flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
 .v2-tcaption { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--v2-muted); white-space: nowrap; }
 .v2-tlists { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 16px; align-items: start; }
@@ -341,6 +352,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   .v2-tlists { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .v2-ttable .t-chart { display: none; }
 }
+/* The half-width card at 1024 to 1279 px is about 420 px of table: tighter cell padding keeps it from scrolling (JEG-456, JEG-675). */
+@media (min-width: 1024px) and (max-width: 1279px) { .v2-ttable th, .v2-ttable td { padding-inline: 4px; } }
 @media (max-width: 1023px) {
   .v2-ttable .t-expand, .v2-ttable tr.t-detail { display: none; }
   .v2-ttable th, .v2-ttable td { padding-inline: clamp(4px, .55vw, 8px); }
@@ -719,8 +732,9 @@ a.v2-div-chip:hover { text-decoration: underline; }
 @media (max-width: 767px) {
   .v2-tabs { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
   /* 7 px side padding leaves slack in the 358 px row, so the shortest tab can keep a 44 px hit area (JEG-607). */
-  /* Seven tabs since Research (JEG-543): 13 px type and 2 px padding keep the row inside 358 px. */
-  .v2-tab { padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 13px; }
+  /* Seven tabs since Research (JEG-543): 12 px type and 2 px padding keep the row inside 358 px even in a
+     wide fallback face (DejaVu Sans, which hosts without Inter use); at 13 px the row ran 6 to 15 px over (JEG-675). */
+  .v2-tab { padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 12px; }
   .v2-tab .v2-tab-full { display: none; }
   .v2-tab::before { content: attr(data-short); }
 }
@@ -1049,6 +1063,8 @@ a.v2-div-chip:hover { text-decoration: underline; }
 /* JEG-473 table fit. */
 .v2-table-head { align-items: center; flex-wrap: nowrap; gap: 4px 12px; }
 .v2-table-head h2 { flex: none; line-height: 1.3; }
+/* Phone: the buttons stay on the card and the title gives way, in any fallback face (JEG-675). */
+@media (max-width: 767px) { .v2-table-head h2 { flex: 0 1 auto; min-width: 0; } }
 .v2-table-head .v2-meta { flex: 1 1 auto; min-width: 0; }
 .v2-app #v2Columns { flex: none; position: relative; min-height: 30px; min-width: 44px; padding: 4px 12px; font-size: 13px; }
 #v2Columns::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
