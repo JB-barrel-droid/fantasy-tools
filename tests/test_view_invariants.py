@@ -224,8 +224,8 @@ class ViewInvariants(unittest.TestCase):
             "vorp-unscaled": model.replace("r.vorpDisplay = r.vorp * vorpFactor;", "r.vorpDisplay = r.vorp;"),
             # The starter slice paid at the bench rate.
             "starter-at-bench-rate": model.replace(
-                '+ rates[vpGroupKey(r.pos, "starter")] * r.starterSlice;',
-                '+ rates[vpGroupKey(r.pos, "bench")] * r.starterSlice;'),
+                'r.adjusted = rbench * r.benchSlice + rstarter * r.starterSlice;',
+                'r.adjusted = rbench * r.benchSlice + rbench * r.starterSlice;'),
         }
         settings = [("ppr", 12, None, None), ("standard", 10, None, None)]
         for name, body in broken.items():
