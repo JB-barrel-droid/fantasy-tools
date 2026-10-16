@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20261015-2323-81ae8319">
+<meta name="trade-chart-build" content="tv-20261015-2348-069194f4">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
@@ -1849,6 +1849,7 @@
           <select id="v2TChart" aria-describedby="v2TChartCaption"></select>
         </label>
         <span class="v2-tcaption" id="v2TChartCaption">Rescaled to our point scale <span id="v2TChartBadge"></span></span>
+        <span id="v2TChartLink"></span>
         <span id="v2TChartInfoSlot"></span>
       </div>
     </div>
@@ -2325,6 +2326,7 @@
   <div class="v2-status" id="v2Status" role="status" hidden></div>
 
   <div class="v2-tip" id="v2Tip" role="tooltip" hidden></div>
+  <div class="v2-tip v2-mathtip" id="v2MathTip" role="tooltip" hidden></div>
   <div class="v2-scrim" id="v2Scrim" hidden></div>
   <aside class="v2-drawer" id="v2Drawer" role="dialog" aria-modal="true" aria-labelledby="v2DrawerTitle" hidden></aside>
   <div class="v2-popover" id="v2Popover" role="dialog" aria-modal="false" hidden></div>
@@ -2651,11 +2653,11 @@
   </div>
 
   </div>
-  <script src="assets/value-model.js?v=tv-20261015-2323-81ae8319" defer></script>
-  <script src="assets/consolidation-index.js?v=tv-20261015-2323-81ae8319" defer></script>
-  <script src="assets/product-data.js?v=tv-20261015-2323-81ae8319" defer></script>
-  <script src="assets/curve-widget.js?v=tv-20261015-2323-81ae8319" defer></script>
-  <script src="assets/comparison-dashboard.js?v=tv-20261015-2323-81ae8319" defer></script>
+  <script src="assets/value-model.js?v=tv-20261015-2348-069194f4" defer></script>
+  <script src="assets/consolidation-index.js?v=tv-20261015-2348-069194f4" defer></script>
+  <script src="assets/product-data.js?v=tv-20261015-2348-069194f4" defer></script>
+  <script src="assets/curve-widget.js?v=tv-20261015-2348-069194f4" defer></script>
+  <script src="assets/comparison-dashboard.js?v=tv-20261015-2348-069194f4" defer></script>
   <script src="v2/targets.js" defer></script>
   <script src="v2/trade.js" defer></script>
   <script src="v2/movers.js" defer></script>
@@ -3107,7 +3109,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2323-81ae8319</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2348-069194f4</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug
