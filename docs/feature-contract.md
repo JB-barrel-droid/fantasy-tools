@@ -130,6 +130,10 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
   - **PV-16** A Reset zoom link appears while zoomed and clears both brushes *(JEG-483)*.
   - **PV-17** Active filter chips, each clearing one filter *(JEG-483)*.
 
+  - **PV-18** The chart's Y axis follows the top and bottom visible points (values of 0 ignored), with about 4% padding and nice steps, so the lines show more differentiation *(JEG-477; pinned by `tests/test_v2_chart_fit_render.py`)*.
+  - **PV-19** A player that no shown series (DDF Value included) prices above 0 is hidden, with a note saying how many; a search finds him again, as a 0 *(JEG-477)*.
+  - **PV-20** Rank by always offers the DDF weighted projections (ESPN, CBS rest of season, Razzball) as well as the three DDF Value versions, shown or not; ranking by one puts it on the chart and in the table *(JEG-477)*.
+
 ## Trade targets (TT)
 
   - **TT-01** The headline explains the page: "Where the trade market is wrong this week".

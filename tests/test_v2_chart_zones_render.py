@@ -180,14 +180,14 @@ def run_checks(patch=None) -> list[str]:
             page.wait_for_timeout(500)
             errors += check_zones(page.evaluate(ZONES), "[ranks 1-60] ", False)
 
-            # 3. Whole-range drag of the rank brush: ranks 100..400 dragged right keeps the width.
-            page.evaluate("() => { const hi = document.getElementById('v2BrushHi'); hi.value = '400'; hi.dispatchEvent(new Event('input', {bubbles: true})); }")
+            # 3. Whole-range drag of the rank brush: ranks 40..200 dragged right keeps the width.
+            page.evaluate("() => { const hi = document.getElementById('v2BrushHi'); hi.value = '200'; hi.dispatchEvent(new Event('input', {bubbles: true})); }")
             page.wait_for_timeout(400)
-            page.evaluate("() => { const lo = document.getElementById('v2BrushLo'); lo.value = '100'; lo.dispatchEvent(new Event('input', {bubbles: true})); }")
+            page.evaluate("() => { const lo = document.getElementById('v2BrushLo'); lo.value = '40'; lo.dispatchEvent(new Event('input', {bubbles: true})); }")
             page.wait_for_timeout(500)
             b = page.evaluate(BRUSH)
-            if b["window"] != [100, 400]:
-                errors.append(f"[drag setup] window {b['window']}, want [100, 400]")
+            if b["window"] != [40, 200]:
+                errors.append(f"[drag setup] window {b['window']}, want [40, 200]")
             else:
                 b = page.evaluate(BRUSH)
                 fx, fy = b["fillX"]["x"] + b["fillX"]["w"] / 2, b["fillX"]["y"] + b["fillX"]["h"] / 2
@@ -197,9 +197,9 @@ def run_checks(patch=None) -> list[str]:
                 page.mouse.up()
                 page.wait_for_timeout(500)
                 after = page.evaluate(BRUSH)["window"]
-                if after[1] - after[0] != 300:
+                if after[1] - after[0] != 160:
                     errors.append(f"[drag] width changed: {b['window']} -> {after}")
-                if not (after[0] > 100 and after[1] > 400):
+                if not (after[0] > 40 and after[1] > 200):
                     errors.append(f"[drag] both ends should move right: {b['window']} -> {after}")
                 # Keyboard: focus the fill, Shift+ArrowLeft moves both ends one rank.
                 page.focus("#v2BrushFill")

@@ -380,6 +380,10 @@ VALUES_JS = "async () => {" + COMMON + r"""
     customize: $('v2EditSources').textContent.trim(),
     rankBy: $('v2RankBy').value, rankOptions: [...$('v2RankBy').options].map(o => o.value),
     shown: V.shown(), active: C.getActiveSources(),
+    fit: {ticks: [...V.chart().svg.querySelectorAll('.axis text[text-anchor="end"]')].map(t => Number(t.textContent)),
+      values: V.chart().slice.flatMap(r => V.chart().keys.map(k => r.values[k])).filter(v => Number.isFinite(v) && v > 0)},
+    zeroPlayers: {hidden: V.view().hiddenZero, listed: V.view().rows.filter(r => !V.view().plotKeys.concat(V.view().vorpKeys)
+      .some(k => Number.isFinite(r.values[k]) && r.values[k] > 0)).length},
     zones: {engine: C.getZones(), ranks: V.chart().slice.map(r => r.fullRank),
       lines: [...document.querySelectorAll('#v2Chart .zone-line')].map(l => ({name: l.dataset.zone, x: Number(l.getAttribute('x1'))})),
       labels: [...document.querySelectorAll('#v2Chart .zone-label')].map(l => l.textContent)},
@@ -1352,6 +1356,35 @@ def pv16(S):
     return errors
 
 
+def pv18(S):
+    f = S["values"]["s0"]["fit"]
+    if not f["values"] or not f["ticks"]:
+        return [f"no axis to read: {f}"]
+    lo, hi = min(f["values"]), max(f["values"])
+    errors = []
+    if f["ticks"][0] > lo or f["ticks"][-1] < hi:
+        errors.append(f"the Y axis {f['ticks'][0]}..{f['ticks'][-1]} does not cover the visible points {lo:.1f}..{hi:.1f}")
+    if f["ticks"][-1] - hi > (hi - lo) * 0.5 + 10 or lo - f["ticks"][0] > (hi - lo) * 0.5 + 10:
+        errors.append(f"the Y axis {f['ticks'][0]}..{f['ticks'][-1]} is much wider than the visible points {lo:.1f}..{hi:.1f}")
+    return errors
+
+
+def pv19(S):
+    z = S["values"]["s0"]["zeroPlayers"]
+    errors = []
+    if z["listed"]:
+        errors.append(f"{z['listed']} listed players are 0 on every shown series")
+    if not z["hidden"]:
+        errors.append("no all-zero players are hidden (and noted)")
+    return errors
+
+
+def pv20(S):
+    opts = S["values"]["rankOptions"]
+    missing = [k for k in ("espn", "cbsros") if k not in opts]
+    return [f"Rank by does not offer {missing}: {opts}"] if missing else []
+
+
 def pv17(S):
     v = S["values"]
     c = v["chip"]
@@ -1733,7 +1766,7 @@ CHECKS = {
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
     "PV-10": pv10, "PV-11": pv11, "PV-12": pv12, "PV-13": pv13, "PV-14": pv14, "PV-15": pv15,
-    "PV-16": pv16, "PV-17": pv17,
+    "PV-16": pv16, "PV-17": pv17, "PV-18": pv18, "PV-19": pv19, "PV-20": pv20,
     "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04,
     "TT-10": tt10, "TT-11": tt11, "RS-01": rs01, "RS-02": rs02, "RS-03": rs03,
     # "rescaled" lands with JEG-510; the ⓘ and the scale word are checked meanwhile.
