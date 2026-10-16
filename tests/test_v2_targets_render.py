@@ -492,8 +492,10 @@ def check(snapshot) -> list[str]:
             errors.append(f"the waiver-line probe {probe['zero']} is not rendered")
     if snapshot["picker"] != our_key:
         errors.append(f"picker shows {snapshot['picker']!r}, expected {our_key!r}")
-    if not snapshot["methodsHidden"]:
-        errors.append("the Methods row must stay hidden on Trade targets")
+    # JEG-498 (Jeremy, GL-07, 2026-10-09): every page has a Customize, so the row is shown here. The old pin
+    # ("stay hidden") encoded the superseded rule that Trade targets had only its own pickers.
+    if snapshot["methodsHidden"]:
+        errors.append("the Methods row (Customize) must be shown on Trade targets")
     if not snapshot["used"]:
         errors.append("no published chart compared")
     if not snapshot["table"]:
