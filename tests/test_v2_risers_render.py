@@ -301,8 +301,22 @@ def run_checks(movers_js=None, v2_js=None, full=True) -> list[str]:
                     page.evaluate("() => { location.hash = '#player-values'; }")
                     page.wait_for_function("() => !document.getElementById('v2Main').hidden")
                     errors += [f"[{width}px] {e}" for e in check_picker(page.evaluate(PICKER_READ, "#v2RankBy"), "Rank by")]
-                    page.evaluate("""() => { const box = document.querySelector('#legacyEngine #sourceToggles input[data-source="fantasycalc"]');
-                      if (box && !box.checked && !box.disabled) box.click(); }""")
+                    # Enable any available indexed source so the Δ column check exercises a real series.
+                    # FantasyCalc is preferred but may be held; fall back to any of the four default indexed.
+                    # The source must be available in the engine (not held) and added to the v2 shown list.
+                    idx_source = page.evaluate("""() => {
+                      const C = window.TradeValueCurveControls;
+                      const avail = new Set(C.getSourceInfo().filter(i => i.available).map(i => i.key));
+                      for (const k of ["fantasycalc", "usatoday", "fantasypros", "cbs"]) {
+                        if (!avail.has(k)) continue;
+                        const box = document.querySelector('#legacyEngine #sourceToggles input[data-source="' + k + '"]');
+                        if (box && !box.disabled) { if (!box.checked) box.click(); }
+                        if (!window.TradeValueV2.shown().includes(k)) {
+                          window.TradeValueV2.setShown([...window.TradeValueV2.shown(), k]);
+                        }
+                        return k;
+                      } return null; }""")
+                    page.wait_for_timeout(200)
                     page.click("#v2DeltaBtn")
                     page.wait_for_function("() => ![...document.querySelectorAll('#v2Table .delta')].some(d => d.textContent === 'Δ …')", timeout=30000)
                     cells = page.evaluate("""async () => { const C = window.TradeValueCurveControls; const rows = Object.fromEntries(C.getRows().map(r => [String(r.player_key), r.values]));
@@ -313,9 +327,12 @@ def run_checks(movers_js=None, v2_js=None, full=True) -> list[str]:
                         const key = String(window.TradeValueV2.view().rows[idx].player_key);
                         const p = priors[s]; out.push({s, key, text: d.textContent, now: rows[key][s], before: p.available ? (p.values[key] ?? null) : null});
                       } return out; }""")
-                    fc = [c for c in cells if c["s"] == "fantasycalc"]
-                    if not fc:
-                        errors.append("Player values: no FantasyCalc · Index Δ cells")
+                    if idx_source:
+                        idx_cells = [c for c in cells if c["s"] == idx_source]
+                        if not idx_cells:
+                            errors.append(f"Player values: no {idx_source} · Index Δ cells (source was enabled)")
+                    else:
+                        errors.append("Player values: no indexed source available (all held); Δ check skipped")
                     for c in cells:
                         want = f"Δ {fmt_gap(c['now'] - c['before'])}" if finite(c["now"]) and finite(c["before"]) else "Δ —"
                         if c["text"] != want:

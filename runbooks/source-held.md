@@ -23,7 +23,7 @@ A held section in the fixture carries `validationHold: {reason, ...}`; a reason 
 | Evidence | Cause | Action |
 |---|---|---|
 | Held at `snapshot`, "awaiting players bake" | Projection sources are baked into `players.json` with the ESPN anchor and the section must match that bake. | Dispatch the chain with a bake: `gh workflow run rebuild-chain.yml -f bake_players=true`. |
-| Held at `review` with a failing coverage check | Candidate prices fewer players than the fixture, or a combo is missing. | Read the failing check text in the status file. Fix the producer or match, or have Jeremy decide it is genuine source change. The chain never overrides a review hold. |
+| Held at `review` with a failing coverage check | Candidate prices fewer players than the fixture, or a combo is missing. | Run `make coverage-triage SOURCE=<source>` (section 3a): it lists the dropped players and the decision commands. The chain never overrides a review hold. |
 | Pulse names a stage (publisher, stored, chart) | The publisher moved, or our save or match is wrong. Tolerances: `docs/fidelity-tolerances.md`. | Fix the save or match and re-run the producer ([weekly-refresh.md](weekly-refresh.md) step 4). Do not loosen a tolerance to clear a red. |
 | Value check lists mismatches | Engine and `pipelines/value_reference.py` disagree. | Treat as a code bug; reproduce with [sweep-and-rank-guard.md](sweep-and-rank-guard.md). |
 | Import health `stale` | A producer did not write. | Re-dispatch it. |
@@ -34,3 +34,18 @@ A held section in the fixture carries `validationHold: {reason, ...}`; a reason 
 Nothing is released by hand. A fidelity hold lasts while the latest pulse lists it; the next chain run drops it when the pulse is clear (`pipelines/fidelity_hold.py`). A value-check hold is released by the next agreeing `value_check` (`release_holds`). A review or snapshot hold clears when the next chain run's candidate passes. So: fix the cause, re-run the producer, dispatch the chain ([run-the-chain.md](run-the-chain.md)), then repeat step 1.
 
 If a source stays held more than a week, the red `rebuild_chain_source_held_stale` fires. Whether to keep waiting or drop the source is Jeremy's decision, not a bypass.
+
+## 3a. Coverage hold: decide in one look (JEG-667)
+
+```
+make coverage-triage SOURCE=cbs                    # latest chain status, or output/reviewed/ artifacts if present
+make coverage-triage SOURCE=fantasycalc REV=<sha>  # status + fixture as of an earlier commit
+```
+
+The brief prints coverage vs the fixture floor per combo and position; each dropped player with team, last value, rank and a call (ROTATION: IR, PUP, practice squad, free agent, inactive or no team; SCRAPE: active mid-list player; TAIL: active but at the list's tail, publisher trimming plausible; UNCLEAR); a recommendation among:
+
+- **A. Accept the rotation** (names all listed, none still on the source): `python3 pipelines/coverage_triage.py accept <source> --names --approve "Jeremy <YYYY-MM-DD> <reason>"`
+- **B. Refresh the floor** to the candidate's count (list resized, names do not tell the story): `python3 pipelines/coverage_triage.py accept <source> --floor --approve "Jeremy <YYYY-MM-DD> <reason>"`
+- **C. Neither**: a scrape or pipeline loss. Fix the producer or match, re-run it, dispatch the chain.
+
+A and B write `data/triage/coverage-accepted.json` (source, combo, position, content week, approver, reason). Commit it to main and dispatch `gh workflow run rebuild-chain.yml`; `review_comparison_candidate.py` then passes exactly that drop as a warn, the verdict can be `ready`, and the chain's own promote step refreshes the floor. An entry expires with its content week, never covers a different position or an unnamed player, and is ignored when the reviewer found the dropped player still priced live or still listed. Nothing is released by the triage script itself.

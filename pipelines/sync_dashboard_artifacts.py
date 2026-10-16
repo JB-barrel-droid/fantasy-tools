@@ -376,12 +376,26 @@ def main() -> int:
     REFERENCE_FRESHNESS.parent.mkdir(parents=True, exist_ok=True)
     REFERENCE_FRESHNESS.write_text(json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
+    # JEG-610 item 2: inject divergence exclusions into the fixture copy so the
+    # browser engine can read them at init time (like source_validation). The
+    # canonical fixture in data/fixtures/ is not modified.
+    divergence_excluded = divergence.get("summary", {}).get("excluded", [])
+    fixture_dest = APP / "assets" / "comparison-sources-data.json"
     (APP / "assets").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(FIXTURES / "comparison-sources-data.json", APP / "assets" / "comparison-sources-data.json")
+    if divergence_excluded:
+        fixture_data = read_json(FIXTURES / "comparison-sources-data.json")
+        fixture_data["divergence_exclusions"] = divergence_excluded
+        fixture_dest.write_text(json.dumps(fixture_data, separators=(",", ":"), sort_keys=True), encoding="utf-8")
+    else:
+        shutil.copy2(FIXTURES / "comparison-sources-data.json", fixture_dest)
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
     # JEG-536 (ES-1, ES-14): the expected-starts building blocks the engine
     # resolves the reader's league weeks and advanced settings against.
     shutil.copy2(ROOT / "config" / "lineup_parameters.json", APP / "assets" / "lineup-parameters.json")
+    # JEG-534 MR-23 option (a): lineup signal (display only).
+    lineup_signal = ROOT / "config" / "lineup_signal.json"
+    if lineup_signal.exists():
+        shutil.copy2(lineup_signal, APP / "assets" / "lineup-signal.json")
     # JEG-137 R10: the per-source dataset cards read assets/deadline-checker.json
     # for the slip measurement behind the Grace/Slip rows. Only copied when a
     # checker run has produced it -- the page falls back to the 6h default

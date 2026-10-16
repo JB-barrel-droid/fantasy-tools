@@ -183,12 +183,12 @@ def run_checks(patch=None) -> list[str]:
 
 
 PATCHES = {
-    "ok sources flagged": ('if (status !== "warn" && status !== "investigate" && status !== "reviewed") return null;',
+    "ok sources flagged": ('if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;',
                            'if (status === "n/a") return null;'),
     "tooltip dropped": ("    chip.title = message;\n", "    chip.title = '';\n"),
-    "link inside the header button": ('const href = status === "reviewed" && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";',
-                                      'const href = status === "reviewed" ? resolutionHref(entry.resolution_issue) : "";'),
-    "reviewed shown as check": ('const word = status === "reviewed" ? "Reviewed" : "Check";', 'const word = "Check";'),
+    "link inside the header button": ('const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";',
+                                      'const href = (status === "reviewed" || status === "excluded") ? resolutionHref(entry.resolution_issue) : "";'),
+    "reviewed shown as check": ('const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : "Check");', 'const word = "Check";'),
 }
 
 

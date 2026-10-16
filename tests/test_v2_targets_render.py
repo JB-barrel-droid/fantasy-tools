@@ -555,7 +555,7 @@ def check(snapshot) -> list[str]:
         # Jeremy 2026-10-16: each dot carries its chart's INDEXED value (the engine's chart series).
         want_values = sorted((c, values[c]) for c in snapshot["used"] if finite(values.get(c)))
         got_values = sorted((v["chart"], v["value"]) for v in shown.get("values", []))
-        if got_values != want_values or any(f"(indexed) {fmt(v['value'])}" not in v["title"] for v in shown.get("values", [])):
+        if got_values != want_values or any(f"(rescaled) {fmt(v['value'])}" not in v["title"] for v in shown.get("values", [])):
             errors.append(f"{row['key']}: dot values {shown.get('values')} != the indexed chart values {want_values}")
     natives = snapshot["natives"] or {}
     for detail in snapshot["details"]:

@@ -808,3 +808,38 @@ Q1 label only; Q2 moot; Q3 option (B), retire; Q4 option A.
 ### Outcome Note
 
 Jeremy, 2026-10-15 (JEG-450): Q1 "ESPN Tier" is the column label (another agent implements it). Q2 closed as moot, the fit is retired. Q3 retire the CBS ROS and Razzball direction and markup checks, which judge the starter/bench scales in buildVorpRows and price nothing those sources display; keep any check that still guards displayed values. Q4 keep zeros counted in the Indexed factor (option A, confirmed). Q3 code state: the checks (starterMarkupSane, fixedPieDirectionSane) were already deleted from the engine by JEG-508/JEG-539 and are pinned absent by test_published_league_settings_engine; no Chart Health record or test for them remains. The only leftover is the unused `starter_markup_sane_band` contract constant (product-data.js, sql/contract/api_v1.sql, fe-read-contract-v1.md), left because it is part of the frozen read contract.
+
+## jeremy-review-2026-10-16: Five agent defaults reviewed (JEG-505, JEG-477, JEG-526/529, JEG-534, JEG-535)
+- id: jeremy-review-2026-10-16
+- created: 2026-10-16
+- deadline: 2026-10-16
+- category: methodology
+- silence-default: explicit-tap
+- outcome: modified
+- outcome_date: 2026-10-16
+- recommendation: Keep the compare-trade cutoffs; taller chart with a user control; leave handcuffs out; weekly matchups lineup hint only; keep loosened QB thresholds and review QB values.
+
+### Context
+
+Agents chose defaults on five items without asking. Jeremy reviewed each on 2026-10-16.
+
+### Problem
+
+Whether each agent default stands.
+
+### Options
+
+Keep the default, change it, or park the item. Per item below.
+
+### Recommendation
+
+As recorded in the Outcome Note.
+
+### Outcome Note
+
+Jeremy, 2026-10-16:
+1. JEG-505 compare-trade headline: KEEP the agent-chosen cutoffs. Likely at 2/3 or more of charts siding, Unlikely at 1/3 or fewer; confidence High at 75% agreement, Medium at 60%; capped at Medium with fewer than 3 charts; a one-chart player lowers only the "should you" line. His own 5% thin-margin rule stays.
+2. JEG-477 taller chart on Player values: "Taller chart on larger screens and ability to expand size or contract size". This supersedes the agent's decision to decline it to keep the JEG-470 fold rule. Laptop screens keep the fold, larger screens get a taller default, and a user control expands or contracts the chart. JEG-477 reopened.
+3. MR-26 handcuffs (JEG-526, JEG-529): "Leave out for now, we can come back to this post launch". The stash signal PR 578 was converted to draft and parked. Both tickets moved to Backlog, label Parked.
+4. MR-23 weekly matchups (JEG-534): lineup hint only, values untouched (option a, confirmed).
+5. PR 637 direction-check thresholds (2-QB +3, peak >28): KEEP loosened, then have QB values reviewed (new ticket, High).

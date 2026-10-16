@@ -79,6 +79,11 @@ import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
+import sys as _sys  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+# `lib` lives in pipelines/; make it importable whatever the CWD, checkout path or
+# import order (tests import this module as pipelines.X without pipelines/ on sys.path).
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
 from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from html.parser import HTMLParser
