@@ -391,6 +391,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-deal-grid td { border: 1px solid var(--v2-border); border-radius: 6px; padding: 6px; background: var(--v2-surface); vertical-align: top; }
 .v2-deal-grid td.is-current { border: 2px solid var(--v2-action); background: var(--v2-positive); font-weight: 700; }
 .v2-div-chip.is-reviewed { border-color: var(--v2-tint-border); color: var(--v2-action-strong); }
+.v2-div-chip.is-excluded { border-color: var(--v2-older); color: var(--v2-older); opacity: 0.7; }
 a.v2-div-chip:hover { text-decoration: underline; }
 .v2-prior-badge { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; }
 .v2-info { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -10px -4px -10px -10px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--v2-muted); cursor: pointer; font-size: 15px; font-weight: 400; line-height: 1; }

@@ -32,6 +32,9 @@ Status per source (worst over the three scorings):
   outlier_rate > POSITION_OUTLIER_RATE with |bias| > WARN_BIAS).
 * reviewed: a resolution for this source-week is recorded in
   data/source-divergence-resolutions.json (the computed status is kept).
+* excluded: the resolution is 'exclude' — the source-week is removed from
+  blends and comparisons (held semantics per JEG-569: grayed out, stays in
+  the pool for weights and pie).
 
 The trailing baseline (up to BASELINE_WEEKS prior weeks) is computed for the
 trade charts from data/history/week-N.json natives times the current fixture's
@@ -82,7 +85,7 @@ BASELINE_BIAS_MARGIN = 3.0
 POSITION_MIN_N = 8
 POSITION_BIAS = 10.0
 POSITION_OUTLIER_RATE = 0.75
-RESOLUTION_KINDS = ("parser_fix", "mapping_fix", "accepted")
+RESOLUTION_KINDS = ("parser_fix", "mapping_fix", "accepted", "exclude")
 RANK = {"ok": 0, "n/a": 0, "warn": 1, "investigate": 2}
 
 CHECKLIST = [
@@ -277,6 +280,8 @@ def message(source: str, group: str, status: str, row: dict, base: dict | None) 
     text = f"{LABEL[source]} disagrees with {GROUP_NOUN[group]} on {rate:.0%} of players this week{usual}."
     if status in ("warn", "investigate"):
         text += " Under review."
+    elif status == "excluded":
+        text += " Excluded from blends."
     elif status == "reviewed":
         text += " Reviewed."
     return text
@@ -346,7 +351,12 @@ def run(fixture_path: Path = FIXTURE, players_path: Path = PLAYERS, history_dir:
                 continue
             head = combos[combo_key(s, chosen)]
             resolution = resolutions.get((s, week))
-            shown = "reviewed" if resolution and status != "ok" else status
+            # JEG-610 item 2: 'exclude' resolution -> status 'excluded' (hidden from blends
+            # and comparisons, held semantics per JEG-569). Other resolutions -> 'reviewed'.
+            if resolution and status != "ok":
+                shown = "excluded" if resolution.get("resolution") == "exclude" else "reviewed"
+            else:
+                shown = status
             report_sources[s] = {
                 "label": LABEL[s], "group": group, "week": week, "status": shown, "computed_status": status,
                 "headline_combo": combo_key(s, chosen), "reasons": reasons,
@@ -373,6 +383,7 @@ def run(fixture_path: Path = FIXTURE, players_path: Path = PLAYERS, history_dir:
         "summary": {"flagged": flagged,
                     "investigate": [v["label"] for v in report_sources.values() if v["status"] == "investigate"],
                     "reviewed": [v["label"] for v in report_sources.values() if v["status"] == "reviewed"],
+                    "excluded": [s for s, v in report_sources.items() if v["status"] == "excluded"],
                     "resolution_problems": resolution_problems},
         "checklist": CHECKLIST,
         "sources": report_sources,
@@ -383,7 +394,8 @@ def freshness_summary(report: dict) -> dict:
     """The per-source slice written into reference-freshness.json."""
     return {s: {k: v.get(k) for k in ("label", "status", "message", "outlier_rate", "usual_outlier_rate",
                                        "bias", "headline_combo", "week")}
-            | {"resolution_issue": (v.get("resolution") or {}).get("issue")}
+            | {"resolution_issue": (v.get("resolution") or {}).get("issue"),
+               "resolution_kind": (v.get("resolution") or {}).get("resolution")}
             for s, v in report.get("sources", {}).items()}
 
 

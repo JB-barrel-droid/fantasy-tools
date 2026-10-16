@@ -191,6 +191,8 @@
       value_weeks: detail?.value_weeks || {},
       sources,
       source_validation: detail?.source_validation || {},
+      // JEG-610 item 2: source keys excluded by a divergence 'exclude' resolution.
+      divergence_exclusions: Array.isArray(detail?.divergence_exclusions) ? [...detail.divergence_exclusions] : [],
       espn_zeroed: Array.isArray(detail?.espn_zeroed) ? [...detail.espn_zeroed] : [],
       methodology_combos: detail?.methodology_combos || null,
       reference_freshness: detail?.reference_freshness || null,
