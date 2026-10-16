@@ -64,7 +64,7 @@ OUR_MAX = {
 }
 
 # JEG332-DERIVED-PEAKS (2026-10-07): OUR_MAX is the calibration at the saved
-# setup (12 teams, QB1 RB2 WR3 TE1 FLEX1 BENCH6). At any other league setting
+# setup (12 teams, QB1 RB2 WR2 TE1 FLEX1 BENCH7, JEG-563). At any other league setting
 # the positional maxes follow OUR model's scarcity there: each position's max
 # is OUR_MAX scaled by how much the top player's value above waivers (ESPN
 # per-game projections, the anchor's input, through the SAME roster/waiver
@@ -265,7 +265,7 @@ def translate_natives(native: dict, teams: int, reg: Optional[Registry] = None,
 
 
 def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
-                     week: int = 4, bench_per_team: float = 6.0,
+                     week: int = 4, bench_per_team: float = 7.0,
                      write_supabase: bool = False,
                      flex_count: Optional[int] = None,
                      impute: bool = True) -> dict:
@@ -276,7 +276,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
         scoring: standard, half_ppr, ppr
         teams: 10, 12, 14
         week: NFL week
-        bench_per_team: bench spots per team (ESPN default 6.0)
+        bench_per_team: bench spots per team (default 7.0, JEG-563)
         write_supabase: if True, write intermediates to Supabase
         flex_count: flex slots per team (default REF_FLEX_COUNT)
     
@@ -296,7 +296,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
     """
     # The current storage grain does not distinguish custom roster settings.
     # Keep them read-only until that contract can represent them separately.
-    if write_supabase and (bench_per_team != 6.0 or
+    if write_supabase and (bench_per_team != 7.0 or
                            flex_count not in (None, REF_FLEX_COUNT)):
         raise SystemExit("custom roster settings cannot overwrite default-grain VORP rows")
     ranked, key_by_name = load_native_values(source, scoring, teams)
@@ -425,7 +425,7 @@ def impute_extension(ranked: dict, peers: Optional[dict]) -> dict:
     return out
 
 
-def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0,
+def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 7.0,
                      flex_count: Optional[int] = None,
                      slots: Optional[dict] = None,
                      flex_eligible: Optional[list] = None,
@@ -550,7 +550,7 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
     return result
 
 
-def projection_max_vorp(projection_ranked: dict, teams: int, bench_per_team: float = 6.0,
+def projection_max_vorp(projection_ranked: dict, teams: int, bench_per_team: float = 7.0,
                         flex_count: Optional[int] = None, slots: Optional[dict] = None,
                         flex_eligible: Optional[list] = None,
                         superflex_count: int = 0) -> dict[str, float]:
@@ -577,7 +577,7 @@ def projection_max_vorp(projection_ranked: dict, teams: int, bench_per_team: flo
     return out
 
 
-def positional_max_for_setup(projection_ranked: dict, teams: int, bench_per_team: float = 6.0,
+def positional_max_for_setup(projection_ranked: dict, teams: int, bench_per_team: float = 7.0,
                              flex_count: Optional[int] = None, slots: Optional[dict] = None,
                              flex_eligible: Optional[list] = None,
                              superflex_count: int = 0) -> dict[str, float]:
@@ -656,7 +656,7 @@ def build_write_rows(result: dict) -> tuple[list[dict], list[dict], list[dict]]:
     scoring = result['scoring']
     teams = result['teams']
     week = result['week']
-    bench_per_team = 6.0  # carried on assumption rows; matches translate default
+    bench_per_team = 7.0  # JEG-563: matches translate default
 
     assumptions: list[dict] = []
     vorps: list[dict] = []
@@ -735,7 +735,7 @@ def main():
                         choices=["standard", "half_ppr", "ppr"])
     parser.add_argument("--teams", type=int, default=12)
     parser.add_argument("--week", type=int, default=4)
-    parser.add_argument("--bench-per-team", type=float, default=6.0)
+    parser.add_argument("--bench-per-team", type=float, default=7.0)
     parser.add_argument("--flex-count", type=int, default=REF_FLEX_COUNT)
     parser.add_argument("--write-supabase", action="store_true",
                         help="Write intermediates to Supabase (requires the "

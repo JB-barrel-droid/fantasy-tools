@@ -70,7 +70,7 @@ def refresh_grain(source: str, scoring: str, teams: int, week: int) -> int:
     """Translate one grain and write to Supabase. Returns translated count."""
     result = translate_source(
         source, scoring, teams, week,
-        bench_per_team=6.0,
+        bench_per_team=7.0,
         write_supabase=True,
     )
     n = len(result["translated"])

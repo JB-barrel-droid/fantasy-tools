@@ -13,8 +13,8 @@ from build_imputed_vorps import infer_roster  # noqa: E402
 class InferRosterTest(unittest.TestCase):
     def test_infer_roster_sizes(self):
         """Roster inference produces correct counts."""
-        # 12 teams: 12 QB, 24 RB, 36 WR, 12 TE dedicated = 84 starters
-        # + 12 flex + 72 bench = 168 rostered
+        # JEG-563: 12 teams: 12 QB, 24 RB, 24 WR, 12 TE dedicated = 72
+        # + 12 flex = 84 starters, 84 bench = 168 rostered
         values = {}
         for i in range(20):
             values[str(1000+i)] = ("QB", 100 - i)
@@ -28,9 +28,9 @@ class InferRosterTest(unittest.TestCase):
         roles = infer_roster(values)
         starters = sum(1 for r in roles.values() if r == "starter")
         bench = sum(1 for r in roles.values() if r == "bench")
-        # 84 dedicated + 12 flex = 96 starters, 72 bench
-        self.assertEqual(starters, 96)
-        self.assertEqual(bench, 72)
+        # 72 dedicated + 12 flex = 84 starters, 84 bench
+        self.assertEqual(starters, 84)
+        self.assertEqual(bench, 84)
 
 
     def test_flex_maps_to_starter(self):
@@ -55,7 +55,7 @@ class InferRosterTest(unittest.TestCase):
         # The top flex-eligible non-starters should be starters (flex)
         # We just verify the counts are right
         starters = sum(1 for r in roles.values() if r == "starter")
-        self.assertEqual(starters, 96)
+        self.assertEqual(starters, 84)  # JEG-563: 72 dedicated + 12 flex
 
 
 if __name__ == "__main__":

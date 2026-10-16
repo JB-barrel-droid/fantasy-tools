@@ -32,11 +32,12 @@ GROUPS = [
 
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
 
-# Standard roster: 12 teams, 1 QB / 2 RB / 3 WR / 1 TE / 1 flex / 6 bench
+# Standard roster: 12 teams, 1 QB / 2 RB / 2 WR / 1 TE / 1 flex / K / DEF, 7 bench
+# (JEG-563, the shared convention default).
 TEAMS = 12
-DEDICATED = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+DEDICATED = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
 FLEX_PER_TEAM = 1
-BENCH_PER_TEAM = 6
+BENCH_PER_TEAM = 7
 
 
 @dataclass(frozen=True)
@@ -81,7 +82,7 @@ class RosterConfig:
 
 
 # Compatibility for arithmetic callers only; CLI always requires explicit config.
-DEFAULT_ROSTER = RosterConfig(12, DEDICATED, 1, 72, "half_ppr")
+DEFAULT_ROSTER = RosterConfig(12, DEDICATED, 1, 84, "half_ppr")
 
 
 def _canonical_number(key):

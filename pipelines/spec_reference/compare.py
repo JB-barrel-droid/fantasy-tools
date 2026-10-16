@@ -52,7 +52,7 @@ SPEC_GAPS = {
     "SG-4": "Which per-game projection a live CBS ROS / Razzball leg prices: players.json "
             "cbsros_ppg / rz_ppg (not rz_filled_ppg), every listed player.",
     "SG-5": "Raw projection value-above-waivers series: bench count not written. Chosen: the "
-            "shared allocator's teams x BENCH 6 by the 12-team mix (D'Hondt); flex by "
+            "shared allocator's teams x BENCH 7 by the 12-team mix (D'Hondt); flex by "
             "projected points.",
     "SG-6": "Published VORP vs waivers factor: 'the anchor's total over the players that chart "
             "ranks' read literally (anchor values summed over the chart's players; chart total "

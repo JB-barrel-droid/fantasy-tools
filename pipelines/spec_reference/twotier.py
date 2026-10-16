@@ -29,7 +29,7 @@ import math
 from dataclasses import dataclass, field
 
 POSITIONS = ("QB", "RB", "WR", "TE")
-REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+REF_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
 REF_FLEX = 1
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
 BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
