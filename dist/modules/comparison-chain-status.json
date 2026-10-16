@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T00:02:08.697405+00:00",
+  "run_at": "2026-10-16T00:42:55.423485+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,6 +18,7 @@
   "held": [
     "cbs",
     "cbsros",
+    "espn",
     "fantasycalc",
     "fantasypros",
     "razzball",
@@ -34,7 +35,7 @@
         "cbs",
         "cbs_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 33 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 36 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -47,7 +48,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "592/1169 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 48); stored full|2 list is closest to the live std|2 list (mean |diff| 26 vs 56); stored half|2 list is closest to the live std|2 list (mean |diff| 18 vs 56); 577 of",
+      "detail": "7/1160 values match exactly across 6 columns; 1153 values differ, 21 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 9 players entered or left the bottom of the list since the save (churn)",
       "hold_severity": "amber",
       "week": 6
     },
@@ -60,7 +61,7 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 51 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 54 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
       "week": 6
     },
@@ -73,7 +74,21 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 57 h ago); chart shows week 5; stored rows already have week 6",
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 60 h ago); chart shows week 5; stored rows already have week 6",
+      "hold_severity": "amber",
+      "week": 6
+    },
+    "espn": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "espn",
+        "espn_vorp"
+      ],
+      "sections": [
+        "espn",
+        "espn_adjusted"
+      ],
+      "detail": "chart shows snapshot 2026-10-12 (4 d old); the publisher prints no update date",
       "hold_severity": "amber",
       "week": 6
     },
@@ -87,7 +102,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1063/1089 chart values equal stored snapshot 2026-10-12 (per game, 3 decimals); 26 chart values differ from the stored snapshot, 1 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 308 values changed, 2 added, 2 dropped",
+      "detail": "1063/1089 chart values equal stored snapshot 2026-10-12 (per game, 3 decimals); 26 chart values differ from the stored snapshot, 1 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 308 values changed, 3 added, 2 dropped",
       "hold_severity": "amber",
       "week": 6
     },
@@ -101,7 +116,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 1373 values changed, 35 added, 11 dropped",
+      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 1362 values changed, 35 added, 12 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -246,6 +261,7 @@
     "fantasycalc": "fidelity: publisher_vs_stored",
     "fantasypros": "fidelity: freshness",
     "cbs": "fidelity: freshness",
+    "espn": "fidelity: freshness",
     "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
@@ -253,15 +269,15 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_static_export.StaticExportTest.test_published_indexed_is_one_factor_on_the_anchor_pie"
+      "FAIL tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex"
     ],
     "assertions": [
       "AssertionError: [] is not true"
     ],
     "make_targets": [
-      "Makefile:455: test-core"
+      "Makefile:454: test-core"
     ],
-    "detail": "FAIL tests.test_static_export.StaticExportTest.test_published_indexed_is_one_factor_on_the_anchor_pie; AssertionError: [] is not true",
-    "recorded_at": "2026-10-16T00:02:49.638510+00:00"
+    "detail": "FAIL tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex; AssertionError: [] is not true",
+    "recorded_at": "2026-10-16T00:43:37.034965+00:00"
   }
 }
