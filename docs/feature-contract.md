@@ -151,6 +151,8 @@ Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
 
   - **RF-01** Defaults to DDF Value, with series grouped in the picker. Counts the players it could not compare.
 
+  - **RF-02** "Where the market and the projections disagree": compares the change in Trade chart average with the change in DDF Projections, week over week and like for like (a source without a saved prior week is left out of both weeks). Two lists: "Market moved, projections didn't" and "Projections moved, market didn't". A player qualifies when one side moved 2.5 points or more either way and the other 1.0 or less. Each player gets a rule-based read: market up only, "Buying in without the production: sell"; market down only, "Panic the projections don't share: buy"; projections up only, "Market hasn't caught up: buy"; projections down only, "Market hasn't reacted: sell". With no prior week for either series it says so and lists nothing. *(JEG-488; pinned by `tests/test_v2_disagree.py` and `tests/test_v2_disagree_render.py`)*
+
 ## Compare a trade (CT)
 
   - **CT-01** Give and Receive pickers, Swap, Clear, and a shareable link that carries the league settings.
