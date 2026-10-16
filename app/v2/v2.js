@@ -509,6 +509,36 @@
     return ahead < counts.starter ? "starter" : ahead < counts.starter + counts.bench ? "bench" : "waiver";
   }
   const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));
+  // JEG-571: Start / Hold / Stash / Drop chip. The rule lives in assets/player-tags.js (pure, tested); the
+  // tag follows the engine's DDF Value tier on the reader's league settings. null (no chip) when unpriced.
+  const TAG_NOTES = {
+    Start: "Inside the starter count on your league settings",
+    Hold: "On the bench: keep",
+    Stash: "Not a starter yet, but a real chance to start",
+    Drop: "At or below the best free alternative"
+  };
+  function playerTagOf(row) {
+    const tags = window.PlayerTags;
+    return tags && typeof tags.playerTag === "function" ? tags.playerTag(row) : null;
+  }
+  function tagChip(row) {
+    const tag = playerTagOf(row);
+    if (!tag) return null;
+    const chip = document.createElement("span");
+    chip.className = `v2-tag v2-tag-${tag.toLowerCase()}`;
+    chip.dataset.tag = tag;
+    chip.title = TAG_NOTES[tag];
+    chip.textContent = tag;
+    return chip;
+  }
+  function appendTag(parent, row) {
+    const chip = tagChip(row);
+    if (chip) parent.appendChild(chip);
+  }
+  function lineupShareText(row) {
+    if (!Number.isFinite(row.lineupShare)) return null;
+    return `Expected lineup share: ${Math.round(row.lineupShare * 100)}% how much of this player's production reaches a lineup.`;
+  }
 
   // Low-confidence DDF Value (Jeremy, 2026-10-08): when exactly one input prices a player the engine
   // still gives a DDF Value (that input's value) and flags it (row.ddfLowConfidence). Shown everywhere
@@ -1447,6 +1477,7 @@
           if (col.cls === "col-meta") td.dataset.col = col.id;
           if (col.id === "name") {
             appendEspnZero(td, row);
+            appendTag(td, row);
             // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
             const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
               state.metaCols.tier !== false && valuesTier(row)].filter(Boolean);
@@ -1679,7 +1710,7 @@
     out.push(news);
     const adj = drawerSection("Adjustments applied");
     const base = document.createElement("p");
-    base.textContent = "Starter / bench utilization weighting · Position-share calibration.";
+    base.textContent = lineupShareText(row) || "Expected lineup share: not available for this player.";
     adj.appendChild(base);
     const notes = context?.adjustments || [];
     const line = document.createElement("p");
@@ -1708,6 +1739,8 @@
     const meta = document.createElement("p");
     meta.className = "v2-meta";
     meta.textContent = `${row.pos} · ${row.team || "FA"} · ${drawerTier(row)}`;
+    const tagged = tagChip(row);
+    if (tagged) meta.append(" ", tagged);
     titles.append(title, meta);
     const close = document.createElement("button");
     close.type = "button";
@@ -3410,6 +3443,7 @@
       };
       const name = td("player", p.row.name);
       appendEspnZero(name, p.row);
+      appendTag(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
@@ -3495,6 +3529,7 @@
       const name = document.createElement("b");
       name.textContent = p.row.name;
       appendEspnZero(name, p.row);
+      appendTag(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
