@@ -510,8 +510,12 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 7.0
         # VORP per player
         vorp_list = [(pkey, name, val, max(0.0, val - waiver_val))
                      for pkey, name, val in ranked_rows]
-        max_vorp = max((v for _, _, _, v in vorp_list), default=0.0)
-        total_vorp = sum(v for _, _, _, v in vorp_list)
+        max_vorp = 0.0
+        total_vorp = 0.0
+        for _, _, _, v in vorp_list:
+            if v > max_vorp:
+                max_vorp = v
+            total_vorp += v
 
         # Translate via our positional max
         scale = our_max[pos] / max_vorp if max_vorp > 0 else 0.0

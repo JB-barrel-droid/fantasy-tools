@@ -190,9 +190,9 @@ class ImputationParity(unittest.TestCase):
                                    "if (true) { method = \"roster_determined\"; waiverVal = players[players.length - 1].value; }"),
         }
         vectors = [v for v in _real_vectors() if v["source"] == "cbs" and v["scoring"] == "ppr"
-                   and v["bench_per_team"] in (3, 7) and v["flex_count"] == 1]
+                   and v["bench_per_team"] in (3, 6, 7) and v["flex_count"] == 1]
         vectors += [{"label": "thin-peers", "ranked_keyed": THIN_CHART, "peers": THIN_PEERS,
-                     "teams": 12, "bench_per_team": 7, "flex_count": 1, "slots": None,
+                     "teams": 12, "bench_per_team": 6, "flex_count": 1, "slots": None,
                      "flex_eligible": None}]
         with tempfile.TemporaryDirectory() as tmp:
             intact = Path(tmp) / "value-model-intact.js"

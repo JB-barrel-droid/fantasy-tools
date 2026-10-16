@@ -90,7 +90,7 @@ def _real_vectors():
             base = {"source": source, "scoring": scoring, "ranked_keyed": ranked,
                     "peers": _load_peers(source, scoring)}
             for teams in (8, 10, 12, 14):
-                for bench in (0, 3, 7, 9, 14):
+                for bench in (0, 3, 6, 7, 9, 14):
                     for flex in (0, 1, 2, 5):
                         vectors.append({**base, "teams": teams, "bench_per_team": bench,
                                         "flex_count": flex, "slots": None,
@@ -136,6 +136,23 @@ def _synthetic_vectors():
                     "flex_eligible": None})
     vectors.append({"label": "thin-no-cover", "ranked_keyed": THIN_CHART, "peers": NO_COVER_PEERS,
                     "teams": 12, "bench_per_team": 7, "flex_count": 1, "slots": None,
+                    "flex_eligible": None})
+    # JEG-687: accumulation-tie vectors. Six values whose sum via += lands on
+    # exactly 98.85 (binary: slightly below), while Python sum() gives slightly
+    # above.  The waiver value 1.525 produces vorps [28.475, 23.475, 18.475,
+    # 13.475, 8.475, 6.475]; += total = 98.85 (rounds to 98.8 via half-even),
+    # sum() total = 98.850...01 (rounds to 98.9).  After the fix both use +=.
+    accum_tie = {"QB": keyed("QB", [30.0, 25.0, 20.0, 15.0, 10.0, 8.0, 7.775, 7.5,
+                                     7.1, 5.7, 5.3, 4.9, 4.5, 4.1, 3.7, 3.3, 2.9,
+                                     2.5, 2.225, 2.1, 2.05, 1.875, 1.8, 1.7, 1.525]),
+                 "RB": keyed("RB", list(range(120, 0, -2))),
+                 "WR": keyed("WR", list(range(90, 0, -1))),
+                 "TE": keyed("TE", list(range(30, 0, -1)))}
+    vectors.append({"label": "accum-tie", "ranked_keyed": accum_tie, "teams": 12,
+                    "bench_per_team": 6, "flex_count": 1, "slots": None, "flex_eligible": None})
+    # Also test the thin-peers vector at bench=6, the original failure case.
+    vectors.append({"label": "thin-peers-b6", "ranked_keyed": THIN_CHART, "peers": THIN_PEERS,
+                    "teams": 12, "bench_per_team": 6, "flex_count": 1, "slots": None,
                     "flex_eligible": None})
     return vectors
 
@@ -304,6 +321,66 @@ class VorpTranslationJsParity(unittest.TestCase):
             intact = Path(tmp) / "value-model-intact.js"
             shutil.copy(VALUE_MODEL, intact)
             self.assertEqual(run_parity(vectors, intact)[0], [])
+
+    def test_accum_tie_catches_sum_revert(self):
+        """JEG-687 negative test: reverting the Python += accumulation back to
+        sum() causes accum-tie vectors to mismatch JS.
+
+        Python's sum() uses a different accumulation order than sequential +=,
+        which can push a total to the opposite side of a rounding boundary.
+        The fix (JEG-687) changed unified.py to use += like JS; this test
+        verifies that reverting to sum() is caught.
+        """
+        import pipelines.vorp_translation.unified as _u
+        import importlib
+        import types
+
+        # Read the current source and create a patched copy that uses sum()
+        src_path = Path(_u.__file__)
+        src = src_path.read_text()
+        # The fixed code uses a += loop; revert it to sum()
+        old_loop = (
+            "        max_vorp = 0.0\n"
+            "        total_vorp = 0.0\n"
+            "        for _, _, _, v in vorp_list:\n"
+            "            if v > max_vorp:\n"
+            "                max_vorp = v\n"
+            "            total_vorp += v"
+        )
+        new_sum = (
+            "        max_vorp = max((v for _, _, _, v in vorp_list), default=0.0)\n"
+            "        total_vorp = sum(v for _, _, _, v in vorp_list)"
+        )
+        self.assertIn(old_loop, src, "JEG-687 += accumulation loop not found in unified.py")
+        reverted = src.replace(old_loop, new_sum)
+        self.assertNotEqual(reverted, src)
+
+        # Load the reverted module
+        spec = importlib.util.spec_from_file_location("unified_reverted", src_path)
+        mod = types.ModuleType("unified_reverted")
+        mod.__file__ = str(src_path)
+        exec(compile(reverted, str(src_path), "exec"), mod.__dict__)
+
+        # Run the accum-tie vectors through the reverted Python and compare to JS
+        accum_vectors = [v for v in self.vectors if v.get("label") in ("accum-tie", "thin-peers-b6")]
+        self.assertGreater(len(accum_vectors), 0, "accum-tie vectors not found")
+
+        # Get JS results (the ground truth)
+        js_results = _js(accum_vectors)
+        # Get Python results with reverted (sum-based) code
+        reverted_failures = []
+        for vec, js in zip(accum_vectors, js_results):
+            py = mod.translate_ranked(
+                vec["ranked_keyed"], vec["teams"], vec["bench_per_team"],
+                vec["flex_count"], slots=vec["slots"],
+                flex_eligible=vec["flex_eligible"], peers=vec.get("peers"))
+            problems, _d, _n = compare(py, js)
+            if problems:
+                reverted_failures.append(f"{vec.get('label')}: {problems[:3]}")
+
+        print(f"\n[JEG-687 negative test] sum()-reverted: {len(reverted_failures)} failing vectors")
+        self.assertGreater(len(reverted_failures), 0,
+                           "reverting += to sum() was NOT caught -- accum-tie vector is too weak")
 
 
 # ---------------------------------------------------------------------------
