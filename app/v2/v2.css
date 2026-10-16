@@ -1298,4 +1298,5 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-srank, .v2-prank { display: block; font-size: 11px; font-weight: 400; line-height: 1.2; color: var(--v2-muted); white-space: nowrap; }
 }
 /* A chip on a sub-line stays compact (JEG-470: rows no taller than needed). */
-.player-sub .v2-tag, .v2-meta .v2-tag { margin-left: 4px; padding: 0 5px; font-size: 10px; line-height: 1.3; }
+.v2-subrow { display: flex; align-items: baseline; flex-wrap: wrap; }
+.v2-subrow .v2-tag, .player-sub .v2-tag, .v2-meta .v2-tag { margin-left: 4px; padding: 0 5px; font-size: 10px; line-height: 1.3; }

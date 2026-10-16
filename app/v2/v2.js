@@ -558,6 +558,16 @@
     const chip = tagChip(row);
     if (chip) parent.appendChild(chip);
   }
+  // The chip sits NEXT TO the sub-line, never inside it: the sub-line's text ("QB · KC · Starter") is the
+  // tier a reader or screen reader gets, and the chip is its own element (it was concatenating "StarterStart").
+  function subWithTag(sub, row) {
+    const chip = tagChip(row);
+    if (!chip) return sub;
+    const wrap = document.createElement("span");
+    wrap.className = "v2-subrow";
+    wrap.append(sub, chip);
+    return wrap;
+  }
   function lineupShareText(row) {
     if (!Number.isFinite(row.lineupShare)) return null;
     return `Expected lineup share: ${Math.round(row.lineupShare * 100)}% how much of this player's production reaches a lineup.`;
@@ -735,7 +745,8 @@
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
     const r = view.roster;
     $("v2RosterLine").textContent = `${r.QB} QB · ${r.RB} RB · ${r.WR} WR · ${r.TE} TE · ${r.FLEX} FLEX · `
-      + `${r.SUPERFLEX ? `${r.SUPERFLEX} SUPERFLEX · ` : ""}${r.BENCH} BN`;
+      + `${r.SUPERFLEX ? `${r.SUPERFLEX} SUPERFLEX · ` : ""}`
+      + `${r.K ? `${r.K} K · ` : ""}${r.DST ? `${r.DST} DEF · ` : ""}${r.BENCH} BN`;
     const older = view.active.some(key => view.infoByKey[key]?.stale);
     // JEG-463: the header chip summarizes root sources only; pipeline trouble shows as "not updating".
     const roots = rootFreshness();
@@ -1297,7 +1308,7 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "ESPN Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
@@ -1519,8 +1530,7 @@
               const sub = document.createElement("span");
               sub.className = "player-sub";
               sub.textContent = parts.join(" · ");
-              td.appendChild(sub);
-              appendTag(sub, row);   // on the sub-line, so a row stays as tall as before (JEG-470)
+              td.appendChild(subWithTag(sub, row));   // beside the sub-line, so a row stays as tall as before (JEG-470)
             } else appendTag(td, row);
           }
         }
@@ -1712,7 +1722,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · ESPN Tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -2246,7 +2256,7 @@
   // ---------- 12 Your league ----------
   let leagueDefaults = null;   // the engine's state at first load: what "Reset defaults" returns to
   const ROSTER_SLOTS = [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5],
-    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];
+    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["K", "K", 0, 3], ["DST", "DEF", 0, 3], ["BENCH", "Bench slots", 0, 14]];
   // JEG-527: the reader's season weeks as a draft (null when the engine has no lineup parameters).
   function seasonWeeksState(defaults) {
     if (!C.getLeagueWeeks || !C.getContentWeek || !C.setLeagueWeeks || !C.setOptimizeFor || !C.setContentWeek) return null;
@@ -2337,7 +2347,7 @@
         });
         const note = document.createElement("p");
         note.className = "v2-meta";
-        note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. Position weights and the bench-share readout live in Position weights.";
+        note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. K and DEF are roster slots only (set them to 0 if your league has none); they have no values here. Bench slots: real leagues roster about this many players, and the value of bench players at each position follows how many players real leagues roster there. Position weights and the bench-share readout live in Position weights.";
         content.appendChild(note);
         if (draft.weeks) renderSeasonWeeks();
         if (draft.adv) renderAdvanced();
@@ -2876,7 +2886,7 @@
       note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
       pop.appendChild(note);
       eyebrow(pop, "Player details");
-      [["pos", "Position"], ["team", "Team"], ["tier", "ESPN Tier"]].forEach(([id, label]) => {
+      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
         box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
       });
       const done = document.createElement("div");
@@ -3481,8 +3491,7 @@
       const sub = document.createElement("span");
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
-      appendTag(sub, p.row);   // on the sub-line: no taller row (JEG-470)
-      name.appendChild(sub);
+      name.appendChild(subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const ours = td("num is-rank");
       ours.dataset.ours = "";
       oursValue(ours, p);
@@ -3567,8 +3576,7 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
-      appendTag(sub, p.row);   // on the sub-line: no taller row (JEG-470)
-      who.append(name, sub);
+      who.append(name, subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const b = targetBest(side, p);
       const big = document.createElement("div");
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;

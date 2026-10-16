@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T08:02:19.849766+00:00",
+  "run_at": "2026-10-16T09:42:22.286666+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,8 +18,7 @@
   "held": [
     "cbs",
     "cbsros",
-    "fantasycalc",
-    "razzball"
+    "espn"
   ],
   "hold_severity": "amber",
   "held_detail": {
@@ -37,16 +36,17 @@
       "hold_severity": "amber",
       "rolled_back": 1
     },
-    "fantasycalc": {
-      "reason": "fidelity: freshness",
+    "espn": {
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
-        "fantasycalc"
+        "espn",
+        "espn_vorp"
       ],
       "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
+        "espn",
+        "espn_adjusted"
       ],
-      "detail": "content week 6 opened 67 h ago; chart still shows FantasyCalc week 5",
+      "detail": "1617/1743 chart values equal stored snapshot 2026-10-15 (per game, 2 decimals); 126 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 6
     },
@@ -60,21 +60,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not",
-      "hold_severity": "amber",
-      "week": 6
-    },
-    "razzball": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "razzball",
-        "razzball_vorp"
-      ],
-      "sections": [
-        "razzball",
-        "razzball_adjusted"
-      ],
-      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 1362 values changed, 35 added, 12 dropped",
+      "detail": "1095/1095 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 66f44bf5d3ed8f5288aab71d); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     }
@@ -202,9 +188,8 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: freshness",
-    "cbsros": "fidelity: publisher_vs_stored",
-    "razzball": "fidelity: stored_vs_chart"
+    "espn": "fidelity: stored_vs_chart",
+    "cbsros": "fidelity: publisher_vs_stored"
   },
   "post_rebuild_validation": {
     "status": "failed",
@@ -219,6 +204,6 @@
       "Makefile:458: test-core"
     ],
     "detail": "FAIL tests.test_static_export.StaticExportTest.test_top_indexed_values_preserve_high_overall_scale; AssertionError: 40.9811822005756 not greater than or equal to 45",
-    "recorded_at": "2026-10-16T08:02:58.072820+00:00"
+    "recorded_at": "2026-10-16T09:42:56.294471+00:00"
   }
 }
