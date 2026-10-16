@@ -2835,12 +2835,19 @@
     // JEG-457 (read-only): the math behind one published chart's Indexed value, from the engine's own derivation:
     // the number as the publisher prints it ("native", at the active scoring) and the ONE factor the chart is
     // indexed with, so native x factor = the Indexed value the engine shows. Either is null when the chart does
-    // not price him (or could not be indexed). null for a source that is not a published chart.
+    // not price him (or could not be indexed). anchorTotal / chartTotal / sharedPlayers (JEG-685) are the totals
+    // behind that factor. null for a source that is not a published chart.
     getPublishedMath: (playerKey, source) => {
       if (!AS_PUBLISHED_KEYS.has(source)) return null;
       const native = nativeSourceMaps.get(source)?.get(Number(playerKey));
       const factor = pipeline?.sources?.[source]?.indexedFactor;
-      return {native: Number.isFinite(native) ? native : null, factor: Number.isFinite(factor) ? factor : null};
+      // JEG-685: the totals behind the factor, from the engine's own indexing step
+      // (factor = anchorTotal / chartTotal over the sharedPlayers both price); null when the chart could not be indexed.
+      const ix = pipeline?.indexed?.[source];
+      const finite = v => (Number.isFinite(v) ? v : null);
+      return {native: Number.isFinite(native) ? native : null, factor: Number.isFinite(factor) ? factor : null,
+        anchorTotal: ix ? finite(ix.ddfTotal) : null, chartTotal: ix ? finite(ix.nativeTotal) : null,
+        sharedPlayers: ix ? finite(ix.sharedPlayers) : null};
     },
     isReady: () => engineReady,
     getRankSource: () => selectedRankSourceKey(),
