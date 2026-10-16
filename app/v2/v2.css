@@ -323,7 +323,11 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-ttable td.best { font-size: clamp(14px, 1.15vw, 16px); }
 .v2-ttable td.best.up { color: var(--v2-action); }
 .v2-ttable td.best.down { color: var(--v2-negative); }
-.v2-ttable td.best .t-who { color: var(--v2-muted); white-space: nowrap; }
+.v2-ttable td.best .t-who { color: var(--v2-muted); white-space: normal; }
+.t-dots { display: flex; gap: 2px; justify-content: flex-end; font-size: 9px; line-height: 1; vertical-align: middle; }
+.t-dot.above { color: var(--v2-action); }
+.t-dot.below { color: var(--v2-negative); }
+.t-dot.level { color: var(--v2-muted); }
 .v2-ttable td.t-expand, .v2-ttable th.t-expand { width: 44px; padding: 4px 0; vertical-align: middle; }
 .v2-texpand { width: 44px; height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: none; color: var(--v2-muted); cursor: pointer; font-size: 14px; }
 .v2-texpand:hover, .v2-texpand[aria-expanded="true"] { border-color: var(--v2-tint-border); color: var(--v2-action); background: var(--v2-positive); }
@@ -343,6 +347,51 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 }
 
 /* Shared: the prior-week badge (JEG-459) and the ⓘ "indexed" button (JEG-458). */
+/* Source divergence chip (JEG-609): the same slot and size as the prior-week badge; amber for Check, green for Reviewed. */
+.v2-div-chip { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; text-decoration: none; }
+.v2-tdiv { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+/* Source links and the indexed-value math (JEG-457). */
+.v2-srclink { color: inherit; text-decoration: underline; text-decoration-color: var(--v2-border); text-underline-offset: 2px; }
+.v2-srclink:hover, .v2-srclink:focus-visible { text-decoration-color: currentColor; }
+.v2-srclink-head { font-size: 11px; margin-left: 2px; color: var(--v2-muted); text-decoration: none; padding: 0 3px; }
+.v2-srclink-open { font-size: 12px; margin-left: 8px; }
+.has-math { cursor: help; text-decoration: underline dotted var(--v2-muted); text-underline-offset: 3px; }
+.has-math:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-mathtip { min-width: 260px; max-width: min(360px, calc(100vw - 16px)); }
+.v2-mathtip .val.is-published { font-size: 16px; color: var(--v2-action-strong); }
+/* Our names (JEG-490): */ the info button beside "On the chart", the primaries on How values work. */
+.v2-showing .v2-info { vertical-align: middle; }
+.v2-how-names { margin-top: 16px; }
+.v2-how-primaries { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; max-width: 70ch; }
+.v2-how-primaries b { margin-right: 6px; }
+.v2-how-sub { font-size: 14px; color: var(--v2-muted); margin: 20px 0 0; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.v2-info-text p { margin: 0 0 6px; }
+/* Position weights: the bench-share readout; Your league: the Advanced disclosure (JEG-537). */
+.v2-pbenchread { margin: 4px 0 8px; }
+.v2-pbig-text { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+.v2-padv { margin-top: 16px; border-top: 1px solid var(--v2-border); padding-top: 8px; }
+.v2-padv > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+.v2-padv .v2-check { min-height: 44px; display: flex; align-items: center; gap: 8px; }
+/* Compare a trade: the rule-based deal read (JEG-487). */
+.v2-deal { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--v2-border); }
+.v2-deal-label { font-size: 12px; color: var(--v2-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; }
+.v2-deal-read { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
+.v2-deal-text { margin: 0 0 4px; font-size: 13px; }
+.v2-deal-more { margin-top: 4px; font-size: 13px; }
+.v2-deal-more summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.v2-deal-nets { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.v2-deal-nets li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.v2-deal-name { color: var(--v2-muted); font-size: 13px; }
+.v2-deal-net { font-variant-numeric: tabular-nums; }
+.v2-deal-net[data-side="win"] { color: var(--v2-action-strong); }
+.v2-deal-net[data-side="lose"] { color: var(--v2-negative); }
+.v2-deal-def { flex-basis: 100%; max-width: 46ch; }
+.v2-deal-grid { border-collapse: separate; border-spacing: 4px; width: 100%; max-width: 640px; font-size: 12px; table-layout: fixed; }
+.v2-deal-grid th { font-weight: 600; color: var(--v2-muted); text-align: left; padding: 2px 4px; }
+.v2-deal-grid td { border: 1px solid var(--v2-border); border-radius: 6px; padding: 6px; background: var(--v2-surface); vertical-align: top; }
+.v2-deal-grid td.is-current { border: 2px solid var(--v2-action); background: var(--v2-positive); font-weight: 700; }
+.v2-div-chip.is-reviewed { border-color: var(--v2-tint-border); color: var(--v2-action-strong); }
+a.v2-div-chip:hover { text-decoration: underline; }
 .v2-prior-badge { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; }
 .v2-info { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -10px -4px -10px -10px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--v2-muted); cursor: pointer; font-size: 15px; font-weight: 400; line-height: 1; }
 .v2-info:hover, .v2-info[aria-expanded="true"] { color: var(--v2-action); }
@@ -1193,3 +1242,19 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2FindOut { margin-top: 12px; }
 .v2-find-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .v2-find-list li { display: grid; gap: 4px; border-top: 1px solid var(--v2-border); padding: 12px 0; }
+
+/* Player values chart: Starter / Bench / Waiver lines and labels, draggable brush fill, legend toggles (JEG-503). */
+.v2-chart .zone-line { stroke: var(--v2-muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: .55; }
+.v2-chart .zone-label { fill: var(--v2-muted); font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; opacity: .75; pointer-events: none; }
+.v2-brush-fill, .v2-ybrush-fill { cursor: grab; touch-action: none; }
+.v2-brush-fill.is-dragging, .v2-ybrush-fill.is-dragging { cursor: grabbing; }
+.v2-brush-fill:focus-visible, .v2-ybrush-fill:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-brush-overview, .v2-ybrush-overview { pointer-events: none; }
+.v2-legend .v2-legend-item { display: inline-flex; gap: 6px; align-items: center; background: none; border: 0; padding: 0 2px; margin: 0; font: inherit; color: inherit; cursor: pointer; min-height: 22px; }
+.v2-legend .v2-legend-item:disabled { cursor: default; }
+.v2-legend .v2-legend-item.is-off { opacity: .55; text-decoration: line-through; }
+.v2-legend .v2-legend-item:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-legend-mark { font-size: 13px; line-height: 1; }
+.v2-chart-head .v2-legend > .v2-legend-item { font-size: 12px; color: var(--v2-muted); line-height: 22px; }
+.v2-legend .v2-legend-item { position: relative; min-height: 22px; padding: 0 2px; }
+.v2-legend-item::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 30px; transform: translateY(-50%); }   /* a larger target without a taller row */

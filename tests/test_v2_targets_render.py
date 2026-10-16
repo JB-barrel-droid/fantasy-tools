@@ -7,18 +7,25 @@ headless (desktop 1440 × 900 and 1366 × 768, narrow desktop 1024 × 768, phone
 
 Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * "Our value" shows the engine's value for the series picked in "Our value"
-    (DDF Value by default, JEG-455; then ESPN, CBS rest-of-season and Razzball
-    through the picker);
-  * with DDF Value, each row's Our value carries "from N sources" with N the
-    engine's row.ddfCount, and the tier in the player sub-line is the engine's
-    row.ddfTier; with a projection picked there is no source count and the
-    tier is the player's rank by that series against the league's roster
-    zones (Jeremy, 2026-10-08: the tier follows the selected series);
+    (DDF Projections by default, JEG-677; then DDF Value, ESPN, CBS
+    rest-of-season and Razzball through the picker);
+  * with a DDF version, each row's Our value carries "from N sources" with N the
+    engine's count for that version (row.ddfCount for DDF Value); the tier in
+    the player sub-line is the engine's row.ddfTier for DDF Value, the rank by
+    that version against the blend's starter/bench counts for DDF Projections;
+    with a plain projection picked there is no source count and the tier is
+    the player's rank by that series against the league's roster zones
+    (Jeremy, 2026-10-08: the tier follows the selected series);
   * each chart cell shows the engine's value for that chart, and its gap is
     exactly chart − ours with the right sign; a value the engine does not have
     shows — plus a reason, never 0.0;
   * a chart value at or below its waiver line (0) shows "waiver line" and no
     gap, and no buy target comes from one (Jeremy, 2026-10-07);
+  * JEG-677 (Jeremy, JEG-461 2026-10-08): the row's gap is the market consensus
+    (median of the charts that price the player) minus our value; a player is
+    listed only with 2+ charts and a majority on the consensus's side of our
+    value, and the row says "N of M charts agree" with one dot per chart. The
+    expected lists are recomputed here from the engine rows;
   * sell rows are ordered largest positive gap first, buy rows most negative
     first; the per-chart run under an opened row (two-column layout) and on a
     phone card carries the same numbers;
@@ -41,7 +48,7 @@ and a "Show all N … targets" control (N = the engine's list length) that opens
 side from 1280 px, stacked below (phone cards too). At 1440 × 900 and
 1366 × 768 the H1, subtitle and the top 5 of both lists are above the fold, and
 the filters sit on one row. Two-column rows show only Player · Our value ·
-Largest gap (+ chart); a row's ▾ opens its per-chart values.
+Gap vs consensus ("N of M charts agree"); a row's ▾ opens its per-chart values.
 JEG-456 (part 1): from 1024 px the table needs no horizontal scroll; Pos, Team
 and Tier are in the player sub-line.
 JEG-458: every chart column header reads "Wk N · rescaled", "Compare against"
@@ -52,7 +59,7 @@ never opens a player or reorders rows.
 JEG-459: the "Include older-week charts" checkbox is gone; with FantasyPros
 simulated one week behind, it is still compared and carries a "Wk 4" badge
 (accessible name "FantasyPros has not published Week N yet; showing Week 4.")
-in its #v2TChart option, column header, Largest-gap attribution, opened rows,
+in its #v2TChart option, column header, opened rows,
 phone cards and footnote; current-week charts carry none.
 Everywhere: 44 px hit areas, no page errors, no horizontal overflow at 390 px.
 
@@ -98,7 +105,8 @@ TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
 DDF = "ddf_value"
-OURS = (DDF, "espn", "cbsros", "razzball")
+PROJ = "ddf_value_projections"   # the default (JEG-677)
+OURS = (PROJ, DDF, "espn", "cbsros", "razzball")
 TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
 CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
@@ -116,7 +124,8 @@ READ = """([side, ours, ids]) => {
   const rows = C.getRows();
   const engine = Object.fromEntries(rows.map(r => [String(r.player_key), r.values]));
   const ddf = Object.fromEntries(rows.map(r => [String(r.player_key), {count: r.ddfCount, tier: r.ddfTier,
-    low: Boolean(r.ddfLowConfidence), note: r.ddfConfidenceNote || null}]));
+    low: Boolean(r.ddfLowConfidence), note: r.ddfConfidenceNote || null,
+    proj: r.ddfByVersion ? r.ddfByVersion.projections || null : null}]));
   const order = rows.map(r => String(r.player_key));
   const st = C.getState();
   const text = node => (node ? node.childNodes[0]?.textContent || "" : null);
@@ -139,6 +148,8 @@ READ = """([side, ours, ids]) => {
     market: marketOf(tr.querySelector('td[data-market]')),
     best: text(tr.querySelector('td.best')),
     bestChart: tr.querySelector('td.best').dataset.best,
+    agree: (n => n ? {agree: n.dataset.agree, of: n.dataset.of, text: n.textContent.trim(),
+      dots: [...n.querySelectorAll('.t-dot')].map(d => d.dataset.chart + ':' + d.dataset.dot)} : null)(tr.querySelector('td.best .t-who')),
     cells: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, {
       value: text(td), gap: td.querySelector('.gap')?.textContent ?? null,
       atWaiver: Boolean(td.querySelector('.at-waiver')),
@@ -164,7 +175,7 @@ READ = """([side, ours, ids]) => {
     table, details, cards, used: window.TradeValueV2.targets().used,
     picker: document.getElementById('v2TOurs').value,
     // Every target on this side, not only the rendered page.
-    allBest: window.TradeValueV2.targets()[side].map(p => [String(p.row.player_key), (side === 'sell' ? p.bestSell : p.bestBuy).chart]),
+    allBest: window.TradeValueV2.targets()[side].map(p => [String(p.row.player_key), p.market.gap]),
     methodsHidden: document.getElementById('v2Methods').hidden,
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
@@ -194,7 +205,7 @@ LAYOUT = """(sides) => {
   const filters = [...q('#v2Targets .v2-tfilters').children].filter(vis).map(box);
   const tab = q('.v2-tab[data-view="targets"]');
   const thSubs = [...document.querySelectorAll('#v2TTable th[data-chart], #v2TBuyTable th[data-chart]')].map(th => ({
-    chart: th.dataset.chart, sub: th.querySelector('.th-sub')?.textContent || '',
+    chart: th.dataset.chart, sub: (() => { const s = th.querySelector('.th-sub'); if (!s) return ''; const c = s.cloneNode(true); c.querySelectorAll('.v2-div-chip').forEach(n => n.remove()); return c.textContent.trim(); })(),
     info: th.querySelector('button[data-info]') ? {expanded: th.querySelector('button[data-info]').getAttribute('aria-expanded'),
       label: th.querySelector('button[data-info]').getAttribute('aria-label') || ''} : null}));
   const compareInfo = q('#v2Targets .v2-tcompare button[data-info]');
@@ -203,6 +214,7 @@ LAYOUT = """(sides) => {
   document.querySelectorAll('#v2Targets button, #v2Targets a, #v2Targets select').forEach(n => {
     const b = n.getBoundingClientRect();
     if (!b.width || n.closest('[hidden]') || b.top - 1 < 0 || b.bottom + 1 > innerHeight) return;
+    if (n.matches('a.v2-srclink')) return;   // JEG-457: an inline source-name link (WCAG 2.2 2.5.8 inline exception)
     const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
     const owner = n.closest('label') || n;
     const ok = [-21, 21].every(dy => { const e = document.elementFromPoint(cx, cy + dy); return e && (owner === e || owner.contains(e)); });
@@ -230,29 +242,34 @@ SIMULATE_ROWS = """() => {
   const t = V2.targets();
   const used = t.used;
   const rows = C.getRows();
+  const KEY = 'ddf_value_projections';   // the default series (JEG-677): the probes are simulated on it
   const fin = v => typeof v === 'number' && Number.isFinite(v);
-  const top = t.sell.find(p => used.filter(c => fin(p.row.values[c]) && p.row.values[c] > 0).length >= 2);
+  // Under the consensus rule a probe must keep its player a target: every priced chart above ours, 3+ charts.
+  const solid = t.sell.filter(p => p.market.of >= 3 && p.market.agree === p.market.of);
+  const top = solid[0];
   if (!top) return null;
-  const zero = {key: String(top.row.player_key), chart: used.find(c => c !== top.bestSell.chart && fin(top.row.values[c]) && top.row.values[c] > 0)};
+  const lowest = p => used.filter(c => fin(p.row.values[c])).sort((a, b) => p.row.values[a] - p.row.values[b])[0];
+  const zero = {key: String(top.row.player_key), chart: lowest(top)};
+  const second = solid.find(p => String(p.row.player_key) !== zero.key);
   let low = null, best = -Infinity;
-  rows.forEach(r => { const k = String(r.player_key); if (k === zero.key || !fin(r.values.ddf_value)) return;
+  rows.forEach(r => { const k = String(r.player_key); if (k === zero.key || (second && k === String(second.row.player_key)) || !fin(r.values[KEY])) return;
+    if (used.filter(c => fin(r.values[c]) && r.values[c] > 1).length < 2) return;
     used.forEach(c => { if (fin(r.values[c]) && r.values[c] > best) { best = r.values[c]; low = k; } }); });
-  const none = rows.map(r => String(r.player_key)).find(k => k !== zero.key && k !== low
-    && fin(rows.find(r => String(r.player_key) === k).values.ddf_value));
+  const none = rows.map(r => String(r.player_key)).find(k => k !== zero.key && k !== low && !(second && k === String(second.row.player_key))
+    && fin(rows.find(r => String(r.player_key) === k).values[KEY]));
   // JEG-541: after JEG-508 every chart prices every player, so a chart value the engine does not have
-  // is simulated: the second sell target loses a chart other than its best, with the engine's reason.
-  const second = t.sell.find(p => String(p.row.player_key) !== zero.key && String(p.row.player_key) !== low
-    && used.filter(c => fin(p.row.values[c]) && p.row.values[c] > 0).length >= 2);
-  const gap = second ? {key: String(second.row.player_key), chart: used.find(c => c !== second.bestSell.chart && fin(second.row.values[c])),
+  // is simulated: the second solid sell target loses its lowest chart, with the engine's reason.
+  const gap = second ? {key: String(second.row.player_key), chart: lowest(second),
     reason: 'Simulated: not enough shared players to index'} : null;
   const note = 'Only one source prices this player', reason = 'No source prices this player';
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
     const k = String(r.player_key);
-    if (k === low) return {...r, values: {...r.values, ddf_value: 0.5}, ddfCount: 1, ddfSources: [used[0]],
-      ddfLowConfidence: true, ddfConfidenceNote: note};
-    if (k === none) return {...r, values: {...r.values, ddf_value: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
-      ddfLowConfidence: false, ddfReason: reason};
+    const ver = (extra) => ({...(r.ddfByVersion || {}), projections: {...((r.ddfByVersion || {}).projections || {}), ...extra}});
+    if (k === low) return {...r, values: {...r.values, [KEY]: 0.5},
+      ddfByVersion: ver({count: 1, sources: [used[0]], lowConfidence: true, confidenceNote: note})};
+    if (k === none) return {...r, values: {...r.values, [KEY]: null},
+      ddfByVersion: ver({count: 0, sources: [], lowConfidence: false, reason})};
     if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
     if (gap && k === gap.key) return {...r, values: {...r.values, [gap.chart]: null},
       missingReasons: {...(r.missingReasons || {}), [gap.chart]: gap.reason}};
@@ -283,8 +300,7 @@ PRIOR = """() => {
   const t = window.TradeValueV2.targets();
   return {used: t.used,
     options: [...document.querySelectorAll('#v2TChart option')].map(o => ({value: o.value, text: o.textContent})),
-    headers: [...document.querySelectorAll('#v2TTable th[data-chart], #v2TBuyTable th[data-chart]')].map(th => ({chart: th.dataset.chart, badges: badges(th), sub: th.querySelector('.th-sub').textContent})),
-    best: [...document.querySelectorAll('#v2TTable td.best, #v2TBuyTable td.best, #v2TCards .big, #v2TBuyCards .big')].map(td => ({chart: td.dataset.best, badges: badges(td)})),
+    headers: [...document.querySelectorAll('#v2TTable th[data-chart], #v2TBuyTable th[data-chart]')].map(th => ({chart: th.dataset.chart, badges: badges(th), sub: (() => { const s = th.querySelector('.th-sub'); if (!s) return ''; const c = s.cloneNode(true); c.querySelectorAll('.v2-div-chip').forEach(n => n.remove()); return c.textContent.trim(); })()})),
     details: [...document.querySelectorAll('tr.t-detail [data-chart]')].map(s => ({chart: s.dataset.chart, badges: badges(s)})),
     cards: [...document.querySelectorAll('#v2TCards .vals [data-chart], #v2TBuyCards .vals [data-chart]')].map(s => ({chart: s.dataset.chart, badges: badges(s)})),
     foot: badges(document.getElementById('v2TFootnote')), footText: document.getElementById('v2TFootnote').textContent};
@@ -324,27 +340,56 @@ def check_run(where, values, our_key, cell):
 
 
 def check_market(where, values, our_key, used, market) -> list[str]:
-    """JEG-504: the market average of the compared charts, and ours minus it, recomputed from engine values."""
+    """JEG-504 / JEG-677: the market consensus (median) of the compared charts, and ours minus it, recomputed from engine values."""
     if market is None:
-        return [f"{where}: no market average shown"]
+        return [f"{where}: no market consensus shown"]
     priced = [values[c] for c in used if finite(values.get(c))]
     if not priced:
-        return [] if market["missing"] else [f"{where}: no chart prices the player but the average shows {market}"]
-    mean = sum(priced) / len(priced)
+        return [] if market["missing"] else [f"{where}: no chart prices the player but the consensus shows {market}"]
+    mean = median(priced)
     ours = values[our_key]
     if fmt(mean) == fmt(ours):
-        if not market["equal"] or market["note"] != "= market average" or market["diff"] is not None or market["n"] is not None:
+        if not market["equal"] or market["note"] != "= market consensus" or market["diff"] is not None or market["n"] is not None:
             return [f"{where}: average {mean} equals ours {ours} to one decimal; expected only the note, got {market}"]
         return []
     diff = ours - mean
     symbol = "▲" if diff > 0 else "▼"
-    if (market["equal"] or market["text"].removeprefix("Market avg ").strip() != fmt(mean) or market["n"] != str(len(priced)) or market["diff"] != f"{diff:.1f}"
+    if (market["equal"] or market["text"].removeprefix("Consensus ").strip() != fmt(mean) or market["n"] != str(len(priced)) or market["diff"] != f"{diff:.1f}"
             or market["diffText"] != f"{symbol} {fmt_gap(diff)}"):
-        return [f"{where}: market average {market}, expected {fmt(mean)} of {len(priced)}, difference {symbol} {fmt_gap(diff)}"]
+        return [f"{where}: market consensus {market}, expected {fmt(mean)} of {len(priced)}, difference {symbol} {fmt_gap(diff)}"]
     left = len(used) - len(priced)
     if left and f"{left} left out" not in (market["count"] or ""):
         return [f"{where}: {left} chart(s) without a value are not noted: {market['count']!r}"]
     return []
+
+
+def median(values):
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    return ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def expected_side(snapshot, side):
+    """The independent Check 1 list for one side: [(key, gap, agree, of)] from the engine rows (JEG-677)."""
+    our_key, used, engine = snapshot["ours"], snapshot["used"], snapshot["engine"]
+    found = []
+    for index, key in enumerate(snapshot["order"]):
+        values = engine[key]
+        ours = values.get(our_key)
+        if not finite(ours):
+            continue
+        priced = [values[c] for c in used if finite(values.get(c))]
+        if len(priced) < 2:
+            continue
+        consensus = median(priced)
+        gap = consensus - ours
+        if consensus <= 0 or gap == 0 or (gap > 0) != (side == "sell"):
+            continue
+        agree = sum(1 for v in priced if (v > ours if gap > 0 else v < ours))
+        if agree * 2 > len(priced):
+            found.append((index, key, gap, agree, len(priced)))
+    found.sort(key=lambda f: (-f[2], f[0]) if side == "sell" else (f[2], f[0]))
+    return [f[1:] for f in found]
 
 
 def expected_tiers(snapshot) -> dict:
@@ -353,6 +398,20 @@ def expected_tiers(snapshot) -> dict:
     our_key = snapshot["ours"]
     if our_key == DDF:
         return {key: TIER_LABEL.get(d["tier"], "—") for key, d in snapshot["ddf"].items()}
+    if our_key == PROJ:
+        # A DDF version other than the blend: rank by it and read the blend's starter / bench counts.
+        counts = {"starter": 0, "bench": 0}
+        for d in snapshot["ddf"].values():
+            if d["tier"] in counts:
+                counts[d["tier"]] += 1
+        values = {k: (snapshot["engine"].get(k) or {}).get(PROJ) for k in snapshot["order"]}
+        out = {}
+        for key, value in values.items():
+            if not finite(value):
+                continue
+            ahead = sum(1 for v in values.values() if finite(v) and v > value)
+            out[key] = "Starter" if ahead < counts["starter"] else "Bench" if ahead < counts["starter"] + counts["bench"] else "Waiver"
+        return out
     priced = [k for k in snapshot["order"] if finite((snapshot["engine"].get(k) or {}).get(our_key))]
     priced.sort(key=lambda k: -snapshot["engine"][k][our_key])   # stable: engine order breaks ties
     if snapshot["position"] == "ALL":
@@ -371,10 +430,17 @@ def expected_tiers(snapshot) -> dict:
 def check_ours_extras(where, snapshot, key, shown) -> list[str]:
     """JEG-455: DDF Value's source count (or the one-source marker), and the tier from the picked series."""
     errors = []
-    if snapshot["ours"] == DDF:
+    if snapshot["ours"] in (DDF, PROJ):
         d = snapshot["ddf"][key]
+        if snapshot["ours"] == PROJ:
+            version = d["proj"] or {}
+            d = {"count": version.get("count"), "low": bool(version.get("lowConfidence")),
+                 "note": version.get("confidenceNote") or "Only one source prices this player"}
         n = d["count"]
-        if d["low"]:
+        if n is None and not d["low"]:
+            if shown["count"]:
+                errors.append(f"{where}: a source count {shown['count']} shown with no engine count")
+        elif d["low"]:
             c = shown["count"] or {}
             if (not c.get("low") or c.get("text") != f"◐ {n} source" or c.get("title") != d["note"]
                     or c.get("aria") != f"{n} source: {d['note']}"):
@@ -402,18 +468,18 @@ def check(snapshot) -> list[str]:
         errors.append("rows were not simulated")
     else:
         listed = {key for key, _ in snapshot["allBest"]}
-        if our_key == DDF and side == "sell":
+        if our_key == PROJ and side == "sell":
             if probe["low"] not in listed:
                 errors.append(f"one-source player {probe['low']} is not a sell target (Jeremy: show it, flagged)")
             if not any(r["key"] == probe["low"] for r in snapshot["table"] + snapshot["cards"]):
                 errors.append(f"one-source player {probe['low']} is not rendered in the top rows")
-        if our_key == DDF:
+        if our_key == PROJ:
             if probe["none"] in listed:
                 errors.append(f"player {probe['none']} with no DDF input is listed as a {side} target")
             if snapshot["omittedNoOurs"] < 1 or probe["reason"] not in snapshot["note"]:
                 errors.append(f"player with no DDF input not counted with the engine's reason: {snapshot['note']!r}")
         gap = probe.get("gap")
-        if our_key == DDF and side == "sell":
+        if our_key == PROJ and side == "sell":
             grows = [r for r in snapshot["table"] if gap and r["key"] == gap["key"]]
             if not grows:
                 errors.append(f"the missing-chart probe {gap} is not rendered; the missing-value path went unchecked")
@@ -422,7 +488,7 @@ def check(snapshot) -> list[str]:
                 if not cell.get("missing") or cell.get("title") != gap["reason"]:
                     errors.append(f"{gap['key']}/{gap['chart']}: engine has no value (reason {gap['reason']!r}) but cell shows {cell}")
         zrows = [r for r in snapshot["table"] if r["key"] == probe["zero"]["key"]]
-        if our_key == DDF and side == "sell" and snapshot["table"] and not zrows:
+        if our_key == PROJ and side == "sell" and snapshot["table"] and not zrows:
             errors.append(f"the waiver-line probe {probe['zero']} is not rendered")
     if snapshot["picker"] != our_key:
         errors.append(f"picker shows {snapshot['picker']!r}, expected {our_key!r}")
@@ -432,11 +498,16 @@ def check(snapshot) -> list[str]:
         errors.append("no published chart compared")
     if not snapshot["table"]:
         errors.append(f"no {side} rows rendered")
-    for key, chart in snapshot["allBest"]:
-        value = (engine.get(key) or {}).get(chart)
-        if not finite(value) or value <= 0:
-            errors.append(f"{key}: {side} target from {chart} at {value!r}, at or below that chart's waiver line")
-    best_gaps = []
+    # JEG-677: the whole list (not only the rendered page) is the consensus rule applied to the engine rows.
+    want_list = expected_side(snapshot, side)
+    got_list = [(key, gap) for key, gap in snapshot["allBest"]]
+    if [(k, round(g, 9)) for k, g, _, _ in want_list] != [(k, round(g, 9)) for k, g in got_list]:
+        errors.append(f"{side} list is not the consensus rule's: want {[(k, round(g, 1)) for k, g, _, _ in want_list][:6]}, "
+                      f"got {[(k, round(g, 1)) for k, g in got_list][:6]}")
+    wanted = {k: (g, a, n) for k, g, a, n in want_list}
+    rendered = [row["key"] for row in snapshot["table"]]
+    if rendered != [k for k, *_ in want_list][:len(rendered)]:
+        errors.append(f"{side} rows {rendered[:6]} are not the top of the consensus list (largest gap first)")
     for row in snapshot["table"]:
         values = engine.get(row["key"])
         if values is None:
@@ -466,19 +537,19 @@ def check(snapshot) -> list[str]:
             gaps[chart] = gap
             if cell["gap"] != fmt_gap(gap):
                 errors.append(f"{row['key']}/{chart}: gap {cell['gap']!r}, expected {fmt_gap(gap)!r} (chart − ours)")
-        if not gaps:
-            errors.append(f"{row['key']}: listed as {side} target with no chart above its waiver line")
+        if row["key"] not in wanted:
+            errors.append(f"{row['key']}: listed as {side} target but the consensus rule does not make it one")
             continue
-        pick = max(gaps, key=gaps.get) if side == "sell" else min(gaps, key=gaps.get)
-        if (side == "sell" and gaps[pick] <= 0) or (side == "buy" and gaps[pick] >= 0):
-            errors.append(f"{row['key']}: listed as {side} target with gaps {gaps}")
-            continue
-        if row["bestChart"] != pick or row["best"] != fmt_gap(gaps[pick]):
-            errors.append(f"{row['key']}: largest gap {row['best']!r} {row['bestChart']} != {fmt_gap(gaps[pick])} {pick}")
-        best_gaps.append(gaps[pick])
-    ordered = sorted(best_gaps, reverse=(side == "sell"))
-    if best_gaps != ordered:
-        errors.append(f"{side} rows are not ordered by largest gap")
+        gap, agree, of = wanted[row["key"]]
+        if row["bestChart"] != "consensus" or row["best"] != fmt_gap(gap):
+            errors.append(f"{row['key']}: gap {row['best']!r} != consensus gap {fmt_gap(gap)}")
+        shown = row["agree"] or {}
+        if (shown.get("agree"), shown.get("of")) != (str(agree), str(of)) or f"{agree} of {of} charts agree" not in shown.get("text", ""):
+            errors.append(f"{row['key']}: shows {shown}, expected '{agree} of {of} charts agree'")
+        want_dots = sorted(f"{c}:{'above' if values[c] > ours else 'below' if values[c] < ours else 'level'}"
+                           for c in snapshot["used"] if finite(values.get(c)))
+        if sorted(shown.get("dots", [])) != want_dots:
+            errors.append(f"{row['key']}: dots {shown.get('dots')} != one per priced chart {want_dots}")
     natives = snapshot["natives"] or {}
     for detail in snapshot["details"]:
         values = engine.get(detail["key"], {})
@@ -598,11 +669,6 @@ def check_prior(prior, ref_week, width) -> list[str]:
         errors += badge_ok(f"{th['chart']} column header", th["badges"], th["chart"])
         if th["chart"] == "fantasypros" and not th["sub"].endswith("Wk 4 · rescaled"):
             errors.append(f"FantasyPros header sub-label {th['sub']!r}")
-    fp_best = [b for b in prior["best"] if b["chart"] == "fantasypros"]
-    if not fp_best:
-        errors.append("no visible target's largest gap is from FantasyPros (attribution badge untested)")
-    for b in prior["best"]:
-        errors += badge_ok(f"largest gap from {b['chart']}", b["badges"], b["chart"])
     for d in prior["details"]:
         errors += badge_ok(f"opened row {d['chart']}", d["badges"], d["chart"])
     if width < 768:
@@ -677,7 +743,7 @@ def _popover_checks(page, width) -> list[str]:
     """JEG-458: the ⓘ beside Compare against, and one in a column header."""
     errors = []
     probes = [".v2-tcompare button[data-info]"]
-    # A chart column header's ⓘ where chart columns show; the Largest gap header's otherwise.
+    # A chart column header's ⓘ where chart columns show; the Gap vs consensus header's otherwise.
     if width >= 768:
         probes.append("#v2TTable th[data-chart] button[data-info]" if width < 1280 else "#v2TTable th.t-best button[data-info]")
     for n, selector in enumerate(probes):
@@ -804,8 +870,8 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                     errors += [tag + e for e in _popover_checks(page, width)]
                     errors += [tag + e for e in _paging_checks(page, width)]
                 full_numbers = numbers and width in (1440, 390)
-                for ours in (OURS if full_numbers else (DDF,) if numbers else ()):
-                    if ours != DDF:
+                for ours in (OURS if full_numbers else (PROJ,) if numbers else ()):
+                    if ours != PROJ:
                         page.select_option("#v2TOurs", ours)
                         # The pick must survive a trip to Player values and back.
                         page.evaluate("() => { location.hash = '#player-values'; }")
@@ -869,7 +935,13 @@ class TradeTargetsRenderTest(unittest.TestCase):
         desk = ((1440, 900),)
         numbers_only = {"viewports": desk, "layout": False}
         broken = {
-            "sign flipped": ({"targets_js": (targets, "const gap = value - ours;", "const gap = ours - value;")}, numbers_only),
+            "sign flipped": ({"targets_js": (targets, "const gap = value - ours;\n        cells[chart]", "const gap = ours - value;\n        cells[chart]")}, numbers_only),
+            "consensus sign flipped": ({"targets_js": (targets, "const diff = ours - value;\n    const gap = value - ours;",
+                                                       "const diff = ours - value;\n    const gap = ours - value;")}, numbers_only),
+            "mean instead of median": ({"targets_js": (targets, "const value = median(values);",
+                                                       "const value = values.reduce((a, b) => a + b, 0) / values.length;")}, numbers_only),
+            "majority rule dropped": ({"targets_js": (targets, " && agree * 2 > priced.length;", ";")}, numbers_only),
+            "single chart allowed": ({"targets_js": (targets, "priced.length >= 2 && value > 0", "priced.length >= 1 && value > 0")}, numbers_only),
             "missing read as zero": ({"targets_js": (targets, "const value = row.values[chart];",
                                                      "const value = row.values[chart] ?? 0;")}, numbers_only),
             "waiver rule removed": ({"targets_js": (targets, "if (value <= 0) {", "if (false) {")}, numbers_only),
@@ -902,20 +974,20 @@ class TradeTargetsRenderTest(unittest.TestCase):
                             ".v2-ttable th { vertical-align: bottom; white-space: nowrap; line-height: 1.25; }")},
                 {"viewports": ((1024, 768),), "numbers": False}),
             # JEG-455 / tier ruling
-            "default reverted to ESPN": ({"targets_js": (targets, "const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[1];")}, numbers_only),
+            "default reverted to DDF Value": ({"targets_js": (targets, "const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[1];")}, numbers_only),
             "tier read from espnRole": ({"v2_js": (v2, "const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));",
                                                    "const tierText = row => tierLabel(row.espnRole);")}, numbers_only),
             "source count missing": ({"v2_js": (v2, "      if (count) cell.appendChild(count);\n", "")}, numbers_only),
             "pick not remembered": ({"v2_js": (v2, "      saveTargetsOurs(T.ours);\n", "")}, numbers_only),
             "one-source player left out": ({"targets_js": (targets, "      if (!finite(ours)) {",
-                                                           "      if (!finite(ours) || row.ddfLowConfidence) {")}, numbers_only),
+                                                           "      if (!finite(ours) || (row.ddfByVersion && row.ddfByVersion.projections && row.ddfByVersion.projections.lowConfidence)) {")}, numbers_only),
             "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, key)) {\n      const node = lowConfidenceNode(row, key);",
                                                          "    if (false) {\n      const node = lowConfidenceNode(row, key);")}, numbers_only),
             # JEG-504
             "market difference symbol flipped": ({"v2_js": (v2, 'diff.textContent = `${m.diff > 0 ? "▲" : "▼"}', 'diff.textContent = `${m.diff > 0 ? "▼" : "▲"}')}, numbers_only),
-            "market average counts only compared-and-positive": ({"targets_js": (targets, "const values = Object.values(cells).map(cell => cell.value).filter(finite);",
-                                                                                 "const values = Object.values(cells).map(cell => cell.value).filter(v => finite(v) && v > 0);")}, numbers_only),
-            "equal case duplicates the number": ({"targets_js": (targets, "equal: ours.toFixed(1) === value.toFixed(1)}", "equal: false}")}, numbers_only),
+            "consensus counts only compared-and-positive": ({"targets_js": (targets, "const values = priced.map(key => cells[key].value);",
+                                                                            "const values = priced.map(key => cells[key].value).filter(v => v > 0);")}, numbers_only),
+            "equal case duplicates the number": ({"targets_js": (targets, "equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: false,\n      side")}, numbers_only),
             "native rank off by one": ({"v2_js": (v2, "native.textContent = `#${rank} on", "native.textContent = `#${rank + 1} on")}, numbers_only),
         }
         for name, (mutation, opts) in broken.items():

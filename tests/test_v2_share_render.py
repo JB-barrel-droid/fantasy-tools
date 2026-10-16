@@ -116,8 +116,7 @@ def run_checks(v2_js=None) -> list[str]:
             if first["scheme"] != "light dark":
                 errors.append(f"color-scheme meta is {first['scheme']!r}, expected 'light dark'")
             league = page.evaluate("""() => { const C = window.TradeValueCurveControls; const r = C.getRosterShape();
-              return `scoring=${C.getState().scoring}&roster=QB${r.QB}.RB${r.RB}.WR${r.WR}.TE${r.TE}.FLEX${r.FLEX}.SF${r.SUPERFLEX || 0}.BN${r.BENCH}`
-                + `&bench=${C.getBenchShare().toFixed(3)}`; }""")
+              return `scoring=${C.getState().scoring}&roster=QB${r.QB}.RB${r.RB}.WR${r.WR}.TE${r.TE}.FLEX${r.FLEX}.SF${r.SUPERFLEX || 0}.BN${r.BENCH}`; }""")
             want = f"#compare-trade?give={','.join(first['give'])}&get={','.join(first['get'])}&{league}"
             if first["hash"] != want:
                 errors.append(f"address {first['hash']!r} != {want!r}")
@@ -142,6 +141,7 @@ def run_checks(v2_js=None) -> list[str]:
             other.wait_for_timeout(300)
             if "&shares=QB0.100_RB0.400_WR0.400_TE0.100" not in other.evaluate("() => location.hash"):
                 errors.append(f"custom shares not written to the link: {other.evaluate('() => location.hash')!r}")
+            # JEG-537: an old link's bench= other than 0.150 (the old default) is the sender's override.
             if abs(got["bench"] - 0.2) > 0.006:
                 errors.append(f"link bench share not applied: {got['bench']}")
             r = got["roster"]
@@ -177,7 +177,7 @@ class ShareRenderTest(unittest.TestCase):
             "hash not read": js.replace("    readTradeHash();   // may set a status", "    // readTradeHash();", 1),
             "link league ignored": js.replace("    TR.receive = read(\"get\");\n    applyLinkLeague(params);", "    TR.receive = read(\"get\");", 1),
             "link shares ignored": js.replace("    if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }", "", 1),
-            "link bench ignored": js.replace("    if (benchChange) { C.setBenchShareFraction(bench); refresh(); }", "", 1),
+            "link bench ignored": js.replace("      const error = applyAdvanced(advChange);", "      const error = '';", 1),
             "hash not written": js.replace("    if (location.hash !== want) history.replaceState(null, \"\", want);", "", 1),
         }
         for name, body in broken.items():

@@ -235,8 +235,8 @@ def load_espn_csv():
 
 def espn_anchor_problems(players_doc, comparison, csv_rows):
     """The ESPN anchor is one vintage everywhere, and the section's per-game
-    natives are the committed CSV's rest-of-season points / the team's games
-    in ESPN's ROS window."""
+    natives are the committed CSV's rest-of-season points / espn_projected_games
+    (falling back to team games in ESPN's ROS window when the column is absent)."""
     import sys
     sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
     import player_aliases
@@ -264,8 +264,13 @@ def espn_anchor_problems(players_doc, comparison, csv_rows):
                 problems.append(f"espn/{combo}: {slug} has a native but no CSV row")
                 continue
             team = (row.get("team") or "").strip()
-            games = (games_in_window(team, window, byes) if team
-                     else window[1] - window[0] + 1)
+            team_games = (games_in_window(team, window, byes) if team
+                          else window[1] - window[0] + 1)
+            # JEG-535 / JEG-676: use espn_projected_games when present,
+            # matching bake_players.py and build_ddf_two_tier_leg.py.
+            epg_raw = (row.get("espn_projected_games") or "").strip()
+            epg = int(epg_raw) if epg_raw else None
+            games = epg if epg else team_games
             expected = (float(row["ros_half_ppr"])
                         + rec_weight * float(row["r_receptions"])) / games
             if abs(round(expected, 2) - value) > 0.0051:

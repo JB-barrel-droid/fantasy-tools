@@ -6,7 +6,7 @@ league, and checks:
 
   * the "Your league shapes the comparison" card is the engine's own state
     (getState scoring and teams, getRosterShape counts, getPositionWeights,
-    getBenchShare), so it follows Edit league and Weights & bench; the Methods
+    getBenchShareReadout), so it follows Edit league and Position weights; the Methods
     row is shown (frame 15);
   * each of the three views (VORP vs waivers, Data Driven Adjustments,
     Rescaled, JEG-510) lists exactly the engine's series of that method from
@@ -61,11 +61,11 @@ READ = """() => {
   clone.querySelectorAll('[data-engine], [data-step]').forEach(n => n.remove());
   // Older-week labels come from the data's freshness record, as on every v2 tab.
   const fresh = window.TradeValueProductData?.getSourceFreshness?.()?.series || {};
-  const info = C.getSourceInfo().map(item => {
+  const info = C.getSourceInfo().filter(item => !item.key.endsWith('_adjusted')).map(item => {
     const row = fresh[item.key];
     return row && typeof row.is_older_week === 'boolean' ? {...item, stale: row.is_older_week} : item;
   });
-  return {state: C.getState(), roster: C.getRosterShape(), info, weights: C.getPositionWeights(), bench: C.getBenchShare(),
+  return {state: C.getState(), roster: C.getRosterShape(), info, weights: C.getPositionWeights(), bench: C.getBenchShareReadout(),
     weightsLine: document.getElementById('v2HowWeights').textContent, benchLine: document.getElementById('v2HowBench').textContent,
     methodsShown: !document.getElementById('v2Methods').hidden,
     league: document.getElementById('v2HowLeague').textContent,
@@ -81,7 +81,7 @@ READ = """() => {
 def method(key):
     if key.endswith("_vorp"):
         return "vorp"
-    if key.endswith("_adjusted") or key in ("espn", "cbsros", "razzball"):
+    if key in ("espn", "cbsros", "razzball"):
         return "dda"
     return "indexed"
 
@@ -101,8 +101,12 @@ def check(snap) -> list[str]:
     want_weights = " · ".join(f"{p} {float(snap['weights'][p]) * 100:.1f}%" for p in ("QB", "RB", "WR", "TE"))
     if snap["weightsLine"] != want_weights:
         errors.append(f"weights line {snap['weightsLine']!r} != engine {want_weights!r}")
-    if snap["benchLine"] != f"{snap['bench'] * 100:.1f}%":
-        errors.append(f"bench line {snap['benchLine']!r} != engine {snap['bench']!r}")
+    # JEG-537: the bench share is the engine's readout by position (or the reader's override).
+    r = snap["bench"]
+    want = (f"{r['overrideValue'] * 100:.1f}% (your override)" if r["override"]
+            else " · ".join(f"{p} {r[p] * 100:.1f}%" for p in ("QB", "RB", "WR", "TE")))
+    if snap["benchLine"] != want:
+        errors.append(f"bench line {snap['benchLine']!r} != engine readout {want!r}")
     if not snap["methodsShown"]:
         errors.append("frame 15: the Methods row is shown on How values work")
     for view in ("vorp", "dda", "indexed"):

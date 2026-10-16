@@ -19,6 +19,14 @@ a crash, a parity break, or a value that contradicts a rule already decided).
 Numbers below are cited from the log or test that measured them. "Not
 measured" means nobody has run that option yet.
 
+## Decided (JEG-450, Q1 GAP-TIER-FROM-ESPN, 2026-10-15)
+
+Jeremy decided 2026-10-15: the tier column is labelled "ESPN Tier" in v2
+everywhere the Starter / Bench / Waiver tier is shown (Player values column and
+Columns popover, the player drawer). It always comes from ESPN's slot fill, so
+the label says so rather than the tier following the selected source. Closes
+`GAP-TIER-FROM-ESPN` in `docs/risk-register.md`.
+
 ## Answered by the Value Pipeline spec (JEG-508, 2026-10-09)
 
 Jeremy's JEG-508 decisions replace the ESPN anchor. `docs/methodology.md`
@@ -72,7 +80,7 @@ Each item is closed (answered by a decision and live code) or carried (still wai
 | MR-23 (matchups and weekly variance) | Carried | JEG-534 (parked, BE: Later). |
 | MR-26 (handcuff contingency) | Carried | JEG-526: option (b) built as a Python reference (`pipelines/stash_signals.py`, 2026-10-12, recommended default, awaiting Jeremy's review under JEG-450); drawer display is the open front-end half. |
 | MR-24, MR-25, MR-27 (more seasons, RB health, why analysts bench players) | Carried | JEG-450; no separate ticket. |
-| VA-1 to VA-7, "Option A" and `viewInvariants` | Carried | JEG-450. VA-7 is the CBS ROS direction row `GAP-CBSROS-DIRECTION-RED` in the risk register. Check VA-4, VA-5 and VA-6 against the fit retirement before reviewing; parts of them describe the retired fit. |
+| VA-1 to VA-7, "Option A" and `viewInvariants` | Carried | JEG-450. VA-7 **decided 2026-10-15 (Jeremy): retired** (see "Math review answers 2026-10-15"). Check VA-4, VA-5 and VA-6 against the fit retirement before reviewing; parts of them describe the retired fit. |
 
 ## How the review runs
 
@@ -1493,6 +1501,13 @@ the trade-target views; not covered.
 | Zero RB construction | portfolio |
 
 **Depends on:** nothing; informs MR-21, MR-22, MR-23, MR-26.
+
+## Math review answers 2026-10-15 (Jeremy, JEG-450; decisions.md math-review-2026-10-15)
+
+- Q1 GAP-TIER-FROM-ESPN: label the tier column "ESPN Tier" (implemented by another agent).
+- Q2 GAP-ADJ-IDENTITY-FALLBACK-UNLABELLED: closed as moot, the fit is retired.
+- Q3 GAP-CBSROS-DIRECTION-RED (VA-7): retire the CBS ROS and Razzball direction and markup checks; they judge starter/bench scales that price nothing those sources display. Keep any check that still guards displayed values.
+- Q4 OC-8: keep zeros counted in the Indexed factor (option A, confirmed).
 
 ## Outside this review
 

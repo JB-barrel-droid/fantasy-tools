@@ -12,7 +12,7 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
     getRosterShape() / getState().teams, SUPERFLEX included; a change that
     moves the bench share says so (JEG-444); Reset defaults returns to the
     first-load league;
-  * Weights & bench (11): position shares shown equal getPositionWeights();
+  * Position weights (11): position shares shown equal getPositionWeights();
     an edited share reaches the engine on Apply (setPositionWeights) and the
     shares still total 1; Reset defaults returns them to
     getDefaultPositionWeights(); Apply sets getBenchShare() to the slider;
@@ -191,20 +191,12 @@ def check_league(page) -> list[str]:
     sf = page.evaluate("() => window.TradeValueCurveControls.getRosterShape().SUPERFLEX")
     if sf != 1 or "1 SUPERFLEX" not in page.text_content("#v2RosterLine"):
         errors.append(f"league: SUPERFLEX stepper gave engine {sf}, roster line {page.text_content('#v2RosterLine')!r}")
-    # JEG-444: a league change that moves the bench share says so. Today's feasible range does not
-    # depend on the roster, so the test makes the engine re-clamp on the next team change.
-    page.evaluate("""() => { const C = window.TradeValueCurveControls; const setTeams = C.setTeams;
-      C.setTeams = t => { setTeams(t); C.setBenchShareFraction(0.2); }; }""")
-    # Since JEG-536 the bench share in effect is the computed readout, not a fixed 15%,
-    # so the toast names whatever the engine reports just before the change.
-    bench_before = page.evaluate("() => window.TradeValueCurveControls.getBenchShare()")
+    # JEG-444's "bench share moved to stay inside the feasible range" toast is gone: the range and the slider
+    # went with JEG-536/JEG-537 (the bench share is a readout worked out from the settings, so a league
+    # change simply changes the readout; tests/test_v2_advanced_render.py covers it).
     page.click("#v2EditLeague")
     page.click('#v2Popover .v2-pseg button[data-value="14"]')
     page.click('#v2Popover [data-apply="league"]')
-    toast = page.evaluate("() => document.getElementById('v2Status').hidden ? '' : document.getElementById('v2Status').textContent")
-    if f"Bench share moved from {bench_before * 100:.1f}% to 20.0%" not in toast:
-        errors.append(f"league: bench re-clamp not reported: {toast!r}")
-    page.evaluate("() => window.TradeValueCurveControls.setBenchShareFraction(0.15)")
     page.click("#v2EditLeague")
     page.click("#v2Popover .v2-preset")
     page.click('#v2Popover [data-apply="league"]')
@@ -235,18 +227,16 @@ def check_weights(page) -> list[str]:
       return ['QB', 'RB', 'WR', 'TE'].every(p => Math.abs(a[p] - d[p]) < 1e-9); }""")
     if not back:
         errors.append("weights: Reset defaults did not return the position shares to the league's defaults")
+    # JEG-537: the bench share is a readout, not a slider.
     page.click("#v2Weights")
-    bounds = page.evaluate("() => window.TradeValueCurveControls.getBenchBounds()")
-    if bounds:
-        target = round((bounds[0] + bounds[1]) / 2, 3)
-        page.evaluate("v => { const s = document.getElementById('v2BenchSlider'); s.value = String(v); s.dispatchEvent(new Event('input')); }", target)
-        page.click('#v2Popover [data-apply="weights"]')
-        got = page.evaluate("() => window.TradeValueCurveControls.getBenchShare()")
-        if abs(got - target) > 0.006:   # the slider steps by 0.005
-            errors.append(f"weights: Apply set bench {got}, slider {target}")
-        page.evaluate("() => window.TradeValueCurveControls.setBenchShareFraction(0.15)")
-    else:
-        page.keyboard.press("Escape")
+    if page.locator("#v2Popover #v2BenchSlider").count():
+        errors.append("weights: the bench-share slider is still in Position weights")
+    readout = page.evaluate("() => window.TradeValueCurveControls.getBenchShareReadout()")
+    want = "Bench share this week: " + ", ".join(f"{p} {readout[p] * 100:.1f}%" for p in ("QB", "RB", "WR", "TE")) + ", from your league settings"
+    got = page.text_content("#v2Popover [data-bench-readout]")
+    if got != want:
+        errors.append(f"weights: bench readout {got!r}, engine {want!r}")
+    page.keyboard.press("Escape")
     return errors
 
 
@@ -419,9 +409,10 @@ def check_toolbar(page) -> list[str]:
         errors.append(f"toolbar: position {sticky}, want sticky")
     # Chart: only direct manipulation inside (brushes, zoom), no rank-window buttons.
     # The card's own expand and collapse buttons (.v2-mod-ctl, JEG-500) are not chart
-    # controls; tests/test_v2_modules_render.py covers them.
+    # controls; tests/test_v2_modules_render.py covers them. Nor are the legend's series toggles
+    # (JEG-503, PV-07: Jeremy asked for them); tests/test_v2_chart_zones_render.py covers those.
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
-      .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl')).map(n => n.id || n.textContent.trim())""")
+      .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl') && !n.classList.contains('v2-legend-item')).map(n => n.id || n.textContent.trim())""")
     allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
                "v2ExpandChart", "v2ResetZoom"}   # JEG-483: expand and (while zoomed) Reset zoom
     extra = [n for n in inside if n not in allowed]
@@ -657,8 +648,6 @@ def _group_of(key):
         return "ddf"
     if key.endswith("_vorp"):
         return "vorp"
-    if key.endswith("_adjusted"):
-        return "adjusted"
     if key in ("espn", "cbsros", "razzball"):
         return "projections"
     return "published"
@@ -758,11 +747,11 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
                 if width >= 1280:
                     errors += [tag + e for e in check_fold(page, width, height)]
                     # Fit is judged with a wider selection than the first-visit default: at 1440 six value
-                    # columns (DDF Value, ESPN, the four adjusted charts).
+                    # columns (DDF Value, ESPN, the four raw charts).
                     before_shown = page.evaluate("() => window.TradeValueV2.shown()")
                     # 1366 gets five (no ESPN), the same count the pre-DDF default had.
                     page.evaluate("""wide => window.TradeValueV2.setShown(['ddf_value'].concat(wide ? ['espn'] : [],
-                      ['fantasycalc_adjusted', 'usatoday_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']))""", width >= 1440)
+                      ['fantasycalc', 'usatoday', 'fantasypros', 'cbs']))""", width >= 1440)
                     page.wait_for_timeout(200)
                     errors += [tag + e for e in check_table_fit(page, width)]
                     page.evaluate("keys => window.TradeValueV2.setShown(keys)", before_shown)
@@ -819,12 +808,9 @@ class PanelsRenderTest(unittest.TestCase):
             "Reset keeps the value range": {"v2_js": v2.replace(
                 "    state.range = {min: null, max: null};\n    state.windowPreset = SHOW_DEFAULT;", "    state.windowPreset = SHOW_DEFAULT;", 1)},
             "Columns menu ignored": {"v2_js": v2.replace(
-                "      .filter(key => key === view.rankKey || !state.hiddenGroups.has(tableGroup(key)));", ";", 1)},
+                "      .filter(key => key === view.rankKey || (!state.hiddenGroups.has(tableGroup(key)) && !state.hiddenSeries.has(key)));", ";", 1)},
             "no SUPERFLEX stepper": {"v2_js": v2.replace(
                 '    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];', '    ["BENCH", "Bench slots", 0, 14]];', 1)},
-            "bench move not reported": {"v2_js": v2.replace(
-                "    if (Number.isFinite(benchBefore) && Number.isFinite(benchAfter) && Math.abs(benchAfter - benchBefore) > 1e-9) {",
-                "    if (false) {", 1)},
             "shares not applied": {"v2_js": v2.replace(
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
             "pipeline failure ignored": {"v2_js": v2.replace(
