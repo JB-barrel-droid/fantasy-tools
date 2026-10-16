@@ -2064,7 +2064,7 @@
     const TT = window.TradeValueTargets;
     if (page === "targets") {
       if (![...draft].some(key => TT.OUR_KEYS.includes(key))) return "Choose at least one value to compare against the charts (DDF Value or a projection).";
-      if (![...draft].some(key => TT.CHART_KEYS.includes(key))) return "Choose at least one published chart to compare.";
+      if (![...draft].some(key => TT.CHART_KEYS.includes(key))) return "Choose at least one trade chart to compare.";
     }
     return null;
   }

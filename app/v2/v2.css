@@ -1292,3 +1292,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 /* A chip on a sub-line stays compact (JEG-470: rows no taller than needed). */
 .v2-subrow { display: flex; align-items: baseline; flex-wrap: wrap; }
 .v2-subrow .v2-tag, .player-sub .v2-tag, .v2-meta .v2-tag { margin-left: 4px; padding: 0 5px; font-size: 10px; line-height: 1.3; }
+
+/* JEG-481: Find a trade, league import and lineup checks. */
+.v2-find-import { margin-top: 12px; }
+.v2-find-import summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
+.v2-find-import-body { display: grid; gap: 8px; }
+.v2-find-import-body input[type="text"], .v2-find-import-body textarea, .v2-find-import-body select {
+  border: 1px solid var(--v2-border); background: var(--v2-surface); color: inherit; border-radius: var(--v2-radius-btn);
+  padding: 10px 14px; min-height: 44px; width: 100%; font: inherit; box-sizing: border-box;
+}
+.v2-find-import-body .v2-field { display: flex; flex-wrap: wrap; gap: 8px; }
+#v2Find .v2-ctoolbar { flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+#v2Find .v2-ctoolbar input[type="checkbox"] { width: 20px; height: 20px; }
+#v2Find .v2-ctoolbar label.v2-field { min-height: 44px; }
