@@ -428,7 +428,10 @@ def direction_problems(max_fn):
         if saved != unified.OUR_MAX:
             problems.append(f"{scoring}: saved setup {saved} != OUR_MAX")
         qb2 = max_fn(proj, 12, 6, 1, slots={**STD_SHAPE, "QB": 2}, flex_eligible=None)
-        if not qb2["QB"] > unified.OUR_MAX["QB"] + 10:
+        # JEG-535 changed espn_ppg to per-game-played basis; part-time players
+        # inflate the waiver line, compressing VORP spreads. Threshold lowered
+        # from +10 to +3 (direction check, not exact calibration).
+        if not qb2["QB"] > unified.OUR_MAX["QB"] + 3:
             problems.append(f"{scoring}: 2-QB roster left QB max at {qb2['QB']:.1f}")
         wr = max_fn(proj, 12, 6, 2, slots={**STD_SHAPE, "WR": 4}, flex_eligible=None)
         if not wr["WR"] > unified.OUR_MAX["WR"] + 2:
@@ -492,10 +495,12 @@ class PositionalMaxParity(unittest.TestCase):
         self.assertEqual(failures, [], "\n".join(failures[:20]))
         self.assertEqual(max_diff, 0.0)
         # The derived maxes really are used: a 2-QB translation peaks well above 25.
+        # JEG-535 per-game-played basis compresses QB VORP spreads (part-time
+        # players inflate the waiver line). Threshold lowered from 35 to 28.
         qb2 = _python(next(v for v in vectors if v["source"] == "usatoday" and v["teams"] == 12
                            and v["shape"] == "qb2" and v["scoring"] == "ppr"))
         top_qb = max(t["translated"] for t in qb2["translated"].values() if t["pos"] == "QB")
-        self.assertGreater(top_qb, 35)
+        self.assertGreater(top_qb, 28)
 
     def test_max_guard_catches_broken_ports(self):
         source = VALUE_MODEL.read_text(encoding="utf-8")
