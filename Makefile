@@ -1,4 +1,4 @@
-.PHONY: help values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
+.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -129,6 +129,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_coverage_intro_dynamic_universe
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
+	python3 -m unittest tests.test_pull_draftsharks
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
@@ -442,9 +443,16 @@ preview-vorp-views:
 # runs as non-blocking.
 # GAP-013 (2026-10-08): the hermetic integration tests (cascade, promote,
 # writer audit, savers) gate deploys too; none needs network, Supabase or data/raw.
+# JEG-633: value-path suites are in test-core. value-check-compare (reference vs
+# built engine, strict) is defined but NOT yet in validate: it is red on main until
+# the held-source reference fix lands (patch in the JEG-633 log). Wire it after.
 validate: reference sync guard-harness test-core test-integration
 
+value-check-compare:
+	python3 pipelines/value_check.py compare --rerun-engine --strict --report output/value-check.json
+
 test-core:
+	python3 -m unittest tests.test_spec_reference_value_pipeline
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_rank_guard
@@ -474,6 +482,7 @@ test-core:
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets
+	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_headlines

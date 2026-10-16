@@ -1,12 +1,12 @@
 {
-  "run_at": "2026-10-12T23:27:00.663418+00:00",
-  "nfl_week": 5,
+  "run_at": "2026-10-16T01:02:16.621050+00:00",
+  "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 188/188 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, dohnte meyers, isaac teslaa, malachi fields; added: efton chism iii, germie bernard, jaylin noel) -- 1 dropped player(s) still priced live (e.g. malachi fields) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
-    "cbs": "promoted 3/3",
+    "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 65/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
@@ -24,64 +24,87 @@
     "razzball",
     "usatoday"
   ],
-  "hold_severity": "none",
+  "hold_severity": "amber",
   "held_detail": {
     "cbs": {
-      "reason": "validation hold: engine and Python reference disagree",
+      "reason": "fidelity: freshness",
       "held_series": [
         "cbs"
       ],
       "sections": [
-        "cbs"
+        "cbs",
+        "cbs_adjusted"
       ],
+      "detail": "publisher posted week 6 (https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-6-trade-chart/, 36 h ago); chart shows week 5; stored rows already have week 6",
       "hold_severity": "amber",
-      "week": 5
+      "week": 6
     },
-    "cbsros": {
-      "reason": "validation hold: engine and Python reference disagree",
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
-        "cbsros",
-        "cbsros_vorp"
+        "fantasycalc"
       ],
       "sections": [
-        "cbsros"
+        "fantasycalc",
+        "fantasycalc_adjusted"
       ],
+      "detail": "7/1160 values match exactly across 6 columns; 1153 values differ, 21 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 9 players entered or left the bottom of the list since the save (churn)",
       "hold_severity": "amber",
-      "week": 5
+      "week": 6
+    },
+    "usatoday": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "usatoday"
+      ],
+      "sections": [
+        "usatoday",
+        "usatoday_adjusted"
+      ],
+      "detail": "publisher posted week 6 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/13/fantasy-trade-value-chart-week-6-ros-rankings/92235123007/, 54 h ago); chart shows week 5; stored rows already have week 6",
+      "hold_severity": "amber",
+      "week": 6
+    },
+    "fantasypros": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "fantasypros"
+      ],
+      "sections": [
+        "fantasypros",
+        "fantasypros_adjusted"
+      ],
+      "detail": "publisher posted week 6 (https://www.fantasypros.com/2026/10/fantasy-football-trade-value-chart-week-6-2026/, 60 h ago); chart shows week 5; stored rows already have week 6",
+      "hold_severity": "amber",
+      "week": 6
     },
     "espn": {
-      "reason": "validation hold: engine and Python reference disagree",
+      "reason": "fidelity: freshness",
       "held_series": [
         "espn",
         "espn_vorp"
       ],
       "sections": [
-        "espn"
+        "espn",
+        "espn_adjusted"
       ],
+      "detail": "chart shows snapshot 2026-10-12 (4 d old); the publisher prints no update date",
       "hold_severity": "amber",
-      "week": 5
+      "week": 6
     },
-    "fantasycalc": {
-      "reason": "validation hold: engine and Python reference disagree",
+    "cbsros": {
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
-        "fantasycalc"
+        "cbsros",
+        "cbsros_vorp"
       ],
       "sections": [
-        "fantasycalc"
+        "cbsros",
+        "cbsros_adjusted"
       ],
+      "detail": "1063/1089 chart values equal stored snapshot 2026-10-12 (per game, 3 decimals); 26 chart values differ from the stored snapshot, 1 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 308 values changed, 3 added, 2 dropped",
       "hold_severity": "amber",
-      "week": 5
-    },
-    "fantasypros": {
-      "reason": "validation hold: engine and Python reference disagree",
-      "held_series": [
-        "fantasypros"
-      ],
-      "sections": [
-        "fantasypros"
-      ],
-      "hold_severity": "amber",
-      "week": 5
+      "week": 6
     },
     "razzball": {
       "reason": "fidelity: stored_vs_chart",
@@ -90,23 +113,12 @@
         "razzball_vorp"
       ],
       "sections": [
-        "razzball"
+        "razzball",
+        "razzball_adjusted"
       ],
-      "restored_from": null,
-      "detail": "1802/2046 chart values equal stored snapshot 2026-10-10 (per game, 1 decimals); 244 chart values differ from the stored snapshot, 0 stored players not on the chart, 5 chart players not stored; 1 stored players are left off the chart because the page's player universe excludes them (Irvin Charles); n",
+      "detail": "1863/1863 chart values equal stored snapshot 2026-10-11 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 41 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-15 is not on the chart yet: 1362 values changed, 35 added, 12 dropped",
       "hold_severity": "amber",
-      "week": 5
-    },
-    "usatoday": {
-      "reason": "validation hold: engine and Python reference disagree",
-      "held_series": [
-        "usatoday"
-      ],
-      "sections": [
-        "usatoday"
-      ],
-      "hold_severity": "amber",
-      "week": 5
+      "week": 6
     }
   },
   "runner": "github-actions",
@@ -121,11 +133,24 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 188/188 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, dohnte meyers, isaac teslaa, malachi fields; added: efton chism iii, germie bernard, jaylin noel) -- 1 dropped player(s) still priced live (e.g. malachi fields) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -139,23 +164,38 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6936 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (6972 values)",
       "promoted": 1,
       "sections": 1
     },
     "cbs": {
       "source": "cbs",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 65/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 1,
+      "rolled_back_records": [
+        "cbs-2026-10-16-promotion.rolled-back.json"
+      ],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "cbsros": {
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-12 -> 12 DDF legs -> section; review passed (4368 values)",
+      "detail": "snapshot 2026-10-15 -> 12 DDF legs -> section; review passed (4380 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -163,7 +203,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-12 -> 12 DDF legs -> section; review passed (7692 values)",
+      "detail": "snapshot 2026-10-15 -> 12 DDF legs -> section; review passed (7536 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -174,76 +214,70 @@
   },
   "source_vintages": {
     "usatoday": {
-      "content_vintage": "2026-10-06",
-      "content_week": 5,
+      "content_vintage": "2026-10-13",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "fantasycalc": {
-      "content_vintage": "Week 5",
-      "content_week": 5,
+      "content_vintage": "Week 6",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "fantasypros": {
-      "content_vintage": "2026-10-06",
-      "content_week": 5,
+      "content_vintage": "2026-10-13",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-12",
-      "content_week": 5,
+      "content_vintage": "2026-10-15",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "cbs": {
-      "content_vintage": "Week 5",
-      "content_week": 5,
+      "content_vintage": "Week 6",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-12",
-      "content_week": 5,
+      "content_vintage": "2026-10-15",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-12",
-      "content_week": 5,
+      "content_vintage": "2026-10-15",
+      "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
     }
   },
-  "value_check": {
-    "verdict": "disagree",
-    "disagreeing_sources": [
-      "cbs",
-      "cbsros",
-      "espn",
-      "fantasycalc",
-      "fantasypros",
-      "razzball",
-      "usatoday"
-    ],
-    "composite_disagreements": [],
-    "values_compared": 961753
-  },
   "fidelity_holds": {
+    "usatoday": "fidelity: freshness",
+    "fantasycalc": "fidelity: publisher_vs_stored",
+    "fantasypros": "fidelity: freshness",
+    "cbs": "fidelity: freshness",
+    "espn": "fidelity: freshness",
+    "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
-    "failed_tests": [],
+    "failed_tests": [
+      "FAIL tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex"
+    ],
     "assertions": [
-      "Error: curve widget harness surface did not initialize: <strong>Curves unavailable:</strong> Curve regression guard failed: fixedPieIndexed. See Chart Health for per-source diagnostics."
+      "AssertionError: [] is not true"
     ],
     "make_targets": [
-      "Makefile:96: guard-harness"
+      "Makefile:454: test-core"
     ],
-    "detail": "Error: curve widget harness surface did not initialize: <strong>Curves unavailable:</strong> Curve regression guard failed: fixedPieIndexed. See Chart Health for per-source diagnostics.",
-    "recorded_at": "2026-10-12T23:27:42.115170+00:00"
+    "detail": "FAIL tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex; AssertionError: [] is not true",
+    "recorded_at": "2026-10-16T01:02:56.187641+00:00"
   }
 }
