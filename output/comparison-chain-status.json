@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T21:01:53.318489+00:00",
+  "run_at": "2026-10-16T21:43:04.723568+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -31,7 +31,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "886/1089 chart values equal stored snapshot 2026-10-16 (per game, 3 decimals); 203 chart values differ from the stored snapshot, 4 stored players not on the chart, 2 chart players not stored",
+      "detail": "811/1092 chart values equal stored snapshot 2026-10-16 (per game, 3 decimals); 281 chart values differ from the stored snapshot, 4 stored players not on the chart, 1 chart players not stored",
       "hold_severity": "amber",
       "week": 6
     },
@@ -45,7 +45,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1768/1872 chart values equal stored snapshot 2026-10-15 (per game, 1 decimals); 104 chart values differ from the stored snapshot, 58 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-16 is not on the chart yet: 6 values changed, 0 added, 0 dropped",
+      "detail": "1768/1872 chart values equal stored snapshot 2026-10-15 (per game, 1 decimals); 104 chart values differ from the stored snapshot, 58 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-16 is not on the chart yet: 307 values changed, 4 added, 4 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -104,7 +104,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-16 -> 12 DDF legs -> section; review passed (7548 values)",
+      "detail": "snapshot 2026-10-16 -> 12 DDF legs -> section; review passed (7536 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -176,6 +176,6 @@
       "Makefile:511: test-core"
     ],
     "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; AssertionError: [] == [] : week-4 file served relabelled as week 3 was not caught; AssertionError: [] == [] : week-4 file served with week-3 content was not caught",
-    "recorded_at": "2026-10-16T21:10:06.926865+00:00"
+    "recorded_at": "2026-10-16T21:50:45.978274+00:00"
   }
 }
