@@ -165,7 +165,8 @@ def run_checks(v2_js=None, v2_css=None, schemes=("light", "dark"), widths=(1440,
                             errors.append(f"{tag}skip link: first tab stop {first!r}, then focus {after}")
                         page.evaluate("() => { location.hash = '#player-values'; }")
                         page.wait_for_timeout(400)
-                        errors += [tag + e for e in trapped(page, "#v2Table tbody tr")]
+                        # Click the name cell (not a value cell, which has its own click handler).
+                        errors += [tag + e for e in trapped(page, "#v2Table tbody tr td:nth-child(2)")]
                         errors += [tag + e for e in trapped(page, "#v2EditLeague")]
                     if page_errors:
                         errors.append(f"{tag}page errors {page_errors}")
