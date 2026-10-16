@@ -120,7 +120,11 @@ def drops_from_status(source, status):
     text = " ".join([((status.get("held_detail") or {}).get(source) or {}).get("detail") or "",
                      str((status.get("sources") or {}).get(source) or "")])
     rows = []
+    seen = set()
     for m in CHECK_RE.finditer(text):
+        if (m["combo"], m["pos"]) in seen:  # the same check text appears in both fields
+            continue
+        seen.add((m["combo"], m["pos"]))
         dropped = _names(m["dropped"])
         # the reviewer prints at most 8 names; a count gap larger than the list means truncated
         truncated = int(m["f"]) - int(m["c"]) > len(dropped) and len(dropped) >= 8
