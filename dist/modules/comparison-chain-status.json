@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T15:30:25.376719+00:00",
+  "run_at": "2026-10-16T15:42:47.285341+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,7 +18,8 @@
   "held": [
     "cbs",
     "cbsros",
-    "espn"
+    "espn",
+    "fantasycalc"
   ],
   "hold_severity": "amber",
   "held_detail": {
@@ -35,6 +36,19 @@
       "weeks_behind": 1,
       "hold_severity": "amber",
       "rolled_back": 1
+    },
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "detail": "408/1176 values match exactly across 6 columns; column check: stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 27); stored half|1 list is closest to the live std|1 list (mean |diff| 15 vs 23); 768 of 1176 values moved since the save at 2026-10-16T13:07:15.502115Z (largest 100",
+      "hold_severity": "amber",
+      "week": 6
     },
     "espn": {
       "reason": "fidelity: stored_vs_chart",
@@ -60,7 +74,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1098/1098 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 7e1be724f838388d5799b9f7); 1 publisher names do not",
+      "detail": "1101/1101 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint d3fc81ec676669627712b6c8); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     }
@@ -188,6 +202,7 @@
     }
   },
   "fidelity_holds": {
+    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored"
   },
@@ -204,6 +219,6 @@
       "Makefile:460: test-core"
     ],
     "detail": "FAIL tests.test_static_export.StaticExportTest.test_top_indexed_values_preserve_high_overall_scale; AssertionError: 40.9811822005756 not greater than or equal to 45",
-    "recorded_at": "2026-10-16T15:31:13.403519+00:00"
+    "recorded_at": "2026-10-16T15:43:23.471380+00:00"
   }
 }
