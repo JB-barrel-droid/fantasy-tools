@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-16T12:02:23.290816+00:00",
+  "run_at": "2026-10-16T13:04:26.940399+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 6); candidate not promoted: fantasycalc-half-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:half_12_qb1/RB:fail -- candidate priced 60 < fixture 61 (dropped: samaje perine; added: none) -- 1 dropped player(s) still priced live (e.g. samaje perine) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 65/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
@@ -18,7 +18,8 @@
   "held": [
     "cbs",
     "cbsros",
-    "espn"
+    "espn",
+    "fantasycalc"
   ],
   "hold_severity": "amber",
   "held_detail": {
@@ -33,6 +34,20 @@
         "content_week": 5
       },
       "weeks_behind": 1,
+      "hold_severity": "amber",
+      "rolled_back": 1
+    },
+    "fantasycalc": {
+      "detail": "fantasycalc-half-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:half_12_qb1/RB:fail -- candidate priced 60 < fixture 61 (dropped: samaje perine; added: none) -- 1 dropped player(s) still priced live (e.g. samaje perine) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "Week 6",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
       "hold_severity": "amber",
       "rolled_back": 1
     },
@@ -77,11 +92,26 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasycalc-half-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:half_12_qb1/RB:fail -- candidate priced 60 < fixture 61 (dropped: samaje perine; added: none) -- 1 dropped player(s) still priced live (e.g. samaje perine) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 1,
+      "rolled_back_records": [
+        "fantasycalc-2026-10-16-promotion.rolled-back.json"
+      ],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "Week 6",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -204,6 +234,6 @@
       "Makefile:460: test-core"
     ],
     "detail": "FAIL tests.test_static_export.StaticExportTest.test_top_indexed_values_preserve_high_overall_scale; AssertionError: 40.9811822005756 not greater than or equal to 45",
-    "recorded_at": "2026-10-16T12:03:08.925447+00:00"
+    "recorded_at": "2026-10-16T13:05:12.349512+00:00"
   }
 }
