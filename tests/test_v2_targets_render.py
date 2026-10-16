@@ -45,7 +45,7 @@ targets" ("Targets" on phones).
 JEG-461: no Sell/Buy toggle; both lists render at once, each with its top 5
 and a "Show all N … targets" control (N = the engine's list length) that opens
 25, then pages of 25, and "Show top 5" collapses, each list on its own. Side by
-side from 1280 px, stacked below (phone cards too). At 1440 × 900 and
+side from 1024 px, stacked below (phone cards too). At 1440 × 900 and
 1366 × 768 the H1, subtitle and the top 5 of both lists are above the fold, and
 the filters sit on one row. Two-column rows show only Player · Our value ·
 Gap vs consensus ("N of M charts agree"); a row's ▾ opens its per-chart values.
@@ -624,13 +624,13 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
                 errors.append(f"{side}: table scrolls sideways by {s['wrapScroll']}px at {width}px (JEG-456)")
             if not s["subVisible"]:
                 errors.append(f"{side}: Pos · Team · Tier sub-line hidden at {width}px (JEG-456)")
-            two_col = width >= 1280
+            two_col = width >= 1024
             if two_col and (s["chartCellsVisible"] or not s["expandVisible"]):
                 errors.append(f"{side}: two-column rows must show the compact column set with a ▾ per row (JEG-461)")
             if not two_col and (not s["chartCellsVisible"] or s["expandVisible"]):
                 errors.append(f"{side}: single-column table must show every chart column at {width}px")
     sell, buy = lay["sell"]["section"], lay["buy"]["section"]
-    if width >= 1280:
+    if width >= 1024:
         if not (abs(sell["top"] - buy["top"]) < 2 and sell["right"] <= buy["left"]):
             errors.append(f"lists are not side by side at {width}px: sell {sell} buy {buy} (JEG-461)")
     elif buy["top"] < sell["bottom"]:
@@ -676,7 +676,7 @@ def check_prior(prior, ref_week, width) -> list[str]:
             errors.append("no phone cards to check")
         for c in prior["cards"]:
             errors += badge_ok(f"card {c['chart']}", c["badges"], c["chart"])
-    elif width >= 1280 and not prior["details"]:
+    elif width >= 1024 and not prior["details"]:
         errors.append("no opened row to check")
     errors += badge_ok("footnote", prior["foot"], "fantasypros")
     if label not in prior["footText"]:
@@ -745,7 +745,7 @@ def _popover_checks(page, width) -> list[str]:
     probes = [".v2-tcompare button[data-info]"]
     # A chart column header's ⓘ where chart columns show; the Gap vs consensus header's otherwise.
     if width >= 768:
-        probes.append("#v2TTable th[data-chart] button[data-info]" if width < 1280 else "#v2TTable th.t-best button[data-info]")
+        probes.append("#v2TTable th[data-chart] button[data-info]" if width < 1024 else "#v2TTable th.t-best button[data-info]")
     for n, selector in enumerate(probes):
         button = page.locator(selector).first
         if not button.count():
@@ -881,7 +881,7 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                     for side, ids in SIDES.items():
                         if page.is_visible(f"#{ids['more']}"):
                             page.click(f"#{ids['more']}")   # 25 rows to check, not 5
-                        if width >= 1280:
+                        if width >= 1024:
                             for i in range(2):   # open two rows' per-chart values
                                 toggle = page.locator(f"#{ids['table']} tr[data-player-key] [data-expand][aria-expanded=false]").nth(0)
                                 if toggle.count():
@@ -890,7 +890,7 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                         found["table"] |= bool(snap["table"]) and width >= 768
                         found["cards"] |= bool(snap["cards"]) and width < 768
                         errors += [tag + f"{ours} {side} " + e for e in check(snap)]
-                        if width >= 1280 and not snap["details"]:
+                        if width >= 1024 and not snap["details"]:
                             errors.append(tag + f"{ours} {side}: ▾ did not open a row's per-chart values")
                         if width < 768 and snap["overflow"] > 0:
                             errors.append(tag + f"horizontal overflow {snap['overflow']}px")
@@ -904,7 +904,7 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                 if layout and width in (1440, 390):
                     ref_week = page.evaluate(SIMULATE_PRIOR)
                     page.wait_for_timeout(200)
-                    if width >= 1280:
+                    if width >= 1024:
                         for ids in SIDES.values():
                             toggle = page.locator(f"#{ids['table']} tr[data-player-key] [data-expand]").first
                             if toggle.count():
@@ -927,6 +927,7 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
 
 class TradeTargetsRenderTest(unittest.TestCase):
     def test_rendered_numbers_and_layout(self):
+        self.maxDiff = None
         self.assertEqual(collect(), [])
 
     def test_guard_fails_on_broken_builds(self):

@@ -509,6 +509,59 @@
     return ahead < counts.starter ? "starter" : ahead < counts.starter + counts.bench ? "bench" : "waiver";
   }
   const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));
+  // JEG-579 (P3-source-ranks): "12 overall · WR5" under a value cell = the player's rank within that series
+  // (every position, priced players only); the # column carries the position rank under the overall rank.
+  // Display only, from the series' own values; shown at 1200 px and wider (CSS).
+  function sourceRanks(key) {
+    view.sourceRanks = view.sourceRanks || {};
+    if (view.sourceRanks[key]) return view.sourceRanks[key];
+    const ranks = new Map();
+    const perPos = {};
+    (view.tierScope.rows || []).filter(r => Number.isFinite(r.values?.[key]))
+      .sort((a, b) => b.values[key] - a.values[key])
+      .forEach((r, index) => {
+        perPos[r.pos] = (perPos[r.pos] || 0) + 1;
+        ranks.set(String(r.player_key), {overall: index + 1, pos: `${r.pos}${perPos[r.pos]}`});
+      });
+    view.sourceRanks[key] = ranks;
+    return ranks;
+  }
+  function rankSubLabel(className, text) {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
+    return span;
+  }
+  // JEG-571: Start / Hold / Stash / Drop chip. The rule lives in assets/player-tags.js (pure, tested); the
+  // tag follows the engine's DDF Value tier on the reader's league settings. null (no chip) when unpriced.
+  const TAG_NOTES = {
+    Start: "Inside the starter count on your league settings",
+    Hold: "On the bench: keep",
+    Stash: "Not a starter yet, but a real chance to start",
+    Drop: "At or below the best free alternative"
+  };
+  function playerTagOf(row) {
+    const tags = window.PlayerTags;
+    return tags && typeof tags.playerTag === "function" ? tags.playerTag(row) : null;
+  }
+  function tagChip(row) {
+    const tag = playerTagOf(row);
+    if (!tag) return null;
+    const chip = document.createElement("span");
+    chip.className = `v2-tag v2-tag-${tag.toLowerCase()}`;
+    chip.dataset.tag = tag;
+    chip.title = TAG_NOTES[tag];
+    chip.textContent = tag;
+    return chip;
+  }
+  function appendTag(parent, row) {
+    const chip = tagChip(row);
+    if (chip) parent.appendChild(chip);
+  }
+  function lineupShareText(row) {
+    if (!Number.isFinite(row.lineupShare)) return null;
+    return `Expected lineup share: ${Math.round(row.lineupShare * 100)}% how much of this player's production reaches a lineup.`;
+  }
 
   // Low-confidence DDF Value (Jeremy, 2026-10-08): when exactly one input prices a player the engine
   // still gives a DDF Value (that input's value) and flags it (row.ddfLowConfidence). Shown everywhere
@@ -946,19 +999,21 @@
     const xs = xAtZone(sb);
     const xb = xAtZone(bw);
     const group = el("g", {class: "zones"}, svg);
+    // JEG-579: solid on one position ranked by DDF Value; dashed (approximate) across positions.
+    const exact = C.getState().position !== "ALL" && view.rankKey === DDF_KEY;
     const top = geo.pad.t;
     const bottom = geo.height - geo.pad.b;
     const lines = [];
     [["starter_to_bench", xs], ["bench_to_waiver", xb]].forEach(([name, xv]) => {
       if (xv <= left + 0.5 || xv >= right - 0.5) return;
-      el("line", {x1: xv, x2: xv, y1: top, y2: bottom, class: "zone-line", "data-zone": name}, group);
+      el("line", {x1: xv, x2: xv, y1: top, y2: bottom, class: `zone-line${exact ? "" : " approx"}`, "data-zone": name}, group);
       lines.push({name, x: xv});
     });
     const labels = [];
     [["Starter", left, xs], ["Bench", xs, xb], ["Waiver", xb, right]].forEach(([name, a, b]) => {
       if (b - a < 46) return;
       const text = el("text", {x: (a + b) / 2, y: top + 12, class: "zone-label", "data-zone-label": name.toLowerCase(), "text-anchor": "middle"}, group);
-      text.textContent = name;
+      text.textContent = name === "Starter" ? "Starters" : name;
       labels.push({name, x: (a + b) / 2});
     });
     return {lines, labels, zones: {starter_to_bench: sb, bench_to_waiver: bw}};
@@ -1411,6 +1466,8 @@
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
             appendLowConfidence(td, row, col.source);
+            const sr0 = col.source ? sourceRanks(col.source).get(String(row.player_key)) : null;
+            if (sr0) td.appendChild(rankSubLabel("v2-srank", `${sr0.overall} overall · ${sr0.pos}`));
             const heat = col.source ? heatFor(row, col.source) : null;
             if (heat) {
               if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
@@ -1444,6 +1501,10 @@
           }
         } else {
           td.textContent = v;
+          if (col.id === "rank") {
+            const pr = sourceRanks(view.rankKey).get(String(row.player_key));
+            if (pr) td.appendChild(rankSubLabel("v2-prank", pr.pos));
+          }
           if (col.cls === "col-meta") td.dataset.col = col.id;
           if (col.id === "name") {
             appendEspnZero(td, row);
@@ -1455,7 +1516,8 @@
               sub.className = "player-sub";
               sub.textContent = parts.join(" · ");
               td.appendChild(sub);
-            }
+              appendTag(sub, row);   // on the sub-line, so a row stays as tall as before (JEG-470)
+            } else appendTag(td, row);
           }
         }
         tr.appendChild(td);
@@ -1679,7 +1741,7 @@
     out.push(news);
     const adj = drawerSection("Adjustments applied");
     const base = document.createElement("p");
-    base.textContent = "Starter / bench utilization weighting · Position-share calibration.";
+    base.textContent = lineupShareText(row) || "Expected lineup share: not available for this player.";
     adj.appendChild(base);
     const notes = context?.adjustments || [];
     const line = document.createElement("p");
@@ -1708,6 +1770,8 @@
     const meta = document.createElement("p");
     meta.className = "v2-meta";
     meta.textContent = `${row.pos} · ${row.team || "FA"} · ${drawerTier(row)}`;
+    const tagged = tagChip(row);
+    if (tagged) meta.append(" ", tagged);
     titles.append(title, meta);
     const close = document.createElement("button");
     close.type = "button";
@@ -2829,7 +2893,7 @@
   // arithmetic (chart value − our value) lives in targets.js.
   //
   // Review fixes (JEG-456/458/459/461/464): both lists show at once (side by
-  // side from 1280 px, stacked below), each collapsed to its top 5 with its own
+  // side from 1024 px, stacked below), each collapsed to its top 5 with its own
   // "Show all"; every available chart is compared, and a chart still on an
   // earlier week carries a "Wk N" badge; chart values are labeled as rescaled.
   const TARGETS_TOP = 5;
@@ -3413,6 +3477,7 @@
       const sub = document.createElement("span");
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      appendTag(sub, p.row);   // on the sub-line: no taller row (JEG-470)
       name.appendChild(sub);
       const ours = td("num is-rank");
       ours.dataset.ours = "";
@@ -3439,7 +3504,7 @@
       bc.dataset.best = "consensus";
       bc.append(document.createTextNode(fmtGap(b.gap)));
       bc.appendChild(agreeNode(b));
-      // Two-column layout (≥1280 px) hides the per-chart cells; this opens them under the row.
+      // Two-column layout (≥1024 px) hides the per-chart cells; this opens them under the row.
       const open = T.expanded[side].has(key);
       const ec = td("t-expand");
       const toggle = document.createElement("button");
@@ -3498,6 +3563,7 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      appendTag(sub, p.row);   // on the sub-line: no taller row (JEG-470)
       who.append(name, sub);
       const b = targetBest(side, p);
       const big = document.createElement("div");

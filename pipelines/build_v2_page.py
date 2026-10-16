@@ -231,7 +231,8 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
     html = html[:engine_at] + "</div>\n  " + html[engine_at:]
     last_at = html.index(LAST_ENGINE_SCRIPT)
     line_end = html.index("</script>", last_at) + len("</script>")
-    v2_scripts = ('\n  <script src="v2/targets.js" defer></script>'
+    v2_scripts = ('\n  <script src="assets/player-tags.js" defer></script>'
+                  '\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/movers.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
