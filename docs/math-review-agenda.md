@@ -1348,6 +1348,18 @@ starts, the thing the share actually predicts.
 
 **Depends on:** G4 (b). Ticket: JEG-534. **Sources:** `derive_lineup_parameters.weekly_noise`.
 
+**First measurement (2026-10-15, `tools/weekly_matchup_swaps.py`, stored weekly
+projections 2018-2025, PPR, 12-team starter counts).** Bench-tier players
+(next 12 season ranks) beat a low-end starter (6 ranks inside the cut) on a
+given week's projection in QB 20%, RB 28%, WR 24%, TE 15% of pairs, and some
+bench player beats the lowest starter in 85% (TE) to 98% (RB) of weeks. The
+weekly *projection* spread of starters is QB 7%, RB 19%, WR 11%, TE 14% of
+their mean, far under the 38-59% outcome noise, so the start decision sees a
+much narrower spread than Sunday does. Recommendation: option (a), a lineup
+signal only, until the swap is shown to carry points the season share misses;
+(b) and (c) wait. The G6 re-point to projected starts is still open.
+
+
 ## MR-24 - More seasons for the hazard and noise estimates (Jeremy, JEG-525)
 
 **Question.** The missed-game hazard and weekly noise used 2024-2025 (443 to
@@ -1493,3 +1505,13 @@ the trade-target views; not covered.
   ESPN history snapshot did not save them, so the prior week leaves them out
   of ESPN and of mean projected points. Should prior weeks rebuild them at 0
   so week-over-week change compares like with like?
+
+- **Find a trade ranking and search bounds (JEG-481, 2026-10-12).** Ranking
+  among listed trades is DDF Value edge times (1 - 0.10 per player beyond a
+  1-for-1), so simpler trades rank first (Jeremy, 2026-10-09: "favor simpler
+  trades"); the 10% is a default, not a decision. Packages of more than 2-for-2
+  are searched among the top players by DDF Value per side so the subsets stay
+  under 6,000 per side. "Fair to the rival" is at least 3 of 4 trade charts at
+  net <= 0 (as shown, so under 0.05 is even), counting only charts that price
+  every player in the package. Should the rival test weight charts by how
+  likely managers are to use them?

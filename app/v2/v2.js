@@ -1994,9 +1994,35 @@
   let leagueDefaults = null;   // the engine's state at first load: what "Reset defaults" returns to
   const ROSTER_SLOTS = [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5],
     ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];
+  // JEG-527: the reader's season weeks as a draft (null when the engine has no lineup parameters).
+  function seasonWeeksState(defaults) {
+    if (!C.getLeagueWeeks || !C.getContentWeek || !C.setLeagueWeeks || !C.setOptimizeFor || !C.setContentWeek) return null;
+    const build = C.getBuildContentWeek ? C.getBuildContentWeek() : null;
+    if (!Number.isInteger(build)) return null;
+    const weeks = defaults ? C.getLineupSettingsDefaults() : null;
+    const cur = C.getLeagueWeeks();
+    const src = weeks ? {regularSeasonEnd: weeks.regularSeasonEnd, playoffWeeks: weeks.playoffWeeks, optimizeFor: weeks.optimizeFor}
+      : {regularSeasonEnd: cur.regularSeasonEnd, playoffWeeks: cur.playoffWeeks, optimizeFor: C.getOptimizeFor()};
+    return {build, content: weeks ? build : C.getContentWeek(), regularEnd: src.regularSeasonEnd,
+      playoffLo: src.playoffWeeks[0], playoffHi: src.playoffWeeks[1], optimize: src.optimizeFor};
+  }
+  // Returns "" or the reason the engine refused the weeks (the panel then stays open).
+  function applySeasonWeeks(w) {
+    const cur = C.getLeagueWeeks();
+    try {
+      if (w.regularEnd !== cur.regularSeasonEnd || w.playoffLo !== cur.playoffWeeks[0] || w.playoffHi !== cur.playoffWeeks[1]) {
+        C.setLeagueWeeks({regularSeasonEnd: w.regularEnd, playoffWeeks: [w.playoffLo, w.playoffHi]});
+      }
+      if (w.optimize !== C.getOptimizeFor()) C.setOptimizeFor(w.optimize);
+      if (w.content !== C.getContentWeek()) C.setContentWeek(w.content === w.build ? null : w.content);
+    } catch (error) {
+      return error.message || "Those season weeks are not valid.";
+    }
+    return "";
+  }
   function openLeague() {
     const s = view.state;
-    const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}};
+    const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}, weeks: seasonWeeksState(false)};
     openPanel($("v2EditLeague"), "Your league", "One league setup for charts, tables and trades.", pop => {
       const body = panelBody(pop);
       const content = document.createElement("div");
@@ -2042,16 +2068,77 @@
         note.className = "v2-meta";
         note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. Position weights and bench allocation live in Weights & bench.";
         content.appendChild(note);
+        if (draft.weeks) renderSeasonWeeks();
+      }
+      // JEG-527 / GL-24: the season weeks the value counts and what to optimize for. The engine
+      // does the math (window, byes, drift, playoff-week injury rate); v2 only collects the inputs.
+      function renderSeasonWeeks() {
+        const w = draft.weeks;
+        eyebrow(content, "Season weeks");
+        const stepLine = (id, label, key, min, max, after) => {
+          const line = document.createElement("div");
+          line.className = "v2-pstep";
+          const name = document.createElement("span");
+          name.id = id;
+          name.textContent = label;
+          const stepper = document.createElement("div");
+          stepper.className = "v2-stepper";
+          const value = document.createElement("output");
+          value.setAttribute("aria-labelledby", name.id);
+          value.textContent = String(w[key]);
+          const mk = (text, delta, aria) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = text;
+            b.setAttribute("aria-label", `${aria} ${label}`);
+            b.disabled = delta < 0 ? w[key] <= min : w[key] >= max;
+            b.addEventListener("click", () => {
+              w[key] = Math.max(min, Math.min(max, w[key] + delta));
+              if (after) after();
+              render();
+              const again = content.querySelector(`[aria-label="${aria} ${label}"]`);
+              if (again && !again.disabled) again.focus();
+            });
+            return b;
+          };
+          stepper.append(mk("−", -1, "Earlier"), value, mk("+", 1, "Later"));
+          line.append(name, stepper);
+          content.appendChild(line);
+        };
+        stepLine("v2StepContentWeek", "Week the values are for", "content", 1, 17);
+        stepLine("v2StepRegularEnd", "Last regular-season week", "regularEnd", 1, 17, () => {
+          if (w.playoffLo <= w.regularEnd) w.playoffLo = w.regularEnd + 1;
+          if (w.playoffHi < w.playoffLo) w.playoffHi = w.playoffLo;
+        });
+        stepLine("v2StepPlayoffLo", "First playoff week", "playoffLo", w.regularEnd + 1, 18, () => {
+          if (w.playoffHi < w.playoffLo) w.playoffHi = w.playoffLo;
+        });
+        stepLine("v2StepPlayoffHi", "Last playoff week", "playoffHi", w.playoffLo, 18);
+        eyebrow(content, "Optimize for");
+        content.appendChild(segmented("Optimize for", [["season", "Whole season"], ["regular", "Regular season"], ["playoffs", "Playoffs"]],
+          w.optimize, v => { w.optimize = v; }));
+        const lo = w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
+        const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
+        const weeksNote = document.createElement("p");
+        weeksNote.className = "v2-meta";
+        weeksNote.dataset.seasonWeeksNote = "";
+        weeksNote.textContent = hi >= lo
+          ? `Counts weeks ${lo} to ${hi}. ${w.content === w.build ? "" : `The projections are still the build's (week ${w.build}); only the weeks counted move. `}Week 18 is never counted.`
+          : "No weeks are left in this window, so there is nothing to count for bench players.";
+        content.appendChild(weeksNote);
       }
       render();
       panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
         const cur = view.state;
         const shape = C.getRosterShape();
+        let weekError = "";
         leagueChange(() => {
           if (draft.scoring !== cur.scoring) C.setScoring(draft.scoring);
           if (draft.teams !== cur.teams) C.setTeams(draft.teams);
           ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });
+          if (draft.weeks) weekError = applySeasonWeeks(draft.weeks);
         });
+        if (weekError) { setStatus(weekError); return; }
         closePopover();
       }, {"data-apply": "league"}]], (() => {
         const reset = document.createElement("button");
@@ -2063,6 +2150,7 @@
           draft.scoring = leagueDefaults.scoring;
           draft.teams = leagueDefaults.teams;
           draft.roster = {...leagueDefaults.roster};
+          if (draft.weeks) draft.weeks = seasonWeeksState(true);
           render();
         });
         return reset;
@@ -4157,6 +4245,15 @@
       const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
       const custom = defaults && ["QB", "RB", "WR", "TE"].some(pos => Math.abs(Number(shares[pos]) - Number(defaults[pos])) > 5e-4);
       if (custom) parts.push(`shares=${["QB", "RB", "WR", "TE"].map(pos => `${pos}${Number(shares[pos]).toFixed(3)}`).join("_")}`);
+      // JEG-527: season weeks only when they differ from the defaults (a default link stays short).
+      const w = seasonWeeksState(false);
+      const d = w && seasonWeeksState(true);
+      if (w) {
+        if (w.regularEnd !== d.regularEnd) parts.push(`regend=${w.regularEnd}`);
+        if (w.playoffLo !== d.playoffLo || w.playoffHi !== d.playoffHi) parts.push(`playoffs=${w.playoffLo}-${w.playoffHi}`);
+        if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
+        if (w.content !== w.build) parts.push(`week=${w.content}`);
+      }
     }
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
@@ -4180,7 +4277,25 @@
       if (m) shares[m[1]] = Number(m[2]);
     });
     const sharesGiven = Object.keys(shares).length === 4 && Boolean(C.setPositionWeights);
-    if (!scoringChange && !rosterChange.length && !benchChange && !sharesGiven) return;
+    // JEG-527: a link that carries a league also carries its season weeks; missing ones mean the defaults.
+    const wkNow = params.has("scoring") ? seasonWeeksState(false) : null;
+    let weeksChange = null;
+    if (wkNow) {
+      const wkDef = seasonWeeksState(true);
+      const po = /^(\d+)-(\d+)$/.exec(params.get("playoffs") || "");
+      const optimize = params.get("optimize") || wkDef.optimize;
+      const week = params.has("week") ? Number(params.get("week")) : wkDef.build;
+      const want = {build: wkDef.build, content: Number.isInteger(week) ? week : wkDef.build,
+        regularEnd: params.has("regend") && Number.isInteger(Number(params.get("regend"))) ? Number(params.get("regend")) : wkDef.regularEnd,
+        playoffLo: po ? Number(po[1]) : wkDef.playoffLo, playoffHi: po ? Number(po[2]) : wkDef.playoffHi,
+        optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
+      if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
+    }
+    if (!scoringChange && !rosterChange.length && !benchChange && !sharesGiven && !weeksChange) return;
+    if (weeksChange) {
+      const error = applySeasonWeeks(weeksChange);
+      if (error) console.warn("Link season weeks ignored:", error);
+    }
     if (scoringChange || rosterChange.length) {
       leagueChange(() => {
         if (scoringChange) C.setScoring(scoring);

@@ -159,11 +159,14 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
 	python3 -m unittest tests.test_v2_contract_render
+	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
+	python3 -m unittest tests.test_v2_season_weeks_render
+	python3 -m unittest tests.test_weekly_matchup_swaps
 	python3 -m unittest tests.test_v2_offer_render
 	python3 -m unittest tests.test_v2_waterfall_render
 	python3 -m unittest tests.test_v2_ddf_render
@@ -484,6 +487,7 @@ test-core:
 	python3 -m unittest tests.test_v2_targets
 	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
+	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
