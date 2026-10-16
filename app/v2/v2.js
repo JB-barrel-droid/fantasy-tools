@@ -1468,6 +1468,10 @@
             appendLowConfidence(td, row, col.source);
             const sr0 = col.source ? sourceRanks(col.source).get(String(row.player_key)) : null;
             if (sr0) td.appendChild(rankSubLabel("v2-srank", `${sr0.overall} overall · ${sr0.pos}`));
+            // JEG-457: a rescaled trade chart's cell shows the published number and the factor on hover, focus or tap.
+            if (col.source && sourceMeta(col.source).method === "indexed" && PUBLISHER_NAMES[col.source]) {
+              attachPublishedMath(td, {row, ours: null}, col.source, {value: v, gap: null, atWaiver: false});
+            }
             const heat = col.source ? heatFor(row, col.source) : null;
             if (heat) {
               if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
@@ -3220,7 +3224,7 @@
   let mathTipOpenedAt = 0;
   function mathTipLines(p, chart, cell) {
     const name = PUBLISHER_NAMES[chart] || chart;
-    const item = targetsView && targetsView.infoByKey[chart];
+    const item = (targetsView && targetsView.infoByKey[chart]) || (view && view.infoByKey && view.infoByKey[chart]);
     const week = item && item.week ? `, Week ${item.week}` : "";
     const lines = [];
     const math = C.getPublishedMath ? C.getPublishedMath(p.row.player_key, chart) : null;
