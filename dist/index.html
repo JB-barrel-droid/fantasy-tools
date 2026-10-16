@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20261015-2054-ccc54779">
+<meta name="trade-chart-build" content="tv-20261015-2111-b20204ff">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
@@ -1621,6 +1621,7 @@
         <a class="v2-tab" href="#risers-fallers" data-view="risers" data-short="Movers"><span class="v2-tab-full">Risers &amp; fallers</span></a>
         <a class="v2-tab" href="#compare-trade" data-view="compare" data-short="Trade"><span class="v2-tab-full">Compare a trade</span></a>
         <a class="v2-tab" href="#how-values" data-view="how" data-short="How"><span class="v2-tab-full">How values work</span></a>
+        <a class="v2-tab" href="#research" data-view="research" data-short="Research"><span class="v2-tab-full">Research</span></a>
       </nav>
       <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
@@ -2262,6 +2263,17 @@
   <div class="v2-scrim" id="v2Scrim" hidden></div>
   <aside class="v2-drawer" id="v2Drawer" role="dialog" aria-modal="true" aria-labelledby="v2DrawerTitle" hidden></aside>
   <div class="v2-popover" id="v2Popover" role="dialog" aria-modal="false" hidden></div>
+
+  <!-- Research (JEG-543): built from app/v2/research/*.html, published posts only. -->
+  <main class="v2-wrap v2-main v2-mf" id="v2Research" hidden aria-labelledby="v2ResearchTitle">
+    <article class="v2-mf-text v2-rs-index" id="v2ResearchIndex">
+      <p class="v2-mf-eyebrow">Data Driven Football</p>
+      <h1 id="v2ResearchTitle">Research</h1>
+      <p>The evidence behind the choices this tool makes, and how we arrived at them. The <a href="#manifesto">Manifesto</a> states the principles; these posts show the work.</p>
+      <p class="v2-rs-empty">No posts are published yet.</p>
+    </article>
+
+  </main>
 </div>
 
 <div id="legacyEngine" class="legacy-engine" aria-hidden="true" inert>
@@ -2574,11 +2586,11 @@
   </div>
 
   </div>
-  <script src="assets/value-model.js?v=tv-20261015-2054-ccc54779" defer></script>
-  <script src="assets/consolidation-index.js?v=tv-20261015-2054-ccc54779" defer></script>
-  <script src="assets/product-data.js?v=tv-20261015-2054-ccc54779" defer></script>
-  <script src="assets/curve-widget.js?v=tv-20261015-2054-ccc54779" defer></script>
-  <script src="assets/comparison-dashboard.js?v=tv-20261015-2054-ccc54779" defer></script>
+  <script src="assets/value-model.js?v=tv-20261015-2111-b20204ff" defer></script>
+  <script src="assets/consolidation-index.js?v=tv-20261015-2111-b20204ff" defer></script>
+  <script src="assets/product-data.js?v=tv-20261015-2111-b20204ff" defer></script>
+  <script src="assets/curve-widget.js?v=tv-20261015-2111-b20204ff" defer></script>
+  <script src="assets/comparison-dashboard.js?v=tv-20261015-2111-b20204ff" defer></script>
   <script src="v2/targets.js" defer></script>
   <script src="v2/trade.js" defer></script>
   <script src="v2/movers.js" defer></script>
@@ -3030,7 +3042,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2054-ccc54779</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2111-b20204ff</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug
