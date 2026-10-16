@@ -21,7 +21,7 @@
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-15T23:49:59-05:00",
+  "generated_at": "2026-10-15T23:48:46-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -65,14 +65,14 @@
     },
     {
       "age_days": 0,
-      "changed_since_prior_report": false,
+      "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
       "freshness_ok": true,
       "key": "source_import.checked_at",
       "label": "L1 import health checked_at",
       "max_age_days": 2,
-      "note": "unchanged",
+      "note": "changed",
       "status": "same_day",
       "value": "2026-10-16T04:45:09Z"
     },
@@ -424,7 +424,7 @@
     "l1_unhealthy_count": 0,
     "max_age_days": 2,
     "stale_count": 3,
-    "unchanged_count": 4,
+    "unchanged_count": 3,
     "unknown_count": 0
   },
   "today": "2026-10-16"
