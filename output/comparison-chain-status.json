@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T03:12:09.749953+00:00",
+  "run_at": "2026-10-16T03:23:03.305883+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -38,7 +38,7 @@
       "rolled_back": 1
     },
     "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: freshness",
       "held_series": [
         "fantasycalc"
       ],
@@ -46,7 +46,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "0/1156 values match exactly across 6 columns; 1156 values differ, 35 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 9 players entered or left the bottom of the list since the save (churn)",
+      "detail": "content week 6 opened 63 h ago; chart still shows FantasyCalc week 5",
       "hold_severity": "amber",
       "week": 6
     },
@@ -202,7 +202,7 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
+    "fantasycalc": "fidelity: freshness",
     "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
@@ -220,6 +220,6 @@
       "Makefile:500: test-core"
     ],
     "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[692 chars]rs)\"] != []",
-    "recorded_at": "2026-10-16T03:19:36.765303+00:00"
+    "recorded_at": "2026-10-16T03:31:37.998654+00:00"
   }
 }
