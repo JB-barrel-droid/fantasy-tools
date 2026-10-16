@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from datetime import datetime
 try:
-    from lib.timestamps import parse_iso_timestamp
-except ImportError:  # pipelines/lib itself on sys.path
+    from .timestamps import parse_iso_timestamp  # any package path: lib.x or pipelines.lib.x
+except ImportError:  # pipelines/lib itself on sys.path (flat import)
     from timestamps import parse_iso_timestamp
 from typing import Any
 
