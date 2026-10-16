@@ -375,6 +375,11 @@ VALUES_JS = "async () => {" + COMMON + r"""
     customize: $('v2EditSources').textContent.trim(),
     rankBy: $('v2RankBy').value, rankOptions: [...$('v2RankBy').options].map(o => o.value),
     shown: V.shown(), active: C.getActiveSources(),
+    zones: {engine: C.getZones(), ranks: V.chart().slice.map(r => r.fullRank),
+      lines: [...document.querySelectorAll('#v2Chart .zone-line')].map(l => ({name: l.dataset.zone, x: Number(l.getAttribute('x1'))})),
+      labels: [...document.querySelectorAll('#v2Chart .zone-label')].map(l => l.textContent)},
+    legendItems: [...document.querySelectorAll('#v2Legend .v2-legend-item')].map(b => ({key: b.dataset.series, pressed: b.getAttribute('aria-pressed'), mark: b.querySelector('.v2-legend-mark')?.textContent || ''})),
+    brushFill: ['v2BrushFill', 'v2YBrushFill'].map(id => ({id, tab: $(id).tabIndex, role: $(id).getAttribute('role'), label: $(id).getAttribute('aria-label')})),
     series: [...document.querySelectorAll('#v2Chart svg .series')].map(p => ({cls: p.getAttribute('class'),
       width: parseFloat(getComputedStyle(p).strokeWidth)})),
     toolbar: [...$('v2Toolbar').querySelectorAll('input, select, button')].map(n => n.id),
@@ -1170,6 +1175,28 @@ def pv03(S):
     return [] if len(x["rows"]) and len(named) >= max(1, len(x["rows"]) - 1) else [f"zoomed to {x['rows']}, chart labels {x['texts']}"]
 
 
+def pv04(S):
+    z = S["values"]["s0"]["zones"]
+    errors = []
+    in_view = [n for n in ("starter_to_bench", "bench_to_waiver") if z["ranks"] and z["ranks"][0] < z["engine"][n] < z["ranks"][-1]]
+    if sorted(line["name"] for line in z["lines"]) != sorted(in_view):
+        errors.append(f"break lines {[line['name'] for line in z['lines']]}, engine zones {z['engine']} over ranks {z['ranks'][:1]}..{z['ranks'][-1:]}")
+    if not z["labels"] or any(label not in ("Starter", "Bench", "Waiver") for label in z["labels"]):
+        errors.append(f"zone labels {z['labels']}")
+    return errors
+
+
+def pv06(S):
+    bad = [f for f in S["values"]["s0"]["brushFill"] if f["tab"] != 0 or f["role"] != "group" or "whole" not in (f["label"] or "")]
+    return [f"brush fill is not a keyboard-reachable whole-range handle: {bad}"] if bad else []
+
+
+def pv07(S):
+    items = S["values"]["s0"]["legendItems"]
+    bad = [i for i in items if i["pressed"] not in ("true", "false") or not i["mark"]]
+    return [f"legend entries without a pressed state and symbol: {bad}"] if bad or not items else []
+
+
 def pv05(S):
     v = S["values"]
     errors = []
@@ -1619,8 +1646,8 @@ CHECKS = {
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
     "GL-22": PENDING("JEG-498"), "GL-23": PENDING("JEG-537"), "GL-24": PENDING("JEG-537"),
     "MF-01": mf01,
-    "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": PENDING("JEG-503"), "PV-05": pv05,
-    "PV-06": PENDING("JEG-503"), "PV-07": PENDING("JEG-503"), "PV-08": pv08, "PV-09": pv09,
+    "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
+    "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
     "PV-10": pv10, "PV-11": pv11, "PV-12": pv12, "PV-13": pv13, "PV-14": pv14, "PV-15": pv15,
     "PV-16": pv16, "PV-17": pv17,
     "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04,

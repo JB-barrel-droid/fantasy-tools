@@ -179,7 +179,8 @@
     hoverIndex: null,
     focusIndex: 0,
     metaCols: {pos: true, team: true, tier: true},
-    hiddenGroups: new Set()   // JEG-473 Columns menu: method groups the reader hid
+    hiddenGroups: new Set(),  // JEG-473 Columns menu: method groups the reader hid
+    hiddenSeries: new Set()   // JEG-503 legend toggles: series the reader turned off (the ranking series cannot be)
   };
   let C = null;            // TradeValueCurveControls
   let view = null;         // derived snapshot for rendering
@@ -666,13 +667,28 @@
     return node;
   }
 
+  // JEG-503: a legend entry turns its line (and table column) off and on. The ranking series is the sort
+  // basis, so it stays on.
+  const isSeriesOn = key => key === view.rankKey || !state.hiddenSeries.has(key);
   function renderLegend() {
     const legend = $("v2Legend");
     legend.replaceChildren();
     const keys = view.plotKeys.concat(view.vorpKeys);
     keys.forEach(key => {
       const meta = sourceMeta(key);
-      const span = document.createElement("span");
+      const span = document.createElement("button");
+      span.type = "button";
+      span.className = "v2-legend-item";
+      span.dataset.series = key;
+      const on = isSeriesOn(key);
+      span.classList.toggle("is-off", !on);
+      span.setAttribute("aria-pressed", String(on));
+      if (key === view.rankKey) span.disabled = true;
+      const mark = document.createElement("span");
+      mark.className = "v2-legend-mark";
+      mark.setAttribute("aria-hidden", "true");
+      mark.textContent = on ? "☑" : "☐";
+      span.appendChild(mark);
       const swatch = el("svg", {width: 22, height: 8, "aria-hidden": "true"});
       el("line", {x1: 0, y1: 4, x2: 22, y2: 4, stroke: meta.color, "stroke-width": meta.method === "ddf" ? 3.5 : 2,
         "stroke-dasharray": meta.method === "indexed" ? "6 4" : meta.method === "vorp" ? "1.5 4" : ""}, swatch);
@@ -680,7 +696,7 @@
       const twice = keys.filter(k => sourceMeta(k).publisher === meta.publisher).length > 1;
       const name = meta.method === "vorp" || twice || isNarrow() ? meta.short : (PLAIN_NAMES[meta.publisher] || meta.label);
       span.append(document.createTextNode(`${meta.symbol} ${name}`));
-      span.title = seriesName(key);
+      span.title = key === view.rankKey ? `${seriesName(key)}: the ranking series stays on` : `${seriesName(key)}: ${on ? "click to hide" : "click to show"}`;
       legend.appendChild(span);
     });
     // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
@@ -690,7 +706,7 @@
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
     if (key.textContent) legend.appendChild(key);
-    // The expanded chart carries the same legend.
+    // The expanded chart carries the same legend (clicks are handled by delegation on both).
     $("v2ExpandLegend").replaceChildren(...[...legend.childNodes].map(node => node.cloneNode(true)));
   }
 
@@ -754,6 +770,7 @@
         label.dataset.playerKey = String(row.player_key);
       });
     }
+    const zones = opts.zones ? drawZones(svg, slice, {x, pad, width, height}) : null;
     let lines = svg;
     if (axisZoom) {
       const clipId = `${container.id}Clip`;
@@ -780,7 +797,49 @@
       el("path", {d, class: cls, stroke: meta.color, "data-source": key}, lines);
     });
     const overlay = el("g", {class: "hover"}, svg);
-    return {svg, overlay, x, y, slice, width, height, pad, keys, ymin, ymax, axisZoom};
+    return {svg, overlay, x, y, slice, width, height, pad, keys, ymin, ymax, axisZoom, zones};
+  }
+
+  // JEG-503 (PV-04): Starter / Bench / Waiver. Two vertical lines at the engine's roster boundaries for the
+  // ranking series (getZones(): starter_to_bench, bench_to_waiver, in the engine's rank order, which is the
+  // value-based slot fill in the All view) and light grey labels centred in each section. A boundary is placed
+  // between the two listed players it falls between; one outside the shown ranks is not drawn, and the
+  // section labels are redrawn for what is on screen, so a zoom moves them.
+  function drawZones(svg, slice, geo) {
+    const zones = C.getZones ? C.getZones() : null;
+    const sb = zones && zones.starter_to_bench;
+    const bw = zones && zones.bench_to_waiver;
+    if (!slice.length || !Number.isFinite(sb) || !Number.isFinite(bw) || C.getRankSource() !== view.rankKey) return null;
+    const left = geo.pad.l;
+    const right = geo.width - geo.pad.r;
+    const ranks = slice.map(row => row.fullRank);
+    const xAtZone = z => {
+      if (z <= ranks[0]) return left;
+      if (z >= ranks[ranks.length - 1]) return right;
+      let i = 0;
+      while (i < ranks.length - 2 && ranks[i + 1] < z) i += 1;
+      const t = (z - ranks[i]) / (ranks[i + 1] - ranks[i]);
+      return geo.x(i) + t * (geo.x(i + 1) - geo.x(i));
+    };
+    const xs = xAtZone(sb);
+    const xb = xAtZone(bw);
+    const group = el("g", {class: "zones"}, svg);
+    const top = geo.pad.t;
+    const bottom = geo.height - geo.pad.b;
+    const lines = [];
+    [["starter_to_bench", xs], ["bench_to_waiver", xb]].forEach(([name, xv]) => {
+      if (xv <= left + 0.5 || xv >= right - 0.5) return;
+      el("line", {x1: xv, x2: xv, y1: top, y2: bottom, class: "zone-line", "data-zone": name}, group);
+      lines.push({name, x: xv});
+    });
+    const labels = [];
+    [["Starter", left, xs], ["Bench", xs, xb], ["Waiver", xb, right]].forEach(([name, a, b]) => {
+      if (b - a < 46) return;
+      const text = el("text", {x: (a + b) / 2, y: top + 12, class: "zone-label", "data-zone-label": name.toLowerCase(), "text-anchor": "middle"}, group);
+      text.textContent = name;
+      labels.push({name, x: (a + b) / 2});
+    });
+    return {lines, labels, zones: {starter_to_bench: sb, bench_to_waiver: bw}};
   }
 
   let mainChart = null;
@@ -789,12 +848,12 @@
   function renderCharts() {
     renderLegend();
     const big = expanded === "chart";
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, plot: $("v2Plot"),
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys.filter(isSeriesOn), {zones: true, label: "Trade value by player rank", names: true, plot: $("v2Plot"),
       stagger: big, axisZoom: big && state.axisZoom});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
     vorpChart = view.vorpKeys.length
-      ? drawSeriesChart($("v2VorpChart"), view.vorpKeys, {label: "VORP vs waivers by player rank"})
+      ? drawSeriesChart($("v2VorpChart"), view.vorpKeys.filter(isSeriesOn), {label: "VORP vs waivers by player rank"})
       : null;
     const [lo, hi] = state.window;
     const n = Math.max(1, view.rows.length);
@@ -931,7 +990,7 @@
     const tip = $("v2Tip");
     const row = hoveredRow();
     if (!row || !mainChart) { tip.hidden = true; return; }
-    const keys = view.plotKeys.concat(view.vorpKeys);
+    const keys = view.plotKeys.concat(view.vorpKeys).filter(isSeriesOn);
     const weekNote = view.refWeek ? ` · W${view.refWeek}` : "";
     tip.innerHTML = "";
     const h = document.createElement("h3");
@@ -1056,7 +1115,7 @@
 
   function tableColumns() {
     const valueKeys = view.plotKeys.concat(view.vorpKeys)
-      .filter(key => key === view.rankKey || !state.hiddenGroups.has(tableGroup(key)));
+      .filter(key => key === view.rankKey || (!state.hiddenGroups.has(tableGroup(key)) && !state.hiddenSeries.has(key)));
     const cols = [
       {id: "rank", label: "#", cls: "rank", get: row => row.rank},
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
@@ -5014,6 +5073,70 @@
       nlo = Math.max(1, Math.min(n - span + 1, nlo));
       setWindow([nlo, Math.min(n, nlo + span - 1)]);
     };
+    // JEG-503 (PV-06): grab the fill between a brush's two handles to move both ends together; the
+    // width never changes. Shift+arrow on the fill is the keyboard equivalent (one rank / 0.5 value).
+    const dragRange = (fillId, trackId, axis) => {
+      const fill = $(fillId);
+      fill.tabIndex = 0;
+      fill.setAttribute("role", "group");
+      fill.setAttribute("aria-label", axis === "x" ? "Move the whole rank range (Shift plus arrow keys)" : "Move the whole value range (Shift plus arrow keys)");
+      const read = () => axis === "x"
+        ? {lo: state.window[0], hi: state.window[1], min: 1, max: Math.max(1, view.rows.length), unit: 1}
+        : {lo: Math.max(view.yScale.lo, state.range.min ?? view.yScale.lo), hi: Math.min(view.yScale.hi, state.range.max ?? view.yScale.hi),
+          min: view.yScale.lo, max: view.yScale.hi, unit: 0.5};
+      const apply = (start, delta) => {
+        const width = start.hi - start.lo;
+        let lo = start.lo + delta;
+        lo = Math.max(start.min, Math.min(start.max - width, lo));
+        const hi = lo + width;
+        if (axis === "x") setWindow([Math.round(lo), Math.round(hi)]);
+        else setRange({min: lo <= start.min ? null : lo, max: hi >= start.max ? null : hi});
+      };
+      let drag = null;
+      fill.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        const track = $(trackId).getBoundingClientRect();
+        const start = read();
+        if (!(start.max > start.min) || start.hi - start.lo >= start.max - start.min) return;   // the whole span: nothing to move
+        const span = axis === "x" ? track.width : track.height;
+        drag = {start, origin: axis === "x" ? event.clientX : event.clientY, perPx: (start.max - start.min) / Math.max(1, span)};
+        fill.setPointerCapture(event.pointerId);
+        fill.classList.add("is-dragging");
+        event.preventDefault();
+      });
+      fill.addEventListener("pointermove", event => {
+        if (!drag) return;
+        const px = (axis === "x" ? event.clientX : event.clientY) - drag.origin;
+        const raw = (axis === "x" ? px : -px) * drag.perPx;
+        apply(drag.start, Math.round(raw / drag.start.unit) * drag.start.unit);
+      });
+      const end = event => {
+        if (!drag) return;
+        drag = null;
+        fill.classList.remove("is-dragging");
+        if (fill.hasPointerCapture(event.pointerId)) fill.releasePointerCapture(event.pointerId);
+      };
+      fill.addEventListener("pointerup", end);
+      fill.addEventListener("pointercancel", end);
+      fill.addEventListener("keydown", event => {
+        if (!event.shiftKey) return;
+        const step = {ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1}[event.key];
+        if (!step) return;
+        event.preventDefault();
+        const start = read();
+        apply(start, step * start.unit);
+      });
+    };
+    dragRange("v2BrushFill", "v2Brush", "x");
+    dragRange("v2YBrushFill", "v2YBrush", "y");
+    // JEG-503 (PV-07): a legend entry turns that series' line and table column off and on.
+    ["v2Legend", "v2ExpandLegend"].forEach(id => $(id).addEventListener("click", event => {
+      const item = event.target.closest(".v2-legend-item");
+      if (!item || item.disabled) return;
+      const key = item.dataset.series;
+      if (state.hiddenSeries.has(key)) state.hiddenSeries.delete(key); else state.hiddenSeries.add(key);
+      refreshValues();
+    }));
     $("v2ZoomIn").addEventListener("click", () => zoom(0.5));
     $("v2ZoomOut").addEventListener("click", () => zoom(2));
     bindChart("v2Chart", () => mainChart);
