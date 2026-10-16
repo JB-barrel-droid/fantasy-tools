@@ -569,7 +569,11 @@ RISERS_JS = "async () => {" + COMMON + r"""
     series: sel.value, groups: [...sel.querySelectorAll('optgroup')].map(g => g.label),
     firstGroupKeys: sel.querySelector('optgroup') ? [...sel.querySelector('optgroup').querySelectorAll('option')].map(o => o.value) : [],
     meta: $('v2RMeta').textContent, note: shown($('v2RNote')) ? $('v2RNote').textContent : '',
-    noPrior: (V.risers() || {}).noPrior || 0, rise: document.querySelectorAll('#v2RRise li').length};
+    noPrior: (V.risers() || {}).noPrior || 0, rise: document.querySelectorAll('#v2RRise li').length,
+    disagree: {h2: $('v2RDisagreeTitle').textContent, meta: $('v2RDisagreeMeta').textContent,
+      heads: [$('v2RMktTitle').textContent, $('v2RProjTitle').textContent],
+      n: document.querySelectorAll('#v2RMkt li[data-player-key], #v2RProj li[data-player-key]').length,
+      reads: [...document.querySelectorAll('#v2RMkt [data-col=read], #v2RProj [data-col=read]')].map(n => n.textContent)}};
 }"""
 
 COMPARE_JS = "async () => {" + COMMON + r"""
@@ -1538,6 +1542,21 @@ def tt08(S):
     return errors[:5]
 
 
+def rf02(S):
+    d = S["tabs"]["risers"]["disagree"]
+    errors = []
+    if d["h2"] != "Where the market and the projections disagree" or d["heads"] != ["Market moved, projections didn't", "Projections moved, market didn't"]:
+        errors.append(f"disagreement section headings {d['h2']!r} {d['heads']}")
+    if d["meta"].startswith("No comparison yet") and d["n"]:
+        errors.append(f"no comparison but {d['n']} players listed")
+    allowed = {"Buying in without the production: sell", "Panic the projections don't share: buy",
+               "Market hasn't caught up: buy", "Market hasn't reacted: sell"}
+    bad = [r for r in d["reads"] if r not in allowed]
+    if bad:
+        errors.append(f"reads outside the four rules: {bad}")
+    return errors
+
+
 def rf01(S):
     r = S["tabs"]["risers"]
     errors = []
@@ -1686,7 +1705,7 @@ CHECKS = {
     # "rescaled" lands with JEG-510; the ⓘ and the scale word are checked meanwhile.
     "TT-05": PENDING("JEG-510", partial=tt05_partial),
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),
-    "RF-01": rf01,
+    "RF-01": rf01, "RF-02": rf02,
     "CT-01": ct01, "CT-02": PENDING("JEG-505"), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
     "CT-06": ct06, "CT-07": ct07, "CT-08": ct08,
     "HV-01": hv01,

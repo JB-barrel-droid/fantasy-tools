@@ -64,7 +64,50 @@
       risers, fallers, compared: movers.length + unchanged, noPrior, noCurrent, unchanged};
   }
 
-  const api = {SERIES, deltaFor, buildMovers};
+  // ---------- JEG-488: where the market and the projections disagree (contract RF-02) ----------
+  // Δ Trade chart average (ddf_value_charts) against Δ DDF Projections (ddf_value_projections), each the
+  // engine's own like-for-like week pair (a source without a saved prior week is dropped from both weeks of
+  // that series, never one). A player qualifies when one side moved at least MOVE points either way and the
+  // other moved at most QUIET points: one of the two sides is wrong. The read is a fixed rule on the direction.
+  const MOVE = 2.5;
+  const QUIET = 1.0;
+  const MARKET = "ddf_value_charts";
+  const PROJECTIONS = "ddf_value_projections";
+  const READS = {
+    "market|up": "Buying in without the production: sell",
+    "market|down": "Panic the projections don't share: buy",
+    "projections|up": "Market hasn't caught up: buy",
+    "projections|down": "Market hasn't reacted: sell"
+  };
+  function buildDisagreements(rows, priorMarket, priorProjections) {
+    const missing = [["Trade chart average", priorMarket], ["DDF Projections", priorProjections]]
+      .filter(([, prior]) => !prior || !prior.available).map(([name, prior]) => `${name}: ${(prior && prior.reason) || "no prior week"}`);
+    if (missing.length) return {available: false, reason: missing.join("; "), market: [], projections: [], compared: 0, noDelta: 0};
+    const market = [];
+    const projections = [];
+    let compared = 0;
+    let noDelta = 0;
+    rows.forEach((row, index) => {
+      const key = String(row.player_key);
+      const m = deltaFor(row.values ? row.values[MARKET] : null, priorMarket, key);
+      const p = deltaFor(row.values ? row.values[PROJECTIONS] : null, priorProjections, key);
+      if (m.delta === null || p.delta === null) { noDelta += 1; return; }
+      compared += 1;
+      const item = {row, order: index + 1, market: m, projections: p};
+      if (Math.abs(m.delta) >= MOVE && Math.abs(p.delta) <= QUIET) {
+        market.push({...item, moved: "market", direction: m.delta > 0 ? "up" : "down", size: Math.abs(m.delta)});
+      } else if (Math.abs(p.delta) >= MOVE && Math.abs(m.delta) <= QUIET) {
+        projections.push({...item, moved: "projections", direction: p.delta > 0 ? "up" : "down", size: Math.abs(p.delta)});
+      }
+    });
+    const order = (a, b) => b.size - a.size || a.order - b.order;
+    market.sort(order);
+    projections.sort(order);
+    [...market, ...projections].forEach(item => { item.read = READS[`${item.moved}|${item.direction}`]; });
+    return {available: true, market, projections, compared, noDelta, currentWeek: priorMarket.currentWeek, priorWeek: priorMarket.priorWeek};
+  }
+
+  const api = {SERIES, deltaFor, buildMovers, buildDisagreements, MOVE, QUIET, READS};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueMovers = api;
 })(typeof window !== "undefined" ? window : globalThis);

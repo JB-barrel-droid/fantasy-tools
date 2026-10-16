@@ -4777,6 +4777,7 @@
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
     if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
+    renderDisagreements(M, C.getRows().filter(row => !needle || String(row.name || "").toLowerCase().includes(needle)));
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
@@ -4784,6 +4785,74 @@
     const note = $("v2RNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
+  }
+
+  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Projections disagree. Always the served
+  // week pair for those two series (the Movement picker and the week pair above do not apply).
+  const DISAGREE_SHOWN = 10;
+  function renderDisagreements(M, rows) {
+    const priorM = priorCache.get("ddf_value_charts");
+    const priorP = priorCache.get("ddf_value_projections");
+    const d = M.buildDisagreements(rows, priorM, priorP);
+    const lists = [["market", "v2RMkt", "v2RMktEmpty"], ["projections", "v2RProj", "v2RProjEmpty"]];
+    $("v2RDisagreeMeta").textContent = d.available
+      ? `Week ${d.priorWeek} → Week ${d.currentWeek}, both priced for your league, like for like: a source without a saved prior week is left out of both weeks. `
+        + `One moved ${M.MOVE} points or more and the other ${M.QUIET.toFixed(1)} or less, so one of the two is wrong. ${d.compared} players compared.`
+      : `No comparison yet: ${d.reason}.`;
+    lists.forEach(([kind, listId, emptyId]) => {
+      const ol = $(listId);
+      ol.replaceChildren();
+      const list = d[kind];
+      list.slice(0, DISAGREE_SHOWN).forEach(item => {
+        const row = item.row;
+        const li = document.createElement("li");
+        li.tabIndex = 0;
+        li.dataset.playerKey = String(row.player_key);
+        li.dataset.moved = item.moved;
+        li.addEventListener("click", () => openDrawer(row));
+        li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+        const top = document.createElement("div");
+        top.className = "m-top";
+        const who = document.createElement("div");
+        const name = document.createElement("b");
+        name.textContent = row.name;
+        const sub = document.createElement("span");
+        sub.className = "v2-meta";
+        sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+        who.append(name, sub);
+        const big = document.createElement("div");
+        big.className = `big ${item.direction === "up" ? "up" : "down"}`;
+        big.dataset.col = "moved";
+        const lead = item.moved === "market" ? item.market : item.projections;
+        big.textContent = `${item.direction === "up" ? "▲" : "▼"} ${fmtGap(lead.delta)}`;
+        top.append(who, big);
+        const vals = document.createElement("div");
+        vals.className = "v2-meta m-vals";
+        const part = (label, delta, col) => {
+          const span = document.createElement("span");
+          span.dataset.col = col;
+          span.textContent = `${label} ${fmtGap(delta)}`;
+          return span;
+        };
+        vals.append(part("Trade chart average", item.market.delta, "market"), document.createTextNode(" · "),
+          part("DDF Projections", item.projections.delta, "projections"));
+        const read = document.createElement("div");
+        read.className = "v2-dread";
+        read.dataset.col = "read";
+        read.textContent = item.read;
+        li.append(top, vals, read);
+        ol.appendChild(li);
+      });
+      const empty = $(emptyId);
+      empty.hidden = list.length > 0;
+      empty.textContent = d.available ? "No player moved this way this week." : "—";
+      if (list.length > DISAGREE_SHOWN) {
+        const more = document.createElement("li");
+        more.className = "v2-meta v2-dmore";
+        more.textContent = `${list.length - DISAGREE_SHOWN} more not shown`;
+        ol.appendChild(more);
+      }
+    });
   }
 
   function renderMoverList(side, list, scale) {

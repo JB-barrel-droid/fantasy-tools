@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20261015-2228-35b50529">
+<meta name="trade-chart-build" content="tv-20261015-2237-ee29e304">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
@@ -1954,6 +1954,25 @@
       </section>
     </div>
 
+    <section class="v2-disagree" id="v2RDisagree" aria-labelledby="v2RDisagreeTitle">
+      <h2 id="v2RDisagreeTitle">Where the market and the projections disagree</h2>
+      <p class="v2-meta" id="v2RDisagreeMeta">One moved and the other did not, so one of the two is wrong.</p>
+      <div class="v2-movers">
+        <section class="v2-card" aria-labelledby="v2RMktTitle">
+          <h3 id="v2RMktTitle" class="v2-mhead">Market moved, projections didn't</h3>
+          <p class="v2-meta">Trade chart average moved 2.5 points or more; DDF Projections moved 1.0 or less</p>
+          <ol class="v2-mlist v2-dlist" id="v2RMkt" aria-labelledby="v2RMktTitle"></ol>
+          <p class="v2-meta v2-t-empty" id="v2RMktEmpty" hidden></p>
+        </section>
+        <section class="v2-card" aria-labelledby="v2RProjTitle">
+          <h3 id="v2RProjTitle" class="v2-mhead">Projections moved, market didn't</h3>
+          <p class="v2-meta">DDF Projections moved 2.5 points or more; Trade chart average moved 1.0 or less</p>
+          <ol class="v2-mlist v2-dlist" id="v2RProj" aria-labelledby="v2RProjTitle"></ol>
+          <p class="v2-meta v2-t-empty" id="v2RProjEmpty" hidden></p>
+        </section>
+      </div>
+    </section>
+
     <p class="v2-footnote" id="v2RScale"></p>
     <p class="v2-footnote">Δ = the later week's value − the earlier week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price in the earlier week has no Δ and is left out, never shown as zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -2618,11 +2637,11 @@
   </div>
 
   </div>
-  <script src="assets/value-model.js?v=tv-20261015-2228-35b50529" defer></script>
-  <script src="assets/consolidation-index.js?v=tv-20261015-2228-35b50529" defer></script>
-  <script src="assets/product-data.js?v=tv-20261015-2228-35b50529" defer></script>
-  <script src="assets/curve-widget.js?v=tv-20261015-2228-35b50529" defer></script>
-  <script src="assets/comparison-dashboard.js?v=tv-20261015-2228-35b50529" defer></script>
+  <script src="assets/value-model.js?v=tv-20261015-2237-ee29e304" defer></script>
+  <script src="assets/consolidation-index.js?v=tv-20261015-2237-ee29e304" defer></script>
+  <script src="assets/product-data.js?v=tv-20261015-2237-ee29e304" defer></script>
+  <script src="assets/curve-widget.js?v=tv-20261015-2237-ee29e304" defer></script>
+  <script src="assets/comparison-dashboard.js?v=tv-20261015-2237-ee29e304" defer></script>
   <script src="v2/targets.js" defer></script>
   <script src="v2/trade.js" defer></script>
   <script src="v2/movers.js" defer></script>
@@ -3074,7 +3093,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2228-35b50529</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2237-ee29e304</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug
