@@ -522,8 +522,11 @@
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources().filter(key => !isEngineAlias(key)));
+    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources());
     const rankKey = C.getRankSource();
+    // JEG-477: ranking by a DDF weighted projection (ESPN, CBS rest of season, Razzball) that is not among the shown
+    // series puts that series on the chart and in the table, so the order can be read.
+    if (!active.includes(rankKey) && !isDdfKey(rankKey) && infoByKey[rankKey]) active.push(rankKey);
     // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
     const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
     const ordered = active.slice().sort((a, b) => (b === DDF_KEY) - (a === DDF_KEY) || (b === rankKey) - (a === rankKey)
@@ -535,7 +538,12 @@
     const needle = state.search.trim().toLowerCase();
     // Search narrows the list and renumbers it; the rank window (Show / X brush) and the value range
     // (Y brush) then compose: shown = ranks lo..hi ∩ ranking-series value in [min, max] (JEG-472).
-    const rows = needle ? allRows.filter(row => String(row.name || "").toLowerCase().includes(needle)) : allRows;
+    // JEG-477: a player no shown series prices above 0 (DDF Value included) is hidden; a search finds him again, as a 0.
+    const pricedKeys = plotKeys.concat(vorpKeys);
+    const pricedAbove0 = row => pricedKeys.some(key => Number.isFinite(row.values?.[key]) && row.values[key] > 0);
+    const listed = needle ? allRows : allRows.filter(pricedAbove0);
+    const hiddenZero = allRows.length - listed.length;
+    const rows = needle ? allRows.filter(row => String(row.name || "").toLowerCase().includes(needle)) : listed;
     rows.forEach((row, index) => { row.rank = index + 1; });
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
@@ -565,7 +573,7 @@
     const yScale = {lo: Math.floor(Math.min(0, ...rankValues)), hi: Math.max(1, Math.ceil(Math.max(0, ...rankValues)))};
     view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible,
       tierScope: {rows: allRows, pos: C.getState().position, engineOrder: true}, totalRows: allRows.length, omittedMissing,
-      rangeOn, yScale, rankValues, refWeek, state: C.getState(), roster: C.getRosterShape()};
+      rangeOn, yScale, rankValues, refWeek, state: C.getState(), roster: C.getRosterShape(), hiddenZero};
   }
 
   // Frame 21 Starter / Bench / Waiver: the engine's roster boundaries (getZones, in
@@ -663,8 +671,10 @@
 
     const rankBy = $("v2RankBy");
     // The DDF Value versions lead the picker (all three, shown or not), then the other shown series.
+    // JEG-477: ESPN, CBS rest of season and Razzball (DDF weighted projections) are always offered, shown or not.
     const rankKeys = DDF_KEYS.filter(key => view.infoByKey[key])
       .concat(view.plotKeys.concat(view.vorpKeys).filter(key => !isDdfKey(key)));
+    ["espn", "cbsros", "razzball"].forEach(key => { if (view.infoByKey[key] && !rankKeys.includes(key)) rankKeys.push(key); });
     // The series ranked by now stays pickable even when it went unavailable, so the picker shows it.
     renderSeriesPicker(rankBy, rankKeys.map(key => ({key,
       reason: key === view.rankKey ? null : unavailableReason(view.infoByKey[key])})), view.rankKey);
@@ -678,6 +688,9 @@
     const notes = [];
     if (view.rangeOn && view.omittedMissing) {
       notes.push(`${view.omittedMissing} player${view.omittedMissing === 1 ? "" : "s"} omitted: no ${sourceMeta(view.rankKey).short} value to compare against the range.`);
+    }
+    if (view.hiddenZero) {
+      notes.push(`${view.hiddenZero} player${view.hiddenZero === 1 ? "" : "s"} with a value of 0 on every shown series ${view.hiddenZero === 1 ? "is" : "are"} hidden. Search for a name to see ${view.hiddenZero === 1 ? "him" : "them"}.`);
     }
     if (state.delta) {
       const keys = view.plotKeys.concat(view.vorpKeys);
@@ -749,6 +762,23 @@
     $("v2ExpandLegend").replaceChildren(...[...legend.childNodes].map(node => node.cloneNode(true)));
   }
 
+  // JEG-477: the Y range of the visible window. null when no visible point is above 0.
+  function fitAxis(slice, keys) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    slice.forEach(row => keys.forEach(key => {
+      const v = row.values[key];
+      if (Number.isFinite(v) && v > 0) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    }));
+    if (!Number.isFinite(lo)) return null;
+    if (hi - lo < 1) { lo = Math.max(0, lo - 0.5); hi += 0.5; }
+    const pad = (hi - lo) * 0.04;
+    const rough = [0.5, 1, 2, 5, 10, 20, 50].find(step => (hi - lo + 2 * pad) / step <= 6) || 50;
+    const min = Math.max(0, Math.floor((lo - pad) / rough) * rough);
+    const max = Math.ceil((hi + pad) / rough) * rough;
+    return {min, max, step: rough};
+  }
+
   function drawSeriesChart(container, keys, opts) {
     container.replaceChildren();
     const rect = container.getBoundingClientRect();
@@ -776,12 +806,17 @@
     let {max: ymax, step: ystep} = niceScale(vmax);
     let ymin = 0;
     // JEG-483 axis zoom (expanded chart only): the Y axis spans the value range; lines outside it are clipped.
-    const axisZoom = Boolean(opts.axisZoom && view.rangeOn);
+    let axisZoom = Boolean(opts.axisZoom && view.rangeOn);
     if (axisZoom) {
       ymin = Math.max(0, state.range.min ?? 0);
       ymax = state.range.max ?? ymax;
       if (!(ymax > ymin)) ymax = ymin + 1;
       ystep = [0.5, 1, 2, 5, 10, 20, 50].find(step => (ymax - ymin) / step <= 6) || 50;
+    } else if (opts.fit) {
+      // JEG-477: the axis follows the top and bottom visible points (waiver 0s ignored), with 4% padding and
+      // nice steps, so the lines show more differentiation. Lines below the axis are clipped like a zoomed axis.
+      const fit = fitAxis(slice, keys);
+      if (fit) { ymin = fit.min; ymax = fit.max; ystep = fit.step; axisZoom = true; }
     }
     const x = i => pad.l + (n <= 1 ? (width - pad.l - pad.r) / 2 : (i / (n - 1)) * (width - pad.l - pad.r));
     const y = axisZoom
@@ -887,7 +922,7 @@
   function renderCharts() {
     renderLegend();
     const big = expanded === "chart";
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys.filter(isSeriesOn), {zones: true, label: "Trade value by player rank", names: true, plot: $("v2Plot"),
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys.filter(isSeriesOn), {zones: true, fit: true, label: "Trade value by player rank", names: true, plot: $("v2Plot"),
       stagger: big, axisZoom: big && state.axisZoom});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
