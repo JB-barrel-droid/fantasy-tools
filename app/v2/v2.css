@@ -1193,3 +1193,19 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2FindOut { margin-top: 12px; }
 .v2-find-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .v2-find-list li { display: grid; gap: 4px; border-top: 1px solid var(--v2-border); padding: 12px 0; }
+
+/* Player values chart: Starter / Bench / Waiver lines and labels, draggable brush fill, legend toggles (JEG-503). */
+.v2-chart .zone-line { stroke: var(--v2-muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: .55; }
+.v2-chart .zone-label { fill: var(--v2-muted); font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; opacity: .75; pointer-events: none; }
+.v2-brush-fill, .v2-ybrush-fill { cursor: grab; touch-action: none; }
+.v2-brush-fill.is-dragging, .v2-ybrush-fill.is-dragging { cursor: grabbing; }
+.v2-brush-fill:focus-visible, .v2-ybrush-fill:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-brush-overview, .v2-ybrush-overview { pointer-events: none; }
+.v2-legend .v2-legend-item { display: inline-flex; gap: 6px; align-items: center; background: none; border: 0; padding: 0 2px; margin: 0; font: inherit; color: inherit; cursor: pointer; min-height: 22px; }
+.v2-legend .v2-legend-item:disabled { cursor: default; }
+.v2-legend .v2-legend-item.is-off { opacity: .55; text-decoration: line-through; }
+.v2-legend .v2-legend-item:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-legend-mark { font-size: 13px; line-height: 1; }
+.v2-chart-head .v2-legend > .v2-legend-item { font-size: 12px; color: var(--v2-muted); line-height: 22px; }
+.v2-legend .v2-legend-item { position: relative; min-height: 22px; padding: 0 2px; }
+.v2-legend-item::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 30px; transform: translateY(-50%); }   /* a larger target without a taller row */

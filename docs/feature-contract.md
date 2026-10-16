@@ -109,14 +109,14 @@ Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
   - **PV-01** The default view is DDF Value against the rescaled trade charts.
   - **PV-02** A chart of trade value by rank. The DDF Value line is drawn on top and heavier than the others.
   - **PV-03** Zooming the chart shows player names on the points. (Jeremy, 2026-10-08: "I like the feature when you zoom in on the chart you see the names.")
-  - **PV-04** The chart marks where Starter turns to Bench and Bench turns to Waiver *(to build: JEG-503)*:
+  - **PV-04** The chart marks where Starter turns to Bench and Bench turns to Waiver *(JEG-503; pinned by `tests/test_v2_chart_zones_render.py`)*:
 
       - vertical lines at each break;
       - "Starter", "Bench" and "Waiver" across the top of the chart area, centred in their sections, in light grey;
       - across positions, each line sits where the break really falls.
   - **PV-05** An X rank brush and a Y value brush. Dragging either one updates Show and the table.
-  - **PV-06** Grabbing the middle of a range brush moves both ends together *(to build: JEG-503)*.
-  - **PV-07** Clicking a source name in the chart legend turns that series on or off, among the series picked in Customize *(to build: JEG-503)*.
+  - **PV-06** Grabbing the middle of a range brush moves both ends together, keeping the width; Shift+arrow on the fill does the same *(JEG-503; pinned by `tests/test_v2_chart_zones_render.py`)*.
+  - **PV-07** Clicking a source name in the chart legend turns that series on or off, among the series picked in Customize; the entry shows on or off with a symbol, and the ranking series stays on *(JEG-503; pinned by `tests/test_v2_chart_zones_render.py`)*.
   - **PV-08** One toolbar: Search · Position · Show · Rank by · Δ Prior week · More · Reset.
   - **PV-09** Reset restores everything, including Rank by.
   - **PV-10** The table follows Show. The header row and Player column stay pinned, and a Columns menu hides groups.
