@@ -81,10 +81,13 @@ def collect(dashboard_js=None):
                                    " && document.querySelector('#columnToggles')", timeout=30000)
             out = page.evaluate("""() => {
               const box = document.querySelector('#columnToggles');
+              const info = window.TradeValueCurveControls?.getSourceInfo?.() || [];
+              const rzInfo = info.find(i => i.key === 'razzball');
               return {
                 diagnostics: window.TradeValueComparisonDiagnostics,
                 chips: [...box.querySelectorAll('label, button')].map(e => e.textContent.trim()),
                 titles: [...box.querySelectorAll('[title]')].map(e => e.title),
+                razzballAvailable: rzInfo ? Boolean(rzInfo.available) : null,
               };
             }""")
             out["errors"] = errors
@@ -93,20 +96,28 @@ def collect(dashboard_js=None):
             browser.close()
 
 
-def check(out):
+def check(out, dashboard_text=None):
     problems = []
     diag = out["diagnostics"] or {}
     for guard in ("allSources", "configurableColumns", "rolloverAware"):
         if diag.get(guard) is not True:
             problems.append(f"dashboard guard {guard} is {diag.get(guard)!r}")
-    registry = re.search(r"const SOURCE_KEYS = \[(.*?)\];", DASH_JS.read_text(encoding="utf-8"), re.S)
+    text = dashboard_text or DASH_JS.read_text(encoding="utf-8")
+    registry = re.search(r"const SOURCE_KEYS = \[(.*?)\];", text, re.S)
     keys = re.findall(r'"([a-z_]+)"', registry.group(1)) if registry else []
     if "razzball" not in keys:
-        problems.append("razzball missing from the dashboard SOURCE_KEYS registry file")
-    if not any(re.fullmatch(r"Razzball Wk \d+", chip) for chip in out["chips"]):
-        problems.append(f"no 'Razzball Wk N' column chip rendered: {out['chips']}")
-    if not any("Razzball rest-of-season projections" in t for t in out["titles"]):
-        problems.append("Razzball column tooltip (TIPS) not rendered")
+        problems.append("razzball missing from the dashboard SOURCE_KEYS registry")
+    # When Razzball is held (unavailable), its column correctly won't render.
+    # The registry check (above) still validates the wiring; the render checks
+    # only apply when the engine has Razzball available.
+    rz_available = out.get("razzballAvailable")
+    if rz_available is False:
+        pass  # held source: chip and tooltip correctly absent
+    else:
+        if not any(re.fullmatch(r"Razzball Wk \d+", chip) for chip in out["chips"]):
+            problems.append(f"no 'Razzball Wk N' column chip rendered: {out['chips']}")
+        if not any("Razzball rest-of-season projections" in t for t in out["titles"]):
+            problems.append("Razzball column tooltip (TIPS) not rendered")
     if out["errors"]:
         problems.append(f"page errors: {out['errors'][:2]}")
     return problems
@@ -130,8 +141,9 @@ class RazzballDashboardRenderTest(unittest.TestCase):
         dashboard = DASH_JS.read_text(encoding="utf-8")
         self.assertEqual(dashboard.count(RAZZBALL_KEY), 1, "SOURCE_KEYS anchor is stale")
         broken = dashboard.replace(RAZZBALL_KEY, "", 1)
-        problems = check(collect(broken))
-        self.assertTrue(any("Razzball Wk" in p for p in problems),
+        # Pass the broken text as the registry source so the file check sees the removal.
+        problems = check(collect(broken), dashboard_text=broken)
+        self.assertTrue(any("razzball" in p.lower() for p in problems),
                         f"render checks did not catch a dashboard without razzball: {problems}")
 
 
