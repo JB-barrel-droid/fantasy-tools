@@ -22,7 +22,11 @@ import check_source_vintage as csv_mod  # noqa: E402
 
 WF = ROOT / ".github" / "workflows"
 MIGRATION = ROOT / "supabase" / "migrations" / "source_probe_schedules_20261008.sql"
+SHARKS_MIGRATION = ROOT / "supabase" / "migrations" / "sharks_probe_schedule_20261015.sql"
 TABLES_MIGRATION = ROOT / "supabase" / "migrations" / "source_probe_tables_20261008.sql"
+# JEG-620 / JEG-621: saved for the fidelity pulse and a later chart lane; nothing
+# in the rebuild chain reads these tables yet, so they do not dispatch it.
+NO_CHAIN_SOURCES = {"draftsharks", "fantasysharks"}
 NOW = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
 H = timedelta(hours=1)
 DAILY = sp.Policy(max_age=20 * H)
@@ -136,7 +140,7 @@ class DecideTest(unittest.TestCase):
     def test_every_source_has_a_policy_and_an_ingest(self):
         self.assertEqual(set(sp.POLICIES), set(sp.INGEST))
         self.assertEqual(set(sp.POLICIES), set(sp.PROBES))
-        self.assertEqual(set(sp.SOURCES), set(csv_mod.CHAIN_SOURCES))
+        self.assertEqual(set(sp.SOURCES) - NO_CHAIN_SOURCES, set(csv_mod.CHAIN_SOURCES))
 
 
 class BookkeepingTest(unittest.TestCase):
@@ -415,9 +419,13 @@ class WiringTest(unittest.TestCase):
             want = "${{ matrix.source }}" if "source" in inputs else source
             self.assertIn(f"source_probe.py ack --supabase --source {want} ", ack, wf)
             chain = step_block(text, "Dispatch the rebuild chain on new content")
-            self.assertIn("steps.ack.outputs.new_content == 'true'", chain, wf)
-            self.assertIn("source_probe.py dispatch-chain", chain, wf)
-            self.assertRegex(text, r"\n  actions: write", wf)
+            if source in NO_CHAIN_SOURCES:
+                self.assertIsNone(chain, wf)
+                self.assertNotIn("dispatch-chain", text, wf)
+            else:
+                self.assertIn("steps.ack.outputs.new_content == 'true'", chain, wf)
+                self.assertIn("source_probe.py dispatch-chain", chain, wf)
+                self.assertRegex(text, r"\n  actions: write", wf)
             # The ack sits after the monitored-check step: an ack failure must
             # not be recorded as an ingest failure.
             rec = [m.start() for m in re.finditer(r"- name: Record (the )?monitored check", text)]
@@ -449,6 +457,9 @@ class WiringTest(unittest.TestCase):
         sql = MIGRATION.read_text(encoding="utf-8")
         groups = re.findall(r"cron\.schedule\('(source-probe-[a-z-]+)', '([^']+)',\s*\$\$.*?"
                             r"\"sources\": \"([^\"]+)\"", sql, re.S)
+        sharks = SHARKS_MIGRATION.read_text(encoding="utf-8")
+        groups += re.findall(r"cron\.schedule\('(source-probe-[a-z-]+)', '([^']+)',\s*\$\$.*?"
+                             r"\"sources\": \"([^\"]+)\"", sharks, re.S)
         covered = {s for _, _, srcs in groups for s in srcs.split(",")}
         self.assertEqual(covered, set(sp.SOURCES))
         for job in ("trade-chart-ingest-live", "trigger-espn-sync-live", "trigger-cbsros-sync-live",
@@ -466,6 +477,45 @@ class WiringTest(unittest.TestCase):
         # so every UTC day (Monday included) has a snapshot.
         for s in ("espn", "cbsros", "razzball"):
             self.assertLessEqual(sp.POLICIES[s].max_age + 4 * H, 24 * H, s)
+
+
+class SharksProbeTest(unittest.TestCase):
+    """JEG-620 / JEG-621: the Sharks sources are probed and dispatch their save workflows."""
+
+    def test_sources_dispatch_their_workflows_in_write_mode(self):
+        for src, wf in (("draftsharks", "draftsharks-supabase-sync.yml"),
+                        ("fantasysharks", "fantasysharks-supabase-sync.yml")):
+            self.assertEqual(sp.INGEST[src], (wf, {"mode": "write"}))
+            self.assertIn(src, sp.PROBES)
+            self.assertTrue((ROOT / ".github" / "workflows" / wf).exists())
+
+    def test_fantasysharks_probe_moves_with_the_points_and_fails_closed(self):
+        page = ('<option value="877" selected>2026 Rest of Year</option>'
+                '<option value="97" selected>All Offense</option> last updated 10-14')
+
+        def csv_body(pts):
+            return "Rank,Player ID,Player Name,Team,Position,Pts\n1,11,A B,KC,QB,%s\n" % pts
+
+        def fetch_for(pts, page=page):
+            def fetch(url, **kw):
+                return sp.Resp(200, {}, csv_body(pts) if "csv=1" in url else page)
+            return fetch
+        a = sp.probe_fantasysharks(fetch_for("300.5"), 6)["fingerprint"]
+        b = sp.probe_fantasysharks(fetch_for("301.5"), 6)["fingerprint"]
+        self.assertNotEqual(a, b)
+        self.assertEqual(a, sp.probe_fantasysharks(fetch_for("300.5"), 6)["fingerprint"])
+        with self.assertRaises(sp.ProbeError):
+            sp.probe_fantasysharks(fetch_for("300.5", page="<html>moved</html>"), 6)
+
+    def test_draftsharks_probe_fails_closed_on_a_tiny_body(self):
+        with self.assertRaises(sp.ProbeError):
+            sp.probe_draftsharks(lambda url, **kw: sp.Resp(200, {}, "<html>wall</html>"), 6)
+
+    def test_migration_schedules_sharks_and_declares_both_checks(self):
+        sql = SHARKS_MIGRATION.read_text(encoding="utf-8")
+        self.assertIn("'source-probe-sharks'", sql)
+        for check in ("draftsharks_trade_chart_sync", "fantasysharks_projections_sync"):
+            self.assertIn(f"('{check}'", sql)
 
 
 class VintageCheckTest(unittest.TestCase):
@@ -608,7 +658,8 @@ class ChainConcurrencyTest(unittest.TestCase):
             text = wf.read_text(encoding="utf-8")
             self.assertNotIn("gh workflow run rebuild-chain.yml", text,
                              f"{wf.name} dispatches the chain without coalescing")
-        for wf in ["source-vintage-check.yml"] + sorted({w for w, _ in sp.INGEST.values()}):
+        for wf in ["source-vintage-check.yml"] + sorted(
+                {w for src, (w, _) in sp.INGEST.items() if src not in NO_CHAIN_SOURCES}):
             self.assertIn("source_probe.py dispatch-chain", (WF / wf).read_text(encoding="utf-8"), wf)
 
     def fake_gh(self, statuses):
