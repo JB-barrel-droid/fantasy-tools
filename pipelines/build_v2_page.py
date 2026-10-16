@@ -17,6 +17,8 @@ site's front door, so it is written twice from that one input:
 """
 from __future__ import annotations
 
+import html as html_lib
+import json
 import re
 import shutil
 import sys
@@ -25,6 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP_V2 = ROOT / "app" / "v2"
 DIST = ROOT / "dist"
+RESEARCH_DIR = APP_V2 / "research"
 
 SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # The engine page sync_dashboard_artifacts writes. Outside dist/, so Pages never
@@ -125,7 +128,85 @@ def head_for_v2(html: str, at_root: bool) -> str:
     return html.replace("</head>", f'  <link rel="canonical" href="{SITE_URL}">\n</head>', 1)
 
 
-def build_v2_html(index_html: str, shell_html: str, at_root: bool = False) -> str:
+# ---------- Research tab (JEG-543) ----------
+# One file per post in app/v2/research/<slug>.html. The first line is a comment holding the post's
+# metadata as JSON: <!--post {"title": ..., "summary": ..., "date": "2026-10-12", "published": true} -->.
+# The rest is the post body (HTML). A post without "published": true is a draft and never reaches the build.
+# "published" is set only after Jeremy approves the Google Doc draft.
+POST_META = re.compile(r"\A\s*<!--post\s*(\{.*?\})\s*-->", re.S)
+SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _nice_date(iso: str) -> str:
+    year, month, day = (int(part) for part in iso.split("-"))
+    return f"{MONTHS[month - 1]} {day}, {year}"
+
+
+def load_posts(research_dir: Path = RESEARCH_DIR) -> list[dict]:
+    """Published posts, newest first. Drafts are skipped; a malformed file is an error, not a silent skip."""
+    posts = []
+    for path in sorted(research_dir.glob("*.html")) if research_dir.is_dir() else []:
+        text = path.read_text(encoding="utf-8")
+        match = POST_META.match(text)
+        if not match:
+            raise SystemExit(f"build_v2_page: {path.name} has no <!--post {{...}}--> metadata line")
+        meta = json.loads(match.group(1))
+        if meta.get("published") is not True:
+            continue
+        if not SLUG.match(path.stem):
+            raise SystemExit(f"build_v2_page: research slug {path.stem!r} must be lowercase words joined by hyphens")
+        for key in ("title", "summary", "date"):
+            if not str(meta.get(key, "")).strip():
+                raise SystemExit(f"build_v2_page: {path.name} is published but has no {key}")
+        posts.append({"slug": path.stem, "title": meta["title"], "summary": meta["summary"],
+                      "date": meta["date"], "body": text[match.end():].strip()})
+    return sorted(posts, key=lambda post: (post["date"], post["slug"]), reverse=True)
+
+
+def research_html(posts: list[dict]) -> str:
+    """The #research page: an index of posts plus one hidden article per post (#research/<slug>)."""
+    esc = html_lib.escape
+    if posts:
+        rows = "\n".join(
+            f'        <li><a class="v2-rs-link" href="#research/{post["slug"]}">{esc(post["title"])}</a>'
+            f'<span class="v2-rs-sum">{esc(post["summary"])}</span>'
+            f'<time class="v2-rs-date" datetime="{post["date"]}">{_nice_date(post["date"])}</time></li>'
+            for post in posts)
+        index_body = f'      <ul class="v2-rs-list">\n{rows}\n      </ul>'
+    else:
+        index_body = '      <p class="v2-rs-empty">No posts are published yet.</p>'
+    articles = "\n".join(
+        f'    <article class="v2-mf-text v2-rs-post" id="v2Post-{post["slug"]}" data-slug="{post["slug"]}" hidden>\n'
+        f'      <p class="v2-mf-eyebrow"><a href="#research">Research</a></p>\n'
+        f'      <h1>{esc(post["title"])}</h1>\n'
+        f'      <p class="v2-rs-meta"><time datetime="{post["date"]}">{_nice_date(post["date"])}</time></p>\n'
+        f'{post["body"]}\n'
+        f'      <p class="v2-rs-back"><a href="#research">All research</a> · <a href="#manifesto">Manifesto</a></p>\n'
+        f'    </article>' for post in posts)
+    return (
+        '\n  <!-- Research (JEG-543): built from app/v2/research/*.html, published posts only. -->\n'
+        '  <main class="v2-wrap v2-main v2-mf" id="v2Research" hidden aria-labelledby="v2ResearchTitle">\n'
+        '    <article class="v2-mf-text v2-rs-index" id="v2ResearchIndex">\n'
+        '      <p class="v2-mf-eyebrow">Data Driven Football</p>\n'
+        '      <h1 id="v2ResearchTitle">Research</h1>\n'
+        '      <p>The evidence behind the choices this tool makes, and how we arrived at them. '
+        'The <a href="#manifesto">Manifesto</a> states the principles; these posts show the work.</p>\n'
+        f'{index_body}\n'
+        '    </article>\n'
+        f'{articles}\n'
+        '  </main>\n')
+
+
+def compose_shell(shell_html: str, posts: list[dict]) -> str:
+    """shell.html with the built Research page placed inside #v2App (the only body child the page shows)."""
+    end = shell_html.rstrip().rfind("</div>")
+    if end < 0:
+        raise SystemExit("build_v2_page: shell.html has no closing </div> for #v2App")
+    return shell_html[:end] + research_html(posts) + shell_html[end:]
+
+
+def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts: list[dict] | None = None) -> str:
     for marker in ("<head>", "<body>", ENGINE_SCRIPT_MARKER, LAST_ENGINE_SCRIPT, "</title>"):
         if marker not in index_html:
             raise SystemExit(f"build_v2_page: marker {marker!r} missing from the chart dashboard page")
@@ -142,7 +223,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False) -> st
     html = html.replace("</head>", head_extra + "</head>", 1)
     html = html.replace(
         "<body>",
-        '<body class="v2">\n' + shell_html
+        '<body class="v2">\n' + compose_shell(shell_html, load_posts() if posts is None else posts)
         + '\n<div id="legacyEngine" class="legacy-engine" aria-hidden="true" inert>',
         1,
     )
@@ -159,14 +240,15 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False) -> st
     return html
 
 
-def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE) -> Path:
+def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path = RESEARCH_DIR) -> Path:
     """Write dist/index.html (root) and dist/v2/index.html; return the /v2/ page."""
     index_html = engine_page.read_text(encoding="utf-8")
     shell_html = (APP_V2 / "shell.html").read_text(encoding="utf-8")
     out_dir = dist / "v2"
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html), encoding="utf-8")
-    (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True), encoding="utf-8")
+    posts = load_posts(research_dir)
+    (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html, posts=posts), encoding="utf-8")
+    (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     for name in ("v2.css", "targets.js", "trade.js", "movers.js", "modules.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"

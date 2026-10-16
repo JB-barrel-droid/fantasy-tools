@@ -104,8 +104,9 @@ def _built_dist(shell_html=None):
             page = dist / "v2" / "index.html"
             built = page.read_text(encoding="utf-8")
             original = SHELL.read_text(encoding="utf-8")
-            assert original in built, "the built page no longer embeds shell.html verbatim"
-            page.write_text(built.replace(original, shell_html, 1), encoding="utf-8")
+            composed = build_v2_page.compose_shell(original, build_v2_page.load_posts())
+            assert composed in built, "the built page no longer embeds shell.html verbatim"
+            page.write_text(built.replace(composed, build_v2_page.compose_shell(shell_html, build_v2_page.load_posts()), 1), encoding="utf-8")
 
         class QuietHandler(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
