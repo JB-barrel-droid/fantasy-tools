@@ -97,6 +97,8 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
 Share links carry every setting. League weeks use `regend`, `playoffs`, `optimize` and `week`; the advanced settings use `inj`, `conf` and `bso` (three decimals, absent = off), each written only when it differs from the default. Old links: `bench=0.150` means no override and any other `bench=` without `bso=` is the sender's override. *(JEG-537, JEG-527; pinned by `tests/test_v2_advanced_render.py` and `tests/test_v2_share_render.py`)* (Jeremy, 2026-10-10.)
 
+  - **GL-26** Our names are defined once and shown wherever they appear, with an info button: DDF Value is fair value, the price a player is really worth; DDF Projections is what production supports; Trade chart average is what the market will pay. The edge: buy below DDF Value and sell above it, best when DDF Value says you win and the market says you lose. The buttons sit on the header row (which reads "On the chart:", not "Showing:"), Risers & fallers' Movement picker and disagreement card, the DDF Value group in Customize, and the Compare deal-read nets. *(JEG-490; pinned by `tests/test_v2_names_render.py`)*
+
   - **GL-25** A source that disagrees with the other sources more than usual shows a small "Check" chip next to its name, in the slot the prior-week badge uses, with the published message as its tooltip (`source_divergence` in `assets/reference-freshness.json`, JEG-460). A reviewed source shows "Reviewed", linking to its resolution issue where a link is allowed. The chip never hides a source or blocks anything. Our own DDF Value and VORP columns carry none. *(JEG-609; pinned by `tests/test_v2_divergence_chip_render.py`)*
 
 ## Manifesto (MF)
@@ -186,6 +188,8 @@ Confidence comes from how many sources agree. It drops to Low when any DDF Value
 ## How values work (HV)
 
   - **HV-01** Explains each view and lists the engine's series by method. It shows no numbers except the league card.
+
+  - **HV-02** How values work leads with the three numbers (DDF Value, DDF Projections, Trade chart average) and "Where the edge comes from", with no numbers in that copy; "Data Driven Adjustments" and "DDA" are retired from it. *(JEG-490)*
 
 ## Decision log
 
