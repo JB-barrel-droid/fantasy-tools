@@ -1,0 +1,147 @@
+name: Draft Sharks trade chart to Supabase
+
+# JEG-620: Draft Sharks trade value chart -> public.draftsharks_trade_values.
+#
+#   pipelines/pull_draftsharks.py   -> /tmp/draftsharks/snapshot.json, fail closed
+#     with named codes (SOURCE_BLOCKED, SOURCE_LAYOUT, SOURCE_TRUNCATED, VALUE_RANGE)
+#   pipelines/save_draftsharks_references.py -> public.draftsharks_trade_values
+#
+# Scheduler owner: source-probe.yml (pipelines/source_probe.py source
+# `draftsharks`, pg_cron `source-probe-sharks`): dispatched on change or max
+# age 20 h, with mode=write. No `schedule:` here. No rebuild-chain dispatch:
+# nothing in the chain reads this table yet.
+#
+#   push to draftsharks/dry-*   -> --dry-run
+#   push to draftsharks/write-* -> write
+#   workflow_dispatch            -> dry unless mode=write
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+      probe_fp:
+        description: "Set by source-probe.yml: the fingerprint to acknowledge on success (blank = manual run)"
+        required: false
+        default: ""
+  push:
+    branches: ["draftsharks/dry-*", "draftsharks/write-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: draftsharks-supabase-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Resolve mode
+        id: cfg
+        run: |
+          mode=dry
+          case "${GITHUB_REF_NAME}" in draftsharks/write-*) mode=write;; esac
+          [ "${{ github.event.inputs.mode }}" = "write" ] && mode=write
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+          echo "::notice title=draftsharks::mode=$mode"
+
+      # JEG-480 / JEG-520: a run the probe did not dispatch (manual or
+      # scheduled) still records which publisher content it read: the probe
+      # fingerprint taken before the data is read is acknowledged with it,
+      # so the fidelity pulse can tell a stored copy that differs from the
+      # same publisher version (a fault: red, held) from a publisher update
+      # made after the save (amber). Taken first, a race can only
+      # yield amber, never a false red.
+      - name: Fingerprint the publisher first (run not dispatched by the probe)
+        id: fp
+        if: steps.cfg.outputs.mode == 'write' && github.event.inputs.probe_fp == ''
+        continue-on-error: true
+        run: |
+          python3 pipelines/source_probe.py probe --sources draftsharks --dry-run --out /tmp/probe-draftsharks.jsonl > /dev/null
+          fp=$(head -n 1 /tmp/probe-draftsharks.jsonl | jq -r '.fingerprint // ""')
+          echo "fp=$fp" >> "$GITHUB_OUTPUT"
+          echo "publisher fingerprint, read first: ${fp:-none}"
+
+      - name: Scrape and save
+        id: sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          # Outcome surfaced as check-run annotations (Actions logs are not
+          # downloadable through every proxy).
+          flag=""
+          [ "${{ steps.cfg.outputs.mode }}" = "write" ] || flag="--dry-run"
+          rc=0
+          {
+            python3 pipelines/pull_draftsharks.py --out-dir /tmp/draftsharks &&
+            python3 pipelines/save_draftsharks_references.py --snapshot /tmp/draftsharks/snapshot.json $flag
+          } > /tmp/draftsharks.log 2>&1 || rc=$?
+          cat /tmp/draftsharks.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          tail -8 /tmp/draftsharks.log | cut -c1-900 | sed "s/^/::$level title=draftsharks rc=$rc::/"
+          grep -h -m2 -E "^draftsharks:" /tmp/draftsharks.log | cut -c1-600 | sed "s/^/::notice title=draftsharks pull::/" || true
+          # Named codes from the puller: SOURCE_BLOCKED, SOURCE_LAYOUT, SOURCE_TRUNCATED, VALUE_RANGE; SYNC_FAILED = the saver.
+          code=SYNC_FAILED
+          pulled=$(grep -o "DRAFTSHARKS PULL FAILED \[[A-Z_]*\]" /tmp/draftsharks.log | sed 's/.*\[\(.*\)\]/\1/' | head -1 || true)
+          [ -n "$pulled" ] && code=$pulled
+          echo "error_code=$code" >> $GITHUB_OUTPUT
+          exit $rc
+
+      - name: Keep the snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: draftsharks-snapshot
+          path: /tmp/draftsharks/snapshot.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Record the monitored check
+        if: always() && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OK: ${{ steps.sync.outcome == 'success' }}
+          ERROR_CODE: ${{ steps.sync.outputs.error_code }}
+        run: |
+          python3 - <<'PY'
+          import os, sbclient
+          ok = os.environ["OK"] == "true"
+          sbclient.rpc("monitoring_record_observation", {
+              "p_check_id": "draftsharks_trade_chart_sync",
+              "p_ok": ok, "p_content_ok": ok,
+              "p_error_code": None if ok else (os.environ.get("ERROR_CODE") or "SYNC_FAILED"),
+              "p_scheduler_owner_id": "draftsharks-supabase-sync.yml",
+          })
+          print("recorded ok=%s" % ok)
+          PY
+
+      # Refresh cadence (source-probe.yml, pipelines/source_probe.py): acknowledge
+      # the probe fingerprint this run was dispatched for, so the probe stops
+      # re-dispatching it.
+      # After the monitored-check step on purpose: an ack failure must not
+      # record the ingest itself as failed.
+      - name: Acknowledge probe fingerprint
+        id: ack
+        if: success() && (github.event.inputs.probe_fp != '' || steps.fp.outputs.fp != '') && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PROBE_FP: ${{ github.event.inputs.probe_fp || steps.fp.outputs.fp }}
+        run: python3 pipelines/source_probe.py ack --supabase --source draftsharks --fingerprint "$PROBE_FP"

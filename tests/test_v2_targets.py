@@ -1,6 +1,6 @@
 """v2 Trade targets: the market-consensus rule in app/v2/targets.js.
 
-Check 1 (JEG-677, Jeremy JEG-461 2026-10-08 / JEG-476) on the engine's own rows:
+Check 1 (JEG-677; default and indexed basis per Jeremy 2026-10-16) on the engine's own rows:
 
   * consensus = the MEDIAN of the indexed charts that price the player (a
     finite 0 counts; a missing value is left out, never read as 0);
@@ -8,7 +8,8 @@ Check 1 (JEG-677, Jeremy JEG-461 2026-10-08 / JEG-476) on the engine's own rows:
     waiver line, and a strict majority of those charts on the same side of our
     value as the consensus ("N of M charts agree");
   * Sell: consensus gap > 0, largest first. Buy: gap < 0, most negative first;
-  * our value defaults to DDF Projections (ddf_value_projections); DDF Value,
+  * our value defaults to DDF Value, the blend (ddf_value; Jeremy 2026-10-16:
+    DDF decides who we want); DDF Projections and the other DDF versions,
     ESPN, CBS rest-of-season and Razzball stay as choices, each read from its
     own series only, an unavailable one offered disabled with a reason;
   * every available chart is compared, including one still on an earlier week
@@ -140,6 +141,7 @@ console.log(JSON.stringify({
   lowConfidence: lc.sell.map(p => [p.row.player_key, p.ours, p.market.gap]),
   byDefault: run(rows),
   ddf: run(rows, {ours: "ddf_value"}),
+  proj: run(rows, {ours: "ddf_value_projections"}),
   espn: run(rows, {ours: "espn"}),
   cbsros: run(rows, {ours: "cbsros"}),
   choices: T.ourChoices(input.info), ourKeys: T.OUR_KEYS,
@@ -171,10 +173,10 @@ def check(result: dict) -> list[str]:
     if "crashed" in result:
         return [f"targets.js threw: {result['crashed']}"]
     errors = []
-    if result["ourKey"] != "ddf_value_projections":
-        errors.append(f"our value must default to DDF Projections (JEG-677), got {result['ourKey']}")
+    if result["ourKey"] != "ddf_value":
+        errors.append(f"our value must default to DDF Value, the blend (Jeremy 2026-10-16), got {result['ourKey']}")
     all_rows = ROWS + CONSENSUS_ROWS
-    for name, key in (("byDefault", "ddf_value_projections"), ("ddf", "ddf_value"), ("espn", "espn"), ("cbsros", "cbsros")):
+    for name, key in (("byDefault", "ddf_value"), ("ddf", "ddf_value"), ("proj", "ddf_value_projections"), ("espn", "espn"), ("cbsros", "cbsros")):
         run = result[name]
         if run["ours"] != key:
             errors.append(f"{name}: expected our value series {key}, got {run['ours']}")
@@ -183,12 +185,12 @@ def check(result: dict) -> list[str]:
         for side in ("sell", "buy"):
             if [tuple(x) for x in got[side]] != want[side]:
                 errors.append(f"{name} {side} list must follow the consensus rule: want {want[side]}, got {got[side]}")
-    # The named cases, on the default series (projections).
+    # The named cases, on the default series (DDF Value).
     d = lists(result["byDefault"])
     sell_keys = [k for k, *_ in d["sell"]]
     buy_keys = [k for k, *_ in d["buy"]]
-    if sell_keys != [31, 39] or buy_keys != [37, 32]:
-        errors.append(f"default lists wrong (sell {sell_keys}, buy {buy_keys}); wanted sell [31, 39], buy [37, 32]")
+    if sell_keys != [31, 39] or buy_keys != [6, 37, 32]:
+        errors.append(f"default lists wrong (sell {sell_keys}, buy {buy_keys}); wanted sell [31, 39], buy [6, 37, 32]")
     for key, why in ((33, "1 of 2 is not a majority"), (34, "one chart is not a consensus"),
                      (35, "2 of 4 is not a majority"), (36, "a consensus at the waiver line is never a target"),
                      (38, "no gap")):
@@ -197,6 +199,8 @@ def check(result: dict) -> list[str]:
     k = next((p for p in result["byDefault"]["sell"] if p["key"] == 31), None)
     if k is None or (k["market"]["agree"], k["market"]["of"]) != (2, 3) or [d_["side"] for d_ in k["market"]["dots"]] != ["above", "above", "below"]:
         errors.append(f"K must read 2 of 3 charts agree with one dot per chart: {k and k['market']}")
+    if k is not None and [d_["value"] for d_ in k["market"]["dots"]] != [k["cells"][c]["value"] for c in ("usatoday", "fantasycalc", "cbs")]:
+        errors.append(f"each dot must carry its chart's indexed value: {k['market']['dots']}")
     if k is not None and [k["cells"][c]["gap"] for c in ("usatoday", "fantasycalc", "cbs")] != [10.0, 10.0, -5.0]:
         errors.append(f"per-chart gap = chart value - our value (positive: the chart pays more): {k['cells']}")
     if result["lowConfidence"] != [[9, 3.0, 5.5]]:
@@ -222,7 +226,7 @@ def check(result: dict) -> list[str]:
         errors.append("VORP vs waivers must never be paired with trade-value points")
     if 7 in {p["key"] for p in every} or 3 in {p["key"] for p in every}:
         errors.append("G (waiver line) and C (no gap) are never targets")
-    if result["ddf"]["omitted"] != 2 or result["byDefault"]["omitted"] != len(ROWS):
+    if result["ddf"]["omitted"] != 2 or result["byDefault"]["omitted"] != 2:
         errors.append(f"players without our value are left out and counted: ddf={result['ddf']['omitted']} default={result['byDefault']['omitted']}")
     # JEG-459: a chart still on an earlier week is always compared, and flagged.
     if result["defaultCharts"]["used"] != ["usatoday", "fantasycalc", "cbs"]:
@@ -234,8 +238,8 @@ def check(result: dict) -> list[str]:
         errors.append(f"only unavailable charts are skipped, with a reason: {skipped}")
     if result["onlyCharts"]["used"] != ["fantasycalc"]:
         errors.append(f"single-chart filter wrong: {result['onlyCharts']}")
-    if result["ourKeys"] != ["ddf_value_projections", "ddf_value", "ddf_value_charts", "espn", "cbsros", "razzball"]:
-        errors.append(f"our value choices: DDF Projections first, then the other DDF Values, then the projections: {result['ourKeys']}")
+    if result["ourKeys"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"]:
+        errors.append(f"our value choices: DDF Value first, then the other DDF versions, then the projections: {result['ourKeys']}")
     choices = {c["key"]: c for c in result["choices"]}
     if not all(choices.get(k, {}).get("available") for k in ("ddf_value", "ddf_value_projections", "espn", "cbsros")):
         errors.append(f"available series must be offered: {choices}")
@@ -270,7 +274,7 @@ MUTATIONS = {
     "waiver rule removed": ("if (value <= 0) {", "if (false) {"),
     "chosen series ignored": ("const ourKey = (opts && opts.ours) || OUR_KEY;", "const ourKey = OUR_KEY;"),
     "unavailable series offered": ("const available = Boolean(item && item.available);", "const available = true;"),
-    "default reverted to DDF Value": ("const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[1];"),
+    "default moved off DDF Value": ("const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[2];"),
     "one-source player left out": ("      if (!finite(ours)) {", "      if (!finite(ours) || row.ddfLowConfidence) {"),
     # JEG-677
     "mean instead of median": ("const value = median(values);", "const value = values.reduce((a, b) => a + b, 0) / values.length;"),
@@ -282,8 +286,8 @@ MUTATIONS = {
                                         "const values = priced.map(key => cells[key].value).filter(v => v > 0);"),
     "agreement counted on the wrong side": ('(side === "sell" ? v > ours : v < ours)', '(side === "sell" ? v < ours : v > ours)'),
     "equal never flagged": ("equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: false,\n      side"),
-    "DDF Value dropped from the choices": ('const OUR_KEYS = ["ddf_value_projections", "ddf_value",',
-                                           'const OUR_KEYS = ["ddf_value_projections",'),
+    "DDF Projections dropped from the choices": ('"ddf_value_charts", "ddf_value_projections", "espn"', '"ddf_value_charts", "espn"'),
+    "dot value not the indexed chart value": ("dots = priced.map(key => ({chart: key, value: cells[key].value,", "dots = priced.map(key => ({chart: key, value: 0,"),
 }
 
 

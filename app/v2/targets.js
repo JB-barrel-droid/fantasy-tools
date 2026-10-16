@@ -18,9 +18,9 @@
 // missing one, so a chart that still pays for him is an ordinary sell target
 // with gap = chart value. A player with no ESPN row is still missing.
 //
-// Our value (Jeremy, JEG-461 2026-10-08, JEG-677): DDF Projections (ddf_value_projections) is the default;
-// DDF Value, ESPN, CBS rest-of-season and Razzball
-// projections stay as alternatives. Each is one engine series, read as is.
+// Our value (Jeremy, 2026-10-16: DDF decides who we want and don't want): DDF Value (ddf_value, the blend) is
+// the default; the other DDF versions (JEG-542), ESPN, CBS rest-of-season and Razzball projections stay as
+// alternatives. Each is one engine series, read as is.
 //
 // Waiver line (Jeremy, 2026-10-07: "It's illogical that 0 value players would
 // be on a buy list."). Every series here is value above waivers for the user's
@@ -29,10 +29,10 @@
 (function (root) {
   "use strict";
 
-  // JEG-677 (Jeremy, JEG-461 2026-10-08 / JEG-476): Check 1 compares DDF Projections to the market
-  // consensus, so DDF Projections is the default. DDF Value stays a choice (and is Check 2's series).
-  const OUR_KEYS = ["ddf_value_projections", "ddf_value", "ddf_value_charts", "espn", "cbsros", "razzball"];
-  const OUR_KEY = OUR_KEYS[0];   // default: DDF Projections
+  // Jeremy 2026-10-16 (JEG-677 follow-up): Check 1 compares DDF Value (the blend) to the market consensus of
+  // the INDEXED trade charts. DDF Projections and the other versions stay selectable.
+  const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];
+  const OUR_KEY = OUR_KEYS[0];   // default: DDF Value
   const DDF_VALUE_KEY = "ddf_value";
   const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
   const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
@@ -61,13 +61,14 @@
     const gap = value - ours;
     const side = gap > 0 ? "sell" : gap < 0 ? "buy" : null;
     const agree = side ? values.filter(v => (side === "sell" ? v > ours : v < ours)).length : 0;
-    const dots = priced.map(key => ({chart: key, side: cells[key].value > ours ? "above" : cells[key].value < ours ? "below" : "level"}));
+    const dots = priced.map(key => ({chart: key, value: cells[key].value, side: cells[key].value > ours ? "above" : cells[key].value < ours ? "below" : "level"}));
     const eligible = Boolean(side) && priced.length >= 2 && value > 0 && agree * 2 > priced.length;
     return {value, count: priced.length, of: priced.length, left, diff, gap, equal: ours.toFixed(1) === value.toFixed(1),
       side, agree, eligible, dots};
   }
 
-  // charts: the chart keys to compare (already filtered for availability and week).
+  // charts: the chart keys to compare (already filtered for availability and week). Their values are the engine's Indexed series
+  // (each publisher's chart rescaled to our point scale), never the adjusted (_adj_values) or native ones.
   // opts.ours: which engine series is our value (default DDF Value).
   function buildTargets(rows, charts, opts) {
     const ourKey = (opts && opts.ours) || OUR_KEY;

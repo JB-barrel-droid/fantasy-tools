@@ -7,8 +7,8 @@ headless (desktop 1440 × 900 and 1366 × 768, narrow desktop 1024 × 768, phone
 
 Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * "Our value" shows the engine's value for the series picked in "Our value"
-    (DDF Projections by default, JEG-677; then DDF Value, ESPN, CBS
-    rest-of-season and Razzball through the picker);
+    (DDF Value, the blend, by default per Jeremy 2026-10-16; then DDF
+    Projections, ESPN, CBS rest-of-season and Razzball through the picker);
   * with a DDF version, each row's Our value carries "from N sources" with N the
     engine's count for that version (row.ddfCount for DDF Value); the tier in
     the player sub-line is the engine's row.ddfTier for DDF Value, the rank by
@@ -105,8 +105,8 @@ TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
 DDF = "ddf_value"
-PROJ = "ddf_value_projections"   # the default (JEG-677)
-OURS = (PROJ, DDF, "espn", "cbsros", "razzball")
+PROJ = "ddf_value_projections"   # a choice in the picker, not the default (Jeremy 2026-10-16)
+OURS = (DDF, PROJ, "espn", "cbsros", "razzball")
 TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
 CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
@@ -149,7 +149,8 @@ READ = """([side, ours, ids]) => {
     best: text(tr.querySelector('td.best')),
     bestChart: tr.querySelector('td.best').dataset.best,
     agree: (n => n ? {agree: n.dataset.agree, of: n.dataset.of, text: n.textContent.trim(),
-      dots: [...n.querySelectorAll('.t-dot')].map(d => d.dataset.chart + ':' + d.dataset.dot)} : null)(tr.querySelector('td.best .t-who')),
+      dots: [...n.querySelectorAll('.t-dot')].map(d => d.dataset.chart + ':' + d.dataset.dot),
+      values: [...n.querySelectorAll('.t-dot')].map(d => ({chart: d.dataset.chart, value: Number(d.dataset.value), title: d.title}))} : null)(tr.querySelector('td.best .t-who')),
     cells: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, {
       value: text(td), gap: td.querySelector('.gap')?.textContent ?? null,
       atWaiver: Boolean(td.querySelector('.at-waiver')),
@@ -242,7 +243,7 @@ SIMULATE_ROWS = """() => {
   const t = V2.targets();
   const used = t.used;
   const rows = C.getRows();
-  const KEY = 'ddf_value_projections';   // the default series (JEG-677): the probes are simulated on it
+  const KEY = 'ddf_value';   // the default series (DDF Value, 2026-10-16): the probes are simulated on it
   const fin = v => typeof v === 'number' && Number.isFinite(v);
   // Under the consensus rule a probe must keep its player a target: every priced chart above ours, 3+ charts.
   const solid = t.sell.filter(p => p.market.of >= 3 && p.market.agree === p.market.of);
@@ -265,11 +266,10 @@ SIMULATE_ROWS = """() => {
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
     const k = String(r.player_key);
-    const ver = (extra) => ({...(r.ddfByVersion || {}), projections: {...((r.ddfByVersion || {}).projections || {}), ...extra}});
-    if (k === low) return {...r, values: {...r.values, [KEY]: 0.5},
-      ddfByVersion: ver({count: 1, sources: [used[0]], lowConfidence: true, confidenceNote: note})};
-    if (k === none) return {...r, values: {...r.values, [KEY]: null},
-      ddfByVersion: ver({count: 0, sources: [], lowConfidence: false, reason})};
+    if (k === low) return {...r, values: {...r.values, [KEY]: 0.5}, ddfCount: 1, ddfSources: [used[0]],
+      ddfLowConfidence: true, ddfConfidenceNote: note};
+    if (k === none) return {...r, values: {...r.values, [KEY]: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
+      ddfLowConfidence: false, ddfReason: reason};
     if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
     if (gap && k === gap.key) return {...r, values: {...r.values, [gap.chart]: null},
       missingReasons: {...(r.missingReasons || {}), [gap.chart]: gap.reason}};
@@ -468,18 +468,18 @@ def check(snapshot) -> list[str]:
         errors.append("rows were not simulated")
     else:
         listed = {key for key, _ in snapshot["allBest"]}
-        if our_key == PROJ and side == "sell":
+        if our_key == DDF and side == "sell":
             if probe["low"] not in listed:
                 errors.append(f"one-source player {probe['low']} is not a sell target (Jeremy: show it, flagged)")
             if not any(r["key"] == probe["low"] for r in snapshot["table"] + snapshot["cards"]):
                 errors.append(f"one-source player {probe['low']} is not rendered in the top rows")
-        if our_key == PROJ:
+        if our_key == DDF:
             if probe["none"] in listed:
                 errors.append(f"player {probe['none']} with no DDF input is listed as a {side} target")
             if snapshot["omittedNoOurs"] < 1 or probe["reason"] not in snapshot["note"]:
                 errors.append(f"player with no DDF input not counted with the engine's reason: {snapshot['note']!r}")
         gap = probe.get("gap")
-        if our_key == PROJ and side == "sell":
+        if our_key == DDF and side == "sell":
             grows = [r for r in snapshot["table"] if gap and r["key"] == gap["key"]]
             if not grows:
                 errors.append(f"the missing-chart probe {gap} is not rendered; the missing-value path went unchecked")
@@ -488,7 +488,7 @@ def check(snapshot) -> list[str]:
                 if not cell.get("missing") or cell.get("title") != gap["reason"]:
                     errors.append(f"{gap['key']}/{gap['chart']}: engine has no value (reason {gap['reason']!r}) but cell shows {cell}")
         zrows = [r for r in snapshot["table"] if r["key"] == probe["zero"]["key"]]
-        if our_key == PROJ and side == "sell" and snapshot["table"] and not zrows:
+        if our_key == DDF and side == "sell" and snapshot["table"] and not zrows:
             errors.append(f"the waiver-line probe {probe['zero']} is not rendered")
     if snapshot["picker"] != our_key:
         errors.append(f"picker shows {snapshot['picker']!r}, expected {our_key!r}")
@@ -550,6 +550,11 @@ def check(snapshot) -> list[str]:
                            for c in snapshot["used"] if finite(values.get(c)))
         if sorted(shown.get("dots", [])) != want_dots:
             errors.append(f"{row['key']}: dots {shown.get('dots')} != one per priced chart {want_dots}")
+        # Jeremy 2026-10-16: each dot carries its chart's INDEXED value (the engine's chart series).
+        want_values = sorted((c, values[c]) for c in snapshot["used"] if finite(values.get(c)))
+        got_values = sorted((v["chart"], v["value"]) for v in shown.get("values", []))
+        if got_values != want_values or any(f"(indexed) {fmt(v['value'])}" not in v["title"] for v in shown.get("values", [])):
+            errors.append(f"{row['key']}: dot values {shown.get('values')} != the indexed chart values {want_values}")
     natives = snapshot["natives"] or {}
     for detail in snapshot["details"]:
         values = engine.get(detail["key"], {})
@@ -870,8 +875,8 @@ def collect(targets_js=None, v2_js=None, v2_css=None, html_sub=None, viewports=F
                     errors += [tag + e for e in _popover_checks(page, width)]
                     errors += [tag + e for e in _paging_checks(page, width)]
                 full_numbers = numbers and width in (1440, 390)
-                for ours in (OURS if full_numbers else (PROJ,) if numbers else ()):
-                    if ours != PROJ:
+                for ours in (OURS if full_numbers else (DDF,) if numbers else ()):
+                    if ours != DDF:
                         page.select_option("#v2TOurs", ours)
                         # The pick must survive a trip to Player values and back.
                         page.evaluate("() => { location.hash = '#player-values'; }")
@@ -975,13 +980,13 @@ class TradeTargetsRenderTest(unittest.TestCase):
                             ".v2-ttable th { vertical-align: bottom; white-space: nowrap; line-height: 1.25; }")},
                 {"viewports": ((1024, 768),), "numbers": False}),
             # JEG-455 / tier ruling
-            "default reverted to DDF Value": ({"targets_js": (targets, "const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[1];")}, numbers_only),
+            "default moved off DDF Value": ({"targets_js": (targets, "const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[2];")}, numbers_only),
             "tier read from espnRole": ({"v2_js": (v2, "const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));",
                                                    "const tierText = row => tierLabel(row.espnRole);")}, numbers_only),
             "source count missing": ({"v2_js": (v2, "      if (count) cell.appendChild(count);\n", "")}, numbers_only),
             "pick not remembered": ({"v2_js": (v2, "      saveTargetsOurs(T.ours);\n", "")}, numbers_only),
             "one-source player left out": ({"targets_js": (targets, "      if (!finite(ours)) {",
-                                                           "      if (!finite(ours) || (row.ddfByVersion && row.ddfByVersion.projections && row.ddfByVersion.projections.lowConfidence)) {")}, numbers_only),
+                                                           "      if (!finite(ours) || row.ddfLowConfidence) {")}, numbers_only),
             "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, key)) {\n      const node = lowConfidenceNode(row, key);",
                                                          "    if (false) {\n      const node = lowConfidenceNode(row, key);")}, numbers_only),
             # JEG-504
