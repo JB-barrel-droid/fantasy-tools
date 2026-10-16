@@ -110,10 +110,11 @@ EXAMPLES = 8
 MAX_DIVERGENCE_ROWS = 200  # per source per run, written to public.fidelity_divergences
 
 TRADE_CHARTS = ("usatoday", "fantasycalc", "fantasypros", "cbs")
-PROJECTIONS = ("espn", "cbsros", "razzball")  # readers: pipelines/fidelity_sources/<source>.py
+PROJECTIONS = ("espn", "cbsros", "razzball", "draftsharks", "fantasysharks")  # readers: pipelines/fidelity_sources/<source>.py
 SOURCES = TRADE_CHARTS + PROJECTIONS
 LABEL = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS",
-         "espn": "ESPN", "cbsros": "CBS rest of season", "razzball": "Razzball"}
+         "espn": "ESPN", "cbsros": "CBS rest of season", "razzball": "Razzball",
+         "draftsharks": "Draft Sharks", "fantasysharks": "Fantasy Sharks"}
 NOT_COVERED: dict[str, str] = {}
 PROJECTION_AMBER_DAYS = 1  # projections are re-read daily (ingest on change, at least every 20 h)
 PROJECTION_RED_DAYS = 3
