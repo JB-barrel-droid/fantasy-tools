@@ -533,6 +533,7 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     refWeek: C.getReferenceWeek ? C.getReferenceWeek() : null,
     caption: $('v2TChartCaption').textContent, captionInfo: Boolean(document.querySelector('.v2-tcompare button[data-info]')),
     lowEngine: C.getRows().filter(r => r.ddfLowConfidence).map(r => String(r.player_key)),
+    divergence: [...document.querySelectorAll('#v2TDivergence .v2-div-chip')].map(c => ({src: c.dataset.divergence, status: c.dataset.status})),
     weight: {h2: [...document.querySelectorAll('#v2Targets h2')].map(h => h.textContent.trim()),
       sub: document.querySelector('#v2Targets .v2-ttitle p').textContent,
       headline: $('v2WeightHeadline').textContent,
@@ -1385,6 +1386,15 @@ def tt03(S):
     return errors
 
 
+def gl25(S):
+    """The chips on Trade targets equal the published source_divergence for the compared charts."""
+    doc = json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8")).get("source_divergence") or {}
+    used = {h["chart"] for h in S["tabs"]["targets"]["heads"]}
+    want = {k: v["status"] for k, v in doc.items() if k in used and v.get("status") in ("warn", "investigate", "reviewed")}
+    got = {c["src"]: c["status"] for c in S["tabs"]["targets"]["divergence"]}
+    return [] if got == want else [f"divergence chips {got}, published {want}"]
+
+
 def tt10(S):
     w = S["tabs"]["targets"]["weight"]
     errors = []
@@ -1649,7 +1659,7 @@ CHECKS = {
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
-    "GL-22": PENDING("JEG-498"), "GL-23": PENDING("JEG-537"), "GL-24": PENDING("JEG-537"),
+    "GL-22": PENDING("JEG-498"), "GL-23": PENDING("JEG-537"), "GL-24": PENDING("JEG-537"), "GL-25": gl25,
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
