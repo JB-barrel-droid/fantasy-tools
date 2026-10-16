@@ -673,7 +673,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 @media (max-width: 767px) {
   .v2-tabs { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
   /* 7 px side padding leaves slack in the 358 px row, so the shortest tab can keep a 44 px hit area (JEG-607). */
-  .v2-tab { padding: 8px 6px; min-width: 44px; flex: 1 1 auto; justify-content: center; }
+  /* Seven tabs since Research (JEG-543): 13 px type and 2 px padding keep the row inside 358 px. */
+  .v2-tab { padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 13px; }
   .v2-tab .v2-tab-full { display: none; }
   .v2-tab::before { content: attr(data-short); }
 }
@@ -1127,6 +1128,17 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-mf-sec { margin-top: 36px; }
 }
 
+/* Research (JEG-543): the index and posts reuse the Manifesto's reading column. */
+#v2Research { padding-top: clamp(20px, 2vw + 8px, 40px); padding-bottom: 64px; }
+.v2-mf-text a { color: var(--v2-action-strong); }
+.v2-rs-list { list-style: none; margin: 28px 0 0; padding: 0; }
+.v2-rs-list li { display: grid; gap: 4px; padding: 16px 0; border-top: 1px solid var(--v2-border); }
+.v2-rs-link { font-size: 19px; font-weight: 700; text-decoration: none; }
+.v2-rs-link:hover { text-decoration: underline; }
+.v2-rs-date, .v2-rs-meta { color: var(--v2-muted, #5b6472); font-size: 14px; }
+.v2-mf-text .v2-mf-eyebrow a { color: inherit; text-decoration: none; }
+.v2-rs-back { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--v2-border); }
+
 /* JEG-502: players no source prices, listed only in search results. */
 .v2-unpriced { margin: 0 0 12px; padding: 10px 14px; border: 1px dashed var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); }
 .v2-unpriced-head { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
@@ -1153,3 +1165,13 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-mod[data-collapsed="true"] > .v2-mod-head > :not(h2):not(.v2-eyebrow):not(:has(h2)) { display: none !important; }
 .v2-mod[data-xl="true"] { grid-column: 1 / -1; }
 .v2-mod[data-xl="true"] .v2-table-wrap { max-height: none; }
+
+/* JEG-481: Find a trade (finder.js). */
+.v2-find-side { position: relative; }
+.v2-find-side h3 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
+.v2-find-side .v2-trade-results { left: 0; right: 0; }
+#v2Find .v2-trade-sides { margin-top: 12px; }
+#v2Find .v2-ctoolbar { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#v2FindOut { margin-top: 12px; }
+.v2-find-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.v2-find-list li { display: grid; gap: 4px; border-top: 1px solid var(--v2-border); padding: 12px 0; }

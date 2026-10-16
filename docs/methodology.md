@@ -948,7 +948,10 @@ injury). It does not capture:
    0.847 (Vaki himself available) x (13.4 - 4.90 surplus at the promoted
    level) x 0.78 (projected to start at that level) = 0.79 points of surplus
    per week reaching a lineup, the same as Keaton Mitchell's whole 0.80
-   (RB44, 7.69 points per game, share 28.6%). MR-26.
+   (RB44, 7.69 points per game, share 28.6%). MR-26. Built as a signal outside
+   the pie in `pipelines/stash_signals.py` (JEG-526); the same module holds the
+   waiver-upside bar (JEG-529): the best free agents' `avail x E[(X - w)+ ; X > l]`
+   against a bench player's `lineup_share x (x - w)`, display only.
 2. *The own-handcuff hedge (portfolio).* Holding your own starter's backup
    pays exactly in the weeks your starter is out, so its value to you is
    higher than to the average team. That needs the roster (manifesto
