@@ -186,13 +186,14 @@
     const entry = divergence[publisher];
     if (!entry || method === "ddf" || method === "vorp") return null;
     const status = entry.status;
-    if (status !== "warn" && status !== "investigate" && status !== "reviewed") return null;
-    const href = status === "reviewed" && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
+    if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;
+    const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
+    const chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : "check");
     const chip = document.createElement(href ? "a" : "span");
-    chip.className = `v2-div-chip is-${status === "reviewed" ? "reviewed" : "check"}`;
+    chip.className = `v2-div-chip is-${chipClass}`;
     chip.dataset.divergence = publisher;
     chip.dataset.status = status;
-    const word = status === "reviewed" ? "Reviewed" : "Check";
+    const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : "Check");
     const message = String(entry.message || "").trim() || `${PUBLISHER_NAMES[publisher] || publisher} disagrees with the other sources more than usual.`;
     chip.title = message;
     if (href) { chip.href = href; chip.target = "_blank"; chip.rel = "noopener"; }
@@ -200,7 +201,7 @@
     chip.setAttribute("aria-label", `${word}: ${message}`);
     const sym = document.createElement("span");
     sym.setAttribute("aria-hidden", "true");
-    sym.textContent = status === "reviewed" ? "✓ " : "⚑ ";
+    sym.textContent = status === "excluded" ? "✗ " : (status === "reviewed" ? "✓ " : "⚑ ");
     chip.append(sym, document.createTextNode(word));
     return chip;
   }

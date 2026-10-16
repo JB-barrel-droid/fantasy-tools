@@ -219,9 +219,12 @@ def run_reference(setting_list: list[dict], today: date, fixture=None, players=N
                   history=None) -> dict:
     inp = ref.Inputs.load(fixture or ref.FIXTURE, players or ref.PLAYERS, today=today)
     hist = ref.History(history or ref.HISTORY)
+    # JEG-610 item 2: load divergence exclusions for the current content week.
+    content_week = ref.freshness(inp)["current_week"] if hist else None
+    div_exc = ref.load_divergence_exclusions(week=content_week)
     out = {}
     for s in setting_list:
-        out[ref.setting_id(s)] = ref.compute(inp, s, hist=hist)
+        out[ref.setting_id(s)] = ref.compute(inp, s, hist=hist, divergence_exclusions=div_exc)
     return out
 
 

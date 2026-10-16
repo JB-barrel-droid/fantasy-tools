@@ -677,6 +677,15 @@
   // pipeline (so it contributes to weights, pie and universe) but its curves
   // and values are hidden from the display. Removing a held source from the
   // pipeline would renormalize every other source's values.
+  // JEG-610 item 2: source keys excluded by a divergence 'exclude' resolution.
+  // Read from the snapshot (injected by sync_dashboard_artifacts.py).
+  const divergenceExcluded = key => {
+    const exc = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getSnapshot().divergence_exclusions
+      : [];
+    return Array.isArray(exc) && exc.indexOf(key) !== -1;
+  };
+
   function eligibilityReason(key, natives) {
     if (sourceMissingFromData(key)) return {reason: "missing from this build", run: false};
     const block = compositeBlock(key);
@@ -684,6 +693,12 @@
     if (block && block.heldBy) return {reason: block.reason, run: true, hidden: true, block};
     if (sourceValidationStatus(key) !== undefined && sourceValidationStatus(key) !== "live") {
       return {reason: "held: did not pass source validation", run: true, hidden: true};
+    }
+    // JEG-610 item 2: divergence 'exclude' resolution -> held semantics
+    // (JEG-569: stays in the pool for weights and pie, hidden from DDF blend,
+    // Indexed basis and bench-share readout, grayed out in the UI).
+    if (divergenceExcluded(key)) {
+      return {reason: "divergence: excluded from blends", run: true, hidden: true};
     }
     if (!natives.size) return {reason: `not available for ${scoreLabel()} / ${teams} teams`, run: false};
     if (block) return {reason: block.reason, run: true, block};
