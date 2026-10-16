@@ -380,6 +380,7 @@ VALUES_JS = "async () => {" + COMMON + r"""
     customize: $('v2EditSources').textContent.trim(),
     rankBy: $('v2RankBy').value, rankOptions: [...$('v2RankBy').options].map(o => o.value),
     shown: V.shown(), active: C.getActiveSources(),
+    legendLinks: [...document.querySelectorAll('#v2ShowingLegend a[data-source-link]')].map(a => [a.dataset.sourceLink, a.getAttribute('href'), a.target]),
     names: {label: document.querySelector('.v2-showing b').textContent.trim(), info: document.querySelectorAll('.v2-showing button[data-info=names]').length},
     fit: {ticks: [...V.chart().svg.querySelectorAll('.axis text[text-anchor="end"]')].map(t => Number(t.textContent)),
       values: V.chart().slice.flatMap(r => V.chart().keys.map(k => r.values[k])).filter(v => Number.isFinite(v) && v > 0)},
@@ -531,7 +532,7 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     sellMore: shown($('v2TSellMore')), buyMore: shown($('v2TBuyMore')),
     rects: [rect($('v2TSell')), rect($('v2TBuy'))],
     heads: [...document.querySelectorAll('#v2TTable thead th[data-chart]')].map(th => ({chart: th.dataset.chart,
-      name: own(th.querySelector('.th-line')), sub: th.querySelector('.th-sub')?.textContent || '',
+      name: th.querySelector('.th-line a[data-source-link]')?.textContent || own(th.querySelector('.th-line')), sub: th.querySelector('.th-sub')?.textContent || '',
       badge: th.querySelector('.v2-prior-badge')?.textContent || null,
       info: Boolean(th.querySelector('button[data-info]'))})),
     weeks: weekInfo(),
@@ -539,6 +540,8 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     caption: $('v2TChartCaption').textContent, captionInfo: Boolean(document.querySelector('.v2-tcompare button[data-info]')),
     lowEngine: C.getRows().filter(r => r.ddfLowConfidence).map(r => String(r.player_key)),
     divergence: [...document.querySelectorAll('#v2TDivergence .v2-div-chip')].map(c => ({src: c.dataset.divergence, status: c.dataset.status})),
+    sourceLinks: [...document.querySelectorAll('#v2TTable thead th[data-chart] a[data-source-link]')].map(a => [a.dataset.sourceLink, a.getAttribute('href'), a.target]),
+    mathCells: [...document.querySelectorAll('#v2TTable td.t-chart[data-math-for]')].slice(0, 12).map(td => [td.getAttribute('tabindex'), td.getAttribute('aria-describedby')]),
     weight: {h2: [...document.querySelectorAll('#v2Targets h2')].map(h => h.textContent.trim()),
       sub: document.querySelector('#v2Targets .v2-ttitle p').textContent,
       headline: $('v2WeightHeadline').textContent,
@@ -1358,6 +1361,28 @@ def pv16(S):
     return errors
 
 
+def gl27(S):
+    """Source names link to the publisher's page (addresses from the data file), in a new tab."""
+    data = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
+    want = {k: (v.get("url") or v.get("source_url")) for k, v in data.items() if (v.get("url") or v.get("source_url"))}
+    errors = []
+    links = S["values"]["s0"]["legendLinks"] + S["tabs"]["targets"]["sourceLinks"]
+    if not links:
+        errors.append("no source links on the Showing legend or Trade targets heads")
+    for pub, href, target in links:
+        base = want.get(pub)
+        norm = lambda u: re.sub(r"/(QB|RB|WR|TE)/", "/QB/", re.sub(r"-(qb|rb|wr|te)-", "-qb-", u or ""))
+        if norm(href) != norm(base) or target != "_blank":
+            errors.append(f"{pub}: link {href!r} (target {target!r}), the data file says {base!r}")
+    return errors
+
+
+def tt12(S):
+    cells = S["tabs"]["targets"]["mathCells"]
+    bad = [c for c in cells if c != ["0", "v2MathTip"]]
+    return [f"chart values must be focusable and describedby the math tip: {bad[:3]}"] if bad or not cells else []
+
+
 def gl26(S):
     n = S["values"]["s0"]["names"]
     errors = []
@@ -1781,14 +1806,14 @@ CHECKS = {
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
-    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26,
+    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26, "GL-27": gl27,
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
     "PV-10": pv10, "PV-11": pv11, "PV-12": pv12, "PV-13": pv13, "PV-14": pv14, "PV-15": pv15,
     "PV-16": pv16, "PV-17": pv17, "PV-18": pv18, "PV-19": pv19, "PV-20": pv20,
     "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04,
-    "TT-10": tt10, "TT-11": tt11, "RS-01": rs01, "RS-02": rs02, "RS-03": rs03,
+    "TT-10": tt10, "TT-11": tt11, "TT-12": tt12, "RS-01": rs01, "RS-02": rs02, "RS-03": rs03,
     # "rescaled" lands with JEG-510; the ⓘ and the scale word are checked meanwhile.
     "TT-05": PENDING("JEG-510", partial=tt05_partial),
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),

@@ -51,6 +51,9 @@ TARGETS = """() => { const bad = [];
     const b = n.getBoundingClientRect();
     // Only controls fully on screen can be probed.
     if (!b.width || n.closest('[hidden]') || b.top - 1 < 0 || b.bottom + 1 > innerHeight) return;
+    // JEG-457: a source name that links to the publisher's page sits inside a line of text, an inline target (WCAG 2.2
+    // 2.5.8 exempts those); the control beside it (sort button, row, label) keeps the 44 px target.
+    if (n.matches('a.v2-srclink')) return;
     const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
     const owner = n.closest('label') || n;
     const ok = [-21, 21].every(dy => { const e = document.elementFromPoint(cx, cy + dy); return e && (owner === e || owner.contains(e)); });
