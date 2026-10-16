@@ -44,6 +44,10 @@ class TriageTest(unittest.TestCase):
                           ("half_12", "TE", 10, 14, ["t one"])])
         self.assertIn("still priced live", ct.VERIFY[("half_12", "TE")])
 
+    def test_same_text_in_both_status_fields_counts_once(self):
+        status = {"sources": {"cbs": TEXT}, "held_detail": {"cbs": {"detail": TEXT}}}
+        self.assertEqual(len(ct.drops_from_status("cbs", status)), 2)
+
     def test_classification(self):
         d = directory()
         kind = lambda slug: ct.classify(d.describe("half_12", "WR", slug))[0]  # noqa: E731
