@@ -537,19 +537,14 @@ def render_report(doc: dict) -> str:
             L.append(f"| {name} | " + " | ".join(
                 ("n/a" if m[p]["realized_rate"] is None else f"{100 * m[p]['realized_rate']:.1f}% vs {100 * m[p]['assumed_m']:.1f}%")
                 for p in POSITIONS) + " |")
-        L.append("")
-        L.append("Start-worthy calibration (expected-starts P(level above the starter line) at valuation vs realized share of later team games with a finish inside the starter count):")
-        L.append("")
-        L.append("| Predicted bin | Players | Team games | Realized |")
-        L.append("| --- | --- | --- | --- |")
-        for b in e["start_worthy_calibration"]:
-            rr = b["realized_start_worthy_rate"]
-            L.append(f"| {b['bin'][0]:.1f} to {b['bin'][1]:.1f} | {b['players']} | {b['team_games']} | "
-                     + ("n/a" if rr is None else f"{100 * rr:.1f}%") + " |")
+        # JEG-534 MR-23: projected-start calibration is the primary G6 metric
+        # (the share predicts whether the weekly projection puts the player
+        # inside the starter count, not whether he finishes there on Sunday).
         if e.get("projected_start_calibration"):
             L.append("")
-            L.append("Projected-start calibration (MR-23: the same bins against the share of later team games in "
-                     "which ESPN's weekly projection put the player inside the starter count):")
+            L.append("Start-worthy calibration (G6, re-pointed to projected starts per MR-23: "
+                     "expected-starts P(level above the starter line) at valuation vs share of later team games "
+                     "in which ESPN's weekly projection put the player inside the starter count):")
             L.append("")
             L.append("| Predicted bin | Players | Team games | Projected to start |")
             L.append("| --- | --- | --- | --- |")
@@ -557,6 +552,16 @@ def render_report(doc: dict) -> str:
                 rr = b["realized_projected_start_rate"]
                 L.append(f"| {b['bin'][0]:.1f} to {b['bin'][1]:.1f} | {b['players']} | {b['team_games']} | "
                          + ("n/a" if rr is None else f"{100 * rr:.1f}%") + " |")
+        L.append("")
+        L.append("Realized-finish calibration (G6 legacy: the same bins against realized share of later team games "
+                 "with a finish inside the starter count):")
+        L.append("")
+        L.append("| Predicted bin | Players | Team games | Realized |")
+        L.append("| --- | --- | --- | --- |")
+        for b in e["start_worthy_calibration"]:
+            rr = b["realized_start_worthy_rate"]
+            L.append(f"| {b['bin'][0]:.1f} to {b['bin'][1]:.1f} | {b['players']} | {b['team_games']} | "
+                     + ("n/a" if rr is None else f"{100 * rr:.1f}%") + " |")
         if e.get("projection_error"):
             L.append("")
             L.append("ESPN weekly projection minus actual points, player-weeks with a projection above 0 and a stat line. "

@@ -109,19 +109,37 @@ def roster(superflex: int = 0) -> dict:
     return {**DEFAULT_ROSTER, "SUPERFLEX": int(superflex)}
 
 
+CONTENT_WEEK_SETTINGS = [
+    # JEG-527: content-week case — a non-default content week with the regular-season objective.
+    {"scoring": "ppr", "teams": 12, "superflex": 0,
+     "lineup": {"content_week": 9, "objective": "regular"}},
+]
+
+
 def settings(superflex_too: bool = True) -> list[dict]:
     """The settings every chain run compares: 3 scorings x 4 team counts on
-    the default roster, plus the same with one superflex slot."""
+    the default roster, plus the same with one superflex slot, plus at least
+    one content-week case (JEG-527)."""
     out = []
     for sf in ((0, 1) if superflex_too else (0,)):
         for scoring in SCORINGS:
             for teams in TEAM_COUNTS:
                 out.append({"scoring": scoring, "teams": teams, "superflex": sf})
+    out.extend(CONTENT_WEEK_SETTINGS)
     return out
 
 
 def setting_id(s: dict) -> str:
-    return f"{s['scoring']}/{s['teams']}/sf{s['superflex']}"
+    base = f"{s['scoring']}/{s['teams']}/sf{s['superflex']}"
+    lineup = s.get("lineup")
+    if not lineup:
+        return base
+    parts = []
+    if lineup.get("content_week") is not None:
+        parts.append(f"cw{lineup['content_week']}")
+    if lineup.get("objective"):
+        parts.append(lineup["objective"])
+    return f"{base}/{'+'.join(parts)}" if parts else base
 
 
 def _finite(v) -> bool:

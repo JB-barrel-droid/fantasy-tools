@@ -111,11 +111,30 @@ ENGINE_JS = """async ([settings, views, viewSeries, versions]) => {
     if (!vp) return null;
     try { return JSON.parse(JSON.stringify(vp)); } catch (e) { return {error: String(e)}; }
   };
+  // JEG-527: lineup defaults to reset between settings with lineup overrides.
+  const lineupDefaults = typeof c.getLineupSettingsDefaults === 'function'
+    ? c.getLineupSettingsDefaults() : null;
   const out = {};
   for (const s of settings) {
     clickView('indexed');
     c.setScoring(s.scoring, false); c.setTeams(s.teams, false); c.setRosterSpot('SUPERFLEX', s.superflex, false);
-    const id = `${s.scoring}/${s.teams}/sf${s.superflex}`;
+    // JEG-527: reset lineup to defaults, then apply any overrides.
+    if (lineupDefaults && typeof c.setLineupSettings === 'function') {
+      c.setLineupSettings({...lineupDefaults, benchShareOverride: null, contentWeek: null}, false);
+    }
+    if (s.lineup && typeof c.setLineupSettings === 'function') {
+      const m = {};
+      if (s.lineup.content_week != null) m.contentWeek = s.lineup.content_week;
+      if (s.lineup.objective) m.optimizeFor = s.lineup.objective;
+      if (s.lineup.injury_history) m.injuryHistory = s.lineup.injury_history;
+      if (s.lineup.projection_confidence != null) m.projectionConfidence = s.lineup.projection_confidence;
+      if (s.lineup.league_weeks) {
+        if (s.lineup.league_weeks.regular_season_end != null) m.regularSeasonEnd = s.lineup.league_weeks.regular_season_end;
+        if (s.lineup.league_weeks.playoff_weeks) m.playoffWeeks = s.lineup.league_weeks.playoff_weeks;
+      }
+      c.setLineupSettings(m, false);
+    }
+    const id = s.id;
     let composite = null;
     try { composite = c.getCompositeInputs(); } catch (e) { composite = {error: String(e)}; }
     const entry = {composite, views: {}, prior: {}, estimated: {}, pipeline: pipeline()};
@@ -197,7 +216,9 @@ def run_engine(setting_list: list[dict], today: date, dist: Path | None = None,
                     "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                     timeout=90000)
                 view_series = {v: list(ref.VIEW_SERIES[v]) for v in ref.VIEWS}
-                result = page.evaluate(ENGINE_JS, [setting_list, list(ref.VIEWS), view_series,
+                # JEG-527: attach id to each setting for the JS to use as key.
+                tagged = [{**s, "id": ref.setting_id(s)} for s in setting_list]
+                result = page.evaluate(ENGINE_JS, [tagged, list(ref.VIEWS), view_series,
                                                    list(ref.DDF_VERSIONS)])
                 return {"settings": result, "page_errors": errors}
         finally:
