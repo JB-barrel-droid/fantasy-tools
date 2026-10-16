@@ -47,7 +47,7 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
   - Each group has Select all / none. The panel has Reset to default and Done / Cancel.
   - Each page sets its own defaults to suit its objective.
 
-  - **GL-08** DDF is the core value everywhere. ESPN is one input, not the anchor. Defaults, tiers and wording use DDF Value.
+  - **GL-08** DDF is the core value everywhere. ESPN is one input, not the anchor. Defaults, tiers and wording use DDF Value, including Trade targets' "Our value" (Jeremy, 2026-10-16: DDF decides who we want and don't want).
 
   - (Jeremy, 2026-10-09: "ESPN is no longer the core weight, it is DDF".)
   - Moving the rescaling anchor to DDF is JEG-499.
@@ -144,12 +144,12 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
   - **TT-01** The headline explains the page: "Where the trade market is wrong this week".
   - **TT-02** The Sell and Buy lists are both visible: top 5 each, expandable, side by side from 1280 px.
-  - **TT-03** "Our value" defaults to DDF Projections (Jeremy, JEG-461 2026-10-08; JEG-677), with a source count on each row. DDF Value and the other series stay in the picker.
-  - **TT-04** Check 1 ranks by the market consensus: the median of the indexed charts that price the player, minus our value. A player is listed only with 2+ charts and a majority of them on the consensus's side of our value; Sell is gap > 0 (largest first), Buy gap < 0 (most negative first). Each row shows the consensus, the gap, "N of M charts agree" and one dot per chart. The row expands to show every chart. *(JEG-677; pinned by `tests/test_v2_targets.py` and `tests/test_v2_targets_render.py`)*
+  - **TT-03** "Our value" defaults to DDF Value, the blend (Jeremy, 2026-10-16: DDF decides who we want and don't want; this reverses the JEG-677 DDF Projections default), with a source count on each row. DDF Projections, the other DDF versions and the projection series stay in the picker (JEG-542).
+  - **TT-04** Check 1 ranks by the market consensus: the median of the INDEXED trade charts (the rescaled series, not the adjusted or native values) that price the player, minus our value (Jeremy, 2026-10-16). The consensus and each individual chart are used to find opportunities for both value and offer acceptance. A player is listed only with 2+ charts and a majority of them on the consensus's side of our value; Sell is gap > 0 (largest first), Buy gap < 0 (most negative first). Each row shows the consensus, the gap, "N of M charts agree" and one dot per chart, each dot carrying that chart's indexed value. This replaces the old "largest gap, from one chart" attribution. The row expands to show every chart. *(JEG-677; pinned by `tests/test_v2_targets.py` and `tests/test_v2_targets_render.py`)*
   - **TT-05** Chart values are labelled "rescaled", with an ⓘ that explains the rescaling (GL-21) *(to build: JEG-510)*.
   - **TT-06** A chart that is a week behind shows a "Wk N" badge wherever it appears: Trade targets, Player values and Compare a trade.
   - **TT-07** A chart value at or below 0 is never a buy or sell target.
-  - **TT-08** Players with only one source are included and flagged "◐ 1 source".
+  - **TT-08** Players whose DDF Value rests on only one source are included and flagged "◐ 1 source". A player priced by only one trade chart is not a Check 1 target (TT-04: 2+ charts), so a single chart no longer drives a Sell or Buy row.
   - **TT-12** Hovering, focusing or tapping a chart value on Trade targets shows where it comes from, leading with the number as the publisher prints it: as published, times the index factor, equals the indexed value, minus our value, equals the gap, with a link to the chart. The numbers come from the engine's derivation (`getPublishedMath`); a player the chart does not price shows the reason instead. *(JEG-457; pinned by `tests/test_v2_source_links_render.py`)*
   - **TT-10** The page runs two numbered checks, and the subtitle names both: "1. Potential mispricing" (player by player) and "2. Potential positional weight inflation" (position by position). *(JEG-476)*
   - **TT-11** Check 2 compares DDF Value with the trade-chart consensus (median of 2+ charts) and with each chart, by position and by DDF starter / bench tier. The gap is the group's share of the market total divided by its share of the DDF Value total, minus 1, over the same players on both sides, so a chart's overall scale cannot make every position look cheap. Sell this group at +10% or more, Buy this group at -10% or less, else Fairly priced. A group under 3 players shows no number; the headline only names groups of 8 or more. A group opens to its players. *(JEG-476, JEG-489; pinned by `tests/test_v2_group_weight.py` and `tests/test_v2_group_weight_render.py`)*
