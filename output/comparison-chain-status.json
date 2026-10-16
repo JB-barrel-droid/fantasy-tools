@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T03:23:03.305883+00:00",
+  "run_at": "2026-10-16T03:33:30.334425+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -140,7 +140,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-15 -> 12 DDF legs -> section; review passed (4380 values)",
+      "detail": "snapshot 2026-10-16 -> 12 DDF legs -> section; review passed (4380 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -189,7 +189,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-15",
+      "content_vintage": "2026-10-16",
       "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
@@ -214,12 +214,12 @@
       "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[692 chars]rs)\"] != []"
+      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[695 chars]rs)\"] != []"
     ],
     "make_targets": [
       "Makefile:500: test-core"
     ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[692 chars]rs)\"] != []",
-    "recorded_at": "2026-10-16T03:31:37.998654+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[695 chars]rs)\"] != []",
+    "recorded_at": "2026-10-16T03:41:25.613764+00:00"
   }
 }
