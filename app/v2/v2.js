@@ -3613,6 +3613,7 @@
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence}) : null,
+      deal: ready ? TC.dealRead(giveRows, receiveRows) : null,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
@@ -4121,7 +4122,8 @@
   function renderStory() {
     const box = $("v2CStory");
     const s = compareView.story;
-    box.hidden = !s.kind || s.kind === "single";
+    // JEG-487: the rule-based deal read replaces "The sources split." (a split is what the read explains).
+    box.hidden = !s.kind || s.kind === "single" || s.kind === "split";
     // Folded into the verdict card (JEG-469): open for a same-publisher contrast, which the
     // verdict does not say; otherwise one click away. A reader's own toggle is kept.
     if (box.dataset.story !== (s.kind || "")) box.open = s.kind === "contrast";
@@ -4153,6 +4155,95 @@
       title.textContent = "No complete source yet.";
       text.textContent = "Every selected source is missing a value for at least one player, so no row has a result. See each row for who is missing.";
     }
+  }
+
+  // JEG-487 deal read (CT-08): three nets with their questions, the fixed 9-cell grid with the current cell
+  // outlined, and one production sentence. Everything is read from compareView.deal (trade.js dealRead).
+  const DEAL_NETS = [
+    ["value", "DDF Value", "Are you getting real value?"],
+    ["market", "Trade chart average", "Does the market think you are winning?"],
+    ["projections", "DDF Projections", "Is the value backed by projected production?"]];
+  const DEAL_SIDE_WORD = {win: "You win", even: "Even", lose: "You lose"};
+  function renderDeal() {
+    const box = $("v2CDeal");
+    const deal = compareView.deal;
+    box.hidden = !deal;
+    if (!deal) return;
+    const TC = window.TradeValueTrade;
+    $("v2CDealRead").textContent = deal.kind === "read" ? `${deal.title}: ${deal.action}` : "";
+    $("v2CDealRead").hidden = deal.kind !== "read";
+    $("v2CDealText").textContent = deal.text;
+    const nets = $("v2CDealNets");
+    nets.replaceChildren();
+    DEAL_NETS.forEach(([id, name, question]) => {
+      const n = deal[id];
+      const li = document.createElement("li");
+      li.dataset.net = id;
+      const label = document.createElement("span");
+      label.className = "v2-deal-name";
+      label.textContent = name;
+      const info = document.createElement("button");
+      info.type = "button";
+      info.className = "v2-info";
+      info.setAttribute("aria-label", `What ${name} tells you`);
+      info.setAttribute("aria-expanded", "false");
+      const glyph = document.createElement("span");
+      glyph.setAttribute("aria-hidden", "true");
+      glyph.textContent = "ⓘ";
+      info.appendChild(glyph);
+      const def = document.createElement("span");
+      def.className = "v2-deal-def v2-meta";
+      def.hidden = true;
+      def.textContent = question;
+      info.addEventListener("click", () => { def.hidden = !def.hidden; info.setAttribute("aria-expanded", String(!def.hidden)); });
+      const value = document.createElement("b");
+      value.className = "v2-deal-net";
+      value.dataset.side = n.side || "";
+      value.textContent = n.net === null ? "—" : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
+      if (n.net === null) value.title = "At least one player has no value in this series";
+      li.append(label, info, value, def);
+      nets.appendChild(li);
+    });
+    const grid = $("v2CDealGrid");
+    grid.replaceChildren();
+    const head = document.createElement("thead");
+    const hr = document.createElement("tr");
+    const corner = document.createElement("th");
+    corner.scope = "col";
+    corner.innerHTML = `<span class="v2-sr">DDF Value (rows) against Trade chart average (columns)</span>`;
+    hr.appendChild(corner);
+    TC.DEAL_SIDES.forEach(m => {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.textContent = `Charts: ${DEAL_SIDE_WORD[m].toLowerCase()}`;
+      hr.appendChild(th);
+    });
+    head.appendChild(hr);
+    const body = document.createElement("tbody");
+    TC.DEAL_SIDES.forEach(v => {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.textContent = `DDF Value: ${DEAL_SIDE_WORD[v].toLowerCase()}`;
+      tr.appendChild(th);
+      TC.DEAL_SIDES.forEach(m => {
+        const td = document.createElement("td");
+        const cell = TC.DEAL_READS[`${v}|${m}`];
+        td.dataset.cell = `${v}|${m}`;
+        td.textContent = cell.title;
+        td.title = cell.text;
+        if (deal.kind === "read" && deal.cell === `${v}|${m}`) {
+          td.classList.add("is-current");
+          td.setAttribute("aria-current", "true");
+        }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    grid.append(head, body);
+    const production = $("v2CDealProduction");
+    production.textContent = deal.production || "";
+    production.hidden = !deal.production;
   }
 
   // JEG-469 verdict (Jeremy, 2026-10-08): "Primary thing that matters is that DDF thinks you
@@ -4323,6 +4414,7 @@
     $("v2CVorpCard").hidden = !ready || !compareView.vorpKeys.length;
     renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp, compareView.falls.vorp, null);
     renderStory();
+    renderDeal();
     const notes = [];
     if (compareView.unavailable.length) {
       notes.push(`Not compared: ${compareView.unavailable.map(key => sourceMeta(key).short).join(", ")}, not available for this league.`);

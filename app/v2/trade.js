@@ -238,7 +238,66 @@
     return best ? {give: best.give, receive: best.receive} : {give: [top[1], top[3]], receive: [top[0], top[2]]};
   }
 
-  const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample};
+  // ---------- JEG-487 deal read (contract CT-08) ----------
+  // Three nets, each answering one question, all from engine series (no value math here beyond the sums):
+  //   V  DDF Value net              (ddf_value)             are you getting real value?
+  //   M  Trade chart average net    (ddf_value_charts)      does the market think you are winning?
+  //   P  DDF Projections net        (ddf_value_projections) is the value backed by projected production?
+  // Side of a net: win when it is at least max(1, 3% of the average side total of that series), lose when it
+  // is at most the negative of that, otherwise even. The read is a fixed 9-cell table on (V, M): a manager who
+  // trades off the market sees M's loss as their win, so V win with M lose is the arbitrage; V lose with M win
+  // is the trap. P is a one-sentence production check against V. Deterministic: no model, no blending.
+  const DEAL_KEYS = {value: "ddf_value", market: "ddf_value_charts", projections: "ddf_value_projections"};
+  const DEAL_SIDES = ["win", "even", "lose"];
+  const DEAL_READS = {
+    "win|win": {title: "Win, but a hard sell", action: "Propose, expect pushback",
+      text: "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss."},
+    "win|even": {title: "Value win at a fair market price", action: "Propose it",
+      text: "DDF Value says you come out ahead and the trade charts call it fair, so it is easy for them to accept."},
+    "win|lose": {title: "Arbitrage: send it", action: "Send it",
+      text: "DDF Value says you come out ahead while the trade charts say you lose, so the other manager sees it as their win."},
+    "even|win": {title: "Even on value, a hard sell", action: "Counter for more",
+      text: "DDF Value calls it even but the trade charts say you win, so the other manager will likely see a loss."},
+    "even|even": {title: "A fair trade", action: "Your call",
+      text: "DDF Value and the trade charts both call it even."},
+    "even|lose": {title: "Even on value, an easy sell", action: "Fine to propose",
+      text: "DDF Value calls it even while the trade charts say you lose, so the other manager sees a win and will likely accept."},
+    "lose|win": {title: "Trap", action: "Pass",
+      text: "The trade charts say you win but DDF Value says you lose: it looks good at market prices and is not."},
+    "lose|even": {title: "An overpay", action: "Pass or counter",
+      text: "DDF Value says you lose and the trade charts call it fair."},
+    "lose|lose": {title: "A loss on both", action: "Pass",
+      text: "DDF Value and the trade charts both say you lose."}
+  };
+  const sideOf = (net, give, receive) => {
+    const threshold = Math.max(1, 0.03 * ((give + receive) / 2));
+    return {side: net >= threshold ? "win" : net <= -threshold ? "lose" : "even", threshold};
+  };
+  // One production sentence: P's side against V's side.
+  function productionCheck(p, v) {
+    if (p === v) return p === "win" ? "Projected production backs the value: DDF Projections also say you come out ahead."
+      : p === "lose" ? "Projected production backs the value: DDF Projections also say you lose." : "Projected production backs the value: DDF Projections also call it even.";
+    const said = {win: "you come out ahead", lose: "you lose", even: "it is even"}[p];
+    const value = {win: "you win", lose: "you lose", even: "it is even"}[v];
+    return `Projected production does not back the value: DDF Value says ${value} but DDF Projections say ${said}.`;
+  }
+  function dealRead(giveRows, receiveRows) {
+    const rows = compareTrade(giveRows, receiveRows, [DEAL_KEYS.value, DEAL_KEYS.market, DEAL_KEYS.projections]).rows;
+    const [v, m, p] = rows;
+    const net = row => (row.net === null ? {net: null, give: null, receive: null, side: null, threshold: null, missing: row.missing}
+      : {net: row.net, give: row.give, receive: row.receive, ...sideOf(row.net, row.give, row.receive), missing: []});
+    const out = {value: net(v), market: net(m), projections: net(p)};
+    if (out.value.net === null || out.market.net === null) {
+      const gaps = [out.value.net === null ? "DDF Value" : null, out.market.net === null ? "Trade chart average" : null].filter(Boolean);
+      return {kind: "incomplete", ...out, text: `No deal read yet: ${gaps.join(" and ")} has no value for at least one player in the trade.`};
+    }
+    const cell = DEAL_READS[`${out.value.side}|${out.market.side}`];
+    return {kind: "read", ...out, cell: `${out.value.side}|${out.market.side}`, title: cell.title, action: cell.action, text: cell.text,
+      production: out.projections.net === null ? null : productionCheck(out.projections.side, out.value.side)};
+  }
+
+  const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
+    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);
