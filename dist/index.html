@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20261015-2122-ab3bd95e">
+<meta name="trade-chart-build" content="tv-20261015-2129-4dd709bf">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
@@ -1821,8 +1821,13 @@
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
     <div class="v2-title v2-ttitle">
       <h1 id="v2TargetsTitle">Where the trade market is wrong this week</h1>
-      <p>We check four publishers' trade charts against our values for your league. Sell the players they overpay for; buy the ones they undervalue.</p>
+      <p>We check four publishers' trade charts against our values for your league, two ways: potential mispricing, player by player, and potential positional weight inflation, position by position. Sell what they overpay for; buy what they undervalue.</p>
     </div>
+
+    <section class="v2-tcheck" aria-labelledby="v2TCheck1Title">
+      <h2 id="v2TCheck1Title">1. Potential mispricing</h2>
+      <p class="v2-meta">Our value for each player against what the trade charts pay for the same player. A big gap means the market may have him wrong.</p>
+    </section>
 
     <div class="v2-filters v2-tfilters" role="search">
       <label class="v2-search"><span class="v2-sr">Search players</span>
@@ -1884,6 +1889,20 @@
     </div>
 
     <p class="v2-filter-note v2-tnote" id="v2TNote" hidden></p>
+
+    <section class="v2-card v2-weight" id="v2Weight" aria-labelledby="v2TCheck2Title">
+      <h2 id="v2TCheck2Title">2. Potential positional weight inflation</h2>
+      <p class="v2-meta">How the market splits its value across positions, against how DDF Value splits it, over the same players. Compared by share of the total, so one chart's overall scale cannot make every position look cheap.</p>
+      <p class="v2-weight-headline" id="v2WeightHeadline" role="status"></p>
+      <p class="v2-meta v2-t-empty" id="v2WeightEmpty" hidden></p>
+      <div class="v2-table-wrap">
+        <table class="v2-table v2-wtable" id="v2WeightTable" aria-labelledby="v2TCheck2Title"></table>
+      </div>
+      <details class="v2-weight-how">
+        <summary>How to use it</summary>
+        <p>Gap = the group's share of the market total divided by its share of the DDF Value total, minus 1. Sell this group at +10% or more: the market pays more for it than DDF Value does, so offer those players. Buy this group at -10% or less. In between is fairly priced. Groups with fewer than 3 players show no number; the headline only names groups with 8 or more players. Open a group to see its players.</p>
+      </details>
+    </section>
     <p class="v2-footnote" id="v2TFootnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">the DDF Value, built from the inputs chosen in Customize on Player values</span>; each trade chart is rescaled to the same point scale. <span id="v2TPriorNote"></span>VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
@@ -2586,11 +2605,11 @@
   </div>
 
   </div>
-  <script src="assets/value-model.js?v=tv-20261015-2122-ab3bd95e" defer></script>
-  <script src="assets/consolidation-index.js?v=tv-20261015-2122-ab3bd95e" defer></script>
-  <script src="assets/product-data.js?v=tv-20261015-2122-ab3bd95e" defer></script>
-  <script src="assets/curve-widget.js?v=tv-20261015-2122-ab3bd95e" defer></script>
-  <script src="assets/comparison-dashboard.js?v=tv-20261015-2122-ab3bd95e" defer></script>
+  <script src="assets/value-model.js?v=tv-20261015-2129-4dd709bf" defer></script>
+  <script src="assets/consolidation-index.js?v=tv-20261015-2129-4dd709bf" defer></script>
+  <script src="assets/product-data.js?v=tv-20261015-2129-4dd709bf" defer></script>
+  <script src="assets/curve-widget.js?v=tv-20261015-2129-4dd709bf" defer></script>
+  <script src="assets/comparison-dashboard.js?v=tv-20261015-2129-4dd709bf" defer></script>
   <script src="v2/targets.js" defer></script>
   <script src="v2/trade.js" defer></script>
   <script src="v2/movers.js" defer></script>
@@ -3042,7 +3061,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2122-ab3bd95e</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261015-2129-4dd709bf</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug

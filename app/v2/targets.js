@@ -128,7 +128,90 @@
     });
   }
 
-  const api = {OUR_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, buildTargets, chartsToCompare, ourChoices};
+  // ---------- Check 2: potential positional weight inflation (JEG-476, JEG-489) ----------
+  // Does the market spend its value budget on a position (or a position's starters / bench) in
+  // different proportions than DDF Value does? Raw totals cannot say: a per-player median sits under
+  // the mean and one chart's whole scale can sit 20% under another's, which read as "underweighted"
+  // everywhere. So each group is compared by SHARE, over the same players on both sides:
+  //
+  //   gap = (group share of the market total) / (group share of the DDF Value total) - 1
+  //
+  // Market = the consensus (median of the compared charts that price the player, 2+ charts) or one
+  // chart. A positive gap says the market overweights the group (sell it); negative, underweights it (buy).
+  const WEIGHT_POSITIONS = ["QB", "RB", "WR", "TE"];
+  const WEIGHT_TIERS = ["starter", "bench"];
+  const WEIGHT_SIGNAL = 0.10;       // +/-10%: sell / buy this group
+  const WEIGHT_MIN_SHOW = 3;        // fewer players than this: no number
+  const WEIGHT_MIN_HEADLINE = 8;    // fewer players than this: never named in the headline
+
+  function median(values) {
+    const sorted = values.slice().sort((a, b) => a - b);
+    const mid = sorted.length >> 1;
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  function weightSignal(gap) {
+    if (!finite(gap)) return null;
+    return gap >= WEIGHT_SIGNAL ? "sell" : gap <= -WEIGHT_SIGNAL ? "buy" : "fair";
+  }
+
+  // rows: engine rows (all positions). charts: chart keys to compare. opts.ours: the DDF Value key.
+  function weightCheck(rows, charts, opts) {
+    const oursKey = (opts && opts.ours) || OUR_KEY;
+    const columns = ["consensus"].concat(charts);
+    const marketOf = (row, column) => {
+      if (column !== "consensus") return finite(row.values[column]) ? row.values[column] : null;
+      const priced = charts.map(chart => row.values[chart]).filter(finite);
+      return priced.length >= 2 ? median(priced) : null;
+    };
+    const groupKeys = [];
+    WEIGHT_POSITIONS.forEach(pos => {
+      groupKeys.push({key: pos, pos, tier: null});
+      WEIGHT_TIERS.forEach(tier => groupKeys.push({key: `${pos}|${tier}`, pos, tier}));
+    });
+    const inGroup = (row, group) => row.pos === group.pos && (!group.tier || row.ddfTier === group.tier);
+    const pairs = {};
+    columns.forEach(column => {
+      pairs[column] = rows.filter(row => row.values)
+        .map(row => ({row, ours: row.values[oursKey], market: marketOf(row, column)}))
+        .filter(p => finite(p.ours) && finite(p.market) && WEIGHT_POSITIONS.includes(p.row.pos));
+    });
+    const sum = (list, field) => list.reduce((total, p) => total + p[field], 0);
+    const groups = groupKeys.map(group => {
+      const byColumn = {};
+      columns.forEach(column => {
+        const all = pairs[column];
+        const members = all.filter(p => inGroup(p.row, group));
+        const totalOurs = sum(all, "ours");
+        const totalMarket = sum(all, "market");
+        const ours = sum(members, "ours");
+        const market = sum(members, "market");
+        const shown = members.length >= WEIGHT_MIN_SHOW && ours > 0 && totalOurs > 0 && totalMarket > 0;
+        const gap = shown ? (market / totalMarket) / (ours / totalOurs) - 1 : null;
+        byColumn[column] = {n: members.length, gap, signal: weightSignal(gap)};
+      });
+      return {...group, n: byColumn.consensus.n, cells: byColumn, consensus: byColumn.consensus};
+    });
+    // Players behind a group, sorted by the group's signal: a sell group lists the biggest overpay first,
+    // a buy group the biggest underpay first, a fairly priced group the largest gap either way.
+    const playersOf = group => {
+      const signal = group.consensus.signal;
+      const list = pairs.consensus.filter(p => inGroup(p.row, group)).map(p => ({
+        row: p.row, ours: p.ours, market: p.market, gap: p.market - p.ours,
+        charts: Object.fromEntries(charts.map(chart => [chart, finite(p.row.values[chart]) ? p.row.values[chart] : null]))}));
+      list.sort((a, b) => signal === "buy" ? a.gap - b.gap : signal === "sell" ? b.gap - a.gap : Math.abs(b.gap) - Math.abs(a.gap));
+      return list;
+    };
+    // Headline: the biggest consensus gaps among groups large enough to name (8+ players).
+    const nameable = groups.filter(g => g.consensus.n >= WEIGHT_MIN_HEADLINE && finite(g.consensus.gap));
+    const over = nameable.filter(g => g.consensus.gap > 0).sort((a, b) => b.consensus.gap - a.consensus.gap)[0] || null;
+    const under = nameable.filter(g => g.consensus.gap < 0).sort((a, b) => a.consensus.gap - b.consensus.gap)[0] || null;
+    const biggest = nameable.slice().sort((a, b) => Math.abs(b.consensus.gap) - Math.abs(a.consensus.gap))[0] || null;
+    return {ours: oursKey, columns, groups, playersOf, headline: {over, under, biggest}, compared: pairs.consensus.length};
+  }
+
+  const api = {OUR_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, buildTargets, chartsToCompare, ourChoices,
+    weightCheck, weightSignal, WEIGHT_POSITIONS, WEIGHT_TIERS, WEIGHT_SIGNAL, WEIGHT_MIN_SHOW, WEIGHT_MIN_HEADLINE};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTargets = api;
 })(typeof window !== "undefined" ? window : globalThis);
