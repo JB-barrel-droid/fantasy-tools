@@ -269,6 +269,20 @@ class Attribution(unittest.TestCase):
         self.assertNotIn("validationHold", fixture["sources"]["cbs"])
         self.assertIn("validationHold", fixture["sources"]["espn"])
 
+    def test_chain_hold_is_not_released_by_value_check(self):
+        """JEG-676: a chain review hold (reason 'chain hold: ...') must survive
+        value_check.release_holds so that make validate sees the held source as
+        excluded.  Only the next successful chain run clears it."""
+        fixture = {"sources": {
+            "cbs": {"validationHold": {"reason": "chain hold: review hold", "week": 5, "root": "cbs"}},
+            "espn": {"validationHold": {"reason": "engine disagree", "week": 5, "root": "espn"}}}}
+        released = vc.release_holds(fixture, [])  # both roots agree now
+        self.assertIn("validationHold", fixture["sources"]["cbs"],
+                       "chain hold must NOT be released by value_check")
+        self.assertNotIn("validationHold", fixture["sources"]["espn"],
+                          "a normal hold should be released when the root agrees")
+        self.assertEqual(released, ["espn"])
+
     def test_chain_runs_the_check_before_the_deploy_gate(self):
         wf = (REPO / ".github" / "workflows" / "rebuild-chain.yml").read_text(encoding="utf-8")
         chain = wf.index("python3 pipelines/rebuild_comparison_chain.py --nfl-week")

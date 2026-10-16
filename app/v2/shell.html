@@ -24,14 +24,14 @@
       <span class="v2-meta" id="v2RosterLine">—</span>
       <div class="v2-league-actions">
         <button type="button" class="v2-btn v2-btn-adjust" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
-        <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Weights &amp; bench</button>
+        <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
       </div>
     </div>
   </section>
 
   <section class="v2-methods" id="v2Methods" aria-label="Values shown">
     <div class="v2-wrap v2-methods-row">
-      <p class="v2-showing"><b>Showing:</b> <span id="v2ShowingText">—</span></p>
+      <p class="v2-showing"><b>On the chart:</b> <span id="v2ShowingText">—</span><span id="v2NamesInfoSlot"></span></p>
       <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
       <button type="button" class="v2-btn v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
     </div>
@@ -238,6 +238,7 @@
           <select id="v2TChart" aria-describedby="v2TChartCaption"></select>
         </label>
         <span class="v2-tcaption" id="v2TChartCaption">Rescaled to our point scale <span id="v2TChartBadge"></span></span>
+        <span id="v2TChartLink"></span>
         <span id="v2TChartInfoSlot"></span>
       </div>
     </div>
@@ -318,6 +319,7 @@
       <label class="v2-field v2-field-rank"><span class="v2-field-label">Movement:</span>
         <select id="v2RSeries"></select>
       </label>
+      <span id="v2RNamesInfoSlot"></span>
       <label class="v2-field"><span class="v2-sr">Weeks compared</span>
         <select id="v2RWeeks"></select>
       </label>
@@ -344,7 +346,7 @@
     </div>
 
     <section class="v2-disagree" id="v2RDisagree" aria-labelledby="v2RDisagreeTitle">
-      <h2 id="v2RDisagreeTitle">Where the market and the projections disagree</h2>
+      <h2 id="v2RDisagreeTitle">Where the market and the projections disagree</h2><span id="v2RDisagreeInfoSlot"></span>
       <p class="v2-meta" id="v2RDisagreeMeta">One moved and the other did not, so one of the two is wrong.</p>
       <div class="v2-movers">
         <section class="v2-card" aria-labelledby="v2RMktTitle">
@@ -477,10 +479,23 @@
       <p><span class="v2-wide">Three methods. Visible source context. Your league settings.</span><span class="v2-narrow">Three methods. One clear comparison.</span></p>
     </div>
 
+    <section class="v2-card v2-how-names" id="v2HowNames" aria-labelledby="v2HowNamesTitle">
+      <h2 id="v2HowNamesTitle">Three numbers for every player</h2>
+      <ul class="v2-how-primaries">
+        <li data-primary="ddf_value"><b>DDF Value</b> Fair value: the price a player is really worth. It blends every source you have chosen, for your league.</li>
+        <li data-primary="ddf_value_projections"><b>DDF Projections</b> What production supports: the projections turned into value for your league.</li>
+        <li data-primary="ddf_value_charts"><b>Trade chart average</b> What the market will pay: the published trade charts, rescaled to the same scale and averaged.</li>
+      </ul>
+      <h3>Where the edge comes from</h3>
+      <p>Buy below DDF Value and sell above it. The best deals are the ones where DDF Value says you win and the market says you lose: the manager across the table is trading off the market, so they see a win too.</p>
+      <p class="v2-meta">When DDF Projections and the Trade chart average disagree, one of the two is wrong. Risers &amp; fallers lists the players where one moved and the other did not.</p>
+    </section>
+
+    <h2 class="v2-how-sub">The sources behind them</h2>
     <ol class="v2-how-views">
       <li class="v2-card" data-view-method="dda">
-        <span class="v2-pill">DDA</span>
-        <h2>Data Driven Adjustments</h2>
+        <span class="v2-pill">Projections</span>
+        <h2>Projections, priced for your league</h2>
         <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2"/></svg> Solid line</p>
         <p>Redistributes each source's values into your league's value budget. Weights and bench allocation change the result.</p>
         <p class="v2-meta">Our value. ESPN, CBS rest-of-season and Razzball are priced straight from each publisher's own projections, never from another source's. Use these to rank players and weigh a trade, one source at a time.</p>
@@ -511,15 +526,15 @@
       <h2 id="v2HowLeagueTitle">Your league shapes the comparison</h2>
       <p><strong data-engine="league" id="v2HowLeague">—</strong> <span class="v2-meta" data-engine="roster" id="v2HowRoster">—</span></p>
       <p>Position weights <span data-engine="weights" id="v2HowWeights">—</span></p>
-      <p>Bench allocation <span data-engine="bench" id="v2HowBench">—</span> · Adjust from Weights &amp; bench.</p>
+      <p>Bench share <span data-engine="bench" id="v2HowBench">—</span> · It comes from your league settings; the override is under Advanced in Your league.</p>
       <p class="v2-meta is-older" data-engine="bench-note" data-bench-note id="v2HowBenchNote" hidden></p>
-      <button type="button" class="v2-btn v2-btn-primary" id="v2HowWeightsBtn" aria-haspopup="dialog">Weights &amp; bench</button>
+      <button type="button" class="v2-btn v2-btn-primary" id="v2HowWeightsBtn" aria-haspopup="dialog">Position weights</button>
     </section>
 
     <section class="v2-how-evidence" aria-labelledby="v2HowRulesTitle">
       <h2 id="v2HowRulesTitle">Read the evidence, then make the call.</h2>
       <ul class="v2-how-rules">
-        <li><b>Methods can disagree.</b> The same player can gain under Data Driven Adjustments and lose under rescaled trade charts.</li>
+        <li><b>Methods can disagree.</b> The same player can gain on the projections and lose on the rescaled trade charts.</li>
         <li><b>— means missing.</b> A missing value is unavailable and shows — with the reason, never zero.</li>
         <li><b>Zero is real.</b> A value of zero means the player sits at or below that source's waiver line for your league.</li>
         <li><b>Older weeks are opt-in.</b> Only current-week sources are selected at first; an older week is labeled wherever it appears.</li>
@@ -700,6 +715,7 @@
   <div class="v2-status" id="v2Status" role="status" hidden></div>
 
   <div class="v2-tip" id="v2Tip" role="tooltip" hidden></div>
+  <div class="v2-tip v2-mathtip" id="v2MathTip" role="tooltip" hidden></div>
   <div class="v2-scrim" id="v2Scrim" hidden></div>
   <aside class="v2-drawer" id="v2Drawer" role="dialog" aria-modal="true" aria-labelledby="v2DrawerTitle" hidden></aside>
   <div class="v2-popover" id="v2Popover" role="dialog" aria-modal="false" hidden></div>

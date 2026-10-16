@@ -555,6 +555,32 @@ def isolate_hold(repo, source, before, result, nfl_week=None):
     # own week (build-lag-001's one-week tolerance). Red: two or more weeks
     # behind, or no section/week at all -- held for more than a week.
     severity = "amber" if (weeks_behind is not None and weeks_behind <= 1) else "red"
+
+    # JEG-676: mark the held source's fixture sections with validationHold so
+    # downstream tests (test_week_history) and the page know this source is
+    # held and should be grayed out, not served as a current-week section.
+    # Without this, a review-held source at week N-1 fails the served-week
+    # check ("CBS served week != chart") and blocks the entire publish.
+    import value_check as _vc  # noqa: PLC0415
+    try:
+        held_fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        hold_reason = f"chain hold: {reason}"
+        sections_marked = []
+        for sec in list(_vc.SOURCE_DERIVED.get(source, {}).get("sections", [])):
+            for key in (sec, f"{sec}_adjusted"):
+                target = held_fixture.get("sources", {}).get(key)
+                if isinstance(target, dict):
+                    target["validationHold"] = {
+                        "reason": hold_reason, "week": nfl_week, "root": source,
+                        "stage": failed_stage or "review",
+                    }
+                    sections_marked.append(key)
+        if sections_marked:
+            fixture_path.write_text(
+                json.dumps(held_fixture, indent=2) + "\n", encoding="utf-8")
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"  ⚠ could not mark validationHold on {source}: {exc}")
+
     result.update({
         "status": "held",
         "held_reason": reason,

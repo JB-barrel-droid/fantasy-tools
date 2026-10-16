@@ -170,8 +170,6 @@ READ = """([side, ours, ids]) => {
 }"""
 
 LAYOUT = """(sides) => {
-  // The JEG-609 divergence chip (Check / Reviewed) shares the .th-sub node; the label is the text without it.
-  const subLabel = th => { const n = th.querySelector('.th-sub'); if (!n) return ''; const c = n.cloneNode(true); c.querySelectorAll('.v2-div-chip').forEach(x => x.remove()); return c.textContent.trim(); };
   const q = s => document.querySelector(s);
   const vis = el => Boolean(el) && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
   const box = el => { const r = el.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, left: r.left, right: r.right}; };
@@ -196,7 +194,7 @@ LAYOUT = """(sides) => {
   const filters = [...q('#v2Targets .v2-tfilters').children].filter(vis).map(box);
   const tab = q('.v2-tab[data-view="targets"]');
   const thSubs = [...document.querySelectorAll('#v2TTable th[data-chart], #v2TBuyTable th[data-chart]')].map(th => ({
-    chart: th.dataset.chart, sub: subLabel(th),
+    chart: th.dataset.chart, sub: (() => { const s = th.querySelector('.th-sub'); if (!s) return ''; const c = s.cloneNode(true); c.querySelectorAll('.v2-div-chip').forEach(n => n.remove()); return c.textContent.trim(); })(),
     info: th.querySelector('button[data-info]') ? {expanded: th.querySelector('button[data-info]').getAttribute('aria-expanded'),
       label: th.querySelector('button[data-info]').getAttribute('aria-label') || ''} : null}));
   const compareInfo = q('#v2Targets .v2-tcompare button[data-info]');
@@ -205,6 +203,7 @@ LAYOUT = """(sides) => {
   document.querySelectorAll('#v2Targets button, #v2Targets a, #v2Targets select').forEach(n => {
     const b = n.getBoundingClientRect();
     if (!b.width || n.closest('[hidden]') || b.top - 1 < 0 || b.bottom + 1 > innerHeight) return;
+    if (n.matches('a.v2-srclink')) return;   // JEG-457: an inline source-name link (WCAG 2.2 2.5.8 inline exception)
     const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
     const owner = n.closest('label') || n;
     const ok = [-21, 21].every(dy => { const e = document.elementFromPoint(cx, cy + dy); return e && (owner === e || owner.contains(e)); });
@@ -287,13 +286,12 @@ SIMULATE_PRIOR = """() => {
 }"""
 
 PRIOR = """() => {
-  const subLabel = th => { const n = th.querySelector('.th-sub'); const c = n.cloneNode(true); c.querySelectorAll('.v2-div-chip').forEach(x => x.remove()); return c.textContent.trim(); };
   const badges = root => [...root.querySelectorAll('.v2-prior-badge')].map(b => ({chart: b.dataset.priorWeek, text: b.textContent.trim(),
     label: b.getAttribute('aria-label'), title: b.title}));
   const t = window.TradeValueV2.targets();
   return {used: t.used,
     options: [...document.querySelectorAll('#v2TChart option')].map(o => ({value: o.value, text: o.textContent})),
-    headers: [...document.querySelectorAll('#v2TTable th[data-chart], #v2TBuyTable th[data-chart]')].map(th => ({chart: th.dataset.chart, badges: badges(th), sub: subLabel(th)})),
+    headers: [...document.querySelectorAll('#v2TTable th[data-chart], #v2TBuyTable th[data-chart]')].map(th => ({chart: th.dataset.chart, badges: badges(th), sub: (() => { const s = th.querySelector('.th-sub'); if (!s) return ''; const c = s.cloneNode(true); c.querySelectorAll('.v2-div-chip').forEach(n => n.remove()); return c.textContent.trim(); })()})),
     best: [...document.querySelectorAll('#v2TTable td.best, #v2TBuyTable td.best, #v2TCards .big, #v2TBuyCards .big')].map(td => ({chart: td.dataset.best, badges: badges(td)})),
     details: [...document.querySelectorAll('tr.t-detail [data-chart]')].map(s => ({chart: s.dataset.chart, badges: badges(s)})),
     cards: [...document.querySelectorAll('#v2TCards .vals [data-chart], #v2TBuyCards .vals [data-chart]')].map(s => ({chart: s.dataset.chart, badges: badges(s)})),

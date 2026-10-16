@@ -746,6 +746,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     else:
         slot_fill = alloc
     _tiers(rows, slot_fill, m)
+    _player_tags(rows)
     indexed = _indexed(sources, details, rows)
     readout = None if degenerate else bench_share_readout(rows, order_m, alloc, inc, es is not None,
                                                          share_in, wts["bench_share_applied"], hidden or set())
@@ -870,6 +871,34 @@ def _tiers(rows: dict, slot_fill: dict, m: dict) -> None:
             rows[i]["ddf_tier"] = tier
     for r in rows.values():
         r.setdefault("ddf_tier", None)
+
+
+# ---------------------------------------------------------------------------
+# Player tags: Start / Hold / Stash / Drop (JEG-571, JEG-521 G5).
+# Python twin of app/trade-value-chart/assets/player-tags.js.
+# ---------------------------------------------------------------------------
+
+STASH_START_PROBABILITY = 0.25
+PLAYER_TAGS = ("Start", "Hold", "Stash", "Drop")
+
+
+def player_tag(ddf_tier: str | None, start_worthy: float | None,
+               stash_start_probability: float = STASH_START_PROBABILITY) -> str | None:
+    """Classify a player row exactly as the JS PlayerTags.playerTag does.
+    Inputs are the row's ddfTier and startWorthy fields."""
+    if ddf_tier == "starter":
+        return "Start"
+    if ddf_tier not in ("bench", "waiver"):
+        return None
+    if _finite(start_worthy) and start_worthy >= stash_start_probability:
+        return "Stash"
+    return "Hold" if ddf_tier == "bench" else "Drop"
+
+
+def _player_tags(rows: dict) -> None:
+    """Add 'player_tag' to every row in place."""
+    for r in rows.values():
+        r["player_tag"] = player_tag(r.get("ddf_tier"), r.get("start_worthy"))
 
 
 def _indexed(sources: dict, details: dict, rows: dict) -> dict:
@@ -1283,6 +1312,11 @@ class Setting:
             for version, name in DDF_VERSIONS.items():
                 values[version] = r["ddf"][name]["value"]
                 values[DDF_COUNT_FIELD[version]] = r["ddf"][name]["count"]
+            # ES-10 expected-starts fields and JEG-571 player tag.
+            values["lineup_share"] = r.get("lineup_share")
+            values["start_worthy"] = r.get("start_worthy")
+            values["ddf_tier"] = r.get("ddf_tier")
+            values["player_tag"] = r.get("player_tag")
             out[i] = values
         return out
 

@@ -59,7 +59,7 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
   - **GL-11** Changes to league settings are a draft until Apply. Nothing reaches the values before Apply.
 
-  - **GL-12** The bench share shown is the share the engine actually priced. A floor is noted.
+  - **GL-12** The bench share shown is the one the engine computed from the reader's settings (the readout in GL-23) or, when the override is on, the reader's own number. v2 does no math on it.
 
   - **GL-13** On phones (390 px), no page scrolls sideways and every tab is usable.
 
@@ -84,9 +84,9 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
   - **GL-21** Publishers' trade charts, put on our point scale, are called **"Trade charts (rescaled)"**. Never use "as published" or a bare "indexed" as a label. One-line meaning: "Each publisher's trade values, rescaled to our point scale for your league; their ranking order is unchanged." *(to build: JEG-510)*
 
-  - **GL-22** League options rank above weights. "Edit league" is the primary control. "Position weights" (renamed from "Weights & bench") is secondary when they are shown together *(to build: JEG-498, rename in JEG-537)*. (Jeremy, 2026-10-09 / 2026-10-10.)
+  - **GL-22** League options rank above weights. "Edit league" is the primary control. "Position weights" (renamed from "Weights & bench") is secondary when they are shown together *(to build: JEG-498; the rename shipped with JEG-537)*. (Jeremy, 2026-10-09 / 2026-10-10.)
 
-  - **GL-23** The bench share is a readout, not a slider: "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your league settings". It comes from the engine. A bench-share override is off by default; when it's on, it shows the old 1–30% slider *(to build: JEG-537)*. (Jeremy, es-value-001, 2026-10-09.)
+  - **GL-23** The bench share is a readout, not a slider: "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your league settings". It comes from the engine. A bench-share override is off by default; when it's on, it shows the old 1–30% slider (Advanced in Your league), with a reset link in Position weights. *(JEG-537; pinned by `tests/test_v2_advanced_render.py`)* (Jeremy, es-value-001, 2026-10-09.)
 
   - **GL-24** Edit league includes:
 
@@ -95,7 +95,11 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
   - "Optimize for": Whole season (default) / Regular season / Playoffs;
   - a collapsed "Advanced" section at the bottom: injury history (Recent seasons default / All seasons equally); projection confidence (Less / As measured default / More); the bench-share override.
 
-Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
+Share links carry every setting. League weeks use `regend`, `playoffs`, `optimize` and `week`; the advanced settings use `inj`, `conf` and `bso` (three decimals, absent = off), each written only when it differs from the default. Old links: `bench=0.150` means no override and any other `bench=` without `bso=` is the sender's override. *(JEG-537, JEG-527; pinned by `tests/test_v2_advanced_render.py` and `tests/test_v2_share_render.py`)* (Jeremy, 2026-10-10.)
+
+  - **GL-27** Every source name is a link to that publisher's page for the served week, opening in a new tab (the addresses ship in `assets/comparison-sources-data.json`; ESPN has none and stays plain text). A projection source with a page per position uses the player's position in row context and the QB page in header context. A link in a column header never sorts the column, and a link in Customize never toggles the source. Places: Trade targets column heads, chart values and the "Compare against" choice, the Showing legend, Player values column heads, Customize, Compare rows and the player drawer. *(JEG-457; pinned by `tests/test_v2_source_links_render.py`)*
+
+  - **GL-26** Our names are defined once and shown wherever they appear, with an info button: DDF Value is fair value, the price a player is really worth; DDF Projections is what production supports; Trade chart average is what the market will pay. The edge: buy below DDF Value and sell above it, best when DDF Value says you win and the market says you lose. The buttons sit on the header row (which reads "On the chart:", not "Showing:"), Risers & fallers' Movement picker and disagreement card, the DDF Value group in Customize, and the Compare deal-read nets. *(JEG-490; pinned by `tests/test_v2_names_render.py`)*
 
   - **GL-25** A source that disagrees with the other sources more than usual shows a small "Check" chip next to its name, in the slot the prior-week badge uses, with the published message as its tooltip (`source_divergence` in `assets/reference-freshness.json`, JEG-460). A reviewed source shows "Reviewed", linking to its resolution issue where a link is allowed. The chip never hides a source or blocks anything. Our own DDF Value and VORP columns carry none. *(JEG-609; pinned by `tests/test_v2_divergence_chip_render.py`)*
 
@@ -130,6 +134,10 @@ Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
   - **PV-16** A Reset zoom link appears while zoomed and clears both brushes *(JEG-483)*.
   - **PV-17** Active filter chips, each clearing one filter *(JEG-483)*.
 
+  - **PV-18** The chart's Y axis follows the top and bottom visible points (values of 0 ignored), with about 4% padding and nice steps, so the lines show more differentiation *(JEG-477; pinned by `tests/test_v2_chart_fit_render.py`)*.
+  - **PV-19** A player that no shown series (DDF Value included) prices above 0 is hidden, with a note saying how many; a search finds him again, as a 0 *(JEG-477)*.
+  - **PV-20** Rank by always offers the DDF weighted projections (ESPN, CBS rest of season, Razzball) as well as the three DDF Value versions, shown or not; ranking by one puts it on the chart and in the table *(JEG-477)*.
+
 ## Trade targets (TT)
 
   - **TT-01** The headline explains the page: "Where the trade market is wrong this week".
@@ -140,6 +148,7 @@ Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
   - **TT-06** A chart that is a week behind shows a "Wk N" badge wherever it appears: Trade targets, Player values and Compare a trade.
   - **TT-07** A chart value at or below 0 is never a buy or sell target.
   - **TT-08** Players with only one source are included and flagged "◐ 1 source".
+  - **TT-12** Hovering, focusing or tapping a chart value on Trade targets shows where it comes from, leading with the number as the publisher prints it: as published, times the index factor, equals the indexed value, minus our value, equals the gap, with a link to the chart. The numbers come from the engine's derivation (`getPublishedMath`); a player the chart does not price shows the reason instead. *(JEG-457; pinned by `tests/test_v2_source_links_render.py`)*
   - **TT-10** The page runs two numbered checks, and the subtitle names both: "1. Potential mispricing" (player by player) and "2. Potential positional weight inflation" (position by position). *(JEG-476)*
   - **TT-11** Check 2 compares DDF Value with the trade-chart consensus (median of 2+ charts) and with each chart, by position and by DDF starter / bench tier. The gap is the group's share of the market total divided by its share of the DDF Value total, minus 1, over the same players on both sides, so a chart's overall scale cannot make every position look cheap. Sell this group at +10% or more, Buy this group at -10% or less, else Fairly priced. A group under 3 players shows no number; the headline only names groups of 8 or more. A group opens to its players. *(JEG-476, JEG-489; pinned by `tests/test_v2_group_weight.py` and `tests/test_v2_group_weight_render.py`)*
   - **TT-09** Market average *(to build: JEG-504)*:
@@ -182,6 +191,8 @@ Confidence comes from how many sources agree. It drops to Low when any DDF Value
 ## How values work (HV)
 
   - **HV-01** Explains each view and lists the engine's series by method. It shows no numbers except the league card.
+
+  - **HV-02** How values work leads with the three numbers (DDF Value, DDF Projections, Trade chart average) and "Where the edge comes from", with no numbers in that copy; "Data Driven Adjustments" and "DDA" are retired from it. *(JEG-490)*
 
 ## Decision log
 

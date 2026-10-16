@@ -380,6 +380,12 @@ VALUES_JS = "async () => {" + COMMON + r"""
     customize: $('v2EditSources').textContent.trim(),
     rankBy: $('v2RankBy').value, rankOptions: [...$('v2RankBy').options].map(o => o.value),
     shown: V.shown(), active: C.getActiveSources(),
+    legendLinks: [...document.querySelectorAll('#v2ShowingLegend a[data-source-link]')].map(a => [a.dataset.sourceLink, a.getAttribute('href'), a.target]),
+    names: {label: document.querySelector('.v2-showing b').textContent.trim(), info: document.querySelectorAll('.v2-showing button[data-info=names]').length},
+    fit: {ticks: [...V.chart().svg.querySelectorAll('.axis text[text-anchor="end"]')].map(t => Number(t.textContent)),
+      values: V.chart().slice.flatMap(r => V.chart().keys.map(k => r.values[k])).filter(v => Number.isFinite(v) && v > 0)},
+    zeroPlayers: {hidden: V.view().hiddenZero, listed: V.view().rows.filter(r => !V.view().plotKeys.concat(V.view().vorpKeys)
+      .some(k => Number.isFinite(r.values[k]) && r.values[k] > 0)).length},
     zones: {engine: C.getZones(), ranks: V.chart().slice.map(r => r.fullRank),
       lines: [...document.querySelectorAll('#v2Chart .zone-line')].map(l => ({name: l.dataset.zone, x: Number(l.getAttribute('x1'))})),
       labels: [...document.querySelectorAll('#v2Chart .zone-label')].map(l => l.textContent)},
@@ -526,7 +532,7 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     sellMore: shown($('v2TSellMore')), buyMore: shown($('v2TBuyMore')),
     rects: [rect($('v2TSell')), rect($('v2TBuy'))],
     heads: [...document.querySelectorAll('#v2TTable thead th[data-chart]')].map(th => ({chart: th.dataset.chart,
-      name: own(th.querySelector('.th-line')), sub: th.querySelector('.th-sub')?.textContent || '',
+      name: th.querySelector('.th-line a[data-source-link]')?.textContent || own(th.querySelector('.th-line')), sub: th.querySelector('.th-sub')?.textContent || '',
       badge: th.querySelector('.v2-prior-badge')?.textContent || null,
       info: Boolean(th.querySelector('button[data-info]'))})),
     weeks: weekInfo(),
@@ -534,6 +540,8 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     caption: $('v2TChartCaption').textContent, captionInfo: Boolean(document.querySelector('.v2-tcompare button[data-info]')),
     lowEngine: C.getRows().filter(r => r.ddfLowConfidence).map(r => String(r.player_key)),
     divergence: [...document.querySelectorAll('#v2TDivergence .v2-div-chip')].map(c => ({src: c.dataset.divergence, status: c.dataset.status})),
+    sourceLinks: [...document.querySelectorAll('#v2TTable thead th[data-chart] a[data-source-link]')].map(a => [a.dataset.sourceLink, a.getAttribute('href'), a.target]),
+    mathCells: [...document.querySelectorAll('#v2TTable td.t-chart[data-math-for]')].slice(0, 12).map(td => [td.getAttribute('tabindex'), td.getAttribute('aria-describedby')]),
     weight: {h2: [...document.querySelectorAll('#v2Targets h2')].map(h => h.textContent.trim()),
       sub: document.querySelector('#v2Targets .v2-ttitle p').textContent,
       headline: $('v2WeightHeadline').textContent,
@@ -618,12 +626,12 @@ HOW_JS = "() => {" + COMMON + r"""
   const how = $('v2How');
   const clone = how.cloneNode(true);
   clone.querySelectorAll('.v2-how-league').forEach(n => n.remove());
-  const share = C.getBenchShare();
   return {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText(how),
     cards: [...how.querySelectorAll('[data-view-method]')].map(li => ({method: li.dataset.viewMethod,
       title: li.querySelector('h2')?.textContent || '', items: [...li.querySelectorAll('.v2-how-sources li')].map(x => x.textContent.trim())})),
     outside: clone.textContent, bench: $('v2HowBench').textContent, benchNote: $('v2HowBenchNote').hidden ? '' : $('v2HowBenchNote').textContent,
-    share, used: C.getBenchShareUsed ? C.getBenchShareUsed(share) : null,
+    primaries: [...how.querySelectorAll('#v2HowNames [data-primary]')].map(li => li.querySelector('b').textContent), edge: how.innerText.includes('Where the edge comes from'),
+    readout: C.getBenchShareReadout(), slider: Boolean(document.getElementById('v2BenchSlider')),
     activeKeys: C.getActiveSources()};
 }"""
 
@@ -713,6 +721,13 @@ def scenario_values(s: Session) -> dict:
 
 
 # Every card on screen on a data tab, and the controls modules.js gave it (GL-17, GL-18).
+LEAGUE_PANEL_JS = """() => { const pop = document.getElementById('v2Popover');
+  const adv = pop.querySelector('details.v2-padv');
+  return {eyebrows: [...pop.querySelectorAll(':scope .v2-eyebrow')].filter(h => !h.closest('details')).map(h => h.textContent),
+    steps: [...pop.querySelectorAll('.v2-pstep > span')].map(n => n.textContent),
+    advanced: adv ? {open: adv.open, last: [...adv.parentElement.children].pop() === adv,
+      eyebrows: [...adv.querySelectorAll('.v2-eyebrow')].map(h => h.textContent)} : null}; }"""
+
 MODULES_JS = """() => [...document.querySelectorAll('main:not([hidden]) section.v2-card')]
   .filter(c => c.offsetParent !== null && !c.classList.contains('v2-state') && !c.classList.contains('v2-skel'))
   .map(c => { const h = c.querySelector('h2'); const chev = c.querySelector(':scope > .v2-mod-ctl .v2-mod-chevron');
@@ -748,6 +763,12 @@ def scenario_tabs(s: Session) -> dict:
             page.evaluate("h => { location.hash = h; }", tab)
             page.wait_for_timeout(500)
             out["modules"][tab] = page.evaluate(MODULES_JS)
+        page.evaluate("() => { location.hash = '#player-values'; }")
+        page.wait_for_timeout(400)
+        page.click("#v2EditLeague")
+        page.wait_for_timeout(300)
+        out["leaguePanel"] = page.evaluate(LEAGUE_PANEL_JS)
+        page.keyboard.press("Escape")
         out["errors"] = page.errors
         return out
     finally:
@@ -1021,16 +1042,36 @@ def gl11(S):
 
 
 def gl12(S):
+    """The bench share shown is the engine's own readout (or the reader's override): no math in v2."""
     h = S["tabs"]["how"]
-    used = [x for x in (h["used"] or {}).values() if isinstance(x, (int, float))]
-    share = h["share"]
-    lo, hi = (min(used), max(used)) if used else (share, share)
-    want = f"{lo * 100:.1f}%" if f"{lo * 100:.1f}" == f"{hi * 100:.1f}" else f"{lo * 100:.1f}–{hi * 100:.1f}%"
+    r = h["readout"]
+    want = (f"{r['overrideValue'] * 100:.1f}% (your override)" if r["override"]
+            else " · ".join(f"{p} {r[p] * 100:.1f}%" for p in ("QB", "RB", "WR", "TE")))
+    return [] if h["bench"] == want else [f"How values bench share {h['bench']!r}, engine readout {want!r}"]
+
+
+def gl23(S):
+    h = S["tabs"]["how"]
+    r = h["readout"]
     errors = []
-    if h["bench"] != want:
-        errors.append(f"How values bench share {h['bench']!r}, engine priced {want}")
-    if any(abs(x - share) > 5e-4 for x in used) and not h["benchNote"]:
-        errors.append("the engine priced a different bench share and no floor note shows")
+    if h["slider"]:
+        errors.append("a bench-share slider is on the page with the override off")
+    if r["override"] or r["method"] != "expected-starts":
+        errors.append(f"default readout: override {r['override']}, method {r['method']!r}")
+    return errors
+
+
+def gl24(S):
+    p = S["tabs"]["leaguePanel"]
+    errors = []
+    for label in ("Last regular-season week", "First playoff week", "Last playoff week"):
+        if label not in p["steps"]:
+            errors.append(f"Your league has no {label!r} control: {p['steps']}")
+    if "Optimize for" not in p["eyebrows"]:
+        errors.append(f"no Optimize for: {p['eyebrows']}")
+    adv = p["advanced"]
+    if not adv or adv["open"] or not adv["last"] or adv["eyebrows"] != ["Injury history", "Projection confidence", "Bench-share override"]:
+        errors.append(f"Advanced should be collapsed, last, with the three settings: {adv}")
     return errors
 
 
@@ -1320,6 +1361,75 @@ def pv16(S):
     return errors
 
 
+def gl27(S):
+    """Source names link to the publisher's page (addresses from the data file), in a new tab."""
+    data = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
+    want = {k: (v.get("url") or v.get("source_url")) for k, v in data.items() if (v.get("url") or v.get("source_url"))}
+    errors = []
+    links = S["values"]["s0"]["legendLinks"] + S["tabs"]["targets"]["sourceLinks"]
+    if not links:
+        errors.append("no source links on the Showing legend or Trade targets heads")
+    for pub, href, target in links:
+        base = want.get(pub)
+        norm = lambda u: re.sub(r"/(QB|RB|WR|TE)/", "/QB/", re.sub(r"-(qb|rb|wr|te)-", "-qb-", u or ""))
+        if norm(href) != norm(base) or target != "_blank":
+            errors.append(f"{pub}: link {href!r} (target {target!r}), the data file says {base!r}")
+    return errors
+
+
+def tt12(S):
+    cells = S["tabs"]["targets"]["mathCells"]
+    bad = [c for c in cells if c != ["0", "v2MathTip"]]
+    return [f"chart values must be focusable and describedby the math tip: {bad[:3]}"] if bad or not cells else []
+
+
+def gl26(S):
+    n = S["values"]["s0"]["names"]
+    errors = []
+    if n["label"] != "On the chart:" or n["info"] != 1:
+        errors.append(f"the header row reads {n['label']!r} with {n['info']} definition buttons, want 'On the chart:' and one")
+    return errors
+
+
+def hv02(S):
+    h = S["tabs"]["how"]
+    errors = []
+    if h["primaries"] != ["DDF Value", "DDF Projections", "Trade chart average"] or not h["edge"]:
+        errors.append(f"How values work leads with {h['primaries']}, edge section {h['edge']}")
+    if "Data Driven Adjustments" in h["outside"] or re.search(r"\bDDA\b", h["outside"]):
+        errors.append("How values work still says Data Driven Adjustments / DDA")
+    return errors
+
+
+def pv18(S):
+    f = S["values"]["s0"]["fit"]
+    if not f["values"] or not f["ticks"]:
+        return [f"no axis to read: {f}"]
+    lo, hi = min(f["values"]), max(f["values"])
+    errors = []
+    if f["ticks"][0] > lo or f["ticks"][-1] < hi:
+        errors.append(f"the Y axis {f['ticks'][0]}..{f['ticks'][-1]} does not cover the visible points {lo:.1f}..{hi:.1f}")
+    if f["ticks"][-1] - hi > (hi - lo) * 0.5 + 10 or lo - f["ticks"][0] > (hi - lo) * 0.5 + 10:
+        errors.append(f"the Y axis {f['ticks'][0]}..{f['ticks'][-1]} is much wider than the visible points {lo:.1f}..{hi:.1f}")
+    return errors
+
+
+def pv19(S):
+    z = S["values"]["s0"]["zeroPlayers"]
+    errors = []
+    if z["listed"]:
+        errors.append(f"{z['listed']} listed players are 0 on every shown series")
+    if not z["hidden"]:
+        errors.append("no all-zero players are hidden (and noted)")
+    return errors
+
+
+def pv20(S):
+    opts = S["values"]["rankOptions"]
+    missing = [k for k in ("espn", "cbsros") if k not in opts]
+    return [f"Rank by does not offer {missing}: {opts}"] if missing else []
+
+
 def pv17(S):
     v = S["values"]
     c = v["chip"]
@@ -1579,7 +1689,9 @@ def ct01(S):
         errors.append(f"adding players from the Give / Receive searches: {a['give']} / {a['get']}")
     if not (a["swap"] and a["clear"] and a["share"]):
         errors.append(f"with a trade: Swap {a['swap']}, Clear {a['clear']}, Share {a['share']}")
-    if not all(f"{p}=" in a["hash"] for p in ("give", "get", "scoring", "roster", "bench")):
+    # JEG-537: the bench share is computed from the settings, so the link no longer carries bench=
+    # (only an override travels, as bso).
+    if not all(f"{p}=" in a["hash"] for p in ("give", "get", "scoring", "roster")) or "bench=" in a["hash"]:
         errors.append(f"the trade link does not carry the league settings: {a['hash']!r}")
     s = c["swapped"]
     if [p["key"] for p in s["get"]] != [p["key"] for p in a["give"]]:
@@ -1694,21 +1806,21 @@ CHECKS = {
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
-    "GL-22": PENDING("JEG-498"), "GL-23": PENDING("JEG-537"), "GL-24": PENDING("JEG-537"), "GL-25": gl25,
+    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26, "GL-27": gl27,
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
     "PV-10": pv10, "PV-11": pv11, "PV-12": pv12, "PV-13": pv13, "PV-14": pv14, "PV-15": pv15,
-    "PV-16": pv16, "PV-17": pv17,
+    "PV-16": pv16, "PV-17": pv17, "PV-18": pv18, "PV-19": pv19, "PV-20": pv20,
     "TT-01": tt01, "TT-02": tt02, "TT-03": tt03, "TT-04": tt04,
-    "TT-10": tt10, "TT-11": tt11, "RS-01": rs01, "RS-02": rs02, "RS-03": rs03,
+    "TT-10": tt10, "TT-11": tt11, "TT-12": tt12, "RS-01": rs01, "RS-02": rs02, "RS-03": rs03,
     # "rescaled" lands with JEG-510; the ⓘ and the scale word are checked meanwhile.
     "TT-05": PENDING("JEG-510", partial=tt05_partial),
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),
     "RF-01": rf01, "RF-02": rf02,
     "CT-01": ct01, "CT-02": PENDING("JEG-505"), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
     "CT-06": ct06, "CT-07": ct07, "CT-08": ct08,
-    "HV-01": hv01,
+    "HV-01": hv01, "HV-02": hv02,
 }
 
 # The scenarios each check reads (a broken-build run loads only what its checks need).
@@ -1772,8 +1884,9 @@ class ContractMirrorTest(unittest.TestCase):
         # A live line may not stay pending.
         live_tt05 = text.replace("(GL-21) *(to build: JEG-510)*", "(GL-21)")
         self.assertTrue(any(e.startswith("TT-05") for e in mirror_errors(live_tt05, CHECKS)))
-        # "to build" on a later paragraph of the line's block still counts (GL-24).
-        self.assertEqual(contract_ids(text).get("GL-24"), "JEG-537")
+        # "to build" on a later paragraph of the line's block still counts.
+        later = "  - **GL-99** Edit league includes:\n\n  - a bullet;\n\nShare links carry every setting *(to build: JEG-537)*.\n"
+        self.assertEqual(contract_ids(later).get("GL-99"), "JEG-537")
         # A checked ID leaves the Doc.
         dropped = "\n".join(l for l in text.splitlines() if "**TT-07**" not in l)
         self.assertTrue(any(e.startswith("TT-07") for e in mirror_errors(dropped, CHECKS)))
