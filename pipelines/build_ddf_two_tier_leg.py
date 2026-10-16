@@ -92,15 +92,13 @@ from roster_convention import (  # noqa: E402 -- JEG-561: convention module for 
 # Reference league shape: unchanged from the live engine. The convention
 # module (JEG-556) handles bench allocation; the reference shape stays the
 # same so the VORP translation path (JEG-560) is not touched here.
-REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+REF_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
 REF_FLEX_COUNT = 1
 REF_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
 
-# Backward compat: other modules (vorp_via_roster, value_reference) import
-# BENCH_MIX_12 from here. Keep the constant until those are migrated (JEG-560).
-# The leg itself no longer uses it — bench_mix_for_teams delegates to the
-# convention module's D'Hondt allocation.
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+# Legacy bench mix weights: updated for the JEG-563 default roster (2 WR, 7 bench).
+# The leg itself delegates to the convention module's D'Hondt allocation.
+BENCH_MIX_12 = {"QB": 14, "RB": 28, "WR": 35, "TE": 6}
 REF_BENCH_SLOTS = BENCH_MIX_12
 
 # Verified spelling aliases live in ONE list, data/inputs/player_aliases.json,

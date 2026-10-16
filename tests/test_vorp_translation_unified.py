@@ -119,7 +119,8 @@ class TestScoringAwareFlex(unittest.TestCase):
                       for pos, values in snapshot['ranked'][scoring].items()}
             roster = roster_math.rostered_for_teams(12, ranked=ranked)
             allocations.append(tuple(roster[p]['flex'] for p in ('RB', 'WR', 'TE')))
-        self.assertEqual(allocations, [(9, 3, 0), (8, 4, 0), (7, 4, 1)])
+        # JEG-563: new default 2WR/7bench changes flex allocation counts
+        self.assertEqual(allocations, [(8, 4, 0), (7, 5, 0), (5, 7, 0)])
 
     def test_real_usatoday_waiver_and_weight_integration(self):
         results = [unified.translate_source('usatoday', scoring=s)

@@ -80,7 +80,7 @@ TEAMS = (8, 10, 12, 14)
 COMBO_SCORING = {"standard": "standard", "half_ppr": "half", "ppr": "full"}
 HIST_INDEX = {"standard": 0, "half_ppr": 1, "ppr": 2}
 # Default roster (VP-0 ruling): QB1 RB2 WR3 TE1 FLEX1 BENCH6, 8 starters per team.
-DEFAULT_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+DEFAULT_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
 SUPERFLEX_COMBO = ("ppr", 12)
 
 
@@ -230,7 +230,7 @@ def lineup_config(repo: Path = REPO) -> dict | None:
 def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict,
                 lineup: dict | None = None) -> dict:
     setting = vp.Setting(teams=teams, slots=dict(DEFAULT_SLOTS), flex=1, superflex=sf,
-                         bench_per_team=6, bench_share=vp.DEFAULT_BENCH_SHARE)
+                         bench_per_team=7, bench_share=vp.DEFAULT_BENCH_SHARE)
     current, prior, eligible, excluded = {}, {}, [], []
     for s in SOURCE_ORDER:
         nat = current_natives(data, s, scoring, teams, sf, dropped)

@@ -92,7 +92,7 @@ CHART = """() => { const C = window.TradeValueCurveControls, V2 = window.TradeVa
   return {keys: paths.map(p => p.dataset.source).sort(), sliceKeys, windowKeys, ends,
     inOverlay: Boolean(document.querySelector('#v2Expand #v2Plot')),
     brushes: ['v2BrushLo', 'v2BrushHi', 'v2YBrushLo', 'v2YBrushHi'].every(id => document.querySelector('#v2Expand #' + id)?.offsetParent),
-    legend: document.querySelectorAll('#v2ExpandLegend > span').length, plotKeys: v.plotKeys.length,
+    legend: document.querySelectorAll('#v2ExpandLegend > span, #v2ExpandLegend > .v2-legend-item').length, plotKeys: v.plotKeys.length,
     names: document.querySelectorAll('#v2Chart .name-label').length, nVisible: v.visible.length,
     ymin: ch.ymin, ymax: ch.ymax, plotH: plot.height, boxW: boxRect.width, boxH: boxRect.height,
     innerW: innerWidth, innerH: innerHeight}; }"""
@@ -471,8 +471,8 @@ class ExpandRenderTest(unittest.TestCase):
         js, cs = "text/javascript", "text/css"
         broken = {
             "expanded chart drops a line": ("chart", {"v2.js": (v2.replace(
-                'mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {',
-                'mainChart = drawSeriesChart($("v2Chart"), big ? view.plotKeys.slice(1) : view.plotKeys, {', 1), js)}),
+                'mainChart = drawSeriesChart($("v2Chart"), view.plotKeys.filter(isSeriesOn), {',
+                'mainChart = drawSeriesChart($("v2Chart"), big ? view.plotKeys.filter(isSeriesOn).slice(1) : view.plotKeys.filter(isSeriesOn), {', 1), js)}),
             "Esc leaves the expanded view open": ("chart", {"v2.js": (v2.replace(
                 "      else if (expanded) closeExpanded();\n", "", 1), js)}),
             "focus not returned to the expand button": ("chart", {"v2.js": (v2.replace(

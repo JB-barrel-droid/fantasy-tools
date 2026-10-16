@@ -1,5 +1,7 @@
 # Fantasy Tools Agent Guide
 
+Doc index: `docs/README.md` lists every durable doc; `runbooks/README.md` lists the recurring-job runbooks. Add or retire docs there, not in this file.
+
 `CLAUDE.md` holds the working agreements and is authoritative. This file covers
 who does what, delegation and continuity. Dated incident and design notes
 (FantasyCalc drift, as-published indexing, VORP>0 calibration, CI sync,

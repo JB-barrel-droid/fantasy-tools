@@ -85,7 +85,7 @@ class TestMethodologyPayload(unittest.TestCase):
         self.assertEqual(self.payload["bench_share"], 0.15)
         self.assertEqual(
             self.payload["roster"],
-            {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6},
+            {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "BENCH": 7},
         )
 
     def test_no_legacy_single_combo_keys(self):

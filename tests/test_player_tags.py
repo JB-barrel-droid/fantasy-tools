@@ -88,5 +88,24 @@ class PlayerTagsTest(unittest.TestCase):
                 self.assertNotEqual(run_tags(broken, rows), want, f"not caught: {fault}")
 
 
+class PythonTwinTest(unittest.TestCase):
+    """The Python player_tag in value_reference.py must match the JS module."""
+
+    def test_python_matches_js_fixtures(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        from value_reference import player_tag
+        for name, row, want in FIXTURES:
+            got = player_tag(row.get("ddfTier"), row.get("startWorthy"))
+            self.assertEqual(got, want, name)
+
+    def test_python_threshold_override(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        from value_reference import player_tag
+        got = player_tag("waiver", 0.125, stash_start_probability=0.1)
+        self.assertEqual(got, "Stash")
+
+
 if __name__ == "__main__":
     unittest.main()

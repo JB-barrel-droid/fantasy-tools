@@ -65,7 +65,7 @@ HISTORY = REPO / "dist" / "assets" / "history"
 POSITIONS = ("QB", "RB", "WR", "TE")
 POS_ORDER = {p: i for i, p in enumerate(POSITIONS)}
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+BENCH_MIX_12 = {"QB": 14, "RB": 28, "WR": 35, "TE": 6}  # legacy reference; bench allocation uses the convention module
 IMPUTE_MIN_FIT = 3
 ESTIMATE_FIT_N = 10
 DEFAULT_BENCH_SHARE = 0.15
@@ -100,7 +100,7 @@ TEAM_COUNTS = (8, 10, 12, 14)
 COMBO_PREFIX = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
 HISTORY_SCORING_INDEX = {"standard": 0, "half_ppr": 1, "ppr": 2}
 QB_AWARE = frozenset({"fantasycalc"})
-DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 6}
+DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 7}
 SAVED_TEAMS = 12
 HOLD_FIELDS = ("validationHold", "promotionHold")
 
@@ -154,7 +154,7 @@ class League:
     slots: dict                      # dedicated slots per team, D_p
     flex: int = 1                    # F (RB/WR/TE)
     superflex: int = 0               # SF (QB/RB/WR/TE)
-    bench: int = 6                   # B
+    bench: int = 7                   # B
     bench_share: float = DEFAULT_BENCH_SHARE
     flex_eligible: tuple = FLEX_ELIGIBLE
     position_shares: dict | None = None   # reader position shares (VP-4.4)
@@ -746,6 +746,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     else:
         slot_fill = alloc
     _tiers(rows, slot_fill, m)
+    _player_tags(rows)
     indexed = _indexed(sources, details, rows)
     readout = None if degenerate else bench_share_readout(rows, order_m, alloc, inc, es is not None,
                                                          share_in, wts["bench_share_applied"], hidden or set())
@@ -870,6 +871,34 @@ def _tiers(rows: dict, slot_fill: dict, m: dict) -> None:
             rows[i]["ddf_tier"] = tier
     for r in rows.values():
         r.setdefault("ddf_tier", None)
+
+
+# ---------------------------------------------------------------------------
+# Player tags: Start / Hold / Stash / Drop (JEG-571, JEG-521 G5).
+# Python twin of app/trade-value-chart/assets/player-tags.js.
+# ---------------------------------------------------------------------------
+
+STASH_START_PROBABILITY = 0.25
+PLAYER_TAGS = ("Start", "Hold", "Stash", "Drop")
+
+
+def player_tag(ddf_tier: str | None, start_worthy: float | None,
+               stash_start_probability: float = STASH_START_PROBABILITY) -> str | None:
+    """Classify a player row exactly as the JS PlayerTags.playerTag does.
+    Inputs are the row's ddfTier and startWorthy fields."""
+    if ddf_tier == "starter":
+        return "Start"
+    if ddf_tier not in ("bench", "waiver"):
+        return None
+    if _finite(start_worthy) and start_worthy >= stash_start_probability:
+        return "Stash"
+    return "Hold" if ddf_tier == "bench" else "Drop"
+
+
+def _player_tags(rows: dict) -> None:
+    """Add 'player_tag' to every row in place."""
+    for r in rows.values():
+        r["player_tag"] = player_tag(r.get("ddf_tier"), r.get("start_worthy"))
 
 
 def _indexed(sources: dict, details: dict, rows: dict) -> dict:
@@ -1283,6 +1312,11 @@ class Setting:
             for version, name in DDF_VERSIONS.items():
                 values[version] = r["ddf"][name]["value"]
                 values[DDF_COUNT_FIELD[version]] = r["ddf"][name]["count"]
+            # ES-10 expected-starts fields and JEG-571 player tag.
+            values["lineup_share"] = r.get("lineup_share")
+            values["start_worthy"] = r.get("start_worthy")
+            values["ddf_tier"] = r.get("ddf_tier")
+            values["player_tag"] = r.get("player_tag")
             out[i] = values
         return out
 

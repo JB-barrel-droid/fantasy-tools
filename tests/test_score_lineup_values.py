@@ -60,12 +60,14 @@ class DraftAndLineup(unittest.TestCase):
         proj = {k: self.values[k] for k in roster}
         available = set(roster) - {7}  # the best RB is out
         starters = sl.lineup(roster, self.pos_of, proj, available)
-        self.assertEqual(len(starters), 8)
+        self.assertEqual(len(starters), 7)  # JEG-563: QB1 RB2 WR2 TE1 FLEX1 default
         self.assertNotIn(7, starters)
         self.assertIn(8, starters)
         self.assertIn(9, starters)
-        # Flex: the best remaining of RB/WR/TE among available: WR 22 (value 42) beats TE 34 (29).
-        self.assertIn(22, starters)
+        # Dedicated WR are the two best (19, 20); flex is the best remaining of RB/WR/TE among
+        # available: WR 21 beats TE 34 (29). (JEG-563: 2 WR, was 3, so the flex now takes WR 21.)
+        self.assertIn(21, starters)
+        self.assertNotIn(22, starters)
         self.assertNotIn(34, starters)
 
     def test_usable_points_count_only_started_weeks(self):

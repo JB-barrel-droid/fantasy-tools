@@ -16,8 +16,9 @@ from the page's #players-data projections, independent of the code:
     player with a per-game projection at the scoring shows a number (>= 0), a
     player without one shows nothing (ESPN-0 "ineligible" players show 0);
   * Darren Waller (12-team PPR): engine ESPN 0.0, and on v2 Trade targets
-    (ESPN as our value) a sell row with ours 0.0 and gap = chart value for
-    every compared chart that pays for him.
+    (ESPN as our value) ours 0.0 and gap = chart value for every compared
+    chart that pays for him; he is a sell row exactly when the consensus rule
+    holds (JEG-677: 2+ charts, median above 0, most charts paying for him).
 Discrimination: test_guard_fails_on_broken_builds serves a build that drops
 low-projection players from the legs' natives (the old "missing below the
 line" state), and one that drops every CBS ROS quarterback.
@@ -123,13 +124,13 @@ def collect(overrides=None):
             page, errors = open_page(f"{base}/v2/")
             page.evaluate("() => { location.hash = '#trade-targets'; }")
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=30000)
-            # JEG-455: DDF Value is the default Our value; this check is about ESPN, so pick it.
+            # JEG-677: DDF Projections is the default Our value; this check is about ESPN, so pick it.
             page.select_option("#v2TOurs", "espn")
             page.click("#v2Targets [data-side=sell]")
             out["targets"] = page.evaluate("""(name) => {
               const t = window.TradeValueV2.targets();
-              const hit = t.sell.find(p => p.row.name === name);
-              return {ours: t.ours, used: t.used, probe: hit ? {ours: hit.ours,
+              const hit = t.players.find(p => p.row.name === name);
+              return {ours: t.ours, used: t.used, listed: Boolean(t.sell.find(p => p.row.name === name)), probe: hit ? {ours: hit.ours,
                 cells: Object.fromEntries(Object.entries(hit.cells).map(([c, v]) => [c, {value: v.value, gap: v.gap}]))} : null};
             }""", PROBE)
             page.fill("#v2TSearch", PROBE)
@@ -143,6 +144,17 @@ def collect(overrides=None):
         finally:
             browser.close()
     return out
+
+
+def consensus_listed(values) -> bool:
+    """JEG-677 Check 1 for a player whose our value is 0 (ESPN 0): 2+ priced charts, a consensus (median) above 0,
+    and a strict majority of the charts paying above 0. A chart at its waiver line counts as pricing him at 0."""
+    priced = sorted(v for v in values if isinstance(v, (int, float)))
+    if len(priced) < 2:
+        return False
+    mid = len(priced) // 2
+    consensus = priced[mid] if len(priced) % 2 else (priced[mid - 1] + priced[mid]) / 2
+    return consensus > 0 and sum(1 for v in priced if v > 0) * 2 > len(priced)
 
 
 def check(out) -> list[str]:
@@ -173,14 +185,18 @@ def check(out) -> list[str]:
         errors.append(f"{PROBE}: no compared chart pays for him (nothing to test)")
     hit = out["targets"]["probe"]
     if not hit:
-        errors.append(f"Trade targets: {PROBE} (paid {paid}) is not in the sell list")
+        errors.append(f"Trade targets: {PROBE} (paid {paid}) is not compared at all")
     else:
+        used_values = [hit["cells"][c]["value"] for c in out["targets"]["used"] if c in hit["cells"]]
+        want_listed = consensus_listed(used_values)
+        if out["targets"]["listed"] != want_listed:
+            errors.append(f"Trade targets: {PROBE} listed={out['targets']['listed']}, the consensus rule on {used_values} says {want_listed}")
         if hit["ours"] != 0:
             errors.append(f"Trade targets: {PROBE} ours {hit['ours']!r}, expected 0")
         for chart, value in paid.items():
             if hit["cells"].get(chart, {}).get("gap") != value:
                 errors.append(f"Trade targets: {PROBE} {chart} gap {hit['cells'].get(chart)}, expected {value}")
-        if (out["targets_row"] or {}).get("ours") != "0.0":
+        if want_listed and (out["targets_row"] or {}).get("ours") != "0.0":
             errors.append(f"Trade targets: rendered row for {PROBE} shows {out['targets_row']}")
     if out["main_errors"] or out["v2_errors"]:
         errors.append(f"page errors: {out['main_errors'] + out['v2_errors']}")

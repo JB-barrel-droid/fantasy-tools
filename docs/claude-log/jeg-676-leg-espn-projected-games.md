@@ -27,6 +27,22 @@ Updated metadata strings to document the new divisor.
 - Full test suite passes (excluding pre-existing `test_score_lineup_values.py`
   import error from `es.ROSTER`).
 
-### Claimed
+### Second fix
 
-- Chain will publish week 6 once this merges and the chain dispatches.
+`tests/test_static_export.py` `espn_anchor_problems`: same team-games
+denominator mismatch. Applied same pattern. Commit 1fee301c.
+
+### Chain results
+
+- Run 38841934175: `test_espn_anchor_matches_committed_inputs` failed (126
+  players). Fixed by second commit.
+- Run 38842224006: ESPN anchor and leg parity tests pass. Chain blocked on
+  `test_week_history.DeltaRecomputeTest`: CBS served week != chart (CBS
+  review-held at week 5, chain built week 6). Razzball and ESPN also
+  review-held. These are the expected JEG-667 coverage holds, not caused by
+  this fix.
+
+### Remaining blockers for week 6
+
+- CBS/razzball/espn review holds need human review (JEG-667 scope)
+- `test_week_history` served-week delta mismatch (consequence of review holds)

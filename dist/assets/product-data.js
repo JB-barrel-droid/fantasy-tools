@@ -223,7 +223,7 @@
       bench_share_user_settable: true,
       default_scoring: "full",
       default_teams: 12,
-      default_roster_shape: Object.freeze({ QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 }),
+      default_roster_shape: Object.freeze({ QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, BENCH: 7 }),
       default_lock_order: "ddf_value",
       default_view_mode: "indexed",
       default_reference_source: "usatoday",
