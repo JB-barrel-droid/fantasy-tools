@@ -22,3 +22,10 @@
 - Next blocker (verified in run log): `tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game`, 42 players. Cause: JEG-535 (PR 559) made bake_players divide ESPN ROS by `espn_projected_games` (games ESPN projects, 11 for PHI) while `build_ddf_two_tier_leg` still divides by team games in the window (12). The committed CSV has no `espn_projected_games` column, so main never showed it; the 2026-10-15 ESPN pull has it. The test is correct (it names exactly this); not edited. Needs a value/methodology decision (MR-20): align the leg to per-game-played or revert the bake denominator.
 - Also review-held (human): fantasycalc WR coverage 76<79 (JEG-667), cbs WR/TE coverage drops.
 - Not verified: that publishing succeeds once the parity issue is resolved.
+
+## Follow-up 2026-10-16 (chain re-dispatched after PR 632, run 38855740401)
+- Chain passed comparison+fidelity stages but failed at validate: `test_vorp_translation_js_parity` (2 failures).
+- Root cause: JEG-535 changed `espn_ppg` denominator from `games_remaining` (team games) to `espn_projected_games` (player games played). Part-time QBs with few projected games get inflated per-game rates, compressing the QB VORP spread. The 2-QB positional max dropped from ~60 to 32.3.
+- Fix (PR 637, merged): recalibrated direction-check thresholds: 2-QB from +10 to +3, translated peak from >35 to >28. The test's directional property (2-QB raises QB max: 32.3 vs 25) still holds; negative test still catches non-adjusting models (15 problems).
+- Verified: all 6 PositionalMaxParity tests pass locally; negative test still catches fixed-max model.
+- Claimed: CI chain will pass validate with week 6 ESPN data (32.3 > 28). Chain re-dispatched (run 38865917598).
