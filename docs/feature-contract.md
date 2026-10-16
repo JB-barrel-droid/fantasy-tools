@@ -151,6 +151,8 @@ Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
 
   - **RF-01** Defaults to DDF Value, with series grouped in the picker. Counts the players it could not compare.
 
+  - **RF-02** "Where the market and the projections disagree": compares the change in Trade chart average with the change in DDF Projections, week over week and like for like (a source without a saved prior week is left out of both weeks). Two lists: "Market moved, projections didn't" and "Projections moved, market didn't". A player qualifies when one side moved 2.5 points or more either way and the other 1.0 or less. Each player gets a rule-based read: market up only, "Buying in without the production: sell"; market down only, "Panic the projections don't share: buy"; projections up only, "Market hasn't caught up: buy"; projections down only, "Market hasn't reacted: sell". With no prior week for either series it says so and lists nothing. *(JEG-488; pinned by `tests/test_v2_disagree.py` and `tests/test_v2_disagree_render.py`)*
+
 ## Compare a trade (CT)
 
   - **CT-01** Give and Receive pickers, Swap, Clear, and a shareable link that carries the league settings.
@@ -174,6 +176,8 @@ Confidence comes from how many sources agree. It drops to Low when any DDF Value
   - **CT-06** On phones, the verdict bar stays on screen.
 
   - **CT-07** Tiers are cut across all positions.
+
+  - **CT-08** A rule-based deal read replaces "The sources split." It is driven by logic, never a language model. Three nets, each with an ⓘ definition: DDF Value (are you getting real value?), Trade chart average (does the market think you are winning?), DDF Projections (is the value backed by projected production?). The side of a net is Win at or above max(1, 3% of that series' average side total), Lose at or below the negative of that, otherwise Even. The read is a fixed 9-cell table on (DDF Value, Trade chart average): Win with Lose is "Arbitrage: send it" (the other manager sees it as their win); Lose with Win is "Trap"; the rest are listed in `app/v2/trade.js`. One production sentence compares DDF Projections' side with DDF Value's. The page shows the 3x3 grid (DDF Value rows, Trade chart average columns) with the current cell outlined. A trade with no Trade chart average or DDF Value for a player has no read, with the reason. *(JEG-487; pinned by `tests/test_v2_deal_read.py` and `tests/test_v2_deal_read_render.py`. Stacked give/get bars from the prototype are not built: the verdict waterfall already shows the steps.)*
 
 ## How values work (HV)
 

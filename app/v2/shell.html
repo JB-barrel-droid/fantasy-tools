@@ -343,6 +343,25 @@
       </section>
     </div>
 
+    <section class="v2-disagree" id="v2RDisagree" aria-labelledby="v2RDisagreeTitle">
+      <h2 id="v2RDisagreeTitle">Where the market and the projections disagree</h2>
+      <p class="v2-meta" id="v2RDisagreeMeta">One moved and the other did not, so one of the two is wrong.</p>
+      <div class="v2-movers">
+        <section class="v2-card" aria-labelledby="v2RMktTitle">
+          <h3 id="v2RMktTitle" class="v2-mhead">Market moved, projections didn't</h3>
+          <p class="v2-meta">Trade chart average moved 2.5 points or more; DDF Projections moved 1.0 or less</p>
+          <ol class="v2-mlist v2-dlist" id="v2RMkt" aria-labelledby="v2RMktTitle"></ol>
+          <p class="v2-meta v2-t-empty" id="v2RMktEmpty" hidden></p>
+        </section>
+        <section class="v2-card" aria-labelledby="v2RProjTitle">
+          <h3 id="v2RProjTitle" class="v2-mhead">Projections moved, market didn't</h3>
+          <p class="v2-meta">DDF Projections moved 2.5 points or more; Trade chart average moved 1.0 or less</p>
+          <ol class="v2-mlist v2-dlist" id="v2RProj" aria-labelledby="v2RProjTitle"></ol>
+          <p class="v2-meta v2-t-empty" id="v2RProjEmpty" hidden></p>
+        </section>
+      </div>
+    </section>
+
     <p class="v2-footnote" id="v2RScale"></p>
     <p class="v2-footnote">Δ = the later week's value − the earlier week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price in the earlier week has no Δ and is left out, never shown as zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -397,6 +416,18 @@
         </div>
         <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
           <p class="v2-meta" id="v2CVerdictFallNote"></p>
+        </div>
+        <div class="v2-deal" id="v2CDeal" hidden>
+          <p class="v2-deal-read"><span class="v2-deal-label" id="v2CDealTitle">Deal read</span> <b id="v2CDealRead"></b></p>
+          <p class="v2-deal-text" id="v2CDealText"></p>
+          <ul class="v2-deal-nets" id="v2CDealNets"></ul>
+          <p class="v2-meta" id="v2CDealProduction"></p>
+          <details class="v2-deal-more">
+            <summary>All nine reads</summary>
+            <div class="v2-table-wrap">
+              <table class="v2-deal-grid" id="v2CDealGrid"></table>
+            </div>
+          </details>
         </div>
         <details class="v2-cstory" id="v2CStory" hidden>
           <summary id="v2CStoryTitle"></summary>

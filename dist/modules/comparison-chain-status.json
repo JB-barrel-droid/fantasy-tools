@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-16T03:01:57.110760+00:00",
+  "run_at": "2026-10-16T03:33:30.334425+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 188/188 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, dohnte meyers, isaac teslaa, malachi fields; added: efton chism iii, germie bernard, jaylin noel) -- 1 dropped player(s) still priced live (e.g. malachi fields) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:half_12:warn -- 65/104 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:half_12/WR:fail -- candidate priced 41 < fixture 43 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs; added: jordyn tyson, marvin harrison jr) -- live verification skipped; 4 players left the priced set > tolerance 3 (dropped: deebo samuel sr, devaughn vele, josh downs, romeo doubs); coverage:half_12/TE:fail -- candidate priced 10 < fixture 14 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added: none) -- live verification skipped; net drop 4 > tolerance 3 (dropped: colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq). A hold means a human must review first; the chain will not override it.",
@@ -38,7 +38,7 @@
       "rolled_back": 1
     },
     "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: freshness",
       "held_series": [
         "fantasycalc"
       ],
@@ -46,7 +46,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "0/1156 values match exactly across 6 columns; 1156 values differ, 35 outside the movement band; 1 live players not stored, 0 stored players not live (above the list's churn line); 9 players entered or left the bottom of the list since the save (churn)",
+      "detail": "content week 6 opened 63 h ago; chart still shows FantasyCalc week 5",
       "hold_severity": "amber",
       "week": 6
     },
@@ -91,24 +91,11 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "held",
-      "stage": "review",
-      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:warn -- 188/188 values moved > 0.05 -- newer publication (Week 6 vs fixture Week 5); measured source movement; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 79 (dropped: caleb douglas, chris bell, dezhaun stribling, dohnte meyers, isaac teslaa, malachi fields; added: efton chism iii, germie bernard, jaylin noel) -- 1 dropped player(s) still priced live (e.g. malachi fields) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
-      "sections": 3,
-      "held": true,
-      "held_reason": "review hold",
-      "failed_stage": "review",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 5",
-        "content_vintage": "Week 5",
-        "content_week": 5
-      },
-      "weeks_behind": 1,
-      "hold_severity": "amber"
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
+      "sections": 3
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -153,7 +140,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-15 -> 12 DDF legs -> section; review passed (4380 values)",
+      "detail": "snapshot 2026-10-16 -> 12 DDF legs -> section; review passed (4380 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -202,7 +189,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-15",
+      "content_vintage": "2026-10-16",
       "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
@@ -215,7 +202,7 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
+    "fantasycalc": "fidelity: freshness",
     "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
@@ -227,13 +214,12 @@
       "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[682 chars]rs)\"] != []",
-      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[697 chars]rs)\"] != []"
+      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[695 chars]rs)\"] != []"
     ],
     "make_targets": [
       "Makefile:500: test-core"
     ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[682 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[697 chars]rs)\"] != []",
-    "recorded_at": "2026-10-16T03:10:06.987768+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[695 chars]rs)\"] != []",
+    "recorded_at": "2026-10-16T03:41:25.613764+00:00"
   }
 }

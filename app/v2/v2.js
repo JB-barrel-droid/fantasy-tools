@@ -3107,7 +3107,7 @@
       const item = targetsView.infoByKey[key];
       const week = targetBadge(key) || document.createTextNode(item && item.week ? `Wk ${item.week}` : "");
       const sub = [week, document.createTextNode(`${week.textContent ? " · " : ""}rescaled`)];
-      const flag = divergenceChip(key);
+      const flag = divergenceChip(key, {noLink: true});
       if (flag) sub.push(document.createTextNode(" "), flag);
       head(PUBLISHER_NAMES[key] || key, "num t-chart", sub, key, true);
     });
@@ -3613,6 +3613,7 @@
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence}) : null,
+      deal: ready ? TC.dealRead(giveRows, receiveRows) : null,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
@@ -4121,7 +4122,8 @@
   function renderStory() {
     const box = $("v2CStory");
     const s = compareView.story;
-    box.hidden = !s.kind || s.kind === "single";
+    // JEG-487: the rule-based deal read replaces "The sources split." (a split is what the read explains).
+    box.hidden = !s.kind || s.kind === "single" || s.kind === "split";
     // Folded into the verdict card (JEG-469): open for a same-publisher contrast, which the
     // verdict does not say; otherwise one click away. A reader's own toggle is kept.
     if (box.dataset.story !== (s.kind || "")) box.open = s.kind === "contrast";
@@ -4153,6 +4155,95 @@
       title.textContent = "No complete source yet.";
       text.textContent = "Every selected source is missing a value for at least one player, so no row has a result. See each row for who is missing.";
     }
+  }
+
+  // JEG-487 deal read (CT-08): three nets with their questions, the fixed 9-cell grid with the current cell
+  // outlined, and one production sentence. Everything is read from compareView.deal (trade.js dealRead).
+  const DEAL_NETS = [
+    ["value", "DDF Value", "Are you getting real value?"],
+    ["market", "Trade chart average", "Does the market think you are winning?"],
+    ["projections", "DDF Projections", "Is the value backed by projected production?"]];
+  const DEAL_SIDE_WORD = {win: "You win", even: "Even", lose: "You lose"};
+  function renderDeal() {
+    const box = $("v2CDeal");
+    const deal = compareView.deal;
+    box.hidden = !deal;
+    if (!deal) return;
+    const TC = window.TradeValueTrade;
+    $("v2CDealRead").textContent = deal.kind === "read" ? `${deal.title}: ${deal.action}` : "";
+    $("v2CDealRead").hidden = deal.kind !== "read";
+    $("v2CDealText").textContent = deal.text;
+    const nets = $("v2CDealNets");
+    nets.replaceChildren();
+    DEAL_NETS.forEach(([id, name, question]) => {
+      const n = deal[id];
+      const li = document.createElement("li");
+      li.dataset.net = id;
+      const label = document.createElement("span");
+      label.className = "v2-deal-name";
+      label.textContent = name;
+      const info = document.createElement("button");
+      info.type = "button";
+      info.className = "v2-info";
+      info.setAttribute("aria-label", `What ${name} tells you`);
+      info.setAttribute("aria-expanded", "false");
+      const glyph = document.createElement("span");
+      glyph.setAttribute("aria-hidden", "true");
+      glyph.textContent = "ⓘ";
+      info.appendChild(glyph);
+      const def = document.createElement("span");
+      def.className = "v2-deal-def v2-meta";
+      def.hidden = true;
+      def.textContent = question;
+      info.addEventListener("click", () => { def.hidden = !def.hidden; info.setAttribute("aria-expanded", String(!def.hidden)); });
+      const value = document.createElement("b");
+      value.className = "v2-deal-net";
+      value.dataset.side = n.side || "";
+      value.textContent = n.net === null ? "—" : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
+      if (n.net === null) value.title = "At least one player has no value in this series";
+      li.append(label, info, value, def);
+      nets.appendChild(li);
+    });
+    const grid = $("v2CDealGrid");
+    grid.replaceChildren();
+    const head = document.createElement("thead");
+    const hr = document.createElement("tr");
+    const corner = document.createElement("th");
+    corner.scope = "col";
+    corner.innerHTML = `<span class="v2-sr">DDF Value (rows) against Trade chart average (columns)</span>`;
+    hr.appendChild(corner);
+    TC.DEAL_SIDES.forEach(m => {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.textContent = `Charts: ${DEAL_SIDE_WORD[m].toLowerCase()}`;
+      hr.appendChild(th);
+    });
+    head.appendChild(hr);
+    const body = document.createElement("tbody");
+    TC.DEAL_SIDES.forEach(v => {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.textContent = `DDF Value: ${DEAL_SIDE_WORD[v].toLowerCase()}`;
+      tr.appendChild(th);
+      TC.DEAL_SIDES.forEach(m => {
+        const td = document.createElement("td");
+        const cell = TC.DEAL_READS[`${v}|${m}`];
+        td.dataset.cell = `${v}|${m}`;
+        td.textContent = cell.title;
+        td.title = cell.text;
+        if (deal.kind === "read" && deal.cell === `${v}|${m}`) {
+          td.classList.add("is-current");
+          td.setAttribute("aria-current", "true");
+        }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    grid.append(head, body);
+    const production = $("v2CDealProduction");
+    production.textContent = deal.production || "";
+    production.hidden = !deal.production;
   }
 
   // JEG-469 verdict (Jeremy, 2026-10-08): "Primary thing that matters is that DDF thinks you
@@ -4323,6 +4414,7 @@
     $("v2CVorpCard").hidden = !ready || !compareView.vorpKeys.length;
     renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp, compareView.falls.vorp, null);
     renderStory();
+    renderDeal();
     const notes = [];
     if (compareView.unavailable.length) {
       notes.push(`Not compared: ${compareView.unavailable.map(key => sourceMeta(key).short).join(", ")}, not available for this league.`);
@@ -4685,6 +4777,7 @@
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
     if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
+    renderDisagreements(M, C.getRows().filter(row => !needle || String(row.name || "").toLowerCase().includes(needle)));
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
@@ -4692,6 +4785,74 @@
     const note = $("v2RNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
+  }
+
+  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Projections disagree. Always the served
+  // week pair for those two series (the Movement picker and the week pair above do not apply).
+  const DISAGREE_SHOWN = 10;
+  function renderDisagreements(M, rows) {
+    const priorM = priorCache.get("ddf_value_charts");
+    const priorP = priorCache.get("ddf_value_projections");
+    const d = M.buildDisagreements(rows, priorM, priorP);
+    const lists = [["market", "v2RMkt", "v2RMktEmpty"], ["projections", "v2RProj", "v2RProjEmpty"]];
+    $("v2RDisagreeMeta").textContent = d.available
+      ? `Week ${d.priorWeek} → Week ${d.currentWeek}, both priced for your league, like for like: a source without a saved prior week is left out of both weeks. `
+        + `One moved ${M.MOVE} points or more and the other ${M.QUIET.toFixed(1)} or less, so one of the two is wrong. ${d.compared} players compared.`
+      : `No comparison yet: ${d.reason}.`;
+    lists.forEach(([kind, listId, emptyId]) => {
+      const ol = $(listId);
+      ol.replaceChildren();
+      const list = d[kind];
+      list.slice(0, DISAGREE_SHOWN).forEach(item => {
+        const row = item.row;
+        const li = document.createElement("li");
+        li.tabIndex = 0;
+        li.dataset.playerKey = String(row.player_key);
+        li.dataset.moved = item.moved;
+        li.addEventListener("click", () => openDrawer(row));
+        li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+        const top = document.createElement("div");
+        top.className = "m-top";
+        const who = document.createElement("div");
+        const name = document.createElement("b");
+        name.textContent = row.name;
+        const sub = document.createElement("span");
+        sub.className = "v2-meta";
+        sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+        who.append(name, sub);
+        const big = document.createElement("div");
+        big.className = `big ${item.direction === "up" ? "up" : "down"}`;
+        big.dataset.col = "moved";
+        const lead = item.moved === "market" ? item.market : item.projections;
+        big.textContent = `${item.direction === "up" ? "▲" : "▼"} ${fmtGap(lead.delta)}`;
+        top.append(who, big);
+        const vals = document.createElement("div");
+        vals.className = "v2-meta m-vals";
+        const part = (label, delta, col) => {
+          const span = document.createElement("span");
+          span.dataset.col = col;
+          span.textContent = `${label} ${fmtGap(delta)}`;
+          return span;
+        };
+        vals.append(part("Trade chart average", item.market.delta, "market"), document.createTextNode(" · "),
+          part("DDF Projections", item.projections.delta, "projections"));
+        const read = document.createElement("div");
+        read.className = "v2-dread";
+        read.dataset.col = "read";
+        read.textContent = item.read;
+        li.append(top, vals, read);
+        ol.appendChild(li);
+      });
+      const empty = $(emptyId);
+      empty.hidden = list.length > 0;
+      empty.textContent = d.available ? "No player moved this way this week." : "—";
+      if (list.length > DISAGREE_SHOWN) {
+        const more = document.createElement("li");
+        more.className = "v2-meta v2-dmore";
+        more.textContent = `${list.length - DISAGREE_SHOWN} more not shown`;
+        ol.appendChild(more);
+      }
+    });
   }
 
   function renderMoverList(side, list, scale) {

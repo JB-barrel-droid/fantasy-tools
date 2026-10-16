@@ -21,3 +21,10 @@ Contract: root-cause the red render suites on origin/main after JEG-631 and fix 
 - Verified: tests.test_v2_targets_render, panels, waterfall, asset_load_retry, trade_chart_ingest_ci, v2_group_weight_render, v2_contract_render, freshness_display_render all OK (50 tests).
 - Not mine, still red on main: tests.test_bench_share_readout_matches_reference (17 failures; fails identically with the clock pin disabled), the JEG-630 engine lane. `make validate` stops there in test-core, so the later suites were run targeted as above. value_check compare not run: no value-affecting file changed.
 - Seen, not fixed: at 1366 the nav's Research tab is clipped ("Res") by the status chip (JEG-543).
+
+### Merge with main (second pass, same PR)
+- Merged origin/main (JEG-505 verdict card, JEG-609 divergence chip, JEG-476 deal read). Conflicts were generated files only (app/, dist/); took main's and regenerated with the sync pipeline.
+- Waterfall fold regression, real: the JEG-476 deal read made the verdict card 38 px too tall at 1366x768 (panels ended at y=806). CSS only, short laptop screens (min-width 1280, max-height 800): tighter deal block spacing and a one-line waterfall caption. Assertion unchanged.
+- Targets: header sub-label now carries the JEG-609 "Check"/"Reviewed" chip inside `.th-sub`, so the JEG-458 check "ends with rescaled" read the chip text. The chip is deliberate; the test now reads the label with the chip removed (`subLabel`). The assertion on the label itself is unchanged.
+- Targets fold regression, real: the same chip and main's rows pushed top 5 to y=796 at 1366x768. CSS only: 3 px row padding on Trade targets rows at short laptop heights (header padding left alone, the 44 px info buttons need it).
+- Verified: tests.test_v2_targets_render, test_v2_waterfall_render, test_v2_deal_read_render, test_v2_panels_render, test_v2_states_render, test_asset_load_retry green on the merged tree (last targets re-run after the final CSS change; others ran before it, and the final change only touches `#v2Targets` rules).
