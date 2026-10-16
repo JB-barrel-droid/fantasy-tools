@@ -3129,8 +3129,8 @@
       cell.dataset.marketEqual = "";
       const note = document.createElement("span");
       note.className = "why t-equal";
-      note.textContent = "= market average";
-      note.title = `The average of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+      note.textContent = "= market consensus";
+      note.title = `The median of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
       cell.appendChild(note);
       return;
     }
@@ -3138,12 +3138,12 @@
     const count = document.createElement("span");
     count.className = "why t-count";
     count.dataset.marketCount = String(m.count);
-    count.textContent = `avg of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
+    count.textContent = `median of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
     if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
     const diff = document.createElement("span");
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
-    diff.title = "Our value minus the market average";
+    diff.title = "Our value minus the market consensus";
     diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${fmtGap(m.diff)}`;
     cell.append(diff, count);
   }
@@ -3276,7 +3276,28 @@
     return span;
   }
 
-  const targetBest = (side, p) => (side === "sell" ? p.bestSell : p.bestBuy);
+  // JEG-677: the row's gap is the consensus gap (median of the charts - our value); "N of M charts agree"
+  // and one dot per chart (above / below our value) say how solid it is.
+  const targetBest = (side, p) => ({gap: p.market.gap, agree: p.market.agree, of: p.market.of, dots: p.market.dots});
+  function agreeNode(b, cls) {
+    const who = document.createElement("span");
+    who.className = cls || "th-sub t-who";
+    who.dataset.agree = String(b.agree);
+    who.dataset.of = String(b.of);
+    const dots = document.createElement("span");
+    dots.className = "t-dots";
+    b.dots.forEach(dot => {
+      const d = document.createElement("span");
+      d.className = `t-dot ${dot.side}`;
+      d.dataset.chart = dot.chart;
+      d.dataset.dot = dot.side;
+      d.title = `${PUBLISHER_NAMES[dot.chart]}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
+      d.textContent = "●";
+      dots.appendChild(d);
+    });
+    who.append(document.createTextNode(`${b.agree} of ${b.of} charts agree `), dots);
+    return who;
+  }
 
   // One chart's value for a player as a labeled run: "◆ USAT [Wk 4] 17.4 +9.8".
   // Used by the phone cards and by an expanded row in the two-column layout.
@@ -3318,16 +3339,6 @@
     return span;
   }
 
-  // "Largest gap" attribution: the chart's name, plus its badge when it is on an earlier week.
-  function bestChartNode(chart, verb, cls) {
-    const who = document.createElement("span");
-    who.className = cls || "th-sub t-who";
-    who.append(document.createTextNode(verb ? `${PUBLISHER_NAMES[chart]} ${verb}` : PUBLISHER_NAMES[chart]));
-    const badge = targetBadge(chart);
-    if (badge) who.append(document.createTextNode(" "), badge);
-    return who;
-  }
-
   function renderTargetTable(side, list) {
     const ids = TARGET_IDS[side];
     const table = $(ids.table);
@@ -3364,7 +3375,7 @@
     };
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
-    head("Market average", "num t-avg", "compared charts");
+    head("Market consensus", "num t-avg", "median of compared charts");
     targetsView.used.forEach(key => {
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
@@ -3374,7 +3385,7 @@
       if (flag) sub.push(document.createTextNode(" "), flag);
       head(PUBLISHER_NAMES[key] || key, "num t-chart", sub, key, true);
     });
-    head("Largest gap", "num t-best", side === "sell" ? "chart pays more" : "chart pays less", null, true);
+    head("Gap vs consensus", "num t-best", side === "sell" ? "market pays more" : "market pays less", null, true);
     const expandHead = head("", "t-expand");
     const sr = document.createElement("span");
     sr.className = "v2-sr";
@@ -3425,9 +3436,9 @@
       });
       const b = targetBest(side, p);
       const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
-      bc.dataset.best = b.chart;
+      bc.dataset.best = "consensus";
       bc.append(document.createTextNode(fmtGap(b.gap)));
-      bc.appendChild(bestChartNode(b.chart));
+      bc.appendChild(agreeNode(b));
       // Two-column layout (≥1280 px) hides the per-chart cells; this opens them under the row.
       const open = T.expanded[side].has(key);
       const ec = td("t-expand");
@@ -3491,9 +3502,9 @@
       const b = targetBest(side, p);
       const big = document.createElement("div");
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;
-      big.dataset.best = b.chart;
+      big.dataset.best = "consensus";
       big.append(document.createTextNode(fmtGap(b.gap)));
-      big.appendChild(bestChartNode(b.chart, `pays ${b.gap > 0 ? "more" : "less"}`, "v2-meta t-who"));
+      big.appendChild(agreeNode(b, "v2-meta t-who"));
       top.append(who, big);
       const line = document.createElement("div");
       line.className = "vals";
@@ -3505,7 +3516,7 @@
       line.appendChild(ours);
       const avg = document.createElement("span");
       avg.className = "avg";
-      if (!p.market.equal) avg.append(document.createTextNode("Market avg "));
+      if (!p.market.equal) avg.append(document.createTextNode("Consensus "));
       marketValue(avg, p);
       line.appendChild(avg);
       targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
@@ -3551,10 +3562,10 @@
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
         ? "No trade chart is available to compare for this selection."
-        : `No player has a ${side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
+        : `No player has a market consensus ${side === "sell" ? "above" : "below"} our value, backed by 2 or more charts, for this selection.`);
       $(ids.table).hidden = !list.length;
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · largest gap first. `
-        + (side === "sell" ? "Offer them to managers who trade off that chart." : "Ask for them from managers who trade off that chart.");
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest consensus gap first. `
+        + (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: most charts pay less than our value.");
     });
     const notes = [];
     if (targetsView.skipped.length) {

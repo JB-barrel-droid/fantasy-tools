@@ -327,7 +327,11 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-ttable td.best { font-size: clamp(14px, 1.15vw, 16px); }
 .v2-ttable td.best.up { color: var(--v2-action); }
 .v2-ttable td.best.down { color: var(--v2-negative); }
-.v2-ttable td.best .t-who { color: var(--v2-muted); white-space: nowrap; }
+.v2-ttable td.best .t-who { color: var(--v2-muted); white-space: normal; }
+.t-dots { display: flex; gap: 2px; justify-content: flex-end; font-size: 9px; line-height: 1; vertical-align: middle; }
+.t-dot.above { color: var(--v2-action); }
+.t-dot.below { color: var(--v2-negative); }
+.t-dot.level { color: var(--v2-muted); }
 .v2-ttable td.t-expand, .v2-ttable th.t-expand { width: 44px; padding: 4px 0; vertical-align: middle; }
 .v2-texpand { width: 44px; height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: none; color: var(--v2-muted); cursor: pointer; font-size: 14px; }
 .v2-texpand:hover, .v2-texpand[aria-expanded="true"] { border-color: var(--v2-tint-border); color: var(--v2-action); background: var(--v2-positive); }
