@@ -18,8 +18,8 @@
 // missing one, so a chart that still pays for him is an ordinary sell target
 // with gap = chart value. A player with no ESPN row is still missing.
 //
-// Our value (Jeremy, 2026-10-08, JEG-455): DDF Value (the engine's ddf_value
-// series) is our value and the default. ESPN, CBS rest-of-season and Razzball
+// Our value (Jeremy, JEG-461 2026-10-08, JEG-677): DDF Projections (ddf_value_projections) is the default;
+// DDF Value, ESPN, CBS rest-of-season and Razzball
 // projections stay as alternatives. Each is one engine series, read as is.
 //
 // Waiver line (Jeremy, 2026-10-07: "It's illogical that 0 value players would
@@ -29,8 +29,11 @@
 (function (root) {
   "use strict";
 
-  const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];
-  const OUR_KEY = OUR_KEYS[0];   // default: DDF Value
+  // JEG-677 (Jeremy, JEG-461 2026-10-08 / JEG-476): Check 1 compares DDF Projections to the market
+  // consensus, so DDF Projections is the default. DDF Value stays a choice (and is Check 2's series).
+  const OUR_KEYS = ["ddf_value_projections", "ddf_value", "ddf_value_charts", "espn", "cbsros", "razzball"];
+  const OUR_KEY = OUR_KEYS[0];   // default: DDF Projections
+  const DDF_VALUE_KEY = "ddf_value";
   const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
   const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
@@ -38,18 +41,30 @@
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
-  // JEG-504 (Jeremy, 2026-10-09, TT-09): the mean of the compared charts' rescaled values
-  // that price the player, beside our value. A finite 0 counts (at or below that chart's
-  // waiver line); a null is left out and counted in `left`. diff = our value − the average,
-  // and equal says the two match to one decimal as shown, so the page shows a note instead
-  // of a duplicate number. No chart prices the player: value null, no diff.
-  function marketAverage(ours, cells) {
-    const values = Object.values(cells).map(cell => cell.value).filter(finite);
-    const left = Object.keys(cells).length - values.length;
-    if (!values.length) return {value: null, count: 0, left, diff: null, equal: false};
-    const value = values.reduce((sum, v) => sum + v, 0) / values.length;
+  // JEG-677 (Jeremy, JEG-461 2026-10-08): the market consensus is the MEDIAN of the indexed charts that
+  // price the player (a finite 0 counts: at or below that chart's waiver line; a null is left out and
+  // counted in `left`). Eligible as a target only with 2+ charts, a consensus above the waiver line, and a
+  // strict majority of the charts on the same side of our value as the consensus. gap = consensus - ours:
+  // above 0 sells, below 0 buys. `agree` of `of` charts is shown on the row; `dots` is one entry per
+  // chart (above / below / level against our value). diff = our value - consensus; equal says the two
+  // match to one decimal as shown, so the page shows a note instead of a duplicate number.
+  function marketConsensus(ours, cells) {
+    const keys = Object.keys(cells);
+    const priced = keys.filter(key => finite(cells[key].value));
+    const left = keys.length - priced.length;
+    const none = {value: null, count: priced.length, of: priced.length, left, diff: null, gap: null, equal: false,
+      side: null, agree: 0, eligible: false, dots: []};
+    if (!priced.length) return none;
+    const values = priced.map(key => cells[key].value);
+    const value = median(values);
     const diff = ours - value;
-    return {value, count: values.length, left, diff, equal: ours.toFixed(1) === value.toFixed(1)};
+    const gap = value - ours;
+    const side = gap > 0 ? "sell" : gap < 0 ? "buy" : null;
+    const agree = side ? values.filter(v => (side === "sell" ? v > ours : v < ours)).length : 0;
+    const dots = priced.map(key => ({chart: key, side: cells[key].value > ours ? "above" : cells[key].value < ours ? "below" : "level"}));
+    const eligible = Boolean(side) && priced.length >= 2 && value > 0 && agree * 2 > priced.length;
+    return {value, count: priced.length, of: priced.length, left, diff, gap, equal: ours.toFixed(1) === value.toFixed(1),
+      side, agree, eligible, dots};
   }
 
   // charts: the chart keys to compare (already filtered for availability and week).
@@ -67,8 +82,6 @@
         return;
       }
       const cells = {};
-      let bestSell = null;
-      let bestBuy = null;
       charts.forEach(chart => {
         const value = row.values[chart];
         if (!finite(value)) {
@@ -86,16 +99,14 @@
         }
         const gap = value - ours;
         cells[chart] = {value, gap, reason: null};
-        if (gap > 0 && (!bestSell || gap > bestSell.gap)) bestSell = {chart, gap};
-        if (gap < 0 && (!bestBuy || gap < bestBuy.gap)) bestBuy = {chart, gap};
       });
-      players.push({row, order: index + 1, ours, cells, bestSell, bestBuy, market: marketAverage(ours, cells)});
+      players.push({row, order: index + 1, ours, cells, market: marketConsensus(ours, cells)});
     });
-    const sell = players.filter(p => p.bestSell)
-      .sort((a, b) => b.bestSell.gap - a.bestSell.gap || a.order - b.order);
-    const buy = players.filter(p => p.bestBuy)
-      .sort((a, b) => a.bestBuy.gap - b.bestBuy.gap || a.order - b.order);
-    return {ours: ourKey, sell, buy, compared: players.length, omittedNoOurs, atWaiverCells};
+    const sell = players.filter(p => p.market.eligible && p.market.side === "sell")
+      .sort((a, b) => b.market.gap - a.market.gap || a.order - b.order);
+    const buy = players.filter(p => p.market.eligible && p.market.side === "buy")
+      .sort((a, b) => a.market.gap - b.market.gap || a.order - b.order);
+    return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells};
   }
 
   // Chart columns to compare: every available published chart (JEG-459). A
@@ -157,7 +168,7 @@
 
   // rows: engine rows (all positions). charts: chart keys to compare. opts.ours: the DDF Value key.
   function weightCheck(rows, charts, opts) {
-    const oursKey = (opts && opts.ours) || OUR_KEY;
+    const oursKey = (opts && opts.ours) || DDF_VALUE_KEY;
     const columns = ["consensus"].concat(charts);
     const marketOf = (row, column) => {
       if (column !== "consensus") return finite(row.values[column]) ? row.values[column] : null;
@@ -210,7 +221,7 @@
     return {ours: oursKey, columns, groups, playersOf, headline: {over, under, biggest}, compared: pairs.consensus.length};
   }
 
-  const api = {OUR_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, buildTargets, chartsToCompare, ourChoices,
+  const api = {OUR_KEY, DDF_VALUE_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, buildTargets, chartsToCompare, ourChoices,
     weightCheck, weightSignal, WEIGHT_POSITIONS, WEIGHT_TIERS, WEIGHT_SIGNAL, WEIGHT_MIN_SHOW, WEIGHT_MIN_HEADLINE};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTargets = api;

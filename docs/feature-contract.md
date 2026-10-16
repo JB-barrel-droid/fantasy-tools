@@ -142,8 +142,8 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
   - **TT-01** The headline explains the page: "Where the trade market is wrong this week".
   - **TT-02** The Sell and Buy lists are both visible: top 5 each, expandable, side by side from 1280 px.
-  - **TT-03** "Our value" defaults to DDF Value, with a source count on each row.
-  - **TT-04** Each row shows the largest gap and which chart it's against. The row expands to show every chart.
+  - **TT-03** "Our value" defaults to DDF Projections (Jeremy, JEG-461 2026-10-08; JEG-677), with a source count on each row. DDF Value and the other series stay in the picker.
+  - **TT-04** Check 1 ranks by the market consensus: the median of the indexed charts that price the player, minus our value. A player is listed only with 2+ charts and a majority of them on the consensus's side of our value; Sell is gap > 0 (largest first), Buy gap < 0 (most negative first). Each row shows the consensus, the gap, "N of M charts agree" and one dot per chart. The row expands to show every chart. *(JEG-677; pinned by `tests/test_v2_targets.py` and `tests/test_v2_targets_render.py`)*
   - **TT-05** Chart values are labelled "rescaled", with an ⓘ that explains the rescaling (GL-21) *(to build: JEG-510)*.
   - **TT-06** A chart that is a week behind shows a "Wk N" badge wherever it appears: Trade targets, Player values and Compare a trade.
   - **TT-07** A chart value at or below 0 is never a buy or sell target.
