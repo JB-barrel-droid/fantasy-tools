@@ -4,7 +4,7 @@ Contract PV-04, PV-06, PV-07. Loads the built page headless at 1440 px and check
 
   * a vertical line at the starter -> bench and the bench -> waiver boundary, placed between the two listed
     players the engine's getZones() boundary falls between (not at a fixed position count);
-  * light grey labels "Starter", "Bench", "Waiver" centred between the lines (and the plot edges), redrawn
+  * light grey labels "Starters", "Bench", "Waiver" centred between the lines (and the plot edges), redrawn
     when the rank window is zoomed: a boundary outside the shown ranks has no line;
   * grabbing the fill between a brush's handles moves both ends together and keeps the width, for the rank
     brush (pointer drag and Shift+arrow) and the value brush;
@@ -106,7 +106,7 @@ def check_zones(z: dict, tag: str, expect_all: bool) -> list[str]:
         bounds.append(got[name])
     bounds.append(z["right"])
     # Sections: left edge / first line / second line / right edge; labels sit in their section's centre.
-    names = ["Starter", "Bench", "Waiver"]
+    names = ["Starters", "Bench", "Waiver"]
     edges = [z["left"]] + [got[n] for n in want if n in got] + [z["right"]]
     # A boundary left of the first listed player collapses the section to nothing: work out the sections from the zones.
     sec = []

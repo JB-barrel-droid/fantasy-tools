@@ -162,7 +162,7 @@ def value_sets(sources: list, teams: int, params: dict) -> dict:
         tot = sum(vals.values())
         plain[src.key] = {k: v * run_a["pie"] / tot for k, v in vals.items()} if tot else vals
     out["plain_value_above_waivers"] = es.ddf_mean(plain, keys)
-    out["mean_projection"] = {k: tiers[k]["mean"] for k in keys}
+    out["mean_projection"] = {k: tiers[k]["value"] for k in keys}
     # Start-worthy probability from the projections (mean over projection sources).
     psw = defaultdict(list)
     for src in sources:
@@ -483,7 +483,7 @@ def run(season: int, teams: int, scoring: str, params: dict, history: dict, play
             continue
         vs = value_sets(sources, teams, params)
         tiers = vs["tiers"]
-        counts = es.alloc({p: sorted((t["mean"] for t in tiers.values() if t["pos"] == p), reverse=True)
+        counts = es.alloc({p: sorted((t["value"] for t in tiers.values() if t["pos"] == p), reverse=True)
                            for p in POSITIONS}, teams)
         starters_per_pos = {p: counts[p]["starters"] for p in POSITIONS}
         # Lineups each week by that week's own saved mean projection when it exists, else the valuation week's.
@@ -491,7 +491,7 @@ def run(season: int, teams: int, scoring: str, params: dict, history: dict, play
         for w in later:
             if w in history:
                 wt = es.tiers_on_mean(history_week(history[w], pos_of, scoring), teams)
-                weekly_proj[w] = {k: t["mean"] for k, t in wt.items()}
+                weekly_proj[w] = {k: t["value"] for k, t in wt.items()}
             else:
                 weekly_proj[w] = vs["values"]["mean_projection"]
         entry = {"valuation_week": vw, "scored_weeks": later, "value_sets": {}}

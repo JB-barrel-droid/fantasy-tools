@@ -10,10 +10,10 @@ This is the same as DDF, but starting from published values instead of PPG:
   DDF: PPG + Roster → Tiers → Waiver line → VORP → Weights → Value
   Trade charts: Published Value + Roster → Tiers → Waiver line → VORP → Weights
 
-The roster settings are KNOWN (not inferred). For 12-team:
+The roster settings are KNOWN (not inferred). For 12-team (1 QB / 2 RB / 2 WR / 1 TE / FLEX):
   QB: 12 starters → waiver line = QB13's value
-  RB: 24 starters (+ flex) → waiver line = RB25's value (or first non-rostered)
-  WR: 36 starters (+ flex) → waiver line = WR37's value
+  RB: 24 starters (+ flex) → waiver line after flex fill
+  WR: 24 starters (+ flex) → waiver line after flex fill
   TE: 12 starters → waiver line = TE13's value
 """
 
@@ -223,7 +223,7 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
     return apportion(weights, total_flex)
 
 
-def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
+def bench_for_teams(teams: int, bench_per_team: float = 7.0) -> dict[str, int]:
     """Scale bench by teams and bench size.
     
     Math: bench[pos] = BENCH_MIX_12[pos] × (teams/12) × (bench_per_team/6.67)
@@ -233,7 +233,7 @@ def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
     
     Args:
         teams: league size
-        bench_per_team: bench spots per team (ESPN default 6.0)
+        bench_per_team: bench spots per team (default 7.0)
     
     Returns:
         {pos: bench_slots}
@@ -246,7 +246,7 @@ def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
     return apportion(BENCH_MIX_12, int(total + 0.5))
 
 
-def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
+def rostered_for_teams(teams: int, bench_per_team: float = 7.0,
                        flex_count: int = None,
                        ranked: dict[str, list[tuple[str, float]]] = None,
                        use_vorp_weighting: bool = True,
@@ -356,7 +356,7 @@ def roster_waiver_line(ranked: list[tuple[str, float]], n_rostered: int) -> tupl
 
 def compute_vorp_via_roster(source: str, teams: int = 12, 
                             scoring: str = "half_ppr",
-                            bench_per_team: float = 6.0) -> dict:
+                            bench_per_team: float = 7.0) -> dict:
     """Compute VORP using roster settings to dictate waiver line.
     
     Steps:

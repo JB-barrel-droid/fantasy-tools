@@ -56,7 +56,7 @@ METHODOLOGY_POSITION_SOURCES = [
 # The two-tier value model behind the adjusted view. Baked here so the
 # methodology section can describe the actual bench/starter split.
 METHODOLOGY_BENCH_SHARE = 0.15
-METHODOLOGY_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
+METHODOLOGY_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "BENCH": 7}
 
 
 def _methodology_combo(source: str, scoring: str, teams: int) -> str:

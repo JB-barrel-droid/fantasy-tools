@@ -1,0 +1,540 @@
+// JEG-616 step 4: agent-callable values endpoint (Supabase edge function).
+//
+// Loads the published value-model.js (pure, no DOM) and the live bundle
+// (comparison-sources-data.json + players-data from index.html), runs
+// ValueModel.runValuePipeline() with the caller's league settings, and
+// returns the same numbers the site shows.
+//
+// No accounts, no keys, no schema change. Reads only the published bundle.
+// Rate-limited by Supabase's built-in edge function limits.
+//
+// Deploy: supabase functions deploy get-values --no-verify-jwt
+
+const SITE_ORIGIN = "https://datadrivenfootball.com";
+const BUNDLE_URL = `${SITE_ORIGIN}/assets/comparison-sources-data.json`;
+const PAGE_URL = `${SITE_ORIGIN}/`;
+const VALUE_MODEL_URL = `${SITE_ORIGIN}/assets/value-model.js`;
+const LINEUP_PARAMS_URL = `${SITE_ORIGIN}/assets/lineup-parameters.json`;
+
+// --- In-memory cache (lives for the function instance's lifetime) ----------
+
+interface CachedBundle {
+  detail: Record<string, unknown>;
+  players: Array<Record<string, unknown>>;
+  meta: Record<string, unknown>;
+  ValueModel: Record<string, unknown>;
+  lineupConfig: Record<string, unknown> | null;
+  loadedAt: number;
+}
+
+let cached: CachedBundle | null = null;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Pipeline source keys (must match curve-widget.js PIPELINE_SOURCE_KEYS).
+const PIPELINE_SOURCE_KEYS = [
+  "espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs",
+];
+const PROJECTION_SOURCE_KEYS = ["espn", "cbsros", "razzball"];
+const PPG_FIELD_OF: Record<string, string> = {
+  espn: "espn_ppg",
+  cbsros: "cbsros_ppg",
+  razzball: "rz_ppg",
+};
+
+// Scoring field from scoring name.
+function scoringField(scoring: string): string {
+  return scoring === "ppr" ? "ppr" : scoring === "half_ppr" ? "half_ppr" : "standard";
+}
+
+// Replicates product-data.js espnProjectsZero(): ESPN considers this player
+// listed at 0 (injured/out) even though espn_ppg is absent.
+// deno-lint-ignore no-explicit-any
+function espnProjectsZero(player: any): boolean {
+  if (player.espn_status === "ineligible") return true;
+  if (player.espn_status === "absent") return false;
+  if (player.espn_zeroed === true) return true;
+  const ppg = player.espn_ppg;
+  if (!ppg || typeof ppg !== "object") return false;
+  const values = Object.values(ppg);
+  return values.length > 0 && values.every((v) => typeof v === "number" && v === 0);
+}
+
+// --- Source freshness / eligibility (mirrors product-data.js + curve-widget.js)
+
+const CONTENT_WEEK_1_START_UTC = Date.UTC(2026, 8, 8); // Tue 2026-09-08
+const CONTENT_WEEK_MAX = 18;
+const DAY_MS = 86400000;
+
+function contentWeekForDay(day: string | null): number | null {
+  if (!day) return null;
+  const [y, m, d] = day.split("-").map(Number);
+  const days = Math.round((Date.UTC(y, m - 1, d) - CONTENT_WEEK_1_START_UTC) / DAY_MS);
+  if (days < 0) return 1;
+  return Math.min(Math.max(Math.floor(days / 7) + 1, 1), CONTENT_WEEK_MAX);
+}
+
+function todayIso(): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function isoDay(v: unknown): string | null {
+  if (!v || typeof v !== "string") return null;
+  const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : null;
+}
+
+function parseWeekLabel(value: unknown): number | null {
+  const m = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
+  return m ? Number(m[1] || m[2]) : null;
+}
+
+// deno-lint-ignore no-explicit-any
+function sourceVintage(meta: any): { week: number | null; basis: string | null } {
+  const m = meta && typeof meta === "object" ? meta : {};
+  const designated = parseWeekLabel(m.week_designated);
+  if (designated) return { week: designated, basis: "week_designated" };
+  const vintageWeek = parseWeekLabel(m.content_vintage);
+  if (vintageWeek) return { week: vintageWeek, basis: "content_vintage" };
+  const dated: Array<[string, unknown]> = [
+    ["content_vintage", m.content_vintage],
+    ["vintage", m.vintage],
+    ["espn_snapshot", m.espn_snapshot],
+    ["lineage.raw_vintage", m.lineage?.raw_vintage],
+    ["fetched_at", m.fetched_at],
+  ];
+  const found = dated.find(([, value]) => isoDay(value));
+  if (found) return { week: contentWeekForDay(isoDay(found[1])), basis: found[0] };
+  return { week: null, basis: null };
+}
+
+// Weekly chart sources (curve-widget.js WEEKED_SOURCE_KEYS base set).
+const WEEKED_SOURCES = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
+
+// Hold fields on source sections.
+const HOLD_FIELDS = ["validationHold", "promotionHold"];
+
+// deno-lint-ignore no-explicit-any
+function sectionHold(sourceSection: any): { reason: string } | null {
+  if (!sourceSection || typeof sourceSection !== "object") return null;
+  for (const field of HOLD_FIELDS) {
+    const hold = sourceSection[field];
+    if (hold && typeof hold === "object" && hold.reason) {
+      return { reason: hold.reason };
+    }
+  }
+  return null;
+}
+
+// Load the bundle from the live site.
+async function loadBundle(): Promise<CachedBundle> {
+  if (cached && Date.now() - cached.loadedAt < CACHE_TTL_MS) return cached;
+
+  // Fetch value-model.js and eval it to get ValueModel on globalThis.
+  const vmResponse = await fetch(VALUE_MODEL_URL);
+  if (!vmResponse.ok) throw new Error(`value-model.js fetch failed: ${vmResponse.status}`);
+  const vmSource = await vmResponse.text();
+
+  // Create a clean scope and eval. value-model.js assigns to globalThis.ValueModel.
+  // deno-lint-ignore no-eval
+  const evalFn = eval;
+  evalFn(vmSource);
+  // deno-lint-ignore no-explicit-any
+  const ValueModel = (globalThis as any).ValueModel;
+  if (!ValueModel || typeof ValueModel.runValuePipeline !== "function") {
+    throw new Error("ValueModel.runValuePipeline not found after loading value-model.js");
+  }
+
+  // Fetch bundle, page, and lineup parameters in parallel.
+  const [bundleResponse, pageResponse, lpResponse] = await Promise.all([
+    fetch(BUNDLE_URL),
+    fetch(PAGE_URL),
+    fetch(LINEUP_PARAMS_URL).catch(() => null),
+  ]);
+  if (!bundleResponse.ok) throw new Error(`bundle fetch failed: ${bundleResponse.status}`);
+  if (!pageResponse.ok) throw new Error(`page fetch failed: ${pageResponse.status}`);
+
+  const detail = await bundleResponse.json();
+  const html = await pageResponse.text();
+
+  // Extract players-data from the inline island.
+  const match = html.match(/id="players-data"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) throw new Error("players-data island not found in page");
+  const playersDoc = JSON.parse(match[1]);
+
+  // Lineup parameters (optional; falls back to slices mode if missing).
+  let lineupConfig: Record<string, unknown> | null = null;
+  if (lpResponse && lpResponse.ok) {
+    try { lineupConfig = await lpResponse.json(); } catch { /* ignore */ }
+  }
+
+  cached = {
+    detail,
+    players: playersDoc.players,
+    meta: playersDoc.meta,
+    ValueModel,
+    lineupConfig,
+    loadedAt: Date.now(),
+  };
+  return cached;
+}
+
+// Build the pipeline input for the given settings.
+function buildPipelineInput(
+  bundle: CachedBundle,
+  scoring: string,
+  teams: number,
+  superflex: number,
+) {
+  // deno-lint-ignore no-explicit-any
+  const detail = bundle.detail as any;
+  const players = bundle.players;
+  // deno-lint-ignore no-explicit-any
+  const ValueModel = bundle.ValueModel as any;
+  const field = scoringField(scoring);
+  const qbSlots = superflex ? 2 : 1;
+
+  // Build player map: player_key -> {pos, name}.
+  const playerMap: Record<number, { pos: string; name: string }> = {};
+  for (const p of players) {
+    const pk = p.player_key as number;
+    playerMap[pk] = { pos: p.pos as string, name: p.name as string };
+  }
+
+  // Source validation from the detail. Values are strings like "live", "stale".
+  const sourceValidation = detail.source_validation as
+    Record<string, string> | undefined;
+
+  // --- Source freshness / eligibility (mirrors curve-widget.js) ---------------
+  const currentContentWeek = contentWeekForDay(todayIso());
+
+  // Build freshness per source.
+  const freshnessRows: Record<string, { week: number | null; status: string; isWeekly: boolean }> = {};
+  for (const key of PIPELINE_SOURCE_KEYS) {
+    const sourceMeta = detail.sources?.[key];
+    if (!sourceMeta) continue;
+    const vintage = sourceVintage(sourceMeta);
+    const isWeekly = WEEKED_SOURCES.has(key);
+    const status = vintage.week === null ? "unknown"
+      : (vintage.week >= (currentContentWeek ?? 0) ? "current" : "older");
+    freshnessRows[key] = { week: vintage.week, status, isWeekly };
+  }
+
+  // first_load_reference_week: newest vintage among weekly sources, capped at current week.
+  const weeklyWeeks = Object.entries(freshnessRows)
+    .filter(([, r]) => r.isWeekly && r.week !== null)
+    .map(([, r]) => r.week!);
+  const referenceWeek = weeklyWeeks.length
+    ? Math.min(Math.max(...weeklyWeeks), currentContentWeek ?? 0)
+    : null;
+
+  // first_load_excluded: weekly sources older than reference week.
+  const firstLoadExcluded = new Set<string>();
+  for (const [key, row] of Object.entries(freshnessRows)) {
+    if (row.isWeekly && referenceWeek !== null && row.week !== null && row.week < referenceWeek) {
+      firstLoadExcluded.add(key);
+    }
+  }
+
+  // Build sources: for each pipeline source, extract native values.
+  const sources: Record<string, unknown> = {};
+  const included: string[] = [];
+  const hiddenKeys: string[] = [];
+
+  for (const key of PIPELINE_SOURCE_KEYS) {
+    const family = PROJECTION_SOURCE_KEYS.includes(key) ? "projection" : "chart";
+    const sourceSection = detail.sources?.[key];
+
+    // Source hold (validationHold, promotionHold on source section).
+    const hold = sectionHold(sourceSection);
+
+    // Source validation status (string, e.g. "live", "stale").
+    const svStatus = sourceValidation?.[key];
+    const isValidationHeld = svStatus !== undefined && svStatus !== "live";
+
+    // Staleness: chart sources older than current content week.
+    const isStale = WEEKED_SOURCES.has(key) && freshnessRows[key]?.status === "older";
+    const isFirstLoadExcluded = firstLoadExcluded.has(key);
+    const isOlderWeek = isStale || isFirstLoadExcluded;
+
+    // sourceMissingFromData: no source section at all.
+    if (!sourceSection) continue;
+
+    // Not yet published for current week: excluded (unless held).
+    if (isOlderWeek && !hold && !isValidationHeld) continue;
+
+    let values: Record<string, number>;
+
+    if (family === "chart") {
+      // Chart source: read saved native values from the combo.
+      const comboKeyStr = ValueModel.sourceComboKey(key, scoring, 12, qbSlots);
+      const combos = sourceSection?.combos as Record<string, Record<string, unknown>> | undefined;
+      const combo = comboKeyStr ? combos?.[comboKeyStr] : null;
+      if (!combo || !(combo as Record<string, unknown>).native) continue;
+      values = {};
+      const native = (combo as Record<string, unknown>).native as Record<string, number>;
+      const pkMap = detail.player_keys as Record<string, number>;
+      for (const [sourceId, val] of Object.entries(native)) {
+        const playerKey = pkMap?.[sourceId];
+        if (playerKey !== undefined && Number.isFinite(val)) {
+          values[playerKey] = val;
+        }
+      }
+      if (superflex && (combo as Record<string, unknown>).native_superflex) {
+        const sfNative = (combo as Record<string, unknown>).native_superflex as Record<string, number>;
+        for (const [sourceId, val] of Object.entries(sfNative)) {
+          const playerKey = pkMap?.[sourceId];
+          if (playerKey !== undefined && Number.isFinite(val)) {
+            values[playerKey] = val;
+          }
+        }
+      }
+    } else {
+      // Projection source: read per-game points from players.
+      values = {};
+      const ppgField = PPG_FIELD_OF[key];
+      for (const p of players) {
+        const pk = p.player_key as number;
+        // ESPN zero handling: players ESPN lists at 0 (ineligible/zeroed).
+        if (key === "espn" && espnProjectsZero(p) && !p.espn_ppg) {
+          values[pk] = 0;
+          continue;
+        }
+        const ppgObj = p[ppgField] as Record<string, number> | undefined;
+        const ppg = ppgObj?.[field];
+        if (ppg !== null && ppg !== undefined && Number.isFinite(ppg)) {
+          values[pk] = ppg;
+        }
+      }
+    }
+
+    if (Object.keys(values).length === 0) continue;
+
+    sources[key] = { family, status: "included", values, label: key };
+    included.push(key);
+
+    // Mark as hidden if held or validation-held.
+    if (hold || isValidationHeld) {
+      hiddenKeys.push(key);
+    }
+  }
+
+  // --- Load lineup parameters (expected-starts model) -------------------------
+  // deno-lint-ignore no-explicit-any
+  let resolvedLineup: any = null;
+  // The edge function fetches lineup-parameters.json from the site alongside the bundle.
+  if (bundle.lineupConfig &&
+      (bundle.lineupConfig as Record<string, unknown>).schema === "lineup-parameters-config/2") {
+    // deno-lint-ignore no-explicit-any
+    const lp = bundle.lineupConfig as any;
+    const d = lp.defaults || {};
+    resolvedLineup = ValueModel.resolveLineupParameters(lp, {
+      objective: d.objective || "season",
+      injury_history: d.injury_history || "recent",
+      league_weeks: {
+        regular_season_end: d.league_weeks?.regular_season_end ?? 14,
+        playoff_weeks: [...(d.league_weeks?.playoff_weeks || [15, 17])],
+      },
+      projection_confidence: d.projection_confidence ?? 1.0,
+      content_week: null,
+    });
+  }
+
+  // Pipeline setting.
+  const setting = {
+    teams,
+    slots: { QB: 1, RB: 2, WR: 3, TE: 1 },
+    flex: 1,
+    superflex,
+    bench_per_team: 6,
+    bench_share: 0.15,
+    bench_share_override: null,
+    position_shares: null,
+  };
+
+  return {
+    setting,
+    players: playerMap,
+    sources,
+    included,
+    hidden: hiddenKeys,
+    lineup: resolvedLineup,
+  };
+}
+
+// Format pipeline output for the API response.
+function formatResponse(
+  // deno-lint-ignore no-explicit-any
+  pipeline: any,
+  // deno-lint-ignore no-explicit-any
+  playerMap: Record<number, { pos: string; name: string }>,
+  // deno-lint-ignore no-explicit-any
+  meta: Record<string, unknown>,
+  scoring: string,
+  teams: number,
+  superflex: number,
+) {
+  const rows = pipeline.rows || {};
+  const values: Array<{
+    player_key: number;
+    name: string;
+    pos: string;
+    value: number;
+    tier: number;
+  }> = [];
+
+  for (const [pk, row] of Object.entries(rows)) {
+    // deno-lint-ignore no-explicit-any
+    const r = row as any;
+    const player = playerMap[Number(pk)];
+    if (!player) continue;
+
+    // DDF blended value (the headline number).
+    const ddfVersions = r.ddfByVersion;
+    const blended = ddfVersions?.blended?.value;
+    if (typeof blended !== "number" || !Number.isFinite(blended)) continue;
+
+    values.push({
+      player_key: Number(pk),
+      name: player.name,
+      pos: player.pos,
+      value: Math.round(blended * 10) / 10,
+      tier: r.tier ?? 0,
+    });
+  }
+
+  // Sort by value descending.
+  values.sort((a, b) => b.value - a.value);
+
+  return {
+    attribution: "Data Driven Football — https://datadrivenfootball.com",
+    as_of: (meta as Record<string, string>).as_of || null,
+    setting: { scoring, teams, superflex },
+    players: values,
+    sources_included: Object.keys(pipeline.sources || {}).filter(
+      (k: string) => pipeline.sources[k]?.included !== false,
+    ),
+    sources_excluded: pipeline.excluded?.map(
+      // deno-lint-ignore no-explicit-any
+      (e: any) => ({ key: e.key, reason: e.reason }),
+    ) || [],
+  };
+}
+
+// --- Allowed origins for CORS -----------------------------------------------
+const ALLOWED_ORIGINS = new Set([
+  "https://datadrivenfootball.com",
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173",
+]);
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+  };
+  if (ALLOWED_ORIGINS.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
+}
+
+// --- Rate limiting (simple per-IP in-memory) --------------------------------
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30; // requests per window
+const RATE_WINDOW_MS = 60_000; // 1 minute
+
+function checkRate(ip: string): boolean {
+  const now = Date.now();
+  let bucket = rateBuckets.get(ip);
+  if (!bucket || now >= bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + RATE_WINDOW_MS };
+    rateBuckets.set(ip, bucket);
+  }
+  bucket.count++;
+  return bucket.count <= RATE_LIMIT;
+}
+
+// --- Serve ------------------------------------------------------------------
+
+Deno.serve(async (req: Request) => {
+  const cors = corsHeaders(req);
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: cors });
+  }
+
+  // Rate limit.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("cf-connecting-ip") || "unknown";
+  if (!checkRate(ip)) {
+    return Response.json(
+      { error: "rate limited", retry_after_seconds: 60 },
+      { status: 429, headers: cors },
+    );
+  }
+
+  try {
+    // Parse parameters from GET query or POST body.
+    let scoring = "ppr";
+    let teams = 12;
+    let superflex = 0;
+
+    if (req.method === "POST") {
+      const body = await req.json();
+      scoring = body.scoring || scoring;
+      teams = Number(body.teams) || teams;
+      superflex = Number(body.superflex) || 0;
+    } else {
+      const url = new URL(req.url);
+      scoring = url.searchParams.get("scoring") || scoring;
+      teams = Number(url.searchParams.get("teams")) || teams;
+      superflex = Number(url.searchParams.get("superflex")) || 0;
+    }
+
+    // Validate.
+    const validScorings = ["standard", "half_ppr", "ppr"];
+    if (!validScorings.includes(scoring)) {
+      return Response.json(
+        { error: `invalid scoring: ${scoring}. Must be one of: ${validScorings.join(", ")}` },
+        { status: 400, headers: cors },
+      );
+    }
+    const validTeams = [8, 10, 12, 14];
+    if (!validTeams.includes(teams)) {
+      return Response.json(
+        { error: `invalid teams: ${teams}. Must be one of: ${validTeams.join(", ")}` },
+        { status: 400, headers: cors },
+      );
+    }
+    superflex = superflex ? 1 : 0;
+
+    // Load bundle and run pipeline.
+    const bundle = await loadBundle();
+    const input = buildPipelineInput(bundle, scoring, teams, superflex);
+    const pipeline = bundle.ValueModel.runValuePipeline(input);
+    const response = formatResponse(
+      pipeline, input.players, bundle.meta, scoring, teams, superflex,
+    );
+
+    return Response.json(response, {
+      status: 200,
+      headers: { ...cors, "Cache-Control": "public, max-age=300" },
+    });
+  } catch (e) {
+    console.error("get-values error:", e);
+    return Response.json(
+      { error: "internal error", message: String((e as Error).message) },
+      { status: 500, headers: cors },
+    );
+  }
+});

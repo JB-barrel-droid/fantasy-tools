@@ -139,6 +139,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_fidelity_espn
 	python3 -m unittest tests.test_fidelity_cbsros
 	python3 -m unittest tests.test_fidelity_razzball
+	python3 -m unittest tests.test_fidelity_sharks
+	python3 -m unittest tests.test_sharks_savers
 	python3 -m unittest tests.test_fidelity_hold
 	python3 -m unittest tests.test_position_conflict_names
 	python3 -m unittest tests.test_source_divergence

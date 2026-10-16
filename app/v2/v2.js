@@ -509,6 +509,69 @@
     return ahead < counts.starter ? "starter" : ahead < counts.starter + counts.bench ? "bench" : "waiver";
   }
   const tierText = (row, key, scope) => tierLabel(tierFor(row, key, scope));
+  // JEG-579 (P3-source-ranks): "12 overall · WR5" under a value cell = the player's rank within that series
+  // (every position, priced players only); the # column carries the position rank under the overall rank.
+  // Display only, from the series' own values; shown at 1200 px and wider (CSS).
+  function sourceRanks(key) {
+    view.sourceRanks = view.sourceRanks || {};
+    if (view.sourceRanks[key]) return view.sourceRanks[key];
+    const ranks = new Map();
+    const perPos = {};
+    (view.tierScope.rows || []).filter(r => Number.isFinite(r.values?.[key]))
+      .sort((a, b) => b.values[key] - a.values[key])
+      .forEach((r, index) => {
+        perPos[r.pos] = (perPos[r.pos] || 0) + 1;
+        ranks.set(String(r.player_key), {overall: index + 1, pos: `${r.pos}${perPos[r.pos]}`});
+      });
+    view.sourceRanks[key] = ranks;
+    return ranks;
+  }
+  function rankSubLabel(className, text) {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
+    return span;
+  }
+  // JEG-571: Start / Hold / Stash / Drop chip. The rule lives in assets/player-tags.js (pure, tested); the
+  // tag follows the engine's DDF Value tier on the reader's league settings. null (no chip) when unpriced.
+  const TAG_NOTES = {
+    Start: "Inside the starter count on your league settings",
+    Hold: "On the bench: keep",
+    Stash: "Not a starter yet, but a real chance to start",
+    Drop: "At or below the best free alternative"
+  };
+  function playerTagOf(row) {
+    const tags = window.PlayerTags;
+    return tags && typeof tags.playerTag === "function" ? tags.playerTag(row) : null;
+  }
+  function tagChip(row) {
+    const tag = playerTagOf(row);
+    if (!tag) return null;
+    const chip = document.createElement("span");
+    chip.className = `v2-tag v2-tag-${tag.toLowerCase()}`;
+    chip.dataset.tag = tag;
+    chip.title = TAG_NOTES[tag];
+    chip.textContent = tag;
+    return chip;
+  }
+  function appendTag(parent, row) {
+    const chip = tagChip(row);
+    if (chip) parent.appendChild(chip);
+  }
+  // The chip sits NEXT TO the sub-line, never inside it: the sub-line's text ("QB · KC · Starter") is the
+  // tier a reader or screen reader gets, and the chip is its own element (it was concatenating "StarterStart").
+  function subWithTag(sub, row) {
+    const chip = tagChip(row);
+    if (!chip) return sub;
+    const wrap = document.createElement("span");
+    wrap.className = "v2-subrow";
+    wrap.append(sub, chip);
+    return wrap;
+  }
+  function lineupShareText(row) {
+    if (!Number.isFinite(row.lineupShare)) return null;
+    return `Expected lineup share: ${Math.round(row.lineupShare * 100)}% how much of this player's production reaches a lineup.`;
+  }
 
   // Low-confidence DDF Value (Jeremy, 2026-10-08): when exactly one input prices a player the engine
   // still gives a DDF Value (that input's value) and flags it (row.ddfLowConfidence). Shown everywhere
@@ -682,7 +745,8 @@
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
     const r = view.roster;
     $("v2RosterLine").textContent = `${r.QB} QB · ${r.RB} RB · ${r.WR} WR · ${r.TE} TE · ${r.FLEX} FLEX · `
-      + `${r.SUPERFLEX ? `${r.SUPERFLEX} SUPERFLEX · ` : ""}${r.BENCH} BN`;
+      + `${r.SUPERFLEX ? `${r.SUPERFLEX} SUPERFLEX · ` : ""}`
+      + `${r.K ? `${r.K} K · ` : ""}${r.DST ? `${r.DST} DEF · ` : ""}${r.BENCH} BN`;
     const older = view.active.some(key => view.infoByKey[key]?.stale);
     // JEG-463: the header chip summarizes root sources only; pipeline trouble shows as "not updating".
     const roots = rootFreshness();
@@ -946,19 +1010,21 @@
     const xs = xAtZone(sb);
     const xb = xAtZone(bw);
     const group = el("g", {class: "zones"}, svg);
+    // JEG-579: solid on one position ranked by DDF Value; dashed (approximate) across positions.
+    const exact = C.getState().position !== "ALL" && view.rankKey === DDF_KEY;
     const top = geo.pad.t;
     const bottom = geo.height - geo.pad.b;
     const lines = [];
     [["starter_to_bench", xs], ["bench_to_waiver", xb]].forEach(([name, xv]) => {
       if (xv <= left + 0.5 || xv >= right - 0.5) return;
-      el("line", {x1: xv, x2: xv, y1: top, y2: bottom, class: "zone-line", "data-zone": name}, group);
+      el("line", {x1: xv, x2: xv, y1: top, y2: bottom, class: `zone-line${exact ? "" : " approx"}`, "data-zone": name}, group);
       lines.push({name, x: xv});
     });
     const labels = [];
     [["Starter", left, xs], ["Bench", xs, xb], ["Waiver", xb, right]].forEach(([name, a, b]) => {
       if (b - a < 46) return;
       const text = el("text", {x: (a + b) / 2, y: top + 12, class: "zone-label", "data-zone-label": name.toLowerCase(), "text-anchor": "middle"}, group);
-      text.textContent = name;
+      text.textContent = name === "Starter" ? "Starters" : name;
       labels.push({name, x: (a + b) / 2});
     });
     return {lines, labels, zones: {starter_to_bench: sb, bench_to_waiver: bw}};
@@ -1242,7 +1308,7 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "ESPN Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
@@ -1411,6 +1477,12 @@
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
             appendLowConfidence(td, row, col.source);
+            const sr0 = col.source ? sourceRanks(col.source).get(String(row.player_key)) : null;
+            if (sr0) td.appendChild(rankSubLabel("v2-srank", `${sr0.overall} overall · ${sr0.pos}`));
+            // JEG-457: a rescaled trade chart's cell shows the published number and the factor on hover, focus or tap.
+            if (col.source && sourceMeta(col.source).method === "indexed" && PUBLISHER_NAMES[col.source]) {
+              attachPublishedMath(td, {row, ours: null}, col.source, {value: v, gap: null, atWaiver: false});
+            }
             const heat = col.source ? heatFor(row, col.source) : null;
             if (heat) {
               if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
@@ -1444,6 +1516,10 @@
           }
         } else {
           td.textContent = v;
+          if (col.id === "rank") {
+            const pr = sourceRanks(view.rankKey).get(String(row.player_key));
+            if (pr) td.appendChild(rankSubLabel("v2-prank", pr.pos));
+          }
           if (col.cls === "col-meta") td.dataset.col = col.id;
           if (col.id === "name") {
             appendEspnZero(td, row);
@@ -1454,8 +1530,8 @@
               const sub = document.createElement("span");
               sub.className = "player-sub";
               sub.textContent = parts.join(" · ");
-              td.appendChild(sub);
-            }
+              td.appendChild(subWithTag(sub, row));   // beside the sub-line, so a row stays as tall as before (JEG-470)
+            } else appendTag(td, row);
           }
         }
         tr.appendChild(td);
@@ -1646,7 +1722,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · ESPN Tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -1679,7 +1755,7 @@
     out.push(news);
     const adj = drawerSection("Adjustments applied");
     const base = document.createElement("p");
-    base.textContent = "Starter / bench utilization weighting · Position-share calibration.";
+    base.textContent = lineupShareText(row) || "Expected lineup share: not available for this player.";
     adj.appendChild(base);
     const notes = context?.adjustments || [];
     const line = document.createElement("p");
@@ -1708,6 +1784,8 @@
     const meta = document.createElement("p");
     meta.className = "v2-meta";
     meta.textContent = `${row.pos} · ${row.team || "FA"} · ${drawerTier(row)}`;
+    const tagged = tagChip(row);
+    if (tagged) meta.append(" ", tagged);
     titles.append(title, meta);
     const close = document.createElement("button");
     close.type = "button";
@@ -2178,7 +2256,7 @@
   // ---------- 12 Your league ----------
   let leagueDefaults = null;   // the engine's state at first load: what "Reset defaults" returns to
   const ROSTER_SLOTS = [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5],
-    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];
+    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["K", "K", 0, 3], ["DST", "DEF", 0, 3], ["BENCH", "Bench slots", 0, 14]];
   // JEG-527: the reader's season weeks as a draft (null when the engine has no lineup parameters).
   function seasonWeeksState(defaults) {
     if (!C.getLeagueWeeks || !C.getContentWeek || !C.setLeagueWeeks || !C.setOptimizeFor || !C.setContentWeek) return null;
@@ -2269,7 +2347,7 @@
         });
         const note = document.createElement("p");
         note.className = "v2-meta";
-        note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. Position weights and the bench-share readout live in Position weights.";
+        note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. K and DEF are roster slots only (set them to 0 if your league has none); they have no values here. Bench slots: real leagues roster about this many players, and the value of bench players at each position follows how many players real leagues roster there. Position weights and the bench-share readout live in Position weights.";
         content.appendChild(note);
         if (draft.weeks) renderSeasonWeeks();
         if (draft.adv) renderAdvanced();
@@ -2808,7 +2886,7 @@
       note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
       pop.appendChild(note);
       eyebrow(pop, "Player details");
-      [["pos", "Position"], ["team", "Team"], ["tier", "ESPN Tier"]].forEach(([id, label]) => {
+      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
         box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
       });
       const done = document.createElement("div");
@@ -2829,7 +2907,7 @@
   // arithmetic (chart value − our value) lives in targets.js.
   //
   // Review fixes (JEG-456/458/459/461/464): both lists show at once (side by
-  // side from 1280 px, stacked below), each collapsed to its top 5 with its own
+  // side from 1024 px, stacked below), each collapsed to its top 5 with its own
   // "Show all"; every available chart is compared, and a chart still on an
   // earlier week carries a "Wk N" badge; chart values are labeled as rescaled.
   const TARGETS_TOP = 5;
@@ -3129,8 +3207,8 @@
       cell.dataset.marketEqual = "";
       const note = document.createElement("span");
       note.className = "why t-equal";
-      note.textContent = "= market average";
-      note.title = `The average of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+      note.textContent = "= market consensus";
+      note.title = `The median of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
       cell.appendChild(note);
       return;
     }
@@ -3138,12 +3216,12 @@
     const count = document.createElement("span");
     count.className = "why t-count";
     count.dataset.marketCount = String(m.count);
-    count.textContent = `avg of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
+    count.textContent = `median of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
     if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
     const diff = document.createElement("span");
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
-    diff.title = "Our value minus the market average";
+    diff.title = "Our value minus the market consensus";
     diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${fmtGap(m.diff)}`;
     cell.append(diff, count);
   }
@@ -3156,7 +3234,7 @@
   let mathTipOpenedAt = 0;
   function mathTipLines(p, chart, cell) {
     const name = PUBLISHER_NAMES[chart] || chart;
-    const item = targetsView && targetsView.infoByKey[chart];
+    const item = (targetsView && targetsView.infoByKey[chart]) || (view && view.infoByKey && view.infoByKey[chart]);
     const week = item && item.week ? `, Week ${item.week}` : "";
     const lines = [];
     const math = C.getPublishedMath ? C.getPublishedMath(p.row.player_key, chart) : null;
@@ -3164,11 +3242,11 @@
     const estimated = estimatedReason(p.row, chart);
     if (!math || math.native === null || math.factor === null) {
       return {head: `${name}${week}`, plain: true, lines: [[estimated ? `Estimated: ${estimated}` : "The engine has no published number to show for this value.", ""],
-        ["= indexed value", fmt(cell.value)]].concat(cell.gap !== null && Number.isFinite(p.ours) ? [["− our value", fmt(p.ours)], ["= gap", fmtGap(cell.gap)]] : [])};
+        ["= rescaled value", fmt(cell.value)]].concat(cell.gap !== null && Number.isFinite(p.ours) ? [["− our value", fmt(p.ours)], ["= gap", fmtGap(cell.gap)]] : [])};
     }
-    lines.push([`${name}${week} (as published)`, String(math.native)]);
-    lines.push(["× index factor", math.factor.toFixed(3)]);
-    lines.push(["= indexed value", fmt(cell.value)]);
+    lines.push([`${name}${week} (original)`, String(math.native)]);
+    lines.push(["× rescale factor", math.factor.toFixed(3)]);
+    lines.push(["= rescaled value", fmt(cell.value)]);
     if (cell.gap !== null && Number.isFinite(p.ours)) {
       lines.push(["− our value", fmt(p.ours)]);
       lines.push(["= gap", fmtGap(cell.gap)]);
@@ -3276,7 +3354,28 @@
     return span;
   }
 
-  const targetBest = (side, p) => (side === "sell" ? p.bestSell : p.bestBuy);
+  // JEG-677: the row's gap is the consensus gap (median of the charts - our value); "N of M charts agree"
+  // and one dot per chart (above / below our value) say how solid it is.
+  const targetBest = (side, p) => ({gap: p.market.gap, agree: p.market.agree, of: p.market.of, dots: p.market.dots});
+  function agreeNode(b, cls) {
+    const who = document.createElement("span");
+    who.className = cls || "th-sub t-who";
+    who.dataset.agree = String(b.agree);
+    who.dataset.of = String(b.of);
+    const dots = document.createElement("span");
+    dots.className = "t-dots";
+    b.dots.forEach(dot => {
+      const d = document.createElement("span");
+      d.className = `t-dot ${dot.side}`;
+      d.dataset.chart = dot.chart;
+      d.dataset.dot = dot.side;
+      d.title = `${PUBLISHER_NAMES[dot.chart]}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
+      d.textContent = "●";
+      dots.appendChild(d);
+    });
+    who.append(document.createTextNode(`${b.agree} of ${b.of} charts agree `), dots);
+    return who;
+  }
 
   // One chart's value for a player as a labeled run: "◆ USAT [Wk 4] 17.4 +9.8".
   // Used by the phone cards and by an expanded row in the two-column layout.
@@ -3318,16 +3417,6 @@
     return span;
   }
 
-  // "Largest gap" attribution: the chart's name, plus its badge when it is on an earlier week.
-  function bestChartNode(chart, verb, cls) {
-    const who = document.createElement("span");
-    who.className = cls || "th-sub t-who";
-    who.append(document.createTextNode(verb ? `${PUBLISHER_NAMES[chart]} ${verb}` : PUBLISHER_NAMES[chart]));
-    const badge = targetBadge(chart);
-    if (badge) who.append(document.createTextNode(" "), badge);
-    return who;
-  }
-
   function renderTargetTable(side, list) {
     const ids = TARGET_IDS[side];
     const table = $(ids.table);
@@ -3364,7 +3453,7 @@
     };
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
-    head("Market average", "num t-avg", "compared charts");
+    head("Market consensus", "num t-avg", "median of compared charts");
     targetsView.used.forEach(key => {
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
@@ -3374,7 +3463,7 @@
       if (flag) sub.push(document.createTextNode(" "), flag);
       head(PUBLISHER_NAMES[key] || key, "num t-chart", sub, key, true);
     });
-    head("Largest gap", "num t-best", side === "sell" ? "chart pays more" : "chart pays less", null, true);
+    head("Gap vs consensus", "num t-best", side === "sell" ? "market pays more" : "market pays less", null, true);
     const expandHead = head("", "t-expand");
     const sr = document.createElement("span");
     sr.className = "v2-sr";
@@ -3402,7 +3491,7 @@
       const sub = document.createElement("span");
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
-      name.appendChild(sub);
+      name.appendChild(subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const ours = td("num is-rank");
       ours.dataset.ours = "";
       oursValue(ours, p);
@@ -3425,10 +3514,10 @@
       });
       const b = targetBest(side, p);
       const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
-      bc.dataset.best = b.chart;
+      bc.dataset.best = "consensus";
       bc.append(document.createTextNode(fmtGap(b.gap)));
-      bc.appendChild(bestChartNode(b.chart));
-      // Two-column layout (≥1280 px) hides the per-chart cells; this opens them under the row.
+      bc.appendChild(agreeNode(b));
+      // Two-column layout (≥1024 px) hides the per-chart cells; this opens them under the row.
       const open = T.expanded[side].has(key);
       const ec = td("t-expand");
       const toggle = document.createElement("button");
@@ -3487,13 +3576,13 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
-      who.append(name, sub);
+      who.append(name, subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const b = targetBest(side, p);
       const big = document.createElement("div");
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;
-      big.dataset.best = b.chart;
+      big.dataset.best = "consensus";
       big.append(document.createTextNode(fmtGap(b.gap)));
-      big.appendChild(bestChartNode(b.chart, `pays ${b.gap > 0 ? "more" : "less"}`, "v2-meta t-who"));
+      big.appendChild(agreeNode(b, "v2-meta t-who"));
       top.append(who, big);
       const line = document.createElement("div");
       line.className = "vals";
@@ -3505,7 +3594,7 @@
       line.appendChild(ours);
       const avg = document.createElement("span");
       avg.className = "avg";
-      if (!p.market.equal) avg.append(document.createTextNode("Market avg "));
+      if (!p.market.equal) avg.append(document.createTextNode("Consensus "));
       marketValue(avg, p);
       line.appendChild(avg);
       targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
@@ -3551,10 +3640,10 @@
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
         ? "No trade chart is available to compare for this selection."
-        : `No player has a ${side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
+        : `No player has a market consensus ${side === "sell" ? "above" : "below"} our value, backed by 2 or more charts, for this selection.`);
       $(ids.table).hidden = !list.length;
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · largest gap first. `
-        + (side === "sell" ? "Offer them to managers who trade off that chart." : "Ask for them from managers who trade off that chart.");
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest consensus gap first. `
+        + (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: most charts pay less than our value.");
     });
     const notes = [];
     if (targetsView.skipped.length) {

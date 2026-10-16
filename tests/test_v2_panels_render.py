@@ -171,6 +171,59 @@ def check_sources(page, width) -> list[str]:
 def check_league(page) -> list[str]:
     errors = []
     start = page.evaluate("() => ({shape: window.TradeValueCurveControls.getRosterShape(), teams: window.TradeValueCurveControls.getState().teams})")
+    # JEG-565: the default league is 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / 1 K / 1 DEF with 7 bench.
+    want = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "K": 1, "DST": 1, "BENCH": 7}
+    if start["shape"] != want or start["teams"] != 12:
+        errors.append(f"league: first-load roster {start['shape']} teams {start['teams']}, wanted {want} and 12")
+    first_line = page.text_content("#v2RosterLine")
+    if "1 K" not in first_line or "1 DEF" not in first_line or "7 BN" not in first_line:
+        errors.append(f"league: roster line {first_line!r} lacks 1 K / 1 DEF / 7 BN")
+    # Tier column: each row's tier (the column, or the sub-line under the player where the column is folded)
+    # is its rank against the engine's zones, and nothing says "ESPN Tier" any more.
+    tiers = page.evaluate("""() => {
+      const z = window.TradeValueCurveControls.getZones();
+      const rows = [...document.querySelectorAll('#v2Table tbody tr')].map(tr => {
+        const rank = (tr.children[0]?.firstChild?.textContent || '').trim();
+        const tierCell = tr.querySelector('td[data-col="tier"]');
+        const sub = tr.querySelector('.player-sub');
+        const text = tierCell ? tierCell.textContent : sub ? sub.textContent : '';
+        const m = /(Starter|Bench|Waiver)/.exec(text);
+        return [rank, m ? m[1] : null];
+      });
+      return {z, rows, espnTier: document.body.textContent.includes('ESPN Tier')};
+    }""")
+    if tiers["espnTier"]:
+        errors.append("league: the page still says 'ESPN Tier'")
+    checked = 0
+    for rank, tier in tiers["rows"]:
+        if not rank.isdigit() or tier is None:
+            continue
+        r = int(rank)
+        expect = "Starter" if r < tiers["z"]["starter_to_bench"] else "Bench" if r < tiers["z"]["bench_to_waiver"] else "Waiver"
+        checked += 1
+        if tier != expect:
+            errors.append(f"league: rank {r} tier {tier!r}, engine zones {tiers['z']} say {expect!r}")
+            break
+    if not checked:
+        errors.append("league: no row showed a tier")
+    page.click("#v2EditLeague")
+    for aria in ("Fewer K", "Fewer DEF", "More K", "More DEF"):
+        if not page.locator(f'#v2Popover [aria-label="{aria}"]').count():
+            errors.append(f"league: no {aria} stepper")
+    if page.locator('#v2Popover [aria-label="Fewer K"]').count():
+        page.click('#v2Popover [aria-label="Fewer K"]')
+        page.click('#v2Popover [aria-label="Fewer DEF"]')
+        page.click('#v2Popover [data-apply="league"]')
+        kd = page.evaluate("() => { const s = window.TradeValueCurveControls.getRosterShape(); return [s.K, s.DST]; }")
+        line0 = page.text_content("#v2RosterLine")
+        if kd != [0, 0] or " K " in line0 or "DEF" in line0:
+            errors.append(f"league: K/DEF to 0 gave engine {kd}, roster line {line0!r}")
+        page.click("#v2EditLeague")
+        page.click('#v2Popover [aria-label="More K"]')
+        page.click('#v2Popover [aria-label="More DEF"]')
+        page.click('#v2Popover [data-apply="league"]')
+    else:
+        page.keyboard.press("Escape")
     page.click("#v2EditLeague")
     page.click('#v2Popover [aria-label="More WR"]')
     page.click('#v2Popover .v2-pseg button[data-value="10"]')
@@ -784,6 +837,7 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
 
 
 class PanelsRenderTest(unittest.TestCase):
+    maxDiff = None
     def test_panels_drive_the_engine(self):
         self.assertEqual(run_checks(), [])
 
@@ -810,7 +864,10 @@ class PanelsRenderTest(unittest.TestCase):
             "Columns menu ignored": {"v2_js": v2.replace(
                 "      .filter(key => key === view.rankKey || (!state.hiddenGroups.has(tableGroup(key)) && !state.hiddenSeries.has(key)));", ";", 1)},
             "no SUPERFLEX stepper": {"v2_js": v2.replace(
-                '    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];', '    ["BENCH", "Bench slots", 0, 14]];', 1)},
+                '["SUPERFLEX", "SUPERFLEX", 0, 1], ', '', 1)},
+            "no K and DEF steppers": {"v2_js": v2.replace(
+                '["K", "K", 0, 3], ["DST", "DEF", 0, 3], ', '', 1)},
+            "Tier column says ESPN Tier": {"v2_js": v2.replace('label: "Tier", cls: "col-meta"', 'label: "ESPN Tier", cls: "col-meta"', 1)},
             "shares not applied": {"v2_js": v2.replace(
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
             "pipeline failure ignored": {"v2_js": v2.replace(

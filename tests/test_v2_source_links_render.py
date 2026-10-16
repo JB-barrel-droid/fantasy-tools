@@ -126,7 +126,7 @@ def run_checks(js_patch=None) -> list[str]:
             raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         page_errors: list[str] = []
 
-        def open_page(hash_, width=1100, height=1000):
+        def open_page(hash_, width=1000, height=1000):
             page = browser.new_page(viewport={"width": width, "height": height})
             page.on("pageerror", lambda e: page_errors.append(str(e)))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())

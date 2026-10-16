@@ -101,7 +101,7 @@ class RescaledCopyTest(unittest.TestCase):
             "column label": ("v2.js", 'indexed: "Rescaled chart", vorp', 'indexed: "Published chart", vorp'),
             "short label": ("v2.js", 'indexed: "Rescaled", vorp', 'indexed: "Index", vorp'),
             "target sub-label": ("v2.js", '" · " : ""}rescaled`', '" · " : ""}indexed`'),
-            "info title": ("v2.js", 'h.textContent = "Rescaled values"', 'h.textContent = "Indexed values"'),
+            "info title": ("v2.js", 'title: "Rescaled values"', 'title: "Indexed values"'),
             "legend": ("v2.js", 'indexed: "Dashed = rescaled chart"', 'indexed: "Dashed = published chart"'),
         }
         for name, (_file, old, new) in broken.items():

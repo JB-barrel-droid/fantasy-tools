@@ -17,16 +17,16 @@ Run every Python command with the Python 3.12 virtualenv first on PATH (`export 
 
 ## Status of "followed once by a session that did not write it"
 
-JEG-601 asks that each runbook be followed once by a different session. The author ran the commands in the first five pages on 2026-10-12 in a fresh worktree against the committed fixture and the live site; the outputs quoted are real. A second session still has to follow them cold. Record it in `docs/claude-log/` and move the date here.
+JEG-601 asks that each runbook be followed once by a different session. A second session followed them cold on 2026-10-15 (Python 3.12 venv, fresh worktree on origin/main e71e8262); log: `docs/claude-log/jeg-601-runbook-second-session.md`. Commands needing production credentials (`make import-health`, producer dispatches that write) were not run.
 
-| Runbook | Author ran | Second-session check |
-|---|---|---|
-| weekly-refresh | read-only commands (`nfl_week.py`, `gh run list`, status file) | pending |
-| source-held | read-only commands (status files) | pending |
-| run-the-chain | `gh run list`, local `make sync`; `make validate` not re-run for this page | pending |
-| sweep-and-rank-guard | all three commands | pending |
-| verify-live | all commands (found JEG-629) | pending |
-| heavy-suites-and-hot-files | policy page, no commands | pending |
+| Runbook | Second-session check 2026-10-15 |
+|---|---|
+| weekly-refresh | Steps 1 and 3 followed: `nfl_week.py` printed `6`; `gh run list` and the status file read as documented (chain red, outcome `failed`). Steps 2 and 4 need credentials or write production: not run. |
+| source-held | Step 1 followed: the three commands ran as written. Found four held or fidelity-held sources (cbs, cbsros, fantasycalc, razzball), value check `agree []`, pulse holds on fantasycalc, cbsros, razzball. Steps 2 and 3 are consistent with what was observed. |
+| run-the-chain | `gh run list` matches; `make sync` printed the documented last line. `make validate` not run (red on main for week 6, per the board). |
+| sweep-and-rank-guard | All three commands ran as written: rank guard pass (12 checks, 0 inversions), engine sweep `13 True`, value check `agree`, exit 0. Fixed a stale "known red" note. |
+| verify-live | `verify_live.py` ran: HTTP 200, tag `tv-20261012-1829-8851351`, `LIVE OK`. The live tag is old because recent deploys failed; the page itself is healthy. |
+| heavy-suites-and-hot-files | Policy page, no commands. Read; consistent with `AGENTS.md`. |
 
 ## Retired pages
 

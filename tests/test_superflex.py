@@ -76,7 +76,7 @@ const out = input.cases.map(c => {
   const ranked = {QB: [], RB: [], WR: [], TE: []};
   c.players.forEach(p => ranked[p[2]].push({key: String(p[0]), value: p[3]}));
   Object.values(ranked).forEach(rows => rows.sort((a, b) => b.value - a.value));
-  const roster = VM.translationRostered(c.teams, 6, 1, ranked, {QB: 1, RB: 2, WR: 3, TE: 1},
+  const roster = VM.translationRostered(c.teams, 7, 1, ranked, {QB: 1, RB: 2, WR: 2, TE: 1},
     ["RB", "WR", "TE"], c.shape.SUPERFLEX || 0);
   return {allocation: result.allocation, roster};
 });
@@ -116,7 +116,7 @@ def qb_problems(model_path=VALUE_MODEL):
             ranked[pos].append((str(key), val))
         for rows in ranked.values():
             rows.sort(key=lambda r: -r[1])
-        py = rostered_for_teams(teams, 6, 1, ranked=ranked, superflex_count=1)
+        py = rostered_for_teams(teams, 7, 1, ranked=ranked, superflex_count=1)
         if py != js["roster"]:
             problems.append(f"{tag}: translation roster py {py} != js {js['roster']}")
         if js["roster"]["QB"]["superflex"] < teams:
@@ -289,7 +289,7 @@ class SuperflexPage(unittest.TestCase):
         # The pre-change widget: no SUPERFLEX roster key, so setRosterSpot
         # ignores it and the classic page has no Superflex input.
         widget = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
-        broken = widget.replace("FLEX:1, SUPERFLEX:0, BENCH:6", "FLEX:1, BENCH:6").replace(
+        broken = widget.replace("FLEX:1, SUPERFLEX:0, BENCH:7", "FLEX:1, BENCH:7").replace(
             '      ["SUPERFLEX", "Superflex"],\n', "")
         self.assertNotEqual(broken, widget)
         self.assertNotIn('["SUPERFLEX", "Superflex"]', broken)
