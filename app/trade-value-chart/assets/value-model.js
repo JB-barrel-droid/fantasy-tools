@@ -89,9 +89,9 @@
   var POSITIONAL_MAX_VERSION = "espn-vaw-ratio/1";
   var TRANSLATION_TOP_OF_SCALE = 70.0;
   // build_ddf_two_tier_leg.py REF_SLOTS / REF_FLEX_COUNT / BENCH_MIX_12.
-  var TRANSLATION_REF_SLOTS = {QB: 1, RB: 2, WR: 3, TE: 1};
+  var TRANSLATION_REF_SLOTS = {QB: 1, RB: 2, WR: 2, TE: 1};
   var TRANSLATION_REF_FLEX_COUNT = 1;
-  var TRANSLATION_BENCH_MIX_12 = {QB: 10, RB: 27, WR: 33, TE: 10};
+  var TRANSLATION_BENCH_MIX_12 = {QB: 14, RB: 28, WR: 35, TE: 6};
 
   // Python round(x, nd): round-half-even on the exact binary value. toFixed
   // rounds exact ties UP, so ties are detected and settled separately. An
@@ -292,10 +292,10 @@
   function positionalMaxForSetup(opts) {
     opts = opts || {};
     var ranked = sortRanked(opts.projection);
-    var benchPerTeam = opts.benchPerTeam === undefined ? 6.0 : Number(opts.benchPerTeam);
+    var benchPerTeam = opts.benchPerTeam === undefined ? 7.0 : Number(opts.benchPerTeam);
     var flexCount = opts.flexCount === undefined || opts.flexCount === null
       ? TRANSLATION_REF_FLEX_COUNT : Number(opts.flexCount);
-    var ref = projectionMaxVorp(ranked, SAVED_SETUP_TEAMS, 6.0, TRANSLATION_REF_FLEX_COUNT,
+    var ref = projectionMaxVorp(ranked, SAVED_SETUP_TEAMS, 7.0, TRANSLATION_REF_FLEX_COUNT,
       TRANSLATION_REF_SLOTS, DEFAULT_FLEX_ELIGIBLE);
     var at = projectionMaxVorp(ranked, Number(opts.teams), benchPerTeam, flexCount,
       opts.slots || TRANSLATION_REF_SLOTS, opts.flexEligible || DEFAULT_FLEX_ELIGIBLE,
@@ -383,8 +383,8 @@
   //   ranked: {pos: [{key, value}]} -- the source's native values per position.
   //           Sorted here (stable, value descending), so input order only
   //           settles exact ties, which cannot change any output number.
-  //   teams, benchPerTeam (default 6), flexCount (default 1),
-  //   slots (default {QB:1,RB:2,WR:3,TE:1}), flexEligible (default RB/WR/TE),
+  //   teams, benchPerTeam (default 7), flexCount (default 1),
+  //   slots (default {QB:1,RB:2,WR:2,TE:1}), flexEligible (default RB/WR/TE),
   //   superflexCount (default 0: dedicated superflex slots per team; when > 0
   //   each position also reports n_superflex),
   //   peers (optional {source: {pos: [{key, value}]}}: the other published
@@ -396,7 +396,7 @@
   function translatePublishedVorp(opts) {
     opts = opts || {};
     var teams = Number(opts.teams);
-    var benchPerTeam = opts.benchPerTeam === undefined ? 6.0 : Number(opts.benchPerTeam);
+    var benchPerTeam = opts.benchPerTeam === undefined ? 7.0 : Number(opts.benchPerTeam);
     var flexCount = opts.flexCount === undefined || opts.flexCount === null
       ? TRANSLATION_REF_FLEX_COUNT : Number(opts.flexCount);
     var slots = opts.slots || TRANSLATION_REF_SLOTS;
@@ -488,7 +488,7 @@
   // and the batch published views (derivePublishedViews,
   // published-views-001/3) were retired by JEG-539.
   var SAVED_SETUP_TEAMS = 12;
-  var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
+  var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, BENCH: 7};
 
   function isSavedSetup(teams, shape) {
     if (Number(teams) !== SAVED_SETUP_TEAMS) return false;

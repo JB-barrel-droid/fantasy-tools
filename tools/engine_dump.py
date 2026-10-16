@@ -21,7 +21,7 @@ pipelinePrior(), full precision -- as one JSON document:
 Null values are left out of the per-player maps (a missing key = null).
 
 Settings: the 12 combos (standard / half_ppr / ppr x 8/10/12/14 teams, the
-default roster QB1 RB2 WR3 TE1 FLEX1 BENCH6) plus PPR 12 teams with one
+default roster QB1 RB2 WR2 TE1 FLEX1 BENCH7) plus PPR 12 teams with one
 superflex slot -- 13 in all. `--setting ppr:12:1` picks one (scoring:teams:sf).
 
 Usage (build first with `make sync`):

@@ -20,10 +20,11 @@ def pool():
 class RosterConfigTests(unittest.TestCase):
     def test_team_matrix_and_custom_shape_have_exact_roles(self):
         for teams in (8,10,12,14):
-            cfg=RosterConfig(teams,DEDICATED,1,teams*6,'half_ppr')
+            cfg=RosterConfig(teams,DEDICATED,1,teams*7,'half_ppr')
             roles=infer_roster(pool(),cfg,require_complete=True)
-            self.assertEqual(list(roles.values()).count('starter'),teams*8)
-            self.assertEqual(list(roles.values()).count('bench'),teams*6)
+            # JEG-563: 1+2+2+1 dedicated + 1 flex = 7 skill starters per team
+            self.assertEqual(list(roles.values()).count('starter'),teams*7)
+            self.assertEqual(list(roles.values()).count('bench'),teams*7)
         cfg=RosterConfig(8,{'QB':2,'RB':1,'WR':2,'TE':0},2,5,'ppr',('RB','WR'))
         roles=infer_roster(pool(),cfg,require_complete=True)
         self.assertEqual(list(roles.values()).count('starter'),56)
@@ -71,10 +72,11 @@ class RosterConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError): build_three_views(bad,{'100':1,'869':2},g,batch_maximum=20)
 
     def test_cli_matching_manifest_and_separate_bench_counts(self):
-        cfg=RosterConfig(12,DEDICATED,1,72,'half_ppr')
+        # JEG-563: 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX, 7 bench = 84 bench total.
+        cfg=RosterConfig(12,DEDICATED,1,84,'half_ppr')
         shape=cfg.manifest()
         target_roster={'slots':dict(DEDICATED),'flex_count':1,'flex_eligible':['RB','WR','TE'],
-                       'bench_mix':{'QB':10,'RB':27,'WR':33,'TE':10}}
+                       'bench_mix':{'QB':14,'RB':28,'WR':35,'TE':6}}
         g={x:0 for x in GROUPS}  # arithmetic/count oracle, not canonical coverage approval
         with tempfile.TemporaryDirectory() as tmp:
             vals,groups,config,out=(Path(tmp)/x for x in ['v.json','g.json','c.json','out.json'])
@@ -85,9 +87,9 @@ class RosterConfigTests(unittest.TestCase):
             args=['--values',str(vals),'--group-vorps',str(groups),'--roster-config',str(config),'--out',str(out)]
             self.assertEqual(main(args),0)
             manifest=json.loads(out.with_suffix('.json.manifest.json').read_text(encoding="utf-8"))
-            self.assertEqual(manifest['publisher_roster']['bench_total'],72)
-            self.assertEqual(manifest['target_bench_total'],80)
-            self.assertEqual(manifest['role_counts'],{'starter':96,'bench':72,'cut':172})
+            self.assertEqual(manifest['publisher_roster']['bench_total'],84)
+            self.assertEqual(manifest['target_bench_total'],83)
+            self.assertEqual(manifest['role_counts'],{'starter':84,'bench':84,'cut':172})
             self.assertEqual(manifest['output_sha256'],hashlib.sha256(out.read_bytes()).hexdigest())
             for changed in ('teams','scoring','slots','flex_count'):
                 doc=json.loads(json.dumps(group_doc))

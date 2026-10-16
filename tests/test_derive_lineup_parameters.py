@@ -37,12 +37,14 @@ TWO_TEAM = {p: {"starters": 2, "bench": 1, "rostered": 3} for p in dl.POSITIONS}
 class PoolSizes(unittest.TestCase):
     def test_default_roster_at_12_teams(self):
         s = dl.pool_sizes(12)
-        # VP-2.2d: round(12 x 6) = 72 seats by D'Hondt over BENCH_MIX_12 (not the
-        # legacy two-tier mix, which scales to 80 at 12 teams).
-        self.assertEqual({p: s[p]["bench"] for p in dl.POSITIONS}, {"QB": 9, "RB": 24, "WR": 30, "TE": 9})
+        # JEG-563: 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / K / DEF, 7 bench.
+        # round(12 x 7) = 84 bench seats by D'Hondt over skill-position weights.
+        self.assertEqual({p: s[p]["bench"] for p in dl.POSITIONS}, {"QB": 15, "RB": 28, "WR": 35, "TE": 6})
         self.assertEqual(s["QB"]["starters"], 12)
-        self.assertEqual(s["RB"]["starters"] + s["WR"]["starters"] + s["TE"]["starters"], 12 * (2 + 3 + 1) + 12)
-        self.assertEqual(sum(v["rostered"] for v in s.values()), 12 * (8 + 6))
+        # Skill starters: 12*(1+2+2+1) + 12 flex = 84
+        self.assertEqual(s["RB"]["starters"] + s["WR"]["starters"] + s["TE"]["starters"], 12 * (2 + 2 + 1) + 12)
+        # Total rostered: skill starters (84) + bench (84) = 168
+        self.assertEqual(sum(v["rostered"] for v in s.values()), 12 * (7 + 7))
 
 
 class MissedGameRates(unittest.TestCase):

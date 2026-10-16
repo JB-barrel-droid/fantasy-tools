@@ -146,7 +146,7 @@ PROJECTIONS = ("espn", "cbsros", "razzball")
 
 
 def starting_slots(roster):
-    shape = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, **(roster or {})}
+    shape = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, **(roster or {})}
     return shape["QB"] + shape["RB"] + shape["WR"] + shape["TE"] + shape["FLEX"]
 
 

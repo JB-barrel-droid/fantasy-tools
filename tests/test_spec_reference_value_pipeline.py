@@ -175,10 +175,12 @@ class LiveDump(unittest.TestCase):
     invariant: every included source's Adjusted values total the pie."""
 
     def test_ppr12_and_superflex(self):
+        # JEG-563: pie = 12 teams x 28 x skill starting slots; the default roster is now
+        # QB1 RB2 WR2 TE1 FLEX1 = 7 slots (was 8), so 2352 (sf1: 8 slots, 2688).
         from spec_reference import pipeline_live as pl
         rep = pl.build(only=["ppr/12/sf0", "ppr/12/sf1"])
         self.assertEqual(rep["schema"], "spec-reference-pipeline/1")
-        for sid, pie in (("ppr/12/sf0", 2688.0), ("ppr/12/sf1", 3024.0)):
+        for sid, pie in (("ppr/12/sf0", 2352.0), ("ppr/12/sf1", 2688.0)):
             s = rep["settings"][sid]
             self.assertEqual(s["pie"], pie)
             self.assertTrue(s["included"])
