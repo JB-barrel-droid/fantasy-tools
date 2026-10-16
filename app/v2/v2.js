@@ -116,6 +116,7 @@
   function weekBadge(key) {
     const item = view && view.infoByKey[key];
     const badge = priorWeekBadge(sourceMeta(key).publisher, {...item, stale: true}, view && view.refWeek);
+    if (!badge) return null;   // the shared badge says nothing when the series is current
     badge.classList.add("v2-wk");
     badge.dataset.priorWeek = key;
     return badge;
@@ -631,6 +632,13 @@
   // Player values: the Rank by series over the engine's ranked rows.
   const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
 
+  // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
+  function orderSeries(keys, rankKey) {
+    const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
+    return keys.slice().sort((a, b) => (b === DDF_KEY) - (a === DDF_KEY) || (b === rankKey) - (a === rankKey)
+      || methodOrder[sourceMeta(a).method] - methodOrder[sourceMeta(b).method]);
+  }
+
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
@@ -639,10 +647,7 @@
     // JEG-477: ranking by a DDF weighted projection (ESPN, CBS rest of season, Razzball) that is not among the shown
     // series puts that series on the chart and in the table, so the order can be read.
     if (!active.includes(rankKey) && !isDdfKey(rankKey) && infoByKey[rankKey]) active.push(rankKey);
-    // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
-    const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
-    const ordered = active.slice().sort((a, b) => (b === DDF_KEY) - (a === DDF_KEY) || (b === rankKey) - (a === rankKey)
-      || methodOrder[sourceMeta(a).method] - methodOrder[sourceMeta(b).method]);
+    const ordered = orderSeries(active, rankKey);
     const plotKeys = ordered.filter(key => sourceMeta(key).method !== "vorp");
     const vorpKeys = ordered.filter(key => sourceMeta(key).method === "vorp");
     const allRows = C.getRows();
@@ -765,19 +770,23 @@
     $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);
 
     // JEG-474 / JEG-466: one "Showing: …" line, a compact legend (not buttons) and one Customize control.
-    const counts = SERIES_GROUPS.map(g => ({g, n: view.active.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
+    const page = pageOfView();
+    const shownKeys = page === "values" ? view.active : pageKeys(page).filter(key => view.infoByKey[key] && !pageCannotUse(page, key));
+    $("v2ShowingLabel").textContent = page === "values" ? "On the chart:" : "On this page:";
+    const counts = SERIES_GROUPS.map(g => ({g, n: shownKeys.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
     $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)).join(" + ") || "nothing selected"}`
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();
-    view.active.forEach(key => {
+    shownKeys.forEach(key => {
       const meta = sourceMeta(key);
       const item = view.infoByKey[key];
       const li = document.createElement("li");
       li.title = seriesName(key);
       li.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span>`;
       li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
-      if (item?.stale) li.appendChild(weekBadge(key));
+      const badge = item?.stale ? weekBadge(key) : null;
+      if (badge) li.appendChild(badge);
       appendDivergence(li, key);
       legend.appendChild(li);
     });
@@ -2013,13 +2022,64 @@
     return h;
   }
 
+  // ---------- JEG-498: Customize on every page ----------
+  const PAGE_NAMES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade"};
+  const PAGE_SAVE_KEY = "ddf.v2.pages";
+  const pageOfView = () => ({targets: "targets", risers: "risers", compare: "compare"}[currentView()] || "values");
+  let pageSaved = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PAGE_SAVE_KEY) || "null");
+      return saved && saved.v === 1 && saved.pages && typeof saved.pages === "object" ? saved.pages : {};
+    } catch (error) { return {}; }
+  })();
+  // Each page's default, chosen for its job: Trade targets compares our DDF Value with the as-published charts, Risers
+  // opens on the DDF Value, Compare reads the DDF Value beside every chart. A held chart that returns is back in the
+  // page without a new choice; availability is applied where the page reads the list.
+  function pageDefault(page) {
+    const TT = window.TradeValueTargets;
+    if (page === "targets") return [DDF_KEY].concat(TT.CHART_KEYS);
+    if (page === "risers") return [RISERS_DEFAULT];
+    return [DDF_KEY].concat(C.getSourceInfo().filter(item => !isEngineAlias(item.key) && sourceMeta(item.key).method === "indexed").map(item => item.key));
+  }
+  function pageKeys(page) {
+    const saved = pageSaved[page];
+    const keys = Array.isArray(saved) ? saved.filter(key => typeof key === "string") : [];
+    return keys.length ? keys : pageDefault(page);
+  }
+  function savePageKeys(page, keys) {
+    const base = pageDefault(page);
+    const isDefault = keys.length === base.length && base.every(key => keys.includes(key));
+    if (isDefault) delete pageSaved[page]; else pageSaved[page] = keys;
+    try { localStorage.setItem(PAGE_SAVE_KEY, JSON.stringify({v: 1, pages: pageSaved})); }
+    catch (error) { /* storage unavailable: the choice lasts this visit only */ }
+  }
+  // A series a page cannot read is listed, greyed, with the reason (Customize lists every dataset).
+  function pageCannotUse(page, key) {
+    const TT = window.TradeValueTargets;
+    if (page === "targets" && !TT.OUR_KEYS.includes(key) && !TT.CHART_KEYS.includes(key)) return "Not compared on Trade targets";
+    if (page === "risers" && !window.TradeValueMovers.SERIES.includes(key)) return "No prior-week history";
+    return null;
+  }
+  function pageNeed(page, draft) {
+    const TT = window.TradeValueTargets;
+    if (page === "targets") {
+      if (![...draft].some(key => TT.OUR_KEYS.includes(key))) return "Choose at least one value to compare against the charts (DDF Value or a projection).";
+      if (![...draft].some(key => TT.CHART_KEYS.includes(key))) return "Choose at least one published chart to compare.";
+    }
+    return null;
+  }
+
   // ---------- 09 / 20 Customize values (JEG-466, spec JEG-474) ----------
   // Grouped by type, not publisher; each group explains itself. A draft until Done.
-  function openSources(anchor) {
-    const draft = new Set(view.active);
-    const composite = C.getCompositeInputs ? C.getCompositeInputs() : null;
+  // JEG-498 (contract GL-07): every page has its own Customize with its own default set, remembered on this device.
+  // Player values drives the engine's shown series; the other pages keep a list of their own (pageKeys).
+  function openSources(anchor, pageArg) {
+    const page = pageArg || pageOfView();
+    const onValues = page === "values";
+    const draft = new Set(onValues ? view.active : pageKeys(page));
+    const composite = onValues && C.getCompositeInputs ? C.getCompositeInputs() : null;
     const inputsDraft = composite ? new Set(composite.inputs) : null;
-    openPanel(anchor || $("v2EditSources"), "Customize values", "Choose which series appear on every tab.", pop => {
+    openPanel(anchor || $("v2EditSources"), "Customize values", `Choose which series appear on ${PAGE_NAMES[page]}. Other pages keep their own choice.`, pop => {
       const body = panelBody(pop);
       const summary = document.createElement("p");
       summary.className = "v2-psummary";
@@ -2034,12 +2094,14 @@
       function rowFor(item) {
         const meta = sourceMeta(item.key);
         const label = document.createElement("label");
-        label.className = `v2-crow${item.available ? "" : " is-disabled"}`;
+        const pageNo = onValues ? null : pageCannotUse(page, item.key);
+        const usable = item.available && !pageNo;
+        label.className = `v2-crow${usable ? "" : " is-disabled"}`;
         const box = document.createElement("input");
         box.type = "checkbox";
         box.dataset.series = item.key;
         box.checked = draft.has(item.key);
-        box.disabled = !item.available;
+        box.disabled = !usable;
         box.addEventListener("change", () => {
           if (box.checked) draft.add(item.key); else draft.delete(item.key);
           err.hidden = true;
@@ -2054,10 +2116,10 @@
         label.append(box, name);
         if (item.stale) label.appendChild(weekBadge(item.key));
         appendDivergence(label, item.key);
-        if (!item.available) {
+        if (!item.available || pageNo) {
           const why = document.createElement("span");
           why.className = "v2-meta";
-          why.textContent = item.paused ? "Waiting on fresh inputs" : "Not available for this league";
+          why.textContent = !item.available ? (item.paused ? "Waiting on fresh inputs" : "Not available for this league") : pageNo;
           label.appendChild(why);
         }
         if (item.waiverNote && item.available) label.title = item.waiverNote;
@@ -2130,7 +2192,7 @@
           title.textContent = g.id === "vorp" ? `Advanced · ${g.title}` : g.title;
           head.appendChild(title);
           if (g.id === "ddf") head.appendChild(namesInfoButton("Customize"));
-          const selectable = items.filter(item => item.available);
+          const selectable = items.filter(item => item.available && (onValues || !pageCannotUse(page, item.key)));
           const allOn = selectable.length > 0 && selectable.every(item => draft.has(item.key));
           const all = document.createElement("button");
           all.type = "button";
@@ -2145,17 +2207,17 @@
           head.appendChild(all);
           const note = document.createElement("p");
           note.className = "v2-meta";
-          note.textContent = g.note;
+          note.textContent = g.id === "ddf" ? `${g.note} Its inputs ${onValues ? "apply on every page" : "are set on Player values"}.` : g.note;
           section.append(head, note);
           // The DDF group lists three versions, each with its own inputs under it (JEG-542).
           items.forEach(item => {
             section.appendChild(rowFor(item));
-            if (g.id === "ddf" && composite && isDdfKey(item.key)) section.appendChild(ddfInputs(item.key));
+            if (g.id === "ddf" && composite && onValues && isDdfKey(item.key)) section.appendChild(ddfInputs(item.key));
           });
           if (g.id === "vorp" && items.some(item => draft.has(item.key))) section.open = true;
           groupsBox.appendChild(section);
         });
-        summary.textContent = `${draft.size} series selected · applies to every tab`;
+        summary.textContent = `${draft.size} series selected · applies to ${PAGE_NAMES[page]} only`;
       }
       body.appendChild(err);
       const reset = document.createElement("button");
@@ -2164,12 +2226,28 @@
       reset.textContent = "Reset to default";
       reset.addEventListener("click", () => {
         draft.clear();
-        (startActive || []).forEach(key => draft.add(key));
+        (onValues ? startActive || [] : pageDefault(page)).forEach(key => draft.add(key));
         if (inputsDraft) { inputsDraft.clear(); (composite.defaults || []).forEach(key => inputsDraft.add(key)); }
         render();
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Done", true, () => {
         if (!draft.size) { err.hidden = false; return; }
+        if (!onValues) {
+          const need = pageNeed(page, draft);
+          if (need) { err.textContent = need; err.hidden = false; return; }
+          savePageKeys(page, [...draft]);
+          // The page follows its new set: Trade targets reads the first ticked value as ours, Risers opens on the first
+          // ticked series. The on-page pickers still offer every series for a one-off look.
+          if (page === "targets") {
+            const TT = window.TradeValueTargets;
+            const ticked = TT.OUR_KEYS.filter(key => draft.has(key));
+            if (!ticked.includes(T.ours)) { T.ours = ticked[0]; saveTargetsOurs(T.ours); }
+          }
+          if (page === "risers") R.series = null;
+          closePopover();
+          refresh();
+          return;
+        }
         const adds = [...draft].filter(key => !view.active.includes(key));
         const drops = view.active.filter(key => !draft.has(key));
         adds.forEach(toggleEngineSource);
@@ -3087,15 +3165,18 @@
     const TT = window.TradeValueTargets;
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
+    const mine = new Set(pageKeys("targets"));
+    const choices = TT.ourChoices(info);
     const ourKey = TT.OUR_KEYS.includes(T.ours) ? T.ours : TT.OUR_KEY;
     const ours = infoByKey[ourKey];
-    const choices = TT.ourChoices(info);
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
     // The published series are on the trade-value point scale only in the
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
-    const {used, skipped, prior} = TT.chartsToCompare(info, {only: T.chart === "all" ? null : T.chart});
+    // JEG-498: only the charts ticked in this page's Customize are compared; a chart left out is not "skipped".
+    const picked = T.chart === "all" || !mine.has(T.chart) ? null : T.chart;
+    const {used, skipped, prior} = TT.chartsToCompare(info.filter(item => !TT.CHART_KEYS.includes(item.key) || mine.has(item.key)), {only: picked});
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
     rows.forEach((row, index) => { row.rank = index + 1; });
@@ -3127,7 +3208,8 @@
     all.value = "all";
     all.textContent = "All trade charts";
     select.appendChild(all);
-    TT.CHART_KEYS.forEach(key => {
+    const mineCharts = new Set(pageKeys("targets"));
+    TT.CHART_KEYS.filter(key => mineCharts.has(key)).forEach(key => {
       const item = targetsView.infoByKey[key];
       const option = document.createElement("option");
       option.value = key;
@@ -3140,6 +3222,7 @@
       }
       select.appendChild(option);
     });
+    if (T.chart !== "all" && !mineCharts.has(T.chart)) T.chart = "all";
     select.value = T.chart;
     // The picked chart's own badge sits beside the caption (an <option> cannot hold one).
     const slot = $("v2TChartBadge");
@@ -3948,9 +4031,12 @@
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
     const usable = keys => keys.filter(key => view.infoByKey[key]?.available);
-    let pointKeys = usable(view.plotKeys);
-    const vorpKeys = usable(view.vorpKeys);
-    const unavailable = view.active.filter(key => !view.infoByKey[key]?.available);
+    // JEG-498: Compare reads its own Customize list, not Player values' (the engine prices every visible series).
+    const mine = pageKeys("compare").filter(key => view.infoByKey[key]);
+    const mineOrdered = orderSeries(mine, view.rankKey);
+    let pointKeys = usable(mineOrdered.filter(key => sourceMeta(key).method !== "vorp"));
+    const vorpKeys = usable(mineOrdered.filter(key => sourceMeta(key).method === "vorp"));
+    const unavailable = mine.filter(key => !view.infoByKey[key]?.available);
     // "Player values shown": one exact series; DDF Value unless picked, then the ranking series.
     // GL-09: all three DDF Value versions are offered here, shown in Customize or not.
     const ddfOffered = DDF_KEYS.filter(key => view.infoByKey[key]?.available && !pointKeys.includes(key));
@@ -5103,7 +5189,10 @@
     }
     const choices = M.SERIES.map(key => ({key, prior: priorCache.get(key)}));
     if (!R.series || !choices.some(c => c.key === R.series)) {
-      R.series = (choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
+      // JEG-498: the page opens on the first series ticked in its Customize (DDF Value by default) that has a prior week.
+      const mineSeries = new Set(pageKeys("risers"));
+      const ticked = choices.filter(c => mineSeries.has(c.key));
+      R.series = (ticked.find(c => c.prior.available) || choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
         || choices.find(c => c.prior.available) || choices[0]).key;
     }
     renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
@@ -5342,9 +5431,9 @@
     $("v2Risers").hidden = v !== "risers";
     $("v2How").hidden = v !== "how";
     applyStatic();
-    // The source selection applies on Compare a trade too; Trade targets has its own pickers.
+    // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = v === "targets" || v === "risers" || v === "manifesto" || v === "research";
+    $("v2Methods").hidden = v === "manifesto" || v === "research";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -5841,7 +5930,9 @@
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
       // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
       shown: () => ddfShownList().concat(C.getActiveSources()),
-      setShown: keys => { applyShown(keys); refresh(); }};
+      setShown: keys => { applyShown(keys); refresh(); },
+      // JEG-498: the other pages' Customize lists (what their Done saves).
+      pageKeys, setPageKeys: (page, keys) => { savePageKeys(page, keys); refresh(); }};
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
