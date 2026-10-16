@@ -10,6 +10,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 - Session logs go in `claude-log/YYYY-MM-DD-slug.md`, one file per PR. `claude-log.md` is frozen (old entries only).
 - Every page opens with a title, then a one-paragraph purpose, then a status or "Last updated" line when it can go stale.
 - Every page needs one line in this index. Superseded or finished docs move to `archive/` (repo root) with a dated README; nothing is deleted.
+- Staleness rule: a Maintained page names its owner ticket and a last-verified date; any Maintained page not verified in 30 days is stale and gets a refresh ticket (JEG-583).
 - Mark each doc below as Maintained, Record (dated, not maintained) or Proposal.
 
 ## Product and method
