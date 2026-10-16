@@ -57,6 +57,7 @@ PIPELINE_VERSION = "value-pipeline/2"
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
 HISTORY = REPO / "dist" / "assets" / "history"
+DIVERGENCE_RESOLUTIONS = REPO / "data" / "source-divergence-resolutions.json"
 
 # ---------------------------------------------------------------------------
 # VP-0 definitions and constants
@@ -109,19 +110,37 @@ def roster(superflex: int = 0) -> dict:
     return {**DEFAULT_ROSTER, "SUPERFLEX": int(superflex)}
 
 
+CONTENT_WEEK_SETTINGS = [
+    # JEG-527: content-week case — a non-default content week with the regular-season objective.
+    {"scoring": "ppr", "teams": 12, "superflex": 0,
+     "lineup": {"content_week": 9, "objective": "regular"}},
+]
+
+
 def settings(superflex_too: bool = True) -> list[dict]:
     """The settings every chain run compares: 3 scorings x 4 team counts on
-    the default roster, plus the same with one superflex slot."""
+    the default roster, plus the same with one superflex slot, plus at least
+    one content-week case (JEG-527)."""
     out = []
     for sf in ((0, 1) if superflex_too else (0,)):
         for scoring in SCORINGS:
             for teams in TEAM_COUNTS:
                 out.append({"scoring": scoring, "teams": teams, "superflex": sf})
+    out.extend(CONTENT_WEEK_SETTINGS)
     return out
 
 
 def setting_id(s: dict) -> str:
-    return f"{s['scoring']}/{s['teams']}/sf{s['superflex']}"
+    base = f"{s['scoring']}/{s['teams']}/sf{s['superflex']}"
+    lineup = s.get("lineup")
+    if not lineup:
+        return base
+    parts = []
+    if lineup.get("content_week") is not None:
+        parts.append(f"cw{lineup['content_week']}")
+    if lineup.get("objective"):
+        parts.append(lineup["objective"])
+    return f"{base}/{'+'.join(parts)}" if parts else base
 
 
 def _finite(v) -> bool:
@@ -1072,6 +1091,31 @@ def section_hold(inp: Inputs, section: str) -> str | None:
     return None
 
 
+def load_divergence_exclusions(resolutions_path: Path = DIVERGENCE_RESOLUTIONS,
+                               week: int | None = None) -> set:
+    """Source keys excluded by a JEG-610 'exclude' resolution for the given week.
+
+    Returns a set of source keys (e.g. {'fantasycalc'}) whose divergence
+    resolution for the given content week is 'exclude'. These sources get held
+    semantics (JEG-569): they stay in the pipeline for weights and pie but are
+    hidden from the DDF blend, the Indexed basis and the bench-share readout.
+    """
+    if week is None or not resolutions_path.is_file():
+        return set()
+    try:
+        doc = json.loads(resolutions_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    out = set()
+    for entry in doc.get("resolutions", []):
+        if (entry.get("resolution") == "exclude"
+                and entry.get("week") == week
+                and entry.get("source") in SOURCES
+                and entry.get("note")):
+            out.add(entry["source"])
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Week history (docs/methodology.md "Week-Over-Week Snapshots"; written by
 # pipelines/build_week_history.py into dist/assets/history during make sync)
@@ -1153,17 +1197,20 @@ class Setting:
                  hist: History | None = None, bench_share: float | None = None,
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
-                 expected_starts: bool = True):
+                 expected_starts: bool = True, divergence_exclusions: set | None = None):
         """lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
-        False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline)."""
+        False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline).
+        divergence_exclusions: source keys excluded by a JEG-610 'exclude'
+        resolution (treated as hidden, held semantics per JEG-569)."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.lineup = (resolve_lineup(load_lineup_config(), **(lineup_settings or {}))
                        if expected_starts else None)
         self.shape = roster(superflex)
         self.hist = hist
         self.selection = selection
+        self.divergence_exclusions = divergence_exclusions or set()
         self.league = League(
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
             superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
@@ -1218,6 +1265,15 @@ class Setting:
                 # (weights, pie, allocation) but is hidden: left out of the DDF
                 # blend, the Indexed basis and the bench-share readout.
                 excluded[k] = f"held: {hold}"
+                if self.inp.section(k) is not None and current[k]:
+                    eligible.append(k)
+                    hidden.add(k)
+            elif k in self.divergence_exclusions:
+                # JEG-610 item 2: a source-week with an 'exclude' divergence
+                # resolution gets held semantics (JEG-569): eligible (stays in
+                # the pipeline for weights and pie) but hidden from the DDF
+                # blend, the Indexed basis and the bench-share readout.
+                excluded[k] = "divergence: excluded"
                 if self.inp.section(k) is not None and current[k]:
                     eligible.append(k)
                     hidden.add(k)
@@ -1344,14 +1400,16 @@ class Setting:
                 "fillSets": res["fill_sets"], "sources": srcs}
 
 
-def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None) -> dict:
+def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None,
+            divergence_exclusions: set | None = None) -> dict:
     """One setting in the shape value_check compares: rows per tab, the
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
     s = Setting(inp, setting_spec["scoring"], setting_spec["teams"], setting_spec.get("superflex", 0), hist=hist,
                 lineup_settings=setting_spec.get("lineup"),
                 bench_share_override=setting_spec.get("bench_share_override"),
-                expected_starts=setting_spec.get("expected_starts", True))
+                expected_starts=setting_spec.get("expected_starts", True),
+                divergence_exclusions=divergence_exclusions)
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}
@@ -1392,7 +1450,9 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     inp = Inputs.load(args.fixture, args.players)
     hist = History(args.history)
-    result = {"version": VERSION, "settings": [compute(inp, s, hist=hist) for s in settings()]}
+    content_week = freshness(inp)["current_week"]
+    div_exc = load_divergence_exclusions(week=content_week)
+    result = {"version": VERSION, "settings": [compute(inp, s, hist=hist, divergence_exclusions=div_exc) for s in settings()]}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, separators=(",", ":"), default=str), encoding="utf-8")
     print(f"wrote {args.out}")
