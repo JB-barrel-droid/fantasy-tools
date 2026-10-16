@@ -3374,7 +3374,7 @@
       d.dataset.chart = dot.chart;
       d.dataset.dot = dot.side;
       d.dataset.value = String(dot.value);
-      d.title = `${PUBLISHER_NAMES[dot.chart]} (indexed) ${fmt(dot.value)}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
+      d.title = `${PUBLISHER_NAMES[dot.chart]} (rescaled) ${fmt(dot.value)}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
       d.textContent = "●";
       dots.appendChild(d);
     });
