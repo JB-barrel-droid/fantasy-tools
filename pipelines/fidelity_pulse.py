@@ -1254,7 +1254,13 @@ def stage_freshness(source: str, site_doc: dict | None, disc: dict, stored: dict
     pub_at = parse_ts(newer[top].get("published"))
     age = (now - pub_at).total_seconds() / 3600 if pub_at else None
     st = "red" if age is not None and age > NEW_WEEK_GRACE_HOURS else "amber"
-    stored_note = (f"; stored rows already have week {stored.get('week')}" if (stored.get("week") or 0) >= top
+    stored_caught_up = (stored.get("week") or 0) >= top
+    # JEG-676: when the stored rows already have the publisher's week, the chart lags only because the
+    # chain has not published; the next build serves fresh data. Red here would hold the source, strip it
+    # from the build that would cure it, and deadlock publishing (every source at once on a new week).
+    if stored_caught_up:
+        st = "amber"
+    stored_note = (f"; stored rows already have week {stored.get('week')}" if stored_caught_up
                    else "; not stored yet")
     return stage(st, f"publisher posted week {top} ({newer[top]['url']}"
                      f"{', ' + format(age, '.0f') + ' h ago' if age is not None else ', time unknown'}); "
@@ -1976,12 +1982,20 @@ def stage_projection_freshness(source, site_doc, pub, latest, now):
     if vintage and str(vintage) > snap:
         age = (now - stamp).total_seconds() / 3600 if stamp else None
         st = "red" if age is not None and age > NEW_WEEK_GRACE_HOURS else "amber"
+        if latest and str(latest) >= str(vintage):
+            st = "amber"  # JEG-676: stored already has it; only the publish is pending
         return stage(st, f"publisher updated {vintage}{f' ({age:.0f} h ago)' if age is not None else ''}; chart shows "
                          f"snapshot {snap}" + (f"; stored has {latest}" if latest and latest > snap else ""),
                      chart_snapshot=snap, publisher_vintage=vintage)
+    if latest and latest > snap:
+        # JEG-676: judge what the next build would serve; the chart only lags the chain's publish.
+        snap_note = f" (stored has {latest}, not published yet)"
+        snap = latest
+    else:
+        snap_note = ""
     days = (now.date() - date.fromisoformat(snap)).days
     st = "red" if days > PROJECTION_RED_DAYS else "amber" if days > PROJECTION_AMBER_DAYS else "green"
-    return stage(st, f"chart shows snapshot {snap} ({days} d old)"
+    return stage(st, f"chart shows snapshot {snap}{snap_note} ({days} d old)"
                      + (f"; publisher's own update date {vintage}" if vintage else "; the publisher prints no update date"),
                  chart_snapshot=snap, publisher_vintage=vintage)
 
