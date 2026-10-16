@@ -1,6 +1,6 @@
 # Working agreements for AI sessions in this repo
 
-Read this first. It is short on purpose.
+Read this first. It is short on purpose. Every durable doc is listed in `docs/README.md` (the index); runbooks for recurring jobs are in `runbooks/README.md`.
 
 ## Pre-launch: ship, and keep the numbers honest
 

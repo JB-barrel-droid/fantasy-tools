@@ -20,3 +20,7 @@
 ## Left for Jeremy (Drive)
 
 See `docs/contract/feature-contract-id-map.md`: GL-09 to JEG-542 in the Google Doc, drop "to build" on CT-02, GL-19, GL-20, GL-21, TT-05, TT-09, add GL-25/26 for JEG-565, and flip repo-as-source.
+
+## Follow-up (JEG-583)
+
+`AGENTS.md` and `CLAUDE.md` now point at `docs/README.md` and `runbooks/README.md`; the index states the 30-day staleness rule. Not verified: that every Maintained page names an owner ticket and a last-verified date (many do not; refresh tickets are the follow-up).
