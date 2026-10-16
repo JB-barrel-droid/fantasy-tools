@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T02:45:31.198674+00:00",
+  "run_at": "2026-10-16T02:49:16.918310+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -223,15 +223,17 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_static_export.StaticExportTest.test_espn_anchor_matches_committed_inputs"
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs",
+      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [] != ['espn/full_12: adonai mitchell native 9.4[7400 chars]800']"
+      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[682 chars]rs)\"] != []",
+      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[697 chars]rs)\"] != []"
     ],
     "make_targets": [
-      "Makefile:459: test-core"
+      "Makefile:501: test-core"
     ],
-    "detail": "FAIL tests.test_static_export.StaticExportTest.test_espn_anchor_matches_committed_inputs; AssertionError: Lists differ: [] != ['espn/full_12: adonai mitchell native 9.4[7400 chars]800']",
-    "recorded_at": "2026-10-16T02:46:14.889820+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[682 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[697 chars]rs)\"] != []",
+    "recorded_at": "2026-10-16T02:58:03.899474+00:00"
   }
 }
