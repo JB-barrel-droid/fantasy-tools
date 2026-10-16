@@ -59,7 +59,7 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
   - **GL-11** Changes to league settings are a draft until Apply. Nothing reaches the values before Apply.
 
-  - **GL-12** The bench share shown is the share the engine actually priced. A floor is noted.
+  - **GL-12** The bench share shown is the one the engine computed from the reader's settings (the readout in GL-23) or, when the override is on, the reader's own number. v2 does no math on it.
 
   - **GL-13** On phones (390 px), no page scrolls sideways and every tab is usable.
 
@@ -84,9 +84,9 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
   - **GL-21** Publishers' trade charts, put on our point scale, are called **"Trade charts (rescaled)"**. Never use "as published" or a bare "indexed" as a label. One-line meaning: "Each publisher's trade values, rescaled to our point scale for your league; their ranking order is unchanged." *(to build: JEG-510)*
 
-  - **GL-22** League options rank above weights. "Edit league" is the primary control. "Position weights" (renamed from "Weights & bench") is secondary when they are shown together *(to build: JEG-498, rename in JEG-537)*. (Jeremy, 2026-10-09 / 2026-10-10.)
+  - **GL-22** League options rank above weights. "Edit league" is the primary control. "Position weights" (renamed from "Weights & bench") is secondary when they are shown together *(to build: JEG-498; the rename shipped with JEG-537)*. (Jeremy, 2026-10-09 / 2026-10-10.)
 
-  - **GL-23** The bench share is a readout, not a slider: "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your league settings". It comes from the engine. A bench-share override is off by default; when it's on, it shows the old 1–30% slider *(to build: JEG-537)*. (Jeremy, es-value-001, 2026-10-09.)
+  - **GL-23** The bench share is a readout, not a slider: "Bench share this week: QB x%, RB y%, WR z%, TE w%, from your league settings". It comes from the engine. A bench-share override is off by default; when it's on, it shows the old 1–30% slider (Advanced in Your league), with a reset link in Position weights. *(JEG-537; pinned by `tests/test_v2_advanced_render.py`)* (Jeremy, es-value-001, 2026-10-09.)
 
   - **GL-24** Edit league includes:
 
@@ -95,7 +95,7 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
   - "Optimize for": Whole season (default) / Regular season / Playoffs;
   - a collapsed "Advanced" section at the bottom: injury history (Recent seasons default / All seasons equally); projection confidence (Less / As measured default / More); the bench-share override.
 
-Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
+Share links carry every setting. League weeks use `regend`, `playoffs`, `optimize` and `week`; the advanced settings use `inj`, `conf` and `bso` (three decimals, absent = off), each written only when it differs from the default. Old links: `bench=0.150` means no override and any other `bench=` without `bso=` is the sender's override. *(JEG-537, JEG-527; pinned by `tests/test_v2_advanced_render.py` and `tests/test_v2_share_render.py`)* (Jeremy, 2026-10-10.)
 
   - **GL-25** A source that disagrees with the other sources more than usual shows a small "Check" chip next to its name, in the slot the prior-week badge uses, with the published message as its tooltip (`source_divergence` in `assets/reference-freshness.json`, JEG-460). A reviewed source shows "Reviewed", linking to its resolution issue where a link is allowed. The chip never hides a source or blocks anything. Our own DDF Value and VORP columns carry none. *(JEG-609; pinned by `tests/test_v2_divergence_chip_render.py`)*
 
