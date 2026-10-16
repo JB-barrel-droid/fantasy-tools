@@ -2073,17 +2073,12 @@
   // JEG-444: when the new league's feasible bench range moves the bench share, say so too.
   function leagueChange(apply) {
     const before = C.getActiveSources();
-    const benchBefore = C.getBenchShare();
     apply();
     refresh();
     const after = new Set(C.getActiveSources());
     const dropped = before.filter(key => !after.has(key));
-    const benchAfter = C.getBenchShare();
     const notes = [];
     if (dropped.length) notes.push(`Removed ${dropped.map(key => sourceMeta(key).short).join(", ")}: not available for this league.`);
-    if (Number.isFinite(benchBefore) && Number.isFinite(benchAfter) && Math.abs(benchAfter - benchBefore) > 1e-9) {
-      notes.push(`Bench share moved from ${(benchBefore * 100).toFixed(1)}% to ${(benchAfter * 100).toFixed(1)}% to stay inside this league's feasible range.`);
-    }
     if (!notes.length) return;
     setStatus(notes.join(" "));
     clearTimeout(statusTimer);
@@ -2120,9 +2115,27 @@
     }
     return "";
   }
+  // JEG-537 (GL-24): Advanced, collapsed at the bottom of Your league. The engine does the math
+  // (getLineupSettings / setLineupSettings); v2 only collects the three inputs.
+  const hasAdvanced = () => typeof C.getLineupSettings === "function" && typeof C.setLineupSettings === "function";
+  function advancedState(defaults) {
+    if (!hasAdvanced()) return null;
+    const src = defaults ? C.getLineupSettingsDefaults() : C.getLineupSettings();
+    return {injuryHistory: src.injuryHistory, projectionConfidence: src.projectionConfidence, benchShareOverride: src.benchShareOverride};
+  }
+  function applyAdvanced(adv) {
+    if (!adv) return "";
+    const cur = advancedState(false);
+    const changed = {};
+    ["injuryHistory", "projectionConfidence", "benchShareOverride"].forEach(key => { if (adv[key] !== cur[key]) changed[key] = adv[key]; });
+    if (!Object.keys(changed).length) return "";
+    try { C.setLineupSettings(changed); } catch (error) { return error.message || "Those advanced settings are not valid."; }
+    return "";
+  }
   function openLeague() {
     const s = view.state;
-    const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}, weeks: seasonWeeksState(false)};
+    const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}, weeks: seasonWeeksState(false),
+      adv: advancedState(false), advOpen: false};
     openPanel($("v2EditLeague"), "Your league", "One league setup for charts, tables and trades.", pop => {
       const body = panelBody(pop);
       const content = document.createElement("div");
@@ -2166,9 +2179,78 @@
         });
         const note = document.createElement("p");
         note.className = "v2-meta";
-        note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. Position weights and bench allocation live in Weights & bench.";
+        note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. Position weights and the bench-share readout live in Position weights.";
         content.appendChild(note);
         if (draft.weeks) renderSeasonWeeks();
+        if (draft.adv) renderAdvanced();
+      }
+      // JEG-537: injury history, projection confidence and the bench-share override. All off the defaults only
+      // when the reader changes them; the override is off by default and shows the old 1-30% slider when on.
+      function renderAdvanced() {
+        const adv = draft.adv;
+        const details = document.createElement("details");
+        details.className = "v2-padv";
+        details.open = draft.advOpen;
+        details.addEventListener("toggle", () => { draft.advOpen = details.open; });
+        const summary = document.createElement("summary");
+        summary.textContent = "Advanced";
+        details.appendChild(summary);
+        eyebrow(details, "Injury history");
+        details.appendChild(segmented("Injury history", [["recent", "Recent seasons"], ["all", "All seasons equally"]],
+          adv.injuryHistory, v => { adv.injuryHistory = v; }));
+        eyebrow(details, "Projection confidence");
+        details.appendChild(segmented("Projection confidence", [[1.5, "Less"], [1, "As measured"], [0.5, "More"]],
+          adv.projectionConfidence, v => { adv.projectionConfidence = v; }));
+        const confNote = document.createElement("p");
+        confNote.className = "v2-meta";
+        confNote.textContent = "How much to trust the projections: Less widens the range of outcomes, More narrows it.";
+        details.appendChild(confNote);
+        eyebrow(details, "Bench-share override");
+        const toggle = document.createElement("label");
+        toggle.className = "v2-check";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.id = "v2BenchOverride";
+        box.checked = adv.benchShareOverride !== null;
+        const text = document.createElement("span");
+        text.textContent = "Set the bench share myself";
+        toggle.append(box, text);
+        details.appendChild(toggle);
+        const detail = document.createElement("p");
+        detail.className = "v2-meta";
+        detail.textContent = "Off by default: the bench share is worked out from your league settings.";
+        details.appendChild(detail);
+        if (adv.benchShareOverride !== null) {
+          const line = document.createElement("div");
+          line.className = "v2-pbench";
+          const out = document.createElement("output");
+          out.className = "v2-pbig";
+          out.htmlFor = "v2BenchSlider";
+          out.textContent = `${(adv.benchShareOverride * 100).toFixed(1)}%`;
+          const slider = document.createElement("input");
+          slider.type = "range";
+          slider.id = "v2BenchSlider";
+          slider.setAttribute("aria-label", "Bench share override");
+          slider.min = "0.01"; slider.max = "0.30"; slider.step = "0.005";
+          slider.value = String(adv.benchShareOverride);
+          slider.addEventListener("input", () => { adv.benchShareOverride = Number(slider.value); out.textContent = `${(adv.benchShareOverride * 100).toFixed(1)}%`; });
+          line.append(slider, out);
+          details.appendChild(line);
+        }
+        box.addEventListener("change", () => {
+          if (box.checked) {
+            const readout = C.getBenchShareReadout ? C.getBenchShareReadout() : null;
+            const start = readout && Number.isFinite(readout.overall) ? readout.overall : 0.1;
+            adv.benchShareOverride = Math.min(0.30, Math.max(0.01, Math.round(start * 200) / 200));
+          } else {
+            adv.benchShareOverride = null;
+          }
+          draft.advOpen = true;
+          render();
+          const again = content.querySelector("#v2BenchOverride");
+          if (again) again.focus();
+        });
+        content.appendChild(details);
       }
       // JEG-527 / GL-24: the season weeks the value counts and what to optimize for. The engine
       // does the math (window, byes, drift, playoff-week injury rate); v2 only collects the inputs.
@@ -2237,6 +2319,7 @@
           if (draft.teams !== cur.teams) C.setTeams(draft.teams);
           ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });
           if (draft.weeks) weekError = applySeasonWeeks(draft.weeks);
+          if (!weekError && draft.adv) weekError = applyAdvanced(draft.adv);
         });
         if (weekError) { setStatus(weekError); return; }
         closePopover();
@@ -2251,6 +2334,7 @@
           draft.teams = leagueDefaults.teams;
           draft.roster = {...leagueDefaults.roster};
           if (draft.weeks) draft.weeks = seasonWeeksState(true);
+          if (draft.adv) draft.adv = advancedState(true);
           render();
         });
         return reset;
@@ -2258,79 +2342,50 @@
     });
   }
 
-  // ---------- 11 Weights & bench ----------
-  // fe-fidelity / JEG-541: v2 shows the bench share the engine priced with (getBenchShareUsed),
-  // never the request. Since JEG-508 there are no per-position feasibility windows: the engine
-  // uses the requested share for every position, except 0 when no source has bench players above
-  // waivers and 1 when none has starters above waivers. Before the values are built it returns
-  // null, and v2 shows "—" with that reason. No math here.
-  function benchShown(share) {
-    const used = C.getBenchShareUsed ? C.getBenchShareUsed(share) : null;
-    const values = used ? Object.values(used).filter(Number.isFinite) : [];
-    if (!values.length) {
-      return {text: "—", starters: "—", note: "Bench share not available: the values are not built yet", missing: true};
+  // ---------- 11 Position weights ----------
+  // JEG-537 (GL-23): the bench share is a readout worked out from the reader's settings (expected starts),
+  // with one override, off by default (Advanced in Your league). benchReadoutText reads the engine's
+  // getBenchShareReadout(); v2 does no math.
+  const pctText = fraction => `${(fraction * 100).toFixed(1)}%`;
+  function benchReadoutText(readout) {
+    if (!readout || readout.error) return {text: "Bench share not available: the values are not built yet", override: false, missing: true};
+    if (readout.override && Number.isFinite(readout.overrideValue)) {
+      return {text: `Bench share: ${pctText(readout.overrideValue)} (your override)`, short: `${pctText(readout.overrideValue)} (your override)`, override: true, missing: false};
     }
-    const lo = Math.min(...values);
-    const hi = Math.max(...values);
-    const pct = v => (v * 100).toFixed(1);
-    const single = pct(lo) === pct(hi);
-    const text = single ? `${pct(lo)}%` : `${pct(lo)}–${pct(hi)}%`;
-    const starters = single ? `${pct(1 - lo)}%` : `${pct(1 - hi)}–${pct(1 - lo)}%`;
-    const differs = values.some(v => Math.abs(v - share) > 5e-4);
-    const why = hi <= 0 ? "no source has bench players above waivers"
-      : lo >= 1 ? "no source has starters above waivers" : "the engine's pricing";
-    const note = differs ? `Bench ${pct(share)}% requested · priced at ${text} (${why})` : "";
-    return {text, starters, note, missing: false};
+    const parts = ["QB", "RB", "WR", "TE"].map(pos => `${pos} ${Number.isFinite(readout[pos]) ? pctText(readout[pos]) : "—"}`);
+    return {text: `Bench share this week: ${parts.join(", ")}, from your league settings`, short: parts.join(" · "), override: false, missing: false};
   }
+  const BENCH_INFO = "The bench share is how much of each position's value sits with bench players. It comes from how often bench players actually reach a lineup in your league setup: byes, injuries and how deep your bench is.";
   function openWeights() {
-    const bounds = C.getBenchBounds();
-    let draft = C.getBenchShare();
-    openPanel($("v2Weights"), "Weights & bench", "Applies across tabs", pop => {
+    openPanel($("v2Weights"), "Position weights", "Applies across tabs", pop => {
       const body = panelBody(pop);
-      eyebrow(body, "Bench allocation");
-      const top = document.createElement("div");
-      top.className = "v2-pbench";
-      const label = document.createElement("label");
-      label.htmlFor = "v2BenchSlider";
-      label.innerHTML = "<b>Bench share</b><span class=\"v2-meta\">Share of total value allocated to bench depth</span>";
-      const readout = document.createElement("output");
-      readout.className = "v2-pbig";
-      readout.htmlFor = "v2BenchSlider";
-      top.append(label, readout);
-      body.appendChild(top);
-      const slider = document.createElement("input");
-      slider.type = "range";
-      slider.id = "v2BenchSlider";
-      if (bounds) {
-        slider.min = String(bounds[0]); slider.max = String(bounds[1]); slider.step = "0.005"; slider.value = String(draft);
-      } else {
-        slider.disabled = true;
-      }
-      body.appendChild(slider);
-      const range = document.createElement("p");
-      range.className = "v2-meta";
-      range.textContent = bounds
-        ? `Range ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% · Recommended 15%`
-        : "Bench allocation is unavailable for this league setup.";
-      body.appendChild(range);
-      const split = document.createElement("div");
-      split.className = "v2-psplit";
-      body.appendChild(split);
-      const sync = () => {
-        const shown = benchShown(draft);
+      eyebrow(body, "Bench share");
+      const readoutBox = document.createElement("div");
+      readoutBox.className = "v2-pbenchread";
+      const readout = document.createElement("p");
+      readout.className = "v2-pbig-text";
+      readout.dataset.benchReadout = "";
+      const info = document.createElement("p");
+      info.className = "v2-meta";
+      info.textContent = BENCH_INFO;
+      const resetLink = document.createElement("button");
+      resetLink.type = "button";
+      resetLink.className = "v2-link";
+      resetLink.dataset.benchOverrideReset = "";
+      resetLink.textContent = "Reset to the league's bench share";
+      resetLink.addEventListener("click", () => {
+        if (C.setBenchShareOverride) C.setBenchShareOverride(null);
+        refresh();
+        syncReadout();
+      });
+      readoutBox.append(readout, resetLink, info);
+      body.appendChild(readoutBox);
+      const syncReadout = () => {
+        const shown = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
         readout.textContent = shown.text;
-        split.innerHTML = "";
-        const b = document.createElement("b");
-        b.textContent = `Starters ${shown.starters} / Bench ${shown.text}`;
-        const note = document.createElement("span");
-        note.className = "v2-meta is-older";
-        note.dataset.benchNote = "";
-        note.hidden = !shown.note;
-        note.textContent = shown.note ? `⚠ ${shown.note}` : "";
-        split.append(b, note);
+        resetLink.hidden = !shown.override;
       };
-      slider.addEventListener("input", () => { draft = Number(slider.value); sync(); });
-      sync();
+      syncReadout();
       // Frame 11 position shares (JEG-452 engine API). The reader edits any shares; on Apply the
       // engine sets exactly those and splits the rest in proportion (setPositionWeights), so v2
       // never rebalances them itself.
@@ -2386,14 +2441,12 @@
       reset.className = "v2-btn v2-preset";
       reset.textContent = "Reset defaults";
       reset.addEventListener("click", () => {
-        draft = 0.15; slider.value = String(draft); sync();
         const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
         Object.keys(edited).forEach(pos => delete edited[pos]);
         resetShares = true;
         if (defaults) Object.entries(inputs).forEach(([pos, input]) => { input.value = (Number(defaults[pos]) * 100).toFixed(1); });
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
-        if (bounds) C.setBenchShareFraction(draft);
         let note = "";
         if (resetShares && C.resetPositionWeights) C.resetPositionWeights();
         else if (Object.keys(edited).length && C.setPositionWeights) {
@@ -4449,7 +4502,6 @@
       const shape = C.getRosterShape();
       parts.push(`scoring=${C.getState().scoring}`);
       parts.push(`roster=${LINK_ROSTER.map(([key, code]) => `${code}${shape[key] || 0}`).join(".")}`);
-      parts.push(`bench=${Number(C.getBenchShare()).toFixed(3)}`);
       // Position shares only when the sender changed them (back end: encode when not default).
       const shares = C.getPositionWeights();
       const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
@@ -4463,6 +4515,14 @@
         if (w.playoffLo !== d.playoffLo || w.playoffHi !== d.playoffHi) parts.push(`playoffs=${w.playoffLo}-${w.playoffHi}`);
         if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
         if (w.content !== w.build) parts.push(`week=${w.content}`);
+      }
+      // JEG-537: the advanced settings, only when they differ from the defaults (bso: 3 decimals; absent = off).
+      const adv = advancedState(false);
+      const advDefaults = adv && advancedState(true);
+      if (adv) {
+        if (adv.injuryHistory !== advDefaults.injuryHistory) parts.push(`inj=${adv.injuryHistory}`);
+        if (adv.projectionConfidence !== advDefaults.projectionConfidence) parts.push(`conf=${adv.projectionConfidence}`);
+        if (adv.benchShareOverride !== null) parts.push(`bso=${Number(adv.benchShareOverride).toFixed(3)}`);
       }
     }
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
@@ -4479,8 +4539,24 @@
     const shape = C.getRosterShape();
     const scoringChange = LINK_SCORING.includes(scoring) && scoring !== C.getState().scoring;
     const rosterChange = Object.entries(roster).filter(([key, value]) => key in shape && shape[key] !== value);
-    const bench = Number(params.get("bench"));
-    const benchChange = params.has("bench") && Number.isFinite(bench) && Math.abs(bench - C.getBenchShare()) > 5e-4;
+    // JEG-537: advanced settings. A link that carries a league carries all three (missing ones mean the defaults).
+    // Old links: bench=0.150 (the old default) means no override; any other bench= without bso= is the sender's override.
+    let advChange = null;
+    if (params.has("scoring") && hasAdvanced()) {
+      const now = advancedState(false);
+      const def = advancedState(true);
+      const inj = params.get("inj");
+      const conf = Number(params.get("conf"));
+      let bso = params.has("bso") ? Number(params.get("bso")) : null;
+      if (!params.has("bso") && params.has("bench")) {
+        const old = Number(params.get("bench"));
+        bso = Number.isFinite(old) && Math.abs(old - 0.15) > 5e-4 ? old : null;
+      }
+      const want = {injuryHistory: ["recent", "all"].includes(inj) ? inj : def.injuryHistory,
+        projectionConfidence: [0.5, 1, 1.5].includes(conf) ? conf : def.projectionConfidence,
+        benchShareOverride: Number.isFinite(bso) && bso !== null ? Math.min(0.30, Math.max(0.01, bso)) : null};
+      if (JSON.stringify(want) !== JSON.stringify(now)) advChange = want;
+    }
     const shares = {};
     String(params.get("shares") || "").split("_").forEach(part => {
       const m = /^(QB|RB|WR|TE)(\d*\.?\d+)$/.exec(part);
@@ -4501,7 +4577,7 @@
         optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
       if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
     }
-    if (!scoringChange && !rosterChange.length && !benchChange && !sharesGiven && !weeksChange) return;
+    if (!scoringChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
     if (weeksChange) {
       const error = applySeasonWeeks(weeksChange);
       if (error) console.warn("Link season weeks ignored:", error);
@@ -4512,14 +4588,18 @@
         rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
       });
     }
-    // The link's bench share is the sender's choice, set after the league (not a re-clamp notice).
-    if (benchChange) { C.setBenchShareFraction(bench); refresh(); }
+    // The link's advanced settings are the sender's choice, set after the league.
+    if (advChange) {
+      const error = applyAdvanced(advChange);
+      if (error) console.warn("Link advanced settings ignored:", error);
+      refresh();
+    }
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
-    const linkBench = benchShown(C.getBenchShare());
+    const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
-      + `bench ${linkBench.text}${linkBench.note && !linkBench.missing ? ` (${(C.getBenchShare() * 100).toFixed(1)}% requested)` : ""}.${earlier}`);
+      + `bench ${linkBench.missing ? "not available yet" : linkBench.short}.${earlier}`);
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 8000);
   }
@@ -4613,11 +4693,10 @@
     const weights = C.getPositionWeights();
     $("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]
       .map(pos => `${pos} ${Number.isFinite(Number(weights[pos])) ? `${(Number(weights[pos]) * 100).toFixed(1)}%` : "—"}`).join(" · ");
-    const bench = C.getBenchShare();
-    const benchUsed = Number.isFinite(bench) ? benchShown(bench) : null;
-    $("v2HowBench").textContent = benchUsed ? benchUsed.text : "—";
-    $("v2HowBenchNote").hidden = !(benchUsed && benchUsed.note);
-    $("v2HowBenchNote").textContent = benchUsed && benchUsed.note ? `⚠ ${benchUsed.note}` : "";
+    const benchRead = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
+    $("v2HowBench").textContent = benchRead.missing ? "—" : benchRead.short;
+    $("v2HowBenchNote").hidden = true;
+    $("v2HowBenchNote").textContent = "";
     document.querySelectorAll("#v2How [data-sources]").forEach(list => {
       const method = list.dataset.sources;
       list.replaceChildren();

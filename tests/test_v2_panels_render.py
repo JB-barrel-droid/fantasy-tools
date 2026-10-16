@@ -12,7 +12,7 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
     getRosterShape() / getState().teams, SUPERFLEX included; a change that
     moves the bench share says so (JEG-444); Reset defaults returns to the
     first-load league;
-  * Weights & bench (11): position shares shown equal getPositionWeights();
+  * Position weights (11): position shares shown equal getPositionWeights();
     an edited share reaches the engine on Apply (setPositionWeights) and the
     shares still total 1; Reset defaults returns them to
     getDefaultPositionWeights(); Apply sets getBenchShare() to the slider;
@@ -191,20 +191,12 @@ def check_league(page) -> list[str]:
     sf = page.evaluate("() => window.TradeValueCurveControls.getRosterShape().SUPERFLEX")
     if sf != 1 or "1 SUPERFLEX" not in page.text_content("#v2RosterLine"):
         errors.append(f"league: SUPERFLEX stepper gave engine {sf}, roster line {page.text_content('#v2RosterLine')!r}")
-    # JEG-444: a league change that moves the bench share says so. Today's feasible range does not
-    # depend on the roster, so the test makes the engine re-clamp on the next team change.
-    page.evaluate("""() => { const C = window.TradeValueCurveControls; const setTeams = C.setTeams;
-      C.setTeams = t => { setTeams(t); C.setBenchShareFraction(0.2); }; }""")
-    # Since JEG-536 the bench share in effect is the computed readout, not a fixed 15%,
-    # so the toast names whatever the engine reports just before the change.
-    bench_before = page.evaluate("() => window.TradeValueCurveControls.getBenchShare()")
+    # JEG-444's "bench share moved to stay inside the feasible range" toast is gone: the range and the slider
+    # went with JEG-536/JEG-537 (the bench share is a readout worked out from the settings, so a league
+    # change simply changes the readout; tests/test_v2_advanced_render.py covers it).
     page.click("#v2EditLeague")
     page.click('#v2Popover .v2-pseg button[data-value="14"]')
     page.click('#v2Popover [data-apply="league"]')
-    toast = page.evaluate("() => document.getElementById('v2Status').hidden ? '' : document.getElementById('v2Status').textContent")
-    if f"Bench share moved from {bench_before * 100:.1f}% to 20.0%" not in toast:
-        errors.append(f"league: bench re-clamp not reported: {toast!r}")
-    page.evaluate("() => window.TradeValueCurveControls.setBenchShareFraction(0.15)")
     page.click("#v2EditLeague")
     page.click("#v2Popover .v2-preset")
     page.click('#v2Popover [data-apply="league"]')
@@ -235,18 +227,16 @@ def check_weights(page) -> list[str]:
       return ['QB', 'RB', 'WR', 'TE'].every(p => Math.abs(a[p] - d[p]) < 1e-9); }""")
     if not back:
         errors.append("weights: Reset defaults did not return the position shares to the league's defaults")
+    # JEG-537: the bench share is a readout, not a slider.
     page.click("#v2Weights")
-    bounds = page.evaluate("() => window.TradeValueCurveControls.getBenchBounds()")
-    if bounds:
-        target = round((bounds[0] + bounds[1]) / 2, 3)
-        page.evaluate("v => { const s = document.getElementById('v2BenchSlider'); s.value = String(v); s.dispatchEvent(new Event('input')); }", target)
-        page.click('#v2Popover [data-apply="weights"]')
-        got = page.evaluate("() => window.TradeValueCurveControls.getBenchShare()")
-        if abs(got - target) > 0.006:   # the slider steps by 0.005
-            errors.append(f"weights: Apply set bench {got}, slider {target}")
-        page.evaluate("() => window.TradeValueCurveControls.setBenchShareFraction(0.15)")
-    else:
-        page.keyboard.press("Escape")
+    if page.locator("#v2Popover #v2BenchSlider").count():
+        errors.append("weights: the bench-share slider is still in Position weights")
+    readout = page.evaluate("() => window.TradeValueCurveControls.getBenchShareReadout()")
+    want = "Bench share this week: " + ", ".join(f"{p} {readout[p] * 100:.1f}%" for p in ("QB", "RB", "WR", "TE")) + ", from your league settings"
+    got = page.text_content("#v2Popover [data-bench-readout]")
+    if got != want:
+        errors.append(f"weights: bench readout {got!r}, engine {want!r}")
+    page.keyboard.press("Escape")
     return errors
 
 
@@ -821,9 +811,6 @@ class PanelsRenderTest(unittest.TestCase):
                 "      .filter(key => key === view.rankKey || (!state.hiddenGroups.has(tableGroup(key)) && !state.hiddenSeries.has(key)));", ";", 1)},
             "no SUPERFLEX stepper": {"v2_js": v2.replace(
                 '    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];', '    ["BENCH", "Bench slots", 0, 14]];', 1)},
-            "bench move not reported": {"v2_js": v2.replace(
-                "    if (Number.isFinite(benchBefore) && Number.isFinite(benchAfter) && Math.abs(benchAfter - benchBefore) > 1e-9) {",
-                "    if (false) {", 1)},
             "shares not applied": {"v2_js": v2.replace(
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
             "pipeline failure ignored": {"v2_js": v2.replace(

@@ -618,12 +618,11 @@ HOW_JS = "() => {" + COMMON + r"""
   const how = $('v2How');
   const clone = how.cloneNode(true);
   clone.querySelectorAll('.v2-how-league').forEach(n => n.remove());
-  const share = C.getBenchShare();
   return {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText(how),
     cards: [...how.querySelectorAll('[data-view-method]')].map(li => ({method: li.dataset.viewMethod,
       title: li.querySelector('h2')?.textContent || '', items: [...li.querySelectorAll('.v2-how-sources li')].map(x => x.textContent.trim())})),
     outside: clone.textContent, bench: $('v2HowBench').textContent, benchNote: $('v2HowBenchNote').hidden ? '' : $('v2HowBenchNote').textContent,
-    share, used: C.getBenchShareUsed ? C.getBenchShareUsed(share) : null,
+    readout: C.getBenchShareReadout(), slider: Boolean(document.getElementById('v2BenchSlider')),
     activeKeys: C.getActiveSources()};
 }"""
 
@@ -713,6 +712,13 @@ def scenario_values(s: Session) -> dict:
 
 
 # Every card on screen on a data tab, and the controls modules.js gave it (GL-17, GL-18).
+LEAGUE_PANEL_JS = """() => { const pop = document.getElementById('v2Popover');
+  const adv = pop.querySelector('details.v2-padv');
+  return {eyebrows: [...pop.querySelectorAll(':scope .v2-eyebrow')].filter(h => !h.closest('details')).map(h => h.textContent),
+    steps: [...pop.querySelectorAll('.v2-pstep > span')].map(n => n.textContent),
+    advanced: adv ? {open: adv.open, last: [...adv.parentElement.children].pop() === adv,
+      eyebrows: [...adv.querySelectorAll('.v2-eyebrow')].map(h => h.textContent)} : null}; }"""
+
 MODULES_JS = """() => [...document.querySelectorAll('main:not([hidden]) section.v2-card')]
   .filter(c => c.offsetParent !== null && !c.classList.contains('v2-state') && !c.classList.contains('v2-skel'))
   .map(c => { const h = c.querySelector('h2'); const chev = c.querySelector(':scope > .v2-mod-ctl .v2-mod-chevron');
@@ -748,6 +754,12 @@ def scenario_tabs(s: Session) -> dict:
             page.evaluate("h => { location.hash = h; }", tab)
             page.wait_for_timeout(500)
             out["modules"][tab] = page.evaluate(MODULES_JS)
+        page.evaluate("() => { location.hash = '#player-values'; }")
+        page.wait_for_timeout(400)
+        page.click("#v2EditLeague")
+        page.wait_for_timeout(300)
+        out["leaguePanel"] = page.evaluate(LEAGUE_PANEL_JS)
+        page.keyboard.press("Escape")
         out["errors"] = page.errors
         return out
     finally:
@@ -1021,16 +1033,36 @@ def gl11(S):
 
 
 def gl12(S):
+    """The bench share shown is the engine's own readout (or the reader's override): no math in v2."""
     h = S["tabs"]["how"]
-    used = [x for x in (h["used"] or {}).values() if isinstance(x, (int, float))]
-    share = h["share"]
-    lo, hi = (min(used), max(used)) if used else (share, share)
-    want = f"{lo * 100:.1f}%" if f"{lo * 100:.1f}" == f"{hi * 100:.1f}" else f"{lo * 100:.1f}–{hi * 100:.1f}%"
+    r = h["readout"]
+    want = (f"{r['overrideValue'] * 100:.1f}% (your override)" if r["override"]
+            else " · ".join(f"{p} {r[p] * 100:.1f}%" for p in ("QB", "RB", "WR", "TE")))
+    return [] if h["bench"] == want else [f"How values bench share {h['bench']!r}, engine readout {want!r}"]
+
+
+def gl23(S):
+    h = S["tabs"]["how"]
+    r = h["readout"]
     errors = []
-    if h["bench"] != want:
-        errors.append(f"How values bench share {h['bench']!r}, engine priced {want}")
-    if any(abs(x - share) > 5e-4 for x in used) and not h["benchNote"]:
-        errors.append("the engine priced a different bench share and no floor note shows")
+    if h["slider"]:
+        errors.append("a bench-share slider is on the page with the override off")
+    if r["override"] or r["method"] != "expected-starts":
+        errors.append(f"default readout: override {r['override']}, method {r['method']!r}")
+    return errors
+
+
+def gl24(S):
+    p = S["tabs"]["leaguePanel"]
+    errors = []
+    for label in ("Last regular-season week", "First playoff week", "Last playoff week"):
+        if label not in p["steps"]:
+            errors.append(f"Your league has no {label!r} control: {p['steps']}")
+    if "Optimize for" not in p["eyebrows"]:
+        errors.append(f"no Optimize for: {p['eyebrows']}")
+    adv = p["advanced"]
+    if not adv or adv["open"] or not adv["last"] or adv["eyebrows"] != ["Injury history", "Projection confidence", "Bench-share override"]:
+        errors.append(f"Advanced should be collapsed, last, with the three settings: {adv}")
     return errors
 
 
@@ -1579,7 +1611,9 @@ def ct01(S):
         errors.append(f"adding players from the Give / Receive searches: {a['give']} / {a['get']}")
     if not (a["swap"] and a["clear"] and a["share"]):
         errors.append(f"with a trade: Swap {a['swap']}, Clear {a['clear']}, Share {a['share']}")
-    if not all(f"{p}=" in a["hash"] for p in ("give", "get", "scoring", "roster", "bench")):
+    # JEG-537: the bench share is computed from the settings, so the link no longer carries bench=
+    # (only an override travels, as bso).
+    if not all(f"{p}=" in a["hash"] for p in ("give", "get", "scoring", "roster")) or "bench=" in a["hash"]:
         errors.append(f"the trade link does not carry the league settings: {a['hash']!r}")
     s = c["swapped"]
     if [p["key"] for p in s["get"]] != [p["key"] for p in a["give"]]:
@@ -1694,7 +1728,7 @@ CHECKS = {
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
-    "GL-22": PENDING("JEG-498"), "GL-23": PENDING("JEG-537"), "GL-24": PENDING("JEG-537"), "GL-25": gl25,
+    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25,
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
@@ -1772,8 +1806,9 @@ class ContractMirrorTest(unittest.TestCase):
         # A live line may not stay pending.
         live_tt05 = text.replace("(GL-21) *(to build: JEG-510)*", "(GL-21)")
         self.assertTrue(any(e.startswith("TT-05") for e in mirror_errors(live_tt05, CHECKS)))
-        # "to build" on a later paragraph of the line's block still counts (GL-24).
-        self.assertEqual(contract_ids(text).get("GL-24"), "JEG-537")
+        # "to build" on a later paragraph of the line's block still counts.
+        later = "  - **GL-99** Edit league includes:\n\n  - a bullet;\n\nShare links carry every setting *(to build: JEG-537)*.\n"
+        self.assertEqual(contract_ids(later).get("GL-99"), "JEG-537")
         # A checked ID leaves the Doc.
         dropped = "\n".join(l for l in text.splitlines() if "**TT-07**" not in l)
         self.assertTrue(any(e.startswith("TT-07") for e in mirror_errors(dropped, CHECKS)))
