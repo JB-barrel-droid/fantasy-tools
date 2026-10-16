@@ -1,4 +1,4 @@
-.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
+.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote coverage-triage comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -22,6 +22,7 @@ help:
 	@echo "  make comparison-merge  Merge CANDIDATE_FILE into a candidate comparison artifact"
 	@echo "  make comparison-reindex Reindex CANDIDATE_FILE onto the anchor scale (fixed pie)"
 	@echo "  make comparison-review Review REINDEXED_FILE for promotion (verdict: ready/hold)"
+	@echo "  make coverage-triage   SOURCE=cbs [REV=<git rev>]  Decision brief for a source held on coverage"
 	@echo "  make comparison-promote Promote REVIEW_FILE into the live fixture (needs APPROVE)"
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
@@ -69,6 +70,10 @@ comparison-reindex:
 comparison-review:
 	@test -n "$(REINDEXED_FILE)" || (echo "Set REINDEXED_FILE=output/comparison-reference/...-reindexed.json" && exit 1)
 	python3 pipelines/review_comparison_candidate.py "$(REINDEXED_FILE)" $(if $(TRIAGE_FILE),--triage "$(TRIAGE_FILE)")
+
+coverage-triage:
+	@test -n "$(SOURCE)" || (echo "Set SOURCE=<chain source key, e.g. cbs or fantasycalc>" && exit 1)
+	python3 pipelines/coverage_triage.py report "$(SOURCE)" $(if $(REV),--rev "$(REV)")
 
 comparison-promote:
 	@test -n "$(REVIEW_FILE)" || (echo "Set REVIEW_FILE=output/comparison-review/...-review.json" && exit 1)
@@ -184,6 +189,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_review_live_verify_combo
 	python3 -m unittest tests.test_review_coverage_live_verify
 	python3 -m unittest tests.test_review_coverage_churn
+	python3 -m unittest tests.test_coverage_acceptance
+	python3 -m unittest tests.test_coverage_triage
 	python3 -m unittest tests.test_publication_window_content_week
 	python3 -m unittest tests.test_build_lag_gate
 	python3 -m unittest tests.test_import_health
