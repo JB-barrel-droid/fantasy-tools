@@ -60,13 +60,13 @@ GLIDE_WIDTH_FRAC = 0.25
 # build_ddf_two_tier_leg.STEP_INSIDE_WINDOW (GAP-STEPUP-EDGE-PB0).
 STEP_INSIDE_WINDOW = 0.01
 FEAS_TOL = 1e-4
-REF_BENCH_SLOTS = 6
-# Kept only as the regression anchor for the pinned-constant test.
+REF_BENCH_SLOTS = 7
+# Kept only as the regression anchor for the pinned-constant test (pre-JEG-563 values).
 LEGACY_BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 # JEG-392 (2026-10-05): 0.01 -> 0.0075, mirrors curve-widget.js (see comment there).
 FLOOR_SLOPE_FRAC = 0.0075
 FLOOR_WINDOW = 5
-REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+REF_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
 REF_FLEX_COUNT = 1
 REF_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
 WITHHELD_FLAG = "withheld: calibration failed closed"

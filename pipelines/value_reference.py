@@ -65,7 +65,7 @@ HISTORY = REPO / "dist" / "assets" / "history"
 POSITIONS = ("QB", "RB", "WR", "TE")
 POS_ORDER = {p: i for i, p in enumerate(POSITIONS)}
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+BENCH_MIX_12 = {"QB": 14, "RB": 28, "WR": 35, "TE": 6}  # legacy reference; bench allocation uses the convention module
 IMPUTE_MIN_FIT = 3
 ESTIMATE_FIT_N = 10
 DEFAULT_BENCH_SHARE = 0.15
@@ -100,7 +100,7 @@ TEAM_COUNTS = (8, 10, 12, 14)
 COMBO_PREFIX = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
 HISTORY_SCORING_INDEX = {"standard": 0, "half_ppr": 1, "ppr": 2}
 QB_AWARE = frozenset({"fantasycalc"})
-DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 6}
+DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 7}
 SAVED_TEAMS = 12
 HOLD_FIELDS = ("validationHold", "promotionHold")
 
@@ -154,7 +154,7 @@ class League:
     slots: dict                      # dedicated slots per team, D_p
     flex: int = 1                    # F (RB/WR/TE)
     superflex: int = 0               # SF (QB/RB/WR/TE)
-    bench: int = 6                   # B
+    bench: int = 7                   # B
     bench_share: float = DEFAULT_BENCH_SHARE
     flex_eligible: tuple = FLEX_ELIGIBLE
     position_shares: dict | None = None   # reader position shares (VP-4.4)

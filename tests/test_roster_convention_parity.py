@@ -143,10 +143,12 @@ class TestBenchSeatsParity_TwoTier(unittest.TestCase):
                     REF_SLOTS, teams, DEFAULT_BENCH,
                     superflex=False,
                 )
-                conv_skill = {p: conv_seats[p] for p in ("QB", "RB", "WR", "TE")}
+                # Compare skill positions only (both paths may return K/DEF keys)
+                tt_skill = {p: tt_seats.get(p, 0) for p in SKILL_POSITIONS}
+                conv_skill = {p: conv_seats.get(p, 0) for p in SKILL_POSITIONS}
                 self.assertEqual(
-                    tt_seats, conv_skill,
-                    f"Bench seats differ at {teams} teams: two-tier={tt_seats} vs "
+                    tt_skill, conv_skill,
+                    f"Bench seats differ at {teams} teams: two-tier={tt_skill} vs "
                     f"convention={conv_skill}; REF_SLOTS={REF_SLOTS} bench_per_team={DEFAULT_BENCH}"
                 )
 
