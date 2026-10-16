@@ -61,7 +61,7 @@ READ = """() => {
   clone.querySelectorAll('[data-engine], [data-step]').forEach(n => n.remove());
   // Older-week labels come from the data's freshness record, as on every v2 tab.
   const fresh = window.TradeValueProductData?.getSourceFreshness?.()?.series || {};
-  const info = C.getSourceInfo().map(item => {
+  const info = C.getSourceInfo().filter(item => !item.key.endsWith('_adjusted')).map(item => {
     const row = fresh[item.key];
     return row && typeof row.is_older_week === 'boolean' ? {...item, stale: row.is_older_week} : item;
   });
@@ -81,7 +81,7 @@ READ = """() => {
 def method(key):
     if key.endswith("_vorp"):
         return "vorp"
-    if key.endswith("_adjusted") or key in ("espn", "cbsros", "razzball"):
+    if key in ("espn", "cbsros", "razzball"):
         return "dda"
     return "indexed"
 
