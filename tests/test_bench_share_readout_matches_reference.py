@@ -36,12 +36,14 @@ NON_DEFAULT = [
      {"injury_history": "all", "projection_confidence": 0.5}),
     ("standard", 14, {"optimizeFor": "regular", "regularSeasonEnd": 13, "playoffWeeks": [14, 16]},
      {"objective": "regular", "league_weeks": {"regular_season_end": 13, "playoff_weeks": [14, 16]}}),
+    # JEG-527: a reader-set content week moves the window (and the drift horizon) in both.
+    ("ppr", 12, {"contentWeek": 9, "optimizeFor": "regular"}, {"content_week": 9, "objective": "regular"}),
 ]
 
 READ = """async ([scoring, teams, lineup, override]) => {
   const c = window.TradeValueCurveControls;
   c.setLineupSettings({regularSeasonEnd: 14, playoffWeeks: [15, 17], optimizeFor: 'season',
-    injuryHistory: 'recent', projectionConfidence: 1, benchShareOverride: null}, false);
+    injuryHistory: 'recent', projectionConfidence: 1, benchShareOverride: null, contentWeek: null}, false);
   c.setScoring(scoring); c.setTeams(teams);
   if (lineup) c.setLineupSettings(lineup, false);
   if (override !== null) c.setBenchShareOverride(override, false);
@@ -111,7 +113,7 @@ class BenchShareReadoutMatchesReference(unittest.TestCase):
 
     def test_three_non_default_settings(self):
         base = {f"{sc}/{t}": got for (sc, t, _, _), got in zip(self.cases[:12], self.engine[:12])}
-        for (sc, t, lineup, kwargs), got in zip(NON_DEFAULT, self.engine[12:15]):
+        for (sc, t, lineup, kwargs), got in zip(NON_DEFAULT, self.engine[12:12 + len(NON_DEFAULT)]):
             with self.subTest(setting=f"{sc}/{t} {lineup}"):
                 self.assert_matches(got, self.reference(sc, t, **kwargs), f"{sc}/{t} {lineup}")
                 # The setting reached the pipeline: the readout moved.
@@ -119,7 +121,7 @@ class BenchShareReadoutMatchesReference(unittest.TestCase):
                 self.assertGreater(moved, 1e-6, f"{sc}/{t} {lineup}: readout did not move")
 
     def test_override_is_reported_and_priced(self):
-        got = self.engine[15]
+        got = self.engine[-1]
         r = got["readout"]
         self.assertTrue(r["override"])
         self.assertAlmostEqual(r["overrideValue"], 0.10, places=12)
