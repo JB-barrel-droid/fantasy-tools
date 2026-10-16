@@ -443,9 +443,8 @@ preview-vorp-views:
 # GAP-013 (2026-10-08): the hermetic integration tests (cascade, promote,
 # writer audit, savers) gate deploys too; none needs network, Supabase or data/raw.
 # JEG-633: value-path suites are in test-core. value-check-compare (reference vs
-# built engine, strict) is defined but NOT yet in validate: it is red on main until
-# the held-source reference fix lands (patch in the JEG-633 log). Wire it after.
-validate: reference sync guard-harness test-core test-integration
+# JEG-668: value-check-compare wired after held-source reference fix landed.
+validate: reference sync guard-harness test-core value-check-compare test-integration
 
 value-check-compare:
 	python3 pipelines/value_check.py compare --rerun-engine --strict --report output/value-check.json

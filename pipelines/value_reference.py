@@ -679,7 +679,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     _tiers(rows, slot_fill, m)
     indexed = _indexed(sources, details, rows)
     readout = None if degenerate else bench_share_readout(rows, order_m, alloc, inc, es is not None,
-                                                         share_in, wts["bench_share_applied"])
+                                                         share_in, wts["bench_share_applied"], hidden or set())
     ranking = sorted(rows, key=lambda i: (rows[i]["ddf"]["blended"]["value"] is None,
                                           -(rows[i]["ddf"]["blended"]["value"] or 0.0), i))
     return {
@@ -697,7 +697,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
 
 
 def bench_share_readout(rows: dict, order_m: dict, alloc: dict, inc: list, expected_starts: bool,
-                        override, applied: float) -> dict:
+                        override, applied: float, hidden: set | None = None) -> dict:
     """ES-14: the bench tier's share (ranks S_p+1..N_p on the projected-points
     order) of each position's blended DDF Value over I and of the whole."""
     out = {"override": (override is not None) if expected_starts else True,
@@ -707,7 +707,8 @@ def bench_share_readout(rows: dict, order_m: dict, alloc: dict, inc: list, expec
     for p in POSITIONS:
         bench = total = 0.0
         for idx, i in enumerate(order_m[p]):
-            vals = [rows[i]["adjusted"][k] for k in inc if rows[i]["adjusted"].get(k) is not None]
+            vals = [rows[i]["adjusted"][k] for k in inc
+                    if k not in (hidden or ()) and rows[i]["adjusted"].get(k) is not None]
             if not vals:
                 continue
             v = sum(vals) / len(vals)
@@ -1109,12 +1110,18 @@ class Setting:
             return self._state
         fresh = freshness(self.inp)
         current = {k: self.natives(k) for k in SOURCES}
-        eligible, excluded = [], {}
+        eligible, excluded, hidden = [], {}, set()
         for k in SOURCES:
             hold = section_hold(self.inp, k)
             row = fresh["series"].get(k) or {}
             if hold:
+                # JEG-569 part 2: a held source with data stays in the pipeline
+                # (weights, pie, allocation) but is hidden: left out of the DDF
+                # blend, the Indexed basis and the bench-share readout.
                 excluded[k] = f"held: {hold}"
+                if self.inp.section(k) is not None and current[k]:
+                    eligible.append(k)
+                    hidden.add(k)
             elif row.get("older") or row.get("first_load_excluded"):
                 excluded[k] = f"not yet published for week {fresh['current_week']}"
             elif self.inp.section(k) is None:
@@ -1159,7 +1166,7 @@ class Setting:
             current_week = None
         self._state = {"eligible": eligible, "included": included, "excluded": excluded,
                        "current": current, "prior": prior, "prior_shown": prior_shown,
-                       "current_week": current_week}
+                       "current_week": current_week, "hidden": hidden}
         return self._state
 
     def _sources(self, natives: dict) -> dict:
@@ -1254,7 +1261,7 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
         out["composite"][version] = {"inputs": inputs, "excluded": excluded}
         if hist is None:
             continue
-        if prior is not None and inputs:
+        if prior is not None:
             pv = {i: r["ddf"][name]["value"] for i, r in prior["rows"].items()}
             cv = {i: r["ddf"][name]["value"] for i, r in res["rows"].items()}
             entry = {"available": True, "sources": inputs, "currentWeek": st["current_week"],
