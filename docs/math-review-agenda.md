@@ -67,10 +67,10 @@ Each item is closed (answered by a decision and live code) or carried (still wai
 | GAP-ADJ-CLIP-ZERO | Closed | Retired with the live cells (VP-10) and the fit (PR 532). |
 | MR-13, MR-14 (deploy gate after review; consumers comparing across views) | Carried | Pin the VP invariants once the review settles them. Owner JEG-450. |
 | MR-20 (per-game basis differs across projection sources) | Carried | JEG-535 (wave 4). |
-| MR-21 (option value) | Carried | JEG-530 (parked, BE: Later). |
+| MR-21 (option value) | Carried | JEG-530 (parked, BE: Later). The waiver-upside bar (JEG-529) is built display-only in `pipelines/stash_signals.py`. |
 | MR-22 (bench value through the season) | Carried | JEG-528 (parked, BE: Later). |
 | MR-23 (matchups and weekly variance) | Carried | JEG-534 (parked, BE: Later). |
-| MR-26 (handcuff contingency) | Carried | JEG-526 (parked, BE: Later). |
+| MR-26 (handcuff contingency) | Carried | JEG-526: option (b) built as a Python reference (`pipelines/stash_signals.py`, 2026-10-12, recommended default, awaiting Jeremy's review under JEG-450); drawer display is the open front-end half. |
 | MR-24, MR-25, MR-27 (more seasons, RB health, why analysts bench players) | Carried | JEG-450; no separate ticket. |
 | VA-1 to VA-7, "Option A" and `viewInvariants` | Carried | JEG-450. VA-7 is the CBS ROS direction row `GAP-CBSROS-DIRECTION-RED` in the risk register. Check VA-4, VA-5 and VA-6 against the fit retirement before reviewing; parts of them describe the retired fit. |
 
@@ -1444,7 +1444,14 @@ projection with probability 1 - q, the promoted level with probability q.
 Raises bench value for 20-30 named backs; same sigma concerns as MR-21.
 
 **Recommendation:** (b) now (it fits MR-21's line: options are signals, not
-pie); revisit (c) when G4 measures projection error. Ticket: JEG-526. **Depends on:**
+pie); revisit (c) when G4 measures projection error. Ticket: JEG-526.
+**Built 2026-10-12 (default b, not yet reviewed):** `pipelines/stash_signals.py`.
+The promoted level is a measured multiple of the setting's starter line by
+lead-back tier (top-12 lead 1.22x, otherwise 1.19x; `config/handcuff_jump.json`,
+re-derived by `tools/handcuff_jump.py --config`), `m` is the resolved RB hazard
+for both backs, `b` the resolved bye share, and P(start at promoted level) the
+pie's own normal. Depth-2 backs only; a stale chart (the "backup" out-projects
+the "lead") defers to projections. Not in the pie, DDF Value or Indexed. **Depends on:**
 `es-value-001`, MR-21. **Sources:** ES-13, JEG-525.
 
 ## MR-27 - Why analysts bench players, and which reasons the math covers (Jeremy, JEG-525)
