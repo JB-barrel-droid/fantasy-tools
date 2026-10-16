@@ -52,8 +52,6 @@
       note: "Our value for each player, built from the inputs you choose below."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
-    {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
-      note: "Trade charts corrected for each publisher's known bias."},
     {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
       note: "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged."},
     {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
@@ -62,17 +60,16 @@
   function seriesGroup(key) {
     if (isDdfKey(key)) return "ddf";
     if (key.endsWith("_vorp")) return "vorp";
-    if (key.endsWith("_adjusted")) return "adj";
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
     return "pub";
   }
   // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
-  // "FantasyCalc chart (adjusted)", "FantasyCalc chart (rescaled)", "ESPN value above waivers".
+  // "FantasyCalc chart (rescaled)", "ESPN value above waivers".
   function groupSeriesName(key) {
     if (isDdfKey(key)) return sourceMeta(key).label;
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
-    return {proj: `${name} projection`, adj: `${name} chart (adjusted)`, pub: `${name} chart (rescaled)`,
+    return {proj: `${name} projection`, pub: `${name} chart (rescaled)`,
       vorp: `${name} value above waivers`}[seriesGroup(key)];
   }
   const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
@@ -154,7 +151,6 @@
     let method;
     let publisher;
     if (key.endsWith("_vorp")) { method = "vorp"; publisher = key.slice(0, -5); }
-    else if (key.endsWith("_adjusted")) { method = "dda"; publisher = key.slice(0, -9); }
     // JEG-508: the engine's DDF inputs are now "<chart>_adj_values" (the chart's adjusted values).
     else if (key.endsWith("_adj_values")) { method = "dda"; publisher = key.slice(0, -11); }
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
@@ -270,8 +266,10 @@
   // ---------- derived view ----------
   // Week labels come from the data's own freshness record (content week and
   // which series are an older week), the same record that picks first-load sources.
+  const isEngineAlias = key => key.endsWith("_adjusted");
   function sourceInfoWithFreshness() {
-    const info = C.getSourceInfo({includeComposite: true});
+    // JEG-626: the engine still lists the deprecated "<chart>_adjusted" aliases; v2 reads the raw chart series.
+    const info = C.getSourceInfo({includeComposite: true}).filter(item => !isEngineAlias(item.key));
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     info.forEach(item => {
       const series = freshness?.series?.[item.key];
@@ -483,7 +481,7 @@
   function collect() {
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources());
+    const active = ddfShownList().filter(key => infoByKey[key]).concat(C.getActiveSources().filter(key => !isEngineAlias(key)));
     const rankKey = C.getRankSource();
     // DDF Value first, then the ranking series, then DDA, Index, VORP (frame 22: one ordering everywhere).
     const methodOrder = {ddf: -1, dda: 0, indexed: 1, vorp: 2};
@@ -1042,15 +1040,14 @@
   // ---------- table ----------
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
-  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
+  const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"],
     ["published", "Trade charts (rescaled)"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
-  const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
     if (isDdfKey(key)) return "ddf";
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
     if (meta.method === "indexed") return "published";
-    return KIND[meta.publisher] === "Projection-based" ? "projections" : "adjusted";
+    return "projections";
   }
   const groupOrder = id => TABLE_GROUPS.findIndex(([g]) => g === id);
 
@@ -1062,7 +1059,7 @@
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
-      {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
+      {id: "tier", label: "ESPN Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
       .filter(col => col.cls !== "col-meta" || metaColumnsShown());
@@ -1459,7 +1456,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · ESPN Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -1936,7 +1933,7 @@
   function applyShown(keys) {
     const want = new Set(keys);
     const engineNow = C.getActiveSources();
-    const available = new Set(C.getSourceInfo().filter(item => item.available).map(item => item.key));
+    const available = new Set(C.getSourceInfo().filter(item => item.available && !isEngineAlias(item.key)).map(item => item.key));
     const adds = [...want].filter(key => !isDdfKey(key) && available.has(key) && !engineNow.includes(key));
     const drops = engineNow.filter(key => !want.has(key));
     adds.forEach(toggleEngineSource);
@@ -2564,7 +2561,7 @@
       note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
       pop.appendChild(note);
       eyebrow(pop, "Player details");
-      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
+      [["pos", "Position"], ["team", "Team"], ["tier", "ESPN Tier"]].forEach(([id, label]) => {
         box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
       });
       const done = document.createElement("div");
@@ -3215,6 +3212,179 @@
       if (!badge) return;
       priorNote.append(badge, document.createTextNode(` ${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
     });
+    renderWeightCheck();
+  }
+
+  // ---------- Check 2: potential positional weight inflation (JEG-476, JEG-489) ----------
+  // All numbers come from TradeValueTargets.weightCheck over the engine's rows (DDF Value against the
+  // consensus and each chart, grouped by position and by DDF starter / bench tier). Nothing is computed here.
+  const WEIGHT_SIGNAL_TEXT = {sell: ["▲", "Sell this group"], buy: ["▼", "Buy this group"], fair: ["●", "Fairly priced"]};
+  const WEIGHT_TIER_TEXT = {starter: "Starters", bench: "Bench"};
+  const weightOpen = new Set();
+  const fmtPct = gap => {
+    if (!Number.isFinite(gap)) return "—";
+    const text = Math.abs(gap * 100).toFixed(0);
+    return text === "0" ? "0%" : `${gap > 0 ? "+" : "−"}${text}%`;
+  };
+  const weightGroupName = group => group.tier ? `${group.pos} ${WEIGHT_TIER_TEXT[group.tier].toLowerCase()}` : group.pos;
+  const weightHeat = gap => {
+    if (!Number.isFinite(gap)) return "";
+    const size = Math.abs(gap);
+    const step = size >= 0.20 ? 3 : size >= 0.10 ? 2 : size >= 0.05 ? 1 : 0;
+    return step ? ` h-${gap > 0 ? "up" : "down"}-${step}` : "";
+  };
+
+  function weightHeadline(result) {
+    const h = result.headline;
+    const pct = g => `${Math.abs(g.consensus.gap * 100).toFixed(0)}%`;
+    if (!h.over && !h.under) return "No group of 8 or more players is priced differently from DDF Value by the consensus.";
+    const parts = [];
+    if (h.over) parts.push(`the consensus prices ${weightGroupName(h.over)} ${pct(h.over)} above DDF Value (${h.over.consensus.n} players)`);
+    if (h.under) parts.push(`${h.over ? "and " : "the consensus prices "}${weightGroupName(h.under)} ${pct(h.under)} below it (${h.under.consensus.n} players)`);
+    const lead = h.over && h.under ? "Best group arbitrage: " : "Largest group gap: ";
+    return `${lead}${parts.join(" ")}.`;
+  }
+
+  function signalChip(signal) {
+    const chip = document.createElement("span");
+    chip.className = `v2-wsignal is-${signal}`;
+    chip.dataset.signal = signal;
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = `${WEIGHT_SIGNAL_TEXT[signal][0]} `;
+    chip.append(sym, document.createTextNode(WEIGHT_SIGNAL_TEXT[signal][1]));
+    return chip;
+  }
+
+  function renderWeightCheck() {
+    const TT = window.TradeValueTargets;
+    const table = $("v2WeightTable");
+    const empty = $("v2WeightEmpty");
+    const headline = $("v2WeightHeadline");
+    table.replaceChildren();
+    const ours = targetsView.infoByKey[DDF_KEY];
+    const reason = !ours || !ours.available ? "DDF Value is not available for this league right now."
+      : targetsView.blocked ? targetsView.blocked
+      : !targetsView.used.length ? "No trade chart is available to compare for this selection." : null;
+    empty.hidden = !reason;
+    empty.textContent = reason || "";
+    table.parentElement.hidden = Boolean(reason);
+    if (reason) { headline.textContent = ""; return; }
+    const charts = targetsView.used;
+    const result = TT.weightCheck(C.getAllRows(), charts, {ours: DDF_KEY});
+    headline.textContent = weightHeadline(result);
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    const th = (text, cls) => {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      if (cls) cell.className = cls;
+      cell.textContent = text;
+      hr.appendChild(cell);
+      return cell;
+    };
+    th("Group", "player");
+    th("Players", "num");
+    th("Consensus gap", "num");
+    th("Signal");
+    charts.forEach(key => { const cell = th(PUBLISHER_NAMES[key] || key, "num t-chart"); cell.dataset.chart = key; });
+    const expand = th("", "t-expand");
+    const sr = document.createElement("span");
+    sr.className = "v2-sr";
+    sr.textContent = "Players";
+    expand.appendChild(sr);
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    result.groups.forEach(group => {
+      const tr = document.createElement("tr");
+      tr.dataset.group = group.key;
+      tr.className = group.tier ? "is-tier" : "is-pos";
+      const td = (cls, text) => {
+        const cell = document.createElement("td");
+        if (cls) cell.className = cls;
+        if (text !== undefined) cell.textContent = text;
+        tr.appendChild(cell);
+        return cell;
+      };
+      td("player", group.tier ? WEIGHT_TIER_TEXT[group.tier] : group.pos);
+      td("num", String(group.n));
+      const gapCell = td(`num w-gap${weightHeat(group.consensus.gap)}`, group.consensus.gap === null ? "—" : fmtPct(group.consensus.gap));
+      gapCell.dataset.gap = group.consensus.gap === null ? "" : String(group.consensus.gap);
+      if (group.consensus.gap === null) gapCell.title = group.n ? `Only ${group.n} player${group.n === 1 ? "" : "s"} in this group are priced by both sides; at least ${TT.WEIGHT_MIN_SHOW} are needed.` : "No players in this group are priced by both sides.";
+      const signalCell = td("w-signal");
+      if (group.consensus.signal) signalCell.appendChild(signalChip(group.consensus.signal));
+      charts.forEach(chart => {
+        const cell = group.cells[chart];
+        const c = td(`num t-chart w-gap${weightHeat(cell.gap)}`, cell.gap === null ? "—" : fmtPct(cell.gap));
+        c.dataset.chart = chart;
+        if (cell.gap !== null) c.dataset.gap = String(cell.gap);
+      });
+      const open = weightOpen.has(group.key);
+      const ec = td("t-expand");
+      if (group.n) {
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "v2-texpand";
+        toggle.dataset.weightExpand = group.key;
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.setAttribute("aria-label", `Players in ${weightGroupName(group)}`);
+        const glyph = document.createElement("span");
+        glyph.setAttribute("aria-hidden", "true");
+        glyph.textContent = open ? "▴" : "▾";
+        toggle.appendChild(glyph);
+        toggle.addEventListener("click", () => {
+          if (weightOpen.has(group.key)) weightOpen.delete(group.key); else weightOpen.add(group.key);
+          renderWeightCheck();
+          const again = table.querySelector(`[data-weight-expand="${CSS.escape(group.key)}"]`);
+          if (again) again.focus();
+        });
+        ec.appendChild(toggle);
+      }
+      tbody.appendChild(tr);
+      if (open) {
+        const detail = document.createElement("tr");
+        detail.className = "t-detail w-detail";
+        detail.dataset.detailFor = group.key;
+        const cell = document.createElement("td");
+        cell.colSpan = hr.children.length;
+        const wrap = document.createElement("div");
+        wrap.className = "v2-table-wrap";
+        const inner = document.createElement("table");
+        inner.className = "v2-table v2-wplayers";
+        const ih = document.createElement("tr");
+        ["Player", "DDF Value", "Consensus", "Gap"].concat(charts.map(key => PUBLISHER_NAMES[key] || key)).forEach((label, index) => {
+          const h = document.createElement("th");
+          h.scope = "col";
+          h.className = index ? "num" : "player";
+          h.textContent = label;
+          ih.appendChild(h);
+        });
+        const ibody = document.createElement("tbody");
+        result.playersOf(group).forEach(p => {
+          const row = document.createElement("tr");
+          row.dataset.playerKey = String(p.row.player_key);
+          const cells = [p.row.name, fmt(p.ours), fmt(p.market), fmtGap(p.gap)].concat(charts.map(key => fmt(p.charts[key])));
+          cells.forEach((text, index) => {
+            const c = document.createElement("td");
+            c.className = index ? "num" : "player";
+            c.textContent = text;
+            row.appendChild(c);
+          });
+          row.tabIndex = 0;
+          row.addEventListener("click", () => openDrawer(p.row, "targets"));
+          row.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
+          ibody.appendChild(row);
+        });
+        const head = document.createElement("thead");
+        head.appendChild(ih);
+        inner.append(head, ibody);
+        wrap.appendChild(inner);
+        cell.appendChild(wrap);
+        detail.appendChild(cell);
+        tbody.appendChild(detail);
+      }
+    });
+    table.append(thead, tbody);
   }
 
   function bindTargets() {

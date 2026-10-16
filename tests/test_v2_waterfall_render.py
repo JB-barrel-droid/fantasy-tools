@@ -308,7 +308,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 # A 2-for-2 from a link, with a verdict series that is not the ranking series. Show every
                 # trade-value series so the verdict has sources that can disagree with it.
                 page.evaluate("""() => window.TradeValueV2.setShown(window.TradeValueV2.shown().concat(
-                  ['espn', 'cbsros', 'razzball', 'fantasycalc_adjusted', 'usatoday_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']))""")
+                  ['espn', 'cbsros', 'razzball', 'fantasycalc', 'usatoday', 'fantasypros', 'cbs']))""")
                 page.wait_for_timeout(200)
                 pick = page.evaluate(PICK)
                 if not page.evaluate(SIMULATE_DISSENT, pick):

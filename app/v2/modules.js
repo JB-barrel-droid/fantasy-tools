@@ -23,6 +23,7 @@
     {title: "v2VorpTitle", name: "VORP vs waivers", summary: () => "Raw value above a waiver-level player"},
     {title: "v2TSellTitle", name: "Sell", summary: () => `Sell: ${text("v2TSellMeta")}`},
     {title: "v2TBuyTitle", name: "Buy", summary: () => `Buy: ${text("v2TBuyMeta")}`},
+    {title: "v2TCheck2Title", name: "Positional weight inflation", summary: () => text("v2WeightHeadline")},
     {title: "v2RRiseTitle", name: "Risers",
       summary: () => `Risers: ${plural(count("#v2RRise li"), "player", "players")} shown`},
     {title: "v2RFallTitle", name: "Fallers",

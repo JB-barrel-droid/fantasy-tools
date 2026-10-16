@@ -778,3 +778,33 @@ Option 1.
 ### Outcome Note
 
 Jeremy, 2026-10-02 (JEG-75): all player naming resolves through the canonical player naming table. Jeremy, 2026-10-07 (JEG-438): all player name concepts tie back to the player name table; partial solves are replaced. Jeremy, 2026-10-10 (JEG-539): "Use canonical resolver" for Razzball, so the test "nicknames are not guessed" became "matched only via curated aliases"; CBS, FantasyPros and FantasyCalc followed with zero resolved keys changed on current data. Jeremy, 2026-10-12 (JEG-539 Q2, Connor Heyward): use the ESPN or Sleeper position (where the game is played), not CBS; no per-source exception, so CBS rest of season loses Heyward. Q3 (Max Hurleman and inactive players): never flag; add to the player table and move on. Q1: the front end drops the deprecated fit and `*_adjusted` aliases and the back end retires the fit. Implemented in PR 532; the one remaining legacy matcher is the chain's own (GAP-IDENTITY-LEGACY-MATCHERS).
+
+## math-review-2026-10-15: Math review answers Q1-Q4 (JEG-450)
+- id: math-review-2026-10-15
+- created: 2026-10-15
+- deadline: 2026-10-15
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-15
+- recommendation: Q1 label the tier column "ESPN Tier"; Q2 close as moot (fit retired); Q3 retire the CBS ROS and Razzball direction and markup checks; Q4 keep zeros counted in the Indexed factor (option A).
+
+### Context
+
+Jeremy answered the four questions in docs/math-review-questions-2026-10-12.md.
+
+### Problem
+
+Q1 GAP-TIER-FROM-ESPN, Q2 GAP-ADJ-IDENTITY-FALLBACK-UNLABELLED, Q3 GAP-CBSROS-DIRECTION-RED, Q4 OC-8 zeros in the Indexed factor.
+
+### Options
+
+As listed per question in the questions file.
+
+### Recommendation
+
+Q1 label only; Q2 moot; Q3 option (B), retire; Q4 option A.
+
+### Outcome Note
+
+Jeremy, 2026-10-15 (JEG-450): Q1 "ESPN Tier" is the column label (another agent implements it). Q2 closed as moot, the fit is retired. Q3 retire the CBS ROS and Razzball direction and markup checks, which judge the starter/bench scales in buildVorpRows and price nothing those sources display; keep any check that still guards displayed values. Q4 keep zeros counted in the Indexed factor (option A, confirmed). Q3 code state: the checks (starterMarkupSane, fixedPieDirectionSane) were already deleted from the engine by JEG-508/JEG-539 and are pinned absent by test_published_league_settings_engine; no Chart Health record or test for them remains. The only leftover is the unused `starter_markup_sane_band` contract constant (product-data.js, sql/contract/api_v1.sql, fe-read-contract-v1.md), left because it is part of the frozen read contract.

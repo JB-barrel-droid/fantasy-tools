@@ -775,6 +775,28 @@
     return esPhi((hi - mu) / s) - esPhi(za);
   }
 
+  // Standard normal pdf (needed by esBandSurplus).
+  function esNormPdf(z) {
+    return Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+  }
+
+  // JEG-530: E[(X - w)⁺ × 1{lo < X <= hi}] for X ~ N(mu, s), w <= lo.
+  // The convex option form (manifesto §5): pays for the SIZE of the upside
+  // in each band, not just the probability of being in it. Ported from
+  // expected_starts_model.band_surplus.
+  function esBandSurplus(mu, s, w, lo, hi) {
+    if (hi <= lo) return 0;
+    if (s <= 0) {
+      return (lo < mu && (hi === Infinity || mu <= hi) && mu > w) ? (mu - w) : 0;
+    }
+    var za = (lo - mu) / s;
+    if (hi === Infinity) {
+      return (mu - w) * (1 - esPhi(za)) + s * esNormPdf(za);
+    }
+    var zc = (hi - mu) / s;
+    return (mu - w) * (esPhi(zc) - esPhi(za)) + s * (esNormPdf(za) - esNormPdf(zc));
+  }
+
   // P(Binomial(n, q) >= k).
   function esBinomialAtLeast(n, q, k) {
     if (k <= 0) return 1;
@@ -879,8 +901,13 @@
       var pStart = esProbBand(x, s, starterLine, Infinity);
       var fillProb = 0;
       bands.forEach(function (b) { fillProb += b.fill * esProbBand(x, s, b.lo, b.hi); });
+      // JEG-530: option form parts (convex, pays for the size of the upside).
+      var optStart = esBandSurplus(x, s, waiver, starterLine, Infinity);
+      var optFill = 0;
+      bands.forEach(function (b) { optFill += b.fill * esBandSurplus(x, s, waiver, b.lo, b.hi); });
       return { sigma: s, startWorthy: pStart, lineupShare: avail * (pStart + fillProb),
-        starterPart: avail * (v * pStart), benchPart: avail * (v * fillProb) };
+        starterPart: avail * (v * pStart), benchPart: avail * (v * fillProb),
+        optionStarterPart: avail * optStart, optionBenchPart: avail * optFill };
     });
     return { avail: avail, unavailable: q, nPerTeam: nPerTeam, bands: bands, parts: parts };
   }
@@ -998,6 +1025,16 @@
     if (esMode) bsInput = bsOverride;
     var esConfidence = esMode && vpFinite(lineup.projection_confidence) ? lineup.projection_confidence : 1;
     var chartSigma = esMode ? esChartSigma(chartsI, listed, setting) : null;
+
+    // JEG-528: timing factor = fraction of the season window remaining.
+    // Fill-in (bench) value scales by this; starter value does not.
+    // When not in ES mode or no window, timingFactor = 1 (no discount).
+    var timingFactor = 1;
+    if (esMode && lineup.window && lineup.window[1] >= lineup.window[0]) {
+      var windowWeeks = lineup.window[1] - lineup.window[0] + 1;
+      var fullSeasonWeeks = LINEUP_DEFAULT_LEAGUE_WEEKS.playoff_weeks[1];
+      timingFactor = Math.min(1, windowWeeks / fullSeasonWeeks);
+    }
 
     var chartPeersFor = function (src) {
       return chartsI.filter(function (k) { return k !== src; });
@@ -1167,10 +1204,15 @@
             ssl = Math.max(0, r.native - starterLine);
           }
           bsum += bsl; ssum += ssl; vsum += v;
+          // JEG-530: option form parts (convex upside); null when not in ES mode.
+          var optBsl = part ? part.optionBenchPart : null;
+          var optSsl = part ? part.optionStarterPart : null;
           playersOut[r.key] = { pos: pos, native: r.native, estimated: r.estimated, rank: rank,
             role: rank <= S ? "starter" : (rank <= N ? "bench" : "waiver"),
             vorp: v, benchSlice: bsl, starterSlice: ssl, adjusted: 0, vorpDisplay: 0,
-            lineupShare: part ? part.lineupShare : null, startWorthy: part ? part.startWorthy : null };
+            lineupShare: part ? part.lineupShare : null, startWorthy: part ? part.startWorthy : null,
+            optionBenchSlice: optBsl, optionStarterSlice: optSsl,
+            optionAdjusted: 0, timingAdjusted: 0 };
         });
         groups[vpGroupKey(pos, "starter")] = ssum;
         groups[vpGroupKey(pos, "bench")] = bsum;
@@ -1321,10 +1363,22 @@
       var vorpFactor = o.hasWeights && o.surplusTotal > 0 ? pie / o.surplusTotal : 0;
       Object.keys(o.players).forEach(function (k) {
         var r = o.players[k];
-        if (!o.hasWeights) { r.adjusted = 0; r.vorpDisplay = 0; return; }
-        r.adjusted = rates[vpGroupKey(r.pos, "bench")] * r.benchSlice
-          + rates[vpGroupKey(r.pos, "starter")] * r.starterSlice;
+        if (!o.hasWeights) { r.adjusted = 0; r.vorpDisplay = 0; r.optionAdjusted = 0; r.timingAdjusted = 0; return; }
+        var rbench = rates[vpGroupKey(r.pos, "bench")];
+        var rstarter = rates[vpGroupKey(r.pos, "starter")];
+        r.adjusted = rbench * r.benchSlice + rstarter * r.starterSlice;
         r.vorpDisplay = r.vorp * vorpFactor;
+        // JEG-530: option-form adjusted value (convex upside) through the
+        // same share-form rates. The option premium is the difference.
+        if (r.optionBenchSlice !== null && r.optionStarterSlice !== null) {
+          r.optionAdjusted = rbench * r.optionBenchSlice + rstarter * r.optionStarterSlice;
+        } else {
+          r.optionAdjusted = r.adjusted;
+        }
+        // JEG-528: timing-adjusted value. The bench (fill-in) part is scaled
+        // by the fraction of the season remaining (horizon). Starter part is
+        // unaffected (starters produce every week they play).
+        r.timingAdjusted = rbench * r.benchSlice * timingFactor + rstarter * r.starterSlice;
       });
       o.rates = rates;
       o.unfundedMoved = moved;
@@ -1395,6 +1449,29 @@
           shSum += p.lineupShare; swSum += p.startWorthy; shN += 1;
         });
         if (shN) { row.lineupShare = shSum / shN; row.startWorthy = swSum / shN; }
+      }
+      // JEG-530: option value = mean over I of (optionAdjusted - adjusted).
+      // JEG-528: timing value = mean over I of (adjusted - timingAdjusted).
+      // Both are separate series; DDF Value is unchanged.
+      row.optionValue = null;
+      row.timingValue = null;
+      if (esMode) {
+        var optSum = 0, optN = 0, timeSum = 0, timeN = 0;
+        included.forEach(function (src) {
+          if (isHidden[src]) return;
+          var p = out[src].players[key];
+          if (!p) return;
+          if (vpFinite(p.optionAdjusted) && vpFinite(p.adjusted)) {
+            optSum += p.optionAdjusted - p.adjusted;
+            optN += 1;
+          }
+          if (vpFinite(p.timingAdjusted) && vpFinite(p.adjusted)) {
+            timeSum += p.adjusted - p.timingAdjusted;
+            timeN += 1;
+          }
+        });
+        if (optN) row.optionValue = optSum / optN;
+        if (timeN) row.timingValue = timeSum / timeN;
       }
       Object.keys(versionSources).forEach(function (version) {
         var keys = versionSources[version].filter(function (k) {
@@ -1568,7 +1645,8 @@
       sources: out,
       indexed: indexed,
       rows: rows,
-      defaultRanking: defaultRanking
+      defaultRanking: defaultRanking,
+      timingFactor: timingFactor
     };
   }
 
@@ -1625,6 +1703,8 @@
     LINEUP_DEFAULT_LEAGUE_WEEKS: LINEUP_DEFAULT_LEAGUE_WEEKS,
     BENCH_SHARE_OVERRIDE_BOUNDS: BENCH_SHARE_OVERRIDE_BOUNDS,
     esErf: esErf,
+    esNormPdf: esNormPdf,
+    esBandSurplus: esBandSurplus,
     esBinomialAtLeast: esBinomialAtLeast,
     valuePipelineDiagnostics: valuePipelineDiagnostics,
     compositeValue: compositeValue,
