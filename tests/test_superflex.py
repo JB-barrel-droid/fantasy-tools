@@ -16,10 +16,13 @@ Checks, each proved against a broken state:
 2. Superflex goes to quarterbacks on real projections. On the ESPN per-game
    projections the browser prices with, a 10- or 12-team superflex league
    starts 2 x teams QBs (the value pipeline's league allocation, VP-2.2;
-   before JEG-539 the retired projectionRoles) and the
-   translation's superflex slots go to QBs (Python and JS). Broken states:
-   the superflex slot apportioned by dedicated-slot weight (the old flex
-   rule) and the pipeline's superflex seats filled without QBs.
+   before JEG-539 the retired projectionRoles) and the server
+   translation's superflex slots go to QBs. Broken state: the pipeline's
+   superflex seats filled without QBs. (JEG-702, Jeremy 2026-10-16, Q1:
+   "Both: point the checks at the live engine and retire the unused code."
+   The browser translation port, translationRostered, was retired, and with
+   it the Python == JS roster comparison and the slot-weighted mutation of
+   that port.)
 3. The live page accepts the control. setRosterSpot('SUPERFLEX', n) and the
    classic page's Superflex input change the roster, clamp to 0..1, and the
    published charts plot their superflex-overlay natives times one factor
@@ -57,8 +60,8 @@ def setUpModule():
 APP = ROOT / "app" / "trade-value-chart"
 SF_SHAPE = {**SAVED_SHAPE, "SUPERFLEX": 1}
 
-# Node: the value pipeline's allocation + translationRostered superflex counts on the
-# ESPN projections, for a given value-model.js.
+# Node: the value pipeline's allocation on the ESPN projections, for a given
+# value-model.js.
 QB_DRIVER = r"""
 const VM = require(process.argv[1]);
 const input = JSON.parse(require("fs").readFileSync(0, "utf8"));
@@ -73,12 +76,7 @@ const out = input.cases.map(c => {
       bench_share: 0.15, position_shares: null},
     players, sources: {espn: {family: "projection", status: "included", values, label: "ESPN"}},
     included: ["espn"]});
-  const ranked = {QB: [], RB: [], WR: [], TE: []};
-  c.players.forEach(p => ranked[p[2]].push({key: String(p[0]), value: p[3]}));
-  Object.values(ranked).forEach(rows => rows.sort((a, b) => b.value - a.value));
-  const roster = VM.translationRostered(c.teams, 7, 1, ranked, {QB: 1, RB: 2, WR: 2, TE: 1},
-    ["RB", "WR", "TE"], c.shape.SUPERFLEX || 0);
-  return {allocation: result.allocation, roster};
+  return {allocation: result.allocation};
 });
 process.stdout.write(JSON.stringify(out));
 """
@@ -96,7 +94,8 @@ def espn_players(scoring):
 
 
 def qb_problems(model_path=VALUE_MODEL):
-    """Superflex slots must go to QBs on real ESPN projections (both sides)."""
+    """Superflex slots must go to QBs on real ESPN projections (the value
+    pipeline's allocation in value-model.js, and the server translation)."""
     cases = [{"scoring": s, "teams": t, "shape": SF_SHAPE, "players": espn_players(s)}
              for s in SCORINGS for t in (10, 12)]
     proc = subprocess.run(["node", "-e", QB_DRIVER, str(model_path)],
@@ -117,10 +116,8 @@ def qb_problems(model_path=VALUE_MODEL):
         for rows in ranked.values():
             rows.sort(key=lambda r: -r[1])
         py = rostered_for_teams(teams, 7, 1, ranked=ranked, superflex_count=1)
-        if py != js["roster"]:
-            problems.append(f"{tag}: translation roster py {py} != js {js['roster']}")
-        if js["roster"]["QB"]["superflex"] < teams:
-            problems.append(f"{tag}: superflex slots to QB {js['roster']['QB']['superflex']} of {teams}")
+        if py["QB"]["superflex"] < teams:
+            problems.append(f"{tag}: translation superflex slots to QB {py['QB']['superflex']} of {teams}")
     return problems
 
 
@@ -185,13 +182,7 @@ class SuperflexEngine(unittest.TestCase):
         problems = qb_problems()
         self.assertEqual(problems, [], "\n".join(problems))
 
-    def test_qb_guard_catches_slot_weighting_and_no_qb_superflex(self):
-        # The old flex rule: superflex seats apportioned by dedicated-slot
-        # weight (QB 1 of 7), so QBs get ~1/7 of them.
-        slot_weighted = mutated(
-            "sf-slot-weighted",
-            "    if (!ranked) {\n      var w = {};\n      POSITION_ORDER.forEach(function (pos) { w[pos] = slots[pos] || 0; });",
-            "    if (true) {\n      var w = {};\n      POSITION_ORDER.forEach(function (pos) { w[pos] = slots[pos] || 0; });")
+    def test_qb_guard_catches_no_qb_superflex(self):
         # The value pipeline's superflex seats filled without QBs (the
         # pre-superflex flex rule). Replaced the projectionRoles "surplus"
         # mutation when JEG-539 retired projectionRoles.
@@ -199,7 +190,7 @@ class SuperflexEngine(unittest.TestCase):
             "sf-no-qb",
             "var sf = takeBest(POSITION_ORDER,",
             "var sf = takeBest(VP_FLEX_ELIGIBLE,")
-        for name, path in (("slot-weighted", slot_weighted), ("no-qb", no_qb)):
+        for name, path in (("no-qb", no_qb),):
             problems = qb_problems(path)
             print(f"\n[SUPERFLEX negative] {name}: {len(problems)} problems, e.g. {problems[:1]}")
             self.assertGreater(len(problems), 0, f"{name} was NOT caught")

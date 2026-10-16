@@ -234,7 +234,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_vorp_refresh
 	python3 -m unittest tests.test_projection_source_kind
 	python3 -m unittest tests.test_vorp_translation_unified
-	python3 -m unittest tests.test_vorp_translation_js_parity
+	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
@@ -522,7 +522,7 @@ test-core:
 	python3 -m unittest tests.test_search_players_universe
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
-	python3 -m unittest tests.test_vorp_translation_js_parity
+	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_value_reference_worked_example

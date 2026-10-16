@@ -843,3 +843,36 @@ Jeremy, 2026-10-16:
 3. MR-26 handcuffs (JEG-526, JEG-529): "Leave out for now, we can come back to this post launch". The stash signal PR 578 was converted to draft and parked. Both tickets moved to Backlog, label Parked.
 4. MR-23 weekly matchups (JEG-534): lineup hint only, values untouched (option a, confirmed).
 5. PR 637 direction-check thresholds (2-QB +3, peak >28): KEEP loosened, then have QB values reviewed (new ticket, High).
+
+## jeremy-review-2026-10-16-qb: QB values on a 2-QB board (JEG-702)
+- id: jeremy-review-2026-10-16-qb
+- created: 2026-10-16
+- deadline: 2026-10-16
+- category: methodology
+- silence-default: explicit-tap
+- outcome: modified
+- outcome_date: 2026-10-16
+- recommendation: Q1 (d) both; Q2 (c) park; Q3 (a) no cap.
+
+### Context
+
+The QB values review (`docs/research/qb-values-review-2026-10-16.md`) found that PR 637's loosened 2-QB checks guard a translation no page prices from, and asked three questions.
+
+### Problem
+
+What guards 2-QB QB value, whether the engine's 2-QB QB level is right, and whether to cap part-timers' per-game rates.
+
+### Options
+
+Section 6 of the review.
+
+### Recommendation
+
+Q1 (d), Q2 (c), Q3 (a).
+
+### Outcome Note
+
+Jeremy, 2026-10-16:
+1. Q1: "Both: point the checks at the live engine and retire the unused code." The +3 / >28 checks on `unified.positional_max_for_setup` are retired with that function, `projection_max_vorp`, and the browser translation port in `value-model.js` (`translatePublishedVorp`, `positionalMaxForSetup`, `imputeExtension` and helpers). The new guard, `tests/test_two_qb_direction.py`: at every scoring and team count, the 2-QB top QB's blended DDF Value is at least 1.2 times its 1-QB value, on the Python reference and on the engine headless (which must also equal the reference). The server translation (`unified.translate_source`) stays: its grains are a record.
+2. Q2: "Park until a second superflex source." Revisit when one is wired (KeepTradeCut, JEG-669, is the candidate).
+3. Q3: "Undo the per-game change (JEG-535) for ESPN." Not the recommended option. Implementation notes are added below when it lands.
