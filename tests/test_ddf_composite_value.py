@@ -43,6 +43,7 @@ from __future__ import annotations
 import json
 import unittest
 
+from pipelines.nfl_week import content_week, content_week_start
 from tests._dist_server import DIST, serve
 from tests import _render_env  # noqa: E402
 from tests._holds import HOLD_FIELDS  # noqa: E402
@@ -369,6 +370,39 @@ def strip_holds(fixture):
                 section.pop(field, None)
 
 
+def normalize_chart_weeks(fixture):
+    """JEG-676: bump chart sections to the current content week.
+
+    The published fixture may lag the calendar (e.g. charts at Week 5 while the
+    calendar says Week 6) because the chain hasn't published the new week yet.
+    Tests that need an unheld baseline also need charts at the current week so
+    the JS freshness check doesn't mark them "not yet published".  Projections
+    (ESPN, CBS ROS, Razzball) carry "rest of season" and are unaffected."""
+    week = content_week()
+    label = f"Week {week}"
+    # The content_vintage for date-based sections (e.g. usatoday "2026-10-06")
+    # needs a date in the current content week, not a "Week N" label.
+    week_start = content_week_start(week)
+    for key, section in (fixture.get("sources") or {}).items():
+        if not isinstance(section, dict):
+            continue
+        wd = section.get("week_designated")
+        cv = section.get("content_vintage")
+        if not wd and not cv:
+            continue
+        # Only bump sections that carry a "Week N" week_designated (weekly
+        # charts); rest-of-season projections have no week_designated.
+        from pipelines.nfl_week import week_of_label
+        if week_of_label(wd) is not None:
+            section["week_designated"] = label
+            # content_vintage: use a "Week N" label if it already is one,
+            # otherwise bump the date into the current content week.
+            if week_of_label(cv) is not None:
+                section["content_vintage"] = label
+            elif cv:
+                section["content_vintage"] = week_start.isoformat()
+
+
 def older_week(section):
     """The section's publisher has not posted the current week: label it a
     week behind every other chart."""
@@ -408,8 +442,12 @@ def run(script: str, history_edit=None, data_edit=None, init_script=None, week_e
     # JEG-569: the published fixture may legitimately carry a hold (a held
     # source never takes the site down). These tests need an unheld
     # baseline, so they strip holds from their own copy, then apply the edit.
+    # JEG-676: the fixture may also lag the calendar (charts at Week N-1 while
+    # the calendar says Week N), so normalize chart weeks to the current week
+    # before the data_edit applies test-specific holds or staleness.
     fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
     strip_holds(fixture)
+    normalize_chart_weeks(fixture)
     if data_edit:
         data_edit(fixture)
     overrides["assets/comparison-sources-data.json"] = json.dumps(fixture).encode("utf-8")
