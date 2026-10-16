@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T03:45:41.173397+00:00",
+  "run_at": "2026-10-16T03:55:49.220286+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -210,16 +210,17 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
+      "FAIL tests.test_razzball_refresh.ChainRebuildsRazzball.test_a_razzball_leg_failure_is_isolated",
+      "FAIL tests.test_razzball_refresh.ChainRebuildsRazzball.test_unbaked_vintage_holds_razzball_and_keeps_its_section"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[695 chars]rs)\"] != []"
+      "AssertionError: {'vin[28 chars]': {}} != {'vin[28 chars]': {}, 'validationHold': {'reason': \"chain hol[69 chars]eg'}}",
+      "AssertionError: {'vin[61 chars].0}}}} != {'vin[61 chars].0}}}, 'validationHold': {'reason': \"chain hol[79 chars]ot'}}"
     ],
     "make_targets": [
-      "Makefile:500: test-core"
+      "Makefile:477: test-core"
     ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[695 chars]rs)\"] != []",
-    "recorded_at": "2026-10-16T03:53:54.367129+00:00"
+    "detail": "FAIL tests.test_razzball_refresh.ChainRebuildsRazzball.test_a_razzball_leg_failure_is_isolated; FAIL tests.test_razzball_refresh.ChainRebuildsRazzball.test_unbaked_vintage_holds_razzball_and_keeps_its_section; AssertionError: {'vin[28 chars]': {}} != {'vin[28 chars]': {}, 'validationHold': {'reason': \"chain hol[69 chars]eg'}}; AssertionError: {'vin[61 chars].0}}}} != {'vin[61 chars].0}}}, 'validationHold': {'reason': \"chain hol[79 chars]ot'}}",
+    "recorded_at": "2026-10-16T03:57:19.193075+00:00"
   }
 }
