@@ -104,8 +104,9 @@ CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypr
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
 H1 = "Where the trade market is wrong this week"
-SUBTITLE = ("We check four publishers' trade charts against our values for your league. "
-            "Sell the players they overpay for; buy the ones they undervalue.")
+SUBTITLE = ("We check four publishers' trade charts against our values for your league, two ways: "
+            "potential mispricing, player by player, and potential positional weight inflation, position by position. "
+            "Sell what they overpay for; buy what they undervalue.")
 INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for your league. "
                 "Their ranking order is unchanged.")
 FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))

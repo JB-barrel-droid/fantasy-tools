@@ -1162,6 +1162,28 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-mod[data-xl="true"] { grid-column: 1 / -1; }
 .v2-mod[data-xl="true"] .v2-table-wrap { max-height: none; }
 
+/* Trade targets: two numbered checks (JEG-476, JEG-489). */
+.v2-tcheck { margin: 4px 0 8px; }
+.v2-tcheck h2, .v2-weight h2 { font-size: var(--v2-title-2); margin: 0; }
+.v2-tcheck p { margin: 2px 0 0; max-width: 72ch; }
+.v2-weight { margin-top: 24px; padding: var(--v2-pad-card) var(--v2-pad-card-x); }
+.v2-weight > p { max-width: 72ch; margin: 4px 0; }
+.v2-weight-headline { font-weight: 600; margin: 10px 0 !important; }
+.v2-weight .v2-table-wrap { overflow-x: auto; max-width: 100%; position: relative; }
+.v2-wtable td, .v2-wtable th { white-space: nowrap; }
+.v2-wtable tr.is-tier td.player { padding-left: 22px; font-weight: 400; color: var(--v2-muted); }
+.v2-wtable tr.is-pos td.player { font-weight: 700; }
+.v2-wtable td.w-gap.h-up-1 { background: var(--v2-heat-up-1); } .v2-wtable td.w-gap.h-up-2 { background: var(--v2-heat-up-2); } .v2-wtable td.w-gap.h-up-3 { background: var(--v2-heat-up-3); }
+.v2-wtable td.w-gap.h-down-1 { background: var(--v2-heat-down-1); } .v2-wtable td.w-gap.h-down-2 { background: var(--v2-heat-down-2); } .v2-wtable td.w-gap.h-down-3 { background: var(--v2-heat-down-3); }
+.v2-wsignal { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; font-weight: 600; }
+.v2-wsignal.is-sell { color: var(--v2-action-strong); }
+.v2-wsignal.is-buy { color: var(--v2-negative); }
+.v2-wsignal.is-fair { color: var(--v2-muted); }
+.v2-wtable tr.w-detail td { white-space: normal; background: var(--v2-hover); padding: 6px; }
+.v2-wplayers { width: 100%; }
+.v2-weight-how { margin-top: 10px; font-size: 13px; max-width: 72ch; }
+.v2-weight-how summary { cursor: pointer; min-height: 32px; }
+
 /* JEG-481: Find a trade (finder.js). */
 .v2-find-side { position: relative; }
 .v2-find-side h3 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }

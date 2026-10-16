@@ -138,6 +138,8 @@ Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
   - **TT-06** A chart that is a week behind shows a "Wk N" badge wherever it appears: Trade targets, Player values and Compare a trade.
   - **TT-07** A chart value at or below 0 is never a buy or sell target.
   - **TT-08** Players with only one source are included and flagged "◐ 1 source".
+  - **TT-10** The page runs two numbered checks, and the subtitle names both: "1. Potential mispricing" (player by player) and "2. Potential positional weight inflation" (position by position). *(JEG-476)*
+  - **TT-11** Check 2 compares DDF Value with the trade-chart consensus (median of 2+ charts) and with each chart, by position and by DDF starter / bench tier. The gap is the group's share of the market total divided by its share of the DDF Value total, minus 1, over the same players on both sides, so a chart's overall scale cannot make every position look cheap. Sell this group at +10% or more, Buy this group at -10% or less, else Fairly priced. A group under 3 players shows no number; the headline only names groups of 8 or more. A group opens to its players. *(JEG-476, JEG-489; pinned by `tests/test_v2_group_weight.py` and `tests/test_v2_group_weight_render.py`)*
   - **TT-09** Market average *(to build: JEG-504)*:
 
       - Beside Our value, show the average of the compared rescaled charts and the difference between Our value and that average.
