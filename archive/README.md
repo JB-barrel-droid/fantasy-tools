@@ -81,3 +81,9 @@ Moved from `docs/` to `archive/2026-10-12-docs/`. Not maintained: each is a date
 | `dependency-map.md` (added with JEG-599) | 2026-09-19 | Muse-migration component classification; superseded by `docs/architecture-current.md`. |
 
 `docs/claude-log/` stays in place because new per-PR entries are still written there.
+
+## 2026-10-15 - v2 design-notes build log (JEG-602)
+
+| Path | Date range | Why archived |
+|---|---|---|
+| `2026-10-15-docs/v2-design-notes-build-log.md` | 2026-10-08 | Seven dated sections cut from `docs/v2-design-notes.md`: Figma review gap lists, the passes that closed them, page weight, league panel follow-ups, multi-device sweep. Current behavior stays in the design notes and `docs/feature-contract.md`. |

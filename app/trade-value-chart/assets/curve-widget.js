@@ -111,9 +111,10 @@
   // SUPERFLEX (JEG332-SUPERFLEX-FLEX option A, Jeremy 2026-10-08): dedicated
   // superflex slots per team (0 or 1), QB-eligible, filled after the
   // dedicated slots and before FLEX (value-model.js superflexCount).
-  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, SUPERFLEX:0, BENCH:6, K:0, DST:0});
+  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:1, SUPERFLEX:0, BENCH:7, K:1, DST:1});
   // Stepper bounds per roster key (setRosterSpot clamps to them).
-  const ROSTER_BOUNDS = Object.freeze({BENCH: [0, 14], SUPERFLEX: [0, 1]});
+  // JEG-565: K and DST (shown as DEF) are roster slots only; they carry no values.
+  const ROSTER_BOUNDS = Object.freeze({BENCH: [0, 14], SUPERFLEX: [0, 1], K: [0, 3], DST: [0, 3]});
   const rosterBounds = key => ROSTER_BOUNDS[key] || [1, 5];
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
@@ -122,7 +123,10 @@
   // across ~596 players (mean ~5.4) and healthy curves peak 60-95, so this
   // floor separates "scale is broken" from "this source ranks flatter than
   // the others". Raise it only with a curve that genuinely cannot go lower.
-  const CURVE_COLLAPSE_FLOOR = 25;
+  // JEG-563 (2026-10-16): 25 -> 20. With the default roster at 2 WR, USA Today at
+  // 8 teams + superflex peaks at 24.1-24.3 on a healthy scale (was 27.0); a broken
+  // scale peaks near the mean (~5), so 20 still separates the two.
+  const CURVE_COLLAPSE_FLOOR = 20;
   // Set once runRegressionGuards() returns clean; draw() refuses to paint until then.
   let guardsPassed = false;
   // Bench-share slider range (VP-3.4: the reader's slider replaces the 15%
@@ -2827,6 +2831,16 @@
     getNativeRanks: source => {
       const ranks = nativeRanksFor(source);
       return ranks ? Object.fromEntries(ranks) : null;
+    },
+    // JEG-457 (read-only): the math behind one published chart's Indexed value, from the engine's own derivation:
+    // the number as the publisher prints it ("native", at the active scoring) and the ONE factor the chart is
+    // indexed with, so native x factor = the Indexed value the engine shows. Either is null when the chart does
+    // not price him (or could not be indexed). null for a source that is not a published chart.
+    getPublishedMath: (playerKey, source) => {
+      if (!AS_PUBLISHED_KEYS.has(source)) return null;
+      const native = nativeSourceMaps.get(source)?.get(Number(playerKey));
+      const factor = pipeline?.sources?.[source]?.indexedFactor;
+      return {native: Number.isFinite(native) ? native : null, factor: Number.isFinite(factor) ? factor : null};
     },
     isReady: () => engineReady,
     getRankSource: () => selectedRankSourceKey(),

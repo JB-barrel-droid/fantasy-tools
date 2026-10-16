@@ -133,6 +133,18 @@ ENGINE_JS = """async ([settings, views, viewSeries, versions]) => {
         v.ddf_count = int((bv.blended || {}).count ?? r.ddfCount);
         v.ddf_charts_count = int((bv.charts || {}).count ?? r.ddfChartsCount);
         v.ddf_projections_count = int((bv.projections || {}).count ?? r.ddfProjectionsCount);
+        // ES-10 expected-starts fields and JEG-571 player tag.
+        v.lineup_share = num(r.lineupShare);
+        v.start_worthy = num(r.startWorthy);
+        v.ddf_tier = r.ddfTier || null;
+        // Inline tag logic (twin of player-tags.js playerTag).
+        const tier = r.ddfTier;
+        if (tier === 'starter') v.player_tag = 'Start';
+        else if (tier === 'bench' || tier === 'waiver') {
+          const sw = r.startWorthy;
+          v.player_tag = (typeof sw === 'number' && isFinite(sw) && sw >= 0.25) ? 'Stash'
+            : tier === 'bench' ? 'Hold' : 'Drop';
+        } else v.player_tag = null;
         rows[r.player_key] = v;
         // VP-11: estimated: {sourceKey: reason}.
         const est = r.estimated && typeof r.estimated === 'object' ? Object.keys(r.estimated) : [];
@@ -230,6 +242,25 @@ def _severity(m: dict) -> tuple:
     return (m.get("kind") == "value", -(m.get("diff") or 0.0))
 
 
+def diff_categorical_rows(engine_rows: dict, ref_rows: dict, fields: list[str]) -> dict:
+    """{field: {"compared", "mismatches": [...], "max_abs_diff": 0.0}}
+    Exact string/None match for categorical fields like ddf_tier, player_tag."""
+    eng, rf = _keyed(engine_rows), _keyed(ref_rows)
+    out = {}
+    for key in fields:
+        compared, mism = 0, []
+        for pk in sorted(set(eng) | set(rf)):
+            e = (eng.get(pk) or {}).get(key)
+            r = (rf.get(pk) or {}).get(key)
+            if e is None and r is None:
+                continue
+            compared += 1
+            if e != r:
+                mism.append({"player_key": pk, "engine": e, "reference": r, "kind": "exact"})
+        out[key] = {"compared": compared, "mismatches": mism, "max_abs_diff": 0.0}
+    return out
+
+
 def diff_rows(engine_rows: dict, ref_rows: dict, series: list[str], tol: float = TOL) -> dict:
     """{series: {"compared", "mismatches": [...], "max_abs_diff"}}."""
     eng, rf = _keyed(engine_rows), _keyed(ref_rows)
@@ -309,9 +340,18 @@ def compare(engine: dict, reference: dict, tol: float = TOL) -> dict:
                                              "detail": "engine has no rows for this setting"}], 0.0)
             continue
         for view in ref.VIEWS:
+            ev, rv = (e.get("views") or {}).get(view), (r.get("views") or {}).get(view)
             series = [*ref.VIEW_SERIES[view], *ddf]
-            d = diff_rows((e.get("views") or {}).get(view), (r.get("views") or {}).get(view), series, tol)
+            d = diff_rows(ev, rv, series, tol)
             for key, res in d.items():
+                rep.add(key, sid, view, res["compared"], res["mismatches"], res["max_abs_diff"])
+            # ES-10 expected-starts numeric fields.
+            es_num = diff_rows(ev, rv, ["lineup_share", "start_worthy"], tol)
+            for key, res in es_num.items():
+                rep.add(key, sid, view, res["compared"], res["mismatches"], res["max_abs_diff"])
+            # JEG-571 categorical fields (exact match).
+            es_cat = diff_categorical_rows(ev, rv, ["ddf_tier", "player_tag"])
+            for key, res in es_cat.items():
                 rep.add(key, sid, view, res["compared"], res["mismatches"], res["max_abs_diff"])
             for version in ref.DDF_VERSIONS:
                 _diff_prior(rep, sid, view, ((e.get("prior") or {}).get(view) or {}).get(version),
@@ -565,12 +605,15 @@ def apply_holds(fixture: dict, last_good: dict | None, holds: dict, week: int | 
 def release_holds(fixture: dict, disagreeing: list[str]) -> list[str]:
     """Remove validationHold (in place) from sections whose root agrees now.
     Fidelity pulse holds (reason "fidelity: ...", JEG-520) are released by
-    pipelines/fidelity_hold.py, never here."""
+    pipelines/fidelity_hold.py, never here.  Chain review holds (reason
+    "chain hold: ...", JEG-676) are set by the rebuild chain's isolate_hold
+    and released only by the next successful chain run, never here."""
     released = []
     for sec, section in (fixture.get("sources") or {}).items():
         if not isinstance(section, dict) or "validationHold" not in section:
             continue
-        if str((section.get("validationHold") or {}).get("reason") or "").startswith("fidelity: "):
+        reason = str((section.get("validationHold") or {}).get("reason") or "")
+        if reason.startswith("fidelity: ") or reason.startswith("chain hold: "):
             continue
         root = (section.get("validationHold") or {}).get("root") or ROOT_OF.get(sec)
         if root not in disagreeing:

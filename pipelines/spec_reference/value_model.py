@@ -36,7 +36,7 @@ import statistics
 
 from .twotier import BENCH_MIX_12, FLEX_ELIGIBLE, POSITIONS, round_half_up
 
-DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
+DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "BENCH": 7}
 SAVED_TEAMS = 12
 MIN_SHARED_FOR_FACTOR = 40
 MIN_TAIL_OVERLAP = 3

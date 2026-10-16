@@ -42,10 +42,10 @@ from build_reweighted_values import SOURCE_KINDS  # noqa: E402
 ROSTER = {
     "schema": "option-c-publisher-roster-v1",
     "teams": 12,
-    "slots": {"QB": 1, "RB": 2, "WR": 3, "TE": 1},
+    "slots": {"QB": 1, "RB": 2, "WR": 2, "TE": 1},
     "flex_count": 1,
     "flex_eligible": ["RB", "WR", "TE"],
-    "bench_total": 72,
+    "bench_total": 84,
     "scoring": "half_ppr",
 }
 
@@ -83,9 +83,9 @@ def _group_vorps_artifact():
     return {
         "teams": 12, "scoring": "half_ppr", "units": "raw_surplus_ppg",
         "roster": {
-            "slots": {"QB": 1, "RB": 2, "WR": 3, "TE": 1},
+            "slots": {"QB": 1, "RB": 2, "WR": 2, "TE": 1},
             "flex_count": 1, "flex_eligible": ["RB", "WR", "TE"],
-            "bench_mix": {"QB": 12, "RB": 24, "WR": 24, "TE": 12},
+            "bench_mix": {"QB": 14, "RB": 28, "WR": 35, "TE": 7},
         },
         "groups": [
             {"position": p, "role": r, "total_vorp": GROUP_TARGETS[(p, r)]}

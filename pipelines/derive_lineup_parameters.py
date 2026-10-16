@@ -116,12 +116,13 @@ SCORINGS = ("standard", "half_ppr", "ppr")
 PPG_FIELDS = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
 # Sleeper statuses that mean the player is not available this week.
 UNAVAILABLE = frozenset({"Out", "IR", "Doubtful", "PUP", "Sus", "NA", "DNR"})
-# Roster constants (docs/methodology.md VP-0 / VP-2.2). WR 3 / FLEX 1 is the
-# engine's default roster; the JEG-521 spec settles the config mismatch on it.
-DEDICATED = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+# Roster constants: 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / K / DEF, 7 bench
+# (JEG-563, the shared convention default from JEG-559 roster_convention.py).
+# Bench weights = dedicated starters x backups_per_starter (market_bench.json).
+DEDICATED = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
 FLEX = 1
-BENCH = 6
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+BENCH = 7
+BENCH_MIX_12 = {"QB": 88, "RB": 166, "WR": 206, "TE": 40}
 MIN_GAMES = 3
 LAST_MEASURED_WEEK = 17  # week 18: contenders rest starters (18-week seasons)
 SELECTION_WINDOWS = ((1, 5), (1, 9))

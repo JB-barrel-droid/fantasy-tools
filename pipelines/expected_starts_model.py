@@ -69,6 +69,10 @@ REPORT = REPO / "output" / "expected-starts-before-after.md"
 SCHEMA = "expected-starts-before-after/1"
 
 POSITIONS = ("QB", "RB", "WR", "TE")
+FLEX_ELIGIBLE = _CONV_FLEX_ELIGIBLE
+# Default roster shape for lineup simulation (skill slots + flex only).
+ROSTER = {p: DEFAULT_SLOTS[p] for p in POSITIONS}
+ROSTER["FLEX"] = DEFAULT_FLEX
 SCORINGS = ("standard", "half_ppr", "ppr")
 TEAM_COUNTS = (8, 10, 12, 14)
 PROJECTIONS = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
