@@ -111,6 +111,9 @@ FC_DRIFT_REL = 0.25        # FantasyCalc movement band (relative to the stored v
 FC_DRIFT_ABS = 50          # ... or this many FantasyCalc points, whichever is larger
 FC_SYSTEMIC_SHARE = 0.10   # more than this share of values outside the band is a broken save, not movement
 FC_SWAP_RATIO = 1.5        # a stored list this much closer to another live list than to its own is a column swap
+FC_GRAIN_CHECK_MAX_AGE_S = 7200  # skip the grain check when the bake is older than this (seconds); FantasyCalc's
+                                 # scoring gap (~0.5-1.5% of value) is smaller than 2-hour intraday crowd drift,
+                                 # so stale bakes produce false-positive column-swap reds (JEG-705)
 EXAMPLES = 8
 MAX_DIVERGENCE_ROWS = 200  # per source per run, written to public.fidelity_divergences
 
@@ -1050,11 +1053,18 @@ def fc_list_churn(cmp: dict, left: dict, right: dict) -> list[dict]:
     return churn
 
 
-def fc_grain_check(left: dict, right: dict) -> list[str]:
+def fc_grain_check(left: dict, right: dict, *, bake_age_s: float | None = None) -> list[str]:
     """Column-swap cross-check: each stored FantasyCalc list must be closest to
     the live list of the same scoring and QB setting (sum of absolute
-    differences over shared players). Movement cannot make a swapped column
-    look right, so this stays exact in spirit while values drift."""
+    differences over shared players).
+
+    JEG-705: FantasyCalc's scoring gap (~0.5-1.5% of value) is smaller than
+    the intraday crowd drift after ~2 hours, so this check only runs on fresh
+    bakes where drift cannot exceed the gap. On a stale bake, drift makes
+    stored "full" appear closer to live "half" than to live "full", producing
+    false-positive column-swap reds."""
+    if bake_age_s is not None and bake_age_s > FC_GRAIN_CHECK_MAX_AGE_S:
+        return []
     problems = []
     for g, R in right.items():
         dist = {}
@@ -1080,14 +1090,15 @@ def stage_publisher(source: str, pub: dict, stored: dict, ident: Identity, now: 
     cmp = compare(left, right, printed=True)
     outside = split_universe(cmp, "missing", universe)
     churn = fc_list_churn(cmp, left, right) if source == "fantasycalc" else []
-    swapped = fc_grain_check(left, right) if source == "fantasycalc" else []
+    bake = stored["bake"]
+    saved_at = bake["saved_at"]
+    bake_age_s = (now - saved_at).total_seconds() if saved_at and now else None
+    swapped = fc_grain_check(left, right, bake_age_s=bake_age_s) if source == "fantasycalc" else []
     n_bad = problem_count(cmp)
     reasons, status = [], "green"
     if swapped:
         status = "red"
         reasons.append("column check: " + "; ".join(swapped))
-    bake = stored["bake"]
-    saved_at = bake["saved_at"]
     revised = parse_ts((pub.get("dates") or {}).get("dateModified"))
     if source == "fantasycalc":
         systemic, rel, out_band = fc_classify(cmp)
