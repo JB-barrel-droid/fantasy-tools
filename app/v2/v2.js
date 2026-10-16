@@ -121,6 +121,46 @@
     return badge;
   }
 
+  // JEG-609 (JEG-460): source divergence "Check" chip. assets/reference-freshness.json publishes
+  // source_divergence.<source> = {status: ok | warn | investigate | reviewed | n/a, message, resolution_issue}.
+  // warn or investigate shows "Check" with the message as its tooltip; reviewed shows "Reviewed" and, where a
+  // link is allowed, links to the resolution issue. It sits where the prior-week badge sits, never hides a
+  // source and never blocks anything. Own value series (Data Driven Football) and VORP columns carry none.
+  let divergence = {};
+  const resolutionHref = issue => {
+    const text = String(issue || "").trim();
+    if (/^https?:\/\//.test(text)) return text;
+    return /^[A-Z]+-\d+$/.test(text) ? `https://linear.app/jegabee/issue/${text}` : "";
+  };
+  function divergenceChip(key, opts) {
+    const publisher = sourceMeta(key).publisher;
+    const method = sourceMeta(key).method;
+    const entry = divergence[publisher];
+    if (!entry || method === "ddf" || method === "vorp") return null;
+    const status = entry.status;
+    if (status !== "warn" && status !== "investigate" && status !== "reviewed") return null;
+    const href = status === "reviewed" && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
+    const chip = document.createElement(href ? "a" : "span");
+    chip.className = `v2-div-chip is-${status === "reviewed" ? "reviewed" : "check"}`;
+    chip.dataset.divergence = publisher;
+    chip.dataset.status = status;
+    const word = status === "reviewed" ? "Reviewed" : "Check";
+    const message = String(entry.message || "").trim() || `${PUBLISHER_NAMES[publisher] || publisher} disagrees with the other sources more than usual.`;
+    chip.title = message;
+    if (href) { chip.href = href; chip.target = "_blank"; chip.rel = "noopener"; }
+    else { chip.setAttribute("role", "img"); }
+    chip.setAttribute("aria-label", `${word}: ${message}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = status === "reviewed" ? "✓ " : "⚑ ";
+    chip.append(sym, document.createTextNode(word));
+    return chip;
+  }
+  const appendDivergence = (parent, key, opts) => {
+    const chip = divergenceChip(key, opts);
+    if (chip) parent.append(document.createTextNode(" "), chip);
+  };
+
   // One series in plain words, whatever the width: "ESPN · Our value", "FantasyCalc chart".
   function plainSeries(publisher, method) {
     if (publisher === "ddf") return "DDF Value";
@@ -617,6 +657,7 @@
       li.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span>`;
       li.append(document.createTextNode(` ${PLAIN_NAMES[meta.publisher] || meta.label}`));
       if (item?.stale) li.appendChild(weekBadge(key));
+      appendDivergence(li, key);
       legend.appendChild(li);
     });
 
@@ -1170,6 +1211,7 @@
       line2.textContent = METHOD_LABEL[meta.method];
       // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge here too.
       if (item?.stale) line2.append(document.createTextNode(" · "), weekBadge(col.source));
+      appendDivergence(line2, col.source, {noLink: true});
       button.title = `${plainSeries(meta.publisher, meta.method)}${item?.week ? ` · Week ${item.week}` : ""}`;
     } else if (col.id === "spread") {
       line1.textContent = "Spread";
@@ -1843,6 +1885,7 @@
         name.append(document.createTextNode(PLAIN_NAMES[meta.publisher] || meta.label));
         label.append(box, name);
         if (item.stale) label.appendChild(weekBadge(item.key));
+        appendDivergence(label, item.key);
         if (!item.available) {
           const why = document.createElement("span");
           why.className = "v2-meta";
@@ -1894,6 +1937,7 @@
           name.append(document.createTextNode(`${PLAIN_NAMES[meta.publisher] || meta.label} · ${group ? group.one : meta.short}`));
           label.append(input, name);
           if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
+          appendDivergence(label, key);
           if (excluded.has(key)) {
             const why = document.createElement("span");
             why.className = "v2-meta";
@@ -2380,7 +2424,8 @@
       .catch(() => null)
       .then(doc => {
         pipeline = Object.fromEntries(((doc && doc.items) || []).filter(item => item && item.key).map(item => [item.key, item]));
-        if (C) renderHeader();
+        divergence = doc && doc.source_divergence && typeof doc.source_divergence === "object" ? doc.source_divergence : {};
+        if (C && view) refresh();   // the chips arrive after the first draw
         return pipeline;
       });
     return pipelineLoading;
@@ -3061,7 +3106,10 @@
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
       const week = targetBadge(key) || document.createTextNode(item && item.week ? `Wk ${item.week}` : "");
-      head(PUBLISHER_NAMES[key] || key, "num t-chart", [week, document.createTextNode(`${week.textContent ? " · " : ""}rescaled`)], key, true);
+      const sub = [week, document.createTextNode(`${week.textContent ? " · " : ""}rescaled`)];
+      const flag = divergenceChip(key);
+      if (flag) sub.push(document.createTextNode(" "), flag);
+      head(PUBLISHER_NAMES[key] || key, "num t-chart", sub, key, true);
     });
     head("Largest gap", "num t-best", side === "sell" ? "chart pays more" : "chart pays less", null, true);
     const expandHead = head("", "t-expand");
@@ -3255,6 +3303,19 @@
     if (targetsView.atWaiverCells && !blocked) {
       notes.push("A chart value of 0.0 is at that chart's waiver line for your league: never a buy, no gap.");
     }
+    // JEG-609: a compared chart that disagrees with the others more than usual, said once above the lists
+    // (the per-chart columns are folded away in the two-column layout). It never removes the chart.
+    const flags = $("v2TDivergence");
+    flags.replaceChildren();
+    targetsView.used.forEach(key => {
+      const chip = divergenceChip(key);
+      if (!chip) return;
+      const line = document.createElement("span");
+      line.className = "v2-tdiv-item";
+      line.append(chip, document.createTextNode(` ${chip.title}`));
+      flags.appendChild(line);
+    });
+    flags.hidden = !flags.childNodes.length;
     const note = $("v2TNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
@@ -3583,6 +3644,7 @@
     // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
     if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
     else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
+    appendDivergence(sub, key);
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }

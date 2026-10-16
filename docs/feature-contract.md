@@ -97,6 +97,8 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
 Share links carry every setting *(to build: JEG-537)*. (Jeremy, 2026-10-10.)
 
+  - **GL-25** A source that disagrees with the other sources more than usual shows a small "Check" chip next to its name, in the slot the prior-week badge uses, with the published message as its tooltip (`source_divergence` in `assets/reference-freshness.json`, JEG-460). A reviewed source shows "Reviewed", linking to its resolution issue where a link is allowed. The chip never hides a source or blocks anything. Our own DDF Value and VORP columns carry none. *(JEG-609; pinned by `tests/test_v2_divergence_chip_render.py`)*
+
 ## Manifesto (MF)
 
   - **MF-01** The Manifesto tab is first in the nav and carries Jeremy's text verbatim, checked word for word against a repo copy that is updated only from his Google Doc. It is plain text with no controls. The landing tab stays Trade targets *(JEG-494)*.
