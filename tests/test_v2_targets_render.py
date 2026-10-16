@@ -244,6 +244,12 @@ SIMULATE_ROWS = """() => {
     && used.filter(c => fin(p.row.values[c]) && p.row.values[c] > 0).length >= 2);
   const gap = second ? {key: String(second.row.player_key), chart: used.find(c => c !== second.bestSell.chart && fin(second.row.values[c])),
     reason: 'Simulated: not enough shared players to index'} : null;
+  // JEG-504: a player whose market average rounds to our value shows only the "= market average" note.
+  // Current data has none on the offered series (a held Razzball used to supply one), so simulate one.
+  const eqRow = t.sell.find(p => ![zero.key, low, none, gap && gap.key].includes(String(p.row.player_key))
+    && used.filter(c => fin(p.row.values[c])).length >= 2);
+  const eq = eqRow ? {key: String(eqRow.row.player_key),
+    value: used.filter(c => fin(eqRow.row.values[c])).reduce((a, c) => a + eqRow.row.values[c], 0) / used.filter(c => fin(eqRow.row.values[c])).length} : null;
   const note = 'Only one source prices this player', reason = 'No source prices this player';
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
@@ -253,6 +259,7 @@ SIMULATE_ROWS = """() => {
     if (k === none) return {...r, values: {...r.values, ddf_value: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
       ddfLowConfidence: false, ddfReason: reason};
     if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
+    if (eq && k === eq.key) return {...r, values: {...r.values, ddf_value: eq.value}};
     if (gap && k === gap.key) return {...r, values: {...r.values, [gap.chart]: null},
       missingReasons: {...(r.missingReasons || {}), [gap.chart]: gap.reason}};
     return r;
@@ -656,7 +663,6 @@ def _built_dist(html_sub=None):
 
 def _open(browser, url, width, height, targets_js, v2_js, v2_css):
     page = browser.new_page(viewport={"width": width, "height": height})
-    page.add_init_script(_render_env.pin_today_script())
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     # Only the local build is under test; the web font is not.

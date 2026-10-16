@@ -6,185 +6,185 @@
   },
   "chart_inputs": [
     {
-      "age_days": 4,
+      "age_days": 0,
       "changed_since_prior_report": false,
       "chart_input": true,
-      "color": "yellow",
+      "color": "green",
       "enforced": false,
-      "freshness_ok": false,
+      "freshness_ok": true,
       "key": "players.as_of",
       "label": "Players artifact as_of",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "stale",
+      "status": "same_day",
       "value": "2026-10-12"
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-15T21:22:56-05:00",
+  "generated_at": "2026-10-15T21:48:47-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
-      "age_days": 4,
+      "age_days": 0,
       "changed_since_prior_report": false,
-      "color": "yellow",
+      "color": "green",
       "enforced": false,
-      "freshness_ok": false,
+      "freshness_ok": true,
       "key": "players.as_of",
       "label": "Players artifact as_of",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "stale",
+      "status": "same_day",
       "value": "2026-10-12"
     },
     {
-      "age_days": 4,
+      "age_days": 0,
       "changed_since_prior_report": false,
-      "color": "yellow",
+      "color": "green",
       "enforced": false,
-      "freshness_ok": false,
+      "freshness_ok": true,
       "key": "players.espn_snapshot",
       "label": "ESPN projection snapshot",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "stale",
+      "status": "same_day",
       "value": "2026-10-12"
     },
     {
-      "age_days": 4,
+      "age_days": 0,
       "changed_since_prior_report": false,
-      "color": "yellow",
+      "color": "green",
       "enforced": true,
-      "freshness_ok": false,
+      "freshness_ok": true,
       "key": "comparison.built_at",
       "label": "Comparison fixture last rebuilt (any source promotion; not input freshness)",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "stale",
+      "status": "same_day",
       "value": "2026-10-12T22:11:56.783348+00:00"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": false,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.checked_at",
       "label": "L1 import health checked_at",
       "max_age_days": 2,
       "note": "unchanged",
-      "status": "same_day",
+      "status": "future_dated",
       "value": "2026-10-16T02:01:21Z"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.cbs",
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
       "note": "L1 status=ok; last_successful_import=2026-10-16T02:01:21Z; content_vintage is Week 6 source provenance, not pull time",
-      "status": "same_day",
+      "status": "stale",
       "value": "Week 6"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.cbsros",
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
       "note": "L1 status=ok; last_successful_import=2026-10-16T02:01:21Z; content_vintage is 2026-10-15 source provenance, not pull time",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-15"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.espn",
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
       "note": "L1 status=ok; last_successful_import=2026-10-16T02:01:21Z; content_vintage is 2026-10-15 source provenance, not pull time",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-15"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.fantasycalc",
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
       "note": "L1 status=ok; last_successful_import=2026-10-16T02:01:21Z; content_vintage is Week 6 source provenance, not pull time",
-      "status": "same_day",
+      "status": "stale",
       "value": "Week 6"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.fantasypros",
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
       "note": "L1 status=ok; last_successful_import=2026-10-16T02:01:21Z; content_vintage is 2026-10-13 source provenance, not pull time",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-13"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.razzball",
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
       "note": "L1 status=ok; last_successful_import=2026-10-16T02:01:21Z; content_vintage is 2026-10-15 source provenance, not pull time",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-15"
     },
     {
-      "age_days": 0,
+      "age_days": -4,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.usatoday",
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
       "note": "L1 status=ok; last_successful_import=2026-10-16T02:01:21Z; content_vintage is 2026-10-13 source provenance, not pull time",
-      "status": "same_day",
+      "status": "stale",
       "value": "2026-10-13"
     },
     {
       "changed_since_prior_report": true,
-      "color": "yellow",
-      "current_content_week": 6,
+      "color": "green",
+      "current_content_week": 5,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.usatoday",
@@ -193,14 +193,14 @@
       "pending_promotion": true,
       "published_week": 5,
       "saved_week": 6,
-      "status": "one_week_behind",
+      "status": "current",
       "value": "Week 5",
-      "weeks_behind": 1
+      "weeks_behind": 0
     },
     {
       "changed_since_prior_report": true,
-      "color": "yellow",
-      "current_content_week": 6,
+      "color": "green",
+      "current_content_week": 5,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.fantasycalc",
@@ -209,14 +209,14 @@
       "pending_promotion": true,
       "published_week": 5,
       "saved_week": 6,
-      "status": "one_week_behind",
+      "status": "current",
       "value": "Week 5",
-      "weeks_behind": 1
+      "weeks_behind": 0
     },
     {
       "changed_since_prior_report": true,
-      "color": "yellow",
-      "current_content_week": 6,
+      "color": "green",
+      "current_content_week": 5,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.fantasypros",
@@ -225,14 +225,14 @@
       "pending_promotion": true,
       "published_week": 5,
       "saved_week": 6,
-      "status": "one_week_behind",
+      "status": "current",
       "value": "Week 5",
-      "weeks_behind": 1
+      "weeks_behind": 0
     },
     {
       "changed_since_prior_report": true,
-      "color": "yellow",
-      "current_content_week": 6,
+      "color": "green",
+      "current_content_week": 5,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.cbs",
@@ -241,14 +241,14 @@
       "pending_promotion": true,
       "published_week": 5,
       "saved_week": 6,
-      "status": "one_week_behind",
+      "status": "current",
       "value": "Week 5",
-      "weeks_behind": 1
+      "weeks_behind": 0
     },
     {
       "changed_since_prior_report": true,
-      "color": "yellow",
-      "current_content_week": 6,
+      "color": "green",
+      "current_content_week": 5,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.espn",
@@ -257,14 +257,14 @@
       "pending_promotion": true,
       "published_week": 5,
       "saved_week": 6,
-      "status": "one_week_behind",
+      "status": "current",
       "value": "Week 5",
-      "weeks_behind": 1
+      "weeks_behind": 0
     },
     {
       "changed_since_prior_report": true,
-      "color": "yellow",
-      "current_content_week": 6,
+      "color": "green",
+      "current_content_week": 5,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.cbsros",
@@ -273,14 +273,14 @@
       "pending_promotion": true,
       "published_week": 5,
       "saved_week": 6,
-      "status": "one_week_behind",
+      "status": "current",
       "value": "Week 5",
-      "weeks_behind": 1
+      "weeks_behind": 0
     },
     {
       "changed_since_prior_report": true,
-      "color": "yellow",
-      "current_content_week": 6,
+      "color": "green",
+      "current_content_week": 5,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.razzball",
@@ -289,9 +289,9 @@
       "pending_promotion": true,
       "published_week": 5,
       "saved_week": 6,
-      "status": "one_week_behind",
+      "status": "current",
       "value": "Week 5",
-      "weeks_behind": 1
+      "weeks_behind": 0
     }
   ],
   "source_divergence": {
@@ -299,12 +299,12 @@
       "bias": 1.18,
       "headline_combo": "full_12",
       "label": "CBS",
-      "message": "CBS disagrees with the other charts on 14% of players this week (usually 15%).",
+      "message": "CBS disagrees with the other charts on 14% of players this week (usually 16%).",
       "outlier_rate": 0.137,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.149,
-      "week": 6
+      "usual_outlier_rate": 0.159,
+      "week": 5
     },
     "cbsros": {
       "bias": -3.72,
@@ -315,7 +315,7 @@
       "resolution_issue": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "espn": {
       "bias": 1.06,
@@ -326,29 +326,29 @@
       "resolution_issue": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "fantasycalc": {
       "bias": 0.35,
       "headline_combo": "full_12_qb1",
       "label": "FantasyCalc",
-      "message": "FantasyCalc disagrees with the other charts on 43% of players this week (usually 46%).",
+      "message": "FantasyCalc disagrees with the other charts on 43% of players this week (usually 47%).",
       "outlier_rate": 0.426,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.462,
-      "week": 6
+      "usual_outlier_rate": 0.467,
+      "week": 5
     },
     "fantasypros": {
       "bias": -0.14,
       "headline_combo": "standard_12",
       "label": "FantasyPros",
-      "message": "FantasyPros disagrees with the other charts on 50% of players this week (usually 46%). Under review.",
+      "message": "FantasyPros disagrees with the other charts on 50% of players this week (usually 45%). Reviewed.",
       "outlier_rate": 0.503,
-      "resolution_issue": null,
-      "status": "investigate",
-      "usual_outlier_rate": 0.46,
-      "week": 6
+      "resolution_issue": "JEG-482",
+      "status": "reviewed",
+      "usual_outlier_rate": 0.452,
+      "week": 5
     },
     "razzball": {
       "bias": 2.66,
@@ -359,18 +359,18 @@
       "resolution_issue": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "usatoday": {
       "bias": -0.53,
       "headline_combo": "full_12",
       "label": "USA Today",
-      "message": "USA Today disagrees with the other charts on 30% of players this week (usually 27%).",
+      "message": "USA Today disagrees with the other charts on 30% of players this week (usually 26%).",
       "outlier_rate": 0.301,
       "resolution_issue": null,
       "status": "ok",
-      "usual_outlier_rate": 0.269,
-      "week": 6
+      "usual_outlier_rate": 0.255,
+      "week": 5
     }
   },
   "source_validation": {
@@ -386,22 +386,14 @@
   },
   "summary": {
     "all_known_dates_same_day": false,
-    "chart_input_at_risk_count": 1,
+    "chart_input_at_risk_count": 0,
     "chart_input_count": 1,
     "chart_input_keys": [
       "players.as_of"
     ],
     "comparison_built_at": "2026-10-12T22:11:56.783348+00:00",
     "comparison_oldest_published_week": 5,
-    "comparison_sources_behind": [
-      "cbs",
-      "cbsros",
-      "espn",
-      "fantasycalc",
-      "fantasypros",
-      "razzball",
-      "usatoday"
-    ],
+    "comparison_sources_behind": [],
     "comparison_sources_pending_promotion": [
       "cbs",
       "cbsros",
@@ -411,21 +403,26 @@
       "razzball",
       "usatoday"
     ],
-    "enforced_expired_count": 1,
+    "enforced_expired_count": 0,
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 3,
+    "expired_count": 8,
     "expired_keys": [
-      "players.as_of",
-      "players.espn_snapshot",
-      "comparison.built_at"
+      "source_import.checked_at",
+      "source_import.cbs",
+      "source_import.cbsros",
+      "source_import.espn",
+      "source_import.fantasycalc",
+      "source_import.fantasypros",
+      "source_import.razzball",
+      "source_import.usatoday"
     ],
-    "l1_unhealthy_count": 0,
+    "l1_unhealthy_count": 7,
     "max_age_days": 2,
-    "stale_count": 3,
+    "stale_count": 7,
     "unchanged_count": 4,
     "unknown_count": 0
   },
-  "today": "2026-10-16"
+  "today": "2026-10-12"
 }

@@ -105,3 +105,35 @@ def chromium_executable(playwright=None):
         if candidate.exists():
             return str(candidate)
     return None
+
+
+def _pin_clock_in_playwright() -> None:
+    """Every page a render test opens reads the fixture's day.
+
+    Wraps Browser.new_page / new_context so each page gets the pinned
+    window.TRADE_VALUE_TODAY before any script runs; a test that sets its own
+    day adds its script later and wins. Without it the suites go red every
+    Tuesday when the real content week passes the committed fixture's week
+    (JEG-675)."""
+    try:
+        from playwright.sync_api import Browser
+    except Exception:
+        return
+    if getattr(Browser, "_clock_pinned", False):
+        return
+    new_page, new_context = Browser.new_page, Browser.new_context
+
+    def pinned_new_page(self, *args, **kwargs):
+        page = new_page(self, *args, **kwargs)
+        page.add_init_script(pin_today_script())
+        return page
+
+    def pinned_new_context(self, *args, **kwargs):
+        context = new_context(self, *args, **kwargs)
+        context.add_init_script(pin_today_script())
+        return context
+
+    Browser.new_page, Browser.new_context, Browser._clock_pinned = pinned_new_page, pinned_new_context, True
+
+
+_pin_clock_in_playwright()

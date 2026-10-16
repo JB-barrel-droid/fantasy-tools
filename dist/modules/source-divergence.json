@@ -7,7 +7,7 @@
     "Resolve it one way: parser fix, mapping/fit fix, or accept as genuine opinion (record it in data/source-divergence-resolutions.json with a note and the Linear issue)."
   ],
   "fixture_built_at": "2026-10-12T22:11:56.783348+00:00",
-  "generated_at": "2026-10-16T02:22:56.582146Z",
+  "generated_at": "2026-10-16T02:48:47.161825Z",
   "schema": "source-divergence-v1",
   "sources": {
     "cbs": {
@@ -15,9 +15,9 @@
       "combos": {
         "full_12": {
           "baseline": {
-            "bias": 0.9,
-            "outlier_rate": 0.149,
-            "weeks": 4
+            "bias": 0.77,
+            "outlier_rate": 0.159,
+            "weeks": 3
           },
           "bias": 1.18,
           "by_position": {
@@ -83,13 +83,6 @@
           "outliers": 16,
           "prior_weeks": [
             {
-              "bias": 1.29,
-              "mad": 3.94,
-              "n": 116,
-              "outlier_rate": 0.121,
-              "week": 5
-            },
-            {
               "bias": 1.28,
               "mad": 3.63,
               "n": 116,
@@ -116,9 +109,9 @@
         },
         "half_12": {
           "baseline": {
-            "bias": 1.11,
-            "outlier_rate": 0.17,
-            "weeks": 4
+            "bias": 1.02,
+            "outlier_rate": 0.185,
+            "weeks": 3
           },
           "bias": 1.28,
           "by_position": {
@@ -184,13 +177,6 @@
           "outliers": 15,
           "prior_weeks": [
             {
-              "bias": 1.41,
-              "mad": 4.31,
-              "n": 112,
-              "outlier_rate": 0.125,
-              "week": 5
-            },
-            {
               "bias": 1.53,
               "mad": 3.97,
               "n": 113,
@@ -217,9 +203,9 @@
         },
         "standard_12": {
           "baseline": {
-            "bias": 1.19,
-            "outlier_rate": 0.191,
-            "weeks": 4
+            "bias": 1.12,
+            "outlier_rate": 0.197,
+            "weeks": 3
           },
           "bias": 1.25,
           "by_position": {
@@ -285,13 +271,6 @@
           "outliers": 20,
           "prior_weeks": [
             {
-              "bias": 1.4,
-              "mad": 4.4,
-              "n": 112,
-              "outlier_rate": 0.17,
-              "week": 5
-            },
-            {
               "bias": 1.6,
               "mad": 4.16,
               "n": 113,
@@ -322,14 +301,14 @@
       "headline_combo": "full_12",
       "label": "CBS",
       "mad": 3.91,
-      "message": "CBS disagrees with the other charts on 14% of players this week (usually 15%).",
+      "message": "CBS disagrees with the other charts on 14% of players this week (usually 16%).",
       "n": 117,
       "outlier_rate": 0.137,
       "reasons": [],
       "resolution": null,
       "status": "ok",
-      "usual_outlier_rate": 0.149,
-      "week": 6
+      "usual_outlier_rate": 0.159,
+      "week": 5
     },
     "cbsros": {
       "bias": -3.72,
@@ -551,7 +530,7 @@
       "resolution": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "espn": {
       "bias": 1.06,
@@ -773,16 +752,16 @@
       "resolution": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "fantasycalc": {
       "bias": 0.35,
       "combos": {
         "full_12_qb1": {
           "baseline": {
-            "bias": 1.02,
-            "outlier_rate": 0.462,
-            "weeks": 4
+            "bias": 1.36,
+            "outlier_rate": 0.467,
+            "weeks": 3
           },
           "bias": 0.35,
           "by_position": {
@@ -848,13 +827,6 @@
           "outliers": 75,
           "prior_weeks": [
             {
-              "bias": 0.0,
-              "mad": 4.68,
-              "n": 174,
-              "outlier_rate": 0.448,
-              "week": 5
-            },
-            {
               "bias": -0.18,
               "mad": 5.03,
               "n": 176,
@@ -881,9 +853,9 @@
         },
         "half_12_qb1": {
           "baseline": {
-            "bias": 1.04,
-            "outlier_rate": 0.441,
-            "weeks": 4
+            "bias": 1.36,
+            "outlier_rate": 0.447,
+            "weeks": 3
           },
           "bias": 0.41,
           "by_position": {
@@ -949,13 +921,6 @@
           "outliers": 73,
           "prior_weeks": [
             {
-              "bias": 0.05,
-              "mad": 4.75,
-              "n": 174,
-              "outlier_rate": 0.42,
-              "week": 5
-            },
-            {
               "bias": -0.15,
               "mad": 5.15,
               "n": 176,
@@ -982,9 +947,9 @@
         },
         "standard_12_qb1": {
           "baseline": {
-            "bias": 0.96,
-            "outlier_rate": 0.432,
-            "weeks": 4
+            "bias": 1.25,
+            "outlier_rate": 0.444,
+            "weeks": 3
           },
           "bias": 0.43,
           "by_position": {
@@ -1050,13 +1015,6 @@
           "outliers": 77,
           "prior_weeks": [
             {
-              "bias": 0.08,
-              "mad": 4.46,
-              "n": 174,
-              "outlier_rate": 0.397,
-              "week": 5
-            },
-            {
               "bias": -0.15,
               "mad": 4.89,
               "n": 176,
@@ -1087,23 +1045,23 @@
       "headline_combo": "full_12_qb1",
       "label": "FantasyCalc",
       "mad": 4.86,
-      "message": "FantasyCalc disagrees with the other charts on 43% of players this week (usually 46%).",
+      "message": "FantasyCalc disagrees with the other charts on 43% of players this week (usually 47%).",
       "n": 176,
       "outlier_rate": 0.426,
       "reasons": [],
       "resolution": null,
       "status": "ok",
-      "usual_outlier_rate": 0.462,
-      "week": 6
+      "usual_outlier_rate": 0.467,
+      "week": 5
     },
     "fantasypros": {
       "bias": -0.14,
       "combos": {
         "full_12": {
           "baseline": {
-            "bias": 0.33,
-            "outlier_rate": 0.447,
-            "weeks": 4
+            "bias": 0.41,
+            "outlier_rate": 0.45,
+            "weeks": 3
           },
           "bias": -0.07,
           "by_position": {
@@ -1169,13 +1127,6 @@
           "outliers": 75,
           "prior_weeks": [
             {
-              "bias": 0.08,
-              "mad": 5.23,
-              "n": 172,
-              "outlier_rate": 0.436,
-              "week": 5
-            },
-            {
               "bias": 0.55,
               "mad": 5.01,
               "n": 172,
@@ -1202,9 +1153,9 @@
         },
         "half_12": {
           "baseline": {
-            "bias": 0.2,
-            "outlier_rate": 0.463,
-            "weeks": 4
+            "bias": 0.24,
+            "outlier_rate": 0.458,
+            "weeks": 3
           },
           "bias": -0.09,
           "by_position": {
@@ -1270,13 +1221,6 @@
           "outliers": 84,
           "prior_weeks": [
             {
-              "bias": 0.07,
-              "mad": 5.53,
-              "n": 172,
-              "outlier_rate": 0.477,
-              "week": 5
-            },
-            {
               "bias": 0.46,
               "mad": 5.27,
               "n": 172,
@@ -1300,15 +1244,15 @@
           ],
           "reasons": [
             "outlier rate 49% > 45%",
-            "also warned in week 5"
+            "also warned in week 4"
           ],
           "status": "investigate"
         },
         "standard_12": {
           "baseline": {
-            "bias": 0.04,
-            "outlier_rate": 0.46,
-            "weeks": 4
+            "bias": 0.06,
+            "outlier_rate": 0.452,
+            "weeks": 3
           },
           "bias": -0.14,
           "by_position": {
@@ -1374,13 +1318,6 @@
           "outliers": 87,
           "prior_weeks": [
             {
-              "bias": 0.0,
-              "mad": 5.34,
-              "n": 172,
-              "outlier_rate": 0.483,
-              "week": 5
-            },
-            {
               "bias": 0.35,
               "mad": 5.14,
               "n": 172,
@@ -1404,7 +1341,7 @@
           ],
           "reasons": [
             "outlier rate 50% > 45%",
-            "also warned in week 5"
+            "also warned in week 4"
           ],
           "status": "investigate"
         }
@@ -1414,17 +1351,24 @@
       "headline_combo": "standard_12",
       "label": "FantasyPros",
       "mad": 5.47,
-      "message": "FantasyPros disagrees with the other charts on 50% of players this week (usually 46%). Under review.",
+      "message": "FantasyPros disagrees with the other charts on 50% of players this week (usually 45%). Reviewed.",
       "n": 173,
       "outlier_rate": 0.503,
       "reasons": [
         "standard: outlier rate 50% > 45%",
-        "standard: also warned in week 5"
+        "standard: also warned in week 4"
       ],
-      "resolution": null,
-      "status": "investigate",
-      "usual_outlier_rate": 0.46,
-      "week": 6
+      "resolution": {
+        "decided": "2026-10-10",
+        "issue": "JEG-482",
+        "note": "The Week 5 +6 point bias was lead 1 on JEG-460: the old isotonic reindex did not keep the chart's own scale. JEG-482 (#439, merged 2026-10-09) made Indexed the natives times one factor. Measured with this check on the fixture either side of #439 (full_12): bias +6.16 -> +0.08, outlier rate 66% -> 46%. The remaining ~47% outlier rate matches FantasyPros' own Weeks 2-4 (44-48%), so it is FantasyPros' normal disagreement, not a new break.",
+        "resolution": "mapping_fix",
+        "source": "fantasypros",
+        "week": 5
+      },
+      "status": "reviewed",
+      "usual_outlier_rate": 0.452,
+      "week": 5
     },
     "razzball": {
       "bias": 2.66,
@@ -1646,16 +1590,16 @@
       "resolution": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 6
+      "week": 5
     },
     "usatoday": {
       "bias": -0.53,
       "combos": {
         "full_12": {
           "baseline": {
-            "bias": -0.99,
-            "outlier_rate": 0.269,
-            "weeks": 4
+            "bias": -1.18,
+            "outlier_rate": 0.255,
+            "weeks": 3
           },
           "bias": -0.53,
           "by_position": {
@@ -1721,13 +1665,6 @@
           "outliers": 53,
           "prior_weeks": [
             {
-              "bias": -0.41,
-              "mad": 3.85,
-              "n": 174,
-              "outlier_rate": 0.31,
-              "week": 5
-            },
-            {
               "bias": -0.65,
               "mad": 3.59,
               "n": 176,
@@ -1754,9 +1691,9 @@
         },
         "half_12": {
           "baseline": {
-            "bias": -1.07,
-            "outlier_rate": 0.264,
-            "weeks": 4
+            "bias": -1.28,
+            "outlier_rate": 0.247,
+            "weeks": 3
           },
           "bias": -0.58,
           "by_position": {
@@ -1822,13 +1759,6 @@
           "outliers": 52,
           "prior_weeks": [
             {
-              "bias": -0.43,
-              "mad": 4.1,
-              "n": 174,
-              "outlier_rate": 0.316,
-              "week": 5
-            },
-            {
               "bias": -0.7,
               "mad": 3.78,
               "n": 176,
@@ -1855,9 +1785,9 @@
         },
         "standard_12": {
           "baseline": {
-            "bias": -1.02,
-            "outlier_rate": 0.273,
-            "weeks": 4
+            "bias": -1.23,
+            "outlier_rate": 0.261,
+            "weeks": 3
           },
           "bias": -0.57,
           "by_position": {
@@ -1923,13 +1853,6 @@
           "outliers": 52,
           "prior_weeks": [
             {
-              "bias": -0.41,
-              "mad": 4.08,
-              "n": 174,
-              "outlier_rate": 0.31,
-              "week": 5
-            },
-            {
               "bias": -0.67,
               "mad": 3.74,
               "n": 176,
@@ -1960,26 +1883,24 @@
       "headline_combo": "full_12",
       "label": "USA Today",
       "mad": 3.76,
-      "message": "USA Today disagrees with the other charts on 30% of players this week (usually 27%).",
+      "message": "USA Today disagrees with the other charts on 30% of players this week (usually 26%).",
       "n": 176,
       "outlier_rate": 0.301,
       "reasons": [],
       "resolution": null,
       "status": "ok",
-      "usual_outlier_rate": 0.269,
-      "week": 6
+      "usual_outlier_rate": 0.255,
+      "week": 5
     }
   },
-  "status": "warn",
+  "status": "ok",
   "summary": {
-    "flagged": [
-      "FantasyPros"
-    ],
-    "investigate": [
-      "FantasyPros"
-    ],
+    "flagged": [],
+    "investigate": [],
     "resolution_problems": [],
-    "reviewed": []
+    "reviewed": [
+      "FantasyPros"
+    ]
   },
   "thresholds": {
     "baseline_bias_margin": 3.0,
@@ -1995,5 +1916,5 @@
     "warn_bias": 5.0,
     "warn_outlier_rate": 0.45
   },
-  "week": 6
+  "week": 5
 }
