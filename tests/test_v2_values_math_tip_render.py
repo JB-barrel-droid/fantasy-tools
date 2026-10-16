@@ -10,6 +10,7 @@ line, and requires failures.
 """
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -66,6 +67,22 @@ def run_checks(js_patch=None) -> list[str]:
                         errors.append(f"[values] second tip line {factor}")
                     if rescaled[1] != cell_text:
                         errors.append(f"[values] rescaled value {rescaled[1]!r} differs from the cell {cell_text!r}")
+                    # JEG-685: the totals line behind the factor, from the engine (anchor total / chart total = factor).
+                    notes = page.evaluate("() => [...document.querySelectorAll('#v2MathTip .v2-tip-note')].map(n => n.textContent.trim())")
+                    if len(notes) != 1 or "(anchor total)" not in notes[0] or " ÷ " not in notes[0]:
+                        errors.append(f"[values] totals line {notes}")
+                    else:
+                        nums = [float(x.replace(",", "")) for x in re.findall(r"[\d,]+(?= \()", notes[0])]
+                        shown = float(factor[1])
+                        if len(nums) != 2 or abs(nums[0] / nums[1] - shown) > 0.01 * shown:
+                            errors.append(f"[values] totals {notes[0]!r} do not give the factor {shown}")
+                bad = page.evaluate("""() => { const C = window.TradeValueCurveControls; const out = [];
+                  C.getRows().slice(0, 40).forEach(r => C.getActiveSources().forEach(k => { const m = C.getPublishedMath(r.player_key, k);
+                    if (m && m.factor !== null && m.anchorTotal !== null && Math.abs(m.anchorTotal / m.chartTotal - m.factor) > 1e-9 * m.factor) out.push(k); }));
+                  const seen = C.getActiveSources().map(k => { const r = C.getRows().find(x => C.getPublishedMath(x.player_key, k)?.factor != null); return r ? C.getPublishedMath(r.player_key, k).anchorTotal : null; });
+                  return {out, withTotals: seen.filter(v => v !== null).length}; }""")
+                if bad["out"] or not bad["withTotals"]:
+                    errors.append(f"[values] engine totals {bad}")
                 page.keyboard.press("Escape")
             if page_errors:
                 errors.append(f"page errors {page_errors}")
@@ -76,6 +93,8 @@ def run_checks(js_patch=None) -> list[str]:
 
 JS_PATCHES = {
     "hook dropped": ('if (col.source && sourceMeta(col.source).method === "indexed" && PUBLISHER_NAMES[col.source]) {', "if (false) {"),
+    "totals line dropped": ('lines.push(["× rescale factor", math.factor.toFixed(3), totalsNote]);', 'lines.push(["× rescale factor", math.factor.toFixed(3)]);'),
+    "wrong totals": ('${fmtTotal(math.anchorTotal)} (anchor total)', '${fmtTotal(math.chartTotal)} (anchor total)'),
     "wrong first line": ('lines.push([`${name}${week} (original)`, String(math.native)]);', 'lines.push([`${name}${week}`, String(math.native)]);'),
 }
 

@@ -131,6 +131,9 @@ POLICIES: dict[str, Policy] = {
     "espn": Policy(max_age=20 * H),
     "cbsros": Policy(max_age=20 * H),
     "razzball": Policy(max_age=20 * H),
+    # JEG-620 / JEG-621: public pages that move a few times a week.
+    "draftsharks": Policy(max_age=20 * H),
+    "fantasysharks": Policy(max_age=20 * H),
 }
 
 SOURCES = tuple(POLICIES)
@@ -144,6 +147,8 @@ INGEST: dict[str, tuple[str, dict[str, str]]] = {
     "espn": ("espn-supabase-sync.yml", {}),
     "cbsros": ("cbsros-supabase-sync.yml", {}),
     "razzball": ("razzball-supabase-sync.yml", {"mode": "write"}),
+    "draftsharks": ("draftsharks-supabase-sync.yml", {"mode": "write"}),
+    "fantasysharks": ("fantasysharks-supabase-sync.yml", {"mode": "write"}),
 }
 
 
@@ -610,6 +615,33 @@ def probe_razzball(fetch: Fetch, week: int) -> dict[str, Any]:
     return {"fingerprint": digest(sig), "signals": sig}
 
 
+def probe_draftsharks(fetch: Fetch, week: int) -> dict[str, Any]:
+    """Same fingerprint the puller records: sha256 of the sorted (id, redraft
+    half-PPR value) pairs, so a probe and a pull of the same chart agree."""
+    import pull_draftsharks as pd
+    body = _need_200(fetch(pd.URL), "draftsharks chart")
+    try:
+        snap = pd.build_snapshot(pd.extract_players(body))
+    except pd.PullError as e:
+        raise ProbeError(f"draftsharks [{e.code}] {e}")
+    return {"fingerprint": snap["fingerprint"], "signals": {"rows": snap["row_count"]}}
+
+
+def probe_fantasysharks(fetch: Fetch, week: int) -> dict[str, Any]:
+    """Page 'last updated' stamp plus a hash of the half-PPR CSV (id, points)."""
+    import pull_fantasysharks as pf
+    page = _need_200(fetch(pf.url_for(pf.SCORINGS["half_ppr"], False)), "fantasysharks page")
+    csv_body = _need_200(fetch(pf.url_for(pf.SCORINGS["half_ppr"], True)), "fantasysharks csv")
+    try:
+        meta = pf.parse_page_meta(page, datetime.now(timezone.utc).date())
+        rows = pf.parse_csv(csv_body, "half_ppr")
+    except pf.PullError as e:
+        raise ProbeError(f"fantasysharks [{e.code}] {e}")
+    pairs = sorted((str(r.get("Player ID")), str(r.get("Pts"))) for r in rows)
+    sig = {"vintage": meta["vintage_date"].isoformat(), "table": digest(pairs)}
+    return {"fingerprint": digest(sig), "signals": sig}
+
+
 PROBES: dict[str, Callable[[Fetch, int], dict[str, Any]]] = {
     "fantasycalc": probe_fantasycalc,
     "usatoday": probe_usatoday,
@@ -618,6 +650,8 @@ PROBES: dict[str, Callable[[Fetch, int], dict[str, Any]]] = {
     "espn": probe_espn,
     "cbsros": probe_cbsros,
     "razzball": probe_razzball,
+    "draftsharks": probe_draftsharks,
+    "fantasysharks": probe_fantasysharks,
 }
 
 

@@ -3232,6 +3232,7 @@
   // lines add up to the cell (rounded to one decimal for points, three for the factor).
   let mathTipOwner = null;
   let mathTipOpenedAt = 0;
+  const fmtTotal = n => n.toLocaleString("en-US", {maximumFractionDigits: 0});
   function mathTipLines(p, chart, cell) {
     const name = PUBLISHER_NAMES[chart] || chart;
     const item = (targetsView && targetsView.infoByKey[chart]) || (view && view.infoByKey && view.infoByKey[chart]);
@@ -3245,7 +3246,9 @@
         ["= rescaled value", fmt(cell.value)]].concat(cell.gap !== null && Number.isFinite(p.ours) ? [["− our value", fmt(p.ours)], ["= gap", fmtGap(cell.gap)]] : [])};
     }
     lines.push([`${name}${week} (original)`, String(math.native)]);
-    lines.push(["× rescale factor", math.factor.toFixed(3)]);
+    const totalsNote = math.anchorTotal !== null && math.chartTotal !== null
+      ? `${fmtTotal(math.anchorTotal)} (anchor total) ÷ ${fmtTotal(math.chartTotal)} (${name} total)` : "";
+    lines.push(["× rescale factor", math.factor.toFixed(3), totalsNote]);
     lines.push(["= rescaled value", fmt(cell.value)]);
     if (cell.gap !== null && Number.isFinite(p.ours)) {
       lines.push(["− our value", fmt(p.ours)]);
@@ -3260,7 +3263,7 @@
     const info = mathTipLines(p, chart, cell);
     tip.replaceChildren();
     if (info.head) { const h = document.createElement("div"); h.className = "v2-meta"; h.textContent = info.head; tip.appendChild(h); }
-    info.lines.forEach(([label, value], index) => {
+    info.lines.forEach(([label, value, note], index) => {
       const row = document.createElement("div");
       row.className = "row";
       const l = document.createElement("span");
@@ -3274,6 +3277,7 @@
         row.appendChild(v);
       }
       tip.appendChild(row);
+      if (note) { const n = document.createElement("div"); n.className = "v2-meta v2-tip-note"; n.textContent = note; tip.appendChild(n); }
     });
     const url = sourceUrl(chart, p.row.pos);
     if (url) {
@@ -3369,7 +3373,8 @@
       d.className = `t-dot ${dot.side}`;
       d.dataset.chart = dot.chart;
       d.dataset.dot = dot.side;
-      d.title = `${PUBLISHER_NAMES[dot.chart]}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
+      d.dataset.value = String(dot.value);
+      d.title = `${PUBLISHER_NAMES[dot.chart]} (indexed) ${fmt(dot.value)}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
       d.textContent = "●";
       dots.appendChild(d);
     });

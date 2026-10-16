@@ -1566,11 +1566,19 @@ def tt04(S):
     t = S["tabs"]["targets"]
     errors = []
     names = {h["chart"]: h["name"] for h in t["heads"]}
+    # Jeremy 2026-10-16 (JEG-677): the row's gap is the market consensus of the indexed charts, with
+    # "N of M charts agree" and one dot per chart, instead of naming the single chart with the largest gap.
     for r in t["sell"] + t["buy"]:
-        who = (r["best"] or {}).get("who") or ""
-        name = names.get((r["best"] or {}).get("chart"))
-        if not name or not (who == name or who.startswith(name + " Wk ") or who.startswith(name + " Earlier week")):
-            errors.append(f"{r['name']}: largest gap does not name its chart ({r['best']})")
+        best = r["best"] or {}
+        m = re.match(r"(\d+) of (\d+) charts agree", best.get("who") or "")
+        if best.get("chart") != "consensus" or not m:
+            errors.append(f"{r['name']}: gap is not the market consensus with 'N of M charts agree' ({best})")
+            continue
+        agree, of = int(m.group(1)), int(m.group(2))
+        if of < 2 or agree * 2 <= of:
+            errors.append(f"{r['name']}: listed with {agree} of {of} charts agreeing (needs 2+ charts and a majority)")
+        if best["who"].count("\u25cf") != of:
+            errors.append(f"{r['name']}: {best['who'].count(chr(0x25cf))} dots for {of} charts")
     ex = t.get("expand") or {}
     if ex.get("expanded") != "true" or not all(n in ex.get("detail", "") for n in names.values()):
         errors.append("an expanded row does not show every chart")

@@ -1140,10 +1140,10 @@ modules.js. How values work and Manifesto are reading pages and are not modules.
   diff, gap, equal, side, agree, eligible, dots}`. `value` is the median of the compared charts that price the player (a finite
   0 counts), `gap` = consensus minus our value. `eligible` needs 2+ priced charts, a consensus above the waiver line (0) and a
   strict majority (`agree * 2 > of`) on the consensus's side of our value. Sell lists gap > 0 largest first, Buy gap < 0.
-- Default Our value is DDF Projections (`ddf_value_projections`, first in `OUR_KEYS`); Check 2 keeps DDF Value (`DDF_VALUE_KEY`).
+- Default Our value is DDF Value (`ddf_value`, first in `OUR_KEYS`; Jeremy 2026-10-16 reversed the first JEG-677 DDF Projections default). Chart values are the engine's Indexed series; dots carry them.
 - Display (v2.js `targetBest` / `agreeNode`): "Market consensus" column ("median of N"), "Gap vs consensus" column with
   "N of M charts agree" and one dot per chart (above / below our value). Per-chart cells keep their own gaps.
-- Decision recorded (no Jeremy confirmation asked, per the run rules): the JEG-455 default (DDF Value) is reversed, and an
+- Decision: Jeremy confirmed 2026-10-16 that the default stays DDF Value (JEG-455); the first JEG-677 pass reversed it and was corrected. An
   ESPN-0 player now lists only when most compared charts pay for him (a chart at its waiver line counts as pricing him at 0).
 
 ## Compare a trade: headline answers with confidence (JEG-505, 2026-10-12; contract CT-02)
