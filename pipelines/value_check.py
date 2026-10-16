@@ -565,12 +565,15 @@ def apply_holds(fixture: dict, last_good: dict | None, holds: dict, week: int | 
 def release_holds(fixture: dict, disagreeing: list[str]) -> list[str]:
     """Remove validationHold (in place) from sections whose root agrees now.
     Fidelity pulse holds (reason "fidelity: ...", JEG-520) are released by
-    pipelines/fidelity_hold.py, never here."""
+    pipelines/fidelity_hold.py, never here.  Chain review holds (reason
+    "chain hold: ...", JEG-676) are set by the rebuild chain's isolate_hold
+    and released only by the next successful chain run, never here."""
     released = []
     for sec, section in (fixture.get("sources") or {}).items():
         if not isinstance(section, dict) or "validationHold" not in section:
             continue
-        if str((section.get("validationHold") or {}).get("reason") or "").startswith("fidelity: "):
+        reason = str((section.get("validationHold") or {}).get("reason") or "")
+        if reason.startswith("fidelity: ") or reason.startswith("chain hold: "):
             continue
         root = (section.get("validationHold") or {}).get("root") or ROOT_OF.get(sec)
         if root not in disagreeing:
