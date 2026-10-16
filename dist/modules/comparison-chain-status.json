@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-16T07:19:44.657059+00:00",
+  "run_at": "2026-10-16T07:44:21.821244+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,9 +10,11 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "published_with_holds",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
     "cbs",
     "cbsros",
@@ -146,7 +148,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-15 -> 12 DDF legs -> section; review passed (7536 values)",
+      "detail": "snapshot 2026-10-15 -> 12 DDF legs -> section; review passed (7512 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -203,5 +205,20 @@
     "fantasycalc": "fidelity: freshness",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_static_export.StaticExportTest.test_top_indexed_values_preserve_high_overall_scale"
+    ],
+    "assertions": [
+      "AssertionError: 40.9811822005756 not greater than or equal to 45"
+    ],
+    "make_targets": [
+      "Makefile:458: test-core"
+    ],
+    "detail": "FAIL tests.test_static_export.StaticExportTest.test_top_indexed_values_preserve_high_overall_scale; AssertionError: 40.9811822005756 not greater than or equal to 45",
+    "recorded_at": "2026-10-16T07:44:54.479698+00:00"
   }
 }
