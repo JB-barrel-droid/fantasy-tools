@@ -1234,6 +1234,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    The check's one-line explainer is dropped there; its heading and the page subtitle carry it. */
 @media (min-width: 1280px) and (max-height: 800px) { #v2Targets .v2-tcheck p { display: none; } #v2Targets .v2-tcheck { margin: 0 0 4px; } #v2Targets .v2-tfilters { margin-top: 4px; } #v2Targets .v2-ttitle h1 { font-size: 26px; } #v2Targets .v2-ttitle p { font-size: 14px; } #v2Targets .v2-tlist { margin-top: 8px; padding-top: 8px; } }
 @media (min-width: 1280px) and (max-height: 800px) { #v2Targets .v2-ttable td { padding-top: 3px; padding-bottom: 3px; } }
+/* Two lists side by side (>= 1280): tighter cell sides let the player name and tier sit on one line each, so a row stays two lines tall (JEG-461 fold). */
+@media (min-width: 1280px) { #v2Targets .v2-ttable th, #v2Targets .v2-ttable td { padding-left: 6px; padding-right: 6px; } #v2Targets .v2-ttable td.player { white-space: nowrap; } #v2Targets .v2-ttable td.best .t-who { display: flex; align-items: center; justify-content: flex-end; gap: 6px; white-space: nowrap; } }
 .v2-weight { margin-top: 24px; padding: var(--v2-pad-card) var(--v2-pad-card-x); }
 .v2-weight > p { max-width: 72ch; margin: 4px 0; }
 .v2-weight-headline { font-weight: 600; margin: 10px 0 !important; }

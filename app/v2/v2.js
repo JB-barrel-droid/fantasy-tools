@@ -3583,7 +3583,7 @@
     const flags = $("v2TDivergence");
     flags.replaceChildren();
     targetsView.used.forEach(key => {
-      const chip = divergenceChip(key);
+      const chip = divergenceChip(key, {noLink: true});
       if (!chip) return;
       const line = document.createElement("span");
       line.className = "v2-tdiv-item";

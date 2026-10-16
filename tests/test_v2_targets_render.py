@@ -263,10 +263,19 @@ SIMULATE_ROWS = """() => {
     reason: 'Simulated: not enough shared players to index'} : null;
   // JEG-504: a player whose market average rounds to our value shows only the "= market average" note.
   // Current data has none on the offered series (a held Razzball used to supply one), so simulate one.
-  const eqRow = t.sell.find(p => ![zero.key, low, none, gap && gap.key].includes(String(p.row.player_key))
+  const taken = [zero.key, low, none, gap && gap.key];
+  const medianOf = vs => { const a = [...vs].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  const eqRow = t.sell.find(p => !taken.includes(String(p.row.player_key))
     && used.filter(c => fin(p.row.values[c])).length >= 2);
   const eq = eqRow ? {key: String(eqRow.row.player_key),
-    value: used.filter(c => fin(eqRow.row.values[c])).reduce((a, c) => a + eqRow.row.values[c], 0) / used.filter(c => fin(eqRow.row.values[c])).length} : null;
+    // Just under the consensus, so it is still a target but both read the same to one decimal (JEG-504).
+    value: Math.round(medianOf(used.filter(c => fin(eqRow.row.values[c])).map(c => eqRow.row.values[c])) * 10) / 10 - 0.001} : null;
+  // JEG-677: one chart alone never makes a target. A sell candidate keeps its single highest chart and loses the
+  // rest (with the engine's reason), so the guard fails if one chart were enough.
+  const oneRow = t.sell.find(p => ![...taken, eq && eq.key].includes(String(p.row.player_key))
+    && used.filter(c => fin(p.row.values[c])).length >= 3);
+  const one = oneRow ? {key: String(oneRow.row.player_key),
+    keep: used.filter(c => fin(oneRow.row.values[c])).sort((a, b) => oneRow.row.values[b] - oneRow.row.values[a])[0]} : null;
   const note = 'Only one source prices this player', reason = 'No source prices this player';
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
@@ -277,12 +286,17 @@ SIMULATE_ROWS = """() => {
     if (k === none) return {...r, values: {...r.values, [KEY]: null},
       ddfByVersion: ver({count: 0, sources: [], lowConfidence: false, reason})};
     if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
-    if (eq && k === eq.key) return {...r, values: {...r.values, ddf_value: eq.value}};
+    if (eq && k === eq.key) return {...r, values: {...r.values, [KEY]: eq.value}};
+    if (one && k === one.key) {
+      const values = {...r.values}, why = {...(r.missingReasons || {})};
+      used.forEach(c => { if (c !== one.keep) { values[c] = null; why[c] = 'Simulated: not enough shared players to index'; } });
+      return {...r, values, missingReasons: why};
+    }
     if (gap && k === gap.key) return {...r, values: {...r.values, [gap.chart]: null},
       missingReasons: {...(r.missingReasons || {}), [gap.chart]: gap.reason}};
     return r;
   });
-  window.__probe = {low, none, zero, gap, note, reason};
+  window.__probe = {low, none, zero, gap, one, note, reason};
   document.getElementById('v2TPosition').dispatchEvent(new Event('change'));
   return window.__probe;
 }"""
