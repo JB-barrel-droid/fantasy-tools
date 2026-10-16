@@ -29,3 +29,9 @@
 - Fix (PR 637, merged): recalibrated direction-check thresholds: 2-QB from +10 to +3, translated peak from >35 to >28. The test's directional property (2-QB raises QB max: 32.3 vs 25) still holds; negative test still catches non-adjusting models (15 problems).
 - Verified: all 6 PositionalMaxParity tests pass locally; negative test still catches fixed-max model.
 - Claimed: CI chain will pass validate with week 6 ESPN data (32.3 > 28). Chain re-dispatched (run 38865917598).
+
+## Resolution 2026-10-16 (week 6 live)
+- Chain run 38865917598 succeeded: `published_with_holds`, held=[cbs, razzball, cbsros, fantasycalc].
+- Deploy dispatched (HTTP 204), `verify_live.py` PASS, build tag `tv-20261016-0219-d8bd675`, week 6 confirmed in dist assets.
+- Holds are expected: CBS coverage drops (WR 41<43, TE 10<14), razzball/cbsros/fantasycalc fidelity holds.
+- JEG-676 marked Done in Linear.
