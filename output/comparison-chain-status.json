@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-17T00:12:21.609734+00:00",
+  "run_at": "2026-10-17T00:42:32.831420+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -17,12 +17,26 @@
   "outcome": "failed",
   "held": [
     "cbsros",
+    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "none",
   "held_detail": {
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "detail": "802/1186 values match exactly across 6 columns; column check: stored half|2 list is closest to the live full|2 list (mean |diff| 10 vs 57); stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 45); 384 of 1186 values moved since the save at 2026-10-17T00:05:27.491526Z (largest 13",
+      "hold_severity": "amber",
+      "week": 6
+    },
     "cbsros": {
-      "reason": "fidelity: stored_vs_chart",
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
         "cbsros",
         "cbsros_vorp"
@@ -31,7 +45,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "811/1092 chart values equal stored snapshot 2026-10-16 (per game, 3 decimals); 281 chart values differ from the stored snapshot, 4 stored players not on the chart, 1 chart players not stored",
+      "detail": "1101/1101 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint ca4133093566cf533c71dee6); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -45,7 +59,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1768/1872 chart values equal stored snapshot 2026-10-15 (per game, 1 decimals); 104 chart values differ from the stored snapshot, 58 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-16 is not on the chart yet: 307 values changed, 4 added, 4 dropped",
+      "detail": "1768/1872 chart values equal stored snapshot 2026-10-15 (per game, 1 decimals); 104 chart values differ from the stored snapshot, 58 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-16 is not on the chart yet: 449 values changed, 5 added, 15 dropped",
       "hold_severity": "amber",
       "week": 6
     }
@@ -158,7 +172,8 @@
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: stored_vs_chart",
+    "fantasycalc": "fidelity: publisher_vs_stored",
+    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
@@ -176,6 +191,6 @@
       "Makefile:511: test-core"
     ],
     "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; AssertionError: [] == [] : week-4 file served relabelled as week 3 was not caught; AssertionError: [] == [] : week-4 file served with week-3 content was not caught",
-    "recorded_at": "2026-10-17T00:21:14.788312+00:00"
+    "recorded_at": "2026-10-17T00:49:59.264948+00:00"
   }
 }
