@@ -47,7 +47,7 @@ class CoverageFillInTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
 
-    def review(self, drop=(), keep_listed=(), add=None):
+    def review(self, drop=(), keep_listed=(), add=None, accepted=None):
         fx = self.fx
         native = {s: v for s, v in fx["native"].items() if s not in drop}
         for s in keep_listed:          # listed by CBS but unpriced: a pipeline loss
@@ -69,9 +69,13 @@ class CoverageFillInTest(unittest.TestCase):
         }
         path = self.tmp / "cand.json"
         path.write_text(json.dumps(cand))
+        acc = self.tmp / "accepted.json"
+        if accepted is not None:
+            acc.write_text(json.dumps({"entries": accepted}))
         rep = r.review_candidate(str(path), fixture_path=FIXTURE, players_path=PLAYERS,
                                  no_live_verify=True,
-                                 coverage_accepted_path=str(self.tmp / "none.json"))
+                                 coverage_accepted_path=str(acc if accepted is not None
+                                                            else self.tmp / "none.json"))
         checks = {c["name"]: c for c in rep["checks"]}
         return rep, checks
 
@@ -91,6 +95,22 @@ class CoverageFillInTest(unittest.TestCase):
             self.assertTrue(any(s in c["detail"] for c in checks.values()), s)
         self.assertEqual(rep["verdict"], "ready",
                          [c for c in rep["checks"] if c["status"] == "fail"])
+
+    def test_convention_governs_over_a_recorded_floor_accept(self):
+        # #668/#669 recorded a CBS Week 6 floor accept (WR 41 / TE 10). The
+        # fill-in convention is the rule; the accept is only a fallback, so a
+        # list fill-in covers passes on the convention, not on the accept.
+        drop = self.week6_drop()
+        n = {"WR": len(self.wr) - 4, "TE": len(self.te) - 4}
+        entries = [{"source": SOURCE, "combo": COMBO, "pos": p, "week": 6,
+                    "approved_by": "Jeremy", "approved_on": "2026-10-16",
+                    "reason": "refresh floor", "floor": n[p]} for p in ("WR", "TE")]
+        _, checks = self.review(drop=drop, accepted=entries)
+        for pos in ("WR", "TE"):
+            cov = checks[f"coverage:{COMBO}/{pos}"]
+            self.assertEqual(cov["status"], "warn", cov["detail"])
+            self.assertIn("fill-in reaches the rosterable set", cov["detail"])
+            self.assertNotIn("accepted", cov["detail"].lower(), cov["detail"])
 
     def test_pipeline_loss_still_holds(self):
         drop = self.week6_drop()

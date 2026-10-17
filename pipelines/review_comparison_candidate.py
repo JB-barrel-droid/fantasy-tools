@@ -828,27 +828,18 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                     if verified:
                         status = "pass"
                     live_contradicts = "still priced live" in verify_detail
-                if status != "pass" and not live_contradicts:
-                    churn_ok, churn_detail = coverage_drop_is_tail_churn(
-                        f_n, c_n, dropped, fx_native, fx_priced, combo["native"],
-                        review_ids, {s: c_keys.get(s, player_keys.get(s)) for s in dropped})
-                    verify_detail = f"{verify_detail}; {churn_detail}"
-                    if churn_ok:
-                        status = "warn"
                 if status == "fail" and not live_contradicts:
-                    accepted = coverage_acceptance(
-                        coverage_accepted, source, combo_name, pos, cand_week,
-                        dropped, c_n, combo["native"])
-                    if accepted:
-                        status = "warn"
-                        verify_detail = f"{verify_detail}; {accepted}"
-                if status == "fail" and not live_contradicts:
-                    # JEG-667 (Jeremy 2026-10-16): a shorter list is filled in
-                    # from the other charts (OC-5 / VP-2.4). It passes as a
-                    # warning naming every dropped and added player when the
-                    # fill-in reaches the rosterable set, unless a dropped
-                    # player is a pipeline loss (still listed but unpriced, or
-                    # an identity/matching review row) -- those still hold.
+                    # JEG-667, the convention governs (Jeremy 2026-10-16): "When
+                    # lists get longer or shorter we need to follow the
+                    # conventions we've set, filling in where needed from other
+                    # charts to get to full rosters in leagues." A shorter chart
+                    # list passes as a named warning when the VP-2.4 fill-in
+                    # (OC-5) reaches the rosterable set. Checked FIRST, before
+                    # the tail-churn slack and recorded accepts (JEG-667 #668/
+                    # #669), which stay only as fallbacks where fill-in does not
+                    # apply. Holds: a dropped player still priced live (above),
+                    # still listed but unpriced or in the identity review rows
+                    # (pipeline loss), or fill-in cannot reach.
                     key_of = {s: c_keys.get(s, player_keys.get(s)) for s in dropped}
                     loss = [s for s in dropped if s in combo["native"]
                             or s.lower() in review_ids
@@ -870,6 +861,20 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                                 f"{verify_detail}; list changed (warning, OC-5 fill-in rule, "
                                 f"Jeremy 2026-10-16): dropped: {', '.join(dropped) or 'none'}; "
                                 f"added: {', '.join(added) or 'none'}")
+                if status == "fail" and not live_contradicts:
+                    churn_ok, churn_detail = coverage_drop_is_tail_churn(
+                        f_n, c_n, dropped, fx_native, fx_priced, combo["native"],
+                        review_ids, {s: c_keys.get(s, player_keys.get(s)) for s in dropped})
+                    verify_detail = f"{verify_detail}; {churn_detail}"
+                    if churn_ok:
+                        status = "warn"
+                if status == "fail" and not live_contradicts:
+                    accepted = coverage_acceptance(
+                        coverage_accepted, source, combo_name, pos, cand_week,
+                        dropped, c_n, combo["native"])
+                    if accepted:
+                        status = "warn"
+                        verify_detail = f"{verify_detail}; {accepted}"
                 checks.append(_check(
                     f"coverage:{combo_name}/{pos}", status,
                     f"candidate priced {c_n} < fixture {f_n} ({named}) -- {verify_detail}"))
