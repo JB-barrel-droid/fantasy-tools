@@ -1,26 +1,48 @@
 {
-  "run_at": "2026-10-17T02:01:56.606942+00:00",
+  "run_at": "2026-10-17T03:02:35.374233+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley | fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy | fantasycalc-half-12-qb1-section half_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley | fantasycalc-half-12-qb1-section half_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
-    "cbs": "promoted 3/3",
+    "cbs": "promoted 3/3 (WARNING list changed, filled in from other charts: cbs-full-12-section full_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love | cbs-full-12-section full_12/RB list 44 -> 47: dropped none; added brian robinson, marshawn lloyd, rachaad white | cbs-full-12-section full_12/WR list 45 -> 44: dropped deebo samuel sr, kalif raymond, romeo doubs; added jordyn tyson, marvin harrison jr | cbs-full-12-section full_12/TE list 15 -> 15: dropped dalton kincaid, kenyon sadiq; added brenton strange, pat freiermuth | cbs-half-12-section half_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love | cbs-half-12-section half_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd | cbs-half-12-section half_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr | cbs-half-12-section half_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none | cbs-standard-12-section standard_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love | cbs-standard-12-section standard_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd | cbs-standard-12-section standard_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr | cbs-standard-12-section standard_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none)",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "green",
   "held": [
     "cbsros",
     "fantasycalc",
     "razzball"
   ],
   "hold_severity": "none",
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley",
+      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy",
+      "fantasycalc-half-12-qb1-section half_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley",
+      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy"
+    ],
+    "cbs": [
+      "cbs-full-12-section full_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love",
+      "cbs-full-12-section full_12/RB list 44 -> 47: dropped none; added brian robinson, marshawn lloyd, rachaad white",
+      "cbs-full-12-section full_12/WR list 45 -> 44: dropped deebo samuel sr, kalif raymond, romeo doubs; added jordyn tyson, marvin harrison jr",
+      "cbs-full-12-section full_12/TE list 15 -> 15: dropped dalton kincaid, kenyon sadiq; added brenton strange, pat freiermuth",
+      "cbs-half-12-section half_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love",
+      "cbs-half-12-section half_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd",
+      "cbs-half-12-section half_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr",
+      "cbs-half-12-section half_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none",
+      "cbs-standard-12-section standard_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love",
+      "cbs-standard-12-section standard_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd",
+      "cbs-standard-12-section standard_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr",
+      "cbs-standard-12-section standard_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none"
+    ]
+  },
   "held_detail": {
     "fantasycalc": {
       "reason": "fidelity: publisher_vs_stored",
@@ -72,15 +94,24 @@
       "stage": "complete",
       "detail": "promoted 3/3",
       "promoted": 3,
-      "sections": 3
+      "sections": 3,
+      "list_change_warnings": []
     },
     "fantasycalc": {
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley | fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy | fantasycalc-half-12-qb1-section half_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley | fantasycalc-half-12-qb1-section half_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy",
       "promoted": 3,
-      "sections": 3
+      "sections": 3,
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley",
+        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy",
+        "fantasycalc-half-12-qb1-section half_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley",
+        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 34 -> 35: dropped none; added tyler huntley",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 75 -> 76: dropped none; added ryan flournoy"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -88,7 +119,8 @@
       "stage": "complete",
       "detail": "promoted 3/3",
       "promoted": 3,
-      "sections": 3
+      "sections": 3,
+      "list_change_warnings": []
     },
     "espn": {
       "source": "espn",
@@ -102,9 +134,23 @@
       "source": "cbs",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): cbs-full-12-section full_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love | cbs-full-12-section full_12/RB list 44 -> 47: dropped none; added brian robinson, marshawn lloyd, rachaad white | cbs-full-12-section full_12/WR list 45 -> 44: dropped deebo samuel sr, kalif raymond, romeo doubs; added jordyn tyson, marvin harrison jr | cbs-full-12-section full_12/TE list 15 -> 15: dropped dalton kincaid, kenyon sadiq; added brenton strange, pat freiermuth | cbs-half-12-section half_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love | cbs-half-12-section half_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd | cbs-half-12-section half_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr | cbs-half-12-section half_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none | cbs-standard-12-section standard_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love | cbs-standard-12-section standard_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd | cbs-standard-12-section standard_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr | cbs-standard-12-section standard_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none",
       "promoted": 3,
-      "sections": 3
+      "sections": 3,
+      "list_change_warnings": [
+        "cbs-full-12-section full_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love",
+        "cbs-full-12-section full_12/RB list 44 -> 47: dropped none; added brian robinson, marshawn lloyd, rachaad white",
+        "cbs-full-12-section full_12/WR list 45 -> 44: dropped deebo samuel sr, kalif raymond, romeo doubs; added jordyn tyson, marvin harrison jr",
+        "cbs-full-12-section full_12/TE list 15 -> 15: dropped dalton kincaid, kenyon sadiq; added brenton strange, pat freiermuth",
+        "cbs-half-12-section half_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love",
+        "cbs-half-12-section half_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd",
+        "cbs-half-12-section half_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr",
+        "cbs-half-12-section half_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none",
+        "cbs-standard-12-section standard_12/QB list 13 -> 14: dropped tyler shough; added jayden daniels, jordan love",
+        "cbs-standard-12-section standard_12/RB list 43 -> 45: dropped none; added brian robinson, marshawn lloyd",
+        "cbs-standard-12-section standard_12/WR list 43 -> 41: dropped deebo samuel sr, devaughn vele, josh downs, romeo doubs; added jordyn tyson, marvin harrison jr",
+        "cbs-standard-12-section standard_12/TE list 14 -> 10: dropped colston loveland, dalton kincaid, harold fannin jr, kenyon sadiq; added none"
+      ]
     },
     "cbsros": {
       "source": "cbsros",
@@ -175,22 +221,5 @@
     "fantasycalc": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states"
-    ],
-    "assertions": [
-      "AssertionError: [] == [] : week-4 file served relabelled as week 3 was not caught",
-      "AssertionError: [] == [] : week-4 file served with week-3 content was not caught"
-    ],
-    "make_targets": [
-      "Makefile:511: test-core"
-    ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; AssertionError: [] == [] : week-4 file served relabelled as week 3 was not caught; AssertionError: [] == [] : week-4 file served with week-3 content was not caught",
-    "recorded_at": "2026-10-17T02:10:59.639553+00:00"
   }
 }
