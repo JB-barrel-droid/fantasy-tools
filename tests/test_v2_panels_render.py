@@ -76,6 +76,7 @@ import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 
 
 def setUpModule():
@@ -104,6 +105,9 @@ def _built_dist():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        # Held-proof fixture (JEG-675, Jeremy 2026-10-16): the holds are pinned (tests/_holds.py), so the wide column
+        # selection and the freshness rows (CBS held and a week behind, the rest open) do not depend on today's holds.
+        pin_holds_in_dist(dist)
         build_v2_page.build(dist)
 
         class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -877,6 +881,9 @@ class PanelsRenderTest(unittest.TestCase):
             "freshness fails open": {"v2_js": v2.replace(
                 "const confirmed = Boolean(own && imp && own.freshness_ok === true && imp.freshness_ok === true);",
                 "const confirmed = true;", 1)},
+            # JEG-675: CBS is held in the pinned fixture and a week behind in the pipeline; a held source is not "Prior week".
+            "held source reads Prior week": {"v2_js": v2.replace(
+                "const shown = items.some(item => item.available);", "const shown = true;", 1)},
             "league Apply does nothing": {"v2_js": v2.replace(
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1)},

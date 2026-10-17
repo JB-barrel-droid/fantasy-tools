@@ -48,3 +48,39 @@ def without_held_sources(comparison: dict) -> dict:
 # Backward compat aliases (part 1 callers)
 held_chart_roots = held_source_roots
 without_held_charts = without_held_sources
+
+
+# The fixed fixture (JEG-675, Jeremy 2026-10-16: "Give the tests a fixed, held-proof
+# fixture"): the three current-week trade charts and the three projections are
+# never held; CBS (a Week 5 chart in this fixture, one week behind) is always held.
+# Pinned both ways, so a render test's premise (FantasyCalc, or 3+ compared charts)
+# does not depend on which sources the fidelity pulse holds on a given day.
+PINNED_OPEN = ("usatoday", "fantasypros", "fantasycalc", "espn", "cbsros", "razzball")
+PINNED_HELD = ("cbs",)
+
+
+def with_pinned_holds(comparison: dict) -> dict:
+    """A copy of the fixture with PINNED_OPEN sources unheld and PINNED_HELD held; sections are kept."""
+    out = copy.deepcopy(comparison)
+    sources = out.get("sources") or {}
+    for root in PINNED_OPEN:
+        for sec in (root, f"{root}_adjusted", f"{root}_vorp"):
+            section = sources.get(sec)
+            if isinstance(section, dict):
+                for field in HOLD_FIELDS:
+                    section.pop(field, None)
+    for root in PINNED_HELD:
+        section = sources.get(root)
+        if isinstance(section, dict):
+            section["validationHold"] = {"reason": "chain hold: review hold", "root": root,
+                                         "stage": "review", "week": (comparison.get("value_weeks") or {}).get("ecr")}
+    return out
+
+
+def pin_holds_in_dist(dist) -> None:
+    """Rewrite a test's own copy of dist/assets/comparison-sources-data.json with the pinned holds."""
+    import json
+    from pathlib import Path
+    path = Path(dist) / "assets" / "comparison-sources-data.json"
+    path.write_text(json.dumps(with_pinned_holds(json.loads(path.read_text(encoding="utf-8"))),
+                               separators=(",", ":")), encoding="utf-8")
