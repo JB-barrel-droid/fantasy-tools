@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-17T12:18:51.256467Z",
- "run_id": "1766abe2-8cf1-4792-8707-7e495130cc79",
+ "checked_at": "2026-10-17T12:40:15.669624Z",
+ "run_id": "d1a90c8c-583b-4f43-be89-821365ad69ab",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -52,7 +52,7 @@
    ],
    "reason": "fidelity: publisher_vs_stored",
    "identity": null,
-   "since": "2026-10-17T12:18:51.256467Z",
+   "since": "2026-10-17T12:40:15.669624Z",
    "summary": "no stored Draft Sharks rows"
   },
   "fantasysharks": {
@@ -62,7 +62,7 @@
    ],
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
-   "since": "2026-10-17T12:18:51.256467Z",
+   "since": "2026-10-17T12:40:15.669624Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -280,17 +280,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "24/1160 values match exactly across 6 columns; 1136 of 1160 values moved since the save at 2026-10-17T07:05:27.258208Z (largest 400%; 0 outside the max(25%, 50) band: none); 7 players entered or left the bottom of the list since the save (churn)",
+     "summary": "28/1160 values match exactly across 6 columns; 1132 of 1160 values moved since the save at 2026-10-17T07:05:27.258208Z (largest 300%; 4 outside the max(25%, 50) band: Deshaun Watson, Malik Willis); 9 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 197,
+      "publisher_players": 199,
       "stored_players": 197,
       "compared": 1160,
-      "matched": 24,
-      "mismatched": 1136,
+      "matched": 28,
+      "mismatched": 1132,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 7,
+      "list_churn": 9,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -309,14 +309,14 @@
       "full|2": {
        "left": 197,
        "right": 197,
-       "mismatched": 192,
+       "mismatched": 188,
        "missing": 3,
        "extra": 3
       },
       "half|1": {
        "left": 196,
        "right": 196,
-       "mismatched": 187,
+       "mismatched": 189,
        "missing": 3,
        "extra": 3
       },
@@ -330,29 +330,19 @@
       "std|1": {
        "left": 196,
        "right": 196,
-       "mismatched": 187,
+       "mismatched": 189,
        "missing": 3,
        "extra": 3
       },
       "std|2": {
        "left": 196,
        "right": 196,
-       "mismatched": 191,
+       "mismatched": 187,
        "missing": 3,
        "extra": 3
       }
      },
      "examples": [
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 1285,
-       "name": "Dak Prescott",
-       "pos": "QB",
-       "left": "4336",
-       "right": 4666.0,
-       "delta": 330.0
-      },
       {
        "type": "value_mismatch",
        "grain": "half|2",
@@ -365,33 +355,63 @@
       },
       {
        "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 1285,
-       "name": "Dak Prescott",
-       "pos": "QB",
-       "left": "4287",
-       "right": 4614.0,
-       "delta": 327.0
-      },
-      {
-       "type": "value_mismatch",
        "grain": "full|2",
        "player_key": 1311,
        "name": "Joe Burrow",
        "pos": "QB",
-       "left": "5953",
+       "left": "5980",
        "right": 5676.0,
-       "delta": -277.0
+       "delta": -304.0
       },
       {
        "type": "value_mismatch",
        "grain": "full|2",
-       "player_key": 3843,
-       "name": "Christian Watson",
-       "pos": "WR",
-       "left": "4748",
-       "right": 4471.0,
-       "delta": -277.0
+       "player_key": 4561,
+       "name": "Brock Purdy",
+       "pos": "QB",
+       "left": "6359",
+       "right": 6058.0,
+       "delta": -301.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1311,
+       "name": "Joe Burrow",
+       "pos": "QB",
+       "left": "5913",
+       "right": 5612.0,
+       "delta": -301.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 4561,
+       "name": "Brock Purdy",
+       "pos": "QB",
+       "left": "6288",
+       "right": 5990.0,
+       "delta": -298.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 1285,
+       "name": "Dak Prescott",
+       "pos": "QB",
+       "left": "4378",
+       "right": 4666.0,
+       "delta": 288.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1285,
+       "name": "Dak Prescott",
+       "pos": "QB",
+       "left": "4329",
+       "right": 4614.0,
+       "delta": 285.0
       },
       {
        "type": "value_mismatch",
@@ -402,26 +422,6 @@
        "left": "5957",
        "right": 5680.0,
        "delta": -277.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 2060,
-       "name": "Sam Darnold",
-       "pos": "QB",
-       "left": "1834",
-       "right": 1558.0,
-       "delta": -276.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 2060,
-       "name": "Sam Darnold",
-       "pos": "QB",
-       "left": "1835",
-       "right": 1559.0,
-       "delta": -276.0
       }
      ],
      "outside_universe": [],
@@ -513,8 +513,8 @@
        "week_compared": 5,
        "publisher": {
         "QB": 35,
-        "RB": 60,
-        "WR": 76,
+        "RB": 61,
+        "WR": 75,
         "TE": 25
        },
        "stored": {
@@ -553,17 +553,6 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 1285,
-     "name": "Dak Prescott",
-     "pos": "QB",
-     "left": "4336",
-     "right": 4666.0,
-     "delta": 330.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
      "grain": "half|2",
      "player_key": 1285,
      "name": "Dak Prescott",
@@ -575,35 +564,68 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 1285,
-     "name": "Dak Prescott",
-     "pos": "QB",
-     "left": "4287",
-     "right": 4614.0,
-     "delta": 327.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
      "grain": "full|2",
      "player_key": 1311,
      "name": "Joe Burrow",
      "pos": "QB",
-     "left": "5953",
+     "left": "5980",
      "right": 5676.0,
-     "delta": -277.0
+     "delta": -304.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "full|2",
-     "player_key": 3843,
-     "name": "Christian Watson",
-     "pos": "WR",
-     "left": "4748",
-     "right": 4471.0,
-     "delta": -277.0
+     "player_key": 4561,
+     "name": "Brock Purdy",
+     "pos": "QB",
+     "left": "6359",
+     "right": 6058.0,
+     "delta": -301.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "left": "5913",
+     "right": 5612.0,
+     "delta": -301.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 4561,
+     "name": "Brock Purdy",
+     "pos": "QB",
+     "left": "6288",
+     "right": 5990.0,
+     "delta": -298.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 1285,
+     "name": "Dak Prescott",
+     "pos": "QB",
+     "left": "4378",
+     "right": 4666.0,
+     "delta": 288.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1285,
+     "name": "Dak Prescott",
+     "pos": "QB",
+     "left": "4329",
+     "right": 4614.0,
+     "delta": 285.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -615,28 +637,6 @@
      "left": "5957",
      "right": 5680.0,
      "delta": -277.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 2060,
-     "name": "Sam Darnold",
-     "pos": "QB",
-     "left": "1834",
-     "right": 1558.0,
-     "delta": -276.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 2060,
-     "name": "Sam Darnold",
-     "pos": "QB",
-     "left": "1835",
-     "right": 1559.0,
-     "delta": -276.0
     }
    ],
    "held": null,
@@ -648,7 +648,7 @@
    "status": "green",
    "stored_week": 6,
    "chart_week": 6,
-   "stored_bake": "fpwk6_2026-10-16t1235_v1",
+   "stored_bake": "fpwk6_2026-10-17t1235_v1",
    "stages": {
     "publisher_vs_stored": {
      "status": "green",
@@ -668,8 +668,8 @@
      "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-6-2026/",
      "page_week": 6,
      "page_modified": "2026-10-13T13:08:06+00:00",
-     "bake_id": "fpwk6_2026-10-16t1235_v1",
-     "bake_saved_at": "2026-10-16T12:35:45.940352Z",
+     "bake_id": "fpwk6_2026-10-17t1235_v1",
+     "bake_saved_at": "2026-10-17T12:35:47.205295Z",
      "grains": {
       "full|1": {
        "left": 178,
@@ -2014,7 +2014,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher updated 2026-10-17 (2 h ago); chart shows snapshot 2026-10-16",
+     "summary": "publisher updated 2026-10-17 (3 h ago); chart shows snapshot 2026-10-16",
      "chart_snapshot": "2026-10-16",
      "publisher_vintage": "2026-10-17"
     },
@@ -2233,7 +2233,7 @@
     ],
     "reason": "fidelity: publisher_vs_stored",
     "identity": null,
-    "since": "2026-10-17T12:18:51.256467Z",
+    "since": "2026-10-17T12:40:15.669624Z",
     "summary": "no stored Draft Sharks rows"
    }
   },
@@ -2294,7 +2294,7 @@
     ],
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
-    "since": "2026-10-17T12:18:51.256467Z",
+    "since": "2026-10-17T12:40:15.669624Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2332,5 +2332,5 @@
   "fantasysharks": "2026-10-16T07:19:25.781124+00:00"
  },
  "resyncs": {},
- "holds_changed": true
+ "holds_changed": false
 }
