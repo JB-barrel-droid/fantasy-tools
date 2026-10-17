@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-17T03:50:00.215362+00:00",
+  "run_at": "2026-10-17T06:42:33.882710+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,16 +10,33 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "green",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
     "cbsros",
+    "espn",
     "razzball"
   ],
   "hold_severity": "none",
   "list_changes": {},
   "held_detail": {
+    "espn": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "espn",
+        "espn_vorp"
+      ],
+      "sections": [
+        "espn",
+        "espn_adjusted"
+      ],
+      "detail": "1605/1743 chart values equal stored snapshot 2026-10-16 (per game, 2 decimals); 138 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
+      "hold_severity": "amber",
+      "week": 6
+    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -44,7 +61,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1768/1872 chart values equal stored snapshot 2026-10-15 (per game, 1 decimals); 104 chart values differ from the stored snapshot, 58 stored players not on the chart, 4 chart players not stored; newer stored snapshot 2026-10-16 is not on the chart yet: 449 values changed, 5 added, 15 dropped",
+      "detail": "1881/1881 chart values equal stored snapshot 2026-10-16 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 45 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 6
     }
@@ -161,7 +178,23 @@
     }
   },
   "fidelity_holds": {
+    "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "ERROR tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex"
+    ],
+    "assertions": [
+      "TypeError: 'NoneType' object is not subscriptable"
+    ],
+    "make_targets": [
+      "Makefile:468: test-core"
+    ],
+    "detail": "ERROR tests.test_spec_reference_value_pipeline.LiveDump.test_ppr12_and_superflex; TypeError: 'NoneType' object is not subscriptable",
+    "recorded_at": "2026-10-17T06:43:22.535203+00:00"
   }
 }
