@@ -62,6 +62,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 
 import build_week_history as H  # noqa: E402
 from tests._dist_server import engine_path  # noqa: E402
+from tests._holds import with_pinned_holds  # noqa: E402
 from tests import _render_env  # noqa: E402
 
 
@@ -78,6 +79,7 @@ BIJAN = 217
 DELTAS = {}  # source -> Bijan Robinson Δ at Full PPR / 12 (printed by the test)
 ZERO_ONLY = {}  # series -> players priced 0.0 on one side only (printed)
 UNMATCHED = {}  # base source -> why its served inputs match no saved week (warned)
+FIXTURE_ASSET = "assets/comparison-sources-data.json"
 
 
 def _week(n):
@@ -778,7 +780,9 @@ def collect(overrides=None):
                 else:
                     DELTAS[source] = round(current - values[BIJAN], 1)
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
-            held = held_roots()
+            # The holds the page saw: a served fixture override's, else the committed fixture's.
+            fixture_override = (overrides or {}).get(FIXTURE_ASSET)
+            held = held_roots(json.loads(fixture_override)["sources"]) if fixture_override else held_roots()
             for source, res in page.evaluate(ESPN_PRIOR).items():
                 if _base(source) in held:
                     continue
@@ -878,10 +882,19 @@ class DeltaRecomputeTest(unittest.TestCase):
             index["served"][base] = {"week": None, "reason": "the served inputs match no saved week"}
         return json.dumps(index)
 
+    def _unmatched_overrides(self):
+        # Held-proof (JEG-675, Jeremy 2026-10-16: "Give the tests a fixed,
+        # held-proof fixture"): the premise needs ESPN and USA Today unheld,
+        # so serve the pinned holds (tests/_holds.py). Chain run 573
+        # (JEG-chain573) held ESPN and this test went red on the data.
+        fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
+        return {"assets/history/index.json": self._unmatched_index(),
+                FIXTURE_ASSET: json.dumps(with_pinned_holds(fixture), separators=(",", ":"))}
+
     def test_unmatched_served_week_is_a_warning_not_a_crash(self):
         # Jeremy, 2026-10-09 (JEG-507): warn, don't block, as long as the
         # engine reports the prior week unavailable with a reason.
-        self.assertEqual(collect({"assets/history/index.json": self._unmatched_index()}), [])
+        self.assertEqual(collect(self._unmatched_overrides()), [])
         self.assertEqual(sorted(UNMATCHED), ["espn", "usatoday"])
         self.assertTrue(all("match no saved week" in why for why in UNMATCHED.values()), UNMATCHED)
 
@@ -894,8 +907,7 @@ class DeltaRecomputeTest(unittest.TestCase):
             "return {served: {...served, week: Math.max(...Object.keys(index.weeks || {}).map(Number))}}; "
             "if (!served) {")
         self.assertNotEqual(guesses, widget)
-        failures = collect({"assets/history/index.json": self._unmatched_index(),
-                            "assets/curve-widget.js": guesses})
+        failures = collect({**self._unmatched_overrides(), "assets/curve-widget.js": guesses})
         self.assertTrue([f for f in failures if "the served week is unmatched but" in f], failures)
 
 

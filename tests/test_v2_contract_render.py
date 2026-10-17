@@ -64,6 +64,7 @@ import build_v2_page  # noqa: E402
 
 from tests import _render_env  # noqa: E402
 from tests._dist_server import engine_path  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 
 
 def setUpModule():
@@ -183,6 +184,10 @@ def _served():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        # Held-proof fixture (JEG-675, Jeremy 2026-10-16: "Give the tests a fixed,
+        # held-proof fixture"): GL-09 needs a projection unheld to offer DDF Value
+        # (projections). Chain run 573 (JEG-chain573) held all three projections.
+        pin_holds_in_dist(dist)
         build_v2_page.build(dist)
 
         class Handler(http.server.SimpleHTTPRequestHandler):
