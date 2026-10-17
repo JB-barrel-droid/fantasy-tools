@@ -29,6 +29,10 @@ one:
    fail when the Week 4 file is served relabelled as Week 3, when the
    accessor substitutes the served (current) natives for the saved week, and
    when getPriorWeek pairs the served week with itself.
+   * JEG-714: every saved week in the index (not only the served/prior pair)
+     loads through getWeekValues under its own label, and a published chart's
+     week prices the store's natives for that week times one factor, so a
+     mislabelled week file is caught whichever week the charts serve.
 
 JEG-508 (docs/methodology.md "Value Pipeline", VP-6.4 / VP-8 / VP-10): a
 saved week is one value-pipeline run on that week's inputs (same league,
@@ -557,6 +561,21 @@ ESPN_PRIOR = """async () => {
   }
   return out;
 }"""
+# JEG-714: every saved week the page serves (index.weeks), not only the
+# served/prior pair. Run 568 (2026-10-17): once every chart served Week 6,
+# no chart's prior was Week 4, so a relabelled week-4.json went unread by
+# the guard although the page still serves it to getWeekValues.
+ALL_WEEKS = """async (pairs) => {
+  const c = window.TradeValueCurveControls;
+  c.setScoring('ppr'); c.setTeams(12);
+  const out = {};
+  for (const [k, week] of pairs) {
+    const r = await c.getWeekValues(k, week);
+    out[`${k}@${week}`] = {available: r.available, reason: r.reason || null, week: r.week,
+                           values: r.available ? r.values : null};
+  }
+  return out;
+}"""
 
 
 def _saved_natives(source, week):
@@ -659,6 +678,40 @@ def unmatched_prior(series, res):
     return []
 
 
+def saved_week_failures(page, index, held):
+    """JEG-714: every saved week in the index, read through the engine's
+    getWeekValues at Full PPR / 12, must load under its own label and, for a
+    published chart, price the STORE's natives for that week (data/history,
+    not the served copy) times one factor (VP-6.4). A served week file that is
+    relabelled or carries another week's content fails here whichever week the
+    charts serve now."""
+    charted = json.loads((ROOT / "data" / "fixtures" / "current" /
+                          "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
+    pairs = sorted((src, int(week)) for week, rec in (index.get("weeks") or {}).items()
+                   for src in (rec.get("sources") or {})
+                   if src in charted and src not in held)
+    if not pairs:
+        return ["no saved week to check"]
+    failures = []
+    results = page.evaluate(ALL_WEEKS, [list(p) for p in pairs])
+    for (src, week) in pairs:
+        res = results[f"{src}@{week}"]
+        if not res["available"]:
+            failures.append(f"{src} Week {week}: saved week unavailable ({res['reason']})")
+            continue
+        served = (index.get("served") or {}).get(src) or {}
+        if src not in H.PUBLISHED or (served.get("week") == week and served.get("version") == "superseded"):
+            continue  # projections: availability only; a served kept version is SELF's check
+        native = _saved_natives(src, week)
+        values = {int(k): v for k, v in (res["values"] or {}).items()}
+        ratios = [values[k] / v for k, v in native.items() if v > 0 and k in values]
+        missing = [k for k, v in native.items() if v > 0 and k not in values]
+        if not ratios or missing or max(ratios) - min(ratios) > 1e-9 * max(ratios):
+            failures.append(f"{src} Week {week}: values are not one factor on the saved Week {week} "
+                            f"natives ({len(missing)} saved players missing)")
+    return failures
+
+
 def collect(overrides=None):
     """Failures of the Δ checks against the built dist/ (with optional
     served-file overrides that simulate a broken state)."""
@@ -743,6 +796,8 @@ def collect(overrides=None):
                 if res["changed"] == 0:  # the served week passed off as the prior one
                     failures.append(f"{source}: prior week identical to the served values")
 
+            failures += saved_week_failures(page, index, held)
+
             # An unmatched source has no served week to reproduce.
             served = [k for k in served_sources() if k.split("_")[0] not in UNMATCHED]
             self_results = page.evaluate(SELF, served)
@@ -794,6 +849,22 @@ class DeltaRecomputeTest(unittest.TestCase):
         if any(r.get("version") == "superseded" for r in (index.get("served") or {}).values()):
             cases["served week read from the week's snapshot, not the served version"] = {
                 "assets/curve-widget.js": served_ignored}
+        # JEG-714 (chain runs 552-568): once every chart serves Week 6, no
+        # chart's prior is Week 4, yet week-4.json is still served. The same
+        # broken files must be caught then too. The index marks any chart
+        # serving Week 5 unmatched (a warning), the state of run 568.
+        if index:
+            rolled = copy.deepcopy(index)
+            for base, rec in rolled["served"].items():
+                if rec.get("week") == 5:
+                    rolled["served"][base] = {"week": None, "reason": "the served inputs match no saved week"}
+            rolled_doc = json.dumps(rolled)
+            self.assertEqual(collect({"assets/history/index.json": rolled_doc}), [])
+            cases["week-4 file relabelled as week 3, no chart's prior is Week 4"] = {
+                "assets/history/index.json": rolled_doc, "assets/history/week-4.json": relabelled_doc}
+            cases["week-4 file with week-3 content, no chart's prior is Week 4"] = {
+                "assets/history/index.json": rolled_doc,
+                "assets/history/week-4.json": json.dumps(dict(relabelled, week=4))}
         for name, overrides in cases.items():
             with self.subTest(name):
                 self.assertNotEqual(collect(overrides), [], f"{name} was not caught")
