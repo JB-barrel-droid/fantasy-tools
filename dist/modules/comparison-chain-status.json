@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-17T15:54:42.937087+00:00",
+  "run_at": "2026-10-17T19:09:19.922942+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,22 +15,23 @@
   "outcome": "green",
   "held": [
     "cbsros",
-    "fantasycalc",
+    "espn",
     "razzball"
   ],
   "hold_severity": "none",
   "list_changes": {},
   "held_detail": {
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
+    "espn": {
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
-        "fantasycalc"
+        "espn",
+        "espn_vorp"
       ],
       "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
+        "espn",
+        "espn_adjusted"
       ],
-      "detail": "418/1170 values match exactly across 6 columns; column check: stored half|1 list is closest to the live full|1 list (mean |diff| 10 vs 24); stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 27); stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 27); 752 o",
+      "detail": "1608/1743 chart values equal stored snapshot 2026-10-17 (per game, 2 decimals); 135 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 6
     },
@@ -58,7 +59,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1881/1881 chart values equal stored snapshot 2026-10-16 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 45 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-17 is not on the chart yet: 416 values changed, 14 added, 1 dropped",
+      "detail": "1890/1890 chart values equal stored snapshot 2026-10-17 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 55 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 6
     }
@@ -121,7 +122,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-17 -> 12 DDF legs -> section; review passed (7560 values)",
+      "detail": "snapshot 2026-10-17 -> 12 DDF legs -> section; review passed (7572 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -175,7 +176,7 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
+    "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   }
