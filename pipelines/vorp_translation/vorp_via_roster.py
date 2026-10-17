@@ -113,7 +113,7 @@ def allocate_superflex(ranked: dict[str, list[tuple[str, float]]] | None,
     apportioned by dedicated slots, like the flex baseline.
 
     superflex_count 0 returns all zeros, so every default roster is
-    unchanged. Mirrored exactly by value-model.js translationSuperflex.
+    unchanged.
     """
     if slots is None:
         slots = REF_SLOTS
@@ -164,9 +164,7 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
         waiver_estimates: {pos: estimated_waiver_value} for VORP calc
                          (if None, uses 0 — pure value weighting)
         slots: dedicated starters per team by position (default REF_SLOTS).
-               JEG-332: the browser port (value-model.js
-               translatePublishedVorp) passes the chart's roster steppers;
-               the default keeps server output unchanged.
+               The default keeps server output unchanged.
         flex_eligible: flex-eligible positions (default REF_FLEX_ELIGIBLE)
         superflex_alloc: {pos: superflex starters} already taken
                (allocate_superflex); flex candidates start after them.

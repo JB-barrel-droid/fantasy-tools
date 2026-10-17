@@ -873,3 +873,36 @@ Implemented in `pipelines/review_comparison_candidate.py` (`coverage_fill_in_rea
 ### Record correction (2026-10-17)
 
 PRs #668 and #669 (merged 2026-10-16) recorded a CBS floor accept (WR 41 / TE 10, Week 6, all three combos) in `data/triage/coverage-accepted.json` with `approved_by: Jeremy, approved_on: 2026-10-16`, and their commit messages and the JEG-667 comments describe it as Jeremy's decision. That was another session's reading of his answer, not his decision. His decision was the convention above. The floor accept entries stay in the file as history and are not reverted; they expire with Week 6 and are only a fallback where fill-in does not apply. The convention governs.
+
+## jeremy-review-2026-10-16-qb: QB values on a 2-QB board (JEG-702)
+- id: jeremy-review-2026-10-16-qb
+- created: 2026-10-16
+- deadline: 2026-10-16
+- category: methodology
+- silence-default: explicit-tap
+- outcome: modified
+- outcome_date: 2026-10-16
+- recommendation: Q1 (d) both; Q2 (c) park; Q3 (a) no cap.
+
+### Context
+
+The QB values review (`docs/research/qb-values-review-2026-10-16.md`) found that PR 637's loosened 2-QB checks guard a translation no page prices from, and asked three questions.
+
+### Problem
+
+What guards 2-QB QB value, whether the engine's 2-QB QB level is right, and whether to cap part-timers' per-game rates.
+
+### Options
+
+Section 6 of the review.
+
+### Recommendation
+
+Q1 (d), Q2 (c), Q3 (a).
+
+### Outcome Note
+
+Jeremy, 2026-10-16:
+1. Q1: "Both: point the checks at the live engine and retire the unused code." The +3 / >28 checks on `unified.positional_max_for_setup` are retired with that function, `projection_max_vorp`, and the browser translation port in `value-model.js` (`translatePublishedVorp`, `positionalMaxForSetup`, `imputeExtension` and helpers). The new guard, `tests/test_two_qb_direction.py`: at every scoring and team count, the 2-QB top QB's blended DDF Value is at least 1.2 times its 1-QB value, on the Python reference and on the engine headless (which must also equal the reference). The server translation (`unified.translate_source`) stays: its grains are a record.
+2. Q2: "Park until a second superflex source." Revisit when one is wired (KeepTradeCut, JEG-669, is the candidate).
+3. Q3: "Undo the per-game change (JEG-535) for ESPN." Not the recommended option. Implementation notes are added below when it lands.

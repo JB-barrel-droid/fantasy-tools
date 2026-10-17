@@ -11,34 +11,69 @@ extended with imputed natives from the other published charts
 (unified.impute_extension / ValueModel.imputeExtension) and the line is read at
 the rostered count. Imputed players never get a value.
 
-Checks here (the parity of the whole translation, peers included, on every
-real chart and setting lives in tests/test_vorp_translation_js_parity.py):
+Checks here (the server translation, pipelines/vorp_translation/unified.py):
   * the imputation arithmetic, by hand, on a synthetic chart;
   * a short position prices its last listed player; without peers it did not
     (the old behaviour) -- this is the test that fails on the old code;
   * no usable peer -> the old fallback, denoted insufficient_coverage;
   * a chart that is never short translates exactly as before;
   * imputed players never appear as the chart's values;
-  * Python == JS for imputeExtension, real and synthetic, bit for bit;
   * (JEG-482 removed the saved-fixture checks: the saved Indexed values are
-    no longer this translation; it is the VORP vs waivers view's math);
-  * mutations of the JS port (cap dropped, fit on the whole list, peers
-    ignored, sum instead of mean) are caught.
+    no longer this translation.)
+  * JEG-702 (Jeremy 2026-10-16, Q1: "Both: point the checks at the live
+    engine and retire the unused code."): the browser port
+    (ValueModel.imputeExtension / translatePublishedVorp) had no caller on
+    the page and was removed, with its Python == JS parity and mutation
+    checks. The Python translation keeps the checks above.
 """
 from __future__ import annotations
 
-import copy
 import json
-import subprocess
-import tempfile
+import sys
 import unittest
 from pathlib import Path
 
-from tests.test_vorp_translation_js_parity import (
-    DRIVER, FIXTURE, NO_COVER_PEERS, SCORINGS, SOURCES, THIN_CHART, THIN_PEERS, VALUE_MODEL,
-    _load_peers, _load_ranked, _python, _real_vectors, run_parity,
-)
-from pipelines.vorp_translation import unified
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+sys.path.insert(0, str(REPO))
+
+from pipelines.vorp_translation import unified  # noqa: E402
+
+FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+SCORINGS = ("standard", "half_ppr", "ppr")
+
+
+def _load_ranked(source, scoring):
+    ranked, key_by_name = unified.load_native_values(source, scoring, 12)
+    return {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
+            for pos, rows in ranked.items()}
+
+
+def _load_peers(source, scoring):
+    """V2-WAIVER-COVERAGE: the other published charts' saved natives, keyed."""
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    return unified.peers_ranked(unified.peer_natives(fixture, source, scoring))
+
+
+def _keyed(prefix, values, start=0):
+    return [(f"{prefix}{i}", f"{prefix} {i}", float(v)) for i, v in enumerate(values, start)]
+
+
+# A chart listing 6 QBs / 12 RBs (a 12-team league rosters ~21 / ~55) whose
+# bottom half is also on two peer charts in other units, plus players it omits.
+THIN_CHART = {"QB": _keyed("q", [30, 25, 20, 15, 10, 8]),
+              "RB": _keyed("r", [60, 50, 45, 40, 35, 30, 25, 20, 18, 16, 14, 12]),
+              "WR": _keyed("w", range(200, 20, -2)), "TE": _keyed("t", range(60, 20, -1))}
+THIN_PEERS = {
+    "peer_a": {"QB": _keyed("q", [300, 250, 200, 150, 100, 80] + list(range(78, 0, -3))),
+               "RB": _keyed("r", [600, 500, 450, 400, 350, 300, 250, 200, 180, 160, 140, 120]
+                            + list(range(118, 0, -2)))},
+    "peer_b": {"QB": _keyed("q", [60, 50, 40, 30, 20, 16, 15.5, 15, 14, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+                                  0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.01])},
+}
+NO_COVER_PEERS = {"peer_a": {"QB": _keyed("q", [5, 4, 3], start=40),
+                             "RB": _keyed("r", [9, 8], start=4) + _keyed("r", [7, 6, 5], start=90)}}
 
 
 def _pairs(by_pos):
@@ -47,38 +82,6 @@ def _pairs(by_pos):
 
 def _thin(peers, teams=12):
     return unified.translate_ranked(THIN_CHART, teams, peers=peers)
-
-
-def _js_impute(vectors, model_path=VALUE_MODEL):
-    payload = {"vectors": [{
-        "kind": "impute",
-        "ranked": {pos: [[r[0], r[-1]] for r in rows] for pos, rows in v["ranked_keyed"].items()},
-        "peers": {src: {pos: [[r[0], r[-1]] for r in rows] for pos, rows in by_pos.items()}
-                  for src, by_pos in (v.get("peers") or {}).items()},
-    } for v in vectors]}
-    proc = subprocess.run(["node", str(DRIVER), str(model_path)], input=json.dumps(payload),
-                          capture_output=True, text=True, timeout=300)
-    if proc.returncode != 0:
-        raise AssertionError(f"node driver failed: {proc.stderr[:2000]}")
-    return [{pos: [tuple(r) for r in rows] for pos, rows in res["extension"].items()}
-            for res in json.loads(proc.stdout)["results"]]
-
-
-def _py_impute(vector):
-    ranked = {pos: sorted(((str(r[0]), float(r[-1])) for r in rows), key=lambda r: -r[1])
-              for pos, rows in vector["ranked_keyed"].items()}
-    out = unified.impute_extension(ranked, vector.get("peers"))
-    return {pos: [tuple(r) for r in rows] for pos, rows in out.items()}
-
-
-def _impute_vectors():
-    vectors = [{"label": "thin", "ranked_keyed": THIN_CHART, "peers": THIN_PEERS},
-               {"label": "no-cover", "ranked_keyed": THIN_CHART, "peers": NO_COVER_PEERS}]
-    for source in SOURCES:
-        for scoring in SCORINGS:
-            vectors.append({"label": f"{source}/{scoring}", "ranked_keyed": _load_ranked(source, scoring),
-                            "peers": _load_peers(source, scoring)})
-    return vectors
 
 
 class ImputationArithmetic(unittest.TestCase):
@@ -164,47 +167,6 @@ class ShortChartTranslation(unittest.TestCase):
                 self.assertLessEqual(p["waiver_line_value"], ranked[pos][-1][2])
             last_qb = ranked["QB"][-1][0]
             self.assertIn(last_qb, out["translated"], f"cbs/{scoring}: last listed QB still 0")
-
-
-class ImputationParity(unittest.TestCase):
-    def test_js_equals_python_impute_extension(self):
-        vectors = _impute_vectors()
-        js = _js_impute(vectors)
-        n = 0
-        for vec, got in zip(vectors, js):
-            want = _py_impute(vec)
-            self.assertEqual(want, got, vec["label"])
-            n += sum(len(rows) for rows in want.values())
-        print(f"\n[V2-WAIVER-COVERAGE impute parity] vectors={len(vectors)} imputed_rows={n}")
-        self.assertGreater(n, 500)
-
-    def test_guard_catches_broken_ports(self):
-        source = VALUE_MODEL.read_text(encoding="utf-8")
-        mutations = {
-            "no-cap": ("Math.min(last, slot[0] / slot[1])", "slot[0] / slot[1]"),
-            "fit-whole-list": ("return Number(p.value) <= median;", "return true;"),
-            "sum-not-mean": ("Math.min(last, slot[0] / slot[1])", "Math.min(last, slot[0])"),
-            "peers-ignored": ("var extension = opts.peers ? imputeExtension(ranked, opts.peers) : {};",
-                              "var extension = {};"),
-            "waiver-at-list-end": ("if (nRostered < players.length) method = \"roster_determined\";",
-                                   "if (true) { method = \"roster_determined\"; waiverVal = players[players.length - 1].value; }"),
-        }
-        vectors = [v for v in _real_vectors() if v["source"] == "cbs" and v["scoring"] == "ppr"
-                   and v["bench_per_team"] in (3, 6, 7) and v["flex_count"] == 1]
-        vectors += [{"label": "thin-peers", "ranked_keyed": THIN_CHART, "peers": THIN_PEERS,
-                     "teams": 12, "bench_per_team": 6, "flex_count": 1, "slots": None,
-                     "flex_eligible": None}]
-        with tempfile.TemporaryDirectory() as tmp:
-            intact = Path(tmp) / "value-model-intact.js"
-            intact.write_text(source)
-            self.assertEqual(run_parity(vectors, intact)[0], [])
-            for name, (old, new) in mutations.items():
-                self.assertEqual(source.count(old), 1, f"mutation anchor for {name} moved")
-                broken = Path(tmp) / f"value-model-{name}.js"
-                broken.write_text(source.replace(old, new))
-                failures = run_parity(vectors, broken)[0]
-                print(f"\n[V2-WAIVER-COVERAGE negative test] {name}: {len(failures)} failing vectors")
-                self.assertGreater(len(failures), 0, f"mutation {name} was NOT caught")
 
 
 if __name__ == "__main__":

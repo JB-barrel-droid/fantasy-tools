@@ -641,8 +641,9 @@ def main():
         bye = team_bye.get(p["team"])
         tros = p["ros_weeks"]
         gr = len(tros) - (1 if bye in tros else 0)
-        # JEG-535 (MR-20a): per-game-played denominator = the count of ROS
-        # weeks where ESPN projects any scoring stat for this player.
+        # JEG-535 (MR-20a): the count of ROS weeks where ESPN projects any
+        # scoring stat for this player (games played). Recorded only: since
+        # JEG-702 the ppg below divides by team games (gr).
         eg = p["espn_projected_games"]
         half = p["ros_half_ppr"]
         rec = p["ros"]["r_receptions"]
@@ -656,13 +657,13 @@ def main():
             "ros_weeks": tros,
             "espn_complete": bool(p["eligible"]),
             "ros": {"standard": ros_std, "half_ppr": half, "ppr": ros_ppr},
-            # JEG-535: ppg uses espn_expected_games (per game played),
-            # not games_remaining (per team game). This harmonizes ESPN
-            # with CBS and Razzball, which publish per-game-played rates.
+            # JEG-702 (Jeremy 2026-10-16, "Undo ESPN only"): ppg is per
+            # team game (games_remaining, bye excluded), the pre-JEG-535
+            # basis, matching bake_players.py and the DDF leg.
             "ppg": {
-                "standard": round(ros_std / eg, 2) if eg else 0.0,
-                "half_ppr": round(half / eg, 2) if eg else 0.0,
-                "ppr": round(ros_ppr / eg, 2) if eg else 0.0},
+                "standard": round(ros_std / gr, 2) if gr else 0.0,
+                "half_ppr": round(half / gr, 2) if gr else 0.0,
+                "ppr": round(ros_ppr / gr, 2) if gr else 0.0},
         }
     sidecar = {"source": "espn", "leg_label": "ESPN projections",
                "vintage": vintage, "payload_hash": digest,
