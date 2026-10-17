@@ -153,7 +153,9 @@ RZ_LEGS = (("rz_std_ppg", "standard"),
 # JEG-555: Razzball's per-game number is an expected value over the games it
 # thinks the player plays, so a player it expects to miss time (Lamar Jackson
 # "O", Mahomes' snaps/game down to 45) carries a missed-games discount that
-# ESPN and CBS ROS per-game rates (points per game played) do not. A Razzball
+# ESPN and CBS ROS per-game rates (points per game played) do not. The ESPN
+# reference here is ESPN per game PLAYED (ROS / espn_expected_games), not the
+# per-team-game rate ESPN publishes since JEG-702. A Razzball
 # rate below RZ_OUTLIER_RATIO of the ESPN/CBS mean (references at least
 # RZ_OUTLIER_MIN_REF) is HELD: the Razzball number is dropped from the row and
 # the row says why (rz_held). Never filled, never zero.
@@ -468,8 +470,8 @@ def fetch_espn_intake(path, registry):
                 print(f"espn intake WARNING: duplicate key: {key} "
                       f"({r.get('player')})")
             # JEG-535 (MR-20a): espn_projected_games = count of ROS weeks
-            # where ESPN projects any scoring stat. This is the per-game-
-            # played denominator, harmonizing ESPN with CBS/Razzball.
+            # where ESPN projects any scoring stat. Since JEG-702 only the
+            # JEG-555 Razzball hold divides by it (ESPN per game played).
             epg_raw = (r.get("espn_projected_games") or "").strip()
             espn_med[key] = {
                 "comps": comps,
@@ -934,11 +936,10 @@ def bake(args):
         # (team already variant-normalized by _resolve_team_abbr).
         gr = games_left.get(canonical_team(team))
         row["games_remaining"] = gr
-        # JEG-535 (MR-20a): espn_expected_games = the count of ROS weeks
-        # where ESPN projects any scoring stat for this player. This is
-        # the per-game-played denominator, harmonizing ESPN with CBS and
-        # Razzball (which publish per-game-played rates). games_remaining
-        # stays as team games for backward compatibility.
+        # espn_expected_games = the count of ROS weeks where ESPN projects
+        # any scoring stat for this player (JEG-535). Since JEG-702 it no
+        # longer divides ESPN's published rate; only the JEG-555 Razzball
+        # hold reads it (ESPN per game played, below).
         eg = espn_row.get("espn_projected_games")
         row["espn_expected_games"] = eg
         # JEG-392: ESPN-zeroed rows publish no ESPN per-game projection and
@@ -948,12 +949,21 @@ def bake(args):
         # therefore see exactly the ESPN-priced players, as before.
         has_espn = not espn_status
         if gr:
-            # JEG-535: espn_ppg and blend_ppg use espn_expected_games (per
-            # game played) when available, falling back to team games.
-            espn_denom = eg if eg else gr
+            # JEG-702 (Jeremy 2026-10-16, "Undo ESPN only; hold keeps
+            # comparing per game played"): ESPN's published rate is ROS
+            # points / team games remaining (bye excluded), the pre-JEG-535
+            # basis, so a part-timer's few projected games no longer price
+            # him like a starter.
+            espn_played_ppg = None
             if has_espn:
-                row["blend_ppg"] = {s: round(v / espn_denom, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
-                row["espn_ppg"] = {s: round(v / espn_denom, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
+                row["blend_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
+                row["espn_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
+                # The JEG-555 hold still compares Razzball against ESPN per
+                # game PLAYED (espn_expected_games, else team games), so
+                # Razzball's held set and values are unchanged by JEG-702.
+                espn_played = eg if eg else gr
+                espn_played_ppg = {s: round(v / espn_played, PPG_DECIMALS)
+                                   for s, v in row["espn_ros"].items()}
             # Razzball: rz_ros = rz_ppg x the pipeline's OWN games_remaining.
             # Razzball's displayed Games/totals are doubled (Allen: 32 games)
             # and are NEVER used. The source-accounting audit below fails the
@@ -961,7 +971,7 @@ def bake(args):
             rz_held = None
             if rz_complete:
                 rz_held = razzball_outlier_reason(
-                    z, row.get("espn_ppg"),
+                    z, espn_played_ppg,
                     {s: c[s] for s in SCORINGS} if cbsros_complete else None)
             if rz_held:
                 # JEG-555 fail-closed: held, not zeroed or filled.
