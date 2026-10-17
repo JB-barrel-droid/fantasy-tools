@@ -47,7 +47,7 @@
       "bench_raw": 33.64499999999999,
       "bench_share_used": 0.15,
       "n_bench": 29,
-      "n_pool": 231,
+      "n_pool": 230,
       "n_starters": 22,
       "pb": 0.38714821027116264,
       "pie": 224.29999999999993,
@@ -58,7 +58,7 @@
       "tau": 1.1124999999999998
     }
   },
-  "generated_at": "2026-10-17T19:32:56Z",
+  "generated_at": "2026-10-17T23:27:21Z",
   "identity": {
     "alias_note": "Shared verified alias map with the ESPN DDF leg (data/inputs/player_aliases.json); suffix, punctuation and nickname spellings match through norm_player_name (FixtureIdentity). Unresolvable identities are excluded, never guessed.",
     "aliases_used": [
@@ -239,7 +239,7 @@
       "reason": "rz_held"
     },
     {
-      "detail": "razzball standard 0.1 ppg is 1% of the ESPN/CBS mean 10.2 (< 60%): likely an expected-missed-games discount",
+      "detail": "razzball standard 0.1 ppg is 1% of the ESPN/CBS mean 10.3 (< 60%): likely an expected-missed-games discount",
       "player": "Josh Jacobs",
       "player_key": 4614,
       "pos": "RB",
@@ -267,7 +267,7 @@
       "reason": "rz_held"
     },
     {
-      "detail": "razzball standard 1.4 ppg is 14% of the ESPN/CBS mean 10.0 (< 60%): likely an expected-missed-games discount",
+      "detail": "razzball standard 1.4 ppg is 14% of the ESPN/CBS mean 10.1 (< 60%): likely an expected-missed-games discount",
       "player": "Tanner McKee",
       "player_key": 1138,
       "pos": "QB",
@@ -312,6 +312,13 @@
       "detail": "razzball standard 1.3 ppg is 28% of the ESPN/CBS mean 4.6 (< 60%): likely an expected-missed-games discount",
       "player": "Demarcus Robinson",
       "player_key": 137,
+      "pos": "WR",
+      "reason": "rz_held"
+    },
+    {
+      "detail": "razzball standard 3.8 ppg is 56% of the ESPN/CBS mean 6.7 (< 60%): likely an expected-missed-games discount",
+      "player": "Roman Wilson",
+      "player_key": 4496,
       "pos": "WR",
       "reason": "rz_held"
     },
@@ -407,7 +414,7 @@
       "reason": "rz_held"
     },
     {
-      "detail": "razzball standard 0.8 ppg is 26% of the ESPN/CBS mean 3.1 (< 60%): likely an expected-missed-games discount",
+      "detail": "razzball standard 0.8 ppg is 25% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
       "player": "Austin Ekeler",
       "player_key": 2866,
       "pos": "RB",
@@ -449,7 +456,7 @@
       "reason": "rz_held"
     },
     {
-      "detail": "razzball standard 6.9 ppg is 36% of the ESPN/CBS mean 19.4 (< 60%): likely an expected-missed-games discount",
+      "detail": "razzball standard 6.9 ppg is 39% of the ESPN/CBS mean 17.9 (< 60%): likely an expected-missed-games discount",
       "player": "Jalen Hurts",
       "player_key": 625,
       "pos": "QB",
@@ -505,10 +512,10 @@
       "TE: bench share 0.15 infeasible, using 0.037"
     ],
     "n_bench": 70,
-    "n_review": 54,
+    "n_review": 55,
     "n_starters": 70,
-    "n_values": 632,
-    "n_waiver": 492
+    "n_values": 631,
+    "n_waiver": 491
   },
   "values": [
     {
@@ -7284,17 +7291,6 @@
       "ppg": 4.3,
       "raw_value": 0.0,
       "team": "TB",
-      "tier": "waiver",
-      "value": 0.0
-    },
-    {
-      "player": "Roman Wilson",
-      "player_key": 4496,
-      "player_norm": "roman wilson",
-      "pos": "WR",
-      "ppg": 6.0,
-      "raw_value": 0.0,
-      "team": "PIT",
       "tier": "waiver",
       "value": 0.0
     },
