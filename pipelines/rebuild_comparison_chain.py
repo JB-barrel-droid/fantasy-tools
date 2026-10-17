@@ -280,6 +280,33 @@ def process_section(section, repo, run_fn, nfl_week=None):
     return "promoted"
 
 
+def list_change_warnings_for(repo, section):
+    """The promoted section's review artifact, read back for its warnings."""
+    path = Path(repo) / "output" / "reviewed" / f"{section.stem}-review.json"
+    try:
+        return list_change_warnings(section.stem, json.loads(path.read_text()))
+    except (OSError, ValueError):
+        return []
+
+
+def list_change_warnings(base, review_data):
+    """One line per coverage check the review passed as a warning: which
+    players left or joined the list (JEG-667)."""
+    out = []
+    combos = review_data.get("combos") or {}
+    for c in review_data.get("checks", []):
+        name = str(c.get("name") or "")
+        if c.get("status") != "warn" or not name.startswith(("coverage:", "coverage_list:")):
+            continue
+        combo, _, pos = name.split(":", 1)[1].partition("/")
+        cov = ((combos.get(combo) or {}).get("coverage") or {}).get(pos) or {}
+        out.append(f"{base} {combo}/{pos} list {cov.get('fixture', '?')} -> "
+                   f"{cov.get('candidate', '?')}: dropped "
+                   f"{', '.join(cov.get('dropped') or []) or 'none'}; added "
+                   f"{', '.join(cov.get('added') or []) or 'none'}")
+    return out
+
+
 def run_source(source, nfl_week=None, repo=REPO, run_fn=run):
     """Run match -> reference -> section -> reindex -> review -> promote.
 
@@ -361,8 +388,13 @@ def run_source(source, nfl_week=None, repo=REPO, run_fn=run):
         #    The first hold/failure raises ChainHalt: no further sections
         #    are processed for this source. result["promoted"] is updated
         #    inside the loop so a halt still reports the true count.
+        warnings = result.setdefault("list_change_warnings", [])
         for section in sections:
             process_section(section, repo, run_fn, nfl_week=nfl_week)
+            # JEG-667 (Jeremy 2026-10-16): a list that got shorter or longer
+            # passes (fill-in covers the rosterable set); its names are a
+            # warning in the chain status, never silent.
+            warnings.extend(list_change_warnings_for(repo, section))
             result["promoted"] += 1
         promoted = result["promoted"]
 
@@ -376,6 +408,9 @@ def run_source(source, nfl_week=None, repo=REPO, run_fn=run):
         result["status"] = "ok"
         result["stage"] = "complete"
         result["detail"] = f"promoted {promoted}/{len(sections)}"
+        if warnings:
+            result["detail"] += ("; WARNING list changed, filled in from other charts "
+                                 "(OC-5): " + " | ".join(warnings))
         print(f"  ✓ {promoted}/{len(sections)} sections promoted")
 
     except ChainHalt as h:
@@ -1114,7 +1149,11 @@ def run_vorp_refresh(nfl_week, repo, run_fn):
 def describe_result(result):
     """Human-readable one-line status for the dashboard (string, not a code)."""
     if result["status"] == "ok":
-        return f"promoted {result['promoted']}/{result['sections']}"
+        base = f"promoted {result['promoted']}/{result['sections']}"
+        if result.get("list_change_warnings"):
+            base += (" (WARNING list changed, filled in from other charts: "
+                     + " | ".join(result["list_change_warnings"]) + ")")
+        return base
     if result["status"] == "held":
         kept = result.get("kept_section") or {}
         label = kept.get("week_designated") or kept.get("content_vintage") or "no prior section"
@@ -1189,6 +1228,10 @@ def write_chain_status(repo, results, reindex_result, nfl_week, runner):
                     "published_with_holds" if held else "green"),
         "held": held,
         "hold_severity": hold_severity,
+        # JEG-667: promoted sources whose list got shorter or longer; the
+        # fill-in covers the rosterable set, the names are a warning.
+        "list_changes": {s: r["list_change_warnings"] for s, r in results.items()
+                         if r.get("list_change_warnings")},
         "held_detail": {s: {
             "detail": results[s].get("detail"),
             "reason": results[s].get("held_reason"),

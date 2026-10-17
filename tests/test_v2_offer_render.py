@@ -48,6 +48,7 @@ import build_v2_page  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
 from tests.test_v2_compare_render import simulate_missing  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 
 
 def setUpModule():
@@ -59,6 +60,8 @@ def setUpModule():
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 TRADE_JS = ROOT / "app" / "v2" / "trade.js"
 EXTRA_SERIES = ("fantasycalc", "espn_vorp")
+# Compare reads its own Customize list since JEG-498 (#671), so the series under test are put on it directly.
+COMPARE_KEYS = ["ddf_value", "usatoday", "fantasycalc", "fantasypros", "espn", "espn_vorp"]
 
 # Two priced stars each way, plus one player who lacks a selected series on the receive side.
 PICK = """() => {
@@ -198,6 +201,9 @@ def _built_dist():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        # Held-proof fixture (JEG-675): the premise needs FantasyCalc and 3+ compared charts,
+        # so this test's own copy pins the holds (tests/_holds.py) whatever the fidelity pulse holds today.
+        pin_holds_in_dist(dist)
         build_v2_page.build(dist)
 
         class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -253,6 +259,7 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                 # The one-series notice above hid DDF Value; show it again so the picker offers it.
                 page.evaluate("() => window.TradeValueV2.setShown(['ddf_value'].concat(window.TradeValueV2.shown()))")
                 # JEG-541: a hermetic missing value (see test_v2_compare_render.SIMULATE_MISSING).
+                page.evaluate("keys => window.TradeValueV2.setPageKeys('compare', keys)", COMPARE_KEYS)
                 simulate_missing(page, "fantasycalc")
                 pick = page.evaluate(PICK)
                 page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
@@ -269,8 +276,8 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                 errors += [tag + e for e in check_story(snap)]
                 # Without the FantasyCalc chart there is no same-publisher contrast, so the story
                 # must agree or split, naming every complete source.
-                page.evaluate("""() => { const box = document.querySelector('#legacyEngine #sourceToggles input[data-source="fantasycalc"]');
-                  if (box && box.checked) box.click(); location.hash = '#player-values'; }""")
+                page.evaluate("keys => window.TradeValueV2.setPageKeys('compare', keys)", [k for k in COMPARE_KEYS if k != "fantasycalc"])
+                page.evaluate("() => { location.hash = '#player-values'; }")
                 page.wait_for_function("() => !document.getElementById('v2Main').hidden")
                 page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
                 page.wait_for_function("() => !document.getElementById('v2Compare').hidden && !document.getElementById('v2CTable').hidden")
@@ -278,8 +285,7 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                 if plain["story"] not in ("agree", "split"):
                     errors.append(tag + f"without the FantasyCalc chart the story should agree or split, got {plain['story']!r}")
                 errors += [tag + e for e in check_story(plain)]
-                page.evaluate("""() => { const box = document.querySelector('#legacyEngine #sourceToggles input[data-source="fantasycalc"]');
-                  if (box && !box.checked) box.click(); }""")
+                page.evaluate("keys => window.TradeValueV2.setPageKeys('compare', keys)", COMPARE_KEYS)
                 # Per-player arithmetic for the first complete row.
                 first = next((r for r in snap["rows"] if not r["missing"]), None)
                 if first:

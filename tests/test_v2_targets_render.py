@@ -46,8 +46,11 @@ JEG-461: no Sell/Buy toggle; both lists render at once, each with its top 5
 and a "Show all N … targets" control (N = the engine's list length) that opens
 25, then pages of 25, and "Show top 5" collapses, each list on its own. Side by
 side from 1024 px, stacked below (phone cards too). At 1440 × 900 and
-1366 × 768 the H1, subtitle and the top 5 of both lists are above the fold, and
-the filters sit on one row. Two-column rows show only Player · Our value ·
+1366 × 768 the H1 and subtitle are above the fold and the top 5 of both lists end
+by TOP5_FOLD_PX (1060; JEG-675, proposed 2026-10-17 and awaiting Jeremy's
+confirmation: rows are two-line since #639, measured 1058.5 / 1055.5 px on the
+pinned-holds fixture; Jeremy's rule "relax the fold spec"), and the filters sit
+on one row. Two-column rows show only Player · Our value ·
 Gap vs consensus ("N of M charts agree"); a row's ▾ opens its per-chart values.
 JEG-456 (part 1): from 1024 px the table needs no horizontal scroll; Pos, Team
 and Tier are in the player sub-line.
@@ -93,6 +96,7 @@ import build_v2_page  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
 from tests._dist_server import engine_path  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 
 
 def setUpModule():
@@ -118,6 +122,9 @@ SUBTITLE = ("We check four publishers' trade charts against our values for your 
 INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for your league. "
                 "Their ranking order is unchanged.")
 FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
+# Where the top 5 of both lists must end at 1440 x 900 and 1366 x 768 (JEG-675). Measured 1058.5 and 1055.5 px with
+# the headless font fallback and the pinned-holds fixture (tests/_holds.py); proposed to Jeremy, awaiting his confirmation.
+TOP5_FOLD_PX = 1060
 
 READ = """([side, ours, ids]) => {
   const C = window.TradeValueCurveControls;
@@ -262,10 +269,20 @@ SIMULATE_ROWS = """() => {
   // is simulated: the second solid sell target loses its lowest chart, with the engine's reason.
   const gap = second ? {key: String(second.row.player_key), chart: lowest(second),
     reason: 'Simulated: not enough shared players to index'} : null;
+  // The consensus rule's two edges (kept in the fixture so test_guard_fails_on_broken_builds can see them): a player
+  // priced by one chart only (never a target), and one priced by two charts with ours between them (no majority).
+  const taken = new Set([zero.key, low, none, second && String(second.row.player_key), gap && gap.key]);
+  const spare = rows.filter(r => !taken.has(String(r.player_key)) && fin(r.values[KEY]) && r.values[KEY] > 15
+    && used.every(c => fin(r.values[c]) && r.values[c] > 1));
+  const lone = spare[0] ? {key: String(spare[0].player_key), keep: used[0], value: spare[0].values[KEY] + 20} : null;
+  const split = spare[1] ? {key: String(spare[1].player_key), hi: used[0], lo: used[1], gone: used[2], ours: spare[1].values[KEY]} : null;
   const note = 'Only one source prices this player', reason = 'No source prices this player';
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
     const k = String(r.player_key);
+    if (lone && k === lone.key) return {...r, values: {...r.values, ...Object.fromEntries(used.map(c => [c, c === lone.keep ? lone.value : null]))}};
+    if (split && k === split.key) return {...r, values: {...r.values, [split.hi]: split.ours + 20, [split.lo]: split.ours - 10,
+      ...(split.gone ? {[split.gone]: null} : {})}};
     if (k === low) return {...r, values: {...r.values, [KEY]: 0.5}, ddfCount: 1, ddfSources: [used[0]],
       ddfLowConfidence: true, ddfConfidenceNote: note};
     if (k === none) return {...r, values: {...r.values, [KEY]: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
@@ -643,11 +660,13 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
     elif buy["top"] < sell["bottom"]:
         errors.append(f"lists are not stacked (Sell then Buy) at {width}px (JEG-461)")
     if (width, height) in ((1440, 900), (1366, 768)) and not expanded:
-        fold = lay["innerHeight"]
-        for name, bottom in (("H1", lay["h1Bottom"]), ("subtitle", lay["subBottom"]),
-                             ("sell top 5", lay["sell"]["fifthBottom"]), ("buy top 5", lay["buy"]["fifthBottom"])):
+        # JEG-675 (Jeremy, 2026-10-16: "relax the fold spec"): the H1 and subtitle stay above the viewport fold; the
+        # two-line rows (#639) put the top 5 below it, so they follow TOP5_FOLD_PX instead.
+        for name, bottom, fold in (("H1", lay["h1Bottom"], lay["innerHeight"]), ("subtitle", lay["subBottom"], lay["innerHeight"]),
+                                   ("sell top 5", lay["sell"]["fifthBottom"], TOP5_FOLD_PX),
+                                   ("buy top 5", lay["buy"]["fifthBottom"], TOP5_FOLD_PX)):
             if bottom is None or bottom > fold:
-                errors.append(f"{name} ends at {bottom}px, below the {width}×{height} fold (JEG-461)")
+                errors.append(f"{name} ends at {bottom}px, below the {fold}px fold at {width}×{height} (JEG-461)")
         tops = [f["top"] for f in lay["filters"]]
         if tops and max(tops) - min(tops) > 8:
             errors.append(f"filters wrap to more than one row at {width}px: tops {tops} (JEG-461)")
@@ -702,6 +721,9 @@ def _built_dist(html_sub=None):
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        # Held-proof fixture (JEG-675): the simulated-row probes need FantasyCalc or 3+ compared
+        # charts, so this test's own copy pins the holds (tests/_holds.py) whatever the fidelity pulse holds today.
+        pin_holds_in_dist(dist)
         build_v2_page.build(dist)
         if html_sub is not None:
             page = dist / "v2" / "index.html"

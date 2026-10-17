@@ -2747,7 +2747,10 @@
         return {pub, name, week: base?.week, status: "stuck",
           text: "Not updating", reason: `We couldn't refresh ${name}${since ? ` since ${since}` : ""}.`};
       }
-      const prior = (own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
+      // JEG-675: "showing Week N" is only true of a source the page shows. A held source is unavailable (no values,
+      // no columns), so its pipeline weeks_behind no longer reads "Prior week" (it said so for CBS while held).
+      const shown = items.some(item => item.available);
+      const prior = (shown && own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
       if (prior) {
         return {pub, name, week: base?.week, status: "prior", text: "Prior week",
           reason: view.refWeek && base?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${base.week}.` : ""};
