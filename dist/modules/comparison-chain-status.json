@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-17T03:27:26.035100+00:00",
+  "run_at": "2026-10-17T03:50:00.215362+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,25 +15,11 @@
   "outcome": "green",
   "held": [
     "cbsros",
-    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "none",
   "list_changes": {},
   "held_detail": {
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
-      ],
-      "detail": "802/1186 values match exactly across 6 columns; column check: stored half|2 list is closest to the live full|2 list (mean |diff| 10 vs 57); stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 45); 384 of 1186 values moved since the save at 2026-10-17T00:05:27.491526Z (largest 13",
-      "hold_severity": "amber",
-      "week": 6
-    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -175,7 +161,6 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   }
