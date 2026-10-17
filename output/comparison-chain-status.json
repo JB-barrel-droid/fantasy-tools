@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-17T11:46:29.600692+00:00",
+  "run_at": "2026-10-17T12:21:42.928462+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 75: dropped antonio williams, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr | fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr)",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -14,18 +14,11 @@
   "success": true,
   "outcome": "green",
   "held": [
-    "cbsros",
     "espn",
     "razzball"
   ],
   "hold_severity": "none",
-  "list_changes": {
-    "fantasycalc": [
-      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 75: dropped antonio williams, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr",
-      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr"
-    ]
-  },
+  "list_changes": {},
   "held_detail": {
     "espn": {
       "reason": "fidelity: stored_vs_chart",
@@ -38,20 +31,6 @@
         "espn_adjusted"
       ],
       "detail": "1605/1743 chart values equal stored snapshot 2026-10-16 (per game, 2 decimals); 138 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
-      "hold_severity": "amber",
-      "week": 6
-    },
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros",
-        "cbsros_adjusted"
-      ],
-      "detail": "1104/1104 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint ca4133093566cf533c71dee6); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 6
     },
@@ -85,14 +64,10 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 75: dropped antonio williams, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr | fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr",
+      "detail": "promoted 3/3",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": [
-        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 75: dropped antonio williams, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr",
-        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 74: dropped antonio williams, demario douglas, efton chism iii, malachi fields, rashid shaheed; added caleb douglas, dezhaun stribling, omar cooper jr"
-      ]
+      "list_change_warnings": []
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -187,7 +162,6 @@
   },
   "fidelity_holds": {
     "espn": "fidelity: stored_vs_chart",
-    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   }
 }
