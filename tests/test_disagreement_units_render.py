@@ -22,10 +22,12 @@ import http.server
 import json
 import shutil
 import socketserver
+import tempfile
 import threading
 import unittest
 from pathlib import Path
 from tests import _render_env  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 
 
 def setUpModule():
@@ -62,8 +64,17 @@ def _chart_page():
         def log_message(self, format, *args):
             pass
 
-    handler = functools.partial(QuietHandler, directory=str(APP))
-    with socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
+    # Held-proof (JEG-675, Jeremy 2026-10-16: "Give the tests a fixed,
+    # held-proof fixture"): the premise needs the VORP vs waivers columns, so
+    # the projections must be unheld. Serve a copy of the app with the pinned
+    # holds (tests/_holds.py). Chain run 573 (JEG-chain573) held all three
+    # projections and the table test went red on the data.
+    tmp = tempfile.TemporaryDirectory()
+    app = Path(tmp.name) / "app"
+    shutil.copytree(APP, app)
+    pin_holds_in_dist(app)
+    handler = functools.partial(QuietHandler, directory=str(app))
+    with tmp, socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
         server.daemon_threads = True
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
