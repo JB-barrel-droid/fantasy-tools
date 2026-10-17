@@ -599,18 +599,19 @@ COMPARE_JS = "async () => {" + COMMON + r"""
   out.example = snap();
   out.weeks = weekInfo();
   out.rows = [...document.querySelectorAll('#v2CTable tbody tr[data-source]')].map(tr => { const wf = tr.querySelector('.v2-wf');
-    return {src: tr.dataset.source, badges: badgesIn(tr), name: own(tr.querySelector('td.player')), give: parseFloat(tr.querySelector('[data-col="give"]')?.textContent),
+    return {src: tr.dataset.source, badges: badgesIn(tr), name: own(tr.querySelector('td.player')) || (tr.querySelector('td.player a[data-source-link]')?.textContent || '').trim(), give: parseFloat(tr.querySelector('[data-col="give"]')?.textContent),
       receive: parseFloat(tr.querySelector('[data-col="receive"]')?.textContent), lo: wf ? wf.dataset.lo : null, hi: wf ? wf.dataset.hi : null,
       steps: wf ? [...wf.querySelectorAll('.v2-wf-step')].map(s => ({side: s.dataset.side, value: s.dataset.value})) : []}; });
   out.engine = engineFor(out.example.give.concat(out.example.get).map(p => p.key));
   out.shownOptions = [...$('v2CShown').options].map(o => [o.value, o.textContent]);
   // DDF Value hidden: the verdict follows the picked series and names it.
-  const before = V.shown();
-  V.setShown(before.filter(k => k !== 'ddf_value')); await sleep(500);
+  // JEG-498: Compare reads its own Customize list, not the Player values one.
+  const before = V.pageKeys('compare');
+  V.setPageKeys('compare', before.filter(k => k !== 'ddf_value')); await sleep(500);
   const other = [...$('v2CShown').options].map(o => o.value).find(v => v !== 'ddf_value');
   fire($('v2CShown'), other); await sleep(400);
   out.otherShown = {key: other, label: [...$('v2CShown').options].find(o => o.value === other)?.textContent || '', title: $('v2CVerdictTitle').textContent};
-  V.setShown(before); await sleep(500);
+  V.setPageKeys('compare', before); await sleep(500);
   fire($('v2CShown'), 'ddf_value'); await sleep(400);
   // Add a player of our own to each side: the example leaves, and the link carries the league settings.
   await addTrade();
@@ -725,6 +726,11 @@ LEAGUE_PANEL_JS = """() => { const pop = document.getElementById('v2Popover');
   const adv = pop.querySelector('details.v2-padv');
   return {eyebrows: [...pop.querySelectorAll(':scope .v2-eyebrow')].filter(h => !h.closest('details')).map(h => h.textContent),
     steps: [...pop.querySelectorAll('.v2-pstep > span')].map(n => n.textContent),
+    stepperAria: [...pop.querySelectorAll('[aria-label]')].map(n => n.getAttribute('aria-label')),
+    shape: window.TradeValueCurveControls.getRosterShape(), teams: window.TradeValueCurveControls.getState().teams,
+    rosterLine: document.getElementById('v2RosterLine').textContent,
+    tierHead: (document.querySelector('#v2Table thead th[data-col="tier"]') || {}).textContent || null,
+    espnTier: document.body.textContent.includes('ESPN Tier'),
     advanced: adv ? {open: adv.open, last: [...adv.parentElement.children].pop() === adv,
       eyebrows: [...adv.querySelectorAll('.v2-eyebrow')].map(h => h.textContent)} : null}; }"""
 
@@ -1058,6 +1064,24 @@ def gl23(S):
         errors.append("a bench-share slider is on the page with the override off")
     if r["override"] or r["method"] != "expected-starts":
         errors.append(f"default readout: override {r['override']}, method {r['method']!r}")
+    return errors
+
+
+def gl28(S):
+    """Default league 12 teams / 1-2-2-1-1 / 1 K / 1 DEF / 7 bench; K and DEF steppers; the column is headed Tier."""
+    p = S["tabs"]["leaguePanel"]
+    errors = []
+    want = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "K": 1, "DST": 1, "BENCH": 7}
+    if p["shape"] != want or p["teams"] != 12:
+        errors.append(f"default league is {p['shape']} with {p['teams']} teams, want {want} and 12")
+    for aria in ("Fewer K", "More K", "Fewer DEF", "More DEF"):
+        if aria not in p["stepperAria"]:
+            errors.append(f"Edit league has no {aria!r} stepper")
+    # The column is folded into the player's sub-line on a narrow table, so a missing head is not a failure.
+    if p["tierHead"] is not None and p["tierHead"].strip() != "Tier":
+        errors.append(f"the tier column is headed {p['tierHead']!r}, want 'Tier'")
+    if p["espnTier"]:
+        errors.append("the page still says 'ESPN Tier'")
     return errors
 
 
@@ -1425,7 +1449,7 @@ def pv19(S):
 
 
 def pv20(S):
-    opts = S["values"]["rankOptions"]
+    opts = S["values"]["s0"]["rankOptions"]
     missing = [k for k in ("espn", "cbsros") if k not in opts]
     return [f"Rank by does not offer {missing}: {opts}"] if missing else []
 
@@ -1814,7 +1838,7 @@ CHECKS = {
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
     "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
-    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26, "GL-27": gl27,
+    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26, "GL-27": gl27, "GL-28": gl28,
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,

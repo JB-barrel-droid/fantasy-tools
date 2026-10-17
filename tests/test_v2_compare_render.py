@@ -60,8 +60,9 @@ EXTRA_SERIES = ("usatoday", "espn_vorp")
 # Two priced stars to give, one star plus one player missing a selected series to get.
 PICK = """(extra) => {
   const C = window.TradeValueCurveControls;
+  const info = Object.fromEntries(C.getSourceInfo({includeComposite: true}).map(i => [i.key, i.available]));
   const rows = C.getAllRows();
-  const active = window.TradeValueV2.view().active;
+  const active = window.TradeValueV2.pageKeys('compare').filter(k => info[k]);
   const byEspn = rows.filter(r => Number.isFinite(r.values.espn)).sort((a, b) => b.values.espn - a.values.espn);
   const complete = r => active.every(k => Number.isFinite(r.values[k]));
   const priced = byEspn.filter(complete);
@@ -120,7 +121,7 @@ READ = """() => {
       why: cell('net').querySelector('.missing .why')?.textContent ?? null};
   });
   const side = id => [...document.querySelectorAll(`#${id} li[data-player-key]`)].map(li => li.dataset.playerKey);
-  return {engine, active: window.TradeValueV2.view().active.filter(k => info[k]),
+  return {engine, active: window.TradeValueV2.pageKeys('compare').filter(k => info[k]),
     give: side('v2GivePlayers'), receive: side('v2GetPlayers'),
     points: document.getElementById('v2CTable').hidden ? [] : read(document.getElementById('v2CTable')),
     vorp: document.getElementById('v2CVorpCard').hidden ? [] : read(document.getElementById('v2CVorpTable')),
@@ -267,9 +268,9 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
                 page.goto(url, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare()", timeout=30000)
                 first_shown = page.evaluate("() => document.getElementById('v2CShown').value")
-                for key in EXTRA_SERIES:
-                    page.evaluate("""key => { const box = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
-                      if (box && !box.checked && !box.disabled) box.click(); }""", key)
+                # JEG-498: Compare reads its own Customize list, so the extra series are added there.
+                page.evaluate("""extra => { const V = window.TradeValueV2; V.setPageKeys('compare', [...new Set(V.pageKeys('compare').concat(extra))]); }""",
+                              list(EXTRA_SERIES))
                 simulate_missing(page, "usatoday")
                 pick = page.evaluate(PICK, None)
                 for side, field in (("give", "#v2GiveSearch"), ("receive", "#v2GetSearch")):
@@ -321,8 +322,8 @@ class CompareTradeRenderTest(unittest.TestCase):
             "headline answer flipped": {"trade.js": trade.replace('v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even"',
                                                                    'v.kind === "win" ? "No" : v.kind === "lose" ? "Yes" : "Even"', 1)},
             "VORP mixed into trade values": {"v2.js": v2.replace(
-                "let pointKeys = usable(view.plotKeys);",
-                "let pointKeys = usable(view.plotKeys.concat(view.vorpKeys));", 1)},
+                'let pointKeys = usable(mineOrdered.filter(key => sourceMeta(key).method !== "vorp"));',
+                "let pointKeys = usable(mineOrdered);", 1)},
         }
         for name, overrides in broken.items():
             with self.subTest(mutation=name):
