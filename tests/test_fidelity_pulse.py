@@ -331,16 +331,26 @@ class Stage1PublisherVsStored(unittest.TestCase):
         self.assertFalse(fp.equal_after_rounding("36", 36.4))   # stored is not the printed number
         self.assertFalse(fp.equal_after_rounding("29.1", 29.0))
 
-    def test_missing_and_extra_players_red(self):
+    def test_missing_and_extra_players_small_gap_amber(self):
+        # JEG-667: a 1-2 player roster gap with 0 value mismatches is amber
+        # (small gap, values intact), not red. Keeps sources from being held
+        # over a single unresolved name or minor roster fluctuation.
         env = Env()
         del env.stored["cbs"][0:4]  # drop one stored player's rows
         res, _, _ = env.run(["cbs"])
-        self.assertEqual("red", st(res, "cbs", "publisher_vs_stored"))
+        self.assertEqual("amber", st(res, "cbs", "publisher_vs_stored"))
         env = Env()
         del env.pub["fantasypros"][3]  # stored player no longer on the page
         res, _, _ = env.run(["fantasypros"])
-        self.assertEqual("red", st(res, "fantasypros", "publisher_vs_stored"))
+        self.assertEqual("amber", st(res, "fantasypros", "publisher_vs_stored"))
         self.assertEqual(1, res["fantasypros"]["stages"]["publisher_vs_stored"]["counts"]["extra_in_stored"])
+
+    def test_missing_and_extra_players_large_gap_red(self):
+        # A larger gap (> 2 players) is still red -- an obvious blunder.
+        env = Env()
+        del env.stored["cbs"][0:12]  # drop 3 stored players' rows
+        res, _, _ = env.run(["cbs"])
+        self.assertEqual("red", st(res, "cbs", "publisher_vs_stored"))
 
     def test_wrong_week_page_red(self):
         env = Env()

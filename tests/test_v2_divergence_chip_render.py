@@ -79,13 +79,14 @@ def _served():
                 server.shutdown()
 
 
-def check_chips(chips: list[dict], where: str, place: str, allow_link: bool) -> list[str]:
+def check_chips(chips: list[dict], where: str, place: str, allow_link: bool, expect: dict | None = None) -> list[str]:
     errors = []
     mine = [c for c in chips if c["in"] == place]
     seen = {c["src"]: c for c in mine}
-    if set(seen) != set(EXPECT):
-        errors.append(f"[{where}] chips on {sorted(seen)}, want exactly {sorted(EXPECT)} (ok and n/a show none)")
-    for src, word in EXPECT.items():
+    expect = EXPECT if expect is None else expect
+    if set(seen) != set(expect):
+        errors.append(f"[{where}] chips on {sorted(seen)}, want exactly {sorted(expect)} (ok and n/a show none)")
+    for src, word in expect.items():
         c = seen.get(src)
         if not c:
             continue
@@ -134,18 +135,25 @@ def run_checks(patch=None) -> list[str]:
             page.goto(base + "#trade-targets", wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets() && document.querySelector('#v2TTable thead th[data-chart]')", timeout=60000)
             page.wait_for_function("() => document.querySelector('.v2-div-chip')", timeout=20000)
+            # A source the pipeline holds (fidelity or coverage hold) has no column, so it can carry no chip:
+            # the flagged set is the fixture's flagged sources that the build actually shows (JEG-675).
+            shown_heads = page.evaluate("() => [...document.querySelectorAll('#v2TTable thead th[data-chart]')].map(th => th.dataset.chart)")
+            expect = {k: v for k, v in EXPECT.items() if k in shown_heads}
+            if len(expect) < 2 or not {"usatoday", "fantasypros"} <= set(expect):
+                errors.append(f"[trade targets] want at least USA Today and FantasyPros shown to carry chips: {shown_heads}")
             chips = page.evaluate(CHIPS)
-            errors += check_chips(chips, "trade targets note", "note", True)
+            errors += check_chips(chips, "trade targets note", "note", True, expect)
             note = page.evaluate("() => document.getElementById('v2TDivergence').textContent")
-            for message in MESSAGES.values():
+            for message in (MESSAGES[k] for k in expect):
                 if message not in note:
                     errors.append(f"[trade targets] the note does not say: {message!r}")
-            page.set_viewport_size({"width": 1100, "height": 1000})
+            # Per-chart columns are folded from 1024 px (v2.css, #639), so the head chips are on screen below it.
+            page.set_viewport_size({"width": 900, "height": 1000})
             page.wait_for_timeout(400)
-            errors += check_chips(page.evaluate(CHIPS), "trade targets heads at 1100", "head", True)
+            errors += check_chips(page.evaluate(CHIPS), "trade targets heads at 900", "head", True, expect)
             page.set_viewport_size({"width": 1440, "height": 1000})
             heads = page.evaluate("() => [...document.querySelectorAll('#v2TTable thead th[data-chart]')].map(th => th.dataset.chart)")
-            for src in EXPECT:
+            for src in expect:
                 if src not in heads:
                     errors.append(f"[trade targets] flagged source {src} lost its column: {heads}")
             # Player values: the Showing legend and the column heads.
@@ -153,10 +161,10 @@ def run_checks(patch=None) -> list[str]:
             page.wait_for_function("() => document.querySelector('#v2Table thead th') && document.querySelector('#v2ShowingLegend li')", timeout=40000)
             page.wait_for_timeout(500)
             chips = page.evaluate(CHIPS)
-            errors += check_chips(chips, "player values legend", "legend", True)
-            errors += check_chips(chips, "player values heads", "head", False)
+            errors += check_chips(chips, "player values legend", "legend", True, expect)
+            errors += check_chips(chips, "player values heads", "head", False, expect)
             heads = page.evaluate("() => [...document.querySelectorAll('#v2Table thead th')].map(th => th.textContent)")
-            for name in ("USA Today", "FantasyCalc", "FantasyPros"):
+            for name in (n for k, n in (("usatoday", "USA Today"), ("fantasycalc", "FantasyCalc"), ("fantasypros", "FantasyPros")) if k in expect):
                 if not any(name in h for h in heads):
                     errors.append(f"[player values] flagged source {name} lost its column")
             vorp = page.evaluate("() => [...document.querySelectorAll('.v2-div-chip')].filter(c => c.closest('th') && /VORP/.test(c.closest('th').textContent)).length")
@@ -172,6 +180,7 @@ def run_checks(patch=None) -> list[str]:
               .map(c => ({src: c.dataset.divergence, status: c.dataset.status, text: c.textContent.trim(), title: c.title, aria: c.getAttribute('aria-label') || '',
                 tag: c.tagName, href: c.getAttribute('href') || '', inButton: Boolean(c.closest('button')), in: 'customize'}))""")
             seen = {c["src"] for c in chips}
+            # The Customize list still names a held source (greyed), so its chip stays: all flagged sources.
             if seen != set(EXPECT):
                 errors.append(f"[customize] chips on {sorted(seen)}, want {sorted(EXPECT)}")
             if page_errors:

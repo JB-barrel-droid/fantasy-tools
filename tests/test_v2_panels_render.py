@@ -416,7 +416,7 @@ SNAP = """() => { const v = window.TradeValueV2.view(); const s = window.TradeVa
     visible: v.visible.map(r => ({rank: r.rank, fullRank: r.fullRank, value: r.values[v.rankKey] ?? null})),
     show: document.getElementById('v2Show').selectedOptions[0]?.textContent || '',
     showValue: document.getElementById('v2Show').value,
-    firstRow: document.querySelector('#v2Table tbody tr td.rank')?.textContent || '',
+    firstRow: document.querySelector('#v2Table tbody tr td.rank')?.firstChild?.textContent || '',   // the number, not the position-rank sub-label under it (JEG-579)
     zones: window.TradeValueCurveControls.getZones()}; }"""
 TOOLBAR_ORDER = ["v2Search", "v2Position", "v2Show", "v2RankBy", "v2DeltaBtn", "v2More", "v2Reset"]
 REMOVED = ["#v2ChartOptions", "#v2RangeBtn", "#v2ClearFilters", "#v2ResetAll", "#v2ZoomReset", "#v2FromRank",
@@ -718,8 +718,10 @@ def check_table_fit(page, width) -> list[str]:
         errors.append(tag + f"header {fit['headSticky']}, player column {fit['playerSticky']}; both must be sticky")
     if fit["scrolls"] and fit["stickyMoved"] > 1:
         errors.append(tag + f"header row moved {fit['stickyMoved']}px when the table body scrolled")
-    if fit["rowH"] > 37:
-        errors.append(tag + f"rows {fit['rowH']}px tall; compact rows are about 32 px")
+    # Value cells carry a rank sub-label and the player cell a Pos · Team · Tier line (JEG-579, pinned visible by
+    # test_v2_review_polish_render), so a row is two short lines, about 41 px; a taller row is a regression.
+    if fit["rowH"] > 46:
+        errors.append(tag + f"rows {fit['rowH']}px tall; two-line compact rows are about 41 px")
     for cell in fit["nums"]:
         if not re.fullmatch(r"-?\d+\.\d", cell["text"]) or cell["align"] != "right" or not 6 <= cell["pad"] <= 8:
             errors.append(tag + f"number cell {cell}")
