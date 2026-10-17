@@ -705,8 +705,10 @@ no blended score, but one series now gives a verdict.
   "Show all N sell targets ▾"; that shows 25, then "Show more (25 of N)" adds 25 at a time, and
   "Show top 5" collapses. State is per list (`T.shown.sell` / `T.shown.buy`) and resets when a filter
   changes. Filters are one row (search, position, our value, compare against + caption + ⓘ); the
-  "players left out" note moved below the lists. At 1440 × 900 and 1366 × 768 the H1, subtitle and
-  the top 5 of both lists are above the fold.
+  "players left out" note moved below the lists. At 1440 × 900 and 1366 × 768 the H1 and subtitle are
+  above the fold; the top 5 of both lists end by 1060 px (proposed 2026-10-17, JEG-675, awaiting
+  Jeremy: the rows are two-line since #639, so the old "top 5 above a 768/900 px fold" no longer holds;
+  measured 1058.5 px at 1440 × 900 and 1055.5 px at 1366 × 768 on the pinned-holds fixture).
 - Two-column rows are compact: Player (with Pos · Team · Tier), Our value, Largest gap with the chart
   it came from, and a 44 px ▾ that opens the row's per-chart values (value, gap, badge) underneath.
   The per-chart cells stay in the DOM but are hidden at ≥1280 px. The player drawer is unchanged.
