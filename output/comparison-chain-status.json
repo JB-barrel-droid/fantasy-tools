@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-18T15:49:44.992010+00:00",
+  "run_at": "2026-10-18T18:07:38.723071+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris | fantasycalc-half-12-qb1-section half_12_qb1/RB list 61 -> 61: dropped chris rodriguez jr, samaje perine; added jaylen wright, najee harris | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -18,7 +18,13 @@
     "razzball"
   ],
   "hold_severity": "none",
-  "list_changes": {},
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris",
+      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 61 -> 61: dropped chris rodriguez jr, samaje perine; added jaylen wright, najee harris",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris"
+    ]
+  },
   "held_detail": {
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
@@ -64,10 +70,14 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris | fantasycalc-half-12-qb1-section half_12_qb1/RB list 61 -> 61: dropped chris rodriguez jr, samaje perine; added jaylen wright, najee harris | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris",
+        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 61 -> 61: dropped chris rodriguez jr, samaje perine; added jaylen wright, najee harris",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 61 -> 62: dropped chris rodriguez jr, samaje perine; added jaylen wright, justice hill, najee harris"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
