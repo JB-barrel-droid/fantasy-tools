@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-18T12:26:31.581396+00:00",
+  "run_at": "2026-10-18T13:19:42.162718+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,11 +15,25 @@
   "outcome": "green",
   "held": [
     "espn",
+    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "none",
   "list_changes": {},
   "held_detail": {
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "detail": "247/1177 values match exactly across 6 columns; column check: stored full|2 list is closest to the live half|2 list (mean |diff| 10 vs 31); stored std|2 list is closest to the live half|2 list (mean |diff| 18 vs 31); 930 of 1177 values moved since the save at 2026-10-18T11:05:27.587537Z (largest 64%",
+      "hold_severity": "amber",
+      "week": 6
+    },
     "espn": {
       "reason": "fidelity: stored_vs_chart",
       "held_series": [
@@ -161,6 +175,7 @@
     }
   },
   "fidelity_holds": {
+    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   }
