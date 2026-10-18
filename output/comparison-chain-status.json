@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-18T07:30:23.279247+00:00",
+  "run_at": "2026-10-18T11:07:09.300621+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added omar cooper jr | fantasycalc-full-12-qb1-section full_12_qb1/TE list 25 -> 26: dropped none; added michael mayer | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr | fantasycalc-half-12-qb1-section half_12_qb1/TE list 25 -> 26: dropped none; added michael mayer | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 25 -> 26: dropped none; added michael mayer)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -19,7 +19,16 @@
     "razzball"
   ],
   "hold_severity": "none",
-  "list_changes": {},
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added omar cooper jr",
+      "fantasycalc-full-12-qb1-section full_12_qb1/TE list 25 -> 26: dropped none; added michael mayer",
+      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr",
+      "fantasycalc-half-12-qb1-section half_12_qb1/TE list 25 -> 26: dropped none; added michael mayer",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 25 -> 26: dropped none; added michael mayer"
+    ]
+  },
   "held_detail": {
     "espn": {
       "reason": "fidelity: stored_vs_chart",
@@ -79,10 +88,17 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added omar cooper jr | fantasycalc-full-12-qb1-section full_12_qb1/TE list 25 -> 26: dropped none; added michael mayer | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr | fantasycalc-half-12-qb1-section half_12_qb1/TE list 25 -> 26: dropped none; added michael mayer | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 25 -> 26: dropped none; added michael mayer",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 76: dropped none; added omar cooper jr",
+        "fantasycalc-full-12-qb1-section full_12_qb1/TE list 25 -> 26: dropped none; added michael mayer",
+        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr",
+        "fantasycalc-half-12-qb1-section half_12_qb1/TE list 25 -> 26: dropped none; added michael mayer",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added omar cooper jr",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 25 -> 26: dropped none; added michael mayer"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
