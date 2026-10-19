@@ -843,3 +843,33 @@ Jeremy, 2026-10-16:
 3. MR-26 handcuffs (JEG-526, JEG-529): "Leave out for now, we can come back to this post launch". The stash signal PR 578 was converted to draft and parked. Both tickets moved to Backlog, label Parked.
 4. MR-23 weekly matchups (JEG-534): lineup hint only, values untouched (option a, confirmed).
 5. PR 637 direction-check thresholds (2-QB +3, peak >28): KEEP loosened, then have QB values reviewed (new ticket, High).
+
+## coverage-fill-in-001: A shorter or longer chart list is filled in, not held (JEG-667)
+- id: coverage-fill-in-001
+- created: 2026-10-16
+- deadline: 2026-10-16
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-16
+- recommendation: Follow the fill-in convention (OC-5 / VP-2.4, approved 2026-10-09). A chart list that got shorter or longer passes the coverage review when fill-in reaches the rosterable set; the dropped and added names are a warning. Hold only when fill-in cannot reach the rosterable set, or a dropped player is still priced live (or still listed, or in the identity review rows).
+
+### The rule
+
+**When a chart's list gets shorter or longer, fill in from the other charts to full league rosters. Do not hold the source and do not ask for a floor accept.** Hold only when fill-in cannot reach the rosterable set, or a dropped player is still priced live.
+
+### Context
+
+CBS's Week 6 list is shorter (WR 41 vs 43, TE 10 vs 14), and the coverage review held CBS. The fill-in rule already fills a short chart to full rosters from the other charts.
+
+### Outcome Note
+
+Jeremy, 2026-10-16: "When lists get longer or shorter we need to follow the conventions we've set, filling in where needed from other charts to get to full rosters in leagues. I've shared this multiple times and it needs to be clear in the project."
+
+Jeremy, 2026-10-17, on PR #670: "Review #670 against what merged, keep what the convention still needs."
+
+Implemented in `pipelines/review_comparison_candidate.py` (`coverage_fill_in_reaches`, checked before the tail-churn slack and recorded accepts), test `tests/test_coverage_fill_in.py`. Rule text: `CLAUDE.md` (Standing constraints), `runbooks/source-held.md` 3b.
+
+### Record correction (2026-10-17)
+
+PRs #668 and #669 (merged 2026-10-16) recorded a CBS floor accept (WR 41 / TE 10, Week 6, all three combos) in `data/triage/coverage-accepted.json` with `approved_by: Jeremy, approved_on: 2026-10-16`, and their commit messages and the JEG-667 comments describe it as Jeremy's decision. That was another session's reading of his answer, not his decision. His decision was the convention above. The floor accept entries stay in the file as history and are not reverted; they expire with Week 6 and are only a fallback where fill-in does not apply. The convention governs.

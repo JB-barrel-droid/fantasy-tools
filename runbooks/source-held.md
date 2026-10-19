@@ -35,6 +35,15 @@ Nothing is released by hand. A fidelity hold lasts while the latest pulse lists 
 
 If a source stays held more than a week, the red `rebuild_chain_source_held_stale` fires. Whether to keep waiting or drop the source is Jeremy's decision, not a bypass.
 
+## 3b. A shorter or longer list is filled in, not held (JEG-667)
+
+**Rule (Jeremy, 2026-10-16):** "When lists get longer or shorter we need to follow the conventions we've set, filling in where needed from other charts to get to full rosters in leagues." Check this before 3a.
+
+The fill-in rule (OC-5, `docs/methodology.md` VP-2.4) fills a chart to the league's rosterable set (`N_p`, starters plus bench, plus the waiver player) from the other charts, or from the chart's own curve. The review (`review_comparison_candidate.py`) runs it first:
+
+- **Passes as a warning** when the Python reference, run on the candidate in all four league sizes, fills the position to `N_p + 1`. `coverage:<combo>/<POS>` is `warn` and names every dropped and added player; a same-length or longer list with new names gets `coverage_list:<combo>/<POS>` (warn). The chain status (`list_changes`) and the status page ("List changed") show them.
+- **Holds** when a dropped player is still priced live, still listed but unpriced, or in the identity review rows (pipeline loss); or fill-in cannot reach `N_p` (no players at the position, no projection this week, a rosterable player nobody can estimate); or the source is a projection (not filled in). Only those go to 3a. The tail-churn slack and recorded accepts in 3a are fallbacks, not the rule.
+
 ## 3a. Coverage hold: decide in one look (JEG-667)
 
 ```

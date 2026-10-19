@@ -7,12 +7,12 @@ beside the sort button: clicking it does not sort), Customize rows (clicking it 
 Compare series rows. A projection source with a page per position uses the player's position in row context.
 
 Part 2: hovering or focusing a chart value on Trade targets shows the math, leading with the number as the publisher
-prints it. For three players per chart that number equals the published number in the data file, "x index factor"
-times it equals the indexed value shown, and "- our value" gives the gap shown. A player the chart does not price
+prints it. For three players per chart that number equals the published number in the data file, "x rescale factor"
+times it equals the rescaled value shown, and "- our value" gives the gap shown. A player the chart does not price
 shows the reason. The cell is keyboard-focusable with aria-describedby.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js without the head link, with the head link inside the
-sort button, and with a wrong "as published" number, and requires failures.
+sort button, and with a wrong "original" number, and requires failures.
 """
 from __future__ import annotations
 
@@ -143,9 +143,15 @@ def run_checks(js_patch=None) -> list[str]:
             # Trade targets.
             page = open_page("#trade-targets")
             page.wait_for_function("() => window.TradeValueV2.targets() && document.querySelector('#v2TTable tbody tr[data-player-key]')", timeout=60000)
+            # A held source (fidelity or coverage hold) has no column, legend entry or cell; the charts to
+            # walk are the ones the build shows now (JEG-675).
+            shown = page.evaluate("() => window.TradeValueCurveControls.getActiveSources()")
+            charts = [c for c in CHARTS if c in shown]
+            if len(charts) < 2:
+                errors.append(f"[targets heads] want at least two chart sources shown, got {shown}")
             heads = page.evaluate(LINKS, "#v2TTable thead th[data-chart] a[data-source-link]")
-            errors += check_links(heads, expected, "[targets heads]", CHARTS)
-            if len({l["pub"] for l in heads}) < 3:
+            errors += check_links(heads, expected, "[targets heads]", charts)
+            if len({l["pub"] for l in heads}) < 2:
                 errors.append(f"[targets heads] only {[l['pub'] for l in heads]} linked")
             page.select_option("#v2TChart", "fantasypros")
             page.wait_for_timeout(500)
@@ -156,9 +162,9 @@ def run_checks(js_patch=None) -> list[str]:
             page.wait_for_timeout(500)
             # Math on hover: three players per chart.
             keys = page.evaluate("() => [...document.querySelectorAll('#v2TTable tbody tr[data-player-key]')].slice(0, 6).map(tr => tr.dataset.playerKey)")
-            checked = {c: 0 for c in CHARTS}
+            checked = {c: 0 for c in charts}
             for key in keys:
-                for chart in CHARTS:
+                for chart in charts:
                     cell = page.query_selector(f'#v2TTable tr[data-player-key="{key}"] td.t-chart[data-chart="{chart}"]')
                     if not cell:
                         continue
@@ -173,7 +179,7 @@ def run_checks(js_patch=None) -> list[str]:
                         errors.append(f"[math] focusing {chart} for {key} showed no tip")
                         continue
                     rows = {label: value for label, value in tip["rows"]}
-                    published = next((v for l, v in tip["rows"] if l.endswith("(as published)")), None)
+                    published = next((v for l, v in tip["rows"] if l.endswith("(original)")), None)
                     if published is None:
                         reason = tip["text"]
                         if not re.search(r"Not on|Not enough|Estimated|no published number|waiver", reason, re.I):
@@ -185,8 +191,8 @@ def run_checks(js_patch=None) -> list[str]:
                     want_native = combos[chart_combo]["native"].get(name_of.get(pk))
                     if want_native is None or abs(float(published) - float(want_native)) > 1e-9:
                         errors.append(f"[math] {chart} for {key}: as published {published}, data file {want_native}")
-                    factor = float(rows.get("× index factor", "nan"))
-                    indexed = float(rows.get("= indexed value", "nan"))
+                    factor = float(rows.get("× rescale factor", "nan"))
+                    indexed = float(rows.get("= rescaled value", "nan"))
                     if abs(float(published) * factor - indexed) > 0.06 + 0.0005 * float(published):
                         errors.append(f"[math] {chart} for {key}: {published} x {factor} = {float(published) * factor:.2f}, tip says {indexed}")
                     if abs(indexed - float(shown.replace("−", "-"))) > 0.051:
@@ -211,7 +217,7 @@ def run_checks(js_patch=None) -> list[str]:
             wide.click("#v2TTable .v2-texpand >> nth=0")
             wide.wait_for_timeout(300)
             detail = wide.evaluate(LINKS, "#v2TTable tr.t-detail a[data-source-link]")
-            errors += check_links(detail, expected, "[targets detail]", CHARTS)
+            errors += check_links(detail, expected, "[targets detail]", charts)
             if not detail:
                 errors.append("[targets detail] the expanded row has no source links")
             wide.close()
@@ -219,9 +225,9 @@ def run_checks(js_patch=None) -> list[str]:
             # Player values: the Showing legend, column heads (link beside the sort button), Customize.
             page = open_page("#player-values")
             legend = page.evaluate(LINKS, "#v2ShowingLegend a[data-source-link]")
-            errors += check_links(legend, expected, "[legend]", [p for p in CHARTS])
+            errors += check_links(legend, expected, "[legend]", charts)
             head_links = page.evaluate(LINKS, "#v2Table thead a[data-source-link]")
-            errors += check_links(head_links, expected, "[table heads]", CHARTS)
+            errors += check_links(head_links, expected, "[table heads]", charts)
             if any(l["inButton"] for l in head_links):
                 errors.append("[table heads] a link inside the sort button")
             if head_links:
@@ -276,7 +282,7 @@ def run_checks(js_patch=None) -> list[str]:
 PATCHES = {
     "table head link missing": ("        if (col.source && sourceUrl(col.source)) {", "        if (false) {"),
     "table head link inside the button": ("          th.appendChild(link);\n        }\n      }\n      hr.appendChild(th);", "          button.appendChild(link);\n        }\n      }\n      hr.appendChild(th);"),
-    "wrong published number": ("lines.push([`${name}${week} (as published)`, String(math.native)]);", "lines.push([`${name}${week} (as published)`, String(math.native + 1)]);"),
+    "wrong published number": ("lines.push([`${name}${week} (original)`, String(math.native)]);", "lines.push([`${name}${week} (original)`, String(math.native + 1)]);"),
     "targets head not linked": ("      line.append(key ? sourceLink(key, text) : document.createTextNode(text));", "      line.append(document.createTextNode(text));"),
 }
 

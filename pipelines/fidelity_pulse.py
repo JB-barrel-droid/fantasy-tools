@@ -111,6 +111,9 @@ FC_DRIFT_REL = 0.25        # FantasyCalc movement band (relative to the stored v
 FC_DRIFT_ABS = 50          # ... or this many FantasyCalc points, whichever is larger
 FC_SYSTEMIC_SHARE = 0.10   # more than this share of values outside the band is a broken save, not movement
 FC_SWAP_RATIO = 1.5        # a stored list this much closer to another live list than to its own is a column swap
+FC_GRAIN_CHECK_MAX_AGE_S = 7200  # skip the grain check when the bake is older than this (seconds); FantasyCalc's
+                                 # scoring gap (~0.5-1.5% of value) is smaller than 2-hour intraday crowd drift,
+                                 # so stale bakes produce false-positive column-swap reds (JEG-705)
 EXAMPLES = 8
 MAX_DIVERGENCE_ROWS = 200  # per source per run, written to public.fidelity_divergences
 
@@ -1050,11 +1053,18 @@ def fc_list_churn(cmp: dict, left: dict, right: dict) -> list[dict]:
     return churn
 
 
-def fc_grain_check(left: dict, right: dict) -> list[str]:
+def fc_grain_check(left: dict, right: dict, *, bake_age_s: float | None = None) -> list[str]:
     """Column-swap cross-check: each stored FantasyCalc list must be closest to
     the live list of the same scoring and QB setting (sum of absolute
-    differences over shared players). Movement cannot make a swapped column
-    look right, so this stays exact in spirit while values drift."""
+    differences over shared players).
+
+    JEG-705: FantasyCalc's scoring gap (~0.5-1.5% of value) is smaller than
+    the intraday crowd drift after ~2 hours, so this check only runs on fresh
+    bakes where drift cannot exceed the gap. On a stale bake, drift makes
+    stored "full" appear closer to live "half" than to live "full", producing
+    false-positive column-swap reds."""
+    if bake_age_s is not None and bake_age_s > FC_GRAIN_CHECK_MAX_AGE_S:
+        return []
     problems = []
     for g, R in right.items():
         dist = {}
@@ -1080,14 +1090,15 @@ def stage_publisher(source: str, pub: dict, stored: dict, ident: Identity, now: 
     cmp = compare(left, right, printed=True)
     outside = split_universe(cmp, "missing", universe)
     churn = fc_list_churn(cmp, left, right) if source == "fantasycalc" else []
-    swapped = fc_grain_check(left, right) if source == "fantasycalc" else []
+    bake = stored["bake"]
+    saved_at = bake["saved_at"]
+    bake_age_s = (now - saved_at).total_seconds() if saved_at and now else None
+    swapped = fc_grain_check(left, right, bake_age_s=bake_age_s) if source == "fantasycalc" else []
     n_bad = problem_count(cmp)
     reasons, status = [], "green"
     if swapped:
         status = "red"
         reasons.append("column check: " + "; ".join(swapped))
-    bake = stored["bake"]
-    saved_at = bake["saved_at"]
     revised = parse_ts((pub.get("dates") or {}).get("dateModified"))
     if source == "fantasycalc":
         systemic, rel, out_band = fc_classify(cmp)
@@ -1108,7 +1119,18 @@ def stage_publisher(source: str, pub: dict, stored: dict, ident: Identity, now: 
                            "since the save (churn)")
     elif n_bad:
         after_save = revised and saved_at and revised > saved_at
-        if after_save and (now - revised) <= timedelta(hours=GRACE_HOURS):
+        # JEG-667: when all values match and the discrepancy is just a few
+        # missing/extra players (not value mismatches), downgrade to amber.
+        # A single unresolved name or a player the universe excludes should
+        # not hold the entire source when no values are wrong.
+        values_ok = len(cmp["mismatches"]) == 0
+        small_roster_gap = (players(cmp["missing"]) + players(cmp["extra"])) <= 2
+        if values_ok and small_roster_gap:
+            status = worst(status, "amber")
+            reasons.insert(0, f"0 value mismatches, {players(cmp['missing'])} publisher players not "
+                              f"stored, {players(cmp['extra'])} stored players not on the page "
+                              "(small roster gap, values intact: amber)")
+        elif after_save and (now - revised) <= timedelta(hours=GRACE_HOURS):
             status = worst(status, "amber")
             reasons.append(f"update available: the publisher revised the page at {iso(revised)}, after the "
                            f"save at {iso(saved_at)} (a newer article version, not bad data; stale after "
@@ -1118,8 +1140,8 @@ def stage_publisher(source: str, pub: dict, stored: dict, ident: Identity, now: 
             if after_save:
                 reasons.append(f"stale: the publisher revised the page at {iso(revised)}, after the save at "
                                f"{iso(saved_at)}, and the revision is still not stored after {GRACE_HOURS} h")
-        reasons.insert(0, f"{len(cmp['mismatches'])} value mismatches, {players(cmp['missing'])} publisher players not "
-                          f"stored, {players(cmp['extra'])} stored players not on the page")
+            reasons.insert(0, f"{len(cmp['mismatches'])} value mismatches, {players(cmp['missing'])} publisher players not "
+                              f"stored, {players(cmp['extra'])} stored players not on the page")
     if source != "fantasycalc":
         if pub.get("week_problem"):
             status = "red"
@@ -1195,6 +1217,20 @@ def stage_chart(source: str, site_doc: dict | None, site_error: str | None, stor
     if n_bad:
         reasons.append(f"{len(cmp['mismatches'])} chart values differ from the stored bake, "
                        f"{players(cmp['missing'])} stored players not on the chart, {players(cmp['extra'])} chart players not stored")
+    # JEG-667: when a newer bake exists and the chart-vs-stored gap is only
+    # value mismatches (no missing/extra players), the chart is stale rather
+    # than wrong.  The next chain run rebuilds from the newer bake.  Holding
+    # here blocks the very build that would cure the staleness.
+    latest_bake = stored.get("bake")
+    has_newer_bake = (latest_bake and bake and latest_bake["bake_id"] != bake["bake_id"]
+                      and (latest_bake.get("saved_at") or datetime.min.replace(tzinfo=timezone.utc))
+                      > (bake.get("saved_at") or datetime.min.replace(tzinfo=timezone.utc)))
+    only_value_drift = (len(cmp["mismatches"]) > 0
+                        and players(cmp["missing"]) == 0
+                        and players(cmp["extra"]) == 0)
+    if status == "red" and has_newer_bake and only_value_drift:
+        status = "amber"
+        reasons.append("chart is stale (newer stored bake exists); the next chain build will cure this")
     if unresolved:
         reasons.append(f"{len(unresolved)} chart names have no player key")
     if outside:
@@ -1965,6 +2001,15 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
             status = worst(status, "amber")
             reasons.append(f"newer stored snapshot {latest} is not on the chart yet: {behind['changed_values']} "
                            f"values changed, {behind['added']} added, {behind['dropped']} dropped")
+    # JEG-667: when a newer snapshot exists and the chart-vs-stored gap is only
+    # value mismatches (no missing/extra), the chart is stale, not wrong.
+    # Holding here blocks the chain run that would rebuild with fresh values.
+    if (status == "red" and behind
+            and len(cmp["mismatches"]) > 0
+            and players(cmp["missing"]) == 0
+            and players(cmp["extra"]) == 0):
+        status = "amber"
+        reasons.append("chart is stale (newer stored snapshot exists); the next chain build cures this")
     counts = {"chart_players": len({k for g in right.values() for k in g}),
               "stored_players": len({k for g in left.values() for k in g}),
               "compared": cmp["compared"], "matched": cmp["matched"], "mismatched": len(cmp["mismatches"]),

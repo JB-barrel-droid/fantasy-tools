@@ -13,6 +13,7 @@ from __future__ import annotations
 import copy
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -175,10 +176,41 @@ class LiveDump(unittest.TestCase):
     invariant: every included source's Adjusted values total the pie."""
 
     def test_ppr12_and_superflex(self):
+        from spec_reference import pipeline_live as pl
+        self._check_live(pl.build(only=["ppr/12/sf0", "ppr/12/sf1"]))
+
+    def test_every_projection_held_is_a_degenerate_week(self):
+        # Chain run 573 (2026-10-17, JEG-chain573): the fidelity pulse held
+        # espn, cbsros and razzball, so no projection was in I. VP-2.2 f (no
+        # projection in I) has no projected-points order, so no bench tier
+        # and no ES-14 readout (bench_share_readout is None, the same rule as
+        # pipelines/value_reference.py). The live dump must still keep VP-5's
+        # pie invariant on that data instead of crashing on the readout.
+        import fidelity_hold as fh
+        from spec_reference import pipeline_live as pl
+        paths = pl.default_paths()
+        fixture = json.loads(Path(paths["fixture"]).read_text(encoding="utf-8"))
+        holds = {root: {"stage": "stored_vs_chart", "reason": "fidelity: stored_vs_chart"}
+                 for root in ("espn", "cbsros", "razzball")}
+        held, _ = fh.apply_fidelity_holds(fixture, holds, 6)
+        with tempfile.TemporaryDirectory() as tmp:
+            fx_path = Path(tmp) / "comparison-sources-data.json"
+            fx_path.write_text(json.dumps(held), encoding="utf-8")
+            rep = pl.build({"fixture": fx_path, "out": Path(tmp) / "out.json"},
+                           only=["ppr/12/sf0", "ppr/12/sf1"])
+        for sid in ("ppr/12/sf0", "ppr/12/sf1"):
+            s = rep["settings"][sid]
+            excluded = {e["key"]: e["reason"] for e in s["excluded"]}
+            for root in holds:
+                self.assertEqual(excluded.get(root), "held", sid)
+            self.assertIsNone(s["bench_share_readout"], sid)
+            self.assertIsNone(s["allocation"], sid)
+        self._check_live(rep)
+
+    def _check_live(self, rep):
         # JEG-563: pie = 12 teams x 28 x skill starting slots; the default roster is now
         # QB1 RB2 WR2 TE1 FLEX1 = 7 slots (was 8), so 2352 (sf1: 8 slots, 2688).
         from spec_reference import pipeline_live as pl
-        rep = pl.build(only=["ppr/12/sf0", "ppr/12/sf1"])
         self.assertEqual(rep["schema"], "spec-reference-pipeline/1")
         for sid, pie in (("ppr/12/sf0", 2352.0), ("ppr/12/sf1", 2688.0)):
             s = rep["settings"][sid]
@@ -187,8 +219,14 @@ class LiveDump(unittest.TestCase):
             # es-value-001 (Jeremy, 2026-10-09; JEG-536): the bench share is an
             # output of the league settings, no longer fixed at 15%.
             bench = sum(v for k, v in s["ddf_weights"].items() if k.endswith("|bench"))
-            self.assertAlmostEqual(bench, s["bench_share_readout"]["fill_in_share"], 12)
-            self.assertFalse(s["bench_share_readout"]["override"])
+            self.assertAlmostEqual(bench, s["bench_share_applied"], 12)
+            projections_in = [src for src in s["included"] if src in pl.PROJECTIONS]
+            if projections_in:
+                self.assertAlmostEqual(bench, s["bench_share_readout"]["fill_in_share"], 12)
+                self.assertFalse(s["bench_share_readout"]["override"])
+            else:
+                # VP-2.2 f: a degenerate week has no ES-14 readout.
+                self.assertIsNone(s["bench_share_readout"], sid)
             self.assertTrue(0.02 < bench < 0.15, bench)
             for src in s["included"]:
                 tot = sum(v for v in s["values"]["adjusted"][src].values() if v)

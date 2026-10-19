@@ -192,6 +192,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_review_coverage_churn
 	python3 -m unittest tests.test_coverage_acceptance
 	python3 -m unittest tests.test_coverage_triage
+	python3 -m unittest tests.test_coverage_fill_in
 	python3 -m unittest tests.test_publication_window_content_week
 	python3 -m unittest tests.test_build_lag_gate
 	python3 -m unittest tests.test_import_health

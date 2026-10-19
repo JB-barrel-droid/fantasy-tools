@@ -256,10 +256,26 @@ def verify_coverage_drop_live(source, combo_name, dropped_slugs, pos=None,
         ranked = sorted(((v, n) for n, (v, p) in live.items()
                          if p == pos and v > 0), reverse=True)
         rank_of = {n: i + 1 for i, (_v, n) in enumerate(ranked)}
+        # JEG-667: value-based tail test.  The old rank > depth test cannot
+        # fire when the live list length equals the candidate depth (every
+        # player's rank <= depth).  Use both rank AND value: a player whose
+        # live value sits in the bottom COVERAGE_CHURN_TAIL_FRAC of the
+        # position's value range is tail regardless of rank.
+        values = [v for v, _n in ranked]
+        top_val = values[0] if values else 0.0
+        floor_val = values[-1] if values else 0.0
+        span = top_val - floor_val
         for s in still_live:
-            rank = rank_of.get(norm_player_name(s))
-            if rank is not None and rank > depth:
-                below_depth.append(f"{s} (live {pos}{rank}/{len(ranked)})")
+            norm = norm_player_name(s)
+            rank = rank_of.get(norm)
+            live_val = live.get(norm, (0.0, None))[0]
+            is_below_depth = rank is not None and rank > depth
+            is_value_tail = (span > 0
+                             and (live_val - floor_val) < COVERAGE_CHURN_TAIL_FRAC * span)
+            if is_below_depth or is_value_tail:
+                label = (f"{s} (live {pos}{rank}/{len(ranked)}, val {live_val:.1f})"
+                         if rank else f"{s} (val {live_val:.1f})")
+                below_depth.append(label)
             else:
                 contradicting.append(s)
     else:
@@ -268,7 +284,7 @@ def verify_coverage_drop_live(source, combo_name, dropped_slugs, pos=None,
         return False, (f"{len(contradicting)} dropped player(s) still priced live "
                        f"(e.g. {', '.join(contradicting[:3])}) -- pipeline loss")
     return False, (f"live tail: {len(below_depth)} dropped player(s) listed live only "
-                   f"below the candidate's {pos} depth {depth} "
+                   f"in the tail of the candidate's {pos} depth {depth} "
                    f"({', '.join(below_depth[:4])}) -- indistinguishable from "
                    "publisher tail churn between bake and review; tail rule applies")
 
@@ -284,6 +300,11 @@ COVERAGE_CHURN_FRAC = 0.05    # ...or this share of the fixture's priced set
 COVERAGE_CHURN_TAIL_FRAC = 0.10  # dropped player's fixture native must sit
                                  # in this bottom share of the position's
                                  # [floor, top] native range
+# JEG-667: floor slack -- a candidate within this fraction of the fixture's
+# priced count is tolerated as publisher churn when the drop is small, named,
+# and at the tail.  This prevents holding a source over normal week-to-week
+# list-size fluctuations (observed: CBS WR 43->41, FC WR 79->76).
+COVERAGE_FLOOR_SLACK = 0.06   # allow up to ~6% below the fixture floor
 
 
 def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
@@ -310,7 +331,9 @@ def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
         return False, (f"count fell by {net} but no player left the priced set "
                        "-- counts disagree with the priced sets")
     names = ", ".join(dropped[:8]) + (" ..." if len(dropped) > 8 else "")
-    cap = max(COVERAGE_CHURN_ABS, math.ceil(COVERAGE_CHURN_FRAC * f_n))
+    # JEG-667: use the wider floor slack for the drop cap so normal publisher
+    # list-size fluctuations (CBS WR 43->41, FC WR 79->76) are tolerated.
+    cap = max(COVERAGE_CHURN_ABS, math.ceil(COVERAGE_FLOOR_SLACK * f_n))
     if net > cap:
         return False, f"net drop {net} > tolerance {cap} (dropped: {names})"
     if len(dropped) > cap:
@@ -416,6 +439,74 @@ def coverage_acceptance(entries, source, combo_name, pos, week, dropped, c_n,
                 and not any(s in cand_native for s in dropped):
             return f"accepted rotation of {len(dropped)} named player(s) ({who})"
     return None
+
+
+# JEG-667 (Jeremy 2026-10-16): "When lists get longer or shorter we need to
+# follow the conventions we've set, filling in where needed from other charts
+# to get to full rosters in leagues." A chart that lists fewer players than
+# last week is filled in to the league's rosterable set by VP-2.4 (OC-5,
+# approved 2026-10-09), so a shorter list alone is not a reason to hold. This
+# runs the Python reference on the candidate's natives and asks whether the
+# fill-in actually reaches every rosterable player at the position.
+FILL_IN_SCORING = {"standard": "standard", "half": "half_ppr", "full": "ppr"}
+
+
+def coverage_fill_in_reaches(source, combo_name, pos, cand_native,
+                             fixture_path, players_path):
+    """(reaches, detail): does VP-2.4 fill the candidate's list at ``pos`` to
+    the rosterable set N_p (+1, the waiver player) in every league size?
+
+    Fails closed (False) when the source is not a chart (projections are not
+    filled in), the combo is not the saved 12-team list the engine reads, the
+    week is degenerate (no projection, so no rosterable set), the source lists
+    nobody at ``pos``, a rosterable player is neither listed nor estimated,
+    or an estimate fell to the zero fallback (no other chart lists him and the
+    chart's own curve cannot be fit: nobody else prices him).
+    """
+    try:
+        import value_reference as vr
+    except Exception as exc:  # noqa: BLE001 -- fail closed, say why
+        return False, f"fill-in not checked: reference unavailable ({exc})"
+    if vr.FAMILY.get(source) != "chart":
+        return False, f"fill-in not applicable: {source} is not a chart (VP-2.4 fills in charts only)"
+    m = re.match(r"^(standard|half|full)_(\d+)(?:_qb1)?$", combo_name)
+    if not m or int(m.group(2)) != vr.SAVED_TEAMS:
+        return False, f"fill-in not checked: {combo_name} is not the saved {vr.SAVED_TEAMS}-team list"
+    scoring = FILL_IN_SCORING[m.group(1)]
+    try:
+        inp = vr.Inputs.load(fixture_path, players_path)
+        sec = inp.section(source)
+        if sec is None:
+            return False, f"fill-in not checked: {source} not in fixture"
+        combo = sec.setdefault("combos", {}).setdefault(combo_name, {})
+        combo["native"] = dict(cand_native)
+        combo.pop("native_superflex", None)
+        reached = []
+        for teams in vr.TEAM_COUNTS:
+            res = vr.Setting(inp, scoring, teams, 0).result()
+            if res["degenerate"]:
+                return False, ("fill-in cannot reach the rosterable set: no projection in the "
+                               "included set, so there is no rosterable set (VP-2.2f)")
+            d = res["sources"][source]
+            pi = d["positions"][pos]
+            if pi["method"] == "no_players":
+                return False, f"fill-in cannot reach the rosterable set: {source} lists no {pos}"
+            fill = res["fill_sets"][pos]
+            missing = [i for i in fill if i not in d["players"]]
+            est = pi["imputation_ratios"] or {}
+            zero = [i for i, e in est.items()
+                    if e.get("path") == "curve" and "low" in (e.get("curve") or {})
+                    and e["curve"]["low"] is None]
+            if missing or zero or pi["method"] == "insufficient_coverage":
+                return False, (f"fill-in cannot reach the rosterable set at {teams} teams: "
+                               f"{pos} N_p {pi['rostered']}, listed {pi['listed']}, estimated "
+                               f"{len(est)}, {len(missing)} rosterable player(s) unpriced, "
+                               f"{len(zero)} with no other source to estimate from")
+            reached.append(f"{teams}T {pi['listed']}+{len(est)}/{pi['rostered']}")
+    except Exception as exc:  # noqa: BLE001 -- fail closed, say why
+        return False, f"fill-in not checked: {type(exc).__name__}: {exc}"
+    return True, (f"VP-2.4 fill-in reaches the rosterable set at {pos} in every league size "
+                  f"({scoring}; listed+estimated/N_p: {', '.join(reached)})")
 
 
 def newer_vintage(cand, fx_section, fx_combo=None):
@@ -719,6 +810,13 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                         f"fixture index_total.n_priced {f_recorded} disagrees with its "
                         f"own priced set ({len(fx_priced)}); compared against the set"))
                 if c_n >= f_n:
+                    # JEG-667: a list that changed members (equal or longer)
+                    # passes; the names are a visible warning, never silent.
+                    if dropped or added:
+                        checks.append(_check(
+                            f"coverage_list:{combo_name}/{pos}", "warn",
+                            f"list changed ({f_n} -> {c_n}): dropped: "
+                            f"{', '.join(dropped) or 'none'}; added: {', '.join(added) or 'none'}"))
                     continue
                 named = (f"dropped: {', '.join(dropped[:8]) or 'none named'}"
                          f"; added: {', '.join(added[:8]) or 'none'}")
@@ -730,7 +828,40 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                     if verified:
                         status = "pass"
                     live_contradicts = "still priced live" in verify_detail
-                if status != "pass" and not live_contradicts:
+                if status == "fail" and not live_contradicts:
+                    # JEG-667, the convention governs (Jeremy 2026-10-16): "When
+                    # lists get longer or shorter we need to follow the
+                    # conventions we've set, filling in where needed from other
+                    # charts to get to full rosters in leagues." A shorter chart
+                    # list passes as a named warning when the VP-2.4 fill-in
+                    # (OC-5) reaches the rosterable set. Checked FIRST, before
+                    # the tail-churn slack and recorded accepts (JEG-667 #668/
+                    # #669), which stay only as fallbacks where fill-in does not
+                    # apply. Holds: a dropped player still priced live (above),
+                    # still listed but unpriced or in the identity review rows
+                    # (pipeline loss), or fill-in cannot reach.
+                    key_of = {s: c_keys.get(s, player_keys.get(s)) for s in dropped}
+                    loss = [s for s in dropped if s in combo["native"]
+                            or s.lower() in review_ids
+                            or (key_of.get(s) is not None and str(key_of[s]) in review_ids)]
+                    if not dropped:
+                        verify_detail = (f"{verify_detail}; fill-in not applied: the count fell "
+                                         "but no dropped player is named")
+                    elif loss:
+                        verify_detail = (f"{verify_detail}; fill-in not applied: {len(loss)} dropped "
+                                         f"player(s) are a pipeline loss ({', '.join(loss[:4])})")
+                    else:
+                        reaches, fill_detail = coverage_fill_in_reaches(
+                            source, combo_name, pos, combo["native"],
+                            fixture_path, players_path)
+                        verify_detail = f"{verify_detail}; {fill_detail}"
+                        if reaches:
+                            status = "warn"
+                            verify_detail = (
+                                f"{verify_detail}; list changed (warning, OC-5 fill-in rule, "
+                                f"Jeremy 2026-10-16): dropped: {', '.join(dropped) or 'none'}; "
+                                f"added: {', '.join(added) or 'none'}")
+                if status == "fail" and not live_contradicts:
                     churn_ok, churn_detail = coverage_drop_is_tail_churn(
                         f_n, c_n, dropped, fx_native, fx_priced, combo["native"],
                         review_ids, {s: c_keys.get(s, player_keys.get(s)) for s in dropped})
