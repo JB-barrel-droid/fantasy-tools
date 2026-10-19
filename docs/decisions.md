@@ -946,6 +946,7 @@ Bonus: two panels guard mutations ("Tier column says ESPN Tier", "shares not app
 ### Outcome Note
 
 2026-10-19: all three test modules green (6 tests, 52 subtests). Agent-chosen, editable.
+2026-10-19 (follow-up): PR 713 item 2 (chart-h media query) conflicted with JEG-470's 280px floor -- plot was 248px instead of 280px. Replaced the `--v2-chart-h` override with chrome trimming (card padding, legend gap, plot margin) in the same media query. Both test_v2_chart_height_render and test_v2_panels_render now pass. All 39 v2 render modules green.
 
 ## qa-wave-2026-10-19: contract-line and QA defaults (agent-chosen per Jeremy's instruction, editable)
 

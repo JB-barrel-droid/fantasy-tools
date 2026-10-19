@@ -1089,8 +1089,16 @@ a.v2-div-chip:hover { text-decoration: underline; }
   #v2Main .v2-table-wrap { max-height: calc(100vh - 120px); }
   #v2Main { --v2-chart-h: clamp(280px, 36vh, 400px); }   /* stacked: the table follows under the chart */
 }
-/* JEG-470 laptop fold: at 1366x768 the chart card must end within the viewport, so the plot shrinks. */
-@media (min-width: 1280px) and (max-height: 800px) { :root { --v2-chart-h: clamp(240px, calc(100vh - 520px), 42vh); } }
+/* JEG-470 laptop fold: at 1366x768 the chart card must end within the viewport.
+   The default rule (clamp 280 px / 100vh-490 / 42vh) already floors the plot at 280 px on short viewports.
+   PR 713 overrode this to 248 px (100vh-520) to fit the fold, but that broke JEG-470's 280 px floor.
+   Trimming the chart-head gaps, card padding and plot margin recovers the ~32 px instead. */
+@media (min-width: 1280px) and (max-height: 800px) {
+  #v2Main .v2-chart-card { padding-top: 4px; padding-bottom: 4px; }
+  .v2-chart-head { gap: 0 8px; }
+  .v2-chart-head .v2-legend { gap: 8px 8px; }
+  .v2-plot { margin-top: 2px; }
+}
 /* JEG-477: from 1680 x 960 the chart is taller by default and keeps scaling with the viewport (530 px = the page above the
    plot at 1920, so the card still ends at the fold at 1080); laptops never match, so the JEG-470 fold is unchanged; the toggle (#v2ChartSize) switches to the expanded height. */
 @media (min-width: 1680px) and (min-height: 960px) { :root { --v2-chart-h: clamp(420px, calc(100vh - 530px), 60vh); } }
