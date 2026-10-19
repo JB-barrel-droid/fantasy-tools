@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-19T03:52:02.967900+00:00",
+  "run_at": "2026-10-19T07:06:36.185025+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,11 +15,26 @@
   "outcome": "green",
   "held": [
     "cbsros",
+    "espn",
     "razzball"
   ],
   "hold_severity": "none",
   "list_changes": {},
   "held_detail": {
+    "espn": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "espn",
+        "espn_vorp"
+      ],
+      "sections": [
+        "espn",
+        "espn_adjusted"
+      ],
+      "detail": "1716/1752 chart values equal stored snapshot 2026-10-18 (per game, 2 decimals); 36 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
+      "hold_severity": "amber",
+      "week": 6
+    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -44,7 +59,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1878/1878 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 59 stored players not on the chart, 0 chart players not stored",
+      "detail": "1902/1902 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 51 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 6
     }
@@ -161,6 +176,7 @@
     }
   },
   "fidelity_holds": {
+    "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   }
