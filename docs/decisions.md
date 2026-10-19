@@ -873,3 +873,35 @@ Implemented in `pipelines/review_comparison_candidate.py` (`coverage_fill_in_rea
 ### Record correction (2026-10-17)
 
 PRs #668 and #669 (merged 2026-10-16) recorded a CBS floor accept (WR 41 / TE 10, Week 6, all three combos) in `data/triage/coverage-accepted.json` with `approved_by: Jeremy, approved_on: 2026-10-16`, and their commit messages and the JEG-667 comments describe it as Jeremy's decision. That was another session's reading of his answer, not his decision. His decision was the convention above. The floor accept entries stay in the file as history and are not reverted; they expire with Week 6 and are only a fallback where fill-in does not apply. The convention governs.
+
+## amber-hold-001: Amber fidelity holds never hide a source from DDF Value
+- id: amber-hold-001
+- created: 2026-10-19
+- deadline: 2026-10-26
+- category: methodology
+- silence-default: proceed
+- outcome: proceeded
+- outcome_date: 2026-10-19
+- recommendation: An amber fidelity hold (merely lagging: stored_vs_chart value-only drift, or publisher_vs_stored with 0 value mismatches and at most 2 unresolved names) labels the source on the page but does not hide it from DDF Value or projection ordering. Red holds keep hiding.
+
+### Context
+
+JEG-726: the fidelity pulse held ESPN (stored_vs_chart: value-only drift), CBS ROS (publisher_vs_stored: 0 value mismatches, 1 unresolved name) and Razzball (stored_vs_chart) at the same time. With every projection held, there was no projected-points order (VP-2.2 f): bench-share was None and projection-based DDF Value was not offered. The engine and reference agreed and JEG-569 part 2 made gate tests handle it, but the page lost projection values because sources were merely lagging, not wrong.
+
+### Problem
+
+Should a merely-lagging source be hidden from DDF Value?
+
+### Options
+
+1. **(a) Amber holds never hide.** The source gets a visible "lagging" label but stays in DDF Value and projection ordering. Red holds (genuine wrong data) keep hiding.
+2. **(b) Never hold the last included projection.** Keep at least one projection visible, regardless of hold severity.
+3. **(c) Leave as is.** All holds hide equally.
+
+### Recommendation
+
+Option (a), agent-chosen per Jeremy's instruction (2026-10-19, editable). Amber holds now carry `hold_level: "amber"` through the fixture's `validationHold` field. The page reads `hold_level` and includes amber-held sources in DDF Value (eligible, not hidden). The degenerate state (all three projections amber-held) can no longer produce bench-share None from amber holds alone, because amber-held projections stay in the pipeline as full participants.
+
+### Outcome Note
+
+2026-10-19: implemented per Jeremy's delegation (JEG-726). Agent chose option (a). Files changed: `pipelines/fidelity_pulse.py` (amber hold detection in `hold_decision`), `pipelines/fidelity_hold.py` (`hold_level` passed through to `validationHold`), `app/trade-value-chart/assets/curve-widget.js` (amber holds not hidden). Negative-tested: all three projections amber-held => still present; red hold => still hidden.

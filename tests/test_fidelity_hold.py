@@ -133,8 +133,9 @@ class NormalChangeDoesNotHold(unittest.TestCase):
 class FirstLiveHolds(unittest.TestCase):
     """The first live pulse with holds (2026-10-09 23:40Z) held two sources on states that are not bad data."""
 
-    def test_a_player_printed_at_one_unit_and_not_stored_does_not_hold(self):
-        """Razzball: Scotty Miller printed 0.1 per game in every scoring, not stored. Absent means 0."""  # noqa
+    def test_a_player_printed_at_one_unit_and_not_stored_is_amber_hold(self):
+        """Razzball: Scotty Miller printed 0.1 per game in every scoring, not stored. Absent means 0.
+        JEG-726: this is a merely-lagging amber hold (visible label, not hidden from DDF)."""  # noqa
         env = T.ProjEnv()
         # a stored WR at 0.0 keeps the page's lowest WR value below Miller's (no row-cap churn)
         env.pub[100] = ("Filler Player0", "WR", {"std": "0.0", "half": "0.0", "full": "0.0"})
@@ -146,7 +147,9 @@ class FirstLiveHolds(unittest.TestCase):
         r, _ = env.run()
         s1 = r["stages"]["publisher_vs_stored"]
         self.assertEqual("amber", s1["status"], s1["summary"])
-        self.assertIsNone(r["hold"])
+        # JEG-726: a negligible absence is a merely-lagging amber hold, not no hold.
+        self.assertIsNotNone(r["hold"])
+        self.assertEqual("amber", r["hold"]["hold_level"])
         env.pub[101] = ("Filler Player1", "WR", {"std": "0.3", "half": "0.4", "full": "0.5"})  # a real value: held
         r, _ = env.run()
         self.assertEqual("fidelity: publisher_vs_stored", (r["hold"] or {}).get("reason"))
@@ -256,12 +259,15 @@ class ChartSnapshotReplacedByANewerSave(unittest.TestCase):
         env.chart["sources"]["razzball"]["lineage"]["raw_vintage"] = "2026-10-07"  # the chart's older set
         return env  # stored holds only the 2026-10-08 set (the older one was replaced)
 
-    def test_a_chart_behind_the_one_stored_set_is_amber_not_a_hold(self):
+    def test_a_chart_behind_the_one_stored_set_is_amber_hold(self):
+        """JEG-726: a chart behind the stored set is merely lagging => amber hold
+        (visible label, not hidden from DDF Value)."""
         r, _ = self.env().run()
         s2 = r["stages"]["stored_vs_chart"]
         self.assertEqual("amber", s2["status"], s2["summary"])
         self.assertIn("2026-10-08", s2["summary"])
-        self.assertIsNone(r["hold"])
+        self.assertIsNotNone(r["hold"])
+        self.assertEqual("amber", r["hold"]["hold_level"])
 
     def test_a_chart_snapshot_newer_than_anything_stored_still_holds(self):
         env = self.env()
@@ -470,6 +476,133 @@ class ChainAppliesTheHold(unittest.TestCase):
 
 # LastGoodFixtureFromGit removed: fixture_with_built_at retired by JEG-569
 # part 2 (no restoration from last-good builds; combos are stripped).
+
+
+class AmberHoldPolicy(unittest.TestCase):
+    """JEG-726: amber fidelity holds (merely lagging) must never hide a source
+    from DDF Value / projection ordering.  Only red holds hide.
+
+    Negative-tested: simulate all three projections amber-held => projections
+    still present; simulate a red hold => still hidden."""
+
+    AMBER_HOLD = {"stage": "stored_vs_chart", "reason": "fidelity: stored_vs_chart",
+                  "hold_level": "amber", "identity": "b2",
+                  "since": "2026-10-09T21:51:00Z", "summary": "chart is stale"}
+    RED_HOLD = {"stage": "publisher_vs_stored", "reason": "fidelity: publisher_vs_stored",
+                "hold_level": "red", "identity": "b2",
+                "since": "2026-10-09T21:51:00Z", "summary": "39 value mismatches"}
+
+    def test_amber_hold_carries_hold_level_amber(self):
+        """An amber hold writes hold_level='amber' into validationHold."""
+        out, report = fh.apply_fidelity_holds(fixture(), {"espn": self.AMBER_HOLD}, 5)
+        hold = out["sources"]["espn"]["validationHold"]
+        self.assertEqual("amber", hold["hold_level"])
+        self.assertEqual("amber", report["espn"]["hold_level"])
+
+    def test_red_hold_carries_hold_level_red(self):
+        """A red hold writes hold_level='red' into validationHold."""
+        out, report = fh.apply_fidelity_holds(fixture(), {"espn": self.RED_HOLD}, 5)
+        hold = out["sources"]["espn"]["validationHold"]
+        self.assertEqual("red", hold["hold_level"])
+        self.assertEqual("red", report["espn"]["hold_level"])
+
+    def test_all_three_projections_amber_held_still_present(self):
+        """The degenerate case: all three projections amber-held must NOT
+        produce bench-share None.  Their hold_level is 'amber' so the page
+        keeps them in DDF Value."""
+        holds = {
+            "espn": dict(self.AMBER_HOLD),
+            "cbsros": dict(self.AMBER_HOLD),
+            "razzball": dict(self.AMBER_HOLD),
+        }
+        out, report = fh.apply_fidelity_holds(fixture(), holds, 5)
+        for proj in ("espn", "cbsros", "razzball"):
+            vh = out["sources"][proj]["validationHold"]
+            self.assertEqual("amber", vh["hold_level"],
+                             f"{proj} should be amber-held, not hidden")
+            self.assertTrue(out["sources"][proj]["combos"],
+                            f"{proj} combos must be kept")
+        # All three are amber => the page should not hide any of them.
+        # A red hold on even one would make that one hidden.
+        self.assertEqual({"espn", "cbsros", "razzball"},
+                         {r for r, d in report.items() if d["hold_level"] == "amber"})
+
+    def test_red_hold_hides_source(self):
+        """A red hold on a projection hides it from DDF Value (hold_level='red')."""
+        out, report = fh.apply_fidelity_holds(fixture(), {"espn": self.RED_HOLD}, 5)
+        hold = out["sources"]["espn"]["validationHold"]
+        self.assertEqual("red", hold["hold_level"])
+        # The page reads hold_level to decide whether to hide; 'red' means hidden.
+
+    def test_hold_level_defaults_to_red_when_absent(self):
+        """A hold without hold_level (legacy) defaults to 'red'."""
+        legacy = {"stage": "freshness", "reason": "fidelity: freshness",
+                  "identity": "b1", "since": "2026-10-09T21:51:00Z", "summary": "stale"}
+        out, report = fh.apply_fidelity_holds(fixture(), {"cbs": legacy}, 5)
+        self.assertEqual("red", out["sources"]["cbs"]["validationHold"]["hold_level"])
+
+
+class AmberHoldDecision(unittest.TestCase):
+    """JEG-726: hold_decision produces amber holds for merely-lagging conditions."""
+
+    def test_stored_vs_chart_value_drift_produces_amber_hold(self):
+        """stored_vs_chart amber with a newer bake (value-only drift) -> amber hold."""
+        result = {"stages": {
+            "publisher_vs_stored": {"status": "green"},
+            "stored_vs_chart": {"status": "amber", "behind": {"snapshot": "s2"},
+                                "counts": {"missing_on_chart": 0, "extra_on_chart": 0}},
+            "freshness": {"status": "green"},
+            "scrape_validity": {"status": "green"},
+        }}
+        hold = fp.hold_decision(result, "id1", None, T.NOW)
+        self.assertIsNotNone(hold)
+        self.assertEqual("amber", hold["hold_level"])
+        self.assertEqual("stored_vs_chart", hold["stage"])
+
+    def test_publisher_vs_stored_small_roster_gap_produces_amber_hold(self):
+        """publisher_vs_stored amber with 0 mismatches and <=2 unresolved -> amber hold."""
+        result = {"stages": {
+            "publisher_vs_stored": {"status": "amber",
+                                    "counts": {"mismatched": 0, "missing": 0, "extra": 1,
+                                               "unresolved_names": 1}},
+            "stored_vs_chart": {"status": "green"},
+            "freshness": {"status": "green"},
+            "scrape_validity": {"status": "green"},
+        }}
+        hold = fp.hold_decision(result, "id1", None, T.NOW)
+        self.assertIsNotNone(hold)
+        self.assertEqual("amber", hold["hold_level"])
+        self.assertEqual("publisher_vs_stored", hold["stage"])
+
+    def test_red_stage_still_produces_red_hold(self):
+        """A red stage produces a red hold, not an amber one."""
+        result = {"stages": {
+            "publisher_vs_stored": {"status": "red",
+                                    "counts": {"mismatched": 5, "missing": 0, "extra": 0}},
+            "stored_vs_chart": {"status": "green"},
+            "freshness": {"status": "green"},
+            "scrape_validity": {"status": "green"},
+        }}
+        hold = fp.hold_decision(result, "id1", None, T.NOW)
+        self.assertIsNotNone(hold)
+        self.assertEqual("red", hold["hold_level"])
+
+    def test_non_lagging_amber_produces_no_hold(self):
+        """An amber stage that is NOT merely-lagging (e.g. FantasyCalc movement) -> no hold."""
+        result = {"stages": {
+            "publisher_vs_stored": {"status": "amber",
+                                    "counts": {"mismatched": 5, "missing": 0, "extra": 0,
+                                               "unresolved_names": 0}},
+            "stored_vs_chart": {"status": "green"},
+            "freshness": {"status": "green"},
+            "scrape_validity": {"status": "green"},
+        }}
+        hold = fp.hold_decision(result, "id1", None, T.NOW)
+        self.assertIsNone(hold)
+
+    def test_all_green_produces_no_hold(self):
+        result = {"stages": {n: {"status": "green"} for n in fp.HOLD_STAGES}}
+        self.assertIsNone(fp.hold_decision(result, "id1", None, T.NOW))
 
 
 if __name__ == "__main__":

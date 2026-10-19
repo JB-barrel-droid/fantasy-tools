@@ -702,8 +702,12 @@
   function eligibilityReason(key, natives) {
     if (sourceMissingFromData(key)) return {reason: "missing from this build", run: false};
     const block = compositeBlock(key);
-    // Held sources: run in the pipeline (run: true) but hidden from display.
-    if (block && block.heldBy) return {reason: block.reason, run: true, hidden: true, block};
+    // JEG-726: an amber hold (merely lagging) labels the source but does NOT
+    // hide it from DDF Value or projection ordering. Only red holds hide.
+    if (block && block.heldBy) {
+      if (block.holdLevel === "amber") return null; // amber: eligible, visible label only
+      return {reason: block.reason, run: true, hidden: true, block};
+    }
     if (sourceValidationStatus(key) !== undefined && sourceValidationStatus(key) !== "live") {
       return {reason: "held: did not pass source validation", run: true, hidden: true};
     }
@@ -980,7 +984,7 @@
         : typeof hold === "string" ? hold : field;
       const detail = typeof hold === "object" ? hold : {};
       return {field, reason, week: detail.week ?? null, root: detail.root ?? null,
-        keptWeek: detail.kept_week ?? null, source: sectionKey};
+        keptWeek: detail.kept_week ?? null, holdLevel: detail.hold_level ?? "red", source: sectionKey};
     }
     return null;
   }
@@ -1003,7 +1007,7 @@
     const hold = seriesHold(key);
     if (hold) {
       return {key, reason: `held: ${hold.reason}`, heldBy: hold.source, holdField: hold.field, holdWeek: hold.week,
-        holdRoot: hold.root, holdKeptWeek: hold.keptWeek};
+        holdRoot: hold.root, holdKeptWeek: hold.keptWeek, holdLevel: hold.holdLevel};
     }
     if (compositeKeyOlderWeek(key)) {
       const week = activeReferenceWeek();
@@ -2067,9 +2071,15 @@
       : "";
     const included = pipelineState.included.length;
     const heldKeys = COMPOSITE_INPUT_KEYS.filter(compositeKeyHeld);
-    const heldNote = heldKeys.length
-      ? ` ${heldKeys.map(sourceLabel).join(", ")} ${heldKeys.length === 1 ? "is" : "are"} held and grayed out (no computation on held data).`
-      : "";
+    // JEG-726: distinguish amber (merely lagging, still in DDF) from red (hidden from DDF).
+    const redHeldKeys = heldKeys.filter(k => { const h = seriesHold(k); return h && h.holdLevel !== "amber"; });
+    const amberHeldKeys = heldKeys.filter(k => { const h = seriesHold(k); return h && h.holdLevel === "amber"; });
+    const heldNote = (redHeldKeys.length
+      ? ` ${redHeldKeys.map(sourceLabel).join(", ")} ${redHeldKeys.length === 1 ? "is" : "are"} held and grayed out (no computation on held data).`
+      : "")
+      + (amberHeldKeys.length
+      ? ` ${amberHeldKeys.map(sourceLabel).join(", ")} ${amberHeldKeys.length === 1 ? "is" : "are"} lagging (included in DDF Value; a refresh is pending).`
+      : "");
     const ddfText = included
       ? `DDF Value is the mean of ${included} source${included === 1 ? "" : "s"}' Adjusted values, every source on one league pie.`
       : "No source is available this week, so there is no DDF Value.";
