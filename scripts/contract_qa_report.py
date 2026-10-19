@@ -48,10 +48,14 @@ def render_report(live: dict, pending: dict, summaries: dict, stamp: str,
         lines.append(f"| {cid} | {'FAIL' if errs else 'pass'} | {note} |")
     if page_errors:
         lines += ["", "## Page errors", ""] + [f"- {e}" for e in page_errors]
-    lines += ["", "## Pending (to build)", "", "| ID | Ticket | Ticket status | Line |", "|---|---|---|---|"]
+    lines += ["", "## Pending (to build)", "",
+              "Shipped check: the partial check of what is already built (also listed above); "
+              "'none' means no check exists yet. The line goes live when the Doc drops \"to build\".", "",
+              "| ID | Ticket | Ticket status | Shipped check | Line |", "|---|---|---|---|---|"]
     for cid in sorted(pending):
         ticket = pending[cid]
-        lines.append(f"| {cid} | {ticket} | {status.get(ticket, 'unknown')} | {summaries.get(cid, '')} |")
+        shipped = "none" if cid not in live else ("FAIL" if live[cid] else "pass")
+        lines.append(f"| {cid} | {ticket} | {status.get(ticket, 'unknown')} | {shipped} | {summaries.get(cid, '')} |")
     return "\n".join(lines) + "\n"
 
 
