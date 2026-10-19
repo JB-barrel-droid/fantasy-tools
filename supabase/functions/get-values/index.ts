@@ -10,7 +10,11 @@
 //
 // Deploy: supabase functions deploy get-values --no-verify-jwt
 
-const SITE_ORIGIN = "https://datadrivenfootball.com";
+// Published site the function reads from. The datadrivenfootball.com domain
+// does not resolve yet (checked 2026-10-19), so default to the Pages URL and
+// let a DDF_SITE_ORIGIN function secret override it once the domain is live.
+const SITE_ORIGIN = (Deno.env.get("DDF_SITE_ORIGIN") ||
+  "https://jb-barrel-droid.github.io/fantasy-tools").replace(/\/+$/, "");
 const BUNDLE_URL = `${SITE_ORIGIN}/assets/comparison-sources-data.json`;
 const PAGE_URL = `${SITE_ORIGIN}/`;
 const VALUE_MODEL_URL = `${SITE_ORIGIN}/assets/value-model.js`;
@@ -412,7 +416,7 @@ function formatResponse(
   values.sort((a, b) => b.value - a.value);
 
   return {
-    attribution: "Data Driven Football — https://datadrivenfootball.com",
+    attribution: `Data Driven Football — ${SITE_ORIGIN}/`,
     as_of: (meta as Record<string, string>).as_of || null,
     setting: { scoring, teams, superflex },
     players: values,
@@ -429,6 +433,7 @@ function formatResponse(
 // --- Allowed origins for CORS -----------------------------------------------
 const ALLOWED_ORIGINS = new Set([
   "https://datadrivenfootball.com",
+  "https://jb-barrel-droid.github.io",
   "http://localhost:3000",
   "http://localhost:5173",
   "http://127.0.0.1:3000",
@@ -521,7 +526,8 @@ Deno.serve(async (req: Request) => {
     // Load bundle and run pipeline.
     const bundle = await loadBundle();
     const input = buildPipelineInput(bundle, scoring, teams, superflex);
-    const pipeline = bundle.ValueModel.runValuePipeline(input);
+    // deno-lint-ignore no-explicit-any
+    const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
     const response = formatResponse(
       pipeline, input.players, bundle.meta, scoring, teams, superflex,
     );

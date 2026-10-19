@@ -1,0 +1,8 @@
+# Minimal config for deploying edge functions with the Supabase CLI.
+# Only the settings that differ from defaults are listed.
+project_id = "fantasy-tools"
+
+# Public read-only values endpoint: no accounts or keys (JEG-616).
+# Without this the gateway rejects calls that lack a Supabase JWT.
+[functions.get-values]
+verify_jwt = false
