@@ -18,8 +18,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const ATTRIBUTION = "Data Driven Football — https://datadrivenfootball.com";
-const API_URL = process.env.DDF_API_URL || "https://datadrivenfootball.com/api/values";
+const SITE_URL = process.env.DDF_SITE_URL || "https://jb-barrel-droid.github.io/fantasy-tools/";
+const ATTRIBUTION = `Data Driven Football — ${SITE_URL}`;
+const API_URL = process.env.DDF_API_URL || "";
 
 // --- API client -------------------------------------------------------------
 
@@ -45,6 +46,7 @@ async function fetchValues(
   teams: number,
   superflex: number,
 ): Promise<ValuesResponse> {
+  if (!API_URL) throw new Error("DDF_API_URL is not set (the get-values function URL)");
   const url = new URL(API_URL);
   url.searchParams.set("scoring", scoring);
   url.searchParams.set("teams", String(teams));
@@ -260,7 +262,7 @@ server.tool(
           ATTRIBUTION,
           "",
           "Risers/fallers comparison is not yet available through the API.",
-          "Visit https://datadrivenfootball.com to see week-over-week changes",
+          `Visit ${SITE_URL} to see week-over-week changes`,
           "on the interactive chart (the prior-week comparison runs in the browser).",
           "",
           `Requested: ${direction}, ${scoring}, ${teams} teams${superflex ? ", superflex" : ""}, top ${limit}`,

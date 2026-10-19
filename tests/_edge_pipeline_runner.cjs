@@ -148,7 +148,10 @@ function espnProjectsZero(player) {
 
 // --- Build pipeline input ---------------------------------------------------
 const field = scoringField(scoring);
-const qbSlots = superflex ? 2 : 1;
+// The engine page always looks up chart combos at qb1 (qbVariant: "qb1" in
+// product-data.js). Superflex values are overlaid separately via
+// native_superflex, so the combo key is always qbSlots=1.
+const comboQbSlots = 1;
 
 const playerMap = {};
 for (const p of players) {
@@ -204,6 +207,11 @@ for (const key of PIPELINE_SOURCE_KEYS) {
   const isFirstLoadExcluded = firstLoadExcluded.has(key);
   const isOlderWeek = isStale || isFirstLoadExcluded;
 
+  // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
+  const divergenceExclusions = (detail.snapshot && Array.isArray(detail.snapshot.divergence_exclusions))
+    ? detail.snapshot.divergence_exclusions : [];
+  const isDivergenceExcluded = divergenceExclusions.indexOf(key) !== -1;
+
   // Determine eligibility (mirrors curve-widget.js eligibilityReason).
   // sourceMissingFromData: no source section at all.
   if (!sourceSection) continue;
@@ -220,15 +228,20 @@ for (const key of PIPELINE_SOURCE_KEYS) {
     // validation held sources run in pipeline but are hidden
   }
 
+  // Divergence excluded: run:true, hidden:true (JEG-610).
+  if (isDivergenceExcluded && !hold && !isValidationHeld) {
+    // Falls through to include but mark hidden.
+  }
+
   // Not yet published for current week: excluded (run:false for chart sources).
-  if (isOlderWeek && !hold && !isValidationHeld) {
+  if (isOlderWeek && !hold && !isValidationHeld && !isDivergenceExcluded) {
     continue; // Not eligible
   }
 
   let values;
 
   if (family === "chart") {
-    const comboKeyStr = ValueModel.sourceComboKey(key, scoring, 12, qbSlots);
+    const comboKeyStr = ValueModel.sourceComboKey(key, scoring, 12, comboQbSlots);
     const combos = sourceSection && sourceSection.combos;
     const combo = comboKeyStr && combos ? combos[comboKeyStr] : null;
     if (!combo || !combo.native) continue;
@@ -271,13 +284,16 @@ for (const key of PIPELINE_SOURCE_KEYS) {
   sources[key] = { family: family, status: "included", values: values, label: key };
   included.push(key);
 
-  // Mark as hidden if held or validation-held.
-  if (hold || isValidationHeld) {
+  // Mark as hidden if held, validation-held, or divergence-excluded.
+  if (hold || isValidationHeld || isDivergenceExcluded) {
     hiddenKeys.push(key);
   }
 }
 
-const benchPerTeam = benchOverride !== null ? benchOverride : 6;
+// DEFAULT_ROSTER.BENCH = 7 (curve-widget.js line 114); SAVED_SETUP_SHAPE
+// agrees (value-model.js). The old default of 6 was stale after the convention
+// settled (JEG-548/549/566, bench research re-run on the convention).
+const benchPerTeam = benchOverride !== null ? benchOverride : 7;
 
 // --- Load lineup parameters (expected-starts model) -------------------------
 let lineupConfig = null;
@@ -305,7 +321,9 @@ try {
 const input = {
   setting: {
     teams: teams,
-    slots: { QB: 1, RB: 2, WR: 3, TE: 1 },
+    // Must match DEFAULT_ROSTER (curve-widget.js) and SAVED_SETUP_SHAPE
+    // (value-model.js): QB:1, RB:2, WR:2, TE:1. The old WR:3 was stale.
+    slots: { QB: 1, RB: 2, WR: 2, TE: 1 },
     flex: 1,
     superflex: superflex,
     bench_per_team: benchPerTeam,
