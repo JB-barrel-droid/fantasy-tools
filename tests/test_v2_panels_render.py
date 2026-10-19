@@ -302,9 +302,10 @@ ROOTS_JS = """() => { const fresh = window.TradeValueProductData?.getSourceFresh
   const out = {};
   for (const i of window.TradeValueCurveControls.getSourceInfo()) {
     const stale = typeof fresh[i.key]?.is_older_week === 'boolean' ? fresh[i.key].is_older_week : i.stale;
-    const pub = pubOf(i.key); out[pub] = out[pub] || {prior: false, paused: false};
+    const pub = pubOf(i.key); out[pub] = out[pub] || {prior: false, paused: false, held: false};
     if (i.available && stale) out[pub].prior = true;
     if (i.paused) out[pub].paused = true;
+    if (!i.available && i.excludedReason && /held/i.test(i.excludedReason)) out[pub].held = true;
   }
   return out; }"""
 
@@ -355,11 +356,13 @@ def check_freshness(page) -> list[str]:
     rows, label = _freshness_with(page, missing)
     for pub, want in roots.items():
         r = rows.get(pub)
-        expect = "stuck" if want.get("paused") else "prior" if want.get("prior") else "unknown"
+        # JEG-721: held sources stay "held" even when the freshness file is missing.
+        expect = ("stuck" if want.get("paused") else "held" if want.get("held")
+                  else "prior" if want.get("prior") else "unknown")
         if not r or r["status"] != expect or (expect == "unknown" and (
                 "Freshness unknown" not in r["text"] or "✓" in r["text"] or "couldn't confirm" not in r["text"])):
             errors.append(f"freshness: with the file missing {pub} shows {r}, want {expect}")
-    if "all sources current" in label or "unconfirmed" not in label:
+    if "all sources current" in label or ("unconfirmed" not in label and "held" not in label):
         errors.append(f"freshness: with the file missing the header chip says {label!r}")
 
     # Fail closed: a source whose own rows are missing is unknown; every other source confirmed current.
@@ -377,15 +380,20 @@ def check_freshness(page) -> list[str]:
     rows, label = _freshness_with(page, dropped)
     for pub, want in roots.items():
         r = rows.get(pub)
-        expect = ("stuck" if want.get("paused") else "prior" if want.get("prior")
+        # JEG-721: held sources stay "held" regardless of freshness data.
+        expect = ("stuck" if want.get("paused") else "held" if want.get("held")
+                  else "prior" if want.get("prior")
                   else "unknown" if pub == "fantasypros" else "current")
         if not r or r["status"] != expect:
             errors.append(f"freshness: with FantasyPros rows removed {pub} shows {r}, want {expect}")
     fp = rows.get("fantasypros") or {}
     if "✓" in fp.get("text", "") or "Freshness unknown" not in fp.get("text", ""):
         errors.append(f"freshness: FantasyPros without rows shows {fp}")
-    if "all sources current" in label or "1 source unconfirmed" not in label:
+    if "all sources current" in label:
         errors.append(f"freshness: with one source unconfirmed the header chip says {label!r}")
+    # The chip should mention the unconfirmed source (and optionally held ones).
+    if "unconfirmed" not in label and "1 source" not in label:
+        errors.append(f"freshness: with FantasyPros rows removed the chip does not warn: {label!r}")
     return errors
 
 

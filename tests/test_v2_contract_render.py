@@ -962,7 +962,7 @@ def gl04(S):
 def gl05(S):
     errors = []
     v = S["values"]
-    want = {"usatoday": "prior", "cbs": "unknown", "fantasycalc": "stuck"}
+    want = {"usatoday": "prior", "cbs": "held", "fantasycalc": "stuck"}
     got = {r["src"]: r for r in v["fresh"]}
     for src, status in want.items():
         r = got.get(src)
@@ -978,8 +978,13 @@ def gl05(S):
     prior = v["reload_prior"]["chip"]
     if "current" in prior.lower() or "⚠" not in prior:
         errors.append(f"chip with one source a week behind says {prior!r}")
-    if "all sources current" not in v["reload"]["chip"]:
-        errors.append(f"chip with every source confirmed says {v['reload']['chip']!r}")
+    # JEG-721: CBS is held in the pinned fixture, so even when every source's pipeline
+    # freshness is green the chip must say "held", not "all sources current".
+    reload_chip = v["reload"]["chip"]
+    if "all sources current" in reload_chip:
+        errors.append(f"chip claims 'all sources current' but CBS is held: {reload_chip!r}")
+    if "held" not in reload_chip.lower():
+        errors.append(f"chip with a held source does not mention it: {reload_chip!r}")
     return errors
 
 
@@ -2012,8 +2017,9 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "GL-20", "Player values search not listing players with no value")
         caught(results, "TT-06", "the week badge dropped from Compare rows")
 
-        # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current, the
-        # 390 px layout scrolls sideways, a Manifesto section dropped.
+        # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current
+        # (JEG-721: removing the held-source detection makes the chip lie), the 390 px layout scrolls sideways,
+        # a Manifesto section dropped.
         broken_js = cut(js, "const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);",
                         'const rank = saved && saved.rank ? saved.rank : (hasDdf ? C.getActiveSources()[0] : null);')
         broken_js = cut(broken_js, '$("v2FreshnessLabel").textContent = stuck ?', '$("v2FreshnessLabel").textContent = false ?')
