@@ -1,182 +1,326 @@
 {
-  "run_at": "2026-10-19T22:07:23.240299+00:00",
+  "run_at": "2026-10-19T23:00:53.835824+00:00",
   "nfl_week": 6,
   "sources": {
-    "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
-    "fantasypros": "promoted 3/3",
-    "espn": "promoted 1/1",
-    "cbs": "promoted 3/3",
-    "cbsros": "promoted 1/1",
-    "razzball": "promoted 1/1"
+    "usatoday": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (Week 6); candidate not promoted: no snapshot.json found under data/raw/sources",
+    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 6); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 177/177 values moved > 0.05 (live mismatch 11/25 top-25 match (need 80%); e.g. jamarr chase, kenneth walker iii, amonra st brown); coverage:full_12_qb1/QB:warn -- candidate priced 33 < fixture 34 (dropped: aaron rodgers, jalon daniels, tanner mckee, tyler huntley; added: jalen hurts, marcus mariota, tyson bagent) -- live tail: 4 dropped player(s) listed live only in the tail of the candidate's QB depth 33 (aaron rodgers (live QB18/34, val 390.0), jalon daniels (live QB34/34, val 48.0), tanner mckee (live QB27/34, val 139.0), tyler huntley (live QB33/34, val 50.0)) -- indistinguishable from publisher tail churn between bake and review; tail rule applies; VP-2.4 fill-in reaches the rosterable set at QB in every league size (ppr; listed+estimated/N_p: 8T 33+1/18, 10T 33+1/22, 12T 33+2/27, 14T 33+3/31); list changed (warning, OC-5 fill-in rule, Jeremy 2026-10-16): dropped: aaron rodgers, jalon daniels, tanner mckee, tyler huntley; added: jalen hurts, marcus mariota, tyson bagent; coverage:full_12_qb1/RB:warn -- candidate priced 61 < fixture 62 (dropped: dameon pierce, jaleel mclaughlin, kimani vidal, najee harris, roschon johnson; added: george holani, jaylen wright, kaleb johnson, tank bigsby) -- live tail: 5 dropped player(s) listed live only in the tail of the candidate's RB depth 61 (dameon pierce (live RB45/62, val 435.0), jaleel mclaughlin (live RB56/62, val 103.0), kimani vidal (live RB52/62, val 156.0), najee harris (live RB59/62, val 26.0)) -- indistinguishable from publisher tail churn between bake and review; tail rule applies; VP-2.4 fill-in reaches the rosterable set at RB in every league size (ppr; listed+estimated/N_p: 8T 61+0/36, 10T 61+1/47, 12T 61+3/55, 14T 61+8/63); list changed (warning, OC-5 fill-in rule, Jeremy 2026-10-16): dropped: dameon pierce, jaleel mclaughlin, kimani vidal, najee harris, roschon johnson; added: george holani, jaylen wright, kaleb johnson, tank bigsby; coverage_list:full_12_qb1/WR:warn -- list changed (75 -> 77): dropped: brandin cooks, darius cooper, efton chism iii, germie bernard, jakobi lane, kendrick bourne, keon coleman, omar cooper jr, ryan flournoy; added: adonai mitchell, chris bell, cooper kupp, dezhaun stribling, jauan jennings, kayshon boutte, mack hollins, michael pittman, pat bryant, rashid shaheed, tre harris; coverage_list:full_12_qb1/TE:warn -- list changed (26 -> 27): dropped: michael mayer, mike gesicki; added: aj barner, oronde gadsden ii, terrance ferguson. A hold means a human must review first; the chain will not override it.",
+    "fantasypros": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (Week 6); candidate not promoted: no snapshot.json found under data/raw/sources",
+    "espn": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: no snapshot.json found under data/raw/sources",
+    "cbs": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (Week 6); candidate not promoted: no snapshot.json found under data/raw/sources",
+    "cbsros": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: awaiting players bake: cbsros: snapshot sha256:28eaefe70c02 != players.json cbsros_snapshot_id sha256:b90cfe100876; the section waits for a bake from the same snapshot",
+    "razzball": "HELD at stage 'snapshot' (amber, failed at stage 'snapshot'): kept last promoted section (rest of season); candidate not promoted: no snapshot.json found under data/raw/sources"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "green",
+  "failed": [
+    "all_review_gated_sources_held",
+    "reindex_fixture"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
+    "cbs",
+    "cbsros",
     "espn",
     "fantasycalc",
-    "razzball"
+    "fantasypros",
+    "razzball",
+    "usatoday"
   ],
-  "hold_severity": "none",
+  "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
-      ],
-      "detail": "21/1176 values match exactly across 6 columns; 1155 values differ, 3 outside the movement band; 0 live players not stored, 1 stored players not live (above the list's churn line); 3 players entered or left the bottom of the list since the save (churn)",
+    "cbs": {
+      "detail": "no snapshot.json found under data/raw/sources",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "Week 6",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
       "hold_severity": "amber",
-      "week": 6
+      "rolled_back": 0
+    },
+    "cbsros": {
+      "detail": "awaiting players bake: cbsros: snapshot sha256:28eaefe70c02 != players.json cbsros_snapshot_id sha256:b90cfe100876; the section waits for a bake from the same snapshot",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
     },
     "espn": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "espn",
-        "espn_vorp"
-      ],
-      "sections": [
-        "espn",
-        "espn_adjusted"
-      ],
-      "detail": "1716/1752 chart values equal stored snapshot 2026-10-19 (per game, 2 decimals); 36 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 6
+      },
+      "weeks_behind": 0,
       "hold_severity": "amber",
-      "week": 6
+      "rolled_back": 0
+    },
+    "fantasycalc": {
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 177/177 values moved > 0.05 (live mismatch 11/25 top-25 match (need 80%); e.g. jamarr chase, kenneth walker iii, amonra st brown); coverage:full_12_qb1/QB:warn -- candidate priced 33 < fixture 34 (dropped: aaron rodgers, jalon daniels, tanner mckee, tyler huntley; added: jalen hurts, marcus mariota, tyson bagent) -- live tail: 4 dropped player(s) listed live only in the tail of the candidate's QB depth 33 (aaron rodgers (live QB18/34, val 390.0), jalon daniels (live QB34/34, val 48.0), tanner mckee (live QB27/34, val 139.0), tyler huntley (live QB33/34, val 50.0)) -- indistinguishable from publisher tail churn between bake and review; tail rule applies; VP-2.4 fill-in reaches the rosterable set at QB in every league size (ppr; listed+estimated/N_p: 8T 33+1/18, 10T 33+1/22, 12T 33+2/27, 14T 33+3/31); list changed (warning, OC-5 fill-in rule, Jeremy 2026-10-16): dropped: aaron rodgers, jalon daniels, tanner mckee, tyler huntley; added: jalen hurts, marcus mariota, tyson bagent; coverage:full_12_qb1/RB:warn -- candidate priced 61 < fixture 62 (dropped: dameon pierce, jaleel mclaughlin, kimani vidal, najee harris, roschon johnson; added: george holani, jaylen wright, kaleb johnson, tank bigsby) -- live tail: 5 dropped player(s) listed live only in the tail of the candidate's RB depth 61 (dameon pierce (live RB45/62, val 435.0), jaleel mclaughlin (live RB56/62, val 103.0), kimani vidal (live RB52/62, val 156.0), najee harris (live RB59/62, val 26.0)) -- indistinguishable from publisher tail churn between bake and review; tail rule applies; VP-2.4 fill-in reaches the rosterable set at RB in every league size (ppr; listed+estimated/N_p: 8T 61+0/36, 10T 61+1/47, 12T 61+3/55, 14T 61+8/63); list changed (warning, OC-5 fill-in rule, Jeremy 2026-10-16): dropped: dameon pierce, jaleel mclaughlin, kimani vidal, najee harris, roschon johnson; added: george holani, jaylen wright, kaleb johnson, tank bigsby; coverage_list:full_12_qb1/WR:warn -- list changed (75 -> 77): dropped: brandin cooks, darius cooper, efton chism iii, germie bernard, jakobi lane, kendrick bourne, keon coleman, omar cooper jr, ryan flournoy; added: adonai mitchell, chris bell, cooper kupp, dezhaun stribling, jauan jennings, kayshon boutte, mack hollins, michael pittman, pat bryant, rashid shaheed, tre harris; coverage_list:full_12_qb1/TE:warn -- list changed (26 -> 27): dropped: michael mayer, mike gesicki; added: aj barner, oronde gadsden ii, terrance ferguson. A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "Week 6",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    },
+    "fantasypros": {
+      "detail": "no snapshot.json found under data/raw/sources",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "2026-10-13",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
     },
     "razzball": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "razzball",
-        "razzball_vorp"
-      ],
-      "sections": [
-        "razzball",
-        "razzball_adjusted"
-      ],
-      "detail": "1860/1860 chart values equal stored snapshot 2026-10-19 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 50 stored players not on the chart, 0 chart players not stored",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 6
+      },
+      "weeks_behind": 0,
       "hold_severity": "amber",
-      "week": 6
+      "rolled_back": 0
+    },
+    "usatoday": {
+      "detail": "no snapshot.json found under data/raw/sources",
+      "reason": "failed at stage 'snapshot'",
+      "stage": "snapshot",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "2026-10-13",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
     }
   },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3,
-      "list_change_warnings": []
+      "status": "held",
+      "stage": "snapshot",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "promoted": 0,
+      "sections": 0,
+      "held": false,
+      "held_reason": "failed at stage 'snapshot'",
+      "failed_stage": "snapshot",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "2026-10-13",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 177/177 values moved > 0.05 (live mismatch 11/25 top-25 match (need 80%); e.g. jamarr chase, kenneth walker iii, amonra st brown); coverage:full_12_qb1/QB:warn -- candidate priced 33 < fixture 34 (dropped: aaron rodgers, jalon daniels, tanner mckee, tyler huntley; added: jalen hurts, marcus mariota, tyson bagent) -- live tail: 4 dropped player(s) listed live only in the tail of the candidate's QB depth 33 (aaron rodgers (live QB18/34, val 390.0), jalon daniels (live QB34/34, val 48.0), tanner mckee (live QB27/34, val 139.0), tyler huntley (live QB33/34, val 50.0)) -- indistinguishable from publisher tail churn between bake and review; tail rule applies; VP-2.4 fill-in reaches the rosterable set at QB in every league size (ppr; listed+estimated/N_p: 8T 33+1/18, 10T 33+1/22, 12T 33+2/27, 14T 33+3/31); list changed (warning, OC-5 fill-in rule, Jeremy 2026-10-16): dropped: aaron rodgers, jalon daniels, tanner mckee, tyler huntley; added: jalen hurts, marcus mariota, tyson bagent; coverage:full_12_qb1/RB:warn -- candidate priced 61 < fixture 62 (dropped: dameon pierce, jaleel mclaughlin, kimani vidal, najee harris, roschon johnson; added: george holani, jaylen wright, kaleb johnson, tank bigsby) -- live tail: 5 dropped player(s) listed live only in the tail of the candidate's RB depth 61 (dameon pierce (live RB45/62, val 435.0), jaleel mclaughlin (live RB56/62, val 103.0), kimani vidal (live RB52/62, val 156.0), najee harris (live RB59/62, val 26.0)) -- indistinguishable from publisher tail churn between bake and review; tail rule applies; VP-2.4 fill-in reaches the rosterable set at RB in every league size (ppr; listed+estimated/N_p: 8T 61+0/36, 10T 61+1/47, 12T 61+3/55, 14T 61+8/63); list changed (warning, OC-5 fill-in rule, Jeremy 2026-10-16): dropped: dameon pierce, jaleel mclaughlin, kimani vidal, najee harris, roschon johnson; added: george holani, jaylen wright, kaleb johnson, tank bigsby; coverage_list:full_12_qb1/WR:warn -- list changed (75 -> 77): dropped: brandin cooks, darius cooper, efton chism iii, germie bernard, jakobi lane, kendrick bourne, keon coleman, omar cooper jr, ryan flournoy; added: adonai mitchell, chris bell, cooper kupp, dezhaun stribling, jauan jennings, kayshon boutte, mack hollins, michael pittman, pat bryant, rashid shaheed, tre harris; coverage_list:full_12_qb1/TE:warn -- list changed (26 -> 27): dropped: michael mayer, mike gesicki; added: aj barner, oronde gadsden ii, terrance ferguson. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [],
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "Week 6",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3,
-      "list_change_warnings": []
+      "status": "held",
+      "stage": "snapshot",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "promoted": 0,
+      "sections": 0,
+      "held": false,
+      "held_reason": "failed at stage 'snapshot'",
+      "failed_stage": "snapshot",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "2026-10-13",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "espn": {
       "source": "espn",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7008 values)",
-      "promoted": 1,
-      "sections": 1
+      "status": "held",
+      "stage": "snapshot",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "promoted": 0,
+      "sections": 1,
+      "held_reason": "failed at stage 'snapshot'",
+      "failed_stage": "snapshot",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "cbs": {
       "source": "cbs",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3,
-      "list_change_warnings": []
+      "status": "held",
+      "stage": "snapshot",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "promoted": 0,
+      "sections": 0,
+      "held": false,
+      "held_reason": "failed at stage 'snapshot'",
+      "failed_stage": "snapshot",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 6",
+        "content_vintage": "Week 6",
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "cbsros": {
       "source": "cbsros",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "snapshot 2026-10-19 -> 12 DDF legs -> section; review passed (4356 values)",
-      "promoted": 1,
-      "sections": 1
+      "status": "held",
+      "stage": "snapshot",
+      "detail": "awaiting players bake: cbsros: snapshot sha256:28eaefe70c02 != players.json cbsros_snapshot_id sha256:b90cfe100876; the section waits for a bake from the same snapshot",
+      "promoted": 0,
+      "sections": 1,
+      "held_reason": "failed at stage 'snapshot'",
+      "failed_stage": "snapshot",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "razzball": {
       "source": "razzball",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "snapshot 2026-10-19 -> 12 DDF legs -> section; review passed (7440 values)",
-      "promoted": 1,
-      "sections": 1
+      "status": "held",
+      "stage": "snapshot",
+      "detail": "no snapshot.json found under data/raw/sources",
+      "promoted": 0,
+      "sections": 1,
+      "held_reason": "failed at stage 'snapshot'",
+      "failed_stage": "snapshot",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "rest of season",
+        "content_vintage": null,
+        "content_week": 6
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     }
   },
   "reindex_fixture": {
-    "status": "ok",
-    "detail": "re-index and rank guard ok"
+    "status": "skipped",
+    "detail": "skipped: sources failed: all review-gated sources held"
   },
   "source_vintages": {
     "usatoday": {
-      "content_vintage": "2026-10-13",
-      "content_week": 6,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "fantasycalc": {
-      "content_vintage": "Week 6",
-      "content_week": 6,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "fantasypros": {
-      "content_vintage": "2026-10-13",
-      "content_week": 6,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-19",
-      "content_week": 6,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "cbs": {
-      "content_vintage": "Week 6",
-      "content_week": 6,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-19",
-      "content_week": 6,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-19",
-      "content_week": 6,
-      "health_status": "ok",
+      "content_vintage": null,
+      "content_week": null,
+      "health_status": "missing",
       "lagging_one_week": false
     }
-  },
-  "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
-    "espn": "fidelity: stored_vs_chart",
-    "razzball": "fidelity: stored_vs_chart"
   }
 }
