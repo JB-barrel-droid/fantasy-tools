@@ -198,6 +198,16 @@ def check_league(page) -> list[str]:
     }""")
     if tiers["espnTier"]:
         errors.append("league: the page still says 'ESPN Tier'")
+    # The tier column header is only visible in expanded-table mode (metaColumnsShown);
+    # at 1440 the media query doesn't match, so open the expanded table overlay briefly.
+    if page.locator("#v2ExpandTable").count():
+        page.click("#v2ExpandTable")
+        page.wait_for_timeout(150)
+        tier_hdr = page.evaluate("() => { const th = document.querySelector('#v2Table th[data-col=\"tier\"]'); return th ? th.textContent.trim() : null; }")
+        page.click("#v2ExpandClose")
+        page.wait_for_timeout(100)
+        if tier_hdr and "ESPN" in tier_hdr:
+            errors.append(f"league: tier column header says {tier_hdr!r} instead of 'Tier'")
     checked = 0
     for rank, tier in tiers["rows"]:
         if not rank.isdigit() or tier is None:
@@ -272,11 +282,12 @@ def check_weights(page) -> list[str]:
         if text != f"{float(weights[pos]) * 100:.1f}%":
             errors.append(f"weights: {pos} shows {text}, engine {weights[pos]}")
     # Position shares (frame 11, JEG-452): the edited share reaches the engine, the rest rebalance there.
-    page.fill("#v2ShareQB", "10")
+    # Use 30% (far from the default ~10%) so a no-op Apply is caught.
+    page.fill("#v2ShareQB", "30")
     page.click('#v2Popover [data-apply="weights"]')
     got = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
-    if abs(got["QB"] - 0.10) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
-        errors.append(f"weights: QB 10% applied as {got}")
+    if abs(got["QB"] - 0.30) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
+        errors.append(f"weights: QB 30% applied as {got}")
     page.click("#v2Weights")
     page.click("#v2Popover .v2-preset")
     page.click('#v2Popover [data-apply="weights"]')

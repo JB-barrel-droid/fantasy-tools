@@ -905,3 +905,44 @@ Option (a), agent-chosen per Jeremy's instruction (2026-10-19, editable). Amber 
 ### Outcome Note
 
 2026-10-19: implemented per Jeremy's delegation (JEG-726). Agent chose option (a). Files changed: `pipelines/fidelity_pulse.py` (amber hold detection in `hold_decision`), `pipelines/fidelity_hold.py` (`hold_level` passed through to `validationHold`), `app/trade-value-chart/assets/curve-widget.js` (amber holds not hidden). Negative-tested: all three projections amber-held => still present; red hold => still hidden.
+
+## render-fix-001: v2 render test CSS and fixture fixes (JEG-718)
+
+- id: render-fix-001
+- created: 2026-10-19
+- deadline: 2026-10-26
+- category: implementation
+- silence-default: proceed
+- outcome: proceeded
+- outcome_date: 2026-10-19
+- recommendation: Agent-chosen per Jeremy's delegation (2026-10-19, editable). Five changes below.
+
+### Context
+
+Three v2 render test modules were red. Jeremy delegated fix decisions to the agent.
+
+### Problem
+
+1. 9px horizontal scroll at 1440 in panels test (table overflows its wrap).
+2. Chart card below fold at 1366x768 in panels test.
+3. Obsolete "equal case duplicates the number" mutant in targets test (never caught because no player has consensus == ours in current data).
+4. Missing-step waterfall path unchecked (gap player's missing source not in pointKeys).
+5. Verdict cards below fold at 1366x768 in waterfall test.
+
+### Options
+
+Each sub-fix had one clear approach (CSS tightening, fixture logic change, or assertion update). No alternative was considered because the root cause was unambiguous.
+
+### Recommendation
+
+1. Reduce `--v2-cell-pad-x` clamp max from 8px to 7px (saves ~10px across 7 columns).
+2. Add chart-h media query for short viewports: `calc(100vh - 520px)` at max-height 800px.
+3. Replace "equal case duplicates" mutant with "consensus always shows equal note" (always-true mutation caught by check_market).
+4. Change PICK to find gaps against `compareView.pointKeys` (waterfall table sources), not `shown()`. Fix SIMULATE_DISSENT to pick from pointKeys minus ddf_value.
+5. Add `#v2Compare .v2-cverdict { gap: 2px }`, reduce `.v2-deal` and `.v2-cstory` padding in short-viewport rule.
+
+Bonus: two panels guard mutations ("Tier column says ESPN Tier", "shares not applied") were only caught by the now-fixed scroll error. Fixed the actual checks: shares test value from 10% to 30%, tier check opens expanded-table mode briefly.
+
+### Outcome Note
+
+2026-10-19: all three test modules green (6 tests, 52 subtests). Agent-chosen, editable.
