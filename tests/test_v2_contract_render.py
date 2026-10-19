@@ -32,7 +32,9 @@ others' weight (PV-02), Reset leaving Rank by (PV-09), a prior-week status witho
 symbol (GL-04), a chip without a warning and a chip claiming all current (GL-05), the
 ◐ tag removed (GL-03, TT-08), Rank by defaulting to a chart (GL-08) and a 390 px layout
 that scrolls sideways (GL-13), and Player values search without its
-not-valued list (GL-20, a partial check until the Doc marks it live). Separately, the pre-fix v2.js from
+not-valued list (GL-20, a partial check until the Doc marks it live), and (group 4) the ⓘ hover dropped
+(GL-19), the chart group named "as published" (GL-21), Edit league demoted (GL-22), Customize without
+Reset (GL-07) and Compare's headlines hidden (CT-02). Separately, the pre-fix v2.js from
 JEG-506's own commit (raw engine keys in the source list and How values,
 "undefined" in the player detail, a prior-week status without a symbol) fails
 GL-02, GL-04, GL-05, TT-03 and HV-01.
@@ -809,7 +811,91 @@ def scenario_failure(s: Session) -> dict:
         page.close()
 
 
-SCENARIOS = {"values": scenario_values, "tabs": scenario_tabs, "phone": scenario_phone, "failure": scenario_failure}
+# Shipped-but-pending lines (GL-07, GL-19, GL-21, GL-22, CT-02): the Doc still says "to build" for
+# these, so they stay PENDING with a partial check that runs like a live one. The probes read
+# Customize on each data page, the league buttons, the text of every page and Compare's headlines.
+CUSTOMIZE_JS = "async () => {" + COMMON + r"""
+  const out = {league: {edit: shown($('v2EditLeague')), weights: shown($('v2Weights'))}};
+  const edit = $('v2EditLeague'), weights = $('v2Weights');
+  out.league.editPrimary = edit.classList.contains('v2-btn-primary');
+  out.league.weightsPrimary = weights.classList.contains('v2-btn-primary');
+  out.league.editLabel = edit.textContent.trim(); out.league.weightsLabel = weights.textContent.trim();
+  out.league.editFirst = Boolean(edit.compareDocumentPosition(weights) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const text = visibleText() + ' ' + attrText($('v2App'));
+  out.text = {asPublished: (text.match(/as published/gi) || []).length, indexed: (text.match(/\bindexed\b/gi) || []).length};
+  $('v2EditSources').click(); await sleep(400);
+  const pop = $('v2Popover');
+  const pub = pop.querySelector('.v2-cgroup[data-group="pub"]');
+  const checked = () => [...pop.querySelectorAll('input[data-series]:checked')].map(i => i.dataset.series);
+  out.groups = [...pop.querySelectorAll('.v2-cgroup')].map(g => ({id: g.dataset.group, title: g.querySelector('h3').textContent.trim(),
+    call: (g.querySelector('.v2-call') || {}).textContent || '', meta: (g.querySelector(':scope > .v2-meta') || {}).textContent || ''}));
+  out.footer = [...pop.querySelectorAll('button')].map(b => b.textContent.trim()).filter(t => /^(Reset to default|Done|Cancel)$/.test(t));
+  out.versions = [...pop.querySelectorAll('input[data-series^="ddf_value"]')].map(i => i.dataset.series);
+  out.checked = checked();
+  const call = pub ? pub.querySelector('.v2-call') : null;
+  if (call) {
+    const grp = () => $('v2Popover').querySelector('.v2-cgroup[data-group="pub"]');   // the panel re-renders on a click
+    const inGroup = () => [...grp().querySelectorAll('input[data-series]')].filter(i => i.checked).length;
+    const total = grp().querySelectorAll('input[data-series]:not(:disabled)').length;
+    const callBtn = () => grp().querySelector('.v2-call');
+    callBtn().click(); await sleep(200); const first = inGroup(); const word1 = callBtn().textContent.trim();
+    callBtn().click(); await sleep(200);
+    out.selectAll = {total, first, word1, second: inGroup(), word2: callBtn().textContent.trim()};
+  }
+  const cancel = [...pop.querySelectorAll('button')].find(b => b.textContent.trim() === 'Cancel');
+  if (cancel) cancel.click(); await sleep(250);
+  out.cancelled = $('v2Popover').hidden;
+  return out;
+}"""
+
+HEADLINES_JS = "() => {" + COMMON + r"""
+  const box = $('v2CHeads');
+  return {shown: shown(box), lines: [...box.querySelectorAll('[data-line]')].map(p => ({line: p.dataset.line, answer: p.dataset.answer,
+    confidence: p.dataset.confidence, text: p.innerText.replace(/\s+/g, ' ').trim()}))};
+}"""
+
+
+def scenario_shipped(s: Session) -> dict:
+    out = {"customize": {}}
+    for tab in ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade"):
+        page = s.open(tab)
+        try:
+            out["customize"][tab] = page.evaluate(CUSTOMIZE_JS)
+            if tab == "#compare-trade":
+                out["headlines"] = page.evaluate(HEADLINES_JS)
+            out.setdefault("errors", []).extend(page.errors)
+        finally:
+            page.close()
+    page = s.open("#player-values")
+    try:
+        info = page.locator("button.v2-info[data-info]:visible").first
+        opened = "() => { const p = document.getElementById('v2Popover'); return !p.hidden && p.innerText.trim().length > 0; }"
+        hov = {}
+        info.hover()
+        page.wait_for_timeout(700)
+        hov["hover"] = page.evaluate(opened)
+        page.mouse.move(2, 2)
+        page.wait_for_timeout(700)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        info.focus()
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(400)
+        hov["keyboard"] = page.evaluate(opened)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        info.click()
+        page.wait_for_timeout(400)
+        hov["click"] = page.evaluate(opened)
+        out["info"] = hov
+        out.setdefault("errors", []).extend(page.errors)
+    finally:
+        page.close()
+    return out
+
+
+SCENARIOS = {"values": scenario_values, "tabs": scenario_tabs, "phone": scenario_phone, "failure": scenario_failure,
+             "shipped": scenario_shipped}
 
 
 # ---------------------------------------------------------------- checks
@@ -1615,15 +1701,110 @@ def tt04(S):
 
 
 def tt05_partial(S):
-    # TT-05 is to build in JEG-510: the live UI says "indexed" until GL-21 renames it "rescaled".
-    # Until then, check what exists: a scale word on every chart header and the ⓘ that explains it.
+    # TT-05 shipped with JEG-510 (the Doc still says "to build"): every chart header says "rescaled"
+    # and carries the ⓘ that explains it.
     t = S["tabs"]["targets"]
     errors = []
     for h in t["heads"]:
-        if not re.search(r"rescaled|indexed", h["sub"]) or not h["info"]:
+        if not re.search(r"rescaled", h["sub"], re.I) or not h["info"]:
             errors.append(f"{h['chart']}: header {h['sub']!r}, ⓘ {h['info']}")
     if not t["captionInfo"] or "scale" not in (t.get("info") or "").lower():
         errors.append("the Compare against ⓘ does not explain the rescaling")
+    return errors
+
+
+PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
+GROUPS_SHIPPED = {"ddf": "DDF Value", "proj": "Projections", "pub": "Trade charts (rescaled)",
+                  "vorp": "Advanced · Value above waivers"}
+
+
+def gl07_partial(S):
+    # GL-07 shipped with JEG-498 (the Doc still says "to build"). Known drift: the Doc also lists
+    # "Trade charts (adjusted)"; v2 dropped that group (GAP-508-V2-CONTRACT), so it is not required here.
+    errors = []
+    defaults = set()
+    for tab in PAGES:
+        c = S["shipped"]["customize"][tab]
+        got = {g["id"]: g for g in c["groups"]}
+        for gid, title in GROUPS_SHIPPED.items():
+            g = got.get(gid)
+            if not g or g["title"] != title:
+                errors.append(f"{tab}: Customize group {gid!r} is {g and g['title']!r}, want {title!r}")
+            elif not re.match(r"Select (all|none)$", g["call"].strip()):
+                errors.append(f"{tab}: group {title!r} has no Select all / none ({g['call']!r})")
+        if c["versions"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections"]:
+            errors.append(f"{tab}: DDF Value versions in Customize {c['versions']}")
+        for b in ("Reset to default", "Done", "Cancel"):
+            if b not in c["footer"]:
+                errors.append(f"{tab}: Customize has no {b!r} button")
+        sa = c.get("selectAll")
+        if not sa or sa["first"] == sa["second"]:
+            errors.append(f"{tab}: the Trade charts Select all / none changes nothing ({sa})")
+        if not c["cancelled"]:
+            errors.append(f"{tab}: Cancel does not close Customize")
+        defaults.add(tuple(c["checked"]))
+    if len(defaults) < 2:
+        errors.append("every page has the same default series; each page should set its own")
+    return errors
+
+
+def gl19_partial(S):
+    info = S["shipped"]["info"]
+    return [f"ⓘ does not open on {how}" for how in ("hover", "keyboard", "click") if not info.get(how)]
+
+
+def gl21_partial(S):
+    errors = []
+    for tab in PAGES:
+        c = S["shipped"]["customize"][tab]
+        if c["text"]["asPublished"] or c["text"]["indexed"]:
+            errors.append(f"{tab}: 'as published' x{c['text']['asPublished']} / 'indexed' x{c['text']['indexed']} in visible text")
+        pub = next((g for g in c["groups"] if g["id"] == "pub"), None)
+        meta = (pub or {}).get("meta", "")
+        if not pub or pub["title"] != "Trade charts (rescaled)":
+            errors.append(f"{tab}: the chart group is not named 'Trade charts (rescaled)'")
+        elif not (re.search(r"rescaled to our point scale for your league", meta)
+                  and re.search(r"ranking order is unchanged", meta, re.I)):
+            errors.append(f"{tab}: the rescaled meaning line is {meta!r}")
+    return errors
+
+
+def gl22_partial(S):
+    errors = []
+    seen = False
+    for tab in PAGES:
+        lg = S["shipped"]["customize"][tab]["league"]
+        if not (lg["edit"] and lg["weights"]):
+            continue
+        seen = True
+        if lg["editLabel"] != "Edit league" or lg["weightsLabel"] != "Position weights":
+            errors.append(f"{tab}: labels {lg['editLabel']!r} / {lg['weightsLabel']!r}")
+        if not lg["editPrimary"] or lg["weightsPrimary"]:
+            errors.append(f"{tab}: Edit league primary={lg['editPrimary']}, Position weights primary={lg['weightsPrimary']}")
+        if not lg["editFirst"]:
+            errors.append(f"{tab}: Position weights sits before Edit league")
+    if not seen:
+        errors.append("no page shows Edit league and Position weights together")
+    return errors
+
+
+def ct02_partial(S):
+    h = S["shipped"]["headlines"]
+    errors = []
+    if not h["shown"] or len(h["lines"]) != 2:
+        return [f"the Compare headline shows {len(h['lines'])} lines (shown {h['shown']})"]
+    want = {"propose": ("Should you propose or accept?", {"Yes", "No", "Even"}),
+            "accept": ("Will they accept?", {"Likely", "Unlikely", "Toss-up"})}
+    for line in h["lines"]:
+        question, answers = want[line["line"]]
+        if question not in line["text"]:
+            errors.append(f"{line['line']}: question {question!r} missing from {line['text']!r}")
+        if line["answer"] not in answers:
+            errors.append(f"{line['line']}: answer {line['answer']!r}, want one of {sorted(answers)}")
+        if line["confidence"] not in ("High", "Medium", "Low") or f"{line['confidence']} confidence" not in line["text"]:
+            errors.append(f"{line['line']}: confidence {line['confidence']!r} not stated in words in {line['text']!r}")
+        if "margin is under 5%" in line["text"] and line["confidence"] != "Low":
+            errors.append(f"{line['line']}: DDF margin under 5% but confidence is {line['confidence']}")
     return errors
 
 
@@ -1839,11 +2020,11 @@ def hv01(S):
 # Every contract ID: a check function, or PENDING(ticket) for an agreed line not live yet.
 CHECKS = {
     "GL-01": gl01, "GL-02": gl02, "GL-03": gl03, "GL-04": gl04, "GL-05": gl05, "GL-06": gl06,
-    "GL-07": PENDING("JEG-498"), "GL-08": gl08, "GL-09": PENDING("JEG-497", partial=gl09), "GL-10": gl10,
+    "GL-07": PENDING("JEG-498", partial=gl07_partial), "GL-08": gl08, "GL-09": PENDING("JEG-497", partial=gl09), "GL-10": gl10,
     "GL-11": gl11, "GL-12": gl12, "GL-13": gl13, "GL-14": gl14, "GL-15": gl15, "GL-16": gl16,
     "GL-17": gl17, "GL-18": gl18,
-    "GL-19": PENDING("JEG-501"), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510"),
-    "GL-22": PENDING("JEG-498"), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26, "GL-27": gl27, "GL-28": gl28,
+    "GL-19": PENDING("JEG-501", partial=gl19_partial), "GL-20": PENDING("JEG-502", partial=gl20), "GL-21": PENDING("JEG-510", partial=gl21_partial),
+    "GL-22": PENDING("JEG-498", partial=gl22_partial), "GL-23": gl23, "GL-24": gl24, "GL-25": gl25, "GL-26": gl26, "GL-27": gl27, "GL-28": gl28,
     "MF-01": mf01,
     "PV-01": pv01, "PV-02": pv02, "PV-03": pv03, "PV-04": pv04, "PV-05": pv05,
     "PV-06": pv06, "PV-07": pv07, "PV-08": pv08, "PV-09": pv09,
@@ -1855,7 +2036,7 @@ CHECKS = {
     "TT-05": PENDING("JEG-510", partial=tt05_partial),
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),
     "RF-01": rf01, "RF-02": rf02,
-    "CT-01": ct01, "CT-02": PENDING("JEG-505"), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
+    "CT-01": ct01, "CT-02": PENDING("JEG-505", partial=ct02_partial), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
     "CT-06": ct06, "CT-07": ct07, "CT-08": ct08,
     "HV-01": hv01, "HV-02": hv02,
 }
@@ -1866,6 +2047,7 @@ NEEDS.update({"GL-13": ("phone",), "CT-06": ("phone",), "GL-14": ("failure",),
               "GL-05": ("values",), "GL-10": ("values",), "GL-11": ("values",),
               "PV-02": ("values",), "PV-09": ("values",), "MF-01": ("tabs",), "CT-01": ("tabs",), "GL-20": ("tabs",),
               "GL-04": ("values", "tabs")})
+NEEDS.update({cid: ("shipped",) for cid in ("GL-07", "GL-19", "GL-21", "GL-22", "CT-02")})
 
 
 def run_contract(ids=None, overrides=None):
@@ -2032,6 +2214,22 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "GL-05", "a chip claiming every source is current")
         caught(results, "GL-13", "the 390 px layout scrolling sideways")
         caught(results, "MF-01", "a Manifesto section dropped")
+
+
+        # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
+        # "as published", Edit league demoted, Customize without Reset, Compare's headlines hidden.
+        broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
+        broken_js = cut(broken_js, 'title: "Trade charts (rescaled)", one: "rescaled trade chart"',
+                        'title: "Trade charts (as published)", one: "rescaled trade chart"')
+        broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
+        broken_js = cut(broken_js, "box.hidden = !heads;", "box.hidden = true;")
+        broken_shell = cut(shell, 'class="v2-btn v2-btn-primary" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust" id="v2EditLeague"')
+        results, _ = run_contract(["GL-19", "GL-21", "GL-22", "GL-07", "CT-02"], {"v2.js": broken_js, "shell": broken_shell})
+        caught(results, "GL-19", "ⓘ no longer opening on hover")
+        caught(results, "GL-21", "the chart group named 'as published'")
+        caught(results, "GL-22", "Edit league no longer the primary control")
+        caught(results, "GL-07", "Customize without Reset to default")
+        caught(results, "CT-02", "Compare's headline answers hidden")
 
 
 if __name__ == "__main__":

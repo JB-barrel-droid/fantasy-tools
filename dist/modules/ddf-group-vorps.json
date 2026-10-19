@@ -1,5 +1,5 @@
 {
-  "bake_id": "ddf-20261015-espn-ppr-14t-0p15",
+  "bake_id": "ddf-20261018-espn-ppr-14t-0p15",
   "derivation": {
     "flex_allocation": "highest-vorp at margin (see build_ddf_two_tier_leg.build_position_tiers)",
     "legacy_total_vorp": "sum(row.value); retained for existing consumers, not raw VORP PPG",
@@ -7,67 +7,67 @@
     "waiver_excluded": true,
     "waiver_value_zero_by_construction": true
   },
-  "espn_snapshot_date": "2026-10-15",
-  "generated_at": "2026-10-16T16:23:29Z",
+  "espn_snapshot_date": "2026-10-18",
+  "generated_at": "2026-10-19T18:00:14Z",
   "groups": [
     {
       "n_players": 14,
       "position": "QB",
-      "raw_surplus_ppg": 70.74141025641028,
+      "raw_surplus_ppg": 92.89072510822513,
       "role": "starter",
-      "total_vorp": 235.0169
+      "total_vorp": 295.5723
+    },
+    {
+      "n_players": 17,
+      "position": "QB",
+      "raw_surplus_ppg": 47.5664393939394,
+      "role": "bench",
+      "total_vorp": 52.1598
+    },
+    {
+      "n_players": 32,
+      "position": "RB",
+      "raw_surplus_ppg": 356.6742878787879,
+      "role": "starter",
+      "total_vorp": 937.8892
+    },
+    {
+      "n_players": 33,
+      "position": "RB",
+      "raw_surplus_ppg": 89.01454545454546,
+      "role": "bench",
+      "total_vorp": 165.5099
+    },
+    {
+      "n_players": 38,
+      "position": "WR",
+      "raw_surplus_ppg": 361.6380151515153,
+      "role": "starter",
+      "total_vorp": 982.1025
+    },
+    {
+      "n_players": 41,
+      "position": "WR",
+      "raw_surplus_ppg": 105.06115151515154,
+      "role": "bench",
+      "total_vorp": 173.3122
     },
     {
       "n_players": 14,
-      "position": "QB",
-      "raw_surplus_ppg": 24.436978354978354,
-      "role": "bench",
-      "total_vorp": 41.4736
-    },
-    {
-      "n_players": 37,
-      "position": "RB",
-      "raw_surplus_ppg": 372.15340509490505,
-      "role": "starter",
-      "total_vorp": 1081.0947
-    },
-    {
-      "n_players": 27,
-      "position": "RB",
-      "raw_surplus_ppg": 55.060679487179485,
-      "role": "bench",
-      "total_vorp": 159.9496
-    },
-    {
-      "n_players": 46,
-      "position": "WR",
-      "raw_surplus_ppg": 458.21516841491837,
-      "role": "starter",
-      "total_vorp": 1453.8085
-    },
-    {
-      "n_players": 51,
-      "position": "WR",
-      "raw_surplus_ppg": 130.55597319347325,
-      "role": "bench",
-      "total_vorp": 256.5544
-    },
-    {
-      "n_players": 15,
       "position": "TE",
-      "raw_surplus_ppg": 71.76166666666667,
+      "raw_surplus_ppg": 59.26840909090909,
       "role": "starter",
-      "total_vorp": 208.4655
+      "total_vorp": 146.7318
     },
     {
-      "n_players": 6,
+      "n_players": 7,
       "position": "TE",
-      "raw_surplus_ppg": 5.625000000000002,
+      "raw_surplus_ppg": 3.281818181818175,
       "role": "bench",
-      "total_vorp": 16.3404
+      "total_vorp": 8.1249
     }
   ],
-  "input_leg_sha256": "8c5ff5da3cd99dc6951fcfff8b3488a824d18f3108ad2163ea695ed20263f534",
+  "input_leg_sha256": "fd1670019e2df66e6cbfd51d4bb2da5601bf6818d74a6cfb10c3087efbb3d817",
   "raw_surplus_contract": "ddf-raw-surplus-ppg-v1",
   "roster": {
     "bench_mix": {
@@ -91,32 +91,32 @@
   },
   "schema": "trade-value-ddf-groups-v1",
   "scoring": "ppr",
-  "source_generated_at": "2026-10-16T07:19:29Z",
+  "source_generated_at": "2026-10-19T03:27:20Z",
   "source_inputs": {
     "bench_share": 0.15,
     "byes_sha256": "56a0ad58420edd7cc7d2dd32358e6a5cb8e9e853daaa8c4ddb1f81734b12024e",
     "espn_csv": "/home/runner/work/fantasy-tools/fantasy-tools/data/inputs/espn_projections.csv",
-    "espn_csv_rows": 581,
-    "espn_csv_sha256": "cec08908704ce4bbf3520dec037d439f65806513a999eef7686b915da9f2c305",
-    "espn_snapshot_date": "2026-10-15",
+    "espn_csv_rows": 584,
+    "espn_csv_sha256": "696976e61556c742f5fe2b9e3c0d3b1939af3e4ee3ba365449ef9b0f636f09ac",
+    "espn_snapshot_date": "2026-10-18",
     "games_divisor": "espn_projected_games when present, else team games inside ros_weeks (bye excluded)",
     "pies_file": "/home/runner/work/fantasy-tools/fantasy-tools/data/inputs/espn_pies.json",
     "pies_method": "pie = sum(max(0, per-game - waiver_pg)); waiver = next-unrostered per-game; rostered = teams*slots + flex (teams flex from RB/WR/TE pool after dedicated) + bench_mix scaled by teams/12 (round-half-up). Skill pg = ROS components rescored per scoring / 16 (weeks 3-18). K pg = mean weekly appliedTotal w3-18 (bye 0 included). DST pg = mean w3-18 of 9/19 component recipe (bye included). Skill pies recomputed 2026-09-22 with workbook-aligned bench_mix (QB10/TE10), calibrate=False pool measurement.",
     "pies_sha256": "51a287ad306b7ac2de6e67b60a97be2d5014f797acdd0899fbfd73f873173c85",
     "pies_vintage": "2026-09-21",
     "rescoring_note": "per-game = ROS components rescored per scoring / espn_projected_games (non-zero ROS weeks), falling back to team games inside ESPN's ROS window (bye excluded). Reception points are the only scoring difference: ppr = half_ppr + 0.5*receptions, standard = half_ppr - 0.5*receptions. Arithmetic on ESPN components only; no expert blending.",
-    "ros_weeks": "6-18",
+    "ros_weeks": "7-18",
     "scoring": "ppr",
     "teams": 14
   },
   "teams": 14,
   "totals": {
-    "n_players": 581,
-    "n_waiver": 371,
-    "raw_sum_groups": 1188.5502814685315,
-    "raw_surplus_ppg": 1188.5502814685315,
-    "sum_groups": 3452.7037,
-    "total_vorp": 3452.7037
+    "n_players": 584,
+    "n_waiver": 388,
+    "raw_sum_groups": 1115.395391774892,
+    "raw_surplus_ppg": 1115.3953917748918,
+    "sum_groups": 2761.4025,
+    "total_vorp": 2761.4025
   },
   "units": {
     "raw_sum_groups": "fantasy_points_per_game_above_position_waiver",
@@ -125,9 +125,9 @@
     "total_vorp": "legacy_calibrated_chart_value"
   },
   "waiver_ppg": {
-    "QB": 15.82,
-    "RB": 4.654166666666667,
-    "TE": 7.3275,
-    "WR": 4.031666666666666
+    "QB": 14.45,
+    "RB": 3.995454545454545,
+    "TE": 7.930909090909092,
+    "WR": 5.574545454545454
   }
 }

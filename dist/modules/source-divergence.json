@@ -6,106 +6,106 @@
     "Compare native -> Indexed -> display values against the chart's Indexed factor for 5 sample players.",
     "Resolve it one way: parser fix, mapping/fit fix, or accept as genuine opinion (record it in data/source-divergence-resolutions.json with a note and the Linear issue)."
   ],
-  "fixture_built_at": "2026-10-16T07:19:25.781124+00:00",
-  "generated_at": "2026-10-16T16:23:28.558809Z",
+  "fixture_built_at": "2026-10-19T15:51:30.306533+00:00",
+  "generated_at": "2026-10-19T18:00:13.834720Z",
   "schema": "source-divergence-v1",
   "sources": {
     "cbs": {
-      "bias": 1.39,
+      "bias": 1.36,
       "combos": {
         "full_12": {
           "baseline": {
-            "bias": 1.24,
-            "outlier_rate": 0.168,
+            "bias": 1.21,
+            "outlier_rate": 0.166,
             "weeks": 4
           },
-          "bias": 1.39,
+          "bias": 1.36,
           "by_position": {
             "QB": {
-              "bias": -0.66,
-              "mad": 3.18,
-              "n": 13,
-              "outlier_rate": 0.154,
-              "outliers": 2
+              "bias": -0.18,
+              "mad": 1.86,
+              "n": 14,
+              "outlier_rate": 0.071,
+              "outliers": 1
             },
             "RB": {
-              "bias": 1.33,
-              "mad": 5.29,
-              "n": 44,
-              "outlier_rate": 0.273,
-              "outliers": 12
+              "bias": 0.64,
+              "mad": 3.33,
+              "n": 47,
+              "outlier_rate": 0.17,
+              "outliers": 8
             },
             "TE": {
-              "bias": 1.54,
-              "mad": 3.13,
+              "bias": 1.39,
+              "mad": 2.05,
               "n": 15,
-              "outlier_rate": 0.2,
-              "outliers": 3
+              "outlier_rate": 0.0,
+              "outliers": 0
             },
             "WR": {
-              "bias": 1.99,
-              "mad": 5.46,
-              "n": 45,
-              "outlier_rate": 0.156,
+              "bias": 2.61,
+              "mad": 4.14,
+              "n": 44,
+              "outlier_rate": 0.159,
               "outliers": 7
             }
           },
           "examples": [
             {
-              "consensus": 51.4,
-              "player_key": 3247,
-              "value": 72.8
-            },
-            {
-              "consensus": 43.3,
-              "player_key": 303,
-              "value": 61.6
-            },
-            {
-              "consensus": 52.6,
-              "player_key": 1095,
-              "value": 70.0
-            },
-            {
-              "consensus": 36.5,
+              "consensus": 26.6,
               "player_key": 3892,
-              "value": 53.2
+              "value": 50.9
             },
             {
-              "consensus": 42.2,
-              "player_key": 3189,
-              "value": 58.8
+              "consensus": 37.5,
+              "player_key": 3247,
+              "value": 54.1
+            },
+            {
+              "consensus": 35.0,
+              "player_key": 2730,
+              "value": 48.9
+            },
+            {
+              "consensus": 38.5,
+              "player_key": 1095,
+              "value": 52.0
+            },
+            {
+              "consensus": 37.0,
+              "player_key": 1370,
+              "value": 49.9
             }
           ],
-          "mad": 4.85,
-          "n": 117,
-          "outlier_rate": 0.205,
-          "outliers": 24,
+          "mad": 3.3,
+          "n": 120,
+          "outlier_rate": 0.133,
+          "outliers": 16,
           "prior_weeks": [
             {
-              "bias": 1.72,
-              "mad": 4.35,
+              "bias": 1.57,
+              "mad": 3.32,
               "n": 116,
-              "outlier_rate": 0.129,
+              "outlier_rate": 0.138,
               "week": 5
             },
             {
-              "bias": 1.69,
-              "mad": 4.08,
+              "bias": 1.55,
+              "mad": 3.12,
               "n": 116,
-              "outlier_rate": 0.19,
+              "outlier_rate": 0.198,
               "week": 4
             },
             {
-              "bias": 1.2,
-              "mad": 3.77,
+              "bias": 1.17,
+              "mad": 2.87,
               "n": 119,
-              "outlier_rate": 0.176,
+              "outlier_rate": 0.151,
               "week": 3
             },
             {
-              "bias": 0.34,
-              "mad": 3.9,
+              "bias": 0.53,
+              "mad": 2.93,
               "n": 124,
               "outlier_rate": 0.177,
               "week": 2
@@ -116,99 +116,99 @@
         },
         "half_12": {
           "baseline": {
-            "bias": 1.76,
-            "outlier_rate": 0.183,
+            "bias": 1.73,
+            "outlier_rate": 0.193,
             "weeks": 4
           },
-          "bias": 1.69,
+          "bias": 1.8,
           "by_position": {
             "QB": {
-              "bias": 0.05,
-              "mad": 3.16,
-              "n": 13,
-              "outlier_rate": 0.308,
-              "outliers": 4
-            },
-            "RB": {
-              "bias": 2.24,
-              "mad": 5.95,
-              "n": 43,
-              "outlier_rate": 0.256,
-              "outliers": 11
-            },
-            "TE": {
-              "bias": 1.12,
-              "mad": 3.27,
+              "bias": 0.38,
+              "mad": 2.11,
               "n": 14,
               "outlier_rate": 0.143,
               "outliers": 2
             },
+            "RB": {
+              "bias": 1.44,
+              "mad": 4.04,
+              "n": 45,
+              "outlier_rate": 0.156,
+              "outliers": 7
+            },
+            "TE": {
+              "bias": 1.62,
+              "mad": 2.46,
+              "n": 10,
+              "outlier_rate": 0.0,
+              "outliers": 0
+            },
             "WR": {
-              "bias": 1.82,
-              "mad": 6.15,
-              "n": 43,
-              "outlier_rate": 0.233,
-              "outliers": 10
+              "bias": 2.73,
+              "mad": 4.63,
+              "n": 41,
+              "outlier_rate": 0.195,
+              "outliers": 8
             }
           },
           "examples": [
             {
-              "consensus": 51.3,
+              "consensus": 39.0,
               "player_key": 3247,
-              "value": 75.2
+              "value": 58.3
             },
             {
-              "consensus": 52.8,
-              "player_key": 1095,
-              "value": 73.0
-            },
-            {
-              "consensus": 43.6,
-              "player_key": 303,
-              "value": 63.2
-            },
-            {
-              "consensus": 58.5,
-              "player_key": 217,
-              "value": 77.5
-            },
-            {
-              "consensus": 48.0,
+              "consensus": 36.4,
               "player_key": 2730,
-              "value": 66.9
+              "value": 53.1
+            },
+            {
+              "consensus": 40.1,
+              "player_key": 1095,
+              "value": 56.6
+            },
+            {
+              "consensus": 44.4,
+              "player_key": 217,
+              "value": 60.1
+            },
+            {
+              "consensus": 27.8,
+              "player_key": 3892,
+              "value": 43.2
             }
           ],
-          "mad": 5.37,
-          "n": 113,
-          "outlier_rate": 0.239,
-          "outliers": 27,
+          "mad": 3.87,
+          "n": 110,
+          "outlier_rate": 0.155,
+          "outliers": 17,
           "prior_weeks": [
             {
-              "bias": 2.11,
-              "mad": 4.79,
+              "bias": 2.01,
+              "mad": 3.82,
               "n": 112,
-              "outlier_rate": 0.143,
+              "outlier_rate": 0.161,
               "week": 5
             },
             {
-              "bias": 2.26,
-              "mad": 4.44,
+              "bias": 2.12,
+              "mad": 3.57,
               "n": 113,
-              "outlier_rate": 0.195,
+              "outlier_rate": 0.212,
               "week": 4
             },
             {
-              "bias": 1.67,
-              "mad": 4.04,
+              "bias": 1.65,
+              "mad": 3.25,
               "n": 118,
-              "outlier_rate": 0.186,
+              "outlier_rate": 0.212,
               "week": 3
             },
             {
-              "bias": 0.99,
-              "mad": 4.22,
+              "bias": 1.12,
+              "mad": 3.33,
               "n": 124,
-              "outlier_rate": 0.21,
+              "outlier_rate": 0.185,
               "week": 2
             }
           ],
@@ -217,99 +217,99 @@
         },
         "standard_12": {
           "baseline": {
-            "bias": 1.79,
-            "outlier_rate": 0.222,
+            "bias": 2.14,
+            "outlier_rate": 0.246,
             "weeks": 4
           },
-          "bias": 1.63,
+          "bias": 2.14,
           "by_position": {
             "QB": {
-              "bias": 0.81,
-              "mad": 3.2,
-              "n": 13,
-              "outlier_rate": 0.385,
-              "outliers": 5
+              "bias": 1.08,
+              "mad": 2.58,
+              "n": 14,
+              "outlier_rate": 0.143,
+              "outliers": 2
             },
             "RB": {
-              "bias": 2.75,
-              "mad": 6.2,
-              "n": 43,
-              "outlier_rate": 0.256,
-              "outliers": 11
+              "bias": 2.19,
+              "mad": 4.92,
+              "n": 45,
+              "outlier_rate": 0.178,
+              "outliers": 8
             },
             "TE": {
-              "bias": 0.18,
-              "mad": 3.14,
-              "n": 14,
-              "outlier_rate": 0.071,
-              "outliers": 1
+              "bias": 0.89,
+              "mad": 2.7,
+              "n": 10,
+              "outlier_rate": 0.0,
+              "outliers": 0
             },
             "WR": {
-              "bias": 1.24,
-              "mad": 6.47,
-              "n": 43,
-              "outlier_rate": 0.326,
-              "outliers": 14
+              "bias": 2.74,
+              "mad": 5.58,
+              "n": 41,
+              "outlier_rate": 0.317,
+              "outliers": 13
             }
           },
           "examples": [
             {
-              "consensus": 49.4,
+              "consensus": 44.0,
               "player_key": 3247,
-              "value": 73.6
+              "value": 67.0
             },
             {
-              "consensus": 50.8,
+              "consensus": 45.0,
               "player_key": 1095,
-              "value": 72.0
+              "value": 65.6
             },
             {
-              "consensus": 42.2,
-              "player_key": 547,
-              "value": 62.8
-            },
-            {
-              "consensus": 56.3,
-              "player_key": 217,
-              "value": 76.6
-            },
-            {
-              "consensus": 46.2,
+              "consensus": 40.9,
               "player_key": 2730,
-              "value": 65.9
+              "value": 61.4
+            },
+            {
+              "consensus": 49.9,
+              "player_key": 217,
+              "value": 69.8
+            },
+            {
+              "consensus": 31.0,
+              "player_key": 3892,
+              "value": 48.8
             }
           ],
-          "mad": 5.58,
-          "n": 113,
-          "outlier_rate": 0.274,
-          "outliers": 31,
+          "mad": 4.67,
+          "n": 110,
+          "outlier_rate": 0.209,
+          "outliers": 23,
           "prior_weeks": [
             {
-              "bias": 2.04,
-              "mad": 4.92,
+              "bias": 2.37,
+              "mad": 4.58,
               "n": 112,
               "outlier_rate": 0.205,
               "week": 5
             },
             {
-              "bias": 2.33,
-              "mad": 4.68,
+              "bias": 2.62,
+              "mad": 4.44,
               "n": 113,
-              "outlier_rate": 0.23,
+              "outlier_rate": 0.257,
               "week": 4
             },
             {
-              "bias": 1.66,
-              "mad": 4.23,
+              "bias": 2.01,
+              "mad": 4.01,
               "n": 118,
-              "outlier_rate": 0.22,
+              "outlier_rate": 0.263,
               "week": 3
             },
             {
-              "bias": 1.15,
-              "mad": 4.47,
+              "bias": 1.55,
+              "mad": 4.19,
               "n": 124,
-              "outlier_rate": 0.234,
+              "outlier_rate": 0.258,
               "week": 2
             }
           ],
@@ -321,775 +321,220 @@
       "group": "trade_charts",
       "headline_combo": "full_12",
       "label": "CBS",
-      "mad": 4.85,
-      "message": "CBS disagrees with the other charts on 20% of players this week (usually 17%).",
-      "n": 117,
-      "outlier_rate": 0.205,
+      "mad": 3.3,
+      "message": "CBS disagrees with the other charts on 13% of players this week (usually 17%).",
+      "n": 120,
+      "outlier_rate": 0.133,
       "reasons": [],
       "resolution": null,
       "status": "ok",
-      "usual_outlier_rate": 0.168,
+      "usual_outlier_rate": 0.166,
       "week": 6
     },
     "cbsros": {
-      "bias": 0.45,
+      "bias": 0.27,
       "combos": {
         "full_12": {
           "baseline": null,
-          "bias": 0.45,
+          "bias": -1.01,
           "by_position": {
             "QB": {
-              "bias": 8.94,
-              "mad": 10.45,
-              "n": 16,
-              "outlier_rate": 0.812,
+              "bias": 3.53,
+              "mad": 7.19,
+              "n": 20,
+              "outlier_rate": 0.65,
               "outliers": 13
             },
             "RB": {
-              "bias": -4.65,
-              "mad": 7.11,
-              "n": 40,
-              "outlier_rate": 0.375,
-              "outliers": 15
-            },
-            "TE": {
-              "bias": 2.62,
-              "mad": 4.05,
-              "n": 13,
-              "outlier_rate": 0.462,
-              "outliers": 6
-            },
-            "WR": {
-              "bias": 1.01,
-              "mad": 4.37,
-              "n": 70,
-              "outlier_rate": 0.343,
-              "outliers": 24
-            }
-          },
-          "examples": [
-            {
-              "consensus": 28.7,
-              "player_key": 3167,
-              "value": 2.0
-            },
-            {
-              "consensus": 14.9,
-              "player_key": 1311,
-              "value": 40.5
-            },
-            {
-              "consensus": 11.2,
-              "player_key": 4561,
-              "value": 35.5
-            },
-            {
-              "consensus": 40.0,
-              "player_key": 869,
-              "value": 58.4
-            },
-            {
-              "consensus": 6.6,
-              "player_key": 3225,
-              "value": 23.3
-            }
-          ],
-          "mad": 5.83,
-          "n": 139,
-          "outlier_rate": 0.417,
-          "outliers": 58,
-          "prior_weeks": [],
-          "reasons": [
-            "QB far out of line (bias +8.9, outliers 81%, n=16)"
-          ],
-          "status": "investigate"
-        },
-        "half_12": {
-          "baseline": null,
-          "bias": -1.02,
-          "by_position": {
-            "QB": {
-              "bias": 9.01,
-              "mad": 10.92,
-              "n": 16,
-              "outlier_rate": 0.875,
-              "outliers": 14
-            },
-            "RB": {
-              "bias": -7.03,
-              "mad": 8.38,
+              "bias": -4.04,
+              "mad": 5.55,
               "n": 42,
-              "outlier_rate": 0.405,
-              "outliers": 17
+              "outlier_rate": 0.452,
+              "outliers": 19
             },
             "TE": {
-              "bias": 2.75,
-              "mad": 3.85,
-              "n": 13,
-              "outlier_rate": 0.462,
+              "bias": 1.35,
+              "mad": 2.95,
+              "n": 15,
+              "outlier_rate": 0.4,
               "outliers": 6
             },
             "WR": {
-              "bias": -0.37,
-              "mad": 4.3,
-              "n": 67,
-              "outlier_rate": 0.343,
-              "outliers": 23
+              "bias": -1.01,
+              "mad": 3.38,
+              "n": 53,
+              "outlier_rate": 0.264,
+              "outliers": 14
             }
           },
           "examples": [
-            {
-              "consensus": 30.8,
-              "player_key": 3167,
-              "value": 2.6
-            },
-            {
-              "consensus": 17.0,
-              "player_key": 1311,
-              "value": 44.0
-            },
             {
               "consensus": 12.8,
               "player_key": 4561,
-              "value": 38.6
+              "value": 31.7
             },
             {
-              "consensus": 19.0,
-              "player_key": 2461,
-              "value": 0.5
+              "consensus": 24.0,
+              "player_key": 1761,
+              "value": 41.7
             },
             {
-              "consensus": 7.6,
-              "player_key": 3225,
-              "value": 25.3
-            }
-          ],
-          "mad": 6.27,
-          "n": 138,
-          "outlier_rate": 0.435,
-          "outliers": 60,
-          "prior_weeks": [],
-          "reasons": [
-            "QB far out of line (bias +9.0, outliers 88%, n=16)"
-          ],
-          "status": "investigate"
-        },
-        "standard_12": {
-          "baseline": null,
-          "bias": -2.13,
-          "by_position": {
-            "QB": {
-              "bias": 8.68,
-              "mad": 11.08,
-              "n": 16,
-              "outlier_rate": 0.75,
-              "outliers": 12
-            },
-            "RB": {
-              "bias": -7.46,
-              "mad": 8.61,
-              "n": 46,
-              "outlier_rate": 0.457,
-              "outliers": 21
-            },
-            "TE": {
-              "bias": 2.78,
-              "mad": 3.65,
-              "n": 13,
-              "outlier_rate": 0.462,
-              "outliers": 6
-            },
-            "WR": {
-              "bias": -1.99,
-              "mad": 4.47,
-              "n": 62,
-              "outlier_rate": 0.403,
-              "outliers": 25
-            }
-          },
-          "examples": [
-            {
-              "consensus": 31.5,
-              "player_key": 3167,
-              "value": 3.5
+              "consensus": 16.8,
+              "player_key": 482,
+              "value": 1.6
             },
             {
-              "consensus": 19.4,
+              "consensus": 23.5,
+              "player_key": 1730,
+              "value": 8.6
+            },
+            {
+              "consensus": 19.6,
               "player_key": 1311,
-              "value": 47.0
-            },
-            {
-              "consensus": 14.4,
-              "player_key": 4561,
-              "value": 41.3
-            },
-            {
-              "consensus": 8.5,
-              "player_key": 3225,
-              "value": 27.1
-            },
-            {
-              "consensus": 20.9,
-              "player_key": 2461,
-              "value": 2.6
+              "value": 33.7
             }
           ],
-          "mad": 6.55,
-          "n": 137,
-          "outlier_rate": 0.467,
-          "outliers": 64,
-          "prior_weeks": [],
-          "reasons": [
-            "outlier rate 47% > 45%"
-          ],
-          "status": "warn"
-        }
-      },
-      "computed_status": "investigate",
-      "group": "projections",
-      "headline_combo": "full_12",
-      "label": "CBS rest of season",
-      "mad": 5.83,
-      "message": "CBS rest of season disagrees with the other projections on 42% of players this week. Under review.",
-      "n": 139,
-      "outlier_rate": 0.417,
-      "reasons": [
-        "full: QB far out of line (bias +8.9, outliers 81%, n=16)"
-      ],
-      "resolution": null,
-      "status": "investigate",
-      "usual_outlier_rate": null,
-      "week": 6
-    },
-    "espn": {
-      "bias": 0.29,
-      "combos": {
-        "full_12": {
-          "baseline": null,
-          "bias": 0.29,
-          "by_position": {
-            "QB": {
-              "bias": -4.32,
-              "mad": 6.53,
-              "n": 16,
-              "outlier_rate": 0.562,
-              "outliers": 9
-            },
-            "RB": {
-              "bias": 0.54,
-              "mad": 4.3,
-              "n": 40,
-              "outlier_rate": 0.25,
-              "outliers": 10
-            },
-            "TE": {
-              "bias": 1.75,
-              "mad": 3.98,
-              "n": 13,
-              "outlier_rate": 0.538,
-              "outliers": 7
-            },
-            "WR": {
-              "bias": 0.94,
-              "mad": 4.31,
-              "n": 70,
-              "outlier_rate": 0.286,
-              "outliers": 20
-            }
-          },
-          "examples": [
-            {
-              "consensus": 52.2,
-              "player_key": 869,
-              "value": 33.8
-            },
-            {
-              "consensus": 53.6,
-              "player_key": 2730,
-              "value": 70.0
-            },
-            {
-              "consensus": 18.2,
-              "player_key": 536,
-              "value": 2.9
-            },
-            {
-              "consensus": 16.5,
-              "player_key": 3376,
-              "value": 2.0
-            },
-            {
-              "consensus": 25.6,
-              "player_key": 2279,
-              "value": 39.5
-            }
-          ],
-          "mad": 4.54,
-          "n": 139,
-          "outlier_rate": 0.331,
-          "outliers": 46,
+          "mad": 4.62,
+          "n": 130,
+          "outlier_rate": 0.4,
+          "outliers": 52,
           "prior_weeks": [],
           "reasons": [],
           "status": "ok"
         },
         "half_12": {
           "baseline": null,
-          "bias": 0.93,
+          "bias": -0.34,
           "by_position": {
             "QB": {
-              "bias": -4.41,
-              "mad": 7.08,
-              "n": 16,
-              "outlier_rate": 0.438,
-              "outliers": 7
+              "bias": 4.41,
+              "mad": 7.85,
+              "n": 20,
+              "outlier_rate": 0.75,
+              "outliers": 15
             },
             "RB": {
-              "bias": 2.1,
-              "mad": 5.02,
-              "n": 42,
-              "outlier_rate": 0.286,
-              "outliers": 12
+              "bias": -4.26,
+              "mad": 5.99,
+              "n": 45,
+              "outlier_rate": 0.467,
+              "outliers": 21
             },
             "TE": {
-              "bias": 0.85,
-              "mad": 3.35,
-              "n": 13,
-              "outlier_rate": 0.462,
-              "outliers": 6
+              "bias": 1.56,
+              "mad": 2.85,
+              "n": 15,
+              "outlier_rate": 0.333,
+              "outliers": 5
             },
             "WR": {
-              "bias": 1.49,
-              "mad": 4.49,
-              "n": 67,
-              "outlier_rate": 0.284,
-              "outliers": 19
+              "bias": 0.71,
+              "mad": 3.36,
+              "n": 51,
+              "outlier_rate": 0.314,
+              "outliers": 16
             }
           },
           "examples": [
             {
-              "consensus": 58.2,
-              "player_key": 869,
-              "value": 38.5
+              "consensus": 14.3,
+              "player_key": 4561,
+              "value": 35.1
             },
             {
-              "consensus": 49.4,
-              "player_key": 2730,
-              "value": 68.5
+              "consensus": 26.5,
+              "player_key": 1761,
+              "value": 46.2
             },
             {
-              "consensus": 22.0,
-              "player_key": 2279,
-              "value": 37.7
+              "consensus": 19.8,
+              "player_key": 482,
+              "value": 2.2
             },
             {
-              "consensus": 23.0,
-              "player_key": 3082,
-              "value": 38.7
+              "consensus": 25.8,
+              "player_key": 1730,
+              "value": 9.5
             },
             {
-              "consensus": 20.5,
-              "player_key": 1760,
-              "value": 5.2
+              "consensus": 21.2,
+              "player_key": 1311,
+              "value": 37.3
             }
           ],
-          "mad": 4.84,
-          "n": 138,
-          "outlier_rate": 0.319,
-          "outliers": 44,
+          "mad": 4.89,
+          "n": 131,
+          "outlier_rate": 0.435,
+          "outliers": 57,
           "prior_weeks": [],
           "reasons": [],
           "status": "ok"
         },
         "standard_12": {
           "baseline": null,
-          "bias": 0.79,
+          "bias": 0.27,
           "by_position": {
             "QB": {
-              "bias": -4.84,
-              "mad": 7.79,
-              "n": 16,
-              "outlier_rate": 0.5,
-              "outliers": 8
+              "bias": 6.77,
+              "mad": 10.11,
+              "n": 20,
+              "outlier_rate": 0.7,
+              "outliers": 14
             },
             "RB": {
-              "bias": 0.75,
-              "mad": 4.85,
-              "n": 46,
-              "outlier_rate": 0.261,
-              "outliers": 12
-            },
-            "TE": {
-              "bias": -0.26,
-              "mad": 3.02,
-              "n": 13,
-              "outlier_rate": 0.385,
-              "outliers": 5
-            },
-            "WR": {
-              "bias": 2.49,
-              "mad": 4.72,
-              "n": 62,
-              "outlier_rate": 0.371,
-              "outliers": 23
-            }
-          },
-          "examples": [
-            {
-              "consensus": 64.9,
-              "player_key": 869,
-              "value": 42.8
-            },
-            {
-              "consensus": 41.1,
-              "player_key": 2730,
-              "value": 60.1
-            },
-            {
-              "consensus": 23.1,
-              "player_key": 1760,
-              "value": 5.7
-            },
-            {
-              "consensus": 19.9,
-              "player_key": 3082,
-              "value": 36.8
-            },
-            {
-              "consensus": 17.7,
-              "player_key": 2279,
-              "value": 34.1
-            }
-          ],
-          "mad": 4.96,
-          "n": 137,
-          "outlier_rate": 0.35,
-          "outliers": 48,
-          "prior_weeks": [],
-          "reasons": [],
-          "status": "ok"
-        }
-      },
-      "computed_status": "ok",
-      "group": "projections",
-      "headline_combo": "full_12",
-      "label": "ESPN",
-      "mad": 4.54,
-      "message": "ESPN disagrees with the other projections on 33% of players this week.",
-      "n": 139,
-      "outlier_rate": 0.331,
-      "reasons": [],
-      "resolution": null,
-      "status": "ok",
-      "usual_outlier_rate": null,
-      "week": 6
-    },
-    "fantasycalc": {
-      "bias": 0.45,
-      "combos": {
-        "full_12_qb1": {
-          "baseline": {
-            "bias": 1.31,
-            "outlier_rate": 0.47,
-            "weeks": 4
-          },
-          "bias": 0.45,
-          "by_position": {
-            "QB": {
-              "bias": 2.21,
-              "mad": 2.49,
-              "n": 32,
-              "outlier_rate": 0.188,
-              "outliers": 6
-            },
-            "RB": {
-              "bias": 1.53,
-              "mad": 6.33,
-              "n": 51,
-              "outlier_rate": 0.392,
-              "outliers": 20
-            },
-            "TE": {
-              "bias": -1.35,
-              "mad": 4.76,
-              "n": 19,
-              "outlier_rate": 0.579,
-              "outliers": 11
-            },
-            "WR": {
-              "bias": -0.69,
-              "mad": 7.21,
-              "n": 68,
-              "outlier_rate": 0.618,
-              "outliers": 42
-            }
-          },
-          "examples": [
-            {
-              "consensus": 51.4,
-              "player_key": 3247,
-              "value": 80.7
-            },
-            {
-              "consensus": 52.6,
-              "player_key": 1095,
-              "value": 79.9
-            },
-            {
-              "consensus": 58.3,
-              "player_key": 217,
-              "value": 84.6
-            },
-            {
-              "consensus": 50.8,
-              "player_key": 1370,
-              "value": 76.9
-            },
-            {
-              "consensus": 64.9,
-              "player_key": 2227,
-              "value": 88.6
-            }
-          ],
-          "mad": 5.78,
-          "n": 170,
-          "outlier_rate": 0.465,
-          "outliers": 79,
-          "prior_weeks": [
-            {
-              "bias": 0.2,
-              "mad": 5.14,
-              "n": 174,
-              "outlier_rate": 0.443,
-              "week": 5
-            },
-            {
-              "bias": 0.0,
-              "mad": 5.55,
-              "n": 176,
-              "outlier_rate": 0.534,
-              "week": 4
-            },
-            {
-              "bias": 1.92,
-              "mad": 5.32,
-              "n": 167,
-              "outlier_rate": 0.425,
-              "week": 3
-            },
-            {
-              "bias": 3.11,
-              "mad": 6.0,
-              "n": 170,
-              "outlier_rate": 0.476,
-              "week": 2
-            }
-          ],
-          "reasons": [
-            "outlier rate 46% > 45%"
-          ],
-          "status": "warn"
-        },
-        "half_12_qb1": {
-          "baseline": {
-            "bias": 1.3,
-            "outlier_rate": 0.454,
-            "weeks": 4
-          },
-          "bias": 0.5,
-          "by_position": {
-            "QB": {
-              "bias": 1.98,
-              "mad": 2.33,
-              "n": 32,
-              "outlier_rate": 0.188,
-              "outliers": 6
-            },
-            "RB": {
-              "bias": 1.64,
-              "mad": 6.46,
-              "n": 51,
-              "outlier_rate": 0.373,
-              "outliers": 19
-            },
-            "TE": {
-              "bias": -1.17,
-              "mad": 4.72,
-              "n": 19,
-              "outlier_rate": 0.526,
-              "outliers": 10
-            },
-            "WR": {
-              "bias": -0.58,
-              "mad": 7.21,
-              "n": 68,
-              "outlier_rate": 0.647,
-              "outliers": 44
-            }
-          },
-          "examples": [
-            {
-              "consensus": 51.3,
-              "player_key": 3247,
-              "value": 81.0
-            },
-            {
-              "consensus": 52.8,
-              "player_key": 1095,
-              "value": 80.7
-            },
-            {
-              "consensus": 58.5,
-              "player_key": 217,
-              "value": 85.4
-            },
-            {
-              "consensus": 50.6,
-              "player_key": 1370,
-              "value": 77.2
-            },
-            {
-              "consensus": 65.1,
-              "player_key": 2227,
-              "value": 89.5
-            }
-          ],
-          "mad": 5.79,
-          "n": 170,
-          "outlier_rate": 0.465,
-          "outliers": 79,
-          "prior_weeks": [
-            {
-              "bias": 0.26,
-              "mad": 5.1,
-              "n": 174,
-              "outlier_rate": 0.425,
-              "week": 5
-            },
-            {
-              "bias": 0.04,
-              "mad": 5.53,
-              "n": 176,
-              "outlier_rate": 0.523,
-              "week": 4
-            },
-            {
-              "bias": 1.83,
-              "mad": 5.31,
-              "n": 167,
-              "outlier_rate": 0.407,
-              "week": 3
-            },
-            {
-              "bias": 3.06,
-              "mad": 5.97,
-              "n": 170,
-              "outlier_rate": 0.459,
-              "week": 2
-            }
-          ],
-          "reasons": [
-            "outlier rate 46% > 45%"
-          ],
-          "status": "warn"
-        },
-        "standard_12_qb1": {
-          "baseline": {
-            "bias": 1.21,
-            "outlier_rate": 0.449,
-            "weeks": 4
-          },
-          "bias": 0.52,
-          "by_position": {
-            "QB": {
-              "bias": 1.57,
-              "mad": 2.08,
-              "n": 32,
-              "outlier_rate": 0.188,
-              "outliers": 6
-            },
-            "RB": {
-              "bias": 1.75,
-              "mad": 6.4,
-              "n": 51,
-              "outlier_rate": 0.431,
+              "bias": -4.12,
+              "mad": 5.94,
+              "n": 47,
+              "outlier_rate": 0.468,
               "outliers": 22
             },
             "TE": {
-              "bias": -0.51,
-              "mad": 4.56,
-              "n": 19,
-              "outlier_rate": 0.579,
-              "outliers": 11
+              "bias": 3.14,
+              "mad": 3.46,
+              "n": 14,
+              "outlier_rate": 0.571,
+              "outliers": 8
             },
             "WR": {
-              "bias": -0.61,
-              "mad": 6.84,
-              "n": 68,
-              "outlier_rate": 0.632,
-              "outliers": 43
+              "bias": 1.0,
+              "mad": 3.91,
+              "n": 49,
+              "outlier_rate": 0.388,
+              "outliers": 19
             }
           },
           "examples": [
             {
-              "consensus": 49.4,
-              "player_key": 3247,
-              "value": 77.3
+              "consensus": 17.3,
+              "player_key": 4561,
+              "value": 43.0
             },
             {
-              "consensus": 50.8,
-              "player_key": 1095,
-              "value": 78.3
+              "consensus": 31.5,
+              "player_key": 1761,
+              "value": 56.6
             },
             {
-              "consensus": 56.3,
-              "player_key": 217,
-              "value": 82.9
+              "consensus": 24.6,
+              "player_key": 1311,
+              "value": 45.8
             },
             {
-              "consensus": 48.0,
-              "player_key": 1370,
-              "value": 73.7
+              "consensus": 24.9,
+              "player_key": 482,
+              "value": 5.1
             },
             {
-              "consensus": 62.7,
-              "player_key": 2227,
-              "value": 86.9
+              "consensus": 12.2,
+              "player_key": 306,
+              "value": 31.7
             }
           ],
-          "mad": 5.56,
-          "n": 170,
-          "outlier_rate": 0.482,
-          "outliers": 82,
-          "prior_weeks": [
-            {
-              "bias": 0.28,
-              "mad": 4.87,
-              "n": 174,
-              "outlier_rate": 0.414,
-              "week": 5
-            },
-            {
-              "bias": 0.02,
-              "mad": 5.31,
-              "n": 176,
-              "outlier_rate": 0.511,
-              "week": 4
-            },
-            {
-              "bias": 1.71,
-              "mad": 5.13,
-              "n": 167,
-              "outlier_rate": 0.407,
-              "week": 3
-            },
-            {
-              "bias": 2.83,
-              "mad": 5.77,
-              "n": 170,
-              "outlier_rate": 0.465,
-              "week": 2
-            }
-          ],
+          "mad": 5.55,
+          "n": 130,
+          "outlier_rate": 0.485,
+          "outliers": 63,
+          "prior_weeks": [],
           "reasons": [
             "outlier rate 48% > 45%"
           ],
@@ -1097,119 +542,666 @@
         }
       },
       "computed_status": "warn",
-      "group": "trade_charts",
-      "headline_combo": "full_12_qb1",
-      "label": "FantasyCalc",
-      "mad": 5.78,
-      "message": "FantasyCalc disagrees with the other charts on 46% of players this week (usually 47%). Under review.",
-      "n": 170,
-      "outlier_rate": 0.465,
+      "group": "projections",
+      "headline_combo": "standard_12",
+      "label": "CBS rest of season",
+      "mad": 5.55,
+      "message": "CBS rest of season disagrees with the other projections on 48% of players this week. Under review.",
+      "n": 130,
+      "outlier_rate": 0.485,
       "reasons": [
-        "full: outlier rate 46% > 45%"
+        "standard: outlier rate 48% > 45%"
       ],
       "resolution": null,
       "status": "warn",
-      "usual_outlier_rate": 0.47,
+      "usual_outlier_rate": null,
+      "week": 6
+    },
+    "espn": {
+      "bias": 3.35,
+      "combos": {
+        "full_12": {
+          "baseline": null,
+          "bias": 0.18,
+          "by_position": {
+            "QB": {
+              "bias": -5.43,
+              "mad": 7.33,
+              "n": 20,
+              "outlier_rate": 0.6,
+              "outliers": 12
+            },
+            "RB": {
+              "bias": 0.64,
+              "mad": 4.35,
+              "n": 42,
+              "outlier_rate": 0.31,
+              "outliers": 13
+            },
+            "TE": {
+              "bias": 1.3,
+              "mad": 2.8,
+              "n": 15,
+              "outlier_rate": 0.267,
+              "outliers": 4
+            },
+            "WR": {
+              "bias": 1.62,
+              "mad": 3.74,
+              "n": 53,
+              "outlier_rate": 0.245,
+              "outliers": 13
+            }
+          },
+          "examples": [
+            {
+              "consensus": 60.8,
+              "player_key": 869,
+              "value": 37.7
+            },
+            {
+              "consensus": 25.7,
+              "player_key": 1110,
+              "value": 42.5
+            },
+            {
+              "consensus": 16.2,
+              "player_key": 2279,
+              "value": 32.2
+            },
+            {
+              "consensus": 25.8,
+              "player_key": 506,
+              "value": 10.5
+            },
+            {
+              "consensus": 21.4,
+              "player_key": 1760,
+              "value": 6.4
+            }
+          ],
+          "mad": 4.38,
+          "n": 130,
+          "outlier_rate": 0.323,
+          "outliers": 42,
+          "prior_weeks": [],
+          "reasons": [],
+          "status": "ok"
+        },
+        "half_12": {
+          "baseline": null,
+          "bias": 1.67,
+          "by_position": {
+            "QB": {
+              "bias": -4.45,
+              "mad": 7.13,
+              "n": 20,
+              "outlier_rate": 0.6,
+              "outliers": 12
+            },
+            "RB": {
+              "bias": 3.14,
+              "mad": 4.94,
+              "n": 45,
+              "outlier_rate": 0.333,
+              "outliers": 15
+            },
+            "TE": {
+              "bias": 2.0,
+              "mad": 2.75,
+              "n": 15,
+              "outlier_rate": 0.533,
+              "outliers": 8
+            },
+            "WR": {
+              "bias": 2.68,
+              "mad": 4.3,
+              "n": 51,
+              "outlier_rate": 0.373,
+              "outliers": 19
+            }
+          },
+          "examples": [
+            {
+              "consensus": 28.0,
+              "player_key": 1110,
+              "value": 48.6
+            },
+            {
+              "consensus": 63.5,
+              "player_key": 869,
+              "value": 44.1
+            },
+            {
+              "consensus": 14.4,
+              "player_key": 1730,
+              "value": 32.3
+            },
+            {
+              "consensus": 13.1,
+              "player_key": 2279,
+              "value": 30.8
+            },
+            {
+              "consensus": 33.6,
+              "player_key": 2730,
+              "value": 48.7
+            }
+          ],
+          "mad": 4.78,
+          "n": 131,
+          "outlier_rate": 0.412,
+          "outliers": 54,
+          "prior_weeks": [],
+          "reasons": [],
+          "status": "ok"
+        },
+        "standard_12": {
+          "baseline": null,
+          "bias": 3.35,
+          "by_position": {
+            "QB": {
+              "bias": -2.76,
+              "mad": 7.65,
+              "n": 20,
+              "outlier_rate": 0.55,
+              "outliers": 11
+            },
+            "RB": {
+              "bias": 4.5,
+              "mad": 6.74,
+              "n": 47,
+              "outlier_rate": 0.468,
+              "outliers": 22
+            },
+            "TE": {
+              "bias": 1.82,
+              "mad": 3.2,
+              "n": 14,
+              "outlier_rate": 0.5,
+              "outliers": 7
+            },
+            "WR": {
+              "bias": 5.17,
+              "mad": 6.11,
+              "n": 49,
+              "outlier_rate": 0.429,
+              "outliers": 21
+            }
+          },
+          "examples": [
+            {
+              "consensus": 15.5,
+              "player_key": 1730,
+              "value": 41.9
+            },
+            {
+              "consensus": 29.3,
+              "player_key": 2730,
+              "value": 53.8
+            },
+            {
+              "consensus": 32.4,
+              "player_key": 1110,
+              "value": 55.9
+            },
+            {
+              "consensus": 9.6,
+              "player_key": 2279,
+              "value": 32.9
+            },
+            {
+              "consensus": 10.2,
+              "player_key": 3082,
+              "value": 27.8
+            }
+          ],
+          "mad": 6.26,
+          "n": 130,
+          "outlier_rate": 0.469,
+          "outliers": 61,
+          "prior_weeks": [],
+          "reasons": [
+            "outlier rate 47% > 45%"
+          ],
+          "status": "warn"
+        }
+      },
+      "computed_status": "warn",
+      "group": "projections",
+      "headline_combo": "standard_12",
+      "label": "ESPN",
+      "mad": 6.26,
+      "message": "ESPN disagrees with the other projections on 47% of players this week. Under review.",
+      "n": 130,
+      "outlier_rate": 0.469,
+      "reasons": [
+        "standard: outlier rate 47% > 45%"
+      ],
+      "resolution": null,
+      "status": "warn",
+      "usual_outlier_rate": null,
+      "week": 6
+    },
+    "fantasycalc": {
+      "bias": 0.36,
+      "combos": {
+        "full_12_qb1": {
+          "baseline": {
+            "bias": 0.85,
+            "outlier_rate": 0.423,
+            "weeks": 4
+          },
+          "bias": 0.36,
+          "by_position": {
+            "QB": {
+              "bias": 1.6,
+              "mad": 1.78,
+              "n": 32,
+              "outlier_rate": 0.125,
+              "outliers": 4
+            },
+            "RB": {
+              "bias": 1.41,
+              "mad": 4.46,
+              "n": 52,
+              "outlier_rate": 0.404,
+              "outliers": 21
+            },
+            "TE": {
+              "bias": -0.9,
+              "mad": 3.03,
+              "n": 20,
+              "outlier_rate": 0.4,
+              "outliers": 8
+            },
+            "WR": {
+              "bias": -0.65,
+              "mad": 4.91,
+              "n": 69,
+              "outlier_rate": 0.565,
+              "outliers": 39
+            }
+          },
+          "examples": [
+            {
+              "consensus": 37.5,
+              "player_key": 3247,
+              "value": 59.0
+            },
+            {
+              "consensus": 37.0,
+              "player_key": 1370,
+              "value": 55.4
+            },
+            {
+              "consensus": 31.9,
+              "player_key": 547,
+              "value": 50.0
+            },
+            {
+              "consensus": 47.4,
+              "player_key": 2227,
+              "value": 65.0
+            },
+            {
+              "consensus": 42.6,
+              "player_key": 217,
+              "value": 59.8
+            }
+          ],
+          "mad": 3.98,
+          "n": 173,
+          "outlier_rate": 0.416,
+          "outliers": 72,
+          "prior_weeks": [
+            {
+              "bias": 0.05,
+              "mad": 3.74,
+              "n": 174,
+              "outlier_rate": 0.408,
+              "week": 5
+            },
+            {
+              "bias": -0.1,
+              "mad": 4.05,
+              "n": 176,
+              "outlier_rate": 0.483,
+              "week": 4
+            },
+            {
+              "bias": 1.29,
+              "mad": 3.85,
+              "n": 167,
+              "outlier_rate": 0.377,
+              "week": 3
+            },
+            {
+              "bias": 2.16,
+              "mad": 4.32,
+              "n": 170,
+              "outlier_rate": 0.424,
+              "week": 2
+            }
+          ],
+          "reasons": [],
+          "status": "ok"
+        },
+        "half_12_qb1": {
+          "baseline": {
+            "bias": 0.86,
+            "outlier_rate": 0.433,
+            "weeks": 4
+          },
+          "bias": 0.34,
+          "by_position": {
+            "QB": {
+              "bias": 1.47,
+              "mad": 1.78,
+              "n": 32,
+              "outlier_rate": 0.125,
+              "outliers": 4
+            },
+            "RB": {
+              "bias": 1.57,
+              "mad": 4.79,
+              "n": 51,
+              "outlier_rate": 0.353,
+              "outliers": 18
+            },
+            "TE": {
+              "bias": -1.12,
+              "mad": 3.35,
+              "n": 19,
+              "outlier_rate": 0.474,
+              "outliers": 9
+            },
+            "WR": {
+              "bias": -0.69,
+              "mad": 5.16,
+              "n": 69,
+              "outlier_rate": 0.565,
+              "outliers": 39
+            }
+          },
+          "examples": [
+            {
+              "consensus": 39.0,
+              "player_key": 3247,
+              "value": 61.6
+            },
+            {
+              "consensus": 38.5,
+              "player_key": 1370,
+              "value": 57.8
+            },
+            {
+              "consensus": 33.2,
+              "player_key": 547,
+              "value": 52.5
+            },
+            {
+              "consensus": 49.4,
+              "player_key": 2227,
+              "value": 68.2
+            },
+            {
+              "consensus": 44.4,
+              "player_key": 217,
+              "value": 62.8
+            }
+          ],
+          "mad": 4.21,
+          "n": 171,
+          "outlier_rate": 0.409,
+          "outliers": 70,
+          "prior_weeks": [
+            {
+              "bias": 0.08,
+              "mad": 3.86,
+              "n": 174,
+              "outlier_rate": 0.425,
+              "week": 5
+            },
+            {
+              "bias": -0.09,
+              "mad": 4.2,
+              "n": 176,
+              "outlier_rate": 0.489,
+              "week": 4
+            },
+            {
+              "bias": 1.26,
+              "mad": 4.0,
+              "n": 167,
+              "outlier_rate": 0.401,
+              "week": 3
+            },
+            {
+              "bias": 2.19,
+              "mad": 4.47,
+              "n": 170,
+              "outlier_rate": 0.418,
+              "week": 2
+            }
+          ],
+          "reasons": [],
+          "status": "ok"
+        },
+        "standard_12_qb1": {
+          "baseline": {
+            "bias": 0.95,
+            "outlier_rate": 0.432,
+            "weeks": 4
+          },
+          "bias": 0.42,
+          "by_position": {
+            "QB": {
+              "bias": 1.34,
+              "mad": 1.85,
+              "n": 32,
+              "outlier_rate": 0.094,
+              "outliers": 3
+            },
+            "RB": {
+              "bias": 1.95,
+              "mad": 5.53,
+              "n": 51,
+              "outlier_rate": 0.373,
+              "outliers": 19
+            },
+            "TE": {
+              "bias": -0.82,
+              "mad": 3.82,
+              "n": 19,
+              "outlier_rate": 0.474,
+              "outliers": 9
+            },
+            "WR": {
+              "bias": -0.81,
+              "mad": 5.75,
+              "n": 69,
+              "outlier_rate": 0.58,
+              "outliers": 40
+            }
+          },
+          "examples": [
+            {
+              "consensus": 44.0,
+              "player_key": 3247,
+              "value": 68.7
+            },
+            {
+              "consensus": 37.3,
+              "player_key": 547,
+              "value": 59.6
+            },
+            {
+              "consensus": 55.5,
+              "player_key": 2227,
+              "value": 77.5
+            },
+            {
+              "consensus": 42.8,
+              "player_key": 1370,
+              "value": 64.6
+            },
+            {
+              "consensus": 49.9,
+              "player_key": 217,
+              "value": 71.4
+            }
+          ],
+          "mad": 4.74,
+          "n": 171,
+          "outlier_rate": 0.415,
+          "outliers": 71,
+          "prior_weeks": [
+            {
+              "bias": 0.13,
+              "mad": 4.3,
+              "n": 174,
+              "outlier_rate": 0.397,
+              "week": 5
+            },
+            {
+              "bias": -0.11,
+              "mad": 4.73,
+              "n": 176,
+              "outlier_rate": 0.494,
+              "week": 4
+            },
+            {
+              "bias": 1.39,
+              "mad": 4.52,
+              "n": 167,
+              "outlier_rate": 0.395,
+              "week": 3
+            },
+            {
+              "bias": 2.39,
+              "mad": 5.06,
+              "n": 170,
+              "outlier_rate": 0.441,
+              "week": 2
+            }
+          ],
+          "reasons": [],
+          "status": "ok"
+        }
+      },
+      "computed_status": "ok",
+      "group": "trade_charts",
+      "headline_combo": "full_12_qb1",
+      "label": "FantasyCalc",
+      "mad": 3.98,
+      "message": "FantasyCalc disagrees with the other charts on 42% of players this week (usually 42%).",
+      "n": 173,
+      "outlier_rate": 0.416,
+      "reasons": [],
+      "resolution": null,
+      "status": "ok",
+      "usual_outlier_rate": 0.423,
       "week": 6
     },
     "fantasypros": {
-      "bias": -0.31,
+      "bias": -0.51,
       "combos": {
         "full_12": {
           "baseline": {
-            "bias": 0.61,
-            "outlier_rate": 0.469,
+            "bias": 0.35,
+            "outlier_rate": 0.441,
             "weeks": 4
           },
-          "bias": -0.11,
+          "bias": -0.15,
           "by_position": {
             "QB": {
-              "bias": -2.41,
-              "mad": 3.64,
+              "bias": -1.65,
+              "mad": 2.56,
               "n": 32,
-              "outlier_rate": 0.469,
-              "outliers": 15
+              "outlier_rate": 0.375,
+              "outliers": 12
             },
             "RB": {
-              "bias": 1.94,
-              "mad": 6.87,
+              "bias": 1.42,
+              "mad": 5.0,
               "n": 51,
-              "outlier_rate": 0.451,
-              "outliers": 23
+              "outlier_rate": 0.51,
+              "outliers": 26
             },
             "TE": {
-              "bias": -5.2,
-              "mad": 5.41,
+              "bias": -3.92,
+              "mad": 4.17,
               "n": 19,
               "outlier_rate": 0.316,
               "outliers": 6
             },
             "WR": {
-              "bias": 0.87,
-              "mad": 6.22,
-              "n": 67,
-              "outlier_rate": 0.478,
+              "bias": 0.44,
+              "mad": 4.6,
+              "n": 68,
+              "outlier_rate": 0.471,
               "outliers": 32
             }
           },
           "examples": [
             {
-              "consensus": 61.6,
-              "player_key": 303,
-              "value": 35.0
-            },
-            {
-              "consensus": 72.8,
-              "player_key": 3247,
-              "value": 49.3
-            },
-            {
-              "consensus": 43.4,
-              "player_key": 3133,
-              "value": 22.6
-            },
-            {
-              "consensus": 44.7,
+              "consensus": 38.5,
               "player_key": 51,
-              "value": 24.2
+              "value": 17.7
             },
             {
-              "consensus": 50.9,
+              "consensus": 54.1,
+              "player_key": 3247,
+              "value": 36.1
+            },
+            {
+              "consensus": 42.6,
+              "player_key": 303,
+              "value": 25.6
+            },
+            {
+              "consensus": 49.9,
+              "player_key": 1370,
+              "value": 34.1
+            },
+            {
+              "consensus": 37.3,
               "player_key": 3892,
-              "value": 31.2
+              "value": 22.8
             }
           ],
-          "mad": 5.84,
-          "n": 169,
-          "outlier_rate": 0.45,
+          "mad": 4.29,
+          "n": 170,
+          "outlier_rate": 0.447,
           "outliers": 76,
           "prior_weeks": [
             {
-              "bias": 0.33,
-              "mad": 5.74,
+              "bias": 0.16,
+              "mad": 4.25,
               "n": 172,
-              "outlier_rate": 0.477,
+              "outlier_rate": 0.43,
               "week": 5
             },
             {
-              "bias": 0.86,
-              "mad": 5.58,
+              "bias": 0.56,
+              "mad": 4.14,
               "n": 172,
-              "outlier_rate": 0.459,
+              "outlier_rate": 0.442,
               "week": 4
             },
             {
-              "bias": 0.86,
-              "mad": 5.36,
+              "bias": 0.51,
+              "mad": 3.99,
               "n": 168,
-              "outlier_rate": 0.476,
+              "outlier_rate": 0.458,
               "week": 3
             },
             {
-              "bias": 0.38,
-              "mad": 4.77,
+              "bias": 0.17,
+              "mad": 3.55,
               "n": 169,
-              "outlier_rate": 0.462,
+              "outlier_rate": 0.432,
               "week": 2
             }
           ],
@@ -1218,201 +1210,201 @@
         },
         "half_12": {
           "baseline": {
-            "bias": 0.34,
-            "outlier_rate": 0.47,
+            "bias": 0.1,
+            "outlier_rate": 0.448,
             "weeks": 4
           },
-          "bias": -0.26,
+          "bias": -0.38,
           "by_position": {
             "QB": {
-              "bias": -2.77,
-              "mad": 3.79,
+              "bias": -2.03,
+              "mad": 2.84,
               "n": 32,
-              "outlier_rate": 0.5,
-              "outliers": 16
+              "outlier_rate": 0.375,
+              "outliers": 12
             },
             "RB": {
-              "bias": 1.45,
-              "mad": 7.22,
+              "bias": 0.99,
+              "mad": 5.47,
               "n": 51,
-              "outlier_rate": 0.451,
-              "outliers": 23
+              "outlier_rate": 0.49,
+              "outliers": 25
             },
             "TE": {
-              "bias": -4.9,
-              "mad": 5.14,
+              "bias": -4.17,
+              "mad": 4.33,
               "n": 19,
-              "outlier_rate": 0.263,
-              "outliers": 5
+              "outlier_rate": 0.316,
+              "outliers": 6
             },
             "WR": {
-              "bias": 0.94,
-              "mad": 6.43,
-              "n": 67,
-              "outlier_rate": 0.507,
+              "bias": 0.44,
+              "mad": 4.94,
+              "n": 68,
+              "outlier_rate": 0.5,
               "outliers": 34
             }
           },
           "examples": [
             {
-              "consensus": 63.2,
-              "player_key": 303,
-              "value": 35.1
-            },
-            {
-              "consensus": 75.2,
-              "player_key": 3247,
-              "value": 49.5
-            },
-            {
-              "consensus": 43.6,
-              "player_key": 3133,
-              "value": 22.7
-            },
-            {
-              "consensus": 45.0,
+              "consensus": 40.8,
               "player_key": 51,
-              "value": 24.3
+              "value": 18.4
             },
             {
-              "consensus": 73.0,
+              "consensus": 58.3,
+              "player_key": 3247,
+              "value": 37.6
+            },
+            {
+              "consensus": 45.5,
+              "player_key": 303,
+              "value": 26.6
+            },
+            {
+              "consensus": 53.1,
+              "player_key": 1370,
+              "value": 35.5
+            },
+            {
+              "consensus": 56.6,
               "player_key": 1095,
-              "value": 52.8
+              "value": 40.1
             }
           ],
-          "mad": 6.03,
-          "n": 169,
-          "outlier_rate": 0.462,
-          "outliers": 78,
+          "mad": 4.64,
+          "n": 170,
+          "outlier_rate": 0.453,
+          "outliers": 77,
           "prior_weeks": [
             {
-              "bias": 0.21,
-              "mad": 5.95,
+              "bias": 0.02,
+              "mad": 4.58,
               "n": 172,
-              "outlier_rate": 0.483,
+              "outlier_rate": 0.453,
               "week": 5
             },
             {
-              "bias": 0.64,
-              "mad": 5.72,
+              "bias": 0.36,
+              "mad": 4.4,
               "n": 172,
-              "outlier_rate": 0.459,
+              "outlier_rate": 0.453,
               "week": 4
             },
             {
-              "bias": 0.53,
-              "mad": 5.52,
+              "bias": 0.22,
+              "mad": 4.3,
               "n": 168,
-              "outlier_rate": 0.482,
+              "outlier_rate": 0.464,
               "week": 3
             },
             {
-              "bias": -0.02,
-              "mad": 4.99,
+              "bias": -0.19,
+              "mad": 3.88,
               "n": 169,
-              "outlier_rate": 0.456,
+              "outlier_rate": 0.42,
               "week": 2
             }
           ],
           "reasons": [
-            "outlier rate 46% > 45%",
+            "outlier rate 45% > 45%",
             "also warned in week 5"
           ],
           "status": "investigate"
         },
         "standard_12": {
           "baseline": {
-            "bias": 0.23,
-            "outlier_rate": 0.471,
+            "bias": -0.05,
+            "outlier_rate": 0.458,
             "weeks": 4
           },
-          "bias": -0.31,
+          "bias": -0.51,
           "by_position": {
             "QB": {
-              "bias": -2.87,
-              "mad": 3.75,
+              "bias": -2.53,
+              "mad": 3.31,
               "n": 32,
-              "outlier_rate": 0.469,
-              "outliers": 15
+              "outlier_rate": 0.406,
+              "outliers": 13
             },
             "RB": {
-              "bias": 1.04,
-              "mad": 7.22,
+              "bias": 0.75,
+              "mad": 6.34,
               "n": 51,
-              "outlier_rate": 0.431,
-              "outliers": 22
+              "outlier_rate": 0.471,
+              "outliers": 24
             },
             "TE": {
-              "bias": -4.39,
-              "mad": 4.68,
+              "bias": -4.48,
+              "mad": 4.64,
               "n": 19,
-              "outlier_rate": 0.263,
-              "outliers": 5
+              "outlier_rate": 0.316,
+              "outliers": 6
             },
             "WR": {
-              "bias": 1.05,
-              "mad": 6.32,
-              "n": 67,
-              "outlier_rate": 0.522,
-              "outliers": 35
+              "bias": 0.59,
+              "mad": 5.64,
+              "n": 68,
+              "outlier_rate": 0.529,
+              "outliers": 36
             }
           },
           "examples": [
             {
-              "consensus": 61.3,
-              "player_key": 303,
-              "value": 33.8
+              "consensus": 46.0,
+              "player_key": 51,
+              "value": 20.7
             },
             {
-              "consensus": 73.6,
+              "consensus": 67.0,
               "player_key": 3247,
-              "value": 47.7
-            },
-            {
-              "consensus": 72.0,
-              "player_key": 1095,
-              "value": 50.8
-            },
-            {
-              "consensus": 62.8,
-              "player_key": 547,
               "value": 42.2
             },
             {
-              "consensus": 76.6,
-              "player_key": 217,
-              "value": 56.3
+              "consensus": 51.6,
+              "player_key": 303,
+              "value": 29.9
+            },
+            {
+              "consensus": 65.6,
+              "player_key": 1095,
+              "value": 45.0
+            },
+            {
+              "consensus": 60.0,
+              "player_key": 1370,
+              "value": 39.9
             }
           ],
-          "mad": 5.92,
-          "n": 169,
-          "outlier_rate": 0.456,
-          "outliers": 77,
+          "mad": 5.3,
+          "n": 170,
+          "outlier_rate": 0.465,
+          "outliers": 79,
           "prior_weeks": [
             {
-              "bias": 0.21,
-              "mad": 5.85,
+              "bias": -0.05,
+              "mad": 5.25,
               "n": 172,
-              "outlier_rate": 0.512,
+              "outlier_rate": 0.477,
               "week": 5
             },
             {
-              "bias": 0.58,
-              "mad": 5.65,
+              "bias": 0.31,
+              "mad": 5.08,
               "n": 172,
-              "outlier_rate": 0.465,
+              "outlier_rate": 0.453,
               "week": 4
             },
             {
-              "bias": 0.38,
-              "mad": 5.49,
+              "bias": 0.05,
+              "mad": 5.0,
               "n": 168,
-              "outlier_rate": 0.464,
+              "outlier_rate": 0.458,
               "week": 3
             },
             {
-              "bias": -0.25,
-              "mad": 5.01,
+              "bias": -0.51,
+              "mad": 4.58,
               "n": 169,
               "outlier_rate": 0.444,
               "week": 2
@@ -1429,222 +1421,222 @@
       "group": "trade_charts",
       "headline_combo": "standard_12",
       "label": "FantasyPros",
-      "mad": 5.92,
-      "message": "FantasyPros disagrees with the other charts on 46% of players this week (usually 47%). Under review.",
-      "n": 169,
-      "outlier_rate": 0.456,
+      "mad": 5.3,
+      "message": "FantasyPros disagrees with the other charts on 46% of players this week (usually 46%). Under review.",
+      "n": 170,
+      "outlier_rate": 0.465,
       "reasons": [
         "standard: outlier rate 46% > 45%",
         "standard: also warned in week 5"
       ],
       "resolution": null,
       "status": "investigate",
-      "usual_outlier_rate": 0.471,
+      "usual_outlier_rate": 0.458,
       "week": 6
     },
     "razzball": {
-      "bias": -0.74,
+      "bias": 0.83,
       "combos": {
         "full_12": {
           "baseline": null,
-          "bias": -0.74,
+          "bias": 0.83,
           "by_position": {
             "QB": {
-              "bias": -4.62,
-              "mad": 6.04,
-              "n": 16,
-              "outlier_rate": 0.375,
-              "outliers": 6
+              "bias": 1.9,
+              "mad": 8.04,
+              "n": 20,
+              "outlier_rate": 0.65,
+              "outliers": 13
             },
             "RB": {
-              "bias": 4.11,
-              "mad": 7.48,
-              "n": 40,
-              "outlier_rate": 0.4,
-              "outliers": 16
+              "bias": 3.4,
+              "mad": 6.61,
+              "n": 42,
+              "outlier_rate": 0.452,
+              "outliers": 19
             },
             "TE": {
-              "bias": -4.37,
-              "mad": 5.3,
-              "n": 13,
-              "outlier_rate": 0.615,
-              "outliers": 8
+              "bias": -2.65,
+              "mad": 3.26,
+              "n": 15,
+              "outlier_rate": 0.4,
+              "outliers": 6
             },
             "WR": {
-              "bias": -1.95,
-              "mad": 4.8,
-              "n": 70,
-              "outlier_rate": 0.329,
-              "outliers": 23
+              "bias": -0.62,
+              "mad": 4.05,
+              "n": 53,
+              "outlier_rate": 0.321,
+              "outliers": 17
             }
           },
           "examples": [
             {
-              "consensus": 2.9,
-              "player_key": 3376,
-              "value": 29.3
+              "consensus": 44.6,
+              "player_key": 869,
+              "value": 70.0
             },
             {
-              "consensus": 4.3,
-              "player_key": 536,
-              "value": 30.6
-            },
-            {
-              "consensus": 26.4,
-              "player_key": 4561,
-              "value": 5.0
-            },
-            {
-              "consensus": 55.1,
-              "player_key": 303,
-              "value": 35.3
-            },
-            {
-              "consensus": 30.1,
+              "consensus": 23.5,
               "player_key": 337,
-              "value": 49.2
+              "value": 48.1
+            },
+            {
+              "consensus": 3.0,
+              "player_key": 536,
+              "value": 24.5
+            },
+            {
+              "consensus": 10.1,
+              "player_key": 1760,
+              "value": 29.1
+            },
+            {
+              "consensus": 23.4,
+              "player_key": 3225,
+              "value": 4.5
             }
           ],
-          "mad": 5.76,
-          "n": 139,
-          "outlier_rate": 0.381,
-          "outliers": 53,
+          "mad": 5.4,
+          "n": 130,
+          "outlier_rate": 0.423,
+          "outliers": 55,
           "prior_weeks": [],
           "reasons": [],
           "status": "ok"
         },
         "half_12": {
           "baseline": null,
-          "bias": 0.09,
+          "bias": -1.34,
           "by_position": {
             "QB": {
-              "bias": -4.6,
-              "mad": 6.72,
-              "n": 16,
-              "outlier_rate": 0.438,
-              "outliers": 7
+              "bias": 0.05,
+              "mad": 8.03,
+              "n": 20,
+              "outlier_rate": 0.5,
+              "outliers": 10
             },
             "RB": {
-              "bias": 4.93,
-              "mad": 7.81,
-              "n": 42,
-              "outlier_rate": 0.476,
-              "outliers": 20
+              "bias": 1.12,
+              "mad": 5.73,
+              "n": 45,
+              "outlier_rate": 0.356,
+              "outliers": 16
             },
             "TE": {
-              "bias": -3.6,
-              "mad": 4.55,
-              "n": 13,
-              "outlier_rate": 0.538,
+              "bias": -3.56,
+              "mad": 3.65,
+              "n": 15,
+              "outlier_rate": 0.467,
               "outliers": 7
             },
             "WR": {
-              "bias": -1.12,
-              "mad": 4.86,
-              "n": 67,
-              "outlier_rate": 0.328,
-              "outliers": 22
+              "bias": -3.39,
+              "mad": 4.3,
+              "n": 51,
+              "outlier_rate": 0.392,
+              "outliers": 20
             }
           },
           "examples": [
             {
-              "consensus": 5.6,
-              "player_key": 536,
-              "value": 31.9
+              "consensus": 26.6,
+              "player_key": 3225,
+              "value": 4.5
             },
             {
-              "consensus": 5.1,
-              "player_key": 3376,
-              "value": 30.8
+              "consensus": 39.9,
+              "player_key": 1761,
+              "value": 19.3
             },
             {
-              "consensus": 29.2,
+              "consensus": 50.5,
+              "player_key": 869,
+              "value": 70.0
+            },
+            {
+              "consensus": 27.7,
               "player_key": 4561,
-              "value": 5.7
+              "value": 8.3
             },
             {
-              "consensus": 32.8,
-              "player_key": 337,
-              "value": 52.5
-            },
-            {
-              "consensus": 19.3,
-              "player_key": 171,
-              "value": 37.7
+              "consensus": 4.0,
+              "player_key": 536,
+              "value": 22.4
             }
           ],
-          "mad": 5.94,
-          "n": 138,
-          "outlier_rate": 0.406,
-          "outliers": 56,
+          "mad": 5.29,
+          "n": 131,
+          "outlier_rate": 0.405,
+          "outliers": 53,
           "prior_weeks": [],
           "reasons": [],
           "status": "ok"
         },
         "standard_12": {
           "baseline": null,
-          "bias": 1.34,
+          "bias": -3.62,
           "by_position": {
             "QB": {
-              "bias": -3.84,
-              "mad": 7.35,
-              "n": 16,
-              "outlier_rate": 0.438,
-              "outliers": 7
+              "bias": -4.01,
+              "mad": 8.42,
+              "n": 20,
+              "outlier_rate": 0.5,
+              "outliers": 10
             },
             "RB": {
-              "bias": 6.71,
-              "mad": 8.49,
-              "n": 46,
-              "outlier_rate": 0.457,
-              "outliers": 21
+              "bias": -0.39,
+              "mad": 5.85,
+              "n": 47,
+              "outlier_rate": 0.255,
+              "outliers": 12
             },
             "TE": {
-              "bias": -2.52,
-              "mad": 3.52,
-              "n": 13,
-              "outlier_rate": 0.462,
-              "outliers": 6
+              "bias": -4.97,
+              "mad": 5.05,
+              "n": 14,
+              "outlier_rate": 0.643,
+              "outliers": 9
             },
             "WR": {
-              "bias": -0.5,
-              "mad": 4.43,
-              "n": 62,
-              "outlier_rate": 0.355,
-              "outliers": 22
+              "bias": -6.17,
+              "mad": 6.34,
+              "n": 49,
+              "outlier_rate": 0.551,
+              "outliers": 27
             }
           },
           "examples": [
             {
-              "consensus": 6.1,
-              "player_key": 536,
-              "value": 32.7
+              "consensus": 50.1,
+              "player_key": 1761,
+              "value": 19.3
             },
             {
-              "consensus": 6.7,
-              "player_key": 3376,
-              "value": 32.2
+              "consensus": 33.5,
+              "player_key": 3225,
+              "value": 4.5
             },
             {
-              "consensus": 31.7,
+              "consensus": 34.6,
               "player_key": 4561,
-              "value": 6.7
+              "value": 8.3
             },
             {
-              "consensus": 19.9,
-              "player_key": 171,
-              "value": 41.6
+              "consensus": 34.5,
+              "player_key": 303,
+              "value": 14.5
             },
             {
-              "consensus": 34.1,
-              "player_key": 337,
-              "value": 55.6
+              "consensus": 46.8,
+              "player_key": 1110,
+              "value": 27.1
             }
           ],
-          "mad": 6.05,
-          "n": 137,
-          "outlier_rate": 0.409,
-          "outliers": 56,
+          "mad": 6.34,
+          "n": 130,
+          "outlier_rate": 0.446,
+          "outliers": 58,
           "prior_weeks": [],
           "reasons": [],
           "status": "ok"
@@ -1654,10 +1646,10 @@
       "group": "projections",
       "headline_combo": "full_12",
       "label": "Razzball",
-      "mad": 5.76,
-      "message": "Razzball disagrees with the other projections on 38% of players this week.",
-      "n": 139,
-      "outlier_rate": 0.381,
+      "mad": 5.4,
+      "message": "Razzball disagrees with the other projections on 42% of players this week.",
+      "n": 130,
+      "outlier_rate": 0.423,
       "reasons": [],
       "resolution": null,
       "status": "ok",
@@ -1665,103 +1657,103 @@
       "week": 6
     },
     "usatoday": {
-      "bias": -0.73,
+      "bias": -0.64,
       "combos": {
         "full_12": {
           "baseline": {
-            "bias": -1.67,
-            "outlier_rate": 0.26,
+            "bias": -1.35,
+            "outlier_rate": 0.213,
             "weeks": 4
           },
-          "bias": -0.73,
+          "bias": -0.64,
           "by_position": {
             "QB": {
-              "bias": 0.1,
-              "mad": 1.77,
+              "bias": 0.02,
+              "mad": 1.41,
               "n": 32,
               "outlier_rate": 0.094,
               "outliers": 3
             },
             "RB": {
-              "bias": -2.46,
-              "mad": 5.9,
-              "n": 51,
-              "outlier_rate": 0.314,
-              "outliers": 16
+              "bias": -1.7,
+              "mad": 3.81,
+              "n": 52,
+              "outlier_rate": 0.173,
+              "outliers": 9
             },
             "TE": {
-              "bias": 4.46,
-              "mad": 5.46,
-              "n": 19,
-              "outlier_rate": 0.632,
-              "outliers": 12
+              "bias": 2.6,
+              "mad": 3.78,
+              "n": 20,
+              "outlier_rate": 0.65,
+              "outliers": 13
             },
             "WR": {
-              "bias": -1.26,
-              "mad": 3.78,
-              "n": 68,
-              "outlier_rate": 0.221,
-              "outliers": 15
+              "bias": -1.08,
+              "mad": 2.81,
+              "n": 69,
+              "outlier_rate": 0.174,
+              "outliers": 12
             }
           },
           "examples": [
             {
-              "consensus": 74.2,
+              "consensus": 55.1,
               "player_key": 217,
-              "value": 50.1
+              "value": 36.5
             },
             {
-              "consensus": 75.6,
+              "consensus": 56.1,
               "player_key": 2227,
-              "value": 54.1
+              "value": 39.5
             },
             {
-              "consensus": 72.8,
+              "consensus": 54.1,
               "player_key": 3247,
-              "value": 51.4
+              "value": 37.5
             },
             {
-              "consensus": 70.0,
+              "consensus": 52.0,
               "player_key": 1095,
-              "value": 50.1
+              "value": 36.5
             },
             {
-              "consensus": 61.6,
-              "player_key": 303,
-              "value": 43.3
+              "consensus": 48.9,
+              "player_key": 2730,
+              "value": 34.0
             }
           ],
-          "mad": 4.23,
-          "n": 170,
-          "outlier_rate": 0.271,
-          "outliers": 46,
+          "mad": 2.96,
+          "n": 173,
+          "outlier_rate": 0.214,
+          "outliers": 37,
           "prior_weeks": [
             {
-              "bias": -1.05,
-              "mad": 4.31,
+              "bias": -0.89,
+              "mad": 3.21,
               "n": 174,
-              "outlier_rate": 0.305,
+              "outlier_rate": 0.253,
               "week": 5
             },
             {
-              "bias": -1.29,
-              "mad": 4.05,
+              "bias": -1.07,
+              "mad": 3.03,
               "n": 176,
-              "outlier_rate": 0.25,
+              "outlier_rate": 0.21,
               "week": 4
             },
             {
-              "bias": -2.22,
-              "mad": 4.07,
+              "bias": -1.77,
+              "mad": 3.09,
               "n": 168,
-              "outlier_rate": 0.262,
+              "outlier_rate": 0.202,
               "week": 3
             },
             {
-              "bias": -2.1,
-              "mad": 3.87,
+              "bias": -1.66,
+              "mad": 2.92,
               "n": 170,
-              "outlier_rate": 0.224,
+              "outlier_rate": 0.188,
               "week": 2
             }
           ],
@@ -1770,99 +1762,99 @@
         },
         "half_12": {
           "baseline": {
-            "bias": -1.92,
-            "outlier_rate": 0.252,
+            "bias": -1.58,
+            "outlier_rate": 0.226,
             "weeks": 4
           },
-          "bias": -0.87,
+          "bias": -0.82,
           "by_position": {
             "QB": {
-              "bias": 0.16,
-              "mad": 1.88,
+              "bias": 0.05,
+              "mad": 1.58,
               "n": 32,
-              "outlier_rate": 0.156,
-              "outliers": 5
+              "outlier_rate": 0.125,
+              "outliers": 4
             },
             "RB": {
-              "bias": -3.21,
-              "mad": 6.39,
+              "bias": -2.38,
+              "mad": 4.39,
               "n": 51,
-              "outlier_rate": 0.294,
-              "outliers": 15
+              "outlier_rate": 0.235,
+              "outliers": 12
             },
             "TE": {
-              "bias": 4.86,
-              "mad": 5.97,
+              "bias": 3.05,
+              "mad": 4.37,
               "n": 19,
-              "outlier_rate": 0.789,
-              "outliers": 15
+              "outlier_rate": 0.684,
+              "outliers": 13
             },
             "WR": {
-              "bias": -1.19,
-              "mad": 3.98,
-              "n": 68,
-              "outlier_rate": 0.235,
-              "outliers": 16
+              "bias": -1.13,
+              "mad": 3.02,
+              "n": 69,
+              "outlier_rate": 0.203,
+              "outliers": 14
             }
           },
           "examples": [
             {
-              "consensus": 77.5,
+              "consensus": 60.1,
               "player_key": 217,
-              "value": 50.6
+              "value": 38.5
             },
             {
-              "consensus": 79.0,
+              "consensus": 61.3,
               "player_key": 2227,
-              "value": 54.2
+              "value": 41.2
             },
             {
-              "consensus": 75.2,
+              "consensus": 58.3,
               "player_key": 3247,
-              "value": 51.3
+              "value": 39.0
             },
             {
-              "consensus": 73.0,
+              "consensus": 56.6,
               "player_key": 1095,
-              "value": 50.6
+              "value": 38.5
             },
             {
-              "consensus": 62.4,
-              "player_key": 547,
-              "value": 42.2
+              "consensus": 51.5,
+              "player_key": 2730,
+              "value": 35.8
             }
           ],
-          "mad": 4.53,
-          "n": 170,
-          "outlier_rate": 0.3,
-          "outliers": 51,
+          "mad": 3.31,
+          "n": 171,
+          "outlier_rate": 0.251,
+          "outliers": 43,
           "prior_weeks": [
             {
-              "bias": -1.24,
-              "mad": 4.55,
+              "bias": -1.05,
+              "mad": 3.52,
               "n": 174,
-              "outlier_rate": 0.27,
+              "outlier_rate": 0.253,
               "week": 5
             },
             {
-              "bias": -1.52,
-              "mad": 4.17,
+              "bias": -1.26,
+              "mad": 3.24,
               "n": 176,
-              "outlier_rate": 0.239,
+              "outlier_rate": 0.205,
               "week": 4
             },
             {
-              "bias": -2.46,
-              "mad": 4.32,
+              "bias": -2.02,
+              "mad": 3.41,
               "n": 168,
-              "outlier_rate": 0.274,
+              "outlier_rate": 0.244,
               "week": 3
             },
             {
-              "bias": -2.44,
-              "mad": 4.21,
+              "bias": -1.98,
+              "mad": 3.3,
               "n": 170,
-              "outlier_rate": 0.224,
+              "outlier_rate": 0.2,
               "week": 2
             }
           ],
@@ -1871,99 +1863,99 @@
         },
         "standard_12": {
           "baseline": {
-            "bias": -1.9,
-            "outlier_rate": 0.267,
+            "bias": -1.84,
+            "outlier_rate": 0.257,
             "weeks": 4
           },
-          "bias": -0.87,
+          "bias": -0.94,
           "by_position": {
             "QB": {
-              "bias": 0.22,
-              "mad": 1.9,
+              "bias": 0.14,
+              "mad": 1.85,
               "n": 32,
               "outlier_rate": 0.156,
               "outliers": 5
             },
             "RB": {
-              "bias": -3.63,
-              "mad": 6.47,
+              "bias": -3.14,
+              "mad": 5.19,
               "n": 51,
-              "outlier_rate": 0.314,
-              "outliers": 16
+              "outlier_rate": 0.216,
+              "outliers": 11
             },
             "TE": {
-              "bias": 5.01,
-              "mad": 6.07,
+              "bias": 3.74,
+              "mad": 5.13,
               "n": 19,
-              "outlier_rate": 0.737,
-              "outliers": 14
+              "outlier_rate": 0.684,
+              "outliers": 13
             },
             "WR": {
-              "bias": -0.96,
-              "mad": 4.03,
-              "n": 68,
-              "outlier_rate": 0.25,
-              "outliers": 17
+              "bias": -1.11,
+              "mad": 3.57,
+              "n": 69,
+              "outlier_rate": 0.217,
+              "outliers": 15
             }
           },
           "examples": [
             {
-              "consensus": 76.6,
+              "consensus": 69.8,
               "player_key": 217,
-              "value": 48.7
+              "value": 43.4
             },
             {
-              "consensus": 78.2,
+              "consensus": 71.1,
               "player_key": 2227,
-              "value": 52.2
+              "value": 46.5
             },
             {
-              "consensus": 73.6,
+              "consensus": 67.0,
               "player_key": 3247,
-              "value": 49.4
+              "value": 44.0
             },
             {
-              "consensus": 72.0,
+              "consensus": 65.6,
               "player_key": 1095,
-              "value": 48.7
+              "value": 43.4
             },
             {
-              "consensus": 62.8,
-              "player_key": 547,
-              "value": 41.1
+              "consensus": 57.5,
+              "player_key": 2730,
+              "value": 40.3
             }
           ],
-          "mad": 4.59,
-          "n": 170,
-          "outlier_rate": 0.306,
-          "outliers": 52,
+          "mad": 3.91,
+          "n": 171,
+          "outlier_rate": 0.257,
+          "outliers": 44,
           "prior_weeks": [
             {
-              "bias": -1.24,
-              "mad": 4.57,
+              "bias": -1.22,
+              "mad": 4.13,
               "n": 174,
-              "outlier_rate": 0.316,
+              "outlier_rate": 0.299,
               "week": 5
             },
             {
-              "bias": -1.5,
-              "mad": 4.19,
+              "bias": -1.47,
+              "mad": 3.81,
               "n": 176,
               "outlier_rate": 0.244,
               "week": 4
             },
             {
-              "bias": -2.45,
-              "mad": 4.39,
+              "bias": -2.35,
+              "mad": 4.05,
               "n": 168,
-              "outlier_rate": 0.268,
+              "outlier_rate": 0.25,
               "week": 3
             },
             {
-              "bias": -2.41,
-              "mad": 4.34,
+              "bias": -2.31,
+              "mad": 4.0,
               "n": 170,
-              "outlier_rate": 0.241,
+              "outlier_rate": 0.235,
               "week": 2
             }
           ],
@@ -1975,27 +1967,27 @@
       "group": "trade_charts",
       "headline_combo": "full_12",
       "label": "USA Today",
-      "mad": 4.23,
-      "message": "USA Today disagrees with the other charts on 27% of players this week (usually 26%).",
-      "n": 170,
-      "outlier_rate": 0.271,
+      "mad": 2.96,
+      "message": "USA Today disagrees with the other charts on 21% of players this week (usually 21%).",
+      "n": 173,
+      "outlier_rate": 0.214,
       "reasons": [],
       "resolution": null,
       "status": "ok",
-      "usual_outlier_rate": 0.26,
+      "usual_outlier_rate": 0.213,
       "week": 6
     }
   },
   "status": "warn",
   "summary": {
+    "excluded": [],
     "flagged": [
-      "FantasyCalc",
       "FantasyPros",
+      "ESPN",
       "CBS rest of season"
     ],
     "investigate": [
-      "FantasyPros",
-      "CBS rest of season"
+      "FantasyPros"
     ],
     "resolution_problems": [],
     "reviewed": []

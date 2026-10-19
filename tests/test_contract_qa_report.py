@@ -20,7 +20,13 @@ class ReportTest(unittest.TestCase):
         out = qa.render_report({"GL-01": []}, {"GL-07": "JEG-498"}, qa.line_summaries(TEXT), "t",
                                status={"JEG-498": "Todo"})
         self.assertIn("**Result: PASS**", out)
-        self.assertIn("| GL-07 | JEG-498 | Todo |", out)
+        self.assertIn("| GL-07 | JEG-498 | Todo | none |", out)
+
+    def test_pending_line_shows_its_partial_check(self):
+        ok = qa.render_report({"GL-07": []}, {"GL-07": "JEG-498"}, {}, "t")
+        bad = qa.render_report({"GL-07": ["no Reset"]}, {"GL-07": "JEG-498"}, {}, "t")
+        self.assertIn("| GL-07 | JEG-498 | unknown | pass |", ok)
+        self.assertIn("| GL-07 | JEG-498 | unknown | FAIL |", bad)
 
     def test_failing_line_fails_report(self):
         out = qa.render_report({"GL-01": ["Vegas in header"]}, {}, {}, "t")
