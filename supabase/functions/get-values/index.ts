@@ -201,7 +201,10 @@ function buildPipelineInput(
   // deno-lint-ignore no-explicit-any
   const ValueModel = bundle.ValueModel as any;
   const field = scoringField(scoring);
-  const qbSlots = superflex ? 2 : 1;
+  // The engine page always looks up chart combos at qb1 (product-data.js
+  // qbVariant: "qb1"). Superflex values are overlaid separately via
+  // native_superflex, so the combo key is always qbSlots=1.
+  const comboQbSlots = 1;
 
   // Build player map: player_key -> {pos, name}.
   const playerMap: Record<number, { pos: string; name: string }> = {};
@@ -266,17 +269,23 @@ function buildPipelineInput(
     const isFirstLoadExcluded = firstLoadExcluded.has(key);
     const isOlderWeek = isStale || isFirstLoadExcluded;
 
+    // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
+    const snapshot = detail.snapshot as Record<string, unknown> | undefined;
+    const divergenceExclusions = (snapshot && Array.isArray(snapshot.divergence_exclusions))
+      ? snapshot.divergence_exclusions as string[] : [];
+    const isDivergenceExcluded = divergenceExclusions.indexOf(key) !== -1;
+
     // sourceMissingFromData: no source section at all.
     if (!sourceSection) continue;
 
-    // Not yet published for current week: excluded (unless held).
-    if (isOlderWeek && !hold && !isValidationHeld) continue;
+    // Not yet published for current week: excluded (unless held or divergence-excluded).
+    if (isOlderWeek && !hold && !isValidationHeld && !isDivergenceExcluded) continue;
 
     let values: Record<string, number>;
 
     if (family === "chart") {
       // Chart source: read saved native values from the combo.
-      const comboKeyStr = ValueModel.sourceComboKey(key, scoring, 12, qbSlots);
+      const comboKeyStr = ValueModel.sourceComboKey(key, scoring, 12, comboQbSlots);
       const combos = sourceSection?.combos as Record<string, Record<string, unknown>> | undefined;
       const combo = comboKeyStr ? combos?.[comboKeyStr] : null;
       if (!combo || !(combo as Record<string, unknown>).native) continue;
@@ -322,8 +331,8 @@ function buildPipelineInput(
     sources[key] = { family, status: "included", values, label: key };
     included.push(key);
 
-    // Mark as hidden if held or validation-held.
-    if (hold || isValidationHeld) {
+    // Mark as hidden if held, validation-held, or divergence-excluded.
+    if (hold || isValidationHeld || isDivergenceExcluded) {
       hiddenKeys.push(key);
     }
   }
@@ -352,10 +361,12 @@ function buildPipelineInput(
   // Pipeline setting.
   const setting = {
     teams,
-    slots: { QB: 1, RB: 2, WR: 3, TE: 1 },
+    // Must match DEFAULT_ROSTER (curve-widget.js) and SAVED_SETUP_SHAPE
+    // (value-model.js): QB:1, RB:2, WR:2, TE:1, BENCH:7.
+    slots: { QB: 1, RB: 2, WR: 2, TE: 1 },
     flex: 1,
     superflex,
-    bench_per_team: 6,
+    bench_per_team: 7,
     bench_share: 0.15,
     bench_share_override: null,
     position_shares: null,
