@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-19T09:40:12.748524Z",
- "run_id": "6fc8487a-7725-4a83-90b6-f09f00fabeb7",
+ "checked_at": "2026-10-19T12:25:36.232520Z",
+ "run_id": "be22822f-6310-44f5-b3b7-d66eb181e257",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-19T08:07:31.980892+00:00",
+  "built_at": "2026-10-19T11:49:46.647316+00:00",
   "error": null
  },
  "rules": {
@@ -24,16 +24,6 @@
   "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
  "holds": {
-  "fantasycalc": {
-   "stage": "publisher_vs_stored",
-   "stages": [
-    "publisher_vs_stored"
-   ],
-   "reason": "fidelity: publisher_vs_stored",
-   "identity": "fcwk6_2026-10-19t0805_v1",
-   "since": "2026-10-19T09:40:12.748524Z",
-   "summary": "403/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 27); 775 of 1178 values moved since the save at 2026-10-19T08:05:28.440249Z (largest 64%; 0 outside the max(25%, 50) band: none); 3 players entered or left the botto"
-  },
   "espn": {
    "stage": "stored_vs_chart",
    "stages": [
@@ -50,9 +40,9 @@
     "publisher_vs_stored"
    ],
    "reason": "fidelity: publisher_vs_stored",
-   "identity": "2026-10-19@2026-10-19T03:25:43.091690Z",
+   "identity": "2026-10-19@2026-10-19T11:25:46.885341Z",
    "since": "2026-10-19T03:40:13.407164Z",
-   "summary": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 4e743d9b1da99cb512f7fd0a); 1 publisher names do not"
+   "summary": "1086/1086 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint b1a4af871b992d787effebd3); 1 publisher names do not"
   },
   "razzball": {
    "stage": "stored_vs_chart",
@@ -62,7 +52,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-18@2026-10-18T19:25:43.500428Z",
    "since": "2026-10-18T06:40:13.531458Z",
-   "summary": "1902/1902 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 51 stored players not on the chart, 0 chart players not stored"
+   "summary": "1908/1908 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 49 stored players not on the chart, 0 chart players not stored"
   },
   "draftsharks": {
    "stage": "publisher_vs_stored",
@@ -72,7 +62,7 @@
    ],
    "reason": "fidelity: publisher_vs_stored",
    "identity": null,
-   "since": "2026-10-19T09:40:12.748524Z",
+   "since": "2026-10-19T12:25:36.232520Z",
    "summary": "no stored Draft Sharks rows"
   },
   "fantasysharks": {
@@ -82,7 +72,7 @@
    ],
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
-   "since": "2026-10-19T09:40:12.748524Z",
+   "since": "2026-10-19T12:25:36.232520Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -178,7 +168,7 @@
       "unresolved_names": 0
      },
      "chart_week": 6,
-     "chart_imported_at": "2026-10-19T08:06:18Z",
+     "chart_imported_at": "2026-10-19T11:49:02Z",
      "bake_id": "usatwk6_2026-10-13t1835_v1",
      "bake_saved_at": "2026-10-13T18:35:42.871742Z",
      "behind": null,
@@ -239,8 +229,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (1066451 values compared in the whole report)",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "summary": "engine and Python reference agree (1066503 values compared in the whole report)",
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -293,20 +283,20 @@
   {
    "source": "fantasycalc",
    "label": "FantasyCalc",
-   "status": "red",
+   "status": "amber",
    "stored_week": 6,
    "chart_week": 6,
    "stored_bake": "fcwk6_2026-10-19t0805_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "red",
-     "summary": "403/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 27); 775 of 1178 values moved since the save at 2026-10-19T08:05:28.440249Z (largest 64%; 0 outside the max(25%, 50) band: none); 3 players entered or left the bottom of the list since the save (churn)",
+     "status": "amber",
+     "summary": "21/1176 values match exactly across 6 columns; 1155 of 1176 values moved since the save at 2026-10-19T08:05:28.440249Z (largest 69%; 0 outside the max(25%, 50) band: none); 3 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
+      "publisher_players": 198,
       "stored_players": 197,
-      "compared": 1178,
-      "matched": 403,
-      "mismatched": 775,
+      "compared": 1176,
+      "matched": 21,
+      "mismatched": 1155,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
@@ -334,11 +324,11 @@
        "extra": 1
       },
       "half|1": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 2,
+       "extra": 1
       },
       "half|2": {
        "left": 198,
@@ -348,11 +338,11 @@
        "extra": 1
       },
       "std|1": {
-       "left": 197,
+       "left": 198,
        "right": 197,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 2,
+       "extra": 1
       },
       "std|2": {
        "left": 198,
@@ -462,7 +452,7 @@
       "unresolved_names": 0
      },
      "chart_week": 6,
-     "chart_imported_at": "2026-10-19T08:06:17Z",
+     "chart_imported_at": "2026-10-19T11:49:01Z",
      "bake_id": "fcwk6_2026-10-19t0805_v1",
      "bake_saved_at": "2026-10-19T08:05:28.440249Z",
      "behind": null,
@@ -522,8 +512,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (1066451 values compared in the whole report)",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "summary": "engine and Python reference agree (1066503 values compared in the whole report)",
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -534,7 +524,7 @@
        "publisher": {
         "QB": 35,
         "RB": 61,
-        "WR": 75,
+        "WR": 76,
         "TE": 26
        },
        "stored": {
@@ -659,17 +649,15 @@
      "delta": 186.0
     }
    ],
-   "held": null,
-   "hold": {
-    "stage": "publisher_vs_stored",
-    "stages": [
-     "publisher_vs_stored"
-    ],
+   "held": {
     "reason": "fidelity: publisher_vs_stored",
+    "week": 6,
+    "root": "fantasycalc",
+    "stage": "publisher_vs_stored",
     "identity": "fcwk6_2026-10-19t0805_v1",
-    "since": "2026-10-19T09:40:12.748524Z",
-    "summary": "403/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 27); 775 of 1178 values moved since the save at 2026-10-19T08:05:28.440249Z (largest 64%; 0 outside the max(25%, 50) band: none); 3 players entered or left the botto"
-   }
+    "since": "2026-10-19T09:40:12.748524Z"
+   },
+   "hold": null
   },
   {
    "source": "fantasypros",
@@ -749,7 +737,7 @@
     },
     "stored_vs_chart": {
      "status": "green",
-     "summary": "630/630 chart values equal stored bake fpwk6_2026-10-18t1235_v1",
+     "summary": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1",
      "counts": {
       "chart_players": 178,
       "stored_players": 178,
@@ -762,9 +750,9 @@
       "unresolved_names": 0
      },
      "chart_week": 6,
-     "chart_imported_at": "2026-10-19T08:06:21Z",
-     "bake_id": "fpwk6_2026-10-18t1235_v1",
-     "bake_saved_at": "2026-10-18T12:35:32.093711Z",
+     "chart_imported_at": "2026-10-19T11:49:04Z",
+     "bake_id": "fpwk6_2026-10-19t0935_v1",
+     "bake_saved_at": "2026-10-19T09:35:51.779483Z",
      "behind": null,
      "grains": {
       "full|1": {
@@ -823,8 +811,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (1066451 values compared in the whole report)",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "summary": "engine and Python reference agree (1066503 values compared in the whole report)",
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -965,7 +953,7 @@
       "unresolved_names": 0
      },
      "chart_week": 6,
-     "chart_imported_at": "2026-10-19T08:06:25Z",
+     "chart_imported_at": "2026-10-19T11:49:06Z",
      "bake_id": "cbswk6_2026-10-14t1535_v1",
      "bake_saved_at": "2026-10-14T15:35:34.214507Z",
      "behind": null,
@@ -1026,8 +1014,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (1066451 values compared in the whole report)",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "summary": "engine and Python reference agree (1066503 values compared in the whole report)",
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "amber",
@@ -1285,8 +1273,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (1066451 values compared in the whole report)",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "summary": "engine and Python reference agree (1066503 values compared in the whole report)",
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1454,43 +1442,43 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "red",
-     "summary": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 4e743d9b1da99cb512f7fd0a); 1 publisher names do not resolve to a canonical player; 5 players at the page's last listed value swapped in or out (ties at the row cap: Andrew Beck, Joe Royer, Patrick Herbert, Seydou Traore, Thomas Fidone II); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1086/1086 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint b1a4af871b992d787effebd3); 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Andrei Iosivas, Brandin Cooks, Justin Joly, Seydou Traore); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 367,
-      "stored_players": 365,
-      "compared": 1089,
-      "matched": 1089,
+      "stored_players": 364,
+      "compared": 1086,
+      "matched": 1086,
       "mismatched": 0,
-      "missing_in_stored": 1,
+      "missing_in_stored": 3,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 5,
+      "list_churn": 4,
       "unresolved_names": 1
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
      "publisher_vintage": null,
      "stored_snapshot": "2026-10-19",
-     "stored_saved_at": "2026-10-19T03:25:43.091690Z",
+     "stored_saved_at": "2026-10-19T11:25:46.885341Z",
      "grains": {
       "full|1": {
        "left": 367,
-       "right": 365,
+       "right": 364,
        "mismatched": 0,
-       "missing": 4,
+       "missing": 5,
        "extra": 2
       },
       "half|1": {
        "left": 367,
-       "right": 365,
+       "right": 364,
        "mismatched": 0,
-       "missing": 4,
+       "missing": 5,
        "extra": 2
       },
       "std|1": {
        "left": 367,
-       "right": 365,
+       "right": 364,
        "mismatched": 0,
-       "missing": 4,
+       "missing": 5,
        "extra": 2
       }
      },
@@ -1523,6 +1511,51 @@
        "pos": "RB",
        "left": "26.7",
        "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 3077,
+       "name": "Andrew Beck",
+       "pos": "RB",
+       "left": "9",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "full|1",
+       "player_key": 4283,
+       "name": "Michael Burton",
+       "pos": "RB",
+       "left": "9",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 3077,
+       "name": "Andrew Beck",
+       "pos": "RB",
+       "left": "8.0",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "half|1",
+       "player_key": 4283,
+       "name": "Michael Burton",
+       "pos": "RB",
+       "left": "8.0",
+       "right": null
+      },
+      {
+       "type": "missing",
+       "grain": "std|1",
+       "player_key": 3077,
+       "name": "Andrew Beck",
+       "pos": "RB",
+       "left": "7",
+       "right": null
       }
      ],
      "outside_universe": [],
@@ -1542,12 +1575,12 @@
     },
     "stored_vs_chart": {
      "status": "green",
-     "summary": "1095/1095 chart values equal stored snapshot 2026-10-19 (per game, 3 decimals)",
+     "summary": "1092/1092 chart values equal stored snapshot 2026-10-19 (per game, 3 decimals)",
      "counts": {
-      "chart_players": 365,
-      "stored_players": 365,
-      "compared": 1095,
-      "matched": 1095,
+      "chart_players": 364,
+      "stored_players": 364,
+      "compared": 1092,
+      "matched": 1092,
       "mismatched": 0,
       "missing_on_chart": 0,
       "extra_on_chart": 0,
@@ -1558,22 +1591,22 @@
      "behind": null,
      "grains": {
       "full|1": {
-       "left": 365,
-       "right": 365,
+       "left": 364,
+       "right": 364,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "half|1": {
-       "left": 365,
-       "right": 365,
+       "left": 364,
+       "right": 364,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "std|1": {
-       "left": 365,
-       "right": 365,
+       "left": 364,
+       "right": 364,
        "mismatched": 0,
        "missing": 0,
        "extra": 0
@@ -1591,8 +1624,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (1066451 values compared in the whole report)",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "summary": "engine and Python reference agree (1066503 values compared in the whole report)",
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1608,13 +1641,13 @@
        },
        "stored": {
         "QB": 68,
-        "RB": 98,
+        "RB": 97,
         "WR": 100,
         "TE": 99
        },
        "chart": {
         "QB": 68,
-        "RB": 98,
+        "RB": 97,
         "WR": 100,
         "TE": 99
        },
@@ -1668,6 +1701,56 @@
      "pos": "RB",
      "left": "26.7",
      "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 3077,
+     "name": "Andrew Beck",
+     "pos": "RB",
+     "left": "9",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "full|1",
+     "player_key": 4283,
+     "name": "Michael Burton",
+     "pos": "RB",
+     "left": "9",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "half|1",
+     "player_key": 3077,
+     "name": "Andrew Beck",
+     "pos": "RB",
+     "left": "8.0",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "half|1",
+     "player_key": 4283,
+     "name": "Michael Burton",
+     "pos": "RB",
+     "left": "8.0",
+     "right": null
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "missing",
+     "grain": "std|1",
+     "player_key": 3077,
+     "name": "Andrew Beck",
+     "pos": "RB",
+     "left": "7",
+     "right": null
     }
    ],
    "held": {
@@ -1684,9 +1767,9 @@
      "publisher_vs_stored"
     ],
     "reason": "fidelity: publisher_vs_stored",
-    "identity": "2026-10-19@2026-10-19T03:25:43.091690Z",
+    "identity": "2026-10-19@2026-10-19T11:25:46.885341Z",
     "since": "2026-10-19T03:40:13.407164Z",
-    "summary": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 1 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 4e743d9b1da99cb512f7fd0a); 1 publisher names do not"
+    "summary": "1086/1086 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint b1a4af871b992d787effebd3); 1 publisher names do not"
    }
   },
   {
@@ -1750,14 +1833,14 @@
     },
     "stored_vs_chart": {
      "status": "red",
-     "summary": "1902/1902 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 51 stored players not on the chart, 0 chart players not stored",
+     "summary": "1908/1908 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 49 stored players not on the chart, 0 chart players not stored",
      "counts": {
-      "chart_players": 634,
+      "chart_players": 636,
       "stored_players": 685,
-      "compared": 1902,
-      "matched": 1902,
+      "compared": 1908,
+      "matched": 1908,
       "mismatched": 0,
-      "missing_on_chart": 51,
+      "missing_on_chart": 49,
       "extra_on_chart": 0,
       "outside_universe": 0,
       "unresolved_names": 0
@@ -1767,23 +1850,23 @@
      "grains": {
       "full|1": {
        "left": 685,
-       "right": 634,
+       "right": 636,
        "mismatched": 0,
-       "missing": 51,
+       "missing": 49,
        "extra": 0
       },
       "half|1": {
        "left": 685,
-       "right": 634,
+       "right": 636,
        "mismatched": 0,
-       "missing": 51,
+       "missing": 49,
        "extra": 0
       },
       "std|1": {
        "left": 685,
-       "right": 634,
+       "right": 636,
        "mismatched": 0,
-       "missing": 51,
+       "missing": 49,
        "extra": 0
       }
      },
@@ -1872,8 +1955,8 @@
     },
     "reference_vs_engine": {
      "status": "green",
-     "summary": "engine and Python reference agree (1066451 values compared in the whole report)",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "summary": "engine and Python reference agree (1066503 values compared in the whole report)",
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1896,7 +1979,7 @@
        "chart": {
         "QB": 98,
         "RB": 158,
-        "WR": 231,
+        "WR": 233,
         "TE": 147
        },
        "prior_week": {
@@ -2017,7 +2100,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-18@2026-10-18T19:25:43.500428Z",
     "since": "2026-10-18T06:40:13.531458Z",
-    "summary": "1902/1902 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 51 stored players not on the chart, 0 chart players not stored"
+    "summary": "1908/1908 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 49 stored players not on the chart, 0 chart players not stored"
    }
   },
   {
@@ -2046,7 +2129,7 @@
     "reference_vs_engine": {
      "status": "n/a",
      "summary": "dist/modules/value-check.json: report does not cover draftsharks",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -2077,7 +2160,7 @@
     ],
     "reason": "fidelity: publisher_vs_stored",
     "identity": null,
-    "since": "2026-10-19T09:40:12.748524Z",
+    "since": "2026-10-19T12:25:36.232520Z",
     "summary": "no stored Draft Sharks rows"
    }
   },
@@ -2108,7 +2191,7 @@
     "reference_vs_engine": {
      "status": "n/a",
      "summary": "dist/modules/value-check.json: report does not cover fantasysharks",
-     "report_generated_at": "2026-10-19T08:24:29.156526+00:00"
+     "report_generated_at": "2026-10-19T12:04:28.419816+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -2138,7 +2221,7 @@
     ],
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
-    "since": "2026-10-19T09:40:12.748524Z",
+    "since": "2026-10-19T12:25:36.232520Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2165,10 +2248,10 @@
   "summary": "1163 players searchable; 1024 active NFL players (503 active roster, 185 practice squad, 89 injured reserve, 1 pup, 0 reserve, 246 free agent)"
  },
  "last_good": {
-  "usatoday": "2026-10-19T08:07:31.980892+00:00",
-  "fantasycalc": "2026-10-19T03:51:52.225098+00:00",
-  "fantasypros": "2026-10-19T08:07:31.980892+00:00",
-  "cbs": "2026-10-19T08:07:31.980892+00:00",
+  "usatoday": "2026-10-19T11:49:46.647316+00:00",
+  "fantasycalc": "2026-10-19T11:49:46.647316+00:00",
+  "fantasypros": "2026-10-19T11:49:46.647316+00:00",
+  "cbs": "2026-10-19T11:49:46.647316+00:00",
   "espn": "2026-10-19T01:06:56.532205+00:00",
   "cbsros": "2026-10-18T23:27:24.693343+00:00",
   "razzball": "2026-10-18T01:03:57.332686+00:00",
