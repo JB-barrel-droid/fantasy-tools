@@ -5702,6 +5702,16 @@
     // JEG-483: Reset zoom, expanded chart / table and their controls.
     $("v2ResetZoom").addEventListener("click", () => { resetZoom(); requestAnimationFrame(() => $("v2ZoomIn").focus()); });
     $("v2ExpandChart").addEventListener("click", () => openExpanded("chart"));
+    // JEG-477: expand / contract the inline chart height (laptop default <-> tall).
+    $("v2ChartSize").addEventListener("click", () => {
+      const tall = $("v2Main").dataset.chartSize !== "tall";
+      if (tall) $("v2Main").dataset.chartSize = "tall"; else delete $("v2Main").dataset.chartSize;
+      const label = tall ? "Make chart shorter" : "Make chart taller";
+      $("v2ChartSize").setAttribute("aria-pressed", String(tall));
+      $("v2ChartSize").setAttribute("aria-label", label);
+      $("v2ChartSize").title = label;
+      renderCharts();
+    });
     $("v2ExpandTable").addEventListener("click", () => openExpanded("table"));
     $("v2ExpandClose").addEventListener("click", () => closeExpanded());
     $("v2Expand").addEventListener("mousedown", event => { if (event.target === $("v2Expand")) closeExpanded(); });

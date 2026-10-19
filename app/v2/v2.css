@@ -35,6 +35,8 @@
   --v2-group-h: 22px;                                  /* grouped table header row */
   /* Main chart, brushes included: the viewport under the shared header and the toolbar, 280 px to 42vh. */
   --v2-chart-h: clamp(280px, calc(100vh - 490px), 42vh);
+  /* JEG-477: the "taller" toggle's height, at any width. Large screens also get a taller default (1680 x 960 rule below). */
+  --v2-chart-h-expanded: clamp(320px, calc(100vh - 220px), 75vh);   /* the "taller" toggle, any width */
   /* Heatmap tint (Player values table): pale enough that ink keeps AA on every step. */
   --v2-heat-up-1: #F1F8F4; --v2-heat-up-2: #E3F2EA; --v2-heat-up-3: #D2EADF;
   --v2-heat-down-1: #FBF3F4; --v2-heat-down-2: #F7E6E9; --v2-heat-down-3: #F1D6DB;
@@ -1080,6 +1082,12 @@ a.v2-div-chip:hover { text-decoration: underline; }
   #v2Main .v2-table-wrap { max-height: calc(100vh - 120px); }
   #v2Main { --v2-chart-h: clamp(280px, 36vh, 400px); }   /* stacked: the table follows under the chart */
 }
+/* JEG-477: from 1680 x 960 the chart is taller by default and keeps scaling with the viewport (530 px = the page above the
+   plot at 1920, so the card still ends at the fold at 1080); laptops never match, so the JEG-470 fold is unchanged; the toggle (#v2ChartSize) switches to the expanded height. */
+@media (min-width: 1680px) and (min-height: 960px) { :root { --v2-chart-h: clamp(420px, calc(100vh - 530px), 60vh); } }
+#v2Main[data-chart-size="tall"] { --v2-chart-h: var(--v2-chart-h-expanded); }
+#v2ChartSize[aria-pressed="true"] { border-color: var(--v2-action); }
+
 .v2-vtable th, .v2-vtable td { padding: 4px var(--v2-cell-pad-x); }
 .v2-vtable td { height: var(--v2-row-h); vertical-align: middle; }
 .v2-vtable .num { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
