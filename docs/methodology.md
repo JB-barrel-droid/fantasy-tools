@@ -126,10 +126,17 @@ implementation follows the rule as written.
 ### VP-1 The included set
 
 1. A source is **eligible** this week when all three hold:
-   - it is not held (`validationHold` or `promotionHold` on its section);
    - it is not unpublished (a weekly chart whose content week is older than
      the current content week);
-   - it has values at `L` (the section exists and the scoring is saved).
+   - it has values at `L` (the section exists and the scoring is saved);
+   - it is not missing from the build.
+
+   **Held sources** (`validationHold` or `promotionHold` on its section, JEG-569
+   part 2) and **divergence-excluded source-weeks** (a JEG-610 `exclude`
+   resolution, PR 662) are eligible under this rule when they meet the other
+   conditions: a held source with a section and values at `L` is in the pipeline
+   like any other. It is marked **hidden**. A held source with no section or no
+   values at `L` is out entirely.
 2. **Included set `I`** = the eligible sources that also have a prior-week
    snapshot. If no eligible source has one (a first week, or no history), `I`
    = the eligible sources and there is no prior week.
@@ -137,7 +144,12 @@ implementation follows the rule as written.
    allocation and the rosterable set (VP-2.2, VP-2.4), the DDF weights
    (VP-4), the fill-in peers (VP-2.4) and the DDF versions (VP-6.3). The
    same `I` is used for both weeks.
-4. A source outside `I` (held, unpublished, no prior week) is still shown from
+   **Hidden sources are in `I`** and so count in the allocation, the rosterable
+   set, the DDF weights, the fill-in peers and the pie (VP-5). They are hidden
+   from the displayed values: left out of the DDF Value blend (VP-6.3), the
+   Indexed basis (VP-6.4) and the bench-share readout, and not drawn as
+   curves or shown as rows.
+4. A source outside `I` (unpublished, no prior week) is still shown from
    its kept section. It goes through VP-2, VP-3, VP-5 and VP-6.4 against the
    same allocation, rosterable set, pie and DDF weights, with the charts in
    `I` as its fill-in peers, so its numbers stay on the page's scale. It
@@ -353,8 +365,8 @@ rules, except that only charts are filled in (VP-2.4).
    equal-weight mean of the numeric Adjusted row values of those sources,
    estimated values included. Zeros count; nulls are left out. Exactly one
    value gives that value with `lowConfidence` ("Only one source prices this
-   player"). None gives null ("No source prices this player"). A held or
-   unpublished source is never an input.
+   player"). None gives null ("No source prices this player"). A hidden
+   (held or divergence-excluded) or unpublished source is never an input.
 4. **Indexed** (JEG-499, display only). For each chart `c`, `shared` = the
    players `c` **lists** (estimated players excluded) who have a numeric
    blended DDF Value, genuine zeros included (OC-8). Then
@@ -1344,7 +1356,7 @@ by `tests/test_vorp_translation_js_parity.py`:
 - *Peers.* The other published charts' saved 12-team natives at the same
   scoring (CBS, FantasyCalc, FantasyPros, USA Today minus the chart itself).
   **Superseded (JEG-508)**: the peers are the *included* sources of the same
-  family (VP-1, VP-2.4). A held or unpublished chart is not a peer, and a
+  family (VP-1, VP-2.4). A hidden (held) chart is a peer, an unpublished chart is not, and a
   short projection is filled from the other projections the same way. The
   imputed players now also fill the source's pie (VP-3, VP-5), not only its
   waiver line. The ratio, cap, loop and hiding rules below are unchanged.
