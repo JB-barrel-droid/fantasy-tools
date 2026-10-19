@@ -43,6 +43,7 @@ import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 
 
 def setUpModule():
@@ -115,6 +116,8 @@ def _built_dist():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        # Held-proof fixture (JEG-718): the fidelity pulse holds different sources on different days.
+        pin_holds_in_dist(dist)
         build_v2_page.build(dist)
 
         class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -168,7 +171,7 @@ def run_checks(v2_js=None, v2_css=None, with_failure=True) -> list[str]:
                 # Every method in the shown set, so each detail column has cells to check.
                 page.evaluate("() => window.TradeValueV2.setShown(window.TradeValueV2.shown().concat(['espn', 'espn_vorp']))")
                 page.wait_for_timeout(200)
-                page.click("#v2Table tbody tr")
+                page.click("#v2Table tbody tr td.player")  # a value cell opens its math tip (JEG-457), not the drawer
                 page.wait_for_timeout(200)
                 errors += check_drawer(page.evaluate(READ_DRAWER), width)
                 page.keyboard.press("Escape")

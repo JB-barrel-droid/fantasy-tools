@@ -53,7 +53,8 @@ def run_checks(js_patch=None) -> list[str]:
                 errors.append(f"[values] unknown tag words {set(chips) - WORDS}")
             elif "Start" not in chips:
                 errors.append(f"[values] no Start chip: {chips[:10]}")
-            page.click("#v2Main .v2-table tbody tr:first-child")
+            # A click on a chart value cell opens its math tip by design (JEG-457); open the drawer from the player cell.
+            page.click("#v2Main .v2-table tbody tr:first-child td.player")
             page.wait_for_selector("#v2Drawer:not([hidden])", timeout=10000)
             drawer = page.inner_text("#v2Drawer")
             if "utilization weighting" in drawer:

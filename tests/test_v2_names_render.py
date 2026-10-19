@@ -32,6 +32,7 @@ DIST = ROOT / "dist"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 
 from tests import _render_env  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 DEFS = [
@@ -52,6 +53,8 @@ def _served(shell_patch=None):
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist)
+        # Held-proof fixture (JEG-718): the fidelity pulse holds different sources on different days.
+        pin_holds_in_dist(dist)
         if shell_patch:
             old, new = shell_patch
             page = dist / "v2" / "index.html"

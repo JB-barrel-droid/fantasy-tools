@@ -31,6 +31,7 @@ DIST = ROOT / "dist"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 
 from tests import _render_env  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 READ = """() => { const V = window.TradeValueV2, C = window.TradeValueCurveControls; const view = V.view(); const chart = V.chart();
@@ -52,6 +53,8 @@ def _served():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist)
+        # Held-proof fixture (JEG-718): the fidelity pulse holds different sources on different days.
+        pin_holds_in_dist(dist)
 
         class Quiet(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
@@ -66,14 +69,14 @@ def _served():
                 server.shutdown()
 
 
-def expected_ticks(slice_rows):
+def expected_ticks(slice_rows, pad_share=0.04):
     values = [v for row in slice_rows for v in row if isinstance(v, (int, float)) and v > 0]
     if not values:
         return None
     lo, hi = min(values), max(values)
     if hi - lo < 1:
         lo, hi = max(0, lo - 0.5), hi + 0.5
-    pad = (hi - lo) * 0.04
+    pad = (hi - lo) * pad_share
     step = next((s for s in (0.5, 1, 2, 5, 10, 20, 50) if (hi - lo + 2 * pad) / s <= 6), 50)
     low = max(0, math.floor((lo - pad) / step) * step)
     high = math.ceil((hi + pad) / step) * step
@@ -128,9 +131,20 @@ def run_checks(patch=None) -> list[str]:
             snap = page.evaluate(READ)
             # Y axis follows the visible points.
             errors += check_axis(snap, "[default Show] ")
-            page.evaluate("() => { const hi = document.getElementById('v2BrushHi'); hi.value = '40'; hi.dispatchEvent(new Event('input', {bubbles: true})); }")
-            page.wait_for_timeout(500)
-            errors += check_axis(page.evaluate(READ), "[ranks 1-40] ")
+            # Several rank windows. The 4% padding only moves a tick when a window's lowest or highest value sits
+            # within 4% of a step boundary, which the single default window may never do (JEG-725: "padding
+            # dropped" went uncaught), so sweep windows and require that at least one of them is sensitive to it.
+            sensitive = 0
+            for lo_rank in (1, 10, 25, 50, 80, 120):
+                for span in (9, 19, 39, 79):
+                    page.evaluate("([lo, hi]) => { for (const [id, v] of [['v2BrushLo', lo], ['v2BrushHi', hi]]) { const el = document.getElementById(id); el.value = String(v); el.dispatchEvent(new Event('input', {bubbles: true})); } }", [lo_rank, lo_rank + span])
+                    page.wait_for_timeout(150)
+                    snap = page.evaluate(READ)
+                    errors += check_axis(snap, f"[ranks {lo_rank}-{lo_rank + span}] ")
+                    with_pad, no_pad = expected_ticks(snap["slice"]), expected_ticks(snap["slice"], pad_share=0)
+                    sensitive += bool(with_pad and no_pad and with_pad[0] != no_pad[0])
+            if not sensitive:
+                errors.append("no rank window has ticks that the 4% padding moves; the padding check is not discriminating")
             page.select_option("#v2Show", "all")
             page.wait_for_timeout(500)
             snap = page.evaluate(READ)
