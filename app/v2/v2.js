@@ -760,12 +760,15 @@
     const behind = roots.filter(r => r.status === "prior").length;
     // Fail closed: "all sources current" only when every root source is confirmed current.
     const unknown = roots.filter(r => r.status === "unknown").length;
+    // JEG-721: held sources are hidden from the chart; the header must not claim they are current.
+    const held = roots.filter(r => r.status === "held").length;
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
     const freshNotes = [behind ? `⚠ ${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
+      held ? `${held} source${held === 1 ? "" : "s"} held` : "",
       unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
     $("v2FreshnessLabel").textContent = stuck ? `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
-    $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0);
+    $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0 || held > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
     $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);
 
@@ -2750,6 +2753,14 @@
       // JEG-675: "showing Week N" is only true of a source the page shows. A held source is unavailable (no values,
       // no columns), so its pipeline weeks_behind no longer reads "Prior week" (it said so for CBS while held).
       const shown = items.some(item => item.available);
+      // JEG-721: a source whose series are all unavailable and excluded for a hold reason is "Held",
+      // not "Current". The header must not claim "all sources current" when held sources are hidden.
+      const held = !shown && items.every(item => !item.available)
+        && items.some(item => item.excludedReason && /held/i.test(item.excludedReason));
+      if (held) {
+        return {pub, name, week: base?.week, status: "held", text: "Held",
+          reason: `${name} is temporarily held for a data check.`};
+      }
       const prior = (shown && own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
       if (prior) {
         return {pub, name, week: base?.week, status: "prior", text: "Prior week",
@@ -2784,7 +2795,7 @@
         week.textContent = r.week ? `Week ${r.week}` : "—";
         const status = document.createElement("td");
         status.className = r.status === "stuck" ? "is-bad" : r.status === "current" ? "is-ok" : "is-older";
-        status.textContent = `${{stuck: "⚠ ", prior: "⚠ ", unknown: "? ", current: "✓ "}[r.status] || ""}${r.text}`;
+        status.textContent = `${{stuck: "⚠ ", prior: "⚠ ", unknown: "? ", current: "✓ ", held: "⏸ "}[r.status] || ""}${r.text}`;
         if (r.reason) {
           const why = document.createElement("span");
           why.className = "th-sub";
