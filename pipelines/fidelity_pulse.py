@@ -2070,15 +2070,68 @@ def held_chart_stage(held: dict, identity: str | None) -> dict:
                         "section; compared again once the hold is released", held=True)
 
 
+def _is_merely_lagging(stage_name: str, stage_dict: dict) -> bool:
+    """JEG-726: an amber stage that represents merely lagging data, not wrong data.
+
+    These conditions get a visible label on the page but do NOT hide the source
+    from DDF Value or projection ordering.
+
+    - stored_vs_chart: value-only drift (a newer stored bake/snapshot exists,
+      the chart is stale but will be cured by the next chain build).
+    - publisher_vs_stored: 0 value mismatches and at most 2 unresolved/missing
+      names (small roster gap, values intact).
+    """
+    if stage_dict.get("status") != "amber":
+        return False
+    if stage_name == "stored_vs_chart" and stage_dict.get("behind"):
+        # A newer stored bake/snapshot exists and the chart-vs-stored gap is
+        # only value drift (no missing/extra players).  The summary contains
+        # "chart is stale" but we check the structural signal (behind != None).
+        counts = stage_dict.get("counts") or {}
+        # When counts are absent (chart snapshot replaced entirely, line 1938),
+        # the chart is simply behind the stored set => merely lagging.
+        if not counts or (counts.get("missing_on_chart", 0) == 0
+                          and counts.get("extra_on_chart", 0) == 0):
+            return True
+    if stage_name == "publisher_vs_stored":
+        counts = stage_dict.get("counts") or {}
+        mismatched = counts.get("mismatched", -1)
+        # Published charts use "missing"/"extra"; projections use
+        # "missing_in_stored"/"extra_in_stored".
+        missing = counts.get("missing", counts.get("missing_in_stored", 0))
+        extra = counts.get("extra", counts.get("extra_in_stored", 0))
+        unresolved = counts.get("unresolved_names", 0)
+        if mismatched == 0 and (missing + extra + unresolved) <= 2:
+            return True
+        # Also check the summary for the explicit "small roster gap" marker
+        # when counts are not available.
+        summary = stage_dict.get("summary") or ""
+        if "values intact" in summary or "small roster gap" in summary:
+            return True
+    return False
+
+
 def hold_decision(result: dict, identity: str | None, held: dict | None, now: datetime) -> dict | None:
-    """JEG-520: a red in a holding stage holds the source; amber and unknown never do."""
+    """JEG-520: a red in a holding stage holds the source; amber and unknown never do.
+    JEG-726: a merely-lagging amber stage gets an amber hold (visible label,
+    but the source stays in DDF Value and projection ordering)."""
     red = [n for n in HOLD_STAGES if (result["stages"].get(n) or {}).get("status") == "red"]
-    if not red:
-        return None
-    first = red[0]
-    return {"stage": first, "stages": red, "reason": HOLD_PREFIX + first, "identity": identity,
-            "since": (held or {}).get("since") if (held or {}).get("reason") == HOLD_PREFIX + first else iso(now),
-            "summary": str(result["stages"][first].get("summary") or "")[:300]}
+    if red:
+        first = red[0]
+        return {"stage": first, "stages": red, "hold_level": "red",
+                "reason": HOLD_PREFIX + first, "identity": identity,
+                "since": (held or {}).get("since") if (held or {}).get("reason") == HOLD_PREFIX + first else iso(now),
+                "summary": str(result["stages"][first].get("summary") or "")[:300]}
+    # JEG-726: amber holds for merely-lagging conditions (visible label only,
+    # source stays in DDF Value).
+    amber = [n for n in HOLD_STAGES
+             if _is_merely_lagging(n, result["stages"].get(n) or {})]
+    if amber:
+        first = amber[0]
+        return {"stage": first, "stages": amber, "hold_level": "amber",
+                "reason": HOLD_PREFIX + first, "identity": identity,
+                "since": (held or {}).get("since") if (held or {}).get("reason") == HOLD_PREFIX + first else iso(now),
+                "summary": str(result["stages"][first].get("summary") or "")[:300]}
 
 
 def _content_week(now: datetime) -> int:

@@ -91,6 +91,7 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
     report = {}
     for root, hold in holds.items():
         sections = _held_sections(root)
+        hold_level = hold.get("hold_level", "red")
         for sec in sections:
             target = sources.get(sec)
             if isinstance(target, dict):
@@ -99,8 +100,9 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
                 target["validationHold"] = {
                     "reason": hold.get("reason") or HOLD_PREFIX + hold["stage"], "week": week, "root": root,
                     "stage": hold["stage"], "identity": hold.get("identity"),
-                    "since": hold.get("since")}
-        report[root] = {"sections": sections,
+                    "since": hold.get("since"),
+                    "hold_level": hold_level}
+        report[root] = {"sections": sections, "hold_level": hold_level,
                         "reason": hold.get("reason"), "summary": hold.get("summary")}
     return out, report
 
