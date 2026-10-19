@@ -6,7 +6,7 @@
   "rz_snapshot": "2026-10-19",
   "cbsros_snapshot": "2026-10-19",
   "espn_snapshot_id": "sha256:0c16a492438743088ba62b3935bcc0b6fa55b98fb8c9d66e8c7e6a741624f5cd",
-  "cbsros_snapshot_id": "sha256:9e222dd07ca17f7217c3604de2f8a1651eec8de0642314fe2e5a462b518a8d0d",
+  "cbsros_snapshot_id": "sha256:b90cfe100876d5964aa9ccfef0d3d060a785169df4d3e209b7957aa44c0f809a",
   "rz_snapshot_id": "sha256:d3dceebb0dc0a57ceef0360eb4175eb099882279bb298a0100c71ca742ebca26",
   "n_players": 1163,
   "n_espn_complete": 350,
@@ -168,7 +168,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-19T18:10:46Z",
+   "built_at": "2026-10-19T20:32:08Z",
    "as_of": "2026-10-19",
    "summary": {
     "live": 3,
@@ -14719,11 +14719,11 @@
     "half_ppr": 7.475,
     "ppr": 9.03
    },
-   "rz_held": "razzball standard 0.9 ppg is 15% of the ESPN/CBS mean 6.2 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 0.9 ppg is 15% of the ESPN/CBS mean 6.0 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 6.39,
-    "half_ppr": 8.34,
-    "ppr": 10.29
+    "standard": 6.109,
+    "half_ppr": 7.973,
+    "ppr": 9.836
    },
    "prior_espn_ros": {
     "standard": 70.68,
@@ -32437,9 +32437,9 @@
    "delta_rz_espn": 32.81,
    "delta_rz_espn_ppg": 2.8,
    "cbsros_ppg": {
-    "standard": 0.445,
-    "half_ppr": 0.764,
-    "ppr": 1.082
+    "standard": 0.49,
+    "half_ppr": 0.79,
+    "ppr": 1.09
    },
    "prior_espn_ros": {
     "standard": 13.18,
