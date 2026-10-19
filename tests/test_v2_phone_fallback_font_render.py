@@ -63,6 +63,15 @@ def _overflows(css=None) -> dict:
     out = {}
     with _served() as base, sync_playwright() as p:
         browser = p.chromium.launch(executable_path=exe, args=_render_env.HERMETIC_ARGS)
+        probe = browser.new_page()
+        # Without DejaVu Sans the forced face falls back to the host default and nothing
+        # is wide, so both tests would be vacuous (a Mac has no DejaVu: JEG-718).
+        has_face = probe.evaluate("""() => { const c = document.createElement('canvas').getContext('2d'); const t = 'Wide fallback face WMwmi 0123';
+            c.font = "40px monospace"; const a = c.measureText(t).width; c.font = "40px 'DejaVu Sans', monospace"; return c.measureText(t).width !== a; }""")
+        probe.close()
+        if not has_face:
+            browser.close()
+            raise _render_env.unavailable("DejaVu Sans is not installed, so the wide fallback face cannot be forced")
         for tab in TABS:
             page = browser.new_page(viewport={"width": 390, "height": 844})
             page.add_init_script(WIDE)

@@ -44,6 +44,7 @@ import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_v2_risers_render import PICKER_READ, check_picker  # noqa: E402
 
 
@@ -230,6 +231,8 @@ def _built_dist():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        # Held-proof fixture (JEG-718): the fidelity pulse holds different sources on different days.
+        pin_holds_in_dist(dist)
         build_v2_page.build(dist)
 
         class QuietHandler(http.server.SimpleHTTPRequestHandler):
