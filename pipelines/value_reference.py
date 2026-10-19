@@ -1091,6 +1091,28 @@ def section_hold(inp: Inputs, section: str) -> str | None:
     return None
 
 
+def section_hold_level(inp: Inputs, section: str) -> str | None:
+    """The hold level ("amber" or "red") on a fixture section, or None.
+
+    JEG-726: amber holds are merely lagging; the source stays eligible and
+    visible in DDF Value, bench-share readout and projection ordering.
+    Red holds (or holds without an explicit level) hide the source from
+    DDF/bench-share/indexed (the JEG-569 semantics).
+    """
+    if section in inp.held:
+        return "red"  # explicit (code-set) holds are always red
+    sec = inp.section(section)
+    if not sec:
+        return None
+    for f in HOLD_FIELDS:
+        hold = sec.get(f)
+        if hold:
+            if isinstance(hold, dict):
+                return hold.get("hold_level") or "red"
+            return "red"
+    return None
+
+
 def load_divergence_exclusions(resolutions_path: Path = DIVERGENCE_RESOLUTIONS,
                                week: int | None = None) -> set:
     """Source keys excluded by a JEG-610 'exclude' resolution for the given week.
@@ -1259,15 +1281,20 @@ class Setting:
         eligible, excluded, hidden = [], {}, set()
         for k in SOURCES:
             hold = section_hold(self.inp, k)
+            hold_level = section_hold_level(self.inp, k)
             row = fresh["series"].get(k) or {}
             if hold:
                 # JEG-569 part 2: a held source with data stays in the pipeline
                 # (weights, pie, allocation) but is hidden: left out of the DDF
                 # blend, the Indexed basis and the bench-share readout.
+                # JEG-726: amber holds (merely lagging) are eligible and NOT
+                # hidden -- they stay in DDF/bench-share/indexed like a normal
+                # source.  Only red holds get JEG-569 hidden semantics.
                 excluded[k] = f"held: {hold}"
                 if self.inp.section(k) is not None and current[k]:
                     eligible.append(k)
-                    hidden.add(k)
+                    if hold_level != "amber":
+                        hidden.add(k)
             elif k in self.divergence_exclusions:
                 # JEG-610 item 2: a source-week with an 'exclude' divergence
                 # resolution gets held semantics (JEG-569): eligible (stays in

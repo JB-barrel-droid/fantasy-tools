@@ -107,5 +107,71 @@ class SeededHoldBuildTest(unittest.TestCase):
         self.assertEqual(problems, [], "\n".join(problems[:10]))
 
 
+class AmberHoldNotHiddenTest(unittest.TestCase):
+    """JEG-726: amber-held sources stay in DDF/bench-share/indexed (not hidden).
+
+    Negative-test: with a red hold, the source IS hidden. This proves the
+    code that was broken in PR 704 now distinguishes the two levels.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import value_reference as ref  # noqa: PLC0415
+        cls.ref = ref
+        cls.fixture_path = FIXTURE
+        cls.players_path = ref.PLAYERS
+
+    def _fixture_with_hold(self, root, hold_level):
+        """Return a fixture with one source held at the given level."""
+        fixture = json.loads(self.fixture_path.read_text(encoding="utf-8"))
+        # Strip all holds first
+        for section in fixture["sources"].values():
+            if isinstance(section, dict):
+                section.pop("validationHold", None)
+                section.pop("promotionHold", None)
+        # Apply one hold at the given level
+        section = fixture["sources"].get(root)
+        if isinstance(section, dict):
+            section["validationHold"] = {
+                "reason": f"fidelity: stored_vs_chart",
+                "root": root, "stage": "stored_vs_chart", "week": 6,
+                "hold_level": hold_level,
+            }
+        return fixture
+
+    def _resolve_hidden(self, fixture, scoring="standard", teams=10):
+        """Build a Setting and return its hidden set."""
+        import tempfile as _tmp  # noqa: PLC0415
+        with _tmp.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            json.dump(fixture, f)
+            f.flush()
+            inp = self.ref.Inputs.load(f.name, self.players_path)
+        setting = self.ref.Setting(inp, scoring, teams)
+        state = setting.state()
+        return state["hidden"], state["eligible"]
+
+    def test_red_hold_hides_source(self):
+        """A red-held source must appear in hidden (JEG-569 semantics)."""
+        fixture = self._fixture_with_hold("espn", "red")
+        hidden, eligible = self._resolve_hidden(fixture)
+        self.assertIn("espn", hidden, "red-held source should be hidden")
+        self.assertIn("espn", eligible, "red-held source should still be eligible (pipeline)")
+
+    def test_amber_hold_does_not_hide_source(self):
+        """An amber-held source must NOT appear in hidden (JEG-726)."""
+        fixture = self._fixture_with_hold("espn", "amber")
+        hidden, eligible = self._resolve_hidden(fixture)
+        self.assertNotIn("espn", hidden, "amber-held source must NOT be hidden")
+        self.assertIn("espn", eligible, "amber-held source should be eligible")
+
+    def test_hold_without_level_defaults_to_red_hidden(self):
+        """A hold without an explicit hold_level defaults to red (hidden)."""
+        fixture = self._fixture_with_hold("espn", "red")
+        # Remove hold_level to simulate pre-JEG-726 data
+        fixture["sources"]["espn"]["validationHold"].pop("hold_level")
+        hidden, _ = self._resolve_hidden(fixture)
+        self.assertIn("espn", hidden, "hold without level should default to red (hidden)")
+
+
 if __name__ == "__main__":
     unittest.main()
