@@ -1023,7 +1023,7 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "market difference symbol flipped": ({"v2_js": (v2, 'diff.textContent = `${m.diff > 0 ? "▲" : "▼"}', 'diff.textContent = `${m.diff > 0 ? "▼" : "▲"}')}, numbers_only),
             "consensus counts only compared-and-positive": ({"targets_js": (targets, "const values = priced.map(key => cells[key].value);",
                                                                             "const values = priced.map(key => cells[key].value).filter(v => v > 0);")}, numbers_only),
-            "equal case duplicates the number": ({"targets_js": (targets, "equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: false,\n      side")}, numbers_only),
+            "consensus always shows equal note": ({"targets_js": (targets, "equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: true,\n      side")}, numbers_only),
             "native rank off by one": ({"v2_js": (v2, "native.textContent = `#${rank} on", "native.textContent = `#${rank + 1} on")}, numbers_only),
         }
         for name, (mutation, opts) in broken.items():

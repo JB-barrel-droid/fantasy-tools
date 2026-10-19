@@ -68,9 +68,46 @@ PICK = """() => {
   const byEspn = rows.filter(r => Number.isFinite(r.values.espn)).sort((a, b) => b.values.espn - a.values.espn);
   const complete = r => active.every(k => Number.isFinite(r.values[k]));
   const priced = byEspn.filter(complete);
-  const gap = byEspn.find(r => !complete(r) && active.some(k => Number.isFinite(r.values[k])));
+  // Gap must be missing a pointKey source (what the waterfall table actually shows),
+  // not just any shown() source.  Player 35 is missing cbsros which is in shown()
+  // but NOT in pointKeys, so the waterfall table has no missing step for it.
+  const cv = window.TradeValueV2.compare();
+  const pk = cv && cv.pointKeys ? cv.pointKeys : active;
+  const gap = byEspn.find(r => !pk.every(k => Number.isFinite(r.values[k])) && pk.some(k => Number.isFinite(r.values[k])));
   return {give: [priced[0], priced[5]].map(r => String(r.player_key)),
           receive: [priced[2], priced[3]].map(r => String(r.player_key)), gap: gap ? String(gap.player_key) : null};
+}"""
+
+# When all active sources price every player (held sources removed), simulate a gap player by
+# nulling one source's value on a spare player, then return that player's key as the gap pick.
+# The source dropped is one that appears in the compare page's waterfall table (its pointKeys),
+# so the missing-step path is always exercised.
+SIMULATE_GAP = """(pick) => {
+  const C = window.TradeValueCurveControls;
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  const rows = C.getAllRows();
+  const taken = new Set([...pick.give, ...pick.receive]);
+  // Read the compare page's current point keys from compareView (set after the initial render).
+  const cv = window.TradeValueV2.compare();
+  if (!cv || !cv.pointKeys || !cv.pointKeys.length) return null;
+  const pointKeys = cv.pointKeys;
+  const spare = rows.find(r => !taken.has(String(r.player_key)) && pointKeys.every(k => fin(r.values[k])));
+  if (!spare) return null;
+  const key = String(spare.player_key);
+  const dropKey = pointKeys[pointKeys.length - 1];
+  for (const name of ['getAllRows', 'getRows']) {
+    const original = C[name].bind(C);
+    C[name] = (...args) => original(...args).map(r =>
+      String(r.player_key) === key ? {...r, values: {...r.values, [dropKey]: null},
+        missingReasons: {...(r.missingReasons || {}), [dropKey]: 'Simulated: not enough data to index'}} : r);
+  }
+  if (C.getPlayer) {
+    const original = C.getPlayer.bind(C);
+    C.getPlayer = (...args) => { const r = original(...args); if (!r || String(r.player_key) !== key) return r;
+      return {...r, values: {...r.values, [dropKey]: null},
+        missingReasons: {...(r.missingReasons || {}), [dropKey]: 'Simulated: not enough data to index'}}; };
+  }
+  return key;
 }"""
 
 # JEG-541: the verdict must name every complete source that sees the trade the other way. After
@@ -87,7 +124,11 @@ SIMULATE_DISSENT = """(p) => {
     return p.receive.reduce((t, x) => t + byKey[x].values[k], 0) - p.give.reduce((t, x) => t + byKey[x].values[k], 0); };
   const ddf = net('ddf_value');
   if (!fin(ddf) || ddf === 0) return null;
-  const series = ['espn', 'cbsros', 'razzball'].find(k => window.TradeValueV2.shown().includes(k) && fin(net(k)));
+  // Pick a pointKey source (what the waterfall table shows) other than ddf_value;
+  // the verdict only names sources that appear as table rows.
+  const cv = window.TradeValueV2.compare();
+  const candidates = cv && cv.pointKeys ? cv.pointKeys.filter(k => k !== 'ddf_value') : ['espn', 'cbsros', 'razzball'];
+  const series = candidates.find(k => window.TradeValueV2.shown().includes(k) && fin(net(k)));
   if (!series) return null;
   const n = net(series);
   if (Math.sign(n) === -Math.sign(ddf)) return {series, already: true};
@@ -315,7 +356,19 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                   window.TradeValueV2.setShown([...new Set([...window.TradeValueV2.shown(), ...avail])]);
                 }""")
                 page.wait_for_timeout(200)
+                # Pinned fixture: guarantee a gap player (one missing a source value) even
+                # when held sources remove the only naturally-incomplete players.
+                # Must run BEFORE PICK so the modified engine exposes the gap player to the picker.
                 pick = page.evaluate(PICK)
+                if not pick["gap"]:
+                    gap_key = page.evaluate(SIMULATE_GAP, pick)
+                    if gap_key:
+                        # Re-evaluate PICK so it sees the patched engine.
+                        pick = page.evaluate(PICK)
+                        if not pick["gap"]:
+                            pick["gap"] = gap_key
+                    else:
+                        errors.append(tag + "could not simulate a gap player; the missing-step path went unchecked")
                 if not page.evaluate(SIMULATE_DISSENT, pick):
                     errors.append(tag + "could not make a source disagree with DDF Value; the dissent check went unchecked")
                 page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
@@ -340,9 +393,8 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                     page.wait_for_timeout(300)
                     gap = page.evaluate(READ)
                     errors += [tag + "missing: " + e for e in check_waterfalls(gap, gap_pick, expect_missing=True)]
-                # When held sources reduce the active set, every top player may be priced
-                # by all remaining sources, leaving no gap player. The guard test still
-                # covers the missing-step path via mutation.
+                else:
+                    errors.append(tag + "no gap player available; the missing-step path went unchecked")
                 if page_errors:
                     errors.append(tag + f"page errors {page_errors}")
                 page.close()
@@ -380,23 +432,15 @@ class WaterfallRenderTest(unittest.TestCase):
                 "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(420px, 1.6fr);",
                 "grid-template-columns: 1fr 1fr;", 1), styles)},
         }
-        # When held sources reduce the active set, no player may lack a value,
-        # making the "landing on incomplete rows" mutation undetectable.
-        needs_gap = {"landing on incomplete rows"}
+        # With the SIMULATE_GAP fixture, a gap player is always available, so every
+        # mutation is expected to be caught.
         sources = {"v2.js": v2, "v2.css": css, "trade.js": trade}
         for name, overrides in broken.items():
             with self.subTest(mutation=name):
                 for file, (body, _) in overrides.items():
                     self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
                 errors = run_checks(overrides, viewports=((1366, 768),))
-                if name in needs_gap and not errors:
-                    # Check if the gap path was exercisable: run without mutation to see if a gap player exists.
-                    baseline = run_checks(viewports=((1366, 768),))
-                    if any("missing" in e for e in baseline):
-                        self.fail(f"render checks did not catch: {name}")
-                    # else: no gap player available (held sources), mutation is moot
-                else:
-                    self.assertNotEqual(errors, [], f"render checks did not catch: {name}")
+                self.assertNotEqual(errors, [], f"render checks did not catch: {name}")
 
 
 if __name__ == "__main__":
