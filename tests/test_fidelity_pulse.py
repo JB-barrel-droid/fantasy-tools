@@ -422,6 +422,9 @@ class Stage1FantasyCalc(unittest.TestCase):
 
     def test_column_swap_red(self):
         env = Env()
+        # Make the bake fresh so the grain check runs (within FC_GRAIN_CHECK_MAX_AGE_S)
+        for r in env.stored["fantasycalc"]:
+            r["created_at"] = "2026-10-08T22:00:00+00:00"  # 1 h before NOW
         # store the 2-QB list under 1-QB and vice versa for every player
         for r in env.stored["fantasycalc"]:
             r["qb_slots"] = 2 if r["qb_slots"] == 1 else 1
@@ -429,6 +432,18 @@ class Stage1FantasyCalc(unittest.TestCase):
         s1 = res["fantasycalc"]["stages"]["publisher_vs_stored"]
         self.assertEqual("red", s1["status"])
         self.assertIn("column check", s1["summary"])
+
+    def test_column_swap_stale_bake_no_false_positive(self):
+        """A stale bake (> FC_GRAIN_CHECK_MAX_AGE_S) must NOT false-positive on
+        column-swap detection, even when the columns are actually swapped."""
+        env = Env()
+        for r in env.stored["fantasycalc"]:
+            r["qb_slots"] = 2 if r["qb_slots"] == 1 else 1
+        # Bake is 8 h old (default SAVED), well past the 2 h guard
+        res, _, _ = env.run(["fantasycalc"])
+        s1 = res["fantasycalc"]["stages"]["publisher_vs_stored"]
+        # Red from systemic mismatch is fine, but NOT from the column check
+        self.assertNotIn("column check", s1.get("summary", ""))
 
     def test_top_player_missing_red_bottom_churn_amber(self):
         env = Env()
