@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-19T15:51:44.562406+00:00",
+  "run_at": "2026-10-19T18:11:50.135351+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,27 +14,12 @@
   "success": true,
   "outcome": "green",
   "held": [
-    "cbsros",
     "espn",
-    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "none",
   "list_changes": {},
   "held_detail": {
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
-      ],
-      "detail": "426/1190 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 20); stored half|2 list is closest to the live full|2 list (mean |diff| 10 vs 26); 764 of 1190 values moved since the save at 2026-10-19T15:05:29.932715Z (largest 10",
-      "hold_severity": "amber",
-      "week": 6
-    },
     "espn": {
       "reason": "fidelity: stored_vs_chart",
       "held_series": [
@@ -49,20 +34,6 @@
       "hold_severity": "amber",
       "week": 6
     },
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros",
-        "cbsros_adjusted"
-      ],
-      "detail": "1083/1083 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 718bdc9ba1de806b613246de); 1 publisher names do not",
-      "hold_severity": "amber",
-      "week": 6
-    },
     "razzball": {
       "reason": "fidelity: stored_vs_chart",
       "held_series": [
@@ -73,7 +44,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1908/1908 chart values equal stored snapshot 2026-10-18 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 49 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-19 is not on the chart yet: 208 values changed, 0 added, 15 dropped",
+      "detail": "1860/1860 chart values equal stored snapshot 2026-10-19 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 50 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 6
     }
@@ -165,7 +136,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-18",
+      "content_vintage": "2026-10-19",
       "content_week": 6,
       "health_status": "ok",
       "lagging_one_week": false
@@ -190,9 +161,7 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: stored_vs_chart",
-    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   }
 }
