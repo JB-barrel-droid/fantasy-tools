@@ -946,3 +946,14 @@ Bonus: two panels guard mutations ("Tier column says ESPN Tier", "shares not app
 ### Outcome Note
 
 2026-10-19: all three test modules green (6 tests, 52 subtests). Agent-chosen, editable.
+
+## qa-wave-2026-10-19: contract-line and QA defaults (agent-chosen per Jeremy's instruction, editable)
+
+Jeremy, 2026-10-19: "make your best choices and log the decisions; I'd rather edit something working."
+
+- **JEG-726 (amber holds):** option (a). Amber holds (value-only drift, <=2 unresolved names, 0 value mismatches) never hide a source from DDF Value; label only. Red holds still hide. See amber-hold-001. Python reference brought into line in PR 714.
+- **TT-09 "Market average":** recommend retiring it and folding into TT-03/TT-04 (the build uses median "Market consensus" + "Gap vs consensus" since JEG-677). Google Doc contract lines are Jeremy's to edit; mirror stays "to build" until he does. 9 lines remain pending for that reason (CT-02, GL-07, GL-09, GL-19, GL-20, GL-21, GL-22, TT-05, TT-09); all but TT-09 have partial live checks.
+- **GL-07:** recommend rewording the Doc to the four chart groups the UI shows (no "Trade charts (adjusted)" group).
+- **Header copy:** the header must not claim "all sources current" while sources are held (PR 706).
+- **Render suites:** panels/waterfall fixed in product code (fit the 1366x768 fold), targets mutant replaced not dropped (render-fix-001).
+- **Research tab:** shows "No posts are published yet." Recommend hiding the nav item until the first post is approved (JEG for follow-up); not yet done.
