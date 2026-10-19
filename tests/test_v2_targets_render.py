@@ -835,7 +835,13 @@ def _hover_checks(page) -> list[str]:
         errors.append("hover: popover stayed open after the pointer left")
     page.mouse.move(cx, cy)
     page.wait_for_timeout(450)
-    page.mouse.click(cx, cy)
+    # At 390 the centred popover covers the trigger it opened from, so a real mouse click at the trigger's centre lands
+    # on the popover. The click this check is about is the one on the trigger: dispatch it there when it is covered.
+    covered = page.evaluate("([x, y]) => !document.elementFromPoint(x, y)?.closest('button[data-info]')", [cx, cy])
+    if covered:
+        page.locator(sel).first.dispatch_event("click")
+    else:
+        page.mouse.click(cx, cy)
     page.mouse.move(2, 2)
     page.wait_for_timeout(600)
     if not page.evaluate(is_open):

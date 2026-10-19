@@ -479,7 +479,8 @@ def check_toolbar(page) -> list[str]:
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
       .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl') && !n.classList.contains('v2-legend-item')).map(n => n.id || n.textContent.trim())""")
     allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
-               "v2ExpandChart", "v2ResetZoom"}   # JEG-483: expand and (while zoomed) Reset zoom
+               "v2ExpandChart", "v2ResetZoom",
+               "v2ChartSize"}   # JEG-483: expand and (while zoomed) Reset zoom; JEG-477 (#701): the taller/shorter toggle
     extra = [n for n in inside if n not in allowed]
     if extra:
         errors.append(f"chart: controls other than brushes and zoom inside the chart: {extra}")
