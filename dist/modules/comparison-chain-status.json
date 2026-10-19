@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-19T08:07:45.444418+00:00",
+  "run_at": "2026-10-19T09:42:50.633508+00:00",
   "nfl_week": 6,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 75: dropped jaylin noel; added dezhaun stribling | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling)",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -16,17 +16,25 @@
   "held": [
     "cbsros",
     "espn",
+    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "none",
-  "list_changes": {
-    "fantasycalc": [
-      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 75: dropped jaylin noel; added dezhaun stribling",
-      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling"
-    ]
-  },
+  "list_changes": {},
   "held_detail": {
+    "fantasycalc": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "detail": "403/1178 values match exactly across 6 columns; column check: stored full|1 list is closest to the live half|1 list (mean |diff| 10 vs 27); 775 of 1178 values moved since the save at 2026-10-19T08:05:28.440249Z (largest 64%; 0 outside the max(25%, 50) band: none); 3 players entered or left the botto",
+      "hold_severity": "amber",
+      "week": 6
+    },
     "espn": {
       "reason": "fidelity: stored_vs_chart",
       "held_series": [
@@ -85,14 +93,10 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 75: dropped jaylin noel; added dezhaun stribling | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling",
+      "detail": "promoted 3/3",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": [
-        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 75 -> 75: dropped jaylin noel; added dezhaun stribling",
-        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped none; added dezhaun stribling"
-      ]
+      "list_change_warnings": []
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -186,6 +190,7 @@
     }
   },
   "fidelity_holds": {
+    "fantasycalc": "fidelity: publisher_vs_stored",
     "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
