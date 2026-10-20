@@ -69,6 +69,13 @@ from tests._dist_server import engine_path  # noqa: E402
 from tests._holds import pin_holds_in_dist  # noqa: E402
 
 
+def _fixture_today():
+    """The date the built fixture belongs to, so the page's content-week clock
+    matches the data it serves (JEG-675, JEG-787)."""
+    fixture = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
+    return fixture["built_at"][:10]
+
+
 def setUpModule():
     _render_env.ensure_built()
 
@@ -296,6 +303,7 @@ class Session:
         page = self.browser.new_page(viewport={"width": width, "height": height})
         page.errors = []
         page.on("pageerror", lambda e: page.errors.append(str(e)))
+        page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(_fixture_today())};")
         page.add_init_script(FIXTURE_TRAPS)
         page.add_init_script(LOW_CONFIDENCE_FIXTURE)
         page.add_init_script(WEEK_BEHIND_FIXTURE)
