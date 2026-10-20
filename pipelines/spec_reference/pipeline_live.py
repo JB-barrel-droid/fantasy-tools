@@ -201,9 +201,15 @@ def prior_natives(data: dict, s: str, scoring: str) -> dict | None:
 
 
 def eligibility(data: dict, s: str, natives: dict | None) -> str | None:
-    """VP-1.1: None when eligible, else the reason."""
+    """VP-1.1: None when eligible, else the reason.
+
+    amber-hold-001 (Jeremy, 2026-10-19): amber holds stay eligible and
+    labelled; only red holds (the default) make a source ineligible."""
     section = (data["fixture"].get("sources") or {}).get(s) or {}
-    if section.get("validationHold") or section.get("promotionHold"):
+    vh = section.get("validationHold")
+    if vh and vh.get("hold_level", "red") != "amber":
+        return "held"
+    if section.get("promotionHold"):
         return "held"
     served = ((data["index"].get("served") or {}).get(s) or {}).get("week")
     cw = data["content_week"]

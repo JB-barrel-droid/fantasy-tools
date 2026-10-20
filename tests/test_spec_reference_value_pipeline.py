@@ -186,13 +186,17 @@ class LiveDump(unittest.TestCase):
         # and no ES-14 readout (bench_share_readout is None, the same rule as
         # pipelines/value_reference.py). The live dump must still keep VP-5's
         # pie invariant on that data instead of crashing on the readout.
+        #
+        # Seeded: builds its own all-held fixture so the guard is
+        # data-independent.  Red holds on every source guarantee included=[].
         import fidelity_hold as fh
         from spec_reference import pipeline_live as pl
         paths = pl.default_paths()
         fixture = json.loads(Path(paths["fixture"]).read_text(encoding="utf-8"))
-        holds = {root: {"stage": "stored_vs_chart", "reason": "fidelity: stored_vs_chart"}
-                 for root in ("espn", "cbsros", "razzball")}
-        held, _ = fh.apply_fidelity_holds(fixture, holds, 6)
+        all_roots = {root: {"stage": "stored_vs_chart",
+                            "reason": "fidelity: stored_vs_chart"}
+                     for root in pl.SOURCE_ORDER}
+        held, _ = fh.apply_fidelity_holds(fixture, all_roots, 6)
         with tempfile.TemporaryDirectory() as tmp:
             fx_path = Path(tmp) / "comparison-sources-data.json"
             fx_path.write_text(json.dumps(held), encoding="utf-8")
@@ -217,11 +221,49 @@ class LiveDump(unittest.TestCase):
         for sid in ("ppr/12/sf0", "ppr/12/sf1"):
             s = rep["settings"][sid]
             excluded = {e["key"]: e["reason"] for e in s["excluded"]}
-            for root in holds:
+            for root in pl.PROJECTIONS:
                 self.assertEqual(excluded.get(root), "held", sid)
             self.assertIsNone(s["bench_share_readout"], sid)
             self.assertIsNone(s["allocation"], sid)
-        self._check_live(rep)
+            self.assertEqual(s["included"], [], sid)
+
+    def test_amber_hold_stays_eligible(self):
+        """amber-hold-001: amber holds are eligible, red holds are not."""
+        import fidelity_hold as fh
+        from spec_reference import pipeline_live as pl
+        paths = pl.default_paths()
+        fixture = json.loads(Path(paths["fixture"]).read_text(encoding="utf-8"))
+        # Amber-hold all projections: they should remain eligible.
+        amber_holds = {root: {"stage": "stored_vs_chart",
+                              "reason": "fidelity: stored_vs_chart",
+                              "hold_level": "amber"}
+                       for root in pl.PROJECTIONS}
+        held, _ = fh.apply_fidelity_holds(fixture, amber_holds, 6)
+        with tempfile.TemporaryDirectory() as tmp:
+            fx_path = Path(tmp) / "comparison-sources-data.json"
+            fx_path.write_text(json.dumps(held), encoding="utf-8")
+            rep = pl.build({"fixture": fx_path, "out": Path(tmp) / "out.json"},
+                           only=["ppr/12/sf0"])
+        s = rep["settings"]["ppr/12/sf0"]
+        # Amber-held projections must still appear in included.
+        for root in pl.PROJECTIONS:
+            if any(e["key"] == root for e in s["excluded"]):
+                self.fail(f"amber-held {root} was excluded")
+        # Negative test: red hold DOES exclude.
+        red_holds = {root: {"stage": "stored_vs_chart",
+                            "reason": "fidelity: stored_vs_chart",
+                            "hold_level": "red"}
+                     for root in pl.PROJECTIONS}
+        held_r, _ = fh.apply_fidelity_holds(fixture, red_holds, 6)
+        with tempfile.TemporaryDirectory() as tmp:
+            fx_path = Path(tmp) / "comparison-sources-data.json"
+            fx_path.write_text(json.dumps(held_r), encoding="utf-8")
+            rep_r = pl.build({"fixture": fx_path, "out": Path(tmp) / "out.json"},
+                             only=["ppr/12/sf0"])
+        sr = rep_r["settings"]["ppr/12/sf0"]
+        excluded_keys = {e["key"] for e in sr["excluded"]}
+        for root in pl.PROJECTIONS:
+            self.assertIn(root, excluded_keys, f"red-held {root} should be excluded")
 
     def _check_live(self, rep):
         # JEG-563: pie = 12 teams x 28 x skill starting slots; the default roster is now
