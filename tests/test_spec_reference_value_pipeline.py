@@ -200,7 +200,23 @@ class LiveDump(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             fx_path = Path(tmp) / "comparison-sources-data.json"
             fx_path.write_text(json.dumps(held), encoding="utf-8")
-            rep = pl.build({"fixture": fx_path, "out": Path(tmp) / "out.json"},
+            # JEG-787: pin the history index's content_week to the fixture's
+            # served week so the pipeline never sees a newer week than the data
+            # (the real index may have advanced past the fixture when Supabase
+            # imports are blocked). Copy the history dir with a patched index.
+            hist_dir = Path(tmp) / "history"
+            hist_dir.mkdir()
+            real_hist = Path(paths["history"])
+            index = json.loads((real_hist / "index.json").read_text(encoding="utf-8"))
+            served_weeks = [s["week"] for s in index.get("served", {}).values()
+                            if isinstance(s.get("week"), int)]
+            if served_weeks:
+                index["content_week"] = max(served_weeks)
+            (hist_dir / "index.json").write_text(json.dumps(index), encoding="utf-8")
+            for p in real_hist.glob("week-*.json"):
+                (hist_dir / p.name).write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+            rep = pl.build({"fixture": fx_path, "history": hist_dir,
+                            "out": Path(tmp) / "out.json"},
                            only=["ppr/12/sf0", "ppr/12/sf1"])
         for sid in ("ppr/12/sf0", "ppr/12/sf1"):
             s = rep["settings"][sid]

@@ -82,6 +82,15 @@ UNMATCHED = {}  # base source -> why its served inputs match no saved week (warn
 FIXTURE_ASSET = "assets/comparison-sources-data.json"
 
 
+def _fixture_today():
+    """The date the built fixture belongs to (its built_at, in the content week
+    of the data).  Tests pin window.TRADE_VALUE_TODAY to this so the page's
+    content-week clock matches the data it serves -- otherwise the real clock
+    rolling to a newer week breaks eligibility (JEG-675, JEG-787)."""
+    fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
+    return fixture["built_at"][:10]  # ISO date portion
+
+
 def _week(n):
     return json.loads((HISTORY / f"week-{n}.json").read_text(encoding="utf-8"))
 
@@ -744,11 +753,23 @@ def collect(overrides=None):
             raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            # Pin the content-week clock to the fixture's own week so the
+            # page never sees a newer week than the data it serves (JEG-787).
+            page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(_fixture_today())};")
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
             page.goto(url, wait_until="networkidle", timeout=120000)
             page.wait_for_function(READY, timeout=30000)
+            # JEG-787: verify the pin puts the page in the data's own content
+            # week -- the bug this guards is the real clock advancing past it.
+            page_week = page.evaluate(
+                "() => window.TradeValueProductData?.getSourceFreshness?.()?.current_content_week")
+            served_weeks = {s.get("week") for s in index.get("served", {}).values()} - {None}
+            if page_week and served_weeks and page_week > max(served_weeks):
+                failures.append(
+                    f"content-week pin failed: page sees week {page_week} "
+                    f"but data only has week {max(served_weeks)}")
             prior = page.evaluate(PRIOR)
             for source in sorted(set(H.PUBLISHED) & set(UNMATCHED)):
                 failures += unmatched_prior(source, prior[source]["prior"])
