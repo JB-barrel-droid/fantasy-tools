@@ -35,9 +35,12 @@ Status 2026-10-09 (after the lead's "Spec rulings" in PR #484): SA-1, SA-2, SA-3
   dp) while the current natives are not; the spec does not say whether that
   matters.
 - **SA-5 Holds and "unpublished".** VP-1.1 names `validationHold` /
-  `promotionHold` on the section; neither key exists in the live snapshot, so
-  no source is held. "Unpublished" (a weekly chart whose content week is
-  older than the current one) is read from `data/history/index.json`
+  `promotionHold` on the section. A `promotionHold` or a `validationHold`
+  with `hold_level` absent or `"red"` makes the source ineligible. A
+  `validationHold` with `hold_level: "amber"` does NOT make the source
+  ineligible (amber-hold-001, Jeremy 2026-10-19): it stays eligible and
+  labelled. "Unpublished" (a weekly chart whose content week is older than the
+  current one) is read from `data/history/index.json`
   `served[s].week < content_week`, charts only. The spec does not say where a
   section's content week lives.
 - **SA-6 Default roster and the superflex combo. RESOLVED (ruling, VP-0): as read here.** Original note: The VP section never states
