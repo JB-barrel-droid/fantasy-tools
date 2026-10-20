@@ -60,10 +60,19 @@ visible in the delta popover.
   "no Full PPR values" (confirmed in browser with
   `page.evaluate(getWeekValues)`)
 
-### Claimed, not confirmed
+### Now confirmed
 
-- `make validate` green (running, not yet complete at time of commit)
-- CI green on the PR (will be confirmed after push)
+- CI green on PR #728 (preview: pass, v2-render: pass) -- squash-merged
+- CI green on PR #727 after merging origin/main into be/deploy-red (preview: pass,
+  v2-render: pass) -- squash-merged
+- Deploy dashboard run 39509331301: success
+- `verify_live.py`: build tag `tv-20261020-1736-bf66a37`; PASS on all trade-value
+  checks. Two pre-existing FAILs in comparison-dashboard.js (news timing badges,
+  news max-3 cap) are unrelated.
+
+### Not addressed
+
 - The `weekPipeline` latent defect (using `pipelineState.included` instead of
-  the saved week's sources for history queries) is a separate fix not addressed
-  here
+  the saved week's sources for history queries) is a separate fix
+- `verify_live.py` FAIL on news timing badges and news max-3 cap in
+  comparison-dashboard.js (pre-existing, not related to this fix)
