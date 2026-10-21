@@ -49,7 +49,7 @@ Naming rules are in `docs/supabase-naming-conventions.md`; how scraped reference
 | `sports` | `pull_espn_projections.py` | `fidelity_pulse.py` |
 | `teams` | `build_consolidated_values.py`, `load_ddf_leg_to_supabase.py`, `load_nflverse_history.py`, `load_value_check.py`, `pull_espn_projections.py`, `pull_fantasycalc_12team.py` (+1 more) | `backstop_shallow_sources.py`, `bake_players.py`, `build_cbsros_ddf_leg.py`, `build_cbsros_section_from_ddf_leg.py`, `build_comparison_source_section.py`, `build_ddf_groups.py` (+50 more) |
 | `value_check_runs` | `load_value_check.py` (one summary row per run, JEG-792) | none found |
-| `value_check_values` | `load_value_check.py` (mismatch rows only, at most 500 per run; full set is the CI artifact `value-check-values.csv.gz`, JEG-792; retention: `sql/migrations/011_value_check_retention.sql`, not applied) | api views `api.value_check_diff`, `api.player_values` |
+| `value_check_values` | `load_value_check.py` (mismatch rows only, at most 500 per run; full set is the CI artifact `value-check-values.csv.gz`, JEG-792; retention: `sql/migrations/014_value_check_retention.sql`, not applied) | api views `api.value_check_diff`, `api.player_values` |
 | `weekly_dashboard_runs` | `load_weekly_dashboard.py` | none found |
 | `weekly_dashboard_signals` | `load_weekly_dashboard.py` | none found |
 

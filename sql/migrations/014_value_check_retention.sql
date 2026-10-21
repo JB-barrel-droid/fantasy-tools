@@ -10,9 +10,8 @@
 -- table; the api views api.value_check_diff / api.player_values only expose
 -- engine/reference values for mismatched cells from now on.
 --
--- (The number 011 is the one Jeremy's ticket asked for; sql/migrations already
--- holds 011_rotoballer_trade_values.sql, and these files are applied by hand,
--- not in number order.)
+-- (Renumbered from 011 on 2026-10-21: 011_rotoballer_trade_values.sql already
+-- held that number. These files are applied by hand.)
 
 -- 1. ONE-TIME: drop the existing log (about 498 MB, 1.25M rows). The data is
 --    reproducible from any chain run and is not migrated to the self-hosted
