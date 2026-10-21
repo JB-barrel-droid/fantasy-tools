@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   record:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - name: Record monitored check
