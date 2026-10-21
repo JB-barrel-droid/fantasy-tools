@@ -1,0 +1,7 @@
+# Secrets and local state for the self-hosted stack. Never commit these.
+.env
+.env.*
+!.env.example
+backups/
+*.dump
+*.key
