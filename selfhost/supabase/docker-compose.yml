@@ -1,0 +1,138 @@
+# Self-hosted data store for the Mac mini (JEG-792).
+#
+# A MINIMAL Supabase-compatible stack: the pipelines only speak PostgREST
+# (/rest/v1/...) and call one edge function (/functions/v1/usatoday-fetch),
+# so this runs Postgres, PostgREST and a small nginx gateway that mounts
+# PostgREST under /rest/v1/ like the cloud does. No Auth, Realtime, Storage,
+# Studio, analytics or pooler.
+#
+#   default          db + rest + gateway (gateway bound to 127.0.0.1 only)
+#   --profile relay  adds the Deno edge runtime with usatoday-fetch + get-values
+#   --profile tunnel adds cloudflared (OFF by default; see docs/selfhost-supabase.md)
+#
+# Image tags match supabase/supabase docker/docker-compose.yml as of
+# 2026-10-21 (commit fdf03de3): supabase/postgres 17.6.1.136,
+# postgrest v14.18, edge-runtime v1.77.4. All three publish linux/arm64.
+#
+# Run from this folder:  docker compose --env-file .env up -d
+name: ddf-supabase
+
+services:
+  db:
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: "5432"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+    volumes:
+      # Runs once, on the first boot of an empty data volume.
+      - ./init/99-ddf-roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-ddf-roles.sql:ro
+      - db-data:/var/lib/postgresql/data
+      # Holds pgsodium_root.key, the key Vault encrypts secrets with.
+      # backup.sh copies it next to each dump.
+      - db-config:/etc/postgresql-custom
+    # Not published to the host. Reach it with `docker compose exec db ...`.
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rest:
+    image: postgrest/postgrest:v14.18
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public,api}
+      PGRST_DB_EXTRA_SEARCH_PATH: public,extensions
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_MAX_ROWS: ${PGRST_DB_MAX_ROWS:-1000}
+      PGRST_JWT_SECRET: ${JWT_SECRET:?run gen-keys.py first}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_ADMIN_SERVER_PORT: "3001"
+      PGRST_ADMIN_SERVER_HOST: localhost
+    healthcheck:
+      test: ["CMD", "postgrest", "--ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  gateway:
+    image: nginx:1.29.3-alpine
+    restart: unless-stopped
+    depends_on:
+      rest:
+        condition: service_started
+    environment:
+      NGINX_ENVSUBST_FILTER: "^(ANON_KEY|SERVICE_ROLE_KEY)$$"
+      ANON_KEY: ${ANON_KEY:?run gen-keys.py first}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:?run gen-keys.py first}
+    volumes:
+      # The official image renders *.template into /etc/nginx/conf.d at start,
+      # substituting only variables that exist in the environment.
+      - ./gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      # 127.0.0.1 only. Do not change to 0.0.0.0; use the tunnel profile or
+      # a self-hosted runner instead (docs/selfhost-supabase.md).
+      - "${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/gateway-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  functions:
+    profiles: ["relay"]
+    image: supabase/edge-runtime:v1.77.4
+    restart: unless-stopped
+    command:
+      - start
+      - --main-service
+      - /home/deno/functions/main
+      - --user-worker-request-idle-timeout
+      - "150000"
+    environment:
+      # Read by the router only (functions-main/index.ts); never forwarded to
+      # a function worker.
+      JWT_SECRET: ${JWT_SECRET}
+      # Forwarded to usatoday-fetch only: its role check compares against it.
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # Forwarded to get-values only.
+      DDF_SITE_ORIGIN: ${DDF_SITE_ORIGIN:-}
+    volumes:
+      - ./functions-main:/home/deno/functions/main:ro
+      # The deployed sources, straight from the repo (cloud usatoday-fetch v3
+      # is byte-identical to supabase/functions/usatoday-fetch/index.ts).
+      - ../../supabase/functions/usatoday-fetch:/home/deno/functions/usatoday-fetch:ro
+      - ../../supabase/functions/get-values:/home/deno/functions/get-values:ro
+      - deno-cache:/root/.cache/deno
+
+  tunnel:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:2026.9.0
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+    # The tunnel's public hostname is configured in the Cloudflare dashboard
+    # to point at http://gateway:8000. Only the gateway is reachable through it.
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+
+volumes:
+  db-data:
+  db-config:
+  deno-cache:
