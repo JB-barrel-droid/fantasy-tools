@@ -1,6 +1,7 @@
 -- Migration 010: KeepTradeCut dynasty trade value snapshot table (JEG-669)
--- DRAFT. NOT APPLIED. Jeremy approved "a table and saver for KeepTradeCut, kept out of DDF Value"
--- on 2026-10-16 but has NOT yet confirmed this table name or these columns. Do not apply until he does.
+-- APPLIED 2026-10-16 to production Supabase on Jeremy's approval ("Approve as drafted: apply the migration"),
+-- after he approved "a table and saver for KeepTradeCut, kept out of DDF Value". The table was empty when applied.
+-- Re-running this file is a no-op (CREATE ... IF NOT EXISTS).
 -- CREATE TABLE only (no drops, no alters, no deletes of existing objects).
 -- Modeled on public.draftsharks_trade_values (008). RLS on, no policies: service_role only (pipeline writers).
 --

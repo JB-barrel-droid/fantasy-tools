@@ -99,7 +99,9 @@ class SaveKeepTradeCutTest(unittest.TestCase):
             if line.upper().startswith("ALTER TABLE"):
                 self.assertEqual("ALTER TABLE public.keeptradecut_trade_values ENABLE ROW LEVEL SECURITY;", line)
             self.assertFalse(line.upper().startswith(("DROP ", "DELETE ", "TRUNCATE ")), line)
-        self.assertIn("NOT APPLIED", MIGRATION.read_text(encoding="utf-8"))
+        header = MIGRATION.read_text(encoding="utf-8")
+        self.assertIn("APPLIED 2026-10-16", header)
+        self.assertNotIn("NOT APPLIED", header)
 
     def test_row_building_values_vintage_and_identity(self):
         clean, review, vintage = self.build()
