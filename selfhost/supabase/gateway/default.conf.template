@@ -14,6 +14,9 @@
 # `functions` service is not running (that route then answers 502).
 resolver 127.0.0.11 valid=10s ipv6=off;
 
+# The map keys are full JWTs (about 200 bytes); the default bucket is too small.
+map_hash_bucket_size 512;
+
 map $http_apikey $ddf_key_role {
     default                 "";
     "${ANON_KEY}"           anon;
