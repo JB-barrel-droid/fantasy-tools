@@ -95,6 +95,12 @@ fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 pg_restore --list "$DUMP_DIR/cloud.dump" > "$work/toc.list"
+# The image already creates `public`, so the dump's CREATE SCHEMA public would
+# abort the restore; its ACL and COMMENT entries stay in. The stack's init SQL
+# also creates an empty `api` schema (a USAGE grant only): drop that one so the
+# dump can create it (the existing-tables check above guarantees it is empty).
+sed -E -i.bak '/ SCHEMA - public /s/^/;/' "$work/toc.list"
+q "drop schema if exists api restrict" >/dev/null
 if [ "$have_net" = 0 ]; then
   # Comment out the one view that depends on pg_net, plus its ACL and comment
   # entries (TOC lines: "VIEW monitoring v_dispatch_outcomes", "ACL monitoring
