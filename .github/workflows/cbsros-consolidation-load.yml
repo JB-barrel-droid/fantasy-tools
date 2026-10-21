@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   load:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
