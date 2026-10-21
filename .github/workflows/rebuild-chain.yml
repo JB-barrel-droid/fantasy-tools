@@ -399,7 +399,9 @@ jobs:
 
       # JEG-479: the engine's and the Python reference's values for the
       # published build (output/value-check*.json) go to
-      # public.value_check_values / api.player_values / api.value_check_diff.
+      # public.value_check_runs (one summary row) plus at most 500 mismatch rows
+      # in public.value_check_values (JEG-792). The full per-value set is the
+      # gzip CSV output/value-check-values.csv.gz in the value-check artifact.
       # Non-blocking for Pages like the consolidation write; its outcome is the
       # monitored check value_check_write, and the comparison's own verdict is
       # value_check_agree (warn: a disagreement holds sources, it does not stop
@@ -622,6 +624,7 @@ jobs:
             output/value-check.md
             output/value-check-engine.json
             output/value-check-reference.json
+            output/value-check-values.csv.gz
             output/value-check-prehold.json
             output/value-check-prehold.md
           if-no-files-found: warn
