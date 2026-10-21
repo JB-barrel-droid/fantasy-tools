@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Save KeepTradeCut dynasty value snapshots into public.keeptradecut_trade_values (JEG-669).
 
-DRAFT: the table does not exist yet. Migration sql/migrations/010_keeptradecut_trade_values.sql is
-NOT applied; Jeremy has to confirm the table name and columns first. Dry run is the default;
-nothing is written without --write.
+The table exists: migration sql/migrations/010_keeptradecut_trade_values.sql was applied on 2026-10-16
+on Jeremy's approval. Dry run is the default; nothing is written without --write, and nothing is
+scheduled or wired into DDF Value.
 
 Loads data/raw/sources/keeptradecut/<date>/snapshot.json (from pipelines/pull_keeptradecut.py).
 Mirrors pipelines/save_draftsharks_references.py: the canonical resolver (lib/canonical_players via
