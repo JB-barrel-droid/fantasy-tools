@@ -18,12 +18,22 @@ api.player_values and api.value_check_diff read them
 the consolidation write (JEG-380): the workflow step continues on error and
 records the monitored check value_check_write.
 
+JEG-792 (Jeremy 2026-10-21, "Self-host on the Mac mini"): the full per-value set
+is no longer written row by row (498 MB, 1.25M rows). One gzip CSV,
+output/value-check-values.csv.gz, is the run's artifact (the workflow uploads
+it); the database gets one value_check_runs summary row (counts and top
+mismatches in `report`) and at most MAX_MISMATCH_ROWS mismatch rows. The
+api views therefore show engine/reference values only for mismatched cells.
+
 Usage:
   python pipelines/load_value_check.py [--report output/value-check.json] [--dry-run]
 """
 from __future__ import annotations
 
 import argparse
+import csv
+import gzip
+import io
 import json
 import math
 import os
@@ -39,6 +49,11 @@ import value_reference as ref  # noqa: E402
 
 SCORING = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
 CHUNK = 1000
+MAX_MISMATCH_ROWS = 500  # JEG-792: per-value rows written to the database, per run
+TOP_MISMATCHES = 20      # mismatches summarised inside the run row's report
+ARTIFACT = REPO / "output" / "value-check-values.csv.gz"
+CSV_COLUMNS = ["season", "week", "scoring", "teams", "roster", "view", "series", "player_key",
+               "player", "engine_value", "reference_value", "agrees", "held"]
 
 
 def _num(v):
@@ -103,6 +118,32 @@ def build_rows(report: dict, engine: dict, reference: dict, season: int, week: i
     return rows
 
 
+def _severity(row: dict) -> float:
+    """Sort key, largest first: a presence mismatch outranks any numeric gap."""
+    e, r = row["engine_value"], row["reference_value"]
+    return float("inf") if e is None or r is None else abs(e - r)
+
+
+def mismatches(rows: list[dict], limit: int = MAX_MISMATCH_ROWS) -> list[dict]:
+    """The disagreeing rows, worst first, at most `limit` (JEG-792)."""
+    bad = [r for r in rows if not r["agrees"]]
+    bad.sort(key=lambda r: (-_severity(r), r["scoring"], r["teams"], r["roster"], r["view"],
+                            r["series"], r["player_key"]))
+    return bad[:limit]
+
+
+def write_artifact(rows: list[dict], path: Path = ARTIFACT) -> Path:
+    """Every compared value of the run in ONE gzip CSV (JEG-792). The workflow
+    uploads it as a CI artifact; the database gets only the bounded mismatch rows."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.GzipFile(path, "wb", mtime=0) as raw, \
+            io.TextIOWrapper(raw, encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=CSV_COLUMNS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    return path
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--report", default=str(vc.REPORT))
@@ -133,24 +174,42 @@ def main(argv=None) -> int:
                "series": {k: {kk: vv for kk, vv in a.items() if kk != "examples"} | {"examples": a["examples"][:3]}
                           for k, a in report["series"].items()}}}
     n_disagree = sum(1 for r in rows if not r["agrees"])
+    bad = mismatches(rows)
+    run["report"]["values_mismatched"] = n_disagree
+    run["report"]["mismatch_rows_stored"] = len(bad)
+    run["report"]["artifact"] = ARTIFACT.name
+    run["report"]["top_mismatches"] = [
+        {k: r[k] for k in ("scoring", "teams", "roster", "view", "series", "player", "engine_value",
+                           "reference_value")} for r in bad[:TOP_MISMATCHES]]
     print(f"value check store: season {season} week {week}, {len(rows)} values "
           f"({n_disagree} disagree), verdict {report['verdict']}")
+    write_artifact(rows)
+    print(f"wrote {ARTIFACT} ({len(rows)} values)")
     if args.dry_run:
         return 0
     import gh_sbclient as sb  # noqa: PLC0415 - env-based client (GitHub Actions secrets)
+    store(sb, run, bad, season, week, len(rows))
+    return 0
+
+
+def store(sb, run: dict, bad: list[dict], season: int, week: int, n_values: int) -> str:
+    """Database writes of one run: O(1) calls however many values were compared
+    (run row, <= ceil(MAX_MISMATCH_ROWS / CHUNK) mismatch POSTs, one delete)."""
     created = sb.post("value_check_runs", [run], prefer="return=representation")
     run_id = created[0]["run_id"]
-    for row in rows:
+    # JEG-792: only the bounded mismatch rows go to the database (one POST,
+    # since MAX_MISMATCH_ROWS <= CHUNK); the full set is the CI artifact.
+    for row in bad:
         row["run_id"] = run_id
         row["updated_at"] = run["generated_at"]
-    for start in range(0, len(rows), CHUNK):
-        sb.post("value_check_values", rows[start:start + CHUNK],
+    for start in range(0, len(bad), CHUNK):
+        sb.post("value_check_values", bad[start:start + CHUNK],
                 params="?on_conflict=season,week,scoring,teams,roster,view,series,player_key",
                 prefer="resolution=merge-duplicates,return=minimal")
     # Values an earlier run stored for this week that this run no longer has.
     sb.delete("value_check_values", f"?season=eq.{season}&week=eq.{week}&run_id=neq.{run_id}")
-    print(f"stored run {run_id}: {len(rows)} values")
-    return 0
+    print(f"stored run {run_id}: {len(bad)} mismatch rows of {n_values} values")
+    return run_id
 
 
 if __name__ == "__main__":
