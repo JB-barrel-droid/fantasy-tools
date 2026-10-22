@@ -2564,7 +2564,7 @@
           line.append(name, stepper);
           content.appendChild(line);
         };
-        stepLine("v2StepContentWeek", "Week the values are for", "content", 1, 17);
+        stepLine("v2StepContentWeek", "Data through week", "content", 1, 17);
         stepLine("v2StepRegularEnd", "Last regular-season week", "regularEnd", 1, 17, () => {
           if (w.playoffLo <= w.regularEnd) w.playoffLo = w.regularEnd + 1;
           if (w.playoffHi < w.playoffLo) w.playoffHi = w.playoffLo;
