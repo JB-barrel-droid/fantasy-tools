@@ -743,7 +743,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 
 /* Below 768 px the tabs use short labels on one row (frames 02 / 04 / 06 / 08 / 16). */
 @media (max-width: 767px) {
-  .v2-tabs { flex-wrap: nowrap; justify-content: space-between; gap: 0; }
+  .v2-tabs { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
   /* 7 px side padding leaves slack in the 358 px row, so the shortest tab can keep a 44 px hit area (JEG-607). */
   /* Seven tabs since Research (JEG-543): 12 px type and 2 px padding keep the row inside 358 px even in a
      wide fallback face (DejaVu Sans, which hosts without Inter use); at 13 px the row ran 6 to 15 px over (JEG-675). */

@@ -2171,7 +2171,7 @@ class ContractRenderTest(unittest.TestCase):
             self.assertTrue(real, f"{cid} did not catch: {fault} (got {results[cid]})")
 
         # Group 1 (shell): the nav reordered, Swap never shown, "Vegas" in the header.
-        manifesto_tab = ('        <a class="v2-tab" href="v2/#manifesto" data-view="manifesto" data-short="Why">'
+        manifesto_tab = ('        <a class="v2-tab" href="v2/#manifesto" data-view="manifesto" data-short="Manifesto">'
                          '<span class="v2-tab-full">Manifesto</span></a>\n')
         values_tab = ('        <a class="v2-tab" href="v2/#player-values" data-view="values" data-short="Values">'
                       '<span class="v2-tab-full">Player values</span></a>\n')

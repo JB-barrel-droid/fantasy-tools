@@ -1203,10 +1203,9 @@ Jeremy: "Make it so finding a trade is a separate tab from discovering a trade."
   `v2/#compare-trade?give=..&get=..`, which opens Compare with the trade filled in.
 - The finder reads fixed sources (DDF Value and the four trade charts), so the page has no Customize / Showing row; the league bar stays
   (scoring, teams and roster shape shape the engine rows the search reads). Rosters typed in are kept for the session as before.
-- Phone nav: eight 44 px tabs need 352 px of the 358 px row at 390 px, so the row has no gap and two short labels shortened:
-  Manifesto -> "Why", Research -> "Notes" (full names unchanged on desktop). A ninth tab cannot fit one row at 44 px per tab.
+- Phone nav: the final nav is 7 tabs (the Writing tab replaces Manifesto, How values work and Research), so no label changes are needed.
 - Tests: `test_v2_finder_render` (own tab, not inside Compare, result link opens Compare filled), `test_v2_nav_render` (order),
-  `test_v2_phone_nav_overflow_render` (8 tabs), hash sweeps, `live.mjs` `V2_TABS`.
+  `test_v2_phone_nav_overflow_render` (7 tabs), hash sweeps, `live.mjs` `V2_TABS`.
 - JEG-854 (same page): Swap teams exchanges the two rosters; each row has a tick box and Move (to the other team); "Move N selected to the
   other team" moves ticked rows; Undo restores the rosters before the last swap or move. Shown results are recomputed after each change.
   Test: `tests/test_v2_finder_arrange_render.py` (3 mutants caught).
