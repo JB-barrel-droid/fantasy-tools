@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T05:01:50.234822+00:00",
+  "run_at": "2026-10-22T05:47:26.639210+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -12,13 +12,13 @@
   },
   "failed": [],
   "success": true,
-  "outcome": "green",
+  "outcome": "published_with_holds",
   "held": [
     "cbsros",
     "espn",
     "razzball"
   ],
-  "hold_severity": "none",
+  "hold_severity": "red",
   "list_changes": {},
   "held_detail": {
     "espn": {
@@ -27,9 +27,11 @@
         "espn",
         "espn_vorp"
       ],
-      "sections": [],
+      "sections": [
+        "espn"
+      ],
       "detail": "1758/1764 chart values equal stored snapshot 2026-10-21 (per game, 2 decimals); 6 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
-      "hold_severity": "amber",
+      "hold_severity": "red",
       "week": 7
     },
     "cbsros": {
@@ -39,11 +41,10 @@
         "cbsros_vorp"
       ],
       "sections": [
-        "cbsros",
-        "cbsros_adjusted"
+        "cbsros"
       ],
-      "detail": "1086/1086 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not",
-      "hold_severity": "amber",
+      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not",
+      "hold_severity": "red",
       "week": 7
     },
     "razzball": {
@@ -53,11 +54,10 @@
         "razzball_vorp"
       ],
       "sections": [
-        "razzball",
-        "razzball_adjusted"
+        "razzball"
       ],
       "detail": "1947/1947 chart values equal stored snapshot 2026-10-21 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 27 stored players not on the chart, 0 chart players not stored",
-      "hold_severity": "amber",
+      "hold_severity": "red",
       "week": 7
     }
   },
