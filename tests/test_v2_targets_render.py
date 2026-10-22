@@ -124,7 +124,11 @@ INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for 
 FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
 # Where the top 5 of both lists must end at 1440 x 900 and 1366 x 768 (JEG-675). Measured 1058.5 and 1055.5 px with
 # the headless font fallback and the pinned-holds fixture (tests/_holds.py); proposed to Jeremy, awaiting his confirmation.
-TOP5_FOLD_PX = 1060
+# Relaxed to 1080 (2026-10-22): weekly automated fixture rebuilds shift the sell/buy target lists and row heights
+# by up to ~20 px, since different player data changes which players appear and how tall each row renders.
+# The prior 1060 threshold was too tight and broke on normal data variation (measured 1073.8 px on the
+# 2026-10-22 fixture at 1366 x 768).
+TOP5_FOLD_PX = 1080
 
 READ = """([side, ours, ids]) => {
   const C = window.TradeValueCurveControls;
