@@ -240,8 +240,11 @@ async function main() {
   const resetBtn = block.querySelector(".bench-share-reset");
   const blockValue = block.querySelector(".bench-share-value");
 
-  // Capture initial readout (should be 15.0%).
+  // Capture initial readout. JEG-536 (#499): bench share is an output of the league
+  // settings ("Bench N% (computed from your league settings)") until the slider overrides it.
   const initialReadout = weightsReadout.textContent;
+  const COMPUTED = /Bench \d+\.\d% \(computed from your league settings\)/;
+  const initialMatches = COMPUTED.test(initialReadout);
 
   // ---- TEST 1: slider input event updates #weightsReadout ----
   // Move slider to 0.20 (20%) and fire the input event.
@@ -252,20 +255,20 @@ async function main() {
   const afterSliderReadout = weightsReadout.textContent;
   const afterSliderBlockValue = blockValue.textContent;
   const sliderText = afterSliderReadout;
-  const sliderMatches = /Bench 20\.0%/.test(sliderText);
+  const sliderMatches = /Bench 20\.0% \(your override\)/.test(sliderText);
 
-  // ---- TEST 2: dblclick resets to 15% and syncs the readout ----
+  // ---- TEST 2: dblclick clears the override (back to the computed share) and syncs the readout ----
   slider._fire("dblclick");
   const afterDblclickReadout = weightsReadout.textContent;
-  const dblclickMatches = /Bench 15\.0%/.test(afterDblclickReadout);
+  const dblclickMatches = COMPUTED.test(afterDblclickReadout) && afterDblclickReadout === initialReadout;
 
-  // ---- TEST 3: Reset-to-15% button updates readout ----
+  // ---- TEST 3: the reset button (back to the computed share) updates readout ----
   // Move slider away first, then click reset.
   slider.value = "0.25";
   slider._fire("input");
   resetBtn._fire("click");
   const afterResetButtonReadout = weightsReadout.textContent;
-  const resetBtnMatches = /Bench 15\.0%/.test(afterResetButtonReadout);
+  const resetBtnMatches = COMPUTED.test(afterResetButtonReadout) && afterResetButtonReadout === initialReadout;
 
   process.stdout.write(JSON.stringify({
     initialReadout,
@@ -273,7 +276,7 @@ async function main() {
     afterDblclickReadout,
     afterResetButtonReadout,
     afterSliderBlockValue,
-    matches: { slider: sliderMatches, dblclick: dblclickMatches, resetBtn: resetBtnMatches },
+    matches: { initial: initialMatches, slider: sliderMatches, dblclick: dblclickMatches, resetBtn: resetBtnMatches },
   }));
 }
 

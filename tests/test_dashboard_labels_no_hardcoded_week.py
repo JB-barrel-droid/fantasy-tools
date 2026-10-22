@@ -42,10 +42,13 @@ class NoHardcodedWeekLabelsTest(unittest.TestCase):
         )
 
     def test_source_label_appends_data_driven_week(self):
-        """The single week marker must come from weekForSource via sourceLabel."""
+        """The single week marker must come from weekForSource via sourceLabel.
+
+        JEG-812 (#763, 2026-10-21): the public label reads "Week N", not "Wk N"."""
         text = JS.read_text(encoding="utf-8")
         self.assertIn("const week = weekForSource(key);", text)
-        self.assertRegex(text, r"return week && key !== \"espn\" \? `\$\{base\} Wk \$\{week\}` : base;")
+        self.assertRegex(text, r"return week && key !== \"espn\" \? `\$\{base\} Week \$\{week\}` : base;")
+        self.assertNotRegex(text, r"\bWk \$\{week\}", "sourceLabel went back to the JEG-812 abbreviation")
 
 
 if __name__ == "__main__":

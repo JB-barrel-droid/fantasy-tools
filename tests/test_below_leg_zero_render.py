@@ -130,7 +130,8 @@ def collect(overrides=None):
             out["targets"] = page.evaluate("""(name) => {
               const t = window.TradeValueV2.targets();
               const hit = t.players.find(p => p.row.name === name);
-              return {ours: t.ours, used: t.used, listed: Boolean(t.sell.find(p => p.row.name === name)), probe: hit ? {ours: hit.ours,
+              return {ours: t.ours, used: t.used, listed: Boolean(t.sell.find(p => p.row.name === name)),
+                belowSellFloor: t.belowSellFloor, leftOut: t.leftOut, probe: hit ? {ours: hit.ours,
                 cells: Object.fromEntries(Object.entries(hit.cells).map(([c, v]) => [c, {value: v.value, gap: v.gap}]))} : null};
             }""", PROBE)
             page.fill("#v2TSearch", PROBE)
@@ -188,16 +189,22 @@ def check(out) -> list[str]:
         errors.append(f"Trade targets: {PROBE} (paid {paid}) is not compared at all")
     else:
         used_values = [hit["cells"][c]["value"] for c in out["targets"]["used"] if c in hit["cells"]]
-        want_listed = consensus_listed(used_values)
-        if out["targets"]["listed"] != want_listed:
-            errors.append(f"Trade targets: {PROBE} listed={out['targets']['listed']}, the consensus rule on {used_values} says {want_listed}")
+        # JEG-820 (Sell floor, ours >= 5) and JEG-842 (an ESPN-0 "out" player is never recommended) superseded
+        # the JEG-677 listing: he still passes the market consensus (so the exclusion is exercised), is never
+        # in the Sell list, and the page counts him among the players it left out.
+        if not consensus_listed(used_values):
+            errors.append(f"Trade targets: {PROBE} does not pass the market consensus on {used_values} (the exclusion went untested)")
+        if out["targets"]["listed"]:
+            errors.append(f"Trade targets: {PROBE} (ours 0, ESPN out) is in the Sell list: below the Sell floor and never recommended")
+        if (out["targets"].get("belowSellFloor") or 0) + (out["targets"].get("leftOut") or 0) < 1:
+            errors.append("Trade targets: the page does not count the ESPN-0 player it leaves out")
         if hit["ours"] != 0:
             errors.append(f"Trade targets: {PROBE} ours {hit['ours']!r}, expected 0")
         for chart, value in paid.items():
             if hit["cells"].get(chart, {}).get("gap") != value:
                 errors.append(f"Trade targets: {PROBE} {chart} gap {hit['cells'].get(chart)}, expected {value}")
-        if want_listed and (out["targets_row"] or {}).get("ours") != "0.0":
-            errors.append(f"Trade targets: rendered row for {PROBE} shows {out['targets_row']}")
+        if out["targets_row"]:
+            errors.append(f"Trade targets: {PROBE} is rendered in the Sell table: {out['targets_row']}")
     if out["main_errors"] or out["v2_errors"]:
         errors.append(f"page errors: {out['main_errors'] + out['v2_errors']}")
     return errors
@@ -220,14 +227,19 @@ class BelowLegZeroRenderTest(unittest.TestCase):
                 NATIVE_RULE, 'if (Number.isFinite(ppg) && !(key === "cbsros" && player.pos === "QB")) '
                              "values.set(playerKey, ppg);", 1),
         }
+        overrides = {name: {"**/assets/curve-widget.js*": body} for name, body in mutations.items()}
+        # JEG-820/JEG-842: Trade targets before the Sell floor and the out-player exclusion listed ESPN-0 players.
+        targets_js = (ROOT / "app" / "v2" / "targets.js").read_text(encoding="utf-8")
+        self.assertIn("const SELL_FLOOR = 5;", targets_js, "mutation anchor for the Sell floor is stale")
+        self.assertIn('if (row.espnProjectsZero) return "out";', targets_js, "mutation anchor for the out rule is stale")
+        overrides["Trade targets list the ESPN-0 player"] = {"**/targets.js*": targets_js.replace(
+            "const SELL_FLOOR = 5;", "const SELL_FLOOR = 0;", 1).replace('if (row.espnProjectsZero) return "out";', "", 1)}
         # Control: the unmodified widget through the same override path passes.
         self.assertEqual(check(collect({"**/assets/curve-widget.js*": widget})), [],
                          "unmodified widget fails the render checks")
-        for name, body in mutations.items():
+        for name, override in overrides.items():
             with self.subTest(mutation=name):
-                self.assertNotEqual(body, widget, f"mutation anchor for {name!r} is stale")
-                self.assertNotEqual(check(collect({"**/assets/curve-widget.js*": body})), [],
-                                    f"render checks did not catch: {name}")
+                self.assertNotEqual(check(collect(override)), [], f"render checks did not catch: {name}")
 
 
 if __name__ == "__main__":
