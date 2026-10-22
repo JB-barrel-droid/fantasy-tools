@@ -1412,6 +1412,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Find .v2-ctoolbar input[type="checkbox"] { width: 20px; height: 20px; }
 #v2Find .v2-ctoolbar label.v2-field { min-height: 44px; }
 
+/* JEG-854: swap teams, move a player to the other team, undo. 44 px targets. */
+#v2Find .v2-find-arrange { margin: 12px 0 0; }
+#v2Find .v2-find-arrange .v2-btn, #v2Find .v2-find-movesel { min-height: 44px; min-width: 44px; }
+#v2Find .v2-find-arrange .v2-meta { margin: 0; flex: 1 1 200px; }
+#v2Find .v2-find-movesel { margin-top: 8px; }
+#v2Find .v2-trade-players li.v2-find-row { display: grid; grid-template-columns: 44px 1fr auto auto; align-items: center; gap: 4px 8px; min-height: 44px; }
+#v2Find .v2-find-tick { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; cursor: pointer; }
+#v2Find .v2-find-row .v2-find-pick { width: 24px; height: 24px; margin: 0; }
+#v2Find .v2-find-row .v2-link { min-height: 44px; min-width: 44px; padding: 0 8px; }
+
 /* JEG-824: short viewports (landscape phones) cannot afford sticky bars: the toolbar scrolls away, the table foot stops sticking,
    and the table scroller takes most of the screen so its own sticky header stays visible. */
 @media (max-height: 500px) {

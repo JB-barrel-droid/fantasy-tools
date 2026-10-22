@@ -76,6 +76,17 @@ def check(page, tag, width) -> list[str]:
     errors = []
     page.evaluate("() => { location.hash = '#compare-trade'; }")
     page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare() && document.getElementById('v2Find')", timeout=60000)
+    # JEG-852: the finder is its own tab; Compare a trade no longer holds it.
+    if page.evaluate("() => Boolean(document.querySelector('#v2Compare #v2Find'))"):
+        errors.append(tag + "the finder is still inside Compare a trade")
+    page.evaluate("() => { location.hash = '#find-trade'; }")
+    page.wait_for_function("() => !document.getElementById('v2FindTrade').hidden", timeout=20000)
+    state = page.evaluate("""() => ({compare: document.getElementById('v2Compare').hidden, find: document.querySelector('.v2-tab[data-view=find]').getAttribute('aria-current'),
+      inPage: Boolean(document.querySelector('#v2FindTrade #v2Find')), customize: document.getElementById('v2Methods').hidden})""")
+    if not state["compare"] or state["find"] != "page" or not state["inPage"]:
+        errors.append(tag + f"Find a trade tab did not route cleanly: {state}")
+    if errors:
+        return errors
     pick = page.evaluate(PICK)
     for name in pick["mine"]:
         add(page, "Mine", name)
@@ -113,8 +124,8 @@ def check(page, tag, width) -> list[str]:
     if sorted(sides["give"]) != sorted(first["give"]) or sorted(sides["get"]) != sorted(first["get"]):
         errors.append(tag + f"link opened {sides}, expected give {first['give']} get {first['get']}")
     # Remove clears the result.
-    page.evaluate("() => { location.hash = '#compare-trade'; }")
-    page.click("#v2FindMinePlayers li >> nth=0 >> button")
+    page.evaluate("() => { location.hash = '#find-trade'; }")
+    page.click("#v2FindMinePlayers li >> nth=0 >> button.v2-find-remove")
     if page.evaluate("() => !document.getElementById('v2FindOut').hidden"):
         errors.append(tag + "the result stayed after a roster changed")
     if not page.evaluate("() => Boolean(document.querySelector('#v2Find > .v2-mod-ctl .v2-mod-chevron'))"):
@@ -145,7 +156,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (390, 844))) -> list[str]
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, body in (overrides or {}).items():
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, "text/javascript"))
-                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.goto(base + "#find-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view()", timeout=60000)
                 errors += check(page, f"[{width}px] ", width)
                 if page_errors:
@@ -164,6 +175,7 @@ class FinderRenderTest(unittest.TestCase):
         js = FINDER_JS.read_text(encoding="utf-8")
         broken = {
             "edge read the wrong way round": js.replace("const edge = get.sums[0] - give.sums[0];", "const edge = give.sums[0] - get.sums[0];", 1),
+            "finder back inside Compare a trade": js.replace('const host = $("v2FindTrade");', 'const host = $("v2Compare");', 1),
             "link swaps the sides": js.replace("#compare-trade?give=${ids(t.give)}&get=${ids(t.receive)}", "#compare-trade?give=${ids(t.receive)}&get=${ids(t.give)}", 1),
         }
         for name, body in broken.items():

@@ -112,7 +112,7 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
             # JEG-855: Manifesto, How values work and Research are sections of one Writing tab (Jeremy, 2026-10-22);
             # the landing tab stays Trade targets.
             names = [tab["text"] for tab in tabs]
-            if names != ["Writing", "Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Values auditing"]:
+            if names != ["Writing", "Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Find a trade", "Values auditing"]:
                 errors.append(f"nav order: {names}, want Writing first, Values auditing last and no Manifesto / How values work / Research tabs")
             if len({round(tab["top"]) for tab in tabs}) != 1:
                 errors.append(f"tabs are not on one row at 390px: {[(t['text'], round(t['top'])) for t in tabs]}")

@@ -28,10 +28,10 @@ from tests import _render_env
 from tests.test_published_league_settings_render import _chromium_executable
 from tests.test_v2_deal_read_render import _served, V2_JS
 
-TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#writing/how-values", "#writing/research", "#values-auditing")
+TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#find-trade", "#writing/how-values", "#writing/research", "#values-auditing")
 BANNED = re.compile(r"\b(USAT|FP|FC|Wk|median)\b|CBS ROS|\bvegas\b", re.I)
 STAMP = re.compile(r"NFL Week \d+ · as of [A-Z][a-z]{2} \d{1,2}")
-VALUE_TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#writing/how-values", "#values-auditing")
+VALUE_TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#find-trade", "#writing/how-values", "#values-auditing")
 OVERCLAIMS = ("easy for them to accept", "will likely accept", "and is not.")
 TRADE_JS = V2_JS.with_name("trade.js")
 PROMISES = re.compile(r"\b(soon|coming|will be published|next week|tomorrow|\d{4}-\d{2}-\d{2})\b", re.I)

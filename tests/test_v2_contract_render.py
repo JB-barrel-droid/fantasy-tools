@@ -357,7 +357,7 @@ COMMON = r"""
     label: a.textContent.trim(), href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page'}));
   const tabs = () => [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view,
     label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'}));
-  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit']
+  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit']
     .map(id => [id, shown($(id))]));
   const readTable = (sel = '#v2Table') => [...document.querySelectorAll(sel + ' tbody tr[data-player-key]')].map(tr => ({
     key: tr.dataset.playerKey, name: own(tr.querySelector('td.player') || tr),
@@ -782,7 +782,7 @@ def scenario_tabs(s: Session) -> dict:
         out["manifesto"] = page.evaluate(MANIFESTO_JS)
         out["gl20"] = page.evaluate(GL20_JS)
         out["modules"] = {}
-        for tab in ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade"):
+        for tab in ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade"):
             page.evaluate("h => { location.hash = h; }", tab)
             page.wait_for_timeout(500)
             out["modules"][tab] = page.evaluate(MODULES_JS)
@@ -802,7 +802,7 @@ def scenario_phone(s: Session) -> dict:
     page = s.open("#trade-targets", width=390, height=844)
     try:
         out = {"tabs": [page.evaluate(PHONE_JS, h) for h in
-                        ("#writing/manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#writing/how-values", "#values-auditing")]}
+                        ("#writing/manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade", "#writing/how-values", "#values-auditing")]}
         out["errors"] = page.errors
         return out
     finally:

@@ -399,7 +399,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -6031,6 +6031,7 @@
   const currentView = () => (hashBase() === "#trade-targets" ? "targets"
     : hashBase() === "#risers-fallers" ? "risers"
     : hashBase() === "#compare-trade" ? "compare"
+    : hashBase() === "#find-trade" ? "find"
     : (hashBase() === "#writing" || hashBase().startsWith("#writing/")) ? "writing"
     : (hashBase() === "#values-auditing" || hashBase().startsWith("#values-auditing/")) ? "audit"
     : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
@@ -6041,12 +6042,14 @@
     $("v2Targets").hidden = v !== "targets";
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
+    $("v2FindTrade").hidden = v !== "find";
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit";
+    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find";
+    // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -6116,7 +6119,7 @@
     else if (currentView() === "compare") renderCompare();
     else if (writingSection() === "how-values") renderHow();
     else if (currentView() === "audit") renderAudit();
-    else if (currentView() === "writing") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
