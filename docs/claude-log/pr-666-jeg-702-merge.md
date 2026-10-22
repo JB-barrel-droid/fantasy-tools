@@ -42,4 +42,11 @@ The stash signals code was already merged to main via PR #595 (commit
   translation port).
 - Full bake_players.py not run (needs Supabase). Only espn_ppg patched from
   leg data; other players.json fields are unchanged from main.
-- CI checks (preview + v2-render) pending at time of writing.
+- CI checks (preview + v2-render): both green on the merge head (runs
+  39706574346 and 39706574535). Required a second rebase after main moved
+  (new commits from chain-status, values-explainer, content-week-pin).
+  Build outputs resolved to main's version; `make validate` re-run green.
+
+### Outcome
+PR #666 squash-merged to main as e65d7189 (2026-10-22T01:51:34Z).
+JEG-702 marked Done in Linear.
