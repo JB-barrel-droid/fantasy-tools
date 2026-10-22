@@ -391,19 +391,23 @@
     <div class="v2-trade-sides">
       <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
         <h2 id="v2GiveTitle">You give</h2>
-        <label class="v2-search"><span class="v2-sr">Search and add a player you give</span>
-          <input type="search" id="v2GiveSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GiveResults">
-        </label>
-        <ul class="v2-trade-results" id="v2GiveResults" hidden></ul>
+        <div class="v2-trade-search-wrap">
+          <label class="v2-search"><span class="v2-sr">Search and add a player you give</span>
+            <input type="search" id="v2GiveSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GiveResults">
+          </label>
+          <ul class="v2-trade-results" id="v2GiveResults" hidden></ul>
+        </div>
         <ul class="v2-trade-players" id="v2GivePlayers"></ul>
         <p class="v2-side-total" id="v2GiveTotal" hidden></p>
       </section>
       <section class="v2-card v2-trade-side" data-trade-side="receive" aria-labelledby="v2GetTitle">
         <h2 id="v2GetTitle">You receive</h2>
-        <label class="v2-search"><span class="v2-sr">Search and add a player you receive</span>
-          <input type="search" id="v2GetSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GetResults">
-        </label>
-        <ul class="v2-trade-results" id="v2GetResults" hidden></ul>
+        <div class="v2-trade-search-wrap">
+          <label class="v2-search"><span class="v2-sr">Search and add a player you receive</span>
+            <input type="search" id="v2GetSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GetResults">
+          </label>
+          <ul class="v2-trade-results" id="v2GetResults" hidden></ul>
+        </div>
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
