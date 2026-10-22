@@ -188,7 +188,9 @@ class LiveDump(unittest.TestCase):
         # pie invariant on that data instead of crashing on the readout.
         #
         # Seeded: builds its own all-held fixture so the guard is
-        # data-independent.  Red holds on every source guarantee included=[].
+        # data-independent.  JEG-787: red holds no longer exclude -- the
+        # sources are eligible but hidden. All sources in `included` but all
+        # hidden from the DDF blend, so every DDF value is null.
         import fidelity_hold as fh
         from spec_reference import pipeline_live as pl
         paths = pl.default_paths()
@@ -221,19 +223,23 @@ class LiveDump(unittest.TestCase):
         for sid in ("ppr/12/sf0", "ppr/12/sf1"):
             s = rep["settings"][sid]
             excluded = {e["key"]: e["reason"] for e in s["excluded"]}
-            for root in pl.PROJECTIONS:
-                self.assertEqual(excluded.get(root), "held", sid)
-            self.assertIsNone(s["bench_share_readout"], sid)
-            self.assertIsNone(s["allocation"], sid)
-            self.assertEqual(s["included"], [], sid)
+            # JEG-787: red-held sources are NOT excluded; they are eligible
+            # but hidden.  No source should be excluded for "held".
+            for root in pl.SOURCE_ORDER:
+                self.assertNotEqual(excluded.get(root), "held",
+                                    f"{root} should not be excluded for 'held' ({sid})")
+            # All DDF blended values must be null (all sources hidden).
+            for k, row in s["rows"].items():
+                self.assertIsNone(row["ddf"]["blended"]["value"],
+                                  f"DDF blended should be null when all hidden ({sid})")
 
-    def test_amber_hold_stays_eligible(self):
-        """amber-hold-001: amber holds are eligible, red holds are not."""
+    def test_amber_hold_stays_eligible_and_visible(self):
+        """amber-hold-001 / JEG-726: amber holds are eligible and NOT hidden."""
         import fidelity_hold as fh
         from spec_reference import pipeline_live as pl
         paths = pl.default_paths()
         fixture = json.loads(Path(paths["fixture"]).read_text(encoding="utf-8"))
-        # Amber-hold all projections: they should remain eligible.
+        # Amber-hold all projections: they should remain eligible and visible.
         amber_holds = {root: {"stage": "stored_vs_chart",
                               "reason": "fidelity: stored_vs_chart",
                               "hold_level": "amber"}
@@ -245,11 +251,30 @@ class LiveDump(unittest.TestCase):
             rep = pl.build({"fixture": fx_path, "out": Path(tmp) / "out.json"},
                            only=["ppr/12/sf0"])
         s = rep["settings"]["ppr/12/sf0"]
-        # Amber-held projections must still appear in included.
+        # Amber-held projections must not be excluded for "held".
         for root in pl.PROJECTIONS:
-            if any(e["key"] == root for e in s["excluded"]):
-                self.fail(f"amber-held {root} was excluded")
-        # Negative test: red hold DOES exclude.
+            held_exclusions = [e for e in s["excluded"] if e["key"] == root and e["reason"] == "held"]
+            self.assertEqual(held_exclusions, [],
+                             f"amber-held {root} should not be excluded for 'held'")
+        # Any amber-held projection that made it into included must NOT be
+        # hidden from the DDF blend (i.e. it must appear in at least one
+        # row's blend sources -- players that source prices).
+        for root in pl.PROJECTIONS:
+            if root not in s["included"]:
+                continue  # excluded for another reason (e.g. no prior week)
+            found = any(root in row["ddf"]["blended"]["sources"]
+                        for row in s["rows"].values())
+            self.assertTrue(
+                found,
+                f"amber-held {root} in included but never appears in DDF blend sources")
+
+    def test_red_hold_eligible_but_hidden(self):
+        """JEG-569 / JEG-787: red holds are eligible (in pipeline for weights
+        and pie) but hidden from the DDF Value blend and Indexed basis."""
+        import fidelity_hold as fh
+        from spec_reference import pipeline_live as pl
+        paths = pl.default_paths()
+        fixture = json.loads(Path(paths["fixture"]).read_text(encoding="utf-8"))
         red_holds = {root: {"stage": "stored_vs_chart",
                             "reason": "fidelity: stored_vs_chart",
                             "hold_level": "red"}
@@ -262,8 +287,23 @@ class LiveDump(unittest.TestCase):
                              only=["ppr/12/sf0"])
         sr = rep_r["settings"]["ppr/12/sf0"]
         excluded_keys = {e["key"] for e in sr["excluded"]}
+        # Red-held projections must NOT be excluded (they are eligible).
         for root in pl.PROJECTIONS:
-            self.assertIn(root, excluded_keys, f"red-held {root} should be excluded")
+            self.assertNotIn(root, excluded_keys,
+                             f"red-held {root} should be eligible, not excluded")
+        # Red-held projections must be in included (for weights/pie).
+        for root in pl.PROJECTIONS:
+            self.assertIn(root, sr["included"],
+                          f"red-held {root} should be in the included set")
+        # Red-held projections must be hidden from DDF blend.
+        for root in pl.PROJECTIONS:
+            for k, row in sr["rows"].items():
+                ddf = row["ddf"]["blended"]
+                if ddf["count"] > 0:
+                    self.assertNotIn(
+                        root, ddf["sources"],
+                        f"red-held {root} should be hidden from DDF blend")
+                    break
 
     def _check_live(self, rep):
         # JEG-563: pie = 12 teams x 28 x skill starting slots; the default roster is now

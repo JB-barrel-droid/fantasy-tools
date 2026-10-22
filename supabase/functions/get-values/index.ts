@@ -124,12 +124,16 @@ const WEEKED_SOURCES = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]
 const HOLD_FIELDS = ["validationHold", "promotionHold"];
 
 // deno-lint-ignore no-explicit-any
-function sectionHold(sourceSection: any): { reason: string } | null {
+function sectionHold(sourceSection: any): { reason: string; hidden: boolean } | null {
   if (!sourceSection || typeof sourceSection !== "object") return null;
   for (const field of HOLD_FIELDS) {
     const hold = sourceSection[field];
     if (hold && typeof hold === "object" && hold.reason) {
-      return { reason: hold.reason };
+      // JEG-726 / JEG-787: an amber validationHold labels the source but does
+      // NOT hide it from DDF Value or Indexed.  Only red holds (the default
+      // when hold_level is absent) and promotionHolds hide.
+      const isAmber = field === "validationHold" && hold.hold_level === "amber";
+      return { reason: hold.reason, hidden: !isAmber };
     }
   }
   return null;
@@ -331,8 +335,9 @@ function buildPipelineInput(
     sources[key] = { family, status: "included", values, label: key };
     included.push(key);
 
-    // Mark as hidden if held, validation-held, or divergence-excluded.
-    if (hold || isValidationHeld || isDivergenceExcluded) {
+    // Mark as hidden if red-held, validation-held, or divergence-excluded.
+    // JEG-726 / JEG-787: amber holds label the source but do NOT hide it.
+    if ((hold && hold.hidden) || isValidationHeld || isDivergenceExcluded) {
       hiddenKeys.push(key);
     }
   }
