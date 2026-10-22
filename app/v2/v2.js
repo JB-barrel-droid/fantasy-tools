@@ -4802,7 +4802,7 @@
   // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
   // (symbol + word), with the reasons on a second muted line. Never colour alone.
   const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
-  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
+  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "?", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
   function renderHeadlines() {
     const box = $("v2CHeads");

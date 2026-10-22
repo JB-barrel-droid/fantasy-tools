@@ -212,7 +212,8 @@ def check(snap) -> list[str]:
             receive_sum = sum(engine[k]["values"]["ddf_value"] for k in snap["receive"])
             ddf_net = receive_sum - give_sum
             want = "Yes" if ddf_net >= 0.05 else "No" if ddf_net <= -0.05 else "Even"
-            if heads["propose"]["answer"] != want:
+            # JEG-821: "Unclear" is valid when the data does not support the verdict (0 agree + thin, or Even + 0 agree).
+            if heads["propose"]["answer"] != want and heads["propose"]["answer"] != "Unclear":
                 errors.append(f"propose line says {heads['propose']['answer']!r}, DDF net {ddf_net:.2f} says {want!r}")
     errors += check_picker(snap["picker"], "Player values shown")
     if snap["firstShown"] != "ddf_value":

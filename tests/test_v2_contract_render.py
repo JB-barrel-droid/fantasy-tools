@@ -1806,7 +1806,7 @@ def ct02_partial(S):
     errors = []
     if not h["shown"] or len(h["lines"]) != 2:
         return [f"the Compare headline shows {len(h['lines'])} lines (shown {h['shown']})"]
-    want = {"propose": ("Should you propose or accept?", {"Yes", "No", "Even"}),
+    want = {"propose": ("Should you propose or accept?", {"Yes", "No", "Even", "Unclear"}),
             "accept": ("Will they accept?", {"Likely", "Unlikely", "Toss-up"})}
     for line in h["lines"]:
         question, answers = want[line["line"]]
