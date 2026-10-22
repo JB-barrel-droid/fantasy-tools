@@ -149,6 +149,23 @@ class TestPromote(unittest.TestCase):
         self.assertFalse(raw.endswith("\n"))
         self.assertEqual(json.dumps(json.loads(raw), separators=(",", ":")), raw)
 
+    def test_promotion_drops_the_prior_hold(self):
+        """JEG-807 (2026-10-22): the promoted section started as a deep copy
+        of the fixture section, so a week-6 "chain hold: review hold" rode
+        onto the Week 7 CBS section and the page hid it as red. A candidate
+        that passed review is promoted hold-free; the chain's hold steps
+        re-mark it when a hold still stands."""
+        fx_path, rp, revp = ready_review(self.tmp)
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
+        fx["sources"]["syn"]["validationHold"] = {"reason": "chain hold: review hold", "week": 6,
+                                                  "root": "syn", "stage": "review"}
+        fx["sources"]["syn"]["promotionHold"] = {"reason": "awaiting players bake", "week": 6}
+        fx_path.write_text(json.dumps(fx, separators=(",", ":")))
+        promo.promote(str(revp), APPROVE, fixture_path=str(fx_path), record_dir=str(self.records))
+        after = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["syn"]
+        self.assertNotIn("validationHold", after)
+        self.assertNotIn("promotionHold", after)
+
     def test_refuse_hold_verdict(self):
         fx_path, rp, revp = ready_review(self.tmp)
         rev = json.loads(revp.read_text(encoding="utf-8"))

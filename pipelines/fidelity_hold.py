@@ -78,14 +78,31 @@ def _held_sections(root: str) -> list[str]:
     return base
 
 
-def _candidate_identity(section: dict) -> str | None:
-    """Return the candidate section's identity for hold-matching (JEG-799).
+def section_identity(section: dict) -> str | None:
+    """The build identity of a fixture section, for hold matching (JEG-799 B2).
 
-    A hold carries measured_site (the live page's snapshot_fetched_at when the
-    pulse ran). If the candidate section has a *different* snapshot_fetched_at,
-    the candidate is a newer build and the hold does not apply."""
+    The pulse stamps a hold with measured_site = this value read off the live
+    page; apply_fidelity_holds compares it with the candidate's. Both sides
+    use this one function so they cannot drift.
+
+    Charts: source_provenance.snapshot_fetched_at (the save the section was
+    built from). Projections (JEG-807, 2026-10-22): the snapshot date, espn's
+    `espn_snapshot` or cbsros/razzball's `vintage`. Before this the projection
+    sections had no identity on either side (`fetched_at` is the ESPN build
+    time, absent on cbsros/razzball), so a razzball hold measured on the
+    10-19 chart was applied to the 10-21 candidate. `fetched_at` is the last
+    resort for a chart without provenance."""
+    if not isinstance(section, dict):
+        return None
     prov = section.get("source_provenance") or {}
-    return prov.get("snapshot_fetched_at") or section.get("fetched_at")
+    for value in (prov.get("snapshot_fetched_at"), section.get("espn_snapshot"),
+                  section.get("vintage"), section.get("fetched_at")):
+        if value:
+            return str(value)
+    return None
+
+
+_candidate_identity = section_identity
 
 
 def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[dict, dict]:
@@ -109,6 +126,7 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
         hold_level = hold.get("hold_level", "red")
         measured = hold.get("measured_site")
         applied_sections = []
+        skipped_sections = []
         for sec in sections:
             target = sources.get(sec)
             if isinstance(target, dict):
@@ -117,6 +135,15 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
                 if measured is not None:
                     candidate_id = _candidate_identity(target)
                     if candidate_id is not None and candidate_id != measured:
+                        # JEG-807 (2026-10-22): the skip must not leave an
+                        # older fidelity hold on the candidate. The 04:08Z
+                        # chain skipped fantasycalc's and espn's holds this
+                        # way and shipped their week-6 red holds on Week 7
+                        # sections. A hold this pulse measured on another
+                        # build says nothing about this one.
+                        if is_fidelity_hold(target.get("validationHold")):
+                            del target["validationHold"]
+                        skipped_sections.append(sec)
                         continue
                 # Keep combos intact so the engine can compute with them.
                 target.pop("validationHold", None)
@@ -126,7 +153,11 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
                     "since": hold.get("since"),
                     "hold_level": hold_level}
                 applied_sections.append(sec)
+        if measured is not None and not applied_sections:
+            # Nothing on this build carries the hold: it is not held.
+            continue
         report[root] = {"sections": applied_sections if measured is not None else sections,
+                        "skipped": skipped_sections,
                         "hold_level": hold_level,
                         "reason": hold.get("reason"), "summary": hold.get("summary")}
     return out, report
@@ -151,13 +182,20 @@ def update_chain_status(status: dict, report: dict, week: int | None) -> dict:
     detail = dict(status.get("held_detail") or {})
     for root, r in report.items():
         held.add(root)
+        # JEG-807 (2026-10-22): the severity is the pulse's hold_level. This
+        # used to say "amber" for every fidelity hold while the fixture carried
+        # hold_level "red" (hidden from DDF Value), so the status page said
+        # "labelled only" about sources the engine had dropped.
         detail[root] = {"reason": r["reason"], "held_series": vc.derived_series(root), "sections": r["sections"],
-                        "detail": r["summary"], "hold_severity": "amber", "week": week}
+                        "detail": r["summary"], "hold_severity": r.get("hold_level") or "red", "week": week}
     status["held"] = sorted(held)
     status["held_detail"] = detail
     status["fidelity_holds"] = {root: r["reason"] for root, r in report.items()}
-    if held and status.get("status") == "green":
-        status["status"] = "published_with_holds"
+    severities = [d.get("hold_severity") for d in detail.values() if d.get("hold_severity")]
+    status["hold_severity"] = ("red" if "red" in severities else "amber") if severities else "none"
+    for key in ("status", "outcome"):
+        if held and status.get(key) == "green":
+            status[key] = "published_with_holds"
     return status
 
 
