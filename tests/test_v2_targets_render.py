@@ -141,6 +141,7 @@ READ = """([side, ours, ids]) => {
     low: Boolean(r.ddfLowConfidence), note: r.ddfConfidenceNote || null,
     proj: r.ddfByVersion ? r.ddfByVersion.projections || null : null}]));
   const order = rows.map(r => String(r.player_key));
+  const flags = Object.fromEntries(rows.map(r => [String(r.player_key), {out: Boolean(r.espnProjectsZero), estimated: r.estimated || {}}]));
   const st = C.getState();
   const text = node => (node ? node.childNodes[0]?.textContent || "" : null);
   const ownText = node => (node ? [...node.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join("") : null);
@@ -193,6 +194,7 @@ READ = """([side, ours, ids]) => {
     // JEG-833: the gap each side shows (Sell the consensus gap, Buy the gap at the charts' rank) and the score it is ranked by.
     allBest: window.TradeValueV2.targets()[side].map(p => [String(p.row.player_key), side === 'buy' ? p.market.rankGap : p.market.gap,
       side === 'buy' ? p.market.buyScore : p.market.score]),
+    flags, leftOut: window.TradeValueV2.targets().leftOut, leftOutNames: window.TradeValueV2.targets().leftOutNames,
     scaleOnly: window.TradeValueV2.targets().scaleOnly, pos: Object.fromEntries(rows.map(r => [String(r.player_key), r.pos])),
     scores: [...document.querySelectorAll(`#${ids.table} tbody tr[data-player-key]`)].map(tr => {
       const s = tr.querySelector('td.best .t-score'); return s ? {score: s.dataset.score, text: s.textContent, title: s.title, market: s.dataset.marketRank ?? null, ours: s.dataset.ourRank ?? null} : null; }),
@@ -291,6 +293,10 @@ SIMULATE_ROWS = """() => {
     && used.every(c => fin(r.values[c]) && r.values[c] > 1));
   const lone = spare[0] ? {key: String(spare[0].player_key), keep: used[0], value: spare[0].values[KEY] + 20} : null;
   const split = spare[1] ? {key: String(spare[1].player_key), hi: used[0], lo: used[1], gone: used[2], ours: spare[1].values[KEY]} : null;
+  // JEG-842: an Adams-style row. The top real Buy and a further Sell target are marked out (ESPN zero): neither may be listed.
+  const probeKeys = new Set(taken); [lone && lone.key, split && split.key].forEach(k => probeKeys.add(k));
+  const outBuy = t.buy.map(p => String(p.row.player_key)).find(k => !probeKeys.has(k)) || null;
+  const outSell = solid.map(p => String(p.row.player_key)).find(k => !probeKeys.has(k)) || null;
   const note = 'Only one source prices this player', reason = 'No source prices this player';
   const real = C.getRows.bind(C);
   C.getRows = () => real().map(r => {
@@ -304,11 +310,12 @@ SIMULATE_ROWS = """() => {
     if (k === none) return {...r, values: {...r.values, [KEY]: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
       ddfLowConfidence: false, ddfReason: reason};
     if (k === zero.key) return {...r, values: {...r.values, [zero.chart]: 0}};
+    if (k === outBuy || k === outSell) return {...r, espnProjectsZero: true};
     if (gap && k === gap.key) return {...r, values: {...r.values, [gap.chart]: null},
       missingReasons: {...(r.missingReasons || {}), [gap.chart]: gap.reason}};
     return r;
   });
-  window.__probe = {low, none, zero, gap, note, reason};
+  window.__probe = {low, none, zero, gap, note, reason, outBuy, outSell};
   document.getElementById('v2TPosition').dispatchEvent(new Event('change'));
   return window.__probe;
 }"""
@@ -423,7 +430,14 @@ def expected_rank_gaps(snapshot) -> dict:
     return out
 
 
-def expected_side(snapshot, side):
+def is_flagged(snapshot, key) -> bool:
+    """JEG-842: out (ESPN projects him at 0) or an estimated value on a compared chart that prices him."""
+    flag = snapshot["flags"].get(key) or {}
+    values = snapshot["engine"][key]
+    return bool(flag.get("out")) or any(finite(values.get(c)) and flag.get("estimated", {}).get(c) for c in snapshot["used"])
+
+
+def expected_side(snapshot, side, keep_flagged=False):
     """The independent Check 1 list for one side: [(key, gap, agree, of, score)] from the engine rows (JEG-677).
     Sell: consensus gap, ours >= SELL_FLOOR (JEG-820). Buy: the gap at the charts' rank at or under -BUY_RANK_MARGIN
     (JEG-833). Both ranked by |gap| x min(ours, consensus), biggest first; engine order breaks ties."""
@@ -449,6 +463,8 @@ def expected_side(snapshot, side):
             continue
         shown = gap if side == "sell" else rank_gaps[key]
         if side == "buy" and shown > -BUY_RANK_MARGIN:   # JEG-833: the charts rank him where we do: the scale, not a Buy
+            continue
+        if is_flagged(snapshot, key) and not keep_flagged:
             continue
         found.append((index, key, shown, agree, len(priced), abs(shown) * min(ours, consensus)))
     found.sort(key=lambda f: (-f[5], f[0]))
@@ -570,6 +586,21 @@ def check(snapshot) -> list[str]:
         errors.append(f"{side} list is not the consensus rule's: want {[(k, round(g, 1)) for k, g, *_ in want_list][:6]}, "
                       f"got {[(k, round(g, 1)) for k, g, _ in got_list][:6]}")
     wanted = {k: (g, a, n, s) for k, g, a, n, s in want_list}
+    # JEG-842: the out probes (a real Buy and a real Sell marked out) are never listed, and every exclusion is counted
+    # and said on the page: "N players left out: out this week or estimated".
+    if our_key == DDF and probe:
+        for pk in (probe.get("outBuy"), probe.get("outSell")):
+            if pk is None:
+                errors.append("no out-probe candidate: the out path went unchecked")
+            elif pk in {k for k, *_ in snapshot["allBest"]}:
+                errors.append(f"player {pk} is out (ESPN: 0) but listed as a {side} target")
+    want_left = sum(len(expected_side(snapshot, sd, keep_flagged=True)) - len(expected_side(snapshot, sd)) for sd in ("sell", "buy"))
+    if snapshot["leftOut"] != want_left:
+        errors.append(f"players left out as out/estimated must be counted: want {want_left}, got {snapshot['leftOut']}")
+    n = snapshot["leftOut"]
+    phrase = f"{n} player{'' if n == 1 else 's'} left out: out this week or estimated"
+    if (n and phrase not in snapshot["note"]) or (not n and "out this week or estimated" in snapshot["note"]):
+        errors.append(f"the note must say how many players were left out as out or estimated ({phrase!r}): {snapshot['note']!r}")
     rendered = [row["key"] for row in snapshot["table"]]
     if rendered != [k for k, *_ in want_list][:len(rendered)]:
         errors.append(f"{side} rows {rendered[:6]} are not the top of the consensus list (biggest score first, JEG-820 / JEG-833)")
@@ -596,7 +627,8 @@ def check(snapshot) -> list[str]:
             s = next((x for r, x in zip(snapshot["table"], snapshot["scores"]) if r["key"] == key), None)
             if s and f"{pos}{s['market']}→{pos}{s['ours']}" not in (text or ""):
                 errors.append(f"buy card {key} must print the ranks: {text!r}")
-        want_scale = sum(1 for k in snapshot["order"] if k in engine and finite(engine[k].get(our_key)) and k not in wanted
+        wanted_all = {k for k, *_ in expected_side(snapshot, "buy", keep_flagged=True)}
+        want_scale = sum(1 for k in snapshot["order"] if k in engine and finite(engine[k].get(our_key)) and k not in wanted_all
                          and len([v for c in snapshot["used"] if finite((v := engine[k].get(c)))]) >= 2
                          and median([engine[k][c] for c in snapshot["used"] if finite(engine[k].get(c))]) > 0
                          and median([engine[k][c] for c in snapshot["used"] if finite(engine[k].get(c))]) < engine[k][our_key]
@@ -1115,12 +1147,18 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "native rank off by one": ({"v2_js": (v2, "native.textContent = `#${rank} on", "native.textContent = `#${rank + 1} on")}, numbers_only),
             # JEG-820: raw-gap order and no Sell floor (the bug the ticket names), on the real rows.
             "raw gap order (JEG-820)": ({"targets_js": (targets, "const score = Math.abs(gap) * weight;", "const score = Math.abs(gap);")}, numbers_only),
-            "sell floor removed (JEG-820)": ({"targets_js": (targets, "const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
-                                                             "const sell = sellable.slice().sort(byScore);")}, numbers_only),
+            "sell floor removed (JEG-820)": ({"targets_js": (targets, "const sellAll = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
+                                                             "const sellAll = sellable.slice().sort(byScore);")}, numbers_only),
             # JEG-833: Buy by the consensus gap again (the overall top), the rank margin dropped, and the score sub-line gone.
-            "buy by consensus gap (JEG-833)": ({"targets_js": (targets, "const buy = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)",
-                                                                "const buy = buyable.filter(p => true)")}, numbers_only),
+            "buy by consensus gap (JEG-833)": ({"targets_js": (targets, "const buyAll = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)",
+                                                                "const buyAll = buyable.filter(p => true)")}, numbers_only),
             "rank margin dropped (JEG-833)": ({"targets_js": (targets, "p.market.rankGap <= -BUY_RANK_MARGIN", "p.market.rankGap < 0")}, numbers_only),
+            # JEG-842: an out player back in Buy / Sell, the estimated rule dropped, and the note gone.
+            "out players recommended (JEG-842)": ({"targets_js": (targets, 'if (row.espnProjectsZero) return "out";', "")}, numbers_only),
+            "estimated values trusted (JEG-842)": ({"targets_js": (targets, 'return Object.keys(cells).some(key => finite(cells[key].value) && est[key]) ? "estimated" : null;', "return null;")}, numbers_only),
+            "buy not filtered (JEG-842)": ({"targets_js": (targets, "const buy = buyAll.filter(p => !flagged(p));", "const buy = buyAll;")}, numbers_only),
+            "sell not filtered (JEG-842)": ({"targets_js": (targets, "const sell = sellAll.filter(p => !flagged(p));", "const sell = sellAll;")}, numbers_only),
+            "left-out note removed (JEG-842)": ({"v2_js": (v2, "    if (targetsView.leftOut && !blocked) {", "    if (false) {")}, numbers_only),
             "score not shown (JEG-833)": ({"v2_js": (v2, "      bc.appendChild(scoreNode(side, p, b));\n", "")}, numbers_only),
             "rows sorted by raw gap, copy unchanged (JEG-833)": ({"targets_js": (targets, "const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;",
                                                                                    "const byScore = (a, b) => b.market.gap - a.market.gap || a.order - b.order;")}, numbers_only),

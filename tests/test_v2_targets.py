@@ -86,6 +86,14 @@ CONSENSUS_ROWS = [
     _both(47, "T3", 24.0, pos="TE", usatoday=12.0, fantasycalc=12.0),
     _both(48, "T4", 16.0, pos="TE", usatoday=8.0, fantasycalc=8.0),
     _both(49, "T5", 10.0, pos="TE", usatoday=5.0, fantasycalc=5.0),
+    # JEG-842: QB group. O (ESPN has him out) and E (FantasyCalc's value is estimated) have rank gaps -2 and -8 (Buys by
+    # the JEG-833 rule) but must not be listed; S is a Sell by consensus (+10, ours 10 >= floor) with ESPN out: not listed.
+    # All three are counted (leftOut 3). Q and R keep the ranks honest (flagged players still take part in the ranks).
+    _both(60, "Q", 20.0, pos="QB", usatoday=20.0, fantasycalc=20.0),
+    {**_both(61, "O", 30.0, pos="QB", usatoday=10.0, fantasycalc=10.0), "espnProjectsZero": True},
+    {**_both(62, "E", 28.0, pos="QB", usatoday=9.0, fantasycalc=9.0), "estimated": {"fantasycalc": "FantasyCalc does not list him"}},
+    _both(63, "R", 10.0, pos="QB", usatoday=5.0, fantasycalc=5.0),
+    {**_both(64, "S", 10.0, pos="RB", usatoday=20.0, fantasycalc=20.0), "espnProjectsZero": True},
 ]
 SELL_FLOOR = 5.0
 BUY_RANK_MARGIN = 2.0
@@ -138,7 +146,11 @@ def reference(rows: list[dict], ours_key: str, charts: list[str], keep=None) -> 
     Sell shows the consensus gap; Buy shows the gap at the charts' rank (JEG-833). `keep` filters what is listed
     after the ranks are taken over every row."""
     ranks = rank_gaps(rows, ours_key, charts)
-    sell, buy, below_floor, scale_only = [], [], 0, []
+    sell, buy, below_floor, scale_only, left_out = [], [], 0, [], []
+
+    def flagged(row):   # JEG-842: out (ESPN zero) or an estimated value on a chart that prices him
+        return bool(row.get("espnProjectsZero")) or any(row["values"].get(c) is not None and (row.get("estimated") or {}).get(c) for c in charts)
+
     for order, row in enumerate(rows):
         if keep is not None and not keep(row):
             continue
@@ -159,17 +171,24 @@ def reference(rows: list[dict], ours_key: str, charts: list[str], keep=None) -> 
             if ours < SELL_FLOOR:   # JEG-820: a player we would drop is never a Sell
                 below_floor += 1
                 continue
+            if flagged(row):
+                left_out.append((0, -abs(gap) * min(ours, consensus), order, row["name"]))
+                continue
             sell.append((order, row["player_key"], gap, agree, len(priced), abs(gap) * min(ours, consensus)))
             continue
         rank_gap = ranks[row["player_key"]][0]
         if rank_gap > -BUY_RANK_MARGIN:   # JEG-833: the charts rank him where we do: the scale, not a mispricing
             scale_only.append((ours, order, row["name"]))
             continue
+        if flagged(row):
+            left_out.append((-1, -abs(rank_gap) * min(ours, consensus), order, row["name"]))
+            continue
         buy.append((order, row["player_key"], rank_gap, agree, len(priced), abs(rank_gap) * min(ours, consensus)))
     sell.sort(key=lambda t: (-t[5], t[0]))
     buy.sort(key=lambda t: (-t[5], t[0]))
     scale_only.sort(key=lambda t: (-t[0], t[1]))
-    return {"sell": [t[1:5] for t in sell], "buy": [t[1:5] for t in buy], "belowSellFloor": below_floor,
+    left_out.sort()   # Buy rows (by score) first, then Sell rows
+    return {"leftOut": len(left_out), "leftOutNames": [t[3] for t in left_out[:5]], "sell": [t[1:5] for t in sell], "buy": [t[1:5] for t in buy], "belowSellFloor": below_floor,
             "scaleOnly": len(scale_only), "scaleOnlyNames": [t[2] for t in scale_only[:5]], "ranks": ranks}
 
 
@@ -200,6 +219,7 @@ console.log(JSON.stringify({
   byDefault: run(rows),
   belowSellFloor: T.buildTargets(rows, input.charts, {}).belowSellFloor, sellFloor: T.SELL_FLOOR,
   // JEG-833: the counts, the margin, and a name-search run (keep) whose ranks must still come from every row.
+  leftOut: T.buildTargets(rows, input.charts, {}).leftOut, leftOutNames: T.buildTargets(rows, input.charts, {}).leftOutNames,
   scaleOnly: T.buildTargets(rows, input.charts, {}).scaleOnly, scaleOnlyNames: T.buildTargets(rows, input.charts, {}).scaleOnlyNames,
   buyMargin: T.BUY_RANK_MARGIN,
   keepRun: run(rows, {ours: "ddf_value", keep: row => row.player_key === 46}),
@@ -275,6 +295,11 @@ def check(result: dict) -> list[str]:
     want = reference(all_rows, "ddf_value", CHARTS)
     if result.get("scaleOnly") != want["scaleOnly"] or result.get("scaleOnlyNames") != want["scaleOnlyNames"]:
         errors.append(f"players priced below our value but ranked where we rank them must be counted and named (by ours): want {want['scaleOnly']} {want['scaleOnlyNames']}, got {result.get('scaleOnly')} {result.get('scaleOnlyNames')}")
+    # JEG-842: out / estimated players are not recommended on either side, and the exclusion is counted and named.
+    if {61, 62, 64} & set(sell_keys + buy_keys):
+        errors.append(f"an out (ESPN zero) or estimated-chart player must not be a Buy or Sell target: {sell_keys} {buy_keys}")
+    if result.get("leftOut") != want["leftOut"] or result.get("leftOutNames") != want["leftOutNames"] or want["leftOut"] != 3:
+        errors.append(f"left-out players must be counted and named: want {want['leftOut']} {want['leftOutNames']}, got {result.get('leftOut')} {result.get('leftOutNames')}")
     if result.get("buyMargin") != BUY_RANK_MARGIN:
         errors.append(f"Buy margin must be {BUY_RANK_MARGIN} points: {result.get('buyMargin')}")
     keep_run = result.get("keepRun") or {}
@@ -380,10 +405,10 @@ MUTATIONS = {
     "dot value not the indexed chart value": ("dots = priced.map(key => ({chart: key, value: cells[key].value,", "dots = priced.map(key => ({chart: key, value: 0,"),
     # JEG-820: the weighted ranking and the Sell floor. Each of these is the bug the ticket names (raw-gap order
     # put 0.0 to 3.4 players at the top of Sell) or a plausible slip while fixing it.
-    "sell floor removed (raw-gap bug returns)": ("const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
-                                                 "const sell = sellable.slice().sort(byScore);"),
-    "sell floor strict": ("const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
-                          "const sell = sellable.filter(p => p.ours > SELL_FLOOR).sort(byScore);"),
+    "sell floor removed (raw-gap bug returns)": ("const sellAll = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
+                                                 "const sellAll = sellable.slice().sort(byScore);"),
+    "sell floor strict": ("const sellAll = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
+                          "const sellAll = sellable.filter(p => p.ours > SELL_FLOOR).sort(byScore);"),
     "sell floor moved": ("const SELL_FLOOR = 5;", "const SELL_FLOOR = 2;"),
     "floor applied to buy": ('const buyable = players.filter(p => p.market.eligible && p.market.side === "buy");',
                              'const buyable = players.filter(p => p.market.eligible && p.market.side === "buy" && p.ours >= SELL_FLOOR);'),
@@ -391,10 +416,10 @@ MUTATIONS = {
     "weight uses the larger value": ("const weight = Math.min(ours, value);", "const weight = Math.max(ours, value);"),
     "score sorted ascending": ("const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;",
                                "const byScore = (a, b) => a.market.score - b.market.score || a.order - b.order;"),
-    "players under the floor not counted": ("const belowSellFloor = sellable.length - sell.length;", "const belowSellFloor = 0;"),
+    "players under the floor not counted": ("const belowSellFloor = sellable.length - sellAll.length;", "const belowSellFloor = 0;"),
     # JEG-833: Buy at the charts' rank. The first is the bug the ticket names (Buy by consensus gap: the overall top).
-    "buy by consensus gap (JEG-833 bug returns)": ("const buy = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)",
-                                                   "const buy = buyable.filter(p => true)"),
+    "buy by consensus gap (JEG-833 bug returns)": ("const buyAll = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)",
+                                                   "const buyAll = buyable.filter(p => true)"),
     "rank margin dropped": ("p.market.rankGap <= -BUY_RANK_MARGIN", "p.market.rankGap < 0"),
     "rank margin moved": ("const BUY_RANK_MARGIN = 2;", "const BUY_RANK_MARGIN = 4;"),
     "rank gap sign flipped": ("m.rankGap = oursDesc[i] - p.ours;", "m.rankGap = p.ours - oursDesc[i];"),
@@ -402,6 +427,12 @@ MUTATIONS = {
                                            "    if (keep) players = players.filter(p => keep(p.row));\n    rankEquivalents(players);"),
     "ranks taken across positions": ("      if (!byPos.has(p.row.pos)) byPos.set(p.row.pos, []);\n      byPos.get(p.row.pos).push(p);",
                                      "      if (!byPos.has(0)) byPos.set(0, []);\n      byPos.get(0).push(p);"),
+    # JEG-842: the bug the ticket names (an out player in Buy) and each way to half-fix it.
+    "out players recommended (JEG-842 bug returns)": ('if (row.espnProjectsZero) return "out";', ""),
+    "estimated values trusted": ('return Object.keys(cells).some(key => finite(cells[key].value) && est[key]) ? "estimated" : null;', "return null;"),
+    "sell not excluded": ("const sell = sellAll.filter(p => !flagged(p));", "const sell = sellAll;"),
+    "buy not excluded": ("const buy = buyAll.filter(p => !flagged(p));", "const buy = buyAll;"),
+    "exclusion not counted": ("leftOut: leftOut.length,", "leftOut: 0,"),
     "scale-only players not counted": ("scaleOnly: scaleOnly.length, scaleOnlyNames", "scaleOnly: 0, scaleOnlyNames"),
     "buy score uses the larger value": ("m.buyScore = Math.abs(m.rankGap) * Math.min(p.ours, m.value);", "m.buyScore = Math.abs(m.rankGap) * Math.max(p.ours, m.value);"),
 }
