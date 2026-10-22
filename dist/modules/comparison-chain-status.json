@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T01:36:09.059059+00:00",
+  "run_at": "2026-10-22T01:52:20.179898+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -72,12 +72,12 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 7 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/, 30 h ago); chart shows week 6; not stored yet",
+      "detail": "publisher posted week 7 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/, 31 h ago); chart shows week 6; not stored yet",
       "hold_severity": "amber",
       "week": 7
     },
     "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: freshness",
       "held_series": [
         "fantasycalc"
       ],
@@ -85,7 +85,7 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "3/1116 values match exactly across 6 columns; 1113 values differ, 302 outside the movement band (systemic: more than 10% of values); 3 live players not stored, 3 stored players not live (above the list's churn line); 21 players entered or left the bottom of the list since the save (churn)",
+      "detail": "content week 7 opened 38 h ago; chart still shows FantasyCalc week 6",
       "hold_severity": "amber",
       "week": 7
     },
@@ -290,7 +290,7 @@
   },
   "fidelity_holds": {
     "usatoday": "fidelity: freshness",
-    "fantasycalc": "fidelity: publisher_vs_stored",
+    "fantasycalc": "fidelity: freshness",
     "fantasypros": "fidelity: stored_vs_chart",
     "cbs": "fidelity: scrape_validity",
     "espn": "fidelity: publisher_vs_stored",
@@ -309,6 +309,6 @@
       "Makefile:512: test-core"
     ],
     "detail": "FAIL tests.test_launch_front_door.FrontDoorRenderedTests.test_v2_table_equals_engine_and_guard_fails_on_drift; AssertionError: 2 not greater than or equal to 3 : {'compared': 50, 'skipped': 0, 'cells': 100, 'columns': 2, 'problems': []}",
-    "recorded_at": "2026-10-22T01:43:06.571144+00:00"
+    "recorded_at": "2026-10-22T02:00:04.530355+00:00"
   }
 }
