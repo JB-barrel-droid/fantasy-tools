@@ -7,7 +7,10 @@ Check 1 (JEG-677; default and indexed basis per Jeremy 2026-10-16) on the engine
   * a player is a target only with 2+ charts priced, a consensus above the
     waiver line, and a strict majority of those charts on the same side of our
     value as the consensus ("N of M charts agree");
-  * Sell: consensus gap > 0, largest first. Buy: gap < 0, most negative first;
+  * Sell: consensus gap > 0. Buy: gap < 0. Each list ranks by the gap weighted
+    by the value at stake, score = |gap| x min(ours, consensus), biggest first
+    (JEG-820, option B, 2026-10-22); Sell also needs ours >= 5 (SELL_FLOOR), so
+    a player we would drop never heads the Sell list. Buy has no floor;
   * our value defaults to DDF Value, the blend (ddf_value; Jeremy 2026-10-16:
     DDF decides who we want); DDF Projections and the other DDF versions,
     ESPN, CBS rest-of-season and Razzball stay as choices, each read from its
@@ -65,8 +68,16 @@ CONSENSUS_ROWS = [
     _both(36, "Q", 10.0, usatoday=0.0, fantasycalc=0.0, cbs=0.0),                      # consensus at the waiver line: never a buy
     _both(37, "R", 10.0, usatoday=40.0, fantasycalc=3.0, cbs=2.0),                     # one huge chart, two below: buy by median
     _both(38, "S", 10.0, usatoday=10.0, fantasycalc=10.0, cbs=10.0),                   # all level: no gap
-    _both(39, "T", 4.0, usatoday=9.0, fantasycalc=7.0, cbs=None),                      # median 8, 2 of 2 above, one missing: sell
+    _both(39, "T", 6.0, usatoday=9.0, fantasycalc=7.0, cbs=None),                      # median 8, 2 of 2 above, one missing: sell (score 12)
+    # JEG-820: U has the biggest raw gap of all (+12) but we value him at 1.0: a drop, never a Sell.
+    _both(40, "U", 1.0, usatoday=14.0, fantasycalc=12.0, cbs=13.0),
+    # V (gap +5, score 45) outranks W (gap +7.5, score 37.5): the weight, not the raw gap, orders Sell.
+    _both(41, "V", 9.0, usatoday=14.0, fantasycalc=14.0, cbs=13.0),
+    _both(42, "W", 5.0, usatoday=13.0, fantasycalc=12.0),                              # ours exactly at the floor: listed
+    # X: a buy with a 1.0 consensus (gap -2, score 2): still listed (no Buy floor), last.
+    _both(43, "X", 3.0, usatoday=1.0, fantasycalc=1.0),
 ]
+SELL_FLOOR = 5.0
 
 INFO = [
     {"key": "espn", "available": True, "stale": False},
@@ -109,10 +120,13 @@ def reference(rows: list[dict], ours_key: str, charts: list[str]) -> dict:
         agree = sum(1 for v in priced if (v > ours if gap > 0 else v < ours))
         if agree * 2 <= len(priced):
             continue
-        (sell if gap > 0 else buy).append((order, row["player_key"], gap, agree, len(priced)))
-    sell.sort(key=lambda t: (-t[2], t[0]))
-    buy.sort(key=lambda t: (t[2], t[0]))
-    return {"sell": [t[1:] for t in sell], "buy": [t[1:] for t in buy]}
+        if gap > 0 and ours < SELL_FLOOR:   # JEG-820: a player we would drop is never a Sell
+            continue
+        score = abs(gap) * min(ours, consensus)   # JEG-820: the gap weighted by the value at stake
+        (sell if gap > 0 else buy).append((order, row["player_key"], gap, agree, len(priced), score))
+    sell.sort(key=lambda t: (-t[5], t[0]))
+    buy.sort(key=lambda t: (-t[5], t[0]))
+    return {"sell": [t[1:5] for t in sell], "buy": [t[1:5] for t in buy]}
 
 
 def recompute_market(row: dict, charts: list[str]) -> dict:
@@ -131,7 +145,7 @@ const brief = p => ({key: p.row.player_key, ours: p.ours, cells: p.cells, market
 const run = (rows, opts) => { const r = T.buildTargets(rows, input.charts, opts); return {ours: r.ours, sell: r.sell.map(brief),
   buy: r.buy.map(brief), compared: r.compared, omitted: r.omittedNoOurs}; };
 // Jeremy, 2026-10-08: a one-source DDF Value (ddfLowConfidence) is still a target.
-const lc = T.buildTargets([{player_key: 9, name: "H", values: {ddf_value: 3.0, usatoday: 9.0, fantasycalc: 8.0}, ddfCount: 1, ddfLowConfidence: true}], ["usatoday", "fantasycalc"], {ours: "ddf_value"});
+const lc = T.buildTargets([{player_key: 9, name: "H", values: {ddf_value: 6.0, usatoday: 9.0, fantasycalc: 8.0}, ddfCount: 1, ddfLowConfidence: true}], ["usatoday", "fantasycalc"], {ours: "ddf_value"});
 // JEG-504: consensus cases. I: the median equals our value (10.0) to one decimal;
 // J: one chart does not price the player (left out), one at its waiver line (a finite 0 counts).
 const mk = T.buildTargets(input.market, ["usatoday", "fantasycalc", "cbs"], {ours: "ddf_value"});
@@ -140,6 +154,7 @@ console.log(JSON.stringify({
   market: mk.players.map(brief),
   lowConfidence: lc.sell.map(p => [p.row.player_key, p.ours, p.market.gap]),
   byDefault: run(rows),
+  belowSellFloor: T.buildTargets(rows, input.charts, {}).belowSellFloor, sellFloor: T.SELL_FLOOR,
   ddf: run(rows, {ours: "ddf_value"}),
   proj: run(rows, {ours: "ddf_value_projections"}),
   espn: run(rows, {ours: "espn"}),
@@ -189,13 +204,19 @@ def check(result: dict) -> list[str]:
     d = lists(result["byDefault"])
     sell_keys = [k for k, *_ in d["sell"]]
     buy_keys = [k for k, *_ in d["buy"]]
-    if sell_keys != [31, 39] or buy_keys != [6, 37, 32]:
-        errors.append(f"default lists wrong (sell {sell_keys}, buy {buy_keys}); wanted sell [31, 39], buy [6, 37, 32]")
+    # JEG-820: scores K 100, V 45, W 37.5, T 12 (U is under the Sell floor); F 33.75, L 25, R 21, X 2.
+    if sell_keys != [31, 41, 42, 39] or buy_keys != [6, 32, 37, 43]:
+        errors.append(f"default lists wrong (sell {sell_keys}, buy {buy_keys}); wanted sell [31, 41, 42, 39], buy [6, 32, 37, 43]")
     for key, why in ((33, "1 of 2 is not a majority"), (34, "one chart is not a consensus"),
                      (35, "2 of 4 is not a majority"), (36, "a consensus at the waiver line is never a target"),
-                     (38, "no gap")):
+                     (38, "no gap"), (40, "we value him under the Sell floor (JEG-820)")):
         if key in sell_keys + buy_keys:
             errors.append(f"player {key} must not be a target: {why}")
+    if result.get("sellFloor") != SELL_FLOOR or result.get("belowSellFloor") != 1:
+        errors.append(f"Sell floor must be {SELL_FLOOR} and count the one player under it: {result.get('sellFloor')}, {result.get('belowSellFloor')}")
+    v = next((p for p in result["byDefault"]["sell"] if p["key"] == 41), None)
+    if v is None or abs((v["market"].get("weight") or 0) - 9.0) > 1e-9 or abs((v["market"].get("score") or 0) - 45.0) > 1e-9:
+        errors.append(f"V must carry weight min(9, 14) = 9 and score 5 x 9 = 45: {v and v['market']}")
     k = next((p for p in result["byDefault"]["sell"] if p["key"] == 31), None)
     if k is None or (k["market"]["agree"], k["market"]["of"]) != (2, 3) or [d_["side"] for d_ in k["market"]["dots"]] != ["above", "above", "below"]:
         errors.append(f"K must read 2 of 3 charts agree with one dot per chart: {k and k['market']}")
@@ -203,7 +224,7 @@ def check(result: dict) -> list[str]:
         errors.append(f"each dot must carry its chart's indexed value: {k['market']['dots']}")
     if k is not None and [k["cells"][c]["gap"] for c in ("usatoday", "fantasycalc", "cbs")] != [10.0, 10.0, -5.0]:
         errors.append(f"per-chart gap = chart value - our value (positive: the chart pays more): {k['cells']}")
-    if result["lowConfidence"] != [[9, 3.0, 5.5]]:
+    if result["lowConfidence"] != [[9, 6.0, 2.5]]:
         errors.append(f"a one-source (low-confidence) DDF Value must still be a target: {result['lowConfidence']}")
     # Per-chart cells.
     dd = result["ddf"]
@@ -288,6 +309,20 @@ MUTATIONS = {
     "equal never flagged": ("equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: false,\n      side"),
     "DDF Projections dropped from the choices": ('"ddf_value_charts", "ddf_value_projections", "espn"', '"ddf_value_charts", "espn"'),
     "dot value not the indexed chart value": ("dots = priced.map(key => ({chart: key, value: cells[key].value,", "dots = priced.map(key => ({chart: key, value: 0,"),
+    # JEG-820: the weighted ranking and the Sell floor. Each of these is the bug the ticket names (raw-gap order
+    # put 0.0 to 3.4 players at the top of Sell) or a plausible slip while fixing it.
+    "sell floor removed (raw-gap bug returns)": ("const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
+                                                 "const sell = sellable.slice().sort(byScore);"),
+    "sell floor strict": ("const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
+                          "const sell = sellable.filter(p => p.ours > SELL_FLOOR).sort(byScore);"),
+    "sell floor moved": ("const SELL_FLOOR = 5;", "const SELL_FLOOR = 2;"),
+    "floor applied to buy": ('const buy = players.filter(p => p.market.eligible && p.market.side === "buy").sort(byScore);',
+                             'const buy = players.filter(p => p.market.eligible && p.market.side === "buy" && p.ours >= SELL_FLOOR).sort(byScore);'),
+    "weight dropped (raw gap order)": ("const score = Math.abs(gap) * weight;", "const score = Math.abs(gap);"),
+    "weight uses the larger value": ("const weight = Math.min(ours, value);", "const weight = Math.max(ours, value);"),
+    "score sorted ascending": ("const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;",
+                               "const byScore = (a, b) => a.market.score - b.market.score || a.order - b.order;"),
+    "players under the floor not counted": ("const belowSellFloor = sellable.length - sell.length;", "const belowSellFloor = 0;"),
 }
 
 

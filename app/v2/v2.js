@@ -3234,7 +3234,7 @@
     const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
       : engineView && engineView !== "indexed" ? "Trade charts are not on the trade-value point scale in this view, so no gaps are shown."
       : null;
-    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
+    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
     // Why players were left out: the engine's reasons, most common first (display only).
     const omittedReasons = new Map();
@@ -3780,10 +3780,22 @@
         ? "No trade chart is available to compare for this selection."
         : `No player has a market consensus ${side === "sell" ? "above" : "below"} our value, backed by 2 or more charts, for this selection.`);
       $(ids.table).hidden = !list.length;
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest consensus gap first. `
+      // JEG-820: ranked by the gap weighted by the value at stake (targets.js score), not the raw gap.
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest gap first, weighted by the value at stake. `
         + (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: most charts pay less than our value.");
     });
     const notes = [];
+    // JEG-820: the players the charts pay for but we value under the Sell floor are drop candidates, not trade chips.
+    if (targetsView.belowSellFloor && !blocked) {
+      const n = targetsView.belowSellFloor;
+      notes.push(`${n} player${n === 1 ? "" : "s"} the charts pay more for than we do ${n === 1 ? "is" : "are"} left off Sell: we value ${n === 1 ? "him" : "them"} under ${window.TradeValueTargets.SELL_FLOOR.toFixed(1)}, a drop or hold, not a trade chip.`);
+    }
+    // JEG-820 / JEG-807: a listed player whose DDF Value rests on one source gets an honest note, no verdict language.
+    if (!blocked && isDdfKey(targetsView.ours)) {
+      const listed = targetsView.sell.concat(targetsView.buy);
+      const thin = listed.filter(p => isLowConfidence(p.row, targetsView.ours)).length;
+      if (thin) notes.push(`${sourceMeta(targetsView.ours).label} rests on one source for ${thin} of the ${listed.length} listed player${listed.length === 1 ? "" : "s"} (◐): read those gaps as leads to check, not verdicts.`);
+    }
     if (targetsView.skipped.length) {
       notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
     }
