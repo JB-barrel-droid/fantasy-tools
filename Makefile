@@ -173,8 +173,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_ux_render
-	python3 -m unittest tests.test_v2_phone_nav_overflow_render
-	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
 	python3 -m unittest tests.test_v2_season_weeks_render
@@ -508,6 +506,19 @@ test-core:
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
 	python3 -m unittest tests.test_v2_waterfall
+	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
+	python3 -m unittest tests.test_v2_phone_customize_targets_render
+	python3 -m unittest tests.test_v2_phone_fallback_font_render
+	python3 -m unittest tests.test_v2_phone_landscape_render
+	python3 -m unittest tests.test_v2_phone_layout_render
+	python3 -m unittest tests.test_v2_phone_nav_overflow_render
+	python3 -m unittest tests.test_v2_phone_rank_overflow_render
+	python3 -m unittest tests.test_v2_phone_source_links_render
+	python3 -m unittest tests.test_v2_phone_trade_actions_render
+	python3 -m unittest tests.test_v2_phone_trade_rows_render
+	python3 -m unittest tests.test_v2_phone_weight_render
+	python3 -m unittest tests.test_v2_phone_wide_font_render
+	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
 	python3 -m unittest tests.test_math_inspector
