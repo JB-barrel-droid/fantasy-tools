@@ -1432,6 +1432,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-wtable th, .v2-wtable td { padding-left: 6px; padding-right: 6px; }
   .v2-wtable td.w-signal { white-space: normal; }
   .v2-chead .v2-title { min-width: 0; }
+  .v2-movers { grid-template-columns: minmax(0, 1fr); }
+  .v2-mlist .m-bottom { flex-wrap: wrap; gap: 6px 16px; }
+  .v2-mlist .m-vals { white-space: normal; }
 }
 @media (min-width: 360px) and (max-width: 767px) { .v2-tabs { flex-wrap: wrap; row-gap: 4px; } }
 
