@@ -749,6 +749,8 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border: 1px solid var(--v2-older); background: var(--v2-surface); border-radius: var(--v2-radius-card); padding: 10px 16px; margin-top: 8px; }
 .v2-notice[hidden] { display: none; }
 .v2-notice p::before { content: "! "; font-weight: 800; color: var(--v2-older); }
+/* JEG-909: an echoed search query (no spaces, any length) wraps instead of widening the page. */
+#v2EmptyText, .v2-t-empty { overflow-wrap: anywhere; max-width: 100%; }
 .v2-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .v2-empty-actions [hidden] { display: none; }
 
