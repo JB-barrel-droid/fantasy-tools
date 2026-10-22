@@ -83,12 +83,33 @@ FIXTURE_ASSET = "assets/comparison-sources-data.json"
 
 
 def _fixture_today():
-    """The date the built fixture belongs to (its built_at, in the content week
-    of the data).  Tests pin window.TRADE_VALUE_TODAY to this so the page's
-    content-week clock matches the data it serves -- otherwise the real clock
-    rolling to a newer week breaks eligibility (JEG-675, JEG-787)."""
+    """A date in the content week of the served data.  Tests pin
+    window.TRADE_VALUE_TODAY to this so the page's content-week clock matches
+    the data it serves -- otherwise the real clock (or a built_at that lands
+    in a newer week than the data) breaks eligibility (JEG-675, JEG-787,
+    JEG-791).
+
+    When the chain builds in week N+1 but the published charts are still week
+    N, built_at is in week N+1 while the data is week N.  The pin must be in
+    the data's own week so the page never claims a newer week than exists."""
+    from nfl_week import content_week_start, section_content_week, content_week
+    from datetime import date as _date
     fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
-    return fixture["built_at"][:10]  # ISO date portion
+    built_at = fixture["built_at"][:10]
+    # The data's content week is the max content week of the fixture's source
+    # sections (what the page would label each source).
+    data_weeks = [w for s in (fixture.get("sources") or {}).values()
+                  if (w := section_content_week(s)) is not None]
+    if not data_weeks:
+        return built_at
+    data_week = max(data_weeks)
+    build_week = content_week(_date.fromisoformat(built_at))
+    if build_week <= data_week:
+        return built_at  # built_at is in (or before) the data's week: use it
+    # built_at is in a newer week: pin to the last day of the data's week
+    # (the Monday before the next Tuesday flip).
+    next_week_start = content_week_start(data_week + 1)
+    return (next_week_start - __import__("datetime").timedelta(days=1)).isoformat()
 
 
 def _week(n):
@@ -930,6 +951,50 @@ class DeltaRecomputeTest(unittest.TestCase):
         self.assertNotEqual(guesses, widget)
         failures = collect({**self._unmatched_overrides(), "assets/curve-widget.js": guesses})
         self.assertTrue([f for f in failures if "the served week is unmatched but" in f], failures)
+
+
+class FixtureTodayPinTest(unittest.TestCase):
+    """JEG-791: _fixture_today must return a date in the data's content week,
+    not the build week.  When the chain builds in week N+1 but the served
+    charts are still week N, pinning to built_at puts the page in week N+1
+    and the content-week check fails."""
+
+    def test_pin_uses_data_week_not_build_week(self):
+        """Negative-tests the old behaviour: using built_at as the pin date
+        fails when built_at is in a newer week than the data.  Writes a
+        temporary fixture with a future built_at, calls _fixture_today on
+        it, and verifies the pin is in the data's week."""
+        from nfl_week import content_week, content_week_start, section_content_week
+        from datetime import date as _date, timedelta
+        fixture_path = DIST / FIXTURE_ASSET
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        data_weeks = [w for s in (fixture.get("sources") or {}).values()
+                      if (w := section_content_week(s)) is not None]
+        if not data_weeks:
+            self.skipTest("no dated source sections")
+        data_week = max(data_weeks)
+        original = fixture_path.read_text(encoding="utf-8")
+        try:
+            # Simulate a built_at one week ahead of the data.
+            next_tuesday = content_week_start(data_week + 1)
+            future_date = next_tuesday + timedelta(days=1)
+            fixture["built_at"] = future_date.isoformat() + "T00:00:00+00:00"
+            fixture_path.write_text(json.dumps(fixture, separators=(",", ":")))
+            build_week = content_week(future_date)
+            self.assertEqual(build_week, data_week + 1,
+                             "simulated built_at should be in the next week")
+            # The OLD code would return built_at[:10] in week data_week+1.
+            old_pin_week = content_week(future_date)
+            self.assertGreater(old_pin_week, data_week,
+                               "the old pin (built_at) is in a newer week than the data")
+            # The NEW code uses the data's content week.
+            pin = _fixture_today()
+            pin_week = content_week(_date.fromisoformat(pin))
+            self.assertEqual(pin_week, data_week,
+                             f"_fixture_today pin {pin} should be in data week {data_week}, "
+                             f"got week {pin_week}")
+        finally:
+            fixture_path.write_text(original)
 
 
 if __name__ == "__main__":
