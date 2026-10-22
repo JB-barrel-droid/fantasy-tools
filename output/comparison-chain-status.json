@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T02:02:25.681636+00:00",
+  "run_at": "2026-10-22T02:05:03.375756+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-full-12-section full_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-full-12-section full_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-full-12-section full_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-half-12-section half_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-half-12-section half_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-half-12-section half_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-half-12-section half_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-standard-12-section standard_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-standard-12-section standard_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-standard-12-section standard_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-standard-12-section standard_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble)",
@@ -10,10 +10,19 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "green",
-  "held": [],
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
+  "held": [
+    "cbs",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "razzball",
+    "usatoday"
+  ],
   "hold_severity": "none",
   "list_changes": {
     "usatoday": [
@@ -67,7 +76,88 @@
       "cbs-standard-12-section standard_12/TE list 10 -> 13: dropped none; added colston loveland, kyle pitts, terrance ferguson"
     ]
   },
-  "held_detail": {},
+  "held_detail": {
+    "usatoday": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "usatoday"
+      ],
+      "sections": [
+        "usatoday",
+        "usatoday_adjusted"
+      ],
+      "detail": "publisher posted week 7 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/, 31 h ago); chart shows week 6; not stored yet",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "fantasycalc": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc",
+        "fantasycalc_adjusted"
+      ],
+      "detail": "content week 7 opened 38 h ago; chart still shows FantasyCalc week 6",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "fantasypros": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "fantasypros"
+      ],
+      "sections": [
+        "fantasypros",
+        "fantasypros_adjusted"
+      ],
+      "detail": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0035_v1 (week 7, saved 2026-10-22T00:35:54.354590Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "cbs": {
+      "reason": "fidelity: scrape_validity",
+      "held_series": [
+        "cbs"
+      ],
+      "sections": [
+        "cbs",
+        "cbs_adjusted"
+      ],
+      "detail": "player count dropped vs week 5: stored TE 14->13, chart TE 14->10",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "espn": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "espn",
+        "espn_vorp"
+      ],
+      "sections": [
+        "espn",
+        "espn_adjusted"
+      ],
+      "detail": "928/1752 values match exactly across 3 columns; 824 value mismatches, 4 publisher players not stored, 0 stored players not on the page; stale: the publisher changed since the save (fingerprint f3bc7149c6dd17d46951064a at the save, 68ac40bd459efd1b14aad23d now) and the save is older than 24 h; re-syn",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "razzball": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "razzball",
+        "razzball_vorp"
+      ],
+      "sections": [
+        "razzball",
+        "razzball_adjusted"
+      ],
+      "detail": "1860/1860 chart values equal stored snapshot 2026-10-19 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 50 stored players not on the chart, 0 chart players not stored",
+      "hold_severity": "amber",
+      "week": 7
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -197,7 +287,7 @@
     "fantasypros": {
       "content_vintage": "2026-10-20",
       "content_week": 7,
-      "health_status": "ok",
+      "health_status": "warning",
       "lagging_one_week": false
     },
     "espn": {
@@ -224,5 +314,28 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "fidelity_holds": {
+    "usatoday": "fidelity: freshness",
+    "fantasycalc": "fidelity: freshness",
+    "fantasypros": "fidelity: stored_vs_chart",
+    "cbs": "fidelity: scrape_validity",
+    "espn": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: stored_vs_chart"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game"
+    ],
+    "assertions": [
+      "AssertionError: Lists differ: [('Deuce Vaughn', 0.162727, 0.15)] != []"
+    ],
+    "make_targets": [
+      "Makefile:473: test-core"
+    ],
+    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('Deuce Vaughn', 0.162727, 0.15)] != []",
+    "recorded_at": "2026-10-22T02:06:39.030843+00:00"
   }
 }
