@@ -18,17 +18,29 @@ own search boxes, and checks against window.TradeValueCurveControls.getAllRows()
   * JEG-467: "Player values shown" defaults to DDF Value and is the shared
     grouped picker (JEG-466); DDF Value is the first row of "Difference by
     source & method", marked in words as the series that decides the verdict;
-  * no page errors and no horizontal overflow at 390 px.
+  * no page errors and no horizontal overflow at 390 px;
+  * JEG-875: both headline lines (answer and confidence) equal the rule
+    recomputed from the engine values by test_v2_headlines.expected (DDF Value +
+    DDF Projections decide, JEG-841), on the search-box trade (a chart missing,
+    so Unclear) and on a second trade opened by link where the charts disagree
+    with each other and DDF Value + DDF Projections agree (Yes or No);
+  * JEG-886: the Deal read never says "fair market price" / "little reason to
+    refuse" unless "Will they accept?" is Likely, never "will likely see a loss"
+    unless it is Unlikely, and when the per-chart count does not support the
+    chart average's side it names the split (and so does the market card).
 
 Discrimination: test_guard_fails_on_broken_builds serves trade.js with the
-sign flipped and with missing values read as 0, and v2.js with VORP mixed into
-the trade-value table, and requires the checks to fail on each.
+sign flipped, with missing values read as 0, with the headline Yes/No swapped,
+with the headline always Unclear and with the chart split ignored, and v2.js
+with VORP mixed into the trade-value table, and requires the checks to fail on
+each.
 """
 from __future__ import annotations
 
 import contextlib
 import functools
 import http.server
+import json
 import shutil
 import socketserver
 import sys
@@ -46,6 +58,7 @@ from tests.test_published_league_settings_render import _chromium_executable  # 
 from tests import _render_env  # noqa: E402
 from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_v2_risers_render import PICKER_READ, check_picker  # noqa: E402
+from tests.test_v2_headlines import expected as expected_headlines  # noqa: E402
 
 
 def setUpModule():
@@ -57,6 +70,47 @@ def setUpModule():
 TRADE_JS = ROOT / "app" / "v2" / "trade.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 EXTRA_SERIES = ("usatoday", "espn_vorp")
+# The published chart series "Will they accept?" and the deal read count (targets.js CHART_KEYS).
+CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
+# JEG-886: the answer to "Will they accept?" each chart-average column's copy assumes.
+DEAL_SPLIT_ACCEPT = {"win": "Unlikely", "even": "Likely", "lose": "Likely"}
+FAIR_COPY = ("fair market price", "little reason to refuse", "easy for them", "call it fair")
+HARD_SELL_COPY = ("will likely see a loss",)
+
+# JEG-875/886: a second trade, opened by link, where the compared charts disagree with each
+# other (nets on both sides of zero) while DDF Value and DDF Projections both say win by 5%+
+# of the value traded. Prefers one where the per-chart count contradicts the chart average's
+# side (the JEG-886 split). Selection only: the checks recompute everything in Python.
+PICK_SPLIT = """() => {
+  const C = window.TradeValueCurveControls;
+  const info = Object.fromEntries(C.getSourceInfo({includeComposite: true}).map(i => [i.key, i.available]));
+  const active = window.TradeValueV2.pageKeys('compare').filter(k => info[k]);
+  const charts = active.filter(k => window.TradeValueTargets.CHART_KEYS.includes(k));
+  const keys = [...new Set(active.concat(['ddf_value', 'ddf_value_projections']))];
+  const rows = C.getAllRows().filter(r => keys.every(k => Number.isFinite(r.values[k])) && !r.ddfLowConfidence)
+    .sort((a, b) => b.values.ddf_value - a.values.ddf_value).slice(0, 40);
+  const sum = (list, k) => list.reduce((s, r) => s + r.values[k], 0);
+  const sideOf = (net, give, receive) => { const t = Math.max(1, 0.03 * ((give + receive) / 2)); return net >= t ? 'win' : net <= -t ? 'lose' : 'even'; };
+  const table = {win: 'Unlikely', even: 'Likely', lose: 'Likely'};
+  let fallback = null;
+  for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) for (let c = 0; c < rows.length; c++) {
+    if (c === a || c === b) continue;
+    const give = [rows[a], rows[b]], receive = [rows[c]];
+    const net = k => sum(receive, k) - sum(give, k);
+    const traded = k => sum(receive, k) + sum(give, k);
+    if (net('ddf_value') < 0.05 * traded('ddf_value') || net('ddf_value_projections') < 0.05 * traded('ddf_value_projections')) continue;
+    const nets = charts.map(net);
+    if (charts.length < 3 || !(Math.min(...nets) < 0 && Math.max(...nets) > 0)) continue;
+    const pick = {give: give.map(r => [String(r.player_key), r.name]), receive: receive.map(r => [String(r.player_key), r.name])};
+    const avg = list => list.reduce((s, x) => s + x, 0) / list.length;
+    const side = sideOf(avg(nets), avg(charts.map(k => sum(give, k))), avg(charts.map(k => sum(receive, k))));
+    const yes = nets.filter(n => n < 0.05).length, share = yes / nets.length;
+    const accept = share >= 2 / 3 ? 'Likely' : share <= 1 / 3 ? 'Unlikely' : 'Toss-up';
+    if (accept !== table[side]) return pick;
+    fallback = fallback || pick;
+  }
+  return fallback;
+}"""
 
 # Two priced stars to give, one star plus one player missing a selected series to get.
 PICK = """(extra) => {
@@ -110,7 +164,7 @@ def simulate_missing(page, series):
 
 READ = """() => {
   const C = window.TradeValueCurveControls;
-  const engine = Object.fromEntries(C.getAllRows().map(r => [String(r.player_key), {name: r.name, values: r.values}]));
+  const engine = Object.fromEntries(C.getAllRows().map(r => [String(r.player_key), {name: r.name, values: r.values, low: Boolean(r.ddfLowConfidence)}]));
   const info = Object.fromEntries(C.getSourceInfo({includeComposite: true}).map(i => [i.key, i.available]));
   const read = table => [...table.querySelectorAll('tbody tr')].map(tr => {
     const cell = name => tr.querySelector(`td[data-col="${name}"]`);
@@ -130,6 +184,9 @@ READ = """() => {
       tag: tr.querySelector('.v2-cverdict-tag')?.textContent ?? null})),
     heads: [...document.querySelectorAll('#v2CHeads .v2-chead')].map(p => ({line: p.dataset.line, answer: p.dataset.answer,
       confidence: p.dataset.confidence, text: p.textContent, hidden: document.getElementById('v2CHeads').hidden})),
+    deal: {hidden: document.getElementById('v2CDeal').hidden, read: document.getElementById('v2CDealRead').textContent,
+      text: document.getElementById('v2CDealText').textContent,
+      market: document.querySelector('#v2CDealNets li[data-net="market"] .v2-deal-net')?.textContent ?? null},
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
 
@@ -184,8 +241,10 @@ def check(snap) -> list[str]:
         symbol = "=" if fmt_net(net) == "0.0" else "▲" if net > 0 else "▼"
         if not (row["label"] or "").startswith(symbol):
             errors.append(f"{key}: label {row['label']!r} does not match net {net}")
-    if not saw_missing:
+    if snap["kind"] == "gap" and not saw_missing:
         errors.append("the trade has no player missing a selected series; the missing-value path went unchecked")
+    if snap["kind"] == "split" and saw_missing:
+        errors.append("the split trade must be priced by every selected series")
     if "ddf_value" in point_keys:
         if not snap["points"] or snap["points"][0]["key"] != "ddf_value":
             errors.append(f"DDF Value is not the first row: {[r['key'] for r in snap['points']]}")
@@ -205,19 +264,84 @@ def check(snap) -> list[str]:
                 errors.append(f"{line} line must start with {question!r}: {h['text']!r}")
             if h["answer"] != "none" and (f"{h['confidence']} confidence" not in h["text"] or not any(g in h["text"] for g in "▲▼=≈?")):
                 errors.append(f"{line} line must carry a symbol and a confidence word: {h['text']!r}")
-        engine = snap["engine"]
-        ddf = [engine[k]["values"].get("ddf_value") for k in snap["give"] + snap["receive"]]
-        if all(isinstance(v, (int, float)) for v in ddf):
-            give_sum = sum(engine[k]["values"]["ddf_value"] for k in snap["give"])
-            receive_sum = sum(engine[k]["values"]["ddf_value"] for k in snap["receive"])
-            ddf_net = receive_sum - give_sum
-            want = "Yes" if ddf_net >= 0.05 else "No" if ddf_net <= -0.05 else "Even"
-            # JEG-821: "Unclear" is valid when the data does not support the verdict (0 agree + thin, or Even + 0 agree).
-            if heads["propose"]["answer"] != want and heads["propose"]["answer"] != "Unclear":
-                errors.append(f"propose line says {heads['propose']['answer']!r}, DDF net {ddf_net:.2f} says {want!r}")
+        errors += check_headlines(snap, heads, point_keys)
+    errors += check_deal(snap, point_keys)
     errors += check_picker(snap["picker"], "Player values shown")
     if snap["firstShown"] != "ddf_value":
         errors.append(f"Player values shown opened on {snap['firstShown']!r}, not DDF Value")
+    return errors
+
+
+def trade_players(snap):
+    """(give, receive, low) in test_v2_headlines' case shape, from the engine snapshot."""
+    engine = snap["engine"]
+
+    def side(keys):
+        return [{"player_key": k, "values": engine[k]["values"]} for k in keys]
+    return side(snap["give"]), side(snap["receive"]), any(engine[k]["low"] for k in snap["give"] + snap["receive"])
+
+
+def check_headlines(snap, heads, point_keys) -> list[str]:
+    """JEG-875: both headline lines equal the rule recomputed from the engine values (exact answer
+    and confidence; Unclear only when the rule says Unclear)."""
+    errors = []
+    charts = [k for k in CHART_KEYS if k in point_keys]
+    want = expected_headlines(trade_players(snap), charts)
+    for line in ("propose", "accept"):
+        got = (heads[line]["answer"], heads[line]["confidence"])
+        exp = tuple(v or "none" for v in (want[line]["answer"], want[line]["confidence"]))
+        if got != exp:
+            errors.append(f"{line} line says {got}, the rule on the engine values says {exp} ({snap['kind']} trade)")
+    if snap["kind"] == "split" and want["propose"]["answer"] not in ("Yes", "No"):
+        errors.append(f"the split trade must have DDF Value and DDF Projections agreeing, rule says {want['propose']}")
+    return errors
+
+
+def deal_expectation(snap, point_keys):
+    """JEG-886: the chart average's side and the per-chart count "Will they accept?" uses, from the
+    engine values; None when fewer than 3 compared charts price every player."""
+    give, receive, _ = trade_players(snap)
+    nets = []
+    for key in [k for k in CHART_KEYS if k in point_keys]:
+        vals = [p["values"].get(key) for p in give + receive]
+        if not all(finite(v) for v in vals):
+            continue
+        g, r = sum(p["values"][key] for p in give), sum(p["values"][key] for p in receive)
+        nets.append((r - g, g, r))
+    if len(nets) < 3:
+        return None
+    avg_net, avg_give, avg_rec = (sum(x[i] for x in nets) / len(nets) for i in range(3))
+    threshold = max(1.0, 0.03 * (avg_give + avg_rec) / 2)
+    side = "win" if avg_net >= threshold else "lose" if avg_net <= -threshold else "even"
+    yes = sum(1 for n, _, _ in nets if n < 0.05)
+    share = yes / len(nets)
+    accept = "Likely" if share >= 2 / 3 else "Unlikely" if share <= 1 / 3 else "Toss-up"
+    return {"side": side, "accept": accept, "split": accept != DEAL_SPLIT_ACCEPT[side], "nets": [n for n, _, _ in nets]}
+
+
+def check_deal(snap, point_keys) -> list[str]:
+    """JEG-886: the Deal read and "Will they accept?" never contradict, and a split is named."""
+    errors = []
+    want = deal_expectation(snap, point_keys)
+    deal = snap["deal"]
+    if want is None or deal["hidden"] or not deal["read"].strip():
+        if snap["kind"] == "split":
+            errors.append(f"the split trade has no deal read: {deal}")
+        return errors
+    text = f"{deal['read']} {deal['text']}"
+    if want["accept"] != "Likely" and any(phrase in text for phrase in FAIR_COPY):
+        errors.append(f"deal read {text!r} calls the trade fair while the charts say accept {want['accept']} ({want['nets']})")
+    if want["accept"] != "Unlikely" and any(phrase in text for phrase in HARD_SELL_COPY):
+        errors.append(f"deal read {text!r} says a hard sell while the charts say accept {want['accept']} ({want['nets']})")
+    if want["split"]:
+        if "split" not in deal["read"] or "the other manager winning or even" not in deal["text"]:
+            errors.append(f"deal read {text!r} does not name the chart split ({want['nets']}, accept {want['accept']})")
+        if "Charts split" not in (deal["market"] or ""):
+            errors.append(f"market card {deal['market']!r} hides the chart split ({want['nets']})")
+    elif "Charts split" in (deal["market"] or ""):
+        errors.append(f"market card {deal['market']!r} says split but the charts support the average's side ({want['nets']})")
+    if snap["kind"] == "split" and not want["split"]:
+        errors.append(f"the split trade's charts {want['nets']} support the chart average's side: the split path went unchecked")
     return errors
 
 
@@ -288,7 +412,20 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
                 page.evaluate("() => { location.hash = '#compare-trade'; }")
                 page.wait_for_function("() => !document.getElementById('v2Compare').hidden")
                 snap = page.evaluate(READ)
-                snap.update(width=width, pick=pick, pageErrors=list(errors), firstShown=first_shown,
+                snap.update(width=width, kind="gap", pick=pick, pageErrors=list(errors), firstShown=first_shown,
+                            picker=page.evaluate(PICKER_READ, "#v2CShown"))
+                snapshots.append(snap)
+                # JEG-875/886: the second trade, opened by link (a shared trade).
+                split = page.evaluate(PICK_SPLIT)
+                if not split:
+                    raise AssertionError("the fixture has no 2-for-1 where the charts disagree and DDF Value + DDF Projections agree")
+                link = "#compare-trade?give=" + ",".join(k for k, _ in split["give"]) + "&get=" + ",".join(k for k, _ in split["receive"])
+                page.evaluate("link => { location.hash = link; }", link)
+                page.wait_for_function(
+                    """want => JSON.stringify([...document.querySelectorAll('#v2GivePlayers li[data-player-key]')].map(li => li.dataset.playerKey)) === want""",
+                    arg=json.dumps([k for k, _ in split["give"]], separators=(",", ":")))
+                snap = page.evaluate(READ)
+                snap.update(width=width, kind="split", pick=split, pageErrors=list(errors), firstShown=first_shown,
                             picker=page.evaluate(PICKER_READ, "#v2CShown"))
                 snapshots.append(snap)
                 page.close()
@@ -300,7 +437,7 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
 def check_all(snapshots) -> list[str]:
     errors = []
     for snap in snapshots:
-        prefix = f"[{snap['width']}px] "
+        prefix = f"[{snap['width']}px {snap['kind']}] "
         errors += [prefix + e for e in check(snap)]
         if snap["pageErrors"]:
             errors.append(prefix + f"page errors: {snap['pageErrors']}")
@@ -323,7 +460,14 @@ class CompareTradeRenderTest(unittest.TestCase):
             "missing read as zero": {"trade.js": trade.replace(
                 "const value = row.values ? row.values[key] : null;",
                 "const value = (row.values ? row.values[key] : null) ?? 0;")},
-"VORP mixed into trade values": {"v2.js": v2.replace(
+            # JEG-875: the rendered headline is guarded: Yes/No swapped, and a build that always says Unclear.
+            "headline answer flipped": {"trade.js": trade.replace('answer = "Yes";', 'answer = "@@";', 1)
+                                        .replace('answer = "No";', 'answer = "Yes";', 1).replace('answer = "@@";', 'answer = "No";', 1)},
+            "headline always Unclear": {"trade.js": trade.replace("const deal = ctx && ctx.deal;", "const deal = null;", 1)},
+            # JEG-886: the deal read falls back to the chart average's cell copy whatever the per-chart count says.
+            "deal read ignores the chart split": {"trade.js": trade.replace(
+                "market.split = market.charts.accept !== DEAL_SPLIT_ACCEPT[market.side];", "market.split = false;", 1)},
+            "VORP mixed into trade values": {"v2.js": v2.replace(
                 'let pointKeys = usable(mineOrdered.filter(key => sourceMeta(key).method !== "vorp"));',
                 "let pointKeys = usable(mineOrdered);", 1)},
         }

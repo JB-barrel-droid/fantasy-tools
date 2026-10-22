@@ -119,8 +119,8 @@ def names_on(page, side):
 
 def check(page, tag, width) -> list[str]:
     errors = []
-    page.evaluate("() => { location.hash = '#compare-trade'; }")
-    page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare() && document.getElementById('v2Find')", timeout=60000)
+    page.evaluate("() => { location.hash = '#find-trade'; }")
+    page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2Find') && !document.getElementById('v2FindTrade').hidden", timeout=60000)
     pick = page.evaluate(PICK)
     sleeper_mock(page, pick)
     espn_mock(page, pick)
@@ -208,7 +208,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (390, 844))) -> list[str]
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, body in (overrides or {}).items():
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, "text/javascript"))
-                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.goto(base + "#find-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view()", timeout=60000)
                 errors += check(page, f"[{width}px] ", width)
                 if page_errors:

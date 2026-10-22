@@ -70,7 +70,7 @@ SECTIONS = [
     "11. Market price creates the opportunity",
     "12. Winning is continuous portfolio optimization",
 ]
-PAGES = ("v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Manifesto", "v2Research", "v2Audit")
+PAGES = ("v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Manifesto", "v2Research", "v2Audit")
 
 READ = """() => {
   const shown = id => { const n = document.getElementById(id); return Boolean(n) && !n.hidden; };

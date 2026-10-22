@@ -222,15 +222,22 @@
   function divergenceChip(key, opts) {
     const publisher = sourceMeta(key).publisher;
     const method = sourceMeta(key).method;
+    if (method === "ddf" || method === "vorp") return null;
     const entry = divergence[publisher];
-    if (!entry || method === "ddf" || method === "vorp") return null;
-    const status = entry.status;
-    if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;
+    const status = entry && entry.status;
     // JEG-834: warn / investigate come from a fixed ceiling as well as the source's own history. A source
     // within 5 points of its own usual rate is inside its usual range: the chip stays (GL-25) but says so plainly.
-    const usualGap = Number.isFinite(entry.outlier_rate) && Number.isFinite(entry.usual_outlier_rate)
+    const usualGap = entry && Number.isFinite(entry.outlier_rate) && Number.isFinite(entry.usual_outlier_rate)
       ? Math.round(entry.outlier_rate * 100) - Math.round(entry.usual_outlier_rate * 100) : null;
-    const inRange = (status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5;
+    let inRange = (status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5;
+    // JEG-870: held (red, "Paused this week") replaces the chip; a lag hold (amber) replaces only the in-range check,
+    // since an out-of-range finding on a lagging source is still a reading.
+    const held = heldReason(view && view.infoByKey && view.infoByKey[key]);
+    const level = held ? (sourceHoldLevel(publisher) === "amber" ? "amber" : "red") : sourceHoldLevel(publisher);
+    if (held || level === "red") return holdChip(publisher, "red", opts);
+    if (level === "amber" && (inRange || !entry || status === "ok" || status === "n/a")) return holdChip(publisher, "amber", opts);
+    if (!entry) return null;
+    if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;
     const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
     const chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : (inRange ? "ok" : "check"));
     const chip = document.createElement(href ? "a" : "span");
@@ -257,6 +264,46 @@
     wordSpan.className = "v2-div-word";
     wordSpan.textContent = word;
     chip.append(sym, wordSpan);
+    return chip;
+  }
+  // JEG-870: the pulse's hold on a source, from the published data: "red" (held, out of the blend, "Paused this
+  // week"), "amber" (JEG-726: lagging, still in DDF Value, a refresh pending) or null. Derived sections carry the
+  // root's hold.
+  function sourceHoldLevel(publisher) {
+    const sources = (window.TradeValueComparisonData && window.TradeValueComparisonData.sources) || {};
+    for (const section of [publisher, `${publisher}_adjusted`, `${publisher}_vorp`]) {
+      const hold = sources[section] && (sources[section].validationHold || sources[section].promotionHold);
+      if (hold) return hold.hold_level === "amber" ? "amber" : "red";
+    }
+    return null;
+  }
+  // JEG-870: a held source's divergence is not a reading this week, so it never gets the in-range check. The chip
+  // is the hold marker instead, in the existing hold words: an amber flag for a lag hold, "Paused" for a red hold.
+  // Where the row already says "Paused this week" (Customize, opts.heldNoted) the red marker is the glyph only.
+  function holdChip(publisher, level, opts) {
+    const name = PUBLISHER_NAMES[publisher] || publisher;
+    const amber = level === "amber";
+    const word = amber ? "Lagging" : "Paused";
+    const message = amber ? `${name} is lagging: included in DDF Value, a refresh is pending.`
+      : `${name} is paused this week: temporarily held for a data check.`;
+    const chip = document.createElement("span");
+    chip.className = `v2-div-chip is-hold is-${amber ? "lag" : "paused"}`;
+    chip.dataset.divergence = publisher;
+    chip.dataset.status = "held";
+    chip.dataset.hold = level;
+    chip.title = message;
+    chip.setAttribute("role", "img");
+    chip.setAttribute("aria-label", `${word}: ${message}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = amber ? "⚑" : "⏸";
+    chip.appendChild(sym);
+    if (amber || !(opts && opts.heldNoted)) {
+      const wordSpan = document.createElement("span");
+      wordSpan.className = "v2-div-word";
+      wordSpan.textContent = word;
+      chip.append(" ", wordSpan);
+    }
     return chip;
   }
   const appendDivergence = (parent, key, opts) => {
@@ -352,7 +399,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -2208,12 +2255,15 @@
   function openSources(anchor, pageArg) {
     const page = pageArg || pageOfView();
     const onValues = page === "values";
-    const draft = new Set(onValues ? view.active : pageKeys(page));
+    // JEG-907: the dialog and the chart legend are one state. A line the legend turned off starts unticked here
+    // (its row says why); ticking it, Select all or Reset to default turns it back on, and Done applies the draft as
+    // shown, so no legend hide survives Done.
+    const draft = new Set(onValues ? view.active.filter(key => key === view.rankKey || !state.hiddenSeries.has(key)) : pageKeys(page));
     const composite = onValues && C.getCompositeInputs ? C.getCompositeInputs() : null;
     const inputsDraft = composite ? new Set(composite.inputs) : null;
     const hasBlend = Boolean(composite);
     let tab = "lines";
-    let resetPressed = false;
+    const legendHid = key => onValues && key !== view.rankKey && view.active.includes(key) && state.hiddenSeries.has(key);
     // JEG-542: a source out of the blend this week (held, left out, not published): never selectable. Only
     // "not selected" stays selectable. JEG-807: a held input stays in the engine's pool (weights, pie) but out of
     // its blend (`series`); the engine lists it under inputs, not excluded, so it is added here with its hold.
@@ -2320,14 +2370,14 @@
         name.append(sourceLink(item.key, PLAIN_NAMES[meta.publisher] || meta.label));
         label.append(box, name);
         if (item.stale) label.appendChild(weekBadge(item.key));
-        appendDivergence(label, item.key);
+        appendDivergence(label, item.key, {heldNoted: !item.available && heldReason(item)});
         if (!item.available || pageNo) {
           metaNote(label, !item.available ? (heldReason(item) ? "Paused this week"
             : item.paused ? "Waiting on fresh inputs" : "Not available for your league")
             : (page === "targets" ? `Not used on ${PAGE_NAMES[page]}` : pageNo));
         } else if (isDdfKey(item.key) && hasBlend && draft.has(item.key) && versionUsable(item.key) === 0) {
           metaNote(label, "No sources on in the DDF blend");   // JEG-850: a version with nothing to build from
-        } else if (!resetPressed && item.key !== view.rankKey && draft.has(item.key) && state.hiddenSeries.has(item.key)) {
+        } else if (legendHid(item.key) && !draft.has(item.key)) {
           metaNote(label, "Hidden with the chart legend");
         }
         label.title = isDdfKey(item.key) ? DDF_ROW_TIPS[item.key] : (item.waiverNote && item.available ? item.waiverNote : "");
@@ -2357,7 +2407,7 @@
         name.append(sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
         label.append(input, name);
         if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
-        appendDivergence(label, key);
+        appendDivergence(label, key, {heldNoted: Boolean(out)});
         if (out) metaNote(label, out);
         else if (last) metaNote(label, "Last source stays on");
         return label;
@@ -2426,7 +2476,7 @@
           groupsBox.appendChild(section);
         });
         // The count says what Done will apply, and names a line the chart legend has turned off.
-        const hiddenN = resetPressed ? 0 : [...draft].filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length;
+        const hiddenN = view.active.filter(key => legendHid(key) && !draft.has(key)).length;
         linesSummary.textContent = `${draft.size} series selected${hiddenN ? ` (${hiddenN} hidden with the chart legend)` : ""}`
           + ` · applies to ${PAGE_NAMES[page]} only`;
       }
@@ -2456,7 +2506,6 @@
         draft.clear();
         (onValues ? startActive || [] : pageDefault(page)).forEach(key => draft.add(key));
         if (inputsDraft) { inputsDraft.clear(); (composite.defaults || []).forEach(key => inputsDraft.add(key)); }
-        resetPressed = true;   // JEG-850: Done also clears the lines the chart legend turned off
         err.hidden = true;
         render();
       });
@@ -2491,7 +2540,7 @@
         const drops = view.active.filter(key => !draft.has(key));
         adds.forEach(toggleEngineSource);
         drops.forEach(toggleEngineSource);
-        if (resetPressed) state.hiddenSeries.clear();
+        state.hiddenSeries.clear();   // JEG-907: the draft is the whole state; a legend hide never survives Done
         if (inputsDraft && C.setCompositeInputs) {
           const info = C.getCompositeInputs();
           const defaults = info.defaults || [];
@@ -5161,7 +5210,9 @@
       value.className = "v2-deal-net";
       value.dataset.side = n.side || "";
       // JEG-832: show "not enough charts" when the market card has too few compared charts.
-      value.textContent = n.net === null ? (n.tooFew ? "Not enough charts" : "—") : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
+      // JEG-886: when the per-chart rows do not support the average's side, say so instead of the side word.
+      value.textContent = n.net === null ? (n.tooFew ? "Not enough charts" : "—")
+        : n.split ? `${fmtGap(n.net)} · Charts split (${fmtGap(n.charts.min)} to ${fmtGap(n.charts.max)})` : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
       if (n.net === null) value.title = n.tooFew ? `${n.chartCount} of ${n.minCharts} compared charts needed` : "At least one player has no value in this series";
       li.append(label, info, value, def);
       nets.appendChild(li);
@@ -5607,7 +5658,14 @@
     });
     $("v2CClear").addEventListener("click", () => { TR.give = []; TR.receive = []; TR.open.clear(); renderCompare(); });
     $("v2CSwap").addEventListener("click", () => { [TR.give, TR.receive] = [TR.receive, TR.give]; renderCompare(); });
-    $("v2CShown").addEventListener("change", event => { TR.shown = event.target.value; renderCompare(); });
+    // JEG-914: a disabled (held or unavailable) option is never applied, however the change arrives; the picker
+    // stays on the series whose numbers the side lists show.
+    $("v2CShown").addEventListener("change", event => {
+      const picked = event.target.value;
+      if (compareView && !compareView.shownChoices.includes(picked)) { renderShownPicker(); return; }
+      TR.shown = picked;
+      renderCompare();
+    });
   }
 
   // ---------- How values work (frames 15 / 16) ----------
@@ -5727,8 +5785,17 @@
       priorsFor(M.SERIES).then(() => { if (currentView() === "risers") renderRisers(); });
       return;
     }
-    const choices = M.SERIES.map(key => ({key, prior: priorCache.get(key)}));
-    if (!R.series || !choices.some(c => c.key === R.series)) {
+    // JEG-906: a held (hidden) source is never a basis for movement. Its prior week reads as unavailable with the
+    // same reason the other pickers give (heldReason / unavailableReason, one rule), so the option is disabled and
+    // a saved pick of it shows the held notice, never deltas built on held values. An amber (lagging) source is
+    // available and stays offered, labelled by its week.
+    const choices = M.SERIES.map(key => {
+      const item = view.infoByKey[key];
+      const prior = item && !item.available ? {available: false, reason: unavailableReason(item)} : priorCache.get(key);
+      return {key, prior};
+    });
+    const offered = key => choices.some(c => c.key === key && !(view.infoByKey[key] && !view.infoByKey[key].available));
+    if (!R.series || !offered(R.series)) {
       // JEG-498: the page opens on the first series ticked in its Customize (DDF Value by default) that has a prior week.
       const mineSeries = new Set(pageKeys("risers"));
       const ticked = choices.filter(c => mineSeries.has(c.key));
@@ -5736,7 +5803,8 @@
         || choices.find(c => c.prior.available) || choices[0]).key;
     }
     renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
-      reason: prior.available ? null : `no prior week: ${prior.reason || "not saved"}`})), R.series);
+      reason: prior.available ? null : view.infoByKey[key] && !view.infoByKey[key].available ? prior.reason
+        : `no prior week: ${prior.reason || "not saved"}`})), R.series);
     $("v2RPosition").value = view.state.position;
     const servedPrior = priorCache.get(R.series);
     if (servedPrior.available && !weeksCache.has(R.series)) {
@@ -5809,7 +5877,10 @@
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
-    if (unavailable.length) notes.push(`No prior week: ${unavailable.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
+    const heldOut = unavailable.filter(c => view.infoByKey[c.key] && !view.infoByKey[c.key].available);
+    const noPriorOut = unavailable.filter(c => !heldOut.includes(c));
+    if (heldOut.length) notes.push(`Not offered: ${heldOut.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
+    if (noPriorOut.length) notes.push(`No prior week: ${noPriorOut.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
     const note = $("v2RNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
@@ -5988,6 +6059,7 @@
   const viewFor = base => (base === "#trade-targets" ? "targets"
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
+    : base === "#find-trade" ? "find"
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
@@ -5999,12 +6071,14 @@
     $("v2Targets").hidden = v !== "targets";
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
+    $("v2FindTrade").hidden = v !== "find";
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit";
+    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find";
+    // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -6074,7 +6148,7 @@
     else if (currentView() === "compare") renderCompare();
     else if (writingSection() === "how-values") renderHow();
     else if (currentView() === "audit") renderAudit();
-    else if (currentView() === "writing") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 

@@ -243,7 +243,9 @@
   const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
   const $ = id => document.getElementById(id);
   const engine = () => root.TradeValueCurveControls;
-  const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true};   // mine / theirs: [{key, name, pos}]
+  // mine / theirs: [{key, name, pos}]; sel: keys ticked for "Move selected"; undo: the rosters before the last swap or move (JEG-854).
+  const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null};
+  const renders = {};
 
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
@@ -252,6 +254,53 @@
     return node;
   }
   const clearOutput = () => { const out = $("v2FindOut"); out.hidden = true; out.replaceChildren(); };
+
+  // JEG-854: fixing which team is which must be one tap. Swap and Move change the rosters wholesale, so the shown
+  // results are recomputed from the new rosters (never left standing from the old assignment); Undo restores the last one.
+  function arrangeSay(text) { const p = $("v2FindArrangeNote"); if (p) p.textContent = text; }
+  function updateArrange() {
+    const undo = $("v2FindUndo");
+    if (undo) undo.disabled = !S.undo;
+    ["mine", "theirs"].forEach(side => {
+      const button = $(`v2Find${side[0].toUpperCase()}${side.slice(1)}MoveSel`);
+      if (!button) return;
+      const n = S[side].filter(p => S.sel.has(p.key)).length;
+      button.disabled = !n;
+      button.textContent = n ? `Move ${n} selected to the other team` : "Move selected to the other team";
+    });
+  }
+  function renderBoth() { renders.mine && renders.mine(); renders.theirs && renders.theirs(); updateArrange(); }
+  function rerun() {
+    const out = $("v2FindOut");
+    const had = out && !out.hidden && out.childElementCount > 0;
+    clearOutput();
+    if (had) run();
+  }
+  function snapshot() { S.undo = {mine: S.mine.slice(), theirs: S.theirs.slice()}; }
+  function afterArrange(text) { S.sel.clear(); renderBoth(); rerun(); arrangeSay(text); }
+  function swapTeams() {
+    snapshot();
+    [S.mine, S.theirs] = [S.theirs, S.mine];
+    afterArrange("Swapped: your roster is now the one that was theirs. Undo puts them back.");
+  }
+  function moveKeys(keys) {
+    const set = new Set(keys);
+    const going = S.mine.concat(S.theirs).filter(p => set.has(p.key));
+    if (!going.length) return;
+    snapshot();
+    const toTheirs = S.mine.filter(p => set.has(p.key));
+    const toMine = S.theirs.filter(p => set.has(p.key));
+    S.mine = S.mine.filter(p => !set.has(p.key)).concat(toMine);
+    S.theirs = S.theirs.filter(p => !set.has(p.key)).concat(toTheirs);
+    afterArrange(`Moved ${going.map(p => p.name).join(", ")} to the other team. Undo puts them back.`);
+  }
+  function undoArrange() {
+    if (!S.undo) return;
+    S.mine = S.undo.mine;
+    S.theirs = S.undo.theirs;
+    S.undo = null;
+    afterArrange("Undone.");
+  }
 
   // Public league endpoints. Both answer cross-origin requests; a private ESPN league answers 401/403.
   let sleeperDirectory = null;
@@ -282,14 +331,22 @@
     const results = el("ul", {class: "v2-trade-results", id: `${id}Results`, hidden: ""});
     const input = el("input", {type: "search", id: `${id}Search`, placeholder: "Search and add a player…", autocomplete: "off", "aria-controls": `${id}Results`});
     const label = el("label", {class: "v2-search"}, el("span", {class: "v2-sr", text: `Search and add a player to ${title.toLowerCase()}`}), input);
-    const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("h3", {text: title}), label, results, list, importBox());
+    const moveSel = el("button", {type: "button", class: "v2-btn v2-find-movesel", id: `${id}MoveSel`, text: "Move selected to the other team", disabled: ""});
+    moveSel.addEventListener("click", () => moveKeys(S[side].filter(p => S.sel.has(p.key)).map(p => p.key)));
+    const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("h3", {text: title}), label, results, list, moveSel, importBox());
     const render = () => {
       list.replaceChildren(...S[side].map(p => {
-        const remove = el("button", {type: "button", class: "v2-link", "aria-label": `Remove ${p.name}`, text: "Remove"});
-        remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); render(); clearOutput(); });
-        return el("li", {}, el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""})), remove);
+        const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
+        remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); render(); updateArrange(); clearOutput(); });
+        const pick = el("input", {type: "checkbox", class: "v2-find-pick", "aria-label": `Select ${p.name} to move`});
+        pick.checked = S.sel.has(p.key);
+        pick.addEventListener("change", () => { if (pick.checked) S.sel.add(p.key); else S.sel.delete(p.key); updateArrange(); });
+        const move = el("button", {type: "button", class: "v2-link v2-find-move", "aria-label": `Move ${p.name} to the other team`, text: "Move"});
+        move.addEventListener("click", () => moveKeys([p.key]));
+        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""})), move, remove);
       }));
     };
+    renders[side] = render;
     // Import: a Sleeper league, a public ESPN league, or pasted names. Names are matched to the engine's rows.
     function importBox() {
       const sel = el("select", {id: `${id}Source`, "aria-label": "Where the roster comes from"},
@@ -326,6 +383,7 @@
         });
         S[side] = keep.concat(added);
         render();
+        updateArrange();
         clearOutput();
         const parts = [`Added ${added.length} player${added.length === 1 ? "" : "s"}${from ? ` from ${from}` : ""}.`];
         if (onOther.length) parts.push(`Left out because they are on the other roster: ${onOther.join(", ")}.`);
@@ -442,7 +500,7 @@
   }
 
   function build() {
-    const host = $("v2Compare");
+    const host = $("v2FindTrade");
     if (!host || $("v2Find")) return;
     const size = el("select", {id: "v2FindSize"}, ...MAX_SIZE_CHOICES.map(n => el("option", {value: String(n), text: `Up to ${n}-for-${n}`})));
     size.addEventListener("change", () => { S.maxSize = Number(size.value); clearOutput(); });
@@ -454,10 +512,15 @@
     };
     const go = el("button", {type: "button", class: "v2-btn", id: "v2FindGo", text: "Find trades"});
     go.addEventListener("click", run);
+    const swap = el("button", {type: "button", class: "v2-btn", id: "v2FindSwap", text: "Swap teams"});
+    swap.addEventListener("click", swapTeams);
+    const undo = el("button", {type: "button", class: "v2-btn", id: "v2FindUndo", text: "Undo", disabled: ""});
+    undo.addEventListener("click", undoArrange);
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
-        el("h2", {id: "v2FindTitle", text: "Find a trade to propose"}),
+        el("h2", {id: "v2FindTitle", text: "Your roster and theirs"}),
         el("p", {class: "v2-meta", text: "Type in your roster and another manager's. Lists trades where DDF Value says you win and the available trade charts say the other manager breaks even or wins."}))),
+      el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
       el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster")),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),

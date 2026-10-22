@@ -307,6 +307,29 @@
     const threshold = Math.max(1, 0.03 * ((give + receive) / 2));
     return {side: net >= threshold ? "win" : net <= -threshold ? "lose" : "even", threshold};
   };
+  // JEG-886: the Deal read must not contradict "Will they accept?" (tradeHeadlines), which counts the
+  // charts on which the other manager wins or breaks even (net <= 0 as shown). Each market column's copy
+  // assumes one answer to that question: charts win for you -> Unlikely; charts even or lose -> Likely.
+  // An average can hide the per-chart disagreement (+0.5, -7.2, +9.1 average to +0.8 "even" while only
+  // 1 of 3 charts has the other manager winning). When the count the headline uses does not match the
+  // column's assumption, the read names the split instead of the cell copy. The cell itself (the grid
+  // outline and the card's side) stays the average's: only the title, action and text change.
+  const DEAL_SPLIT_ACCEPT = {win: "Unlikely", even: "Likely", lose: "Likely"};
+  const acceptAnswer = (yes, of) => (yes / of >= 2 / 3 ? "Likely" : yes / of <= 1 / 3 ? "Unlikely" : "Toss-up");
+  const SPLIT_READS = {
+    win: {title: "Value win, but the trade charts split", action: "Propose it"},
+    even: {title: "Even on value, and the trade charts split", action: "Your call"},
+    lose: {title: "A loss on value, and the trade charts split", action: "Pass or counter"}
+  };
+  const fmtSigned = n => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1);   // the minus sign the cards use
+  function splitRead(vSide, charts) {
+    const said = {win: "DDF Value says you come out ahead", even: "DDF Value calls it even", lose: "DDF Value says you lose"}[vSide];
+    const range = charts.min < 0 && charts.max > 0
+      ? `disagree with each other by ${(charts.max - charts.min).toFixed(1)} points (${fmtSigned(charts.min)} to ${fmtSigned(charts.max)})`
+      : `call it close (${fmtSigned(charts.min)} to ${fmtSigned(charts.max)})`;
+    return {...SPLIT_READS[vSide],
+      text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
+  }
   // One production sentence: P's side against V's side.
   function productionCheck(p, v) {
     if (p === v) return p === "win" ? "Projected production backs the value: DDF Projections also say you come out ahead."
@@ -335,6 +358,12 @@
       const avgRec = completeCharts.reduce((s, r) => s + r.receive, 0) / completeCharts.length;
       market = {net: avgNet, give: avgGive, receive: avgRec, ...sideOf(avgNet, avgGive, avgRec), missing: [],
         chartCount: completeCharts.length};
+      // JEG-886: the same per-chart count "Will they accept?" uses, and the range the average hides.
+      const nets = completeCharts.map(row => row.net);
+      const yes = completeCharts.filter(row => signOf(row.net) <= 0).length;
+      market.charts = {yes, of: completeCharts.length, accept: acceptAnswer(yes, completeCharts.length),
+        min: Math.min(...nets), max: Math.max(...nets)};
+      market.split = market.charts.accept !== DEAL_SPLIT_ACCEPT[market.side];
     }
     const out = {value: net(v), market, projections: net(p)};
     if (out.value.net === null) {
@@ -343,13 +372,13 @@
     if (market.tooFew) {
       return {kind: "incomplete", ...out, text: `Not enough compared charts to read the market (${market.chartCount} of ${MIN_DEAL_CHARTS} needed).`};
     }
-    const cell = DEAL_READS[`${out.value.side}|${out.market.side}`];
+    const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[`${out.value.side}|${out.market.side}`];
     return {kind: "read", ...out, cell: `${out.value.side}|${out.market.side}`, title: cell.title, action: cell.action, text: cell.text,
       production: out.projections.net === null ? null : productionCheck(out.projections.side, out.value.side)};
   }
 
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
-    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS};
+    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -9,7 +9,8 @@
     “<q>”" with a Clear search action, never the lists' own "no player…" copy.
   * JEG-912: the Value pie formatters never print a signed zero ("-0.00", "-0.0", "-0.0%").
   * JEG-913: an unknown hash (#nonsense-route) lands on the default route with the address
-    rewritten in place (Back still works); known routes and their query strings are untouched.
+    rewritten in place (Back still works); known routes (#find-trade included, JEG-852) and
+    their query strings are untouched.
 
 Discrimination: test_guard_fails_on_broken_builds reverts each fix and requires its check to fail.
 """
@@ -260,12 +261,17 @@ def _check_913(page, base) -> list[str]:
     page.wait_for_timeout(300)
     if page.evaluate(ROUTE)["hash"] != "#writing/how-values":
         errors.append("[913] the legacy #how-values redirect broke")
-    # #find-trade: either its own tab (once it exists) or the default route; never a stale hash on Trade targets.
+    # #find-trade is a known route (JEG-852, #809): its own tab, the address and a deep-link query kept.
     page.evaluate("() => { location.hash = '#find-trade'; }")
     page.wait_for_timeout(300)
     snap = page.evaluate(ROUTE)
-    if snap["hash"] == "#find-trade" and snap["tab"] != ["find"]:
-        errors.append(f"[913] #find-trade stays in the address while the page shows {snap['tab']}")
+    if snap["hash"] != "#find-trade" or snap["tab"] != ["find"]:
+        errors.append(f"[913] #find-trade did not land on the Find a trade tab with its address kept: {snap}")
+    page.evaluate("() => { location.hash = '#find-trade?x=1'; }")
+    page.wait_for_timeout(300)
+    snap = page.evaluate(ROUTE)
+    if not snap["hash"].startswith("#find-trade?x=1") or snap["tab"] != ["find"]:
+        errors.append(f"[913] the #find-trade deep link was rewritten: {snap}")
     # Landing on an unknown hash.
     page.goto(base + "#nonsense-route", wait_until="networkidle")
     page.wait_for_function("() => window.TradeValueV2", timeout=40000)

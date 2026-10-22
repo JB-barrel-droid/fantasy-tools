@@ -97,6 +97,37 @@ def run_probe():
                     out = page.evaluate(PROBE, {"key": SQUAD_KEY}) if has_api else {}
                     out["hasApi"] = has_api
                     out["pageErrors"] = errors
+                    # JEG-879 / JEG-606: verify the rendered Not-valued section
+                    # shows "0.0" and the reason for a practice-squad player.
+                    # The search input (#v2Search) may be off-screen (the v2
+                    # toolbar is only visible when scrolled to the Player values
+                    # section), so use evaluate to set the value and fire the
+                    # input event programmatically, then wait past the 120ms
+                    # debounce and read the DOM.
+                    # Navigate to the Player values view (the default is
+                    # Trade targets, which doesn't render the unpriced
+                    # section), then set the search value.
+                    page.evaluate("""() => {
+                      window.location.hash = '#player-values';
+                    }""")
+                    page.wait_for_timeout(200)  # let the route apply
+                    page.evaluate("""() => {
+                      const el = document.getElementById('v2Search');
+                      if (!el) return;
+                      el.value = 'squadtest';
+                      el.dispatchEvent(new Event('input', {bubbles: true}));
+                    }""")
+                    page.wait_for_timeout(500)  # debounce is 120ms; generous wait
+                    display = page.evaluate("""() => {
+                      const box = document.getElementById('v2Unpriced');
+                      const li = box ? box.querySelector('li[data-unpriced]') : null;
+                      if (!li) return {text: null, reason: null};
+                      const val = li.querySelector('.v2-unpriced-value');
+                      const why = li.querySelector('.v2-meta.v2-unpriced-why');
+                      return {text: val ? val.textContent : null, reason: why ? why.textContent : null};
+                    }""")
+                    out["displayText"] = display["text"]
+                    out["displayReason"] = display["reason"]
                     return out
             finally:
                 browser.close()
@@ -127,15 +158,22 @@ class SearchPlayersUniverseTest(unittest.TestCase):
         self.assertTrue(hit["materialized"])
         # 0.0, not "not found": the fully loaded charts price him at 0.
         self.assertTrue({"usatoday", "fantasycalc", "fantasypros"} & set(out["zeros"]), out["zeros"])
-        # JEG-606: DDF Value for a universe_only player is 0, not null.
-        # VP-6.2 gives him 0 for every chart that prices his position, so
-        # the composite averages those zeros to 0.
-        self.assertEqual(0, hit["values"]["ddf_value"])
+        # JEG-804: DDF Value uses projections only. A universe_only player
+        # not priced by any projection has ddf_value = null (the chart zeros
+        # no longer feed into DDF Value).  Pre-JEG-804 this was 0 via charts.
+        self.assertIsNone(hit["values"]["ddf_value"])
         self.assertIn("blended", hit["ddfByVersion"])
         # Every null has a reason (the v2 row contract).
         self.assertEqual([], out["unexplained"])
         self.assertEqual(out["one"]["values"], hit["values"])  # getPlayer == the search hit
         self.assertIn(SQUAD_KEY, out["accent"])  # case and spacing ignored
+        # JEG-879 / JEG-606: the rendered Not-valued section still shows "0.0"
+        # and the unpriced_reason, even though ddf_value is null in the API.
+        self.assertIsNotNone(out["displayText"],
+                             "Not-valued section not rendered for practice squad player")
+        self.assertIn("0.0", out["displayText"], out["displayText"])
+        self.assertIsNotNone(out["displayReason"])
+        self.assertIn("Practice squad", out["displayReason"])
 
     def test_unpriced_players_stay_out_of_the_computed_rows(self):
         self.assertFalse(self.out["inAllRows"])

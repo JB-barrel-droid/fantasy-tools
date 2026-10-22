@@ -66,7 +66,7 @@ READ = """() => {
     tabs: [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view, label: t.querySelector('.v2-tab-full')?.textContent || '',
       current: t.getAttribute('aria-current') === 'page'})),
     research: shown('v2Research'),
-    others: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto', 'v2Audit'].filter(shown),
+    others: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Audit'].filter(shown),
     sections: [...document.querySelectorAll('#v2WritingTabs .v2-subtab')].map(a => ({slug: a.dataset.writing, label: a.textContent.trim(),
       current: a.getAttribute('aria-current') === 'page'})),
     sectionsShown: shown('v2Writing'),
