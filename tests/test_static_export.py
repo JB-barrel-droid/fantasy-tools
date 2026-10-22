@@ -264,13 +264,10 @@ def espn_anchor_problems(players_doc, comparison, csv_rows):
                 problems.append(f"espn/{combo}: {slug} has a native but no CSV row")
                 continue
             team = (row.get("team") or "").strip()
-            team_games = (games_in_window(team, window, byes) if team
-                          else window[1] - window[0] + 1)
-            # JEG-535 / JEG-676: use espn_projected_games when present,
-            # matching bake_players.py and build_ddf_two_tier_leg.py.
-            epg_raw = (row.get("espn_projected_games") or "").strip()
-            epg = int(epg_raw) if epg_raw else None
-            games = epg if epg else team_games
+            # JEG-702 (Jeremy 2026-10-16, "Undo ESPN only"): per team game
+            # again, matching bake_players.py and build_ddf_two_tier_leg.py.
+            games = (games_in_window(team, window, byes) if team
+                     else window[1] - window[0] + 1)
             expected = (float(row["ros_half_ppr"])
                         + rec_weight * float(row["r_receptions"])) / games
             if abs(round(expected, 2) - value) > 0.0051:
