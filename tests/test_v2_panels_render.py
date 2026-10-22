@@ -361,6 +361,29 @@ def check_freshness(page) -> list[str]:
     if f"{stuck} source{'s' if stuck != 1 else ''} not updating" not in label:
         errors.append(f"freshness: header chip {label!r} does not warn about {stuck} stuck source(s)")
 
+    # JEG-822: the header never says "updating" while sources are stuck; when the data week lags the
+    # calendar week it keeps the JEG-806 wording and then states the stuck count. Every source failing -> "all N".
+    ref_week = page.evaluate("() => window.TradeValueV2.view().refWeek")
+
+    def lagging(failing):
+        def handler(route, *_):
+            doc = _freshness_doc()
+            for item in doc.get("items", []):
+                if str(item.get("key", "")).startswith(("source_import.", "comparison.")):
+                    item["freshness_ok"] = not failing
+                    if "weeks_behind" in item:
+                        item["weeks_behind"] = 0
+            route.fulfill(status=200, json=doc)
+        return handler
+    _, label = _freshness_with(page, lagging(True), calendar_ahead=1)
+    if ", updating" in label or "not updating" not in label or f"data through Week {ref_week}" not in label:
+        errors.append(f"freshness: header with every source stuck reads {label!r}")
+    if not re.search(r"all \d+ sources not updating", label):
+        errors.append(f"freshness: header with every source stuck does not say 'all N sources not updating': {label!r}")
+    _, label = _freshness_with(page, lagging(False), calendar_ahead=1)
+    if f"NFL Week {ref_week + 1} · data through Week {ref_week}, updating" not in label:
+        errors.append(f"freshness: healthy header lost the JEG-806 wording: {label!r}")
+
     # Fail closed: a missing freshness file never shows a source as current.
     def missing(route, *_):
         route.fulfill(status=404, content_type="text/plain", body="not found")
@@ -414,7 +437,7 @@ def _freshness_doc() -> dict:
     return json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8"))
 
 
-def _freshness_with(page, handler):
+def _freshness_with(page, handler, calendar_ahead=0):
     """Load Player values with reference-freshness.json served by handler; return the rows and the chip."""
     other = page.context.browser.new_page(viewport={"width": 1440, "height": 1000})
     other.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -425,6 +448,12 @@ def _freshness_with(page, handler):
     other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=120000)
     other.wait_for_timeout(1500)   # the freshness record loads after the engine
     other.wait_for_function("() => !document.getElementById('v2FreshnessLabel').textContent.includes('checking sources')", timeout=60000)
+    if calendar_ahead:
+        # JEG-806/822: make the calendar week run ahead of the data week, then redraw the header.
+        other.evaluate("""(ahead) => { const pd = window.TradeValueProductData, orig = pd.getSourceFreshness.bind(pd);
+          pd.getSourceFreshness = () => { const f = orig() || {}; return {...f, current_content_week: (f.first_load_reference_week || 0) + ahead}; };
+          window.TradeValueV2.setShown(window.TradeValueV2.shown()); }""", calendar_ahead)
+        other.wait_for_timeout(300)
     other.click("#v2Freshness")
     rows = other.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#v2Popover tr[data-source]')].map(tr =>
       [tr.dataset.source, {status: tr.dataset.status, text: tr.lastElementChild.textContent}]))""")
