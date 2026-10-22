@@ -8,8 +8,9 @@ Makefile, runs each one, and exits 1 at the end listing every failed line.
 
 Usage: python3 tests/run_suite.py [--makefile PATH] TARGET
 
-Recipe lines must be plain shell commands (no make variables); comment lines
-are skipped. A leading "python3 " runs with this interpreter, so the runner
+Recipe lines may use make variables ($(NODE_CHROMIUM) in the node harness
+lines): when any line contains "$", the runner asks `make -n` for the expanded
+recipe instead of running it. Comment lines are skipped. A leading "python3 " runs with this interpreter, so the runner
 also works where python3 is not on PATH (Windows).
 """
 from __future__ import annotations
@@ -25,6 +26,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def clean_command(line: str) -> str:
+    return line.strip().lstrip("@-").strip()
+
+
+def expanded_recipe_lines(makefile: Path, target: str) -> list[str]:
+    """The recipe as make expands it (`make -n` prints, never runs, the commands)."""
+    try:
+        proc = subprocess.run(["make", "-n", "-s", "-f", str(makefile), target],
+                              cwd=str(makefile.resolve().parent), capture_output=True,
+                              text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SystemExit(f"run_suite: {target} needs make to expand variables but make failed: {exc}")
+    if proc.returncode != 0:
+        raise SystemExit(f"run_suite: make -n {target} failed (rc={proc.returncode}): {proc.stderr.strip()}")
+    commands = [clean_command(line) for line in proc.stdout.splitlines()]
+    return [c for c in commands if c and not c.startswith("#")]
+
+
 def recipe_lines(makefile: Path, target: str) -> list[str]:
     """The target's recipe commands, in order, without comments or @/- prefixes."""
     lines = makefile.read_text(encoding="utf-8").splitlines()
@@ -36,12 +55,14 @@ def recipe_lines(makefile: Path, target: str) -> list[str]:
     for line in lines[start + 1:]:
         if not line.startswith("\t"):
             break
-        command = line.strip().lstrip("@-").strip()
+        command = clean_command(line)
         if not command or command.startswith("#"):
             continue
-        if "$" in command or command.endswith("\\"):
-            raise SystemExit(f"run_suite: {target} line needs make to expand it: {command}")
+        if command.endswith("\\"):
+            raise SystemExit(f"run_suite: {target} has a continued line the runner cannot split: {command}")
         commands.append(command)
+    if any("$" in command for command in commands):
+        commands = expanded_recipe_lines(makefile, target)
     if not commands:
         raise SystemExit(f"run_suite: target {target!r} has no commands")
     return commands
