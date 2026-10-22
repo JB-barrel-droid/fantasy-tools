@@ -492,7 +492,9 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-trade-side { margin-top: 0; position: relative; }
 .v2-trade-side h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px !important; }
 .v2-trade-side .v2-search { display: block; max-width: none; }
-.v2-trade-results { list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; left: 24px; right: 24px; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
+/* JEG-823: wrap search + results so the absolute list opens below the input, not above it. */
+.v2-trade-search-wrap { position: relative; }
+.v2-trade-results { list-style: none; margin: 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
 .v2-trade-results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
 .v2-trade-results button:hover, .v2-trade-results button:focus-visible { background: var(--v2-positive); }
 .v2-trade-results .is-empty { padding: 10px 12px; }
@@ -512,7 +514,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-ctable td[data-col="net"] .missing .why { display: block; font-size: 11px; font-weight: 400; white-space: normal; max-width: 260px; margin-left: auto; }
 @media (max-width: 767px) {
   .v2-trade-sides { grid-template-columns: 1fr; }
-  .v2-trade-results { left: 16px; right: 16px; }
+  .v2-trade-results { left: 0; right: 0; }
   /* Each source becomes a card: name on top, then give / get / net with their labels. */
   .v2-ctable thead { display: none; }
   .v2-ctable, .v2-ctable tbody { display: block; }
@@ -792,6 +794,9 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-psplit b { font-size: 18px; }
 .v2-pshare { display: grid; grid-template-columns: 40px 1fr 64px; gap: 12px; align-items: center; min-height: 40px; }
 .v2-pshare > span:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.v2-share-msg { color: #b3261e; margin: 4px 0; }
+.v2-share-msg[hidden] { display: none; }
+.v2-pshare input[aria-invalid="true"] { border-color: #b3261e; }
 .v2-pshare-bar { height: 6px; background: var(--v2-border); border-radius: 3px; overflow: hidden; }
 .v2-pshare-bar > span { display: block; height: 100%; background: var(--v2-action); }
 .v2-pbanner { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--v2-older); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 12px 14px; margin-top: 10px; }
@@ -875,8 +880,8 @@ a.v2-div-chip:hover { text-decoration: underline; }
 #v2Compare .v2-trade-results { left: 14px; right: 14px; }
 #v2Compare .v2-trade-players { margin-top: 6px; }
 #v2Compare .v2-trade-players li { padding: 0; min-height: 44px; gap: 8px; }
-#v2Compare .v2-trade-players li > div { min-width: 0; display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
-#v2Compare .v2-trade-players li > div > .v2-meta { display: inline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#v2Compare .v2-trade-players li > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; overflow: hidden; }   /* JEG-827: the meta wraps under the name instead of being cut */
+#v2Compare .v2-trade-players li > div > .v2-meta { display: inline; white-space: normal; min-width: 0; }
 #v2Compare .v2-trade-players .v2-trade-name, #v2Compare .v2-trade-players li > div > b { white-space: nowrap; flex: none; }
 #v2Compare .v2-trade-value { font-size: 15px; }
 #v2Compare .v2-side-total { margin-top: auto !important; padding-top: 10px; }
@@ -1134,6 +1139,9 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-vtable th[aria-sort="descending"] .th-1::after { content: " ↓"; opacity: 1; }
 .v2-vtable th[aria-sort="ascending"] .th-1::after { content: " ↑"; opacity: 1; }
 .v2-vtable .th-2 { font-size: 11px; font-weight: 500; font-variant-caps: all-small-caps; letter-spacing: .02em; white-space: nowrap; }
+/* Divergence chip in values-table headers: show only the symbol to keep the column narrow. */
+.v2-vtable .th-2 .v2-div-chip { font-variant-caps: normal; font-size: 0; }
+.v2-vtable .th-2 .v2-div-chip > span { font-size: 11px; }
 .v2-vtable .th-2 .is-older { color: var(--v2-older); }
 /* Grouped top row. */
 .v2-vtable .v2-group-row th { height: var(--v2-group-h); padding: 2px var(--v2-cell-pad-x); font-size: 10px; font-weight: 700;
@@ -1395,3 +1403,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (max-width: 767px) {
   .v2-srclink { padding: 15px; margin: -15px; }
 }
+
+/* JEG-827: below 1024 px the zoom row sits above the plot (a 48 px strip), not over its top 44 px; the plot grows by the strip so the chart keeps its height. */
+@media (max-width: 1023px) {
+  .v2-plot-main { padding-top: 48px; box-sizing: border-box; }
+  .v2-ybrush { margin-top: 60px; }
+}
+@media (min-width: 768px) and (max-width: 1023px) { .v2-plot { height: calc(var(--v2-chart-h) + 48px); } }
+@media (max-width: 767px) { .v2-plot-main { height: 308px; } }

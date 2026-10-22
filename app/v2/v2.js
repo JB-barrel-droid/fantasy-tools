@@ -2676,6 +2676,13 @@
       const edited = {};
       let resetShares = false;
       const inputs = {};
+      const lastValid = {};
+      const shareMsg = document.createElement("p");
+      shareMsg.className = "v2-meta v2-share-msg";
+      shareMsg.dataset.shareMessage = "";
+      shareMsg.setAttribute("role", "alert");
+      shareMsg.hidden = true;
+      body.appendChild(shareMsg);
       ["QB", "RB", "WR", "TE"].forEach(pos => {
         const line = document.createElement("div");
         line.className = "v2-pshare";
@@ -2698,11 +2705,31 @@
         input.max = (hi * 100).toFixed(1);
         input.value = Number.isFinite(v) ? (v * 100).toFixed(1) : "";
         input.disabled = !shareBounds;
+        // JEG-834: an out-of-range or empty share is never applied. The last valid value stays in
+        // `edited` (or the current engine share), a message says the allowed range, and the box
+        // snaps back to that value when the reader leaves it.
+        lastValid[pos] = Number.isFinite(v) ? Number((v * 100).toFixed(1)) : null;
         input.addEventListener("input", () => {
           const n = Number(input.value);
-          if (input.value !== "" && Number.isFinite(n)) edited[pos] = n / 100;
-          else delete edited[pos];
+          const ok = input.value.trim() !== "" && Number.isFinite(n) && n >= lo * 100 - 1e-9 && n <= hi * 100 + 1e-9;
+          if (ok) {
+            edited[pos] = n / 100;
+            lastValid[pos] = n;
+            input.removeAttribute("aria-invalid");
+            shareMsg.hidden = true;
+            shareMsg.textContent = "";
+          } else {
+            input.setAttribute("aria-invalid", "true");
+            shareMsg.hidden = false;
+            shareMsg.textContent = `${pos} share must be between ${+(lo * 100).toFixed(1)}% and ${+(hi * 100).toFixed(1)}%. Keeping ${lastValid[pos] === null ? "the current value" : `${lastValid[pos].toFixed(1)}%`}.`;
+          }
           resetShares = false;
+        });
+        input.addEventListener("change", () => {
+          if (input.getAttribute("aria-invalid") === "true" && lastValid[pos] !== null) {
+            input.value = lastValid[pos].toFixed(1);
+            input.removeAttribute("aria-invalid");
+          }
         });
         inputs[pos] = input;
         const now = document.createElement("span");
@@ -2721,7 +2748,12 @@
         const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
         Object.keys(edited).forEach(pos => delete edited[pos]);
         resetShares = true;
-        if (defaults) Object.entries(inputs).forEach(([pos, input]) => { input.value = (Number(defaults[pos]) * 100).toFixed(1); });
+        if (defaults) Object.entries(inputs).forEach(([pos, input]) => {
+          input.value = (Number(defaults[pos]) * 100).toFixed(1);
+          lastValid[pos] = Number(input.value);
+          input.removeAttribute("aria-invalid");
+        });
+        shareMsg.hidden = true;
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
         let note = "";
@@ -4727,7 +4759,15 @@
     const box = $("v2CDeal");
     const deal = compareView.deal;
     box.hidden = !deal;
-    if (!deal) return;
+    if (!deal) {
+      // JEG-823: clear stale deal-read content when a side is empty (defense in depth, cf. JEG-808).
+      $("v2CDealRead").textContent = "";
+      $("v2CDealText").textContent = "";
+      $("v2CDealNets").replaceChildren();
+      $("v2CDealGrid").replaceChildren();
+      $("v2CDealProduction").textContent = "";
+      return;
+    }
     const TC = window.TradeValueTrade;
     $("v2CDealRead").textContent = deal.kind === "read" ? `${deal.title}: ${deal.action}` : "";
     $("v2CDealRead").hidden = deal.kind !== "read";
@@ -4991,8 +5031,9 @@
       ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
-    $("v2CClear").hidden = !count;
-    $("v2CSwap").hidden = !count;
+    // JEG-823: hide Clear/Swap when the example is showing (nothing to clear or swap).
+    $("v2CClear").hidden = !count || compareView.example;
+    $("v2CSwap").hidden = !count || compareView.example;
     $("v2CShare").hidden = !ready || compareView.example;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
