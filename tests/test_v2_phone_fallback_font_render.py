@@ -7,7 +7,7 @@ on the same code (nav row 6 to 15 px over on every tab, the Player values table
 head 33 px over), so this test forces DejaVu Sans, the widest common fallback,
 on every element and requires scrollWidth == clientWidth on each tab.
 
-Discrimination: test_guard_fails_on_old_css serves v2.css with the 13 px tab
+Discrimination: test_guard_fails_on_old_nav_rules and test_guard_fails_on_old_table_head_rule serve v2.css with the 13 px tab
 row and the non-shrinking table title and requires the overflow to be found.
 """
 from __future__ import annotations
@@ -54,7 +54,7 @@ def _served():
             server.shutdown()
 
 
-def _overflows(css=None) -> dict:
+def _overflows(css=None, tabs=TABS, extra_tabs=0) -> dict:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -74,13 +74,19 @@ def _overflows(css=None) -> dict:
         if not has_face:
             browser.close()
             raise _render_env.unavailable("DejaVu Sans is not installed, so the wide fallback face cannot be forced")
-        for tab in TABS:
+        for tab in tabs:
             page = browser.new_page(viewport={"width": 390, "height": 844})
             page.add_init_script(WIDE)
             if css is not None:
                 page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
             page.goto(base + tab, wait_until="networkidle")
             page.wait_for_timeout(1500)
+            for index in range(extra_tabs):
+                # Stand-in tabs: the row is held at more tabs than the nav has, so the nav rules can be proven on their own.
+                page.evaluate("""(i) => { const nav = document.querySelector('.v2-tabs'); const t = nav.lastElementChild.cloneNode(true);
+                  t.dataset.view = 'standin-' + i; t.dataset.short = 'Tab'; t.classList.remove('is-active'); t.removeAttribute('aria-current');
+                  nav.appendChild(t); }""", index)
+            page.wait_for_timeout(200)
             over = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
             if over > 0:
                 out[tab] = over
@@ -93,17 +99,22 @@ class PhoneFallbackFontTest(unittest.TestCase):
     def test_every_tab_fits_390_in_a_wide_fallback_face(self):
         self.assertEqual(_overflows(), {})
 
-    def test_guard_fails_on_old_css(self):
+    def test_guard_fails_on_old_table_head_rule(self):
+        # The Player values table head must not widen the page (33 px over in JEG-675). Only this rule is reverted.
         css = (ROOT / "app" / "v2" / "v2.css").read_text(encoding="utf-8")
-        for new, old in OLD_RULES:
+        new, old = OLD_RULES[2]
+        self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
+        self.assertIn("#player-values", _overflows(css.replace(new, old), tabs=("#player-values",)))
+
+    def test_guard_fails_on_old_nav_rules(self):
+        # JEG-880: the nav rules (12 px tab type, wrap from 360 px) are proven on their own, on a route whose table head
+        # cannot overflow. Seven short tabs now fit even with the old rules, so the row is held at eight with one stand-in
+        # tab. Current rules must hold the eight (a wrapped row, no sideways scroll); the old rules must not.
+        css = (ROOT / "app" / "v2" / "v2.css").read_text(encoding="utf-8")
+        old_css = css
+        for new, old in OLD_RULES[:2]:
             self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
-            css = css.replace(new, old)
-        found = _overflows(css)
-        # JEG-852: with the seven-tab nav and the short "Audit" label the old rules overflow only where the table card head
-        # also wraps badly (Player values); the old tab-row rules alone still cannot hold seven tabs, so the guard stays.
-        self.assertIn("#player-values", found)
-        self.assertTrue(found, "old CSS was not caught")
-
-
-if __name__ == "__main__":
-    unittest.main()
+            old_css = old_css.replace(new, old)
+        route = ("#trade-targets",)
+        self.assertEqual(_overflows(tabs=route, extra_tabs=1), {}, "current nav rules must hold eight tabs")
+        self.assertIn("#trade-targets", _overflows(old_css, tabs=route, extra_tabs=1), "old nav rules were not caught")
