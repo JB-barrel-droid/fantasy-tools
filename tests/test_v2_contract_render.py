@@ -2212,9 +2212,10 @@ class ContractRenderTest(unittest.TestCase):
         # a Manifesto section dropped.
         broken_js = cut(js, "const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);",
                         'const rank = saved && saved.rank ? saved.rank : (hasDdf ? C.getActiveSources()[0] : null);')
-        broken_js = cut(broken_js, '$("v2FreshnessLabel").textContent = stuck ?', '$("v2FreshnessLabel").textContent = false ?')
-        broken_js = cut(broken_js, '`${weekText}${freshNotes.join(" · ") || "all sources current"}`',
-                        '`${weekText}all sources current`')
+        # JEG-806: the ternary is now multi-line; the anchor is just the assignment start.
+        broken_js = cut(broken_js, '$("v2FreshnessLabel").textContent = stuck\n', '$("v2FreshnessLabel").textContent = false\n')
+        broken_js = cut(broken_js, '`${weekText}${freshNotes.join(" · ") || "all sources current"}`;\n',
+                        '`${weekText}all sources current`;\n')
         broken_css = css + "\n@media (max-width: 500px) { .v2-wrap { min-width: 480px; } }\n"
         section = re.search(r'    <section class="v2-mf-sec" aria-labelledby="v2M1">.*?</section>\n', shell, re.S)
         self.assertIsNotNone(section, "stale mutation anchor: Manifesto section 1")
