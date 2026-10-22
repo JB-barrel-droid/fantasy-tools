@@ -866,6 +866,21 @@ def chart_universe(site_doc: dict | None) -> set[int]:
     return {int(v) for v in ((site_doc or {}).get("player_keys") or {}).values() if v is not None}
 
 
+def exempt_chart_drops(cmp: dict, drops: dict[int, str]) -> list[dict]:
+    """Move cmp['missing'] entries for players the chart drops by rule into
+    cmp['dropped_by_rule'] (JEG-807) and return them with the rule's reason."""
+    if not drops:
+        cmp.setdefault("dropped_by_rule", [])
+        return []
+    kept, moved = [], []
+    for m in cmp["missing"]:
+        reason = drops.get(m.get("player_key"))
+        (moved if reason else kept).append(dict(m, reason=reason) if reason else m)
+    cmp["missing"] = kept
+    cmp["dropped_by_rule"] = moved
+    return moved
+
+
 def split_universe(cmp: dict, side: str, universe: set[int]) -> list[dict]:
     """Move cmp[side] entries for players outside the page's universe to
     cmp['outside_universe'] and return them grouped one per player."""
@@ -1963,10 +1978,18 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     left = projection_grains(rows, lambda r: mod.stored_chart_values(r, ctx), mod.CHART_DECIMALS, ident)
     right, unresolved = projection_chart_grains(site_doc, source, ident)
     cmp = compare(left, right, printed=True)
+    # JEG-807: a stored row the chart drops by its own rule (Razzball's
+    # missed-games guard, JEG-555) is not a player missing from the chart.
+    drops_of = getattr(mod, "chart_drops", None)
+    dropped = exempt_chart_drops(cmp, drops_of(rows) if callable(drops_of) else {})
     outside = split_universe(cmp, "missing", chart_universe(site_doc))
     n_bad = problem_count(cmp)
     status = "red" if n_bad or unresolved else "green"
     reasons = []
+    if dropped:
+        reasons.append(f"{players(dropped)} stored players are left off the chart by its own rule "
+                       f"(missed-games guard, JEG-555): "
+                       f"{', '.join(sorted({d['name'] or str(d['player_key']) for d in dropped}))[:200]}")
     # A snapshot date is re-saved in place (upsert) when the publisher updates
     # the same day; the rows the chart was built from are then overwritten.
     # Differences on rows written after the chart's raw_built_at cannot be
@@ -2031,7 +2054,8 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
               "stored_players": len({k for g in left.values() for k in g}),
               "compared": cmp["compared"], "matched": cmp["matched"], "mismatched": len(cmp["mismatches"]),
               "missing_on_chart": players(cmp["missing"]), "extra_on_chart": players(cmp["extra"]),
-              "outside_universe": len(outside), "unresolved_names": len(unresolved)}
+              "outside_universe": len(outside), "unresolved_names": len(unresolved),
+              "dropped_by_rule": players(dropped)}
     summary = (f"{cmp['matched']}/{cmp['compared']} chart values equal stored snapshot {snap} "
                f"(per game, {mod.CHART_DECIMALS} decimals)" + (f"; {'; '.join(reasons)}" if reasons else ""))
     return stage(status, summary, counts=counts, chart_snapshot=snap, behind=behind, grains=cmp["grains"],

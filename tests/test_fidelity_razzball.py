@@ -162,5 +162,94 @@ class StoredValues(unittest.TestCase):
             self.assertIn(c, cols)
 
 
+class ChartDropsTests(unittest.TestCase):
+    """JEG-807 (2026-10-22): stored rows the Razzball section drops by the
+    JEG-555 missed-games guard are not "stored players not on the chart".
+    Pulse 39740353223 held Razzball red on 27 such rows with 1947/1947
+    served values equal."""
+
+    def players_json(self, espn=20.0, cbs=22.0):
+        import json
+        import tempfile
+        p = Path(tempfile.mkdtemp()) / "players.json"
+        p.write_text(json.dumps({"players": [
+            {"player_key": 1743, "espn_ppg": {"standard": espn, "half_ppr": espn, "ppr": espn},
+             "cbsros_ppg": {"standard": cbs, "half_ppr": cbs, "ppr": cbs}},
+            {"player_key": 2, "espn_ppg": {"standard": espn, "half_ppr": espn, "ppr": espn}, "cbsros_ppg": None},
+        ]}), encoding="utf-8")
+        return p
+
+    def row(self, key, ppg):
+        return {"player_key": key, "player_norm": f"p{key}", "per_game_standard": ppg,
+                "per_game_half_ppr": ppg, "per_game_ppr": ppg}
+
+    def test_guard_held_row_is_a_drop_and_a_normal_row_is_not(self):
+        drops = razzball.chart_drops([self.row(1743, 4.1), self.row(2, 18.0)], self.players_json())
+        self.assertEqual([1743], sorted(drops))
+        self.assertIn("expected-missed-games discount", drops[1743])
+
+    def test_no_players_json_exempts_nothing(self):
+        self.assertEqual({}, razzball.chart_drops([self.row(1743, 4.1)], Path("/nonexistent/players.json")))
+
+    def test_pulse_moves_dropped_rows_out_of_missing(self):
+        import fidelity_pulse as fp
+        cmp = {"compared": 0, "matched": 0, "mismatches": [], "extra": [],
+               "missing": [{"type": "missing", "grain": "half|1", "player_key": 1743, "name": "J.J. McCarthy"},
+                           {"type": "missing", "grain": "half|1", "player_key": 9, "name": "Really Missing"}]}
+        moved = fp.exempt_chart_drops(cmp, {1743: "razzball half_ppr 4.1 ppg is 20% of the ESPN/CBS mean"})
+        self.assertEqual([1743], [m["player_key"] for m in moved])
+        self.assertEqual([9], [m["player_key"] for m in cmp["missing"]])
+        self.assertEqual(1, fp.problem_count(cmp), "only the genuinely missing player is a problem")
+        # negative: with no drops the missing count is untouched
+        cmp2 = {"compared": 0, "matched": 0, "mismatches": [], "extra": [],
+                "missing": [{"type": "missing", "grain": "half|1", "player_key": 1743, "name": "J.J. McCarthy"}]}
+        self.assertEqual([], fp.exempt_chart_drops(cmp2, {}))
+        self.assertEqual(1, fp.problem_count(cmp2))
+
+    def test_stage_uses_the_module_hook(self):
+        """stage_projection_chart asks the source module which stored rows
+        the chart drops by rule and reports them, not as missing."""
+        import fidelity_pulse as fp
+        seen = {}
+
+        class Mod:
+            CHART_DECIMALS = 1
+
+            @staticmethod
+            def stored_chart_values(row, ctx):
+                return {"half|1": float(row["per_game_half_ppr"])}
+
+            @staticmethod
+            def chart_drops(rows):
+                seen["rows"] = rows
+                return {1743: "guard"}
+
+        class Store:
+            def snapshot_rows(self, mod, snap):
+                return []
+
+        class Ident:
+            def resolve(self, name, pos):
+                return None, "unmatched"
+
+            def __getattr__(self, _attr):  # name(), pos(), ...: nothing known
+                return lambda *a, **k: None
+
+        site_doc = {"sources": {"razzball": {"vintage": "2026-10-21",
+                                             "combos": {"half_12": {"native": {}}}}},
+                    "player_keys": {}}
+        rows = [{"player_key": 1743, "player_norm": "jj mccarthy", "name": "J.J. McCarthy",
+                 "per_game_half_ppr": 4.1}]
+        try:
+            st, _ = fp.stage_projection_chart("razzball", Mod, site_doc, None, Store(), Ident(),
+                                              fp.datetime.now(fp.timezone.utc), "2026-10-21", rows)
+        except Exception as e:  # noqa: BLE001
+            self.fail(f"stage raised {type(e).__name__}: {e}")
+        self.assertEqual(rows, seen.get("rows"))
+        self.assertEqual(1, st["counts"]["dropped_by_rule"])
+        self.assertEqual(0, st["counts"]["missing_on_chart"])
+        self.assertNotEqual("red", st["status"], st["summary"])
+
+
 if __name__ == "__main__":
     unittest.main()
