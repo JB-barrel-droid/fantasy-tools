@@ -881,6 +881,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-cverdict[data-verdict="incomplete"] { border-left-color: var(--v2-older); }
 /* JEG-505: the two headline answers above the verdict. */
 .v2-cheads { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 6px; }
+.v2-cheads[hidden] { display: none; }
 #v2Compare .v2-cheads .v2-chead { display: block; margin: 0 !important; font-size: 15px; font-weight: 400; }
 .v2-chead .q { font-weight: 700; }
 .v2-chead .a, .v2-chead .c { font-weight: 800; white-space: nowrap; }

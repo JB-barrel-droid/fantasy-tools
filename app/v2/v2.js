@@ -4773,7 +4773,11 @@
     const box = $("v2CHeads");
     const heads = compareView.headlines;
     box.hidden = !heads;
-    if (!heads) return;
+    if (!heads) {
+      // JEG-808: an empty or changed trade must not keep the last answer in the hidden box.
+      box.querySelectorAll(".v2-chead").forEach(p => { p.replaceChildren(); p.dataset.answer = "none"; p.dataset.confidence = "none"; });
+      return;
+    }
     ["propose", "accept"].forEach(line => {
       const p = box.querySelector(`[data-line="${line}"]`);
       const h = heads[line];
