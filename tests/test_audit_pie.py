@@ -176,14 +176,18 @@ def _make_fixture():
     }
     players_all["fantasycalc"] = src_b_players
 
+    # Match real engine: no "budgets" field; extract() computes it from
+    # ddfWeights * pie (funded[g] = ddfWeights[g] * pie, value-model.js:979).
     return {
         "valuePipeline": {
-            "pie": PIE, "sources": sources, "budgets": budgets,
+            "pie": PIE, "sources": sources,
             "ddfWeights": ddf_weights, "allocation": {},
             "version": "test", "setting": "test", "method": "test",
             "benchShare": 0.15
         },
-        "players": players_all
+        "players": players_all,
+        # Keep budgets accessible for test assertions (not part of pipeline)
+        "_test_budgets": budgets
     }
 
 
@@ -205,7 +209,7 @@ def _verify_fixture():
         "Fixture: fantasycalc rates must not all be 1.0")
     # Source B raw groups must differ from adjusted sums
     groups = fc["groups"]
-    budgets = FIXTURE["valuePipeline"]["budgets"]
+    budgets = FIXTURE["_test_budgets"]
     assert any(abs(groups[k] - budgets[k]) > 0.01 for k in groups), (
         "Fixture: fantasycalc groups must differ from budgets")
 
@@ -404,6 +408,26 @@ class AuditPieExtractTest(unittest.TestCase):
         srcs = {r["src"] for r in data["rows"]}
         self.assertEqual(srcs, {"espn", "fantasycalc"})
 
+    def test_budget_nonzero_when_position_adj_nonzero(self):
+        """Budget must be nonzero for every position with nonzero adjusted."""
+        data = _extract_in_browser(FIXTURE_JSON)
+        for row in data["rows"]:
+            for pd in row["positions"]:
+                if pd["posAdj"] > 0:
+                    self.assertGreater(pd["budget"], 0,
+                        f"{row['src']} {pd['pos']}: budget is 0 but posAdj={pd['posAdj']}")
+
+    def test_budget_equals_ddfweights_times_pie(self):
+        """Budget = ddfWeights[pos|starter] * pie + ddfWeights[pos|bench] * pie."""
+        data = _extract_in_browser(FIXTURE_JSON)
+        ddf = FIXTURE["valuePipeline"]["ddfWeights"]
+        for row in data["rows"]:
+            for pi, pos in enumerate(["QB", "RB", "WR", "TE"]):
+                expected = ddf[f"{pos}|starter"] * PIE + ddf[f"{pos}|bench"] * PIE
+                pd = row["positions"][pi]
+                self.assertAlmostEqual(pd["budget"], expected, places=4,
+                    msg=f"{row['src']} {pos}: budget {pd['budget']} != expected {expected}")
+
 
 @unittest.skipIf(_skip_no_pw(), "playwright not installed")
 class AuditPieVP5Test(unittest.TestCase):
@@ -475,7 +499,7 @@ class AuditPieRawVsAdjustedTest(unittest.TestCase):
         (the bug the old code had). This tests the guard catches that."""
         fixture = json.loads(FIXTURE_JSON)
         # Set groups to budgets (so raw == adjusted, hiding the rescale)
-        budgets = fixture["valuePipeline"]["budgets"]
+        budgets = fixture["_test_budgets"]
         fc = fixture["valuePipeline"]["sources"]["fantasycalc"]
         for key in budgets:
             fc["groups"][key] = budgets[key]
@@ -568,6 +592,24 @@ class AuditPieNegativeTest(unittest.TestCase):
         for row in data["rows"]:
             pos_sum = sum(pd["posAdj"] for pd in row["positions"])
             self.assertAlmostEqual(row["totalAdjusted"], pos_sum, places=4)
+
+    def test_guard_catches_budget_zero(self):
+        """Negative test: if ddfWeights are zeroed out, budget becomes 0.
+        The guard (test_budget_nonzero_when_position_adj_nonzero) would fail."""
+        fixture = json.loads(FIXTURE_JSON)
+        # Zero out ddfWeights to simulate the budget-is-zero bug
+        for key in fixture["valuePipeline"]["ddfWeights"]:
+            fixture["valuePipeline"]["ddfWeights"][key] = 0
+        data = _extract_in_browser(json.dumps(fixture))
+        # All budgets should now be 0 while posAdj is nonzero
+        for row in data["rows"]:
+            for pd in row["positions"]:
+                self.assertEqual(pd["budget"], 0,
+                    "With zeroed ddfWeights, budget must be 0 (the broken state)")
+                if pd["posAdj"] > 0:
+                    # This is the state the guard catches
+                    self.assertGreater(pd["posAdj"], pd["budget"],
+                        "posAdj should exceed budget=0 (confirming the guard)")
 
 
 @unittest.skipIf(_skip_no_pw(), "playwright not installed")

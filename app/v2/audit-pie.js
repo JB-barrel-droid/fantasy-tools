@@ -87,8 +87,15 @@
     var vp = inspection.valuePipeline;
     var pie = vp.pie;
     var sources = vp.sources;
-    var budgets = vp.budgets || {};
     var ddfWeights = vp.ddfWeights || {};
+    // budgets = funded[g] = ddfWeights[g] * pie (value-model.js:979-980).
+    // The pipeline exposes ddfWeights but not the funded object directly.
+    var budgets = vp.budgets || {};
+    if (!Object.keys(budgets).length && Object.keys(ddfWeights).length) {
+      Object.keys(ddfWeights).forEach(function (g) {
+        budgets[g] = ddfWeights[g] * pie;
+      });
+    }
     var allocation = vp.allocation || {};
     var players = inspection.players || {};
     var sourceKeys = Object.keys(sources);
