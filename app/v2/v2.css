@@ -1486,13 +1486,14 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 }
 
 /* JEG-861: enlarged text (+3 px) in a wide face at 320 px pushed the page sideways: the Targets card score line wrapped
-   nowhere, and the Values toolbar Position and Show fields grew past the row. They wrap or shrink instead. */
+   nowhere, and the Values toolbar Position and Show fields grew past the row. They wrap or shrink instead (the Rank by
+   field keeps its own JEG-827 rule above, so that guard still proves itself). */
 @media (max-width: 767px) {
   .v2-tcards .top { min-width: 0; }
   .v2-tcards .big { min-width: 0; }
   .v2-tcards .big .v2-meta { white-space: normal; }
-  #v2Main .v2-toolbar .v2-field { min-width: 0; max-width: 100%; }
-  #v2Main .v2-toolbar .v2-field select { flex: 1 1 0; width: 0; min-width: 0; }
+  #v2Main .v2-toolbar .v2-field:not(.v2-field-rank) { min-width: 0; max-width: 100%; }
+  #v2Main .v2-toolbar .v2-field:not(.v2-field-rank) select { flex: 1 1 0; width: 0; min-width: 0; }
 }
 
 /* JEG-861: landscape phones (812 x 375). The centred panel kept 40 px above and below and a tall head and foot, leaving
