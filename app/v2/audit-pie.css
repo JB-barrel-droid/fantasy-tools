@@ -106,6 +106,16 @@
   font-weight: 600;
 }
 
+.audit-pie-verdict-note-text {
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--v2-muted, #6b7280);
+  border-bottom: none;
+  padding-top: 0;
+  white-space: normal;
+  line-height: 1.4;
+}
+
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .audit-pie-flag,

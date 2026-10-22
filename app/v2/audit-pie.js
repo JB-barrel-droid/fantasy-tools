@@ -356,6 +356,17 @@
     // Verdict rows
     tbody.appendChild(buildVerdictRow("Starters", verdicts.starters, 12));
     tbody.appendChild(buildVerdictRow("Bench", verdicts.bench, 12));
+    if (!verdicts.bench.within) {
+      var benchNote = el("tr", "audit-pie-verdict-note");
+      var noteCell = td(
+        "A source that posts fewer player values above its waiver line " +
+        "holds less bench value after rescaling. The numbers above show each " +
+        "source’s bench total.",
+        "audit-pie-verdict-note-text");
+      noteCell.colSpan = 12;
+      benchNote.appendChild(noteCell);
+      tbody.appendChild(benchNote);
+    }
     tbody.appendChild(buildVerdictRow("Total", verdicts.total, 12));
 
     table.appendChild(tbody);

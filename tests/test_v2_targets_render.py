@@ -797,9 +797,11 @@ def check_prior(prior, ref_week, width) -> list[str]:
             return [f"{where}: current-week chart {chart} carries a badge {badges}"]
         return []
     for o in prior["options"]:
-        # JEG-834: a list needs 2 or more charts, so no single chart is offered as a choice that returns 0 results.
-        if o["value"] != "all" and (not o["disabled"] or ("2 or more charts" not in o["text"] and "not available" not in o["text"])):
-            errors.append(f"#v2TChart option {o['value']!r} is offered but can only return 0 results: {o}")
+        # JEG-851: single charts are now selectable; only unavailable or same-as-ours charts are disabled.
+        if o["value"] != "all" and o["disabled"] and "not available" not in o["text"] and "same as Our value" not in o["text"]:
+            errors.append(f"#v2TChart option {o['value']!r} is disabled for no clear reason: {o}")
+        if o["value"] != "all" and not o["disabled"] and "not available" in o["text"]:
+            errors.append(f"#v2TChart option {o['value']!r} is enabled but unavailable: {o}")
         if o["value"] == "all" and o["disabled"]:
             errors.append("#v2TChart 'All trade charts' is disabled")
         has = "Week 4" in o["text"]
@@ -1095,7 +1097,7 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "mean instead of median": ({"targets_js": (targets, "const value = median(values);",
                                                        "const value = values.reduce((a, b) => a + b, 0) / values.length;")}, numbers_only),
             "majority rule dropped": ({"targets_js": (targets, " && agree * 2 > priced.length;", ";")}, numbers_only),
-            "single chart allowed": ({"targets_js": (targets, "priced.length >= 2 && value > 0", "priced.length >= 1 && value > 0")}, numbers_only),
+            "single chart always allowed (minCharts bypass)": ({"targets_js": (targets, "priced.length >= minCharts && value > 0", "priced.length >= 1 && value > 0")}, numbers_only),
             "missing read as zero": ({"targets_js": (targets, "const value = row.values[chart];",
                                                      "const value = row.values[chart] ?? 0;")}, numbers_only),
             "waiver rule removed": ({"targets_js": (targets, "if (value <= 0) {", "if (false) {")}, numbers_only),
@@ -1106,8 +1108,8 @@ class TradeTargetsRenderTest(unittest.TestCase):
                                                          "      else if (!item.stale) used.push(key);")}, {"viewports": desk, "numbers": False}),
             "prior-week badge removed": ({"v2_js": (v2, "    if (!item || !item.stale) return null;\n    const name",
                                                     "    return null;\n    const name")}, {"viewports": desk, "numbers": False}),
-            # JEG-834
-            "single chart offered": ({"v2_js": (v2, "      option.disabled = true;   // JEG-834", "      option.disabled = false;   // JEG-834")}, {"viewports": desk, "numbers": False}),
+            # JEG-851: single charts are now selectable; the mutation checks that disabling ALL of them is caught.
+            "all single charts disabled": ({"v2_js": (v2, "      option.disabled = missing || sameAsOurs;", "      option.disabled = true;")}, {"viewports": desk, "numbers": False}),
             # JEG-458
             "rescaled label removed": ({"v2_js": (v2, '`${week.textContent ? " · " : ""}rescaled`', '""')}, {"viewports": desk, "numbers": False}),
             "aria-expanded never reset": ({"v2_js": (v2, 'if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");',
