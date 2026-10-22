@@ -771,13 +771,16 @@
     const held = roots.filter(r => r.status === "held").length;
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
     // JEG-806: when the data week lags the calendar week, say so explicitly.
-    const updatingNote = view.calendarWeek && view.refWeek && view.calendarWeek > view.refWeek
-      ? `NFL Week ${view.calendarWeek} · data through Week ${view.refWeek}, updating` : "";
+    // JEG-822: "updating" only when nothing is stuck; a stuck source gets the same week wording without it.
+    const calendarNote = view.calendarWeek && view.refWeek && view.calendarWeek > view.refWeek
+      ? `NFL Week ${view.calendarWeek} · data through Week ${view.refWeek}` : "";
+    const updatingNote = calendarNote ? `${calendarNote}, updating` : "";
     const freshNotes = [behind ? `⚠ ${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
       held ? `${held} source${held === 1 ? "" : "s"} held` : "",
       unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
     $("v2FreshnessLabel").textContent = stuck
-      ? (updatingNote ? `⚠ ${updatingNote}` : `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`)
+      ? `⚠ ${[calendarNote, `${stuck === roots.length && stuck > 1 ? "all " : ""}${stuck} source${stuck === 1 ? "" : "s"} not updating`].filter(Boolean).join(" · ")}`
+      : updatingNote ? [updatingNote, ...freshNotes].join(" · ")
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
     $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0 || held > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
@@ -3072,8 +3075,8 @@
     const week = Number.isFinite(item.week) ? item.week : null;
     const short = week ? `Week ${week}` : "Earlier week";
     const label = week && Number.isFinite(refWeek) && refWeek !== week
-      ? `${name} has not published Week ${refWeek} yet; showing Week ${week}.`
-      : `${name} has not published this week yet; showing ${week ? `Week ${week}` : "an earlier week"}.`;
+      ? `${name} has not posted its Week ${refWeek} chart yet; this page shows its Week ${week} chart.`
+      : `${name} has not posted this week's chart yet; this page shows ${week ? `its Week ${week} chart` : "an earlier chart"}.`;
     return {short, label, week};
   }
   function priorWeekBadge(key, item, refWeek) {
@@ -3096,7 +3099,7 @@
   // JEG-490: our three names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
   const NAME_DEFS = [
-    ["DDF Value", "Fair value: the price a player is really worth."],
+    ["DDF Value", "Our estimate of what a player is worth, blended from the sources you have chosen."],
     ["DDF Projections", "What production supports: the value of the projected stats."],
     ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
@@ -3840,7 +3843,7 @@
     targetsView.prior.filter(key => targetsView.used.includes(key)).forEach(key => {
       const badge = targetBadge(key);
       if (!badge) return;
-      priorNote.append(badge, document.createTextNode(` ${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
+      priorNote.append(document.createTextNode(`${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
     });
     renderWeightCheck();
   }
@@ -4814,7 +4817,7 @@
   // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
   // (symbol + word), with the reasons on a second muted line. Never colour alone.
   const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
-  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
+  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "?", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
   function renderHeadlines() {
     const box = $("v2CHeads");
@@ -5164,6 +5167,7 @@
     $("v2HowBench").textContent = benchRead.missing ? "—" : benchRead.short;
     $("v2HowBenchNote").hidden = true;
     $("v2HowBenchNote").textContent = "";
+    let estimatedExplained = false;
     document.querySelectorAll("#v2How [data-sources]").forEach(list => {
       const method = list.dataset.sources;
       list.replaceChildren();
@@ -5191,6 +5195,14 @@
           note.dataset.engine = "waiver-note";
           note.textContent = ` · ${item.waiverNote}`;
           why.appendChild(note);
+          // JEG-822: say once what "estimated" means (plain words, no numbers).
+          if (!estimatedExplained && /estimated players/.test(item.waiverNote)) {
+            estimatedExplained = true;
+            const gloss = document.createElement("span");
+            gloss.dataset.gloss = "estimated";
+            gloss.textContent = " (estimated players are ones a chart does not list; we fill in a value for them from the other charts)";
+            why.appendChild(gloss);
+          }
         }
         if (why.textContent) li.appendChild(why);
         list.appendChild(li);

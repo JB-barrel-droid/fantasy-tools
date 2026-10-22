@@ -624,6 +624,113 @@ class HoldIdentitySkipsMismatch(unittest.TestCase):
                          "All sources measured on the old build should be released for the new build")
 
 
+class SkippedHoldLeavesNoStaleHold(unittest.TestCase):
+    """JEG-807 (2026-10-22): the 04:08Z chain promoted Week 7 fantasycalc and
+    espn sections, the pulse's holds had measured the week-6 live page, the
+    B2 skip fired -- and the week-6 red holds already on the sections stayed,
+    so the engine hid both from DDF Value. A skipped hold must take an older
+    fidelity hold off the candidate; a value-check hold is not the pulse's
+    to touch."""
+
+    HOLD = {"stage": "publisher_vs_stored", "reason": "fidelity: publisher_vs_stored",
+            "identity": "fcwk7", "since": "2026-10-19T15:40:13Z", "summary": "stale",
+            "measured_site": "2026-10-19T22:05:22+00:00", "hold_level": "red"}
+    STALE = {"reason": "fidelity: publisher_vs_stored", "root": "fantasycalc", "week": 6,
+             "identity": "fcwk6", "hold_level": "red"}
+
+    def test_skip_removes_the_older_fidelity_hold(self):
+        fx = fixture()
+        for sec in ("fantasycalc", "fantasycalc_adjusted"):
+            fx["sources"].setdefault(sec, {"combos": {}})
+            fx["sources"][sec]["source_provenance"] = {"snapshot_fetched_at": "2026-10-22T01:55:07+00:00"}
+            fx["sources"][sec]["validationHold"] = dict(self.STALE)
+        out, report = fh.apply_fidelity_holds(fx, {"fantasycalc": self.HOLD}, 7)
+        self.assertFalse(out["sources"]["fantasycalc"].get("validationHold"),
+                         "the week-6 hold must not ride on the Week 7 section")
+        self.assertFalse(out["sources"]["fantasycalc_adjusted"].get("validationHold"))
+        self.assertNotIn("fantasycalc", report, "a skipped hold is not a held source")
+
+    def test_skip_leaves_a_value_check_hold_alone(self):
+        fx = fixture()
+        fx["sources"]["fantasycalc"]["source_provenance"] = {"snapshot_fetched_at": "2026-10-22T01:55:07+00:00"}
+        fx["sources"]["fantasycalc"]["validationHold"] = {"reason": "engine and Python reference disagree",
+                                                          "root": "fantasycalc"}
+        out, _ = fh.apply_fidelity_holds(fx, {"fantasycalc": self.HOLD}, 7)
+        self.assertEqual("engine and Python reference disagree",
+                         out["sources"]["fantasycalc"]["validationHold"]["reason"])
+
+    def test_matching_build_still_applies_and_replaces(self):
+        """Negative test: the same build the pulse measured is held (the
+        stale week-6 hold is replaced by this week's)."""
+        fx = fixture()
+        fx["sources"]["fantasycalc"]["source_provenance"] = {"snapshot_fetched_at": self.HOLD["measured_site"]}
+        fx["sources"]["fantasycalc"]["validationHold"] = dict(self.STALE)
+        out, report = fh.apply_fidelity_holds(fx, {"fantasycalc": self.HOLD}, 7)
+        self.assertEqual(7, out["sources"]["fantasycalc"]["validationHold"]["week"])
+        self.assertEqual("red", report["fantasycalc"]["hold_level"])
+
+
+class ProjectionIdentity(unittest.TestCase):
+    """JEG-807: projection sections carry no snapshot_fetched_at, so B2 had no
+    identity on either side and a razzball hold measured on the 10-19 chart
+    was applied to the 10-21 candidate. The snapshot date is the identity,
+    and the pulse stamps measured_site with the same function."""
+
+    def test_section_identity_by_family(self):
+        self.assertEqual("2026-10-21", fh.section_identity({"espn_snapshot": "2026-10-21",
+                                                            "fetched_at": "2026-10-22T04:08:32Z"}))
+        self.assertEqual("2026-10-21", fh.section_identity({"vintage": "2026-10-21"}))
+        self.assertEqual("2026-10-22T01:55:07+00:00", fh.section_identity(
+            {"source_provenance": {"snapshot_fetched_at": "2026-10-22T01:55:07+00:00"},
+             "fetched_at": "2026-10-22T01:55:07+00:00"}))
+        self.assertEqual("2026-09-19", fh.section_identity({"fetched_at": "2026-09-19"}))
+        self.assertIsNone(fh.section_identity({"combos": {}}))
+
+    def test_newer_projection_snapshot_skips_the_hold(self):
+        hold = {"stage": "stored_vs_chart", "reason": "fidelity: stored_vs_chart", "identity": "2026-10-21@x",
+                "since": "2026-10-18T06:40:13Z", "summary": "27 stored players not on the chart",
+                "measured_site": "2026-10-19", "hold_level": "red"}
+        fx = fixture()
+        fx["sources"]["razzball"]["vintage"] = "2026-10-21"
+        out, report = fh.apply_fidelity_holds(fx, {"razzball": hold}, 7)
+        self.assertFalse(out["sources"]["razzball"].get("validationHold"))
+        self.assertNotIn("razzball", report)
+        # negative: the build the pulse measured is held
+        fx["sources"]["razzball"]["vintage"] = "2026-10-19"
+        out, report = fh.apply_fidelity_holds(fx, {"razzball": hold}, 7)
+        self.assertTrue(out["sources"]["razzball"].get("validationHold"))
+        self.assertIn("razzball", report)
+
+    def test_pulse_stamps_measured_site_with_the_same_identity(self):
+        env = T.Env()
+        env.chart["sources"]["cbs"]["combos"]["half_12"]["native"]["jahmyr gibbs"] = 99.0
+        env.chart["sources"]["cbs"]["source_provenance"]["snapshot_fetched_at"] = "2026-10-07T17:44:10+00:00"
+        _, doc, _ = env.run()
+        self.assertEqual("2026-10-07T17:44:10+00:00", doc["holds"]["cbs"]["measured_site"])
+        self.assertEqual(fh.section_identity(env.chart["sources"]["cbs"]), doc["holds"]["cbs"]["measured_site"])
+        self.assertEqual("2026-10-21", fp.measured_site_identity(
+            {"sources": {"razzball": {"vintage": "2026-10-21"}}}, "razzball"))
+
+
+class ChainStatusSeverityIsTheHoldLevel(unittest.TestCase):
+    """JEG-807: the chain status said every fidelity hold was amber (labelled
+    only) while the fixture held them red (hidden from DDF Value)."""
+
+    RED = {"stage": "stored_vs_chart", "reason": "fidelity: stored_vs_chart", "identity": "a",
+           "since": "2026-10-18T06:40:13Z", "summary": "s", "hold_level": "red"}
+    AMBER = dict(RED, hold_level="amber")
+
+    def test_red_and_amber_reported_as_they_are(self):
+        _, report = fh.apply_fidelity_holds(fixture(), {"razzball": self.RED, "usatoday": self.AMBER}, 7)
+        status = fh.update_chain_status({"outcome": "green", "held": [], "hold_severity": "none"}, report, 7)
+        self.assertEqual("red", status["held_detail"]["razzball"]["hold_severity"])
+        self.assertEqual("amber", status["held_detail"]["usatoday"]["hold_severity"])
+        self.assertEqual("red", status["hold_severity"])
+        self.assertEqual("published_with_holds", status["outcome"])
+        _, report = fh.apply_fidelity_holds(fixture(), {"usatoday": self.AMBER}, 7)
+        self.assertEqual("amber", fh.update_chain_status({}, report, 7)["hold_severity"])
+
+
 class AmberHoldDecision(unittest.TestCase):
     """JEG-726: hold_decision produces amber holds for merely-lagging conditions."""
 

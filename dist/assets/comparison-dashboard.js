@@ -132,7 +132,7 @@
   function sourceLabel(key) {
     const base = LABELS[key] || key;
     const week = weekForSource(key);
-    return week && key !== "espn" ? `${base} Wk ${week}` : base;
+    return week && key !== "espn" ? `${base} Week ${week}` : base;
   }
   const lockLabel = key => key === "disagreement" ? "Largest disagreement" : sourceLabel(key);
   const isLockKey = key => ["disagreement",...SOURCE_KEYS].includes(key);
