@@ -1475,3 +1475,60 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .audit-root { min-height: 240px; }   /* room for the sub-tab content; the page is never a short stub (contract GL-13 needs 200 px) */
 .v2-writing-nav { padding-top: var(--v2-gap); }
 .v2-writing-nav[hidden] { display: none; }
+
+/* JEG-861 (phone): every control is 44 px on a touch screen. The Compare search inputs and Rank-by selects kept the 36 px
+   desktop density below 768 px; the "How to use it", "Every pairing" and deal-story summaries were 32 px; the rank-brush
+   fill was a 16 px strip (a centered pseudo-element gives it the track's 44 px hit area, nothing moves); the ↗ header source
+   link on Values was 39 x 43: its padding grows 1 px up and down and 3 px sideways, and the right margin cancels 5 px less,
+   so each chart column is 5 px wider and the box ends 1 px inside the next header (3 px before). */
+@media (max-width: 767px) {
+  #v2Compare .v2-search input, #v2Compare .v2-field-rank select { min-height: 44px; }
+  .v2-weight-how summary, .v2-deal-more summary, #v2Compare .v2-cstory summary { min-height: 44px; display: flex; align-items: center; }
+  .v2-brush-fill::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+  .v2-vtable th .v2-srclink-head { padding: 16px 18px; margin: -16px -13px -16px -18px; }
+}
+
+/* JEG-861: enlarged text (+3 px) in a wide face at 320 px pushed the page sideways: the Targets card score line wrapped
+   nowhere, and the Values toolbar Position and Show fields grew past the row. They wrap or shrink instead (the Rank by
+   field keeps its own JEG-827 rule above, so that guard still proves itself). */
+@media (max-width: 767px) {
+  .v2-tcards .top { min-width: 0; }
+  .v2-tcards .big { min-width: 0; }
+  .v2-tcards .big .v2-meta { white-space: normal; }
+  #v2Main .v2-toolbar .v2-field:not(.v2-field-rank) { min-width: 0; max-width: 100%; }
+  #v2Main .v2-toolbar .v2-field:not(.v2-field-rank) select { flex: 1 1 0; width: 0; min-width: 0; }
+}
+
+/* JEG-861: landscape phones (812 x 375). The centred panel kept 40 px above and below and a tall head and foot, leaving
+   its body about 110 px. In short viewports it uses the height, with a tighter head and foot. */
+@media (min-width: 768px) and (max-height: 500px) {
+  .v2-popover.is-panel { top: 8px !important; max-height: calc(100vh - 16px); }
+  .v2-panel-head { padding-top: 10px; padding-bottom: 8px; }
+  .v2-popover .v2-panel-head h2 { font-size: 20px; }
+  .v2-popover .v2-panel-foot { padding-top: 8px; padding-bottom: 8px; }
+}
+
+/* JEG-884 (JEG-861 part A): the module Expand / Collapse buttons (JEG-500, absolute at the card's top right, 90 x 44 from
+   6 px down) sat over the "You give" / "You receive" search boxes: from 1024 px the title and search shared the first row,
+   so at 1280 px a tap on the box expanded the card instead of focusing the input, and at every width the input's top 4 px
+   ran under the buttons. The search now has its own full-width row under the title (the dropdown gets the card's width),
+   and the title row is tall enough that what follows starts below the buttons. */
+#v2Compare .v2-trade-side > h2 { min-height: 36px; box-sizing: border-box; }
+@media (min-width: 1024px) {
+  #v2Compare .v2-trade-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
+  #v2Compare .v2-trade-side > .v2-trade-search-wrap { grid-column: 1 / -1; margin-top: 8px; }
+  #v2Compare .v2-trade-results { top: 100%; }
+}
+
+/* JEG-884 (JEG-861 part A): legends whose 44 px hit boxes overlapped a neighbour. On a phone the "On this page" source
+   links (JEG-817, 15 px of padding each way) wrap onto 17 px rows 2 px apart, so the box of a link on the second row
+   covered the left of the one above it: the rows are now 44 px tall and the links extend 6 px sideways, so the boxes
+   meet the 12 px column gap and the 2 px row gap without crossing. On a short desktop viewport (1280+, 800 or less)
+   the chart legend packs its rows 30 px apart to keep the chart above the fold, so its hit box is the row pitch there. */
+@media (max-width: 767px) {
+  .v2-showing-legend li { min-height: 44px; }
+  .v2-showing-legend .v2-srclink { padding: 13.5px 6px; margin: -13.5px -6px; }
+}
+@media (min-width: 1280px) and (max-height: 800px) {
+  .v2-chart-head .v2-legend-item::after { height: 30px; }
+}
