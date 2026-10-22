@@ -12,6 +12,9 @@ JEG-861 (2026-10-22): every value page title carries the same "NFL Week N · as 
 shows (read from the data week and the fixture's built_at, never hard-coded), the Trade targets market column
 says "middle of N charts" instead of "median of N", and the Deal read sentences do not overclaim what the other
 manager will do ("easy for them to accept", "will likely accept", "and is not").
+JEG-888 (2026-10-22): the Trade targets intro counts the charts the view compares ("We check 3 trade charts", read
+from window.TradeValueV2.targets().used), the Compare headline never shows "? ? Unclear", and a projections split
+is worded "DDF Projections say you win (+7.3) while DDF Value calls it even", not "DDF Projections disagree (+7.3)".
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the old USAT label, with "Wk" back, with
 "median of" back, with the page stamp not rendered and with "NFL" dropped from it, trade.js with the old
 overclaiming sentence, and the shell with the old panel title and the old Research line, and requires failures.
@@ -38,6 +41,10 @@ RESEARCH = "() => document.getElementById('v2Research').innerText"
 # The visible page title block: the first shown <main>'s .v2-title (Compare nests it in .v2-chead).
 TITLE = "() => { const m = [...document.querySelectorAll('main.v2-main')].find(n => !n.hidden); const t = m && m.querySelector('.v2-title'); return t ? t.innerText : ''; }"
 DEAL_TEXTS = "() => Object.values(window.TradeValueTrade.DEAL_READS).map(c => c.text)"
+INTRO = "() => document.getElementById('v2TIntro').textContent"
+USED = "() => window.TradeValueV2.targets().used"
+HEADS = "() => document.getElementById('v2CHeads').innerText"
+DOUBLE_Q = re.compile(r"\?\s*\?")
 
 
 def bad_words(text: str) -> list[str]:
@@ -98,7 +105,24 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                         title = page.evaluate(TITLE)
                         if not STAMP.search(title):
                             errors.append(f"[{width}px {tab}] title lacks the 'NFL Week N · as of Mon D' line: {title!r}")
+                    if tab == "#trade-targets":
+                        # JEG-888: the intro counts the charts this view compares, never a hard-coded "four publishers".
+                        intro, used = page.evaluate(INTRO), page.evaluate(USED)
+                        if "publisher" in intro:
+                            errors.append(f"[{width}px targets] intro names publishers instead of the compared count: {intro!r}")
+                        want = f"We check {len(used)} trade chart{'' if len(used) == 1 else 's'} against"
+                        if len(used) and not intro.startswith(want):
+                            errors.append(f"[{width}px targets] intro count is not the compared set ({len(used)} charts): {intro!r}")
                     if tab == "#compare-trade":
+                        # JEG-888: no "accept? ? Unclear" (the Unclear glyph was "?"), and the split reason says which
+                        # way each series points instead of "DDF Projections disagree (+7.3)".
+                        heads = page.evaluate(HEADS)
+                        if DOUBLE_Q.search(heads):
+                            errors.append(f"[{width}px headline] doubled question mark: {heads!r}")
+                        if "Projections disagree" in heads:
+                            errors.append(f"[{width}px headline] still says 'DDF Projections disagree': {heads!r}")
+                        if "Unclear" in heads and "say you" not in heads and "call it even" not in heads and "cannot score" not in heads and "under 5%" not in heads:
+                            errors.append(f"[{width}px headline] Unclear with no plain reason: {heads!r}")
                         for text in page.evaluate(DEAL_TEXTS):
                             hits = [phrase for phrase in OVERCLAIMS if phrase in text]
                             if hits:
@@ -133,6 +157,11 @@ PATCHES = {
     "page stamp not rendered": {"v2_patch": ("    renderPageStamps();\n    const s = view.state;", "    const s = view.state;")},
     "NFL dropped from the stamp": {"v2_patch": ("`NFL Week ${view.refWeek}`", "`Week ${view.refWeek}`")},
     "deal read overclaims": {"trade_patch": ("so the other manager has little reason to refuse.", "so it is easy for them to accept.")},
+    # JEG-888 (each proven against the fixture's example trade, which renders Unclear with a projections split).
+    "four publishers back": {"v2_patch": ("`We check ${introCharts} against", "`We check four publishers' trade charts against")},
+    "intro count hard-coded": {"v2_patch": ("const introCount = targetsView.used.length;", "const introCount = 4;")},
+    "Unclear glyph back to ?": {"v2_patch": ('Unclear: "–"', 'Unclear: "?"')},
+    "projections disagree back": {"trade_patch": ("`DDF Projections ${sideWords(pSide, \"say\", \"call\")} (${fmtNet(pNet)}) while DDF Value ${sideWords(vSide, \"says\", \"calls\")}`", "`DDF Projections disagree (${fmtNet(pNet)})`")},
 }
 
 
