@@ -231,6 +231,14 @@ console.log(JSON.stringify({
   defaultCharts: T.chartsToCompare(input.info, {}),
   onlyCharts: T.chartsToCompare(input.info, {only: "fantasycalc"}),
   ourKey: T.OUR_KEY,
+  // JEG-851: single-chart mode — one chart compared, minCharts = 1.
+  singleUSA: (() => { const r = T.buildTargets(input.consensus, ["usatoday"], {ours: "ddf_value"}); return {sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, singleChart: r.singleChart}; })(),
+  // JEG-851: chart as our value — usatoday as ours, fantasycalc as the compared chart.
+  chartAsOurs: (() => { const r = T.buildTargets(input.consensus, ["usatoday", "fantasycalc"], {ours: "usatoday"}); return {sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, singleChart: r.singleChart}; })(),
+  // JEG-851: chart as our value, same chart in the compare set — self-comparison excluded.
+  selfCompare: (() => { const r = T.buildTargets(input.consensus, ["usatoday"], {ours: "usatoday"}); return {sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, singleChart: r.singleChart}; })(),
+  // JEG-851: single-chart with an estimated value — must be excluded.
+  singleEstimated: (() => { const r = T.buildTargets([{player_key: 90, name: "Est", pos: "QB", values: {ddf_value: 10.0, fantasycalc: 20.0}, estimated: {fantasycalc: "filled in"}}], ["fantasycalc"], {ours: "ddf_value"}); return {sell: r.sell.map(brief), buy: r.buy.map(brief), leftOut: r.leftOut}; })(),
 }));
 """
 
@@ -353,8 +361,9 @@ def check(result: dict) -> list[str]:
         errors.append(f"only unavailable charts are skipped, with a reason: {skipped}")
     if result["onlyCharts"]["used"] != ["fantasycalc"]:
         errors.append(f"single-chart filter wrong: {result['onlyCharts']}")
-    if result["ourKeys"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"]:
-        errors.append(f"our value choices: DDF Value first, then the other DDF versions, then the projections: {result['ourKeys']}")
+    # JEG-851: chart keys are now selectable as "Our value" too.
+    if result["ourKeys"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball", "usatoday", "fantasycalc", "fantasypros", "cbs"]:
+        errors.append(f"our value choices: DDF Value first, then the other DDF versions, then the projections, then the charts: {result['ourKeys']}")
     choices = {c["key"]: c for c in result["choices"]}
     if not all(choices.get(k, {}).get("available") for k in ("ddf_value", "ddf_value_projections", "espn", "cbsros")):
         errors.append(f"available series must be offered: {choices}")
@@ -375,6 +384,34 @@ def check(result: dict) -> list[str]:
         if got["count"] != want["count"] or got["left"] != want["left"] or got["equal"] != want["equal"] \
                 or abs(got["value"] - want["value"]) > 1e-9 or abs(got["diff"] - want["diff"]) > 1e-9:
             errors.append(f"consensus for {row['name']} must be {want}, got {got}")
+    # JEG-851: single-chart mode.
+    sc = result.get("singleUSA", {})
+    if sc.get("singleChart") != "usatoday":
+        errors.append(f"single-chart mode must report the chart key: {sc.get('singleChart')}")
+    # K (ddf_value 10, usatoday 20): usatoday > ours, eligible with 1 chart, gap +10, ours 10 >= floor: Sell.
+    sc_sell_keys = [p["key"] for p in sc.get("sell", [])]
+    sc_buy_keys = [p["key"] for p in sc.get("buy", [])]
+    if 31 not in sc_sell_keys:
+        errors.append(f"single-chart mode: K (usatoday 20 > ours 10) must be a Sell target: {sc_sell_keys}")
+    # N (ddf_value 10, usatoday 30): only one chart, was ineligible in multi-chart mode, now eligible: Sell.
+    if 34 not in sc_sell_keys:
+        errors.append(f"single-chart mode: N (one chart, usatoday 30 > ours 10) must be a Sell target: {sc_sell_keys}")
+    # JEG-851: chart-as-our-value (usatoday as ours, fantasycalc compared); self-excluded from chart set.
+    cao = result.get("chartAsOurs", {})
+    if cao.get("singleChart") != "fantasycalc":
+        errors.append(f"chart-as-ours: with usatoday as ours, effectiveCharts should be [fantasycalc]: singleChart={cao.get('singleChart')}")
+    # JEG-851: self-comparison (usatoday as both ours and the only chart) — no effective charts, empty lists.
+    selfcmp = result.get("selfCompare", {})
+    if selfcmp.get("sell") or selfcmp.get("buy"):
+        errors.append(f"self-comparison must produce empty lists: sell={len(selfcmp.get('sell', []))}, buy={len(selfcmp.get('buy', []))}")
+    if selfcmp.get("singleChart") is not None:
+        errors.append(f"self-comparison: effectiveCharts is empty, singleChart must be null: {selfcmp.get('singleChart')}")
+    # JEG-851: estimated value on a single chart must be excluded.
+    se = result.get("singleEstimated", {})
+    if se.get("sell") or se.get("buy"):
+        errors.append(f"single-chart with estimated value must not list the player: sell={len(se.get('sell', []))}, buy={len(se.get('buy', []))}")
+    if se.get("leftOut") != 1:
+        errors.append(f"single-chart with estimated value must count it as leftOut: {se.get('leftOut')}")
     return errors
 
 
@@ -395,8 +432,8 @@ MUTATIONS = {
     "mean instead of median": ("const value = median(values);", "const value = values.reduce((a, b) => a + b, 0) / values.length;"),
     "majority rule dropped": (" && agree * 2 > priced.length;", ";"),
     "majority not strict": ("agree * 2 > priced.length", "agree * 2 >= priced.length"),
-    "single chart allowed": ("priced.length >= 2 && value > 0", "priced.length >= 1 && value > 0"),
-    "consensus at waiver line allowed": ("priced.length >= 2 && value > 0", "priced.length >= 2"),
+    "single chart always allowed (minCharts bypass)": ("priced.length >= minCharts && value > 0", "priced.length >= 1 && value > 0"),
+    "consensus at waiver line allowed": ("priced.length >= minCharts && value > 0", "priced.length >= minCharts"),
     "consensus ignores a finite zero": ("const values = priced.map(key => cells[key].value);",
                                         "const values = priced.map(key => cells[key].value).filter(v => v > 0);"),
     "agreement counted on the wrong side": ('(side === "sell" ? v > ours : v < ours)', '(side === "sell" ? v < ours : v > ours)'),
@@ -423,8 +460,8 @@ MUTATIONS = {
     "rank margin dropped": ("p.market.rankGap <= -BUY_RANK_MARGIN", "p.market.rankGap < 0"),
     "rank margin moved": ("const BUY_RANK_MARGIN = 2;", "const BUY_RANK_MARGIN = 4;"),
     "rank gap sign flipped": ("m.rankGap = oursDesc[i] - p.ours;", "m.rankGap = p.ours - oursDesc[i];"),
-    "ranks taken on the searched subset": ("    rankEquivalents(players);\n    if (keep) players = players.filter(p => keep(p.row));",
-                                           "    if (keep) players = players.filter(p => keep(p.row));\n    rankEquivalents(players);"),
+    "ranks taken on the searched subset": ("    rankEquivalents(players, minCharts);\n    if (keep) players = players.filter(p => keep(p.row));",
+                                           "    if (keep) players = players.filter(p => keep(p.row));\n    rankEquivalents(players, minCharts);"),
     "ranks taken across positions": ("      if (!byPos.has(p.row.pos)) byPos.set(p.row.pos, []);\n      byPos.get(p.row.pos).push(p);",
                                      "      if (!byPos.has(0)) byPos.set(0, []);\n      byPos.get(0).push(p);"),
     # JEG-842: the bug the ticket names (an out player in Buy) and each way to half-fix it.
@@ -435,6 +472,13 @@ MUTATIONS = {
     "exclusion not counted": ("leftOut: leftOut.length,", "leftOut: 0,"),
     "scale-only players not counted": ("scaleOnly: scaleOnly.length, scaleOnlyNames", "scaleOnly: 0, scaleOnlyNames"),
     "buy score uses the larger value": ("m.buyScore = Math.abs(m.rankGap) * Math.min(p.ours, m.value);", "m.buyScore = Math.abs(m.rankGap) * Math.max(p.ours, m.value);"),
+    # JEG-851: single-chart mode and chart-as-our-value.
+    "single chart minCharts always 2": ("const minCharts = effectiveCharts.length === 1 ? 1 : 2;", "const minCharts = 2;"),
+    "self-comparison not excluded": ("const effectiveCharts = CHART_KEYS.includes(ourKey) ? charts.filter(c => c !== ourKey) : charts;",
+                                     "const effectiveCharts = charts;"),
+    "singleChart not reported": ("singleChart: effectiveCharts.length === 1 ? effectiveCharts[0] : null", "singleChart: null"),
+    "chart keys not in OUR_KEYS": ('const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"].concat(CHART_KEYS);',
+                                   'const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];'),
 }
 
 
