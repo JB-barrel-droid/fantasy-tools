@@ -3322,7 +3322,7 @@
       : null;
     // JEG-833: ranks are computed over every row; a name search only filters what is listed (opts.keep).
     const kept = needle ? new Set(searched) : null;
-    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0, scaleOnly: 0, scaleOnlyNames: []}
+    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0, scaleOnly: 0, scaleOnlyNames: [], leftOut: 0, leftOutNames: []}
       : TT.buildTargets(rows, used, {ours: ourKey, keep: kept ? row => kept.has(row) : null});
     // Why players were left out: the engine's reasons, most common first (display only).
     const omittedReasons = new Map();
@@ -3919,6 +3919,11 @@
       const n = targetsView.scaleOnly;
       const names = targetsView.scaleOnlyNames.join(", ");
       notes.push(`${n} player${n === 1 ? "" : "s"} the charts price below our value ${n === 1 ? "is" : "are"} not a Buy: the charts rank ${n === 1 ? "him" : "them"} where we do, so the gap is our steeper scale, not a mispricing${names ? ` (${names}${n > 5 ? " ..." : ""})` : ""}.`);
+    }
+    // JEG-842: otherwise-listed players that are out (ESPN zero) or rest on an estimated chart value are not recommended.
+    if (targetsView.leftOut && !blocked) {
+      const n = targetsView.leftOut;
+      notes.push(`${n} player${n === 1 ? "" : "s"} left out: out this week or estimated (${targetsView.leftOutNames.join(", ")}${n > 5 ? " ..." : ""}). A player ESPN has at 0, or a chart value filled in from other charts, is not a basis to trade on.`);
     }
     // JEG-820: the players the charts pay for but we value under the Sell floor are drop candidates, not trade chips.
     if (targetsView.belowSellFloor && !blocked) {

@@ -111,6 +111,14 @@
       marketRank: null, ourRank: null, oursAtRank: null, rankGap: null, buyScore: null};   // filled by rankEquivalents
   }
 
+  // JEG-842: "out" = the engine flagged ESPN projecting him at 0 (row.espnProjectsZero, the "ESPN: 0 (out)" chip);
+  // "estimated" = row.estimated names a compared chart whose value the engine filled in.
+  function unreliableSupport(row, cells) {
+    if (row.espnProjectsZero) return "out";
+    const est = row.estimated || {};
+    return Object.keys(cells).some(key => finite(cells[key].value) && est[key]) ? "estimated" : null;
+  }
+
   // charts: the chart keys to compare (already filtered for availability and week). Their values are the engine's Indexed series
   // (each publisher's chart rescaled to our point scale), never the adjusted (_adj_values) or native ones.
   // opts.ours: which engine series is our value (default DDF Value). opts.keep: a row predicate for a name search
@@ -154,16 +162,23 @@
     // JEG-820: biggest weighted gap first (score), engine order breaks ties; Sell needs ours >= SELL_FLOOR.
     const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;
     const sellable = players.filter(p => p.market.eligible && p.market.side === "sell");
-    const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);
-    const belowSellFloor = sellable.length - sell.length;
+    const sellAll = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);
+    const belowSellFloor = sellable.length - sellAll.length;
     // JEG-833: Buy needs the charts to rank the player lower than we do by BUY_RANK_MARGIN points at his position;
     // biggest |rankGap| x value at stake first. The others are the scale, not a mispricing (scaleOnly, named by ours).
     const buyable = players.filter(p => p.market.eligible && p.market.side === "buy");
-    const buy = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)
+    const buyAll = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)
       .sort((a, b) => b.market.buyScore - a.market.buyScore || a.order - b.order);
-    const listed = new Set(buy);
+    // JEG-842: a player whose support is out (ESPN zeroed him) or estimated (a compared chart's value was filled
+    // in from other charts) is never recommended, on either side; counted and named so the page can say so.
+    const flagged = p => Boolean(unreliableSupport(p.row, p.cells));
+    const sell = sellAll.filter(p => !flagged(p));
+    const buy = buyAll.filter(p => !flagged(p));
+    const leftOut = buyAll.filter(flagged).concat(sellAll.filter(flagged));
+    const listed = new Set(buyAll);
     const scaleOnly = buyable.filter(p => !listed.has(p)).sort((a, b) => b.ours - a.ours || a.order - b.order);
     return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells, belowSellFloor,
+      leftOut: leftOut.length, leftOutNames: leftOut.slice(0, 5).map(p => p.row.name),
       scaleOnly: scaleOnly.length, scaleOnlyNames: scaleOnly.slice(0, 5).map(p => p.row.name)};
   }
 
