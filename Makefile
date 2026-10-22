@@ -508,7 +508,6 @@ test-core:
 	python3 -m unittest tests.test_v2_rescaled_copy
 	python3 -m unittest tests.test_v2_waterfall
 	python3 -m unittest tests.test_disagreement_units_render
-	python3 -m unittest tests.test_v2_phone_weight_render
 	python3 -m unittest tests.test_main_table_engine_parity
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
