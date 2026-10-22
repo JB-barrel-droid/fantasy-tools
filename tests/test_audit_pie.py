@@ -176,6 +176,16 @@ def _make_fixture():
     }
     players_all["fantasycalc"] = src_b_players
 
+    # Engine rows (getInspection().rows): per player, indexed[src] is what the
+    # Player values table shows. A projection's Indexed equals its Adjusted; a
+    # chart's is native x indexedFactor (VP-6.4), so it is NOT held to the pie
+    # (JEG-871).
+    rows = {}
+    for key, p in src_a_players.items():
+        rows[key] = {"indexed": {"espn": p["adjusted"]}}
+    for key, p in src_b_players.items():
+        rows[key] = {"indexed": {"fantasycalc": p["native"] * 1.05}}
+
     # Match real engine: no "budgets" field; extract() computes it from
     # ddfWeights * pie (funded[g] = ddfWeights[g] * pie, value-model.js:979).
     return {
@@ -186,6 +196,7 @@ def _make_fixture():
             "benchShare": 0.15
         },
         "players": players_all,
+        "rows": rows,
         # Keep budgets accessible for test assertions (not part of pipeline)
         "_test_budgets": budgets
     }
@@ -344,6 +355,10 @@ def _render_in_browser(fixture_json, *, width=1440, height=900):
                 emptyText: root.querySelector('.audit-pie-empty')?.textContent || null,
                 verdictCount: verdictRows.length,
                 verdictTexts: [...verdictRows].map(r => r.textContent),
+                reconcileNote: root.querySelector('.audit-pie-reconcile .audit-pie-note')?.textContent || '',
+                reconcileLabels: [...root.querySelectorAll('.audit-pie-reconcile-table tbody tr')].map(r => r.cells[0].textContent),
+                reconcileCells: [...root.querySelectorAll('.audit-pie-reconcile-table tbody tr')].map(r => [...r.cells].map(c => c.textContent)),
+                summaryLabels: [...root.querySelectorAll('.audit-pie-summary tbody tr:not(.audit-pie-verdict-row):not(.audit-pie-verdict-note)')].map(r => r.cells[0].textContent),
                 zeroValues: [...cells].filter(c => c.textContent.trim() === '0.0').map(c => {{
                     const row = c.closest('tr');
                     return {{ cell: c.textContent, row: row ? row.cells[0]?.textContent : null }};
@@ -454,6 +469,84 @@ class AuditPieVP5Test(unittest.TestCase):
         # The tampered total should NOT equal pie
         self.assertGreater(abs(fc_row["totalAdjusted"] - PIE), 10.0,
             "Tampered fixture should break VP-5 but didn't")
+
+
+@unittest.skipIf(_skip_no_pw(), "playwright not installed")
+class AuditPieReconcileTest(unittest.TestCase):
+    """JEG-871: the pie reconciles to the Player values table.
+
+    Total adjusted = own (posted) + filled in (estimated), and the tab reports
+    the Player values column total (sum of rows[key].indexed[src]) separately,
+    because a chart's Indexed view is not held to the pie."""
+
+    def test_own_plus_filled_equals_total(self):
+        data = _extract_in_browser(FIXTURE_JSON)
+        for row in data["rows"]:
+            self.assertAlmostEqual(row["ownAdjusted"] + row["filledAdjusted"], row["totalAdjusted"], places=6,
+                msg=f"{row['src']}: own + filled != total")
+
+    def test_filled_is_the_estimated_players_adjusted(self):
+        data = _extract_in_browser(FIXTURE_JSON)
+        for row in data["rows"]:
+            players = FIXTURE["players"][row["src"]]
+            expected = sum(p["adjusted"] for p in players.values() if p["estimated"])
+            self.assertAlmostEqual(row["filledAdjusted"], expected, places=6, msg=row["src"])
+        by_src = {r["src"]: r for r in data["rows"]}
+        self.assertEqual(by_src["espn"]["filledAdjusted"], 0.0, "a projection is never filled in")
+        self.assertGreater(by_src["fantasycalc"]["filledAdjusted"], 0.0, "the chart's bench is estimated")
+
+    def test_table_total_reads_engine_rows_indexed(self):
+        data = _extract_in_browser(FIXTURE_JSON)
+        by_src = {r["src"]: r for r in data["rows"]}
+        for src in ("espn", "fantasycalc"):
+            expected = sum(r["indexed"][src] for r in FIXTURE["rows"].values() if src in r["indexed"])
+            self.assertAlmostEqual(by_src[src]["tableTotal"], expected, places=6, msg=src)
+        # The projection's table column is its Adjusted column (= pie); the chart's is not.
+        self.assertAlmostEqual(by_src["espn"]["tableTotal"], PIE, places=6)
+        self.assertGreater(abs(by_src["fantasycalc"]["tableTotal"] - PIE), 10.0,
+            "fixture: the chart's Indexed total must differ from the pie to exercise the reconciliation")
+
+    def test_table_total_null_without_engine_rows(self):
+        fixture = json.loads(FIXTURE_JSON)
+        del fixture["rows"]
+        data = _extract_in_browser(json.dumps(fixture))
+        for row in data["rows"]:
+            self.assertIsNone(row["tableTotal"], "no rows: the column must be blank, never 0")
+
+    def test_negative__filled_follows_the_estimated_flag(self):
+        """Simulated broken state: a listed starter flagged estimated moves its
+        value from own to filled; a split that ignored the flag would not move."""
+        fixture = json.loads(FIXTURE_JSON)
+        fc = fixture["players"]["fantasycalc"]
+        key = next(k for k, p in fc.items() if not p["estimated"])
+        fc[key]["estimated"] = True
+        before = {r["src"]: r for r in _extract_in_browser(FIXTURE_JSON)["rows"]}["fantasycalc"]
+        after = {r["src"]: r for r in _extract_in_browser(json.dumps(fixture))["rows"]}["fantasycalc"]
+        self.assertAlmostEqual(after["filledAdjusted"] - before["filledAdjusted"], fc[key]["adjusted"], places=6)
+        self.assertAlmostEqual(before["ownAdjusted"] - after["ownAdjusted"], fc[key]["adjusted"], places=6)
+        self.assertAlmostEqual(after["totalAdjusted"], before["totalAdjusted"], places=6)
+
+    def test_negative__table_total_is_not_the_adjusted_sum(self):
+        """Simulated broken state: tamper one engine row's indexed value; the
+        table total must move by exactly that while Total adjusted stays."""
+        fixture = json.loads(FIXTURE_JSON)
+        key = next(k for k, r in fixture["rows"].items() if "fantasycalc" in r["indexed"])
+        fixture["rows"][key]["indexed"]["fantasycalc"] += 50.0
+        before = {r["src"]: r for r in _extract_in_browser(FIXTURE_JSON)["rows"]}["fantasycalc"]
+        after = {r["src"]: r for r in _extract_in_browser(json.dumps(fixture))["rows"]}["fantasycalc"]
+        self.assertAlmostEqual(after["tableTotal"] - before["tableTotal"], 50.0, places=6)
+        self.assertAlmostEqual(after["totalAdjusted"], before["totalAdjusted"], places=6)
+
+    def test_reconcile_section_renders_with_site_labels(self):
+        """The section, its plain-language note and the Player values labels
+        (JEG-872: symbol + name, "CBS rest of season" not "CBS ROS")."""
+        result = _render_in_browser(FIXTURE_JSON, width=1440, height=900)
+        self.assertIn("Reconciling to Player values", result["headings"])
+        self.assertIn("filled in from other charts", result["reconcileNote"])
+        self.assertIn("not held to the pie", result["reconcileNote"])
+        self.assertEqual(result["reconcileLabels"], ["● ESPN", "■ FantasyCalc"])
+        self.assertEqual(result["summaryLabels"], ["● ESPN", "■ FantasyCalc"])
+        self.assertEqual(result["reconcileCells"][1][1:], ["1020.0", "180.0", "1200.0", "1200.0", "1512.0", "312.0"])
 
 
 @unittest.skipIf(_skip_no_pw(), "playwright not installed")

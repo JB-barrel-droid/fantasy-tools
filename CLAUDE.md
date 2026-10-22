@@ -58,7 +58,8 @@ Several Claude sessions work this repo at once: the back end, and the front end 
 - **Idle hands.** A session with an empty queue may pick up another session's **Todo** tickets (not In Progress ones), oldest priority first. It swaps the label and comments `picked up by <session>`.
 - **Handoff.** A session that is stopping comments on each of its In Progress tickets with its state and branch, then moves them back to Todo so another session can claim them.
 - **Hot files.** One In Progress ticket per hot file (list in `AGENTS.md`); a ticket names its hot files under `Touches`.
-- **Merge order.** Always rebase on `main` before pushing. The contract test (`tests/test_v2_contract_render.py`) and `make validate` must pass.
+- **Merge order.** Always rebase on `main` before pushing. The contract test (`tests/test_v2_contract_render.py`) and `make validate` must pass. The lead's per-PR merge checks are `runbooks/merging-prs.md`.
+- **Decisions go to Jeremy as multiple choice.** Product, copy and method choices that are his are posted on the ticket as options with context and a recommendation; agents do not pick defaults (Jeremy, 2026-10-22, JEG-850: "Product/design choices that are Jeremy's go to him as multiple choice with context; do not pick defaults"). Pre-launch, block only on wrong numbers and finish end to end.
 
 ## Standing constraints
 
