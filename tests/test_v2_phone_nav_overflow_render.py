@@ -1,6 +1,7 @@
-"""Phone nav guard (JEG-818): the 7-tab nav row must not widen the page.
+"""Phone nav guard (JEG-818): the nav row of seven tabs must not widen the page.
 
-At 320 px the nowrap row of seven 44 px tabs pushed the document 47 px sideways.
+The nav has seven real tabs (Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Find a trade,
+Values auditing; JEG-852 added the seventh), and the count is pinned to seven. At 320 px the nowrap row of seven 44 px tabs pushed the document 47 px sideways.
 The page must not scroll sideways at 320, 375, 414, 768 or 1440, every tab must
 still be on screen inside the viewport, and each tab keeps a 44 px hit area on
 phones.

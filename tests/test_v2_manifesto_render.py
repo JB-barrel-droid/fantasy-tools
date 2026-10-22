@@ -3,9 +3,11 @@
 Builds dist/v2 into a temp copy of the built dist/ and loads it headless at
 1440 and 390 px, and checks:
 
-  * "Manifesto" is the first tab in the nav and routes at #manifesto (the tab
-    is marked current, the Manifesto page shows and every other tab's page is
-    hidden, as are the league bar and the Showing bar);
+  * "Manifesto" is the first section of the Writing tab and routes at
+    #writing/manifesto (Writing is the current tab, Manifesto the current
+    section, the Manifesto page shows and every other page is hidden, as are the
+    league bar and the Showing bar); the old route #manifesto redirects there
+    and rewrites the address (JEG-855);
   * the landing tab is still Trade targets: /v2/ with no hash shows Trade
     targets, not the Manifesto (Jeremy, 2026-10-08 / 2026-10-09);
   * the h1 is the doc's title with the "Data Driven Football" eyebrow, and all
@@ -16,8 +18,8 @@ Builds dist/v2 into a temp copy of the built dist/ and loads it headless at
   * no page errors and no horizontal overflow at 390 px.
 
 Discrimination: test_guard_fails_on_broken_builds serves a page with section 7
-dropped, a page with Manifesto after Player values in the nav, a page with a
-link added to the text, and v2.js landing on the Manifesto, and requires the
+dropped, a page with Manifesto after How values work in the Writing sections, a page with a
+link added to the text, v2.js landing on Writing, and v2.js without the old #manifesto redirect, and requires the
 checks to fail on each.
 """
 from __future__ import annotations
@@ -68,7 +70,7 @@ SECTIONS = [
     "11. Market price creates the opportunity",
     "12. Winning is continuous portfolio optimization",
 ]
-PAGES = ("v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Manifesto")
+PAGES = ("v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Manifesto", "v2Research", "v2Audit")
 
 READ = """() => {
   const shown = id => { const n = document.getElementById(id); return Boolean(n) && !n.hidden; };
@@ -78,6 +80,9 @@ READ = """() => {
       label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'})),
     pages: Object.fromEntries(%s.map(id => [id, shown(id)])),
     league: shown('v2League'), methods: shown('v2Methods'),
+    sections: [...document.querySelectorAll('#v2WritingTabs .v2-subtab')].map(a => ({slug: a.dataset.writing, label: a.textContent.trim(),
+      href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page'})),
+    hash: location.hash,
     h1: mf ? [...mf.querySelectorAll('h1')].map(h => h.textContent.trim()) : [],
     eyebrow: mf?.querySelector('.v2-mf-eyebrow')?.textContent.trim() || '',
     h2: mf ? [...mf.querySelectorAll('article h2')].map(h => h.textContent.trim()) : [],
@@ -131,19 +136,28 @@ def check_landing(snap) -> list[str]:
     return errors
 
 
-def check_manifesto(snap, width) -> list[str]:
-    tag = f"[{width}px] "
+def check_manifesto(snap, width, old=False) -> list[str]:
+    tag = f"[{width}px{' old #manifesto' if old else ''}] "
     errors = []
-    first = snap["tabs"][0] if snap["tabs"] else {}
-    if (first.get("view"), first.get("label")) != ("manifesto", "Manifesto") or not str(first.get("href", "")).endswith("#manifesto"):
-        errors.append(f"{tag}first tab is {first}, want Manifesto at #manifesto")
-    if [t["view"] for t in snap["tabs"] if t["current"]] != ["manifesto"]:
-        errors.append(f"{tag}#manifesto: the Manifesto tab is not the current tab")
+    writing = [t for t in snap["tabs"] if t["view"] == "writing"]
+    if len(writing) != 1 or writing[0]["label"] != "Writing" or not str(writing[0]["href"]).endswith("#writing"):
+        errors.append(f"{tag}want one Writing tab at #writing, got {writing}")
+    if any(t["view"] == "manifesto" for t in snap["tabs"]):
+        errors.append(f"{tag}Manifesto is still a top-level tab")
+    first = snap["sections"][0] if snap["sections"] else {}
+    if (first.get("slug"), first.get("label")) != ("manifesto", "Manifesto") or first.get("href") != "#writing/manifesto":
+        errors.append(f"{tag}first Writing section is {first}, want Manifesto at #writing/manifesto")
+    if [t["view"] for t in snap["tabs"] if t["current"]] != ["writing"]:
+        errors.append(f"{tag}#writing/manifesto: the Writing tab is not the current tab")
+    if [s["slug"] for s in snap["sections"] if s["current"]] != ["manifesto"]:
+        errors.append(f"{tag}the Manifesto section is not the current section")
+    if snap["hash"] != "#writing/manifesto":
+        errors.append(f"{tag}address is {snap['hash']!r}, want '#writing/manifesto'")
     shown = [page for page, on in snap["pages"].items() if on]
     if shown != ["v2Manifesto"]:
-        errors.append(f"{tag}#manifesto shows {shown}, want only the Manifesto")
+        errors.append(f"{tag}#writing/manifesto shows {shown}, want only the Manifesto")
     if snap["league"] or snap["methods"]:
-        errors.append(f"{tag}#manifesto: league bar {snap['league']}, Showing bar {snap['methods']}; both should be hidden")
+        errors.append(f"{tag}league bar {snap['league']}, Showing bar {snap['methods']}; both should be hidden")
     if snap["h1"] != [TITLE]:
         errors.append(f"{tag}h1 {snap['h1']}, want [{TITLE!r}]")
     if snap["eyebrow"] != "Data Driven Football":
@@ -185,9 +199,12 @@ def run_checks(v2_js=None, shell_html=None) -> list[str]:
                 page.wait_for_function("() => window.TradeValueV2", timeout=40000)
                 if width == 1440:
                     errors += check_landing(page.evaluate(READ))
-                page.evaluate("() => { location.hash = '#manifesto'; }")
+                page.evaluate("() => { location.hash = '#writing/manifesto'; }")
                 page.wait_for_timeout(300)
                 errors += check_manifesto(page.evaluate(READ), width)
+                page.evaluate("() => { location.hash = '#trade-targets'; location.hash = '#manifesto'; }")
+                page.wait_for_timeout(300)
+                errors += check_manifesto(page.evaluate(READ), width, old=True)
                 if page_errors:
                     errors.append(f"[{width}px] page errors {page_errors}")
                 page.close()
@@ -203,15 +220,16 @@ class ManifestoRenderTest(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         js = V2_JS.read_text(encoding="utf-8")
         shell = SHELL.read_text(encoding="utf-8")
-        tab = re.search(r'        <a class="v2-tab" href="v2/#manifesto".*?</a>\n', shell).group(0)
-        values_tab = re.search(r'        <a class="v2-tab" href="v2/#player-values".*?</a>\n', shell).group(0)
+        tab = re.search(r'      <a class="v2-subtab" href="#writing/manifesto".*?</a>\n', shell).group(0)
+        how_tab = re.search(r'      <a class="v2-subtab" href="#writing/how-values".*?</a>\n', shell).group(0)
         section7 = re.search(r'    <section class="v2-mf-sec" aria-labelledby="v2M7">.*?    </section>\n', shell, re.S).group(0)
         with_link = section7.replace("    </section>\n", '      <p><a href="v2/#trade-targets">Trade targets</a></p>\n    </section>\n')
         broken = {
             "section 7 dropped": {"shell_html": shell.replace(section7, "", 1)},
-            "Manifesto not first": {"shell_html": shell.replace(tab + values_tab, values_tab + tab, 1)},
+            "Manifesto not first section": {"shell_html": shell.replace(tab + how_tab, how_tab + tab, 1)},
             "link added to the text": {"shell_html": shell.replace(section7, with_link, 1)},
-            "Manifesto is the landing tab": {"v2_js": js.replace(LANDING, LANDING.replace('"targets"', '"manifesto"'), 1)},
+            "Writing is the landing tab": {"v2_js": js.replace(LANDING, LANDING.replace('"targets"', '"writing"'), 1)},
+            "old #manifesto route removed": {"v2_js": js.replace('"#manifesto": "#writing/manifesto", ', "", 1)},
         }
         for name, kwargs in broken.items():
             with self.subTest(mutation=name):

@@ -1209,3 +1209,18 @@ Jeremy: "Make it so finding a trade is a separate tab from discovering a trade."
 - JEG-854 (same page): Swap teams exchanges the two rosters; each row has a tick box and Move (to the other team); "Move N selected to the
   other team" moves ticked rows; Undo restores the rosters before the last swap or move. Shown results are recomputed after each change.
   Test: `tests/test_v2_finder_arrange_render.py` (3 mutants caught).
+
+## Values auditing shell (JEG-847, 2026-10-22)
+
+- Last tab, `#values-auditing` (view `audit`, page `#v2Audit`, short label "Audit"). Sub-tabs follow the Research precedent: `#values-auditing/value-pie` and `#values-auditing/single-source`; an unknown sub-route shows the Value pie. The Showing bar is hidden; the league bar stays.
+- Each sub-tab fills its own mount (`#audit-pie-root`, `#audit-source-root`) from its own file (`audit-pie.js`, `audit-source.js`, own CSS) through the `window.DDFAudit` registry in `audit-core.js`: `register(slug, fn)`; v2.js calls `fn(mount, {slug, engine})` on every refresh while that sub-tab shows. Hooks must be idempotent.
+- The placeholders are not `.v2-card`, so contract GL-17/GL-18 (chevron and expand control) do not apply until a sub-tab adds cards (then add them to `modules.js` CARDS).
+- Phone nav: the stopgap compression for eight tabs (10 px type, 4 px gutter from 360 to 420 px, "Audit" label) was removed by JEG-855, which folds three tabs into Writing (six tabs); the original 12 px type and gutter hold at 390 px, with the full "Values auditing" label if it fits. Pinned by `tests/test_v2_nav_render.py`; the shell by `tests/test_v2_audit_render.py`.
+
+## Writing tab (JEG-855, Jeremy, 2026-10-22)
+
+- **What:** Manifesto, How values work and Research are no longer top-level tabs. One tab, "Writing" (`#writing`, short label "Writing", first in the nav where Manifesto was; Jeremy, 2026-10-22; the landing tab stays Trade targets), holds three sections with their own sub-navigation (`.v2-subtabs` / `.v2-subtab`, links with `aria-current="page"`, same shape as Values auditing): `#writing/manifesto` (the default), `#writing/how-values`, `#writing/research` and `#writing/research/<slug>`. An unknown `#writing/...` shows the Manifesto.
+- **Old routes:** `#manifesto`, `#how-values`, `#research`, `#research/<slug>` still work. `hashBase()` reads them as their Writing route, and `canonicalizeHash()` rewrites the address with `replaceState` (query kept), so Back skips the old route. Shared links keep working.
+- **Pages unchanged:** the three pages keep their containers (`#v2Manifesto`, `#v2How`, `#v2Research`) and their text; only the route, the nav and the in-page links (How popover link, Research index and post links) changed. The sub-nav is `#v2Writing`.
+- **Chrome:** the league bar and Showing bar stay hidden on Manifesto and Research and shown on How values work, as before.
+- **Contract:** MF-01 (Manifesto is the first section) and RS-01 (sections appear in the order Manifesto, How values work, Research inside Writing) updated. Tests that pinned the old tabs or routes now use the Writing routes; `tests/test_v2_writing_routes_render.py` pins the redirects.

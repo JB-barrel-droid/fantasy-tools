@@ -107,8 +107,8 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
 ## Manifesto (MF)
 
-  - **MF-01** The Manifesto tab is first in the nav and carries Jeremy's text verbatim, checked word for word against a repo copy that is updated only from his Google Doc. It is plain text with no controls. The landing tab stays Trade targets *(JEG-494)*.
-  - **RS-01** A Research tab follows How values work and routes at `#research`: an index of the published posts, each with title, one-line summary and date. A post routes at `#research/<slug>`. A draft never reaches the build. Pinned by `tests/test_v2_research_render.py` *(JEG-543)*.
+  - **MF-01** The Manifesto is the first section of the Writing tab (`#writing/manifesto`; the old `#manifesto` redirects there) and carries Jeremy's text verbatim, checked word for word against a repo copy that is updated only from his Google Doc. It is plain text with no controls. The landing tab stays Trade targets *(JEG-494)*.
+  - **RS-01** Manifesto, How values work and Research are sections of one Writing tab and appear in that order inside it (`#writing/manifesto`, `#writing/how-values`, `#writing/research`); they are not top-level tabs, and the old `#manifesto`, `#how-values`, `#research` and `#research/<slug>` routes redirect into the matching section. The Research section is an index of the published posts, each with title, one-line summary and date. A post routes at `#writing/research/<slug>`. A draft never reaches the build. Pinned by `tests/test_v2_research_render.py` *(JEG-543)*.
   - **RS-02** Every published post was approved by Jeremy as a Google Doc before its `published` flag was set. Reading layout matches the Manifesto (about a 70-character column, no league or Showing bar unless a post embeds a live widget that needs them). *(JEG-543; process rule, not machine-checked)*
   - **RS-03** Live widgets in a post read the engine, and a what-if never changes the reader's saved league settings until they press Apply. *(JEG-543; no widget ships with the framework, so nothing to check yet)*
 

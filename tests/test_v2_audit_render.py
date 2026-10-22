@@ -1,0 +1,142 @@
+"""v2 Values auditing shell (JEG-847), rendered.
+
+Loads the built page headless at 1440 and 390 px and checks:
+
+  * "Values auditing" is the last tab, Research still directly follows How values work;
+  * #values-auditing shows only the audit page with the Value pie sub-tab; the sub-tab
+    link is aria-current and #audit-pie-root is the visible mount;
+  * #values-auditing/single-source shows the Single source mount (#audit-source-root);
+  * an unknown sub-route (#values-auditing/nope) falls back to the Value pie;
+  * the route calls the hook a sub-tab registered with DDFAudit.register, with its mount;
+  * no page errors and no horizontal overflow at 390 px.
+
+Discrimination: test_guard_fails_on_broken_builds serves a v2.js with the audit route removed,
+the unknown-slug fallback removed, and the render hook call removed, and requires the checks to fail.
+"""
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "pipelines"))
+
+from tests import _render_env  # noqa: E402
+from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
+from tests.test_v2_research_render import POSTS, _built_dist  # noqa: E402
+
+
+def setUpModule():
+    _render_env.ensure_built()
+
+
+V2_JS = ROOT / "app" / "v2" / "v2.js"
+
+READ = """() => {
+  const shown = id => { const n = document.getElementById(id); return Boolean(n) && !n.hidden; };
+  return {
+    tabs: [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view, current: t.getAttribute('aria-current') === 'page'})),
+    audit: shown('v2Audit'),
+    others: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto', 'v2Research'].filter(shown),
+    pie: shown('v2AuditPie'), source: shown('v2AuditSource'),
+    subCurrent: [...document.querySelectorAll('#v2AuditTabs .v2-subtab')].filter(a => a.getAttribute('aria-current') === 'page').map(a => a.dataset.audit),
+    hookCalls: window.__auditCalls || [],
+    overflow: document.documentElement.scrollWidth - innerWidth,
+  };
+}"""
+
+SPY = """() => {
+  window.__auditCalls = [];
+  for (const slug of DDFAudit.slugs) DDFAudit.register(slug, (mount, ctx) => window.__auditCalls.push([slug, mount.id, ctx.slug]));
+}"""
+
+ROUTES = (
+    ("#values-auditing", "value-pie"),
+    ("#values-auditing/value-pie", "value-pie"),
+    ("#values-auditing/single-source", "single-source"),
+    ("#values-auditing/nope", "value-pie"),
+)
+MOUNTS = {"value-pie": "audit-pie-root", "single-source": "audit-source-root"}
+
+
+def check(snap, hash_, slug, width) -> list[str]:
+    tag = f"[{width}px {hash_}] "
+    errors = []
+    if not snap["audit"] or snap["others"]:
+        errors.append(f"{tag}pages shown: audit={snap['audit']} others={snap['others']}")
+    if [t["view"] for t in snap["tabs"] if t["current"]] != ["audit"]:
+        errors.append(f"{tag}Values auditing is not the current tab")
+    if (snap["pie"], snap["source"]) != (slug == "value-pie", slug == "single-source"):
+        errors.append(f"{tag}panels shown pie={snap['pie']} source={snap['source']}, want {slug}")
+    if snap["subCurrent"] != [slug]:
+        errors.append(f"{tag}sub-tab current {snap['subCurrent']}, want {slug}")
+    if not snap["hookCalls"] or snap["hookCalls"][-1] != [slug, MOUNTS[slug], slug]:
+        errors.append(f"{tag}render hook calls {snap['hookCalls']}, want last {[slug, MOUNTS[slug], slug]}")
+    if width <= 390 and snap["overflow"] > 0:
+        errors.append(f"{tag}horizontal overflow {snap['overflow']}px")
+    return errors
+
+
+def run_checks(js_edit=None) -> list[str]:
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    js = V2_JS.read_text(encoding="utf-8")
+    if js_edit:
+        old, new = js_edit
+        assert old in js, f"test setup: {old!r} not in v2.js"
+        js = js.replace(old, new, 1)
+    errors = []
+    with _built_dist(POSTS) as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width, height in ((1440, 900), (390, 844)):
+                page = browser.new_page(viewport={"width": width, "height": height})
+                page_errors = []
+                page.on("pageerror", lambda e: page_errors.append(str(e)))
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                page.route("**/v2/v2.js*", lambda route, *_: route.fulfill(status=200, content_type="text/javascript", body=js))
+                page.goto(base, wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2", timeout=40000)
+                order = [t["view"] for t in page.evaluate(READ)["tabs"]]
+                if order[0] != "writing" or order[-1] != "audit" or any(v in order for v in ("how", "research", "manifesto")):
+                    errors.append(f"[{width}px] tab order {order}: Writing should be first and Values auditing last")
+                page.evaluate(SPY)
+                for hash_, slug in ROUTES:
+                    page.evaluate("() => { location.hash = '#trade-targets'; }")
+                    page.wait_for_timeout(150)
+                    page.evaluate("() => { window.__auditCalls.length = 0; }")
+                    page.evaluate("h => { location.hash = h; }", hash_)
+                    page.wait_for_timeout(300)
+                    errors += check(page.evaluate(READ), hash_, slug, width)
+                if page_errors:
+                    errors.append(f"[{width}px] page errors {page_errors}")
+                page.close()
+        finally:
+            browser.close()
+    return errors
+
+
+class AuditRenderTest(unittest.TestCase):
+    def test_audit_shell(self):
+        self.assertEqual(run_checks(), [])
+
+    def test_guard_fails_on_broken_builds(self):
+        broken = {
+            "route removed": ('(hashBase() === "#values-auditing" || hashBase().startsWith("#values-auditing/")) ? "audit"', 'false ? "audit"'),
+            "unknown slug not caught": ("slugs.includes(asked) ? asked : slugs[0]", "asked"),
+            "hook not called": ("window.DDFAudit.render(slug, panel,", "(() => 0)(slug, panel,"),
+        }
+        for name, edit in broken.items():
+            with self.subTest(name):
+                self.assertTrue(run_checks(edit), f"checks passed on a build with: {name}")
+
+
+if __name__ == "__main__":
+    unittest.main()

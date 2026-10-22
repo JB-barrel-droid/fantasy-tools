@@ -165,24 +165,24 @@ def load_posts(research_dir: Path = RESEARCH_DIR) -> list[dict]:
 
 
 def research_html(posts: list[dict]) -> str:
-    """The #research page: an index of posts plus one hidden article per post (#research/<slug>)."""
+    """The Research section: an index of posts plus one hidden article per post (#writing/research/<slug>)."""
     esc = html_lib.escape
     if posts:
         rows = "\n".join(
-            f'        <li><a class="v2-rs-link" href="#research/{post["slug"]}">{esc(post["title"])}</a>'
+            f'        <li><a class="v2-rs-link" href="#writing/research/{post["slug"]}">{esc(post["title"])}</a>'
             f'<span class="v2-rs-sum">{esc(post["summary"])}</span>'
             f'<time class="v2-rs-date" datetime="{post["date"]}">{_nice_date(post["date"])}</time></li>'
             for post in posts)
         index_body = f'      <ul class="v2-rs-list">\n{rows}\n      </ul>'
     else:
-        index_body = '      <p class="v2-rs-empty">Nothing is published here yet. Posts will show how we tested the choices behind the values. Until then, <a href="#how-values">How values work</a> and the <a href="#manifesto">Manifesto</a> explain the method.</p>'
+        index_body = '      <p class="v2-rs-empty">Nothing is published here yet. Posts will show how we tested the choices behind the values. Until then, <a href="#writing/how-values">How values work</a> and the <a href="#writing/manifesto">Manifesto</a> explain the method.</p>'
     articles = "\n".join(
         f'    <article class="v2-mf-text v2-rs-post" id="v2Post-{post["slug"]}" data-slug="{post["slug"]}" hidden>\n'
-        f'      <p class="v2-mf-eyebrow"><a href="#research">Research</a></p>\n'
+        f'      <p class="v2-mf-eyebrow"><a href="#writing/research">Research</a></p>\n'
         f'      <h1>{esc(post["title"])}</h1>\n'
         f'      <p class="v2-rs-meta"><time datetime="{post["date"]}">{_nice_date(post["date"])}</time></p>\n'
         f'{post["body"]}\n'
-        f'      <p class="v2-rs-back"><a href="#research">All research</a> · <a href="#manifesto">Manifesto</a></p>\n'
+        f'      <p class="v2-rs-back"><a href="#writing/research">All research</a> · <a href="#writing/manifesto">Manifesto</a></p>\n'
         f'    </article>' for post in posts)
     return (
         '\n  <!-- Research (JEG-543): built from app/v2/research/*.html, published posts only. -->\n'
@@ -191,7 +191,7 @@ def research_html(posts: list[dict]) -> str:
         '      <p class="v2-mf-eyebrow">Data Driven Football</p>\n'
         '      <h1 id="v2ResearchTitle">Research</h1>\n'
         '      <p>The evidence behind the choices this tool makes, and how we arrived at them. '
-        'The <a href="#manifesto">Manifesto</a> states the principles; these posts show the work.</p>\n'
+        'The <a href="#writing/manifesto">Manifesto</a> states the principles; these posts show the work.</p>\n'
         f'{index_body}\n'
         '    </article>\n'
         f'{articles}\n'
@@ -217,6 +217,8 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
     head_extra = (
         '  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">\n'
         '  <link rel="stylesheet" href="v2/v2.css">\n'
+        '  <link rel="stylesheet" href="v2/audit-pie.css">\n'
+        '  <link rel="stylesheet" href="v2/audit-source.css">\n'
         + FETCH_SHARE_SHIM
         + (ROOT_LINK_SHIM if at_root else "")
     )
@@ -236,8 +238,12 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/movers.js" defer></script>'
+                  '\n  <script src="v2/roster-paste.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
+                  '\n  <script src="v2/audit-core.js" defer></script>'
+                  '\n  <script src="v2/audit-pie.js" defer></script>'
+                  '\n  <script src="v2/audit-source.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
     return html
@@ -252,7 +258,8 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     posts = load_posts(research_dir)
     (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html, posts=posts), encoding="utf-8")
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "finder.js", "modules.js", "v2.js"):
+    for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "finder.js", "modules.js",
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 

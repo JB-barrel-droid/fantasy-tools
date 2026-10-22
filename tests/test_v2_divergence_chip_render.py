@@ -1,4 +1,4 @@
-"""v2 source divergence "Check" chip (JEG-609, data from JEG-460), rendered.
+"""v2 source divergence "Under review" chip (was "Check") (JEG-609, data from JEG-460), rendered.
 
 Serves the built page with assets/reference-freshness.json's source_divergence set to known statuses and checks:
 
@@ -52,10 +52,11 @@ DIVERGENCE = {
     "razzball": {"status": "warn", "message": "Razzball disagrees with the other projections on 47% of players this week (usually 46%). Under review.",
                  "resolution_issue": None, "outlier_rate": 0.474, "usual_outlier_rate": 0.46},
 }
-EXPECT = {"usatoday": "Check", "fantasycalc": "Check", "fantasypros": "Reviewed", "razzball": "In range"}
+# JEG-850 (Jeremy, 2026-10-22): "Check" reads "Under review", "In range" reads "Normal range".
+EXPECT = {"usatoday": "Under review", "fantasycalc": "Under review", "fantasypros": "Reviewed", "razzball": "Normal range"}
 
 CHIPS = """() => [...document.querySelectorAll('.v2-div-chip')].filter(c => c.offsetParent !== null).map(c => ({
-  src: c.dataset.divergence, status: c.dataset.status, text: c.textContent.trim(), title: c.title, aria: c.getAttribute('aria-label') || '',
+  src: c.dataset.divergence, status: c.dataset.status, text: c.textContent.trim(), mark: Boolean(c.querySelector('svg.v2-ok-mark')), border: getComputedStyle(c).borderTopWidth, title: c.title, aria: c.getAttribute('aria-label') || '',
   tag: c.tagName, href: c.getAttribute('href') || '', inButton: Boolean(c.closest('button')), in: c.closest('#v2TDivergence') ? 'note' : c.closest('thead') ? 'head' : c.closest('#v2ShowingLegend') ? 'legend'
   : c.closest('#v2Popover, #v2Sources, .v2-popover') ? 'customize' : 'other'}))"""
 
@@ -97,8 +98,19 @@ def check_chips(chips: list[dict], where: str, place: str, allow_link: bool, exp
         c = seen.get(src)
         if not c:
             continue
-        if c["text"].lstrip("⚑✓ ").strip() != word:
-            errors.append(f"[{where}] {src}: chip says {c['text']!r}, want {word!r}")
+        # JEG-856: in range is a green checkmark glyph with no word and no box; its name is the aria-label.
+        if word == "Normal range":
+            if not c["mark"] or c["text"] or c["border"] != "0px":
+                errors.append(f"[{where}] {src}: in range must be the checkmark glyph only (mark {c['mark']}, text {c['text']!r}, border {c['border']})")
+            if not c["aria"].startswith("Normal range: ") or c["status"] == "reviewed":
+                errors.append(f"[{where}] {src}: checkmark name {c['aria']!r} should start with 'Normal range: '")
+        else:
+            if c["mark"]:
+                errors.append(f"[{where}] {src}: only an in-range source gets the checkmark")
+            if c["text"].lstrip("⚑✓ ").strip() != word or not c["aria"].startswith(word + ": "):
+                errors.append(f"[{where}] {src}: chip says {c['text']!r} / {c['aria']!r}, want {word!r}")
+            if word == "Under review" and (not c["text"].startswith("⚑") or c["border"] != "0px"):
+                errors.append(f"[{where}] {src}: out of range must be the plain amber flag, no box: {c['text']!r} border {c['border']}")
         if c["title"] != MESSAGES[src] or MESSAGES[src] not in c["aria"]:
             errors.append(f"[{where}] {src}: tooltip {c['title']!r} / name {c['aria']!r}, want the published message")
         linked = c["tag"] == "A"
@@ -184,7 +196,7 @@ def run_checks(patch=None) -> list[str]:
             page.click("#v2EditSources")
             page.wait_for_timeout(600)
             chips = page.evaluate("""() => [...document.querySelectorAll('.v2-div-chip')].filter(c => c.offsetParent !== null && c.closest('label'))
-              .map(c => ({src: c.dataset.divergence, status: c.dataset.status, text: c.textContent.trim(), title: c.title, aria: c.getAttribute('aria-label') || '',
+              .map(c => ({src: c.dataset.divergence, status: c.dataset.status, text: c.textContent.trim(), mark: Boolean(c.querySelector('svg.v2-ok-mark')), border: getComputedStyle(c).borderTopWidth, title: c.title, aria: c.getAttribute('aria-label') || '',
                 tag: c.tagName, href: c.getAttribute('href') || '', inButton: Boolean(c.closest('button')), in: 'customize'}))""")
             seen = {c["src"] for c in chips}
             # The Customize list still names a held source (greyed), so its chip stays: all flagged sources.
@@ -192,8 +204,11 @@ def run_checks(patch=None) -> list[str]:
                 errors.append(f"[customize] chips on {sorted(seen)}, want {sorted(EXPECT)}")
             # JEG-834: a source within its usual range keeps its chip but says so plainly.
             razz = next((c for c in chips if c["src"] == "razzball"), None)
-            if razz and (razz["text"].lstrip("⚑✓ ").strip() != "In range" or razz["title"] != MESSAGES["razzball"]):
-                errors.append(f"[customize] Razzball within its usual range reads {razz['text']!r} / {razz['title']!r}")
+            if razz and (not razz["mark"] or razz["text"] or not razz["aria"].startswith("Normal range: ") or razz["title"] != MESSAGES["razzball"]):
+                errors.append(f"[customize] Razzball within its usual range reads {razz['text']!r} / {razz['aria']!r} / {razz['title']!r}")
+            other = [c["src"] for c in chips if c["src"] != "razzball" and c["mark"]]
+            if other:
+                errors.append(f"[customize] checkmark on out-of-range sources {other}")
             if page_errors:
                 errors.append(f"page errors {page_errors}")
             page.close()
@@ -209,7 +224,10 @@ PATCHES = {
     "link inside the header button": ('const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";',
                                       'const href = (status === "reviewed" || status === "excluded") ? resolutionHref(entry.resolution_issue) : "";'),
     "within-usual-range source flagged": ("usualGap <= 5;", "usualGap <= -999;"),
-    "reviewed shown as check": ('const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : (inRange ? "In range" : "Check"));', 'const word = "Check";'),
+    "reviewed shown as check": ('const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : (inRange ? "Normal range" : "Under review"));', 'const word = "Under review";'),
+    "in range checkmark dropped": ('chip.insertAdjacentHTML("beforeend", \'<svg class="v2-ok-mark"', 'chip.insertAdjacentHTML("beforeend", \'<svg class="v2-x"'),
+    "in range back to a worded box": ('chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : (inRange ? "ok" : "check"))', 'chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : "other")'),
+    "out of range gets the checkmark": ('    if (inRange) {\n      chip.insertAdjacentHTML', '    if (inRange || status === "warn") {\n      chip.insertAdjacentHTML'),
 }
 
 

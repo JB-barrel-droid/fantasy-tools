@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T12:56:13.192485+00:00",
+  "run_at": "2026-10-22T17:03:14.213989+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,10 +14,9 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros",
-    "razzball"
+    "cbsros"
   ],
-  "hold_severity": "red",
+  "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
     "cbsros": {
@@ -29,21 +28,8 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Justin Joly, Kylen Granson, Seydou Traore); parse notes: RB: 3 players listed with another positio",
+      "detail": "1089/1089 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 6 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Grant Calcaterra, Justin Joly, Seydou Traore, Tip Reiman); parse notes: RB: 3 play",
       "hold_severity": "amber",
-      "week": 7
-    },
-    "razzball": {
-      "reason": "fidelity: scrape_validity",
-      "held_series": [
-        "razzball",
-        "razzball_vorp"
-      ],
-      "sections": [
-        "razzball"
-      ],
-      "detail": "sentinel players outside their per-game band (JEG-592): Patrick Mahomes 13.8 (expected 15 to 28)",
-      "hold_severity": "red",
       "week": 7
     }
   },
@@ -105,7 +91,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-21 -> 12 DDF legs -> section; review passed (7788 values)",
+      "detail": "snapshot 2026-10-22 -> 12 DDF legs -> section; review passed (7776 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -152,14 +138,13 @@
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-21",
+      "content_vintage": "2026-10-22",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored",
-    "razzball": "fidelity: scrape_validity"
+    "cbsros": "fidelity: publisher_vs_stored"
   }
 }

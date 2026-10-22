@@ -3,18 +3,21 @@
 Builds dist/v2 from a temp research folder (one published post, one draft) into
 a temp copy of the built dist/ and loads it headless at 1440 and 390 px, and checks:
 
-  * "Research" is a tab after "How values work" and routes at #research; the
-    page is only the Research page (no league bar, no Showing bar);
+  * "Research" is the third section of the Writing tab (after Manifesto and How
+    values work) and routes at #writing/research; the page is only the Research
+    page (no league bar, no Showing bar). The old route #research (JEG-855)
+    redirects there;
   * the index lists exactly the published posts, in date order, and a draft
     never reaches the page (not in the index, not as an article, no route);
-  * every published post routes at #research/<slug> with its title, no page
+  * every published post routes at #writing/research/<slug> (the old
+    #research/<slug> redirects to it and lands on the post) with its title, no page
     errors and no horizontal overflow at 390 px, and an unknown slug falls
     back to the index;
   * the reading column is about 70 characters wide (like the Manifesto).
 
 Discrimination: test_guard_fails_on_broken_builds builds with the draft marked
-published, with a published post dropped, and with the Research route removed,
-and requires the checks to fail on each.
+published, with a published post dropped, with the Writing route removed, and
+with the old #research/<slug> redirect removed, and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -63,7 +66,11 @@ READ = """() => {
     tabs: [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view, label: t.querySelector('.v2-tab-full')?.textContent || '',
       current: t.getAttribute('aria-current') === 'page'})),
     research: shown('v2Research'),
-    others: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto'].filter(shown),
+    others: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Audit'].filter(shown),
+    sections: [...document.querySelectorAll('#v2WritingTabs .v2-subtab')].map(a => ({slug: a.dataset.writing, label: a.textContent.trim(),
+      current: a.getAttribute('aria-current') === 'page'})),
+    sectionsShown: shown('v2Writing'),
+    hash: location.hash,
     league: shown('v2League'), methods: shown('v2Methods'),
     indexLinks: rs ? [...rs.querySelectorAll('.v2-rs-list a')].map(a => a.getAttribute('href')) : [],
     visible: visible.map(a => a.dataset.slug || 'index'),
@@ -106,19 +113,30 @@ def _built_dist(posts: dict):
                 server.shutdown()
 
 
-def check_index(snap, width) -> list[str]:
-    tag = f"[{width}px #research] "
+def check_sections(snap, tag, want_hash) -> list[str]:
     errors = []
     views = [t["view"] for t in snap["tabs"]]
-    if "research" not in views or views.index("research") != views.index("how") + 1:
-        errors.append(f"{tag}Research tab should follow How values work; tabs {views}")
-    if [t["view"] for t in snap["tabs"] if t["current"]] != ["research"]:
-        errors.append(f"{tag}Research is not the current tab")
+    if any(view in views for view in ("research", "how", "manifesto")):
+        errors.append(f"{tag}Manifesto, How values work and Research are no longer top-level tabs; tabs {views}")
+    if [t["view"] for t in snap["tabs"] if t["current"]] != ["writing"]:
+        errors.append(f"{tag}Writing is not the current tab")
+    if [s["slug"] for s in snap["sections"]] != ["manifesto", "how-values", "research"] or not snap["sectionsShown"]:
+        errors.append(f"{tag}Writing sections {snap['sections']} (shown {snap['sectionsShown']}), want Manifesto, How values work, Research in order")
+    if [s["slug"] for s in snap["sections"] if s["current"]] != ["research"]:
+        errors.append(f"{tag}Research is not the current section")
+    if snap["hash"] != want_hash:
+        errors.append(f"{tag}address is {snap['hash']!r}, want {want_hash!r}")
+    return errors
+
+
+def check_index(snap, width, hash_="#writing/research", old=False) -> list[str]:
+    tag = f"[{width}px {'old ' if old else ''}{hash_}] "
+    errors = check_sections(snap, tag, "#writing/research")
     if not snap["research"] or snap["others"]:
         errors.append(f"{tag}pages shown: research={snap['research']} others={snap['others']}")
     if snap["league"] or snap["methods"]:
         errors.append(f"{tag}league bar {snap['league']} / Showing bar {snap['methods']} should be hidden")
-    if snap["indexLinks"] != [f"#research/{slug}" for slug in PUBLISHED]:
+    if snap["indexLinks"] != [f"#writing/research/{slug}" for slug in PUBLISHED]:
         errors.append(f"{tag}index links {snap['indexLinks']}, want exactly {PUBLISHED}")
     if "DRAFT-ONLY-TEXT" in snap["html"] or "secret-draft" in snap["html"]:
         errors.append(f"{tag}a draft post reached the page")
@@ -137,20 +155,20 @@ def check_layout(snap, width, tag) -> list[str]:
     return errors
 
 
-def check_post(snap, width, slug, title) -> list[str]:
-    tag = f"[{width}px #research/{slug}] "
-    errors = []
+def check_post(snap, width, slug, title, old=False) -> list[str]:
+    tag = f"[{width}px {'old #research' if old else '#writing/research'}/{slug}] "
+    errors = check_sections(snap, tag, f"#writing/research/{slug}")
     if snap["visible"] != [slug]:
         errors.append(f"{tag}visible articles {snap['visible']}")
     if snap["h1"] != [title]:
         errors.append(f"{tag}h1 {snap['h1']}, want {title!r}")
-    if [t["view"] for t in snap["tabs"] if t["current"]] != ["research"] or snap["league"] or snap["methods"]:
-        errors.append(f"{tag}wrong tab or bars shown")
+    if snap["league"] or snap["methods"]:
+        errors.append(f"{tag}wrong bars shown")
     errors += check_layout(snap, width, tag)
     return errors
 
 
-def run_checks(posts=None, remove_route=False) -> list[str]:
+def run_checks(posts=None, remove_route=False, remove_redirect=False) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -159,7 +177,13 @@ def run_checks(posts=None, remove_route=False) -> list[str]:
     errors = []
     js = V2_JS.read_text(encoding="utf-8")
     if remove_route:
-        js = js.replace('(hashBase() === "#research" || hashBase().startsWith("#research/")) ? "research"', 'false ? "research"', 1)
+        route = '(hashBase() === "#writing" || hashBase().startsWith("#writing/")) ? "writing"'
+        assert route in js
+        js = js.replace(route, 'false ? "writing"', 1)
+    if remove_redirect:
+        redirect = '(base.startsWith("#research/") ? "#writing/" + base.slice(1) : base)'
+        assert redirect in js
+        js = js.replace(redirect, "base", 1)
     with _built_dist(POSTS if posts is None else posts) as base, sync_playwright() as playwright:
         try:
             browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
@@ -174,14 +198,22 @@ def run_checks(posts=None, remove_route=False) -> list[str]:
                 page.route("**/v2/v2.js*", lambda route, *_: route.fulfill(status=200, content_type="text/javascript", body=js))
                 page.goto(base, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2", timeout=40000)
-                page.evaluate("() => { location.hash = '#research'; }")
+                page.evaluate("() => { location.hash = '#writing/research'; }")
                 page.wait_for_timeout(300)
                 errors += check_index(page.evaluate(READ), width)
                 for slug in PUBLISHED:
-                    page.evaluate("s => { location.hash = '#research/' + s; }", slug)
+                    page.evaluate("s => { location.hash = '#writing/research/' + s; }", slug)
                     page.wait_for_timeout(300)
                     errors += check_post(page.evaluate(READ), width, slug, POSTS[slug][0]["title"])
-                page.evaluate("() => { location.hash = '#research/secret-draft'; }")
+                # Old routes (JEG-855) redirect into the section, and the address is rewritten.
+                page.evaluate("() => { location.hash = '#research'; }")
+                page.wait_for_timeout(300)
+                errors += check_index(page.evaluate(READ), width, "#research", old=True)
+                for slug in PUBLISHED:
+                    page.evaluate("s => { location.hash = '#research/' + s; }", slug)
+                    page.wait_for_timeout(300)
+                    errors += check_post(page.evaluate(READ), width, slug, POSTS[slug][0]["title"], old=True)
+                page.evaluate("() => { location.hash = '#writing/research/secret-draft'; }")
                 page.wait_for_timeout(300)
                 snap = page.evaluate(READ)
                 if snap["visible"] != ["index"]:
@@ -202,7 +234,8 @@ class ResearchRenderTest(unittest.TestCase):
         draft_published = {**POSTS, "secret-draft": ({**POSTS["secret-draft"][0], "published": True}, POSTS["secret-draft"][1])}
         dropped = {slug: value for slug, value in POSTS.items() if slug != "older-post"}
         for name, kwargs in {"draft published": {"posts": draft_published}, "published post dropped": {"posts": dropped},
-                             "route removed": {"remove_route": True}}.items():
+                             "route removed": {"remove_route": True},
+                             "old #research/<slug> redirect removed": {"remove_redirect": True}}.items():
             with self.subTest(mutation=name):
                 self.assertNotEqual(run_checks(**kwargs), [], f"render checks did not catch: {name}")
 

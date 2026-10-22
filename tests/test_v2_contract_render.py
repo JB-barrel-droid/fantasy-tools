@@ -353,9 +353,11 @@ COMMON = r"""
   const visibleText = () => $('v2App').innerText;
   const attrText = root => [...root.querySelectorAll('[title],[aria-label]')]
     .map(n => (n.getAttribute('title') || '') + ' ' + (n.getAttribute('aria-label') || '')).join('\n');
+  const sections = () => [...document.querySelectorAll('#v2WritingTabs .v2-subtab')].map(a => ({slug: a.dataset.writing,
+    label: a.textContent.trim(), href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page'}));
   const tabs = () => [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view,
     label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'}));
-  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto']
+  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit']
     .map(id => [id, shown($(id))]));
   const readTable = (sel = '#v2Table') => [...document.querySelectorAll(sel + ' tbody tr[data-player-key]')].map(tr => ({
     key: tr.dataset.playerKey, name: own(tr.querySelector('td.player') || tr),
@@ -653,7 +655,7 @@ HOW_JS = "() => {" + COMMON + r"""
 
 MANIFESTO_JS = "() => {" + COMMON + r"""
   const mf = $('v2Manifesto');
-  return {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText(mf),
+  return {tabs: tabs(), sections: sections(), hash: location.hash, pages: pagesShown(), text: visibleText(), attrs: attrText(mf),
     h1: mf.querySelector('h1')?.textContent.trim() || '', h2: [...mf.querySelectorAll('article h2')].map(h => h.textContent.trim()),
     links: mf.querySelectorAll('a').length,
     controls: mf.querySelectorAll('a, button, input, select, textarea, [contenteditable]').length,
@@ -772,10 +774,10 @@ def scenario_tabs(s: Session) -> dict:
         page.wait_for_function("() => window.TradeValueV2.compare() && document.querySelectorAll('#v2CTable tbody tr[data-source]').length", timeout=40000)
         page.wait_for_timeout(300)
         out["compare"] = page.evaluate(COMPARE_JS)
-        page.evaluate("() => { location.hash = '#how-values'; }")
+        page.evaluate("() => { location.hash = '#writing/how-values'; }")
         page.wait_for_timeout(600)
         out["how"] = page.evaluate(HOW_JS)
-        page.evaluate("() => { location.hash = '#manifesto'; }")
+        page.evaluate("() => { location.hash = '#writing/manifesto'; }")
         page.wait_for_timeout(400)
         out["manifesto"] = page.evaluate(MANIFESTO_JS)
         out["gl20"] = page.evaluate(GL20_JS)
@@ -800,7 +802,7 @@ def scenario_phone(s: Session) -> dict:
     page = s.open("#trade-targets", width=390, height=844)
     try:
         out = {"tabs": [page.evaluate(PHONE_JS, h) for h in
-                        ("#manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade", "#how-values")]}
+                        ("#writing/manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade", "#writing/how-values", "#values-auditing")]}
         out["errors"] = page.errors
         return out
     finally:
@@ -835,7 +837,7 @@ CUSTOMIZE_JS = "async () => {" + COMMON + r"""
   const pop = $('v2Popover');
   const pub = pop.querySelector('.v2-cgroup[data-group="pub"]');
   const checked = () => [...pop.querySelectorAll('input[data-series]:checked')].map(i => i.dataset.series);
-  out.groups = [...pop.querySelectorAll('.v2-cgroup')].map(g => ({id: g.dataset.group, title: g.querySelector('h3').textContent.trim(),
+  out.groups = [...pop.querySelectorAll('.v2-cgroup[data-group]')].map(g => ({id: g.dataset.group, title: g.querySelector('h3').textContent.trim(),
     call: (g.querySelector('.v2-call') || {}).textContent || '', meta: (g.querySelector(':scope > .v2-meta') || {}).textContent || ''}));
   out.footer = [...pop.querySelectorAll('button')].map(b => b.textContent.trim()).filter(t => /^(Reset to default|Done|Cancel)$/.test(t));
   out.versions = [...pop.querySelectorAll('input[data-series^="ddf_value"]')].map(i => i.dataset.series);
@@ -1304,9 +1306,11 @@ def mf01(S):
     m = S["tabs"]["manifesto"]
     t = S["tabs"]["targets"]
     errors = []
-    first = m["tabs"][0] if m["tabs"] else {}
-    if (first.get("view"), first.get("label")) != ("manifesto", "Manifesto"):
-        errors.append(f"first tab is {first}, want Manifesto")
+    first = m["sections"][0] if m["sections"] else {}
+    if (first.get("slug"), first.get("label")) != ("manifesto", "Manifesto"):
+        errors.append(f"first Writing section is {first}, want Manifesto")
+    if [x["view"] for x in m["tabs"] if x["current"]] != ["writing"] or [x["slug"] for x in m["sections"] if x["current"]] != ["manifesto"]:
+        errors.append(f"#writing/manifesto: current tab/section wrong: {m['tabs']} {m['sections']}")
     if not m["pages"]["v2Manifesto"] or m["h1"] != "Fantasy Football Manifesto" or len(m["h2"]) != 12:
         errors.append(f"Manifesto: shown {m['pages']['v2Manifesto']}, h1 {m['h1']!r}, {len(m['h2'])} sections")
     if m["controls"]:
@@ -1676,10 +1680,15 @@ def tt11(S):
 
 
 def rs01(S):
+    errors = []
     views = [t["view"] for t in S["tabs"]["targets"]["tabs"]]
-    if "research" not in views or "how" not in views or views.index("research") != views.index("how") + 1:
-        return [f"the Research tab should follow How values work: {views}"]
-    return []
+    if any(v in views for v in ("manifesto", "how", "research")) or views.count("writing") != 1:
+        errors.append(f"Manifesto, How values work and Research should be sections of one Writing tab, not top-level tabs: {views}")
+    sections = S["tabs"]["manifesto"]["sections"]
+    want = [("manifesto", "#writing/manifesto"), ("how-values", "#writing/how-values"), ("research", "#writing/research")]
+    if [(x["slug"], x["href"]) for x in sections] != want:
+        errors.append(f"Writing sections should be Manifesto, How values work, Research in that order: {sections}")
+    return errors
 
 
 def rs02(S):
@@ -1727,8 +1736,9 @@ def tt05_partial(S):
 
 
 PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
-GROUPS_SHIPPED = {"ddf": "DDF Value", "proj": "Projections", "pub": "Trade charts (rescaled)",
-                  "vorp": "Advanced · Value above waivers"}
+# JEG-850 (Jeremy, 2026-10-22): the Chart lines tab's groups, in the plain copy of the review (customize-ux-review.md 2.3).
+GROUPS_SHIPPED = {"ddf": "Our values", "pub": "Published trade charts", "proj": "Projection-based values",
+                  "vorp": "Raw value above waivers (advanced)"}
 
 
 def gl07_partial(S):
@@ -1774,11 +1784,10 @@ def gl21_partial(S):
             errors.append(f"{tab}: 'as published' x{c['text']['asPublished']} / 'indexed' x{c['text']['indexed']} in visible text")
         pub = next((g for g in c["groups"] if g["id"] == "pub"), None)
         meta = (pub or {}).get("meta", "")
-        if not pub or pub["title"] != "Trade charts (rescaled)":
-            errors.append(f"{tab}: the chart group is not named 'Trade charts (rescaled)'")
-        elif not (re.search(r"rescaled to our point scale for your league", meta)
-                  and re.search(r"ranking order is unchanged", meta, re.I)):
-            errors.append(f"{tab}: the rescaled meaning line is {meta!r}")
+        if not pub or pub["title"] != "Published trade charts":
+            errors.append(f"{tab}: the chart group is not named 'Published trade charts'")
+        elif not re.search(r"adjusted to your league's scale", meta):
+            errors.append(f"{tab}: the chart group's meaning line is {meta!r}")
     return errors
 
 
@@ -2171,17 +2180,16 @@ class ContractRenderTest(unittest.TestCase):
             self.assertTrue(real, f"{cid} did not catch: {fault} (got {results[cid]})")
 
         # Group 1 (shell): the nav reordered, Swap never shown, "Vegas" in the header.
-        manifesto_tab = ('        <a class="v2-tab" href="v2/#manifesto" data-view="manifesto" data-short="Manifesto">'
-                         '<span class="v2-tab-full">Manifesto</span></a>\n')
-        values_tab = ('        <a class="v2-tab" href="v2/#player-values" data-view="values" data-short="Values">'
-                      '<span class="v2-tab-full">Player values</span></a>\n')
-        broken_shell = cut(cut(shell, manifesto_tab), values_tab, values_tab + manifesto_tab)
+        manifesto_tab = '      <a class="v2-subtab" href="#writing/manifesto" data-writing="manifesto">Manifesto</a>\n'
+        how_tab = '      <a class="v2-subtab" href="#writing/how-values" data-writing="how-values">How values work</a>\n'
+        broken_shell = cut(cut(shell, manifesto_tab), how_tab, how_tab + manifesto_tab)
         # Swap never shows (removing the node would crash startup, which is a different failure).
         broken_shell = cut(broken_shell, 'id="v2CSwap" hidden>', 'id="v2CSwap" hidden style="display:none !important">')
         broken_shell = cut(broken_shell, 'href="v2/#trade-targets">Data Driven Football</a>',
                            'href="v2/#trade-targets">Data Driven Football · Vegas lines</a>')
-        results, _ = run_contract(["MF-01", "CT-01", "GL-01"], {"shell": broken_shell})
-        caught(results, "MF-01", "Manifesto moved after Player values")
+        results, _ = run_contract(["MF-01", "RS-01", "CT-01", "GL-01"], {"shell": broken_shell})
+        caught(results, "MF-01", "Manifesto moved after How values work in Writing")
+        caught(results, "RS-01", "Writing sections out of order")
         caught(results, "CT-01", "Swap removed")
         caught(results, "GL-01", '"Vegas" in the header')
 
@@ -2234,8 +2242,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
         # "as published", Edit league demoted, Customize without Reset, Compare's headlines hidden.
         broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
-        broken_js = cut(broken_js, 'title: "Trade charts (rescaled)", one: "rescaled trade chart"',
-                        'title: "Trade charts (as published)", one: "rescaled trade chart"')
+        broken_js = cut(broken_js, '{id: "pub", title: "Published trade charts"',
+                        '{id: "pub", title: "Trade charts (as published)"')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
         broken_js = cut(broken_js, "box.hidden = !heads;", "box.hidden = true;")
         broken_shell = cut(shell, 'class="v2-btn v2-btn-primary" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust" id="v2EditLeague"')

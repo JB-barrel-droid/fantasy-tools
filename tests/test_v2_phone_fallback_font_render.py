@@ -24,7 +24,7 @@ from tests import _render_env
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
-TABS = ("#manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade", "#how-values", "#research")
+TABS = ("#writing/manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade", "#writing/how-values", "#writing/research", "#values-auditing")
 WIDE = ("document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');"
         "s.textContent=\"*{font-family:'DejaVu Sans',sans-serif !important}\";document.head.appendChild(s)})")
 OLD_RULES = (
@@ -99,7 +99,7 @@ class PhoneFallbackFontTest(unittest.TestCase):
             self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
             css = css.replace(new, old)
         found = _overflows(css)
-        self.assertIn("#manifesto", found)
+        self.assertIn("#writing/manifesto", found)
         self.assertIn("#player-values", found)
 
 

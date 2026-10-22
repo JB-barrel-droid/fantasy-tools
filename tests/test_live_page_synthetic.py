@@ -104,7 +104,7 @@ class LivePageSyntheticPagesTest(unittest.TestCase):
         self.assertEqual(classic["landedAt"].split("#")[0], report["url"])
         tabs = [t["hash"] for t in report["pages"][0]["tabs"]]
         self.assertEqual(tabs, ["#player-values", "#trade-targets", "#risers-fallers",
-                                "#compare-trade", "#find-trade", "#how-values"])
+                                "#compare-trade", "#find-trade", "#writing/how-values", "#values-auditing"])
 
     def test_missing_v2_tab_section_fails(self):
         def edit(d):
