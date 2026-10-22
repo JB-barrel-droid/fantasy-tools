@@ -1288,6 +1288,22 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-wsignal.is-sell { color: var(--v2-action-strong); }
 .v2-wsignal.is-buy { color: var(--v2-negative); }
 .v2-wsignal.is-fair { color: var(--v2-muted); }
+/* JEG-810 (phone): pin the Group label, not the Players count; drop the count column so Signal shows on first view; edge shadows cue the sideways scroll. */
+@media (max-width: 767px) {
+  .v2-wtable td:nth-child(2), .v2-wtable th:nth-child(2) { display: none; }
+  .v2-wtable td.player, .v2-wtable th.player { position: sticky; left: 0; z-index: 1; background: var(--v2-surface); box-shadow: 1px 0 0 var(--v2-border); }
+  .v2-wtable th { white-space: normal; }
+  .v2-wtable td.player, .v2-wtable th.player { min-width: 0; width: 1%; }
+  .v2-wtable tr.is-tier td.player { padding-left: 14px; }
+  .v2-wtable tr.w-detail td.player { position: static; box-shadow: none; }
+  .v2-weight .v2-table-wrap {
+    background:
+      linear-gradient(to right, var(--v2-surface) 30%, transparent) left center / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--v2-surface) 30%, transparent) right center / 24px 100% no-repeat local,
+      linear-gradient(to right, rgba(0,0,0,.22), transparent) left center / 10px 100% no-repeat scroll,
+      linear-gradient(to left, rgba(0,0,0,.22), transparent) right center / 10px 100% no-repeat scroll;
+  }
+}
 .v2-wtable tr.w-detail td { white-space: normal; background: var(--v2-hover); padding: 6px; }
 .v2-wplayers { width: 100%; }
 .v2-weight-how { margin-top: 10px; font-size: 13px; max-width: 72ch; }
