@@ -1,6 +1,6 @@
 """v2 How values work, rendered: explanation only, no new numbers.
 
-Builds dist/v2 into a temp copy of the built dist/, loads /v2/#how-values
+Builds dist/v2 into a temp copy of the built dist/, loads /v2/#writing/how-values
 headless (desktop 1440 and mobile 390) after switching the engine to a 10-team
 league, and checks:
 
@@ -89,7 +89,7 @@ def method(key):
 def check(snap) -> list[str]:
     errors = []
     if snap["hidden"]:
-        return ["the How values work tab is hidden at #how-values"]
+        return ["the How values work tab is hidden at #writing/how-values"]
     state, roster = snap["state"], snap["roster"]
     league = f"{SCORING.get(state['scoring'], state['scoring'])} · {state['teams']} teams"
     if snap["league"] != league:
@@ -168,7 +168,7 @@ def _built_dist(shell_html=None):
             server.daemon_threads = True
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
-                yield f"http://127.0.0.1:{server.server_address[1]}/v2/#how-values"
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2/#writing/how-values"
             finally:
                 server.shutdown()
 
@@ -199,7 +199,7 @@ def collect(shell_html=None, v2_js=None, viewports=((1440, 1000), (390, 844))):
                 page.evaluate("() => window.TradeValueCurveControls.setTeams(10)")
                 page.evaluate("() => { location.hash = '#player-values'; }")
                 page.wait_for_function("() => !document.getElementById('v2Main').hidden")
-                page.evaluate("() => { location.hash = '#how-values'; }")
+                page.evaluate("() => { location.hash = '#writing/how-values'; }")
                 page.wait_for_timeout(200)
                 snap = page.evaluate(READ)
                 snap.update(width=width, pageErrors=list(errors))

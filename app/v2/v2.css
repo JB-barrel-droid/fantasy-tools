@@ -1467,10 +1467,5 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-subtab:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
 .v2-audit-panel[hidden] { display: none; }
 .audit-root { min-height: 240px; }   /* room for the sub-tab content; the page is never a short stub (contract GL-13 needs 200 px) */
-/* Eight tabs since Values auditing (JEG-847): the 44 px minimum width alone takes 352 px of the row, so from 360 to 420 px
-   the nav gutter is 4 px, tab type is 10 px and padding 1 px, which keeps the single row inside 390 px. */
-@media (min-width: 360px) and (max-width: 420px) {
-  .v2-nav-inner { padding-left: 4px; padding-right: 4px; }
-  .v2-tab { font-size: 10px; padding-left: 1px; padding-right: 1px; }
-  .v2-tabs { gap: 1px; }
-}
+.v2-writing-nav { padding-top: var(--v2-gap); }
+.v2-writing-nav[hidden] { display: none; }
