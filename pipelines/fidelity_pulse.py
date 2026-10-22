@@ -1091,16 +1091,28 @@ def fc_grain_check(left: dict, right: dict, *, bake_age_s: float | None = None) 
     false-positive column-swap reds."""
     if bake_age_s is not None and bake_age_s > FC_GRAIN_CHECK_MAX_AGE_S:
         return []
-    problems = []
+    # JEG-807 (2026-10-22): a swap is mutual. Two stored columns exchanged at
+    # save time put stored A nearest live B AND stored B nearest live A. One
+    # live list moving on its own (pulse 09:40Z: the std lists moved ~1% since
+    # the 08:05Z save while full and half matched it exactly) puts stored std
+    # nearest live half, but stored half stays nearest live half; that is
+    # drift larger than the scoring gap, not a swap, and it held FantasyCalc
+    # red with every full/half value equal.
+    nearest, dist_of = {}, {}
     for g, R in right.items():
         dist = {}
         for g2, L in left.items():
             shared = R.keys() & L.keys()
             if len(shared) >= 20:
                 dist[g2] = sum(abs(R[k]["value"] - L[k]["value"]) for k in shared) / len(shared)
-        if dist and min(dist, key=dist.get) != g and dist.get(g, float("inf")) > FC_SWAP_RATIO * min(dist.values()):
-            problems.append(f"stored {g} list is closest to the live {min(dist, key=dist.get)} list "
-                            f"(mean |diff| {min(dist.values()):.0f} vs {dist.get(g, float('nan')):.0f})")
+        if dist:
+            nearest[g], dist_of[g] = min(dist, key=dist.get), dist
+    problems = []
+    for g, n in nearest.items():
+        dist = dist_of[g]
+        if n != g and dist.get(g, float("inf")) > FC_SWAP_RATIO * dist[n] and nearest.get(n) == g:
+            problems.append(f"stored {g} list is closest to the live {n} list "
+                            f"(mean |diff| {dist[n]:.0f} vs {dist.get(g, float('nan')):.0f})")
     return problems
 
 
