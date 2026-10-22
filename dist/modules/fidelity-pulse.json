@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-22T09:05:14.030377Z",
- "run_id": "bece6673-3632-4631-bacb-2a9bacc6680f",
+ "checked_at": "2026-10-22T09:40:13.899996Z",
+ "run_id": "c220e13b-1d3e-4421-80b2-45c32b0bd0c4",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-22T08:07:00.287003+00:00",
+  "built_at": "2026-10-22T08:30:28.130018+00:00",
   "error": null
  },
  "rules": {
@@ -24,6 +24,18 @@
   "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
  "holds": {
+  "fantasycalc": {
+   "stage": "publisher_vs_stored",
+   "stages": [
+    "publisher_vs_stored"
+   ],
+   "hold_level": "red",
+   "reason": "fidelity: publisher_vs_stored",
+   "identity": "fcwk7_2026-10-22t0805_v1",
+   "measured_site": "2026-10-22T08:05:22+00:00",
+   "since": "2026-10-22T09:40:13.899996Z",
+   "summary": "794/1174 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 17 vs 29); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 23); 380 of 1174 values moved since the save at 2026-10-22T08:05:28.976647Z (largest 100%"
+  },
   "cbsros": {
    "stage": "publisher_vs_stored",
    "stages": [
@@ -34,7 +46,7 @@
    "identity": "2026-10-22@2026-10-22T09:04:14.826687Z",
    "measured_site": "2026-10-22",
    "since": "2026-10-22T03:24:59.430980Z",
-   "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Grant Calcaterra, Justin Joly, Kylen Granson, Seydou Traore); parse notes: RB: 3 players listed with another posi"
+   "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Patrick Herbert, Tip Reiman); parse notes: RB: 3 players listed with another posit"
   },
   "razzball": {
    "stage": "scrape_validity",
@@ -45,7 +57,7 @@
    "reason": "fidelity: scrape_validity",
    "identity": "2026-10-21@2026-10-22T01:59:39.535368Z",
    "measured_site": "2026-10-21",
-   "since": "2026-10-22T09:05:14.030377Z",
+   "since": "2026-10-22T09:40:13.899996Z",
    "summary": "sentinel players outside their per-game band (JEG-592): Patrick Mahomes 13.8 (expected 15 to 28)"
   },
   "draftsharks": {
@@ -57,7 +69,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-22@2026-10-22T04:45:26.651466Z",
    "measured_site": null,
-   "since": "2026-10-22T09:05:14.030377Z",
+   "since": "2026-10-22T09:40:13.899996Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -69,7 +81,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
    "measured_site": null,
-   "since": "2026-10-22T09:05:14.030377Z",
+   "since": "2026-10-22T09:40:13.899996Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -165,7 +177,7 @@
       "unresolved_names": 0
      },
      "chart_week": 7,
-     "chart_imported_at": "2026-10-22T08:06:03Z",
+     "chart_imported_at": "2026-10-22T08:29:46Z",
      "bake_id": "usatwk7_2026-10-22t0155_v1",
      "bake_saved_at": "2026-10-22T01:55:18.929876Z",
      "behind": null,
@@ -227,7 +239,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (1193111 values compared in the whole report)",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -280,24 +292,24 @@
   {
    "source": "fantasycalc",
    "label": "FantasyCalc",
-   "status": "green",
+   "status": "red",
    "stored_week": 7,
    "chart_week": 7,
    "stored_bake": "fcwk7_2026-10-22t0805_v1",
    "stages": {
     "publisher_vs_stored": {
-     "status": "green",
-     "summary": "1176/1176 values match exactly across 6 columns",
+     "status": "red",
+     "summary": "794/1174 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 17 vs 29); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 23); 380 of 1174 values moved since the save at 2026-10-22T08:05:28.976647Z (largest 100%; 1 outside the max(25%, 50) band: J.J. McCarthy); 3 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 196,
+      "publisher_players": 198,
       "stored_players": 196,
-      "compared": 1176,
-      "matched": 1176,
-      "mismatched": 0,
+      "compared": 1174,
+      "matched": 794,
+      "mismatched": 380,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 0,
+      "list_churn": 3,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -335,21 +347,102 @@
        "extra": 0
       },
       "std|1": {
-       "left": 196,
+       "left": 197,
        "right": 196,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 188,
+       "missing": 2,
+       "extra": 1
       },
       "std|2": {
-       "left": 196,
+       "left": 197,
        "right": 196,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 192,
+       "missing": 2,
+       "extra": 1
       }
      },
-     "examples": [],
+     "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 3965,
+       "name": "Bryce Young",
+       "pos": "QB",
+       "left": "3887",
+       "right": 3678.0,
+       "delta": -209.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 3594,
+       "name": "Patrick Mahomes",
+       "pos": "QB",
+       "left": "4744",
+       "right": 4537.0,
+       "delta": -207.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 28,
+       "name": "Aaron Rodgers",
+       "pos": "QB",
+       "left": "1829",
+       "right": 2011.0,
+       "delta": 182.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 4158,
+       "name": "C.J. Stroud",
+       "pos": "QB",
+       "left": "3097",
+       "right": 2922.0,
+       "delta": -175.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1743,
+       "name": "J.J. McCarthy",
+       "pos": "QB",
+       "left": "579",
+       "right": 429.0,
+       "delta": -150.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1311,
+       "name": "Joe Burrow",
+       "pos": "QB",
+       "left": "6366",
+       "right": 6224.0,
+       "delta": -142.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1095,
+       "name": "Kenneth Walker",
+       "pos": "RB",
+       "left": "9527",
+       "right": 9387.0,
+       "delta": -140.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 2795,
+       "name": "George Kittle",
+       "pos": "TE",
+       "left": "3076",
+       "right": 2940.0,
+       "delta": -136.0
+      }
+     ],
      "outside_universe": [],
      "unresolved": []
     },
@@ -368,7 +461,7 @@
       "unresolved_names": 0
      },
      "chart_week": 7,
-     "chart_imported_at": "2026-10-22T08:06:02Z",
+     "chart_imported_at": "2026-10-22T08:29:45Z",
      "bake_id": "fcwk7_2026-10-22t0805_v1",
      "bake_saved_at": "2026-10-22T08:05:28.976647Z",
      "behind": null,
@@ -429,7 +522,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (1193111 values compared in the whole report)",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -475,9 +568,109 @@
      }
     }
    },
-   "worst_examples": [],
+   "worst_examples": [
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 3965,
+     "name": "Bryce Young",
+     "pos": "QB",
+     "left": "3887",
+     "right": 3678.0,
+     "delta": -209.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 3594,
+     "name": "Patrick Mahomes",
+     "pos": "QB",
+     "left": "4744",
+     "right": 4537.0,
+     "delta": -207.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 28,
+     "name": "Aaron Rodgers",
+     "pos": "QB",
+     "left": "1829",
+     "right": 2011.0,
+     "delta": 182.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 4158,
+     "name": "C.J. Stroud",
+     "pos": "QB",
+     "left": "3097",
+     "right": 2922.0,
+     "delta": -175.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1743,
+     "name": "J.J. McCarthy",
+     "pos": "QB",
+     "left": "579",
+     "right": 429.0,
+     "delta": -150.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "left": "6366",
+     "right": 6224.0,
+     "delta": -142.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1095,
+     "name": "Kenneth Walker",
+     "pos": "RB",
+     "left": "9527",
+     "right": 9387.0,
+     "delta": -140.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 2795,
+     "name": "George Kittle",
+     "pos": "TE",
+     "left": "3076",
+     "right": 2940.0,
+     "delta": -136.0
+    }
+   ],
    "held": null,
-   "hold": null
+   "hold": {
+    "stage": "publisher_vs_stored",
+    "stages": [
+     "publisher_vs_stored"
+    ],
+    "hold_level": "red",
+    "reason": "fidelity: publisher_vs_stored",
+    "identity": "fcwk7_2026-10-22t0805_v1",
+    "measured_site": "2026-10-22T08:05:22+00:00",
+    "since": "2026-10-22T09:40:13.899996Z",
+    "summary": "794/1174 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 17 vs 29); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 23); 380 of 1174 values moved since the save at 2026-10-22T08:05:28.976647Z (largest 100%"
+   }
   },
   {
    "source": "fantasypros",
@@ -570,7 +763,7 @@
       "unresolved_names": 0
      },
      "chart_week": 7,
-     "chart_imported_at": "2026-10-22T08:06:04Z",
+     "chart_imported_at": "2026-10-22T08:29:47Z",
      "bake_id": "fpwk7_2026-10-22t0204_v1",
      "bake_saved_at": "2026-10-22T02:04:18.917833Z",
      "behind": null,
@@ -632,7 +825,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (1193111 values compared in the whole report)",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -773,7 +966,7 @@
       "unresolved_names": 0
      },
      "chart_week": 7,
-     "chart_imported_at": "2026-10-22T08:06:06Z",
+     "chart_imported_at": "2026-10-22T08:29:48Z",
      "bake_id": "cbswk7_2026-10-22t0035_v1",
      "bake_saved_at": "2026-10-22T00:35:32.944326Z",
      "behind": null,
@@ -835,7 +1028,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (1193111 values compared in the whole report)",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -997,7 +1190,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (1193111 values compared in the whole report)",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1060,7 +1253,7 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Grant Calcaterra, Justin Joly, Kylen Granson, Seydou Traore); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Patrick Herbert, Tip Reiman); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 366,
       "stored_players": 366,
@@ -1244,7 +1437,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (1193111 values compared in the whole report)",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1391,7 +1584,7 @@
     "identity": "2026-10-22@2026-10-22T09:04:14.826687Z",
     "measured_site": "2026-10-22",
     "since": "2026-10-22T03:24:59.430980Z",
-    "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Grant Calcaterra, Justin Joly, Kylen Granson, Seydou Traore); parse notes: RB: 3 players listed with another posi"
+    "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Patrick Herbert, Tip Reiman); parse notes: RB: 3 players listed with another posit"
    }
   },
   {
@@ -1518,7 +1711,7 @@
     "reference_vs_engine": {
      "status": "green",
      "summary": "engine and Python reference agree (1193111 values compared in the whole report)",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "red",
@@ -1593,7 +1786,7 @@
     "reason": "fidelity: scrape_validity",
     "identity": "2026-10-21@2026-10-22T01:59:39.535368Z",
     "measured_site": "2026-10-21",
-    "since": "2026-10-22T09:05:14.030377Z",
+    "since": "2026-10-22T09:40:13.899996Z",
     "summary": "sentinel players outside their per-game band (JEG-592): Patrick Mahomes 13.8 (expected 15 to 28)"
    }
   },
@@ -1756,7 +1949,7 @@
     "reference_vs_engine": {
      "status": "n/a",
      "summary": "dist/modules/value-check.json: report does not cover draftsharks",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1798,7 +1991,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-22@2026-10-22T04:45:26.651466Z",
     "measured_site": null,
-    "since": "2026-10-22T09:05:14.030377Z",
+    "since": "2026-10-22T09:40:13.899996Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -1829,7 +2022,7 @@
     "reference_vs_engine": {
      "status": "n/a",
      "summary": "dist/modules/value-check.json: report does not cover fantasysharks",
-     "report_generated_at": "2026-10-22T08:49:44.649475+00:00"
+     "report_generated_at": "2026-10-22T09:20:43.335751+00:00"
     },
     "scrape_validity": {
      "status": "green",
@@ -1861,7 +2054,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
     "measured_site": null,
-    "since": "2026-10-22T09:05:14.030377Z",
+    "since": "2026-10-22T09:40:13.899996Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -1888,11 +2081,11 @@
   "summary": "1163 players searchable; 1024 active NFL players (503 active roster, 185 practice squad, 89 injured reserve, 1 pup, 0 reserve, 246 free agent)"
  },
  "last_good": {
-  "usatoday": "2026-10-22T08:07:00.287003+00:00",
+  "usatoday": "2026-10-22T08:30:28.130018+00:00",
   "fantasycalc": "2026-10-22T08:07:00.287003+00:00",
-  "fantasypros": "2026-10-22T08:07:00.287003+00:00",
-  "cbs": "2026-10-22T08:07:00.287003+00:00",
-  "espn": "2026-10-22T08:07:00.287003+00:00",
+  "fantasypros": "2026-10-22T08:30:28.130018+00:00",
+  "cbs": "2026-10-22T08:30:28.130018+00:00",
+  "espn": "2026-10-22T08:30:28.130018+00:00",
   "cbsros": "2026-10-19T22:07:11.948794+00:00",
   "razzball": "2026-10-18T01:03:57.332686+00:00",
   "draftsharks": "2026-10-16T07:19:25.781124+00:00",
