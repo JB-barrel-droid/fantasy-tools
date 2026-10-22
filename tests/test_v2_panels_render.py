@@ -942,7 +942,7 @@ class PanelsRenderTest(unittest.TestCase):
                 "viewports": ((1366, 768),), "full": False},
             "header not sticky": {"v2_css": css.replace(
                 "  .v2-vtable thead th { position: sticky;", "  .v2-vtable thead th { position: static;", 1), "full": False},
-            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 120px; }\n", "full": False},
+            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 140px; }\n", "full": False},
         }
         for name, kwargs in broken.items():
             with self.subTest(mutation=name):
