@@ -192,25 +192,27 @@
     const status = entry.status;
     if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;
     // JEG-834: warn / investigate come from a fixed ceiling as well as the source's own history. A source
-    // within 5 points of its own usual rate is inside its usual range: no flag, nothing to check.
+    // within 5 points of its own usual rate is inside its usual range: the chip stays (GL-25) but says so plainly.
     const usualGap = Number.isFinite(entry.outlier_rate) && Number.isFinite(entry.usual_outlier_rate)
       ? Math.round(entry.outlier_rate * 100) - Math.round(entry.usual_outlier_rate * 100) : null;
-    if ((status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5) return null;
+    const inRange = (status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5;
     const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
     const chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : "check");
     const chip = document.createElement(href ? "a" : "span");
     chip.className = `v2-div-chip is-${chipClass}`;
     chip.dataset.divergence = publisher;
     chip.dataset.status = status;
-    const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : "Check");
-    const message = String(entry.message || "").trim() || `${PUBLISHER_NAMES[publisher] || publisher} disagrees with the other sources more than usual.`;
+    const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : (inRange ? "In range" : "Check"));
+    const message = inRange
+      ? `${PUBLISHER_NAMES[publisher] || publisher}: in line with its usual range (${Math.round(entry.outlier_rate * 100)}% vs ${Math.round(entry.usual_outlier_rate * 100)}%).`
+      : String(entry.message || "").trim() || `${PUBLISHER_NAMES[publisher] || publisher} disagrees with the other sources more than usual.`;
     chip.title = message;
     if (href) { chip.href = href; chip.target = "_blank"; chip.rel = "noopener"; }
     else { chip.setAttribute("role", "img"); }
     chip.setAttribute("aria-label", `${word}: ${message}`);
     const sym = document.createElement("span");
     sym.setAttribute("aria-hidden", "true");
-    sym.textContent = status === "excluded" ? "✗ " : (status === "reviewed" ? "✓ " : "⚑ ");
+    sym.textContent = status === "excluded" ? "✗ " : (status === "reviewed" || inRange ? "✓ " : "⚑ ");
     chip.append(sym, document.createTextNode(word));
     return chip;
   }
