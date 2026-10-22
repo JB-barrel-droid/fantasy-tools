@@ -24,7 +24,7 @@ are worth less.
 
 > Evidence: [research-post-1-facts.md](../research-post-1-facts.md),
 > [bench-rule-research.md](../bench-rule-research.md).
-> Readout: JEG-593 (done). Scripts: JEG-566 (pending).
+> Readout: JEG-593 (done). Scripts: `tools/bench_research/` (JEG-566, committed).
 
 ## The question
 
@@ -220,9 +220,9 @@ and why the answer is different from what most leagues actually hold.
 
 | Claim | Source | Script |
 |---|---|---|
-| Fill-in rates by depth | JEG-551 comment (verified) | JEG-566 pending |
-| Bench-slots effect 0.2pp | JEG-553 comment (verified) | JEG-566 pending |
-| QB 22.6% artifact | [qb-bench-share.md](../qb-bench-share.md) | JEG-566 pending |
+| Fill-in rates by depth | JEG-551 comment (verified) | `tools/bench_research/depth_round_starts.py` |
+| Bench-slots effect 0.2pp | JEG-553 comment (verified) | `tools/bench_research/bench_share_bounds.py` (bench-slots sweep) |
+| QB 22.6% artifact | [qb-bench-share.md](../qb-bench-share.md) | `tools/bench_research/qb_diag.py` |
 | Bench-share readout by setting | JEG-593 (done) | engine `bench_share_readout` |
 | Bench-share bounds | JEG-548 (done, 2026-10-12) | `tools/bench_research/bench_share_bounds.py` |
 | Decomposition (start-worthy vs fill-in) | JEG-549 (done, 2026-10-12) | `tools/bench_research/bench_share_decomposition.py` |

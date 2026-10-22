@@ -20,42 +20,42 @@ about.
 
 ## When a player shows 0
 
-A player can show a value of 0 on a source for two different reasons, and the
-distinction matters:
+A player can show a value of 0 on a chart for a specific reason, and the
+distinction from a dash matters.
 
-### The chart goes deep enough (fully loaded)
+### Below rosterable depth
 
-A chart is "fully loaded" at a position when its own list extends past the
-rostered count -- meaning the chart itself defines the waiver line at that
-position, without needing to borrow from other charts.
-
-When a chart is fully loaded at a position and does not list a player there,
-that player is below the chart's floor. His value on that chart is **0**. The
-chart has implicitly said: this player is not worth rostering.
+The tool determines how many players are rosterable at each position based on
+league size, roster slots, and bench spots. A chart that prices a position
+but neither lists nor estimates a player below that depth gives him **0**:
+"Below rosterable depth." The chart prices players at his position, but he
+is past the point where any team in the league would roster him.
 
 This zero counts in DDF Value. If three charts give a player a value and one
-fully-loaded chart does not list him, DDF Value averages the three values
-and the zero -- four inputs, not three. The zero is real information: one
-chart thinks the player has no trade value.
+chart gives him 0, DDF Value averages the three values and the zero -- four
+inputs, not three. The zero is real information: one chart's scale puts this
+player outside the rosterable set.
 
-### The chart does not go deep enough
+### Fill-in estimates for rosterable players
 
-When a chart is not fully loaded at a position (it lists fewer players than
-the rostered count), an unlisted player gets a dash ("--") with a reason:
-the chart does not list players that deep. This is a null, not a zero.
+When a chart prices a position but does not list a player who *is* within
+the rosterable count, the tool estimates his value from the other charts
+that do list him (the fill-in rule, VP-2.4). The estimate is capped at or
+below the chart's lowest listed value at that position, so the publisher's
+listed ranking order is never disrupted. The estimated value counts in DDF
+Value just like a listed value -- it represents what the chart would
+plausibly price the player at, given its own scale and the other charts'
+opinions.
 
-Nulls are left out of the DDF Value average entirely. They do not count as
-zero and they do not count as the source skipping the player. The source
-simply has no opinion.
+### When a source gives a dash
 
-### What about estimated players?
+A dash ("--") means the source has no opinion. This is a null, not a zero,
+and it is left out of the DDF Value average entirely. It happens when:
 
-When a chart does not list a player who is within the rosterable count, the
-tool estimates his value from the other charts that do list him (the fill-in
-rule). The estimate is capped at or below the chart's lowest listed value at
-that position. The estimated value counts in DDF Value just like a listed
-value -- it represents what the chart would plausibly price the player at,
-given its own scale and the other charts' opinions.
+- A **chart does not price the position at all** (it lists nobody there).
+- A **projection does not project the player** (the source has no
+  projection for him).
+- **No source is available** this week.
 
 ## The rules in plain terms
 
@@ -63,10 +63,10 @@ given its own scale and the other charts' opinions.
 |---|---|---|
 | Chart lists the player | The chart's value | Yes |
 | Chart estimates the player (fill-in) | Estimated value, marked "estimated" | Yes |
-| Chart is fully loaded, does not list him | 0 ("Below rosterable depth") | Yes (as 0) |
-| Chart is not fully loaded, does not list him | -- ("Chart doesn't list players this deep") | No (null) |
+| Player below rosterable depth, chart prices position | 0 ("Below rosterable depth") | Yes (as 0) |
+| Chart does not price the position | -- ("Source doesn't price this position") | No (null) |
 | Projection does not project him | -- ("Source doesn't project this player") | No (null) |
-| Source does not price the position at all | -- ("Source doesn't price this position") | No (null) |
+| No source available this week | -- ("No source available this week") | No (null) |
 
 ## When only one source prices a player
 
@@ -105,20 +105,22 @@ floor of every source.
 
 ## How estimated values and zeros interact
 
-Consider a player listed by two of four charts, not listed by a third chart
-that is fully loaded at his position, and estimated by the fourth chart.
+Consider a player listed by two of four charts. A third chart prices his
+position but he is below its rosterable depth (0). The fourth chart does not
+list him but he is within the rosterable count, so the tool estimates his
+value from the other charts.
 
-His DDF Value averages four inputs:
+His DDF Value averages four chart inputs:
 - Chart 1's Adjusted value (listed).
 - Chart 2's Adjusted value (listed).
-- Chart 3's zero (fully loaded, does not list him).
+- Chart 3's zero (below rosterable depth).
 - Chart 4's estimated Adjusted value (fill-in).
 
 Plus any projections that project him.
 
 The zero from chart 3 pulls the average down, which is the intended effect:
-a chart that goes deep enough to price players at this depth and does not
-list this player is expressing a view that he has no trade value.
+that chart's scale puts this player outside the rosterable set, which is
+real information about how the market views him.
 
 ---
 
@@ -126,8 +128,8 @@ list this player is expressing a view that he has no trade value.
 
 | Claim | Source |
 |---|---|
-| Missing = 0 for fully loaded charts | `docs/methodology.md` "Published Charts On The Rows" |
-| Null for insufficiently deep charts | `docs/methodology.md` VP-6.2 |
+| Below rosterable depth = 0 | `docs/methodology.md` VP-6.2 |
+| Null when source does not price position | `docs/methodology.md` VP-6.2 |
 | One-source low confidence | `docs/methodology.md` VP-6.3 |
 | Estimated values count in DDF | `docs/methodology.md` VP-2.4h, VP-6.3 |
 | Fill-in capped at lowest listed | `docs/methodology.md` VP-2.4f |

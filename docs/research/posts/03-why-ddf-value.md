@@ -56,8 +56,10 @@ Every source goes through the same pipeline:
    and a starter slice (above it).
 4. **DDF weights.** The tool averages each source's implied position mix
    (how much value the source puts on each position's starters versus bench
-   players) to get a single set of weights. The bench share is fixed at 15%
-   by default.
+   players) to get a single set of weights. The weight normalization uses a
+   15% bench-share parameter by default (the reader's slider can change it).
+   This is the normalization target, not the measured bench share -- the
+   measured share from expected starts is about 9 to 12 percent (see post 1).
 5. **Fixed pie.** Every source's values are rescaled so its total equals the
    league pie (28 per starting slot times teams times slots). A chart that
    lists 50 players and a projection that covers 300 both sum to the same
@@ -129,5 +131,5 @@ Equal weights were chosen deliberately:
 | Three versions | `docs/methodology.md` VP-6.3, JEG-497 |
 | DDF weights are the average of source mixes | `docs/methodology.md` VP-4 |
 | Fixed pie at 28 per slot | `docs/methodology.md` VP-5.1 |
-| Bench share fixed at 15% | `docs/methodology.md` VP-3.4 (OC-2) |
+| Bench share normalization at 15% default | `docs/methodology.md` VP-3.4 (OC-2); measured share: ES-5, post 1 |
 | Fill-in of unlisted players | `docs/methodology.md` VP-2.4 |
