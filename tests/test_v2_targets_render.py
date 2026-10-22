@@ -61,7 +61,7 @@ aria-expanded tracks it, Enter opens it, Esc closes it and returns focus, and it
 never opens a player or reorders rows.
 JEG-459: the "Include older-week charts" checkbox is gone; with FantasyPros
 simulated one week behind, it is still compared and carries a "Week 4" badge
-(accessible name "FantasyPros has not published Week N yet; showing Week 4.")
+(accessible name "FantasyPros has not posted its Week N chart yet; this page shows its Week 4 chart.")
 in its #v2TChart option, column header, opened rows,
 phone cards and footnote; current-week charts carry none.
 Everywhere: 44 px hit areas, no page errors, no horizontal overflow at 390 px.
@@ -80,6 +80,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import http.server
+import re
 import shutil
 import socketserver
 import sys
@@ -112,6 +113,7 @@ DDF = "ddf_value"
 PROJ = "ddf_value_projections"   # a choice in the picker, not the default (Jeremy 2026-10-16)
 OURS = (DDF, PROJ, "espn", "cbsros", "razzball")
 TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
+SELL_FLOOR = 5.0   # JEG-820: TradeValueTargets.SELL_FLOOR
 CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
@@ -240,7 +242,7 @@ LAYOUT = """(sides) => {
 }"""
 
 # Simulated engine rows (JEG-455 / Jeremy 2026-10-08, and the waiver rule): wraps getRows so that
-#  low  - the player with the highest compared chart value has a one-source DDF Value of 0.5
+#  low  - the player with the highest compared chart value has a one-source DDF Value of 5.5
 #         (ddfCount 1, ddfLowConfidence, the engine's note) -> a sell target with the marker;
 #  none - another player has no DDF input (null, count 0, a reason) -> left out and counted;
 #  zero - the top sell target's second chart is at its waiver line (0) -> "waiver line", no gap.
@@ -283,7 +285,8 @@ SIMULATE_ROWS = """() => {
     if (lone && k === lone.key) return {...r, values: {...r.values, ...Object.fromEntries(used.map(c => [c, c === lone.keep ? lone.value : null]))}};
     if (split && k === split.key) return {...r, values: {...r.values, [split.hi]: split.ours + 20, [split.lo]: split.ours - 10,
       ...(split.gone ? {[split.gone]: null} : {})}};
-    if (k === low) return {...r, values: {...r.values, [KEY]: 0.5}, ddfCount: 1, ddfSources: [used[0]],
+    // JEG-820: 5.5 keeps the one-source probe above the Sell floor (5); its chart is the highest compared, so it still leads.
+    if (k === low) return {...r, values: {...r.values, [KEY]: 5.5}, ddfCount: 1, ddfSources: [used[0]],
       ddfLowConfidence: true, ddfConfidenceNote: note};
     if (k === none) return {...r, values: {...r.values, [KEY]: null}, ddfCount: 0, ddfSources: [], ddfTier: null,
       ddfLowConfidence: false, ddfReason: reason};
@@ -403,10 +406,13 @@ def expected_side(snapshot, side):
         if consensus <= 0 or gap == 0 or (gap > 0) != (side == "sell"):
             continue
         agree = sum(1 for v in priced if (v > ours if gap > 0 else v < ours))
+        if side == "sell" and ours < SELL_FLOOR:   # JEG-820: a player we would drop is never a Sell
+            continue
         if agree * 2 > len(priced):
-            found.append((index, key, gap, agree, len(priced)))
-    found.sort(key=lambda f: (-f[2], f[0]) if side == "sell" else (f[2], f[0]))
-    return [f[1:] for f in found]
+            # JEG-820: ranked by the gap weighted by the value at stake, biggest first; engine order breaks ties.
+            found.append((index, key, gap, agree, len(priced), abs(gap) * min(ours, consensus)))
+    found.sort(key=lambda f: (-f[5], f[0]))
+    return [f[1:5] for f in found]
 
 
 def expected_tiers(snapshot) -> dict:
@@ -526,7 +532,7 @@ def check(snapshot) -> list[str]:
     wanted = {k: (g, a, n) for k, g, a, n in want_list}
     rendered = [row["key"] for row in snapshot["table"]]
     if rendered != [k for k, *_ in want_list][:len(rendered)]:
-        errors.append(f"{side} rows {rendered[:6]} are not the top of the consensus list (largest gap first)")
+        errors.append(f"{side} rows {rendered[:6]} are not the top of the consensus list (biggest weighted gap first, JEG-820)")
     for row in snapshot["table"]:
         values = engine.get(row["key"])
         if values is None:
@@ -676,7 +682,7 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
 def check_prior(prior, ref_week, width) -> list[str]:
     """JEG-459 with FantasyPros simulated on Week 4."""
     errors = []
-    label = f"FantasyPros has not published Week {ref_week} yet; showing Week 4."
+    label = f"FantasyPros has not posted its Week {ref_week} chart yet; this page shows its Week 4 chart."
     if "fantasypros" not in prior["used"]:
         return [f"a chart on an earlier week must still be compared: used {prior['used']} (JEG-459)"]
 
@@ -704,7 +710,11 @@ def check_prior(prior, ref_week, width) -> list[str]:
             errors += badge_ok(f"card {c['chart']}", c["badges"], c["chart"])
     elif width >= 1024 and not prior["details"]:
         errors.append("no opened row to check")
-    errors += badge_ok("footnote", prior["foot"], "fantasypros")
+    # JEG-822: the footnote is one plain sentence; it does not lead with a "Week N" chip or an abbreviation.
+    if prior["foot"]:
+        errors.append(f"footnote still leads with a badge: {prior['foot']}")
+    if re.search(r"\bWk\b|\bUSAT\b|has not published", prior["footText"]):
+        errors.append(f"footnote uses abbreviated or garbled wording: {prior['footText']!r}")
     if label not in prior["footText"]:
         errors.append(f"footnote does not say {label!r}")
     return errors
@@ -1025,6 +1035,10 @@ class TradeTargetsRenderTest(unittest.TestCase):
                                                                             "const values = priced.map(key => cells[key].value).filter(v => v > 0);")}, numbers_only),
             "consensus always shows equal note": ({"targets_js": (targets, "equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: true,\n      side")}, numbers_only),
             "native rank off by one": ({"v2_js": (v2, "native.textContent = `#${rank} on", "native.textContent = `#${rank + 1} on")}, numbers_only),
+            # JEG-820: raw-gap order and no Sell floor (the bug the ticket names), on the real rows.
+            "raw gap order (JEG-820)": ({"targets_js": (targets, "const score = Math.abs(gap) * weight;", "const score = Math.abs(gap);")}, numbers_only),
+            "sell floor removed (JEG-820)": ({"targets_js": (targets, "const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
+                                                             "const sell = sellable.slice().sort(byScore);")}, numbers_only),
         }
         for name, (mutation, opts) in broken.items():
             with self.subTest(mutation=name):

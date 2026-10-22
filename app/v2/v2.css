@@ -485,7 +485,9 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-trade-side { margin-top: 0; position: relative; }
 .v2-trade-side h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px !important; }
 .v2-trade-side .v2-search { display: block; max-width: none; }
-.v2-trade-results { list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; left: 24px; right: 24px; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
+/* JEG-823: wrap search + results so the absolute list opens below the input, not above it. */
+.v2-trade-search-wrap { position: relative; }
+.v2-trade-results { list-style: none; margin: 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
 .v2-trade-results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
 .v2-trade-results button:hover, .v2-trade-results button:focus-visible { background: var(--v2-positive); }
 .v2-trade-results .is-empty { padding: 10px 12px; }
@@ -505,7 +507,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-ctable td[data-col="net"] .missing .why { display: block; font-size: 11px; font-weight: 400; white-space: normal; max-width: 260px; margin-left: auto; }
 @media (max-width: 767px) {
   .v2-trade-sides { grid-template-columns: 1fr; }
-  .v2-trade-results { left: 16px; right: 16px; }
+  .v2-trade-results { left: 0; right: 0; }
   /* Each source becomes a card: name on top, then give / get / net with their labels. */
   .v2-ctable thead { display: none; }
   .v2-ctable, .v2-ctable tbody { display: block; }
@@ -868,8 +870,8 @@ a.v2-div-chip:hover { text-decoration: underline; }
 #v2Compare .v2-trade-results { left: 14px; right: 14px; }
 #v2Compare .v2-trade-players { margin-top: 6px; }
 #v2Compare .v2-trade-players li { padding: 0; min-height: 44px; gap: 8px; }
-#v2Compare .v2-trade-players li > div { min-width: 0; display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
-#v2Compare .v2-trade-players li > div > .v2-meta { display: inline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#v2Compare .v2-trade-players li > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; overflow: hidden; }   /* JEG-827: the meta wraps under the name instead of being cut */
+#v2Compare .v2-trade-players li > div > .v2-meta { display: inline; white-space: normal; min-width: 0; }
 #v2Compare .v2-trade-players .v2-trade-name, #v2Compare .v2-trade-players li > div > b { white-space: nowrap; flex: none; }
 #v2Compare .v2-trade-value { font-size: 15px; }
 #v2Compare .v2-side-total { margin-top: auto !important; padding-top: 10px; }
@@ -1368,6 +1370,14 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Find .v2-ctoolbar { flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 #v2Find .v2-ctoolbar input[type="checkbox"] { width: 20px; height: 20px; }
 #v2Find .v2-ctoolbar label.v2-field { min-height: 44px; }
+
+/* JEG-824: short viewports (landscape phones) cannot afford sticky bars: the toolbar scrolls away, the table foot stops sticking,
+   and the table scroller takes most of the screen so its own sticky header stays visible. */
+@media (max-height: 500px) {
+  #v2Main .v2-toolbar { position: static; }
+  #v2Main .v2-table-foot { position: static; }
+  #v2Main .v2-table-wrap { max-height: calc(100vh - 56px); }
+}
 
 /* JEG-818 (phone): seven 44 px tabs need 320 px, but a 320 px screen leaves the row 288 px, and the nowrap row pushed
    the page 47 px sideways. Below 360 px the tabs wrap onto a second row; every tab keeps its 44 px hit area. */

@@ -771,13 +771,16 @@
     const held = roots.filter(r => r.status === "held").length;
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
     // JEG-806: when the data week lags the calendar week, say so explicitly.
-    const updatingNote = view.calendarWeek && view.refWeek && view.calendarWeek > view.refWeek
-      ? `NFL Week ${view.calendarWeek} · data through Week ${view.refWeek}, updating` : "";
+    // JEG-822: "updating" only when nothing is stuck; a stuck source gets the same week wording without it.
+    const calendarNote = view.calendarWeek && view.refWeek && view.calendarWeek > view.refWeek
+      ? `NFL Week ${view.calendarWeek} · data through Week ${view.refWeek}` : "";
+    const updatingNote = calendarNote ? `${calendarNote}, updating` : "";
     const freshNotes = [behind ? `⚠ ${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
       held ? `${held} source${held === 1 ? "" : "s"} held` : "",
       unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
     $("v2FreshnessLabel").textContent = stuck
-      ? (updatingNote ? `⚠ ${updatingNote}` : `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`)
+      ? `⚠ ${[calendarNote, `${stuck === roots.length && stuck > 1 ? "all " : ""}${stuck} source${stuck === 1 ? "" : "s"} not updating`].filter(Boolean).join(" · ")}`
+      : updatingNote ? [updatingNote, ...freshNotes].join(" · ")
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
     $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0 || held > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
@@ -3072,8 +3075,8 @@
     const week = Number.isFinite(item.week) ? item.week : null;
     const short = week ? `Week ${week}` : "Earlier week";
     const label = week && Number.isFinite(refWeek) && refWeek !== week
-      ? `${name} has not published Week ${refWeek} yet; showing Week ${week}.`
-      : `${name} has not published this week yet; showing ${week ? `Week ${week}` : "an earlier week"}.`;
+      ? `${name} has not posted its Week ${refWeek} chart yet; this page shows its Week ${week} chart.`
+      : `${name} has not posted this week's chart yet; this page shows ${week ? `its Week ${week} chart` : "an earlier chart"}.`;
     return {short, label, week};
   }
   function priorWeekBadge(key, item, refWeek) {
@@ -3096,7 +3099,7 @@
   // JEG-490: our three names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
   const NAME_DEFS = [
-    ["DDF Value", "Fair value: the price a player is really worth."],
+    ["DDF Value", "Our estimate of what a player is worth, blended from the sources you have chosen."],
     ["DDF Projections", "What production supports: the value of the projected stats."],
     ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
@@ -3234,7 +3237,7 @@
     const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
       : engineView && engineView !== "indexed" ? "Trade charts are not on the trade-value point scale in this view, so no gaps are shown."
       : null;
-    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
+    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
     // Why players were left out: the engine's reasons, most common first (display only).
     const omittedReasons = new Map();
@@ -3780,10 +3783,22 @@
         ? "No trade chart is available to compare for this selection."
         : `No player has a market consensus ${side === "sell" ? "above" : "below"} our value, backed by 2 or more charts, for this selection.`);
       $(ids.table).hidden = !list.length;
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest consensus gap first. `
+      // JEG-820: ranked by the gap weighted by the value at stake (targets.js score), not the raw gap.
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest gap first, weighted by the value at stake. `
         + (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: most charts pay less than our value.");
     });
     const notes = [];
+    // JEG-820: the players the charts pay for but we value under the Sell floor are drop candidates, not trade chips.
+    if (targetsView.belowSellFloor && !blocked) {
+      const n = targetsView.belowSellFloor;
+      notes.push(`${n} player${n === 1 ? "" : "s"} the charts pay more for than we do ${n === 1 ? "is" : "are"} left off Sell: we value ${n === 1 ? "him" : "them"} under ${window.TradeValueTargets.SELL_FLOOR.toFixed(1)}, a drop or hold, not a trade chip.`);
+    }
+    // JEG-820 / JEG-807: a listed player whose DDF Value rests on one source gets an honest note, no verdict language.
+    if (!blocked && isDdfKey(targetsView.ours)) {
+      const listed = targetsView.sell.concat(targetsView.buy);
+      const thin = listed.filter(p => isLowConfidence(p.row, targetsView.ours)).length;
+      if (thin) notes.push(`${sourceMeta(targetsView.ours).label} rests on one source for ${thin} of the ${listed.length} listed player${listed.length === 1 ? "" : "s"} (◐): read those gaps as leads to check, not verdicts.`);
+    }
     if (targetsView.skipped.length) {
       notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
     }
@@ -3828,7 +3843,7 @@
     targetsView.prior.filter(key => targetsView.used.includes(key)).forEach(key => {
       const badge = targetBadge(key);
       if (!badge) return;
-      priorNote.append(badge, document.createTextNode(` ${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
+      priorNote.append(document.createTextNode(`${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
     });
     renderWeightCheck();
   }
@@ -4672,7 +4687,15 @@
     const box = $("v2CDeal");
     const deal = compareView.deal;
     box.hidden = !deal;
-    if (!deal) return;
+    if (!deal) {
+      // JEG-823: clear stale deal-read content when a side is empty (defense in depth, cf. JEG-808).
+      $("v2CDealRead").textContent = "";
+      $("v2CDealText").textContent = "";
+      $("v2CDealNets").replaceChildren();
+      $("v2CDealGrid").replaceChildren();
+      $("v2CDealProduction").textContent = "";
+      return;
+    }
     const TC = window.TradeValueTrade;
     $("v2CDealRead").textContent = deal.kind === "read" ? `${deal.title}: ${deal.action}` : "";
     $("v2CDealRead").hidden = deal.kind !== "read";
@@ -4802,7 +4825,7 @@
   // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
   // (symbol + word), with the reasons on a second muted line. Never colour alone.
   const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
-  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
+  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "?", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
   function renderHeadlines() {
     const box = $("v2CHeads");
@@ -4936,8 +4959,9 @@
       ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
-    $("v2CClear").hidden = !count;
-    $("v2CSwap").hidden = !count;
+    // JEG-823: hide Clear/Swap when the example is showing (nothing to clear or swap).
+    $("v2CClear").hidden = !count || compareView.example;
+    $("v2CSwap").hidden = !count || compareView.example;
     $("v2CShare").hidden = !ready || compareView.example;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
@@ -5152,6 +5176,7 @@
     $("v2HowBench").textContent = benchRead.missing ? "—" : benchRead.short;
     $("v2HowBenchNote").hidden = true;
     $("v2HowBenchNote").textContent = "";
+    let estimatedExplained = false;
     document.querySelectorAll("#v2How [data-sources]").forEach(list => {
       const method = list.dataset.sources;
       list.replaceChildren();
@@ -5179,6 +5204,14 @@
           note.dataset.engine = "waiver-note";
           note.textContent = ` · ${item.waiverNote}`;
           why.appendChild(note);
+          // JEG-822: say once what "estimated" means (plain words, no numbers).
+          if (!estimatedExplained && /estimated players/.test(item.waiverNote)) {
+            estimatedExplained = true;
+            const gloss = document.createElement("span");
+            gloss.dataset.gloss = "estimated";
+            gloss.textContent = " (estimated players are ones a chart does not list; we fill in a value for them from the other charts)";
+            why.appendChild(gloss);
+          }
         }
         if (why.textContent) li.appendChild(why);
         list.appendChild(li);

@@ -150,7 +150,7 @@
   }
 
   // JEG-505 headline (contract CT-02). Two plain answers with a confidence level:
-  //   propose: "Should you propose or accept?" by the verdict series (DDF Value). Yes / No / Even.
+  //   propose: "Should you propose or accept?" by the verdict series (DDF Value). Yes / No / Even / Unclear.
   //            Agreement = the share of the other complete series on the same side as the verdict series.
   //   accept:  "Will they accept?" from the published value charts (chartKeys): the share of complete
   //            charts on which the other manager wins or breaks even (our net <= 0, as shown).
@@ -161,6 +161,9 @@
   //   thin margin the verdict series' net under 5% of the value traded (give + receive) reads Low, even when
   //               every source agrees (Jeremy, 2026-10-09; the ticket proposed 3%);
   //   data        a low-confidence (one-source) DDF Value in the trade lowers the verdict line one level.
+  // JEG-821 (Jeremy, 2026-10-22): "Yes" or "No" needs at least one other source agreeing OR a margin
+  //   over 5% of the value traded; otherwise the answer is "Unclear" with the reasons already listed.
+  //   "Even" also reads "Unclear" when no supporting sources agree (conservative: the data does not back it).
   const THIN_MARGIN = 0.05;
   const LEVELS = ["Low", "Medium", "High"];
   const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
@@ -178,7 +181,7 @@
       propose = {answer: null, confidence: null, reasons: []};
     } else {
       const reasons = [];
-      const answer = v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even";
+      let answer = v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even";
       const agree = v.agreeKeys.length;
       let level;
       if (!v.others) { level = "Medium"; reasons.push("no other complete source to compare with"); }
@@ -190,6 +193,9 @@
       if (v.others < 3 && v.others > 0) { level = capped(level, "Medium"); reasons.push("fewer than 3 other sources"); }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
       if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
+      // JEG-821: "Unclear" when the data does not support the verdict: no supporting sources agree
+      // AND margin is under 5%, or "Even" with no supporting sources.
+      if (agree === 0 && v.others > 0 && (thinFlag || answer === "Even")) { answer = "Unclear"; }
       propose = {answer, confidence: level, agree, of: v.others, margin, reasons};
     }
     // Line 2: will they accept, from the published charts.

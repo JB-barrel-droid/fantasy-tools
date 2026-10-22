@@ -1502,6 +1502,26 @@ the trade-target views; not covered.
 
 **Depends on:** nothing; informs MR-21, MR-22, MR-23, MR-26.
 
+## MR-28 - Trade targets Buy list is the scale gap, not mispricing (JEG-820, 2026-10-22)
+
+- **Question.** On Trade targets every top starter is a Buy because DDF Value sits
+  above the indexed chart consensus by a near-constant ratio. Measured on the
+  2026-10-22 build (USA Today + FantasyPros compared, DDF Value from 2 sources):
+  Full PPR 12, ours / consensus among Buy targets by consensus bucket: 0-10 1.39,
+  10-20 1.39, 20-30 1.30, 30-40 1.43, 40+ 1.43; Standard 10: 1.42, 1.50, 1.45,
+  1.68. QBs have the highest ratios (Allen 1.76, Maye 1.70, Jackson 1.70), which
+  is the positional weight check's finding, not a per-player one.
+- **What ships now.** JEG-820 ranks both lists by |gap| x min(ours, consensus)
+  with a 5-point Sell floor (option B). That fixes Sell (bench players with a
+  real chart price) and leaves Buy as the top starters in weighted-gap order.
+- **Options for the review.** (a) Keep Buy as is and say in copy that the charts
+  pay less for every starter (consolidation trades: two chart-priced players for
+  one of ours). (b) Rank Buy by the residual from the scale relation (ours
+  against a monotone fit of ours on consensus over all compared players), so
+  only players priced below the market's own curve surface. (c) Option C of the
+  ticket: split into "Sell-high bench" and "Buy starters" with one sentence each.
+  Not measured: (b).
+
 ## Math review answers 2026-10-15 (Jeremy, JEG-450; decisions.md math-review-2026-10-15)
 
 - Q1 GAP-TIER-FROM-ESPN: label the tier column "ESPN Tier" (implemented by another agent).
