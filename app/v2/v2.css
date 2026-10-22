@@ -1426,3 +1426,6 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 }
 @media (min-width: 768px) and (max-width: 1023px) { .v2-plot { height: calc(var(--v2-chart-h) + 48px); } }
 @media (max-width: 767px) { .v2-plot-main { height: 308px; } }
+
+/* JEG-827: the trade actions look like buttons (border and fill), not plain text. */
+#v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUseExample { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }
