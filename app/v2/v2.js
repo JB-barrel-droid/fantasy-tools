@@ -663,7 +663,7 @@
     const pricedAbove0 = row => pricedKeys.some(key => Number.isFinite(row.values?.[key]) && row.values[key] > 0);
     const listed = needle ? allRows : allRows.filter(pricedAbove0);
     const hiddenZero = allRows.length - listed.length;
-    const rows = needle ? allRows.filter(row => String(row.name || "").toLowerCase().includes(needle)) : listed;
+    const rows = needle ? window.TradeValueNameSearch.filter(allRows, state.search) : listed;
     rows.forEach((row, index) => { row.rank = index + 1; });
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     // JEG-806: the header week is the data's week (first_load_reference_week),
@@ -3229,7 +3229,7 @@
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
     rows.forEach((row, index) => { row.rank = index + 1; });
-    const searched = rows.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
+    const searched = needle ? window.TradeValueNameSearch.filter(rows, T.search) : rows;
     // Fails closed: an unavailable choice is never swapped for another series.
     const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
       : engineView && engineView !== "indexed" ? "Trade charts are not on the trade-value point scale in this view, so no gaps are shown."
@@ -4522,10 +4522,10 @@
   function searchMatches(needle) {
     const rankKey = view.rankKey;
     const value = row => (Number.isFinite(row.values[rankKey]) ? row.values[rankKey] : -Infinity);
-    return [...compareView.rowsByKey.values()]
-      .filter(row => String(row.name || "").toLowerCase().includes(needle))
-      .sort((a, b) => value(b) - value(a) || String(a.name).localeCompare(String(b.name)))
-      .slice(0, 8);
+    const byValue = [...compareView.rowsByKey.values()]
+      .sort((a, b) => value(b) - value(a) || String(a.name).localeCompare(String(b.name)));
+    // Exact and prefix matches first, then by value; a typo-tolerant fallback when nothing matches.
+    return window.TradeValueNameSearch.search(byValue, needle).slice(0, 8);
   }
 
   function addToSide(side, row) {

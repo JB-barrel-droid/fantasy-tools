@@ -232,6 +232,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
     last_at = html.index(LAST_ENGINE_SCRIPT)
     line_end = html.index("</script>", last_at) + len("</script>")
     v2_scripts = ('\n  <script src="assets/player-tags.js" defer></script>'
+                  '\n  <script src="v2/namesearch.js" defer></script>'
                   '\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/movers.js" defer></script>'
@@ -251,7 +252,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     posts = load_posts(research_dir)
     (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html, posts=posts), encoding="utf-8")
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
-    for name in ("v2.css", "targets.js", "trade.js", "movers.js", "finder.js", "modules.js", "v2.js"):
+    for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "finder.js", "modules.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 
