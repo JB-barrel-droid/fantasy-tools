@@ -120,7 +120,8 @@
   }
 
   function activeReferenceWeek() {
-    return sourceFreshness()?.current_content_week || null;
+    // JEG-806: use the data's week, not the calendar week.
+    return sourceFreshness()?.first_load_reference_week || null;
   }
 
   // Current unless the freshness record says the source is an older week.

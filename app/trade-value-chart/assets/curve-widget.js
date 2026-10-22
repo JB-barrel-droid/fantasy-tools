@@ -390,9 +390,11 @@
     return Number.isFinite(week) ? week : null;
   }
 
-  // The content week the reader is in (Tuesday flip), not a build-time rule.
+  // JEG-806: the data's week (the newest week any source has published,
+  // capped at the calendar week), not the calendar week itself. The header
+  // must not claim a week the data has not reached.
   function activeReferenceWeek() {
-    return sourceFreshness()?.current_content_week || null;
+    return sourceFreshness()?.first_load_reference_week || null;
   }
 
   const sourceIsStale = key => WEEKED_SOURCE_KEYS.has(key) && freshnessRow(key)?.status === "older";

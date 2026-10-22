@@ -666,7 +666,11 @@
     const rows = needle ? allRows.filter(row => String(row.name || "").toLowerCase().includes(needle)) : listed;
     rows.forEach((row, index) => { row.rank = index + 1; });
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
-    const refWeek = freshness?.current_content_week || C.getReferenceWeek();
+    // JEG-806: the header week is the data's week (first_load_reference_week),
+    // not the calendar week (current_content_week). When no source has reached
+    // the calendar week, the header must not claim a week it cannot back.
+    const refWeek = freshness?.first_load_reference_week || C.getReferenceWeek();
+    const calendarWeek = freshness?.current_content_week || null;
     const n = rows.length;
     // A Custom that comes only from the value range keeps the remembered preset's rank window (JEG-483).
     const preset = state.windowPreset === "custom" && !state.rankZoom ? state.zoomFrom || SHOW_DEFAULT : state.windowPreset;
@@ -693,7 +697,7 @@
     const yScale = {lo: Math.floor(Math.min(0, ...rankValues)), hi: Math.max(1, Math.ceil(Math.max(0, ...rankValues)))};
     view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible,
       tierScope: {rows: allRows, pos: C.getState().position, engineOrder: true}, totalRows: allRows.length, omittedMissing,
-      rangeOn, yScale, rankValues, refWeek, state: C.getState(), roster: C.getRosterShape(), hiddenZero};
+      rangeOn, yScale, rankValues, refWeek, calendarWeek, state: C.getState(), roster: C.getRosterShape(), hiddenZero};
   }
 
   // Frame 21 Starter / Bench / Waiver: the engine's roster boundaries (getZones, in
@@ -766,10 +770,14 @@
     // JEG-721: held sources are hidden from the chart; the header must not claim they are current.
     const held = roots.filter(r => r.status === "held").length;
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
+    // JEG-806: when the data week lags the calendar week, say so explicitly.
+    const updatingNote = view.calendarWeek && view.refWeek && view.calendarWeek > view.refWeek
+      ? `NFL Week ${view.calendarWeek} · data through Week ${view.refWeek}, updating` : "";
     const freshNotes = [behind ? `⚠ ${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
       held ? `${held} source${held === 1 ? "" : "s"} held` : "",
       unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
-    $("v2FreshnessLabel").textContent = stuck ? `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`
+    $("v2FreshnessLabel").textContent = stuck
+      ? (updatingNote ? `⚠ ${updatingNote}` : `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`)
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
     $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0 || held > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
@@ -811,7 +819,9 @@
 
     $("v2Position").value = view.state.position;
     renderShow();
-    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${view.refWeek ? ` · Week ${view.refWeek}` : ""}`;
+    // JEG-806: show data week and "as of <date>" so a reader knows how fresh the numbers are.
+    const asOf = dataAsOfLabel();
+    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${view.refWeek ? ` · Week ${view.refWeek}` : ""}${asOf ? ` · as of ${asOf}` : ""}`;
     $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
@@ -2748,6 +2758,16 @@
     return pipelineLoading;
   }
   const dayOf = text => (/^\d{4}-\d{2}-\d{2}/.test(String(text || "")) ? String(text).slice(0, 10) : "");
+  // JEG-806: "as of <date>" from the fixture's built_at, so the reader knows
+  // how old the numbers are. Formats as "Oct 19" (no year: always current season).
+  function dataAsOfLabel() {
+    const snap = window.TradeValueProductData?.getSnapshot?.();
+    const iso = dayOf(snap?.built_at);
+    if (!iso) return null;
+    try {
+      return new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", timeZone: "UTC"}).format(new Date(`${iso}T00:00:00Z`));
+    } catch (e) { return iso; }
+  }
   function rootFreshness() {
     const pubs = Object.keys(PUBLISHERS).filter(pub => view.info.some(item => sourceMeta(item.key).publisher === pub));
     return pubs.map(pub => {
@@ -3198,7 +3218,8 @@
     const ourKey = TT.OUR_KEYS.includes(T.ours) ? T.ours : TT.OUR_KEY;
     const ours = infoByKey[ourKey];
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
-    const refWeek = freshness?.current_content_week || C.getReferenceWeek();
+    // JEG-806: same data-week fix as the main view.
+    const refWeek = freshness?.first_load_reference_week || C.getReferenceWeek();
     // The published series are on the trade-value point scale only in the
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;

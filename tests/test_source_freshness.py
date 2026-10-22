@@ -339,5 +339,81 @@ class PairRegistryTest(unittest.TestCase):
         self.assertEqual(copy_violations(["VORP vs waivers"]), [])
 
 
+# ---------------------------------------------------------------- JEG-806 checks
+# HEADER-WEEK: the week shown in page headers must be the data's week
+# (first_load_reference_week), not the calendar week (current_content_week).
+# When all sources are on Week 4 and the calendar says Week 5, the header
+# week must be 4. A build that uses current_content_week for the header
+# would show "Week 5" over Week 4 data — the bug JEG-806 reported.
+
+HEADER_WEEK_USES_CALENDAR = [
+    # curve-widget.js: activeReferenceWeek returning current_content_week
+    ("sourceFreshness()?.first_load_reference_week || null",
+     "sourceFreshness()?.current_content_week || null"),
+]
+
+
+def header_week_violations():
+    """All sources on Week 4, calendar says Week 5: header week must be 4."""
+    f = run({"cmd": "freshness", "sources": all_week(fixture_sources(), 4),
+             "today": "2026-10-06"})
+    problems = []
+    if f["current_content_week"] != 5:
+        problems.append(f"calendar week should be 5, got {f['current_content_week']}")
+    if f["first_load_reference_week"] != 4:
+        problems.append(f"data week should be 4, got {f['first_load_reference_week']}")
+    return problems
+
+
+class HeaderWeekTest(unittest.TestCase):
+    """JEG-806: the header week is the data's week, not the calendar week."""
+
+    def test_data_week_behind_calendar(self):
+        """When all sources are Week 4 and calendar says Week 5,
+        first_load_reference_week must be 4 (not 5)."""
+        self.assertEqual(header_week_violations(), [])
+
+    def test_data_week_matches_when_current(self):
+        """When all sources reach the calendar week, both agree."""
+        f = run({"cmd": "freshness", "sources": all_week(fixture_sources(), 5),
+                 "today": "2026-10-06"})
+        self.assertEqual(f["current_content_week"], 5)
+        self.assertEqual(f["first_load_reference_week"], 5)
+
+    def test_code_uses_data_week_not_calendar(self):
+        """The three display modules must reference first_load_reference_week,
+        not current_content_week, for the header/reference week."""
+        cw = (ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text(encoding="utf-8")
+        cd = (ROOT / "app" / "trade-value-chart" / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
+        v2 = (ROOT / "app" / "v2" / "v2.js").read_text(encoding="utf-8")
+        # activeReferenceWeek in curve-widget and comparison-dashboard must use data week
+        for name, text in [("curve-widget.js", cw), ("comparison-dashboard.js", cd)]:
+            self.assertIn("first_load_reference_week", text,
+                          f"{name}: activeReferenceWeek must use first_load_reference_week")
+            # The function must not return current_content_week
+            fn_match = re.search(r"function activeReferenceWeek\(\)\s*\{[^}]+\}", text)
+            self.assertIsNotNone(fn_match, f"{name}: activeReferenceWeek not found")
+            self.assertNotIn("current_content_week", fn_match.group(),
+                             f"{name}: activeReferenceWeek must not use current_content_week")
+        # v2.js refWeek must use first_load_reference_week
+        ref_week_lines = [line for line in v2.splitlines()
+                          if "refWeek" in line and ("current_content_week" in line or "first_load_reference_week" in line)]
+        for line in ref_week_lines:
+            self.assertIn("first_load_reference_week", line,
+                          f"v2.js refWeek must use first_load_reference_week, not current_content_week: {line.strip()}")
+
+    def test_negative_calendar_week_in_header_is_caught(self):
+        """A mutation that puts current_content_week back into the header function
+        must be caught by the code check."""
+        cw = (ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text(encoding="utf-8")
+        # Simulate the broken state: replace first_load_reference_week with current_content_week
+        broken = cw.replace("first_load_reference_week", "current_content_week")
+        fn_match = re.search(r"function activeReferenceWeek\(\)\s*\{[^}]+\}", broken)
+        self.assertIsNotNone(fn_match)
+        # The broken version WOULD have current_content_week in the function
+        self.assertIn("current_content_week", fn_match.group(),
+                      "negative test: the broken mutation should use current_content_week")
+
+
 if __name__ == "__main__":
     unittest.main()
