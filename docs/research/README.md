@@ -19,5 +19,6 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | 4. How we rescale trade charts | [posts/04-how-we-rescale-trade-charts.md](posts/04-how-we-rescale-trade-charts.md) | JEG-545 | Draft |
 | 5. Missing = 0 and the one-source rule | [posts/05-missing-zero-one-source.md](posts/05-missing-zero-one-source.md) | JEG-545 | Draft |
 | 6. Trade confidence | [posts/06-trade-confidence.md](posts/06-trade-confidence.md) | JEG-545 | Draft; partially gated on JEG-505 |
+| 7. Does the market gap predict anything? | [posts/07-does-the-gap-predict.md](posts/07-does-the-gap-predict.md) | JEG-882 | Draft; weeks 2-7 only, re-run at season end. Script `tools/research/gap_backtest.py`, figures in [data/gap_backtest.md](data/gap_backtest.md) (2026-10-22, reference engine, DDF Value blend and projections-only) |
 
-Rules: do not freeze a number that is known to be wrong; mark figures computed on an older engine as stale with the date; name the script or say "none yet". Scripts go to `tools/bench_research` (JEG-566).
+Rules: do not freeze a number that is known to be wrong; mark figures computed on an older engine as stale with the date; name the script or say "none yet". Bench scripts go to `tools/bench_research` (JEG-566); other research scripts to `tools/research/`, each writing its figures to `docs/research/data/` (JEG-882).
