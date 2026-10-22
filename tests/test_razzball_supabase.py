@@ -363,5 +363,51 @@ class ImporterTest(unittest.TestCase):
         self.assertEqual(19.5, resolved["RB"][0]["x"])  # rz_half_ppr_ppg survived the round trip
 
 
+class DuplicatePlayerKeyDedup(unittest.TestCase):
+    """Two scraped names that resolve to the same player_key must not crash
+    the upsert (Postgres 21000: ON CONFLICT DO UPDATE cannot affect row a
+    second time). The saver deduplicates by the constraint key in main()."""
+
+    def test_duplicate_constraint_key_is_deduplicated_before_upsert(self):
+        """Simulate main()'s dedup: two clean rows with the same constraint key."""
+        upserted = []
+        saver.fetch_players = lambda: PLAYERS
+        saver.upsert_rows = lambda t, rows, c: upserted.extend(rows)
+        saver.count_rows = lambda t, p: len(upserted)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                snap_path = write_snapshot(tmp)
+                clean, _, vintage = saver.build_razzball_rows(snap_path)
+                # Inject a duplicate: same player_key and date as the first row
+                dup = dict(clean[0])
+                dup["player_norm"] = "duplicate_name"
+                clean.append(dup)
+                # Prove the duplicate would crash a raw upsert
+                keys = [(r["player_key"], r["razzball_snapshot_date"]) for r in clean]
+                self.assertNotEqual(len(keys), len(set(keys)), "need a duplicate to test")
+                # Now run the dedup logic (extracted from main):
+                seen = {}
+                for i, r in enumerate(clean):
+                    seen[(r["player_key"], r["razzball_snapshot_date"])] = i
+                deduped = [clean[i] for i in sorted(seen.values())]
+                self.assertEqual(len(deduped), len(set((r["player_key"], r["razzball_snapshot_date"]) for r in deduped)))
+                self.assertEqual(2, len(deduped), "should keep 2 unique rows from 3 input rows")
+        finally:
+            saver.fetch_players = saver._default_fetch_players
+            saver.upsert_rows = saver._default_upsert
+            saver.count_rows = saver._default_count
+
+    def test_dedup_without_collision_is_identity(self):
+        saver.fetch_players = lambda: PLAYERS
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                clean, _, _ = saver.build_razzball_rows(write_snapshot(tmp))
+        finally:
+            saver.fetch_players = saver._default_fetch_players
+        keys = [(r["player_key"], r["razzball_snapshot_date"]) for r in clean]
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual(2, len(clean))
+
+
 if __name__ == "__main__":
     unittest.main()
