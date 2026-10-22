@@ -20,7 +20,7 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 | Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. |
 | Source weights and DDF weights | VP-3, VP-4 | "VP-4 DDF weights" | `_mixes`, `ddf_weights` | Each source's eight group totals (position x starter or bench) give its mix (VP-3); the DDF weights are the average of the included sources' mixes (VP-4). |
 | Fixed pie, rates, Adjusted | VP-5 | "VP-5 budgets, rates, Adjusted" | `_price` | One pie per league setting; each source's Adjusted sums to it (VP-5.6). |
-| Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of Adjusted values only; Indexed is display only and never feeds DDF. |
+| Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of **projection** Adjusted values only (JEG-804); Indexed is display only and never feeds DDF. |
 | Tiers and ranking | VP-7 | "VP-7 slot fill, tiers, ranking" | `_tiers` | Tier basis is the blended DDF value, with seat counts from the allocation above (`slot_fill`). |
 | Weeks and change since last week | VP-8 | `valuePipelineDiagnostics`, prior-week run | `History`, `history_entry` | Each week's own inputs and weights. |
 
@@ -50,8 +50,9 @@ implementation follows the rule as written.
 - Pipeline order. Each source goes from its native values to implied value
   above waivers (VORP). Every source then uses the same logic (flex, bench
   share, league settings) to get from VORP to Adjusted values. DDF Value is
-  the equal-weight mean of Adjusted values only. Indexed exists only for
-  display and never feeds DDF.
+  the equal-weight mean of **projection** Adjusted values only (JEG-804,
+  Jeremy Q4, 2026-10-22). Indexed exists only for display and never feeds
+  DDF.
 - "Build the weights at the source level based on VORP and league settings
   and size logic. Then use the average weights at the DDF level; generally
   speaking do as much work as possible at the source level before
@@ -357,9 +358,11 @@ rules, except that only charts are filled in (VP-2.4).
    - A projection that does not list `i`: null, "<label> doesn't project this
      player".
    - `no_players` at `p`: null, "<label> doesn't price <pos>".
-3. **DDF Value, three versions** (JEG-497). Each is one number across every
-   view and tab.
-   - `ddf_value` (blended): the sources in `I`.
+3. **DDF Value, three versions** (JEG-497, JEG-804). Each is one number
+   across every view and tab.
+   - `ddf_value` (blended): the **projections** in `I` (JEG-804, Jeremy
+     Q4 answer 2026-10-22: "Out of DDF Value" for trade charts; DDF Value
+     is the fundamental estimate, charts are market prices).
    - `ddf_value_charts`: the charts in `I`.
    - `ddf_value_projections`: the projections in `I`.
 

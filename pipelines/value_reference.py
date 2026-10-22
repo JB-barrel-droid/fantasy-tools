@@ -92,7 +92,9 @@ VIEW_SERIES = {
 }
 COMPOSITE_KEY = "ddf_value"
 DDF_VERSIONS = {"ddf_value": "blended", "ddf_value_charts": "charts", "ddf_value_projections": "projections"}
-DDF_FAMILY = {"blended": None, "charts": "chart", "projections": "projection"}
+# JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources only.
+# Trade charts are out of the blended DDF Value; charts-only version unchanged.
+DDF_FAMILY = {"blended": "projection", "charts": "chart", "projections": "projection"}
 DDF_COUNT_FIELD = {"ddf_value": "ddf_count", "ddf_value_charts": "ddf_charts_count",
                    "ddf_value_projections": "ddf_projections_count"}
 
@@ -792,7 +794,9 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
 def bench_share_readout(rows: dict, order_m: dict, alloc: dict, inc: list, expected_starts: bool,
                         override, applied: float, hidden: set | None = None) -> dict:
     """ES-14: the bench tier's share (ranks S_p+1..N_p on the projected-points
-    order) of each position's blended DDF Value over I and of the whole."""
+    order) of each position's blended DDF Value over I and of the whole.
+    JEG-804: uses the blended DDF basis (= the index basis in the engine),
+    which is now projections-only, matching value-model.js indexBasis."""
     out = {"override": (override is not None) if expected_starts else True,
            "override_value": override, "fill_in_share": applied,
            "method": "expected-starts" if expected_starts else "fixed-share"}
@@ -800,11 +804,11 @@ def bench_share_readout(rows: dict, order_m: dict, alloc: dict, inc: list, expec
     for p in POSITIONS:
         bench = total = 0.0
         for idx, i in enumerate(order_m[p]):
-            vals = [rows[i]["adjusted"][k] for k in inc
-                    if k not in (hidden or ()) and rows[i]["adjusted"].get(k) is not None]
-            if not vals:
+            # Use the blended DDF Value (= projections-only after JEG-804),
+            # matching the engine's indexBasis.
+            v = rows[i]["ddf"]["blended"]["value"]
+            if v is None:
                 continue
-            v = sum(vals) / len(vals)
             total += v
             if alloc[p]["starters"] <= idx < alloc[p]["rostered"]:
                 bench += v

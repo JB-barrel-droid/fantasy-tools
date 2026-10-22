@@ -1014,8 +1014,11 @@
     var rowKeys = Object.keys(allKeys).sort(vpNumKey);
     var rows = {};
     var selection = Array.isArray(input.compositeInputs) ? input.compositeInputs : null;
+    // JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
+    // only (ESPN, CBS ROS, Razzball).  Trade charts stay on the Indexed/VORP
+    // comparison tabs but are no longer inputs to the blended DDF Value.
     var versionSources = {
-      blended: included,
+      blended: projI,
       charts: chartsI,
       projections: projI
     };
@@ -1128,10 +1131,13 @@
     // selection; with no selection it is exactly the displayed blended value.
     // JEG-569 part 2: hidden sources are excluded from the basis (consistent
     // with the DDF blend) so fixedPieIndexed holds.
+    // JEG-804: the Indexed basis is the blended DDF Value, which is now
+    // projections-only.  Use versionSources.blended (= projI) so the basis
+    // stays equal to the displayed blended DDF Value.
     var indexBasis = {};
     rowKeys.forEach(function (key) {
       var sum = 0, n = 0;
-      included.forEach(function (k) {
+      versionSources.blended.forEach(function (k) {
         if (isHidden[k]) return;
         var v = rows[key].adjusted[k];
         if (!vpFinite(v)) return;

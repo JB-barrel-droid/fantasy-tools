@@ -185,11 +185,12 @@ class WorkedExample(unittest.TestCase):
     def test_hand_check_values(self):
         """The spec's own hand-check: p1 RB Delta Adjusted and RB Delta's
         three DDF versions. Values updated for convention bench seats and
-        midpoint starter line (JEG-560)."""
+        midpoint starter line (JEG-560). JEG-804: blended = projections only."""
         res = run(load())
         self.assertAlmostEqual(res["sources"]["p1"]["players"][201]["adjusted"], 49.077706, places=6)
         ddf = res["rows"][201]["ddf"]
-        self.assertAlmostEqual(ddf["blended"]["value"], 48.882505, places=6)
+        # JEG-804: blended DDF Value is projections-only (== projections version).
+        self.assertAlmostEqual(ddf["blended"]["value"], 45.819969, places=6)
         self.assertAlmostEqual(ddf["charts"]["value"], 50.413773, places=6)
         self.assertAlmostEqual(ddf["projections"]["value"], 45.819969, places=6)
         bench = sum(v for g, v in res["ddf_weights"].items() if g.endswith("|bench"))

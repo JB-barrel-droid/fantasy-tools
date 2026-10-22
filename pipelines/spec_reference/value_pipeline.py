@@ -661,8 +661,10 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     # JEG-569 part 2 / JEG-787: hidden sources are in `inc` (so they count in
     # allocation, weights and pie) but excluded from the DDF Value blend and
     # the Indexed basis, matching value-model.js isHidden.
+    # JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
+    # only.  Trade charts are out of the blended DDF Value.
     members = {
-        "blended": [s for s in inc if s not in hidden_set and (sel is None or s in sel)],
+        "blended": [s for s in inc if s not in hidden_set and family[s] == PROJECTION and (sel is None or s in sel)],
         "charts": [s for s in inc if s not in hidden_set and family[s] == CHART and (sel is None or s in sel)],
         "projections": [s for s in inc if s not in hidden_set and family[s] == PROJECTION and (sel is None or s in sel)],
     }
@@ -743,6 +745,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     budgets = {g: pie * W[g] for g in GROUP_KEYS}
     # ES-14 readout (SA-ES-5): bench tier = ranks S_p+1..N_p of the
     # projected-points order; value = blended DDF Value over I, no selection.
+    # JEG-804: uses the blended DDF Value (now projections-only), matching
+    # the engine's indexBasis.
     readout = None
     if not degenerate:
         readout = {"override": (bs is not None) if es is not None else True, "override_value": bs,
@@ -751,10 +755,9 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
         for p in POSITIONS:
             pb, pt = [], []
             for idx, k in enumerate(p_order[p]):
-                vals = [rows[k]["adjusted"][s] for s in inc if rows[k]["adjusted"].get(s) is not None]
-                if not vals:
+                v = rows[k]["ddf_blended"]["value"]
+                if v is None:
                     continue
-                v = fsum_in_order(vals) / len(vals)
                 pt.append(v)
                 if alloc[p]["starters"] <= idx < alloc[p]["rostered"]:
                     pb.append(v)
