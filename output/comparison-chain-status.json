@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T02:05:03.375756+00:00",
+  "run_at": "2026-10-22T02:17:04.460671+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-full-12-section full_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-full-12-section full_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-full-12-section full_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-half-12-section half_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-half-12-section half_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-half-12-section half_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-half-12-section half_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-standard-12-section standard_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-standard-12-section standard_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-standard-12-section standard_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-standard-12-section standard_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble)",
@@ -17,6 +17,7 @@
   "outcome": "failed",
   "held": [
     "cbs",
+    "cbsros",
     "espn",
     "fantasycalc",
     "fantasypros",
@@ -78,7 +79,7 @@
   },
   "held_detail": {
     "usatoday": {
-      "reason": "fidelity: freshness",
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
         "usatoday"
       ],
@@ -86,7 +87,7 @@
         "usatoday",
         "usatoday_adjusted"
       ],
-      "detail": "publisher posted week 7 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/, 31 h ago); chart shows week 6; not stored yet",
+      "detail": "894/894 chart values equal stored bake usatwk6_2026-10-13t1835_v1; newer stored bake usatwk7_2026-10-22t0155_v1 (week 7, saved 2026-10-22T01:55:18.929876Z) is not on the chart yet: 476 values changed, 51 added, 27 dropped",
       "hold_severity": "amber",
       "week": 7
     },
@@ -112,7 +113,7 @@
         "fantasypros",
         "fantasypros_adjusted"
       ],
-      "detail": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0035_v1 (week 7, saved 2026-10-22T00:35:54.354590Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped",
+      "detail": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0204_v1 (week 7, saved 2026-10-22T02:04:18.917833Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped",
       "hold_severity": "amber",
       "week": 7
     },
@@ -130,7 +131,7 @@
       "week": 7
     },
     "espn": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
         "espn",
         "espn_vorp"
@@ -139,7 +140,21 @@
         "espn",
         "espn_adjusted"
       ],
-      "detail": "928/1752 values match exactly across 3 columns; 824 value mismatches, 4 publisher players not stored, 0 stored players not on the page; stale: the publisher changed since the save (fingerprint f3bc7149c6dd17d46951064a at the save, 68ac40bd459efd1b14aad23d now) and the save is older than 24 h; re-syn",
+      "detail": "the chart's snapshot 2026-10-19 is no longer stored: the stored set is now 2026-10-21; the chart is behind until the next chain run rebuilds it",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "cbsros": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros",
+        "cbsros_adjusted"
+      ],
+      "detail": "1089/1089 chart values equal stored snapshot 2026-10-19 (per game, 3 decimals); newer stored snapshot 2026-10-22 is not on the chart yet: 292 values changed, 8 added, 8 dropped",
       "hold_severity": "amber",
       "week": 7
     },
@@ -153,7 +168,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1860/1860 chart values equal stored snapshot 2026-10-19 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 50 stored players not on the chart, 0 chart players not stored",
+      "detail": "1860/1860 chart values equal stored snapshot 2026-10-19 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 50 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-21 is not on the chart yet: 1419 values changed, 25 added, 19 dropped",
       "hold_severity": "amber",
       "week": 7
     }
@@ -287,7 +302,7 @@
     "fantasypros": {
       "content_vintage": "2026-10-20",
       "content_week": 7,
-      "health_status": "warning",
+      "health_status": "ok",
       "lagging_one_week": false
     },
     "espn": {
@@ -316,11 +331,12 @@
     }
   },
   "fidelity_holds": {
-    "usatoday": "fidelity: freshness",
+    "usatoday": "fidelity: stored_vs_chart",
     "fantasycalc": "fidelity: freshness",
     "fantasypros": "fidelity: stored_vs_chart",
     "cbs": "fidelity: scrape_validity",
-    "espn": "fidelity: publisher_vs_stored",
+    "espn": "fidelity: stored_vs_chart",
+    "cbsros": "fidelity: stored_vs_chart",
     "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
@@ -336,6 +352,6 @@
       "Makefile:473: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('Deuce Vaughn', 0.162727, 0.15)] != []",
-    "recorded_at": "2026-10-22T02:06:39.030843+00:00"
+    "recorded_at": "2026-10-22T02:18:48.783356+00:00"
   }
 }
