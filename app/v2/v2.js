@@ -109,8 +109,11 @@
     select.value = keys.includes(selected) ? selected : "";
     select.disabled = !entries.some(entry => !entry.reason);
   }
+  // JEG-807: a held source is hidden (JEG-569); say "held", not "not available for this league".
+  const heldReason = item => Boolean(item && item.excludedReason && /^held/i.test(item.excludedReason));
   const unavailableReason = item => (!item ? "not available" : item.available ? null
-    : item.paused ? "waiting on fresh inputs" : "not available for this league");
+    : heldReason(item) ? "held this week (data check)"
+      : item.paused ? "waiting on fresh inputs" : "not available for this league");
 
   // Prior-week badge for a series key: the shared JEG-459 badge, named by publisher.
   function weekBadge(key) {
@@ -774,7 +777,9 @@
 
     // JEG-474 / JEG-466: one "Showing: …" line, a compact legend (not buttons) and one Customize control.
     const page = pageOfView();
-    const shownKeys = page === "values" ? view.active : pageKeys(page).filter(key => view.infoByKey[key] && !pageCannotUse(page, key));
+    // JEG-807: a page's list may name a held or missing series; "On this page" counts only what the page can read.
+    const shownKeys = page === "values" ? view.active
+      : pageKeys(page).filter(key => view.infoByKey[key] && view.infoByKey[key].available && !pageCannotUse(page, key));
     $("v2ShowingLabel").textContent = page === "values" ? "On the chart:" : "On this page:";
     const counts = SERIES_GROUPS.map(g => ({g, n: shownKeys.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
     $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)).join(" + ") || "nothing selected"}`
@@ -2122,7 +2127,8 @@
         if (!item.available || pageNo) {
           const why = document.createElement("span");
           why.className = "v2-meta";
-          why.textContent = !item.available ? (item.paused ? "Waiting on fresh inputs" : "Not available for this league") : pageNo;
+          why.textContent = !item.available ? (heldReason(item) ? "Held this week (data check)"
+            : item.paused ? "Waiting on fresh inputs" : "Not available for this league") : pageNo;
           label.appendChild(why);
         }
         if (item.waiverNote && item.available) label.title = item.waiverNote;
@@ -2138,13 +2144,21 @@
         box.dataset.ddfVersion = versionKey;
         const legend = document.createElement("legend");
         const inFamily = key => versionKey === DDF_KEY || (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj");
-        const used = [...inputsDraft].filter(inFamily).length;
-        legend.textContent = `Built from ${used} input${used === 1 ? "" : "s"}`;
-        box.appendChild(legend);
         // Only "not selected" stays selectable: a held, prior-week or unavailable source is never a DDF input (JEG-479).
         const excluded = new Map((composite.excluded || []).filter(item => item.reason !== "not selected")
           .map(item => [item.key, item.reason]));
+        // JEG-807: a held input stays in the engine's pool (`inputs`, JEG-569: weights and pie) but out of its
+        // blend (`series`); the engine lists it under inputs, not excluded, so it is added here with its hold.
+        (composite.inputs || []).filter(key => Array.isArray(composite.series) && !composite.series.includes(key))
+          .forEach(key => { if (!excluded.has(key)) excluded.set(key, view.infoByKey[key]?.excludedReason || "held this week"); });
         const keys = (composite.allowed || []).filter(inFamily);
+        // JEG-807: the count is the sources the blend reads this week (the engine's `series`), never a ticked
+        // source the engine holds or has not seen published for the current week.
+        const used = [...inputsDraft].filter(inFamily).filter(key => !excluded.has(key)).length;
+        const out = keys.filter(key => excluded.has(key)).length;
+        legend.textContent = `Built from ${used} of ${keys.length} input${keys.length === 1 ? "" : "s"}`
+          + (out ? ` · ${out} held or not yet published this week` : "");
+        box.appendChild(legend);
         keys.forEach(key => {
           const meta = sourceMeta(key);
           const label = document.createElement("label");
@@ -5254,8 +5268,10 @@
     const v = risersView;
     const group = seriesGroup(R.series);
     // DDF Value: both weeks average the same inputs, so say how many of them have the prior week.
-    const ddfInputs = group === "ddf" && Array.isArray(prior.sources) && Array.isArray(prior.inputs)
-      ? ` · ${prior.sources.length} of ${prior.inputs.length} sources have a prior week` : "";
+    // JEG-807: count the sources the blend reads (`series`), not the pipeline pool (`inputs`, held ones included).
+    const blendSeries = Array.isArray(prior.series) ? prior.series : prior.inputs;
+    const ddfInputs = group === "ddf" && Array.isArray(prior.sources) && Array.isArray(blendSeries)
+      ? ` · ${prior.sources.filter(key => blendSeries.includes(key)).length} of ${blendSeries.length} sources have a prior week` : "";
     $("v2RMeta").textContent = v.available
       ? `${label}${ddfInputs} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
         + (group === "ddf" ? "A riser is worth more in a trade than last week; a faller is worth less."

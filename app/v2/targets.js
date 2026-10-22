@@ -122,7 +122,7 @@
     CHART_KEYS.forEach(key => {
       if (only && only !== key) return;
       const item = byKey[key];
-      if (!item || !item.available) skipped.push({key, reason: item && item.paused ? "waiting on fresh inputs" : "not available for this league"});
+      if (!item || !item.available) skipped.push({key, reason: unavailableReason(item)});
       else used.push(key);
       if (item && item.available && item.stale) prior.push(key);
     });
@@ -135,9 +135,14 @@
     return OUR_KEYS.map(key => {
       const item = byKey[key];
       const available = Boolean(item && item.available);
-      return {key, available, reason: available ? null
-        : item && item.paused ? "waiting on fresh inputs" : "not available for this league"};
+      return {key, available, reason: available ? null : unavailableReason(item)};
     });
+  }
+  // JEG-807: a held source (JEG-569, hidden from the page) says so; "not available for this league" is a
+  // source with no values at this setting.
+  function unavailableReason(item) {
+    if (item && item.excludedReason && /^held/i.test(item.excludedReason)) return "held this week (data check)";
+    return item && item.paused ? "waiting on fresh inputs" : "not available for this league";
   }
 
   // ---------- Check 2: potential positional weight inflation (JEG-476, JEG-489) ----------
