@@ -14,11 +14,11 @@
   // Publisher identity: stable color + symbol + label (frame 17 / 22 #13).
   const PUBLISHERS = {
     espn: {label: "ESPN", color: "#0B7A4B", symbol: "●"},
-    fantasycalc: {label: "FC", color: "#1F5FBF", symbol: "■"},
-    fantasypros: {label: "FP", color: "#7652B8", symbol: "▲"},
-    usatoday: {label: "USAT", color: "#0E7490", symbol: "◆"},
-    cbs: {label: "CBS", color: "#4B5563", symbol: "▼"},
-    cbsros: {label: "CBS ROS", color: "#6B7280", symbol: "▽"},
+    fantasycalc: {label: "FantasyCalc", color: "#1F5FBF", symbol: "■"},
+    fantasypros: {label: "FantasyPros", color: "#7652B8", symbol: "▲"},
+    usatoday: {label: "USA Today", color: "#0E7490", symbol: "◆"},
+    cbs: {label: "CBS Sports", color: "#4B5563", symbol: "▼"},
+    cbsros: {label: "CBS rest of season", color: "#6B7280", symbol: "▽"},
     razzball: {label: "Razzball", color: "#9D174D", symbol: "✚"}
   };
   // Dark theme: the same hues, lightened so symbols and lines keep 3:1 against the dark surfaces.
@@ -43,7 +43,7 @@
   let expanded = null;      // JEG-483: "chart" | "table" while the expanded view is open
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
-  const SHORT_METHOD = {dda: "DDA", indexed: "Rescaled", vorp: "VORP vs waivers"};
+  const SHORT_METHOD = {dda: "Our value", indexed: "Rescaled", vorp: "VORP vs waivers"};
   const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "VORP vs waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
@@ -94,7 +94,7 @@
         option.dataset.group = group.id;
         const item = view && view.infoByKey[key];
         const behind = !(item && item.stale) ? null : isDdfKey(key)
-          ? {short: Number.isFinite(item.week) ? `Wk ${item.week}` : "Earlier week", label: "Some DDF Value inputs are on an earlier week."}
+          ? {short: Number.isFinite(item.week) ? `Week ${item.week}` : "Earlier week", label: "Some DDF Value inputs are on an earlier week."}
           : priorWeekInfo(sourceMeta(key).publisher, item, view.refWeek);
         let text = `${sourceMeta(key).symbol} ${groupSeriesName(key)}`;
         if (behind) { text += ` · ${behind.short}`; option.dataset.priorWeek = behind.short; }
@@ -3070,7 +3070,7 @@
     if (!item || !item.stale) return null;
     const name = PUBLISHER_NAMES[key] || key;
     const week = Number.isFinite(item.week) ? item.week : null;
-    const short = week ? `Wk ${week}` : "Earlier week";
+    const short = week ? `Week ${week}` : "Earlier week";
     const label = week && Number.isFinite(refWeek) && refWeek !== week
       ? `${name} has not published Week ${refWeek} yet; showing Week ${week}.`
       : `${name} has not published this week yet; showing ${week ? `Week ${week}` : "an earlier week"}.`;
@@ -3110,7 +3110,7 @@
     button.type = "button";
     button.className = "v2-info";
     button.dataset.info = spec.kind;
-    button.setAttribute("aria-label", `What ${spec.what} means${context ? ` (${context})` : ""}`);
+    button.setAttribute("aria-label", `What ${spec.what} ${spec.kind === "names" ? "mean" : "means"}${context ? ` (${context})` : ""}`);
     button.setAttribute("aria-haspopup", "dialog");
     button.setAttribute("aria-expanded", "false");
     const glyph = document.createElement("span");
@@ -3595,7 +3595,7 @@
     targetsView.used.forEach(key => {
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
-      const week = targetBadge(key) || document.createTextNode(item && item.week ? `Wk ${item.week}` : "");
+      const week = targetBadge(key) || document.createTextNode(item && item.week ? `Week ${item.week}` : "");
       const sub = [week, document.createTextNode(`${week.textContent ? " · " : ""}rescaled`)];
       const flag = divergenceChip(key);
       if (flag) sub.push(document.createTextNode(" "), flag);

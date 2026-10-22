@@ -26,7 +26,7 @@
     "transformed_at": "2026-10-03T21:04:32.183609+00:00",
     "transformer": "pipelines/transform_batch70_to_comparison.py"
   },
-  "built_at": "2026-10-22T03:47:47.730800+00:00",
+  "built_at": "2026-10-22T04:08:33.931172+00:00",
   "display": {
     "aaron anderson": "Aaron Anderson",
     "aaron jones": "Aaron Jones",
@@ -3438,7 +3438,7 @@
       "name": "CBS",
       "native_unit": "CBS chart points (their ~5\u201347 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-22T03:47:47Z",
+      "promoted_at": "2026-10-22T04:08:33Z",
       "promoted_from_review": "cbs-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-22T00:35:32+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: CBS publishes 1QB-4 / 1QB-6 / 2QB, so the 1QB-4 column is reused for every scoring mode. QBs with '--' in the 1QB columns carry 2QB-only value and are not covered in 1QB.",
@@ -3451,7 +3451,7 @@
         "snapshot_fetched_at": "2026-10-22T00:35:32+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/cbs/week-7/snapshot-manifest.json",
         "source": "cbs",
-        "source_pulled_at": "2026-10-22T03:46:22Z",
+        "source_pulled_at": "2026-10-22T04:07:51Z",
         "source_url": "https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-7-trade-chart-and-rest-of-season-rankings/",
         "vintage_kind": "week_designated",
         "week_designated": 7
@@ -12598,7 +12598,7 @@
         "root": "cbsros",
         "stage": "publisher_vs_stored",
         "identity": "2026-10-22@2026-10-22T01:55:18.068887Z",
-        "since": "2026-10-22T03:24:59.430980Z",
+        "since": "2026-10-22T03:49:21.898712Z",
         "hold_level": "red"
       }
     },
@@ -41900,7 +41900,7 @@
         "stale": false,
         "vintage": "2026-10-21"
       },
-      "fetched_at": "2026-10-22T03:47:45Z",
+      "fetched_at": "2026-10-22T04:08:32Z",
       "kind": "model projections, valued by our model",
       "lineage": {
         "raw_built_at": "2026-10-22T03:47:44Z",
@@ -43897,7 +43897,7 @@
       "name": "FantasyCalc",
       "native_unit": "FantasyCalc crowd value (their ~2\u201310,500 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-22T03:47:39Z",
+      "promoted_at": "2026-10-22T04:08:27Z",
       "promoted_from_review": "fantasycalc-standard-12-qb1-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-22T01:55:07+00:00; reindex mapping updated.",
       "provenance_note": "Weekly snapshot tied to the NFL week \u2014 pulled once per week, frozen for the week, never a live read. Refresh only with --refresh-fc --fc-week \"Week N\".",
@@ -43937,7 +43937,7 @@
         "snapshot_fetched_at": "2026-10-22T01:55:07+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasycalc/week-7/snapshot-manifest.json",
         "source": "fantasycalc",
-        "source_pulled_at": "2026-10-22T03:46:16Z",
+        "source_pulled_at": "2026-10-22T04:07:48Z",
         "source_url": null,
         "vintage_kind": "week_designated",
         "week_designated": 7
@@ -45907,7 +45907,7 @@
       "name": "FantasyPros",
       "native_unit": "FantasyPros analyst-consensus chart points (~1.0\u201375.1 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-22T03:47:40Z",
+      "promoted_at": "2026-10-22T04:08:28Z",
       "promoted_from_review": "fantasypros-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-22T02:04:17.878818+00:00; reindex mapping updated.",
       "provenance_note": "FantasyPros publishes one base Value column. It is treated as scoring-agnostic and reused across the three scoring combos; values are indexed with one factor per combo to the other charts' range, so its own order is kept (JEG-482).",
@@ -45920,7 +45920,7 @@
         "snapshot_fetched_at": "2026-10-22T02:04:17.878818+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasypros/2026-10-20/snapshot-manifest.json",
         "source": "fantasypros",
-        "source_pulled_at": "2026-10-22T03:46:19Z",
+        "source_pulled_at": "2026-10-22T04:07:50Z",
         "source_url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-7-2026/",
         "vintage_kind": "week_designated",
         "week_designated": 7
@@ -65157,7 +65157,7 @@
       "name": "USA Today",
       "native_unit": "USA Today chart points (their ~0\u201370 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-22T03:47:36Z",
+      "promoted_at": "2026-10-22T04:08:25Z",
       "promoted_from_review": "usatoday-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-22T00:00:00+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: USA Today publishes one QB column set (1QB / 6-pt-TD / Superflex), so the 1QB column is reused for every scoring mode.",
@@ -65170,7 +65170,7 @@
         "snapshot_fetched_at": "2026-10-22T00:00:00+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/usatoday/2026-10-20/snapshot-manifest.json",
         "source": "usatoday",
-        "source_pulled_at": "2026-10-22T03:46:17Z",
+        "source_pulled_at": "2026-10-22T04:07:49Z",
         "source_url": "https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/",
         "vintage_kind": "week_designated",
         "week_designated": 7

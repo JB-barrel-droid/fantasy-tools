@@ -1374,3 +1374,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (max-width: 359px) {
   .v2-tabs { flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; }
 }
+
+/* JEG-817 (phone): source links keep their look but get a 44 x 44 hit area. Inline padding grows the hit box and the
+   equal negative side margin cancels it, so no line or chip moves. */
+@media (max-width: 767px) {
+  .v2-srclink { padding: 15px; margin: -15px; }
+}

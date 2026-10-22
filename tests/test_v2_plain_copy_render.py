@@ -1,0 +1,120 @@
+"""v2 public copy, rendered: plain names, no abbreviations (JEG-812, owner rules).
+
+Owner rules (Jeremy): no title abbreviations, no Vegas, no vanity stats. Live QA (2026-10-22) found "USAT",
+"FP" and "Wk 6" on Trade targets and Player values, a "VORP vs waivers" panel title, and a Research page
+that only said "No posts are published yet."
+
+Loads the built page headless at 1440 and 390 px, visits every tab (opening a few Trade targets rows), and
+requires: none of USAT / FP / FC / CBS ROS / Wk / Vegas in the visible text, both value-over-waiver panel
+titles in plain words, and a Research page that says what is there instead of promising dates.
+Discrimination: test_guard_fails_on_broken_builds serves v2.js with the old USAT label, with "Wk" back, and
+the shell with the old panel title and the old Research line, and requires failures.
+"""
+from __future__ import annotations
+
+import re
+import unittest
+
+from tests import _render_env
+from tests.test_published_league_settings_render import _chromium_executable
+from tests.test_v2_deal_read_render import _served, V2_JS
+
+TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#how-values", "#research")
+BANNED = re.compile(r"\b(USAT|FP|FC|Wk)\b|CBS ROS|\bvegas\b", re.I)
+PROMISES = re.compile(r"\b(soon|coming|will be published|next week|tomorrow|\d{4}-\d{2}-\d{2})\b", re.I)
+READ = "() => document.body.innerText"
+TITLES = "() => ['v2VorpTitle', 'v2CVorpTitle'].map(id => document.getElementById(id).textContent.trim())"
+RESEARCH = "() => document.getElementById('v2Research').innerText"
+
+
+def bad_words(text: str) -> list[str]:
+    return sorted({m.group(0) for m in BANNED.finditer(text)})
+
+
+def run_checks(v2_patch=None, shell_patch=None) -> list[str]:
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    js = V2_JS.read_text(encoding="utf-8")
+    if v2_patch:
+        assert v2_patch[0] in js, f"patch anchor missing: {v2_patch[0]!r}"
+        js = js.replace(v2_patch[0], v2_patch[1])
+    errors: list[str] = []
+    with _served() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width, height in ((1440, 1000), (390, 844)):
+                page = browser.new_page(viewport={"width": width, "height": height})
+                page_errors: list[str] = []
+                page.on("pageerror", lambda e: page_errors.append(str(e)))
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                if v2_patch:
+                    page.route("**/v2/v2.js*", lambda route, *_: route.fulfill(status=200, content_type="text/javascript", body=js))
+                if shell_patch:
+                    def serve_shell(route, *_):
+                        response = route.fetch()
+                        body = response.text()
+                        assert shell_patch[0] in body, f"shell patch anchor missing: {shell_patch[0]!r}"
+                        route.fulfill(response=response, body=body.replace(shell_patch[0], shell_patch[1]))
+                    page.route("**/v2/", serve_shell)
+                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare()", timeout=60000)
+                for tab in TABS:
+                    page.evaluate("h => { location.hash = h; }", tab)
+                    page.wait_for_timeout(500)
+                    if tab == "#trade-targets":
+                        for _ in range(3):
+                            toggle = page.locator("[data-expand][aria-expanded=false]").first
+                            if toggle.count() and toggle.is_visible():
+                                toggle.click()
+                    found = bad_words(page.evaluate(READ))
+                    if found:
+                        errors.append(f"[{width}px {tab}] banned words in visible text: {found}")
+                    if tab == "#research":
+                        text = page.evaluate(RESEARCH)
+                        if "No posts are published yet" in text:
+                            errors.append(f"[{width}px research] still says 'No posts are published yet.'")
+                        elif "Nothing is published here yet" not in text:
+                            errors.append(f"[{width}px research] empty-state line missing: {text[:200]!r}")
+                        if "How values work" not in text or "Manifesto" not in text:
+                            errors.append(f"[{width}px research] empty state should point to How values work and the Manifesto")
+                        if PROMISES.search(text):
+                            errors.append(f"[{width}px research] promises a date or a time: {PROMISES.search(text).group(0)!r}")
+                titles = page.evaluate(TITLES)
+                if any("VORP" in title for title in titles):
+                    errors.append(f"[{width}px] panel titles still say VORP: {titles}")
+                if page_errors:
+                    errors.append(f"[{width}px] page errors {page_errors}")
+                page.close()
+        finally:
+            browser.close()
+    return errors
+
+
+PATCHES = {
+    "USAT label back": {"v2_patch": ('{label: "USA Today", color', '{label: "USAT", color')},
+    "Wk back": {"v2_patch": ("`Week ${item.week}`", "`Wk ${item.week}`")},
+    "old panel title": {"shell_patch": ('<h2 id="v2VorpTitle">Value over a waiver player</h2>', '<h2 id="v2VorpTitle">VORP vs waivers</h2>')},
+    "old research line": {"shell_patch": ("Nothing is published here yet.", "No posts are published yet.")},
+}
+
+
+class PlainCopyRenderTest(unittest.TestCase):
+    def test_plain_copy(self):
+        _render_env.ensure_built()
+        self.assertEqual(run_checks(), [])
+
+    def test_guard_fails_on_broken_builds(self):
+        _render_env.ensure_built()
+        for name, kwargs in PATCHES.items():
+            with self.subTest(patch=name):
+                self.assertNotEqual(run_checks(**kwargs), [], f"checks did not catch: {name}")
+
+
+if __name__ == "__main__":
+    unittest.main()
