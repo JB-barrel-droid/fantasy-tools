@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-22T03:00:56.857203Z",
- "run_id": "11ca5f8d-7c1d-41ce-be1b-0d0b0223e900",
+ "checked_at": "2026-10-22T03:24:59.430980Z",
+ "run_id": "d4d07d86-3f5f-44e3-87ad-6142969937cd",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -33,7 +33,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "usatwk7_2026-10-22t0155_v1",
    "measured_site": "2026-10-13T00:00:00+00:00",
-   "since": "2026-10-22T03:00:56.857203Z",
+   "since": "2026-10-22T03:24:59.430980Z",
    "summary": "894/894 chart values equal stored bake usatwk6_2026-10-13t1835_v1; newer stored bake usatwk7_2026-10-22t0155_v1 (week 7, saved 2026-10-22T01:55:18.929876Z) is not on the chart yet: 476 values changed, 51 added, 27 dropped"
   },
   "fantasycalc": {
@@ -45,7 +45,7 @@
    "reason": "fidelity: freshness",
    "identity": "fcwk7_2026-10-22t0155_v1",
    "measured_site": "2026-10-19T22:05:22+00:00",
-   "since": "2026-10-22T03:00:56.857203Z",
+   "since": "2026-10-22T03:24:59.430980Z",
    "summary": "content week 7 opened 39 h ago; chart still shows FantasyCalc week 6"
   },
   "fantasypros": {
@@ -57,7 +57,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "fpwk7_2026-10-22t0204_v1",
    "measured_site": "2026-10-19T09:35:50.180187+00:00",
-   "since": "2026-10-22T03:00:56.857203Z",
+   "since": "2026-10-22T03:24:59.430980Z",
    "summary": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0204_v1 (week 7, saved 2026-10-22T02:04:18.917833Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped"
   },
   "cbs": {
@@ -69,7 +69,7 @@
    "reason": "fidelity: scrape_validity",
    "identity": "cbswk7_2026-10-22t0035_v1",
    "measured_site": "2026-10-14T15:35:33+00:00",
-   "since": "2026-10-22T03:00:56.857203Z",
+   "since": "2026-10-22T03:24:59.430980Z",
    "summary": "player count dropped vs week 5: stored TE 14->13, chart TE 14->10"
   },
   "espn": {
@@ -85,16 +85,16 @@
    "summary": "the chart's snapshot 2026-10-19 is no longer stored: the stored set is now 2026-10-21; the chart is behind until the next chain run rebuilds it"
   },
   "cbsros": {
-   "stage": "stored_vs_chart",
+   "stage": "publisher_vs_stored",
    "stages": [
-    "stored_vs_chart"
+    "publisher_vs_stored"
    ],
-   "hold_level": "amber",
-   "reason": "fidelity: stored_vs_chart",
+   "hold_level": "red",
+   "reason": "fidelity: publisher_vs_stored",
    "identity": "2026-10-22@2026-10-22T01:55:18.068887Z",
    "measured_site": null,
-   "since": "2026-10-22T03:00:56.857203Z",
-   "summary": "1089/1089 chart values equal stored snapshot 2026-10-19 (per game, 3 decimals); newer stored snapshot 2026-10-22 is not on the chart yet: 292 values changed, 8 added, 8 dropped"
+   "since": "2026-10-22T03:24:59.430980Z",
+   "summary": "1080/1080 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not"
   },
   "razzball": {
    "stage": "stored_vs_chart",
@@ -118,7 +118,7 @@
    "reason": "fidelity: publisher_vs_stored",
    "identity": "2026-10-19@2026-10-19T16:45:35.240211Z",
    "measured_site": null,
-   "since": "2026-10-22T03:00:56.857203Z",
+   "since": "2026-10-22T03:24:59.430980Z",
    "summary": "62/2741 values match exactly across 3 columns; 2679 value mismatches, 5 publisher players not stored, 4 stored players not on the page; stale: the publisher changed since the save (fingerprint 41264b71ec9d73bc at the save, 5ad5cd7d293e58e9 now) and the save is older than 24 h; 25 publisher names do "
   },
   "fantasysharks": {
@@ -130,7 +130,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
    "measured_site": null,
-   "since": "2026-10-22T03:00:56.857203Z",
+   "since": "2026-10-22T03:24:59.430980Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -287,7 +287,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher posted week 7 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/, 32 h ago); chart shows week 6; stored rows already have week 7",
+     "summary": "publisher posted week 7 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/, 33 h ago); chart shows week 6; stored rows already have week 7",
      "chart_week": 6,
      "publisher_week": 7,
      "publisher_url": "https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/",
@@ -353,7 +353,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "usatwk7_2026-10-22t0155_v1",
     "measured_site": "2026-10-13T00:00:00+00:00",
-    "since": "2026-10-22T03:00:56.857203Z",
+    "since": "2026-10-22T03:24:59.430980Z",
     "summary": "894/894 chart values equal stored bake usatwk6_2026-10-13t1835_v1; newer stored bake usatwk7_2026-10-22t0155_v1 (week 7, saved 2026-10-22T01:55:18.929876Z) is not on the chart yet: 476 values changed, 51 added, 27 dropped"
    }
   },
@@ -581,7 +581,7 @@
     "reason": "fidelity: freshness",
     "identity": "fcwk7_2026-10-22t0155_v1",
     "measured_site": "2026-10-19T22:05:22+00:00",
-    "since": "2026-10-22T03:00:56.857203Z",
+    "since": "2026-10-22T03:24:59.430980Z",
     "summary": "content week 7 opened 39 h ago; chart still shows FantasyCalc week 6"
    }
   },
@@ -803,7 +803,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "fpwk7_2026-10-22t0204_v1",
     "measured_site": "2026-10-19T09:35:50.180187+00:00",
-    "since": "2026-10-22T03:00:56.857203Z",
+    "since": "2026-10-22T03:24:59.430980Z",
     "summary": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0204_v1 (week 7, saved 2026-10-22T02:04:18.917833Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped"
    }
   },
@@ -1039,7 +1039,7 @@
     "reason": "fidelity: scrape_validity",
     "identity": "cbswk7_2026-10-22t0035_v1",
     "measured_site": "2026-10-14T15:35:33+00:00",
-    "since": "2026-10-22T03:00:56.857203Z",
+    "since": "2026-10-22T03:24:59.430980Z",
     "summary": "player count dropped vs week 5: stored TE 14->13, chart TE 14->10"
    }
   },
@@ -1186,7 +1186,7 @@
   {
    "source": "cbsros",
    "label": "CBS rest of season",
-   "status": "amber",
+   "status": "red",
    "stored_week": null,
    "chart_week": null,
    "content_week": 7,
@@ -1195,8 +1195,8 @@
    "stored_bake": "2026-10-22",
    "stages": {
     "publisher_vs_stored": {
-     "status": "amber",
-     "summary": "1080/1080 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; the change probe saw new publisher content at 2026-10-19T19:25:13.072589+00:00 that no ingest has saved yet (ingest pending); 1 publisher names do not resolve to a canonical player; 6 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Grant Calcaterra, Kylen Granson, Patrick Herbert, Seydou Traore, Tip Reiman); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "status": "red",
+     "summary": "1080/1080 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not resolve to a canonical player; 6 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Kylen Granson, Patrick Herbert, Seydou Traore, Tip Reiman); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 366,
       "stored_players": 363,
@@ -1236,7 +1236,7 @@
        "extra": 3
       }
      },
-     "publisher_version": null,
+     "publisher_version": "same",
      "resync": null,
      "examples": [
       {
@@ -1514,16 +1514,16 @@
    ],
    "held": null,
    "hold": {
-    "stage": "stored_vs_chart",
+    "stage": "publisher_vs_stored",
     "stages": [
-     "stored_vs_chart"
+     "publisher_vs_stored"
     ],
-    "hold_level": "amber",
-    "reason": "fidelity: stored_vs_chart",
+    "hold_level": "red",
+    "reason": "fidelity: publisher_vs_stored",
     "identity": "2026-10-22@2026-10-22T01:55:18.068887Z",
     "measured_site": null,
-    "since": "2026-10-22T03:00:56.857203Z",
-    "summary": "1089/1089 chart values equal stored snapshot 2026-10-19 (per game, 3 decimals); newer stored snapshot 2026-10-22 is not on the chart yet: 292 values changed, 8 added, 8 dropped"
+    "since": "2026-10-22T03:24:59.430980Z",
+    "summary": "1080/1080 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not"
    }
   },
   {
@@ -2243,7 +2243,7 @@
     "reason": "fidelity: publisher_vs_stored",
     "identity": "2026-10-19@2026-10-19T16:45:35.240211Z",
     "measured_site": null,
-    "since": "2026-10-22T03:00:56.857203Z",
+    "since": "2026-10-22T03:24:59.430980Z",
     "summary": "62/2741 values match exactly across 3 columns; 2679 value mismatches, 5 publisher players not stored, 4 stored players not on the page; stale: the publisher changed since the save (fingerprint 41264b71ec9d73bc at the save, 5ad5cd7d293e58e9 now) and the save is older than 24 h; 25 publisher names do "
    }
   },
@@ -2306,7 +2306,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
     "measured_site": null,
-    "since": "2026-10-22T03:00:56.857203Z",
+    "since": "2026-10-22T03:24:59.430980Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2344,5 +2344,5 @@
   "fantasysharks": "2026-10-16T07:19:25.781124+00:00"
  },
  "resyncs": {},
- "holds_changed": false
+ "holds_changed": true
 }
