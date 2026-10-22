@@ -134,6 +134,20 @@
     + "The gaps on this page reflect the rescaling, not an independent check. Projection sources are updating.";
   const CIRCULAR_HOW = "Right now, DDF Value is built entirely from trade charts. Until a projection source returns, "
     + "gaps between our value and the charts are not an independent check.";
+  // JEG-826: neutral deal-read copy when the blend is circular.
+  // Replaces actionable instructions ("Arbitrage: send it", "Propose it", "Pass", etc.) with
+  // a neutral observation because the V-vs-M comparison is not an independent check.
+  const CIRCULAR_DEAL_SIDE = {win: "higher", lose: "lower", even: "about the same"};
+  function circularDealTitle(deal) {
+    const vWord = CIRCULAR_DEAL_SIDE[deal.value.side] || "—";
+    return `Our value is ${vWord} than the trade charts say`;
+  }
+  function circularDealText(deal) {
+    const vWord = CIRCULAR_DEAL_SIDE[deal.value.side] || "—";
+    const mWord = CIRCULAR_DEAL_SIDE[deal.market.side] || "—";
+    return `Our value says you come out ${vWord} and the trade charts say ${mWord}. `
+      + "Our value is built from the same charts this week, so treat this as a question, not a recommendation.";
+  }
 
   // Prior-week badge for a series key: the shared JEG-459 badge, named by publisher.
   function weekBadge(key) {
@@ -4815,10 +4829,15 @@
     // JEG-826: when the blend is circular, add an "(same inputs)" note to the deal read.
     const dealIndep = blendIndependenceCheck("ddf_value");
     const dealCirc = dealIndep && dealIndep.circular;
-    $("v2CDealRead").textContent = deal.kind === "read" ? `${deal.title}: ${deal.action}` : "";
+    // JEG-826: when circular, replace actionable deal-read copy with a neutral statement.
+    // The original title/action/text assume DDF Value is independent of the charts; when it is
+    // not, instructions like "Arbitrage: send it" are misleading.
+    const dealTitle = dealCirc && deal.kind === "read"
+      ? circularDealTitle(deal) : (deal.kind === "read" ? `${deal.title}: ${deal.action}` : "");
+    $("v2CDealRead").textContent = dealTitle;
     $("v2CDealRead").hidden = deal.kind !== "read";
     $("v2CDealText").textContent = dealCirc && deal.kind === "read"
-      ? deal.text + " (DDF Value and the trade charts share the same inputs this week, so this is not an independent check.)"
+      ? circularDealText(deal)
       : deal.text;
     const nets = $("v2CDealNets");
     nets.replaceChildren();

@@ -95,12 +95,14 @@ READ_TARGETS = """() => {
 READ_COMPARE = """() => {
   const banner = document.getElementById('v2CCircularBanner');
   const text = document.getElementById('v2CCircularText');
+  const dealRead = document.getElementById('v2CDealRead');
   const dealText = document.getElementById('v2CDealText');
   const storyTitle = document.querySelector('#v2CStory summary') || {};
   const verdictText = document.getElementById('v2CVerdictText');
   return {
     bannerHidden: banner.hidden,
     bannerText: text.textContent,
+    dealTitle: dealRead ? dealRead.textContent : '',
     dealText: dealText ? dealText.textContent : '',
     storyTitle: storyTitle.textContent || '',
     verdictText: verdictText ? verdictText.textContent : ''
@@ -124,6 +126,12 @@ PICK_TRADE = """() => {
   return {give: [sorted[0].player_key, sorted[2].player_key],
           get: [sorted[1].player_key, sorted[3].player_key]};
 }"""
+
+# Fixed trade fixture: give Jacobs + Montgomery / get Chase Brown.
+# In the circular state this trade has a "win|lose" deal read (Arbitrage) that
+# must be softened to neutral language.
+FIXTURE_GIVE = ["josh jacobs", "david montgomery"]
+FIXTURE_GET = ["chase brown"]
 
 
 def setUpModule():
@@ -153,6 +161,22 @@ class CircularBannerRenderTest(unittest.TestCase):
                 self.assertGreater(targets["independent"], 0, "Should have independent sources")
                 self.assertIn("Offer them", targets["sellMeta"], "Sell copy should be normal when independent")
                 self.assertIn("Ask for them", targets["buyMeta"], "Buy copy should be normal when independent")
+
+                # Compare: same fixed trade should show original deal read when independent.
+                from urllib.parse import quote
+                give = ",".join(quote(k) for k in FIXTURE_GIVE)
+                get = ",".join(quote(k) for k in FIXTURE_GET)
+                page.goto(url + f"#compare-trade?give={give}&get={get}",
+                          wait_until="networkidle", timeout=15000)
+                page.wait_for_selector("#v2CVerdictTitle", timeout=15000)
+                page.wait_for_timeout(500)
+                compare = page.evaluate(READ_COMPARE)
+                self.assertTrue(compare["bannerHidden"],
+                                "Compare banner should be hidden when independent")
+                # When independent and deal is "win|lose", the original copy should show.
+                if compare["dealTitle"]:
+                    self.assertNotIn("not a recommendation", compare["dealText"],
+                                     "Deal text should not be softened when independent")
 
                 # How values work: no inline note
                 page.goto(url + "#how-values", wait_until="networkidle", timeout=15000)
@@ -191,24 +215,42 @@ class CircularBannerRenderTest(unittest.TestCase):
                 self.assertNotIn("Ask for them", targets["buyMeta"],
                                  "Buy copy should be softened when circular")
 
-                # Compare: open a trade and check the compare banner
-                trade = page.evaluate(PICK_TRADE)
-                if trade:
-                    give = ",".join(str(k) for k in trade["give"])
-                    get = ",".join(str(k) for k in trade["get"])
-                    page.goto(url + f"#compare-trade?give={give}&get={get}",
+                # Compare: use the fixed trade (Jacobs + Montgomery / Chase Brown) and
+                # check the compare banner and softened deal read.
+                from urllib.parse import quote
+                give = ",".join(quote(k) for k in FIXTURE_GIVE)
+                get = ",".join(quote(k) for k in FIXTURE_GET)
+                page.goto(url + f"#compare-trade?give={give}&get={get}",
+                          wait_until="networkidle", timeout=15000)
+                page.wait_for_selector("#v2CVerdictTitle", timeout=15000)
+                page.wait_for_timeout(500)
+
+                compare = page.evaluate(READ_COMPARE)
+                self.assertFalse(compare["bannerHidden"],
+                                 "Compare banner should be visible when circular")
+                self.assertIn("same trade charts", compare["bannerText"])
+                # Deal read: when a full deal read is present, its title must not
+                # contain "Arbitrage" or "send it", and its text must carry the
+                # "question, not a recommendation" softening.
+                # Use PICK_TRADE to find a trade that has a complete deal read in
+                # the circular state (the fixture trade may be incomplete if a
+                # player loses its DDF Value when projections are held).
+                deal_trade = page.evaluate(PICK_TRADE)
+                if deal_trade:
+                    dgive = ",".join(quote(str(k)) for k in deal_trade["give"])
+                    dget = ",".join(quote(str(k)) for k in deal_trade["get"])
+                    page.goto(url + f"#compare-trade?give={dgive}&get={dget}",
                               wait_until="networkidle", timeout=15000)
                     page.wait_for_selector("#v2CVerdictTitle", timeout=15000)
                     page.wait_for_timeout(500)
-
-                    compare = page.evaluate(READ_COMPARE)
-                    self.assertFalse(compare["bannerHidden"],
-                                     "Compare banner should be visible when circular")
-                    self.assertIn("same trade charts", compare["bannerText"])
-                    # Deal read should have the "(same inputs)" parenthetical
-                    if compare["dealText"]:
-                        self.assertIn("not an independent check", compare["dealText"],
-                                      "Deal read should note the shared inputs")
+                    compare2 = page.evaluate(READ_COMPARE)
+                    if compare2["dealTitle"] and "No deal read yet" not in compare2["dealText"]:
+                        self.assertNotIn("Arbitrage", compare2["dealTitle"],
+                                         "Deal title must not say 'Arbitrage' when circular")
+                        self.assertNotIn("send it", compare2["dealTitle"].lower(),
+                                         "Deal title must not say 'send it' when circular")
+                        self.assertIn("not a recommendation", compare2["dealText"],
+                                      "Deal read should say 'not a recommendation' when circular")
 
                 # How values work
                 page.goto(url + "#how-values", wait_until="networkidle", timeout=15000)
