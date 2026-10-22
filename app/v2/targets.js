@@ -9,7 +9,8 @@
 // Both series are on the same trade-value point scale for the user's league
 // (the published charts are indexed to our curve by the engine). A positive gap
 // means the chart pays more than we would (a sell target); a negative gap means
-// it pays less (a buy target). VORP vs waivers is a different unit and is never
+// it pays less (a buy target). Lists rank by the gap weighted by the value at
+// stake (JEG-820, SELL_FLOOR below). VORP vs waivers is a different unit and is never
 // paired with anything here. A missing value on either side gives no gap
 // (null plus a reason), never zero.
 //
@@ -41,6 +42,13 @@
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
+  // JEG-820 (2026-10-22, option B of the ticket, proceeding per standing instruction): the lists rank by the
+  // gap WEIGHTED by the value at stake, score = |gap| x min(our value, consensus), so a 12-point gap on a
+  // player worth 1 point to us (a drop, not a trade chip) no longer outranks a 5-point gap on a 9-point
+  // player. Sell also needs our value at or above SELL_FLOOR: below it the charts may pay, but a manager
+  // would drop the player, not shop him. Buy has no floor; the weight already sinks a near-zero consensus.
+  const SELL_FLOOR = 5;
+
   // JEG-677 (Jeremy, JEG-461 2026-10-08): the market consensus is the MEDIAN of the indexed charts that
   // price the player (a finite 0 counts: at or below that chart's waiver line; a null is left out and
   // counted in `left`). Eligible as a target only with 2+ charts, a consensus above the waiver line, and a
@@ -53,7 +61,7 @@
     const priced = keys.filter(key => finite(cells[key].value));
     const left = keys.length - priced.length;
     const none = {value: null, count: priced.length, of: priced.length, left, diff: null, gap: null, equal: false,
-      side: null, agree: 0, eligible: false, dots: []};
+      side: null, agree: 0, eligible: false, dots: [], weight: null, score: null};
     if (!priced.length) return none;
     const values = priced.map(key => cells[key].value);
     const value = median(values);
@@ -63,8 +71,11 @@
     const agree = side ? values.filter(v => (side === "sell" ? v > ours : v < ours)).length : 0;
     const dots = priced.map(key => ({chart: key, value: cells[key].value, side: cells[key].value > ours ? "above" : cells[key].value < ours ? "below" : "level"}));
     const eligible = Boolean(side) && priced.length >= 2 && value > 0 && agree * 2 > priced.length;
+    // JEG-820: the value at stake and the ranking score (see SELL_FLOOR above).
+    const weight = Math.min(ours, value);
+    const score = Math.abs(gap) * weight;
     return {value, count: priced.length, of: priced.length, left, diff, gap, equal: ours.toFixed(1) === value.toFixed(1),
-      side, agree, eligible, dots};
+      side, agree, eligible, dots, weight, score};
   }
 
   // charts: the chart keys to compare (already filtered for availability and week). Their values are the engine's Indexed series
@@ -103,11 +114,13 @@
       });
       players.push({row, order: index + 1, ours, cells, market: marketConsensus(ours, cells)});
     });
-    const sell = players.filter(p => p.market.eligible && p.market.side === "sell")
-      .sort((a, b) => b.market.gap - a.market.gap || a.order - b.order);
-    const buy = players.filter(p => p.market.eligible && p.market.side === "buy")
-      .sort((a, b) => a.market.gap - b.market.gap || a.order - b.order);
-    return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells};
+    // JEG-820: biggest weighted gap first (score), engine order breaks ties; Sell needs ours >= SELL_FLOOR.
+    const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;
+    const sellable = players.filter(p => p.market.eligible && p.market.side === "sell");
+    const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);
+    const belowSellFloor = sellable.length - sell.length;
+    const buy = players.filter(p => p.market.eligible && p.market.side === "buy").sort(byScore);
+    return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells, belowSellFloor};
   }
 
   // Chart columns to compare: every available published chart (JEG-459). A
@@ -227,7 +240,7 @@
     return {ours: oursKey, columns, groups, playersOf, headline: {over, under, biggest}, compared: pairs.consensus.length};
   }
 
-  const api = {OUR_KEY, DDF_VALUE_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, buildTargets, chartsToCompare, ourChoices,
+  const api = {OUR_KEY, DDF_VALUE_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, SELL_FLOOR, buildTargets, chartsToCompare, ourChoices,
     weightCheck, weightSignal, WEIGHT_POSITIONS, WEIGHT_TIERS, WEIGHT_SIGNAL, WEIGHT_MIN_SHOW, WEIGHT_MIN_HEADLINE};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTargets = api;

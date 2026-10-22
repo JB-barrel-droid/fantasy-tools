@@ -1141,7 +1141,15 @@ modules.js. How values work and Manifesto are reading pages and are not modules.
 - `marketConsensus(ours, cells)` in `app/v2/targets.js` replaces the mean (`marketAverage`): `market = {value, count, of, left,
   diff, gap, equal, side, agree, eligible, dots}`. `value` is the median of the compared charts that price the player (a finite
   0 counts), `gap` = consensus minus our value. `eligible` needs 2+ priced charts, a consensus above the waiver line (0) and a
-  strict majority (`agree * 2 > of`) on the consensus's side of our value. Sell lists gap > 0 largest first, Buy gap < 0.
+  strict majority (`agree * 2 > of`) on the consensus's side of our value. Sell lists gap > 0, Buy gap < 0.
+- JEG-820 (2026-10-22, ticket option B, per standing instruction): `market.weight = min(ours, value)` and
+  `market.score = |gap| x weight`; both lists sort by `score` descending (engine order breaks ties), and Sell drops
+  players with `ours < SELL_FLOOR` (5), counted in `belowSellFloor` and said in the footnote. Before: raw gap put
+  0.0 to 3.4 bench players at the top of Sell (Boston 1.2 vs 14.6, Corum 0.0 "Drop"). After (Full PPR 12, 2 charts):
+  Skattebo 9.5 vs 13.0, Mason 9.6 vs 13.1, Hampton 9.3 vs 12.8, Marks 10.6 vs 13.7, Etienne 9.4 vs 12.7.
+  Buy is unchanged in substance (Gibbs, JSN, Nacua, Bijan, Walker ...): ours / consensus is 1.3 to 1.5 in every
+  consensus bucket, so the Buy side is our steeper scale, not per-player mispricing (`docs/math-review-agenda.md`
+  MR-28). The footnote also says when DDF Value rests on one source for a listed player (leads, not verdicts).
 - Default Our value is DDF Value (`ddf_value`, first in `OUR_KEYS`; Jeremy 2026-10-16 reversed the first JEG-677 DDF Projections default). Chart values are the engine's Indexed series; dots carry them.
 - Display (v2.js `targetBest` / `agreeNode`): "Market consensus" column ("median of N"), "Gap vs consensus" column with
   "N of M charts agree" and one dot per chart (above / below our value). Per-chart cells keep their own gaps.
