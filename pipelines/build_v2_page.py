@@ -175,7 +175,7 @@ def research_html(posts: list[dict]) -> str:
             for post in posts)
         index_body = f'      <ul class="v2-rs-list">\n{rows}\n      </ul>'
     else:
-        index_body = '      <p class="v2-rs-empty">No posts are published yet.</p>'
+        index_body = '      <p class="v2-rs-empty">Nothing is published here yet. Posts will show how we tested the choices behind the values. Until then, <a href="#how-values">How values work</a> and the <a href="#manifesto">Manifesto</a> explain the method.</p>'
     articles = "\n".join(
         f'    <article class="v2-mf-text v2-rs-post" id="v2Post-{post["slug"]}" data-slug="{post["slug"]}" hidden>\n'
         f'      <p class="v2-mf-eyebrow"><a href="#research">Research</a></p>\n'

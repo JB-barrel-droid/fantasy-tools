@@ -20,7 +20,7 @@
   const CARDS = [
     {title: "v2ChartTitle", name: "Chart", expand: "v2ExpandChart", summary: () => text("v2TableMeta")},
     {title: "v2TableTitle", name: "Table", expand: "v2ExpandTable", summary: () => text("v2TableMeta")},
-    {title: "v2VorpTitle", name: "VORP vs waivers", summary: () => "Raw value above a waiver-level player"},
+    {title: "v2VorpTitle", name: "Value over a waiver player", summary: () => "Raw value above a waiver-level player"},
     {title: "v2TSellTitle", name: "Sell", summary: () => `Sell: ${text("v2TSellMeta")}`},
     {title: "v2TBuyTitle", name: "Buy", summary: () => `Buy: ${text("v2TBuyMeta")}`},
     {title: "v2TCheck2Title", name: "Positional weight inflation", summary: () => text("v2WeightHeadline")},
@@ -39,7 +39,7 @@
       summary: () => text("v2CMeta") || text("v2CEmpty")},
     {title: "v2FindTitle", name: "Find a trade",
       summary: () => "Trades where DDF Value says you win and the trade charts say they accept"},
-    {title: "v2CVorpTitle", name: "VORP vs waivers", summary: () => "Raw value above a waiver-level player"},
+    {title: "v2CVorpTitle", name: "Value over a waiver player", summary: () => "Raw value above a waiver-level player"},
   ];
 
   function sideSummary(label, listId, totalId) {

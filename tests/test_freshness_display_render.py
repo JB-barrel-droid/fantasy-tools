@@ -122,15 +122,15 @@ def violations(page_state, sources, today):
         problems.append(f"header badge {page_state['headerBadge']!r} does not report {older_count} older")
     for key, label in WEEKLY_TOGGLES.items():
         toggle = next((t for t in page_state["toggles"]
-                       if t["text"].split("\n")[0].startswith(label + " Wk ")), None)
+                       if t["text"].split("\n")[0].startswith(label + " Week ")), None)
         if toggle is None:
             problems.append(f"toggle for {label} missing")
             continue
         week, _ = expected_week(sources, key)
         older = week < current
         first = toggle["text"].split("\n")[0].strip()
-        if first != f"{label} Wk {week}":
-            problems.append(f"toggle {first!r} != {label} Wk {week}")
+        if first != f"{label} Week {week}":
+            problems.append(f"toggle {first!r} != {label} Week {week}")
         if toggle["available"] and toggle["stale"] != older:
             problems.append(f"toggle {first!r} older flag {toggle['stale']} != {older}")
         if toggle["available"] and older and "newer week not yet published" not in toggle["text"]:
