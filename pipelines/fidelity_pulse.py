@@ -206,7 +206,7 @@ RULES = {
                        f"{DROP_RED:.0%} too (if it did, or it was not read, amber); "
                        "JEG-482 published-rank inversions are red; so is a sentinel star (Allen, Lamar Jackson, "
                        "Mahomes, Gibbs, Nacua, Bowers) on a projection source's chart outside his per-game band "
-                       "(JEG-592). A player absent from a fully loaded chart means 0; "
+                       "derived from other sources (JEG-592, JEG-807). A player absent from a fully loaded chart means 0; "
                        "absences that may be processing errors are stages 1 and 2",
     "rollup": "a source is the worst of its stages; unknown (input unreadable) counts as amber",
     "hold": "JEG-520: a red in publisher_vs_stored, stored_vs_chart, freshness or scrape_validity holds that source "
@@ -1392,7 +1392,25 @@ def load_extras(fetch: Fetcher, site_doc: dict | None, now: datetime, store=None
             weeks.add(w - 1)
     for w in sorted(x for x in weeks if x and x > 0):
         extras["history"][w], _ = load_json_any((), SITE_HISTORY.format(week=w), fetch, f"week {w} history")
+    # JEG-807: players.json data for deriving sentinel bands from other projection sources.
+    extras["players_data"] = _load_players_data(store)
     return extras
+
+
+def _load_players_data(store) -> list | None:
+    """Load the players list from the store for sentinel band derivation.
+
+    Returns the list of player dicts, or None if unavailable.
+    """
+    try:
+        doc = store.players() if store else None
+        if doc is None:
+            doc = json.loads(PLAYERS_FIXTURE.read_text(encoding="utf-8")) if PLAYERS_FIXTURE.exists() else None
+        if doc is None:
+            return None
+        return doc.get("players") if isinstance(doc, dict) else doc
+    except (OSError, ValueError):
+        return None
 
 
 def count_by_position(grain: dict, ident: Identity) -> dict[str, int]:
@@ -1448,33 +1466,112 @@ def rank_guard_inversions(doc: dict | None, source: str) -> int | None:
 # publisher, stored row and chart all agree. Sentinels pin an expected half-PPR per-game band for stars
 # (the three scorings differ only for RB/WR/TE and only by points per catch, so one band at 1/2 PPR is
 # checked). A sentinel the chart carries outside its band is red and holds the source; a sentinel the chart
-# does not carry is not a fault (the bake's outlier guard, JEG-555, drops a number on purpose). Bands are wide
-# (about 70% of the lowest source's value to 125% of the highest, 2026-10-12): they catch a discounted or
-# scrambled row, not drift.
-SENTINELS = (
-    ("Josh Allen", "QB", 17.0, 30.0),
-    ("Lamar Jackson", "QB", 16.0, 30.0),
-    ("Patrick Mahomes", "QB", 15.0, 28.0),
-    ("Jahmyr Gibbs", "RB", 15.0, 30.0),
-    ("Puka Nacua", "WR", 12.0, 24.0),
-    ("Brock Bowers", "TE", 8.5, 18.0),
+# does not carry is not a fault (the bake's outlier guard, JEG-555, drops a number on purpose).
+#
+# JEG-807 (2026-10-22, Jeremy decision): derive the floor and ceiling from the OTHER current projection
+# sources' half-PPR per-game value for the same sentinel player, instead of fixed constants. Razzball QBs
+# run about 0.83x ESPN as a systematic model difference (stdev 0.10); Mahomes at 0.72x is not an outlier.
+# The fixed 15.0 floor (set 2026-10-12) held Razzball when the number was correct. The derived band uses
+# the mean of the other projection sources multiplied by SENTINEL_LOW_RATIO / SENTINEL_HIGH_RATIO. When
+# no other source has a value for the player, the fallback band is used.
+#
+# SENTINEL_LOW_RATIO = 0.55: Mahomes 13.7 / mean(ESPN 19.22, CBS 22.65) = 0.655, passes with margin.
+# Catches: value 0, column shifts (280 total points in a PPG field), wrong player.
+# Rejected: 0.70 (the original bug: Mahomes fails), 0.65 (13.7/20.9 = 0.655, too close to the edge),
+# 0.50 (looser than needed, weakens detection of real scrape errors).
+SENTINEL_LOW_RATIO = 0.55
+SENTINEL_HIGH_RATIO = 1.50
+
+# The projection source fields in players.json that carry half-PPR per-game values.
+_PROJECTION_PPG_FIELDS = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
+
+SENTINEL_PLAYERS = (
+    ("Josh Allen", "QB"),
+    ("Lamar Jackson", "QB"),
+    ("Patrick Mahomes", "QB"),
+    ("Jahmyr Gibbs", "RB"),
+    ("Puka Nacua", "WR"),
+    ("Brock Bowers", "TE"),
 )
 
+# Used when no other projection source has a value for the sentinel player.
+SENTINEL_FALLBACK_BANDS = {
+    "Josh Allen":     (17.0, 30.0),
+    "Lamar Jackson":  (16.0, 30.0),
+    "Patrick Mahomes": (15.0, 28.0),
+    "Jahmyr Gibbs":   (15.0, 30.0),
+    "Puka Nacua":     (12.0, 24.0),
+    "Brock Bowers":   (8.5, 18.0),
+}
 
-def sentinel_failures(source: str, chart: dict | None, ident: Identity) -> list[dict]:
-    """Sentinel players whose chart per-game value (1/2 PPR) is outside the expected band."""
+
+def _derive_sentinel_band(name: str, source: str, players_data: list | None) -> tuple[float, float] | None:
+    """Derive the sentinel band for *name* from the OTHER projection sources' half-PPR PPG.
+
+    Returns (lo, hi) or None when no other source has data for this player.
+    """
+    if not players_data:
+        return None
+    # Find the player row in players.json (by name match).
+    row = None
+    for p in players_data:
+        if (p.get("name") or p.get("full_name", "")) == name:
+            row = p
+            break
+    if row is None:
+        return None
+    # Gather half_ppr per-game values from other projection sources.
+    values = []
+    for src, field in _PROJECTION_PPG_FIELDS.items():
+        if src == source:
+            continue
+        ppg = row.get(field)
+        if ppg is None:
+            continue
+        # ppg is a dict like {"standard": 19.22, "half_ppr": 19.22, "ppr": 19.22}
+        if isinstance(ppg, dict):
+            v = ppg.get("half_ppr")
+        else:
+            v = ppg
+        if v is not None and float(v) > 0:
+            values.append(float(v))
+    if not values:
+        return None
+    reference = sum(values) / len(values)
+    return (round(reference * SENTINEL_LOW_RATIO, 2), round(reference * SENTINEL_HIGH_RATIO, 2))
+
+
+def sentinel_failures(source: str, chart: dict | None, ident: Identity,
+                      players_data: list | None = None) -> list[dict]:
+    """Sentinel players whose chart per-game value (1/2 PPR) is outside the expected band.
+
+    JEG-807: bands are derived from other projection sources' values when available;
+    falls back to SENTINEL_FALLBACK_BANDS when players_data is missing or the player
+    has no coverage from other sources.
+    """
     if source not in PROJECTIONS or not chart:
         return []
     grain = chart.get("half|1") or {}
     out = []
-    for name, pos, lo, hi in SENTINELS:
+    for name, pos in SENTINEL_PLAYERS:
         key, _ = ident.resolve(name, pos)
         cell = grain.get(key) if key is not None else None
         if cell is None:
             continue
         value = float(cell["value"])
+        derived = _derive_sentinel_band(name, source, players_data)
+        if derived is not None:
+            lo, hi = derived
+            band_source = "derived"
+        else:
+            fb = SENTINEL_FALLBACK_BANDS.get(name)
+            if fb is None:
+                continue
+            lo, hi = fb
+            band_source = "fallback"
         if not lo <= value <= hi:
-            out.append({"name": name, "pos": pos, "value": value, "expected": [lo, hi]})
+            out.append({"name": name, "pos": pos, "value": value, "expected": [lo, hi],
+                        "band_source": band_source})
     return out
 
 
@@ -1533,7 +1630,7 @@ def stage_scrape_validity(source: str, extras: dict, ident: Identity, *, publish
     elif inv:
         status = "red"
         reasons.append(f"rank guard: {inv} published-rank inversions (JEG-482)")
-    bad = sentinel_failures(source, chart, ident)
+    bad = sentinel_failures(source, chart, ident, players_data=extras.get("players_data"))
     signals["sentinel_failures"] = bad
     if bad:
         status = "red"
