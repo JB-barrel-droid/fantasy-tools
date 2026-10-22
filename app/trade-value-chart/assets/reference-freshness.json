@@ -1,7 +1,7 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "12dab90ff7b6bcb3783c37c111e70f7a7b5c29b80c24dc3bd275317df9a55df9",
-    "players.json": "cba98b2641db8177ecc5ef2d4005bda982e7359d335f9622bd28611f371a39c0",
+    "comparison-sources-data.json": "8b2c6d6ac59069a3bf904141c5b41e50b6317881fec80582514dcb5893adeced",
+    "players.json": "bddd448a43e4707370615aa50c04f2d3f2f8a18b721cfc59cbeea6cdb113592f",
     "source-import-health.json": "b09b3c94d2a4e4d35ce2ebaa94c86fc4da92c56d395b1b55009444b7f96b4c25"
   },
   "chart_inputs": [
@@ -21,7 +21,7 @@
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-21T19:45:43-05:00",
+  "generated_at": "2026-10-21T20:02:31-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -296,23 +296,23 @@
   ],
   "source_divergence": {
     "cbs": {
-      "bias": 1.37,
+      "bias": 1.34,
       "headline_combo": "full_12",
       "label": "CBS",
-      "message": "CBS disagrees with the other charts on 12% of players this week (usually 16%).",
-      "outlier_rate": 0.125,
+      "message": "CBS disagrees with the other charts on 14% of players this week (usually 16%).",
+      "outlier_rate": 0.142,
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "ok",
-      "usual_outlier_rate": 0.161,
+      "usual_outlier_rate": 0.163,
       "week": 7
     },
     "cbsros": {
-      "bias": 0.09,
+      "bias": 0.35,
       "headline_combo": "standard_12",
       "label": "CBS rest of season",
-      "message": "CBS rest of season disagrees with the other projections on 47% of players this week. Under review.",
-      "outlier_rate": 0.473,
+      "message": "CBS rest of season disagrees with the other projections on 46% of players this week. Under review.",
+      "outlier_rate": 0.455,
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "warn",
@@ -320,11 +320,11 @@
       "week": 7
     },
     "espn": {
-      "bias": 3.61,
+      "bias": 3.03,
       "headline_combo": "standard_12",
       "label": "ESPN",
-      "message": "ESPN disagrees with the other projections on 50% of players this week. Under review.",
-      "outlier_rate": 0.496,
+      "message": "ESPN disagrees with the other projections on 48% of players this week. Under review.",
+      "outlier_rate": 0.478,
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "warn",
@@ -332,7 +332,7 @@
       "week": 7
     },
     "fantasycalc": {
-      "bias": 0.45,
+      "bias": 0.43,
       "headline_combo": "full_12_qb1",
       "label": "FantasyCalc",
       "message": "FantasyCalc disagrees with the other charts on 42% of players this week (usually 43%).",
@@ -340,11 +340,11 @@
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "ok",
-      "usual_outlier_rate": 0.433,
+      "usual_outlier_rate": 0.429,
       "week": 7
     },
     "fantasypros": {
-      "bias": -0.58,
+      "bias": -0.51,
       "headline_combo": "standard_12",
       "label": "FantasyPros",
       "message": "FantasyPros disagrees with the other charts on 46% of players this week (usually 46%). Under review.",
@@ -352,18 +352,18 @@
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "investigate",
-      "usual_outlier_rate": 0.463,
+      "usual_outlier_rate": 0.462,
       "week": 7
     },
     "razzball": {
-      "bias": -3.7,
-      "headline_combo": "standard_12",
+      "bias": 0.97,
+      "headline_combo": "full_12",
       "label": "Razzball",
-      "message": "Razzball disagrees with the other projections on 47% of players this week. Under review.",
-      "outlier_rate": 0.466,
+      "message": "Razzball disagrees with the other projections on 41% of players this week.",
+      "outlier_rate": 0.414,
       "resolution_issue": null,
       "resolution_kind": null,
-      "status": "investigate",
+      "status": "ok",
       "usual_outlier_rate": null,
       "week": 7
     },
@@ -371,12 +371,12 @@
       "bias": -0.67,
       "headline_combo": "full_12",
       "label": "USA Today",
-      "message": "USA Today disagrees with the other charts on 22% of players this week (usually 23%).",
-      "outlier_rate": 0.222,
+      "message": "USA Today disagrees with the other charts on 22% of players this week (usually 22%).",
+      "outlier_rate": 0.216,
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "ok",
-      "usual_outlier_rate": 0.228,
+      "usual_outlier_rate": 0.224,
       "week": 7
     }
   },
