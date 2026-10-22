@@ -1404,6 +1404,15 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-srclink { padding: 15px; margin: -15px; }
 }
 
+/* JEG-826: honesty banner when DDF Value is built from the same charts it is compared against. */
+.v2-circular-banner { background: var(--v2-warn-bg, #FFF8E1); border: 1px solid var(--v2-warn-border, #FFD54F);
+  border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; color: var(--v2-fg); }
+.v2-circular-banner p { margin: 0; }
+.v2-circular-inline { font-style: italic; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .v2-circular-banner { --v2-warn-bg: #3E2E00; --v2-warn-border: #8D6E00; }
+}
+
 /* JEG-827: the Values "Rank by" field shrinks with the toolbar row instead of running 2 px past a 320 px screen. */
 @media (max-width: 767px) {
   #v2Main .v2-toolbar .v2-field-rank { flex: 1 1 100%; min-width: 0; max-width: 100%; }
