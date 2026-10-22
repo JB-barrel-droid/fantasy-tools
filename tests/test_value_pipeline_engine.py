@@ -210,7 +210,8 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assertGreater(esx.count_leaves(self.doc["variant_expected_starts"]["expected"]), 1500)
         exp = self.doc["variant_expected_starts"]["expected"]
         self.assertFalse(exp["bench_share_readout"]["override"])
-        # A second depth band and two starters per team are pinned.
+        # JEG-879: bench_per_team=4 gives WR 3 bench seats (rostered=6),
+        # so the waiver line falls below the depth boundary -> 2 bands.
         self.assertEqual(len(exp["sources"]["p1"]["positions"]["WR"]["bands"]), 2)
         self.assertEqual(exp["sources"]["p1"]["positions"]["WR"]["lineup"]["n_per_team"], 2)
 
@@ -234,6 +235,8 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assert_variant_fails([("chartSigma[pos].sigma_rel * esConfidence", "chartSigma[pos].sigma_rel")])
 
     def test_guard_catches_one_band_only(self):
+        # JEG-879: bench_per_team=4 gives WR 2 bands; the mutation collapses
+        # every position to 1 band, so the comparison must fail.
         self.assert_variant_fails([("if (!teams || idx >= work.length || work[idx].native <= waiver) break;",
                                     "break;")])
 

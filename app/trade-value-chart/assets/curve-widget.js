@@ -91,7 +91,9 @@
   // VP-11: the DDF inputs are source keys. The pre-JEG-508 names of the
   // charts' inputs (fantasycalc_adjusted, ...) are still accepted by
   // setCompositeInputs and mapped to the chart (COMPOSITE_INPUT_ALIASES).
-  const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"];
+  // JEG-804 (Jeremy Q4, 2026-10-22): DDF Value = projection sources only.
+  // Trade charts are out of DDF Value; they stay on the Indexed/VORP tabs.
+  const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball"];
   const EXTRA_SOURCE_KEYS = [];
   // The four "*_adjusted" series are deprecated aliases (VP-11 retires them):
   // each carries its chart's Adjusted values (VP-5.5) in every tab, so the v2
@@ -947,7 +949,7 @@
   const COMPOSITE_PROJECTION_INPUTS = ["espn", "cbsros", "razzball"];
   const COMPOSITE_CHART_INPUTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"];
   const COMPOSITE_VERSIONS = {
-    ddf_value: COMPOSITE_INPUT_KEYS,
+    ddf_value: COMPOSITE_PROJECTION_INPUTS,
     ddf_value_charts: COMPOSITE_CHART_INPUTS,
     ddf_value_projections: COMPOSITE_PROJECTION_INPUTS,
   };
@@ -1049,7 +1051,7 @@
       series,
       requested: compositeInputs ? [...compositeInputs] : null,
       isDefault: compositeInputs === null,
-      defaults: [...pipelineState.included],
+      defaults: [...COMPOSITE_INPUT_KEYS],
       allowed: [...COMPOSITE_INPUT_KEYS],
       excluded,
       held: COMPOSITE_INPUT_KEYS.filter(compositeKeyHeld),
@@ -2375,7 +2377,9 @@
           return {ok: false, error: `DDF Value needs at least ${COMPOSITE_MIN_SOURCES} usable input for ${scoreLabel()} / ${teams} teams`};
         }
       }
-      const defaults = pipelineState.included;
+      // JEG-804: the default DDF Value inputs are the accepted projection
+      // keys, not the full pipeline (which includes charts the setter rejects).
+      const defaults = COMPOSITE_INPUT_KEYS;
       if (next && next.length === defaults.length && next.every(key => defaults.includes(key))) next = null;
     }
     const before = JSON.stringify(compositeInputs);
