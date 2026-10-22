@@ -203,7 +203,8 @@
     a.dataset.sourceLink = sourceMeta(key).publisher;
     a.textContent = text;
     a.setAttribute("aria-label", `${text}: open the publisher's page in a new tab`);
-    ["click", "keydown", "pointerdown"].forEach(type => a.addEventListener(type, event => event.stopPropagation()));
+    // JEG-850: Escape still reaches the page, so it closes Customize from a source link too.
+    ["click", "keydown", "pointerdown"].forEach(type => a.addEventListener(type, event => { if (event.key !== "Escape") event.stopPropagation(); }));
     return a;
   }
 
@@ -236,7 +237,7 @@
     chip.className = `v2-div-chip is-${chipClass}`;
     chip.dataset.divergence = publisher;
     chip.dataset.status = status;
-    const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : (inRange ? "In range" : "Check"));
+    const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : (inRange ? "Normal range" : "Under review"));
     const message = inRange
       ? `${PUBLISHER_NAMES[publisher] || publisher}: in line with its usual range (${Math.round(entry.outlier_rate * 100)}% vs ${Math.round(entry.usual_outlier_rate * 100)}%).`
       : String(entry.message || "").trim() || `${PUBLISHER_NAMES[publisher] || publisher} disagrees with the other sources more than usual.`;
@@ -252,7 +253,10 @@
     const sym = document.createElement("span");
     sym.setAttribute("aria-hidden", "true");
     sym.textContent = status === "excluded" ? "✗ " : (status === "reviewed" ? "✓ " : "⚑ ");
-    chip.append(sym, document.createTextNode(word));
+    const wordSpan = document.createElement("span");
+    wordSpan.className = "v2-div-word";
+    wordSpan.textContent = word;
+    chip.append(sym, wordSpan);
     return chip;
   }
   const appendDivergence = (parent, key, opts) => {
@@ -274,8 +278,8 @@
   // charts-only and projections-only versions are off until picked. `field` is the engine's row.ddfByVersion key.
   const DDF_VERSIONS = {
     ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B"},
-    ddf_value_charts: {field: "charts", label: "DDF Value · trade charts", symbol: "✦", light: "#8A5A00", dark: "#E6B450"},
-    ddf_value_projections: {field: "projections", label: "DDF Value · projections", symbol: "✧", light: "#7A3E8E", dark: "#C795DA"}
+    ddf_value_charts: {field: "charts", label: "DDF Value: charts only", symbol: "✦", light: "#8A5A00", dark: "#E6B450"},
+    ddf_value_projections: {field: "projections", label: "DDF Value: projections only", symbol: "✧", light: "#7A3E8E", dark: "#C795DA"}
   };
   const DDF_KEYS = Object.keys(DDF_VERSIONS);
   const isDdfKey = key => Object.prototype.hasOwnProperty.call(DDF_VERSIONS, key);
@@ -844,7 +848,12 @@
       : pageKeys(page).filter(key => view.infoByKey[key] && view.infoByKey[key].available && !pageCannotUse(page, key));
     $("v2ShowingLabel").textContent = page === "values" ? "On the chart:" : "On this page:";
     const counts = SERIES_GROUPS.map(g => ({g, n: shownKeys.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
-    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)).join(" + ") || "nothing selected"}`
+    // JEG-850: the line also says when the DDF blend is customized and when the chart legend has turned a line off.
+    const customBlend = page === "values" && C.getCompositeInputs ? !C.getCompositeInputs().isDefault : false;
+    const legendHidden = page === "values" ? shownKeys.filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length : 0;
+    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
+      + (c.g.id === "ddf" && customBlend ? " (custom blend)" : "")).join(" + ") || "nothing selected"}`
+      + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();
@@ -1470,11 +1479,19 @@
   // Why a value is "—", for every tab: the engine's own reason first (row.missingReasons[key], e.g.
   // "Not enough players to fit an adjustment"), then row.ddfReason for the DDF Value (JEG-479), then a
   // generic line. A finite 0 is a value ("0.0"), never missing.
+  // JEG-850: when a DDF Value version has no source turned on, say that, not "No source prices this player".
+  function ddfNoInputsReason(key) {
+    const info = C.getCompositeInputs ? C.getCompositeInputs(key) : null;
+    if (!info || (info.series || []).length) return "";
+    return (info.inputs || []).length ? "Every source in this DDF Value is paused this week"
+      : "No sources are turned on for this DDF Value (see Customize, DDF blend)";
+  }
   function missingReason(key, row) {
     const own = row && row.missingReasons ? row.missingReasons[key] : null;
+    if (isDdfKey(key) && own === "No source prices this player" && ddfNoInputsReason(key)) return ddfNoInputsReason(key);   // JEG-850
     if (typeof own === "string" && own.trim()) return own;
     const ddfReason = isDdfKey(key) ? (key === DDF_KEY && row && row.ddfReason) || (ddfEntry(row, key) || {}).reason : null;
-    if (ddfReason) return ddfReason;
+    if (ddfReason) return ddfReason === "No source prices this player" && ddfNoInputsReason(key) ? ddfNoInputsReason(key) : ddfReason;
     const item = view && view.infoByKey[key];
     const name = sourceMeta(key).short;
     if (item && !item.available) return `${name} is unavailable right now, so no player has a value from it`;
@@ -2141,28 +2158,120 @@
     return null;
   }
 
-  // ---------- 09 / 20 Customize values (JEG-466, spec JEG-474) ----------
-  // Grouped by type, not publisher; each group explains itself. A draft until Done.
-  // JEG-498 (contract GL-07): every page has its own Customize with its own default set, remembered on this device.
-  // Player values drives the engine's shown series; the other pages keep a list of their own (pageKeys).
+  // ---------- 09 / 20 Customize values (JEG-466, spec JEG-474; JEG-850 two tabs) ----------
+  // Two tabs: "Chart lines" (which series show on this page, a draft until Done) and "DDF blend" (which sources build
+  // DDF Value, one shared choice that applies on every page; Player values only). Plain copy only: no raw ids or
+  // pipeline strings. JEG-498 (contract GL-07): every page has its own Customize with its own default set, remembered
+  // on this device. Player values drives the engine's shown series; the other pages keep a list of their own (pageKeys).
+  const DIALOG_GROUPS = [
+    {id: "ddf", title: "Our values", note: ""},
+    {id: "pub", title: "Published trade charts", note: "What the major sites say each player is worth, adjusted to your league's scale."},
+    {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
+    {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
+  const DDF_ROW_TIPS = {
+    ddf_value: "Our blended value, built from the sources on the DDF blend tab.",
+    ddf_value_charts: "DDF Value built only from trade chart sources.",
+    ddf_value_projections: "DDF Value built only from projection sources."};
+  // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
+  function plainOutReason(reason) {
+    const text = String(reason || "");
+    if (/divergence/i.test(text)) return "Left out this week";
+    if (/not available for|missing from/i.test(text)) return "Not available for your league";
+    if (/not yet published|older week|prior week/i.test(text)) return "Not published yet this week";
+    return "Paused this week";
+  }
   function openSources(anchor, pageArg) {
     const page = pageArg || pageOfView();
     const onValues = page === "values";
     const draft = new Set(onValues ? view.active : pageKeys(page));
     const composite = onValues && C.getCompositeInputs ? C.getCompositeInputs() : null;
     const inputsDraft = composite ? new Set(composite.inputs) : null;
-    openPanel(anchor || $("v2EditSources"), "Customize values", `Choose which series appear on ${PAGE_NAMES[page]}. Other pages keep their own choice.`, pop => {
+    const hasBlend = Boolean(composite);
+    let tab = "lines";
+    let resetPressed = false;
+    // JEG-542: a source out of the blend this week (held, left out, not published): never selectable. Only
+    // "not selected" stays selectable. JEG-807: a held input stays in the engine's pool (weights, pie) but out of
+    // its blend (`series`); the engine lists it under inputs, not excluded, so it is added here with its hold.
+    const excluded = new Map();
+    if (composite) {
+      (composite.excluded || []).filter(item => item.reason !== "not selected")
+        .forEach(item => excluded.set(item.key, plainOutReason(item.reason)));
+      (composite.inputs || []).filter(key => Array.isArray(composite.series) && !composite.series.includes(key))
+        .forEach(key => { if (!excluded.has(key)) excluded.set(key, plainOutReason(view.infoByKey[key]?.excludedReason)); });
+    }
+    const blendKeys = composite ? (composite.allowed || []) : [];
+    const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
+    // The last usable input stays on (a held source does not count).
+    const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
+    const versionUsable = versionKey => (versionKey === DDF_KEY ? usableOn()
+      : usableOn().filter(key => (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj"))).length;
+    openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
-      const summary = document.createElement("p");
-      summary.className = "v2-psummary";
-      summary.setAttribute("role", "status");
-      body.appendChild(summary);
-      const groupsBox = document.createElement("div");
-      body.appendChild(groupsBox);
       const err = document.createElement("p");
       err.className = "v2-perror";
+      err.setAttribute("role", "alert");
       err.hidden = true;
       err.textContent = "Choose at least one series.";
+      const tabBar = document.createElement("div");
+      tabBar.className = "v2-pseg v2-ctabs";
+      tabBar.setAttribute("role", "tablist");
+      tabBar.setAttribute("aria-label", "Customize sections");
+      const tabButtons = [["lines", "Chart lines"], ["blend", "DDF blend"]].map(([id, text]) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.id = `v2CustTab-${id}`;
+        b.dataset.tab = id;
+        b.setAttribute("role", "tab");
+        b.setAttribute("aria-controls", `v2CustPanel-${id}`);
+        b.textContent = text;
+        b.addEventListener("click", () => { tab = id; err.hidden = true; render(); });
+        tabBar.appendChild(b);
+        return b;
+      });
+      if (hasBlend) body.appendChild(tabBar);
+      body.appendChild(err);
+      const panelFor = id => {
+        const box = document.createElement("div");
+        box.id = `v2CustPanel-${id}`;
+        box.dataset.panel = id;
+        box.setAttribute("role", "tabpanel");
+        box.setAttribute("aria-labelledby", `v2CustTab-${id}`);
+        return box;
+      };
+      const linesPanel = panelFor("lines");
+      const blendPanel = panelFor("blend");
+      // Chart lines: intro, then the groups.
+      const linesIntro = document.createElement("p");
+      linesIntro.className = "v2-meta v2-cintro";
+      linesIntro.textContent = onValues ? "Which values show on the chart and table. Other pages keep their own choice."
+        : "Which values show on this page. Other pages keep their own choice.";
+      const linesSummary = document.createElement("p");
+      linesSummary.className = "v2-psummary";
+      linesSummary.setAttribute("role", "status");
+      const groupsBox = document.createElement("div");
+      linesPanel.append(linesIntro, linesSummary, groupsBox);
+      // DDF blend: intro, the count, the two input lists.
+      const blendIntro = document.createElement("p");
+      blendIntro.className = "v2-meta v2-cintro";
+      blendIntro.textContent = "Which sources feed into DDF Value. This choice applies on every page.";
+      const blendSummary = document.createElement("p");
+      blendSummary.className = "v2-psummary";
+      blendSummary.setAttribute("role", "status");
+      const blendBox = document.createElement("div");
+      blendPanel.append(blendIntro, blendSummary, blendBox);
+      body.append(linesPanel);
+      if (hasBlend) body.append(blendPanel);
+
+      function metaNote(label, text) {
+        const why = document.createElement("span");
+        why.className = "v2-meta";
+        why.textContent = text;
+        label.appendChild(why);
+      }
+      function refocus(selector) {
+        const again = body.querySelector(selector);
+        if (again) again.focus();
+      }
       function rowFor(item) {
         const meta = sourceMeta(item.key);
         const label = document.createElement("label");
@@ -2178,8 +2287,7 @@
           if (box.checked) draft.add(item.key); else draft.delete(item.key);
           err.hidden = true;
           render();
-          const again = groupsBox.querySelector(`[data-series="${item.key}"]`);
-          if (again) again.focus();
+          refocus(`[data-series="${item.key}"]`);
         });
         const name = document.createElement("span");
         name.className = "v2-crow-name";
@@ -2189,88 +2297,81 @@
         if (item.stale) label.appendChild(weekBadge(item.key));
         appendDivergence(label, item.key);
         if (!item.available || pageNo) {
-          const why = document.createElement("span");
-          why.className = "v2-meta";
-          why.textContent = !item.available ? (heldReason(item) ? "Held this week (data check)"
-            : item.paused ? "Waiting on fresh inputs" : "Not available for this league") : pageNo;
-          label.appendChild(why);
+          metaNote(label, !item.available ? (heldReason(item) ? "Paused this week"
+            : item.paused ? "Waiting on fresh inputs" : "Not available for your league")
+            : (page === "targets" ? `Not used on ${PAGE_NAMES[page]}` : pageNo));
+        } else if (isDdfKey(item.key) && hasBlend && draft.has(item.key) && versionUsable(item.key) === 0) {
+          metaNote(label, "No sources on in the DDF blend");   // JEG-850: a version with nothing to build from
+        } else if (!resetPressed && item.key !== view.rankKey && draft.has(item.key) && state.hiddenSeries.has(item.key)) {
+          metaNote(label, "Hidden with the chart legend");
         }
-        if (item.waiverNote && item.available) label.title = item.waiverNote;
+        label.title = isDdfKey(item.key) ? DDF_ROW_TIPS[item.key] : (item.waiverNote && item.available ? item.waiverNote : "");
         return label;
       }
-      // A DDF Value version's inputs: its allowed series, the excluded ones with the engine's reason.
-      // JEG-542: one list under each of the three versions. The inputs are one shared choice (the engine's
-      // setCompositeInputs), so a tick under one version moves the same input under the others. The blend
-      // lists every input; trade charts only lists the trade charts; projections only lists the projections.
-      function ddfInputs(versionKey) {
-        const box = document.createElement("fieldset");
-        box.className = "v2-ddf-inputs";
-        box.dataset.ddfVersion = versionKey;
-        const legend = document.createElement("legend");
-        const inFamily = key => versionKey === DDF_KEY || (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj");
-        // Only "not selected" stays selectable: a held, prior-week or unavailable source is never a DDF input (JEG-479).
-        const excluded = new Map((composite.excluded || []).filter(item => item.reason !== "not selected")
-          .map(item => [item.key, item.reason]));
-        // JEG-807: a held input stays in the engine's pool (`inputs`, JEG-569: weights and pie) but out of its
-        // blend (`series`); the engine lists it under inputs, not excluded, so it is added here with its hold.
-        (composite.inputs || []).filter(key => Array.isArray(composite.series) && !composite.series.includes(key))
-          .forEach(key => { if (!excluded.has(key)) excluded.set(key, view.infoByKey[key]?.excludedReason || "held this week"); });
-        const keys = (composite.allowed || []).filter(inFamily);
-        // JEG-807: the count is the sources the blend reads this week (the engine's `series`), never a ticked
-        // source the engine holds or has not seen published for the current week.
-        const used = [...inputsDraft].filter(inFamily).filter(key => !excluded.has(key)).length;
-        const out = keys.filter(key => excluded.has(key)).length;
-        legend.textContent = `Built from ${used} of ${keys.length} input${keys.length === 1 ? "" : "s"}`
-          + (out ? ` · ${out} held or not yet published this week` : "");
-        box.appendChild(legend);
-        keys.forEach(key => {
-          const meta = sourceMeta(key);
-          const label = document.createElement("label");
-          label.className = `v2-crow${excluded.has(key) ? " is-disabled" : ""}`;
-          const input = document.createElement("input");
-          input.type = "checkbox";
-          // The blend's boxes keep data-ddf-input; the other versions' boxes are keyed by version too.
-          if (versionKey === DDF_KEY) input.dataset.ddfInput = key;
-          else input.dataset.ddfVersionInput = `${versionKey}:${key}`;
-          input.checked = inputsDraft.has(key);
-          input.disabled = excluded.has(key) || (inputsDraft.size === 1 && inputsDraft.has(key));
-          input.addEventListener("change", () => {
-            if (input.checked) inputsDraft.add(key); else inputsDraft.delete(key);
-            render();
-            const again = groupsBox.querySelector(versionKey === DDF_KEY ? `[data-ddf-input="${key}"]`
-              : `[data-ddf-version-input="${versionKey}:${key}"]`);
-            if (again) again.focus();
-          });
-          const name = document.createElement("span");
-          name.className = "v2-crow-name";
-          name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
-          const group = SERIES_GROUPS.find(g => g.id === seriesGroup(key));
-          name.append(sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label), document.createTextNode(` · ${group ? group.one : meta.short}`));
-          label.append(input, name);
-          if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
-          appendDivergence(label, key);
-          if (excluded.has(key)) {
-            const why = document.createElement("span");
-            why.className = "v2-meta";
-            why.textContent = excluded.get(key);
-            label.appendChild(why);
-          }
-          box.appendChild(label);
+      // One blend input. The inputs are one shared choice (the engine's setCompositeInputs).
+      function blendRow(key) {
+        const meta = sourceMeta(key);
+        const label = document.createElement("label");
+        const out = excluded.get(key);
+        const last = isLastInput(key);
+        label.className = `v2-crow${out ? " is-disabled" : ""}`;
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.dataset.ddfInput = key;
+        input.checked = inputsDraft.has(key) && !out;
+        input.disabled = Boolean(out) || last;
+        input.addEventListener("change", () => {
+          if (input.checked) inputsDraft.add(key); else inputsDraft.delete(key);
+          err.hidden = true;
+          render();
+          refocus(`[data-ddf-input="${key}"]`);
         });
-        return box;
+        const name = document.createElement("span");
+        name.className = "v2-crow-name";
+        name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
+        name.append(sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
+        label.append(input, name);
+        if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
+        appendDivergence(label, key);
+        if (out) metaNote(label, out);
+        else if (last) metaNote(label, "Last source stays on");
+        return label;
       }
-      function render() {
+      function renderBlend() {
+        blendBox.replaceChildren();
+        if (!hasBlend) return;
+        const total = blendKeys.length;
+        const using = usableOn().length;
+        blendSummary.textContent = `Using ${using} of ${total} sources`;
+        [["pub", "Trade charts"], ["proj", "Projections"]].forEach(([groupId, title]) => {
+          const keys = blendKeys.filter(key => seriesGroup(key) === groupId);
+          if (!keys.length) return;
+          const section = document.createElement("section");
+          section.className = "v2-cgroup";
+          section.dataset.blendGroup = groupId;
+          const h = document.createElement("h3");
+          h.textContent = title;
+          const head = document.createElement("div");
+          head.className = "v2-cgroup-head";
+          head.appendChild(h);
+          section.appendChild(head);
+          keys.forEach(key => section.appendChild(blendRow(key)));
+          blendBox.appendChild(section);
+        });
+      }
+      function renderLines() {
         groupsBox.replaceChildren();
-        SERIES_GROUPS.forEach(g => {
+        DIALOG_GROUPS.forEach(g => {
           const items = view.info.filter(item => seriesGroup(item.key) === g.id);
           if (!items.length) return;
-          const section = document.createElement(g.id === "vorp" ? "details" : "section");
+          const advanced = g.id === "vorp";
+          const section = document.createElement(advanced ? "details" : "section");
           section.className = "v2-cgroup";
           section.dataset.group = g.id;
-          const head = document.createElement(g.id === "vorp" ? "summary" : "div");
+          const head = document.createElement(advanced ? "summary" : "div");
           head.className = "v2-cgroup-head";
           const title = document.createElement("h3");
-          title.textContent = g.id === "vorp" ? `Advanced · ${g.title}` : g.title;
+          title.textContent = g.title;
           head.appendChild(title);
           if (g.id === "ddf") head.appendChild(namesInfoButton("Customize"));
           const selectable = items.filter(item => item.available && (onValues || !pageCannotUse(page, item.key)));
@@ -2283,24 +2384,45 @@
           all.addEventListener("click", event => {
             event.preventDefault();
             selectable.forEach(item => (allOn ? draft.delete(item.key) : draft.add(item.key)));
+            err.hidden = true;
             render();
           });
           head.appendChild(all);
-          const note = document.createElement("p");
-          note.className = "v2-meta";
-          note.textContent = g.id === "ddf" ? `${g.note} Its inputs ${onValues ? "apply on every page" : "are set on Player values"}.` : g.note;
-          section.append(head, note);
-          // The DDF group lists three versions, each with its own inputs under it (JEG-542).
-          items.forEach(item => {
-            section.appendChild(rowFor(item));
-            if (g.id === "ddf" && composite && onValues && isDdfKey(item.key)) section.appendChild(ddfInputs(item.key));
-          });
-          if (g.id === "vorp" && items.some(item => draft.has(item.key))) section.open = true;
+          section.appendChild(head);
+          const noteText = g.id === "ddf" ? (onValues ? "" : "The sources that build DDF Value are set on Player values.") : g.note;
+          if (noteText) {
+            const note = document.createElement("p");
+            note.className = "v2-meta";
+            note.textContent = noteText;
+            section.appendChild(note);
+          }
+          items.forEach(item => section.appendChild(rowFor(item)));
+          if (advanced && items.some(item => draft.has(item.key))) section.open = true;   // collapsed unless one is picked
           groupsBox.appendChild(section);
         });
-        summary.textContent = `${draft.size} series selected · applies to ${PAGE_NAMES[page]} only`;
+        // The count says what Done will apply, and names a line the chart legend has turned off.
+        const hiddenN = resetPressed ? 0 : [...draft].filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length;
+        linesSummary.textContent = `${draft.size} series selected${hiddenN ? ` (${hiddenN} hidden with the chart legend)` : ""}`
+          + ` · applies to ${PAGE_NAMES[page]} only`;
       }
-      body.appendChild(err);
+      function render() {
+        renderLines();
+        renderBlend();
+        tabButtons.forEach(b => {
+          const on = b.dataset.tab === tab;
+          b.classList.toggle("is-on", on);
+          b.setAttribute("aria-selected", String(on));
+          b.tabIndex = on ? 0 : -1;
+        });
+        linesPanel.hidden = tab !== "lines";
+        blendPanel.hidden = tab !== "blend";
+      }
+      function fail(text, onTab) {
+        err.textContent = text;
+        err.hidden = false;
+        tab = onTab;
+        render();
+      }
       const reset = document.createElement("button");
       reset.type = "button";
       reset.className = "v2-btn v2-preset";
@@ -2309,13 +2431,15 @@
         draft.clear();
         (onValues ? startActive || [] : pageDefault(page)).forEach(key => draft.add(key));
         if (inputsDraft) { inputsDraft.clear(); (composite.defaults || []).forEach(key => inputsDraft.add(key)); }
+        resetPressed = true;   // JEG-850: Done also clears the lines the chart legend turned off
+        err.hidden = true;
         render();
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Done", true, () => {
-        if (!draft.size) { err.hidden = false; return; }
         if (!onValues) {
+          if (!draft.size) { fail("Choose at least one series.", "lines"); return; }
           const need = pageNeed(page, draft);
-          if (need) { err.textContent = need; err.hidden = false; return; }
+          if (need) { fail(need, "lines"); return; }
           savePageKeys(page, [...draft]);
           // The page follows its new set: Trade targets reads the first ticked value as ours, Risers opens on the first
           // ticked series. The on-page pickers still offer every series for a one-off look.
@@ -2329,10 +2453,20 @@
           refresh();
           return;
         }
+        // JEG-850: the engine always keeps one source, so a draft with none cannot be applied as shown. Block it.
+        if (![...draft].some(key => !isDdfKey(key) && view.infoByKey[key] && view.infoByKey[key].available)) {
+          fail("Pick at least one source. DDF Value is built from sources, so it cannot be shown on its own.", "lines");
+          return;
+        }
+        if (inputsDraft && !usableOn().length) {
+          fail("Keep at least one source on in the DDF blend.", "blend");
+          return;
+        }
         const adds = [...draft].filter(key => !view.active.includes(key));
         const drops = view.active.filter(key => !draft.has(key));
         adds.forEach(toggleEngineSource);
         drops.forEach(toggleEngineSource);
+        if (resetPressed) state.hiddenSeries.clear();
         if (inputsDraft && C.setCompositeInputs) {
           const info = C.getCompositeInputs();
           const defaults = info.defaults || [];
@@ -2347,7 +2481,8 @@
         saveSelection();
         closePopover();
         refresh();
-      }, {"data-apply": "sources"}]], reset);
+      }, {"data-apply": "sources"}]], reset).classList.add("v2-cust-foot");
+      body.classList.add("v2-cust-body");
       render();
     });
   }
