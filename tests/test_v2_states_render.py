@@ -199,7 +199,7 @@ def run_checks(v2_js=None, v2_css=None, with_failure=True) -> list[str]:
                                        " || !document.getElementById('v2Main').hidden", timeout=45000)
                 failed = page.evaluate("""() => ({state: document.querySelector('.v2-state').dataset.state,
                   retry: !document.getElementById('v2StateRetry').hidden,
-                  tabs: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How'].filter(id => !document.getElementById(id).hidden),
+                  tabs: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto', 'v2Research'].filter(id => !document.getElementById(id).hidden),
                   digits: (document.querySelector('.v2-app').innerText.match(/\\d+(\\.\\d)?/g) || [])})""")
                 if failed["state"] != "failed" or not failed["retry"] or failed["tabs"] or failed["digits"]:
                     errors.append(f"failure state wrong: {failed}")

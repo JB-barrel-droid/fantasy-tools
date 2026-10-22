@@ -991,3 +991,12 @@ Jeremy, 2026-10-16:
 1. Q1: "Both: point the checks at the live engine and retire the unused code." The +3 / >28 checks on `unified.positional_max_for_setup` are retired with that function, `projection_max_vorp`, and the browser translation port in `value-model.js` (`translatePublishedVorp`, `positionalMaxForSetup`, `imputeExtension` and helpers). The new guard, `tests/test_two_qb_direction.py`: at every scoring and team count, the 2-QB top QB's blended DDF Value is at least 1.2 times its 1-QB value, on the Python reference and on the engine headless (which must also equal the reference). The server translation (`unified.translate_source`) stays: its grains are a record.
 2. Q2: "Park until a second superflex source." Revisit when one is wired (KeepTradeCut, JEG-669, is the candidate).
 3. Q3: "Undo the per-game change (JEG-535) for ESPN." Not the recommended option. Implementation notes are added below when it lands.
+
+## JEG-792: remove the self-host Supabase stack (cancelled)
+
+Jeremy, 2026-10-22 (multiple choice): cancel the move to a Mac-mini self-hosted Supabase and remove it; cloud Supabase on Pro stays.
+
+- Removed (repo only): `selfhost/` (compose stack, gateway, init SQL, backup/restore, key generator, `migrate/` export/import/verify scripts), `docs/selfhost-runner.md`, `docs/selfhost-supabase.md`, `docs/selfhost-tables.md`.
+- Kept: `sql/reference/cloud_cron_jobs_2026-10-21.sql` (moved from `selfhost/migrate/cron_and_functions.sql`), the only repo record of the 20 cloud pg_cron jobs and dispatch function bodies; `docs/supabase-egress-notes.md` points to it. Also kept: the bounded value-check log (`pipelines/load_value_check.py`, migration 014), which is cloud-side work that only cites the ticket.
+- No workflow, Makefile target, pipeline or test imported selfhost code (grep 2026-10-22).
+- Restore: `git checkout 86d3f37d5cf8991e09057ac4dedb791b3662e34c -- selfhost docs/selfhost-runner.md docs/selfhost-supabase.md docs/selfhost-tables.md` (last commit touching `selfhost/`; the docs files are in the same history).

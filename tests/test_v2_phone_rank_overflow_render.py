@@ -20,7 +20,7 @@ from tests import _render_env
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 CSS = ROOT / "app" / "v2" / "v2.css"
-HASHES = ("player-values", "trade-targets", "risers-fallers", "compare-trade", "how-values", "research", "values-auditing", "manifesto")
+HASHES = ("player-values", "trade-targets", "risers-fallers", "compare-trade", "writing/how-values", "writing/research", "values-auditing", "writing/manifesto")
 FIX = re.compile(r"\n/\* JEG-827: the Values \"Rank by\".*?\n\}\n", re.S)
 
 

@@ -1,6 +1,8 @@
-"""Phone nav guard (JEG-818): the 7-tab nav row must not widen the page.
+"""Phone nav guard (JEG-818): the nav row at its worst case of seven tabs must not widen the page.
 
-At 320 px the nowrap row of seven 44 px tabs pushed the document 47 px sideways.
+The nav has six tabs since JEG-855 (Writing), but Find a trade makes seven, so the
+page pads the row with one stand-in tab and the check holds the seven-tab case; without the padding the old CSS no longer
+overflows and the guard below would prove nothing. At 320 px the nowrap row of seven 44 px tabs pushed the document 47 px sideways.
 The page must not scroll sideways at 320, 375, 414, 768 or 1440, every tab must
 still be on screen inside the viewport, and each tab keeps a 44 px hit area on
 phones.
@@ -55,6 +57,10 @@ def _run(css=None) -> dict:
                 page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
             page.goto(base + "#trade-targets", wait_until="networkidle")
             page.wait_for_timeout(1000)
+            page.evaluate("""() => { const nav = document.querySelector('.v2-tabs'); const last = nav.lastElementChild;
+              ['Find'].forEach(short => { const t = last.cloneNode(true); t.dataset.view = 'standin-' + short;
+                t.dataset.short = short; t.classList.remove('is-active'); t.removeAttribute('aria-current'); nav.appendChild(t); }); }""")
+            page.wait_for_timeout(200)
             out[width] = page.evaluate(NAV)
             page.close()
         browser.close()
@@ -64,8 +70,8 @@ def _run(css=None) -> dict:
 def _errors(result) -> list[str]:
     errors = []
     for width, r in result.items():
-        if r["count"] != 8:
-            errors.append(f"{width}: {r['count']} tabs, want 8")
+        if r["count"] != 7:
+            errors.append(f"{width}: {r['count']} tabs, want 7 (6 real + 1 stand-in)")
         if r["over"] > 0:
             errors.append(f"{width}: page scrolls sideways by {r['over']}")
         if r["offscreen"]:

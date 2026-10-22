@@ -47,7 +47,7 @@ def setUpModule():
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-TABS = ("manifesto", "player-values", "trade-targets", "risers-fallers", "compare-trade", "how-values", "values-auditing")
+TABS = ("writing/manifesto", "player-values", "trade-targets", "risers-fallers", "compare-trade", "writing/how-values", "values-auditing")
 
 CONTRAST = r"""() => {
   const parse = c => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(',').map(Number);
@@ -186,7 +186,7 @@ class A11yRenderTest(unittest.TestCase):
         broken = {
             "no dark publisher palette": ({"v2_js": js.replace(
                 "const pubColor = publisher => (isDark() && DARK_COLORS[publisher]) ||",
-                "const pubColor = publisher =>", 1)}, {"schemes": ("dark",), "widths": (1440,), "tabs": ("how-values",)}),
+                "const pubColor = publisher =>", 1)}, {"schemes": ("dark",), "widths": (1440,), "tabs": ("writing/how-values",)}),
             "focus escapes dialogs": ({"v2_js": js.replace('      if (event.key === "Tab") {', '      if (false) {', 1)},
                                       {"schemes": ("light",), "widths": (1440,), "tabs": ()}),
             "tint text reverted": ({"v2_css": css.replace("  --v2-action-strong: #066B4C;", "  --v2-action-strong: #087F5B;", 1)},
