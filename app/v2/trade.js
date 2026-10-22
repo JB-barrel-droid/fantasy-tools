@@ -168,6 +168,8 @@
   //   data     a low-confidence (one-source) DDF Value in the trade lowers the propose line one level.
   const THIN_MARGIN = 0.05;
   const LEVELS = ["Low", "Medium", "High"];
+  // "say you win" / "says you lose" / "call it even": a side in plain words, for a plural or singular subject.
+  const sideWords = (side, say, call) => (side === "even" ? `${call} it even` : `${say} you ${side}`);
   const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
   const capped = (level, cap) => LEVELS[Math.min(LEVELS.indexOf(level), LEVELS.indexOf(cap))];
   function tradeHeadlines(rows, key, ctx) {
@@ -212,7 +214,8 @@
         level = "Low";
         if (thinFlag) reasons.push("the margin is under 5% of the value traded");
         if (pSide === null) reasons.push("DDF Projections cannot score this trade");
-        else if (pSide !== vSide) reasons.push(`DDF Projections disagree (${fmtNet(pNet)})`);
+        // JEG-888: "disagree (+7.3)" read as a contradiction; say which way each one points instead.
+        else if (pSide !== vSide) reasons.push(`DDF Projections ${sideWords(pSide, "say", "call")} (${fmtNet(pNet)}) while DDF Value ${sideWords(vSide, "says", "calls")}`);
         else reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }

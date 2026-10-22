@@ -4084,6 +4084,9 @@
     empty.replaceChildren(document.createTextNode(`No player matches “${query.trim()}”. `), clear);
   }
 
+  // JEG-888: "N trade charts" from the compared set, singular when one.
+  const tradeChartCount = n => `${n} trade chart${n === 1 ? "" : "s"}`;
+
   function renderTargets() {
     collect();
     collectTargets();
@@ -4103,6 +4106,11 @@
     // JEG-868: with a trade chart as Our value, the compared charts are "the other charts".
     const oursIsChart = window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours);
     const chartsWord = oursIsChart ? "the other charts" : "the charts";
+    // JEG-888: the intro counts the charts this view actually compares (held and skipped charts, and our own
+    // chart, are not in `used`), so it never says "four" in a three-chart week.
+    const introCount = targetsView.used.length;
+    const introCharts = !introCount ? "the trade charts" : sc ? `${tradeChartCount(1)} (${scName})` : tradeChartCount(introCount);
+    $("v2TIntro").textContent = `We check ${introCharts} against our values for your league, two ways: potential mispricing, player by player, and potential positional weight inflation, position by position. Sell what they overpay for; buy what they undervalue.`;
     let renderError = null;
     TARGET_SIDES.forEach(side => {
       const ids = TARGET_IDS[side];
@@ -5258,7 +5266,8 @@
   // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
   // (symbol + word), with the reasons on a second muted line. Never colour alone.
   const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
-  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "?", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
+  // JEG-888: the Unclear glyph is not "?": the question already ends with one and the line read "…accept? ? Unclear".
+  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "–", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
   function renderHeadlines() {
     const box = $("v2CHeads");
