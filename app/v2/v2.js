@@ -2353,7 +2353,7 @@
   const SAVE_KEY = "ddf.v2.selection";
   function defaultShown() {
     const info = C.getSourceInfo();
-    return [DDF_KEY].concat(info.filter(item => item.available && sourceMeta(item.key).method === "indexed").map(item => item.key));
+    return [DDF_KEY].concat(info.filter(item => item.available && !isEngineAlias(item.key) && sourceMeta(item.key).method === "indexed").map(item => item.key));
   }
   // Make the shown series equal `keys` (adds before drops, so the engine never has none).
   function applyShown(keys) {
@@ -2377,6 +2377,7 @@
   function loadSelection() {
     try {
       const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      // JEG-843: a saved selection may hold the retired *_adjusted aliases; applyShown drops them.
       return saved && saved.v === 1 && Array.isArray(saved.shown) ? saved : null;
     } catch (error) { return null; }
   }
