@@ -812,7 +812,18 @@
   }
 
   // ---------- header, league, methods ----------
+  // JEG-861: one "NFL Week 7 · as of Oct 22" line under every value page title, from the same data
+  // the Player values line uses (the data week, never the calendar week, and the fixture's built_at).
+  function pageStampText() {
+    const asOf = dataAsOfLabel();
+    return [view.refWeek ? `NFL Week ${view.refWeek}` : "", asOf ? `as of ${asOf}` : ""].filter(Boolean).join(" · ");
+  }
+  function renderPageStamps() {
+    const text = pageStampText();
+    document.querySelectorAll("[data-page-asof]").forEach(node => { node.textContent = text; });
+  }
   function renderHeader() {
+    renderPageStamps();
     const s = view.state;
     const scoring = {standard: "Standard", half_ppr: "Half PPR", ppr: "Full PPR"}[s.scoring] || s.scoring;
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
@@ -888,8 +899,8 @@
     $("v2Position").value = view.state.position;
     renderShow();
     // JEG-806: show data week and "as of <date>" so a reader knows how fresh the numbers are.
-    const asOf = dataAsOfLabel();
-    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${view.refWeek ? ` · Week ${view.refWeek}` : ""}${asOf ? ` · as of ${asOf}` : ""}`;
+    const stamp = pageStampText();
+    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${stamp ? ` · ${stamp}` : ""}`;
     $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
@@ -3586,7 +3597,7 @@
       note.textContent = sc ? `= ${scLabel}` : "= market consensus";
       note.title = sc
         ? `${scLabel}'s rescaled value is ${fmt(m.value)}, the same as our value.`
-        : `The median of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+        : `The middle value of the ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
       cell.appendChild(note);
       return;
     }
@@ -3594,7 +3605,7 @@
     const count = document.createElement("span");
     count.className = "why t-count";
     count.dataset.marketCount = String(m.count);
-    count.textContent = sc ? scLabel : `median of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
+    count.textContent = sc ? scLabel : `middle of ${m.count} chart${m.count === 1 ? "" : "s"}${m.left ? ` · ${m.left} left out` : ""}`;
     if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
     const diff = document.createElement("span");
     diff.className = "why t-diff";
@@ -3863,7 +3874,7 @@
     };
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
-    head("Market consensus", "num t-avg", "median of compared charts");
+    head("Market consensus", "num t-avg", "middle value of the compared charts");
     targetsView.used.forEach(key => {
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
@@ -4156,7 +4167,7 @@
       // Restore the multi-chart footnote if previously in single-chart mode.
       footEl.textContent = "";
       footEl.append(
-        document.createTextNode("Gap = market consensus (the median of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is "),
+        document.createTextNode("Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is "),
         oursSpan,
         document.createTextNode("; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. "),
         priorSpan,

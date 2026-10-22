@@ -270,13 +270,15 @@
   // ── Label helpers ───────────────────────────────────────────────────
 
   var SOURCE_LABELS = {
-    espn: "ESPN", cbsros: "CBS ROS", razzball: "Razzball",
+    espn: "ESPN", cbsros: "CBS rest of season", razzball: "Razzball",
     fantasycalc: "FantasyCalc", usatoday: "USA Today",
     fantasypros: "FantasyPros", cbs: "CBS"
   };
   var FAMILY_LABELS = {projection: "Projection", chart: "Trade chart"};
 
   function sourceLabel(src) {
+    // JEG-861: plain names first (no "CBS ROS" on the page); the engine's own label only for a source this map lacks.
+    if (SOURCE_LABELS[src]) return SOURCE_LABELS[src];
     var v2 = root.TradeValueV2;
     if (v2 && typeof v2.shown === "function") {
       try {
@@ -339,14 +341,14 @@
       var pplCell = td(fmt(r.perListed, 2), "audit-pie-num");
       if (r.flagPerListed) {
         pplCell.classList.add("audit-pie-flag");
-        pplCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(r.medPerListed, 2) + ")";
+        pplCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(r.medPerListed, 2) + ")";
       }
       tr.appendChild(pplCell);
 
       var prCell = td(fmt(r.perRosterable, 2), "audit-pie-num");
       if (r.flagPerRosterable) {
         prCell.classList.add("audit-pie-flag");
-        prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(r.medPerRosterable, 2) + ")";
+        prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(r.medPerRosterable, 2) + ")";
       }
       tr.appendChild(prCell);
 
@@ -424,7 +426,7 @@
         var prCell = td(fmt(pd.perRosterable, 2), "audit-pie-num");
         if (pd.flagPerRosterable) {
           prCell.classList.add("audit-pie-flag");
-          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(pd.medPerRosterable, 2) + ")";
+          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(pd.medPerRosterable, 2) + ")";
         }
         tr.appendChild(prCell);
 
@@ -524,7 +526,7 @@
     var note = el("p", "audit-pie-note",
       "Sources that post fewer players spread the same pie across fewer values. " +
       "The per-player-posted and per-rosterable-slot columns show this difference. " +
-      "Flagged values differ from the cross-source median by more than " +
+      "Flagged values differ from the middle value across sources by more than " +
       (FLAG_THRESHOLD * 100) + "%.");
     section.appendChild(note);
 
@@ -555,14 +557,14 @@
         var plCell = td(fmt(pd.perListed, 2), "audit-pie-num");
         if (pd.flagPerListed) {
           plCell.classList.add("audit-pie-flag");
-          plCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(pd.medPerListed, 2) + ")";
+          plCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(pd.medPerListed, 2) + ")";
         }
         tr.appendChild(plCell);
 
         var prCell = td(fmt(pd.perRosterable, 2), "audit-pie-num");
         if (pd.flagPerRosterable) {
           prCell.classList.add("audit-pie-flag");
-          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(pd.medPerRosterable, 2) + ")";
+          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(pd.medPerRosterable, 2) + ")";
         }
         tr.appendChild(prCell);
 
