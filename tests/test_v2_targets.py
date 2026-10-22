@@ -235,6 +235,8 @@ console.log(JSON.stringify({
   singleUSA: (() => { const r = T.buildTargets(input.consensus, ["usatoday"], {ours: "ddf_value"}); return {sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, singleChart: r.singleChart}; })(),
   // JEG-851: chart as our value — usatoday as ours, fantasycalc as the compared chart.
   chartAsOurs: (() => { const r = T.buildTargets(input.consensus, ["usatoday", "fantasycalc"], {ours: "usatoday"}); return {sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, singleChart: r.singleChart}; })(),
+  // JEG-868: chart as our value against ALL charts — every player's cells are exactly the other charts.
+  chartAsOursAll: (() => { const r = T.buildTargets(input.consensus, T.CHART_KEYS, {ours: "usatoday"}); return {cells: [...new Set(r.players.flatMap(p => Object.keys(p.cells)))].sort(), singleChart: r.singleChart}; })(),
   // JEG-851: chart as our value, same chart in the compare set — self-comparison excluded.
   selfCompare: (() => { const r = T.buildTargets(input.consensus, ["usatoday"], {ours: "usatoday"}); return {sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, singleChart: r.singleChart}; })(),
   // JEG-851: single-chart with an estimated value — must be excluded.
@@ -400,6 +402,10 @@ def check(result: dict) -> list[str]:
     cao = result.get("chartAsOurs", {})
     if cao.get("singleChart") != "fantasycalc":
         errors.append(f"chart-as-ours: with usatoday as ours, effectiveCharts should be [fantasycalc]: singleChart={cao.get('singleChart')}")
+    # JEG-868: usatoday as ours against all four charts: cells for exactly the other three, never our own.
+    caa = result.get("chartAsOursAll", {})
+    if caa.get("cells") != ["cbs", "fantasycalc", "fantasypros"] or caa.get("singleChart") is not None:
+        errors.append(f"chart-as-ours vs all: cells must be the other charts only: {caa}")
     # JEG-851: self-comparison (usatoday as both ours and the only chart) — no effective charts, empty lists.
     selfcmp = result.get("selfCompare", {})
     if selfcmp.get("sell") or selfcmp.get("buy"):
