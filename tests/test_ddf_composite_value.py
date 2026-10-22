@@ -185,10 +185,9 @@ SETTER = """async () => {""" + HELPERS + """
   out.quietShared = events.shared.length - quiet;
   out.reset = c.setCompositeInputs(null);
   out.resetRestores = ddf() === baseDdf && others() === baseOthers;
-  // JEG-804: defaults includes all pipeline sources (projections + charts)
-  // but only projection keys are valid setCompositeInputs arguments.
-  // Use allowed (= COMPOSITE_INPUT_KEYS = projections) to test explicit defaults.
-  out.explicitDefaults = c.setCompositeInputs(c.getCompositeInputs().allowed);
+  // JEG-804: defaults == allowed == projection keys.  Passing defaults
+  // explicitly should be recognised as the default state (isDefault: true).
+  out.explicitDefaults = c.setCompositeInputs(c.getCompositeInputs().defaults);
   out.explicitDefaultsSame = ddf() === baseDdf;
   out.resetAlias = c.resetCompositeInputs();
   out.eventsEnd = events;
@@ -333,6 +332,11 @@ HELD = """async () => {""" + HELPERS + """
   const isProjection = INPUTS.includes(heldKey);
   out.load = c.getCompositeInputs();
   out.loadByVersion = Object.fromEntries(VERSIONS.map(v => [v, c.getCompositeInputs(v)]));
+  // JEG-879: capture per-source excludedReason from getSourceInfo for
+  // checking that held chart reasons are visible.
+  out.sourceExcluded = Object.fromEntries(
+    c.getSourceInfo().filter(s => s.excludedReason).map(s => [s.key, s.excludedReason])
+  );
   checkMean('load', out.problems);
   leaks('load', held);
   if (isProjection) {
@@ -580,11 +584,13 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["quietShared"], 0, "publish=false still fired trade-value-shared-change")
         self.assertTrue(out["reset"]["ok"] and out["reset"]["isDefault"], out["reset"])
         self.assertTrue(out["resetRestores"], "null did not restore every value")
-        # JEG-804: allowed (projections) != defaults (all pipeline sources),
-        # so passing allowed explicitly is not marked isDefault by the engine,
-        # and ddf_value_charts loses its inputs (the explicit selection has
-        # no charts).  The null reset test above covers the real defaults.
+        # JEG-804: defaults == allowed == projection keys, so passing allowed
+        # explicitly is the same as the default state.
         self.assertTrue(out["explicitDefaults"]["ok"], out["explicitDefaults"])
+        self.assertTrue(out["explicitDefaults"]["isDefault"],
+                        "setCompositeInputs(allowed) should be isDefault")
+        self.assertTrue(out["explicitDefaultsSame"],
+                        "setCompositeInputs(allowed) should produce the same DDF value as baseDdf")
         self.assertTrue(out["resetAlias"]["ok"])
 
     def test_rank_zones_and_tiers_by_ddf_value(self):
@@ -754,7 +760,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
         for version in ("ddf_value", "ddf_value_projections"):
             info = out["loadByVersion"][version]
             self.assertIn(key, info["inputs"], f"{version}: held projection should be in inputs")
-        # It IS in the defaults (the pipeline's included set).
+        # JEG-804: defaults = COMPOSITE_INPUT_KEYS (projections); this key IS a projection.
         self.assertIn(key, out["load"]["defaults"])
         # It is reported as held.
         self.assertIn(key, out["load"]["held"])
@@ -776,20 +782,18 @@ class DdfHeldSeriesTest(unittest.TestCase):
         # The held chart IS in ddf_value_charts inputs (held but included in charts).
         charts_info = out["loadByVersion"]["ddf_value_charts"]
         self.assertIn(key, charts_info["inputs"], "ddf_value_charts: held chart should be in inputs")
-        # It IS in the defaults (the pipeline's included set).
-        self.assertIn(key, out["load"]["defaults"])
-        # JEG-804: getCompositeInputs().held only reports projection sources
-        # (COMPOSITE_INPUT_KEYS = projections).  A chart hold is visible in
-        # the ddf_value_charts version's excluded entries, not in the top-level held list.
-        # Verify the chart is NOT in the top-level held (it's a chart, not a projection).
+        # JEG-804: defaults = COMPOSITE_INPUT_KEYS = projections; chart is NOT in defaults.
+        self.assertNotIn(key, out["load"]["defaults"])
+        # getCompositeInputs().held only reports projection sources.
         self.assertNotIn(key, out["load"]["held"])
-        # But the chart hold IS reported in loadByVersion.
-        # The chart is in the charts inputs (held but counted), so it should
-        # be visible in the hidden set (excluded from display but in inputs).
-        self.assertTrue(
-            any(key in info.get("inputs", []) for info in out["loadByVersion"].values()),
-            f"{key} not found in any version's inputs"
-        )
+        # The chart IS hidden from display (series) but present in inputs.
+        self.assertNotIn(key, charts_info["series"],
+                         "held chart should be hidden from display series")
+        # JEG-879: the held chart's reason is visible via getSourceInfo().excludedReason.
+        self.assertIn(key, out["sourceExcluded"],
+                      f"{key} should have excludedReason in sourceInfo")
+        self.assertTrue(out["sourceExcluded"][key].startswith(reason_start),
+                        f"{key} excludedReason: {out['sourceExcluded'][key]}")
 
     def assert_never_included(self, out, key, reason_start):
         """A source genuinely missing (not yet published for the week).

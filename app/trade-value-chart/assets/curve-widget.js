@@ -1051,7 +1051,7 @@
       series,
       requested: compositeInputs ? [...compositeInputs] : null,
       isDefault: compositeInputs === null,
-      defaults: [...pipelineState.included],
+      defaults: [...COMPOSITE_INPUT_KEYS],
       allowed: [...COMPOSITE_INPUT_KEYS],
       excluded,
       held: COMPOSITE_INPUT_KEYS.filter(compositeKeyHeld),
@@ -2377,7 +2377,9 @@
           return {ok: false, error: `DDF Value needs at least ${COMPOSITE_MIN_SOURCES} usable input for ${scoreLabel()} / ${teams} teams`};
         }
       }
-      const defaults = pipelineState.included;
+      // JEG-804: the default DDF Value inputs are the accepted projection
+      // keys, not the full pipeline (which includes charts the setter rejects).
+      const defaults = COMPOSITE_INPUT_KEYS;
       if (next && next.length === defaults.length && next.every(key => defaults.includes(key))) next = null;
     }
     const before = JSON.stringify(compositeInputs);
