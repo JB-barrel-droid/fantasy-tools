@@ -222,15 +222,22 @@
   function divergenceChip(key, opts) {
     const publisher = sourceMeta(key).publisher;
     const method = sourceMeta(key).method;
+    if (method === "ddf" || method === "vorp") return null;
     const entry = divergence[publisher];
-    if (!entry || method === "ddf" || method === "vorp") return null;
-    const status = entry.status;
-    if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;
+    const status = entry && entry.status;
     // JEG-834: warn / investigate come from a fixed ceiling as well as the source's own history. A source
     // within 5 points of its own usual rate is inside its usual range: the chip stays (GL-25) but says so plainly.
-    const usualGap = Number.isFinite(entry.outlier_rate) && Number.isFinite(entry.usual_outlier_rate)
+    const usualGap = entry && Number.isFinite(entry.outlier_rate) && Number.isFinite(entry.usual_outlier_rate)
       ? Math.round(entry.outlier_rate * 100) - Math.round(entry.usual_outlier_rate * 100) : null;
-    const inRange = (status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5;
+    let inRange = (status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5;
+    // JEG-870: held (red, "Paused this week") replaces the chip; a lag hold (amber) replaces only the in-range check,
+    // since an out-of-range finding on a lagging source is still a reading.
+    const held = heldReason(view && view.infoByKey && view.infoByKey[key]);
+    const level = held ? (sourceHoldLevel(publisher) === "amber" ? "amber" : "red") : sourceHoldLevel(publisher);
+    if (held || level === "red") return holdChip(publisher, "red", opts);
+    if (level === "amber" && (inRange || !entry || status === "ok" || status === "n/a")) return holdChip(publisher, "amber", opts);
+    if (!entry) return null;
+    if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;
     const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
     const chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : (inRange ? "ok" : "check"));
     const chip = document.createElement(href ? "a" : "span");
@@ -257,6 +264,46 @@
     wordSpan.className = "v2-div-word";
     wordSpan.textContent = word;
     chip.append(sym, wordSpan);
+    return chip;
+  }
+  // JEG-870: the pulse's hold on a source, from the published data: "red" (held, out of the blend, "Paused this
+  // week"), "amber" (JEG-726: lagging, still in DDF Value, a refresh pending) or null. Derived sections carry the
+  // root's hold.
+  function sourceHoldLevel(publisher) {
+    const sources = (window.TradeValueComparisonData && window.TradeValueComparisonData.sources) || {};
+    for (const section of [publisher, `${publisher}_adjusted`, `${publisher}_vorp`]) {
+      const hold = sources[section] && (sources[section].validationHold || sources[section].promotionHold);
+      if (hold) return hold.hold_level === "amber" ? "amber" : "red";
+    }
+    return null;
+  }
+  // JEG-870: a held source's divergence is not a reading this week, so it never gets the in-range check. The chip
+  // is the hold marker instead, in the existing hold words: an amber flag for a lag hold, "Paused" for a red hold.
+  // Where the row already says "Paused this week" (Customize, opts.heldNoted) the red marker is the glyph only.
+  function holdChip(publisher, level, opts) {
+    const name = PUBLISHER_NAMES[publisher] || publisher;
+    const amber = level === "amber";
+    const word = amber ? "Lagging" : "Paused";
+    const message = amber ? `${name} is lagging: included in DDF Value, a refresh is pending.`
+      : `${name} is paused this week: temporarily held for a data check.`;
+    const chip = document.createElement("span");
+    chip.className = `v2-div-chip is-hold is-${amber ? "lag" : "paused"}`;
+    chip.dataset.divergence = publisher;
+    chip.dataset.status = "held";
+    chip.dataset.hold = level;
+    chip.title = message;
+    chip.setAttribute("role", "img");
+    chip.setAttribute("aria-label", `${word}: ${message}`);
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = amber ? "⚑" : "⏸";
+    chip.appendChild(sym);
+    if (amber || !(opts && opts.heldNoted)) {
+      const wordSpan = document.createElement("span");
+      wordSpan.className = "v2-div-word";
+      wordSpan.textContent = word;
+      chip.append(" ", wordSpan);
+    }
     return chip;
   }
   const appendDivergence = (parent, key, opts) => {
@@ -2300,7 +2347,7 @@
         name.append(sourceLink(item.key, PLAIN_NAMES[meta.publisher] || meta.label));
         label.append(box, name);
         if (item.stale) label.appendChild(weekBadge(item.key));
-        appendDivergence(label, item.key);
+        appendDivergence(label, item.key, {heldNoted: !item.available && heldReason(item)});
         if (!item.available || pageNo) {
           metaNote(label, !item.available ? (heldReason(item) ? "Paused this week"
             : item.paused ? "Waiting on fresh inputs" : "Not available for your league")
@@ -2337,7 +2384,7 @@
         name.append(sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
         label.append(input, name);
         if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
-        appendDivergence(label, key);
+        appendDivergence(label, key, {heldNoted: Boolean(out)});
         if (out) metaNote(label, out);
         else if (last) metaNote(label, "Last source stays on");
         return label;

@@ -422,6 +422,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-div-chip .v2-ok-mark { display: inline-block; vertical-align: -2px; }
 .v2-div-chip .v2-ok-mark circle { fill: var(--v2-action-strong); }
 .v2-div-chip .v2-ok-mark path { stroke: var(--v2-surface); }
+/* JEG-870: a held source's chip is the hold marker, no box: amber flag for a lag hold, muted pause mark for a red hold. */
+.v2-div-chip.is-hold { border: 0; padding: 0; background: none; color: var(--v2-older); }
+.v2-div-chip.is-paused { color: var(--v2-muted); }
 .v2-div-chip.is-reviewed { border-color: var(--v2-tint-border); color: var(--v2-action-strong); }
 .v2-div-chip.is-excluded { border-color: var(--v2-older); color: var(--v2-older); opacity: 0.7; }
 a.v2-div-chip:hover { text-decoration: underline; }
