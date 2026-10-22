@@ -61,7 +61,7 @@ aria-expanded tracks it, Enter opens it, Esc closes it and returns focus, and it
 never opens a player or reorders rows.
 JEG-459: the "Include older-week charts" checkbox is gone; with FantasyPros
 simulated one week behind, it is still compared and carries a "Week 4" badge
-(accessible name "FantasyPros has not published Week N yet; showing Week 4.")
+(accessible name "FantasyPros has not posted its Week N chart yet; this page shows its Week 4 chart.")
 in its #v2TChart option, column header, opened rows,
 phone cards and footnote; current-week charts carry none.
 Everywhere: 44 px hit areas, no page errors, no horizontal overflow at 390 px.
@@ -80,6 +80,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import http.server
+import re
 import shutil
 import socketserver
 import sys
@@ -676,7 +677,7 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
 def check_prior(prior, ref_week, width) -> list[str]:
     """JEG-459 with FantasyPros simulated on Week 4."""
     errors = []
-    label = f"FantasyPros has not published Week {ref_week} yet; showing Week 4."
+    label = f"FantasyPros has not posted its Week {ref_week} chart yet; this page shows its Week 4 chart."
     if "fantasypros" not in prior["used"]:
         return [f"a chart on an earlier week must still be compared: used {prior['used']} (JEG-459)"]
 
@@ -704,7 +705,11 @@ def check_prior(prior, ref_week, width) -> list[str]:
             errors += badge_ok(f"card {c['chart']}", c["badges"], c["chart"])
     elif width >= 1024 and not prior["details"]:
         errors.append("no opened row to check")
-    errors += badge_ok("footnote", prior["foot"], "fantasypros")
+    # JEG-822: the footnote is one plain sentence; it does not lead with a "Week N" chip or an abbreviation.
+    if prior["foot"]:
+        errors.append(f"footnote still leads with a badge: {prior['foot']}")
+    if re.search(r"\bWk\b|\bUSAT\b|has not published", prior["footText"]):
+        errors.append(f"footnote uses abbreviated or garbled wording: {prior['footText']!r}")
     if label not in prior["footText"]:
         errors.append(f"footnote does not say {label!r}")
     return errors

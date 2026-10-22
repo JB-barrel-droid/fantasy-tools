@@ -131,6 +131,13 @@ def check(snap) -> list[str]:
     bare = re.sub(r"VORP vs waivers", "", snap["text"])
     if "VORP" in bare:
         errors.append("copy uses VORP outside the phrase 'VORP vs waivers'")
+    # JEG-822: plain language, no overclaim; "estimated" is explained where the engine's count appears.
+    for phrase in ("really worth", "All nine reads"):
+        if phrase in snap["text"]:
+            errors.append(f"copy still says {phrase!r}")
+    if any(w["available"] and "estimated players" in (w.get("waiverNote") or "") for w in snap["info"]) \
+            and "a chart does not list; we fill in a value" not in snap["text"]:
+        errors.append("the engine's 'estimated players' note has no plain-language explanation")
     digits = re.findall(r"\d+", snap["copy"])
     if digits:
         errors.append(f"copy carries numbers not from the engine: {digits}")
@@ -234,6 +241,9 @@ class HowValuesRenderTest(unittest.TestCase):
             "weights hard-coded": {"v2_js": v2.replace(
                 '$("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]',
                 '$("v2HowWeights").textContent = "QB 6.1% · RB 44.2% · WR 43.6% · TE 6.1%"; void ["QB", "RB", "WR", "TE"]', 1)},
+            "overclaim copy back": {"shell_html": shell.replace(
+                "Our estimate of what a player is worth. It blends", "Fair value: the price a player is really worth. It blends", 1)},
+            "no estimated gloss": {"v2_js": v2.replace("estimatedExplained = true;", "estimatedExplained = true; return;", 1)},
             "sources not split by method": {"v2_js": v2.replace(
                 "list.replaceChildren();\n      view.info.filter(item => sourceMeta(item.key).method === method)",
                 "list.replaceChildren();\n      view.info", 1)},

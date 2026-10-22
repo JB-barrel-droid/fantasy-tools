@@ -36,7 +36,7 @@ from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 DEFS = [
-    ("DDF Value", "Fair value: the price a player is really worth."),
+    ("DDF Value", "Our estimate of what a player is worth, blended from the sources you have chosen."),
     ("DDF Projections", "What production supports: the value of the projected stats."),
     ("Trade chart average", "What the market will pay: the rescaled trade charts, averaged."),
 ]
@@ -195,7 +195,7 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
 
 JS_PATCHES = {
-    "definition changed": ('["DDF Value", "Fair value: the price a player is really worth."],', '["DDF Value", "A number."],'),
+    "definition changed": ('["DDF Value", "Our estimate of what a player is worth, blended from the sources you have chosen."],', '["DDF Value", "A number."],'),
     "customize info dropped": ('          if (g.id === "ddf") head.appendChild(namesInfoButton("Customize"));', ""),
 }
 SHELL_PATCHES = {

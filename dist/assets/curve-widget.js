@@ -403,7 +403,7 @@
     const base = SOURCE_LABELS[key] || key;
     const week = weekForSource(key);
     if (!week || key === "espn") return base;
-    return `${base} Wk ${week}`;
+    return `${base} Week ${week}`;
   }
   // "DDF Value" already names a value, so it takes no "value" suffix (JEG-608).
   const lockLabel = key => key === "disagreement" ? "Largest disagreement"
