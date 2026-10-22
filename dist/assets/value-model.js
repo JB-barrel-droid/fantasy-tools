@@ -1017,8 +1017,12 @@
     // JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
     // only (ESPN, CBS ROS, Razzball).  Trade charts stay on the Indexed/VORP
     // comparison tabs but are no longer inputs to the blended DDF Value.
+    // Fallback: when no projection is in I (e.g. a saved week where the only
+    // projection is unmatched), use all included sources so the Indexed basis
+    // can still be computed.
+    var blendedI = projI.length ? projI : included;
     var versionSources = {
-      blended: projI,
+      blended: blendedI,
       charts: chartsI,
       projections: projI
     };
@@ -1132,8 +1136,9 @@
     // JEG-569 part 2: hidden sources are excluded from the basis (consistent
     // with the DDF blend) so fixedPieIndexed holds.
     // JEG-804: the Indexed basis is the blended DDF Value, which is now
-    // projections-only.  Use versionSources.blended (= projI) so the basis
-    // stays equal to the displayed blended DDF Value.
+    // projections-only (or all-included as a fallback when no projection is
+    // in I).  Use versionSources.blended so the basis stays equal to the
+    // displayed blended DDF Value.
     var indexBasis = {};
     rowKeys.forEach(function (key) {
       var sum = 0, n = 0;
