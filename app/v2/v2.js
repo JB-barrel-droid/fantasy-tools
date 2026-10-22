@@ -443,7 +443,15 @@
     if (unpricedCache.has(cacheKey)) return unpricedCache.get(cacheKey);
     const fits = pos => !position || position === "ALL" ? true
       : position === "FLEX" ? ["RB", "WR", "TE"].includes(pos) : pos === position;
-    const rows = C.searchPlayers(q, {limit: 2000}).filter(row => row && row.universe_only && fits(row.pos));
+    // JEG-861: the engine's search is a plain "contains" on the whole query, so "Nacua Puka" would miss.
+    // Pull a superset from the engine (each query word's first two letters; every match of the page's
+    // matcher starts a name word with them) and keep only what the one shared matcher accepts.
+    const NS = window.TradeValueNameSearch;
+    const pool = new Map();
+    NS.tokens(q).forEach(word => {
+      C.searchPlayers(word.slice(0, 2), {limit: 5000}).forEach(row => { if (row && !pool.has(row.player_key)) pool.set(row.player_key, row); });
+    });
+    const rows = NS.filter([...pool.values()], q).filter(row => row.universe_only && fits(row.pos));
     if (unpricedCache.size > 50) unpricedCache.clear();
     unpricedCache.set(cacheKey, rows);
     return rows;
@@ -5685,8 +5693,9 @@
       const later = pair.after.values || {};
       source = source.map(row => ({...row, values: {...row.values, [R.series]: later[String(row.player_key)] ?? null}}));
     }
-    const needle = R.search.trim().toLowerCase();
-    const rows = source.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
+    // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains".
+    const needle = R.search.trim();
+    const rows = needle ? window.TradeValueNameSearch.filter(source, needle) : source;
     risersView = M.buildMovers(rows, R.series, prior);
     const label = priorLabel(R.series);
     const v = risersView;
@@ -5715,7 +5724,7 @@
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
     if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
-    renderDisagreements(M, C.getRows().filter(row => !needle || String(row.name || "").toLowerCase().includes(needle)));
+    renderDisagreements(M, needle ? window.TradeValueNameSearch.filter(C.getRows(), needle) : C.getRows());
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
@@ -5940,8 +5949,8 @@
     if (!empty) return;
     const why = [];
     if (state.search.trim()) {
-      why.push($("v2Unpriced").hidden ? `no player name contains “${state.search.trim()}”`
-        : `no valued player name contains “${state.search.trim()}” (those with no value are listed above)`);
+      why.push($("v2Unpriced").hidden ? `no player name matches “${state.search.trim()}”`
+        : `no valued player name matches “${state.search.trim()}” (those with no value are listed above)`);
     }
     if (state.range.min !== null || state.range.max !== null) {
       why.push(`no ${sourceMeta(view.rankKey).short} value is in ${state.range.min ?? "…"}–${state.range.max ?? "…"}`);

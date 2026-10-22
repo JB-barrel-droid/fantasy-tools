@@ -360,8 +360,9 @@
       results.hidden = !q;
       if (!q || !engine()) return;
       const taken = new Set(S.mine.concat(S.theirs).map(p => p.key));
-      const hits = engine().getAllRows().filter(r => r.name && r.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name contains “${q}”.`}));
+      // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains".
+      const hits = window.TradeValueNameSearch.search(engine().getAllRows(), q).slice(0, 8);
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = taken.has(key);
