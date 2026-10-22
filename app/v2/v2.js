@@ -443,7 +443,15 @@
     if (unpricedCache.has(cacheKey)) return unpricedCache.get(cacheKey);
     const fits = pos => !position || position === "ALL" ? true
       : position === "FLEX" ? ["RB", "WR", "TE"].includes(pos) : pos === position;
-    const rows = C.searchPlayers(q, {limit: 2000}).filter(row => row && row.universe_only && fits(row.pos));
+    // JEG-861: the engine's search is a plain "contains" on the whole query, so "Nacua Puka" would miss.
+    // Pull a superset from the engine (each query word's first two letters; every match of the page's
+    // matcher starts a name word with them) and keep only what the one shared matcher accepts.
+    const NS = window.TradeValueNameSearch;
+    const pool = new Map();
+    NS.tokens(q).forEach(word => {
+      C.searchPlayers(word.slice(0, 2), {limit: 5000}).forEach(row => { if (row && !pool.has(row.player_key)) pool.set(row.player_key, row); });
+    });
+    const rows = NS.filter([...pool.values()], q).filter(row => row.universe_only && fits(row.pos));
     if (unpricedCache.size > 50) unpricedCache.clear();
     unpricedCache.set(cacheKey, rows);
     return rows;
@@ -812,7 +820,18 @@
   }
 
   // ---------- header, league, methods ----------
+  // JEG-861: one "NFL Week 7 · as of Oct 22" line under every value page title, from the same data
+  // the Player values line uses (the data week, never the calendar week, and the fixture's built_at).
+  function pageStampText() {
+    const asOf = dataAsOfLabel();
+    return [view.refWeek ? `NFL Week ${view.refWeek}` : "", asOf ? `as of ${asOf}` : ""].filter(Boolean).join(" · ");
+  }
+  function renderPageStamps() {
+    const text = pageStampText();
+    document.querySelectorAll("[data-page-asof]").forEach(node => { node.textContent = text; });
+  }
   function renderHeader() {
+    renderPageStamps();
     const s = view.state;
     const scoring = {standard: "Standard", half_ppr: "Half PPR", ppr: "Full PPR"}[s.scoring] || s.scoring;
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
@@ -888,8 +907,8 @@
     $("v2Position").value = view.state.position;
     renderShow();
     // JEG-806: show data week and "as of <date>" so a reader knows how fresh the numbers are.
-    const asOf = dataAsOfLabel();
-    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${view.refWeek ? ` · Week ${view.refWeek}` : ""}${asOf ? ` · as of ${asOf}` : ""}`;
+    const stamp = pageStampText();
+    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${stamp ? ` · ${stamp}` : ""}`;
     $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
@@ -3455,8 +3474,18 @@
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
     // JEG-498: only the charts ticked in this page's Customize are compared; a chart left out is not "skipped".
     // JEG-851: a single chart is now selectable; "all" compares every enabled chart.
+    // JEG-868: a chart cannot be compared against itself; the pick falls back to "all" before the lists are
+    // built (not only when the controls redraw), so no render ever compares against nothing.
+    if (T.chart !== "all" && T.chart === ourKey) T.chart = "all";
     const picked = T.chart !== "all" ? T.chart : null;
-    const {used, skipped, prior} = TT.chartsToCompare(info.filter(item => !TT.CHART_KEYS.includes(item.key) || mine.has(item.key)), {only: picked});
+    const compared = TT.chartsToCompare(info.filter(item => !TT.CHART_KEYS.includes(item.key) || mine.has(item.key)), {only: picked});
+    // JEG-868: when our value is itself a trade chart, "All trade charts" means the OTHER charts. The engine
+    // already drops our chart from the compared set (effectiveCharts), so `used` must match it: a column the
+    // engine did not price has no cell, and reading it threw mid-render and left the previous lists on the page.
+    const ownChart = TT.CHART_KEYS.includes(ourKey) ? ourKey : null;
+    const used = compared.used.filter(key => key !== ownChart);
+    const skipped = compared.skipped;
+    const prior = compared.prior.filter(key => key !== ownChart);
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
     rows.forEach((row, index) => { row.rank = index + 1; });
@@ -3488,7 +3517,8 @@
     select.replaceChildren();
     const all = document.createElement("option");
     all.value = "all";
-    all.textContent = "All trade charts";
+    // JEG-868: with a trade chart as Our value, "all" compares it against the other charts, and says so.
+    all.textContent = TT.CHART_KEYS.includes(targetsView.ours) ? "All other trade charts" : "All trade charts";
     select.appendChild(all);
     const mineCharts = new Set(pageKeys("targets"));
     TT.CHART_KEYS.filter(key => mineCharts.has(key)).forEach(key => {
@@ -3586,7 +3616,7 @@
       note.textContent = sc ? `= ${scLabel}` : "= market consensus";
       note.title = sc
         ? `${scLabel}'s rescaled value is ${fmt(m.value)}, the same as our value.`
-        : `The median of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+        : `The middle value of the ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
       cell.appendChild(note);
       return;
     }
@@ -3594,7 +3624,7 @@
     const count = document.createElement("span");
     count.className = "why t-count";
     count.dataset.marketCount = String(m.count);
-    count.textContent = sc ? scLabel : `median of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
+    count.textContent = sc ? scLabel : `middle of ${m.count} chart${m.count === 1 ? "" : "s"}${m.left ? ` · ${m.left} left out` : ""}`;
     if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
     const diff = document.createElement("span");
     diff.className = "why t-diff";
@@ -3863,7 +3893,7 @@
     };
     head("Player", "player");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
-    head("Market consensus", "num t-avg", "median of compared charts");
+    head("Market consensus", "num t-avg", "middle value of the compared charts");
     targetsView.used.forEach(key => {
       // JEG-458: "Wk 5 · rescaled"; a chart on an earlier week shows its badge in place of the week.
       const item = targetsView.infoByKey[key];
@@ -4052,12 +4082,41 @@
     // JEG-851: single-chart mode changes text throughout.
     const sc = targetsView.singleChart;
     const scName = sc ? (PUBLISHER_NAMES[sc] || sc) : null;
+    // JEG-868: with a trade chart as Our value, the compared charts are "the other charts".
+    const oursIsChart = window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours);
+    const chartsWord = oursIsChart ? "the other charts" : "the charts";
+    let renderError = null;
     TARGET_SIDES.forEach(side => {
       const ids = TARGET_IDS[side];
       const list = targetsView[side];
-      renderTargetTable(side, list);
-      renderTargetCards(side, list);
-      renderTargetFoot(side, list);
+      // JEG-869: the heading names the one chart when one is compared ("against one chart: <name>"),
+      // and the sub-line leads with the same phrase, so the copy never claims a market of 2+ charts.
+      const title = $(ids.section === "v2TSell" ? "v2TSellTitle" : "v2TBuyTitle");
+      const arrow = title.querySelector("[aria-hidden]") || document.createElement("span");
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = side === "sell" ? "▲" : "▼";
+      title.replaceChildren(arrow, document.createTextNode(sc
+        ? (side === "sell" ? ` Sell: ${scName} pays more than we would` : ` Buy: ${scName} pays less than we would`)
+        : (side === "sell" ? ` Sell: ${chartsWord} pay more than we would` : ` Buy: ${chartsWord} pay less than we would`)));
+      // JEG-868: a list is never left showing the previous selection. If rendering throws, that list is
+      // cleared and says so; the error is rethrown after both lists are handled so it stays visible.
+      try {
+        renderTargetTable(side, list);
+        renderTargetCards(side, list);
+        renderTargetFoot(side, list);
+      } catch (error) {
+        $(ids.table).replaceChildren();
+        $(ids.cards).replaceChildren();
+        $(ids.more).hidden = true;
+        $(ids.less).hidden = true;
+        $(ids.table).hidden = true;
+        const empty = $(ids.empty);
+        empty.hidden = false;
+        empty.textContent = `This list could not be built for this selection (${error && error.message ? error.message : error}).`;
+        $(ids.meta).textContent = "—";
+        renderError = renderError || error;
+        return;
+      }
       const empty = $(ids.empty);
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
@@ -4065,17 +4124,17 @@
         : sc
           ? (side === "sell" ? `No player ${scName} values above our value for this selection.`
             : `No player ${scName} ranks ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him for this selection.`)
-          : (side === "sell" ? "No player has a market consensus above our value, backed by 2 or more charts, for this selection."
-            : `No player the charts rank ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him, backed by 2 or more charts, for this selection.`));
+          : (side === "sell" ? `No player has a market consensus above our value, backed by 2 or more of ${chartsWord}, for this selection.`
+            : `No player ${chartsWord} rank ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him, backed by 2 or more charts, for this selection.`));
       $(ids.table).hidden = !list.length;
       // JEG-820 / JEG-833: each list is ranked by the gap it shows times the value at stake (the score on every row).
       // JEG-826: soften actionable copy when the blend is not independent of the compared charts.
       // JEG-851: single-chart mode uses chart-specific language, not "most charts".
       const actionCopy = sc
-        ? (side === "sell" ? `${scName} pays more than our value.` : `${scName} ranks them lower than we do.`)
+        ? (side === "sell" ? `Against one chart: ${scName}. ${scName} pays more than our value.` : `Against one chart: ${scName}. ${scName} ranks them lower than we do.`)
         : indep && indep.circular
           ? (side === "sell" ? "The charts' rescaled values sit above ours." : "The charts' rescaled values sit below ours.")
-          : (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: the charts rank them lower than we do.");
+          : (side === "sell" ? `Offer them: most of ${chartsWord} pay more than our value.` : `Ask for them: ${chartsWord} rank them lower than we do.`);
       $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
     });
     const notes = [];
@@ -4156,7 +4215,7 @@
       // Restore the multi-chart footnote if previously in single-chart mode.
       footEl.textContent = "";
       footEl.append(
-        document.createTextNode("Gap = market consensus (the median of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is "),
+        document.createTextNode("Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is "),
         oursSpan,
         document.createTextNode("; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. "),
         priorSpan,
@@ -4171,6 +4230,7 @@
       priorNote.append(document.createTextNode(`${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
     });
     renderWeightCheck();
+    if (renderError) throw renderError;   // JEG-868: shown as an empty state above; still an error, not hidden
   }
 
   // ---------- Check 2: potential positional weight inflation (JEG-476, JEG-489) ----------
@@ -5685,8 +5745,9 @@
       const later = pair.after.values || {};
       source = source.map(row => ({...row, values: {...row.values, [R.series]: later[String(row.player_key)] ?? null}}));
     }
-    const needle = R.search.trim().toLowerCase();
-    const rows = source.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
+    // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains".
+    const needle = R.search.trim();
+    const rows = needle ? window.TradeValueNameSearch.filter(source, needle) : source;
     risersView = M.buildMovers(rows, R.series, prior);
     const label = priorLabel(R.series);
     const v = risersView;
@@ -5715,7 +5776,7 @@
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
     if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
-    renderDisagreements(M, C.getRows().filter(row => !needle || String(row.name || "").toLowerCase().includes(needle)));
+    renderDisagreements(M, needle ? window.TradeValueNameSearch.filter(C.getRows(), needle) : C.getRows());
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
@@ -5940,8 +6001,8 @@
     if (!empty) return;
     const why = [];
     if (state.search.trim()) {
-      why.push($("v2Unpriced").hidden ? `no player name contains “${state.search.trim()}”`
-        : `no valued player name contains “${state.search.trim()}” (those with no value are listed above)`);
+      why.push($("v2Unpriced").hidden ? `no player name matches “${state.search.trim()}”`
+        : `no valued player name matches “${state.search.trim()}” (those with no value are listed above)`);
     }
     if (state.range.min !== null || state.range.max !== null) {
       why.push(`no ${sourceMeta(view.rankKey).short} value is in ${state.range.min ?? "…"}–${state.range.max ?? "…"}`);
@@ -6427,6 +6488,8 @@
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
+      // JEG-872: the one source name map (symbol + label) the audit tabs read, so every tab says the same names.
+      publishers: () => PUBLISHERS,
       // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
       shown: () => ddfShownList().concat(C.getActiveSources()),
       setShown: keys => { applyShown(keys); refresh(); },

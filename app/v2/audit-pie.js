@@ -98,6 +98,7 @@
     }
     var allocation = vp.allocation || {};
     var players = inspection.players || {};
+    var engineRows = inspection.rows || null;
     var sourceKeys = Object.keys(sources);
     if (!sourceKeys.length) return null;
 
@@ -106,6 +107,27 @@
       var s = sources[src];
       var ps = players[src] || {};
       var groups = s.groups || {};
+
+      // JEG-871: the Adjusted total (VP-5) counts estimated players (VP-2.4
+      // fill-ins) and always equals the pie. Split it into the source's own
+      // posted values and the filled-in ones, and read what the Player values
+      // table shows for this source (rows[key].indexed[src]: the Indexed /
+      // "Rescaled chart" view for charts, equal to Adjusted for projections)
+      // so the audit reconciles to that table's column sum.
+      var ownAdjusted = 0, filledAdjusted = 0;
+      Object.keys(ps).forEach(function (key) {
+        var p = ps[key];
+        if (p.estimated) filledAdjusted += p.adjusted || 0;
+        else ownAdjusted += p.adjusted || 0;
+      });
+      var tableTotal = null;
+      if (engineRows) {
+        Object.keys(engineRows).forEach(function (key) {
+          var r = engineRows[key];
+          var v = r && r.indexed ? r.indexed[src] : null;
+          if (Number.isFinite(v)) tableTotal = (tableTotal || 0) + v;
+        });
+      }
 
       // Per-position breakdown
       var posData = [];
@@ -182,6 +204,9 @@
         totalRostered: totalRostered,
         totalEstimated: totalEstimated,
         totalAdjusted: totalAdjusted,
+        ownAdjusted: ownAdjusted,
+        filledAdjusted: filledAdjusted,
+        tableTotal: tableTotal,
         totalRawSlice: totalRawSlice,
         starterTotal: starterTotal,
         benchTotal: benchTotal,
@@ -269,24 +294,27 @@
 
   // ── Label helpers ───────────────────────────────────────────────────
 
+  // JEG-872: one name per source across the site. On the page the map is
+  // v2.js's PUBLISHERS (symbol + label, the Player values headers); the
+  // fallback below is for the standalone test harness only and mirrors it.
   var SOURCE_LABELS = {
-    espn: "ESPN", cbsros: "CBS ROS", razzball: "Razzball",
-    fantasycalc: "FantasyCalc", usatoday: "USA Today",
-    fantasypros: "FantasyPros", cbs: "CBS"
+    espn: {label: "ESPN", symbol: "●"},
+    fantasycalc: {label: "FantasyCalc", symbol: "■"},
+    fantasypros: {label: "FantasyPros", symbol: "▲"},
+    usatoday: {label: "USA Today", symbol: "◆"},
+    cbs: {label: "CBS Sports", symbol: "▼"},
+    cbsros: {label: "CBS rest of season", symbol: "▽"},
+    razzball: {label: "Razzball", symbol: "✚"}
   };
   var FAMILY_LABELS = {projection: "Projection", chart: "Trade chart"};
 
   function sourceLabel(src) {
+    // JEG-861/872: plain names only (no "CBS ROS" or "adjusted" on the page); the engine's own label is never used.
     var v2 = root.TradeValueV2;
-    if (v2 && typeof v2.shown === "function") {
-      try {
-        var info = root.TradeValueCurveControls && root.TradeValueCurveControls.getSourceInfo
-          ? root.TradeValueCurveControls.getSourceInfo() : [];
-        var match = info.find(function (s) { return s.key === src; });
-        if (match && match.label) return match.label;
-      } catch (e) { /* ignore */ }
-    }
-    return SOURCE_LABELS[src] || src;
+    var map = v2 ? (typeof v2.publishers === "function" ? v2.publishers() : {}) : SOURCE_LABELS;
+    var pub = map && map[src];
+    if (!pub || !pub.label) return src;
+    return (pub.symbol ? pub.symbol + " " : "") + pub.label;
   }
 
   // ── DOM: verdict row ────────────────────────────────────────────────
@@ -339,14 +367,14 @@
       var pplCell = td(fmt(r.perListed, 2), "audit-pie-num");
       if (r.flagPerListed) {
         pplCell.classList.add("audit-pie-flag");
-        pplCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(r.medPerListed, 2) + ")";
+        pplCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(r.medPerListed, 2) + ")";
       }
       tr.appendChild(pplCell);
 
       var prCell = td(fmt(r.perRosterable, 2), "audit-pie-num");
       if (r.flagPerRosterable) {
         prCell.classList.add("audit-pie-flag");
-        prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(r.medPerRosterable, 2) + ")";
+        prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(r.medPerRosterable, 2) + ")";
       }
       tr.appendChild(prCell);
 
@@ -369,6 +397,55 @@
     }
     tbody.appendChild(buildVerdictRow("Total", verdicts.total, 12));
 
+    table.appendChild(tbody);
+
+    var wrap = el("div", "audit-pie-scroll");
+    wrap.appendChild(table);
+    section.appendChild(wrap);
+    return section;
+  }
+
+  // ── DOM: reconcile the pie to the Player values table (JEG-871) ─────
+
+  var RECONCILE_NOTE =
+    "Total adjusted counts every player on the source’s work list: its own " +
+    "posted values plus the players filled in from other charts (estimated), " +
+    "and it always equals the league pie. The Player values table shows a " +
+    "different view for trade charts: the rescaled chart (native values times " +
+    "one factor set so the chart’s own listed players sum to their DDF Value " +
+    "total, with filled-in players added at the same factor). That column is " +
+    "not held to the pie, so its sum differs from Total adjusted. Projections " +
+    "show their adjusted values in both places.";
+
+  function buildReconcileTable(data) {
+    var section = el("div", "audit-pie-section audit-pie-reconcile");
+    section.appendChild(el("h3", "audit-pie-heading", "Reconciling to Player values"));
+    section.appendChild(el("p", "audit-pie-note", RECONCILE_NOTE));
+
+    var table = el("table", "audit-pie-table audit-pie-reconcile-table");
+    var thead = el("thead");
+    var hr = el("tr");
+    ["Source", "Own values (posted)", "Filled in from other charts", "Total adjusted",
+     "Pie target", "Shown in Player values", "Difference from pie"].forEach(function (label) {
+      hr.appendChild(th(label));
+    });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    var tbody = el("tbody");
+    data.rows.forEach(function (r) {
+      var tr = el("tr");
+      tr.appendChild(td(sourceLabel(r.src)));
+      tr.appendChild(td(fmt(r.ownAdjusted), "audit-pie-num"));
+      tr.appendChild(td(fmt(r.filledAdjusted), "audit-pie-num"));
+      tr.appendChild(td(fmt(r.totalAdjusted), "audit-pie-num"));
+      tr.appendChild(td(fmt(data.pie), "audit-pie-num"));
+      tr.appendChild(td(fmt(r.tableTotal), "audit-pie-num audit-pie-table-total"));
+      var diff = Number.isFinite(r.tableTotal) ? r.tableTotal - data.pie : null;
+      if (diff != null && Math.abs(diff) < 0.05) diff = 0;   // no "-0.0"
+      tr.appendChild(td(fmt(diff), "audit-pie-num"));
+      tbody.appendChild(tr);
+    });
     table.appendChild(tbody);
 
     var wrap = el("div", "audit-pie-scroll");
@@ -424,7 +501,7 @@
         var prCell = td(fmt(pd.perRosterable, 2), "audit-pie-num");
         if (pd.flagPerRosterable) {
           prCell.classList.add("audit-pie-flag");
-          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(pd.medPerRosterable, 2) + ")";
+          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(pd.medPerRosterable, 2) + ")";
         }
         tr.appendChild(prCell);
 
@@ -524,7 +601,7 @@
     var note = el("p", "audit-pie-note",
       "Sources that post fewer players spread the same pie across fewer values. " +
       "The per-player-posted and per-rosterable-slot columns show this difference. " +
-      "Flagged values differ from the cross-source median by more than " +
+      "Flagged values differ from the middle value across sources by more than " +
       (FLAG_THRESHOLD * 100) + "%.");
     section.appendChild(note);
 
@@ -555,14 +632,14 @@
         var plCell = td(fmt(pd.perListed, 2), "audit-pie-num");
         if (pd.flagPerListed) {
           plCell.classList.add("audit-pie-flag");
-          plCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(pd.medPerListed, 2) + ")";
+          plCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(pd.medPerListed, 2) + ")";
         }
         tr.appendChild(plCell);
 
         var prCell = td(fmt(pd.perRosterable, 2), "audit-pie-num");
         if (pd.flagPerRosterable) {
           prCell.classList.add("audit-pie-flag");
-          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from median (" + fmt(pd.medPerRosterable, 2) + ")";
+          prCell.title = ">" + (FLAG_THRESHOLD * 100) + "% from the middle value across sources (" + fmt(pd.medPerRosterable, 2) + ")";
         }
         tr.appendChild(prCell);
 
@@ -613,6 +690,7 @@
 
     // Tables
     rootEl.appendChild(buildSummaryTable(data, verdicts));
+    rootEl.appendChild(buildReconcileTable(data));
     rootEl.appendChild(buildPositionTable(data, verdicts));
     rootEl.appendChild(buildRawVsAdjustedTable(data));
     rootEl.appendChild(buildCoverageTable(data));
