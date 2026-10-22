@@ -7,6 +7,12 @@
 // per-rosterable-slot value at a position deviates >10% from the cross-source
 // median.
 //
+// Raw (pre-rescale) values come from groups[pos|role] on the pipeline
+// diagnostics (value-model.js:841-842, the sum of starterSlice / benchSlice
+// before the rate multiplier). Adjusted = rate * slice (value-model.js:993).
+// These differ whenever rate != 1.0 (i.e. when the source's raw shape
+// disagrees with the budget allocation).
+//
 // Contract: window.DDFAudit.register("value-pie", render) where render(root, ctx)
 // receives the mount element (#audit-pie-root) and ctx = {slug, engine} where
 // engine = TradeValueCurveControls. Called by renderAudit() on tab show, setting
@@ -28,14 +34,18 @@
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   }
 
-  function pct(value, ref) {
-    if (!ref) return null;
-    return (value - ref) / Math.abs(ref);
+  function spread(arr) {
+    if (arr.length < 2) return 0;
+    var min = Math.min.apply(null, arr);
+    var max = Math.max.apply(null, arr);
+    var med = median(arr);
+    if (!med) return 0;
+    return (max - min) / Math.abs(med);
   }
 
   function flagged(value, med) {
-    var d = pct(value, med);
-    return d !== null && Math.abs(d) > FLAG_THRESHOLD;
+    if (value == null || !Number.isFinite(value) || !med) return false;
+    return Math.abs((value - med) / Math.abs(med)) > FLAG_THRESHOLD;
   }
 
   function fmt(v, decimals) {
@@ -46,6 +56,11 @@
   function fmtPct(v) {
     if (v == null || !Number.isFinite(v)) return "—";
     return (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+  }
+
+  function fmtSpreadPct(v) {
+    if (v == null || !Number.isFinite(v)) return "—";
+    return (v * 100).toFixed(1) + "%";
   }
 
   function el(tag, cls, text) {
@@ -59,6 +74,13 @@
   function td(text, cls) { return el("td", cls || "", text); }
 
   // ── Data extraction ─────────────────────────────────────────────────
+  // Fields used (all from getInspection().valuePipeline and .players):
+  //   groups[pos|role]         -- pre-rescale group totals (value-model.js:841-842)
+  //   players[key].adjusted   -- rescaled value (value-model.js:993)
+  //   players[key].pos, .role -- position and starter/bench/waiver
+  //   positions[pos].listed, .starters, .rostered, .nEstimated
+  //   budgets[pos|role]       -- the pie budget per group
+  //   pie                     -- the league pie
 
   function extract(inspection) {
     if (!inspection || !inspection.valuePipeline) return null;
@@ -76,12 +98,14 @@
     sourceKeys.forEach(function (src) {
       var s = sources[src];
       var ps = players[src] || {};
+      var groups = s.groups || {};
 
       // Per-position breakdown
       var posData = [];
       var totalListed = 0, totalRostered = 0, totalEstimated = 0;
       var totalAdjusted = 0, totalRawSlice = 0;
       var starterTotal = 0, benchTotal = 0;
+      var starterRawTotal = 0, benchRawTotal = 0;
 
       POSITIONS.forEach(function (pos) {
         var posInfo = s.positions[pos] || {};
@@ -91,18 +115,21 @@
         var nEstimated = posInfo.nEstimated || 0;
         var benchCount = rostered - starters;
 
-        // Sum adjusted values by role from per-player data
+        // Raw (pre-rescale): from groups on the pipeline diagnostics
+        // groups[pos|starter] = sum of starterSlice for pos starters (value-model.js:841)
+        // groups[pos|bench]   = sum of benchSlice for pos bench (value-model.js:842)
+        var starterRaw = groups[pos + "|starter"] || 0;
+        var benchRaw = groups[pos + "|bench"] || 0;
+
+        // Adjusted: sum from per-player data (the rescaled values)
         var starterAdj = 0, benchAdj = 0;
-        var starterRaw = 0, benchRaw = 0;
         Object.keys(ps).forEach(function (key) {
           var p = ps[key];
           if (p.pos !== pos) return;
           if (p.role === "starter") {
             starterAdj += p.adjusted || 0;
-            starterRaw += (p.starterSlice || 0) + (p.benchSlice || 0);
           } else if (p.role === "bench") {
             benchAdj += p.adjusted || 0;
-            benchRaw += (p.starterSlice || 0) + (p.benchSlice || 0);
           }
         });
 
@@ -117,6 +144,8 @@
         totalRawSlice += posRaw;
         starterTotal += starterAdj;
         benchTotal += benchAdj;
+        starterRawTotal += starterRaw;
+        benchRawTotal += benchRaw;
 
         posData.push({
           pos: pos,
@@ -149,6 +178,8 @@
         totalRawSlice: totalRawSlice,
         starterTotal: starterTotal,
         benchTotal: benchTotal,
+        starterRawTotal: starterRawTotal,
+        benchRawTotal: benchRawTotal,
         perListed: totalListed > 0 ? totalAdjusted / totalListed : null,
         perRosterable: totalRostered > 0 ? totalAdjusted / totalRostered : null
       });
@@ -196,6 +227,39 @@
     });
   }
 
+  // ── Verdicts: cross-source spread per cut ───────────────────────────
+
+  function computeVerdicts(data) {
+    if (!data || !data.rows.length) return {};
+
+    var verdicts = {};
+
+    // Total-level verdicts: starters, bench, total
+    var starterVals = data.rows.map(function (r) { return r.starterTotal; }).filter(Number.isFinite);
+    var benchVals = data.rows.map(function (r) { return r.benchTotal; }).filter(Number.isFinite);
+    var totalVals = data.rows.map(function (r) { return r.totalAdjusted; }).filter(Number.isFinite);
+
+    verdicts.starters = {spread: spread(starterVals), within: spread(starterVals) <= FLAG_THRESHOLD};
+    verdicts.bench = {spread: spread(benchVals), within: spread(benchVals) <= FLAG_THRESHOLD};
+    verdicts.total = {spread: spread(totalVals), within: spread(totalVals) <= FLAG_THRESHOLD};
+
+    // Per-position verdicts
+    verdicts.positions = {};
+    POSITIONS.forEach(function (pos, pi) {
+      var posStarters = data.rows.map(function (r) { return r.positions[pi].starterAdj; }).filter(Number.isFinite);
+      var posBench = data.rows.map(function (r) { return r.positions[pi].benchAdj; }).filter(Number.isFinite);
+      var posTotal = data.rows.map(function (r) { return r.positions[pi].posAdj; }).filter(Number.isFinite);
+
+      verdicts.positions[pos] = {
+        starters: {spread: spread(posStarters), within: spread(posStarters) <= FLAG_THRESHOLD},
+        bench: {spread: spread(posBench), within: spread(posBench) <= FLAG_THRESHOLD},
+        total: {spread: spread(posTotal), within: spread(posTotal) <= FLAG_THRESHOLD}
+      };
+    });
+
+    return verdicts;
+  }
+
   // ── Label helpers ───────────────────────────────────────────────────
 
   var SOURCE_LABELS = {
@@ -206,7 +270,6 @@
   var FAMILY_LABELS = {projection: "Projection", chart: "Trade chart"};
 
   function sourceLabel(src) {
-    // Try v2's labels if available (TradeValueV2 may not be set yet on first call)
     var v2 = root.TradeValueV2;
     if (v2 && typeof v2.shown === "function") {
       try {
@@ -219,9 +282,23 @@
     return SOURCE_LABELS[src] || src;
   }
 
+  // ── DOM: verdict row ────────────────────────────────────────────────
+
+  function verdictText(v) {
+    return "spread " + fmtSpreadPct(v.spread) + ", within " + (FLAG_THRESHOLD * 100) + "%: " + (v.within ? "yes" : "no");
+  }
+
+  function buildVerdictRow(label, v, colspan) {
+    var tr = el("tr", "audit-pie-verdict-row");
+    var cell = td(label + ": " + verdictText(v), v.within ? "audit-pie-verdict-pass" : "audit-pie-verdict-fail");
+    cell.colSpan = colspan;
+    tr.appendChild(cell);
+    return tr;
+  }
+
   // ── DOM: summary table ──────────────────────────────────────────────
 
-  function buildSummaryTable(data) {
+  function buildSummaryTable(data, verdicts) {
     var section = el("div", "audit-pie-section");
     var heading = el("h3", "audit-pie-heading", "Total pie by source");
     section.appendChild(heading);
@@ -252,7 +329,6 @@
       tr.appendChild(td(fmt(data.pie), "audit-pie-num"));
       tr.appendChild(td(fmt(r.totalAdjusted - data.pie, 2), "audit-pie-num"));
 
-      // Per player posted with flag
       var pplCell = td(fmt(r.perListed, 2), "audit-pie-num");
       if (r.flagPerListed) {
         pplCell.classList.add("audit-pie-flag");
@@ -260,7 +336,6 @@
       }
       tr.appendChild(pplCell);
 
-      // Per rosterable slot with flag
       var prCell = td(fmt(r.perRosterable, 2), "audit-pie-num");
       if (r.flagPerRosterable) {
         prCell.classList.add("audit-pie-flag");
@@ -270,6 +345,12 @@
 
       tbody.appendChild(tr);
     });
+
+    // Verdict rows
+    tbody.appendChild(buildVerdictRow("Starters", verdicts.starters, 12));
+    tbody.appendChild(buildVerdictRow("Bench", verdicts.bench, 12));
+    tbody.appendChild(buildVerdictRow("Total", verdicts.total, 12));
+
     table.appendChild(tbody);
 
     var wrap = el("div", "audit-pie-scroll");
@@ -280,7 +361,7 @@
 
   // ── DOM: position breakdown table ───────────────────────────────────
 
-  function buildPositionTable(data) {
+  function buildPositionTable(data, verdicts) {
     var section = el("div", "audit-pie-section");
     var heading = el("h3", "audit-pie-heading", "By position: adjusted values");
     section.appendChild(heading);
@@ -290,7 +371,6 @@
       "Differences in per-player and per-slot values reveal where sources disagree on position weight.");
     section.appendChild(note);
 
-    // One table per position
     POSITIONS.forEach(function (pos, pi) {
       var sub = el("div", "audit-pie-pos-block");
       var posHead = el("h4", "audit-pie-pos-heading", pos);
@@ -332,6 +412,15 @@
 
         tbody.appendChild(tr);
       });
+
+      // Position verdicts
+      var pv = verdicts.positions[pos];
+      if (pv) {
+        tbody.appendChild(buildVerdictRow("Starters", pv.starters, 12));
+        tbody.appendChild(buildVerdictRow("Bench", pv.bench, 12));
+        tbody.appendChild(buildVerdictRow("Total", pv.total, 12));
+      }
+
       table.appendChild(tbody);
 
       var wrap = el("div", "audit-pie-scroll");
@@ -351,9 +440,11 @@
     section.appendChild(heading);
 
     var note = el("p", "audit-pie-note",
-      "Raw slices are the pre-rescale group totals (VORP split by starter/bench utilization). " +
-      "Adjusted values rescale each source to the league pie. Comparing them shows how much " +
-      "the rescale changed each source's shape.");
+      "Raw slices are the pre-rescale group totals from the pipeline " +
+      "(groups[pos|role], value-model.js:841–842: sum of starterSlice / benchSlice " +
+      "before rate multiplication). Adjusted = rate × slice (value-model.js:993). " +
+      "They differ when rate ≠ 1, i.e. when the source's raw shape disagrees " +
+      "with the budget allocation.");
     section.appendChild(note);
 
     POSITIONS.forEach(function (pos, pi) {
@@ -384,7 +475,6 @@
         tr.appendChild(td(fmt(pd.benchAdj), "audit-pie-num"));
         tr.appendChild(td(fmt(pd.posAdj), "audit-pie-num"));
 
-        // Rescale shift: how much the adjusted differs from raw as a proportion
         var shift = pd.posRaw > 0 ? (pd.posAdj - pd.posRaw) / pd.posRaw : null;
         var shiftCell = td(fmtPct(shift), "audit-pie-num");
         if (shift != null && Math.abs(shift) > 0.15) {
@@ -492,6 +582,7 @@
     }
 
     computeFlags(data);
+    var verdicts = computeVerdicts(data);
 
     // Header
     var header = el("div", "audit-pie-header");
@@ -503,26 +594,23 @@
     rootEl.appendChild(header);
 
     // Tables
-    rootEl.appendChild(buildSummaryTable(data));
-    rootEl.appendChild(buildPositionTable(data));
+    rootEl.appendChild(buildSummaryTable(data, verdicts));
+    rootEl.appendChild(buildPositionTable(data, verdicts));
     rootEl.appendChild(buildRawVsAdjustedTable(data));
     rootEl.appendChild(buildCoverageTable(data));
   }
 
   // ── Registration ────────────────────────────────────────────────────
 
-  // Export for tests: the pure data functions are testable without DOM.
   root.AuditPie = {
     extract: extract,
     computeFlags: computeFlags,
+    computeVerdicts: computeVerdicts,
     render: render,
-    // Test-only: the constants the tests tie to.
     _FLAG_THRESHOLD: FLAG_THRESHOLD,
     _POSITIONS: POSITIONS
   };
 
-  // Register with the shell if it exists; otherwise the shell will
-  // pick up AuditPie.render when it loads later.
   if (root.DDFAudit && typeof root.DDFAudit.register === "function") {
     root.DDFAudit.register("value-pie", render);
   }
