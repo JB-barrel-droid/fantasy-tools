@@ -937,16 +937,19 @@ def bake(args):
             team = uni["team"]
             row["team"] = team
 
-        # per-game points: ROS fantasy points / team games remaining
-        # (team already variant-normalized by _resolve_team_abbr).
-        # Free agents (ESPN CSV team was empty): divide by window length,
-        # not the universe team's games — ESPN projects every ROS week for
-        # a teamless player. This matches load_espn_lists in the DDF leg.
-        if espn_has_team:
-            gr = games_left.get(canonical_team(team))
-        else:
-            gr = ros_window[1] - ros_window[0] + 1
+        # games_remaining: the team's games inside the ESPN window (bye
+        # excluded).  This is the display/Razzball value and must match
+        # games_in_window(team) so test_players_json_games_match_window
+        # stays green.
+        gr = games_left.get(canonical_team(team)) if team else (
+            ros_window[1] - ros_window[0] + 1)
         row["games_remaining"] = gr
+        # ppg divisor: for players ESPN places on a team, same as
+        # games_remaining; for free agents (empty team in the CSV), use
+        # the window length — ESPN projects every ROS week for a teamless
+        # player.  This matches load_espn_lists in the DDF leg.
+        ppg_divisor = gr if espn_has_team else (
+            ros_window[1] - ros_window[0] + 1)
         # espn_expected_games = the count of ROS weeks where ESPN projects
         # any scoring stat for this player (JEG-535). Since JEG-702 it no
         # longer divides ESPN's published rate; only the JEG-555 Razzball
@@ -959,7 +962,7 @@ def bake(args):
         # players. The chart's ESPN pools (curves, waiver lines, bench mix)
         # therefore see exactly the ESPN-priced players, as before.
         has_espn = not espn_status
-        if gr:
+        if ppg_divisor:
             # JEG-702 (Jeremy 2026-10-16, "Undo ESPN only; hold keeps
             # comparing per game played"): ESPN's published rate is ROS
             # points / team games remaining (bye excluded), the pre-JEG-535
@@ -967,12 +970,12 @@ def bake(args):
             # him like a starter.
             espn_played_ppg = None
             if has_espn:
-                row["blend_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
-                row["espn_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
+                row["blend_ppg"] = {s: round(v / ppg_divisor, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
+                row["espn_ppg"] = {s: round(v / ppg_divisor, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
                 # The JEG-555 hold still compares Razzball against ESPN per
                 # game PLAYED (espn_expected_games, else team games), so
                 # Razzball's held set and values are unchanged by JEG-702.
-                espn_played = eg if eg else gr
+                espn_played = eg if eg else ppg_divisor
                 espn_played_ppg = {s: round(v / espn_played, PPG_DECIMALS)
                                    for s, v in row["espn_ros"].items()}
             # Razzball: rz_ros = rz_ppg x the pipeline's OWN games_remaining.
