@@ -46,15 +46,24 @@ PICK = """() => {
 READ = """() => {
   const C = window.TradeValueCurveControls;
   const byName = new Map(C.getAllRows().map(r => [r.name, r]));
+  // JEG-819: only count charts the engine says are available (same set the finder now uses).
+  const available = new Set((C.getSourceInfo ? C.getSourceInfo() : []).filter(i => i.available).map(i => i.key));
+  const chartKeys = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'].filter(k => available.has(k));
+  const minCharts = Math.min(3, chartKeys.length);
   const items = [...document.querySelectorAll('#v2FindList li')].map(li => {
     const text = li.querySelector('b').textContent;
     const [give, get] = text.replace('You give ', '').split('; you receive ').map(s => s.split(' + '));
     const sum = (names, key) => names.reduce((a, n) => a + byName.get(n).values[key], 0);
-    const nets = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'].map(k => sum(get, k) - sum(give, k));
+    const nets = chartKeys.map(k => sum(get, k) - sum(give, k));
     return {give, get, shownEdge: Number(li.dataset.findEdge), edge: sum(get, 'ddf_value') - sum(give, 'ddf_value'),
-      accepting: nets.filter(n => Math.abs(n) < 0.05 || n < 0).length, href: li.querySelector('a').getAttribute('href')};
+      accepting: nets.filter(n => Math.abs(n) < 0.05 || n < 0).length, chartCount: chartKeys.length, minCharts,
+      href: li.querySelector('a').getAttribute('href')};
   });
-  return {items, rowsShown: items.length, out: document.getElementById('v2FindOut').textContent.trim()};
+  // JEG-819: names of held/unavailable charts, to verify they do not appear in the output text.
+  const CHART_NAMES = {usatoday: 'USA Today', fantasycalc: 'FantasyCalc', fantasypros: 'FantasyPros', cbs: 'CBS Sports'};
+  const heldNames = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'].filter(k => !available.has(k)).map(k => CHART_NAMES[k]);
+  return {items, rowsShown: items.length, chartCount: chartKeys.length, minCharts, heldNames,
+    out: document.getElementById('v2FindOut').textContent.trim()};
 }"""
 
 
@@ -86,11 +95,15 @@ def check(page, tag, width) -> list[str]:
         return errors
     if got["rowsShown"] > 10:
         errors.append(tag + f"{got['rowsShown']} rows listed, max 10")
+    # JEG-819: a held chart must not appear in the finder's output text.
+    for held in got.get("heldNames", []):
+        if held in got["out"]:
+            errors.append(tag + f"held chart '{held}' appears in finder output")
     for item in got["items"]:
         if item["edge"] < 0.05 or abs(item["edge"] - item["shownEdge"]) > 1e-6:
             errors.append(tag + f"edge {item['edge']} vs shown {item['shownEdge']}: {item['give']} -> {item['get']}")
-        if item["accepting"] < 3:
-            errors.append(tag + f"only {item['accepting']} charts accept: {item['give']} -> {item['get']}")
+        if item["accepting"] < item["minCharts"]:
+            errors.append(tag + f"only {item['accepting']} of {item['chartCount']} available charts accept (need {item['minCharts']}): {item['give']} -> {item['get']}")
     # The link opens those players on the two sides.
     first = got["items"][0]
     page.click("#v2FindList li >> nth=0 >> a")
