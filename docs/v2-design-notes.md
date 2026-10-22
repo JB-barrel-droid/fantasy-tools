@@ -1192,3 +1192,10 @@ Confidence rules (High / Medium / Low):
 - a one-source (low-confidence) DDF Value in the trade lowers line 1 by one level (line 2 does not read DDF).
 Tests: `tests/test_v2_headlines.py` (constructed trades recomputed from raw values, with mutations) and the headline check in
 `tests/test_v2_compare_render.py`.
+
+## Values auditing shell (JEG-847, 2026-10-22)
+
+- Last tab, `#values-auditing` (view `audit`, page `#v2Audit`, short label "Audit"). Sub-tabs follow the Research precedent: `#values-auditing/value-pie` and `#values-auditing/single-source`; an unknown sub-route shows the Value pie. The Showing bar is hidden; the league bar stays.
+- Each sub-tab fills its own mount (`#audit-pie-root`, `#audit-source-root`) from its own file (`audit-pie.js`, `audit-source.js`, own CSS) through the `window.DDFAudit` registry in `audit-core.js`: `register(slug, fn)`; v2.js calls `fn(mount, {slug, engine})` on every refresh while that sub-tab shows. Hooks must be idempotent.
+- The placeholders are not `.v2-card`, so contract GL-17/GL-18 (chevron and expand control) do not apply until a sub-tab adds cards (then add them to `modules.js` CARDS).
+- Eight tabs on a 390 px phone: tab type drops to 11 px below 421 px so the single row holds. Pinned by `tests/test_v2_nav_render.py`; the shell by `tests/test_v2_audit_render.py`.

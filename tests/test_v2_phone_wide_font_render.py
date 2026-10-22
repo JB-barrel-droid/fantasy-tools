@@ -25,7 +25,7 @@ from tests import _render_env
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 CSS = ROOT / "app" / "v2" / "v2.css"
-TABS = ("player-values", "trade-targets", "risers-fallers", "compare-trade", "how-values", "research", "manifesto")
+TABS = ("player-values", "trade-targets", "risers-fallers", "compare-trade", "how-values", "research", "values-auditing", "manifesto")
 WIDTHS = (320, 375, 414)
 FAMILIES = ("DejaVu Sans", "Verdana")
 FIX = re.compile(r"\n/\* JEG-829: a host without Inter.*?\n\}\n@media \(min-width: 360px\)[^\n]*\n", re.S)

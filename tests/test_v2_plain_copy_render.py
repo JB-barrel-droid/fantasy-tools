@@ -19,7 +19,7 @@ from tests import _render_env
 from tests.test_published_league_settings_render import _chromium_executable
 from tests.test_v2_deal_read_render import _served, V2_JS
 
-TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#how-values", "#research")
+TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#how-values", "#research", "#values-auditing")
 BANNED = re.compile(r"\b(USAT|FP|FC|Wk)\b|CBS ROS|\bvegas\b", re.I)
 PROMISES = re.compile(r"\b(soon|coming|will be published|next week|tomorrow|\d{4}-\d{2}-\d{2})\b", re.I)
 READ = "() => document.body.innerText"

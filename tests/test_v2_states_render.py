@@ -222,7 +222,7 @@ class StatesRenderTest(unittest.TestCase):
                 'const METHOD_COLUMNS = [["vorp", "Our value"], ["indexed", "Rescaled chart"], ["dda", "VORP vs waivers"]];', 1),
                 "with_failure": False},
             "failure leaves values visible": {"v2_js": js.replace(
-                '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });',
+                '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });',
                 '$("v2Main").hidden = false;', 1)},
             "empty state never drawn": {"v2_js": js.replace("    renderEmpty();\n", "", 1), "with_failure": False},
             "bottom sheet instead of full screen": {"v2_css": css.replace(

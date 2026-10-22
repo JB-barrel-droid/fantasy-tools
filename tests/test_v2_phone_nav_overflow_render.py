@@ -64,8 +64,8 @@ def _run(css=None) -> dict:
 def _errors(result) -> list[str]:
     errors = []
     for width, r in result.items():
-        if r["count"] != 7:
-            errors.append(f"{width}: {r['count']} tabs, want 7")
+        if r["count"] != 8:
+            errors.append(f"{width}: {r['count']} tabs, want 8")
         if r["over"] > 0:
             errors.append(f"{width}: page scrolls sideways by {r['over']}")
         if r["offscreen"]:
