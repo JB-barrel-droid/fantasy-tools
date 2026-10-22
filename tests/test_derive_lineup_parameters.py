@@ -242,9 +242,18 @@ class CommittedData(unittest.TestCase):
             self.assertTrue(0.03 < r["sigma_rel_now"] < 0.40, (pos, r["sigma_rel_now"]))
             self.assertTrue(0.0 < r["sigma_floor"] < 3.0, (pos, r["sigma_floor"]))
             self.assertGreater(doc["missed_games"]["pooled"][pos]["starters"]["games"], 300)
-        # es-value-001: the default window is the season objective, weeks 6 to the
-        # last playoff week (17), not NFL week 18 (rule changed by Jeremy, 2026-10-09).
-        self.assertAlmostEqual(doc["bye_share"]["share"], 30 / (32 * 12))
+        # es-value-001: the default window is the season objective, first_ros
+        # (content_week + 1) to the last playoff week (17), not NFL week 18
+        # (rule changed by Jeremy, 2026-10-09). content_week = max(history);
+        # when history includes week 6, first_ros=7, window=7-17 = 11 weeks,
+        # 26 of 32 byes fall in that range.
+        cw = max(dl.load_history())
+        first_ros = cw + 1
+        last_week = 17
+        byes_data = json.loads(dl.BYES.read_text(encoding="utf-8"))["byes"]
+        n_byes = sum(1 for b in byes_data.values() if first_ros <= b <= last_week)
+        self.assertAlmostEqual(doc["bye_share"]["share"],
+                               n_byes / (32 * (last_week - first_ros + 1)))
         self.assertIn("# Expected-starts parameters", dl.render_report(doc))
 
 
