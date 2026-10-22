@@ -850,7 +850,7 @@ def bake(args):
         # agents (team="" in the CSV) divide ROS by the window length, not
         # by a universe team's game count, matching load_espn_lists (the
         # DDF leg).  The universe team still goes on the row for display.
-        espn_has_team = bool(team)
+        espn_has_team = bool((espn_row["team"] or "").strip())
         uni = universe.get(key)
         if espn_row.get("universe_only"):
             # Sleeper is the only source for these: its team, never the

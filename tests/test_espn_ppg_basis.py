@@ -53,6 +53,14 @@ def _write_espn_csv(path, today):
          "r_receptions": "20.0", "r_rec_yds": "150.0", "r_rec_tds": "1.0",
          "weeks_covered": "5-18", "ros_half_ppr": "167.00",
          "espn_projected_games": "13", "has_espn_projection": "True"},
+        # Free agent: no team in ESPN CSV. The bake's canonical registry may
+        # resolve a team for display, but the per-game divisor must use the
+        # window length (14 weeks, 5-18), matching load_espn_lists.
+        {"player": "Free Agent RB", "pos": "RB", "team": "", "eligible": "True",
+         "espn_snapshot_date": today, "r_rush_yds": "100.0", "r_rush_tds": "0.0",
+         "r_receptions": "5.0", "r_rec_yds": "30.0", "r_rec_tds": "0.0",
+         "weeks_covered": "5-18", "ros_half_ppr": "14.00",
+         "espn_projected_games": "2", "has_espn_projection": "True"},
     ]
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=ESPN_COLS)
@@ -70,6 +78,22 @@ def _write_razzball_csv(path):
         w.writerow(["Test Player", "QB", "BUF", "5.0", "5.0", "5.0"])
 
 
+from canonical_players import Registry  # noqa: E402
+
+
+def _test_registry_with_free_agent():
+    """Registry that includes a free agent mapped to DAL (team_id 108)."""
+    return Registry([
+        {"player_key": 777, "id": "u1", "full_name": "Test Player",
+         "position": "QB", "active": True, "team_id": 10},
+        {"player_key": 888, "id": "u2", "full_name": "Other Player",
+         "position": "RB", "active": True, "team_id": 20},
+        # Free Agent RB: registry knows team DAL (108) but ESPN CSV has no team.
+        {"player_key": 999, "id": "u3", "full_name": "Free Agent RB",
+         "position": "RB", "active": True, "team_id": 108},
+    ])
+
+
 class EspnPerTeamGameBake(harness.BakeTodayUnboundLocalTest):
     """Reuses the hermetic bake harness (no Supabase, stubbed schedule)."""
 
@@ -79,7 +103,7 @@ class EspnPerTeamGameBake(harness.BakeTodayUnboundLocalTest):
         _write_espn_csv(args.espn_csv, today)
         _write_razzball_csv(args.razzball_csv)
         with harness.patch.object(bake_players, "load_registry",
-                                  return_value=harness._test_registry()), \
+                                  return_value=_test_registry_with_free_agent()), \
              harness.patch.object(bake_players, "query_all",
                                   side_effect=harness._fake_query_all), \
              harness.patch.object(bake_players, "load_preseason_ecr_ranks",
@@ -105,6 +129,20 @@ class EspnPerTeamGameBake(harness.BakeTodayUnboundLocalTest):
                              round(qb["blend_ros"][s] / gr, bake_players.PPG_DECIMALS), s)
         self.assertLess(qb["espn_ppg"]["ppr"], 2.0)    # not ROS / 1 = 20
 
+    def test_free_agent_divides_by_window_not_team_games(self):
+        """A player with no ESPN CSV team must divide ROS by the window length,
+        not by a registry-resolved team's game count.  Without the fix
+        (espn_has_team from the resolved team instead of the CSV team),
+        Free Agent RB divides by DAL's 13 games instead of 14 (window 5-18).
+        """
+        rows = self._bake_rows()
+        fa = rows["Free Agent RB"]
+        # Window 5-18 = 14 weeks. Free agents divide by window length.
+        self.assertEqual(fa["games_remaining"], 14)
+        for s in ("standard", "half_ppr", "ppr"):
+            want = round(fa["espn_ros"][s] / 14, bake_players.PPG_DECIMALS)
+            self.assertEqual(fa["espn_ppg"][s], want, s)
+
     def test_razzball_hold_still_reads_espn_per_game_played(self):
         qb = self._bake_rows()["Test Player"]
         self.assertIn("rz_held", qb, "held against ESPN per game played (20 ppg)")
@@ -129,6 +167,8 @@ class EspnPerTeamGameLeg(unittest.TestCase):
         x = {d["name"]: (d["x"], d["games"]) for pos in lists for d in lists[pos]}
         self.assertEqual(x["Test Player"], (20.0 / 13, 13))
         self.assertEqual(x["Other Player"], (167.0 / 13, 13))  # LA bye 11 inside 5-18
+        # Free agent: no team -> divides by window length (14), not a team's games.
+        self.assertEqual(x["Free Agent RB"], (14.0 / 14, 14))
 
 
 if __name__ == "__main__":
