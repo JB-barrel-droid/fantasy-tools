@@ -193,9 +193,9 @@
       if (v.others < 3 && v.others > 0) { level = capped(level, "Medium"); reasons.push("fewer than 3 other sources"); }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
       if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
-      // JEG-821: "Unclear" when the data does not support the verdict: no supporting sources agree
-      // AND margin is under 5%, or "Even" with no supporting sources.
-      if (agree === 0 && v.others > 0 && (thinFlag || answer === "Even")) { answer = "Unclear"; }
+      // JEG-821 + JEG-832: "Unclear" when no supporting sources agree. The chart rows are the
+      // independent check; when none of them backs the verdict, the headline must not say "Yes" or "No".
+      if (agree === 0 && v.others > 0) { answer = "Unclear"; }
       propose = {answer, confidence: level, agree, of: v.others, margin, reasons};
     }
     // Line 2: will they accept, from the published charts.
@@ -245,15 +245,19 @@
   }
 
   // ---------- JEG-487 deal read (contract CT-08) ----------
-  // Three nets, each answering one question, all from engine series (no value math here beyond the sums):
+  // Three nets, each answering one question:
   //   V  DDF Value net              (ddf_value)             are you getting real value?
-  //   M  Trade chart average net    (ddf_value_charts)      does the market think you are winning?
+  //   M  Trade chart average net    (mean of compared chart rows)  does the market think you are winning?
   //   P  DDF Projections net        (ddf_value_projections) is the value backed by projected production?
+  // JEG-832: M is the plain mean of the per-chart rescaled nets (the same rows Compare shows), NOT
+  // the DDF Value · trade charts blend (which equals DDF Value when projections are held). When fewer
+  // than MIN_DEAL_CHARTS charts price every player the market card says "not enough charts".
   // Side of a net: win when it is at least max(1, 3% of the average side total of that series), lose when it
   // is at most the negative of that, otherwise even. The read is a fixed 9-cell table on (V, M): a manager who
   // trades off the market sees M's loss as their win, so V win with M lose is the arbitrage; V lose with M win
   // is the trap. P is a one-sentence production check against V. Deterministic: no model, no blending.
   const DEAL_KEYS = {value: "ddf_value", market: "ddf_value_charts", projections: "ddf_value_projections"};
+  const MIN_DEAL_CHARTS = 3;
   const DEAL_SIDES = ["win", "even", "lose"];
   const DEAL_READS = {
     "win|win": {title: "Win, but a hard sell", action: "Propose, expect pushback",
@@ -287,15 +291,33 @@
     const value = {win: "you win", lose: "you lose", even: "it is even"}[v];
     return `Projected production does not back the value: DDF Value says ${value} but DDF Projections say ${said}.`;
   }
-  function dealRead(giveRows, receiveRows) {
-    const rows = compareTrade(giveRows, receiveRows, [DEAL_KEYS.value, DEAL_KEYS.market, DEAL_KEYS.projections]).rows;
-    const [v, m, p] = rows;
+  // JEG-832: chartKeys are the compared chart series (e.g. ["usatoday","fantasycalc","fantasypros"]).
+  // The market net is the mean of each complete chart row's net, not the DDF blend.
+  function dealRead(giveRows, receiveRows, chartKeys) {
+    const vp = compareTrade(giveRows, receiveRows, [DEAL_KEYS.value, DEAL_KEYS.projections]).rows;
+    const [v, p] = vp;
     const net = row => (row.net === null ? {net: null, give: null, receive: null, side: null, threshold: null, missing: row.missing}
       : {net: row.net, give: row.give, receive: row.receive, ...sideOf(row.net, row.give, row.receive), missing: []});
-    const out = {value: net(v), market: net(m), projections: net(p)};
-    if (out.value.net === null || out.market.net === null) {
-      const gaps = [out.value.net === null ? "DDF Value" : null, out.market.net === null ? "Trade chart average" : null].filter(Boolean);
-      return {kind: "incomplete", ...out, text: `No deal read yet: ${gaps.join(" and ")} has no value for at least one player in the trade.`};
+    // JEG-832: compute M from the mean of the per-chart rescaled nets.
+    const chartRows = chartKeys && chartKeys.length ? compareTrade(giveRows, receiveRows, chartKeys).rows : [];
+    const completeCharts = chartRows.filter(row => row.net !== null);
+    let market;
+    if (completeCharts.length < MIN_DEAL_CHARTS) {
+      market = {net: null, give: null, receive: null, side: null, threshold: null, missing: [],
+        chartCount: completeCharts.length, minCharts: MIN_DEAL_CHARTS, tooFew: true};
+    } else {
+      const avgNet = completeCharts.reduce((s, r) => s + r.net, 0) / completeCharts.length;
+      const avgGive = completeCharts.reduce((s, r) => s + r.give, 0) / completeCharts.length;
+      const avgRec = completeCharts.reduce((s, r) => s + r.receive, 0) / completeCharts.length;
+      market = {net: avgNet, give: avgGive, receive: avgRec, ...sideOf(avgNet, avgGive, avgRec), missing: [],
+        chartCount: completeCharts.length};
+    }
+    const out = {value: net(v), market, projections: net(p)};
+    if (out.value.net === null) {
+      return {kind: "incomplete", ...out, text: "No deal read yet: DDF Value has no value for at least one player in the trade."};
+    }
+    if (market.tooFew) {
+      return {kind: "incomplete", ...out, text: `Not enough compared charts to read the market (${market.chartCount} of ${MIN_DEAL_CHARTS} needed).`};
     }
     const cell = DEAL_READS[`${out.value.side}|${out.market.side}`];
     return {kind: "read", ...out, cell: `${out.value.side}|${out.market.side}`, title: cell.title, action: cell.action, text: cell.text,
@@ -303,7 +325,7 @@
   }
 
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
-    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS};
+    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);

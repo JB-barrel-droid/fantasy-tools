@@ -4209,7 +4209,7 @@
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence}) : null,
-      deal: ready ? TC.dealRead(giveRows, receiveRows) : null,
+      deal: ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
@@ -4803,8 +4803,9 @@
       const value = document.createElement("b");
       value.className = "v2-deal-net";
       value.dataset.side = n.side || "";
-      value.textContent = n.net === null ? "—" : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
-      if (n.net === null) value.title = "At least one player has no value in this series";
+      // JEG-832: show "not enough charts" when the market card has too few compared charts.
+      value.textContent = n.net === null ? (n.tooFew ? "Not enough charts" : "—") : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
+      if (n.net === null) value.title = n.tooFew ? `${n.chartCount} of ${n.minCharts} compared charts needed` : "At least one player has no value in this series";
       li.append(label, info, value, def);
       nets.appendChild(li);
     });

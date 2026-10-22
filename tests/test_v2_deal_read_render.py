@@ -32,20 +32,35 @@ V2_JS = ROOT / "app" / "v2" / "v2.js"
 from tests import _render_env  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
-KEYS = {"value": "ddf_value", "market": "ddf_value_charts", "projections": "ddf_value_projections"}
+KEYS = {"value": "ddf_value", "projections": "ddf_value_projections"}
+# JEG-832: the "market" net is now the mean of the per-chart rescaled nets, not ddf_value_charts.
+CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 
-# The built data may have no published trade charts for the week (then ddf_value_charts is empty everywhere), so the
-# test feeds the page deterministic trade-chart and projection series on top of the engine's DDF Value: the deal read
-# is a pure function of those three series, which is what is under test.
+# The built data may have no published trade charts for the week, so the test feeds the page deterministic
+# chart and projection series on top of the engine's DDF Value. JEG-832: four chart series are injected
+# so dealRead can compute the chart average from per-chart rows (the same rows Compare shows).
 FEED = """() => { const C = window.TradeValueCurveControls; const orig = C.getAllRows.bind(C);
   const f = (k, salt) => 0.5 + (((Number(k) * 37 + salt) % 100) / 100);
   C.getAllRows = () => orig().map(r => Number.isFinite(r.values.ddf_value) ? {...r, values: {...r.values,
-    ddf_value_charts: r.values.ddf_value * f(r.player_key, 11), ddf_value_projections: r.values.ddf_value * f(r.player_key, 53)}} : r); }"""
+    ddf_value_charts: r.values.ddf_value * f(r.player_key, 11), ddf_value_projections: r.values.ddf_value * f(r.player_key, 53),
+    usatoday: r.values.ddf_value * f(r.player_key, 7), fantasycalc: r.values.ddf_value * f(r.player_key, 19),
+    fantasypros: r.values.ddf_value * f(r.player_key, 31), cbs: r.values.ddf_value * f(r.player_key, 43)}} : r); }"""
 
-PICK = """() => { const rows = window.TradeValueCurveControls.getAllRows().filter(r => ['ddf_value', 'ddf_value_charts', 'ddf_value_projections']
-  .every(k => Number.isFinite(r.values[k]))).sort((a, b) => b.values.ddf_value - a.values.ddf_value);
-  const pick = list => list.map(r => ({key: String(r.player_key), v: r.values.ddf_value, m: r.values.ddf_value_charts, p: r.values.ddf_value_projections}));
-  return {pool: pick(rows.slice(0, 40))}; }"""
+PICK = """() => {
+  const C = window.TradeValueCurveControls;
+  const TT = window.TradeValueTargets;
+  const chartKeys = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'];
+  const info = C.getSourceInfo();
+  const available = new Set(info.filter(s => s.available && chartKeys.includes(s.key)).map(s => s.key));
+  const allKeys = ['ddf_value', 'ddf_value_projections'].concat([...available]);
+  const rows = C.getAllRows().filter(r => allKeys.every(k => Number.isFinite(r.values[k])))
+    .sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const pick = list => list.map(r => {
+    const o = {key: String(r.player_key), v: r.values.ddf_value, p: r.values.ddf_value_projections, charts: {}};
+    available.forEach(k => { o.charts[k] = r.values[k]; });
+    return o;
+  });
+  return {pool: pick(rows.slice(0, 40)), chartKeys: [...available]}; }"""
 
 READ = """() => {
   const deal = document.getElementById('v2CDeal');
@@ -84,16 +99,29 @@ def side(net, give, receive):
     return "win" if net >= threshold else "lose" if net <= -threshold else "even"
 
 
-def expected(give, receive):
+def expected(give, receive, chart_keys):
     out = {}
-    for name, letter in (("value", "v"), ("market", "m"), ("projections", "p")):
+    for name, letter in (("value", "v"), ("projections", "p")):
         g = sum(p[letter] for p in give)
         r = sum(p[letter] for p in receive)
         out[name] = (r - g, side(r - g, g, r))
+    # JEG-832: market is the mean of the per-chart rescaled nets.
+    chart_nets = []
+    for k in chart_keys:
+        g = sum(p["charts"][k] for p in give)
+        r = sum(p["charts"][k] for p in receive)
+        chart_nets.append((r - g, g, r))
+    if len(chart_nets) < 3:
+        out["market"] = (None, None)
+    else:
+        avg_net = sum(n for n, _, _ in chart_nets) / len(chart_nets)
+        avg_give = sum(g for _, g, _ in chart_nets) / len(chart_nets)
+        avg_rec = sum(r for _, _, r in chart_nets) / len(chart_nets)
+        out["market"] = (avg_net, side(avg_net, avg_give, avg_rec))
     return out
 
 
-def pick_trades(pool):
+def pick_trades(pool, chart_keys):
     """Trades chosen from the engine rows so the nets differ: every (V side, M side) pair that occurs among
     1-for-1 and 2-for-1 swaps of the top players, up to six of them."""
     seen, trades = set(), []
@@ -102,7 +130,7 @@ def pick_trades(pool):
             for give, receive in (([a], [b]), ([b], [a]), ([a, pool[0]] if a is not pool[0] else [a], [b])):
                 if {p["key"] for p in give} & {p["key"] for p in receive}:
                     continue
-                e = expected(give, receive)
+                e = expected(give, receive, chart_keys)
                 cell = (e["value"][1], e["market"][1])
                 if cell not in seen:
                     seen.add(cell)
@@ -110,21 +138,28 @@ def pick_trades(pool):
     return trades[:6]
 
 
-def check_snapshot(snap, give, receive, tag) -> list[str]:
+def check_snapshot(snap, give, receive, chart_keys, tag) -> list[str]:
     errors = []
-    want = expected(give, receive)
+    want = expected(give, receive, chart_keys)
     if not snap["shown"]:
         return [f"{tag}the deal read is not shown"]
     if len(snap["cells"]) != 9:
         errors.append(f"{tag}grid has {len(snap['cells'])} cells, want 9")
     current = [c["cell"] for c in snap["cells"] if c["current"]]
-    cell = f"{want['value'][1]}|{want['market'][1]}"
-    if current != [cell]:
+    if want["market"][1] is None:
+        cell = None  # incomplete: no outlined cell
+    else:
+        cell = f"{want['value'][1]}|{want['market'][1]}"
+    if cell and current != [cell]:
         errors.append(f"{tag}outlined {current}, want [{cell!r}] (V {want['value']}, M {want['market']})")
     for name in ("value", "market", "projections"):
         net, s = want[name]
         got = snap["nets"].get(name)
-        if not got or got["side"] != s:
+        if net is None:
+            # JEG-832: market with too few charts shows "Not enough charts" or "—".
+            if got and got["side"] not in ("", None):
+                errors.append(f"{tag}{name} should have no side when there are too few charts, got {got['side']!r}")
+        elif not got or got["side"] != s:
             errors.append(f"{tag}{name} side {got and got['side']}, want {s}")
         elif abs(float(got["text"].split(" ")[0].replace("−", "-").replace("+", "")) - net) > 0.06:
             errors.append(f"{tag}{name} net {got['text']!r}, want {net:+.1f}")
@@ -132,12 +167,13 @@ def check_snapshot(snap, give, receive, tag) -> list[str]:
             errors.append(f"{tag}{name} needs an info button and a definition")
     if "The sources split" in snap["body"]:
         errors.append(f"{tag}the old 'The sources split.' copy is back")
-    if not snap["read"].strip() or "Arbitrage" in snap["read"] and cell != "win|lose":
-        errors.append(f"{tag}read {snap['read']!r} for cell {cell}")
-    if cell == "win|lose" and "Arbitrage: send it" not in snap["read"]:
-        errors.append(f"{tag}win|lose must read 'Arbitrage: send it', got {snap['read']!r}")
-    if cell == "lose|win" and not snap["read"].startswith("Trap"):
-        errors.append(f"{tag}lose|win must read 'Trap', got {snap['read']!r}")
+    if cell:
+        if not snap["read"].strip() or "Arbitrage" in snap["read"] and cell != "win|lose":
+            errors.append(f"{tag}read {snap['read']!r} for cell {cell}")
+        if cell == "win|lose" and "Arbitrage: send it" not in snap["read"]:
+            errors.append(f"{tag}win|lose must read 'Arbitrage: send it', got {snap['read']!r}")
+        if cell == "lose|win" and not snap["read"].startswith("Trap"):
+            errors.append(f"{tag}lose|win must read 'Trap', got {snap['read']!r}")
     return errors
 
 
@@ -179,8 +215,10 @@ def run_checks(patch=None) -> list[str]:
                     errors.append(f"[{width}px] the example trade has no deal read (shown {snap['shown']}, example {snap['example']})")
                 if "The sources split" in snap["body"]:
                     errors.append(f"[{width}px example] the old 'The sources split.' copy is back")
-                pool = page.evaluate(PICK)["pool"]
-                trades = pick_trades(pool)
+                pick_result = page.evaluate(PICK)
+                pool = pick_result["pool"]
+                chart_keys = pick_result["chartKeys"]
+                trades = pick_trades(pool, chart_keys)
                 if len(trades) < 4:
                     errors.append(f"[{width}px] could only build {len(trades)} distinct trades from the engine rows")
                 for n, (give, receive) in enumerate(trades):
@@ -188,7 +226,7 @@ def run_checks(patch=None) -> list[str]:
                     page.evaluate("h => { location.hash = h; }", link)
                     page.wait_for_timeout(600)
                     snap = page.evaluate(READ)
-                    errors += check_snapshot(snap, give, receive, f"[{width}px trade {n}] ")
+                    errors += check_snapshot(snap, give, receive, chart_keys, f"[{width}px trade {n}] ")
                     if width <= 390 and snap["overflow"] > 0:
                         errors.append(f"[{width}px trade {n}] horizontal overflow {snap['overflow']}px")
                 if width == 1440:
