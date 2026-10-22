@@ -485,7 +485,9 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-trade-side { margin-top: 0; position: relative; }
 .v2-trade-side h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px !important; }
 .v2-trade-side .v2-search { display: block; max-width: none; }
-.v2-trade-results { list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; left: 24px; right: 24px; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
+/* JEG-823: wrap search + results so the absolute list opens below the input, not above it. */
+.v2-trade-search-wrap { position: relative; }
+.v2-trade-results { list-style: none; margin: 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
 .v2-trade-results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
 .v2-trade-results button:hover, .v2-trade-results button:focus-visible { background: var(--v2-positive); }
 .v2-trade-results .is-empty { padding: 10px 12px; }
@@ -505,7 +507,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-ctable td[data-col="net"] .missing .why { display: block; font-size: 11px; font-weight: 400; white-space: normal; max-width: 260px; margin-left: auto; }
 @media (max-width: 767px) {
   .v2-trade-sides { grid-template-columns: 1fr; }
-  .v2-trade-results { left: 16px; right: 16px; }
+  .v2-trade-results { left: 0; right: 0; }
   /* Each source becomes a card: name on top, then give / get / net with their labels. */
   .v2-ctable thead { display: none; }
   .v2-ctable, .v2-ctable tbody { display: block; }

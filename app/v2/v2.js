@@ -4672,7 +4672,15 @@
     const box = $("v2CDeal");
     const deal = compareView.deal;
     box.hidden = !deal;
-    if (!deal) return;
+    if (!deal) {
+      // JEG-823: clear stale deal-read content when a side is empty (defense in depth, cf. JEG-808).
+      $("v2CDealRead").textContent = "";
+      $("v2CDealText").textContent = "";
+      $("v2CDealNets").replaceChildren();
+      $("v2CDealGrid").replaceChildren();
+      $("v2CDealProduction").textContent = "";
+      return;
+    }
     const TC = window.TradeValueTrade;
     $("v2CDealRead").textContent = deal.kind === "read" ? `${deal.title}: ${deal.action}` : "";
     $("v2CDealRead").hidden = deal.kind !== "read";
@@ -4936,8 +4944,9 @@
       ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
-    $("v2CClear").hidden = !count;
-    $("v2CSwap").hidden = !count;
+    // JEG-823: hide Clear/Swap when the example is showing (nothing to clear or swap).
+    $("v2CClear").hidden = !count || compareView.example;
+    $("v2CSwap").hidden = !count || compareView.example;
     $("v2CShare").hidden = !ready || compareView.example;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
