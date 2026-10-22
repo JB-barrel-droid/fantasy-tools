@@ -126,6 +126,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
+	python3 -m unittest tests.test_gh_sbclient_bytes
 	python3 -m unittest tests.test_usatoday_relay_source
 	python3 -m unittest tests.test_bake_espn_zero_universe
 	python3 -m unittest tests.test_nfl_universe

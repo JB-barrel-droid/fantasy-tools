@@ -9,10 +9,68 @@ credentials from environment variables:
 Drop this on PYTHONPATH as sbclient.py when running outside Muse.
 """
 
+import atexit
 import json
 import os
+import sys
+import urllib.error
 import urllib.parse
 import urllib.request
+
+# JEG-793: response-body bytes per (method, table or rpc/<fn>), so the
+# Supabase egress hogs can be ranked from real numbers. Counts only; no row
+# data, params or keys are ever stored or logged.
+_BYTES = {}
+
+
+def _label(path):
+    """'/rest/v1/players' -> 'players'; '/rest/v1/rpc/fn' -> 'rpc/fn'."""
+    return path.split("/rest/v1/", 1)[-1].split("?", 1)[0]
+
+
+def _count(method, path, nbytes):
+    entry = _BYTES.setdefault((method, _label(path)), [0, 0])
+    entry[0] += 1
+    entry[1] += nbytes
+
+
+def bytes_summary_enabled():
+    return (os.environ.get("SUPABASE_BYTES_LOG") == "1"
+            or os.environ.get("GITHUB_ACTIONS") == "true")
+
+
+def _ranked():
+    return sorted(_BYTES.items(), key=lambda kv: -kv[1][1])
+
+
+def bytes_summary_lines():
+    """One compact line per (method, table), largest first."""
+    who = os.environ.get("GITHUB_WORKFLOW") or os.path.basename(sys.argv[0] or "python")
+    return [f"[supabase-bytes] {who} {m} {t} requests={n} bytes={b}"
+            for (m, t), (n, b) in _ranked()]
+
+
+def _emit_bytes_summary():
+    if not _BYTES or not bytes_summary_enabled():
+        return
+    for line in bytes_summary_lines():
+        print(line, file=sys.stderr)
+    step = os.environ.get("GITHUB_STEP_SUMMARY")
+    if step:
+        who = os.environ.get("GITHUB_WORKFLOW") or "run"
+        total = sum(b for _, b in _BYTES.values())
+        md = [f"#### Supabase response bytes ({who}, total {total:,})", "",
+              "| method | table | requests | bytes |", "|---|---|---:|---:|"]
+        for (m, t), (n, b) in _ranked():
+            md.append(f"| {m} | {t} | {n} | {b:,} |")
+        try:
+            with open(step, "a", encoding="utf-8") as fh:
+                fh.write("\n".join(md) + "\n\n")
+        except OSError:
+            pass
+
+
+atexit.register(_emit_bytes_summary)
 
 
 class SupabaseError(Exception):
@@ -50,6 +108,7 @@ def _request(method, path, body=None, params="", prefer="return=representation",
     try:
         resp = urllib.request.urlopen(req, timeout=60)
         raw = resp.read()
+        _count(method, path, len(raw))
         if not raw:
             return []
         try:
@@ -57,7 +116,9 @@ def _request(method, path, body=None, params="", prefer="return=representation",
         except json.JSONDecodeError:
             return raw.decode()[:500]
     except urllib.error.HTTPError as e:
-        raise SupabaseError(f"{method} {path}: HTTP {e.code} {e.read().decode()[:400]}")
+        err = e.read()
+        _count(method, path, len(err))
+        raise SupabaseError(f"{method} {path}: HTTP {e.code} {err.decode()[:400]}")
 
 
 def get(table, params="", schema=None):
