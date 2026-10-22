@@ -441,8 +441,13 @@
   // no row for is missing, not 0, and gets nothing. Published values stay as
   // published; the engine gives the player an ESPN value of 0.0.
   function espnZeroBadge(row) {
-    const copy = row && row.espnProjectsZero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
+    let copy = row && row.espnProjectsZero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
     if (!copy) return null;
+    // JEG-834: while ESPN is held its zero is not a reading we use. Say "held this week", not a zero.
+    if (heldReason(view && view.infoByKey && view.infoByKey.espn)) {
+      copy = {label: "ESPN: held this week", symbol: copy.symbol,
+        title: "ESPN is held this week for a data check, so no ESPN value is used for this player."};
+    }
     const badge = document.createElement("span");
     badge.className = "v2-espn-zero";
     badge.dataset.espnZero = "";
