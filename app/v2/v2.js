@@ -231,7 +231,7 @@
       ? Math.round(entry.outlier_rate * 100) - Math.round(entry.usual_outlier_rate * 100) : null;
     const inRange = (status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5;
     const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
-    const chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : "check");
+    const chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : (inRange ? "ok" : "check"));
     const chip = document.createElement(href ? "a" : "span");
     chip.className = `v2-div-chip is-${chipClass}`;
     chip.dataset.divergence = publisher;
@@ -244,9 +244,14 @@
     if (href) { chip.href = href; chip.target = "_blank"; chip.rel = "noopener"; }
     else { chip.setAttribute("role", "img"); }
     chip.setAttribute("aria-label", `${word}: ${message}`);
+    // JEG-856: in range is a green checkmark glyph (no box, no word); its name is the aria-label and title.
+    if (inRange) {
+      chip.insertAdjacentHTML("beforeend", '<svg class="v2-ok-mark" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="8"/><path d="M4.5 8.4l2.4 2.4 4.6-5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+      return chip;
+    }
     const sym = document.createElement("span");
     sym.setAttribute("aria-hidden", "true");
-    sym.textContent = status === "excluded" ? "✗ " : (status === "reviewed" || inRange ? "✓ " : "⚑ ");
+    sym.textContent = status === "excluded" ? "✗ " : (status === "reviewed" ? "✓ " : "⚑ ");
     chip.append(sym, document.createTextNode(word));
     return chip;
   }
