@@ -134,11 +134,17 @@ class EspnPerTeamGameBake(harness.BakeTodayUnboundLocalTest):
         not by a registry-resolved team's game count.  Without the fix
         (espn_has_team from the resolved team instead of the CSV team),
         Free Agent RB divides by DAL's 13 games instead of 14 (window 5-18).
+
+        games_remaining is the *team's* schedule (13 for DAL, bye 14 inside
+        5-18) — it must match games_in_window so the committed-data parity
+        test stays green.  The ppg *divisor* is the window length (14),
+        matching load_espn_lists in the DDF leg.
         """
         rows = self._bake_rows()
         fa = rows["Free Agent RB"]
-        # Window 5-18 = 14 weeks. Free agents divide by window length.
-        self.assertEqual(fa["games_remaining"], 14)
+        # games_remaining = DAL's games inside window 5-18 (bye 14 excluded).
+        self.assertEqual(fa["games_remaining"], 13)
+        # ppg divisor = window length (14), not team games.
         for s in ("standard", "half_ppr", "ppr"):
             want = round(fa["espn_ros"][s] / 14, bake_players.PPG_DECIMALS)
             self.assertEqual(fa["espn_ppg"][s], want, s)
