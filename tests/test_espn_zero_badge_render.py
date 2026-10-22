@@ -23,9 +23,8 @@ no-ESPN-row player, it checks:
   * main page: the comparison table row (badge, ESPN column 0.0 or —) and the
     chart tooltip;
   * /v2/: the Player values table row and the player drawer; Trade targets
-    (sell side, ESPN as our value) lists exactly the ESPN-0 players the consensus
-    rule makes a target, with our value 0.0 and each chart's gap equal to its
-    value, and never lists a no-ESPN-row player; the retired separate ESPN-0 list is gone;
+    (sell side, ESPN as our value) never lists an ESPN-0 player (JEG-820 Sell
+    floor, JEG-842 out players are not recommended) or a no-ESPN-row player; the retired separate ESPN-0 list is gone;
   * the badge has a text label and a symbol, not color alone.
 
 Discrimination: test_guard_fails_on_broken_builds serves an engine without the
@@ -195,10 +194,12 @@ def collect(overrides=None):
             out["targets"] = page.evaluate("""() => {
               const t = window.TradeValueV2.targets();
               return {used: t.used, ours: t.ours, retiredList: Boolean(document.getElementById('v2TEspnZero')),
-                sell: t.sell.map(p => ({key: p.row.player_key, ours: p.ours,
+                leftOut: t.leftOut, belowSellFloor: t.belowSellFloor, sell: t.sell.map(p => ({key: p.row.player_key, ours: p.ours,
                   cells: Object.fromEntries(Object.entries(p.cells).map(([c, v]) => [c, {value: v.value, gap: v.gap}]))}))};
             }""")
-            # The probe's rendered row in the sell table: the first ESPN-0 player the consensus rule lists.
+            # JEG-820/JEG-842: an ESPN-0 player is never a Sell target (our value 0 is under the Sell floor, and
+            # "out" players are never recommended), so the probe is the first ESPN-0 player a chart still pays
+            # for; his row must be absent from the sell table, and the page must count him as left out.
             probe_zero = next((r for r in out["paid"]
                                if consensus_listed([r["all"].get(c) for c in out["targets"]["used"]])), None)
             out["targets_probe"] = probe_zero
@@ -294,37 +295,23 @@ def check(out) -> list[str]:
     if t["retiredList"]:
         errors.append("Trade targets: the separate ESPN-0 list should be retired (they are in the sell list)")
     sell = {item["key"]: item for item in t["sell"]}
+    # JEG-820 (Sell floor) and JEG-842 (out players are never recommended) superseded the JEG-677 rule that listed
+    # ESPN-0 players the charts pay for: with ESPN as our value they are not Sell targets, whatever the charts pay.
+    # (Jeremy's 2026-10-08 "Yes, use 0" decision is unchanged: the engine value stays 0.0, checked above.)
     for p in out["paid"]:
-        paid_used = {c: v for c, v in p["charts"].items() if c in used}
-        if not paid_used:
-            continue
-        item = sell.get(p["key"])
-        want_listed = consensus_listed([p["all"].get(c) for c in used])
-        if bool(item) != want_listed:
-            errors.append(f"Trade targets: {p['name']} (ESPN 0, paid {paid_used}) listed={bool(item)}, the consensus rule says {want_listed}")
-        if not item:
-            continue
-        if item["ours"] != 0:
-            errors.append(f"Trade targets: {p['name']} our value {item['ours']!r}, expected 0")
-        for chart, value in paid_used.items():
-            cell = item["cells"].get(chart) or {}
-            if cell.get("gap") != value:
-                errors.append(f"Trade targets: {p['name']} {chart} gap {cell.get('gap')!r}, expected chart value {value!r}")
+        if p["key"] in sell:
+            errors.append(f"Trade targets: ESPN-0 player {p['name']} is in the sell list (out players are never recommended)")
     for key in sell:
+        if key in zero:
+            errors.append(f"Trade targets: ESPN-0 player {key} is in the sell list")
         if key in absent:
             errors.append(f"Trade targets: no-ESPN-row player {key} is in the sell list")
-    row = out.get("targets_row")
     if not out["targets_probe"]:
-        errors.append("Trade targets: no ESPN-0 player passes the consensus rule (the rendered ESPN-0 row went untested)")
-    else:
-        if not row:
-            errors.append(f"Trade targets: {out['probe']['zero']} not rendered in the sell table")
-        else:
-            if row["ours"] != "0.0" or not badge_ok(row["badge"]):
-                errors.append(f"Trade targets: {out['probe']['zero']} row shows ours {row['ours']!r}, badge {row['badge']!r}")
-            for chart, value in out["targets_probe"]["charts"].items():
-                if chart in used and row["gaps"].get(chart) != f"+{value:.1f}":
-                    errors.append(f"Trade targets: {out['probe']['zero']} {chart} gap {row['gaps'].get(chart)!r}, expected +{value:.1f}")
+        errors.append("Trade targets: no ESPN-0 player passes the market consensus (the rendered exclusion went untested)")
+    elif out.get("targets_row"):
+        errors.append(f"Trade targets: {out['probe']['zero']} is rendered in the sell table (out players are never recommended)")
+    if out["targets_probe"] and t.get("leftOut", 0) + t.get("belowSellFloor", 0) < 1:
+        errors.append("Trade targets: the page does not count the ESPN-0 players it leaves out")
     if out["main_errors"] or out["v2_errors"]:
         errors.append(f"page errors: {out['main_errors'] + out['v2_errors']}")
     return errors
@@ -347,8 +334,15 @@ class EspnZeroBadgeRenderTest(unittest.TestCase):
         no_zero_widget = widget.replace(
             'if (key === "espn" && player.espnProjectsZero && !player.espn_ppg) {', "if (false) {", 1)
         self.assertNotEqual(no_zero_widget, widget, "mutation anchor for the engine 0.0 rule is stale")
+        # JEG-820/JEG-842: Trade targets before the Sell floor and the out-player exclusion listed ESPN-0 players.
+        targets_js = (ROOT / "app" / "v2" / "targets.js").read_text(encoding="utf-8")
+        listing_targets = targets_js.replace("const SELL_FLOOR = 5;", "const SELL_FLOOR = 0;", 1).replace(
+            'if (row.espnProjectsZero) return "out";', "", 1)
+        self.assertIn("const SELL_FLOOR = 5;", targets_js, "mutation anchor for the Sell floor is stale")
+        self.assertIn('if (row.espnProjectsZero) return "out";', targets_js, "mutation anchor for the out rule is stale")
         for name, overrides in {
             "ESPN-0 missing in the engine": {"**/assets/curve-widget.js*": no_zero_widget},
+            "Trade targets list ESPN-0 players": {"**/targets.js*": listing_targets},
         }.items():
             with self.subTest(mutation=name):
                 self.assertNotEqual(check(collect(overrides)), [], f"render checks did not catch: {name}")
