@@ -49,7 +49,7 @@ import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
-from tests._holds import pin_holds_in_dist  # noqa: E402
+from tests._holds import PINNED_HELD, pin_holds_in_dist  # noqa: E402
 
 
 def setUpModule():
@@ -269,15 +269,19 @@ def run_checks(movers_js=None, v2_js=None, full=True) -> list[str]:
                     errors.append(f"[{width}px] Risers & fallers opened on {opened!r}, not DDF Value")
                 if DDF not in options:
                     errors.append(f"[{width}px] DDF Value is not offered")
+                # JEG-906: the pinned held source (tests/_holds.py) is listed disabled with the held reason, like Compare.
                 errors += [f"[{width}px] {e}" for e in check_picker(page.evaluate(PICKER_READ, "#v2RSeries"), "Risers series",
-                                                                    disabled={FORCED_OFF: FORCED_REASON})]
+                                                                    disabled={FORCED_OFF: FORCED_REASON, **{k: "held this week" for k in PINNED_HELD}})]
                 series_list = options if width == 1440 else [DDF]
                 checked_pair = False
                 for series in series_list:
                     enabled = page.evaluate(f"() => !document.querySelector('#v2RSeries option[value=\"{series}\"]').disabled")
-                    available = page.evaluate("async s => (await window.TradeValueCurveControls.getPriorWeek(s)).available", series)
+                    # JEG-906: a held (hidden) source is never offered, whatever its prior week; the engine still prices it.
+                    available = page.evaluate("""async s => { const C = window.TradeValueCurveControls;
+                      const info = C.getSourceInfo({includeComposite: true}).find(i => i.key === s);
+                      return (await C.getPriorWeek(s)).available && !(info && info.available === false); }""", series)
                     if enabled != available:
-                        errors.append(f"[{width}px] {series}: picker enabled={enabled} but engine available={available}")
+                        errors.append(f"[{width}px] {series}: picker enabled={enabled} but engine available (prior week, not held)={available}")
                     if not enabled:
                         continue
                     page.select_option("#v2RSeries", series)

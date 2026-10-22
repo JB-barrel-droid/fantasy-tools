@@ -1,0 +1,129 @@
+{
+ "script": "tools/research/chart_agreement.py",
+ "run_at": "2026-10-22T21:54:53+00:00",
+ "engine": "pipelines/value_reference.py value-reference-002/2 at git cc576e71",
+ "setting": {
+  "scoring": "ppr",
+  "teams": 12,
+  "superflex": 0
+ },
+ "seed": 883,
+ "balance_band": 0.2,
+ "per_shape_per_week": 3000,
+ "weeks": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "charts_saved_by_week": {
+  "2": [
+   "usatoday",
+   "fantasycalc",
+   "fantasypros",
+   "cbs"
+  ],
+  "3": [
+   "usatoday",
+   "fantasycalc",
+   "fantasypros",
+   "cbs"
+  ],
+  "4": [
+   "usatoday",
+   "fantasycalc",
+   "fantasypros",
+   "cbs"
+  ],
+  "5": [
+   "usatoday",
+   "fantasycalc",
+   "fantasypros",
+   "cbs"
+  ],
+  "6": [
+   "usatoday",
+   "fantasycalc",
+   "fantasypros",
+   "cbs"
+  ],
+  "7": [
+   "usatoday",
+   "fantasycalc",
+   "fantasypros",
+   "cbs"
+  ]
+ },
+ "live": {
+  "content_week": 7,
+  "charts_available": [
+   "usatoday",
+   "fantasypros",
+   "cbs"
+  ],
+  "excluded": {
+   "fantasycalc": "held: fidelity: publisher_vs_stored"
+  },
+  "fixture_built_at": "2026-10-22T20:14:59.749196+00:00"
+ },
+ "players_by_week": {
+  "2": 361,
+  "3": 513,
+  "4": 707,
+  "5": 731,
+  "6": 736,
+  "7": 734
+ },
+ "rostered_by_week": {
+  "2": 168,
+  "3": 168,
+  "4": 168,
+  "5": 168,
+  "6": 168,
+  "7": 168
+ },
+ "trades_drawn": {
+  "2": 12000,
+  "3": 12000,
+  "4": 12000,
+  "5": 12000,
+  "6": 12000,
+  "7": 12000
+ },
+ "records": 144000,
+ "port_check": {
+  "ran": true,
+  "compared": 400,
+  "mismatches": 0,
+  "fields": [
+   "propose",
+   "proposeConf",
+   "agree",
+   "of",
+   "accept",
+   "acceptConf",
+   "yes",
+   "deal",
+   "finder"
+  ],
+  "live": {
+   "ran": true,
+   "compared": 200,
+   "mismatches": 0,
+   "examples": [],
+   "fields": [
+    "propose",
+    "proposeConf",
+    "agree",
+    "of",
+    "accept",
+    "acceptConf",
+    "yes",
+    "deal",
+    "finder"
+   ]
+  }
+ }
+}

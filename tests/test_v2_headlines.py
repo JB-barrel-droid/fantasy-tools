@@ -56,6 +56,8 @@ CASES = {
     "one-source": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], True),
     # DDF net 2 of 100 (2%, thin): Unclear even though projections agree.
     "razor-thin": ([player(1, 49, 49, 49, 49, 49, 49, 49)], [player(2, 51, 51, 51, 51, 51, 51, 51)], False),
+    # JEG-876: the same thin margin on the losing side: Unclear, not No (the lose branch has its own thin gate).
+    "razor-thin-lose": ([player(1, 51, 51, 51, 51, 51, 51, 51)], [player(2, 49, 49, 49, 49, 49, 49, 49)], False),
     # DDF lose -20; projections lose -20: No, High. Charts say you win: Likely, High.
     "lose-unanimous": ([player(1, 70, 70, 70, 70, 70, 70, 70)], [player(2, 50, 50, 50, 50, 50, 50, 50)], False),
     # 5% of 100 is not "under 5%": thin rule does not fire.
@@ -118,18 +120,22 @@ def sign(net: float) -> int:
     return 0 if abs(net) < 0.05 else (1 if net > 0 else -1)
 
 
-def expected(case) -> dict:
-    """The rules recomputed from the raw values (not from trade.js)."""
+def expected(case, charts=CHARTS) -> dict:
+    """The rules recomputed from the raw values (not from trade.js).
+
+    `charts` are the published chart series compared on the page (the render test passes the
+    page's own list, which can be shorter than CHARTS when a chart is held)."""
     give, receive, low = case
+    CHARTS = list(charts)  # noqa: N806
 
     def net(key):
-        values = [p["values"][key] for p in give + receive]
+        values = [p["values"].get(key) for p in give + receive]
         if any(v is None for v in values):
             return None
         return sum(p["values"][key] for p in receive) - sum(p["values"][key] for p in give)
 
     def traded(key):
-        vals = [p["values"][key] for p in give + receive]
+        vals = [p["values"].get(key) for p in give + receive]
         if any(v is None for v in vals):
             return None
         return sum(v for v in vals)
@@ -210,6 +216,8 @@ ANCHORS = {
     "unanimous": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
     "one-source": {"propose": ("Yes", "Medium"), "accept": ("Unlikely", "High")},
     "razor-thin": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "Low")},
+    # JEG-876: lose by 2 of 100 on every series: thin, so Unclear; the charts all have them winning -> Likely, Low.
+    "razor-thin-lose": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
     "lose-unanimous": {"propose": ("No", "High"), "accept": ("Likely", "High")},
     "four-percent": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "Low")},
     # JEG-841: only 2 charts, deal read incomplete -> propose Unclear (needs 3 charts for market read).
@@ -253,11 +261,18 @@ MUTATIONS = {
         "const deal = ctx && ctx.deal;",
         "const deal = null;"
     ),
-    # Dropping the thin-margin gate on propose (lines 200/205) must be caught.
+    # Dropping the thin-margin gate on propose (the Yes branch) must be caught.
     "thin propose dropped": (
         "if (vSide === \"win\" && pSide === \"win\" && !thinFlag) {",
         "if (vSide === \"win\" && pSide === \"win\") {"
     ),
+    # JEG-876: dropping the thin gate on the No branch is caught by razor-thin-lose.
+    "thin gate dropped on No": (
+        "} else if (vSide === \"lose\" && pSide === \"lose\" && !thinFlag) {",
+        "} else if (vSide === \"lose\" && pSide === \"lose\") {"
+    ),
+    # JEG-876: moving the thin threshold is caught by four-percent (4% is under 5%, not under 3%).
+    "threshold at 3% instead of 5%": ("const THIN_MARGIN = 0.05;", "const THIN_MARGIN = 0.03;"),
     # Low-confidence DDF ignored.
     "low-confidence DDF ignored": (
         "if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push(\"a one-source DDF Value is in this trade\"); }",

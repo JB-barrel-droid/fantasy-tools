@@ -32,6 +32,7 @@ DIST = ROOT / "dist"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 
 from tests import _render_env  # noqa: E402
+from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_v2_targets_render import build_v2_page  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
@@ -46,6 +47,8 @@ DIVERGENCE = {
     "fantasycalc": {"status": "investigate", "message": MESSAGES["fantasycalc"], "resolution_issue": None},
     "fantasypros": {"status": "reviewed", "message": MESSAGES["fantasypros"], "resolution_issue": "JEG-123"},
     "cbs": {"status": "ok", "message": "CBS disagrees with the other charts on 14% of players this week.", "resolution_issue": None},
+    # JEG-870: CBS is held in the pinned fixture (its chip is the hold marker), so an open ok source proves ok shows nothing.
+    "cbsros": {"status": "ok", "message": "CBS rest of season disagrees with the other projections on 12% of players this week.", "resolution_issue": None},
     "espn": {"status": "n/a", "message": "", "resolution_issue": None},
     # JEG-834: warned only by the fixed ceiling while within 5 points of its own usual rate: the chip stays (GL-25)
     # but says "In range" with a plain message, not the flagged "disagrees ... Under review" wording.
@@ -68,6 +71,9 @@ def _served():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        # JEG-870: the fixture's holds are pinned (tests/_holds.py), so the flagged sources are open and CBS is held.
+        # Before this the test passed on a held Razzball only because a held source still showed the check (the bug).
+        pin_holds_in_dist(dist)
         build_v2_page.build(dist)   # JEG-834: test the source in app/v2, not a stale committed build
         path = dist / "assets" / "reference-freshness.json"
         doc = json.loads(path.read_text(encoding="utf-8"))
@@ -198,8 +204,13 @@ def run_checks(patch=None) -> list[str]:
             chips = page.evaluate("""() => [...document.querySelectorAll('.v2-div-chip')].filter(c => c.offsetParent !== null && c.closest('label'))
               .map(c => ({src: c.dataset.divergence, status: c.dataset.status, text: c.textContent.trim(), mark: Boolean(c.querySelector('svg.v2-ok-mark')), border: getComputedStyle(c).borderTopWidth, title: c.title, aria: c.getAttribute('aria-label') || '',
                 tag: c.tagName, href: c.getAttribute('href') || '', inButton: Boolean(c.closest('button')), in: 'customize'}))""")
+            # JEG-870: the Customize list still names a held source (greyed, CBS in the pinned fixture); its chip is
+            # the hold marker, never the in-range check. The flagged open sources keep their chips.
+            held = [c for c in chips if c["status"] == "held"]
+            if {c["src"] for c in held} != {"cbs"} or any(c["mark"] or not c["aria"].startswith("Paused: ") for c in held):
+                errors.append(f"[customize] held CBS should carry the Paused marker and nothing else: {held}")
+            chips = [c for c in chips if c["status"] != "held"]
             seen = {c["src"] for c in chips}
-            # The Customize list still names a held source (greyed), so its chip stays: all flagged sources.
             if seen != set(EXPECT):
                 errors.append(f"[customize] chips on {sorted(seen)}, want {sorted(EXPECT)}")
             # JEG-834: a source within its usual range keeps its chip but says so plainly.

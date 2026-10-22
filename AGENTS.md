@@ -132,6 +132,9 @@ reference), `config/roster.json`, `config/lineup_parameters.json`,
    sessions running.
 5. Order across lanes: back end engine, then front end that depends on it,
    then copy.
+6. The per-PR checks (bot report matches head, `v2-render` green, mergeable,
+   the preview run's `make validate` step read, no generated churn, stacked
+   order, nav tab count) are in `runbooks/merging-prs.md` (2026-10-22).
 
 ### What "accurate values, consistently" requires
 

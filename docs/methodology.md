@@ -20,11 +20,17 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 | Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. |
 | Source weights and DDF weights | VP-3, VP-4 | "VP-4 DDF weights" | `_mixes`, `ddf_weights` | Each source's eight group totals (position x starter or bench) give its mix (VP-3); the DDF weights are the average of the included sources' mixes (VP-4). |
 | Fixed pie, rates, Adjusted | VP-5 | "VP-5 budgets, rates, Adjusted" | `_price` | One pie per league setting; each source's Adjusted sums to it (VP-5.6). |
-| Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of Adjusted values only; Indexed is display only and never feeds DDF. |
+| Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of **projection** Adjusted values only (JEG-804); Indexed is display only and never feeds DDF. |
 | Tiers and ranking | VP-7 | "VP-7 slot fill, tiers, ranking" | `_tiers` | Tier basis is the blended DDF value, with seat counts from the allocation above (`slot_fill`). |
 | Weeks and change since last week | VP-8 | `valuePipelineDiagnostics`, prior-week run | `History`, `history_entry` | Each week's own inputs and weights. |
 
 Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --strict` agreed to 0.05 on every value (915,234 values, zero mismatches) and `tools/engine_dump.py` passed all 13 settings; at a66f3f40 the compare disagrees (see the row above). The 12-combo sweep in `runbooks/sweep-and-rank-guard.md`. Retired in this pipeline: the fit and `*_adjusted` sections (PR 532), the fixed-pie and `roleMap` family, `derivePublishedSetup` and `derivePublishedViews` (PR 514). VP-10 lists what replaced each.
+
+**Pending, not live (checked against `origin/main` c1ae4e5, 2026-10-22, JEG-874).** Decisions Jeremy has made whose engine or text change is still an open PR; nothing below this line describes them as live:
+
+- **DDF Value from projections only (JEG-804, PR #814 open).** Jeremy, 2026-10-22, on JEG-613 Q4: "Out of DDF Value": the blended DDF Value becomes the mean of the projection sources (ESPN, CBS rest of season, Razzball); trade charts stay on the Indexed and VORP comparison views. Until #814 merges, `ddf_value` still averages all included sources (VP-6.3, "DDF Composite Value" step 2). The copy follow-up is JEG-863.
+- **Held-source wording (JEG-787, PR #815 open).** A red or `promotionHold` source is hidden from DDF Value and the Indexed basis but stays in the pipeline for allocation, weights and the pie (VP-1 "Held sources"); #815 only reconciles the "Two Implementations" sentence with that.
+- **Razzball sentinel (JEG-807, merged #816, fidelity not methodology).** The pulse's star-player bands are derived from the other projection sources' half-PPR per-game mean (`SENTINEL_LOW_RATIO` 0.55, `SENTINEL_HIGH_RATIO` 1.50, fixed fallback bands when no other source prices the player). Values are unchanged; only what holds a projection source.
 
 **Reading order.** The sections below keep their history. Where a paragraph says "Superseded (JEG-508)", "proposed", "pending" or "not live", the status line in this block governs and the paragraph is kept for the before/after. A paragraph in "Source Families And Adjustments", "Published-Chart Configuration Coverage" or "Publisher Flex Allocation" that describes the fit, the two-tier legs as a value source, or the ESPN anchor describes retired behavior.
 
@@ -50,8 +56,9 @@ implementation follows the rule as written.
 - Pipeline order. Each source goes from its native values to implied value
   above waivers (VORP). Every source then uses the same logic (flex, bench
   share, league settings) to get from VORP to Adjusted values. DDF Value is
-  the equal-weight mean of Adjusted values only. Indexed exists only for
-  display and never feeds DDF.
+  the equal-weight mean of **projection** Adjusted values only (JEG-804,
+  Jeremy Q4, 2026-10-22). Indexed exists only for display and never feeds
+  DDF.
 - "Build the weights at the source level based on VORP and league settings
   and size logic. Then use the average weights at the DDF level; generally
   speaking do as much work as possible at the source level before
@@ -357,9 +364,11 @@ rules, except that only charts are filled in (VP-2.4).
    - A projection that does not list `i`: null, "<label> doesn't project this
      player".
    - `no_players` at `p`: null, "<label> doesn't price <pos>".
-3. **DDF Value, three versions** (JEG-497). Each is one number across every
-   view and tab.
-   - `ddf_value` (blended): the sources in `I`.
+3. **DDF Value, three versions** (JEG-497, JEG-804). Each is one number
+   across every view and tab.
+   - `ddf_value` (blended): the **projections** in `I` (JEG-804, Jeremy
+     Q4 answer 2026-10-22: "Out of DDF Value" for trade charts; DDF Value
+     is the fundamental estimate, charts are market prices).
    - `ddf_value_charts`: the charts in `I`.
    - `ddf_value_projections`: the projections in `I`.
 

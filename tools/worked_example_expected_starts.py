@@ -44,10 +44,13 @@ LINEUP = {
     },
 }
 OVERRIDE = 0.10
-# Bench 3 per team gives WR three bench seats over two teams, so a second
-# depth band (ES-3.2) and n_per_team = 2 (round half to even of 3 / 2) are
-# exercised; projection confidence 1.5 scales the chart sigma (ES-14).
-SETTING_CHANGE = {"bench_per_team": 3}
+# Bench 4 per team gives WR three bench seats over two teams (rostered = 6),
+# so the waiver line falls below the depth boundary and a second depth band
+# (ES-3.2) is exercised; n_per_team = 2 (round half to even of 3 / 2);
+# projection confidence 1.5 scales the chart sigma (ES-14).
+# (JEG-879: bench 3 gave WR bench = 2 / rostered = 5 under the current
+# allocation, making starters + teams == rostered and collapsing to 1 band.)
+SETTING_CHANGE = {"bench_per_team": 4}
 
 
 def r6(x):
