@@ -33,6 +33,13 @@ class BuildV2PageTest(unittest.TestCase):
         # The trade-targets helpers load before the view that uses them.
         self.assertGreater(html.index('<script src="v2/v2.js"'), html.index('<script src="v2/targets.js"'))
         self.assertGreater(html.index('<script src="v2/v2.js"'), html.index('<script src="v2/trade.js"'))
+        # Values auditing (JEG-847): the registry loads before the two sub-tab files, and all before v2.js.
+        core = html.index('<script src="v2/audit-core.js"')
+        for name in ("audit-pie.js", "audit-source.js"):
+            self.assertGreater(html.index(f'<script src="v2/{name}"'), core)
+            self.assertLess(html.index(f'<script src="v2/{name}"'), html.index('<script src="v2/v2.js"'))
+        self.assertIn('href="v2/audit-pie.css"', html)
+        self.assertIn('href="v2/audit-source.css"', html)
 
     def test_missing_engine_script_fails_closed(self):
         broken = INDEX.replace('<script src="assets/value-model.js?v=x" defer></script>', "")

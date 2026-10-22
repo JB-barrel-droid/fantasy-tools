@@ -1446,3 +1446,18 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 
 /* JEG-827: the trade actions look like buttons (border and fill), not plain text. */
 #v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUseExample { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }
+
+/* Values auditing sub-navigation (JEG-847). */
+.v2-subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 var(--v2-gap); }
+.v2-subtab { color: var(--v2-ink); text-decoration: none; padding: 8px 14px; min-height: 44px; display: inline-flex; align-items: center; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); }
+.v2-subtab[aria-current="page"] { background: var(--v2-positive); border-color: var(--v2-tint-border); color: var(--v2-action-strong); font-weight: 600; }
+.v2-subtab:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-audit-panel[hidden] { display: none; }
+.audit-root { min-height: 240px; }   /* room for the sub-tab content; the page is never a short stub (contract GL-13 needs 200 px) */
+/* Eight tabs since Values auditing (JEG-847): the 44 px minimum width alone takes 352 px of the row, so from 360 to 420 px
+   the nav gutter is 4 px, tab type is 10 px and padding 1 px, which keeps the single row inside 390 px. */
+@media (min-width: 360px) and (max-width: 420px) {
+  .v2-nav-inner { padding-left: 4px; padding-right: 4px; }
+  .v2-tab { font-size: 10px; padding-left: 1px; padding-right: 1px; }
+  .v2-tabs { gap: 1px; }
+}

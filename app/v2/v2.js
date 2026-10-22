@@ -348,7 +348,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -5735,6 +5735,7 @@
     : hashBase() === "#how-values" ? "how"
     : hashBase() === "#manifesto" ? "manifesto"
     : (hashBase() === "#research" || hashBase().startsWith("#research/")) ? "research"
+    : (hashBase() === "#values-auditing" || hashBase().startsWith("#values-auditing/")) ? "audit"
     : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
 
   function applyRoute() {
@@ -5744,10 +5745,11 @@
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
     $("v2How").hidden = v !== "how";
+    $("v2Audit").hidden = v !== "audit";
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = v === "manifesto" || v === "research";
+    $("v2Methods").hidden = v === "manifesto" || v === "research" || v === "audit";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -5816,8 +5818,24 @@
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
     else if (currentView() === "how") renderHow();
+    else if (currentView() === "audit") renderAudit();
     else if (currentView() === "manifesto" || currentView() === "research") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
+  }
+
+  // Values auditing (JEG-847): #values-auditing/<slug> picks a sub-tab; an unknown slug shows the first.
+  // Each sub-tab fills its own mount through DDFAudit (audit-pie.js, audit-source.js).
+  function renderAudit() {
+    collect(); renderHeader();
+    const slugs = window.DDFAudit ? window.DDFAudit.slugs : ["value-pie", "single-source"];
+    const asked = decodeURIComponent(hashBase().slice("#values-auditing/".length));
+    const slug = hashBase().startsWith("#values-auditing/") && slugs.includes(asked) ? asked : slugs[0];
+    document.querySelectorAll("#v2Audit .v2-audit-panel").forEach(node => { node.hidden = node.dataset.audit !== slug; });
+    document.querySelectorAll("#v2AuditTabs .v2-subtab").forEach(tab => {
+      if (tab.dataset.audit === slug) tab.setAttribute("aria-current", "page"); else tab.removeAttribute("aria-current");
+    });
+    const panel = document.querySelector('#v2Audit .v2-audit-panel[data-audit="' + slug + '"] .audit-root');
+    if (window.DDFAudit && panel) window.DDFAudit.render(slug, panel, {slug, engine: C});
   }
 
   // Brushes and drags redraw once per frame.
