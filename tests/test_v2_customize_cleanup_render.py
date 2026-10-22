@@ -361,7 +361,7 @@ class CustomizeCleanupTest(unittest.TestCase):
         self.assertCaught(check_d4_strip_and_reset, "the line ignores a customized blend", js=js)
         js = self.mutate('      + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")', "")
         self.assertCaught(check_d4_strip_and_reset, "the line ignores a legend hide", js=js)
-        js = self.mutate("if (resetPressed) state.hiddenSeries.clear();", "")
+        js = self.mutate("state.hiddenSeries.clear();   // JEG-907: the draft is the whole state; a legend hide never survives Done", "")
         self.assertCaught(check_d4_strip_and_reset, "Reset keeps a legend hide", js=js)
 
     # ---- D5 ----
