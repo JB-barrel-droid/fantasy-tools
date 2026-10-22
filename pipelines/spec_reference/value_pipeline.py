@@ -604,7 +604,7 @@ def ddf_version(values: dict, members: list) -> dict:
 
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
-             lineup: dict | None = None) -> dict:
+             lineup: dict | None = None, hidden: list | None = None) -> dict:
     """VP-2 .. VP-7 for one week.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
@@ -612,7 +612,11 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              overlay. Every source here is shown (VP-1.4); only `included`
              counts.
     selection: the reader's input selection (VP-1.5); filters DDF averaging only.
+    hidden: JEG-569 part 2 / JEG-787.  Sources that are in `included` (so they
+            count in allocation, weights and pie) but hidden from the DDF Value
+            blend (VP-6.3) and the Indexed basis (VP-6.4).
     """
+    hidden_set = set(hidden or ())
     bs = setting.bench_share
     natives = {s: {int(k): float(v) for k, v in src["values"].items()
                    if v is not None and pos_of.get(int(k)) in POS_ORDER}
@@ -654,10 +658,13 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     # rows: every player any source lists (VP-6.1)
     row_keys = sorted({k for s in sources for k in natives[s]})
     sel = set(selection) if selection is not None else None
+    # JEG-569 part 2 / JEG-787: hidden sources are in `inc` (so they count in
+    # allocation, weights and pie) but excluded from the DDF Value blend and
+    # the Indexed basis, matching value-model.js isHidden.
     members = {
-        "blended": [s for s in inc if sel is None or s in sel],
-        "charts": [s for s in inc if family[s] == CHART and (sel is None or s in sel)],
-        "projections": [s for s in inc if family[s] == PROJECTION and (sel is None or s in sel)],
+        "blended": [s for s in inc if s not in hidden_set and (sel is None or s in sel)],
+        "charts": [s for s in inc if s not in hidden_set and family[s] == CHART and (sel is None or s in sel)],
+        "projections": [s for s in inc if s not in hidden_set and family[s] == PROJECTION and (sel is None or s in sel)],
     }
     rows = {}
     for k in row_keys:
@@ -768,6 +775,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
             src_out[s]["allocation"] = r["allocation"]
     return {
         "included": inc,
+        "hidden": [s for s in inc if s in hidden_set],
         "pie": pie,
         "starting_slots_per_team": setting.starting_slots_per_team(),
         "bench_share_applied": bs_star,
@@ -795,14 +803,15 @@ VERSIONS = (("blended", "ddf_blended"), ("charts", "ddf_charts"), ("projections"
 
 def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, included: list,
         selection: list | None = None, names: dict | None = None,
-        prior_pos_of: dict | None = None, lineup: dict | None = None) -> dict:
+        prior_pos_of: dict | None = None, lineup: dict | None = None,
+        hidden: list | None = None) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
-    cur = run_week(setting, pos_of, current, included, selection, names, lineup)
+    cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden)
     out = {"current": cur, "prior": None}
     if prior:
         prior_src = {s: prior[s] for s in included if s in prior}
-        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup)
+        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup, hidden=hidden)
         out["prior"] = pw
         for k, row in cur["rows"].items():
             prow = pw["rows"].get(k)

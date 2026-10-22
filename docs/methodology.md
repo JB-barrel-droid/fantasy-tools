@@ -135,8 +135,10 @@ implementation follows the rule as written.
    part 2) and **divergence-excluded source-weeks** (a JEG-610 `exclude`
    resolution, PR 662) are eligible under this rule when they meet the other
    conditions: a held source with a section and values at `L` is in the pipeline
-   like any other. It is marked **hidden**. A held source with no section or no
-   values at `L` is out entirely.
+   like any other.  A **red** hold (`hold_level` absent or `"red"`) or a
+   `promotionHold` marks the source **hidden**; an **amber** hold
+   (`hold_level: "amber"`, JEG-726) labels the source but does not hide it.
+   A held source with no section or no values at `L` is out entirely.
 2. **Included set `I`** = the eligible sources that also have a prior-week
    snapshot. If no eligible source has one (a first week, or no history), `I`
    = the eligible sources and there is no prior week.

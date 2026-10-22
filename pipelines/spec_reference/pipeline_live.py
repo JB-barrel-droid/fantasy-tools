@@ -203,20 +203,37 @@ def prior_natives(data: dict, s: str, scoring: str) -> dict | None:
 def eligibility(data: dict, s: str, natives: dict | None) -> str | None:
     """VP-1.1: None when eligible, else the reason.
 
-    amber-hold-001 (Jeremy, 2026-10-19): amber holds stay eligible and
-    labelled; only red holds (the default) make a source ineligible."""
+    JEG-569 part 2 / JEG-787: holds (amber or red) do NOT make a source
+    ineligible.  A held source is eligible and stays in the pipeline for
+    allocation, weights and pie.  Whether it is *hidden* from the DDF
+    blend and Indexed basis is a separate question (see source_hidden)."""
     section = (data["fixture"].get("sources") or {}).get(s) or {}
-    vh = section.get("validationHold")
-    if vh and vh.get("hold_level", "red") != "amber":
-        return "held"
-    if section.get("promotionHold"):
-        return "held"
+    # Holds are handled by source_hidden(), not here.
     served = ((data["index"].get("served") or {}).get(s) or {}).get("week")
     cw = data["content_week"]
     if s in CHARTS and served is not None and cw is not None and served < cw:
         return "unpublished"
     if not natives:
         return "no values at this setting"
+    return None
+
+
+def source_hidden(data: dict, s: str) -> str | None:
+    """VP-1.3: None when visible, else the reason the source is hidden.
+
+    JEG-569 part 2: held sources stay in the pipeline (allocation, weights,
+    pie) but are hidden from the DDF Value blend (VP-6.3), the Indexed basis
+    (VP-6.4) and the bench-share readout.
+
+    JEG-726 / amber-hold-001 (Jeremy, 2026-10-19): an amber validationHold
+    labels the source but does NOT hide it.  Only red validationHolds (the
+    default when hold_level is absent) and promotionHolds hide."""
+    section = (data["fixture"].get("sources") or {}).get(s) or {}
+    vh = section.get("validationHold")
+    if vh and vh.get("hold_level", "red") != "amber":
+        return "held"
+    if section.get("promotionHold"):
+        return "held"
     return None
 
 
@@ -238,6 +255,7 @@ def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict,
     setting = vp.Setting(teams=teams, slots=dict(DEFAULT_SLOTS), flex=1, superflex=sf,
                          bench_per_team=7, bench_share=vp.DEFAULT_BENCH_SHARE)
     current, prior, eligible, excluded = {}, {}, [], []
+    hidden = []  # JEG-569/JEG-787: in pipeline for weights/pie, hidden from DDF blend
     for s in SOURCE_ORDER:
         nat = current_natives(data, s, scoring, teams, sf, dropped)
         reason = eligibility(data, s, nat)
@@ -248,6 +266,10 @@ def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict,
             excluded.append({"key": s, "reason": reason})
             continue
         eligible.append(s)
+        h = source_hidden(data, s)
+        if h:
+            hidden.append(s)
+            current[s]["status"] = "hidden"
         pn = prior_natives(data, s, scoring)
         if pn:
             prior[s] = {"family": fam, "values": pn}
@@ -257,7 +279,7 @@ def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict,
             excluded.append({"key": s, "reason": "no prior week"})
             current[s]["status"] = "no prior week"
     res = vp.run(setting, data["pos_of"], current, prior if has_prior else None, included,
-                 names=data["names"], lineup=lineup)
+                 names=data["names"], lineup=lineup, hidden=hidden)
     cur = res["current"]
     views = {"indexed": {}, "vorp": {}, "adjusted": {}}
     for s in current:

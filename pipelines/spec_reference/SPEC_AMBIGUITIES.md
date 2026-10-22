@@ -34,12 +34,15 @@ Status 2026-10-09 (after the lead's "Spec rulings" in PR #484): SA-1, SA-2, SA-3
   `data/history/index.json`. Projection prior `ppg` there is rounded (2 or 6
   dp) while the current natives are not; the spec does not say whether that
   matters.
-- **SA-5 Holds and "unpublished".** VP-1.1 names `validationHold` /
-  `promotionHold` on the section. A `promotionHold` or a `validationHold`
-  with `hold_level` absent or `"red"` makes the source ineligible. A
-  `validationHold` with `hold_level: "amber"` does NOT make the source
-  ineligible (amber-hold-001, Jeremy 2026-10-19): it stays eligible and
-  labelled. "Unpublished" (a weekly chart whose content week is older than the
+- **SA-5 Holds and "unpublished". RESOLVED (JEG-569/JEG-787).**  VP-1.1 names
+  `validationHold` / `promotionHold` on the section. No hold makes a source
+  *ineligible*: a held source with a section and values is eligible and stays
+  in the pipeline for allocation, weights and pie (JEG-569 part 2). A
+  `promotionHold` or a `validationHold` with `hold_level` absent or `"red"`
+  makes the source **hidden**: excluded from the DDF Value blend (VP-6.3) and
+  the Indexed basis (VP-6.4). A `validationHold` with `hold_level: "amber"`
+  (JEG-726, amber-hold-001, Jeremy 2026-10-19) labels the source but does NOT
+  hide it.  "Unpublished" (a weekly chart whose content week is older than the
   current one) is read from `data/history/index.json`
   `served[s].week < content_week`, charts only. The spec does not say where a
   section's content week lives.
