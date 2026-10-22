@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T00:38:10.875793+00:00",
+  "run_at": "2026-10-22T00:59:04.346459+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -16,9 +16,12 @@
   "success": false,
   "outcome": "failed",
   "held": [
+    "cbs",
     "espn",
     "fantasycalc",
-    "razzball"
+    "fantasypros",
+    "razzball",
+    "usatoday"
   ],
   "hold_severity": "none",
   "list_changes": {
@@ -52,6 +55,19 @@
     ]
   },
   "held_detail": {
+    "usatoday": {
+      "reason": "fidelity: freshness",
+      "held_series": [
+        "usatoday"
+      ],
+      "sections": [
+        "usatoday",
+        "usatoday_adjusted"
+      ],
+      "detail": "publisher posted week 7 (https://www.usatoday.com/story/sports/fantasy/football/2026/10/20/fantasy-trade-value-charts-week-7-ros-rankings/92348504007/, 30 h ago); chart shows week 6; not stored yet",
+      "hold_severity": "amber",
+      "week": 7
+    },
     "fantasycalc": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -61,12 +77,38 @@
         "fantasycalc",
         "fantasycalc_adjusted"
       ],
-      "detail": "21/1176 values match exactly across 6 columns; 1155 values differ, 3 outside the movement band; 0 live players not stored, 1 stored players not live (above the list's churn line); 3 players entered or left the bottom of the list since the save (churn)",
+      "detail": "3/1116 values match exactly across 6 columns; 1113 values differ, 302 outside the movement band (systemic: more than 10% of values); 3 live players not stored, 3 stored players not live (above the list's churn line); 21 players entered or left the bottom of the list since the save (churn)",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "fantasypros": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "fantasypros"
+      ],
+      "sections": [
+        "fantasypros",
+        "fantasypros_adjusted"
+      ],
+      "detail": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0035_v1 (week 7, saved 2026-10-22T00:35:54.354590Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "cbs": {
+      "reason": "fidelity: scrape_validity",
+      "held_series": [
+        "cbs"
+      ],
+      "sections": [
+        "cbs",
+        "cbs_adjusted"
+      ],
+      "detail": "player count dropped vs week 5: stored TE 14->13, chart TE 14->10",
       "hold_severity": "amber",
       "week": 7
     },
     "espn": {
-      "reason": "fidelity: stored_vs_chart",
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
         "espn",
         "espn_vorp"
@@ -75,7 +117,7 @@
         "espn",
         "espn_adjusted"
       ],
-      "detail": "1716/1752 chart values equal stored snapshot 2026-10-19 (per game, 2 decimals); 36 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
+      "detail": "928/1752 values match exactly across 3 columns; 824 value mismatches, 4 publisher players not stored, 0 stored players not on the page; stale: the publisher changed since the save (fingerprint f3bc7149c6dd17d46951064a at the save, 68ac40bd459efd1b14aad23d now) and the save is older than 24 h; re-syn",
       "hold_severity": "amber",
       "week": 7
     },
@@ -232,26 +274,26 @@
     }
   },
   "fidelity_holds": {
+    "usatoday": "fidelity: freshness",
     "fantasycalc": "fidelity: publisher_vs_stored",
-    "espn": "fidelity: stored_vs_chart",
+    "fantasypros": "fidelity: stored_vs_chart",
+    "cbs": "fidelity: scrape_validity",
+    "espn": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
+      "FAIL tests.test_launch_front_door.FrontDoorRenderedTests.test_v2_table_equals_engine_and_guard_fails_on_drift"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"cbsros served week != chart: ['Brock Bow[527 chars]rs)\"] != []",
-      "AssertionError: Lists differ: [\"cbsros served week != chart: ['Brock Bow[138 chars]rs)\"] != []"
+      "AssertionError: 2 not greater than or equal to 3 : {'compared': 50, 'skipped': 0, 'cells': 100, 'columns': 2, 'problems': []}"
     ],
     "make_targets": [
-      "Makefile:512: test-core"
+      "Makefile:511: test-core"
     ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"cbsros served week != chart: ['Brock Bow[527 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbsros served week != chart: ['Brock Bow[138 chars]rs)\"] != []",
-    "recorded_at": "2026-10-22T00:46:58.995389+00:00"
+    "detail": "FAIL tests.test_launch_front_door.FrontDoorRenderedTests.test_v2_table_equals_engine_and_guard_fails_on_drift; AssertionError: 2 not greater than or equal to 3 : {'compared': 50, 'skipped': 0, 'cells': 100, 'columns': 2, 'problems': []}",
+    "recorded_at": "2026-10-22T01:07:29.207968+00:00"
   }
 }
