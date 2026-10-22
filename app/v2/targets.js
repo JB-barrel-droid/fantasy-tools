@@ -49,6 +49,37 @@
   // would drop the player, not shop him. Buy has no floor; the weight already sinks a near-zero consensus.
   const SELL_FLOOR = 5;
 
+  // JEG-833 (2026-10-22, proceeding per standing instruction): Buy compares at the charts' RANK. Our top end is
+  // steeper than the charts' (Gibbs 69.6 vs 50.9, Smith-Njigba 64.7 vs 38.7 with the same rank on both sides),
+  // so a consensus gap, a position-share gap or a percentage gap all list the overall top five as "buys". The
+  // rank-equivalent gap is invariant to any monotone rescale: for a player the charts rank r-th at his position,
+  // oursAtRank = our r-th value at that position (same compared players), rankGap = oursAtRank - ours. Negative:
+  // the charts rank him lower than we do (a buy); a pure rescale gives 0 everywhere. A Buy needs rankGap at or
+  // under -BUY_RANK_MARGIN points; the rest of the "market pays less" players are counted as scaleOnly.
+  const BUY_RANK_MARGIN = 2;
+
+  function rankEquivalents(players) {
+    const byPos = new Map();
+    players.forEach(p => {
+      if (p.market.of < 2 || !finite(p.market.value)) return;
+      if (!byPos.has(p.row.pos)) byPos.set(p.row.pos, []);
+      byPos.get(p.row.pos).push(p);
+    });
+    byPos.forEach(list => {
+      const oursDesc = list.map(p => p.ours).sort((a, b) => b - a);
+      const byOurs = list.slice().sort((a, b) => b.ours - a.ours || a.order - b.order);
+      const ourRank = new Map(byOurs.map((p, i) => [p, i + 1]));
+      list.slice().sort((a, b) => b.market.value - a.market.value || a.order - b.order).forEach((p, i) => {
+        const m = p.market;
+        m.marketRank = i + 1;
+        m.ourRank = ourRank.get(p);
+        m.oursAtRank = oursDesc[i];
+        m.rankGap = oursDesc[i] - p.ours;
+        m.buyScore = Math.abs(m.rankGap) * Math.min(p.ours, m.value);
+      });
+    });
+  }
+
   // JEG-677 (Jeremy, JEG-461 2026-10-08): the market consensus is the MEDIAN of the indexed charts that
   // price the player (a finite 0 counts: at or below that chart's waiver line; a null is left out and
   // counted in `left`). Eligible as a target only with 2+ charts, a consensus above the waiver line, and a
@@ -61,7 +92,8 @@
     const priced = keys.filter(key => finite(cells[key].value));
     const left = keys.length - priced.length;
     const none = {value: null, count: priced.length, of: priced.length, left, diff: null, gap: null, equal: false,
-      side: null, agree: 0, eligible: false, dots: [], weight: null, score: null};
+      side: null, agree: 0, eligible: false, dots: [], weight: null, score: null,
+      marketRank: null, ourRank: null, oursAtRank: null, rankGap: null, buyScore: null};
     if (!priced.length) return none;
     const values = priced.map(key => cells[key].value);
     const value = median(values);
@@ -75,16 +107,19 @@
     const weight = Math.min(ours, value);
     const score = Math.abs(gap) * weight;
     return {value, count: priced.length, of: priced.length, left, diff, gap, equal: ours.toFixed(1) === value.toFixed(1),
-      side, agree, eligible, dots, weight, score};
+      side, agree, eligible, dots, weight, score,
+      marketRank: null, ourRank: null, oursAtRank: null, rankGap: null, buyScore: null};   // filled by rankEquivalents
   }
 
   // charts: the chart keys to compare (already filtered for availability and week). Their values are the engine's Indexed series
   // (each publisher's chart rescaled to our point scale), never the adjusted (_adj_values) or native ones.
-  // opts.ours: which engine series is our value (default DDF Value).
+  // opts.ours: which engine series is our value (default DDF Value). opts.keep: a row predicate for a name search
+  // (JEG-833): ranks are computed over every row, then only the kept players are compared and listed.
   function buildTargets(rows, charts, opts) {
     const ourKey = (opts && opts.ours) || OUR_KEY;
     if (!OUR_KEYS.includes(ourKey)) throw new Error(`not an our-value series: ${ourKey}`);
-    const players = [];
+    const keep = opts && typeof opts.keep === "function" ? opts.keep : null;
+    let players = [];
     let omittedNoOurs = 0;
     let atWaiverCells = 0;
     rows.forEach((row, index) => {
@@ -114,13 +149,22 @@
       });
       players.push({row, order: index + 1, ours, cells, market: marketConsensus(ours, cells)});
     });
+    rankEquivalents(players);
+    if (keep) players = players.filter(p => keep(p.row));
     // JEG-820: biggest weighted gap first (score), engine order breaks ties; Sell needs ours >= SELL_FLOOR.
     const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;
     const sellable = players.filter(p => p.market.eligible && p.market.side === "sell");
     const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);
     const belowSellFloor = sellable.length - sell.length;
-    const buy = players.filter(p => p.market.eligible && p.market.side === "buy").sort(byScore);
-    return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells, belowSellFloor};
+    // JEG-833: Buy needs the charts to rank the player lower than we do by BUY_RANK_MARGIN points at his position;
+    // biggest |rankGap| x value at stake first. The others are the scale, not a mispricing (scaleOnly, named by ours).
+    const buyable = players.filter(p => p.market.eligible && p.market.side === "buy");
+    const buy = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)
+      .sort((a, b) => b.market.buyScore - a.market.buyScore || a.order - b.order);
+    const listed = new Set(buy);
+    const scaleOnly = buyable.filter(p => !listed.has(p)).sort((a, b) => b.ours - a.ours || a.order - b.order);
+    return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells, belowSellFloor,
+      scaleOnly: scaleOnly.length, scaleOnlyNames: scaleOnly.slice(0, 5).map(p => p.row.name)};
   }
 
   // Chart columns to compare: every available published chart (JEG-459). A
@@ -240,7 +284,7 @@
     return {ours: oursKey, columns, groups, playersOf, headline: {over, under, biggest}, compared: pairs.consensus.length};
   }
 
-  const api = {OUR_KEY, DDF_VALUE_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, SELL_FLOOR, buildTargets, chartsToCompare, ourChoices,
+  const api = {OUR_KEY, DDF_VALUE_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, SELL_FLOOR, BUY_RANK_MARGIN, buildTargets, chartsToCompare, ourChoices,
     weightCheck, weightSignal, WEIGHT_POSITIONS, WEIGHT_TIERS, WEIGHT_SIGNAL, WEIGHT_MIN_SHOW, WEIGHT_MIN_HEADLINE};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTargets = api;

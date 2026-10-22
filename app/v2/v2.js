@@ -115,6 +115,26 @@
     : heldReason(item) ? "held this week (data check)"
       : item.paused ? "waiting on fresh inputs" : "not available for this league");
 
+  // JEG-826: detect when DDF Value is not independent of the compared trade charts.
+  // The blend's contributing sources (composite.series) are all in the compared chart set,
+  // or fewer than 2 independent inputs exist. Returns {circular, independent, blendSources, chartSet}
+  // or null when the check cannot be performed (no engine, or "Our value" is not a DDF key).
+  const CHART_SET = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
+  function blendIndependenceCheck(ourKey) {
+    if (!C || !C.getCompositeInputs || !isDdfKey(ourKey)) return null;
+    const info = C.getCompositeInputs(ourKey === "ddf_value_projections" ? "projections" : ourKey === "ddf_value_charts" ? "charts" : undefined);
+    if (!info || !Array.isArray(info.series)) return null;
+    const blendSources = info.series;
+    const independent = blendSources.filter(key => !CHART_SET.has(key));
+    return {circular: independent.length < 2 && blendSources.length > 0 && blendSources.every(key => CHART_SET.has(key)),
+      independent: independent.length, blendSources, chartSet: CHART_SET};
+  }
+  // Banner text: plain language, no abbreviations, no promised dates.
+  const CIRCULAR_BANNER = "This week, our value is built entirely from the same trade charts it is compared with. "
+    + "The gaps on this page reflect the rescaling, not an independent check. Projection sources are updating.";
+  const CIRCULAR_HOW = "Right now, DDF Value is built entirely from trade charts. Until a projection source returns, "
+    + "gaps between our value and the charts are not an independent check.";
+
   // Prior-week badge for a series key: the shared JEG-459 badge, named by publisher.
   function weekBadge(key) {
     const item = view && view.infoByKey[key];
@@ -3267,7 +3287,9 @@
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
     // JEG-498: only the charts ticked in this page's Customize are compared; a chart left out is not "skipped".
-    const picked = T.chart === "all" || !mine.has(T.chart) ? null : T.chart;
+    // JEG-834: a list needs 2 or more charts (the market is their median), so one chart alone can never make one.
+    T.chart = "all";
+    const picked = null;
     const {used, skipped, prior} = TT.chartsToCompare(info.filter(item => !TT.CHART_KEYS.includes(item.key) || mine.has(item.key)), {only: picked});
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
@@ -3277,8 +3299,10 @@
     const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
       : engineView && engineView !== "indexed" ? "Trade charts are not on the trade-value point scale in this view, so no gaps are shown."
       : null;
-    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0}
-      : TT.buildTargets(searched, used, {ours: ourKey});
+    // JEG-833: ranks are computed over every row; a name search only filters what is listed (opts.keep).
+    const kept = needle ? new Set(searched) : null;
+    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0, scaleOnly: 0, scaleOnlyNames: []}
+      : TT.buildTargets(rows, used, {ours: ourKey, keep: kept ? row => kept.has(row) : null});
     // Why players were left out: the engine's reasons, most common first (display only).
     const omittedReasons = new Map();
     if (!blocked) {
@@ -3305,9 +3329,10 @@
       const item = targetsView.infoByKey[key];
       const option = document.createElement("option");
       option.value = key;
-      option.disabled = !item || !item.available;
-      const prior = option.disabled ? null : priorWeekInfo(key, item, targetsView.refWeek);
-      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${option.disabled ? " — not available" : prior ? ` · ${prior.short} (prior week)` : ""}`;
+      const missing = !item || !item.available;
+      option.disabled = true;   // JEG-834: one chart alone returns 0 results (a list needs 2 or more charts)
+      const prior = missing ? null : priorWeekInfo(key, item, targetsView.refWeek);
+      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${missing ? " — not available" : `${prior ? ` · ${prior.short} (prior week)` : ""} — needs 2 or more charts`}`;
       if (prior) {
         option.dataset.priorWeek = key;
         option.title = prior.label;
@@ -3397,8 +3422,9 @@
     const diff = document.createElement("span");
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
-    diff.title = "Our value minus the market consensus";
-    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${fmtGap(m.diff)}`;
+    // JEG-833: said in words (ours is above / below the consensus), not as a signed number that contradicts the gap.
+    diff.title = "Our value against the market consensus";
+    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${Math.abs(m.diff).toFixed(1)} ${m.diff > 0 ? "above" : "below"}`;
     cell.append(diff, count);
   }
 
@@ -3536,7 +3562,33 @@
 
   // JEG-677: the row's gap is the consensus gap (median of the charts - our value); "N of M charts agree"
   // and one dot per chart (above / below our value) say how solid it is.
-  const targetBest = (side, p) => ({gap: p.market.gap, agree: p.market.agree, of: p.market.of, dots: p.market.dots});
+  // JEG-833: Buy shows the gap at the charts' rank (targets.js rankGap) and both ranks; each side shows the score it is
+  // ranked by (gap x value at stake), so the displayed order follows the displayed numbers.
+  const targetBest = (side, p) => side === "buy"
+    ? {gap: p.market.rankGap, score: p.market.buyScore, ranks: {market: p.market.marketRank, ours: p.market.ourRank, oursAtRank: p.market.oursAtRank},
+      agree: p.market.agree, of: p.market.of, dots: p.market.dots}
+    : {gap: p.market.gap, score: p.market.score, ranks: null, agree: p.market.agree, of: p.market.of, dots: p.market.dots};
+  // The ranking measure under the gap: "score 49" (gap x the smaller of our value and the consensus), and for Buy
+  // where the charts rank the player against where we do.
+  // full: the phone card (no fold) also prints "RB8→RB5" (the charts rank him RB8, we rank him RB5); the table keeps
+  // the run to "score 32.1" so the top 5 stay above the JEG-675 fold, with the ranks in the tooltip and data attributes.
+  function scoreNode(side, p, b, cls, full) {
+    const node = document.createElement("span");
+    node.className = cls || "why t-score";
+    node.dataset.score = Number.isFinite(b.score) ? b.score.toFixed(1) : "";
+    const stake = Math.min(p.ours, p.market.value);
+    node.title = `Ranked by the gap times the value at stake: ${Math.abs(b.gap).toFixed(1)} × ${fmt(stake)} (the smaller of our value and the consensus) = ${b.score.toFixed(1)}`;
+    let text = `score ${full ? b.score.toFixed(1) : Math.round(b.score)}`;   // the table rounds: width is what wraps names
+    if (side === "buy" && b.ranks) {
+      node.dataset.marketRank = String(b.ranks.market);
+      node.dataset.ourRank = String(b.ranks.ours);
+      const ranks = `${p.row.pos}${b.ranks.market}→${p.row.pos}${b.ranks.ours}`;
+      if (full) text = `${ranks} · ${text}`;
+      node.title = `${ranks}: the charts rank him ${p.row.pos}${b.ranks.market}, we rank him ${p.row.pos}${b.ranks.ours}; our ${p.row.pos}${b.ranks.market} is worth ${fmt(b.ranks.oursAtRank)} to us, ${fmt(p.ours)} minus that is the gap. ` + node.title;
+    }
+    node.textContent = text;
+    return node;
+  }
   function agreeNode(b, cls) {
     const who = document.createElement("span");
     who.className = cls || "th-sub t-who";
@@ -3644,7 +3696,9 @@
       if (flag) sub.push(document.createTextNode(" "), flag);
       head(PUBLISHER_NAMES[key] || key, "num t-chart", sub, key, true);
     });
-    head("Gap vs consensus", "num t-best", side === "sell" ? "market pays more" : "market pays less", null, true);
+    // JEG-833: Buy's gap is our value at the charts' rank minus our value (a pure rescale gives 0).
+    if (side === "sell") head("Gap vs consensus", "num t-best", "market pays more", null, true);
+    else head("Gap at chart rank", "num t-best", "charts rank lower", null, true);   // as short as Sell's: no extra header line (JEG-675 fold)
     const expandHead = head("", "t-expand");
     const sr = document.createElement("span");
     sr.className = "v2-sr";
@@ -3697,6 +3751,7 @@
       const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
       bc.dataset.best = "consensus";
       bc.append(document.createTextNode(fmtGap(b.gap)));
+      bc.appendChild(scoreNode(side, p, b));
       bc.appendChild(agreeNode(b));
       // Two-column layout (≥1024 px) hides the per-chart cells; this opens them under the row.
       const open = T.expanded[side].has(key);
@@ -3763,6 +3818,7 @@
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;
       big.dataset.best = "consensus";
       big.append(document.createTextNode(fmtGap(b.gap)));
+      big.appendChild(scoreNode(side, p, b, "v2-meta t-score", true));
       big.appendChild(agreeNode(b, "v2-meta t-who"));
       top.append(who, big);
       const line = document.createElement("div");
@@ -3809,6 +3865,11 @@
     renderHeader();
     renderUnpriced("v2TUnpriced", T.search);
     renderTargetControls();
+    // JEG-826: honesty banner when the blend has no independent source.
+    const indep = blendIndependenceCheck(targetsView.ours);
+    const circBanner = $("v2TCircularBanner");
+    circBanner.hidden = !(indep && indep.circular);
+    $("v2TCircularText").textContent = indep && indep.circular ? CIRCULAR_BANNER : "";
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;
     TARGET_SIDES.forEach(side => {
@@ -3821,13 +3882,23 @@
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
         ? "No trade chart is available to compare for this selection."
-        : `No player has a market consensus ${side === "sell" ? "above" : "below"} our value, backed by 2 or more charts, for this selection.`);
+        : side === "sell" ? "No player has a market consensus above our value, backed by 2 or more charts, for this selection."
+        : `No player the charts rank ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him, backed by 2 or more charts, for this selection.`);
       $(ids.table).hidden = !list.length;
-      // JEG-820: ranked by the gap weighted by the value at stake (targets.js score), not the raw gap.
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest gap first, weighted by the value at stake. `
-        + (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: most charts pay less than our value.");
+      // JEG-820 / JEG-833: each list is ranked by the gap it shows times the value at stake (the score on every row).
+      // JEG-826: soften actionable copy when the blend is not independent of the compared charts.
+      const actionCopy = indep && indep.circular
+        ? (side === "sell" ? "The charts' rescaled values sit above ours." : "The charts' rescaled values sit below ours.")
+        : (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: the charts rank them lower than we do.");
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
     });
     const notes = [];
+    // JEG-833: players the charts price below our value but rank where we do are the scale, not a mispricing.
+    if (targetsView.scaleOnly && !blocked) {
+      const n = targetsView.scaleOnly;
+      const names = targetsView.scaleOnlyNames.join(", ");
+      notes.push(`${n} player${n === 1 ? "" : "s"} the charts price below our value ${n === 1 ? "is" : "are"} not a Buy: the charts rank ${n === 1 ? "him" : "them"} where we do, so the gap is our steeper scale, not a mispricing${names ? ` (${names}${n > 5 ? " ..." : ""})` : ""}.`);
+    }
     // JEG-820: the players the charts pay for but we value under the Sell floor are drop candidates, not trade chips.
     if (targetsView.belowSellFloor && !blocked) {
       const n = targetsView.belowSellFloor;
@@ -4172,7 +4243,7 @@
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence}) : null,
-      deal: ready ? TC.dealRead(giveRows, receiveRows) : null,
+      deal: ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
@@ -4697,10 +4768,17 @@
         + "Your league's adjustments reverse the direction. Compare the same publisher before comparing across sources.";
     } else if (s.kind === "agree") {
       const all = listSeries(s.upKeys.concat(s.downKeys, s.evenKeys));
-      title.textContent = "Every complete source points the same way.";
-      text.textContent = s.up ? `You receive more value than you give by every complete source: ${all}.`
-        : s.down ? `You give more value than you receive by every complete source: ${all}.`
-          : `The trade is even by every complete source: ${all}.`;
+      // JEG-826: soften "every source agrees" when the blend is circular.
+      const storyIndep = blendIndependenceCheck(verdictKey());
+      if (storyIndep && storyIndep.circular) {
+        title.textContent = "All sources point the same way (same inputs).";
+        text.textContent = `The sources shown (${all}) share the same inputs this week, so agreement is expected.`;
+      } else {
+        title.textContent = "Every complete source points the same way.";
+        text.textContent = s.up ? `You receive more value than you give by every complete source: ${all}.`
+          : s.down ? `You give more value than you receive by every complete source: ${all}.`
+            : `The trade is even by every complete source: ${all}.`;
+      }
     } else if (s.kind === "split") {
       // Name the series on each side (Jeremy, 2026-10-08), then who is likeliest to say yes.
       title.textContent = "The sources split.";
@@ -4737,9 +4815,14 @@
       return;
     }
     const TC = window.TradeValueTrade;
+    // JEG-826: when the blend is circular, add an "(same inputs)" note to the deal read.
+    const dealIndep = blendIndependenceCheck("ddf_value");
+    const dealCirc = dealIndep && dealIndep.circular;
     $("v2CDealRead").textContent = deal.kind === "read" ? `${deal.title}: ${deal.action}` : "";
     $("v2CDealRead").hidden = deal.kind !== "read";
-    $("v2CDealText").textContent = deal.text;
+    $("v2CDealText").textContent = dealCirc && deal.kind === "read"
+      ? deal.text + " (DDF Value and the trade charts share the same inputs this week, so this is not an independent check.)"
+      : deal.text;
     const nets = $("v2CDealNets");
     nets.replaceChildren();
     DEAL_NETS.forEach(([id, name, question]) => {
@@ -4766,8 +4849,9 @@
       const value = document.createElement("b");
       value.className = "v2-deal-net";
       value.dataset.side = n.side || "";
-      value.textContent = n.net === null ? "—" : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
-      if (n.net === null) value.title = "At least one player has no value in this series";
+      // JEG-832: show "not enough charts" when the market card has too few compared charts.
+      value.textContent = n.net === null ? (n.tooFew ? "Not enough charts" : "—") : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
+      if (n.net === null) value.title = n.tooFew ? `${n.chartCount} of ${n.minCharts} compared charts needed` : "At least one player has no value in this series";
       li.append(label, info, value, def);
       nets.appendChild(li);
     });
@@ -4834,6 +4918,9 @@
           + (isDdfKey(key) ? "Each source's own result is in the table below." : "Pick another series in Player values shown.")};
     }
     const net = fmtGap(v.net);
+    // JEG-826: when the blend is circular, soften "every source agrees" language.
+    const vcIndep = blendIndependenceCheck(key);
+    const vcCirc = vcIndep && vcIndep.circular;
     if (v.kind === "win") {
       let text;
       if (v.againstKeys.length) {
@@ -4842,7 +4929,9 @@
       } else if (!v.others) {
         text = "No other complete source to compare with yet.";
       } else if (v.allAgree) {
-        text = `Every source agrees you win: ${listSeries(v.agreeKeys)}. A fair-looking deal to them, so harder to get accepted.`;
+        text = vcCirc
+          ? `All sources point the same way (${listSeries(v.agreeKeys)}), but they share the same inputs this week, so this is expected.`
+          : `Every source agrees you win: ${listSeries(v.agreeKeys)}. A fair-looking deal to them, so harder to get accepted.`;
       } else {
         text = `No source thinks you lose. ${v.agreeKeys.length ? `${listSeries(v.agreeKeys)} also ${thinks(v.agreeKeys)} you win; ` : ""}even by ${listSeries(v.evenKeys)}.`;
       }
@@ -4852,7 +4941,8 @@
       const text = v.againstKeys.length
         ? `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you win, but ${name} has you giving more value than you get. Rework the offer before you send it.`
         : !v.others ? "No other complete source to compare with yet."
-          : `Every complete source agrees you lose: ${listSeries(v.agreeKeys.concat(v.evenKeys))}.`;
+          : vcCirc ? `All sources point the same way (${listSeries(v.agreeKeys.concat(v.evenKeys))}), but they share the same inputs this week.`
+            : `Every complete source agrees you lose: ${listSeries(v.agreeKeys.concat(v.evenKeys))}.`;
       return {kind: v.kind, sym: "▼", title: `${name}: you lose by ${net}`, text: text + notCounted};
     }
     const parts = [];
@@ -4914,6 +5004,13 @@
 
   function renderVerdict() {
     renderHeadlines();
+    // JEG-826: honesty banner on the compare verdict area.
+    const cIndep = blendIndependenceCheck(verdictKey());
+    const cCirc = $("v2CCircularBanner");
+    cCirc.hidden = !(cIndep && cIndep.circular && compareView.ready && !compareView.example);
+    $("v2CCircularText").textContent = cIndep && cIndep.circular
+      ? "This week, our value is built entirely from the same trade charts shown below. The verdict and deal read reflect the rescaling, not an independent check. Projection sources are updating."
+      : "";
     const copy = verdictCopy();
     const card = $("v2CVerdict");
     card.dataset.verdict = copy.kind;
@@ -5257,6 +5354,11 @@
         list.appendChild(li);
       });
     });
+    // JEG-826: inline note on the DDF Value definition when the blend is circular.
+    const howIndep = blendIndependenceCheck("ddf_value");
+    const howNote = $("v2HowCircular");
+    howNote.hidden = !(howIndep && howIndep.circular);
+    howNote.textContent = howIndep && howIndep.circular ? CIRCULAR_HOW : "";
   }
 
   // ---------- Risers & fallers (frames 05 / 06) ----------
@@ -6062,7 +6164,7 @@
     $("v2State").hidden = true;
     applyRoute();
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
-      compare: () => compareView, tradeState: TR,
+      compare: () => compareView, tradeState: TR, blendIndependenceCheck,
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
