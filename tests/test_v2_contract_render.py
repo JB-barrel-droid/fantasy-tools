@@ -835,7 +835,7 @@ CUSTOMIZE_JS = "async () => {" + COMMON + r"""
   const pop = $('v2Popover');
   const pub = pop.querySelector('.v2-cgroup[data-group="pub"]');
   const checked = () => [...pop.querySelectorAll('input[data-series]:checked')].map(i => i.dataset.series);
-  out.groups = [...pop.querySelectorAll('.v2-cgroup')].map(g => ({id: g.dataset.group, title: g.querySelector('h3').textContent.trim(),
+  out.groups = [...pop.querySelectorAll('.v2-cgroup[data-group]')].map(g => ({id: g.dataset.group, title: g.querySelector('h3').textContent.trim(),
     call: (g.querySelector('.v2-call') || {}).textContent || '', meta: (g.querySelector(':scope > .v2-meta') || {}).textContent || ''}));
   out.footer = [...pop.querySelectorAll('button')].map(b => b.textContent.trim()).filter(t => /^(Reset to default|Done|Cancel)$/.test(t));
   out.versions = [...pop.querySelectorAll('input[data-series^="ddf_value"]')].map(i => i.dataset.series);
@@ -1727,8 +1727,9 @@ def tt05_partial(S):
 
 
 PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
-GROUPS_SHIPPED = {"ddf": "DDF Value", "proj": "Projections", "pub": "Trade charts (rescaled)",
-                  "vorp": "Advanced · Value above waivers"}
+# JEG-850 (Jeremy, 2026-10-22): the Chart lines tab's groups, in the plain copy of the review (customize-ux-review.md 2.3).
+GROUPS_SHIPPED = {"ddf": "Our values", "pub": "Published trade charts", "proj": "Projection-based values",
+                  "vorp": "Raw value above waivers (advanced)"}
 
 
 def gl07_partial(S):
@@ -1774,11 +1775,10 @@ def gl21_partial(S):
             errors.append(f"{tab}: 'as published' x{c['text']['asPublished']} / 'indexed' x{c['text']['indexed']} in visible text")
         pub = next((g for g in c["groups"] if g["id"] == "pub"), None)
         meta = (pub or {}).get("meta", "")
-        if not pub or pub["title"] != "Trade charts (rescaled)":
-            errors.append(f"{tab}: the chart group is not named 'Trade charts (rescaled)'")
-        elif not (re.search(r"rescaled to our point scale for your league", meta)
-                  and re.search(r"ranking order is unchanged", meta, re.I)):
-            errors.append(f"{tab}: the rescaled meaning line is {meta!r}")
+        if not pub or pub["title"] != "Published trade charts":
+            errors.append(f"{tab}: the chart group is not named 'Published trade charts'")
+        elif not re.search(r"adjusted to your league's scale", meta):
+            errors.append(f"{tab}: the chart group's meaning line is {meta!r}")
     return errors
 
 
@@ -2234,8 +2234,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
         # "as published", Edit league demoted, Customize without Reset, Compare's headlines hidden.
         broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
-        broken_js = cut(broken_js, 'title: "Trade charts (rescaled)", one: "rescaled trade chart"',
-                        'title: "Trade charts (as published)", one: "rescaled trade chart"')
+        broken_js = cut(broken_js, '{id: "pub", title: "Published trade charts"',
+                        '{id: "pub", title: "Trade charts (as published)"')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
         broken_js = cut(broken_js, "box.hidden = !heads;", "box.hidden = true;")
         broken_shell = cut(shell, 'class="v2-btn v2-btn-primary" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust" id="v2EditLeague"')
