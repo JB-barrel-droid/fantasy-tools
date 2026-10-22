@@ -258,6 +258,24 @@ def main() -> None:
     if not clean:
         raise SystemExit("Fail closed: zero clean rows, not writing.")
 
+    # Deduplicate by the upsert constraint (player_key, razzball_snapshot_date):
+    # two scraped names can resolve to the same player_key (e.g. nickname and
+    # legal name both active on the page). Keep the last occurrence; flag the
+    # collision so it can be triaged.
+    seen: dict[tuple, int] = {}
+    dupes: list[str] = []
+    for i, r in enumerate(clean):
+        ck = (r["player_key"], r["razzball_snapshot_date"])
+        if ck in seen:
+            dupes.append(f"player_key={ck[0]} date={ck[1]} "
+                         f"names={clean[seen[ck]].get('player_norm')!r} vs {r.get('player_norm')!r}")
+        seen[ck] = i
+    if dupes:
+        deduped = [clean[i] for i in sorted(seen.values())]
+        print(f"  deduplicated {len(clean)} -> {len(deduped)} rows "
+              f"({len(dupes)} collisions: {'; '.join(dupes[:5])})")
+        clean = deduped
+
     upsert_rows(TABLE, clean, CONFLICT)
 
     # One save = one pulled_at on every row. Rows of the same date from an

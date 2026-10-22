@@ -53,6 +53,7 @@ import csv
 import hashlib
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -671,9 +672,10 @@ def main():
     with tempfile.NamedTemporaryFile("w", dir=str(HIDDEN), delete=False) as tf:
         json.dump(sidecar, tf, indent=1)
         tmp_side = tf.name
-    os.replace(tmp_season, SEASON_CSV)
-    os.replace(tmp_weekly, WEEKLY_CSV)
-    os.replace(tmp_meta, META)
+    # shutil.move handles cross-device moves (CI writes to /tmp via --out).
+    shutil.move(tmp_season, SEASON_CSV)
+    shutil.move(tmp_weekly, WEEKLY_CSV)
+    shutil.move(tmp_meta, META)
     os.replace(tmp_side, SIDECAR)
 
     # ---- 6. log ----
