@@ -1,7 +1,7 @@
 """Values auditing > single-source build-up view, rendered (JEG-849).
 
-Loads the built page headless, mounts app/v2/audit-source.js into the shell's
-#audit-source-root (through the DDFAudit.register contract) and checks, for
+Loads the built page headless at #values-auditing/single-source (the real shell,
+which mounts app/v2/audit-source.js into #audit-source-root) and checks, for
 all seven sources at the committed fixture's league setting:
 
   * tie to the engine: the view's Published, Indexed and Adjusted series, and
@@ -30,22 +30,8 @@ from tests.test_source_link_urls import NO_LINK_YET  # noqa: E402  (sources with
 from tests.test_v2_panels_render import ROOT, _built_dist, _serve, _serve_css  # noqa: E402
 
 AUDIT_JS = ROOT / "app" / "v2" / "audit-source.js"
-AUDIT_CSS = ROOT / "app" / "v2" / "audit-source.css"
 SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"]
 PROJECTIONS = {"espn", "cbsros", "razzball"}
-
-STUB = "window.DDFAudit = {register: (name, fn) => { window.__audit = window.__audit || {}; window.__audit[name] = fn; }};"
-
-# Mount into the app container (the shell's own page does this once it lands).
-MOUNT = """() => {
-  const app = document.querySelector('.v2-app');
-  app.querySelectorAll(':scope > main').forEach(m => { m.hidden = true; });
-  const root = document.createElement('main');
-  root.id = 'audit-source-root';
-  app.append(root);
-  window.__audit['single-source'](root, {});
-  return true;
-}"""
 
 # Independent oracle: what Player values reads for this source, per player.
 ORACLE = """(src) => {
@@ -239,8 +225,6 @@ def run_checks(audit_js=None, sources=SOURCES) -> list[str]:
     except Exception as exc:
         raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     errors = []
-    js = audit_js if audit_js is not None else AUDIT_JS.read_text(encoding="utf-8")
-    css = AUDIT_CSS.read_text(encoding="utf-8")
     with _built_dist() as url, sync_playwright() as playwright:
         try:
             browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
@@ -252,12 +236,11 @@ def run_checks(audit_js=None, sources=SOURCES) -> list[str]:
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
-                page.add_init_script(STUB)
-                page.goto(url, wait_until="networkidle")
+                if audit_js is not None:
+                    page.route("**/v2/audit-source.js*", functools.partial(_serve, audit_js))
+                page.goto(url.split("#")[0] + "#values-auditing/single-source", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueCurveControls.isReady()", timeout=40000)
-                page.add_style_tag(content=css)
-                page.add_script_tag(content=js)
-                page.evaluate(MOUNT)
+                page.wait_for_selector("#audit-source-root .as-seg", timeout=20000)
                 active_before = page.evaluate("() => window.TradeValueCurveControls.getActiveSources()")
                 if width == 1440:
                     for src in sources:
