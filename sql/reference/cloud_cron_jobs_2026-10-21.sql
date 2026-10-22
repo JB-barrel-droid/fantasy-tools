@@ -1,3 +1,10 @@
+-- REFERENCE ONLY (JEG-792 cancelled 2026-10-22; the self-host stack was removed).
+-- Kept because this is the only repo record of the 20 cloud pg_cron jobs and the
+-- dispatch_gha_workflow / dispatch_vintage_check bodies, read from cloud project
+-- iskiybsimubiujwuchsl on 2026-10-21. Do not run it as is: the Mac-only steps
+-- below (import_local.sh, cloud_cron_is_off) refer to files removed from the repo.
+-- Restore them from git history (see docs/decisions.md, JEG-792 entry).
+--
 -- cron_and_functions.sql: workflow-dispatch functions and the 20 pg_cron jobs
 -- for the self-hosted store on the Mac mini (JEG-792, lane B).
 --
