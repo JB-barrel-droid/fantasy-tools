@@ -739,6 +739,17 @@ def site_meta(doc: dict, source: str) -> dict:
             "content_vintage": sec.get("content_vintage") or prov.get("content_vintage")}
 
 
+def measured_site_identity(site_doc: dict | None, source: str) -> str | None:
+    """The live page section's build identity, stamped on a hold as
+    measured_site (JEG-799 B2). The same function the hold step compares
+    the candidate with (fidelity_hold.section_identity): charts by
+    snapshot_fetched_at, projections by snapshot date (JEG-807)."""
+    if not site_doc:
+        return None
+    from fidelity_hold import section_identity  # noqa: PLC0415
+    return section_identity(site_section(site_doc, source))
+
+
 def site_grains(doc: dict, source: str, ident: Identity | None = None) -> tuple[dict, list[dict]]:
     """{grain: {player_key: cell}} from the chart's native (1-QB) and native_superflex (2-QB) maps."""
     sec = site_section(doc, source)
@@ -2210,8 +2221,7 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
               "stored_bake": latest, "stages": stages, "worst_examples": examples[:EXAMPLES], "held": held}
     # JEG-799: the live page section's identity, so the hold step can skip
     # holds measured on a different build than the candidate.
-    _site = site_meta(site_doc, source) if site_doc else {}
-    _ms = _site.get("snapshot_fetched_at")
+    _ms = measured_site_identity(site_doc, source)
     result["hold"] = hold_decision(result, identity, held, now, measured_site=_ms)
     return result, divergences
 
@@ -2303,8 +2313,7 @@ def check_source(source: str, *, fetch: Fetcher, store, ident: Identity, site_do
               "stages": stages, "worst_examples": examples[:EXAMPLES], "held": held}
     # JEG-799: the live page section's identity, so the hold step can skip
     # holds measured on a different build than the candidate.
-    _site = site_meta(site_doc, source) if site_doc else {}
-    _ms = _site.get("snapshot_fetched_at")
+    _ms = measured_site_identity(site_doc, source)
     result["hold"] = hold_decision(result, identity, held, now, measured_site=_ms)
     return result, divergences
 

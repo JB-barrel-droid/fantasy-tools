@@ -451,6 +451,15 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
 
     # --- build the promoted section: fixture shape, candidate math ---
     new_section = copy.deepcopy(fx_section)
+    # JEG-807 (2026-10-22): a hold describes the section it was put on, not
+    # the candidate that just passed review. The chain's review hold (JEG-676)
+    # and the pulse's fidelity hold (JEG-520) both live on the fixture section,
+    # so the deep copy above carried a week-6 "chain hold: review hold" onto
+    # the promoted Week 7 CBS section and the page hid it as red. Start the
+    # promoted section hold-free; value_check.py hold and fidelity_hold.py
+    # apply re-mark it later in the same chain run when a hold still stands.
+    for hold_field in ("validationHold", "promotionHold"):
+        new_section.pop(hold_field, None)
     # Per-combo vintage: a chain run promotes a source's sections one at a
     # time, and the section-level week below moves with the first one, so
     # combos not yet promoted keep the section's OLD vintage here (the
