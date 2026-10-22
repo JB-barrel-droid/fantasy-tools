@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 
+from tests.test_v2_targets_render import build_v2_page  # noqa: E402
 from tests import _render_env  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
@@ -58,7 +59,8 @@ def _served():
         raise _render_env.unavailable("dist/index.html is not built")
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
-        shutil.copytree(DIST, dist)
+        shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        build_v2_page.build(dist)   # JEG-834: test the source in app/v2, not a stale committed build
 
         class Quiet(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
@@ -153,13 +155,11 @@ def run_checks(js_patch=None) -> list[str]:
             errors += check_links(heads, expected, "[targets heads]", charts)
             if len({l["pub"] for l in heads}) < 2:
                 errors.append(f"[targets heads] only {[l['pub'] for l in heads]} linked")
-            page.select_option("#v2TChart", "fantasypros")
-            page.wait_for_timeout(500)
-            open_link = page.evaluate(LINKS, "#v2TChartLink a")
-            if len(open_link) != 1 or open_link[0]["href"] != expected["fantasypros"]:
-                errors.append(f"[compare against] open-the-chart link {open_link}")
-            page.select_option("#v2TChart", "all")
-            page.wait_for_timeout(500)
+            # JEG-834: one chart alone returns no list, so Compare against offers only "All trade charts"
+            # and the per-chart "Open the chart" link below it is not reachable.
+            enabled = page.evaluate("() => [...document.querySelectorAll('#v2TChart option')].filter(o => !o.disabled).map(o => o.value)")
+            if enabled != ["all"]:
+                errors.append(f"[compare against] selectable options {enabled}, want only 'all'")
             # Math on hover: three players per chart.
             keys = page.evaluate("() => [...document.querySelectorAll('#v2TTable tbody tr[data-player-key]')].slice(0, 6).map(tr => tr.dataset.playerKey)")
             checked = {c: 0 for c in charts}
