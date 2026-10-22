@@ -5,7 +5,8 @@
 // Usage: DDFRosterPaste.parse(text, playerIndex)
 //   text: raw pasted page text (Ctrl+A from a browser)
 //   playerIndex: array of engine rows [{player_key, name, pos, team, ...}]
-//   returns: {site, players:[{id,name,confidence,sourceLine}], unmatched:[{line,reason}],
+//   returns: {site, players:[{id,name,confidence,sourceLine,slot}], unmatched:[{line,reason}],
+//            (slot: the page's own label, e.g. QB/FLEX/BN/Bench/IR, "Injured"/"Bye" for ESPN matchup sections, "" when the page shows none)
 //            matched, total, mode:'team'|'matchup', teams?:[...same shape],
 //            benchIncluded (matchup: false when bench is collapsed)}
 
@@ -360,7 +361,7 @@
 
               var result = matchCandidate(candidate, index, seen);
               if (result.match) {
-                players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine});
+                players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine, slot: trimmed});
               } else if (result.reason !== "duplicate") {
                 unmatched.push({line: nameLine, reason: result.reason || "not in the values"});
               }
@@ -412,11 +413,27 @@
         t += 1;
       }
 
-      if (leftNameLine) processEntry(leftNameLine, leftTP, teamA, index, seenA);
-      if (rightNameLine && rightTP) processEntry(rightNameLine, rightTP, teamB, index, seenB);
+      var slot = slotBetween(lines, leftTP.index, rightTP ? rightTP.index : Math.min(lines.length, leftTP.index + 8));
+      if (leftNameLine) processEntry(leftNameLine, leftTP, teamA, index, seenA, slot);
+      if (rightNameLine && rightTP) processEntry(rightNameLine, rightTP, teamB, index, seenB, slot);
     }
 
+    // Team names: Yahoo prints each side's header as a "logo" line followed by the team name (left side first).
+    var names = [];
+    for (var n = 0; n + 1 < lines.length && names.length < 2; n++) {
+      if (lines[n].trim() === "logo" && lines[n + 1].trim()) names.push(lines[n + 1].trim());
+    }
+    if (names.length === 2) { teamA.teamName = names[0]; teamB.teamName = names[1]; }
     return {teamA: teamA, teamB: teamB};
+  }
+
+  // The slot label ("QB", "FLEX", "BN") printed between the two sides of a matchup row.
+  function slotBetween(lines, from, to) {
+    for (var i = from + 1; i < to; i++) {
+      var s = lines[i].trim();
+      if (isSlotLabel(s)) return s;
+    }
+    return "";
   }
 
   function findNameAbove(lines, tpIndex) {
@@ -430,7 +447,7 @@
     return null;
   }
 
-  function processEntry(nameLine, tp, team, index, seen) {
+  function processEntry(nameLine, tp, team, index, seen, slot) {
     var cleanedName = cleanYahooName(nameLine);
     if (!cleanedName) return;
 
@@ -441,7 +458,7 @@
 
     var result = matchCandidate(candidate, index, seen);
     if (result.match) {
-      team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine});
+      team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine, slot: slot || ""});
     } else if (result.reason !== "duplicate") {
       team.unmatched.push({line: nameLine, reason: result.reason || "not in the values"});
     }
@@ -541,7 +558,7 @@
 
           var result = matchCandidate(candidate, index, seen);
           if (result.match) {
-            players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: singleName});
+            players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: singleName, slot: trimmed});
           } else if (result.reason !== "duplicate") {
             unmatched.push({line: singleName, reason: result.reason || "not in the values"});
           }
@@ -678,7 +695,7 @@
 
         var result = matchCandidate(candidate, index, seen);
         if (result.match) {
-          players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: playerName});
+          players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: playerName, slot: ""});
         } else if (result.reason !== "duplicate") {
           unmatched.push({line: playerName, reason: result.reason || "not in the values"});
         }
@@ -729,7 +746,7 @@
 
           var result = matchCandidate(candidate, index, team.seen);
           if (result.match) {
-            team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: name});
+            team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: name, slot: "Injured"});
             team.matched++;
             team.total++;
           } else if (result.reason !== "duplicate") {
@@ -783,7 +800,7 @@
 
             var result = matchCandidate(candidate, index, team.seen);
             if (result.match) {
-              team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: trimmed});
+              team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: trimmed, slot: "Bye"});
               team.matched++;
               team.total++;
             } else if (result.reason !== "duplicate") {
@@ -829,8 +846,8 @@
           mode: "matchup",
           benchIncluded: !benchCollapsed,
           teams: [
-            {players: ym.teamA.players, unmatched: ym.teamA.unmatched, matched: ym.teamA.players.length, total: ym.teamA.players.length + ym.teamA.unmatched.length},
-            {players: ym.teamB.players, unmatched: ym.teamB.unmatched, matched: ym.teamB.players.length, total: ym.teamB.players.length + ym.teamB.unmatched.length},
+            {teamName: ym.teamA.teamName, players: ym.teamA.players, unmatched: ym.teamA.unmatched, matched: ym.teamA.players.length, total: ym.teamA.players.length + ym.teamA.unmatched.length},
+            {teamName: ym.teamB.teamName, players: ym.teamB.players, unmatched: ym.teamB.unmatched, matched: ym.teamB.players.length, total: ym.teamB.players.length + ym.teamB.unmatched.length},
           ],
         };
       } else {
