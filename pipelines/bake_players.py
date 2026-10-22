@@ -846,6 +846,11 @@ def bake(args):
         # fallback when the CSV is silent.
         team = _resolve_team_abbr(espn_row["team"], key, registry,
                                   team_abbr)
+        # Track whether ESPN itself placed this player on a team. Free
+        # agents (team="" in the CSV) divide ROS by the window length, not
+        # by a universe team's game count, matching load_espn_lists (the
+        # DDF leg).  The universe team still goes on the row for display.
+        espn_has_team = bool(team)
         uni = universe.get(key)
         if espn_row.get("universe_only"):
             # Sleeper is the only source for these: its team, never the
@@ -934,7 +939,13 @@ def bake(args):
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
-        gr = games_left.get(canonical_team(team))
+        # Free agents (ESPN CSV team was empty): divide by window length,
+        # not the universe team's games — ESPN projects every ROS week for
+        # a teamless player. This matches load_espn_lists in the DDF leg.
+        if espn_has_team:
+            gr = games_left.get(canonical_team(team))
+        else:
+            gr = ros_window[1] - ros_window[0] + 1
         row["games_remaining"] = gr
         # espn_expected_games = the count of ROS weeks where ESPN projects
         # any scoring stat for this player (JEG-535). Since JEG-702 it no
