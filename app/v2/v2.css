@@ -1388,3 +1388,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (max-width: 767px) {
   .v2-srclink { padding: 15px; margin: -15px; }
 }
+
+/* JEG-827: below 1024 px the zoom row sits above the plot (a 48 px strip), not over its top 44 px; the plot grows by the strip so the chart keeps its height. */
+@media (max-width: 1023px) {
+  .v2-plot-main { padding-top: 48px; box-sizing: border-box; }
+  .v2-ybrush { margin-top: 60px; }
+}
+@media (min-width: 768px) and (max-width: 1023px) { .v2-plot { height: calc(var(--v2-chart-h) + 48px); } }
+@media (max-width: 767px) { .v2-plot-main { height: 308px; } }
