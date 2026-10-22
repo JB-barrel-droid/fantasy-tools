@@ -3259,7 +3259,9 @@
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
     // JEG-498: only the charts ticked in this page's Customize are compared; a chart left out is not "skipped".
-    const picked = T.chart === "all" || !mine.has(T.chart) ? null : T.chart;
+    // JEG-834: a list needs 2 or more charts (the market is their median), so one chart alone can never make one.
+    T.chart = "all";
+    const picked = null;
     const {used, skipped, prior} = TT.chartsToCompare(info.filter(item => !TT.CHART_KEYS.includes(item.key) || mine.has(item.key)), {only: picked});
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
@@ -3297,9 +3299,10 @@
       const item = targetsView.infoByKey[key];
       const option = document.createElement("option");
       option.value = key;
-      option.disabled = !item || !item.available;
-      const prior = option.disabled ? null : priorWeekInfo(key, item, targetsView.refWeek);
-      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${option.disabled ? " — not available" : prior ? ` · ${prior.short} (prior week)` : ""}`;
+      const missing = !item || !item.available;
+      option.disabled = true;   // JEG-834: one chart alone returns 0 results (a list needs 2 or more charts)
+      const prior = missing ? null : priorWeekInfo(key, item, targetsView.refWeek);
+      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${missing ? " — not available" : `${prior ? ` · ${prior.short} (prior week)` : ""} — needs 2 or more charts`}`;
       if (prior) {
         option.dataset.priorWeek = key;
         option.title = prior.label;

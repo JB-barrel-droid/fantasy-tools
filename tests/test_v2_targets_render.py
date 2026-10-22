@@ -323,7 +323,7 @@ PRIOR = """() => {
     label: b.getAttribute('aria-label'), title: b.title}));
   const t = window.TradeValueV2.targets();
   return {used: t.used,
-    options: [...document.querySelectorAll('#v2TChart option')].map(o => ({value: o.value, text: o.textContent})),
+    options: [...document.querySelectorAll('#v2TChart option')].map(o => ({value: o.value, text: o.textContent, disabled: o.disabled})),
     headers: [...document.querySelectorAll('#v2TTable th[data-chart], #v2TBuyTable th[data-chart]')].map(th => ({chart: th.dataset.chart, badges: badges(th), sub: (() => { const s = th.querySelector('.th-sub'); if (!s) return ''; const c = s.cloneNode(true); c.querySelectorAll('.v2-div-chip').forEach(n => n.remove()); return c.textContent.trim(); })()})),
     details: [...document.querySelectorAll('tr.t-detail [data-chart]')].map(s => ({chart: s.dataset.chart, badges: badges(s)})),
     cards: [...document.querySelectorAll('#v2TCards .vals [data-chart], #v2TBuyCards .vals [data-chart]')].map(s => ({chart: s.dataset.chart, badges: badges(s)})),
@@ -698,6 +698,11 @@ def check_prior(prior, ref_week, width) -> list[str]:
             return [f"{where}: current-week chart {chart} carries a badge {badges}"]
         return []
     for o in prior["options"]:
+        # JEG-834: a list needs 2 or more charts, so no single chart is offered as a choice that returns 0 results.
+        if o["value"] != "all" and (not o["disabled"] or ("2 or more charts" not in o["text"] and "not available" not in o["text"])):
+            errors.append(f"#v2TChart option {o['value']!r} is offered but can only return 0 results: {o}")
+        if o["value"] == "all" and o["disabled"]:
+            errors.append("#v2TChart 'All trade charts' is disabled")
         has = "Week 4" in o["text"]
         if (o["value"] == "fantasypros") != has:
             errors.append(f"#v2TChart option {o['value']!r} reads {o['text']!r}")
@@ -1002,6 +1007,8 @@ class TradeTargetsRenderTest(unittest.TestCase):
                                                          "      else if (!item.stale) used.push(key);")}, {"viewports": desk, "numbers": False}),
             "prior-week badge removed": ({"v2_js": (v2, "    if (!item || !item.stale) return null;\n    const name",
                                                     "    return null;\n    const name")}, {"viewports": desk, "numbers": False}),
+            # JEG-834
+            "single chart offered": ({"v2_js": (v2, "      option.disabled = true;   // JEG-834", "      option.disabled = false;   // JEG-834")}, {"viewports": desk, "numbers": False}),
             # JEG-458
             "rescaled label removed": ({"v2_js": (v2, '`${week.textContent ? " · " : ""}rescaled`', '""')}, {"viewports": desk, "numbers": False}),
             "aria-expanded never reset": ({"v2_js": (v2, 'if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");',
