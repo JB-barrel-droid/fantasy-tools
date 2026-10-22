@@ -19,5 +19,6 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | 4. How we rescale trade charts | [posts/04-how-we-rescale-trade-charts.md](posts/04-how-we-rescale-trade-charts.md) | JEG-545 | Draft |
 | 5. Missing = 0 and the one-source rule | [posts/05-missing-zero-one-source.md](posts/05-missing-zero-one-source.md) | JEG-545 | Draft |
 | 6. Trade confidence | [posts/06-trade-confidence.md](posts/06-trade-confidence.md) | JEG-545 | Draft; partially gated on JEG-505 |
+| 8. When do the trade charts agree? | [posts/08-when-charts-agree.md](posts/08-when-charts-agree.md) | JEG-883 | Draft; script `tools/research/chart_agreement.py`, outputs `data/post8/` (2026-10-22, engine cc576e71, DDF Value blended: PR #814 open) |
 
 Rules: do not freeze a number that is known to be wrong; mark figures computed on an older engine as stale with the date; name the script or say "none yet". Scripts go to `tools/bench_research` (JEG-566).

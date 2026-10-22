@@ -1000,3 +1000,15 @@ Jeremy, 2026-10-22 (multiple choice): cancel the move to a Mac-mini self-hosted 
 - Kept: `sql/reference/cloud_cron_jobs_2026-10-21.sql` (moved from `selfhost/migrate/cron_and_functions.sql`), the only repo record of the 20 cloud pg_cron jobs and dispatch function bodies; `docs/supabase-egress-notes.md` points to it. Also kept: the bounded value-check log (`pipelines/load_value_check.py`, migration 014), which is cloud-side work that only cites the ticket.
 - No workflow, Makefile target, pipeline or test imported selfhost code (grep 2026-10-22).
 - Restore: `git checkout 86d3f37d5cf8991e09057ac4dedb791b3662e34c -- selfhost docs/selfhost-runner.md docs/selfhost-supabase.md docs/selfhost-tables.md` (last commit touching `selfhost/`; the docs files are in the same history).
+
+## JEG-856: ESPN gets no source link
+
+Jeremy, 2026-10-22 (multiple choice, on JEG-856): ESPN gets no source link for now; nothing login-gated or stale is shown. Revisit when someone confirms a public ESPN page. `tests/test_source_link_urls.py` keeps `NO_LINK_YET = {"espn"}`. The USA Today link question (keep the pulled article URL, or spot-check it in a browser; it answers 402/403 to automation) is open and non-blocking.
+
+## JEG-850: Customize dialog copy and layout
+
+Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-850): two tabs "Chart lines" and "DDF blend"; variants "DDF Value", "DDF Value: charts only", "DDF Value: projections only"; chips "Under review" / "Normal range"; stacked phone footer; Done blocked with "Pick at least one source" when the draft has no engine series (no engine change); the last usable DDF input stays on, locked, and a held input does not count; "Using N of M sources" on the DDF blend tab only; VORP group collapsed unless a VORP series is selected. Shipped in #811; details in `docs/v2-design-notes.md`.
+
+## JEG-855: nav order
+
+Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
