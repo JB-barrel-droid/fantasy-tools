@@ -30,6 +30,8 @@ WIDE = ("document.addEventListener('DOMContentLoaded',()=>{const s=document.crea
 OLD_RULES = (
     ("padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 12px;",
      "padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 13px;"),
+    # JEG-829: the tab row now also wraps from 360 px in a wide face; the old state has neither the wrap nor the 12 px type.
+    ("@media (min-width: 360px) and (max-width: 767px) { .v2-tabs { flex-wrap: wrap; row-gap: 4px; } }", ""),
     ("@media (max-width: 767px) { .v2-table-head { flex-wrap: wrap; } .v2-table-head h2, .v2-table-head .v2-meta { flex: 1 1 100%; min-width: 0; } }", ""),
 )
 
