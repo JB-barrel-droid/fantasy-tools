@@ -1,9 +1,10 @@
-"""v2 Find a trade: the package search in app/v2/finder.js (JEG-481).
+"""v2 Find a trade: the package search in app/v2/finder.js (JEG-481, JEG-819).
 
 A trade is listed only when, in the engine's own values:
 
   * DDF Value says you win (receive - give > 0 as shown, i.e. at least 0.05);
-  * at least 3 of the 4 trade charts say the rival breaks even or wins (chart net <= 0 as shown);
+  * at least min(3, available charts) of the available trade charts say the rival breaks even or wins
+    (chart net <= 0 as shown); only charts the engine marks available are counted (JEG-819);
   * a chart that does not price every player in the package is left out of the count, never read as 0;
   * a player with no DDF Value is never searched (not counted as 0);
   * the default is up to 2-for-2; a larger maximum finds larger packages; simpler trades rank first on a tie.
@@ -40,7 +41,8 @@ const F = require(process.argv[1]);
 const input = JSON.parse(process.argv[2]);
 const r = F.findTrades(input.mine, input.theirs, input.opts);
 console.log(JSON.stringify({total: r.total, trades: r.trades.map(t => ({give: t.give.map(p => p.player_key),
-  receive: t.receive.map(p => p.player_key), edge: t.edge, priced: t.pricedCharts, ok: t.rivalOkCount}))}));
+  receive: t.receive.map(p => p.player_key), edge: t.edge, priced: t.pricedCharts, ok: t.rivalOkCount,
+  charts: t.charts.map(c => ({key: c.key, rivalOk: c.rivalOk}))}))}));
 """
 
 
@@ -102,6 +104,16 @@ def check(finder_js: Path) -> list[str]:
     ranked = pairs(run(finder_js, mine2, theirs2))
     if not ranked or len(ranked[0][0]) + len(ranked[0][1]) != 2:
         errors.append(f"a 1-for-1 is not first: {ranked}")
+    # JEG-819: when only 2 chart keys are passed (simulating 2 available charts), the minCharts adapts
+    # to min(3, 2) = 2, so a trade accepted on both available charts is listed.
+    r = run(finder_js, mine, [row("t1", 25, 18)], {"chartKeys": ["usatoday", "fantasypros"]})
+    if r["total"] != 1:
+        errors.append(f"a trade accepted on 2 of 2 available charts is not listed: {r}")
+    # But a held chart's key must not be passed; the result's charts should not name held keys.
+    r2 = run(finder_js, mine, [row("t1", 25, 18)], {"chartKeys": ["usatoday", "fantasypros"]})
+    chart_keys_in_result = [c["key"] for t in r2["trades"] for c in t.get("charts", []) if c.get("rivalOk") is not None]
+    if any(k not in ("usatoday", "fantasypros") for k in chart_keys_in_result):
+        errors.append(f"a held chart key appeared in the result: {chart_keys_in_result}")
     return errors
 
 

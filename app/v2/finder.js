@@ -396,8 +396,12 @@
     const all = C.getAllRows();
     const byKey = new Map(all.map(r => [String(r.player_key), r]));
     const rowsOf = list => list.map(p => byKey.get(p.key)).filter(Boolean);
-    const charts = CHART_KEYS.filter(key => all.some(r => r.values && finite(r.values[key])));
-    if (charts.length < MIN_CHARTS) return note(`Only ${charts.length} of the 4 trade charts are priced for this league, so no trade can clear the 3-chart test.`);
+    // JEG-819: use only charts the engine says are available (not held or missing), matching Compare and Targets.
+    const sourceInfo = C.getSourceInfo ? C.getSourceInfo() : [];
+    const availableKeys = new Set(sourceInfo.filter(item => item.available).map(item => item.key));
+    const charts = CHART_KEYS.filter(key => availableKeys.has(key));
+    if (!charts.length) return note("No trade chart is available this week.");
+    if (charts.length < MIN_CHARTS) note(`Only ${charts.length} trade chart${charts.length === 1 ? " is" : "s are"} available this week. Not enough charts to judge acceptance.`);
     const shape = C.getRosterShape ? C.getRosterShape() : null;
     const mineRows = rowsOf(S.mine);
     const theirRows = rowsOf(S.theirs);
@@ -414,7 +418,7 @@
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
     if (!res.trades.length) {
-      return note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} trade charts say they break even or win. Try a larger package.`);
+      return note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} available trade chart${charts.length === 1 ? "s say" : "s say"} they break even or win. Try a larger package.`);
     }
     note(`${res.total} trade${res.total === 1 ? "" : "s"} found; the top ${res.trades.length} are listed, ranked by DDF Value edge with simpler trades first.`);
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
@@ -427,7 +431,8 @@
       const open = el("a", {class: "v2-link", href: `v2/#compare-trade?give=${ids(t.give)}&get=${ids(t.receive)}`, text: "Open in Compare a trade"});
       list.append(el("li", {"data-find-edge": String(t.edge)},
         el("b", {text: `You give ${names(t.give)}; you receive ${names(t.receive)}`}),
-        el("span", {class: "v2-meta", text: `DDF Value edge ${fmt(t.edge)} for you. ${favor.length} of ${t.pricedCharts} trade charts have them winning or even: ${favor.join(", ")}.`
+        el("span", {class: "v2-meta", text: `DDF Value edge ${fmt(t.edge)} for you. ${favor.length} of ${t.pricedCharts} trade chart${t.pricedCharts === 1 ? "" : "s"} have them winning or even${favor.length ? `: ${favor.join(", ")}` : ""}.`
+          + (t.pricedCharts < MIN_CHARTS ? ` Not enough charts to judge acceptance.` : "")
           + (unpriced ? ` ${unpriced} chart${unpriced === 1 ? " does" : "s do"} not price every player and ${unpriced === 1 ? "is" : "are"} not counted.` : "")
           + (thin.length ? ` ${thin.join(" ")}` : "")}),
         open));
@@ -451,7 +456,7 @@
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2FindTitle", text: "Find a trade to propose"}),
-        el("p", {class: "v2-meta", text: "Type in your roster and another manager's. Lists trades where DDF Value says you win and at least 3 of 4 trade charts say they break even or win, so they are likely to accept."}))),
+        el("p", {class: "v2-meta", text: "Type in your roster and another manager's. Lists trades where DDF Value says you win and the available trade charts say the other manager breaks even or wins."}))),
       el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster")),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),

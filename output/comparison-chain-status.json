@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T04:08:45.503943+00:00",
+  "run_at": "2026-10-22T05:01:50.234822+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,57 +14,13 @@
   "success": true,
   "outcome": "green",
   "held": [
-    "cbs",
     "cbsros",
     "espn",
-    "fantasycalc",
-    "fantasypros",
-    "razzball",
-    "usatoday"
+    "razzball"
   ],
   "hold_severity": "none",
   "list_changes": {},
   "held_detail": {
-    "usatoday": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "usatoday"
-      ],
-      "sections": [],
-      "detail": "894/894 chart values equal stored bake usatwk6_2026-10-13t1835_v1; newer stored bake usatwk7_2026-10-22t0155_v1 (week 7, saved 2026-10-22T01:55:18.929876Z) is not on the chart yet: 476 values changed, 51 added, 27 dropped",
-      "hold_severity": "amber",
-      "week": 7
-    },
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [],
-      "detail": "214/1183 values match exactly across 6 columns; column check: stored half|1 list is closest to the live std|1 list (mean |diff| 15 vs 35); stored full|1 list is closest to the live std|1 list (mean |diff| 22 vs 36); 969 of 1183 values moved since the save at 2026-10-22T01:55:14.986722Z (largest 100%",
-      "hold_severity": "amber",
-      "week": 7
-    },
-    "fantasypros": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "fantasypros"
-      ],
-      "sections": [],
-      "detail": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0204_v1 (week 7, saved 2026-10-22T02:04:18.917833Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped",
-      "hold_severity": "amber",
-      "week": 7
-    },
-    "cbs": {
-      "reason": "fidelity: scrape_validity",
-      "held_series": [
-        "cbs"
-      ],
-      "sections": [],
-      "detail": "player count dropped vs week 5: stored TE 14->13, chart TE 14->10",
-      "hold_severity": "amber",
-      "week": 7
-    },
     "espn": {
       "reason": "fidelity: stored_vs_chart",
       "held_series": [
@@ -72,7 +28,7 @@
         "espn_vorp"
       ],
       "sections": [],
-      "detail": "the chart's snapshot 2026-10-19 is no longer stored: the stored set is now 2026-10-21; the chart is behind until the next chain run rebuilds it",
+      "detail": "1758/1764 chart values equal stored snapshot 2026-10-21 (per game, 2 decimals); 6 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 7
     },
@@ -100,7 +56,7 @@
         "razzball",
         "razzball_adjusted"
       ],
-      "detail": "1860/1860 chart values equal stored snapshot 2026-10-19 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 50 stored players not on the chart, 0 chart players not stored; newer stored snapshot 2026-10-21 is not on the chart yet: 1419 values changed, 25 added, 19 dropped",
+      "detail": "1947/1947 chart values equal stored snapshot 2026-10-21 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 27 stored players not on the chart, 0 chart players not stored",
       "hold_severity": "amber",
       "week": 7
     }
@@ -217,10 +173,6 @@
     }
   },
   "fidelity_holds": {
-    "usatoday": "fidelity: stored_vs_chart",
-    "fantasycalc": "fidelity: publisher_vs_stored",
-    "fantasypros": "fidelity: stored_vs_chart",
-    "cbs": "fidelity: scrape_validity",
     "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"

@@ -1368,3 +1368,15 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Find .v2-ctoolbar { flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 #v2Find .v2-ctoolbar input[type="checkbox"] { width: 20px; height: 20px; }
 #v2Find .v2-ctoolbar label.v2-field { min-height: 44px; }
+
+/* JEG-818 (phone): seven 44 px tabs need 320 px, but a 320 px screen leaves the row 288 px, and the nowrap row pushed
+   the page 47 px sideways. Below 360 px the tabs wrap onto a second row; every tab keeps its 44 px hit area. */
+@media (max-width: 359px) {
+  .v2-tabs { flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; }
+}
+
+/* JEG-817 (phone): source links keep their look but get a 44 x 44 hit area. Inline padding grows the hit box and the
+   equal negative side margin cancels it, so no line or chip moves. */
+@media (max-width: 767px) {
+  .v2-srclink { padding: 15px; margin: -15px; }
+}
