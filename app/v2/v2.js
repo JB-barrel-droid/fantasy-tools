@@ -5142,7 +5142,9 @@
       value.className = "v2-deal-net";
       value.dataset.side = n.side || "";
       // JEG-832: show "not enough charts" when the market card has too few compared charts.
-      value.textContent = n.net === null ? (n.tooFew ? "Not enough charts" : "—") : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
+      // JEG-886: when the per-chart rows do not support the average's side, say so instead of the side word.
+      value.textContent = n.net === null ? (n.tooFew ? "Not enough charts" : "—")
+        : n.split ? `${fmtGap(n.net)} · Charts split (${fmtGap(n.charts.min)} to ${fmtGap(n.charts.max)})` : `${fmtGap(n.net)} · ${DEAL_SIDE_WORD[n.side]}`;
       if (n.net === null) value.title = n.tooFew ? `${n.chartCount} of ${n.minCharts} compared charts needed` : "At least one player has no value in this series";
       li.append(label, info, value, def);
       nets.appendChild(li);
