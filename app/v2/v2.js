@@ -2207,12 +2207,15 @@
   function openSources(anchor, pageArg) {
     const page = pageArg || pageOfView();
     const onValues = page === "values";
-    const draft = new Set(onValues ? view.active : pageKeys(page));
+    // JEG-907: the dialog and the chart legend are one state. A line the legend turned off starts unticked here
+    // (its row says why); ticking it, Select all or Reset to default turns it back on, and Done applies the draft as
+    // shown, so no legend hide survives Done.
+    const draft = new Set(onValues ? view.active.filter(key => key === view.rankKey || !state.hiddenSeries.has(key)) : pageKeys(page));
     const composite = onValues && C.getCompositeInputs ? C.getCompositeInputs() : null;
     const inputsDraft = composite ? new Set(composite.inputs) : null;
     const hasBlend = Boolean(composite);
     let tab = "lines";
-    let resetPressed = false;
+    const legendHid = key => onValues && key !== view.rankKey && view.active.includes(key) && state.hiddenSeries.has(key);
     // JEG-542: a source out of the blend this week (held, left out, not published): never selectable. Only
     // "not selected" stays selectable. JEG-807: a held input stays in the engine's pool (weights, pie) but out of
     // its blend (`series`); the engine lists it under inputs, not excluded, so it is added here with its hold.
@@ -2326,7 +2329,7 @@
             : (page === "targets" ? `Not used on ${PAGE_NAMES[page]}` : pageNo));
         } else if (isDdfKey(item.key) && hasBlend && draft.has(item.key) && versionUsable(item.key) === 0) {
           metaNote(label, "No sources on in the DDF blend");   // JEG-850: a version with nothing to build from
-        } else if (!resetPressed && item.key !== view.rankKey && draft.has(item.key) && state.hiddenSeries.has(item.key)) {
+        } else if (legendHid(item.key) && !draft.has(item.key)) {
           metaNote(label, "Hidden with the chart legend");
         }
         label.title = isDdfKey(item.key) ? DDF_ROW_TIPS[item.key] : (item.waiverNote && item.available ? item.waiverNote : "");
@@ -2425,7 +2428,7 @@
           groupsBox.appendChild(section);
         });
         // The count says what Done will apply, and names a line the chart legend has turned off.
-        const hiddenN = resetPressed ? 0 : [...draft].filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length;
+        const hiddenN = view.active.filter(key => legendHid(key) && !draft.has(key)).length;
         linesSummary.textContent = `${draft.size} series selected${hiddenN ? ` (${hiddenN} hidden with the chart legend)` : ""}`
           + ` · applies to ${PAGE_NAMES[page]} only`;
       }
@@ -2455,7 +2458,6 @@
         draft.clear();
         (onValues ? startActive || [] : pageDefault(page)).forEach(key => draft.add(key));
         if (inputsDraft) { inputsDraft.clear(); (composite.defaults || []).forEach(key => inputsDraft.add(key)); }
-        resetPressed = true;   // JEG-850: Done also clears the lines the chart legend turned off
         err.hidden = true;
         render();
       });
@@ -2490,7 +2492,7 @@
         const drops = view.active.filter(key => !draft.has(key));
         adds.forEach(toggleEngineSource);
         drops.forEach(toggleEngineSource);
-        if (resetPressed) state.hiddenSeries.clear();
+        state.hiddenSeries.clear();   // JEG-907: the draft is the whole state; a legend hide never survives Done
         if (inputsDraft && C.setCompositeInputs) {
           const info = C.getCompositeInputs();
           const defaults = info.defaults || [];
@@ -5590,7 +5592,14 @@
     });
     $("v2CClear").addEventListener("click", () => { TR.give = []; TR.receive = []; TR.open.clear(); renderCompare(); });
     $("v2CSwap").addEventListener("click", () => { [TR.give, TR.receive] = [TR.receive, TR.give]; renderCompare(); });
-    $("v2CShown").addEventListener("change", event => { TR.shown = event.target.value; renderCompare(); });
+    // JEG-914: a disabled (held or unavailable) option is never applied, however the change arrives; the picker
+    // stays on the series whose numbers the side lists show.
+    $("v2CShown").addEventListener("change", event => {
+      const picked = event.target.value;
+      if (compareView && !compareView.shownChoices.includes(picked)) { renderShownPicker(); return; }
+      TR.shown = picked;
+      renderCompare();
+    });
   }
 
   // ---------- How values work (frames 15 / 16) ----------
@@ -5710,8 +5719,17 @@
       priorsFor(M.SERIES).then(() => { if (currentView() === "risers") renderRisers(); });
       return;
     }
-    const choices = M.SERIES.map(key => ({key, prior: priorCache.get(key)}));
-    if (!R.series || !choices.some(c => c.key === R.series)) {
+    // JEG-906: a held (hidden) source is never a basis for movement. Its prior week reads as unavailable with the
+    // same reason the other pickers give (heldReason / unavailableReason, one rule), so the option is disabled and
+    // a saved pick of it shows the held notice, never deltas built on held values. An amber (lagging) source is
+    // available and stays offered, labelled by its week.
+    const choices = M.SERIES.map(key => {
+      const item = view.infoByKey[key];
+      const prior = item && !item.available ? {available: false, reason: unavailableReason(item)} : priorCache.get(key);
+      return {key, prior};
+    });
+    const offered = key => choices.some(c => c.key === key && !(view.infoByKey[key] && !view.infoByKey[key].available));
+    if (!R.series || !offered(R.series)) {
       // JEG-498: the page opens on the first series ticked in its Customize (DDF Value by default) that has a prior week.
       const mineSeries = new Set(pageKeys("risers"));
       const ticked = choices.filter(c => mineSeries.has(c.key));
@@ -5719,7 +5737,8 @@
         || choices.find(c => c.prior.available) || choices[0]).key;
     }
     renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
-      reason: prior.available ? null : `no prior week: ${prior.reason || "not saved"}`})), R.series);
+      reason: prior.available ? null : view.infoByKey[key] && !view.infoByKey[key].available ? prior.reason
+        : `no prior week: ${prior.reason || "not saved"}`})), R.series);
     $("v2RPosition").value = view.state.position;
     const servedPrior = priorCache.get(R.series);
     if (servedPrior.available && !weeksCache.has(R.series)) {
@@ -5791,7 +5810,10 @@
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
-    if (unavailable.length) notes.push(`No prior week: ${unavailable.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
+    const heldOut = unavailable.filter(c => view.infoByKey[c.key] && !view.infoByKey[c.key].available);
+    const noPriorOut = unavailable.filter(c => !heldOut.includes(c));
+    if (heldOut.length) notes.push(`Not offered: ${heldOut.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
+    if (noPriorOut.length) notes.push(`No prior week: ${noPriorOut.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
     const note = $("v2RNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");

@@ -148,7 +148,10 @@ def run_checks(v2_js=None) -> list[str]:
                 errors.append(f"[risers] opens on {opened!r}, want its ticked DDF Value")
             # Ticking another series (and not DDF Value) moves the page to it, when the engine has its prior week.
             other = page.evaluate("""async () => { const C = window.TradeValueCurveControls;
-              for (const key of ['fantasycalc', 'usatoday', 'fantasypros', 'cbs']) { if ((await C.getPriorWeek(key)).available) return key; }
+              for (const key of ['fantasycalc', 'usatoday', 'fantasypros', 'cbs']) {
+                // JEG-906: a held source is never offered on Risers, so it cannot be the one the page opens on.
+                const info = C.getSourceInfo().find(i => i.key === key);
+                if ((await C.getPriorWeek(key)).available && !(info && info.available === false)) return key; }
               return null; }""")
             if other:
                 page.evaluate("(key) => window.TradeValueV2.setPageKeys('risers', [key])", other)
