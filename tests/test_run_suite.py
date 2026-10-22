@@ -8,6 +8,7 @@ keeps going past a failing line and fails at the end listing it.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -46,10 +47,33 @@ class RunSuiteTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("2/2 passed", proc.stdout)
 
-    def test_refuses_lines_that_need_make(self):
-        proc, _ = run_runner("suite:\n\tpython3 x.py $(OUT)\n", "suite")
-        self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("needs make", proc.stdout + proc.stderr)
+    def test_expands_make_variables_before_running(self):
+        text = ("OUT = marker\nLATE = $(shell echo late)\n\nsuite:\n"
+                "\tpython3 -c \"open('$(OUT)', 'w').write('$(LATE)')\"\n")
+        proc, marker = run_runner(text, "suite")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue(marker, "the $(OUT) line was not expanded and run")
+        self.assertIn("1/1 passed", proc.stdout)
+
+    def test_real_makefile_test_unit_modules_expands_node_chromium(self):
+        sys.path.insert(0, str(RUNNER.parent))
+        try:
+            import run_suite
+        finally:
+            sys.path.remove(str(RUNNER.parent))
+        env_path = "/opt/fake-chromium"
+        old = os.environ.get("CHROMIUM_PATH")
+        os.environ["CHROMIUM_PATH"] = env_path
+        try:
+            modules = run_suite.recipe_lines(ROOT / "Makefile", "test-unit-modules")
+        finally:
+            if old is None:
+                del os.environ["CHROMIUM_PATH"]
+            else:
+                os.environ["CHROMIUM_PATH"] = old
+        node = [m for m in modules if "freshness-hero.mjs" in m]
+        self.assertEqual(node, [f'CHROMIUM_PATH="{env_path}" node tests/rendered_gate/freshness-hero.mjs dist'])
+        self.assertFalse([m for m in modules if "$(" in m])
 
     def test_make_test_unit_uses_the_runner_over_the_full_module_list(self):
         sys.path.insert(0, str(RUNNER.parent))
