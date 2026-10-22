@@ -4265,11 +4265,13 @@
     // series keeps its own (those scales are not comparable).
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
+    // JEG-841: compute deal read before headlines so the propose line can use DDF Value + Projections.
+    const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
     compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
-      headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence}) : null,
-      deal: ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null,
+      headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence, deal}) : null,
+      deal,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
@@ -4848,7 +4850,10 @@
     // The original title/action/text assume DDF Value is independent of the charts; when it is
     // not, instructions like "Arbitrage: send it" are misleading.
     const dealTitle = dealCirc && deal.kind === "read"
-      ? circularDealTitle(deal) : (deal.kind === "read" ? `${deal.title}: ${deal.action}` : "");
+      ? circularDealTitle(deal) : (deal.kind === "read"
+        // JEG-841: avoid doubled label when the title already contains the action (e.g. "Arbitrage: send it" + "Send it").
+        ? (deal.title.toLowerCase().includes(deal.action.toLowerCase()) ? deal.title : `${deal.title}: ${deal.action}`)
+        : "");
     $("v2CDealRead").textContent = dealTitle;
     $("v2CDealRead").hidden = deal.kind !== "read";
     $("v2CDealText").textContent = dealCirc && deal.kind === "read"
@@ -4962,7 +4967,7 @@
       } else if (v.allAgree) {
         text = vcCirc
           ? `All sources point the same way (${listSeries(v.agreeKeys)}), but they share the same inputs this week, so this is expected.`
-          : `Every source agrees you win: ${listSeries(v.agreeKeys)}. A fair-looking deal to them, so harder to get accepted.`;
+          : `Every source agrees you win: ${listSeries(v.agreeKeys)}. They will see it too, so expect pushback.`;
       } else {
         text = `No source thinks you lose. ${v.agreeKeys.length ? `${listSeries(v.agreeKeys)} also ${thinks(v.agreeKeys)} you win; ` : ""}even by ${listSeries(v.evenKeys)}.`;
       }

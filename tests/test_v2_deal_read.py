@@ -136,7 +136,7 @@ MUTATIONS = {
     "production inverted": ("    if (p === v) return p === \"win\"", "    if (p !== v) return p === \"win\""),
     "projections move the cell": ("cell: `${out.value.side}|${out.market.side}`, title: cell.title",
                                   "cell: `${out.value.side}|${out.projections.side}`, title: cell.title"),
-    "no read without a market net": ("if (out.value.net === null || out.market.net === null) {", "if (out.value.net === null) {"),
+    "no incomplete on too-few charts": ("if (market.tooFew) {", "if (false) {"),
 }
 
 
