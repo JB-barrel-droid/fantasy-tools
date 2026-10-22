@@ -1427,5 +1427,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (min-width: 768px) and (max-width: 1023px) { .v2-plot { height: calc(var(--v2-chart-h) + 48px); } }
 @media (max-width: 767px) { .v2-plot-main { height: 308px; } }
 
+/* JEG-829: a host without Inter (Verdana, DejaVu Sans) is wider; the phone layouts must still fit. Tighter cell padding keeps Signal on first view in the weight table, and from 360 px the tab row wraps instead of overflowing (below 360 px the JEG-818 rule already wraps it). */
+@media (max-width: 767px) {
+  .v2-wtable th, .v2-wtable td { padding-left: 6px; padding-right: 6px; }
+  .v2-wtable td.w-signal { white-space: normal; }
+  .v2-chead .v2-title { min-width: 0; }
+  .v2-movers { grid-template-columns: minmax(0, 1fr); }
+  .v2-mlist .m-bottom { flex-wrap: wrap; gap: 6px 16px; }
+  .v2-mlist .m-vals { white-space: normal; }
+}
+@media (min-width: 360px) and (max-width: 767px) { .v2-tabs { flex-wrap: wrap; row-gap: 4px; } }
+
 /* JEG-827: the trade actions look like buttons (border and fill), not plain text. */
 #v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUseExample { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }
