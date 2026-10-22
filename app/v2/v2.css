@@ -1421,6 +1421,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    equal negative side margin cancels it, so no line or chip moves. */
 @media (max-width: 767px) {
   .v2-srclink { padding: 15px; margin: -15px; }
+  /* The extended link hit area reaches into the next row; a value cell with a math tip sits above it so a tap on
+     the number opens its tip instead of the publisher's page (JEG-725: Targets cards at 390 px). */
+  .has-math { position: relative; z-index: 1; }
 }
 
 /* JEG-826: honesty banner when DDF Value is built from the same charts it is compared against. */
