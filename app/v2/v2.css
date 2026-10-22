@@ -870,8 +870,8 @@ a.v2-div-chip:hover { text-decoration: underline; }
 #v2Compare .v2-trade-results { left: 14px; right: 14px; }
 #v2Compare .v2-trade-players { margin-top: 6px; }
 #v2Compare .v2-trade-players li { padding: 0; min-height: 44px; gap: 8px; }
-#v2Compare .v2-trade-players li > div { min-width: 0; display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
-#v2Compare .v2-trade-players li > div > .v2-meta { display: inline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#v2Compare .v2-trade-players li > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; overflow: hidden; }   /* JEG-827: the meta wraps under the name instead of being cut */
+#v2Compare .v2-trade-players li > div > .v2-meta { display: inline; white-space: normal; min-width: 0; }
 #v2Compare .v2-trade-players .v2-trade-name, #v2Compare .v2-trade-players li > div > b { white-space: nowrap; flex: none; }
 #v2Compare .v2-trade-value { font-size: 15px; }
 #v2Compare .v2-side-total { margin-top: auto !important; padding-top: 10px; }
