@@ -47,6 +47,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [planning/](planning/) | Record | - | - | Consolidation layer scope, its Codex review, and the JEG-302 monitor cleanup scope. |
 | [contract/](contract/) | Maintained | JEG-327 | unknown | Front-end read contract v1, FE dependency inventory, v3 backend requirements (JEG-327). |
 | [design/vorp-reweight.md](design/vorp-reweight.md) | Record | - | - | Eight-group VORP reweight design (JEG-209/231), with `reweight_example.py` and a desktop mockup PNG. |
+| [design/fidelity-all-hold.md](design/fidelity-all-hold.md) | Record | JEG-799 | 2026-10-22 | Why a week boundary holds every source and fails the chain closed (GAP-FIDELITY-ALL-HOLD); options A/B/C with measured evidence, recommendation (a hold applies to the build it measured), decision for Jeremy. |
 | [product/jeg-303-dashboard-ideas.md](product/jeg-303-dashboard-ideas.md) | Record | - | - | Dashboard idea scoping (JEG-303). |
 | [v2-design-notes.md](v2-design-notes.md) | Maintained | JEG-602 | 2026-10-15 | v2 front end design notes and back-end contracts; dated build-log sections archived 2026-10-15 (JEG-602). |
 | [fixture-transition-proposal.md](fixture-transition-proposal.md) | Record | - | - | Decision to pause stale adjusted curves, staged 2026-09-22. |
