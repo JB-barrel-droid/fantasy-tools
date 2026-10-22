@@ -2801,7 +2801,8 @@
       const prior = (shown && own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
       if (prior) {
         return {pub, name, week: base?.week, status: "prior", text: "Prior week",
-          reason: view.refWeek && base?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${base.week}.` : ""};
+          reason: view.refWeek && base?.week
+            ? `${name} has not posted its Week ${view.refWeek} ${items.some(item => sourceMeta(item.key).method === "indexed") ? "chart" : "projections"} yet; this page shows its Week ${base.week} ${items.some(item => sourceMeta(item.key).method === "indexed") ? "chart" : "projections"}.` : ""};
       }
       // Fail closed: Current only when this source's own rows say freshness_ok === true. A missing
       // or unreadable file, or a missing row, is "Freshness unknown", never a green tick.
