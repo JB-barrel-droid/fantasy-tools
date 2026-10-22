@@ -47,14 +47,15 @@ def run_case():
 
 
 class TestBenchSliderUpdatesReadout(unittest.TestCase):
-    def test_initial_readout_at_15(self):
-        """After init the readout must show the 15.0% default share. Sanity
+    def test_initial_readout_is_the_computed_share(self):
+        """After init the readout shows the bench share computed from the league
+        settings (JEG-536 #499: bench share is an output, no 15% default). Sanity
         check that the harness actually exercises the readout, not some
         dead DOM node."""
         out = run_case()
         self.assertNotIn("Errored", out, msg=f"harness errored: {out}")
-        self.assertIn("Bench 15.0%", out["initialReadout"],
-                      f"initial readout must show 15.0%: {out['initialReadout']!r}")
+        self.assertTrue(out["matches"]["initial"],
+                        f"initial readout must show the computed share: {out['initialReadout']!r}")
 
     def test_slider_input_updates_readout(self):
         """DEFECT REPRO: fire the slider input event with value 0.20. The
@@ -69,30 +70,30 @@ class TestBenchSliderUpdatesReadout(unittest.TestCase):
         self.assertNotIn("Errored", out, msg=f"harness errored: {out}")
         self.assertTrue(out["matches"]["slider"],
                         f"slider input must update #weightsReadout to "
-                        f"'Bench 20.0%', got: {out['afterSliderReadout']!r}")
+                        f"'Bench 20.0% (your override)', got: {out['afterSliderReadout']!r}")
         # Belt-and-braces: the slider's own block readout should also show 20%.
         self.assertIn("20.0%", out["afterSliderBlockValue"],
                       f"bench-share-block readout must show 20.0%: {out['afterSliderBlockValue']!r}")
 
     def test_slider_dblclick_resets_readout(self):
-        """After dblclick (which resets to 15.0%), the readout must
-        reflect 15.0%. This catches a regression where the dblclick handler
+        """After dblclick (which clears the override, back to the computed
+        share), the readout must show the computed share again. This catches a regression where the dblclick handler
         changes bench share without syncing the readout."""
         out = run_case()
         self.assertNotIn("Errored", out, msg=f"harness errored: {out}")
         self.assertTrue(out["matches"]["dblclick"],
-                        f"slider dblclick must reset readout to "
-                        f"'Bench 15.0%', got: {out['afterDblclickReadout']!r}")
+                        f"slider dblclick must reset readout to the computed share "
+                        f"{out['initialReadout']!r}, got: {out['afterDblclickReadout']!r}")
 
     def test_reset_button_updates_readout(self):
-        """The 'Reset to 15%' button click must also sync the Weights
-        readout. Catches a regression where the reset button path changes
+        """The reset button (back to the computed share) must also sync the
+        Weights readout. Catches a regression where the reset button path changes
         bench share without syncing the readout."""
         out = run_case()
         self.assertNotIn("Errored", out, msg=f"harness errored: {out}")
         self.assertTrue(out["matches"]["resetBtn"],
-                        f"reset button must update readout to "
-                        f"'Bench 15.0%', got: {out['afterResetButtonReadout']!r}")
+                        f"reset button must update readout to the computed share "
+                        f"{out['initialReadout']!r}, got: {out['afterResetButtonReadout']!r}")
 
 
 class TestWiring(unittest.TestCase):

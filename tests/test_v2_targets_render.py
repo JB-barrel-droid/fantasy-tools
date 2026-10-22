@@ -907,8 +907,10 @@ def _popover_checks(page, width) -> list[str]:
             button.focus()
             page.keyboard.press("Enter")
         state = page.evaluate("""(sel) => { const b = document.querySelector(sel); const pop = document.getElementById('v2Popover');
-          const link = pop.querySelector('a[href$="#how-values"]');
-          return {open: !pop.hidden, text: pop.textContent, link: Boolean(link), expanded: b.getAttribute('aria-expanded'),
+          // JEG-905: the link uses the Writing route directly; #how-values is only a redirect.
+          const link = pop.querySelector('a.v2-link');
+          return {open: !pop.hidden, text: pop.textContent, link: Boolean(link) && link.getAttribute('href') === 'v2/#writing/how-values',
+            expanded: b.getAttribute('aria-expanded'),
             drawer: !document.getElementById('v2Drawer').hidden,
             order: [...document.querySelectorAll('#v2TTable tbody tr[data-player-key]')].map(r => r.dataset.playerKey)}; }""", selector)
         if not state["open"] or INDEXED_TEXT not in state["text"] or not state["link"]:

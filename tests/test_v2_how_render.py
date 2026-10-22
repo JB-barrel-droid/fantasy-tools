@@ -23,6 +23,8 @@ and requires each to fail.
 """
 from __future__ import annotations
 
+import datetime
+
 import contextlib
 import functools
 import http.server
@@ -58,7 +60,11 @@ READ = """() => {
   const C = window.TradeValueCurveControls;
   const how = document.getElementById('v2How');
   const clone = how.cloneNode(true);
-  clone.querySelectorAll('[data-engine], [data-step]').forEach(n => n.remove());
+  // JEG-861 (#821): the "NFL Week N · as of Mon D" stamp under the title carries the data week
+  // and the fixture's built_at; checked against the engine below, not as copy.
+  const stampNode = how.querySelector('[data-page-asof]');
+  const stamp = stampNode ? stampNode.textContent.trim() : null;
+  clone.querySelectorAll('[data-engine], [data-step], [data-page-asof]').forEach(n => n.remove());
   // Older-week labels come from the data's freshness record, as on every v2 tab.
   const fresh = window.TradeValueProductData?.getSourceFreshness?.()?.series || {};
   const info = C.getSourceInfo().filter(item => !item.key.endsWith('_adjusted')).map(item => {
@@ -74,6 +80,7 @@ READ = """() => {
       [...ul.querySelectorAll('li')].map(li => ({key: li.dataset.source, available: li.dataset.available,
         text: li.textContent}))])),
     text: how.textContent, copy: clone.textContent, hidden: how.hidden,
+    stamp, refWeek: window.TradeValueV2.view().refWeek, builtAt: window.TradeValueProductData?.getSnapshot?.()?.built_at,
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
 
@@ -84,6 +91,12 @@ def method(key):
     if key in ("espn", "cbsros", "razzball"):
         return "dda"
     return "indexed"
+
+
+def as_of_label(built_at) -> str:
+    """v2.js dataAsOfLabel: the built_at day as en-US "Mon D" in UTC."""
+    d = datetime.date.fromisoformat(str(built_at or "")[:10])
+    return f"{d.strftime('%b')} {d.day}"
 
 
 def check(snap) -> list[str]:
@@ -141,6 +154,10 @@ def check(snap) -> list[str]:
     digits = re.findall(r"\d+", snap["copy"])
     if digits:
         errors.append(f"copy carries numbers not from the engine: {digits}")
+    # JEG-861 (#821): the page stamp is the data week and the fixture's built_at day, from the data.
+    want_stamp = f"NFL Week {snap['refWeek']} · as of {as_of_label(snap['builtAt'])}"
+    if snap["stamp"] != want_stamp:
+        errors.append(f"page stamp {snap['stamp']!r} != {want_stamp!r} from the data")
     return errors
 
 
@@ -244,6 +261,10 @@ class HowValuesRenderTest(unittest.TestCase):
             "overclaim copy back": {"shell_html": shell.replace(
                 "Our estimate of what a player is worth. It blends", "Fair value: the price a player is really worth. It blends", 1)},
             "no estimated gloss": {"v2_js": v2.replace("estimatedExplained = true;", "estimatedExplained = true; return;", 1)},
+            # JEG-861 (#821): the stamp carries the data week; a calendar/hard-coded week is a wrong number.
+            "stamp week hard-coded": {"v2_js": v2.replace(
+                "return [view.refWeek ? `NFL Week ${view.refWeek}` : \"\", asOf ? `as of ${asOf}` : \"\"]",
+                "return [`NFL Week ${(view.refWeek || 0) + 1}`, asOf ? `as of ${asOf}` : \"\"]", 1)},
             "sources not split by method": {"v2_js": v2.replace(
                 "list.replaceChildren();\n      view.info.filter(item => sourceMeta(item.key).method === method)",
                 "list.replaceChildren();\n      view.info", 1)},

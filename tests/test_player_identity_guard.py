@@ -177,13 +177,21 @@ def check_canonical_resolution_usage(pipelines_dir: Path):
                     if 'resolve' in imported_names or 'resolve_with_reason' in imported_names:
                         imports_resolve = True
 
+                # A module-level `def resolve(...)` of its own is not player identity
+                # (JEG-916, 2026-10-22: derive_lineup_parameters.resolve picks the
+                # expected-starts parameters for a reader's settings, JEG-536). A bare
+                # call to such a name binds to the local definition, not to
+                # canonical_players, so it is not a missing import.
+                local_defs = {node.name for node in tree.body
+                              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
                 # If file uses resolve/resolve_with_reason but doesn't import from canonical_players, flag it
                 # Look for actual function calls to resolve() or resolve_with_reason()
                 uses_resolve_functions = False
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Call):
                         if isinstance(node.func, ast.Name):
-                            if node.func.id in ('resolve', 'resolve_with_reason'):
+                            if node.func.id in ('resolve', 'resolve_with_reason') and node.func.id not in local_defs:
                                 uses_resolve_functions = True
                                 break
 
@@ -223,6 +231,27 @@ class TestPlayerIdentityGuard(unittest.TestCase):
             for issue in issues:
                 msg += f"  {issue['file']}: {issue['issue']}\n"
             self.fail(msg)
+
+    def test_bare_resolve_call_is_flagged_unless_defined_locally(self):
+        """A pipeline module that calls resolve() with neither the canonical_players
+        import nor a module-level def of its own is flagged; one that defines its
+        own resolve (lineup parameters, JEG-536) is not."""
+        import tempfile
+        # Inside the repo: the checker reports paths relative to REPO.
+        with tempfile.TemporaryDirectory(dir=REPO, prefix=".jeg916-identity-") as tmp:
+            d = Path(tmp)
+            (d / "bare.py").write_text("def go(name):\n    return resolve(name)\n", encoding="utf-8")
+            (d / "local.py").write_text(
+                "def resolve(cfg, objective=None):\n    return cfg\n\ndef go(cfg):\n    return resolve(cfg)\n",
+                encoding="utf-8")
+            (d / "imported.py").write_text(
+                "from canonical_players import resolve\n\ndef go(name):\n    return resolve(name)\n",
+                encoding="utf-8")
+            flagged = {issue["file"].rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+                       for issue in check_canonical_resolution_usage(d)}
+        self.assertIn("bare.py", flagged, "a bare resolve() call with no import went unflagged")
+        self.assertNotIn("local.py", flagged, "a module's own def resolve() is not player identity")
+        self.assertNotIn("imported.py", flagged)
 
     def test_unified_py_uses_resolve(self):
         """Verify unified.py correctly uses canonical_players.resolve()."""
