@@ -1,23 +1,34 @@
-// Trade Value v2 — forgiving player-name search (JEG-812).
+// Trade Value v2 — forgiving player-name search (JEG-812, JEG-861).
 //
-// Pure functions, no DOM. One matcher for every name box on the page, so
-// "Amon Ra", "JaMarr", "Ja’Marr" (curly apostrophe), "st-brown" and the typo
-// "Mcafrey" all find the player they mean.
+// Pure functions, no DOM. One matcher for every name box on the page (Player
+// values, Trade targets, Risers, Compare a trade, Find a trade rosters and the
+// unpriced lists), so "Amon Ra", "JaMarr", "Ja’Marr" (curly apostrophe),
+// "st-brown", "Nacua Puka" (reversed) and the typo "Mcafrey" all find the
+// player they mean, and a short query never pulls in a name it merely contains.
 //
 //   key(text)            lower case, accents, apostrophes (straight, curly,
 //                        backtick) and periods dropped, every other run of
 //                        punctuation or spaces becomes one space.
-//   rank(name, query)    0 exact name, 1 name starts with the query,
-//                        2 a word starts with the query, 3 the query sits
-//                        inside the name, 4 the query matches once spaces are
-//                        ignored ("amon ra" / "jamarr"), null for no match.
+//   tokens(text)         key(text) split into words, with a trailing Jr., Sr.,
+//                        II, III, IV or V dropped (kept only when the text is
+//                        nothing else).
+//   rank(name, query)    0 the whole name, 1 the name starts with the query,
+//                        2 a word of the name starts with the query (spaces in
+//                        the query are optional: "amonra", "jamarr", "stbrown"),
+//                        3 every query word starts a different word of the
+//                        name, in any order ("nacua puka", "j chase"),
+//                        null for no match. Every match is a word-start
+//                        (prefix) match: "nac" never finds Arizona Cardinals.
 //                        Never fuzzy.
 //   search(rows, query)  rows whose name matches, best rank first (stable
 //                        within a rank, so the caller's order breaks ties).
 //                        Only when nothing matches by rank does it fall back
-//                        to a typo-tolerant match: up to 1 edit for 4 to 6
-//                        letters, 2 for 7 or more, against any word run of
-//                        the name or its start. No fuzzy under 4 letters.
+//                        to a typo-tolerant match: the spaces-dropped query
+//                        against a whole word, the rest of the name from a
+//                        word start, or that run cut to the query's length
+//                        (or one longer), within 1 edit for 4 to 6 letters and
+//                        2 for 7 or more. No fuzzy under 4 letters. A name
+//                        can only be found this way, never invented.
 //   filter(rows, query)  the same matches in the rows' own order.
 (function (root) {
   "use strict";
@@ -25,19 +36,43 @@
   const key = text => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
     .toLowerCase().replace(/[.'’‘`´]/g, "").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 
-  const squash = text => text.replace(/ /g, "");
+  const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
+
+  // Words of the key, generational suffixes dropped ("Brian Thomas Jr." and "brian thomas" are the
+  // same tokens). A text that is only a suffix keeps it, so the query "jr" is not an empty query.
+  function tokens(text) {
+    const words = key(text).split(" ").filter(Boolean);
+    const kept = words.filter(word => !SUFFIXES.has(word));
+    return kept.length ? kept : words;
+  }
+
+  // Every query word is a prefix of its own name word (no name word used twice), in any order.
+  function wordsAnyOrder(nameWords, queryWords) {
+    if (queryWords.length > nameWords.length) return false;
+    const free = nameWords.slice();
+    return queryWords.every(q => {
+      const at = free.findIndex(word => word.startsWith(q));
+      if (at < 0) return false;
+      free.splice(at, 1);
+      return true;
+    });
+  }
 
   function rank(name, query) {
-    const n = key(name);
-    const q = key(query);
-    if (!q || !n) return null;
+    const nameWords = tokens(name);
+    const queryWords = tokens(query);
+    if (!nameWords.length || !queryWords.length) return null;
+    const n = nameWords.join(" ");
+    const q = queryWords.join(" ");
     if (n === q) return 0;
     if (n.startsWith(q)) return 1;
-    if (n.includes(` ${q}`)) return 2;
-    if (n.includes(q)) return 3;
-    const ns = squash(n);
-    const qs = squash(q);
-    return qs && ns.includes(qs) ? 4 : null;
+    // A word start, spaces in the query optional: "st brown", "stbrown", "amonra", "jamarr".
+    const qs = q.replace(/ /g, "");
+    for (let i = 0; i < nameWords.length; i++) {
+      if (nameWords.slice(i).join("").startsWith(qs)) return i === 0 ? 1 : 2;
+    }
+    if (wordsAnyOrder(nameWords, queryWords)) return 3;
+    return null;
   }
 
   // Optimal string alignment distance (insert, delete, replace, swap of two neighbours).
@@ -56,21 +91,23 @@
     return d[rows - 1][cols - 1];
   }
 
+  // The most edits a typo may be from the name: none under 4 letters, 1 for 4 to 6, 2 for 7 or more.
   const allowedEdits = length => (length >= 7 ? 2 : length >= 4 ? 1 : 0);
 
-  // Smallest edit distance between the squashed query and the start of any word run of the name
-  // (a whole run, or a run cut to the query's length), or null when it is over the allowance.
+  // Smallest edit distance between the spaces-dropped query and a whole word of the name, the rest of
+  // the name from a word start, or that run cut to the query's length or one longer (a typo in a
+  // prefix); null when every candidate is over the allowance. Never a run cut shorter than the query,
+  // so "kelse" is Travis Kelce (1 edit) and not Keleki Latu ("kele", a 4-letter cut).
   function fuzzyDistance(name, query) {
-    const qs = squash(key(query));
+    const qs = tokens(query).join("");
     const limit = allowedEdits(qs.length);
     if (!limit) return null;
-    const words = key(name).split(" ");
+    const words = tokens(name);
     let best = null;
     for (let i = 0; i < words.length; i++) {
       const run = words.slice(i).join("");
-      const whole = words.slice(i, i + 1).join("");
-      const candidates = new Set([run, whole]);
-      for (const cut of [qs.length - 1, qs.length, qs.length + 1]) if (cut > 0 && cut < run.length) candidates.add(run.slice(0, cut));
+      const candidates = new Set([run, words[i]]);
+      for (const cut of [qs.length, qs.length + 1]) if (cut > 0 && cut < run.length) candidates.add(run.slice(0, cut));
       for (const candidate of candidates) {
         if (Math.abs(candidate.length - qs.length) > limit) continue;
         const found = distance(qs, candidate);
@@ -101,7 +138,7 @@
     return rows.filter(row => hits.has(row));
   }
 
-  const api = {key, rank, distance, fuzzyDistance, search, filter};
+  const api = {key, tokens, rank, distance, fuzzyDistance, search, filter};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueNameSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);
