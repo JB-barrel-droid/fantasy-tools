@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T03:06:44.669967+00:00",
+  "run_at": "2026-10-22T03:28:00.400642+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-full-12-section full_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-full-12-section full_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-full-12-section full_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-half-12-section half_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-half-12-section half_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-half-12-section half_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-half-12-section half_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-standard-12-section standard_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-standard-12-section standard_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-standard-12-section standard_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-standard-12-section standard_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble)",
@@ -130,7 +130,7 @@
       "week": 7
     },
     "cbsros": {
-      "reason": "fidelity: stored_vs_chart",
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
         "cbsros",
         "cbsros_vorp"
@@ -139,7 +139,7 @@
         "cbsros",
         "cbsros_adjusted"
       ],
-      "detail": "1089/1089 chart values equal stored snapshot 2026-10-19 (per game, 3 decimals); newer stored snapshot 2026-10-22 is not on the chart yet: 292 values changed, 8 added, 8 dropped",
+      "detail": "1080/1080 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not",
       "hold_severity": "amber",
       "week": 7
     },
@@ -321,7 +321,7 @@
     "fantasypros": "fidelity: stored_vs_chart",
     "cbs": "fidelity: scrape_validity",
     "espn": "fidelity: stored_vs_chart",
-    "cbsros": "fidelity: stored_vs_chart",
+    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   },
   "post_rebuild_validation": {
@@ -337,6 +337,6 @@
       "Makefile:473: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('Deuce Vaughn', 0.162727, 0.15)] != []",
-    "recorded_at": "2026-10-22T03:08:28.192940+00:00"
+    "recorded_at": "2026-10-22T03:29:40.767752+00:00"
   }
 }
