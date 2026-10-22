@@ -482,7 +482,10 @@ a.v2-div-chip:hover { text-decoration: underline; }
   .v2-brand { font-size: 18px; }
   .v2-tabs { order: 3; flex-basis: 100%; }
   .v2-tab { padding: 8px 10px; font-size: 13px; }
-  .v2-freshness { margin-left: auto; }
+  /* JEG-887: the freshness button shares the wordmark's row. With a content-width basis it wrapped onto its own
+     row below 400 px ("Week 7 · 1 source held" is 176 px), leaving a blank dark band and pushing the page down 52 px. */
+  .v2-freshness { margin-left: auto; flex: 1 1 0; justify-content: flex-end; text-align: right; }
+  .v2-freshness #v2FreshnessLabel { white-space: normal; }
   .v2-league-inner { gap: 8px 12px; padding: 10px 16px; }
   .v2-title h1 { font-size: 28px; }
   .v2-search { max-width: none; flex-basis: 100%; }
