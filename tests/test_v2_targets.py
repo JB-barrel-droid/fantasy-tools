@@ -42,21 +42,21 @@ CHARTS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 
 # ddf_value differs from espn on purpose, so the DDF Value and ESPN runs give different lists.
 ROWS = [
-    {"player_key": 1, "name": "A", "values": {"ddf_value": 12.0, "espn": 10.0, "cbsros": 14.0, "usatoday": 15.0, "fantasycalc": 8.0, "fantasypros": None, "cbs": 12.0}},
-    {"player_key": 2, "name": "B", "values": {"ddf_value": None, "espn": None, "usatoday": 30.0}},
-    {"player_key": 3, "name": "C", "values": {"ddf_value": 20.0, "espn": 20.0, "usatoday": 20.0}},
-    {"player_key": 4, "name": "D", "values": {"ddf_value": 25.0, "espn": 5.0, "fantasycalc": 25.0, "usatoday": 20.0, "espn_vorp": 99.0}},
-    {"player_key": 5, "name": "E", "values": {"ddf_value": 10.0, "espn": 30.0, "cbsros": 5.0, "usatoday": 10.0, "fantasycalc": 4.0, "espn_vorp": 1.0}},
+    {"player_key": 1, "name": "A", "pos": "WR", "values": {"ddf_value": 12.0, "espn": 10.0, "cbsros": 14.0, "usatoday": 15.0, "fantasycalc": 8.0, "fantasypros": None, "cbs": 12.0}},
+    {"player_key": 2, "name": "B", "pos": "WR", "values": {"ddf_value": None, "espn": None, "usatoday": 30.0}},
+    {"player_key": 3, "name": "C", "pos": "WR", "values": {"ddf_value": 20.0, "espn": 20.0, "usatoday": 20.0}},
+    {"player_key": 4, "name": "D", "pos": "WR", "values": {"ddf_value": 25.0, "espn": 5.0, "fantasycalc": 25.0, "usatoday": 20.0, "espn_vorp": 99.0}},
+    {"player_key": 5, "name": "E", "pos": "WR", "values": {"ddf_value": 10.0, "espn": 30.0, "cbsros": 5.0, "usatoday": 10.0, "fantasycalc": 4.0, "espn_vorp": 1.0}},
     # F: USA Today puts F at its waiver line (0); FantasyCalc still pays 9 < 12.
-    {"player_key": 6, "name": "F", "values": {"ddf_value": 12.0, "espn": 12.0, "usatoday": 0.0, "fantasycalc": 9.0}},
+    {"player_key": 6, "name": "F", "pos": "WR", "values": {"ddf_value": 12.0, "espn": 12.0, "usatoday": 0.0, "fantasycalc": 9.0}},
     # G: the only chart has G at its waiver line: never a target. No DDF Value.
-    {"player_key": 7, "name": "G", "values": {"ddf_value": None, "espn": 8.0, "usatoday": 0.0}},
+    {"player_key": 7, "name": "G", "pos": "WR", "values": {"ddf_value": None, "espn": 8.0, "usatoday": 0.0}},
 ]
 
 
-def _both(key: int, name: str, ours: float, **charts) -> dict:
+def _both(key: int, name: str, ours: float, pos: str = "WR", **charts) -> dict:
     """ddf_value and ddf_value_projections carry the same ours, so the default and DDF Value runs both see it."""
-    return {"player_key": key, "name": name, "values": {"ddf_value": ours, "ddf_value_projections": ours, **charts}}
+    return {"player_key": key, "name": name, "pos": pos, "values": {"ddf_value": ours, "ddf_value_projections": ours, **charts}}
 
 
 CONSENSUS_ROWS = [
@@ -74,10 +74,21 @@ CONSENSUS_ROWS = [
     # V (gap +5, score 45) outranks W (gap +7.5, score 37.5): the weight, not the raw gap, orders Sell.
     _both(41, "V", 9.0, usatoday=14.0, fantasycalc=14.0, cbs=13.0),
     _both(42, "W", 5.0, usatoday=13.0, fantasycalc=12.0),                              # ours exactly at the floor: listed
-    # X: a buy with a 1.0 consensus (gap -2, score 2): still listed (no Buy floor), last.
-    _both(43, "X", 3.0, usatoday=1.0, fantasycalc=1.0),
+    # X: we have him one WR spot above Y, the charts one spot below (0.5 vs 1.0): rank gap 1.0 - 4.0 = -3, a Buy with
+    # a 0.5 consensus (score 1.5), last, and under 5: there is no Buy floor. Y: consensus 1.0 = ours, no gap.
+    _both(43, "X", 4.0, usatoday=0.5, fantasycalc=0.5),
+    _both(50, "Y", 1.0, usatoday=1.0, fantasycalc=1.0),
+    # JEG-833 regression guard: TE is a monotone STEEPER rescale of the charts (ours = 2 x chart) for T1..T5, so every
+    # one is "priced below our value" (a buy by consensus) yet none is a Buy: the charts rank them where we do.
+    _both(44, "T1", 40.0, pos="TE", usatoday=20.0, fantasycalc=20.0),
+    _both(45, "T2", 30.0, pos="TE", usatoday=15.0, fantasycalc=15.0),
+    _both(46, "T6", 28.0, pos="TE", usatoday=6.0, fantasycalc=6.0),    # we TE3, the charts TE5: our TE5 is 16, gap -12: the Buy
+    _both(47, "T3", 24.0, pos="TE", usatoday=12.0, fantasycalc=12.0),
+    _both(48, "T4", 16.0, pos="TE", usatoday=8.0, fantasycalc=8.0),
+    _both(49, "T5", 10.0, pos="TE", usatoday=5.0, fantasycalc=5.0),
 ]
 SELL_FLOOR = 5.0
+BUY_RANK_MARGIN = 2.0
 
 INFO = [
     {"key": "espn", "available": True, "stale": False},
@@ -92,8 +103,8 @@ INFO = [
 ]
 
 MARKET_ROWS = [
-    {"player_key": 21, "name": "I", "values": {"ddf_value": 10.0, "usatoday": 14.0, "fantasycalc": 6.0, "cbs": 10.0}},
-    {"player_key": 22, "name": "J", "values": {"ddf_value": 10.0, "usatoday": 22.0, "fantasycalc": None, "cbs": 0.0}},
+    {"player_key": 21, "name": "I", "pos": "WR", "values": {"ddf_value": 10.0, "usatoday": 14.0, "fantasycalc": 6.0, "cbs": 10.0}},
+    {"player_key": 22, "name": "J", "pos": "WR", "values": {"ddf_value": 10.0, "usatoday": 22.0, "fantasycalc": None, "cbs": 0.0}},
 ]
 
 
@@ -103,10 +114,34 @@ def median(values: list[float]) -> float:
     return ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
 
 
-def reference(rows: list[dict], ours_key: str, charts: list[str]) -> dict:
-    """The independent calculation of Check 1: {side: [(key, gap, agree, of)]} in list order."""
-    sell, buy = [], []
+def rank_gaps(rows: list[dict], ours_key: str, charts: list[str]) -> dict:
+    """JEG-833: per position, over the players with our value and a 2+ chart consensus, the gap between our value at
+    the charts' rank and our value: {key: (rank_gap, market_rank, our_rank)}. A monotone rescale gives 0 everywhere."""
+    by_pos: dict[str, list] = {}
     for order, row in enumerate(rows):
+        ours = row["values"].get(ours_key)
+        priced = [row["values"][c] for c in charts if row["values"].get(c) is not None]
+        if ours is None or len(priced) < 2:
+            continue
+        by_pos.setdefault(row["pos"], []).append((order, row["player_key"], ours, median(priced)))
+    out = {}
+    for players in by_pos.values():
+        ours_desc = sorted((p[2] for p in players), reverse=True)
+        our_rank = {p[1]: i + 1 for i, p in enumerate(sorted(players, key=lambda p: (-p[2], p[0])))}
+        for i, p in enumerate(sorted(players, key=lambda p: (-p[3], p[0]))):
+            out[p[1]] = (ours_desc[i] - p[2], i + 1, our_rank[p[1]])
+    return out
+
+
+def reference(rows: list[dict], ours_key: str, charts: list[str], keep=None) -> dict:
+    """The independent calculation of Check 1: {side: [(key, gap, agree, of)]} in list order, plus the counts.
+    Sell shows the consensus gap; Buy shows the gap at the charts' rank (JEG-833). `keep` filters what is listed
+    after the ranks are taken over every row."""
+    ranks = rank_gaps(rows, ours_key, charts)
+    sell, buy, below_floor, scale_only = [], [], 0, []
+    for order, row in enumerate(rows):
+        if keep is not None and not keep(row):
+            continue
         ours = row["values"].get(ours_key)
         if ours is None:
             continue
@@ -120,13 +155,22 @@ def reference(rows: list[dict], ours_key: str, charts: list[str]) -> dict:
         agree = sum(1 for v in priced if (v > ours if gap > 0 else v < ours))
         if agree * 2 <= len(priced):
             continue
-        if gap > 0 and ours < SELL_FLOOR:   # JEG-820: a player we would drop is never a Sell
+        if gap > 0:
+            if ours < SELL_FLOOR:   # JEG-820: a player we would drop is never a Sell
+                below_floor += 1
+                continue
+            sell.append((order, row["player_key"], gap, agree, len(priced), abs(gap) * min(ours, consensus)))
             continue
-        score = abs(gap) * min(ours, consensus)   # JEG-820: the gap weighted by the value at stake
-        (sell if gap > 0 else buy).append((order, row["player_key"], gap, agree, len(priced), score))
+        rank_gap = ranks[row["player_key"]][0]
+        if rank_gap > -BUY_RANK_MARGIN:   # JEG-833: the charts rank him where we do: the scale, not a mispricing
+            scale_only.append((ours, order, row["name"]))
+            continue
+        buy.append((order, row["player_key"], rank_gap, agree, len(priced), abs(rank_gap) * min(ours, consensus)))
     sell.sort(key=lambda t: (-t[5], t[0]))
     buy.sort(key=lambda t: (-t[5], t[0]))
-    return {"sell": [t[1:5] for t in sell], "buy": [t[1:5] for t in buy]}
+    scale_only.sort(key=lambda t: (-t[0], t[1]))
+    return {"sell": [t[1:5] for t in sell], "buy": [t[1:5] for t in buy], "belowSellFloor": below_floor,
+            "scaleOnly": len(scale_only), "scaleOnlyNames": [t[2] for t in scale_only[:5]], "ranks": ranks}
 
 
 def recompute_market(row: dict, charts: list[str]) -> dict:
@@ -155,6 +199,10 @@ console.log(JSON.stringify({
   lowConfidence: lc.sell.map(p => [p.row.player_key, p.ours, p.market.gap]),
   byDefault: run(rows),
   belowSellFloor: T.buildTargets(rows, input.charts, {}).belowSellFloor, sellFloor: T.SELL_FLOOR,
+  // JEG-833: the counts, the margin, and a name-search run (keep) whose ranks must still come from every row.
+  scaleOnly: T.buildTargets(rows, input.charts, {}).scaleOnly, scaleOnlyNames: T.buildTargets(rows, input.charts, {}).scaleOnlyNames,
+  buyMargin: T.BUY_RANK_MARGIN,
+  keepRun: run(rows, {ours: "ddf_value", keep: row => row.player_key === 46}),
   ddf: run(rows, {ours: "ddf_value"}),
   proj: run(rows, {ours: "ddf_value_projections"}),
   espn: run(rows, {ours: "espn"}),
@@ -179,8 +227,9 @@ def run_targets(path: Path) -> dict:
 
 
 def lists(run: dict) -> dict:
-    return {side: [(p["key"], p["market"]["gap"], p["market"]["agree"], p["market"]["of"]) for p in run[side]]
-            for side in ("sell", "buy")}
+    """Each side with the gap it shows: Sell the consensus gap, Buy the gap at the charts' rank (JEG-833)."""
+    return {side: [(p["key"], p["market"]["gap"] if side == "sell" else p["market"].get("rankGap"), p["market"]["agree"], p["market"]["of"])
+                   for p in run[side]] for side in ("sell", "buy")}
 
 
 def check(result: dict) -> list[str]:
@@ -204,14 +253,34 @@ def check(result: dict) -> list[str]:
     d = lists(result["byDefault"])
     sell_keys = [k for k, *_ in d["sell"]]
     buy_keys = [k for k, *_ in d["buy"]]
-    # JEG-820: scores K 100, V 45, W 37.5, T 12 (U is under the Sell floor); F 33.75, L 25, R 21, X 2.
-    if sell_keys != [31, 41, 42, 39] or buy_keys != [6, 32, 37, 43]:
-        errors.append(f"default lists wrong (sell {sell_keys}, buy {buy_keys}); wanted sell [31, 41, 42, 39], buy [6, 32, 37, 43]")
+    # JEG-820: Sell scores K 100, V 45, W 37.5, T 12 (U is under the Sell floor).
+    # JEG-833: Buy by the gap at the charts' rank x value at stake: T6 12 x 6 = 72, F 6 x 4.5 = 27, R 5 x 3 = 15,
+    # X 3 x 0.5 = 1.5. L (rank gap -1, inside the 2-point margin) and the steeper-rescale TEs are the scale, not Buys.
+    if sell_keys != [31, 41, 42, 39] or buy_keys != [46, 6, 37, 43]:
+        errors.append(f"default lists wrong (sell {sell_keys}, buy {buy_keys}); wanted sell [31, 41, 42, 39], buy [46, 6, 37, 43]")
     for key, why in ((33, "1 of 2 is not a majority"), (34, "one chart is not a consensus"),
                      (35, "2 of 4 is not a majority"), (36, "a consensus at the waiver line is never a target"),
-                     (38, "no gap"), (40, "we value him under the Sell floor (JEG-820)")):
+                     (38, "no gap"), (40, "we value him under the Sell floor (JEG-820)"),
+                     (32, "the charts rank him within 2 points of where we do (JEG-833)"), (50, "no gap"),
+                     (44, "steeper rescale: same rank on both sides (JEG-833)"), (45, "steeper rescale (JEG-833)"),
+                     (47, "steeper rescale (JEG-833)"), (48, "steeper rescale (JEG-833)"), (49, "steeper rescale (JEG-833)")):
         if key in sell_keys + buy_keys:
             errors.append(f"player {key} must not be a target: {why}")
+    # JEG-833: the rank-equivalent numbers on T6, the counts, the margin, and ranks taken over every row in a search.
+    t6 = next((p for p in result["byDefault"]["buy"] if p["key"] == 46), None)
+    if t6 is None or (t6["market"].get("rankGap"), t6["market"].get("marketRank"), t6["market"].get("ourRank"), t6["market"].get("oursAtRank")) != (-12.0, 5, 3, 16.0):
+        errors.append(f"T6 must read rank gap -12 (charts TE5, we TE3, our TE5 is 16.0): {t6 and t6['market']}")
+    if t6 is not None and abs((t6["market"].get("buyScore") or 0) - 72.0) > 1e-9:
+        errors.append(f"T6's Buy score must be 12 x min(28, 6) = 72: {t6['market'].get('buyScore')}")
+    want = reference(all_rows, "ddf_value", CHARTS)
+    if result.get("scaleOnly") != want["scaleOnly"] or result.get("scaleOnlyNames") != want["scaleOnlyNames"]:
+        errors.append(f"players priced below our value but ranked where we rank them must be counted and named (by ours): want {want['scaleOnly']} {want['scaleOnlyNames']}, got {result.get('scaleOnly')} {result.get('scaleOnlyNames')}")
+    if result.get("buyMargin") != BUY_RANK_MARGIN:
+        errors.append(f"Buy margin must be {BUY_RANK_MARGIN} points: {result.get('buyMargin')}")
+    keep_run = result.get("keepRun") or {}
+    if [p["key"] for p in keep_run.get("buy", [])] != [46] or keep_run.get("compared") != 1 \
+            or (keep_run["buy"][0]["market"].get("rankGap") if keep_run.get("buy") else None) != -12.0:
+        errors.append(f"a name search lists only the kept player but ranks him among every row: {keep_run.get('buy') and [(p['key'], p['market'].get('rankGap')) for p in keep_run['buy']]}, compared {keep_run.get('compared')}")
     if result.get("sellFloor") != SELL_FLOOR or result.get("belowSellFloor") != 1:
         errors.append(f"Sell floor must be {SELL_FLOOR} and count the one player under it: {result.get('sellFloor')}, {result.get('belowSellFloor')}")
     v = next((p for p in result["byDefault"]["sell"] if p["key"] == 41), None)
@@ -316,13 +385,25 @@ MUTATIONS = {
     "sell floor strict": ("const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
                           "const sell = sellable.filter(p => p.ours > SELL_FLOOR).sort(byScore);"),
     "sell floor moved": ("const SELL_FLOOR = 5;", "const SELL_FLOOR = 2;"),
-    "floor applied to buy": ('const buy = players.filter(p => p.market.eligible && p.market.side === "buy").sort(byScore);',
-                             'const buy = players.filter(p => p.market.eligible && p.market.side === "buy" && p.ours >= SELL_FLOOR).sort(byScore);'),
+    "floor applied to buy": ('const buyable = players.filter(p => p.market.eligible && p.market.side === "buy");',
+                             'const buyable = players.filter(p => p.market.eligible && p.market.side === "buy" && p.ours >= SELL_FLOOR);'),
     "weight dropped (raw gap order)": ("const score = Math.abs(gap) * weight;", "const score = Math.abs(gap);"),
     "weight uses the larger value": ("const weight = Math.min(ours, value);", "const weight = Math.max(ours, value);"),
     "score sorted ascending": ("const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;",
                                "const byScore = (a, b) => a.market.score - b.market.score || a.order - b.order;"),
     "players under the floor not counted": ("const belowSellFloor = sellable.length - sell.length;", "const belowSellFloor = 0;"),
+    # JEG-833: Buy at the charts' rank. The first is the bug the ticket names (Buy by consensus gap: the overall top).
+    "buy by consensus gap (JEG-833 bug returns)": ("const buy = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)",
+                                                   "const buy = buyable.filter(p => true)"),
+    "rank margin dropped": ("p.market.rankGap <= -BUY_RANK_MARGIN", "p.market.rankGap < 0"),
+    "rank margin moved": ("const BUY_RANK_MARGIN = 2;", "const BUY_RANK_MARGIN = 4;"),
+    "rank gap sign flipped": ("m.rankGap = oursDesc[i] - p.ours;", "m.rankGap = p.ours - oursDesc[i];"),
+    "ranks taken on the searched subset": ("    rankEquivalents(players);\n    if (keep) players = players.filter(p => keep(p.row));",
+                                           "    if (keep) players = players.filter(p => keep(p.row));\n    rankEquivalents(players);"),
+    "ranks taken across positions": ("      if (!byPos.has(p.row.pos)) byPos.set(p.row.pos, []);\n      byPos.get(p.row.pos).push(p);",
+                                     "      if (!byPos.has(0)) byPos.set(0, []);\n      byPos.get(0).push(p);"),
+    "scale-only players not counted": ("scaleOnly: scaleOnly.length, scaleOnlyNames", "scaleOnly: 0, scaleOnlyNames"),
+    "buy score uses the larger value": ("m.buyScore = Math.abs(m.rankGap) * Math.min(p.ours, m.value);", "m.buyScore = Math.abs(m.rankGap) * Math.max(p.ours, m.value);"),
 }
 
 

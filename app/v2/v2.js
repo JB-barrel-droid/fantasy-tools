@@ -3237,8 +3237,10 @@
     const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
       : engineView && engineView !== "indexed" ? "Trade charts are not on the trade-value point scale in this view, so no gaps are shown."
       : null;
-    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0}
-      : TT.buildTargets(searched, used, {ours: ourKey});
+    // JEG-833: ranks are computed over every row; a name search only filters what is listed (opts.keep).
+    const kept = needle ? new Set(searched) : null;
+    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0, scaleOnly: 0, scaleOnlyNames: []}
+      : TT.buildTargets(rows, used, {ours: ourKey, keep: kept ? row => kept.has(row) : null});
     // Why players were left out: the engine's reasons, most common first (display only).
     const omittedReasons = new Map();
     if (!blocked) {
@@ -3357,8 +3359,9 @@
     const diff = document.createElement("span");
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
-    diff.title = "Our value minus the market consensus";
-    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${fmtGap(m.diff)}`;
+    // JEG-833: said in words (ours is above / below the consensus), not as a signed number that contradicts the gap.
+    diff.title = "Our value against the market consensus";
+    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${Math.abs(m.diff).toFixed(1)} ${m.diff > 0 ? "above" : "below"}`;
     cell.append(diff, count);
   }
 
@@ -3496,7 +3499,33 @@
 
   // JEG-677: the row's gap is the consensus gap (median of the charts - our value); "N of M charts agree"
   // and one dot per chart (above / below our value) say how solid it is.
-  const targetBest = (side, p) => ({gap: p.market.gap, agree: p.market.agree, of: p.market.of, dots: p.market.dots});
+  // JEG-833: Buy shows the gap at the charts' rank (targets.js rankGap) and both ranks; each side shows the score it is
+  // ranked by (gap x value at stake), so the displayed order follows the displayed numbers.
+  const targetBest = (side, p) => side === "buy"
+    ? {gap: p.market.rankGap, score: p.market.buyScore, ranks: {market: p.market.marketRank, ours: p.market.ourRank, oursAtRank: p.market.oursAtRank},
+      agree: p.market.agree, of: p.market.of, dots: p.market.dots}
+    : {gap: p.market.gap, score: p.market.score, ranks: null, agree: p.market.agree, of: p.market.of, dots: p.market.dots};
+  // The ranking measure under the gap: "score 49" (gap x the smaller of our value and the consensus), and for Buy
+  // where the charts rank the player against where we do.
+  // full: the phone card (no fold) also prints "RB8→RB5" (the charts rank him RB8, we rank him RB5); the table keeps
+  // the run to "score 32.1" so the top 5 stay above the JEG-675 fold, with the ranks in the tooltip and data attributes.
+  function scoreNode(side, p, b, cls, full) {
+    const node = document.createElement("span");
+    node.className = cls || "why t-score";
+    node.dataset.score = Number.isFinite(b.score) ? b.score.toFixed(1) : "";
+    const stake = Math.min(p.ours, p.market.value);
+    node.title = `Ranked by the gap times the value at stake: ${Math.abs(b.gap).toFixed(1)} × ${fmt(stake)} (the smaller of our value and the consensus) = ${b.score.toFixed(1)}`;
+    let text = `score ${full ? b.score.toFixed(1) : Math.round(b.score)}`;   // the table rounds: width is what wraps names
+    if (side === "buy" && b.ranks) {
+      node.dataset.marketRank = String(b.ranks.market);
+      node.dataset.ourRank = String(b.ranks.ours);
+      const ranks = `${p.row.pos}${b.ranks.market}→${p.row.pos}${b.ranks.ours}`;
+      if (full) text = `${ranks} · ${text}`;
+      node.title = `${ranks}: the charts rank him ${p.row.pos}${b.ranks.market}, we rank him ${p.row.pos}${b.ranks.ours}; our ${p.row.pos}${b.ranks.market} is worth ${fmt(b.ranks.oursAtRank)} to us, ${fmt(p.ours)} minus that is the gap. ` + node.title;
+    }
+    node.textContent = text;
+    return node;
+  }
   function agreeNode(b, cls) {
     const who = document.createElement("span");
     who.className = cls || "th-sub t-who";
@@ -3604,7 +3633,9 @@
       if (flag) sub.push(document.createTextNode(" "), flag);
       head(PUBLISHER_NAMES[key] || key, "num t-chart", sub, key, true);
     });
-    head("Gap vs consensus", "num t-best", side === "sell" ? "market pays more" : "market pays less", null, true);
+    // JEG-833: Buy's gap is our value at the charts' rank minus our value (a pure rescale gives 0).
+    if (side === "sell") head("Gap vs consensus", "num t-best", "market pays more", null, true);
+    else head("Gap at chart rank", "num t-best", "charts rank lower", null, true);   // as short as Sell's: no extra header line (JEG-675 fold)
     const expandHead = head("", "t-expand");
     const sr = document.createElement("span");
     sr.className = "v2-sr";
@@ -3657,6 +3688,7 @@
       const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
       bc.dataset.best = "consensus";
       bc.append(document.createTextNode(fmtGap(b.gap)));
+      bc.appendChild(scoreNode(side, p, b));
       bc.appendChild(agreeNode(b));
       // Two-column layout (≥1024 px) hides the per-chart cells; this opens them under the row.
       const open = T.expanded[side].has(key);
@@ -3723,6 +3755,7 @@
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;
       big.dataset.best = "consensus";
       big.append(document.createTextNode(fmtGap(b.gap)));
+      big.appendChild(scoreNode(side, p, b, "v2-meta t-score", true));
       big.appendChild(agreeNode(b, "v2-meta t-who"));
       top.append(who, big);
       const line = document.createElement("div");
@@ -3781,13 +3814,20 @@
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
         ? "No trade chart is available to compare for this selection."
-        : `No player has a market consensus ${side === "sell" ? "above" : "below"} our value, backed by 2 or more charts, for this selection.`);
+        : side === "sell" ? "No player has a market consensus above our value, backed by 2 or more charts, for this selection."
+        : `No player the charts rank ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him, backed by 2 or more charts, for this selection.`);
       $(ids.table).hidden = !list.length;
-      // JEG-820: ranked by the gap weighted by the value at stake (targets.js score), not the raw gap.
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · biggest gap first, weighted by the value at stake. `
-        + (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: most charts pay less than our value.");
+      // JEG-820 / JEG-833: each list is ranked by the gap it shows times the value at stake (the score on every row).
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · ranked by gap × value at stake, biggest score first. `
+        + (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: the charts rank them lower than we do.");
     });
     const notes = [];
+    // JEG-833: players the charts price below our value but rank where we do are the scale, not a mispricing.
+    if (targetsView.scaleOnly && !blocked) {
+      const n = targetsView.scaleOnly;
+      const names = targetsView.scaleOnlyNames.join(", ");
+      notes.push(`${n} player${n === 1 ? "" : "s"} the charts price below our value ${n === 1 ? "is" : "are"} not a Buy: the charts rank ${n === 1 ? "him" : "them"} where we do, so the gap is our steeper scale, not a mispricing${names ? ` (${names}${n > 5 ? " ..." : ""})` : ""}.`);
+    }
     // JEG-820: the players the charts pay for but we value under the Sell floor are drop candidates, not trade chips.
     if (targetsView.belowSellFloor && !blocked) {
       const n = targetsView.belowSellFloor;
