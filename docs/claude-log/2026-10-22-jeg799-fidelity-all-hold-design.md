@@ -30,7 +30,9 @@ or workflow edits (another session is clearing the Week 7 chain on main).
   not updating". Fixture and build outputs restored afterwards (`git status`
   clean apart from the docs).
 - Pulse run durations from `gh run list` (2026-10-22): 15.3, 23.3, 23.3 min.
-- `make validate` on this branch: see the PR checks line below.
+- `make validate` on the branch: rc 0 (74 suites OK). PR #749 checks: preview
+  pass (15m48s), v2-render pass (4m14s). Squash-merged as `acd636df`.
+- Linear JEG-799: decision question posted (Q1 mechanism, Q2 lag), `needs-review`, In Review.
 
 ### Claimed / not confirmed
 - The B2 identity comparison (chart `source_provenance.snapshot_fetched_at`
