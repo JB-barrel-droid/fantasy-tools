@@ -135,6 +135,7 @@ export const V2_TABS = [
   { hash: "#risers-fallers", section: "#v2Risers" },
   { hash: "#compare-trade", section: "#v2Compare" },
   { hash: "#how-values", section: "#v2How" },
+  { hash: "#values-auditing", section: "#v2Audit" },
 ];
 
 function siteRoot(url) {

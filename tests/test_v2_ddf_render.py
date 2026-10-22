@@ -150,12 +150,15 @@ def check_customize(page, tag) -> list[str]:
     before = page.evaluate(READ)
     FIRST_VISIT["shown"] = list(before["shown"])
     page.click("#v2EditSources")
+    page.click('#v2Popover [data-tab="blend"]')   # JEG-850: the inputs live on the DDF blend tab
     boxes = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-ddf-input]')].map(b => ({key: b.dataset.ddfInput,
       on: b.checked, disabled: b.disabled}))""")
-    if [b["key"] for b in boxes] != before["allowed"]:
+    if sorted(b["key"] for b in boxes) != sorted(before["allowed"]):
         errors.append(tag + f"DDF inputs {[b['key'] for b in boxes]} != engine allowed {before['allowed']}")
-    if sorted(b["key"] for b in boxes if b["on"]) != sorted(before["inputs"]):
-        errors.append(tag + f"ticked inputs {[b['key'] for b in boxes if b['on']]} != engine inputs {before['inputs']}")
+    # JEG-850: a held input (kept in the engine's pool) shows unticked and locked, so it is not counted as "on".
+    held_off = {b["key"] for b in boxes if b["disabled"] and not b["on"]}
+    if sorted(b["key"] for b in boxes if b["on"]) != sorted(k for k in before["inputs"] if k not in held_off):
+        errors.append(tag + f"ticked inputs {[b['key'] for b in boxes if b['on']]} != engine inputs {before['inputs']} minus held {sorted(held_off)}")
     drop = next((b["key"] for b in boxes if b["on"] and not b["disabled"]), None)
     if not drop:
         return errors + [tag + "no DDF input to untick"]

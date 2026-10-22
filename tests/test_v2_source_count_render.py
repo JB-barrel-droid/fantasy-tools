@@ -11,9 +11,9 @@ pool.
 Builds dist/v2 into a temp copy of the built dist/ with the pinned holds
 (tests/_holds.py: CBS held), loads it headless and checks against the engine:
 
-  * Customize (Player values), DDF Value inputs: "Built from N of M inputs" where
+  * Customize (Player values), DDF blend tab (JEG-850): "Using N of M sources" where
     N = ticked inputs the engine blends (getCompositeInputs().series) and M = the
-    allowed inputs; a held input's row says it is held;
+    allowed inputs; a held input's row says "Paused this week";
   * Trade targets "On this page": the rescaled trade chart count is the number of
     charts the page can read (available), never a held one;
   * Risers (DDF Value): "a of b sources have a prior week" counts the blended
@@ -92,7 +92,7 @@ ENGINE = """() => {
 }"""
 
 CUSTOMIZE = """() => ({
-  legend: document.querySelector('#v2Popover [data-ddf-version="ddf_value"] legend')?.textContent || '',
+  legend: document.querySelector('#v2Popover [data-panel="blend"] .v2-psummary')?.textContent || '',
   reasons: Object.fromEntries([...document.querySelectorAll('#v2Popover [data-ddf-input]')].map(b =>
     [b.dataset.ddfInput, b.closest('label')?.querySelector('.v2-meta')?.textContent || ''])),
   chartReasons: Object.fromEntries([...document.querySelectorAll('#v2Popover input[data-series]')].map(b =>
@@ -134,21 +134,21 @@ def run_checks(v2_js=None) -> list[str]:
 
             # 1. Customize on Player values: the DDF Value inputs legend.
             page.click("#v2EditSources")
-            page.wait_for_selector("#v2Popover [data-ddf-input]")
+            page.wait_for_selector("#v2Popover [data-ddf-input]", state="attached")
             panel = page.evaluate(CUSTOMIZE)
-            match = re.match(r"Built from (\d+) of (\d+) inputs?", panel["legend"])
+            match = re.match(r"Using (\d+) of (\d+) sources?", panel["legend"])
             want_used = len([k for k in engine["series"] if k in engine["inputs"]])
             if not match:
-                errors.append(f"Customize legend {panel['legend']!r} does not say 'Built from N of M inputs'")
+                errors.append(f"Customize legend {panel['legend']!r} does not say 'Using N of M sources'")
             elif (int(match.group(1)), int(match.group(2))) != (want_used, len(engine["allowed"])):
                 errors.append(f"Customize legend {panel['legend']!r}; engine blends {want_used} of {len(engine['allowed'])} "
                               f"(pool {engine['inputs']}, blend {engine['series']})")
             for key in hidden:
-                if not re.search(r"held", panel["reasons"].get(key, ""), re.I):
-                    errors.append(f"Customize row for held input {key} says {panel['reasons'].get(key)!r}, want its hold")
+                if "Paused this week" not in panel["reasons"].get(key, ""):
+                    errors.append(f"Customize row for held input {key} says {panel['reasons'].get(key)!r}, want 'Paused this week'")
             for key in engine["heldCharts"]:
-                if not re.search(r"held", panel["chartReasons"].get(key, ""), re.I):
-                    errors.append(f"Customize row for held chart {key} says {panel['chartReasons'].get(key)!r}, want 'Held'")
+                if "Paused this week" not in panel["chartReasons"].get(key, ""):
+                    errors.append(f"Customize row for held chart {key} says {panel['chartReasons'].get(key)!r}, want 'Paused this week'")
             page.click("#v2Popover .v2-panel-close")
 
             # 2. Trade targets "On this page": only the charts the page reads are counted.
@@ -189,10 +189,10 @@ class SourceCountRenderTest(unittest.TestCase):
         js = V2_JS.read_text(encoding="utf-8")
         broken = {
             "Customize counts the pool": (
-                "const used = [...inputsDraft].filter(inFamily).filter(key => !excluded.has(key)).length;",
-                "const used = [...inputsDraft].filter(inFamily).length;"),
+                "const using = usableOn().length;",
+                "const using = blendKeys.filter(key => inputsDraft.has(key)).length;"),
             "held input not listed as excluded": (
-                ".forEach(key => { if (!excluded.has(key)) excluded.set(key, view.infoByKey[key]?.excludedReason || \"held this week\"); });",
+                ".forEach(key => { if (!excluded.has(key)) excluded.set(key, plainOutReason(view.infoByKey[key]?.excludedReason)); });",
                 ".forEach(key => {});"),
             "On this page counts held charts": (
                 "view.infoByKey[key] && view.infoByKey[key].available && !pageCannotUse(page, key)",
@@ -201,7 +201,7 @@ class SourceCountRenderTest(unittest.TestCase):
                 "const blendSeries = Array.isArray(prior.series) ? prior.series : prior.inputs;",
                 "const blendSeries = prior.inputs;"),
             "held reads as not available for this league": (
-                "heldReason(item) ? \"Held this week (data check)\"\n            : item.paused",
+                "heldReason(item) ? \"Paused this week\"\n            : item.paused",
                 "item.paused"),
         }
         for name, (anchor, replacement) in broken.items():
