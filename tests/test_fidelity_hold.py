@@ -542,6 +542,88 @@ class AmberHoldPolicy(unittest.TestCase):
         self.assertEqual("red", out["sources"]["cbs"]["validationHold"]["hold_level"])
 
 
+class HoldIdentitySkipsMismatch(unittest.TestCase):
+    """JEG-799 (B2): a hold applies only to the build the pulse measured.
+
+    The pulse records measured_site (the live page's snapshot_fetched_at when it
+    ran). If the candidate section's source_provenance.snapshot_fetched_at is
+    different, the candidate has newer data and the hold is skipped.
+
+    Negative-tested: when identities match, the hold IS applied (same build),
+    confirming the guard catches the exact deadlock the chain would hit."""
+
+    HOLD_WITH_SITE = {
+        "stage": "stored_vs_chart", "reason": "fidelity: stored_vs_chart",
+        "identity": "b2", "since": "2026-10-09T21:51:00Z",
+        "summary": "chart is stale", "measured_site": "2026-10-08T15:00:00Z",
+    }
+
+    def _fixture_with_provenance(self, fetched_at):
+        """Build a minimal fixture where 'cbs' has a source_provenance."""
+        fx = fixture()
+        fx["sources"]["cbs"]["source_provenance"] = {"snapshot_fetched_at": fetched_at}
+        # Also set on the _adjusted derivative if present
+        if "cbs_adjusted" in fx["sources"]:
+            fx["sources"]["cbs_adjusted"]["source_provenance"] = {"snapshot_fetched_at": fetched_at}
+        return fx
+
+    def test_newer_candidate_skips_hold(self):
+        """Candidate has a newer snapshot_fetched_at than the pulse measured:
+        the hold was measured on the old build and does not apply."""
+        fx = self._fixture_with_provenance("2026-10-09T03:00:00Z")  # newer than measured
+        out, report = fh.apply_fidelity_holds(fx, {"cbs": self.HOLD_WITH_SITE}, 5)
+        # cbs should NOT be held
+        self.assertFalse(
+            out["sources"]["cbs"].get("validationHold"),
+            "A hold measured on a different build should not apply to a newer candidate")
+
+    def test_same_identity_applies_hold(self):
+        """Candidate has the SAME snapshot_fetched_at: the pulse measured this
+        exact build, so the hold must apply. This is the negative test proving
+        the guard catches the deadlock."""
+        fx = self._fixture_with_provenance("2026-10-08T15:00:00Z")  # same as measured
+        out, report = fh.apply_fidelity_holds(fx, {"cbs": self.HOLD_WITH_SITE}, 5)
+        self.assertTrue(
+            out["sources"]["cbs"].get("validationHold"),
+            "A hold measured on the same build must apply")
+        self.assertEqual("fidelity: stored_vs_chart",
+                         out["sources"]["cbs"]["validationHold"]["reason"])
+
+    def test_legacy_hold_without_measured_site_always_applies(self):
+        """A hold without measured_site (pre-B2 / legacy) applies unconditionally."""
+        legacy = {k: v for k, v in self.HOLD_WITH_SITE.items() if k != "measured_site"}
+        fx = self._fixture_with_provenance("2026-10-09T03:00:00Z")
+        out, _ = fh.apply_fidelity_holds(fx, {"cbs": legacy}, 5)
+        self.assertTrue(
+            out["sources"]["cbs"].get("validationHold"),
+            "A legacy hold (no measured_site) must apply unconditionally")
+
+    def test_candidate_without_provenance_gets_held(self):
+        """If the candidate section has no source_provenance, the identity
+        comparison cannot decide, so the hold applies (safe default)."""
+        fx = fixture()  # no source_provenance on cbs
+        out, _ = fh.apply_fidelity_holds(fx, {"cbs": self.HOLD_WITH_SITE}, 5)
+        self.assertTrue(
+            out["sources"]["cbs"].get("validationHold"),
+            "A candidate without provenance should be held (safe default)")
+
+    def test_all_sources_held_on_old_build_are_released_for_new_build(self):
+        """The full deadlock scenario: all 7 sources held on the old page, but
+        the candidate fixture has newer data for all of them. All holds should
+        be skipped, producing 0 held sections."""
+        holds = {}
+        for root in vc.SOURCE_DERIVED:
+            holds[root] = dict(self.HOLD_WITH_SITE)
+        fx = fixture()
+        for sec in fx["sources"]:
+            fx["sources"][sec]["source_provenance"] = {
+                "snapshot_fetched_at": "2026-10-09T03:00:00Z"}  # all newer
+        out, report = fh.apply_fidelity_holds(fx, holds, 5)
+        held = held_sections(out)
+        self.assertEqual(set(), held,
+                         "All sources measured on the old build should be released for the new build")
+
+
 class AmberHoldDecision(unittest.TestCase):
     """JEG-726: hold_decision produces amber holds for merely-lagging conditions."""
 

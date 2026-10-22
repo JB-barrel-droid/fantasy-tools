@@ -2111,15 +2111,21 @@ def _is_merely_lagging(stage_name: str, stage_dict: dict) -> bool:
     return False
 
 
-def hold_decision(result: dict, identity: str | None, held: dict | None, now: datetime) -> dict | None:
+def hold_decision(result: dict, identity: str | None, held: dict | None, now: datetime,
+                   measured_site: str | None = None) -> dict | None:
     """JEG-520: a red in a holding stage holds the source; amber and unknown never do.
     JEG-726: a merely-lagging amber stage gets an amber hold (visible label,
-    but the source stays in DDF Value and projection ordering)."""
+    but the source stays in DDF Value and projection ordering).
+    JEG-799: measured_site is the identity of the live page section that the
+    pulse compared (snapshot_fetched_at for charts, snapshot@saved_at for
+    projections).  apply_fidelity_holds uses it to skip holds that were
+    measured on a different build than the candidate."""
     red = [n for n in HOLD_STAGES if (result["stages"].get(n) or {}).get("status") == "red"]
     if red:
         first = red[0]
         return {"stage": first, "stages": red, "hold_level": "red",
                 "reason": HOLD_PREFIX + first, "identity": identity,
+                "measured_site": measured_site,
                 "since": (held or {}).get("since") if (held or {}).get("reason") == HOLD_PREFIX + first else iso(now),
                 "summary": str(result["stages"][first].get("summary") or "")[:300]}
     # JEG-726: amber holds for merely-lagging conditions (visible label only,
@@ -2130,6 +2136,7 @@ def hold_decision(result: dict, identity: str | None, held: dict | None, now: da
         first = amber[0]
         return {"stage": first, "stages": amber, "hold_level": "amber",
                 "reason": HOLD_PREFIX + first, "identity": identity,
+                "measured_site": measured_site,
                 "since": (held or {}).get("since") if (held or {}).get("reason") == HOLD_PREFIX + first else iso(now),
                 "summary": str(result["stages"][first].get("summary") or "")[:300]}
 
@@ -2201,7 +2208,11 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
               "stored_week": None, "chart_week": None, "content_week": _content_week(now), "stored_snapshot": latest,
               "chart_snapshot": chart_snapshot(site_doc, source) if site_doc else None,
               "stored_bake": latest, "stages": stages, "worst_examples": examples[:EXAMPLES], "held": held}
-    result["hold"] = hold_decision(result, identity, held, now)
+    # JEG-799: the live page section's identity, so the hold step can skip
+    # holds measured on a different build than the candidate.
+    _site = site_meta(site_doc, source) if site_doc else {}
+    _ms = _site.get("snapshot_fetched_at")
+    result["hold"] = hold_decision(result, identity, held, now, measured_site=_ms)
     return result, divergences
 
 
@@ -2290,7 +2301,11 @@ def check_source(source: str, *, fetch: Fetcher, store, ident: Identity, site_do
               "stored_week": stored.get("week"), "chart_week": site_week,
               "stored_bake": (stored.get("bake") or {}).get("bake_id"),
               "stages": stages, "worst_examples": examples[:EXAMPLES], "held": held}
-    result["hold"] = hold_decision(result, identity, held, now)
+    # JEG-799: the live page section's identity, so the hold step can skip
+    # holds measured on a different build than the candidate.
+    _site = site_meta(site_doc, source) if site_doc else {}
+    _ms = _site.get("snapshot_fetched_at")
+    result["hold"] = hold_decision(result, identity, held, now, measured_site=_ms)
     return result, divergences
 
 
