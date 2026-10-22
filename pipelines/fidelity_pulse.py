@@ -866,6 +866,21 @@ def chart_universe(site_doc: dict | None) -> set[int]:
     return {int(v) for v in ((site_doc or {}).get("player_keys") or {}).values() if v is not None}
 
 
+def exempt_chart_drops(cmp: dict, drops: dict[int, str]) -> list[dict]:
+    """Move cmp['missing'] entries for players the chart drops by rule into
+    cmp['dropped_by_rule'] (JEG-807) and return them with the rule's reason."""
+    if not drops:
+        cmp.setdefault("dropped_by_rule", [])
+        return []
+    kept, moved = [], []
+    for m in cmp["missing"]:
+        reason = drops.get(m.get("player_key"))
+        (moved if reason else kept).append(dict(m, reason=reason) if reason else m)
+    cmp["missing"] = kept
+    cmp["dropped_by_rule"] = moved
+    return moved
+
+
 def split_universe(cmp: dict, side: str, universe: set[int]) -> list[dict]:
     """Move cmp[side] entries for players outside the page's universe to
     cmp['outside_universe'] and return them grouped one per player."""
@@ -1076,16 +1091,28 @@ def fc_grain_check(left: dict, right: dict, *, bake_age_s: float | None = None) 
     false-positive column-swap reds."""
     if bake_age_s is not None and bake_age_s > FC_GRAIN_CHECK_MAX_AGE_S:
         return []
-    problems = []
+    # JEG-807 (2026-10-22): a swap is mutual. Two stored columns exchanged at
+    # save time put stored A nearest live B AND stored B nearest live A. One
+    # live list moving on its own (pulse 09:40Z: the std lists moved ~1% since
+    # the 08:05Z save while full and half matched it exactly) puts stored std
+    # nearest live half, but stored half stays nearest live half; that is
+    # drift larger than the scoring gap, not a swap, and it held FantasyCalc
+    # red with every full/half value equal.
+    nearest, dist_of = {}, {}
     for g, R in right.items():
         dist = {}
         for g2, L in left.items():
             shared = R.keys() & L.keys()
             if len(shared) >= 20:
                 dist[g2] = sum(abs(R[k]["value"] - L[k]["value"]) for k in shared) / len(shared)
-        if dist and min(dist, key=dist.get) != g and dist.get(g, float("inf")) > FC_SWAP_RATIO * min(dist.values()):
-            problems.append(f"stored {g} list is closest to the live {min(dist, key=dist.get)} list "
-                            f"(mean |diff| {min(dist.values()):.0f} vs {dist.get(g, float('nan')):.0f})")
+        if dist:
+            nearest[g], dist_of[g] = min(dist, key=dist.get), dist
+    problems = []
+    for g, n in nearest.items():
+        dist = dist_of[g]
+        if n != g and dist.get(g, float("inf")) > FC_SWAP_RATIO * dist[n] and nearest.get(n) == g:
+            problems.append(f"stored {g} list is closest to the live {n} list "
+                            f"(mean |diff| {dist[n]:.0f} vs {dist.get(g, float('nan')):.0f})")
     return problems
 
 
@@ -1963,10 +1990,18 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     left = projection_grains(rows, lambda r: mod.stored_chart_values(r, ctx), mod.CHART_DECIMALS, ident)
     right, unresolved = projection_chart_grains(site_doc, source, ident)
     cmp = compare(left, right, printed=True)
+    # JEG-807: a stored row the chart drops by its own rule (Razzball's
+    # missed-games guard, JEG-555) is not a player missing from the chart.
+    drops_of = getattr(mod, "chart_drops", None)
+    dropped = exempt_chart_drops(cmp, drops_of(rows) if callable(drops_of) else {})
     outside = split_universe(cmp, "missing", chart_universe(site_doc))
     n_bad = problem_count(cmp)
     status = "red" if n_bad or unresolved else "green"
     reasons = []
+    if dropped:
+        reasons.append(f"{players(dropped)} stored players are left off the chart by its own rule "
+                       f"(missed-games guard, JEG-555): "
+                       f"{', '.join(sorted({d['name'] or str(d['player_key']) for d in dropped}))[:200]}")
     # A snapshot date is re-saved in place (upsert) when the publisher updates
     # the same day; the rows the chart was built from are then overwritten.
     # Differences on rows written after the chart's raw_built_at cannot be
@@ -2031,7 +2066,8 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
               "stored_players": len({k for g in left.values() for k in g}),
               "compared": cmp["compared"], "matched": cmp["matched"], "mismatched": len(cmp["mismatches"]),
               "missing_on_chart": players(cmp["missing"]), "extra_on_chart": players(cmp["extra"]),
-              "outside_universe": len(outside), "unresolved_names": len(unresolved)}
+              "outside_universe": len(outside), "unresolved_names": len(unresolved),
+              "dropped_by_rule": players(dropped)}
     summary = (f"{cmp['matched']}/{cmp['compared']} chart values equal stored snapshot {snap} "
                f"(per game, {mod.CHART_DECIMALS} decimals)" + (f"; {'; '.join(reasons)}" if reasons else ""))
     return stage(status, summary, counts=counts, chart_snapshot=snap, behind=behind, grains=cmp["grains"],

@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T07:45:57.066981+00:00",
+  "run_at": "2026-10-22T11:06:03.054116+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -29,12 +29,12 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1083/1083 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not",
-      "hold_severity": "red",
+      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Grant Calcaterra, Justin Joly, Kylen Granson, Seydou Traore); parse notes: RB: 3 players listed with another posi",
+      "hold_severity": "amber",
       "week": 7
     },
     "razzball": {
-      "reason": "fidelity: stored_vs_chart",
+      "reason": "fidelity: scrape_validity",
       "held_series": [
         "razzball",
         "razzball_vorp"
@@ -42,7 +42,7 @@
       "sections": [
         "razzball"
       ],
-      "detail": "1947/1947 chart values equal stored snapshot 2026-10-21 (per game, 1 decimals); 0 chart values differ from the stored snapshot, 27 stored players not on the chart, 0 chart players not stored",
+      "detail": "sentinel players outside their per-game band (JEG-592): Patrick Mahomes 13.8 (expected 15 to 28)",
       "hold_severity": "red",
       "week": 7
     }
@@ -97,7 +97,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-22 -> 12 DDF legs -> section; review passed (4356 values)",
+      "detail": "snapshot 2026-10-22 -> 12 DDF legs -> section; review passed (4392 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -160,6 +160,6 @@
   },
   "fidelity_holds": {
     "cbsros": "fidelity: publisher_vs_stored",
-    "razzball": "fidelity: stored_vs_chart"
+    "razzball": "fidelity: scrape_validity"
   }
 }

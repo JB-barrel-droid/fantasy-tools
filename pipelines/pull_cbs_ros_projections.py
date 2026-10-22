@@ -177,10 +177,20 @@ def parse_position(pos: str, html: str) -> tuple[list[dict], list[dict]]:
             review.append({"reason": "fppg_inconsistent", "player": name,
                            "pos": pos, "fpts": fpts, "gp": gp, "fppg": fppg})
             continue
+        # JEG-807 (2026-10-22): the position is the table's, not the cell's.
+        # CBS lists fullbacks in the RB table with "(FB)" in the cell (Kyle
+        # Juszczyk, Andrew Beck, Michael Burton; Connor Heyward under TE).
+        # Saving the cell's FB made save_cbsros_references.py's resolver
+        # answer position_conflict (public.players has them at RB) and drop
+        # them to review, while the pulse reader (fidelity_sources/cbsros.py)
+        # keeps the table position, resolves them, and held CBS ROS red for
+        # "3 publisher players not stored" with every value equal. The
+        # cell's position is kept beside it for the record.
         rows.append({
             "player_name": name,
             "player_norm": norm_player_name(name),
-            "pos": ppos,
+            "pos": pos,
+            "cell_pos": ppos,
             "team": team,
             "gp": gp,
             "ros_standard": round(ros["standard"], 2),

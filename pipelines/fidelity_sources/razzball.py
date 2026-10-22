@@ -194,3 +194,42 @@ def stored_chart_values(row: dict, ctx: dict) -> dict[str, float]:
     """Stage 2: the chart's native value is the DDF leg's ppg, i.e. the same
     published PPG column (full precision, printed with CHART_DECIMALS)."""
     return _per_game(row)
+
+
+GUARD_SCORINGS = {"standard": "per_game_standard", "half_ppr": "per_game_half_ppr", "ppr": "per_game_ppr"}
+
+
+def chart_drops(rows: list[dict], players_path=None) -> dict[int, str]:
+    """{player_key: reason} for stored rows the chart drops by rule (JEG-807).
+
+    The Razzball section is built by build_razzball_ddf_leg.py, which holds a
+    row whose per-game rate is far below the ESPN/CBS mean baked on the
+    player's players.json row (the JEG-555 missed-games guard, JEG-611: the
+    same rule as the bake). Those players are absent from the chart on
+    purpose; counting them as "stored players not on the chart" held Razzball
+    red with every served value equal (27 such rows on 2026-10-22). The same
+    rule on the same references decides here. No players.json: nothing
+    exempted."""
+    from pathlib import Path  # noqa: PLC0415
+    import bake_players  # noqa: PLC0415  the rule, not the bake
+    from build_razzball_ddf_leg import baked_references  # noqa: PLC0415
+    from fidelity_pulse import PLAYERS_FIXTURE  # noqa: PLC0415
+    refs = baked_references(Path(players_path) if players_path else PLAYERS_FIXTURE)
+    out: dict[int, str] = {}
+    for row in rows:
+        key = row.get("player_key")
+        ref = refs.get(int(key)) if key is not None else None
+        if ref is None:
+            continue
+        z = {}
+        for scoring, col in GUARD_SCORINGS.items():
+            try:
+                z[scoring] = float(row[col])
+            except (KeyError, TypeError, ValueError):
+                pass
+        if len(z) != len(GUARD_SCORINGS):
+            continue
+        reason = bake_players.razzball_outlier_reason(z, ref.get("espn_ppg"), ref.get("cbsros_ppg"))
+        if reason:
+            out[int(key)] = reason
+    return out

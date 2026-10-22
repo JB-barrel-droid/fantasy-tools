@@ -433,6 +433,21 @@ class Stage1FantasyCalc(unittest.TestCase):
         self.assertEqual("red", s1["status"])
         self.assertIn("column check", s1["summary"])
 
+    def test_one_list_drifting_alone_is_not_a_column_swap(self):
+        """JEG-807 (2026-10-22): the live standard lists moved ~1% since a
+        fresh save while full and half matched it exactly; stored std was then
+        nearest live half (the scoring gap is smaller than the move) and the
+        check called it a swap. A swap is mutual; one list drifting is not."""
+        env = Env()
+        for r in env.stored["fantasycalc"]:
+            r["created_at"] = "2026-10-08T22:00:00+00:00"  # fresh bake: the check runs
+        for k, (name, pos, vals, sf) in list(env.pub["fantasycalc"].items()):
+            env.pub["fantasycalc"][k] = (name, pos, dict(vals, std=round(vals["std"] * 1.08)), sf)
+        res, _, _ = env.run(["fantasycalc"])
+        s1 = res["fantasycalc"]["stages"]["publisher_vs_stored"]
+        self.assertNotIn("column check", s1["summary"])
+        self.assertNotEqual("red", s1["status"], s1["summary"])
+
     def test_column_swap_stale_bake_no_false_positive(self):
         """A stale bake (> FC_GRAIN_CHECK_MAX_AGE_S) must NOT false-positive on
         column-swap detection, even when the columns are actually swapped."""
