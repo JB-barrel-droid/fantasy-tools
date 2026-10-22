@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T03:37:16.284062+00:00",
+  "run_at": "2026-10-22T03:48:03.421734+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-full-12-section full_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-full-12-section full_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-full-12-section full_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-half-12-section half_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-half-12-section half_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-half-12-section half_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-half-12-section half_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-standard-12-section standard_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-standard-12-section standard_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-standard-12-section standard_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-standard-12-section standard_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble)",
@@ -10,11 +10,9 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "green",
   "held": [
     "cbs",
     "cbsros",
@@ -327,20 +325,5 @@
     "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_games_match_window"
-    ],
-    "assertions": [
-      "AssertionError: Lists differ: [('Deuce Vaughn', 'DAL', 12, 11), ('Marced[125 chars] 11)] != []"
-    ],
-    "make_targets": [
-      "Makefile:473: test-core"
-    ],
-    "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_games_match_window; AssertionError: Lists differ: [('Deuce Vaughn', 'DAL', 12, 11), ('Marced[125 chars] 11)] != []",
-    "recorded_at": "2026-10-22T03:38:41.291380+00:00"
   }
 }
