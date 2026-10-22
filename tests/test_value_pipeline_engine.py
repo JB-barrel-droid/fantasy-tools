@@ -210,10 +210,9 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assertGreater(esx.count_leaves(self.doc["variant_expected_starts"]["expected"]), 1500)
         exp = self.doc["variant_expected_starts"]["expected"]
         self.assertFalse(exp["bench_share_readout"]["override"])
-        # JEG-804 / JEG-879: the worked example's 8 WRs are fewer than
-        # n_per_team * teams, so every WR is a starter -> exactly 1 band.
-        # Pin == 1 (not >= 1, which is vacuous).  Two starters per team pinned.
-        self.assertEqual(len(exp["sources"]["p1"]["positions"]["WR"]["bands"]), 1)
+        # JEG-879: bench_per_team=4 gives WR 3 bench seats (rostered=6),
+        # so the waiver line falls below the depth boundary -> 2 bands.
+        self.assertEqual(len(exp["sources"]["p1"]["positions"]["WR"]["bands"]), 2)
         self.assertEqual(exp["sources"]["p1"]["positions"]["WR"]["lineup"]["n_per_team"], 2)
 
     def assert_variant_fails(self, replacements):
@@ -236,22 +235,8 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assert_variant_fails([("chartSigma[pos].sigma_rel * esConfidence", "chartSigma[pos].sigma_rel")])
 
     def test_guard_catches_one_band_only(self):
-        # JEG-879: unskipped. The mutation breaks the band loop so every
-        # position collapses to 1 band. If ANY position already has 2+ bands,
-        # the comparison will fail (the guard discriminates). If the worked
-        # example has only 1-band positions, the mutation is a no-op and we
-        # skip dynamically with an explicit reason.
-        exp = self.doc["variant_expected_starts"]["expected"]
-        has_multi = any(
-            len(pos.get("bands", [])) >= 2
-            for src in exp.get("sources", {}).values()
-            for pos in src.get("positions", {}).values()
-        )
-        if not has_multi:
-            self.skipTest(
-                "JEG-879: worked example has only 1-band positions "
-                "(8 WRs < 20 slots); extend the fixture to restore "
-                "multi-band discrimination")
+        # JEG-879: bench_per_team=4 gives WR 2 bands; the mutation collapses
+        # every position to 1 band, so the comparison must fail.
         self.assert_variant_fails([("if (!teams || idx >= work.length || work[idx].native <= waiver) break;",
                                     "break;")])
 
