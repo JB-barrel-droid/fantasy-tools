@@ -2837,9 +2837,11 @@
       }
       const prior = (shown && own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
       if (prior) {
+        const isChart = items.some(item => sourceMeta(item.key).method === "indexed");
+        const noun = isChart ? "chart" : "projections";
         return {pub, name, week: base?.week, status: "prior", text: "Prior week",
           reason: view.refWeek && base?.week
-            ? `${name} has not posted its Week ${view.refWeek} ${items.some(item => sourceMeta(item.key).method === "indexed") ? "chart" : "projections"} yet; this page shows its Week ${base.week} ${items.some(item => sourceMeta(item.key).method === "indexed") ? "chart" : "projections"}.` : ""};
+            ? `${name} has not posted its Week ${view.refWeek} ${noun} yet; this page shows its Week ${base.week} ${noun}.` : ""};
       }
       // Fail closed: Current only when this source's own rows say freshness_ok === true. A missing
       // or unreadable file, or a missing row, is "Freshness unknown", never a green tick.
