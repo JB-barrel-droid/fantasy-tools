@@ -787,6 +787,9 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-psplit b { font-size: 18px; }
 .v2-pshare { display: grid; grid-template-columns: 40px 1fr 64px; gap: 12px; align-items: center; min-height: 40px; }
 .v2-pshare > span:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.v2-share-msg { color: #b3261e; margin: 4px 0; }
+.v2-share-msg[hidden] { display: none; }
+.v2-pshare input[aria-invalid="true"] { border-color: #b3261e; }
 .v2-pshare-bar { height: 6px; background: var(--v2-border); border-radius: 3px; overflow: hidden; }
 .v2-pshare-bar > span { display: block; height: 100%; background: var(--v2-action); }
 .v2-pbanner { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--v2-older); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 12px 14px; margin-top: 10px; }
