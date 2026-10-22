@@ -63,7 +63,7 @@ READ = """() => {
     tabs: [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view, label: t.querySelector('.v2-tab-full')?.textContent || '',
       current: t.getAttribute('aria-current') === 'page'})),
     research: shown('v2Research'),
-    others: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto'].filter(shown),
+    others: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto', 'v2Audit'].filter(shown),
     league: shown('v2League'), methods: shown('v2Methods'),
     indexLinks: rs ? [...rs.querySelectorAll('.v2-rs-list a')].map(a => a.getAttribute('href')) : [],
     visible: visible.map(a => a.dataset.slug || 'index'),

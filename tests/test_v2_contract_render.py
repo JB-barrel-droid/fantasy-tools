@@ -355,7 +355,7 @@ COMMON = r"""
     .map(n => (n.getAttribute('title') || '') + ' ' + (n.getAttribute('aria-label') || '')).join('\n');
   const tabs = () => [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view,
     label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'}));
-  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto']
+  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How', 'v2Manifesto', 'v2Audit']
     .map(id => [id, shown($(id))]));
   const readTable = (sel = '#v2Table') => [...document.querySelectorAll(sel + ' tbody tr[data-player-key]')].map(tr => ({
     key: tr.dataset.playerKey, name: own(tr.querySelector('td.player') || tr),
@@ -800,7 +800,7 @@ def scenario_phone(s: Session) -> dict:
     page = s.open("#trade-targets", width=390, height=844)
     try:
         out = {"tabs": [page.evaluate(PHONE_JS, h) for h in
-                        ("#manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#how-values")]}
+                        ("#manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#how-values", "#values-auditing")]}
         out["errors"] = page.errors
         return out
     finally:
