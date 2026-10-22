@@ -99,8 +99,10 @@ class PhoneFallbackFontTest(unittest.TestCase):
             self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
             css = css.replace(new, old)
         found = _overflows(css)
-        self.assertIn("#writing/manifesto", found)
+        # JEG-852: with the seven-tab nav and the short "Audit" label the old rules overflow only where the table card head
+        # also wraps badly (Player values); the old tab-row rules alone still cannot hold seven tabs, so the guard stays.
         self.assertIn("#player-values", found)
+        self.assertTrue(found, "old CSS was not caught")
 
 
 if __name__ == "__main__":
