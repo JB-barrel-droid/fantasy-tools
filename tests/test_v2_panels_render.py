@@ -401,6 +401,23 @@ def check_freshness(page) -> list[str]:
     if f"NFL Week {ref_week + 1} · data through Week {ref_week}, updating" not in label:
         errors.append(f"freshness: healthy header lost the JEG-806 wording: {label!r}")
 
+    # JEG-834: a source on a prior week explains itself in plain words (no "published", no abbreviations).
+    def behind(route, *_):
+        doc = _freshness_doc()
+        for item in doc.get("items", []):
+            if str(item.get("key", "")).startswith(("source_import.", "comparison.")):
+                item["freshness_ok"] = True
+                item["weeks_behind"] = 1 if item.get("key") == "comparison.source.usatoday" else 0
+        route.fulfill(status=200, json=doc)
+    rows, _ = _freshness_with(page, behind)
+    usat = rows.get("usatoday") or {}
+    if usat.get("status") == "prior":
+        text = usat.get("text", "")
+        if not re.search(r"USA Today has not posted its Week \d+ chart yet; this page shows its Week \d+ chart\.", text) or "published" in text:
+            errors.append(f"freshness: prior-week reason reads {text!r}")
+    else:
+        errors.append(f"freshness: USA Today a week behind is not 'prior': {usat}")
+
     # Fail closed: a missing freshness file never shows a source as current.
     def missing(route, *_):
         route.fulfill(status=404, content_type="text/plain", body="not found")
@@ -942,6 +959,8 @@ class PanelsRenderTest(unittest.TestCase):
             "Tier column says ESPN Tier": {"v2_js": v2.replace('label: "Tier", cls: "col-meta"', 'label: "ESPN Tier", cls: "col-meta"', 1)},
             "shares not applied": {"v2_js": v2.replace(
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
+            "prior-week reason uses the old wording": {"v2_js": v2.replace(
+                "has not posted its Week", "has not published Week", 1)},
             "share range unchecked": {"v2_js": v2.replace(
                 "n >= lo * 100 - 1e-9 && n <= hi * 100 + 1e-9", "true", 1)},
             "pipeline failure ignored": {"v2_js": v2.replace(
