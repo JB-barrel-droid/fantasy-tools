@@ -114,8 +114,8 @@ def check(out, dashboard_text=None):
     if rz_available is False:
         pass  # held source: chip and tooltip correctly absent
     else:
-        if not any(re.fullmatch(r"Razzball Wk \d+", chip) for chip in out["chips"]):
-            problems.append(f"no 'Razzball Wk N' column chip rendered: {out['chips']}")
+        if not any(re.fullmatch(r"Razzball Week \d+", chip) for chip in out["chips"]):
+            problems.append(f"no 'Razzball Week N' column chip rendered: {out['chips']}")
         if not any("Razzball rest-of-season projections" in t for t in out["titles"]):
             problems.append("Razzball column tooltip (TIPS) not rendered")
     if out["errors"]:

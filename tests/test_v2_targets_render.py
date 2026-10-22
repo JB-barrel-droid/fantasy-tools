@@ -54,13 +54,13 @@ on one row. Two-column rows show only Player · Our value ·
 Gap vs consensus ("N of M charts agree"); a row's ▾ opens its per-chart values.
 JEG-456 (part 1): from 1024 px the table needs no horizontal scroll; Pos, Team
 and Tier are in the player sub-line.
-JEG-458: every chart column header reads "Wk N · rescaled", "Compare against"
+JEG-458: every chart column header reads "Week N · rescaled", "Compare against"
 has the caption "Rescaled to our point scale", and an ⓘ beside it and in each chart
 column header opens the rescaled explanation with a link to How values work:
 aria-expanded tracks it, Enter opens it, Esc closes it and returns focus, and it
 never opens a player or reorders rows.
 JEG-459: the "Include older-week charts" checkbox is gone; with FantasyPros
-simulated one week behind, it is still compared and carries a "Wk 4" badge
+simulated one week behind, it is still compared and carries a "Week 4" badge
 (accessible name "FantasyPros has not published Week N yet; showing Week 4.")
 in its #v2TChart option, column header, opened rows,
 phone cards and footnote; current-week charts carry none.
@@ -618,8 +618,8 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
     if not lay["thSubs"]:
         errors.append("no chart column headers")
     for th in lay["thSubs"]:
-        if not th["sub"].endswith("rescaled") or "Wk " not in th["sub"]:
-            errors.append(f"{th['chart']} header sub-label {th['sub']!r}, expected 'Wk N · rescaled' (JEG-458)")
+        if not th["sub"].endswith("rescaled") or "Week " not in th["sub"]:
+            errors.append(f"{th['chart']} header sub-label {th['sub']!r}, expected 'Week N · rescaled' (JEG-458)")
         if not th["info"] or th["info"]["expanded"] != "false" or not th["info"]["label"]:
             errors.append(f"{th['chart']} header has no closed, labeled ⓘ: {th['info']} (JEG-458)")
     errors += [f"hit area under 44 px: {b}" for b in lay["bad"]]
@@ -682,18 +682,18 @@ def check_prior(prior, ref_week, width) -> list[str]:
 
     def badge_ok(where, badges, chart):
         if chart == "fantasypros":
-            if not any(b["chart"] == "fantasypros" and b["text"] == "Wk 4" and b["label"] == label and b["title"] == label for b in badges):
-                return [f"{where}: no 'Wk 4' badge labeled {label!r}: {badges}"]
+            if not any(b["chart"] == "fantasypros" and b["text"] == "Week 4" and b["label"] == label and b["title"] == label for b in badges):
+                return [f"{where}: no 'Week 4' badge labeled {label!r}: {badges}"]
         elif badges:
             return [f"{where}: current-week chart {chart} carries a badge {badges}"]
         return []
     for o in prior["options"]:
-        has = "Wk 4" in o["text"]
+        has = "Week 4" in o["text"]
         if (o["value"] == "fantasypros") != has:
             errors.append(f"#v2TChart option {o['value']!r} reads {o['text']!r}")
     for th in prior["headers"]:
         errors += badge_ok(f"{th['chart']} column header", th["badges"], th["chart"])
-        if th["chart"] == "fantasypros" and not th["sub"].endswith("Wk 4 · rescaled"):
+        if th["chart"] == "fantasypros" and not th["sub"].endswith("Week 4 · rescaled"):
             errors.append(f"FantasyPros header sub-label {th['sub']!r}")
     for d in prior["details"]:
         errors += badge_ok(f"opened row {d['chart']}", d["badges"], d["chart"])

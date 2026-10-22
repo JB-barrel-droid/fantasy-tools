@@ -1822,13 +1822,13 @@ def ct02_partial(S):
 
 
 def _badge_errors(where, keys, badges_for, weeks):
-    """Each stale chart among `keys` carries "Wk N" (its week) in `where`; a current one carries none."""
+    """Each stale chart among `keys` carries "Week N" (its week) in `where`; a current one carries none."""
     errors = []
     for key in keys:
         info = weeks.get(key) or {}
         texts = [b["text"] for b in badges_for(key)]
         if info.get("stale"):
-            want = f"Wk {info['week']}" if info.get("week") else "Earlier week"
+            want = f"Week {info['week']}" if info.get("week") else "Earlier week"
             if want not in texts:
                 errors.append(f"{where}: {key} is a week behind but shows {texts or 'no badge'}, want {want!r}")
         elif texts:
@@ -1837,7 +1837,7 @@ def _badge_errors(where, keys, badges_for, weeks):
 
 
 def tt06(S):
-    """A chart a week behind shows "Wk N" on Trade targets, Player values (legend and table
+    """A chart a week behind shows "Week N" on Trade targets, Player values (legend and table
     headers) and Compare rows. WEEK_BEHIND_FIXTURE puts STALE_CHART a week behind."""
     errors = []
     t, v, c = S["tabs"]["targets"], S["values"]["s0"], S["tabs"]["compare"]
@@ -1845,7 +1845,7 @@ def tt06(S):
         errors.append(f"{STALE_CHART} is not a week behind (WEEK_BEHIND_FIXTURE not applied?)")
     heads = {h["chart"]: h for h in t["heads"]}
     for key, h in heads.items():
-        if not re.search(r"Wk \d+", h["sub"]):
+        if not re.search(r"Week \d+", h["sub"]):
             errors.append(f"Trade targets {key}: no week in {h['sub']!r}")
     errors += _badge_errors("Trade targets header", heads, lambda k: [{"text": heads[k]["badge"].strip()}] if heads[k]["badge"] else [], t["weeks"])
     charts = [k for k in v["active"] if k in v["weeks"]]
