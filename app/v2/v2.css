@@ -1418,6 +1418,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    the page 47 px sideways. Below 360 px the tabs wrap onto a second row; every tab keeps its 44 px hit area. */
 @media (max-width: 359px) {
   .v2-tabs { flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; }
+  /* JEG-873: "Values auditing" is the one phone label too long for a 320 px row (the six tabs wrapped; 360 px and up
+     fit). Below 360 px that tab reads "Audit", so the six tabs keep one row with 44 px targets. */
+  .v2-tab[data-view="audit"]::before { content: "Audit"; }
 }
 
 /* JEG-817 (phone): source links keep their look but get a 44 x 44 hit area. Inline padding grows the hit box and the
