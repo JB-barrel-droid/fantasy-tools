@@ -14,6 +14,7 @@ Run every Python command with the Python 3.12 virtualenv first on PATH (`export 
 | [heavy-suites-and-hot-files.md](heavy-suites-and-hot-files.md) | Which machine runs heavy suites, and the hot-file merge rule. |
 | [weekly-dashboard-freshness.md](weekly-dashboard-freshness.md) | Weekly Signals dashboard staleness rules (paused lane, JEG-396). |
 | [consolidated-values-loader.md](consolidated-values-loader.md) | Loading `public.consolidated_values` (JEG-324). |
+| [merging-prs.md](merging-prs.md) | Merge checks: bot report matches head, v2-render green, mergeable, validate step read, generated churn, stacked order, nav tab count; what to do while the preview log is unreadable (JEG-874, 2026-10-22). |
 
 ## Status of "followed once by a session that did not write it"
 
