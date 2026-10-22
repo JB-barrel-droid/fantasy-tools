@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T03:02:31.719414+00:00",
+  "run_at": "2026-10-22T03:06:44.669967+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-full-12-section full_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-full-12-section full_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-full-12-section full_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-half-12-section half_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-half-12-section half_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-half-12-section half_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-half-12-section half_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble | usatoday-standard-12-section standard_12/QB list 36 -> 36: dropped jalen hurts, tua tagovailoa; added jj mccarthy, tanner mckee | usatoday-standard-12-section standard_12/RB list 79 -> 85: dropped will shipley; added bam knight, cj donaldson, corey kiner, dylan sampson, jaleel mclaughlin, jawhar jordan, roschon johnson | usatoday-standard-12-section standard_12/WR list 110 -> 110: dropped darius slayton, dohnte meyers, terry mclaurin; added christian kirk, omar cooper jr, treylon burks | usatoday-standard-12-section standard_12/TE list 37 -> 38: dropped elijah arroyo; added colby parkinson, tommy tremble)",
@@ -83,10 +83,7 @@
       "held_series": [
         "usatoday"
       ],
-      "sections": [
-        "usatoday",
-        "usatoday_adjusted"
-      ],
+      "sections": [],
       "detail": "894/894 chart values equal stored bake usatwk6_2026-10-13t1835_v1; newer stored bake usatwk7_2026-10-22t0155_v1 (week 7, saved 2026-10-22T01:55:18.929876Z) is not on the chart yet: 476 values changed, 51 added, 27 dropped",
       "hold_severity": "amber",
       "week": 7
@@ -96,10 +93,7 @@
       "held_series": [
         "fantasycalc"
       ],
-      "sections": [
-        "fantasycalc",
-        "fantasycalc_adjusted"
-      ],
+      "sections": [],
       "detail": "content week 7 opened 39 h ago; chart still shows FantasyCalc week 6",
       "hold_severity": "amber",
       "week": 7
@@ -109,10 +103,7 @@
       "held_series": [
         "fantasypros"
       ],
-      "sections": [
-        "fantasypros",
-        "fantasypros_adjusted"
-      ],
+      "sections": [],
       "detail": "630/630 chart values equal stored bake fpwk6_2026-10-19t0935_v1; newer stored bake fpwk7_2026-10-22t0204_v1 (week 7, saved 2026-10-22T02:04:18.917833Z) is not on the chart yet: 441 values changed, 33 added, 33 dropped",
       "hold_severity": "amber",
       "week": 7
@@ -122,10 +113,7 @@
       "held_series": [
         "cbs"
       ],
-      "sections": [
-        "cbs",
-        "cbs_adjusted"
-      ],
+      "sections": [],
       "detail": "player count dropped vs week 5: stored TE 14->13, chart TE 14->10",
       "hold_severity": "amber",
       "week": 7
@@ -136,10 +124,7 @@
         "espn",
         "espn_vorp"
       ],
-      "sections": [
-        "espn",
-        "espn_adjusted"
-      ],
+      "sections": [],
       "detail": "the chart's snapshot 2026-10-19 is no longer stored: the stored set is now 2026-10-21; the chart is behind until the next chain run rebuilds it",
       "hold_severity": "amber",
       "week": 7
@@ -352,6 +337,6 @@
       "Makefile:473: test-core"
     ],
     "detail": "FAIL tests.test_games_remaining.CommittedDataParityTest.test_players_json_matches_leg_per_game; AssertionError: Lists differ: [('Deuce Vaughn', 0.162727, 0.15)] != []",
-    "recorded_at": "2026-10-22T03:04:13.076807+00:00"
+    "recorded_at": "2026-10-22T03:08:28.192940+00:00"
   }
 }
