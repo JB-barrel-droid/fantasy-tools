@@ -1,12 +1,12 @@
-"""v2 player search, rendered: forgiving name matching in the page's own search boxes (JEG-812).
+"""v2 player search, rendered: forgiving name matching in the page's own search boxes (JEG-812, JEG-861).
 
-Loads the built page headless and types "Amon Ra", "JaMarr", "Ja’Marr" (curly apostrophe) and the typo
-"Mcafrey" into the Compare a trade search box (first result must be the right player) and the Player values
+Loads the built page headless and types "Amon Ra", "JaMarr", "Ja’Marr" (curly apostrophe), the typo
+"Mcafrey" and the reversed "Nacua Puka" into the Compare a trade search box (first result must be the right player) and the Player values
 search (the table must list him). Players are looked up in the engine's rows, so a fixture without one of them
 skips that query rather than failing.
 
-Discrimination: test_guard_fails_on_broken_builds serves namesearch.js with the spaces-ignored match and with the
-typo fallback removed, and requires failures.
+Discrimination: test_guard_fails_on_broken_builds serves namesearch.js with the spaces-ignored match, the any-order
+match and the typo fallback removed, and requires failures.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from tests.test_published_league_settings_render import _chromium_executable
 from tests.test_v2_deal_read_render import _served, ROOT
 
 SEARCH_JS = ROOT / "app" / "v2" / "namesearch.js"
-QUERIES = (("Amon Ra", "St. Brown"), ("JaMarr", "Marr"), ("Ja’Marr", "Marr"), ("Mcafrey", "McCaffrey"))
+QUERIES = (("Amon Ra", "St. Brown"), ("JaMarr", "Marr"), ("Ja’Marr", "Marr"), ("Mcafrey", "McCaffrey"), ("Nacua Puka", "Nacua"))
 NAMES = "() => window.TradeValueCurveControls.getAllRows().map(r => r.name)"
 TYPE = """([id, text]) => { const el = document.getElementById(id); el.value = text; el.dispatchEvent(new Event('input', {bubbles: true})); }"""
 COMPARE_FIRST = "() => { const b = document.querySelector('#v2GiveResults li button b'); return b ? b.textContent : null; }"
@@ -87,10 +87,12 @@ def run_checks(patch=None) -> list[str]:
 
 
 NO_FUZZY = ("const allowedEdits = length => (length >= 7 ? 2 : length >= 4 ? 1 : 0);", "const allowedEdits = length => 0;")
-NO_SQUASH = ("return qs && ns.includes(qs) ? 4 : null;", "return null;")
+NO_SQUASH = ('if (nameWords.slice(i).join("").startsWith(qs)) return i === 0 ? 1 : 2;', 'if (nameWords[i].startsWith(qs)) return i === 0 ? 1 : 2;')
+NO_ANY_ORDER = ("if (wordsAnyOrder(nameWords, queryWords)) return 3;", "if (false) return 3;")
 PATCHES = {
     "typo fallback removed": [NO_FUZZY],
     "spaces-ignored match and typo fallback removed (plain contains, as before)": [NO_SQUASH, NO_FUZZY],
+    "any-order match removed (reversed names, JEG-861)": [NO_ANY_ORDER],
 }
 
 
