@@ -172,6 +172,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_ux_render
+	python3 -m unittest tests.test_v2_phone_nav_overflow_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
 	python3 -m unittest tests.test_v2_season_weeks_render
