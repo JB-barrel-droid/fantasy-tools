@@ -78,6 +78,16 @@ def _held_sections(root: str) -> list[str]:
     return base
 
 
+def _candidate_identity(section: dict) -> str | None:
+    """Return the candidate section's identity for hold-matching (JEG-799).
+
+    A hold carries measured_site (the live page's snapshot_fetched_at when the
+    pulse ran). If the candidate section has a *different* snapshot_fetched_at,
+    the candidate is a newer build and the hold does not apply."""
+    prov = section.get("source_provenance") or {}
+    return prov.get("snapshot_fetched_at") or section.get("fetched_at")
+
+
 def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[dict, dict]:
     """Return (fixture with holds applied, {root: {sections}}).
 
@@ -85,16 +95,29 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
     page.  Its combos are KEPT so the engine can still include the source in
     the pipeline (weights, pie, universe) -- otherwise removing a source
     renormalizes every other source's values.  The page hides a held source's
-    curves and values; the validationHold flag is the signal."""
+    curves and values; the validationHold flag is the signal.
+
+    JEG-799 (B2): a hold applies only to the build the pulse measured.  If the
+    hold's measured_site differs from the candidate section's
+    source_provenance.snapshot_fetched_at, the candidate has newer data and the
+    hold is skipped."""
     out = copy.deepcopy(fixture)
     sources = out.setdefault("sources", {})
     report = {}
     for root, hold in holds.items():
         sections = _held_sections(root)
         hold_level = hold.get("hold_level", "red")
+        measured = hold.get("measured_site")
+        applied_sections = []
         for sec in sections:
             target = sources.get(sec)
             if isinstance(target, dict):
+                # JEG-799: skip this hold when the candidate section has a
+                # different identity than the build the pulse measured.
+                if measured is not None:
+                    candidate_id = _candidate_identity(target)
+                    if candidate_id is not None and candidate_id != measured:
+                        continue
                 # Keep combos intact so the engine can compute with them.
                 target.pop("validationHold", None)
                 target["validationHold"] = {
@@ -102,7 +125,9 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
                     "stage": hold["stage"], "identity": hold.get("identity"),
                     "since": hold.get("since"),
                     "hold_level": hold_level}
-        report[root] = {"sections": sections, "hold_level": hold_level,
+                applied_sections.append(sec)
+        report[root] = {"sections": applied_sections if measured is not None else sections,
+                        "hold_level": hold_level,
                         "reason": hold.get("reason"), "summary": hold.get("summary")}
     return out, report
 
