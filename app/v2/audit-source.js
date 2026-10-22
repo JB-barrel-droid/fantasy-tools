@@ -107,6 +107,42 @@
     return node;
   }
 
+  // Source pages: the same data the rest of Player values reads (assets/comparison-sources-data.json,
+  // sources.<id>.url, falling back to .source_url). No address is kept in this file.
+  let sourcePages = {};
+  let pagesLoading = null;
+  function loadSourcePages() {
+    if (pagesLoading) return pagesLoading;
+    pagesLoading = fetch("assets/comparison-sources-data.json")
+      .then(r => (r.ok ? r.json() : null)).catch(() => null)
+      .then(doc => {
+        const sources = (doc && doc.sources) || {};
+        sourcePages = {};
+        Object.entries(sources).forEach(([key, src]) => {
+          const url = src && (src.url || src.source_url);
+          if (typeof url === "string" && /^https?:\/\//.test(url)) sourcePages[key] = url;
+        });
+        if (state.host && state.host.isConnected) render();
+        return sourcePages;
+      });
+    return pagesLoading;
+  }
+  // Same position swap as v2.js sourceUrl: the all-positions view uses the QB page.
+  function sourceUrl(key, position) {
+    const url = sourcePages[key];
+    if (!url) return "";
+    const pos = ["QB", "RB", "WR", "TE"].includes(position) ? position : "QB";
+    if (key === "cbsros") return url.replace("/QB/", `/${pos}/`);
+    if (key === "razzball") return url.replace("-qb-", `-${pos.toLowerCase()}-`);
+    return url;
+  }
+  function pageLink(key, label, text, position) {
+    const url = sourceUrl(key, position);
+    if (!url) return null;
+    return h("a", {class: "as-link", href: url, target: "_blank", rel: "noopener", "data-source-link": key, text,
+      "aria-label": `${label}: open the source's page in a new tab`});
+  }
+
   const state = {source: null, position: "ALL", limit: PAGE, lastModel: null, host: null, hoverRank: null};
   try { state.source = localStorage.getItem("ddf.v2.audit.source"); } catch (e) { /* storage may be blocked */ }
   if (!SOURCES.some(x => x.key === state.source)) state.source = SOURCES[0].key;
@@ -238,6 +274,7 @@
     const host = state.host;
     if (!host) return;
     const insp = inspect();
+    loadSourcePages();
     host.textContent = "";
     host.classList.add("as-root");
     host.append(h("header", {class: "as-head"},
@@ -261,7 +298,7 @@
           try { localStorage.setItem("ddf.v2.audit.source", x.key); } catch (e) { /* storage may be blocked */ }
           render();
         });
-        return b;
+        return h("span", {class: "as-seg-wrap"}, b, pageLink(x.key, x.label, "↗", state.position));
       }));
     host.append(h("div", {class: "as-toolbar"}, group("Trade charts", "chart"), group("Projections", "projection")));
 
@@ -269,6 +306,9 @@
       POSITIONS.map(p => h("option", {value: p, text: p === "ALL" ? "All positions" : p, selected: p === state.position})));
     posSel.value = state.position;
     posSel.addEventListener("change", () => { state.position = posSel.value; state.limit = PAGE; render(); });
+    const headLink = pageLink(model.source, model.label, `Open ${model.label}'s page`, state.position);
+    host.append(h("p", {class: "as-source-head"}, h("strong", {text: model.label}), " ",
+      headLink || h("span", {class: "as-muted", "data-no-link": "", text: "(no page link available)"})));
     host.append(h("div", {class: "as-meta"},
       h("label", {class: "as-label", for: "as-position", text: "Position "}), posSel,
       h("span", {class: "as-setting", text: settingText(model.setting)})));

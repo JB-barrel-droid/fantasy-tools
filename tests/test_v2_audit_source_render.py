@@ -26,6 +26,7 @@ import unittest
 
 from tests import _render_env
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
+from tests.test_source_link_urls import NO_LINK_YET  # noqa: E402  (sources with no page yet, kept in one place)
 from tests.test_v2_panels_render import ROOT, _built_dist, _serve, _serve_css  # noqa: E402
 
 AUDIT_JS = ROOT / "app" / "v2" / "audit-source.js"
@@ -82,6 +83,21 @@ READ = """() => {
     stageNotes: Object.fromEntries([...document.querySelectorAll('#audit-source-root .as-stage')].map(li => [li.dataset.stage, {exists: li.dataset.exists, text: li.textContent}])),
     marks: document.querySelectorAll('#audit-source-root circle[data-estimated]').length
   };
+}"""
+
+LINKS = """async () => {
+  for (let i = 0; i < 50 && !document.querySelector('#audit-source-root a[data-source-link]'); i += 1) await new Promise(r => setTimeout(r, 100));
+  const out = {};
+  for (const seg of document.querySelectorAll('#audit-source-root .as-seg')) {
+    const src = seg.dataset.source;
+    const a = seg.parentElement.querySelector('a[data-source-link]');
+    out[src] = {href: a ? a.getAttribute('href') : null, key: a ? a.dataset.sourceLink : null};
+    seg.click();
+    const head = document.querySelector('#audit-source-root .as-source-head a[data-source-link]');
+    out[src].head = head ? head.getAttribute('href') : null;
+    out[src].noLinkNote = Boolean(document.querySelector('#audit-source-root [data-no-link]'));
+  }
+  return out;
 }"""
 
 SELECT = """(src) => { document.querySelector(`#audit-source-root .as-seg[data-source="${src}"]`).click(); return true; }"""
@@ -163,6 +179,27 @@ def check_source(page, src) -> list[str]:
     return errors
 
 
+def check_links(links) -> list[str]:
+    from urllib.parse import urlparse
+    errors = []
+    for src in SOURCES:
+        entry = links.get(src)
+        if src in NO_LINK_YET:
+            if entry and (entry["href"] or entry["head"]):
+                errors.append(f"{src}: has no page in the data yet but the view links {entry}")
+            elif not entry or not entry.get("noLinkNote"):
+                errors.append(f"{src}: no page link yet, and the view does not say so")
+            continue
+        if not entry or not entry["href"]:
+            errors.append(f"{src}: no link next to the source toggle")
+            continue
+        for where, href in (("toggle", entry["href"]), ("header", entry["head"])):
+            u = urlparse(href or "")
+            if not href or u.scheme not in ("http", "https") or (u.path in ("", "/") and not u.query):
+                errors.append(f"{src}: {where} link {href!r} is missing or a bare domain root")
+    return errors
+
+
 # A missing value (no Adjusted) must stay missing: patch the engine's inspection.
 MISSING = """() => {
   const C = window.TradeValueCurveControls;
@@ -225,6 +262,7 @@ def run_checks(audit_js=None, sources=SOURCES) -> list[str]:
                 if width == 1440:
                     for src in sources:
                         errors += check_source(page, src)
+                    errors += check_links(page.evaluate(LINKS))
                     page.evaluate(SELECT, "fantasycalc")
                     missing = page.evaluate(MISSING)
                     if not missing["row"] or missing["row"]["adjusted"] is not None or missing["row"]["indexed"] is not None:
@@ -270,6 +308,7 @@ class AuditSourceRenderTest(unittest.TestCase):
             "missing value shown as zero": js.replace(
                 'const finite = v => (typeof v === "number" && Number.isFinite(v) ? v : null);',
                 'const finite = v => (typeof v === "number" && Number.isFinite(v) ? v : 0);', 1),
+            "source links dropped": js.replace("    const url = sourceUrl(key, position);\n    if (!url) return null;", "    return null;", 1),
             "estimated flag dropped": js.replace("estimated: Boolean(p.estimated),", "estimated: false,", 1),
             "indexed faked for projections": js.replace(
                 "const indexed = isChart ? finite(row.indexed && row.indexed[meta.key]) : null;",
