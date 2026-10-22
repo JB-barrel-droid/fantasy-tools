@@ -6427,6 +6427,8 @@
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
+      // JEG-872: the one source name map (symbol + label) the audit tabs read, so every tab says the same names.
+      publishers: () => PUBLISHERS,
       // The shown series, DDF Value included (it has no engine toggle); setShown is what Customize's Done does.
       shown: () => ddfShownList().concat(C.getActiveSources()),
       setShown: keys => { applyShown(keys); refresh(); },
