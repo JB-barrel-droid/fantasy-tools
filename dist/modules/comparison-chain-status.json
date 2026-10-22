@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T17:03:14.213989+00:00",
+  "run_at": "2026-10-22T20:15:13.053787+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,22 +14,21 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros"
+    "fantasycalc"
   ],
-  "hold_severity": "amber",
+  "hold_severity": "red",
   "list_changes": {},
   "held_detail": {
-    "cbsros": {
+    "fantasycalc": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
-        "cbsros",
-        "cbsros_vorp"
+        "fantasycalc"
       ],
       "sections": [
-        "cbsros"
+        "fantasycalc"
       ],
-      "detail": "1089/1089 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 6 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Grant Calcaterra, Justin Joly, Seydou Traore, Tip Reiman); parse notes: RB: 3 play",
-      "hold_severity": "amber",
+      "detail": "43/1155 values match exactly across 6 columns; 1112 values differ, 2 outside the movement band; 0 live players not stored, 1 stored players not live (above the list's churn line); 12 players entered or left the bottom of the list since the save (churn)",
+      "hold_severity": "red",
       "week": 7
     }
   },
@@ -120,7 +119,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-21",
+      "content_vintage": "2026-10-22",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
@@ -145,6 +144,6 @@
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored"
+    "fantasycalc": "fidelity: publisher_vs_stored"
   }
 }

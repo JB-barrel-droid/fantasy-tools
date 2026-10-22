@@ -155,11 +155,11 @@ def run_checks(js_patch=None) -> list[str]:
             errors += check_links(heads, expected, "[targets heads]", charts)
             if len({l["pub"] for l in heads}) < 2:
                 errors.append(f"[targets heads] only {[l['pub'] for l in heads]} linked")
-            # JEG-834: one chart alone returns no list, so Compare against offers only "All trade charts"
-            # and the per-chart "Open the chart" link below it is not reachable.
+            # JEG-851 (superseding JEG-834): a single chart is now selectable, so Compare against offers
+            # "All trade charts" plus the chart sources shown; nothing else.
             enabled = page.evaluate("() => [...document.querySelectorAll('#v2TChart option')].filter(o => !o.disabled).map(o => o.value)")
-            if enabled != ["all"]:
-                errors.append(f"[compare against] selectable options {enabled}, want only 'all'")
+            if "all" not in enabled or not set(enabled) - {"all"} or not set(enabled) <= {"all"} | set(CHARTS):
+                errors.append(f"[compare against] selectable options {enabled}, want 'all' plus shown charts from {charts}")
             # Math on hover: three players per chart.
             keys = page.evaluate("() => [...document.querySelectorAll('#v2TTable tbody tr[data-player-key]')].slice(0, 6).map(tr => tr.dataset.playerKey)")
             checked = {c: 0 for c in charts}
