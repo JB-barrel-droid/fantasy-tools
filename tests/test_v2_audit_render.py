@@ -105,8 +105,8 @@ def run_checks(js_edit=None) -> list[str]:
                 page.goto(base, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2", timeout=40000)
                 order = [t["view"] for t in page.evaluate(READ)["tabs"]]
-                if order[-1] != "audit" or order.index("research") != order.index("how") + 1:
-                    errors.append(f"[{width}px] tab order {order}: Values auditing should be last, Research right after How")
+                if order[-2:] != ["writing", "audit"] or any(v in order for v in ("how", "research", "manifesto")):
+                    errors.append(f"[{width}px] tab order {order}: Values auditing should be last, right after Writing")
                 page.evaluate(SPY)
                 for hash_, slug in ROUTES:
                     page.evaluate("() => { location.hash = '#trade-targets'; }")
