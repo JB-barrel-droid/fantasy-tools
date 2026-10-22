@@ -28,7 +28,7 @@ CSS = ROOT / "app" / "v2" / "v2.css"
 TABS = ("player-values", "trade-targets", "risers-fallers", "compare-trade", "how-values", "research", "manifesto")
 WIDTHS = (320, 375, 414)
 FAMILIES = ("DejaVu Sans", "Verdana")
-FIX = re.compile(r"\n/\* JEG-829: a host without Inter.*?\n\}\n", re.S)
+FIX = re.compile(r"\n/\* JEG-829: a host without Inter.*?\n\}\n@media \(min-width: 360px\)[^\n]*\n", re.S)
 
 
 def setUpModule():
