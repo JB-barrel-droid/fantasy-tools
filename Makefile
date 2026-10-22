@@ -521,6 +521,12 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_weight_render
 	python3 -m unittest tests.test_v2_phone_wide_font_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
+	# JEG-725: render modules no target ran. Measured locally under load: chart_fit 41 s, player_tags 15 s,
+	# source_links 86 s, offer 23 s (about 2.7 minutes added to this target).
+	python3 -m unittest tests.test_v2_chart_fit_render
+	python3 -m unittest tests.test_v2_player_tags_render
+	python3 -m unittest tests.test_v2_source_links_render
+	python3 -m unittest tests.test_v2_offer_render
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
 	python3 -m unittest tests.test_math_inspector

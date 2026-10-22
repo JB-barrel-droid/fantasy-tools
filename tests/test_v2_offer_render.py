@@ -13,7 +13,7 @@ against the engine's own rows (TradeValueCurveControls.getAllRows()):
     chart prices every player);
   * the story card's kind matches the complete rows' signs: a same-publisher,
     same-week Data Driven Adjustments vs Indexed sign flip is "contrast"; all
-    one way is "agree"; otherwise "split";
+    one way is "agree"; otherwise "split" (classified but hidden, JEG-487);
   * "Show players" opens the per-player arithmetic for that series, with the
     engine's values and the same net as the row;
   * search keeps a player already on the trade, marked "✓ Added" and disabled;
@@ -91,7 +91,8 @@ READ = """() => {
   return {engine, info, shown: document.getElementById('v2CShown').value,
     give: side('v2GivePlayers'), receive: side('v2GetPlayers'),
     giveTotal: total('v2GiveTotal'), getTotal: total('v2GetTotal'), rows,
-    story: document.getElementById('v2CStory').hidden ? null : document.getElementById('v2CStory').dataset.story,
+    story: document.getElementById('v2CStory').dataset.story || null,
+    storyHidden: document.getElementById('v2CStory').hidden,
     storyText: document.getElementById('v2CStoryText').textContent,
     names: Object.fromEntries([...document.querySelectorAll('#v2CTable tbody tr[data-source]')].map(tr =>
       [tr.dataset.source, tr.querySelector('td.player').childNodes[1].textContent])),
@@ -182,8 +183,11 @@ def check_story(snap) -> list[str]:
         want = "incomplete"
     if snap["story"] != want:
         return [f"story {snap['story']!r}, complete rows {complete} want {want!r}"]
+    # JEG-487: the deal read replaces "The sources split.", so a split story is classified but not drawn.
+    if want in ("split", "agree", "contrast") and (want == "split") != bool(snap["storyHidden"]):
+        return [f"story {want!r} hidden={snap['storyHidden']}: only a split story is hidden (JEG-487)"]
     # Jeremy, 2026-10-08: the story names the sources (agree and split).
-    if want in ("agree", "split"):
+    if want == "agree":
         missing = [snap["names"][k] for k, _ in complete if snap["names"][k] not in snap["storyText"]]
         if missing:
             return [f"story does not name {missing}: {snap['storyText']!r}"]
@@ -285,6 +289,25 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                 if plain["story"] not in ("agree", "split"):
                     errors.append(tag + f"without the FantasyCalc chart the story should agree or split, got {plain['story']!r}")
                 errors += [tag + e for e in check_story(plain)]
+                # A split story is not drawn (JEG-487), so the naming check needs a visible one: keep only
+                # complete sources that point the same way and require the "agree" story to name them all.
+                signs = {}
+                for r in plain["rows"]:
+                    if not r["missing"] and r["net"] not in (None, "0.0"):
+                        signs.setdefault(r["net"].startswith("+"), []).append(r["key"])
+                same = max(signs.values(), key=len) if signs else []
+                if len(same) < 2:
+                    errors.append(tag + f"no two complete sources point the same way, so the agree story went unchecked: {signs}")
+                else:
+                    page.evaluate("keys => window.TradeValueV2.setPageKeys('compare', keys)", same)
+                    page.evaluate("() => { location.hash = '#player-values'; }")
+                    page.wait_for_function("() => !document.getElementById('v2Main').hidden")
+                    page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
+                    page.wait_for_function("() => !document.getElementById('v2Compare').hidden && !document.getElementById('v2CTable').hidden")
+                    agree = page.evaluate(READ)
+                    if agree["story"] != "agree":
+                        errors.append(tag + f"sources {same} point the same way but the story is {agree['story']!r}")
+                    errors += [tag + e for e in check_story(agree)]
                 page.evaluate("keys => window.TradeValueV2.setPageKeys('compare', keys)", COMPARE_KEYS)
                 # Per-player arithmetic for the first complete row.
                 first = next((r for r in snap["rows"] if not r["missing"]), None)
@@ -342,8 +365,8 @@ class OfferRenderTest(unittest.TestCase):
                 "rows.reduce((sum, row) => sum + row.values[key], 0)",
                 "rows.reduce((sum, row) => sum + (Number.isFinite(row.values[key]) ? row.values[key] : 0), 0)", 1)},
             "search hides chosen players": {"v2_js": v2.replace(
-                "      .filter(row => String(row.name || \"\").toLowerCase().includes(needle))",
-                "      .filter(row => !TR.give.concat(TR.receive).some(p => p.key === String(row.player_key)) && String(row.name || \"\").toLowerCase().includes(needle))", 1)},
+                "    return window.TradeValueNameSearch.search(byValue, needle).slice(0, 8);",
+                "    return window.TradeValueNameSearch.search(byValue, needle).filter(row => !TR.give.concat(TR.receive).some(p => p.key === String(row.player_key))).slice(0, 8);", 1)},
             "swap does nothing": {"v2_js": v2.replace(
                 "[TR.give, TR.receive] = [TR.receive, TR.give];", "void 0;", 1)},
             "notice never drawn": {"v2_js": v2.replace("    renderNotice();\n", "", 1)},
