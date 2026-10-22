@@ -179,6 +179,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-main { padding-top: 28px; padding-bottom: 48px; }
 .v2-title h1 { font-size: 34px; line-height: 1.15; font-weight: 800; }
 .v2-title p { color: var(--v2-muted); margin-top: 6px; font-size: 15px; }
+/* JEG-861: "NFL Week 7 · as of Oct 22" under every value page title (same data as Player values). */
+.v2-title .v2-asof { margin-top: 4px; font-size: 13px; }
+.v2-title .v2-asof:empty { display: none; }
 .v2-filters { display: flex; gap: 12px; margin: 24px 0 8px; flex-wrap: wrap; align-items: center; }
 .v2-search { flex: 1 1 240px; max-width: 320px; }
 .v2-filters .v2-link { margin-left: auto; }

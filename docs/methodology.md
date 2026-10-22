@@ -26,6 +26,12 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 
 Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --strict` agreed to 0.05 on every value (915,234 values, zero mismatches) and `tools/engine_dump.py` passed all 13 settings; at a66f3f40 the compare disagrees (see the row above). The 12-combo sweep in `runbooks/sweep-and-rank-guard.md`. Retired in this pipeline: the fit and `*_adjusted` sections (PR 532), the fixed-pie and `roleMap` family, `derivePublishedSetup` and `derivePublishedViews` (PR 514). VP-10 lists what replaced each.
 
+**Pending, not live (checked against `origin/main` c1ae4e5, 2026-10-22, JEG-874).** Decisions Jeremy has made whose engine or text change is still an open PR; nothing below this line describes them as live:
+
+- **DDF Value from projections only (JEG-804, PR #814 open).** Jeremy, 2026-10-22, on JEG-613 Q4: "Out of DDF Value": the blended DDF Value becomes the mean of the projection sources (ESPN, CBS rest of season, Razzball); trade charts stay on the Indexed and VORP comparison views. Until #814 merges, `ddf_value` still averages all included sources (VP-6.3, "DDF Composite Value" step 2). The copy follow-up is JEG-863.
+- **Held-source wording (JEG-787, PR #815 open).** A red or `promotionHold` source is hidden from DDF Value and the Indexed basis but stays in the pipeline for allocation, weights and the pie (VP-1 "Held sources"); #815 only reconciles the "Two Implementations" sentence with that.
+- **Razzball sentinel (JEG-807, merged #816, fidelity not methodology).** The pulse's star-player bands are derived from the other projection sources' half-PPR per-game mean (`SENTINEL_LOW_RATIO` 0.55, `SENTINEL_HIGH_RATIO` 1.50, fixed fallback bands when no other source prices the player). Values are unchanged; only what holds a projection source.
+
 **Reading order.** The sections below keep their history. Where a paragraph says "Superseded (JEG-508)", "proposed", "pending" or "not live", the status line in this block governs and the paragraph is kept for the before/after. A paragraph in "Source Families And Adjustments", "Published-Chart Configuration Coverage" or "Publisher Flex Allocation" that describes the fit, the two-tier legs as a value source, or the ESPN anchor describes retired behavior.
 
 ## Value Pipeline (source-neutral, 2026-10-09)
