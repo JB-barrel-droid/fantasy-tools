@@ -105,6 +105,16 @@ ALLOWLIST: Tuple[Tuple[str, str], ...] = (
         "false-green; no table read is needed because the validated "
         "data is the row being written.",
     ),
+    # 2026-10-22 (JEG-916): value_check_prune is the retention job for
+    # value_check_values (014, part of JEG-792): one DELETE ... WHERE on
+    # its own table and the deleted row count back. It never returns a
+    # health verdict, so it cannot false-green; "check" in its name is
+    # the value-check table it prunes, caught by the over-broad pattern.
+    (
+        "public.value_check_prune",
+        "Retention DELETE on value_check_values (JEG-792 migration 014): "
+        "returns the pruned row count, never a health payload.",
+    ),
 )
 
 
