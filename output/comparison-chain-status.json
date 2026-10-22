@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T09:47:11.833081+00:00",
+  "run_at": "2026-10-22T10:40:47.262210+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,24 +15,11 @@
   "outcome": "published_with_holds",
   "held": [
     "cbsros",
-    "fantasycalc",
     "razzball"
   ],
   "hold_severity": "red",
   "list_changes": {},
   "held_detail": {
-    "fantasycalc": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "fantasycalc"
-      ],
-      "sections": [
-        "fantasycalc"
-      ],
-      "detail": "794/1174 values match exactly across 6 columns; column check: stored std|2 list is closest to the live half|2 list (mean |diff| 17 vs 29); stored std|1 list is closest to the live half|1 list (mean |diff| 15 vs 23); 380 of 1174 values moved since the save at 2026-10-22T08:05:28.976647Z (largest 100%",
-      "hold_severity": "red",
-      "week": 7
-    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -42,7 +29,7 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Patrick Herbert, Tip Reiman); parse notes: RB: 3 players listed with another posit",
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Justin Joly); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['",
       "hold_severity": "amber",
       "week": 7
     },
@@ -172,7 +159,6 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: scrape_validity"
   }
