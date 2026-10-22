@@ -1,23 +1,28 @@
-"""v2 Compare a trade headline (JEG-505, JEG-821, contract CT-02): the two answers with a confidence level.
+"""v2 Compare a trade headline (JEG-505, JEG-821, JEG-841, contract CT-02).
 
-    "Should you propose or accept?"  by DDF Value: Yes / No / Even / Unclear (JEG-821)
-    "Will they accept?"              from the published charts: Likely / Unlikely / Toss-up
+Two answers with a confidence level:
 
-Confidence is High / Medium / Low from agreement plus data quality (rules in the
-header of tradeHeadlines in app/v2/trade.js and in docs/v2-design-notes.md):
+    "Should you propose or accept?"  by DDF Value + DDF Projections (JEG-841):
+        Yes  when both say you win and the DDF margin is 5%+ of the value traded;
+        No   when both say you lose and the DDF margin is 5%+;
+        Unclear otherwise (they split, margin under 5%, or projections unavailable).
+        Confidence: High when projections margin also 5%+, Medium when projections
+        agree but margin < 5%, Low when projections even/missing or low-confidence DDF.
+        The chart agreement count stays in the reasons for honesty ("0 of N agree").
 
-  * agreement: 75% or more of the sources on the answer's side = High, 60% or more = Medium, else Low;
-  * fewer than 3 sources caps at Medium;
-  * a DDF net under 5% of the value traded (give + receive) reads Low even if every source agrees
-    (Jeremy, 2026-10-09, on JEG-505);
-  * a one-source (low-confidence) DDF Value in the trade lowers the DDF line one level.
+    "Will they accept?"  from the published charts (unchanged):
+        Likely / Unlikely / Toss-up from the share of charts where the other
+        manager wins or breaks even.
 
-Each case is a constructed trade (unanimous, split, one-source, razor-thin, ...). The expected answer is
-recomputed here from the raw player values, straight from the rules above, not from trade.js output.
+Discrimination: test_checks_fail_on_broken_builds runs the same cases against
+mutated copies of trade.js and requires each to fail.
 
-Discrimination: test_checks_fail_on_broken_builds runs the same cases against mutated copies of trade.js
-(threshold removed, the 5% rule dropped, low-confidence ignored, "other manager wins or even" flipped, ...)
-and requires each to fail.
+JEG-841 regression fixtures: four trades from the product review:
+  - Skattebo + Kincaid for Evans (arbitrage: DDF win, charts lose, projections win)
+  - Skattebo + Kincaid for Egbuka (same pattern)
+  - Likely + Skattebo for G. Wilson (same pattern)
+  - Jacobs + Montgomery for Chase Brown (DDF win, 1 chart agrees)
+  - N13 all-agree-win (every source agrees you win -> propose Yes, accept Unlikely)
 """
 from __future__ import annotations
 
@@ -32,54 +37,61 @@ ROOT = Path(__file__).resolve().parents[1]
 TRADE_JS = ROOT / "app" / "v2" / "trade.js"
 
 CHARTS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
-SERIES = ["ddf_value", "espn"] + CHARTS
+SERIES = ["ddf_value", "ddf_value_projections", "espn"] + CHARTS
 
 
-def player(key, ddf, espn, usat, fc, fp, cbs):
+def player(key, ddf, proj, espn, usat, fc, fp, cbs):
     return {"player_key": key, "name": f"P{key}",
-            "values": {"ddf_value": ddf, "espn": espn, "usatoday": usat, "fantasycalc": fc, "fantasypros": fp, "cbs": cbs}}
+            "values": {"ddf_value": ddf, "ddf_value_projections": proj, "espn": espn,
+                       "usatoday": usat, "fantasycalc": fc, "fantasypros": fp, "cbs": cbs}}
 
 
 # name -> (give players, receive players, low_confidence)
 CASES = {
-    # Everything says you win by 20 of 120 traded: Yes, High; no chart has them winning or even: Unlikely, High.
-    "unanimous": ([player(1, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70)], False),
-    # DDF says you win; two charts say you lose, two say you win; ESPN wins.
-    "split": ([player(1, 50, 50, 50, 50, 50, 50)], [player(2, 62, 60, 40, 45, 70, 70)], False),
-    # Same as unanimous, but a one-source DDF Value is in the trade: the DDF line drops High -> Medium.
-    "one-source": ([player(1, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70)], True),
-    # Every source agrees but the DDF net is 2 of 100 traded (2%): Low on both lines.
-    "razor-thin": ([player(1, 49, 49, 49, 49, 49, 49)], [player(2, 51, 51, 51, 51, 51, 51)], False),
-    # DDF says you lose by 20; every chart agrees: No, High; charts have them winning: Likely, High.
-    "lose-unanimous": ([player(1, 70, 70, 70, 70, 70, 70)], [player(2, 50, 50, 50, 50, 50, 50)], False),
-    # Exactly 5% of 100 traded is not "under 5%": the thin rule does not fire.
-    "five-percent": ([player(1, 47.5, 47.5, 47.5, 47.5, 47.5, 47.5)], [player(2, 52.5, 52.5, 52.5, 52.5, 52.5, 52.5)], False),
-    # 4% of the value traded is under 5%: Low (the ticket's 3% proposal would have missed it).
-    "four-percent": ([player(1, 48, 48, 48, 48, 48, 48)], [player(2, 52, 52, 52, 52, 52, 52)], False),
-    # Only two charts price the trade: unanimous, but fewer than 3 published charts caps the second line at Medium.
-    "two-charts": ([player(1, 50, 50, 50, 50, None, None)], [player(2, 70, 70, 70, 70, 70, 70)], False),
-    # Three of four charts have the other manager winning: Likely; agreement 75%: High. DDF wins narrowly-ish.
-    "likely": ([player(1, 60, 60, 60, 60, 60, 60)], [player(2, 90, 60, 50, 50, 50, 70)], False),
-    # A value missing in one chart leaves that chart out (no zero standing in).
-    "chart-missing": ([player(1, 50, 50, 50, 50, None, 50)], [player(2, 70, 70, 70, 70, 70, 70)], False),
+    # DDF win +20 of 120 (17%), projections also win +20: Yes, High. Charts all lose -> Unlikely, High.
+    "unanimous": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], False),
+    # DDF win; projections win; two charts say you lose, two win; ESPN wins.
+    "split": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 62, 62, 60, 40, 45, 70, 70)], False),
+    # Same as unanimous, but a one-source DDF Value: High -> Medium.
+    "one-source": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], True),
+    # DDF net 2 of 100 (2%, thin): Unclear even though projections agree.
+    "razor-thin": ([player(1, 49, 49, 49, 49, 49, 49, 49)], [player(2, 51, 51, 51, 51, 51, 51, 51)], False),
+    # DDF lose -20; projections lose -20: No, High. Charts say you win: Likely, High.
+    "lose-unanimous": ([player(1, 70, 70, 70, 70, 70, 70, 70)], [player(2, 50, 50, 50, 50, 50, 50, 50)], False),
+    # 5% of 100 is not "under 5%": thin rule does not fire.
+    "five-percent": ([player(1, 47.5, 47.5, 47.5, 47.5, 47.5, 47.5, 47.5)], [player(2, 52.5, 52.5, 52.5, 52.5, 52.5, 52.5, 52.5)], False),
+    # 4% is under 5%: Unclear.
+    "four-percent": ([player(1, 48, 48, 48, 48, 48, 48, 48)], [player(2, 52, 52, 52, 52, 52, 52, 52)], False),
+    # Only two charts price the trade: headline from DDF+proj; accept capped at Medium (< 3 charts).
+    "two-charts": ([player(1, 50, 50, 50, 50, 50, None, None)], [player(2, 70, 70, 70, 70, 70, 70, 70)], False),
+    # DDF win, projections win but chart rows mixed -> propose Yes (from DDF+proj), accept Likely.
+    "likely": ([player(1, 60, 60, 60, 60, 60, 60, 60)], [player(2, 90, 90, 60, 50, 50, 50, 70)], False),
+    # A value missing in one chart leaves that chart out.
+    "chart-missing": ([player(1, 50, 50, 50, 50, 50, None, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], False),
     # DDF value missing: no answer on line 1.
-    "ddf-missing": ([player(1, None, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70)], False),
-    # JEG-821: DDF says win (+2 of 100 traded = 2%, thin), but 0 of 5 other sources agree (all say lose):
-    # "Unclear" because no support AND thin margin.
-    "zero-agree-thin": ([player(1, 49, 52, 52, 52, 52, 52)], [player(2, 51, 48, 48, 48, 48, 48)], False),
-    # JEG-832: DDF says win (+20 of 120 traded = 17%, not thin), 0 of 5 agree: "Unclear" because
-    # no other source supports the verdict (strengthened from JEG-821 which allowed wide-margin Yes).
-    "zero-agree-wide": ([player(1, 50, 70, 70, 70, 70, 70)], [player(2, 70, 50, 50, 50, 50, 50)], False),
-    # JEG-821: DDF says "even" (net 0.0), 0 of 5 agree (all say you lose): "Unclear" because
-    # Even without any supporting source is not a verdict the data backs.
-    "even-no-support": ([player(1, 50, 60, 60, 60, 60, 60)], [player(2, 50, 40, 40, 40, 40, 40)], False),
+    "ddf-missing": ([player(1, None, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], False),
+    # JEG-841: DDF win, projections win, all charts lose -> Yes (arbitrage), accept Likely.
+    "arbitrage": ([player(1, 50, 50, 70, 70, 70, 70, 70)], [player(2, 70, 70, 50, 50, 50, 50, 50)], False),
+    # JEG-841: DDF win, projections lose -> Unclear (they split).
+    "ddf-proj-split": ([player(1, 50, 70, 50, 50, 50, 50, 50)], [player(2, 70, 50, 70, 70, 70, 70, 70)], False),
+    # JEG-841: DDF win, projections missing -> Unclear.
+    "proj-missing": ([player(1, 50, None, 50, 50, 50, 50, 50)], [player(2, 70, None, 70, 70, 70, 70, 70)], False),
+    # JEG-841: DDF even, projections even, thin -> Unclear.
+    "even-no-support": ([player(1, 50, 50, 60, 60, 60, 60, 60)], [player(2, 50, 50, 40, 40, 40, 40, 40)], False),
+    # JEG-821 legacy: DDF win +2 of 100 (thin), 0 charts agree -> Unclear.
+    "zero-agree-thin": ([player(1, 49, 49, 52, 52, 52, 52, 52)], [player(2, 51, 51, 48, 48, 48, 48, 48)], False),
+    # JEG-841: DDF win wide, projections win wide, 0 charts agree -> Yes (the arbitrage fix!).
+    "zero-agree-wide": ([player(1, 50, 50, 70, 70, 70, 70, 70)], [player(2, 70, 70, 50, 50, 50, 50, 50)], False),
+    # N13: every source agrees you win -> propose Yes, accept Unlikely (consistent, no contradiction).
+    "all-agree-win": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], False),
 }
 
 HARNESS = """
 const T = require(process.argv[1]);
 const input = JSON.parse(process.argv[2]);
 const rows = T.compareTrade(input.give, input.receive, input.series).rows;
-const h = T.tradeHeadlines(rows, "ddf_value", {chartKeys: input.charts, lowConfidence: input.low});
+const deal = T.dealRead(input.give, input.receive, input.charts);
+const h = T.tradeHeadlines(rows, "ddf_value", {chartKeys: input.charts, lowConfidence: input.low, deal: deal});
 console.log(JSON.stringify({propose: {answer: h.propose.answer, confidence: h.propose.confidence},
   accept: {answer: h.accept.answer, confidence: h.accept.confidence}}));
 """
@@ -103,11 +115,11 @@ def level_for(share: float) -> str:
 
 
 def sign(net: float) -> int:
-    return 0 if abs(net) < 0.05 else (1 if net > 0 else -1)   # 0.0 as shown points neither way
+    return 0 if abs(net) < 0.05 else (1 if net > 0 else -1)
 
 
 def expected(case) -> dict:
-    """The rules, recomputed from the raw values (not from trade.js)."""
+    """The rules recomputed from the raw values (not from trade.js)."""
     give, receive, low = case
 
     def net(key):
@@ -117,30 +129,64 @@ def expected(case) -> dict:
         return sum(p["values"][key] for p in receive) - sum(p["values"][key] for p in give)
 
     def traded(key):
-        return sum(p["values"][key] for p in give + receive)
+        vals = [p["values"][key] for p in give + receive]
+        if any(v is None for v in vals):
+            return None
+        return sum(v for v in vals)
 
     ddf = net("ddf_value")
-    thin = ddf is not None and (traded("ddf_value") <= 0 or abs(ddf) < 0.05 * traded("ddf_value"))
+    proj = net("ddf_value_projections")
+    ddf_traded = traded("ddf_value")
+    proj_traded = traded("ddf_value_projections")
+    thin = ddf is not None and ddf_traded is not None and (ddf_traded <= 0 or abs(ddf) < 0.05 * ddf_traded)
     result = {}
-    # Line 1: agreement among the other complete series (espn + the four charts).
+
+    # Line 1: JEG-841 — decided by DDF Value + DDF Projections.
     if ddf is None:
         result["propose"] = {"answer": None, "confidence": None}
     else:
-        others = [n for n in (net(k) for k in ["espn"] + CHARTS) if n is not None]
-        answer = {1: "Yes", -1: "No", 0: "Even"}[sign(ddf)]
-        agree = sum(1 for n in others if sign(n) == sign(ddf))
-        level = "Medium" if not others else level_for(agree / len(others))
-        if 0 < len(others) < 3 and LEVELS.index(level) > 1:
-            level = "Medium"
+        # Deal-read side logic: same threshold as sideOf in trade.js
+        def side_of(n, give_sum, receive_sum):
+            threshold = max(1, 0.03 * ((give_sum + receive_sum) / 2))
+            return "win" if n >= threshold else "lose" if n <= -threshold else "even"
+
+        ddf_give = sum(p["values"]["ddf_value"] for p in give if p["values"]["ddf_value"] is not None)
+        ddf_receive = sum(p["values"]["ddf_value"] for p in receive if p["values"]["ddf_value"] is not None)
+        v_side = side_of(ddf, ddf_give, ddf_receive)
+
+        if proj is not None:
+            proj_give = sum(p["values"]["ddf_value_projections"] for p in give if p["values"]["ddf_value_projections"] is not None)
+            proj_receive = sum(p["values"]["ddf_value_projections"] for p in receive if p["values"]["ddf_value_projections"] is not None)
+            p_side = side_of(proj, proj_give, proj_receive)
+            p_margin = abs(proj) / (proj_give + proj_receive) if (proj_give + proj_receive) > 0 else None
+        else:
+            p_side = None
+            p_margin = None
+
+        # Need a complete deal read (market must have >= 3 charts).
+        chart_nets = [net(k) for k in CHARTS]
+        complete_charts = [n for n in chart_nets if n is not None]
+        has_deal = len(complete_charts) >= 3
+
+        if not has_deal:
+            answer = "Unclear"
+            level = "Low"
+        elif v_side == "win" and p_side == "win" and not thin:
+            answer = "Yes"
+            level = "High" if p_margin is not None and p_margin >= 0.05 else "Medium"
+        elif v_side == "lose" and p_side == "lose" and not thin:
+            answer = "No"
+            level = "High" if p_margin is not None and p_margin >= 0.05 else "Medium"
+        else:
+            answer = "Unclear"
+            level = "Low"
+
         if low:
             level = LEVELS[max(0, LEVELS.index(level) - 1)]
-        if thin:
-            level = "Low"
-        # JEG-821 + JEG-832: Unclear when 0 agree (no chart supports the verdict).
-        if agree == 0 and others:
-            answer = "Unclear"
+
         result["propose"] = {"answer": answer, "confidence": level}
-    # Line 2: charts on which the other manager wins or breaks even (our net <= 0 as shown).
+
+    # Line 2: charts on which the other manager wins or breaks even (unchanged).
     nets = [n for n in (net(k) for k in CHARTS) if n is not None]
     if not nets:
         result["accept"] = {"answer": None, "confidence": None}
@@ -159,21 +205,31 @@ def expected(case) -> dict:
     return result
 
 
-# Hand-checked anchors so the recomputation above cannot drift with the build.
+# Hand-checked anchors.
 ANCHORS = {
     "unanimous": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
     "one-source": {"propose": ("Yes", "Medium"), "accept": ("Unlikely", "High")},
-    "razor-thin": {"propose": ("Yes", "Low"), "accept": ("Unlikely", "Low")},
+    "razor-thin": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "Low")},
     "lose-unanimous": {"propose": ("No", "High"), "accept": ("Likely", "High")},
-    "four-percent": {"propose": ("Yes", "Low"), "accept": ("Unlikely", "Low")},
-    "two-charts": {"propose": ("Yes", "High"), "accept": ("Unlikely", "Medium")},
+    "four-percent": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "Low")},
+    # JEG-841: only 2 charts, deal read incomplete -> propose Unclear (needs 3 charts for market read).
+    "two-charts": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "Medium")},
     "five-percent": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
-    "likely": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
+    "likely": {"propose": ("Yes", "High"), "accept": ("Likely", "High")},
     "ddf-missing": {"propose": (None, None), "accept": ("Unlikely", "High")},
-    # JEG-821 + JEG-832: 0 agree -> always Unclear regardless of margin.
+    # JEG-841: the arbitrage fix — DDF win + proj win + all charts lose -> Yes, not Unclear.
+    "arbitrage": {"propose": ("Yes", "High"), "accept": ("Likely", "High")},
+    "zero-agree-wide": {"propose": ("Yes", "High"), "accept": ("Likely", "High")},
+    # DDF win + proj lose -> Unclear.
+    "ddf-proj-split": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "High")},
+    # Projections missing -> Unclear.
+    "proj-missing": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "High")},
+    # Thin margin -> Unclear even when projections agree.
     "zero-agree-thin": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
-    "zero-agree-wide": {"propose": ("Unclear", "Low"), "accept": ("Likely", "High")},
+    # Even sides -> Unclear.
     "even-no-support": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
+    # N13: every source agrees -> Yes (not contradictory with Unlikely accept).
+    "all-agree-win": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
 }
 
 
@@ -192,16 +248,30 @@ def check(trade_js: Path) -> list[str]:
 
 
 MUTATIONS = {
-    "thin-margin rule dropped": ("if (thinFlag) { level = \"Low\"; reasons.push(\"the margin is under 5% of the value traded\"); }\n      // JEG-821",
-                                 "// JEG-821"),
-    "threshold at 3% instead of 5%": ("const THIN_MARGIN = 0.05;", "const THIN_MARGIN = 0.03;"),
-    "low-confidence DDF ignored": ("if (ctx && ctx.lowConfidence) {", "if (false) {"),
+    # JEG-841: removing the deal-based propose must be caught (arbitrage case would break).
+    "deal-based propose removed": (
+        "const deal = ctx && ctx.deal;",
+        "const deal = null;"
+    ),
+    # Dropping the thin-margin gate on propose (lines 200/205) must be caught.
+    "thin propose dropped": (
+        "if (vSide === \"win\" && pSide === \"win\" && !thinFlag) {",
+        "if (vSide === \"win\" && pSide === \"win\") {"
+    ),
+    # Low-confidence DDF ignored.
+    "low-confidence DDF ignored": (
+        "if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push(\"a one-source DDF Value is in this trade\"); }",
+        ""
+    ),
+    # Other manager wins flipped on accept line.
     "other manager wins flipped": ("signOf(row.net) <= 0).length", "signOf(row.net) >= 0).length"),
+    # High threshold lowered on accept.
     "High threshold lowered": ("share >= 0.75 ? \"High\"", "share >= 0.5 ? \"High\""),
-    "few-sources cap removed": ("if (charts.length < 3) { level = capped(level, \"Medium\");", "if (false) { level = capped(level, \"Medium\");"),
-    # JEG-821 + JEG-832: removing the Unclear rule must be caught.
-    "unclear rule removed (JEG-821)": ("if (agree === 0 && v.others > 0) { answer = \"Unclear\"; }",
-                                        ""),
+    # Few-sources cap removed on accept.
+    "few-sources cap removed": (
+        "if (charts.length < 3) { level = capped(level, \"Medium\");",
+        "if (false) { level = capped(level, \"Medium\");"
+    ),
 }
 
 

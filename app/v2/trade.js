@@ -16,6 +16,7 @@
   "use strict";
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
+  const fmtNet = n => (n >= 0 ? "+" : "") + n.toFixed(1);
 
   // giveRows / receiveRows: the engine rows of the players on each side (a
   // player the engine has no row for comes in with empty values, so it is
@@ -150,20 +151,20 @@
   }
 
   // JEG-505 headline (contract CT-02). Two plain answers with a confidence level:
-  //   propose: "Should you propose or accept?" by the verdict series (DDF Value). Yes / No / Even / Unclear.
-  //            Agreement = the share of the other complete series on the same side as the verdict series.
+  //   propose: "Should you propose or accept?" by DDF Value AND DDF Projections (JEG-841).
+  //            Yes when both say you win and the DDF margin is 5%+ of the value traded;
+  //            confidence from the projections margin (High when projections also 5%+, Low when even).
+  //            Unclear when they split or the margin is under 5%.
+  //            The chart agreement count stays in the reasons for honesty ("0 of N agree").
   //   accept:  "Will they accept?" from the published value charts (chartKeys): the share of complete
   //            charts on which the other manager wins or breaks even (our net <= 0, as shown).
   //            Likely at two thirds or more, Unlikely at one third or less, otherwise Toss-up.
   // Confidence is High / Medium / Low:
-  //   agreement   >= 75% of sources on the answer's side = High, >= 60% = Medium, else Low;
+  //   propose  High when DDF Projections margin also 5%+, Medium when DDF Projections agree but margin
+  //            under 5%, Low when DDF Projections are even or missing;
+  //   accept   agreement: >= 75% of charts on the answer's side = High, >= 60% = Medium, else Low;
   //   few sources fewer than 3 complete sources caps at Medium;
-  //   thin margin the verdict series' net under 5% of the value traded (give + receive) reads Low, even when
-  //               every source agrees (Jeremy, 2026-10-09; the ticket proposed 3%);
-  //   data        a low-confidence (one-source) DDF Value in the trade lowers the verdict line one level.
-  // JEG-821 (Jeremy, 2026-10-22): "Yes" or "No" needs at least one other source agreeing OR a margin
-  //   over 5% of the value traded; otherwise the answer is "Unclear" with the reasons already listed.
-  //   "Even" also reads "Unclear" when no supporting sources agree (conservative: the data does not back it).
+  //   data     a low-confidence (one-source) DDF Value in the trade lowers the propose line one level.
   const THIN_MARGIN = 0.05;
   const LEVELS = ["Low", "Medium", "High"];
   const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
@@ -174,32 +175,51 @@
     const thinFlag = traded !== null && (traded <= 0 || Math.abs(head.net) < THIN_MARGIN * traded);
     const margin = traded > 0 ? Math.abs(head.net) / traded : null;
     const levelFor = share => (share >= 0.75 ? "High" : share >= 0.6 ? "Medium" : "Low");
-    // Line 1: should you propose or accept.
+    // Chart agreement count (kept for honesty reasons and the sub-line, not for the answer).
     const v = tradeVerdict(rows, key);
+    const chartSet = new Set((ctx && ctx.chartKeys) || []);
+    const chartAgree = v.agreeKeys ? v.agreeKeys.filter(k => chartSet.has(k)).length : 0;
+    const chartTotal = v.others != null ? rows.filter(row => chartSet.has(row.key) && row.net !== null).length : 0;
+    // Line 1: should you propose or accept (JEG-841: decided by DDF Value + DDF Projections).
+    const deal = ctx && ctx.deal;
     let propose;
     if (!head || v.kind === null || v.kind === "incomplete") {
       propose = {answer: null, confidence: null, reasons: []};
+    } else if (!deal || deal.kind !== "read") {
+      // No complete deal read (projections or market missing): fall back to Unclear.
+      const reasons = ["not enough data for a deal read"];
+      propose = {answer: "Unclear", confidence: "Low", agree: chartAgree, of: chartTotal, margin, reasons};
     } else {
       const reasons = [];
-      let answer = v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even";
-      const agree = v.agreeKeys.length;
-      let level;
-      if (!v.others) { level = "Medium"; reasons.push("no other complete source to compare with"); }
-      else {
-        const share = agree / v.others;
-        level = levelFor(share);
-        reasons.push(`${agree} of ${v.others} other sources agree`);
+      const vSide = deal.value.side;    // "win" | "lose" | "even"
+      const pSide = deal.projections && deal.projections.net !== null ? deal.projections.side : null;
+      const pNet = deal.projections && deal.projections.net !== null ? deal.projections.net : null;
+      const pTraded = deal.projections && deal.projections.give !== null ? deal.projections.give + deal.projections.receive : null;
+      const pMargin = pTraded > 0 && pNet !== null ? Math.abs(pNet) / pTraded : null;
+      let answer, level;
+      if (vSide === "win" && pSide === "win" && !thinFlag) {
+        // Both DDF Value and DDF Projections say you win, margin 5%+.
+        answer = "Yes";
+        level = pMargin !== null && pMargin >= THIN_MARGIN ? "High" : pSide === "win" ? "Medium" : "Low";
+        reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
+      } else if (vSide === "lose" && pSide === "lose" && !thinFlag) {
+        answer = "No";
+        level = pMargin !== null && pMargin >= THIN_MARGIN ? "High" : pSide === "lose" ? "Medium" : "Low";
+        reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
+      } else {
+        answer = "Unclear";
+        level = "Low";
+        if (thinFlag) reasons.push("the margin is under 5% of the value traded");
+        if (pSide === null) reasons.push("DDF Projections cannot score this trade");
+        else if (pSide !== vSide) reasons.push(`DDF Projections disagree (${fmtNet(pNet)})`);
+        else reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
       }
-      if (v.others < 3 && v.others > 0) { level = capped(level, "Medium"); reasons.push("fewer than 3 other sources"); }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
-      if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
-      // JEG-821 + JEG-832: "Unclear" when no supporting sources agree. The chart rows are the
-      // independent check; when none of them backs the verdict, the headline must not say "Yes" or "No".
-      if (agree === 0 && v.others > 0) { answer = "Unclear"; }
-      propose = {answer, confidence: level, agree, of: v.others, margin, reasons};
+      // Honesty: always show the chart agreement count.
+      reasons.push(`${chartAgree} of ${chartTotal} trade charts agree`);
+      propose = {answer, confidence: level, agree: chartAgree, of: chartTotal, margin, reasons};
     }
     // Line 2: will they accept, from the published charts.
-    const chartSet = new Set((ctx && ctx.chartKeys) || []);
     const charts = rows.filter(row => chartSet.has(row.key) && row.net !== null);
     let accept;
     if (!charts.length) {

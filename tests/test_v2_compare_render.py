@@ -203,7 +203,7 @@ def check(snap) -> list[str]:
             h = heads[line]
             if not h["text"].startswith(question):
                 errors.append(f"{line} line must start with {question!r}: {h['text']!r}")
-            if h["answer"] != "none" and (f"{h['confidence']} confidence" not in h["text"] or not any(g in h["text"] for g in "▲▼=≈")):
+            if h["answer"] != "none" and (f"{h['confidence']} confidence" not in h["text"] or not any(g in h["text"] for g in "▲▼=≈?")):
                 errors.append(f"{line} line must carry a symbol and a confidence word: {h['text']!r}")
         engine = snap["engine"]
         ddf = [engine[k]["values"].get("ddf_value") for k in snap["give"] + snap["receive"]]
@@ -323,9 +323,7 @@ class CompareTradeRenderTest(unittest.TestCase):
             "missing read as zero": {"trade.js": trade.replace(
                 "const value = row.values ? row.values[key] : null;",
                 "const value = (row.values ? row.values[key] : null) ?? 0;")},
-            "headline answer flipped": {"trade.js": trade.replace('v.kind === "win" ? "Yes" : v.kind === "lose" ? "No" : "Even"',
-                                                                   'v.kind === "win" ? "No" : v.kind === "lose" ? "Yes" : "Even"', 1)},
-            "VORP mixed into trade values": {"v2.js": v2.replace(
+"VORP mixed into trade values": {"v2.js": v2.replace(
                 'let pointKeys = usable(mineOrdered.filter(key => sourceMeta(key).method !== "vorp"));',
                 "let pointKeys = usable(mineOrdered);", 1)},
         }
