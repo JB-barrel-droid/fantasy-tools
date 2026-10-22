@@ -165,7 +165,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-crow input { width: 18px; height: 18px; accent-color: var(--v2-action); }
 .v2-crow-name { flex: 1; }
 .v2-crow.is-disabled { color: var(--v2-muted); cursor: not-allowed; }
-.v2-app .v2-call { min-height: 32px; padding: 0 4px; font-size: 12px; position: relative; }
+.v2-app .v2-call { min-height: 44px; padding: 0 4px; font-size: 12px; position: relative; }
 .v2-app .v2-call::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 
 /* DDF Value inputs inside Customize (JEG-466): a nested list under the DDF Value row. */
@@ -1404,6 +1404,21 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-srclink { padding: 15px; margin: -15px; }
 }
 
+/* JEG-826: honesty banner when DDF Value is built from the same charts it is compared against. */
+.v2-circular-banner { background: var(--v2-warn-bg, #FFF8E1); border: 1px solid var(--v2-warn-border, #FFD54F);
+  border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; color: var(--v2-fg); }
+.v2-circular-banner p { margin: 0; }
+.v2-circular-inline { font-style: italic; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .v2-circular-banner { --v2-warn-bg: #3E2E00; --v2-warn-border: #8D6E00; }
+}
+
+/* JEG-827: the Values "Rank by" field shrinks with the toolbar row instead of running 2 px past a 320 px screen. */
+@media (max-width: 767px) {
+  #v2Main .v2-toolbar .v2-field-rank { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  #v2Main .v2-toolbar .v2-field-rank select { flex: 1 1 0; width: 0; min-width: 0; }
+}
+
 /* JEG-827: below 1024 px the zoom row sits above the plot (a 48 px strip), not over its top 44 px; the plot grows by the strip so the chart keeps its height. */
 @media (max-width: 1023px) {
   .v2-plot-main { padding-top: 48px; box-sizing: border-box; }
@@ -1411,3 +1426,6 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 }
 @media (min-width: 768px) and (max-width: 1023px) { .v2-plot { height: calc(var(--v2-chart-h) + 48px); } }
 @media (max-width: 767px) { .v2-plot-main { height: 308px; } }
+
+/* JEG-827: the trade actions look like buttons (border and fill), not plain text. */
+#v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUseExample { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }

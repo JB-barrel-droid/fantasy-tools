@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20261021-2334-d9eee73c">
+<meta name="trade-chart-build" content="tv-20261022-0109-69873178">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
@@ -2002,19 +2002,23 @@
     <div class="v2-trade-sides">
       <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
         <h2 id="v2GiveTitle">You give</h2>
-        <label class="v2-search"><span class="v2-sr">Search and add a player you give</span>
-          <input type="search" id="v2GiveSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GiveResults">
-        </label>
-        <ul class="v2-trade-results" id="v2GiveResults" hidden></ul>
+        <div class="v2-trade-search-wrap">
+          <label class="v2-search"><span class="v2-sr">Search and add a player you give</span>
+            <input type="search" id="v2GiveSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GiveResults">
+          </label>
+          <ul class="v2-trade-results" id="v2GiveResults" hidden></ul>
+        </div>
         <ul class="v2-trade-players" id="v2GivePlayers"></ul>
         <p class="v2-side-total" id="v2GiveTotal" hidden></p>
       </section>
       <section class="v2-card v2-trade-side" data-trade-side="receive" aria-labelledby="v2GetTitle">
         <h2 id="v2GetTitle">You receive</h2>
-        <label class="v2-search"><span class="v2-sr">Search and add a player you receive</span>
-          <input type="search" id="v2GetSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GetResults">
-        </label>
-        <ul class="v2-trade-results" id="v2GetResults" hidden></ul>
+        <div class="v2-trade-search-wrap">
+          <label class="v2-search"><span class="v2-sr">Search and add a player you receive</span>
+            <input type="search" id="v2GetSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GetResults">
+          </label>
+          <ul class="v2-trade-results" id="v2GetResults" hidden></ul>
+        </div>
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
@@ -2654,11 +2658,11 @@
   </div>
 
   </div>
-  <script src="assets/value-model.js?v=tv-20261021-2334-d9eee73c" defer></script>
-  <script src="assets/consolidation-index.js?v=tv-20261021-2334-d9eee73c" defer></script>
-  <script src="assets/product-data.js?v=tv-20261021-2334-d9eee73c" defer></script>
-  <script src="assets/curve-widget.js?v=tv-20261021-2334-d9eee73c" defer></script>
-  <script src="assets/comparison-dashboard.js?v=tv-20261021-2334-d9eee73c" defer></script>
+  <script src="assets/value-model.js?v=tv-20261022-0109-69873178" defer></script>
+  <script src="assets/consolidation-index.js?v=tv-20261022-0109-69873178" defer></script>
+  <script src="assets/product-data.js?v=tv-20261022-0109-69873178" defer></script>
+  <script src="assets/curve-widget.js?v=tv-20261022-0109-69873178" defer></script>
+  <script src="assets/comparison-dashboard.js?v=tv-20261022-0109-69873178" defer></script>
   <script src="assets/player-tags.js" defer></script>
   <script src="v2/namesearch.js" defer></script>
   <script src="v2/targets.js" defer></script>
@@ -3113,7 +3117,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261021-2334-d9eee73c</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261022-0109-69873178</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug

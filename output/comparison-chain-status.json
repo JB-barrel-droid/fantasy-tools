@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T06:09:11.914742+00:00",
+  "run_at": "2026-10-22T07:27:49.523494+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,25 +15,11 @@
   "outcome": "published_with_holds",
   "held": [
     "cbsros",
-    "espn",
     "razzball"
   ],
   "hold_severity": "red",
   "list_changes": {},
   "held_detail": {
-    "espn": {
-      "reason": "fidelity: stored_vs_chart",
-      "held_series": [
-        "espn",
-        "espn_vorp"
-      ],
-      "sections": [
-        "espn"
-      ],
-      "detail": "1758/1764 chart values equal stored snapshot 2026-10-21 (per game, 2 decimals); 6 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
-      "hold_severity": "red",
-      "week": 7
-    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -43,7 +29,7 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1089/1089 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not",
+      "detail": "1083/1083 values match exactly across 3 columns; 0 value mismatches, 3 publisher players not stored, 0 stored players not on the page; stored values differ from the same publisher version: the publisher serves the content the save read (fingerprint 16ea9ae86dca12e9f658049f); 1 publisher names do not",
       "hold_severity": "red",
       "week": 7
     },
@@ -173,7 +159,6 @@
     }
   },
   "fidelity_holds": {
-    "espn": "fidelity: stored_vs_chart",
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   }

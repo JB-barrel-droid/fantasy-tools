@@ -32,9 +32,11 @@ DIST = ROOT / "dist"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 
 from tests import _render_env  # noqa: E402
+from tests.test_v2_targets_render import build_v2_page  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 MESSAGES = {
+    "razzball": "Razzball projections: in line with its usual range (47% vs 46%).",
     "usatoday": "USA Today disagrees with the other charts on 38% of players this week (usually 20%).",
     "fantasycalc": "FantasyCalc disagrees with the other charts on 47% of players this week (usually 46%). Under review.",
     "fantasypros": "FantasyPros was reviewed on 2026-10-14: its ordering is unusual but correct.",
@@ -45,8 +47,12 @@ DIVERGENCE = {
     "fantasypros": {"status": "reviewed", "message": MESSAGES["fantasypros"], "resolution_issue": "JEG-123"},
     "cbs": {"status": "ok", "message": "CBS disagrees with the other charts on 14% of players this week.", "resolution_issue": None},
     "espn": {"status": "n/a", "message": "", "resolution_issue": None},
+    # JEG-834: warned only by the fixed ceiling while within 5 points of its own usual rate: the chip stays (GL-25)
+    # but says "In range" with a plain message, not the flagged "disagrees ... Under review" wording.
+    "razzball": {"status": "warn", "message": "Razzball disagrees with the other projections on 47% of players this week (usually 46%). Under review.",
+                 "resolution_issue": None, "outlier_rate": 0.474, "usual_outlier_rate": 0.46},
 }
-EXPECT = {"usatoday": "Check", "fantasycalc": "Check", "fantasypros": "Reviewed"}
+EXPECT = {"usatoday": "Check", "fantasycalc": "Check", "fantasypros": "Reviewed", "razzball": "In range"}
 
 CHIPS = """() => [...document.querySelectorAll('.v2-div-chip')].filter(c => c.offsetParent !== null).map(c => ({
   src: c.dataset.divergence, status: c.dataset.status, text: c.textContent.trim(), title: c.title, aria: c.getAttribute('aria-label') || '',
@@ -60,7 +66,8 @@ def _served():
         raise _render_env.unavailable("dist/index.html is not built")
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
-        shutil.copytree(DIST, dist)
+        shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        build_v2_page.build(dist)   # JEG-834: test the source in app/v2, not a stale committed build
         path = dist / "assets" / "reference-freshness.json"
         doc = json.loads(path.read_text(encoding="utf-8"))
         doc["source_divergence"] = DIVERGENCE
@@ -183,6 +190,10 @@ def run_checks(patch=None) -> list[str]:
             # The Customize list still names a held source (greyed), so its chip stays: all flagged sources.
             if seen != set(EXPECT):
                 errors.append(f"[customize] chips on {sorted(seen)}, want {sorted(EXPECT)}")
+            # JEG-834: a source within its usual range keeps its chip but says so plainly.
+            razz = next((c for c in chips if c["src"] == "razzball"), None)
+            if razz and (razz["text"].lstrip("⚑✓ ").strip() != "In range" or razz["title"] != MESSAGES["razzball"]):
+                errors.append(f"[customize] Razzball within its usual range reads {razz['text']!r} / {razz['title']!r}")
             if page_errors:
                 errors.append(f"page errors {page_errors}")
             page.close()
@@ -197,7 +208,8 @@ PATCHES = {
     "tooltip dropped": ("    chip.title = message;\n", "    chip.title = '';\n"),
     "link inside the header button": ('const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";',
                                       'const href = (status === "reviewed" || status === "excluded") ? resolutionHref(entry.resolution_issue) : "";'),
-    "reviewed shown as check": ('const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : "Check");', 'const word = "Check";'),
+    "within-usual-range source flagged": ("usualGap <= 5;", "usualGap <= -999;"),
+    "reviewed shown as check": ('const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : (inRange ? "In range" : "Check"));', 'const word = "Check";'),
 }
 
 
