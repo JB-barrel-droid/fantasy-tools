@@ -1404,6 +1404,12 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-srclink { padding: 15px; margin: -15px; }
 }
 
+/* JEG-827: the Values "Rank by" field shrinks with the toolbar row instead of running 2 px past a 320 px screen. */
+@media (max-width: 767px) {
+  #v2Main .v2-toolbar .v2-field-rank { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  #v2Main .v2-toolbar .v2-field-rank select { flex: 1 1 0; width: 0; min-width: 0; }
+}
+
 /* JEG-827: below 1024 px the zoom row sits above the plot (a 48 px strip), not over its top 44 px; the plot grows by the strip so the chart keeps its height. */
 @media (max-width: 1023px) {
   .v2-plot-main { padding-top: 48px; box-sizing: border-box; }
