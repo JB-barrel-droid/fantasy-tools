@@ -129,9 +129,26 @@ def ready(page):
     page.wait_for_timeout(250)
 
 
+FIRST_VISIT: dict = {}
+
+
+def check_no_alias(page, snap, tag) -> list[str]:
+    errors = []
+    bad = [k for k in snap["shown"] if k.endswith("_adjusted")]
+    if bad:
+        errors.append(tag + f"retired aliases shown: {bad}")
+    text = page.evaluate("""() => [document.getElementById('v2ShowingText').textContent,
+      ...[...document.querySelectorAll('#v2Table thead th')].map(th => th.textContent),
+      ...[...document.querySelectorAll('#v2Chart [data-source]')].map(n => n.dataset.source)].join(' | ')""")
+    if "_adjusted" in text:
+        errors.append(tag + "an *_adjusted id appears in the strip, table headers or chart")
+    return errors
+
+
 def check_customize(page, tag) -> list[str]:
     errors = []
     before = page.evaluate(READ)
+    FIRST_VISIT["shown"] = list(before["shown"])
     page.click("#v2EditSources")
     boxes = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-ddf-input]')].map(b => ({key: b.dataset.ddfInput,
       on: b.checked, disabled: b.disabled}))""")
@@ -169,6 +186,16 @@ def check_customize(page, tag) -> list[str]:
     # Reset to default hands the choice back to the engine (isDefault), which then follows its own defaults.
     if not reset["isDefault"]:
         errors.append(tag + f"Reset to default left reader-chosen inputs {reset['inputs']} (defaults {reset['defaults']})")
+    # JEG-843: Reset to default returns exactly the first-visit series, never the retired *_adjusted aliases.
+    if sorted(reset["shown"]) != sorted(FIRST_VISIT["shown"]):
+        errors.append(tag + f"Reset to default shows {reset['shown']}, a fresh profile shows {FIRST_VISIT['shown']}")
+    errors += check_no_alias(page, reset, tag + "after Reset to default: ")
+    # A selection saved with the aliases (older build) is cleaned on load.
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('ddf.v2.selection') || '{"v":1}');
+      s.v = 1; s.shown = (s.shown || []).concat(['fantasycalc_adjusted', 'cbs_adjusted']); localStorage.setItem('ddf.v2.selection', JSON.stringify(s)); }""")
+    page.reload(wait_until="networkidle")
+    ready(page)
+    errors += check_no_alias(page, page.evaluate(READ), tag + "after loading a saved selection with aliases: ")
     # Hiding the DDF Value is remembered too.
     page.click("#v2EditSources")
     page.click(f'#v2Popover [data-series="{DDF}"]')
@@ -393,6 +420,7 @@ class DdfRenderTest(unittest.TestCase):
             # the engine's own default lock IS the DDF Value now.)
             "inputs never reach the engine": {"v2.js": (v2.replace(
                 "if (changed) C.setCompositeInputs([...inputsDraft]);", "if (false) C.setCompositeInputs([...inputsDraft]);", 1), js)},
+            "Reset default includes retired aliases": {"v2.js": (v2.replace("item.available && !isEngineAlias(item.key) && sourceMeta(item.key).method === \"indexed\"", "item.available && sourceMeta(item.key).method === \"indexed\"", 1), js)},
             "choice not remembered": {"v2.js": (v2.replace("localStorage.setItem(SAVE_KEY,", "void (SAVE_KEY,", 1), js)},
             "Reset keeps Rank by": {"v2.js": (v2.replace(
                 "    if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);\n", "", 1), js)},
