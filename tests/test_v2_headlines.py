@@ -67,8 +67,8 @@ CASES = {
     # JEG-821: DDF says win (+2 of 100 traded = 2%, thin), but 0 of 5 other sources agree (all say lose):
     # "Unclear" because no support AND thin margin.
     "zero-agree-thin": ([player(1, 49, 52, 52, 52, 52, 52)], [player(2, 51, 48, 48, 48, 48, 48)], False),
-    # JEG-821: DDF says win (+20 of 120 traded = 17%, not thin), 0 of 5 agree: still "Yes" because the margin
-    # is substantial even without other-source agreement.
+    # JEG-832: DDF says win (+20 of 120 traded = 17%, not thin), 0 of 5 agree: "Unclear" because
+    # no other source supports the verdict (strengthened from JEG-821 which allowed wide-margin Yes).
     "zero-agree-wide": ([player(1, 50, 70, 70, 70, 70, 70)], [player(2, 70, 50, 50, 50, 50, 50)], False),
     # JEG-821: DDF says "even" (net 0.0), 0 of 5 agree (all say you lose): "Unclear" because
     # Even without any supporting source is not a verdict the data backs.
@@ -136,8 +136,8 @@ def expected(case) -> dict:
             level = LEVELS[max(0, LEVELS.index(level) - 1)]
         if thin:
             level = "Low"
-        # JEG-821: Unclear when 0 agree AND (thin OR Even).
-        if agree == 0 and others and (thin or answer == "Even"):
+        # JEG-821 + JEG-832: Unclear when 0 agree (no chart supports the verdict).
+        if agree == 0 and others:
             answer = "Unclear"
         result["propose"] = {"answer": answer, "confidence": level}
     # Line 2: charts on which the other manager wins or breaks even (our net <= 0 as shown).
@@ -170,9 +170,9 @@ ANCHORS = {
     "five-percent": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
     "likely": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
     "ddf-missing": {"propose": (None, None), "accept": ("Unlikely", "High")},
-    # JEG-821: 0 agree + thin -> Unclear; 0 agree + wide margin -> still Yes; Even + 0 agree -> Unclear.
+    # JEG-821 + JEG-832: 0 agree -> always Unclear regardless of margin.
     "zero-agree-thin": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
-    "zero-agree-wide": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
+    "zero-agree-wide": {"propose": ("Unclear", "Low"), "accept": ("Likely", "High")},
     "even-no-support": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
 }
 
@@ -199,8 +199,8 @@ MUTATIONS = {
     "other manager wins flipped": ("signOf(row.net) <= 0).length", "signOf(row.net) >= 0).length"),
     "High threshold lowered": ("share >= 0.75 ? \"High\"", "share >= 0.5 ? \"High\""),
     "few-sources cap removed": ("if (charts.length < 3) { level = capped(level, \"Medium\");", "if (false) { level = capped(level, \"Medium\");"),
-    # JEG-821: removing the Unclear rule must be caught.
-    "unclear rule removed (JEG-821)": ("if (agree === 0 && v.others > 0 && (thinFlag || answer === \"Even\")) { answer = \"Unclear\"; }",
+    # JEG-821 + JEG-832: removing the Unclear rule must be caught.
+    "unclear rule removed (JEG-821)": ("if (agree === 0 && v.others > 0) { answer = \"Unclear\"; }",
                                         ""),
 }
 

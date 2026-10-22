@@ -114,6 +114,7 @@ PROJ = "ddf_value_projections"   # a choice in the picker, not the default (Jere
 OURS = (DDF, PROJ, "espn", "cbsros", "razzball")
 TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
 SELL_FLOOR = 5.0   # JEG-820: TradeValueTargets.SELL_FLOOR
+BUY_RANK_MARGIN = 2.0   # JEG-833: TradeValueTargets.BUY_RANK_MARGIN
 CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
@@ -189,7 +190,15 @@ READ = """([side, ours, ids]) => {
     table, details, cards, used: window.TradeValueV2.targets().used,
     picker: document.getElementById('v2TOurs').value,
     // Every target on this side, not only the rendered page.
-    allBest: window.TradeValueV2.targets()[side].map(p => [String(p.row.player_key), p.market.gap]),
+    // JEG-833: the gap each side shows (Sell the consensus gap, Buy the gap at the charts' rank) and the score it is ranked by.
+    allBest: window.TradeValueV2.targets()[side].map(p => [String(p.row.player_key), side === 'buy' ? p.market.rankGap : p.market.gap,
+      side === 'buy' ? p.market.buyScore : p.market.score]),
+    scaleOnly: window.TradeValueV2.targets().scaleOnly, pos: Object.fromEntries(rows.map(r => [String(r.player_key), r.pos])),
+    scores: [...document.querySelectorAll(`#${ids.table} tbody tr[data-player-key]`)].map(tr => {
+      const s = tr.querySelector('td.best .t-score'); return s ? {score: s.dataset.score, text: s.textContent, title: s.title, market: s.dataset.marketRank ?? null, ours: s.dataset.ourRank ?? null} : null; }),
+    cardScores: [...document.querySelectorAll(`#${ids.cards} li`)].map(li => li.querySelector('.big .t-score')?.dataset.score ?? null),
+    cardTexts: [...document.querySelectorAll(`#${ids.cards} li`)].map(li => li.querySelector('.big .t-score')?.textContent ?? null),
+    meta: document.getElementById(ids.meta || (side === 'sell' ? 'v2TSellMeta' : 'v2TBuyMeta')).textContent,
     methodsHidden: document.getElementById('v2Methods').hidden,
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
@@ -377,10 +386,11 @@ def check_market(where, values, our_key, used, market) -> list[str]:
             return [f"{where}: average {mean} equals ours {ours} to one decimal; expected only the note, got {market}"]
         return []
     diff = ours - mean
-    symbol = "▲" if diff > 0 else "▼"
+    # JEG-833: the difference is said in words (above / below), never as a signed number that contradicts the gap.
+    symbol, word = ("▲", "above") if diff > 0 else ("▼", "below")
     if (market["equal"] or market["text"].removeprefix("Consensus ").strip() != fmt(mean) or market["n"] != str(len(priced)) or market["diff"] != f"{diff:.1f}"
-            or market["diffText"] != f"{symbol} {fmt_gap(diff)}"):
-        return [f"{where}: market consensus {market}, expected {fmt(mean)} of {len(priced)}, difference {symbol} {fmt_gap(diff)}"]
+            or market["diffText"] != f"{symbol} {abs(diff):.1f} {word}"):
+        return [f"{where}: market consensus {market}, expected {fmt(mean)} of {len(priced)}, difference {symbol} {abs(diff):.1f} {word}"]
     left = len(used) - len(priced)
     if left and f"{left} left out" not in (market["count"] or ""):
         return [f"{where}: {left} chart(s) without a value are not noted: {market['count']!r}"]
@@ -393,9 +403,32 @@ def median(values):
     return ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
 
 
-def expected_side(snapshot, side):
-    """The independent Check 1 list for one side: [(key, gap, agree, of)] from the engine rows (JEG-677)."""
+def expected_rank_gaps(snapshot) -> dict:
+    """JEG-833: per position over the players with our value and a 2+ chart consensus, our value at the charts' rank
+    minus our value. A monotone rescale gives 0 everywhere."""
     our_key, used, engine = snapshot["ours"], snapshot["used"], snapshot["engine"]
+    by_pos: dict[str, list] = {}
+    for index, key in enumerate(snapshot["order"]):
+        values = engine[key]
+        ours = values.get(our_key)
+        priced = [values[c] for c in used if finite(values.get(c))]
+        if not finite(ours) or len(priced) < 2:
+            continue
+        by_pos.setdefault(snapshot["pos"][key], []).append((index, key, ours, median(priced)))
+    out = {}
+    for players in by_pos.values():
+        ours_desc = sorted((p[2] for p in players), reverse=True)
+        for i, p in enumerate(sorted(players, key=lambda p: (-p[3], p[0]))):
+            out[p[1]] = ours_desc[i] - p[2]
+    return out
+
+
+def expected_side(snapshot, side):
+    """The independent Check 1 list for one side: [(key, gap, agree, of, score)] from the engine rows (JEG-677).
+    Sell: consensus gap, ours >= SELL_FLOOR (JEG-820). Buy: the gap at the charts' rank at or under -BUY_RANK_MARGIN
+    (JEG-833). Both ranked by |gap| x min(ours, consensus), biggest first; engine order breaks ties."""
+    our_key, used, engine = snapshot["ours"], snapshot["used"], snapshot["engine"]
+    rank_gaps = expected_rank_gaps(snapshot)
     found = []
     for index, key in enumerate(snapshot["order"]):
         values = engine[key]
@@ -412,11 +445,14 @@ def expected_side(snapshot, side):
         agree = sum(1 for v in priced if (v > ours if gap > 0 else v < ours))
         if side == "sell" and ours < SELL_FLOOR:   # JEG-820: a player we would drop is never a Sell
             continue
-        if agree * 2 > len(priced):
-            # JEG-820: ranked by the gap weighted by the value at stake, biggest first; engine order breaks ties.
-            found.append((index, key, gap, agree, len(priced), abs(gap) * min(ours, consensus)))
+        if agree * 2 <= len(priced):
+            continue
+        shown = gap if side == "sell" else rank_gaps[key]
+        if side == "buy" and shown > -BUY_RANK_MARGIN:   # JEG-833: the charts rank him where we do: the scale, not a Buy
+            continue
+        found.append((index, key, shown, agree, len(priced), abs(shown) * min(ours, consensus)))
     found.sort(key=lambda f: (-f[5], f[0]))
-    return [f[1:5] for f in found]
+    return [f[1:] for f in found]
 
 
 def expected_tiers(snapshot) -> dict:
@@ -494,7 +530,7 @@ def check(snapshot) -> list[str]:
     if not probe:
         errors.append("rows were not simulated")
     else:
-        listed = {key for key, _ in snapshot["allBest"]}
+        listed = {key for key, *_ in snapshot["allBest"]}
         if our_key == DDF and side == "sell":
             if probe["low"] not in listed:
                 errors.append(f"one-source player {probe['low']} is not a sell target (Jeremy: show it, flagged)")
@@ -529,14 +565,45 @@ def check(snapshot) -> list[str]:
         errors.append(f"no {side} rows rendered")
     # JEG-677: the whole list (not only the rendered page) is the consensus rule applied to the engine rows.
     want_list = expected_side(snapshot, side)
-    got_list = [(key, gap) for key, gap in snapshot["allBest"]]
-    if [(k, round(g, 9)) for k, g, _, _ in want_list] != [(k, round(g, 9)) for k, g in got_list]:
-        errors.append(f"{side} list is not the consensus rule's: want {[(k, round(g, 1)) for k, g, _, _ in want_list][:6]}, "
-                      f"got {[(k, round(g, 1)) for k, g in got_list][:6]}")
-    wanted = {k: (g, a, n) for k, g, a, n in want_list}
+    got_list = [(key, gap, score) for key, gap, score in snapshot["allBest"]]
+    if [(k, round(g, 9), round(s, 9)) for k, g, _, _, s in want_list] != [(k, round(g, 9), round(s, 9)) for k, g, s in got_list]:
+        errors.append(f"{side} list is not the consensus rule's: want {[(k, round(g, 1)) for k, g, *_ in want_list][:6]}, "
+                      f"got {[(k, round(g, 1)) for k, g, _ in got_list][:6]}")
+    wanted = {k: (g, a, n, s) for k, g, a, n, s in want_list}
     rendered = [row["key"] for row in snapshot["table"]]
     if rendered != [k for k, *_ in want_list][:len(rendered)]:
-        errors.append(f"{side} rows {rendered[:6]} are not the top of the consensus list (biggest weighted gap first, JEG-820)")
+        errors.append(f"{side} rows {rendered[:6]} are not the top of the consensus list (biggest score first, JEG-820 / JEG-833)")
+    # JEG-833 (phone QA round 2): the order on the page follows the measure the page shows. Every row carries its score,
+    # the scores never rise down the list, and the copy says what the list is ranked by.
+    shown_scores = [s["score"] if s else None for s in snapshot["scores"]]
+    want_scores = [f"{wanted[k][3]:.1f}" if k in wanted else "?" for k in rendered]
+    if any(s is None for s in shown_scores) or shown_scores != want_scores:
+        errors.append(f"{side} rows must show the score they are ranked by: {shown_scores[:6]} vs {want_scores[:6]}")
+    numeric = [float(s) for s in shown_scores if s is not None]
+    if any(a < b for a, b in zip(numeric, numeric[1:])):
+        errors.append(f"{side} rows are not in descending score order: {numeric[:8]}")
+    if snapshot["cardScores"] and snapshot["cardScores"] != want_scores[:len(snapshot["cardScores"])]:
+        errors.append(f"{side} cards must show the same scores as the rows: {snapshot['cardScores'][:6]}")
+    if "ranked by gap × value at stake" not in snapshot["meta"]:
+        errors.append(f"{side} copy must say what the list is ranked by: {snapshot['meta']!r}")
+    if side == "buy":
+        for row, s in zip(snapshot["table"], snapshot["scores"]):
+            pos = snapshot["pos"][row["key"]]
+            if not s or not s["market"] or not s["ours"] or f"{pos}{s['market']}→{pos}{s['ours']}" not in (s["title"] or ""):
+                errors.append(f"buy row {row['key']} must say where the charts rank him and where we do: {s}")
+        for key, text in zip(rendered, snapshot["cardTexts"]):
+            pos = snapshot["pos"][key]
+            s = next((x for r, x in zip(snapshot["table"], snapshot["scores"]) if r["key"] == key), None)
+            if s and f"{pos}{s['market']}→{pos}{s['ours']}" not in (text or ""):
+                errors.append(f"buy card {key} must print the ranks: {text!r}")
+        want_scale = sum(1 for k in snapshot["order"] if k in engine and finite(engine[k].get(our_key)) and k not in wanted
+                         and len([v for c in snapshot["used"] if finite((v := engine[k].get(c)))]) >= 2
+                         and median([engine[k][c] for c in snapshot["used"] if finite(engine[k].get(c))]) > 0
+                         and median([engine[k][c] for c in snapshot["used"] if finite(engine[k].get(c))]) < engine[k][our_key]
+                         and sum(1 for c in snapshot["used"] if finite(engine[k].get(c)) and engine[k][c] < engine[k][our_key]) * 2
+                         > len([c for c in snapshot["used"] if finite(engine[k].get(c))]))
+        if snapshot["scaleOnly"] != want_scale:
+            errors.append(f"players priced below our value but ranked where we do must be counted as the scale: {snapshot['scaleOnly']} vs {want_scale}")
     for row in snapshot["table"]:
         values = engine.get(row["key"])
         if values is None:
@@ -569,9 +636,9 @@ def check(snapshot) -> list[str]:
         if row["key"] not in wanted:
             errors.append(f"{row['key']}: listed as {side} target but the consensus rule does not make it one")
             continue
-        gap, agree, of = wanted[row["key"]]
+        gap, agree, of, _ = wanted[row["key"]]
         if row["bestChart"] != "consensus" or row["best"] != fmt_gap(gap):
-            errors.append(f"{row['key']}: gap {row['best']!r} != consensus gap {fmt_gap(gap)}")
+            errors.append(f"{row['key']}: gap {row['best']!r} != {'consensus gap' if side == 'sell' else 'gap at the charts rank'} {fmt_gap(gap)}")
         shown = row["agree"] or {}
         if (shown.get("agree"), shown.get("of")) != (str(agree), str(of)) or f"{agree} of {of} charts agree" not in shown.get("text", ""):
             errors.append(f"{row['key']}: shows {shown}, expected '{agree} of {of} charts agree'")
@@ -1043,6 +1110,13 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "raw gap order (JEG-820)": ({"targets_js": (targets, "const score = Math.abs(gap) * weight;", "const score = Math.abs(gap);")}, numbers_only),
             "sell floor removed (JEG-820)": ({"targets_js": (targets, "const sell = sellable.filter(p => p.ours >= SELL_FLOOR).sort(byScore);",
                                                              "const sell = sellable.slice().sort(byScore);")}, numbers_only),
+            # JEG-833: Buy by the consensus gap again (the overall top), the rank margin dropped, and the score sub-line gone.
+            "buy by consensus gap (JEG-833)": ({"targets_js": (targets, "const buy = buyable.filter(p => finite(p.market.rankGap) && p.market.rankGap <= -BUY_RANK_MARGIN)",
+                                                                "const buy = buyable.filter(p => true)")}, numbers_only),
+            "rank margin dropped (JEG-833)": ({"targets_js": (targets, "p.market.rankGap <= -BUY_RANK_MARGIN", "p.market.rankGap < 0")}, numbers_only),
+            "score not shown (JEG-833)": ({"v2_js": (v2, "      bc.appendChild(scoreNode(side, p, b));\n", "")}, numbers_only),
+            "rows sorted by raw gap, copy unchanged (JEG-833)": ({"targets_js": (targets, "const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;",
+                                                                                   "const byScore = (a, b) => b.market.gap - a.market.gap || a.order - b.order;")}, numbers_only),
         }
         for name, (mutation, opts) in broken.items():
             with self.subTest(mutation=name):

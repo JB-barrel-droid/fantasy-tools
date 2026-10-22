@@ -75,9 +75,13 @@ def run_checks(v2_js=None) -> list[str]:
             for ident in ("v2StepContentWeek", "v2StepRegularEnd", "v2StepPlayoffLo", "v2StepPlayoffHi"):
                 if page.query_selector(f"#{ident}") is None:
                     errors.append(f"Edit league has no #{ident}")
+            # JEG-834: the stepper names the data week (JEG-806 wording), not "the week the values are for".
+            label = page.text_content("#v2StepContentWeek")
+            if label != "Data through week":
+                errors.append(f"Edit league week stepper reads {label!r}, want 'Data through week'")
             click(page, "Earlier Last regular-season week")
             click(page, "Earlier Last playoff week")
-            click(page, "Earlier Week the values are for")
+            click(page, f"Earlier {label}")
             page.click('.v2-pseg[aria-label="Optimize for"] button[data-value="regular"]')
             page.click('[data-apply="league"]')
             page.wait_for_timeout(300)
@@ -130,6 +134,7 @@ class SeasonWeeksRenderTest(unittest.TestCase):
         js = V2_JS.read_text(encoding="utf-8")
         broken = {
             "apply ignores weeks": js.replace("if (draft.weeks) weekError = applySeasonWeeks(draft.weeks);", "", 1),
+            "old week label": js.replace("\"Data through week\", \"content\"", "\"Week the values are for\", \"content\"", 1),
             "link ignores weeks": js.replace("const error = applySeasonWeeks(weeksChange);", "const error = '';", 1),
         }
         for name, body in broken.items():

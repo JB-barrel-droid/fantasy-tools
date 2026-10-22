@@ -59,6 +59,15 @@ the window length. Byes: data/inputs/nfl_byes_2026.json (fixed for the
 season; ESPN's proTeams.byeWeek agrees for 32 of 32 teams on 2026-10-08).
 The team comes from ctx (see _team_of); a player whose team cannot be
 determined returns no chart value (never guessed).
+
+The team source is the chart's own (JEG-807, 2026-10-22): the chart's ESPN
+section divides by the team on the ESPN CSV row (data/inputs/espn_projections.csv,
+JEG-702, build_ddf_two_tier_leg.load_espn_lists), and public.players can
+disagree with it (J.J. McCarthy: CSV NYG, bye 8 inside 7-18 -> 11 games;
+public.players MIN, inactive, bye 6 -> 12 games; the pulse read 18.55 against
+the chart's 20.23 and held ESPN red on 6 of 1764 values). chart_team_of
+installs the CSV's team as ctx["team_of"] when the CSV is the snapshot the
+chart shows; a key the CSV lacks falls back to the registry.
 """
 from __future__ import annotations
 
@@ -101,6 +110,11 @@ STATS = (("3", "r_pass_yds", 0.04), ("4", "r_pass_tds", 4.0),
          ("53", "r_receptions", 0.5), ("42", "r_rec_yds", 0.10), ("43", "r_rec_tds", 6.0))
 
 BYES_PATH = _PIPELINES.parent / "data" / "inputs" / f"nfl_byes_{SEASON}.json"
+# The committed ESPN anchor the chart's ESPN section is built from (JEG-702).
+ESPN_CSV = _PIPELINES.parent / "data" / "inputs" / "espn_projections.csv"
+# ctx["team_of"] may answer this for a key it does not know: _team_of then
+# falls back to the registry instead of treating the player as teamless.
+TEAM_UNKNOWN = object()
 # Team spellings -> the bye table's (Supabase teams.abbreviation) spelling.
 TEAM_ALIASES = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX", "STL": "LA", "OAK": "LV", "SD": "LAC"}
 WINDOW = re.compile(r"^\s*(\d{1,2})\s*-\s*(\d{1,2})\s*$")
@@ -355,7 +369,8 @@ def _team_of(key, ctx: dict) -> tuple[bool, str | None]:
     registry's team-defense tokens."""
     if callable(ctx.get("team_of")):
         team = ctx["team_of"](key)
-        return True, (team or None)
+        if team is not TEAM_UNKNOWN:
+            return True, (team or None)
     ident = ctx.get("ident")
     reg = getattr(ident, "reg", None)
     e = (getattr(reg, "by_key", None) or {}).get(int(key)) if key is not None and reg is not None else None
@@ -369,6 +384,34 @@ def _team_of(key, ctx: dict) -> tuple[bool, str | None]:
         cache = ctx.setdefault("_espn_dst_team_abbr", _dst_team_abbr(reg))
         abbr = cache.get(tid)
     return (True, abbr) if abbr else (False, None)
+
+
+def chart_team_of(rows: list[dict], snapshot: str | None, csv_path: Path = ESPN_CSV):
+    """ctx["team_of"] from the chart's own team source (JEG-807): the ESPN CSV
+    row's team, keyed by the stored rows' player_key through their player_norm.
+    None when the CSV is missing, unreadable, or not the chart's snapshot
+    (then the registry decides, as before). A key the CSV lacks answers
+    TEAM_UNKNOWN (registry fallback); a blank CSV team is a free agent."""
+    import csv  # noqa: PLC0415
+    try:
+        with Path(csv_path).open(newline="", encoding="utf-8") as handle:
+            csv_rows = list(csv.DictReader(handle))
+    except (OSError, UnicodeDecodeError):
+        return None
+    dates = {str(r.get("espn_snapshot_date") or "") for r in csv_rows}
+    if not csv_rows or snapshot is None or dates != {str(snapshot)}:
+        return None
+    team_by_norm = {str(r.get("player_norm") or ""): (str(r.get("team") or "").strip() or None)
+                    for r in csv_rows if r.get("player_norm")}
+    norm_by_key: dict[int, str] = {}
+    for r in rows:
+        if r.get("player_key") is not None and r.get("player_norm"):
+            norm_by_key.setdefault(int(r["player_key"]), str(r["player_norm"]))
+
+    def team_of(key):
+        norm = norm_by_key.get(int(key)) if key is not None else None
+        return team_by_norm[norm] if norm in team_by_norm else TEAM_UNKNOWN
+    return team_of
 
 
 def games_remaining(key, window: tuple[int, int], ctx: dict) -> int | None:

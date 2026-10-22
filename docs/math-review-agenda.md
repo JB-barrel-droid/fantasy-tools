@@ -1520,7 +1520,21 @@ the trade-target views; not covered.
   against a monotone fit of ours on consensus over all compared players), so
   only players priced below the market's own curve surface. (c) Option C of the
   ticket: split into "Sell-high bench" and "Buy starters" with one sentence each.
-  Not measured: (b).
+- **Shipped 2026-10-22 (JEG-833, proceeding per standing instruction).** Buy
+  compares at the charts' rank: our value at the position rank the charts give
+  the player, minus our value (the rank-equivalent gap, exactly (b) with a
+  rank-based fit). Measured first on the live build, 3 charts, Full PPR 12: the
+  JEG-833 options A (position share: Smith-Njigba -35%, Nacua -33%, Chase -31%,
+  Walker -27%, Gibbs -21% still on top), B (ceiling: moves the same scale effect
+  down the board) and C (percentage: Kirk +159% at 0.0, Allen +105%) all kept
+  the top tier; a per-position median-ratio residual did too (+34% to +60%),
+  because our top end is steeper, not only our scale. By rank the top five are
+  0.0 and the list is McCaffrey (charts RB8, we RB5), Hubbard, Hall, Jefferson,
+  Judkins, Goff, Mahomes in every one of the 12 setups. Open for the review:
+  the 2-point margin, whether Sell should use the same rank gap (by rank the
+  Sell list would be Barkley, Daniels, Etienne, Dobbins; the shipped weighted
+  consensus gap gives LaPorta, Warren, McConkey, Likely, Dobbins), and whether
+  QBs' rank gaps (Goff, Mahomes) are a positional-weight effect.
 
 ## Math review answers 2026-10-15 (Jeremy, JEG-450; decisions.md math-review-2026-10-15)
 

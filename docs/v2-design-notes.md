@@ -1150,6 +1150,22 @@ modules.js. How values work and Manifesto are reading pages and are not modules.
   Buy is unchanged in substance (Gibbs, JSN, Nacua, Bijan, Walker ...): ours / consensus is 1.3 to 1.5 in every
   consensus bucket, so the Buy side is our steeper scale, not per-player mispricing (`docs/math-review-agenda.md`
   MR-28). The footnote also says when DDF Value rests on one source for a listed player (leads, not verdicts).
+- JEG-833 (2026-10-22, proceeding per standing instruction): Buy compares at the charts' rank. `rankEquivalents` in
+  targets.js gives every player with a 2+ chart consensus `market.marketRank`, `ourRank`, `oursAtRank` (our value at
+  the charts' rank, same position, same compared players), `rankGap = oursAtRank - ours` and
+  `buyScore = |rankGap| x min(ours, consensus)`. Buy lists `rankGap <= -BUY_RANK_MARGIN` (2) by `buyScore`; the rest of
+  the "market pays less" players are `scaleOnly` (+ `scaleOnlyNames`, by ours) and get a footnote. A monotone rescale
+  gives rankGap 0 everywhere, which is why the ticket's options A (position share), B (ceiling) and C (percentage)
+  all failed on the live data: with 3 charts at Full PPR 12 the share gap still put Smith-Njigba -35%, Nacua -33%,
+  Chase -31%, Walker -27%, Gibbs -21% on top; by rank the top five are all 0.0. After: McCaffrey (charts RB8, we RB5,
+  -6.4), Hubbard (RB12 vs RB10, -5.0), Breece Hall (RB18 vs RB17, -4.1), Jefferson (WR9 vs WR6, -2.9), Judkins, Goff,
+  Mahomes, Adams; the same names lead every one of the 12 setups. Display: Buy's big number is `rankGap`, the column
+  reads "Gap at chart rank", each table row carries an inline `.t-score` run "score 32" (rounded, 10 px; Sell "score 49") with
+  the ranks in its tooltip and `data-market-rank` / `data-our-rank` (a longer run squeezed the player column and pushed
+  the top 5 under the JEG-675 fold), and each phone card prints "RB8→RB5 · score 32.1", the meta line reads "ranked by gap × value at stake, biggest score first", and the market
+  cell's ▲ / ▼ line is "3.3 above" / "3.3 below" (phone QA round 2: the signed number read as a contradicting gap).
+  `buildTargets(rows, charts, {keep})` takes every row and filters with `keep` after the ranks, so a name search
+  cannot change a player's rank.
 - Default Our value is DDF Value (`ddf_value`, first in `OUR_KEYS`; Jeremy 2026-10-16 reversed the first JEG-677 DDF Projections default). Chart values are the engine's Indexed series; dots carry them.
 - Display (v2.js `targetBest` / `agreeNode`): "Market consensus" column ("median of N"), "Gap vs consensus" column with
   "N of M charts agree" and one dot per chart (above / below our value). Per-chart cells keep their own gaps.
