@@ -3314,9 +3314,8 @@
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
     // JEG-498: only the charts ticked in this page's Customize are compared; a chart left out is not "skipped".
-    // JEG-834: a list needs 2 or more charts (the market is their median), so one chart alone can never make one.
-    T.chart = "all";
-    const picked = null;
+    // JEG-851: a single chart is now selectable; "all" compares every enabled chart.
+    const picked = T.chart !== "all" ? T.chart : null;
     const {used, skipped, prior} = TT.chartsToCompare(info.filter(item => !TT.CHART_KEYS.includes(item.key) || mine.has(item.key)), {only: picked});
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
@@ -3357,16 +3356,20 @@
       const option = document.createElement("option");
       option.value = key;
       const missing = !item || !item.available;
-      option.disabled = true;   // JEG-834: one chart alone returns 0 results (a list needs 2 or more charts)
+      // JEG-851: a single chart is selectable; disable only when unavailable or same as our value.
+      const sameAsOurs = TT.CHART_KEYS.includes(targetsView.ours) && key === targetsView.ours;
+      option.disabled = missing || sameAsOurs;
       const prior = missing ? null : priorWeekInfo(key, item, targetsView.refWeek);
-      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${missing ? " — not available" : `${prior ? ` · ${prior.short} (prior week)` : ""} — needs 2 or more charts`}`;
+      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${missing ? " — not available" : sameAsOurs ? " — same as Our value" : `${prior ? ` · ${prior.short} (prior week)` : ""}`}`;
       if (prior) {
         option.dataset.priorWeek = key;
         option.title = prior.label;
       }
       select.appendChild(option);
     });
-    if (T.chart !== "all" && !mineCharts.has(T.chart)) T.chart = "all";
+    // JEG-851: reset to "all" if the selected chart is not available or same as our value.
+    const sameChartAsOurs = TT.CHART_KEYS.includes(targetsView.ours) && T.chart === targetsView.ours;
+    if (T.chart !== "all" && (!mineCharts.has(T.chart) || sameChartAsOurs)) T.chart = "all";
     select.value = T.chart;
     // The picked chart's own badge sits beside the caption (an <option> cannot hold one).
     const slot = $("v2TChartBadge");
@@ -3380,8 +3383,10 @@
     targetsView.choices.forEach(choice => {
       const option = document.createElement("option");
       option.value = choice.key;
-      option.disabled = !choice.available;
-      option.textContent = `${sourceMeta(choice.key).symbol} ${TT.OUR_NAMES[choice.key]}${choice.available ? "" : ` — ${choice.reason}`}`;
+      // JEG-851: disable a chart key when it's the same as the single compared chart.
+      const sameAsChart = TT.CHART_KEYS.includes(choice.key) && T.chart === choice.key;
+      option.disabled = !choice.available || sameAsChart;
+      option.textContent = `${sourceMeta(choice.key).symbol} ${TT.OUR_NAMES[choice.key]}${!choice.available ? ` — ${choice.reason}` : sameAsChart ? " — same as Compare against" : ""}`;
       oursSelect.appendChild(option);
     });
     oursSelect.value = targetsView.ours;
@@ -3431,12 +3436,17 @@
       cell.appendChild(missingNode("No compared chart prices this player", "no chart value"));
       return;
     }
+    // JEG-851: in single-chart mode, say the chart's name, not "market consensus" / "median of N".
+    const sc = targetsView.singleChart;
+    const scLabel = sc ? (PUBLISHER_NAMES[sc] || sc) : null;
     if (m.equal) {
       cell.dataset.marketEqual = "";
       const note = document.createElement("span");
       note.className = "why t-equal";
-      note.textContent = "= market consensus";
-      note.title = `The median of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+      note.textContent = sc ? `= ${scLabel}` : "= market consensus";
+      note.title = sc
+        ? `${scLabel}'s rescaled value is ${fmt(m.value)}, the same as our value.`
+        : `The median of ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
       cell.appendChild(note);
       return;
     }
@@ -3444,7 +3454,7 @@
     const count = document.createElement("span");
     count.className = "why t-count";
     count.dataset.marketCount = String(m.count);
-    count.textContent = `median of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
+    count.textContent = sc ? scLabel : `median of ${m.count}${m.left ? ` · ${m.left} left out` : ""}`;
     if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
     const diff = document.createElement("span");
     diff.className = "why t-diff";
@@ -3899,6 +3909,9 @@
     $("v2TCircularText").textContent = indep && indep.circular ? CIRCULAR_BANNER : "";
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;
+    // JEG-851: single-chart mode changes text throughout.
+    const sc = targetsView.singleChart;
+    const scName = sc ? (PUBLISHER_NAMES[sc] || sc) : null;
     TARGET_SIDES.forEach(side => {
       const ids = TARGET_IDS[side];
       const list = targetsView[side];
@@ -3909,14 +3922,20 @@
       empty.hidden = !(blocked || noCharts || !list.length);
       empty.textContent = blocked || (noCharts
         ? "No trade chart is available to compare for this selection."
-        : side === "sell" ? "No player has a market consensus above our value, backed by 2 or more charts, for this selection."
-        : `No player the charts rank ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him, backed by 2 or more charts, for this selection.`);
+        : sc
+          ? (side === "sell" ? `No player ${scName} values above our value for this selection.`
+            : `No player ${scName} ranks ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him for this selection.`)
+          : (side === "sell" ? "No player has a market consensus above our value, backed by 2 or more charts, for this selection."
+            : `No player the charts rank ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him, backed by 2 or more charts, for this selection.`));
       $(ids.table).hidden = !list.length;
       // JEG-820 / JEG-833: each list is ranked by the gap it shows times the value at stake (the score on every row).
       // JEG-826: soften actionable copy when the blend is not independent of the compared charts.
-      const actionCopy = indep && indep.circular
-        ? (side === "sell" ? "The charts' rescaled values sit above ours." : "The charts' rescaled values sit below ours.")
-        : (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: the charts rank them lower than we do.");
+      // JEG-851: single-chart mode uses chart-specific language, not "most charts".
+      const actionCopy = sc
+        ? (side === "sell" ? `${scName} pays more than our value.` : `${scName} ranks them lower than we do.`)
+        : indep && indep.circular
+          ? (side === "sell" ? "The charts' rescaled values sit above ours." : "The charts' rescaled values sit below ours.")
+          : (side === "sell" ? "Offer them: most charts pay more than our value." : "Ask for them: the charts rank them lower than we do.");
       $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
     });
     const notes = [];
@@ -3979,9 +3998,32 @@
     }
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
       ? `${targetsView.ours === DDF_KEY ? "the DDF Value" : `the ${sourceMeta(targetsView.ours).label} version`}, built from the inputs chosen in Customize on Player values`
-      : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]} with Data Driven Adjustments`;
+      : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
+    // JEG-851: rewrite the footnote lead-in for single-chart mode.
+    const footEl = $("v2TFootnote");
+    const oursSpan = $("v2TOursNote");
+    const priorSpan = $("v2TPriorNote");
+    if (sc) {
+      // Rebuild: "Gap = <chart>'s rescaled value − our value ... against one chart: <name>."
+      footEl.textContent = "";
+      footEl.append(
+        document.createTextNode(`Gap = ${scName}'s rescaled value − our value for the same player, both in your league's trade-value points. Our value is `),
+        oursSpan,
+        document.createTextNode(`; the chart is rescaled to the same point scale. Against one chart: ${scName}. `),
+        priorSpan,
+        document.createTextNode("VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
+    } else if (footEl.firstChild && footEl.firstChild.nodeType === 3 && !footEl.firstChild.textContent.startsWith("Gap = market consensus")) {
+      // Restore the multi-chart footnote if previously in single-chart mode.
+      footEl.textContent = "";
+      footEl.append(
+        document.createTextNode("Gap = market consensus (the median of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is "),
+        oursSpan,
+        document.createTextNode("; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. "),
+        priorSpan,
+        document.createTextNode("VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
+    }
     // Footnote: each compared chart that is still on an earlier week, with its badge.
-    const priorNote = $("v2TPriorNote");
+    const priorNote = priorSpan;
     priorNote.replaceChildren();
     targetsView.prior.filter(key => targetsView.used.includes(key)).forEach(key => {
       const badge = targetBadge(key);

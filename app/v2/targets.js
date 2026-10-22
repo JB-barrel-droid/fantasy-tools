@@ -32,13 +32,16 @@
 
   // Jeremy 2026-10-16 (JEG-677 follow-up): Check 1 compares DDF Value (the blend) to the market consensus of
   // the INDEXED trade charts. DDF Projections and the other versions stay selectable.
-  const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];
-  const OUR_KEY = OUR_KEYS[0];   // default: DDF Value
-  const DDF_VALUE_KEY = "ddf_value";
-  const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
-  const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
+  // JEG-851: chart keys are also selectable as "Our value", so you can compare any one source against any other.
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
+  const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"].concat(CHART_KEYS);
+  const OUR_KEY = OUR_KEYS[0];   // default: DDF Value
+  const DDF_VALUE_KEY = "ddf_value";
+  const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections",
+    usatoday: "USA Today trade chart", fantasycalc: "FantasyCalc trade chart", fantasypros: "FantasyPros trade chart", cbs: "CBS Sports trade chart"};
+  const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections",
+    usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
@@ -58,10 +61,10 @@
   // under -BUY_RANK_MARGIN points; the rest of the "market pays less" players are counted as scaleOnly.
   const BUY_RANK_MARGIN = 2;
 
-  function rankEquivalents(players) {
+  function rankEquivalents(players, minCharts) {
     const byPos = new Map();
     players.forEach(p => {
-      if (p.market.of < 2 || !finite(p.market.value)) return;
+      if (p.market.of < minCharts || !finite(p.market.value)) return;
       if (!byPos.has(p.row.pos)) byPos.set(p.row.pos, []);
       byPos.get(p.row.pos).push(p);
     });
@@ -82,12 +85,14 @@
 
   // JEG-677 (Jeremy, JEG-461 2026-10-08): the market consensus is the MEDIAN of the indexed charts that
   // price the player (a finite 0 counts: at or below that chart's waiver line; a null is left out and
-  // counted in `left`). Eligible as a target only with 2+ charts, a consensus above the waiver line, and a
-  // strict majority of the charts on the same side of our value as the consensus. gap = consensus - ours:
+  // counted in `left`). Eligible as a target only with minCharts+ charts (JEG-851: 1 for a single compared
+  // chart, 2 otherwise), a consensus above the waiver line, and a strict majority of the charts on the same
+  // side of our value as the consensus. gap = consensus - ours:
   // above 0 sells, below 0 buys. `agree` of `of` charts is shown on the row; `dots` is one entry per
   // chart (above / below / level against our value). diff = our value - consensus; equal says the two
   // match to one decimal as shown, so the page shows a note instead of a duplicate number.
-  function marketConsensus(ours, cells) {
+  // JEG-851: minCharts defaults to 2 (the consensus rule); with exactly one compared chart it is 1.
+  function marketConsensus(ours, cells, minCharts) {
     const keys = Object.keys(cells);
     const priced = keys.filter(key => finite(cells[key].value));
     const left = keys.length - priced.length;
@@ -102,7 +107,7 @@
     const side = gap > 0 ? "sell" : gap < 0 ? "buy" : null;
     const agree = side ? values.filter(v => (side === "sell" ? v > ours : v < ours)).length : 0;
     const dots = priced.map(key => ({chart: key, value: cells[key].value, side: cells[key].value > ours ? "above" : cells[key].value < ours ? "below" : "level"}));
-    const eligible = Boolean(side) && priced.length >= 2 && value > 0 && agree * 2 > priced.length;
+    const eligible = Boolean(side) && priced.length >= minCharts && value > 0 && agree * 2 > priced.length;
     // JEG-820: the value at stake and the ranking score (see SELL_FLOOR above).
     const weight = Math.min(ours, value);
     const score = Math.abs(gap) * weight;
@@ -126,6 +131,10 @@
   function buildTargets(rows, charts, opts) {
     const ourKey = (opts && opts.ours) || OUR_KEY;
     if (!OUR_KEYS.includes(ourKey)) throw new Error(`not an our-value series: ${ourKey}`);
+    // JEG-851: when our value is a chart key, exclude it from the compared charts (self-comparison is meaningless).
+    const effectiveCharts = CHART_KEYS.includes(ourKey) ? charts.filter(c => c !== ourKey) : charts;
+    // JEG-851: with exactly one compared chart, a single voter suffices; otherwise the consensus needs 2+.
+    const minCharts = effectiveCharts.length === 1 ? 1 : 2;
     const keep = opts && typeof opts.keep === "function" ? opts.keep : null;
     let players = [];
     let omittedNoOurs = 0;
@@ -137,7 +146,7 @@
         return;
       }
       const cells = {};
-      charts.forEach(chart => {
+      effectiveCharts.forEach(chart => {
         const value = row.values[chart];
         if (!finite(value)) {
           // JEG-541: the engine's own reason first (after JEG-508 a chart is null only when the engine
@@ -155,9 +164,9 @@
         const gap = value - ours;
         cells[chart] = {value, gap, reason: null};
       });
-      players.push({row, order: index + 1, ours, cells, market: marketConsensus(ours, cells)});
+      players.push({row, order: index + 1, ours, cells, market: marketConsensus(ours, cells, minCharts)});
     });
-    rankEquivalents(players);
+    rankEquivalents(players, minCharts);
     if (keep) players = players.filter(p => keep(p.row));
     // JEG-820: biggest weighted gap first (score), engine order breaks ties; Sell needs ours >= SELL_FLOOR.
     const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;
@@ -179,7 +188,8 @@
     const scaleOnly = buyable.filter(p => !listed.has(p)).sort((a, b) => b.ours - a.ours || a.order - b.order);
     return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells, belowSellFloor,
       leftOut: leftOut.length, leftOutNames: leftOut.slice(0, 5).map(p => p.row.name),
-      scaleOnly: scaleOnly.length, scaleOnlyNames: scaleOnly.slice(0, 5).map(p => p.row.name)};
+      scaleOnly: scaleOnly.length, scaleOnlyNames: scaleOnly.slice(0, 5).map(p => p.row.name),
+      singleChart: effectiveCharts.length === 1 ? effectiveCharts[0] : null};
   }
 
   // Chart columns to compare: every available published chart (JEG-459). A
