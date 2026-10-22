@@ -32,6 +32,7 @@ DIST = ROOT / "dist"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 
 from tests import _render_env  # noqa: E402
+from tests.test_v2_targets_render import build_v2_page  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 MESSAGES = {
@@ -45,6 +46,9 @@ DIVERGENCE = {
     "fantasypros": {"status": "reviewed", "message": MESSAGES["fantasypros"], "resolution_issue": "JEG-123"},
     "cbs": {"status": "ok", "message": "CBS disagrees with the other charts on 14% of players this week.", "resolution_issue": None},
     "espn": {"status": "n/a", "message": "", "resolution_issue": None},
+    # JEG-834: warned only by the fixed ceiling while within 5 points of its own usual rate: no chip, nothing to check.
+    "razzball": {"status": "warn", "message": "Razzball disagrees with the other projections on 47% of players this week (usually 46%). Under review.",
+                 "resolution_issue": None, "outlier_rate": 0.474, "usual_outlier_rate": 0.465},
 }
 EXPECT = {"usatoday": "Check", "fantasycalc": "Check", "fantasypros": "Reviewed"}
 
@@ -60,7 +64,8 @@ def _served():
         raise _render_env.unavailable("dist/index.html is not built")
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
-        shutil.copytree(DIST, dist)
+        shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        build_v2_page.build(dist)   # JEG-834: test the source in app/v2, not a stale committed build
         path = dist / "assets" / "reference-freshness.json"
         doc = json.loads(path.read_text(encoding="utf-8"))
         doc["source_divergence"] = DIVERGENCE
@@ -197,6 +202,7 @@ PATCHES = {
     "tooltip dropped": ("    chip.title = message;\n", "    chip.title = '';\n"),
     "link inside the header button": ('const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";',
                                       'const href = (status === "reviewed" || status === "excluded") ? resolutionHref(entry.resolution_issue) : "";'),
+    "within-usual-range source flagged": ('if ((status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5) return null;', ""),
     "reviewed shown as check": ('const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : "Check");', 'const word = "Check";'),
 }
 

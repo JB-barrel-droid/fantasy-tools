@@ -191,6 +191,11 @@
     if (!entry || method === "ddf" || method === "vorp") return null;
     const status = entry.status;
     if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;
+    // JEG-834: warn / investigate come from a fixed ceiling as well as the source's own history. A source
+    // within 5 points of its own usual rate is inside its usual range: no flag, nothing to check.
+    const usualGap = Number.isFinite(entry.outlier_rate) && Number.isFinite(entry.usual_outlier_rate)
+      ? Math.round(entry.outlier_rate * 100) - Math.round(entry.usual_outlier_rate * 100) : null;
+    if ((status === "warn" || status === "investigate") && usualGap !== null && usualGap <= 5) return null;
     const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";
     const chipClass = status === "excluded" ? "excluded" : (status === "reviewed" ? "reviewed" : "check");
     const chip = document.createElement(href ? "a" : "span");
