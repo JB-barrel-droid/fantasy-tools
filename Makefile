@@ -502,6 +502,7 @@ test-core:
 	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
+	node tests/test_v2_roster_paste.js
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story

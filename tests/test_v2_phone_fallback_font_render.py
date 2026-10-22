@@ -81,10 +81,10 @@ def _overflows(css=None) -> dict:
                 page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
             page.goto(base + tab, wait_until="networkidle")
             page.wait_for_timeout(1500)
-            # Five tabs since JEG-855, seven again once Find a trade and Values auditing land: hold the worst case,
+            # Six tabs since JEG-855, seven once Find a trade lands: hold the seven-tab case with one stand-in,
             # or the old rules no longer overflow and the guard proves nothing.
             page.evaluate("""() => { const nav = document.querySelector('.v2-tabs'); const last = nav.lastElementChild;
-              ['Find', 'Audit'].forEach(short => { const t = last.cloneNode(true); t.dataset.view = 'standin-' + short;
+              ['Find'].forEach(short => { const t = last.cloneNode(true); t.dataset.view = 'standin-' + short;
                 t.dataset.short = short; t.classList.remove('is-active'); t.removeAttribute('aria-current'); nav.appendChild(t); }); }""")
             page.wait_for_timeout(200)
             over = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
