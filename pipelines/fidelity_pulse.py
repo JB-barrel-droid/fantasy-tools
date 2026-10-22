@@ -1954,6 +1954,12 @@ def stage_projection_chart(source, mod, site_doc, site_error, store, ident, now,
     if not rows:
         return stage("red", f"no stored {LABEL[source]} snapshot {snap} (the chart's vintage)"), {}
     ctx = {"ident": ident, "now": now, "season": SEASON}
+    # JEG-807: the per-game divisor uses the team the chart used (ESPN: the
+    # committed CSV's team), not public.players' possibly stale team.
+    chart_team_of = getattr(mod, "chart_team_of", None)
+    team_of = chart_team_of(rows, snap) if callable(chart_team_of) else None
+    if team_of is not None:
+        ctx["team_of"] = team_of
     left = projection_grains(rows, lambda r: mod.stored_chart_values(r, ctx), mod.CHART_DECIMALS, ident)
     right, unresolved = projection_chart_grains(site_doc, source, ident)
     cmp = compare(left, right, printed=True)

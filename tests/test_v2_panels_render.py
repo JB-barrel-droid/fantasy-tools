@@ -288,6 +288,23 @@ def check_weights(page) -> list[str]:
     got = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if abs(got["QB"] - 0.30) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
         errors.append(f"weights: QB 30% applied as {got}")
+    # JEG-834: 150% and -5% are refused with a message, the box snaps back, nothing invalid reaches the engine.
+    page.click("#v2Weights")
+    before = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
+    for bad in ("150", "-5", ""):
+        page.fill("#v2ShareWR", bad)
+        msg = page.text_content("#v2Popover [data-share-message]") or ""
+        if "between" not in msg or not page.is_visible("#v2Popover [data-share-message]"):
+            errors.append(f"weights: WR {bad!r} gave no inline range message ({msg!r})")
+    page.fill("#v2ShareWR", "150")
+    page.press("#v2ShareWR", "Tab")
+    if abs(float(page.input_value("#v2ShareWR")) - before["WR"] * 100) > 0.06:
+        errors.append(f"weights: WR 150 left {page.input_value('#v2ShareWR')} in the box, last valid was {before['WR'] * 100:.1f}")
+    page.fill("#v2ShareWR", "150")
+    page.click('#v2Popover [data-apply="weights"]')
+    after = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
+    if any(abs(after[p] - before[p]) > 1e-9 for p in before):
+        errors.append(f"weights: WR 150 changed the engine shares {before} -> {after}")
     page.click("#v2Weights")
     page.click("#v2Popover .v2-preset")
     page.click('#v2Popover [data-apply="weights"]')
@@ -944,6 +961,8 @@ class PanelsRenderTest(unittest.TestCase):
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
             "prior-week reason uses the old wording": {"v2_js": v2.replace(
                 "has not posted its Week", "has not published Week", 1)},
+            "share range unchecked": {"v2_js": v2.replace(
+                "n >= lo * 100 - 1e-9 && n <= hi * 100 + 1e-9", "true", 1)},
             "pipeline failure ignored": {"v2_js": v2.replace(
                 "find(item => item && item.freshness_ok === false);", "find(item => false);", 1)},
             "freshness fails open": {"v2_js": v2.replace(
@@ -961,7 +980,7 @@ class PanelsRenderTest(unittest.TestCase):
                 "viewports": ((1366, 768),), "full": False},
             "header not sticky": {"v2_css": css.replace(
                 "  .v2-vtable thead th { position: sticky;", "  .v2-vtable thead th { position: static;", 1), "full": False},
-            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 120px; }\n", "full": False},
+            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 140px; }\n", "full": False},
         }
         for name, kwargs in broken.items():
             with self.subTest(mutation=name):

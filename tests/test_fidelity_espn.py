@@ -263,6 +263,96 @@ class StoredTests(unittest.TestCase):
         v = espn.stored_chart_values(AARON, {"team_of": lambda key: "MIN"})
         self.assertAlmostEqual(v["half|1"], 139.68 / 13)
 
+    def test_team_of_unknown_falls_back_to_the_registry(self):
+        ctx = {"team_of": lambda key: espn.TEAM_UNKNOWN,
+               "ident": Ident(Reg({164: {"team_id": "t-min"}})), "team_abbr": {"t-min": "MIN"}}
+        self.assertAlmostEqual(espn.stored_chart_values(AARON, ctx)["half|1"], 139.68 / 13)
+
+
+class ChartTeamSourceTests(unittest.TestCase):
+    """JEG-807 (2026-10-22): the chart divides by the ESPN CSV row's team
+    (JEG-702); the pulse divided by public.players' team. J.J. McCarthy: CSV
+    NYG (bye 8 inside 7-18, 11 games) vs registry MIN (bye 6, 12 games): the
+    pulse read 18.55 against the chart's 20.23 and held ESPN red."""
+
+    MCCARTHY = {"player_key": 1743, "player_norm": "jj mccarthy", "scoring": "half_ppr",
+                "ros_half_ppr": 222.55, "r_receptions": 0.0, "weeks_covered": "7-18",
+                "espn_snapshot_date": "2026-10-21"}
+    REGISTRY_CTX = {"ident": Ident(Reg({1743: {"team_id": "t-min"}, 2: {"team_id": "t-kc"}})),
+                    "team_abbr": {"t-min": "MIN", "t-kc": "KC"}}
+
+    def csv(self, snapshot="2026-10-21", team="NYG"):
+        import tempfile
+        p = Path(tempfile.mkdtemp()) / "espn_projections.csv"
+        p.write_text("player,player_norm,pos,team,espn_snapshot_date\n"
+                     f"J.J. McCarthy,jj mccarthy,QB,{team},{snapshot}\n"
+                     f"Deuce Vaughn,deuce vaughn,RB,,{snapshot}\n", encoding="utf-8")
+        return p
+
+    def test_registry_alone_divides_by_the_stale_team(self):
+        # The bug: MIN's bye (6) is before the window, so 12 games.
+        v = espn.stored_chart_values(self.MCCARTHY, dict(self.REGISTRY_CTX))
+        self.assertAlmostEqual(v["half|1"], 222.55 / 12)
+
+    def test_csv_team_divides_like_the_chart(self):
+        team_of = espn.chart_team_of([self.MCCARTHY], "2026-10-21", self.csv())
+        self.assertIsNotNone(team_of)
+        v = espn.stored_chart_values(self.MCCARTHY, {**self.REGISTRY_CTX, "team_of": team_of})
+        self.assertAlmostEqual(v["half|1"], 222.55 / 11)  # NYG bye 8 inside 7-18
+
+    def test_blank_csv_team_is_a_free_agent(self):
+        row = {"player_key": 4273, "player_norm": "deuce vaughn", "ros_half_ppr": 1.69, "r_receptions": 0.2,
+               "weeks_covered": "7-18"}
+        team_of = espn.chart_team_of([row], "2026-10-21", self.csv())
+        ctx = {"ident": Ident(Reg({4273: {"team_id": "t-dal"}})), "team_abbr": {"t-dal": "DAL"}, "team_of": team_of}
+        self.assertAlmostEqual(espn.stored_chart_values(row, ctx)["half|1"], 1.69 / 12)
+
+    def test_key_not_in_csv_falls_back_to_the_registry(self):
+        row = {"player_key": 2, "player_norm": "someone else", "ros_half_ppr": 120.0, "r_receptions": 0,
+               "weeks_covered": "7-18"}
+        team_of = espn.chart_team_of([row], "2026-10-21", self.csv())
+        self.assertIs(team_of(2), espn.TEAM_UNKNOWN)
+        v = espn.stored_chart_values(row, {**self.REGISTRY_CTX, "team_of": team_of})
+        self.assertAlmostEqual(v["half|1"], 120.0 / 12)  # KC bye 5: not in window
+
+    def test_csv_of_another_snapshot_or_missing_is_ignored(self):
+        self.assertIsNone(espn.chart_team_of([self.MCCARTHY], "2026-10-21", self.csv(snapshot="2026-10-19")))
+        self.assertIsNone(espn.chart_team_of([self.MCCARTHY], None, self.csv()))
+        self.assertIsNone(espn.chart_team_of([self.MCCARTHY], "2026-10-21", Path("/nonexistent/espn.csv")))
+
+    def test_pulse_installs_the_chart_team_source(self):
+        """stage_projection_chart passes the stored rows and the chart's
+        snapshot to the module's chart_team_of and uses its answer."""
+        import fidelity_pulse as fp
+        seen = {}
+
+        class Mod:
+            CHART_DECIMALS = 2
+
+            @staticmethod
+            def chart_team_of(rows, snapshot):
+                seen["rows"], seen["snapshot"] = rows, snapshot
+                return lambda key: "NYG"
+
+            @staticmethod
+            def stored_chart_values(row, ctx):
+                seen["team_of"] = ctx.get("team_of")
+                return {}
+
+        class Store:
+            def snapshot_rows(self, mod, snap):
+                return []
+
+        site_doc = {"sources": {"espn": {"espn_snapshot": "2026-10-21", "combos": {}}}, "player_keys": {}}
+        try:
+            fp.stage_projection_chart("espn", Mod, site_doc, None, Store(), None, fp.datetime.now(fp.timezone.utc),
+                                      "2026-10-21", [self.MCCARTHY])
+        except Exception:  # noqa: BLE001  the stub stops after the grains; the hook ran first
+            pass
+        self.assertEqual("2026-10-21", seen.get("snapshot"))
+        self.assertEqual([self.MCCARTHY], seen.get("rows"))
+        self.assertEqual("NYG", seen["team_of"](1743))
+
 
 if __name__ == "__main__":
     unittest.main()

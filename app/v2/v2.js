@@ -441,8 +441,13 @@
   // no row for is missing, not 0, and gets nothing. Published values stay as
   // published; the engine gives the player an ESPN value of 0.0.
   function espnZeroBadge(row) {
-    const copy = row && row.espnProjectsZero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
+    let copy = row && row.espnProjectsZero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
     if (!copy) return null;
+    // JEG-834: while ESPN is held its zero is not a reading we use. Say "held this week", not a zero.
+    if (heldReason(view && view.infoByKey && view.infoByKey.espn)) {
+      copy = {label: "ESPN: held this week", symbol: copy.symbol,
+        title: "ESPN is held this week for a data check, so no ESPN value is used for this player."};
+    }
     const badge = document.createElement("span");
     badge.className = "v2-espn-zero";
     badge.dataset.espnZero = "";
@@ -2564,7 +2569,7 @@
           line.append(name, stepper);
           content.appendChild(line);
         };
-        stepLine("v2StepContentWeek", "Week the values are for", "content", 1, 17);
+        stepLine("v2StepContentWeek", "Data through week", "content", 1, 17);
         stepLine("v2StepRegularEnd", "Last regular-season week", "regularEnd", 1, 17, () => {
           if (w.playoffLo <= w.regularEnd) w.playoffLo = w.regularEnd + 1;
           if (w.playoffHi < w.playoffLo) w.playoffHi = w.playoffLo;
@@ -2676,6 +2681,13 @@
       const edited = {};
       let resetShares = false;
       const inputs = {};
+      const lastValid = {};
+      const shareMsg = document.createElement("p");
+      shareMsg.className = "v2-meta v2-share-msg";
+      shareMsg.dataset.shareMessage = "";
+      shareMsg.setAttribute("role", "alert");
+      shareMsg.hidden = true;
+      body.appendChild(shareMsg);
       ["QB", "RB", "WR", "TE"].forEach(pos => {
         const line = document.createElement("div");
         line.className = "v2-pshare";
@@ -2698,11 +2710,31 @@
         input.max = (hi * 100).toFixed(1);
         input.value = Number.isFinite(v) ? (v * 100).toFixed(1) : "";
         input.disabled = !shareBounds;
+        // JEG-834: an out-of-range or empty share is never applied. The last valid value stays in
+        // `edited` (or the current engine share), a message says the allowed range, and the box
+        // snaps back to that value when the reader leaves it.
+        lastValid[pos] = Number.isFinite(v) ? Number((v * 100).toFixed(1)) : null;
         input.addEventListener("input", () => {
           const n = Number(input.value);
-          if (input.value !== "" && Number.isFinite(n)) edited[pos] = n / 100;
-          else delete edited[pos];
+          const ok = input.value.trim() !== "" && Number.isFinite(n) && n >= lo * 100 - 1e-9 && n <= hi * 100 + 1e-9;
+          if (ok) {
+            edited[pos] = n / 100;
+            lastValid[pos] = n;
+            input.removeAttribute("aria-invalid");
+            shareMsg.hidden = true;
+            shareMsg.textContent = "";
+          } else {
+            input.setAttribute("aria-invalid", "true");
+            shareMsg.hidden = false;
+            shareMsg.textContent = `${pos} share must be between ${+(lo * 100).toFixed(1)}% and ${+(hi * 100).toFixed(1)}%. Keeping ${lastValid[pos] === null ? "the current value" : `${lastValid[pos].toFixed(1)}%`}.`;
+          }
           resetShares = false;
+        });
+        input.addEventListener("change", () => {
+          if (input.getAttribute("aria-invalid") === "true" && lastValid[pos] !== null) {
+            input.value = lastValid[pos].toFixed(1);
+            input.removeAttribute("aria-invalid");
+          }
         });
         inputs[pos] = input;
         const now = document.createElement("span");
@@ -2721,7 +2753,12 @@
         const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
         Object.keys(edited).forEach(pos => delete edited[pos]);
         resetShares = true;
-        if (defaults) Object.entries(inputs).forEach(([pos, input]) => { input.value = (Number(defaults[pos]) * 100).toFixed(1); });
+        if (defaults) Object.entries(inputs).forEach(([pos, input]) => {
+          input.value = (Number(defaults[pos]) * 100).toFixed(1);
+          lastValid[pos] = Number(input.value);
+          input.removeAttribute("aria-invalid");
+        });
+        shareMsg.hidden = true;
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
         let note = "";
