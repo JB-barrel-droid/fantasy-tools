@@ -24,7 +24,7 @@ from tests import _render_env
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
-TABS = ("#manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#how-values", "#research")
+TABS = ("#manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade", "#how-values", "#research")
 WIDE = ("document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');"
         "s.textContent=\"*{font-family:'DejaVu Sans',sans-serif !important}\";document.head.appendChild(s)})")
 OLD_RULES = (

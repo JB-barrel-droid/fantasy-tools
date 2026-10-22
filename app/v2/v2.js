@@ -343,7 +343,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -5685,6 +5685,7 @@
   const currentView = () => (hashBase() === "#trade-targets" ? "targets"
     : hashBase() === "#risers-fallers" ? "risers"
     : hashBase() === "#compare-trade" ? "compare"
+    : hashBase() === "#find-trade" ? "find"
     : hashBase() === "#how-values" ? "how"
     : hashBase() === "#manifesto" ? "manifesto"
     : (hashBase() === "#research" || hashBase().startsWith("#research/")) ? "research"
@@ -5696,11 +5697,13 @@
     $("v2Targets").hidden = v !== "targets";
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
+    $("v2FindTrade").hidden = v !== "find";
     $("v2How").hidden = v !== "how";
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = v === "manifesto" || v === "research";
+    // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
+    $("v2Methods").hidden = v === "manifesto" || v === "research" || v === "find";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -5769,7 +5772,7 @@
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
     else if (currentView() === "how") renderHow();
-    else if (currentView() === "manifesto" || currentView() === "research") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "manifesto" || currentView() === "research" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 

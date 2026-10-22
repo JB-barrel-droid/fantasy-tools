@@ -1192,3 +1192,21 @@ Confidence rules (High / Medium / Low):
 - a one-source (low-confidence) DDF Value in the trade lowers line 1 by one level (line 2 does not read DDF).
 Tests: `tests/test_v2_headlines.py` (constructed trades recomputed from raw values, with mutations) and the headline check in
 `tests/test_v2_compare_render.py`.
+
+## Find a trade is its own tab (JEG-852, 2026-10-22)
+
+Jeremy: "Make it so finding a trade is a separate tab from discovering a trade."
+- The finder (`app/v2/finder.js`: your roster, their roster, package size, Keep starting lineup filled, Find trades, results) moved out
+  of Compare a trade into its own page `#v2FindTrade`, tab "Find a trade" (`v2/#find-trade`, view `find`), directly after Compare a trade.
+  Compare a trade is now only for a trade you already have in mind: Build a better offer, Verdict, Difference by source.
+- Old `#compare-trade` links and shared trade links (`#compare-trade?give=..&get=..`) are unchanged. Each finder result still links to
+  `v2/#compare-trade?give=..&get=..`, which opens Compare with the trade filled in.
+- The finder reads fixed sources (DDF Value and the four trade charts), so the page has no Customize / Showing row; the league bar stays
+  (scoring, teams and roster shape shape the engine rows the search reads). Rosters typed in are kept for the session as before.
+- Phone nav: eight 44 px tabs need 352 px of the 358 px row at 390 px, so the row has no gap and two short labels shortened:
+  Manifesto -> "Why", Research -> "Notes" (full names unchanged on desktop). A ninth tab cannot fit one row at 44 px per tab.
+- Tests: `test_v2_finder_render` (own tab, not inside Compare, result link opens Compare filled), `test_v2_nav_render` (order),
+  `test_v2_phone_nav_overflow_render` (8 tabs), hash sweeps, `live.mjs` `V2_TABS`.
+- JEG-854 (same page): Swap teams exchanges the two rosters; each row has a tick box and Move (to the other team); "Move N selected to the
+  other team" moves ticked rows; Undo restores the rosters before the last swap or move. Shown results are recomputed after each change.
+  Test: `tests/test_v2_finder_arrange_render.py` (3 mutants caught).

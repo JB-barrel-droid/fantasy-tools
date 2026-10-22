@@ -112,6 +112,10 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
             # Manifesto is first in the nav (Jeremy, 2026-10-09); the landing tab stays Trade targets.
             if [tab["text"] for tab in tabs][:2] != ["Manifesto", "Player values"]:
                 errors.append(f"nav order: {[tab['text'] for tab in tabs]}, want Manifesto first")
+            # JEG-852: Find a trade is its own tab, right after Compare a trade.
+            texts = [tab["text"] for tab in tabs]
+            if "Compare a trade" not in texts or texts[texts.index("Compare a trade") + 1:][:1] != ["Find a trade"]:
+                errors.append(f"nav order: {texts}, want Find a trade directly after Compare a trade")
             if len({round(tab["top"]) for tab in tabs}) != 1:
                 errors.append(f"tabs are not on one row at 390px: {[(t['text'], round(t['top'])) for t in tabs]}")
             for tab in tabs:

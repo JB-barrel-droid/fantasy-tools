@@ -199,7 +199,7 @@ def run_checks(v2_js=None, v2_css=None, with_failure=True) -> list[str]:
                                        " || !document.getElementById('v2Main').hidden", timeout=45000)
                 failed = page.evaluate("""() => ({state: document.querySelector('.v2-state').dataset.state,
                   retry: !document.getElementById('v2StateRetry').hidden,
-                  tabs: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How'].filter(id => !document.getElementById(id).hidden),
+                  tabs: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How'].filter(id => !document.getElementById(id).hidden),
                   digits: (document.querySelector('.v2-app').innerText.match(/\\d+(\\.\\d)?/g) || [])})""")
                 if failed["state"] != "failed" or not failed["retry"] or failed["tabs"] or failed["digits"]:
                     errors.append(f"failure state wrong: {failed}")
@@ -222,7 +222,7 @@ class StatesRenderTest(unittest.TestCase):
                 'const METHOD_COLUMNS = [["vorp", "Our value"], ["indexed", "Rescaled chart"], ["dda", "VORP vs waivers"]];', 1),
                 "with_failure": False},
             "failure leaves values visible": {"v2_js": js.replace(
-                '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });',
+                '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });',
                 '$("v2Main").hidden = false;', 1)},
             "empty state never drawn": {"v2_js": js.replace("    renderEmpty();\n", "", 1), "with_failure": False},
             "bottom sheet instead of full screen": {"v2_css": css.replace(
