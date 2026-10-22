@@ -134,7 +134,7 @@ export const V2_TABS = [
   { hash: "#trade-targets", section: "#v2Targets" },
   { hash: "#risers-fallers", section: "#v2Risers" },
   { hash: "#compare-trade", section: "#v2Compare" },
-  { hash: "#how-values", section: "#v2How" },
+  { hash: "#writing/how-values", section: "#v2How" },
   { hash: "#values-auditing", section: "#v2Audit" },
 ];
 

@@ -26,14 +26,14 @@ workflow files, not from a run. No workflow schedule or read pattern was changed
   workflow over a day, multiplied by runs per day from the table below.
 
 Gap: some readers do not go through `gh_sbclient`. Anything that imports a
-different `sbclient` (Muse, or the Mac self-host path) is uncounted, and the
+different `sbclient` (Muse) is uncounted, and the
 Edge Functions and the Pages site's browser reads (if any hit Supabase) are not
 covered. The Supabase dashboard egress graph stays the cross-check.
 
 ## Triggers (INFERRED from code)
 
 Almost every `schedule:` in `.github/workflows/` is commented out. The real
-clock is pg_cron in `selfhost/migrate/cron_and_functions.sql` (20 jobs), which
+clock is pg_cron in `sql/reference/cloud_cron_jobs_2026-10-21.sql` (20 jobs), which
 calls `dispatch_gha_workflow(...)`. Two workflows chain on `workflow_run`:
 fidelity-pulse after the rebuild chain, record-pages-deploy after a Pages
 deploy. The cloud project's own pg_cron list was not inspected, so confirm it

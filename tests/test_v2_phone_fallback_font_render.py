@@ -24,7 +24,7 @@ from tests import _render_env
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
-TABS = ("#manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#how-values", "#research", "#values-auditing")
+TABS = ("#writing/manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#writing/how-values", "#writing/research", "#values-auditing")
 WIDE = ("document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');"
         "s.textContent=\"*{font-family:'DejaVu Sans',sans-serif !important}\";document.head.appendChild(s)})")
 OLD_RULES = (
@@ -32,8 +32,6 @@ OLD_RULES = (
      "padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 13px;"),
     # JEG-829: the tab row now also wraps from 360 px in a wide face; the old state has neither the wrap nor the 12 px type.
     ("@media (min-width: 360px) and (max-width: 767px) { .v2-tabs { flex-wrap: wrap; row-gap: 4px; } }", ""),
-    # JEG-847: the eighth tab (Values auditing) only fits at 390 px with 10 px type and a 4 px gutter; the old state has neither.
-    ('@media (min-width: 360px) and (max-width: 420px) {\n  .v2-nav-inner { padding-left: 4px; padding-right: 4px; }\n  .v2-tab { font-size: 10px; padding-left: 1px; padding-right: 1px; }\n  .v2-tabs { gap: 1px; }\n}\n', ""),
     ("@media (max-width: 767px) { .v2-table-head { flex-wrap: wrap; } .v2-table-head h2, .v2-table-head .v2-meta { flex: 1 1 100%; min-width: 0; } }", ""),
 )
 
@@ -83,6 +81,12 @@ def _overflows(css=None) -> dict:
                 page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
             page.goto(base + tab, wait_until="networkidle")
             page.wait_for_timeout(1500)
+            # Six tabs since JEG-855, seven once Find a trade lands: hold the seven-tab case with one stand-in,
+            # or the old rules no longer overflow and the guard proves nothing.
+            page.evaluate("""() => { const nav = document.querySelector('.v2-tabs'); const last = nav.lastElementChild;
+              ['Find'].forEach(short => { const t = last.cloneNode(true); t.dataset.view = 'standin-' + short;
+                t.dataset.short = short; t.classList.remove('is-active'); t.removeAttribute('aria-current'); nav.appendChild(t); }); }""")
+            page.wait_for_timeout(200)
             over = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
             if over > 0:
                 out[tab] = over
@@ -101,7 +105,7 @@ class PhoneFallbackFontTest(unittest.TestCase):
             self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
             css = css.replace(new, old)
         found = _overflows(css)
-        self.assertIn("#manifesto", found)
+        self.assertIn("#writing/manifesto", found)
         self.assertIn("#player-values", found)
 
 
