@@ -361,9 +361,14 @@
   // It needs no engine, so it shows at once, and still shows if the engine fails. The league bar and
   // the loading / failure card belong to the value tabs; until the engine is ready they follow the hash here.
   function applyStatic() {
-    const onManifesto = currentView() === "manifesto";
-    const onResearch = currentView() === "research";
+    const section = writingSection();
+    const onManifesto = section === "manifesto";
+    const onResearch = section === "research";
     const onText = onManifesto || onResearch;
+    $("v2Writing").hidden = !section;
+    document.querySelectorAll("#v2WritingTabs .v2-subtab").forEach(tab => {
+      if (tab.dataset.writing === section) tab.setAttribute("aria-current", "page"); else tab.removeAttribute("aria-current");
+    });
     $("v2Manifesto").hidden = !onManifesto;
     $("v2Research").hidden = !onResearch;
     if (onResearch) showResearchPage();
@@ -374,12 +379,12 @@
     }
   }
 
-  // Research (JEG-543): #research is the index, #research/<slug> one post. Both are static text built into the
+  // Research (JEG-543): #writing/research is the index, #writing/research/<slug> one post. Both are static text built into the
   // page, so they show without the engine. An unknown slug falls back to the index.
   function showResearchPage() {
-    const slug = decodeURIComponent(hashBase().slice("#research/".length));
+    const slug = decodeURIComponent(hashBase().slice("#writing/research/".length));
     const posts = [...document.querySelectorAll("#v2Research .v2-rs-post")];
-    const post = hashBase().startsWith("#research/") ? posts.find(node => node.dataset.slug === slug) : null;
+    const post = hashBase().startsWith("#writing/research/") ? posts.find(node => node.dataset.slug === slug) : null;
     posts.forEach(node => { node.hidden = node !== post; });
     $("v2ResearchIndex").hidden = Boolean(post);
     if (post) window.scrollTo(0, 0);
@@ -387,7 +392,7 @@
 
   // Before the engine is ready, only the Manifesto can show; it follows the hash on its own.
   function bindManifesto() {
-    window.addEventListener("hashchange", () => { if (!C) applyStatic(); });
+    window.addEventListener("hashchange", () => { canonicalizeHash(); if (!C) applyStatic(); });
     applyStatic();
   }
 
@@ -3234,7 +3239,7 @@
         foot.className = "v2-info-foot";
         const link = document.createElement("a");
         link.className = "v2-link";
-        link.href = "v2/#how-values";
+        link.href = "v2/#writing/how-values";
         link.textContent = "How values work ↗";
         link.addEventListener("click", () => closePopover());
         const close = document.createElement("button");
@@ -5681,13 +5686,29 @@
 
   // ---------- routing ----------
   // A hash may carry a query (a shared trade: #compare-trade?give=1,2&get=3).
-  const hashBase = () => location.hash.split("?")[0];
+  // JEG-855: Manifesto, How values work and Research are sections of one Writing tab. The old routes
+  // (#manifesto, #how-values, #research, #research/<slug>) still work: hashBase() reads them as their Writing
+  // route, and canonicalizeHash() rewrites the address in place (replaceState, so Back skips the old route).
+  const LEGACY_ROUTES = {"#manifesto": "#writing/manifesto", "#how-values": "#writing/how-values", "#research": "#writing/research"};
+  const canonicalBase = base => LEGACY_ROUTES[base] || (base.startsWith("#research/") ? "#writing/" + base.slice(1) : base);
+  const hashBase = () => canonicalBase(location.hash.split("?")[0]);
+  function canonicalizeHash() {
+    const [base, ...query] = location.hash.split("?");
+    const next = canonicalBase(base);
+    if (next === base) return;
+    try { history.replaceState(history.state, "", location.pathname + location.search + next + (query.length ? "?" + query.join("?") : "")); }
+    catch (error) { /* the route still works through hashBase() */ }
+  }
+  // The Writing section on show: "manifesto" (also #writing alone and any unknown section), "how-values" or "research".
+  const writingSection = () => {
+    if (currentView() !== "writing") return "";
+    const base = hashBase();
+    return base === "#writing/how-values" ? "how-values" : (base === "#writing/research" || base.startsWith("#writing/research/")) ? "research" : "manifesto";
+  };
   const currentView = () => (hashBase() === "#trade-targets" ? "targets"
     : hashBase() === "#risers-fallers" ? "risers"
     : hashBase() === "#compare-trade" ? "compare"
-    : hashBase() === "#how-values" ? "how"
-    : hashBase() === "#manifesto" ? "manifesto"
-    : (hashBase() === "#research" || hashBase().startsWith("#research/")) ? "research"
+    : (hashBase() === "#writing" || hashBase().startsWith("#writing/")) ? "writing"
     : (hashBase() === "#values-auditing" || hashBase().startsWith("#values-auditing/")) ? "audit"
     : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
 
@@ -5697,12 +5718,12 @@
     $("v2Targets").hidden = v !== "targets";
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
-    $("v2How").hidden = v !== "how";
+    $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = v === "manifesto" || v === "research" || v === "audit";
+    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -5770,9 +5791,9 @@
     if (currentView() === "targets") renderTargets();
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
-    else if (currentView() === "how") renderHow();
+    else if (writingSection() === "how-values") renderHow();
     else if (currentView() === "audit") renderAudit();
-    else if (currentView() === "manifesto" || currentView() === "research") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
@@ -6177,7 +6198,7 @@
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
     });
-    window.addEventListener("hashchange", () => { readTradeHash(); applyRoute(); });
+    window.addEventListener("hashchange", () => { canonicalizeHash(); readTradeHash(); applyRoute(); });
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
     if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", () => { if (C) refresh(); });
     if (metaWideQuery && metaWideQuery.addEventListener) metaWideQuery.addEventListener("change", () => { if (C && currentView() === "values") renderTable(); });
@@ -6202,6 +6223,7 @@
 
   async function start() {
     document.body.classList.add("v2");
+    canonicalizeHash();
     bindManifesto();
     try {
       C = await waitForEngine();

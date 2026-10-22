@@ -165,24 +165,24 @@ def load_posts(research_dir: Path = RESEARCH_DIR) -> list[dict]:
 
 
 def research_html(posts: list[dict]) -> str:
-    """The #research page: an index of posts plus one hidden article per post (#research/<slug>)."""
+    """The Research section: an index of posts plus one hidden article per post (#writing/research/<slug>)."""
     esc = html_lib.escape
     if posts:
         rows = "\n".join(
-            f'        <li><a class="v2-rs-link" href="#research/{post["slug"]}">{esc(post["title"])}</a>'
+            f'        <li><a class="v2-rs-link" href="#writing/research/{post["slug"]}">{esc(post["title"])}</a>'
             f'<span class="v2-rs-sum">{esc(post["summary"])}</span>'
             f'<time class="v2-rs-date" datetime="{post["date"]}">{_nice_date(post["date"])}</time></li>'
             for post in posts)
         index_body = f'      <ul class="v2-rs-list">\n{rows}\n      </ul>'
     else:
-        index_body = '      <p class="v2-rs-empty">Nothing is published here yet. Posts will show how we tested the choices behind the values. Until then, <a href="#how-values">How values work</a> and the <a href="#manifesto">Manifesto</a> explain the method.</p>'
+        index_body = '      <p class="v2-rs-empty">Nothing is published here yet. Posts will show how we tested the choices behind the values. Until then, <a href="#writing/how-values">How values work</a> and the <a href="#writing/manifesto">Manifesto</a> explain the method.</p>'
     articles = "\n".join(
         f'    <article class="v2-mf-text v2-rs-post" id="v2Post-{post["slug"]}" data-slug="{post["slug"]}" hidden>\n'
-        f'      <p class="v2-mf-eyebrow"><a href="#research">Research</a></p>\n'
+        f'      <p class="v2-mf-eyebrow"><a href="#writing/research">Research</a></p>\n'
         f'      <h1>{esc(post["title"])}</h1>\n'
         f'      <p class="v2-rs-meta"><time datetime="{post["date"]}">{_nice_date(post["date"])}</time></p>\n'
         f'{post["body"]}\n'
-        f'      <p class="v2-rs-back"><a href="#research">All research</a> · <a href="#manifesto">Manifesto</a></p>\n'
+        f'      <p class="v2-rs-back"><a href="#writing/research">All research</a> · <a href="#writing/manifesto">Manifesto</a></p>\n'
         f'    </article>' for post in posts)
     return (
         '\n  <!-- Research (JEG-543): built from app/v2/research/*.html, published posts only. -->\n'
@@ -191,7 +191,7 @@ def research_html(posts: list[dict]) -> str:
         '      <p class="v2-mf-eyebrow">Data Driven Football</p>\n'
         '      <h1 id="v2ResearchTitle">Research</h1>\n'
         '      <p>The evidence behind the choices this tool makes, and how we arrived at them. '
-        'The <a href="#manifesto">Manifesto</a> states the principles; these posts show the work.</p>\n'
+        'The <a href="#writing/manifesto">Manifesto</a> states the principles; these posts show the work.</p>\n'
         f'{index_body}\n'
         '    </article>\n'
         f'{articles}\n'

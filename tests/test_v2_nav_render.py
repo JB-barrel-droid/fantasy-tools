@@ -2,7 +2,7 @@
 
 Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
-  * Manifesto is the first tab (2026-10-09);
+  * the nav is Player values, Trade targets, Risers & fallers, Compare a trade, Writing (JEG-855);
   * at 390 px every tab sits fully on screen on one row with its short label
     (frames 02 / 04 / 06 / 08 / 16: below 768 px the navigation shortens;
     nothing hides behind a sideways scroll), and every in-build tab still
@@ -109,9 +109,11 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
               return {text: t.textContent, left: b.left, right: b.right, top: b.top, soon: t.classList.contains('is-soon'),
                 after: getComputedStyle(t, '::after').content};
             })""")
-            # Manifesto is first in the nav (Jeremy, 2026-10-09); the landing tab stays Trade targets.
-            if [tab["text"] for tab in tabs][:2] != ["Manifesto", "Player values"]:
-                errors.append(f"nav order: {[tab['text'] for tab in tabs]}, want Manifesto first")
+            # JEG-855: Manifesto, How values work and Research are sections of one Writing tab (Jeremy, 2026-10-22);
+            # the landing tab stays Trade targets.
+            names = [tab["text"] for tab in tabs]
+            if names != ["Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Writing"]:
+                errors.append(f"nav order: {names}, want Writing last and no Manifesto / How values work / Research tabs")
             if len({round(tab["top"]) for tab in tabs}) != 1:
                 errors.append(f"tabs are not on one row at 390px: {[(t['text'], round(t['top'])) for t in tabs]}")
             for tab in tabs:
