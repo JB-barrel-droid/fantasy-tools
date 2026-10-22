@@ -11,9 +11,16 @@ Three checks against the built dist/:
 2. At 320 x 812 in a wide fallback face (Verdana or DejaVu Sans) with every font size raised 3 px (a
    user text-size setting), Targets and Player values do not scroll sideways.
 3. At 812 x 375 the Customize panel body is at least 200 px tall (it was about 110 px).
+4. No two interactive elements overlap (JEG-884): on every tab at 375, 768, 1024, 1280 and 1440 px,
+   elementFromPoint at each control's centre and four edge midpoints is that control, a descendant, or
+   its own label. Before JEG-884 the module Expand / Collapse buttons sat over the Compare search boxes
+   from 1024 px up (at 1280 a click in the box expanded the card), and over the box's top 4 px below that;
+   the "On this page" source links' 44 px boxes crossed rows at 375, and the chart legend's crossed rows at
+   1280x800. Brush fills and the chart region are checked at their centre only (their edges carry their own
+   thumbs and the zoom buttons), and a decorative overlay (an icon) is a dead spot, not a mis-tap.
 
-Discrimination: test_guard_fails_on_old_css serves the CSS with the three JEG-861 blocks removed and
-requires every check to fail.
+Discrimination: test_guard_fails_on_old_css serves the CSS with the five JEG-861 / JEG-884 blocks removed
+and requires every check to fail.
 """
 from __future__ import annotations
 
@@ -26,7 +33,10 @@ from tests.test_v2_phone_weight_render import _served
 
 ROOT = Path(__file__).resolve().parents[1]
 CSS = ROOT / "app" / "v2" / "v2.css"
-FIX = re.compile(r"\n/\* JEG-861[^\n]*\n(?:[^\n]*\n)*?\}\n")
+# The four blocks this test guards, by their opening comment (other JEG-861 blocks in v2.css belong to other parts of the ticket).
+FIX = re.compile(r"\n/\* (?:JEG-861 \(phone\)|JEG-861: enlarged text|JEG-861: landscape phones|JEG-884 \(JEG-861 part A\))[^\n]*\n(?:[^\n]*\n)*?\}\n")
+OVERLAP_WIDTHS = (375, 768, 1024, 1280, 1440)
+SEARCH_WIDTHS = (1024, 1280, 1366)
 TABS = ("player-values", "trade-targets", "risers-fallers", "compare-trade", "writing/how-values", "writing/research", "values-auditing", "writing/manifesto")
 PANELS = (("player-values", "#v2EditSources"), ("player-values", "#v2EditLeague"))
 FAMILIES = ("DejaVu Sans", "Verdana")
@@ -67,6 +77,44 @@ SMALL = """() => {
 OVER = "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
 PLUS = "(n) => { for (const e of document.querySelectorAll('body *')) { const fs = parseFloat(getComputedStyle(e).fontSize); e.style.fontSize = (fs + n) + 'px'; } }"
 PANEL_BODY = "() => { const b = document.querySelector('#v2Popover.is-panel .v2-panel-body'); return b ? b.clientHeight : null; }"
+OVERLAP = """() => {
+  const sel = 'a[href], button, input, select, textarea, summary, [role=button], [role=tab], [tabindex]:not([tabindex="-1"])';
+  const out = []; let total = 0;
+  const name = e => `${e.tagName.toLowerCase()}#${e.id}.${String(e.className).slice(0, 30)} '${(e.textContent || e.placeholder || e.getAttribute('aria-label') || '').trim().slice(0, 24)}'`;
+  for (const el of document.querySelectorAll(sel)) {
+    if (el.closest('[hidden], [aria-hidden="true"]')) continue;
+    if (el.matches('.has-math, tr, td, .v2-wf-step, .v2-wf-land')) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.pointerEvents === 'none') continue;
+    const r0 = el.getBoundingClientRect();
+    if (r0.width === 0 || r0.height === 0) continue;
+    el.scrollIntoView({block: 'center', inline: 'nearest'});
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    if (cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight) continue;
+    total++;
+    // the centre and the four edge midpoints (2 px in): a control covered along one edge is a mis-tap too
+    // Brush fills end in their own range thumbs and the chart region carries the zoom buttons: centre only for those.
+    const edges = el.matches('.v2-brush-fill, .v2-ybrush-fill, .v2-chart') ? [] : [[r.left + 2, cy], [r.right - 2, cy], [cx, r.top + 2], [cx, r.bottom - 2]];
+    const pts = [[cx, cy]].concat(edges);
+    const own = h => !h || h === el || el.contains(h) || (h.tagName === 'LABEL' && h.contains(el));
+    for (const [x, y] of pts) {
+      if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+      const hit = document.elementFromPoint(x, y);
+      if (own(hit)) continue;
+      const other = hit.closest(sel);   // a decorative overlay is a dead spot, not a mis-tap; only another target counts
+      if (!other || own(other)) continue;
+      out.push(`${name(el)} is under ${name(other)} at ${Math.round(x - r.left)},${Math.round(y - r.top)}`);
+      break;
+    }
+  }
+  window.scrollTo(0, 0);
+  return {overlaps: out, total};
+}"""
+SEARCH_HIT = """() => ['v2GiveSearch', 'v2GetSearch'].map(id => { const i = document.getElementById(id); if (!i) return `${id}: missing`;
+  i.scrollIntoView({block: 'center'}); const r = i.getBoundingClientRect();
+  const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return h === i ? null : `${id}: centre hits ${h ? h.tagName + '.' + h.className : 'nothing'}`; }).filter(Boolean)"""
 
 
 def _run(css=None) -> dict:
@@ -77,7 +125,7 @@ def _run(css=None) -> dict:
     exe = _render_env.chromium_executable()
     if exe is None and _render_env.required() is False:
         raise _render_env.unavailable("no browser")
-    out = {"small": {}, "over": {}, "panel": None}
+    out = {"small": {}, "over": {}, "panel": None, "overlap": {}, "search": {}}
 
     def open_page(browser, width, height, tab, init=None):
         page = browser.new_page(viewport={"width": width, "height": height})
@@ -118,6 +166,15 @@ def _run(css=None) -> dict:
         page.wait_for_timeout(500)
         out["panel"] = page.evaluate(PANEL_BODY)
         page.close()
+        for width in OVERLAP_WIDTHS:
+            for tab in TABS:
+                page = open_page(browser, width, 812 if width < 768 else 800, tab)
+                out["overlap"][(width, tab)] = page.evaluate(OVERLAP)
+                page.close()
+        for width in SEARCH_WIDTHS:
+            page = open_page(browser, width, 800, "compare-trade")
+            out["search"][width] = page.evaluate(SEARCH_HIT)
+            page.close()
         browser.close()
     return out
 
@@ -134,6 +191,14 @@ def _errors(result) -> list[str]:
             errors.append(f"320 +3px {tab}: page scrolls sideways by {over}")
     if result["panel"] is None or result["panel"] < 200:
         errors.append(f"812x375: Customize panel body only {result['panel']}px")
+    for (width, tab), r in result["overlap"].items():
+        if r["total"] < 10:
+            errors.append(f"{width} {tab}: only {r['total']} controls found, the overlap sweep is not looking at the page")
+        if r["overlaps"]:
+            errors.append(f"{width} {tab}: {len(r['overlaps'])} controls overlap another target: {r['overlaps'][:3]}")
+    for width, misses in result["search"].items():
+        for miss in misses:
+            errors.append(f"{width} compare-trade: {miss}")
     return errors
 
 
@@ -143,11 +208,13 @@ class PhoneTapTargetsTest(unittest.TestCase):
 
     def test_guard_fails_on_old_css(self):
         css = CSS.read_text(encoding="utf-8")
-        self.assertEqual(len(FIX.findall(css)), 3, "stale mutation anchor")
+        self.assertEqual(len(FIX.findall(css)), 5, "stale mutation anchor")
         errors = _errors(_run(FIX.sub("\n", css)))
         self.assertTrue(any("under 44px" in e for e in errors), f"old CSS tap targets were not caught: {errors}")
         self.assertTrue(any("scrolls sideways" in e for e in errors), f"old CSS 320 +3px overflow was not caught: {errors}")
         self.assertTrue(any("panel body" in e for e in errors), f"old CSS landscape panel was not caught: {errors}")
+        self.assertTrue(any("overlap another target" in e for e in errors), f"old CSS Expand-over-search overlap was not caught: {errors}")
+        self.assertTrue(any("centre hits" in e for e in errors), f"old CSS search hit test was not caught: {errors}")
 
 
 if __name__ == "__main__":
