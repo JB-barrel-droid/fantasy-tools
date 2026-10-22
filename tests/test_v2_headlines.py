@@ -1,6 +1,6 @@
-"""v2 Compare a trade headline (JEG-505, contract CT-02): the two answers with a confidence level.
+"""v2 Compare a trade headline (JEG-505, JEG-821, contract CT-02): the two answers with a confidence level.
 
-    "Should you propose or accept?"  by DDF Value: Yes / No / Even
+    "Should you propose or accept?"  by DDF Value: Yes / No / Even / Unclear (JEG-821)
     "Will they accept?"              from the published charts: Likely / Unlikely / Toss-up
 
 Confidence is High / Medium / Low from agreement plus data quality (rules in the
@@ -64,6 +64,15 @@ CASES = {
     "chart-missing": ([player(1, 50, 50, 50, 50, None, 50)], [player(2, 70, 70, 70, 70, 70, 70)], False),
     # DDF value missing: no answer on line 1.
     "ddf-missing": ([player(1, None, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70)], False),
+    # JEG-821: DDF says win (+2 of 100 traded = 2%, thin), but 0 of 5 other sources agree (all say lose):
+    # "Unclear" because no support AND thin margin.
+    "zero-agree-thin": ([player(1, 49, 52, 52, 52, 52, 52)], [player(2, 51, 48, 48, 48, 48, 48)], False),
+    # JEG-821: DDF says win (+20 of 120 traded = 17%, not thin), 0 of 5 agree: still "Yes" because the margin
+    # is substantial even without other-source agreement.
+    "zero-agree-wide": ([player(1, 50, 70, 70, 70, 70, 70)], [player(2, 70, 50, 50, 50, 50, 50)], False),
+    # JEG-821: DDF says "even" (net 0.0), 0 of 5 agree (all say you lose): "Unclear" because
+    # Even without any supporting source is not a verdict the data backs.
+    "even-no-support": ([player(1, 50, 60, 60, 60, 60, 60)], [player(2, 50, 40, 40, 40, 40, 40)], False),
 }
 
 HARNESS = """
@@ -127,6 +136,9 @@ def expected(case) -> dict:
             level = LEVELS[max(0, LEVELS.index(level) - 1)]
         if thin:
             level = "Low"
+        # JEG-821: Unclear when 0 agree AND (thin OR Even).
+        if agree == 0 and others and (thin or answer == "Even"):
+            answer = "Unclear"
         result["propose"] = {"answer": answer, "confidence": level}
     # Line 2: charts on which the other manager wins or breaks even (our net <= 0 as shown).
     nets = [n for n in (net(k) for k in CHARTS) if n is not None]
@@ -158,6 +170,10 @@ ANCHORS = {
     "five-percent": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
     "likely": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
     "ddf-missing": {"propose": (None, None), "accept": ("Unlikely", "High")},
+    # JEG-821: 0 agree + thin -> Unclear; 0 agree + wide margin -> still Yes; Even + 0 agree -> Unclear.
+    "zero-agree-thin": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
+    "zero-agree-wide": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
+    "even-no-support": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
 }
 
 
@@ -176,13 +192,16 @@ def check(trade_js: Path) -> list[str]:
 
 
 MUTATIONS = {
-    "thin-margin rule dropped": ("if (thinFlag) { level = \"Low\"; reasons.push(\"the margin is under 5% of the value traded\"); }\n      propose",
-                                 "propose"),
+    "thin-margin rule dropped": ("if (thinFlag) { level = \"Low\"; reasons.push(\"the margin is under 5% of the value traded\"); }\n      // JEG-821",
+                                 "// JEG-821"),
     "threshold at 3% instead of 5%": ("const THIN_MARGIN = 0.05;", "const THIN_MARGIN = 0.03;"),
     "low-confidence DDF ignored": ("if (ctx && ctx.lowConfidence) {", "if (false) {"),
     "other manager wins flipped": ("signOf(row.net) <= 0).length", "signOf(row.net) >= 0).length"),
     "High threshold lowered": ("share >= 0.75 ? \"High\"", "share >= 0.5 ? \"High\""),
     "few-sources cap removed": ("if (charts.length < 3) { level = capped(level, \"Medium\");", "if (false) { level = capped(level, \"Medium\");"),
+    # JEG-821: removing the Unclear rule must be caught.
+    "unclear rule removed (JEG-821)": ("if (agree === 0 && v.others > 0 && (thinFlag || answer === \"Even\")) { answer = \"Unclear\"; }",
+                                        ""),
 }
 
 
