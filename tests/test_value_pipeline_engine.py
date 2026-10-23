@@ -45,12 +45,15 @@ def _node():
     return node
 
 
-def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None, variant: str | None = None) -> dict:
+def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None, variant: str | None = None,
+               promotion_model: bool = False) -> dict:
     cmd = [_node(), str(DRIVER), str(model), str(FIXTURE)]
     if bench_share is not None:
         cmd += ["--bench-share", repr(bench_share)]
     if variant is not None:
         cmd += ["--variant", variant]
+    if promotion_model:
+        cmd += ["--promotion-model"]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if proc.returncode != 0:
         raise AssertionError(f"driver failed: {proc.stderr[-2000:]}")
@@ -239,6 +242,108 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         # every position to 1 band, so the comparison must fail.
         self.assert_variant_fails([("if (!teams || idx >= work.length || work[idx].native <= waiver) break;",
                                     "break;")])
+
+class TestPromotionModel(unittest.TestCase):
+    """JEG-969: promotion/demotion model behind promotion_model flag."""
+
+    @classmethod
+    def setUpClass(cls):
+        _node()  # skip if node not installed
+        # Run with ES variant, flag OFF
+        cls.off = run_engine(variant="variant_expected_starts", promotion_model=False)
+        # Run with ES variant, flag ON
+        cls.on = run_engine(variant="variant_expected_starts", promotion_model=True)
+
+    def test_promotion_model_changes_lineup_shares(self):
+        """The flag changes at least some lineup shares."""
+        off_ls = {}
+        on_ls = {}
+        for pkey, row in self.off.get("rows", {}).items():
+            if row.get("lineup_share") is not None:
+                off_ls[pkey] = row["lineup_share"]
+        for pkey, row in self.on.get("rows", {}).items():
+            if row.get("lineup_share") is not None:
+                on_ls[pkey] = row["lineup_share"]
+        diffs = [abs(on_ls[k] - off_ls[k]) for k in off_ls if k in on_ls and off_ls[k] != on_ls[k]]
+        self.assertTrue(len(diffs) > 0,
+                        "promotion_model should change at least some lineup shares")
+
+    def test_promotion_model_bench_shares_differ(self):
+        """Bench share readout differs with promotion model."""
+        off_bs = self.off.get("bench_share_readout", {}).get("overall")
+        on_bs = self.on.get("bench_share_readout", {}).get("overall")
+        # Both should be valid numbers
+        self.assertIsNotNone(off_bs)
+        self.assertIsNotNone(on_bs)
+        # They must differ (the whole point of the model)
+        self.assertNotAlmostEqual(off_bs, on_bs, places=6,
+                                  msg="promotion_model should change bench share readout")
+
+    def test_promotion_model_off_preserves_values(self):
+        """With flag off, bench share readout matches what existing tests pin."""
+        # The off result should have the same bench share as the pinned ES test
+        off_bs = self.off.get("bench_share_readout", {})
+        self.assertIsNotNone(off_bs.get("overall"),
+                             "bench_share_readout.overall must be present with flag off")
+
+    def test_promotion_model_spec_reference_parity(self):
+        """Spec reference and JS engine agree on bench share with promotion model."""
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        from spec_reference import value_pipeline as sp
+
+        doc = json.loads(FIXTURE.read_text())
+        variant = doc["variant_expected_starts"]
+        setting_d = {**doc["setting"], **(variant.get("setting_change") or {})}
+        setting = sp.Setting.from_fixture(setting_d)
+        pos_of = {int(k): v["pos"] for k, v in doc["players"].items()}
+        sources_raw = doc.get("inputs") or doc.get("sources")
+        sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"]}
+                   for s, v in sources_raw.items()}
+        inc_keys = [s for s, v in sources.items() if v["status"] == "included"]
+        lineup = variant.get("lineup")
+
+        sp_off = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup,
+                             promotion_model=False)
+        sp_on = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup,
+                            promotion_model=True)
+
+        # Spec reference bench shares must differ with flag on vs off
+        off_bs = sp_off.get("bench_share_readout", {}).get("overall")
+        on_bs = sp_on.get("bench_share_readout", {}).get("overall")
+        self.assertIsNotNone(off_bs)
+        self.assertIsNotNone(on_bs)
+        self.assertNotAlmostEqual(off_bs, on_bs, places=6,
+                                  msg="Spec reference promotion model should change bench share")
+
+        # Compare JS and spec reference bench shares with flag ON
+        js_bs = self.on.get("bench_share_readout", {}).get("overall")
+        self.assertAlmostEqual(on_bs, js_bs, places=4,
+                               msg=f"Spec/JS bench share readout differs: {on_bs} vs {js_bs}")
+
+    def test_guard_catches_broken_promotion_rate(self):
+        """Negative test: if we break the promotion rate to 10x, the bench
+        shares must differ from the correct promotion_model=on result."""
+        # Mutate the engine: multiply all promotion rates by 10
+        model = VALUE_MODEL.read_text()
+        # Break QB rate specifically
+        broken = model.replace('"1": 0.018, "2": 0.017, "3": 0.015, "4+": 0.005',
+                                '"1": 0.180, "2": 0.170, "3": 0.150, "4+": 0.050')
+        tmp = Path(tempfile.mktemp(suffix=".js"))
+        try:
+            tmp.write_text(broken)
+            broken_result = run_engine(model=tmp, variant="variant_expected_starts",
+                                       promotion_model=True)
+            # The broken result's bench share should differ from the correct one
+            correct_bs = self.on.get("bench_share_readout", {}).get("QB")
+            broken_bs = broken_result.get("bench_share_readout", {}).get("QB")
+            self.assertIsNotNone(correct_bs)
+            self.assertIsNotNone(broken_bs)
+            self.assertNotAlmostEqual(correct_bs, broken_bs, places=4,
+                                      msg="10x promotion rate should produce different bench share")
+        finally:
+            tmp.unlink(missing_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main()

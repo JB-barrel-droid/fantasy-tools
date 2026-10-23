@@ -448,11 +448,122 @@ def _expected_start_parts(xs: list, starters: int, teams: int, w: float, line: f
 
 
 # ---------------------------------------------------------------------------
+# JEG-969: promotion/demotion-aware expected starts (off by default)
+# ---------------------------------------------------------------------------
+
+PROMOTION_CONFIG = REPO / "config" / "promotion_rates.json"
+
+
+def load_promotion_config(path: Path = PROMOTION_CONFIG) -> dict:
+    """Load promotion/demotion rates from config."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _promotion_rate(promo_cfg: dict, pos: str, depth: int) -> float:
+    """Per-remaining-week promotion rate for a bench player at given depth."""
+    rates = promo_cfg.get("promotion_rate_per_remaining_week", {}).get(pos, {})
+    if depth <= 0:
+        return 0.0
+    key = str(min(depth, 4)) if depth <= 3 else "4+"
+    return float(rates.get(key, rates.get("4+", 0.0)))
+
+
+def _demotion_rate(promo_cfg: dict, pos: str) -> float:
+    """Per-remaining-week demotion rate for a starter."""
+    return float(promo_cfg.get("demotion_rate_per_remaining_week", {}).get(pos, 0.0))
+
+
+def _apply_promotion_model(parts: dict, xs: list, starters: int, teams: int,
+                           pos: str, promo_cfg: dict, weeks_remaining: float,
+                           season_weeks: float) -> dict:
+    """JEG-969: adjust expected-start parts for promotion/demotion dynamics.
+
+    For bench players: increases lineup share by the probability of becoming
+    a permanent starter, scaled by weeks remaining.
+    For marginal starters: decreases lineup share by the probability of being
+    demoted, scaled by weeks remaining.
+
+    The adjustment modifies the start_worthy_part and fill_in_part so the
+    single bench share number captures promotion/demotion value.
+
+    weeks_remaining: weeks left in the fantasy regular season from the current
+    content week. season_weeks: total regular season weeks (typically 17).
+    """
+    avail = parts["avail"]
+    if avail <= 0 or season_weeks <= 0 or weeks_remaining <= 0:
+        return parts
+
+    # The promotion model adjusts the parts in place
+    adjusted_parts = []
+    n_per_team = max(1, round(starters / teams)) if teams else 1
+
+    for rank_0, (pt, x) in enumerate(zip(parts["parts"], xs)):
+        rank = rank_0 + 1  # 1-based
+        v = max(0.0, x - (parts.get("w") or 0.0) if "w" in parts else pt.get("v", 0.0))
+        # Use the existing part values
+        sp = pt["start_worthy_part"]
+        fp = pt["fill_in_part"]
+        ls = pt["lineup_share"]
+
+        if rank > starters:
+            # Bench player: add promotion bonus
+            depth = rank - starters  # depth 1 = first backup
+            # Per-remaining-week probability of becoming a starter
+            rate_pw = _promotion_rate(promo_cfg, pos, depth)
+            # Expected weeks as a promoted starter: promo can happen any
+            # remaining week, on average at the midpoint.  If promoted at
+            # week w (of weeks_remaining), the player is a starter for
+            # (weeks_remaining - w) weeks.  Integrating uniformly:
+            # E[benefit] = rate_pw * sum_{w=1}^{W} (W - w)/W * avail
+            # ~ rate_pw * W/2 * avail   (when rate_pw is the per-week hazard)
+            # But we want a share increase, so:
+            promo_bonus_share = rate_pw * weeks_remaining * 0.5
+            # The promotion increases the lineup share toward avail (full-time starter)
+            # The bonus to the start_worthy_part is proportional to the value above
+            # the starter line that the player would gain if promoted.
+            # We model this as shifting fill_in_part value to start_worthy_part:
+            # The player's bench part gets a boost because promotion gives starter value.
+            new_ls = min(avail, ls + promo_bonus_share * (avail - ls))
+            if ls > 0 and v > 0:
+                # Scale parts proportionally to maintain the split
+                scale = new_ls / ls if ls > 0 else 1.0
+                sp = sp * scale
+                fp = fp * scale
+            elif v > 0:
+                # No existing lineup share; promotion gives some
+                sp = avail * v * promo_bonus_share
+                fp = 0.0
+            ls = new_ls
+        elif rank > starters - n_per_team * teams and rank <= starters:
+            # Marginal starter (within one depth round of the line): demotion risk
+            rate_pw = _demotion_rate(promo_cfg, pos)
+            demo_penalty_share = rate_pw * weeks_remaining * 0.5
+            # Reduce lineup share (starter loses value if demoted)
+            new_ls = max(0.0, ls - demo_penalty_share * ls)
+            if ls > 0:
+                scale = new_ls / ls
+                sp = sp * scale
+                fp = fp * scale
+            ls = new_ls
+
+        adjusted_parts.append({
+            "start_worthy": pt["start_worthy"],
+            "lineup_share": ls,
+            "start_worthy_part": sp,
+            "fill_in_part": fp,
+            "option_starter_part": pt["option_starter_part"],
+            "option_fill_in_part": pt["option_fill_in_part"],
+        })
+
+    return {**parts, "parts": adjusted_parts}
+
+
+# ---------------------------------------------------------------------------
 # VP-2 .. VP-5 for one source
 # ---------------------------------------------------------------------------
 
 def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
-                  es: dict | None = None) -> dict:
+                  es: dict | None = None, promotion: dict | None = None) -> dict:
     """VP-2.3, 2.5, 2.6 and VP-3.1: work lists, waiver and starter lines,
     slices (or, with `es` = {teams, lineup, chart_sigma}, the ES-5 parts)
     and the 8 group totals."""
@@ -495,6 +606,15 @@ def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
                 sig_rel, sig_floor = lp["sigma_rel"], lp["sigma_floor"]
             got = _expected_start_parts([r[1] for r in work], n_start, es["teams"], w, line, lp["m"],
                                         es["lineup"]["bye"], sig_rel, sig_floor)
+            # JEG-969: apply promotion/demotion model if enabled
+            if promotion is not None:
+                promo_cfg = promotion["config"]
+                weeks_rem = promotion["weeks_remaining"]
+                season_wks = promotion["season_weeks"]
+                got_adj = _apply_promotion_model(
+                    {**got, "w": w}, [r[1] for r in work], n_start, es["teams"],
+                    p, promo_cfg, weeks_rem, season_wks)
+                got = {**got, "parts": got_adj["parts"]}
             parts = got["parts"]
             info.update({"avail": got["avail"], "bands": got["bands"],
                          "lineup": {"m": lp["m"], "unavailable": got["unavailable"],
@@ -666,7 +786,7 @@ def mean_ppg(sources: dict, included: list) -> dict:
 
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                  selection: list | None = None, lineup: dict | None = None,
-                 hidden: set | None = None) -> dict:
+                 hidden: set | None = None, promotion_model: bool = False) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
 
     sources: {key: SourceInput} in source-key order, every source shown (held
@@ -692,6 +812,20 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     if es is not None:
         share_in = league.bench_share_override   # None = computed (ES-14)
 
+    # JEG-969: promotion/demotion model (off by default)
+    promo = None
+    if promotion_model and es is not None and lineup is not None:
+        promo_cfg = load_promotion_config()
+        season_wks = float(promo_cfg.get("season_weeks", 17))
+        # weeks_remaining from the lineup config window
+        window = lineup.get("window")
+        if window is not None:
+            w0, w1 = window
+            weeks_rem = max(0.0, float(w1 - w0 + 1))
+        else:
+            weeks_rem = season_wks
+        promo = {"config": promo_cfg, "weeks_remaining": weeks_rem, "season_weeks": season_wks}
+
     details = {}
     for key, src in sources.items():
         own_order = {p: sorted((i for i in src.values if pos_of[i] == p), key=lambda i: (-src.values[i], i))
@@ -709,7 +843,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                         est[i] = _estimate(src, i, own_order[p], peers, m)
                 if est:
                     estimates[p] = est
-        d = _source_lines(src, pos_of, s_alloc, estimates, es)
+        d = _source_lines(src, pos_of, s_alloc, estimates, es, promo)
         d.update(_mixes(d["groups"], share_in))
         d.update({"family": src.family, "status": "included" if key in inc else "excluded",
                   "allocation": s_alloc})
@@ -1232,14 +1366,18 @@ class Setting:
                  hist: History | None = None, qb: int = 1, bench_share: float | None = None,
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
-                 expected_starts: bool = True, divergence_exclusions: set | None = None):
+                 expected_starts: bool = True, divergence_exclusions: set | None = None,
+                 promotion_model: bool = False):
         """lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
         False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline).
         divergence_exclusions: source keys excluded by a JEG-610 'exclude'
-        resolution (treated as hidden, held semantics per JEG-569)."""
+        resolution (treated as hidden, held semantics per JEG-569).
+        promotion_model: JEG-969, off by default. When True, adjusts expected
+        starts for promotion/demotion dynamics (persistent role changes)."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
+        self.promotion_model = promotion_model
         self.lineup = (resolve_lineup(load_lineup_config(), **(lineup_settings or {}))
                        if expected_starts else None)
         # JEG-702: qb = the page's QB stepper (dedicated QB slots per team).
@@ -1373,7 +1511,8 @@ class Setting:
             st = self.state()
             self._current = run_pipeline(self.league, self._sources(st["current"]), self.pos_of,
                                          st["included"], self.selection, lineup=self.lineup,
-                                         hidden=st.get("hidden"))
+                                         hidden=st.get("hidden"),
+                                         promotion_model=self.promotion_model)
         return self._current
 
     def prior_result(self) -> dict | None:
@@ -1385,7 +1524,8 @@ class Setting:
             self._prior = run_pipeline(self.league, self._sources({**st["prior_shown"], **st["prior"]}),
                                        self.pos_of,
                                        st["included"], self.selection, lineup=self.lineup,
-                                       hidden=st.get("hidden"))
+                                       hidden=st.get("hidden"),
+                                       promotion_model=self.promotion_model)
         return self._prior
 
     # -- VP-11 rows --------------------------------------------------------
@@ -1442,7 +1582,7 @@ class Setting:
 
 
 def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None,
-            divergence_exclusions: set | None = None) -> dict:
+            divergence_exclusions: set | None = None, promotion_model: bool = False) -> dict:
     """One setting in the shape value_check compares: rows per tab, the
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
@@ -1451,7 +1591,8 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
                 lineup_settings=setting_spec.get("lineup"),
                 bench_share_override=setting_spec.get("bench_share_override"),
                 expected_starts=setting_spec.get("expected_starts", True),
-                divergence_exclusions=divergence_exclusions)
+                divergence_exclusions=divergence_exclusions,
+                promotion_model=promotion_model)
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}

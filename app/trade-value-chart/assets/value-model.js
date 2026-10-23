@@ -536,6 +536,73 @@
     return { avail: avail, unavailable: q, nPerTeam: nPerTeam, bands: bands, parts: parts };
   }
 
+  // JEG-969: promotion/demotion rates (measured from 2015-2025 nflverse actuals).
+  // Mirrors config/promotion_rates.json.
+  var PROMOTION_RATES = {
+    QB: {"1": 0.018, "2": 0.017, "3": 0.015, "4+": 0.005},
+    RB: {"1": 0.022, "2": 0.019, "3": 0.017, "4+": 0.006},
+    WR: {"1": 0.023, "2": 0.020, "3": 0.022, "4+": 0.007},
+    TE: {"1": 0.020, "2": 0.015, "3": 0.015, "4+": 0.009}
+  };
+  var DEMOTION_RATES = { QB: 0.020, RB: 0.014, WR: 0.015, TE: 0.018 };
+  var PROMOTION_SEASON_WEEKS = 17;
+
+  function esPromotionRate(pos, depth) {
+    if (depth <= 0) return 0;
+    var rates = PROMOTION_RATES[pos] || {};
+    var key = depth <= 3 ? String(depth) : "4+";
+    return Number(rates[key] || rates["4+"] || 0);
+  }
+
+  function esDemotionRate(pos) {
+    return Number(DEMOTION_RATES[pos] || 0);
+  }
+
+  // Apply promotion/demotion model to ES parts. Off by default; enabled
+  // when setting.promotion_model is truthy. Modifies lineup share and
+  // part values to reflect persistent role-change probability.
+  function esApplyPromotionModel(es, work, starters, teams, pos, weeksRemaining) {
+    if (!es || !es.parts || es.avail <= 0 || weeksRemaining <= 0) return es;
+    var avail = es.avail;
+    var nPerTeam = es.nPerTeam;
+    var parts = es.parts.map(function (pt, i) {
+      var rank = i + 1;
+      var ls = pt.lineupShare;
+      var sp = pt.starterPart;
+      var fp = pt.benchPart;
+
+      if (rank > starters) {
+        // Bench player: promotion bonus
+        var depth = rank - starters;
+        var ratePw = esPromotionRate(pos, depth);
+        var promoBonusShare = ratePw * weeksRemaining * 0.5;
+        var newLs = Math.min(avail, ls + promoBonusShare * (avail - ls));
+        if (ls > 0) {
+          var scale = newLs / ls;
+          sp = sp * scale;
+          fp = fp * scale;
+        }
+        ls = newLs;
+      } else if (rank > starters - nPerTeam * teams && rank <= starters) {
+        // Marginal starter: demotion risk
+        var ratePw = esDemotionRate(pos);
+        var demoPenaltyShare = ratePw * weeksRemaining * 0.5;
+        var newLs = Math.max(0, ls - demoPenaltyShare * ls);
+        if (ls > 0) {
+          var scale = newLs / ls;
+          sp = sp * scale;
+          fp = fp * scale;
+        }
+        ls = newLs;
+      }
+      return { sigma: pt.sigma, startWorthy: pt.startWorthy, lineupShare: ls,
+        starterPart: sp, benchPart: fp,
+        optionStarterPart: pt.optionStarterPart, optionBenchPart: pt.optionBenchPart };
+    });
+    return { avail: es.avail, unavailable: es.unavailable, nPerTeam: es.nPerTeam,
+      bands: es.bands, parts: parts };
+  }
+
   function runValuePipeline(input) {
     var setting = input.setting || {};
     var players = input.players || {};
@@ -658,6 +725,15 @@
       var windowWeeks = lineup.window[1] - lineup.window[0] + 1;
       var fullSeasonWeeks = LINEUP_DEFAULT_LEAGUE_WEEKS.playoff_weeks[1];
       timingFactor = Math.min(1, windowWeeks / fullSeasonWeeks);
+    }
+
+    // JEG-969: promotion/demotion model (off by default).
+    var promoEnabled = !!setting.promotion_model && esMode;
+    var promoWeeksRemaining = 0;
+    if (promoEnabled && lineup.window && lineup.window[1] >= lineup.window[0]) {
+      promoWeeksRemaining = lineup.window[1] - lineup.window[0] + 1;
+    } else if (promoEnabled) {
+      promoWeeksRemaining = PROMOTION_SEASON_WEEKS;
     }
 
     var chartPeersFor = function (src) {
@@ -813,6 +889,13 @@
           es.sigmaRel = sigRel;
           es.sigmaFloor = sigFloor;
           es.m = lp.m;
+          // JEG-969: apply promotion/demotion model if enabled
+          if (promoEnabled && promoWeeksRemaining > 0) {
+            es = esApplyPromotionModel(es, work, S, Number(setting.teams) || 0, pos, promoWeeksRemaining);
+            es.sigmaRel = sigRel;
+            es.sigmaFloor = sigFloor;
+            es.m = lp.m;
+          }
         }
         var bsum = 0, ssum = 0, vsum = 0;
         work.forEach(function (r, i) {

@@ -19,6 +19,8 @@ const doc = JSON.parse(fs.readFileSync(args[1], "utf8"));
 const setting = Object.assign({}, doc.setting);
 const bsFlag = args.indexOf("--bench-share");
 if (bsFlag !== -1) setting.bench_share = Number(args[bsFlag + 1]);
+// JEG-969: promotion model flag (off by default)
+if (args.indexOf("--promotion-model") !== -1) setting.promotion_model = true;
 // --variant <name>: a fixture variant with lineup parameters (JEG-536,
 // expected starts): its `lineup` and `setting_change` apply.
 const varFlag = args.indexOf("--variant");
