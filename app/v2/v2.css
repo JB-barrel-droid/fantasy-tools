@@ -1578,6 +1578,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   #v2Compare .v2-trade-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
   #v2Compare .v2-trade-side > .v2-trade-search-wrap { grid-column: 1 / -1; margin-top: 8px; }
   #v2Compare .v2-trade-results { top: 100%; }
+  /* JEG-884: a 245 px card gave a 217-237 px list at 1280-1366; it is never narrower than 260 px (it overlays the next column, z-index 20). */
+  #v2Compare .v2-trade-side .v2-trade-results { left: 0; right: auto; width: max(100%, 260px); box-sizing: border-box; }
 }
 
 /* JEG-884 (JEG-861 part A): legends whose 44 px hit boxes overlapped a neighbour. On a phone the "On this page" source
