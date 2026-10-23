@@ -1,7 +1,7 @@
 """v2 Risers & fallers: where the market and the projections disagree (JEG-488, contract RF-02), app/v2/movers.js.
 
 Per player, from the engine's own week pairs: dM = change in Trade chart average (ddf_value_charts) and dP = change in
-DDF Projections (ddf_value_projections). A player is in "Market moved, projections didn't" when |dM| >= 2.5 and
+DDF Value (ddf_value_projections). A player is in "Market moved, projections didn't" when |dM| >= 2.5 and
 |dP| <= 1.0, and in "Projections moved, market didn't" when |dP| >= 2.5 and |dM| <= 1.0. The read comes from a fixed
 rule on who moved and which way. These checks pin, against an independent recomputation:
 
@@ -100,7 +100,7 @@ def check(result) -> list[str]:
         errors.append(f"a player with no prior value on a side is counted, not read as 0: noDelta {result['noDelta']}, compared {result['compared']}")
     if result["bad"]["available"] or result["bad"]["n"] or "Trade chart average" not in result["bad"]["reason"] or "no Week 4 content saved" not in result["bad"]["reason"]:
         errors.append(f"a series without a prior week must make the comparison unavailable with the reason: {result['bad']}")
-    if "Trade chart average: a" not in result["both"] or "DDF Projections: b" not in result["both"]:
+    if "Trade chart average: a" not in result["both"] or "DDF Value: b" not in result["both"]:
         errors.append(f"both reasons should be named: {result['both']!r}")
     if result["consts"] != [2.5, 1.0]:
         errors.append(f"thresholds {result['consts']}")

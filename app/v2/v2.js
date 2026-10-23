@@ -49,7 +49,7 @@
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
     {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
-      note: "Our value for each player, built from the inputs you choose below."},
+      note: "Our value for each player: the projection sources you keep on in the DDF blend, averaged for your league."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
@@ -287,15 +287,24 @@
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
   // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
   const DDF_KEY = "ddf_value";
-  // JEG-542 / GL-09: three DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the
-  // charts-only and projections-only versions are off until picked. `field` is the engine's row.ddfByVersion key.
+  // JEG-542 / GL-09: the DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the trade chart
+  // average is off until picked. `field` is the engine's row.ddfByVersion key.
+  // JEG-863 (Jeremy, 2026-10-22): after JEG-804 DDF Value is the projection sources only, so "DDF Value" and the
+  // engine's projections-only version are one series. The names say what each is; the ids stay (saved selections
+  // and links carry them). The duplicate id is hidden from every picker (`sameAs`), and a saved pick of it reads
+  // as the visible one (ddfPickKey). `blend`: the version the DDF blend tab's inputs build (the charts one is not).
   const DDF_VERSIONS = {
-    ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B"},
-    ddf_value_charts: {field: "charts", label: "DDF Value: charts only", symbol: "✦", light: "#8A5A00", dark: "#E6B450"},
-    ddf_value_projections: {field: "projections", label: "DDF Value: projections only", symbol: "✧", light: "#7A3E8E", dark: "#C795DA"}
+    ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B", blend: true},
+    ddf_value_charts: {field: "charts", label: "Trade chart average", symbol: "✦", light: "#8A5A00", dark: "#E6B450", blend: false},
+    ddf_value_projections: {field: "projections", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B",
+      blend: true, sameAs: "ddf_value"}
   };
   const DDF_KEYS = Object.keys(DDF_VERSIONS);
   const isDdfKey = key => Object.prototype.hasOwnProperty.call(DDF_VERSIONS, key);
+  // The versions a reader can pick (one per distinct series), and the visible id for any DDF id.
+  const DDF_PICK_KEYS = DDF_KEYS.filter(key => !DDF_VERSIONS[key].sameAs);
+  const ddfPickKey = key => (isDdfKey(key) && DDF_VERSIONS[key].sameAs) || key;
+  const pickableSeries = keys => [...new Set(keys.map(ddfPickKey))];
   // One version's entry on an engine row: {value, count, sources, reason, lowConfidence, confidenceNote, prior, ...}.
   const ddfEntry = (row, key) => (row && row.ddfByVersion && isDdfKey(key) ? row.ddfByVersion[DDF_VERSIONS[key].field] : null) || null;
   function sourceMeta(key) {
@@ -631,6 +640,11 @@
     const tags = window.PlayerTags;
     return tags && typeof tags.playerTag === "function" ? tags.playerTag(row) : null;
   }
+  // JEG-901: what a hover `title` says, as an accessible description too (keyboard, touch and screen readers).
+  function describe(node, text) {
+    if (text) node.setAttribute("aria-description", text);
+    return node;
+  }
   function tagChip(row) {
     const tag = playerTagOf(row);
     if (!tag) return null;
@@ -638,6 +652,8 @@
     chip.className = `v2-tag v2-tag-${tag.toLowerCase()}`;
     chip.dataset.tag = tag;
     chip.title = TAG_NOTES[tag];
+    chip.setAttribute("role", "img");
+    chip.setAttribute("aria-label", `${tag}: ${TAG_NOTES[tag]}`);
     chip.textContent = tag;
     return chip;
   }
@@ -889,7 +905,9 @@
     // JEG-850: the line also says when the DDF blend is customized and when the chart legend has turned a line off.
     const customBlend = page === "values" && C.getCompositeInputs ? !C.getCompositeInputs().isDefault : false;
     const legendHidden = page === "values" ? shownKeys.filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length : 0;
-    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
+    // JEG-863: one DDF version on its own is named ("DDF Value", "Trade chart average").
+    const oneDdf = shownKeys.filter(isDdfKey);
+    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? sourceMeta(oneDdf[0]).label : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
       + (c.g.id === "ddf" && customBlend ? " (custom blend)" : "")).join(" + ") || "nothing selected"}`
       + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
@@ -900,6 +918,7 @@
       const item = view.infoByKey[key];
       const li = document.createElement("li");
       li.title = seriesName(key);
+      describe(li, li.title);
       li.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span>`;
       li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
       const badge = item?.stale ? weekBadge(key) : null;
@@ -911,7 +930,7 @@
     const rankBy = $("v2RankBy");
     // The DDF Value versions lead the picker (all three, shown or not), then the other shown series.
     // JEG-477: ESPN, CBS rest of season and Razzball (DDF weighted projections) are always offered, shown or not.
-    const rankKeys = DDF_KEYS.filter(key => view.infoByKey[key])
+    const rankKeys = DDF_PICK_KEYS.filter(key => view.infoByKey[key])
       .concat(view.plotKeys.concat(view.vorpKeys).filter(key => !isDdfKey(key)));
     ["espn", "cbsros", "razzball"].forEach(key => { if (view.infoByKey[key] && !rankKeys.includes(key)) rankKeys.push(key); });
     // The series ranked by now stays pickable even when it went unavailable, so the picker shows it.
@@ -1403,6 +1422,63 @@
     tip.style.top = `${Math.max(8, top)}px`;
   }
 
+  // JEG-897 / JEG-899: a row or card that opens the player drawer. It is focusable and opens on Enter or Space and
+  // click; it announces that it opens a dialog and how (v2OpenHint). rove() then leaves one tab stop per list.
+  function makeOpenable(node, open) {
+    node.tabIndex = -1;
+    node.setAttribute("aria-haspopup", "dialog");
+    node.setAttribute("aria-describedby", "v2OpenHint");
+    node.addEventListener("click", () => open());
+    node.addEventListener("keydown", event => {
+      if (event.target !== node) return;
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
+    });
+  }
+  // Roving tabindex (JEG-899): the container has ONE tab stop (its last-focused item, else the first). ArrowUp/Down,
+  // Home and End move between items; ArrowRight enters the item's value cells (the math tooltip cells), ArrowLeft/
+  // Escape comes back. Cells stay focusable by pointer, so mouse and touch behaviour is unchanged.
+  function rove(container, itemSelector) {
+    const items = () => [...container.querySelectorAll(itemSelector)];
+    const list = items();
+    const keep = list.find(item => item.dataset.playerKey && item.dataset.playerKey === container._roveKey) || list[0];
+    list.forEach(item => {
+      item.tabIndex = item === keep ? 0 : -1;
+      item.querySelectorAll(".has-math").forEach(cell => { cell.tabIndex = -1; });
+    });
+    if (container._roving) return;
+    container._roving = true;
+    container.addEventListener("focusin", event => {
+      const all = items();
+      const item = all.find(it => it.contains(event.target));
+      if (!item) return;
+      container._roveKey = item.dataset.playerKey;
+      all.forEach(it => { it.tabIndex = it === item ? 0 : -1; });
+    });
+    container.addEventListener("keydown", event => {
+      const all = items();
+      const item = all.find(it => it.contains(event.target));
+      if (!item) return;
+      const move = at => { event.preventDefault(); const next = all[Math.max(0, Math.min(all.length - 1, at))]; if (next) next.focus(); };
+      if (event.target === item) {
+        const at = all.indexOf(item);
+        if (event.key === "ArrowDown") move(at + 1);
+        else if (event.key === "ArrowUp") move(at - 1);
+        else if (event.key === "Home") move(0);
+        else if (event.key === "End") move(all.length - 1);
+        else if (event.key === "ArrowRight") {
+          const first = item.querySelector(".has-math");
+          if (first) { event.preventDefault(); first.focus(); }
+        }
+      } else if (event.target.classList && event.target.classList.contains("has-math")) {
+        const cells = [...item.querySelectorAll(".has-math")];
+        const at = cells.indexOf(event.target);
+        if (event.key === "ArrowRight" && cells[at + 1]) { event.preventDefault(); cells[at + 1].focus(); }
+        else if (event.key === "ArrowLeft") { event.preventDefault(); (cells[at - 1] || item).focus(); }
+        else if (event.key === "Escape") item.focus();
+      }
+    });
+  }
+
   function indexFromEvent(event, chart, container) {
     const box = container.getBoundingClientRect();
     const scale = chart.width / box.width;
@@ -1433,6 +1509,13 @@
 
   function bindChartKeys() {
     const chartNode = $("v2Chart");
+    // JEG-897: the player under the arrow keys is announced (the tooltip is visual only).
+    const say = document.createElement("div");
+    say.className = "v2-sr";
+    say.id = "v2ChartSay";
+    say.setAttribute("role", "status");
+    say.setAttribute("aria-live", "polite");
+    chartNode.insertAdjacentElement("afterend", say);
     chartNode.addEventListener("keydown", event => {
       if (!mainChart) return;
       const n = mainChart.slice.length;
@@ -1442,6 +1525,8 @@
         state.hoverIndex = Math.max(0, Math.min(n - 1, base + (event.key === "ArrowRight" ? 1 : -1)));
         state.focusIndex = state.hoverIndex;
         drawHover();
+        const at = hoveredRow();
+        if (at) say.textContent = `${at.name}, ${at.pos || ""} ${at.team || ""}, rank ${state.hoverIndex + 1} of ${n}. Enter for details.`.replace(/\s+,/g, ",");
       } else if (event.key === "Enter") {
         const row = hoveredRow();
         if (row) openDrawer(row);
@@ -1640,10 +1725,8 @@
     const rankName = sourceMeta(view.rankKey).short;
     rows.slice(0, state.shown).forEach(row => {
       const tr = document.createElement("tr");
-      tr.tabIndex = 0;
       tr.dataset.playerKey = String(row.player_key);
-      tr.addEventListener("click", () => openDrawer(row));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+      makeOpenable(tr, () => openDrawer(row));
       cols.forEach(col => {
         const td = document.createElement("td");
         if (col.cls) td.className = col.cls;
@@ -1716,6 +1799,8 @@
       tbody.appendChild(tr);
     });
     table.append(thead, tbody);
+    table.setAttribute("role", "grid");
+    rove(table, ":scope > tbody > tr[data-player-key]");
     if (expanded !== "table" && metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
       const wrap = $("v2TableWrap");
       if (wrap.scrollWidth > wrap.clientWidth + 1) { metaNoRoom = true; renderTable(true); return; }
@@ -2241,7 +2326,8 @@
   }
   function pageKeys(page) {
     const saved = pageSaved[page];
-    const keys = Array.isArray(saved) ? saved.filter(key => typeof key === "string") : [];
+    // JEG-863: a saved list may name the hidden duplicate DDF id; it reads as the visible one.
+    const keys = Array.isArray(saved) ? pickableSeries(saved.filter(key => typeof key === "string")) : [];
     return keys.length ? keys : pageDefault(page);
   }
   function savePageKeys(page, keys) {
@@ -2278,9 +2364,9 @@
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
     {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "Our blended value, built from the sources on the DDF blend tab.",
-    ddf_value_charts: "DDF Value built only from trade chart sources.",
-    ddf_value_projections: "DDF Value built only from projection sources."};
+    ddf_value: "Our value: the projection sources on the DDF blend tab, averaged for your league.",
+    ddf_value_charts: "The trade charts, rescaled to your league and averaged. A chart line, not a DDF Value input.",
+    ddf_value_projections: "Our value: the projection sources on the DDF blend tab, averaged for your league."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
     const text = String(reason || "");
@@ -2311,14 +2397,15 @@
       (composite.inputs || []).filter(key => Array.isArray(composite.series) && !composite.series.includes(key))
         .forEach(key => { if (!excluded.has(key)) excluded.set(key, plainOutReason(view.infoByKey[key]?.excludedReason)); });
     }
-    const blendKeys = composite ? (composite.allowed || []) : [];
+    const blendKeys = composite ? (composite.allowed || []).filter(key => seriesGroup(key) === "proj") : [];
     const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
     // The last usable input stays on (a held source does not count).
     const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
     // JEG-930: the charts-only version ignores the blend draft; its sources are the open trade charts.
+    // JEG-863: blend-built versions (blend: true) read usableOn; trade chart average (blend: false, not charts) is null.
     const chartsUsable = () => ((C.getCompositeInputs && C.getCompositeInputs("ddf_value_charts").series) || []).length;
-    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable() : versionKey === DDF_KEY ? usableOn()
-      : usableOn().filter(key => (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj"))).length;
+    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable()
+      : DDF_VERSIONS[versionKey].blend ? usableOn().length : null);
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
       const err = document.createElement("p");
@@ -2339,6 +2426,19 @@
         b.setAttribute("aria-controls", `v2CustPanel-${id}`);
         b.textContent = text;
         b.addEventListener("click", () => { tab = id; err.hidden = true; render(); });
+        // JEG-896: ARIA tabs pattern. Arrow keys, Home and End move focus and selection; only the selected tab is in the Tab order.
+        b.addEventListener("keydown", event => {
+          const last = tabBar.children.length - 1;
+          const at = Array.prototype.indexOf.call(tabBar.children, b);
+          const to = event.key === "ArrowRight" ? (at + 1) % (last + 1) : event.key === "ArrowLeft" ? (at + last) % (last + 1)
+            : event.key === "Home" ? 0 : event.key === "End" ? last : -1;
+          if (to < 0) return;
+          event.preventDefault();
+          tab = tabBar.children[to].dataset.tab;
+          err.hidden = true;
+          render();
+          tabBar.children[to].focus();
+        });
         tabBar.appendChild(b);
         return b;
       });
@@ -2367,7 +2467,7 @@
       // DDF blend: intro, the count, the two input lists.
       const blendIntro = document.createElement("p");
       blendIntro.className = "v2-meta v2-cintro";
-      blendIntro.textContent = "Which sources feed into DDF Value. This choice applies on every page.";
+      blendIntro.textContent = "Which projection sources are averaged into DDF Value. Trade charts are chart lines, never DDF Value inputs. This choice applies on every page.";
       const blendSummary = document.createElement("p");
       blendSummary.className = "v2-psummary";
       blendSummary.setAttribute("role", "status");
@@ -2457,7 +2557,8 @@
         const total = blendKeys.length;
         const using = usableOn().length;
         blendSummary.textContent = `Using ${using} of ${total} sources`;
-        [["pub", "Trade charts"], ["proj", "Projections"]].forEach(([groupId, title]) => {
+        // JEG-863: the projection inputs only; a trade chart is never a DDF Value input, whatever the engine lists.
+        [["proj", "Projections"]].forEach(([groupId, title]) => {
           const keys = blendKeys.filter(key => seriesGroup(key) === groupId);
           if (!keys.length) return;
           const section = document.createElement("section");
@@ -2476,7 +2577,8 @@
       function renderLines() {
         groupsBox.replaceChildren();
         DIALOG_GROUPS.forEach(g => {
-          const items = view.info.filter(item => seriesGroup(item.key) === g.id);
+          // JEG-863: the hidden duplicate DDF id has no row (one row per distinct series).
+          const items = view.info.filter(item => seriesGroup(item.key) === g.id && ddfPickKey(item.key) === item.key);
           if (!items.length) return;
           const advanced = g.id === "vorp";
           const section = document.createElement(advanced ? "details" : "section");
@@ -2503,7 +2605,7 @@
           });
           head.appendChild(all);
           section.appendChild(head);
-          const noteText = g.id === "ddf" ? (onValues ? "" : "The sources that build DDF Value are set on Player values.") : g.note;
+          const noteText = g.id === "ddf" ? (onValues ? "" : "The projection sources that build DDF Value are set on Player values.") : g.note;
           if (noteText) {
             const note = document.createElement("p");
             note.className = "v2-meta";
@@ -2610,7 +2712,7 @@
   }
   // Make the shown series equal `keys` (adds before drops, so the engine never has none).
   function applyShown(keys) {
-    const want = new Set(keys);
+    const want = new Set(pickableSeries(keys));   // JEG-863: a saved hidden duplicate id shows as the visible one
     const engineNow = C.getActiveSources();
     const available = new Set(C.getSourceInfo().filter(item => item.available && !isEngineAlias(item.key)).map(item => item.key));
     const adds = [...want].filter(key => !isDdfKey(key) && available.has(key) && !engineNow.includes(key));
@@ -2640,7 +2742,7 @@
     if (hasDdf && saved && Array.isArray(saved.inputs) && saved.inputs.length) C.setCompositeInputs(saved.inputs, false);
     const shown = saved && saved.shown.length ? saved.shown : (hasDdf ? defaultShown() : C.getActiveSources());
     applyShown(shown.filter(key => hasDdf || !isDdfKey(key)));
-    const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);
+    const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? DDF_KEY : null);
     if (rank && rank !== C.getRankSource() && (isDdfKey(rank) || C.getActiveSources().includes(rank))) C.setLockOrder(rank);
     startActive = hasDdf ? defaultShown() : C.getActiveSources().slice();
   }
@@ -3389,7 +3491,7 @@
   function loadTargetsOurs() {
     try {
       const saved = JSON.parse(localStorage.getItem(TARGETS_SAVE_KEY) || "null");
-      return saved && saved.v === 1 && typeof saved.ours === "string" ? saved.ours : null;
+      return saved && saved.v === 1 && typeof saved.ours === "string" ? ddfPickKey(saved.ours) : null;
     } catch (error) { return null; }
   }
   function saveTargetsOurs(ours) {
@@ -3431,12 +3533,15 @@
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
   const INDEXED_INFO = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
-  // JEG-490: our three names, defined once and used wherever they are shown (the "On the chart" row, Risers,
+  // JEG-490: our names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
+  // JEG-863: two names. DDF Value is the projection sources averaged (JEG-804); the trade chart average is the market.
   const NAME_DEFS = [
-    ["DDF Value", "Our estimate of what a player is worth, blended from the sources you have chosen."],
-    ["DDF Projections", "What production supports: the value of the projected stats."],
+    ["DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."],
     ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
+  // The deal read's nets (DEAL_NETS) by the name they define themselves with. After JEG-804 DDF Value = projections,
+  // so "value" and "projections" are the same series; the net itself is trade.js's.
+  const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: NAME_DEFS[0]};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
     indexed: {kind: "indexed", what: "rescaled", title: "Rescaled values", lines: [INDEXED_INFO]},
@@ -3641,6 +3746,7 @@
     const oursSelect = $("v2TOurs");
     oursSelect.replaceChildren();
     targetsView.choices.forEach(choice => {
+      if (ddfPickKey(choice.key) !== choice.key) return;   // JEG-863: the hidden duplicate DDF id
       const option = document.createElement("option");
       option.value = choice.key;
       // JEG-851: disable a chart key when it's the same as the single compared chart.
@@ -3669,7 +3775,7 @@
     node.className = "why t-count";
     node.dataset.ddfCount = String(count);
     node.textContent = `from ${count} source${count === 1 ? "" : "s"}`;
-    if (Array.isArray(sources) && sources.length) node.title = sources.map(seriesName).join(", ");
+    if (Array.isArray(sources) && sources.length) { node.title = sources.map(seriesName).join(", "); describe(node, `From ${node.title}`); }
     return node;
   }
   // Our value: the number (with DDF Value's source count), or "—" with the engine's reason.
@@ -3707,6 +3813,7 @@
       note.title = sc
         ? `${scLabel}'s rescaled value is ${fmt(m.value)}, the same as our value.`
         : `The middle value of the ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+      describe(note, note.title);
       cell.appendChild(note);
       return;
     }
@@ -3715,12 +3822,12 @@
     count.className = "why t-count";
     count.dataset.marketCount = String(m.count);
     count.textContent = sc ? scLabel : `middle of ${m.count} chart${m.count === 1 ? "" : "s"}${m.left ? ` · ${m.left} left out` : ""}`;
-    if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
+    if (m.left) describe(count, count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`);
     const diff = document.createElement("span");
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
     // JEG-833: said in words (ours is above / below the consensus), not as a signed number that contradicts the gap.
-    diff.title = "Our value against the market consensus";
+    describe(diff, diff.title = "Our value against the market consensus");
     diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${Math.abs(m.diff).toFixed(1)} ${m.diff > 0 ? "above" : "below"}`;
     cell.append(diff, count);
   }
@@ -3884,6 +3991,7 @@
       node.title = `${ranks}: the charts rank him ${p.row.pos}${b.ranks.market}, we rank him ${p.row.pos}${b.ranks.ours}; our ${p.row.pos}${b.ranks.market} is worth ${fmt(b.ranks.oursAtRank)} to us, ${fmt(p.ours)} minus that is the gap. ` + node.title;
     }
     node.textContent = text;
+    describe(node, node.title);
     return node;
   }
   function agreeNode(b, cls) {
@@ -3901,6 +4009,8 @@
       d.dataset.value = String(dot.value);
       d.title = `${PUBLISHER_NAMES[dot.chart]} (rescaled) ${fmt(dot.value)}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
       d.textContent = "●";
+      d.setAttribute("role", "img");
+      d.setAttribute("aria-label", d.title);
       dots.appendChild(d);
     });
     who.append(document.createTextNode(`${b.agree} of ${b.of} charts agree `), dots);
@@ -4007,10 +4117,8 @@
     list.slice(0, T.shown[side]).forEach(p => {
       const key = String(p.row.player_key);
       const tr = document.createElement("tr");
-      tr.tabIndex = 0;
       tr.dataset.playerKey = key;
-      tr.addEventListener("click", () => openDrawer(p.row, "targets"));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row, "targets"); });
+      makeOpenable(tr, () => openDrawer(p.row, "targets"));
       const td = (cls, text) => {
         const cell = document.createElement("td");
         if (cls) cell.className = cls;
@@ -4089,6 +4197,7 @@
       }
     });
     table.append(thead, tbody);
+    rove(table, ":scope > tbody > tr[data-player-key]");
   }
 
   function renderTargetCards(side, list) {
@@ -4096,10 +4205,8 @@
     ol.replaceChildren();
     list.slice(0, T.shown[side]).forEach(p => {
       const li = document.createElement("li");
-      li.tabIndex = 0;
       li.dataset.playerKey = String(p.row.player_key);
-      li.addEventListener("click", () => openDrawer(p.row, "targets"));
-      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
+      makeOpenable(li, () => openDrawer(p.row, "targets"));
       const top = document.createElement("div");
       top.className = "top";
       const who = document.createElement("div");
@@ -4135,6 +4242,7 @@
       li.append(top, line);
       ol.appendChild(li);
     });
+    rove(ol, "li[data-player-key]");
   }
 
   // JEG-461: each list opens on its top 5; "Show all N" then pages of 25; "Show top 5" collapses.
@@ -4302,8 +4410,9 @@
       link.classList.add("v2-srclink-open");
       chartLink.appendChild(link);
     }
+    // JEG-863: DDF Value is the projection sources averaged; the trade chart average is the charts, not a DDF input.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
-      ? `${targetsView.ours === DDF_KEY ? "the DDF Value" : `the ${sourceMeta(targetsView.ours).label} version`}, built from the inputs chosen in Customize on Player values`
+      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, the projection sources chosen in Customize on Player values, averaged for your league`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
     // JEG-851: rewrite the footnote lead-in for single-chart mode.
     const footEl = $("v2TFootnote");
@@ -4495,14 +4604,13 @@
             c.textContent = text;
             row.appendChild(c);
           });
-          row.tabIndex = 0;
-          row.addEventListener("click", () => openDrawer(p.row, "targets"));
-          row.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
+          makeOpenable(row, () => openDrawer(p.row, "targets"));
           ibody.appendChild(row);
         });
         const head = document.createElement("thead");
         head.appendChild(ih);
         inner.append(head, ibody);
+        rove(inner, ":scope > tbody > tr[data-player-key]");
         wrap.appendChild(inner);
         cell.appendChild(wrap);
         detail.appendChild(cell);
@@ -4764,7 +4872,7 @@
       const verb = step.side === "give" ? "Give" : "Receive";
       const el = document.createElement("span");
       el.className = `v2-wf-step ${step.side}${step.missing ? " is-missing" : ""}`;
-      el.tabIndex = 0;
+      el.tabIndex = -1;   // JEG-899: not a tab stop (the numbers are in the table below); a pointer still focuses it
       el.setAttribute("role", "img");
       el.dataset.playerKey = String(step.row.player_key);
       el.dataset.side = step.side;
@@ -4813,7 +4921,7 @@
       const n = netLabel(fall.net);
       const land = document.createElement("span");
       land.className = `v2-wf-land ${n.cls}`;
-      land.tabIndex = 0;
+      land.tabIndex = -1;   // JEG-899
       land.setAttribute("role", "img");
       land.dataset.net = n.text;
       land.setAttribute("aria-label", `Result ${n.text}: ${n.label.replace(/^[▲▼=] /, "")}`);
@@ -5175,7 +5283,7 @@
   const DEAL_NETS = [
     ["value", "DDF Value", "Are you getting real value?"],
     ["market", "Trade chart average", "Does the market think you are winning?"],
-    ["projections", "DDF Projections", "Is the value backed by projected production?"]];
+    ["projections", "DDF Value", "Is the value backed by projected production?"]];
   const DEAL_SIDE_WORD = {win: "You win", even: "Even", lose: "You lose"};
   function renderDeal() {
     const box = $("v2CDeal");
@@ -5219,7 +5327,7 @@
       const def = document.createElement("span");
       def.className = "v2-deal-def v2-meta";
       def.hidden = true;
-      def.textContent = `${NAME_DEFS.find(([n]) => n === name)[1]} ${question}`;
+      def.textContent = `${(DEAL_NET_DEF[id] || NAME_DEFS.find(([n]) => n === name))[1]} ${question}`;
       info.addEventListener("click", () => { def.hidden = !def.hidden; info.setAttribute("aria-expanded", String(!def.hidden)); });
       const value = document.createElement("b");
       value.className = "v2-deal-net";
@@ -5330,7 +5438,7 @@
   const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "–", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
   // JEG-895 (Jeremy, 2026-10-22): the level is named for what it measures, never "confidence".
-  // propose: the margins on DDF Value and DDF Projections; accept: the share of charts on the answer's side.
+  // propose: the margins on DDF Value; accept: the share of charts on the answer's side.
   const LEVEL_LABELS = {
     propose: {High: "Our value: strong", Medium: "Our value: moderate", Low: "Our value: weak"},
     accept: {High: "Charts agree: strongly", Medium: "Charts agree: mostly", Low: "Charts agree: weakly"},
@@ -5661,6 +5769,7 @@
     if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", syncVerdictBar);
     ["give", "receive"].forEach(side => {
       const input = $(SIDE_IDS[side].search);
+      window.TradeValueNameSearch.combobox(input, $(SIDE_IDS[side].results));   // JEG-900
       input.addEventListener("input", () => renderSearch(side));
       input.addEventListener("keydown", event => {
         if (event.key === "Enter") {
@@ -5897,7 +6006,7 @@
     note.textContent = notes.join(" ");
   }
 
-  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Projections disagree. Always the served
+  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Value disagree. Always the served
   // week pair for those two series (the Movement picker and the week pair above do not apply).
   const DISAGREE_SHOWN = 10;
   function renderDisagreements(M, rows) {
@@ -5916,11 +6025,9 @@
       list.slice(0, DISAGREE_SHOWN).forEach(item => {
         const row = item.row;
         const li = document.createElement("li");
-        li.tabIndex = 0;
         li.dataset.playerKey = String(row.player_key);
         li.dataset.moved = item.moved;
-        li.addEventListener("click", () => openDrawer(row));
-        li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+        makeOpenable(li, () => openDrawer(row));
         const top = document.createElement("div");
         top.className = "m-top";
         const who = document.createElement("div");
@@ -5945,7 +6052,7 @@
           return span;
         };
         vals.append(part("Trade chart average", item.market.delta, "market"), document.createTextNode(" · "),
-          part("DDF Projections", item.projections.delta, "projections"));
+          part("DDF Value", item.projections.delta, "projections"));
         const read = document.createElement("div");
         read.className = "v2-dread";
         read.dataset.col = "read";
@@ -5953,6 +6060,7 @@
         li.append(top, vals, read);
         ol.appendChild(li);
       });
+      rove(ol, "li[data-player-key]");
       const empty = $(emptyId);
       empty.hidden = list.length > 0;
       if (d.available && !rows.length && R.search.trim()) renderNoMatch(empty, R.search, "v2RSearch");
@@ -5975,10 +6083,8 @@
     list.slice(0, R.shown[side]).forEach(item => {
       const row = item.row;
       const li = document.createElement("li");
-      li.tabIndex = 0;
       li.dataset.playerKey = String(row.player_key);
-      li.addEventListener("click", () => openDrawer(row));
-      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+      makeOpenable(li, () => openDrawer(row));
       const top = document.createElement("div");
       top.className = "m-top";
       const who = document.createElement("div");
@@ -6016,6 +6122,7 @@
       li.append(top, bottom);
       ol.appendChild(li);
     });
+    rove(ol, "li[data-player-key]");
     const empty = $(ids.empty);
     empty.hidden = v.available && list.length > 0;
     if (v.available && v.searchMiss) renderNoMatch(empty, R.search, "v2RSearch");
@@ -6076,6 +6183,26 @@
     : base === "#player-values" ? "values" : null);
   const currentView = () => viewFor(hashBase()) || "targets";   // landing: Trade targets (Jeremy, 2026-10-08)
 
+  // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
+  const BASE_TITLE = document.title;
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade"};
+  const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
+  function syncTitle() {
+    const v = currentView();
+    const parts = [];
+    const text = id => ($(id) && $(id).textContent || "").trim();
+    if (!$("v2Expand").hidden) parts.push(text("v2ExpandTitle"));
+    else if (!$("v2Drawer").hidden) parts.push(text("v2DrawerTitle"));
+    else if (!$("v2Popover").hidden && $("v2Popover").querySelector("#v2PanelTitle")) parts.push(text("v2PanelTitle"));
+    if (v === "writing") parts.push(WRITING_TITLES[writingSection()], "Writing");
+    else if (v === "audit") {
+      const slug = hashBase().startsWith("#values-auditing/") ? decodeURIComponent(hashBase().slice("#values-auditing/".length)) : "";
+      if (slug) parts.push(slug.replace(/-/g, " ").replace(/^./, c => c.toUpperCase()));
+      parts.push("Values auditing");
+    } else parts.push(VIEW_TITLES[v]);
+    document.title = parts.filter(Boolean).concat(BASE_TITLE).join(" \u00b7 ");
+  }
+
   function applyRoute() {
     const v = currentView();
     $("v2Main").hidden = v !== "values";
@@ -6100,6 +6227,7 @@
     if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
     refresh();
+    syncTitle();
   }
 
   // ---------- wiring ----------
@@ -6422,6 +6550,38 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    // JEG-953: phone hamburger menu. The toggle only shows below the phone breakpoint (CSS); the menu is the same
+    // nav element. It closes on selection, Escape (focus returns to the button) and a tap outside.
+    {
+      const header = document.querySelector(".v2-nav");
+      const toggle = $("v2NavToggle");
+      const setNav = (open, returnFocus) => {
+        header.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "Close menu" : "Menu");
+        if (open) (document.querySelector(".v2-tab.is-active") || document.querySelector(".v2-tab")).focus();
+        else if (returnFocus) toggle.focus();
+      };
+      toggle.addEventListener("click", () => setNav(!header.classList.contains("is-open"), true));
+      $("v2Tabs").addEventListener("click", event => { if (event.target.closest(".v2-tab") && header.classList.contains("is-open")) setNav(false, false); });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && header.classList.contains("is-open")) setNav(false, true);
+      });
+      document.addEventListener("pointerdown", event => {
+        if (header.classList.contains("is-open") && !header.contains(event.target)) setNav(false, false);
+      });
+      window.addEventListener("hashchange", () => { if (header.classList.contains("is-open")) setNav(false, false); });
+      // Leaving the phone layout (rotation, resize) must not leave the state open.
+      window.matchMedia("(min-width: 768px) and (min-height: 501px), (min-width: 933px)").addEventListener("change", event => {
+        if (event.matches && header.classList.contains("is-open")) setNav(false, false);
+      });
+    }
+    $("v2HowWeightsExplainerBtn").addEventListener("click", event => {
+      const button = event.currentTarget;
+      const open = button.getAttribute("aria-expanded") !== "true";
+      button.setAttribute("aria-expanded", String(open));
+      $("v2HowWeightsExplainerBody").hidden = !open;
+    });
     // Skip link: a button, because a #fragment would change the hash route.
     $("v2Skip").addEventListener("click", () => {
       const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden);
@@ -6578,6 +6738,11 @@
       resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
     });
     window.addEventListener("hashchange", () => { canonicalizeHash(); readTradeHash(); applyRoute(); });
+    // Dialogs open and close by toggling `hidden`; the title follows them.
+    if (window.MutationObserver) {
+      const titleWatch = new MutationObserver(syncTitle);
+      ["v2Popover", "v2Drawer", "v2Expand"].forEach(id => titleWatch.observe($(id), {attributes: true, attributeFilter: ["hidden"]}));
+    }
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
     if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", () => { if (C) refresh(); });
     if (metaWideQuery && metaWideQuery.addEventListener) metaWideQuery.addEventListener("change", () => { if (C && currentView() === "values") renderTable(); });

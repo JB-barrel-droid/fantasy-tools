@@ -1,0 +1,62 @@
+name: Projection capture, Sunday pre-kickoff (JEG-944)
+
+# Jeremy 2026-10-23: a full copy of each source's forward projections after the Tuesday
+# flip AND a Sunday pre-kickoff copy. This workflow is the Sunday copy for CBS and Razzball
+# (ESPN's comes from espn-weekly-store.yml's Sunday run). It pulls the two sources and runs
+# pipelines/capture_projections_only.py: writes public.source_projection_captures only. It
+# does not touch cbs_ros_projections or razzball_projections and dispatches nothing, so it
+# can never move a published value. A missing copy is failed loudly by
+# pipelines/check_projection_captures.py in espn-weekly-store.yml.
+#
+# Scheduler owner: Supabase pg_cron `projection-capture-sunday` (15:30 UTC Sunday),
+# supabase/migrations/jeg944_source_projection_captures_20261023.sql. No `schedule:`.
+# workflow_dispatch is dry unless mode=write.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projection-capture-sunday
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Pull CBS and Razzball, then capture
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          flag="--dry-run"
+          [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
+          python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
+          python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball
+          python3 pipelines/capture_projections_only.py --cbs /tmp/cbsros_snapshot --razzball /tmp/razzball $flag
+
+      - name: Record monitored check
+        if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id projection_capture_sunday --owner projection-capture-sunday.yml --outcome "${{ job.status }}"

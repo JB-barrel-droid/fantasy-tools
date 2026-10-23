@@ -675,7 +675,14 @@ PHONE_JS = "async (hash) => {" + COMMON + r"""
   location.hash = hash; await sleep(700);
   const page = Object.entries(pagesShown()).find(([, on]) => on);
   const out = {hash, page: page ? page[0] : null, height: page ? $(page[0]).getBoundingClientRect().height : 0,
-    overflow: document.documentElement.scrollWidth - innerWidth, nav: shown(document.querySelector('.v2-tabs'))};
+    overflow: document.documentElement.scrollWidth - innerWidth, nav: false};
+  // JEG-953: on phones the tabs live in the hamburger menu; the nav is usable when the button opens a menu with every tab.
+  const toggle = $('v2NavToggle');
+  if (shown(toggle)) {
+    toggle.click(); await sleep(100);
+    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === 7 && toggle.getAttribute('aria-expanded') === 'true';
+    toggle.click(); await sleep(100);
+  }
   if (hash === '#compare-trade') {
     await addTrade();
     scrollTo(0, document.documentElement.scrollHeight); await sleep(500);
@@ -1117,8 +1124,9 @@ def gl08(S):
 
 
 def gl09(S):
-    """GL-09 (JEG-542): the three DDF Value versions are offered everywhere; blended is on, the others off."""
-    versions = ["ddf_value", "ddf_value_charts", "ddf_value_projections"]
+    """GL-09 (JEG-542): the two pickable DDF Value versions are offered everywhere; blended is on, the other off.
+    JEG-863: ddf_value_projections is hidden from all pickers (sameAs ddf_value), so only 2 versions are pickable."""
+    versions = ["ddf_value", "ddf_value_charts"]   # JEG-863: ddf_value_projections hidden (sameAs ddf_value)
     v, t = S["values"]["s0"], S["tabs"]
     errors = []
     on = [k for k in versions if k in v["shown"]]
@@ -1130,6 +1138,11 @@ def gl09(S):
         missing = [k for k in versions if k not in options]
         if missing:
             errors.append(f"{where} does not offer {missing}")
+    # ddf_value_projections must NOT appear in pickers (it's the hidden duplicate).
+    for where, options in (("Rank by", v["rankOptions"]),
+                           ("Trade targets' Our value", t["targets"]["oursOptions"])):
+        if "ddf_value_projections" in options:
+            errors.append(f"{where} still shows ddf_value_projections (should be hidden via sameAs)")
     return errors
 
 
@@ -1530,7 +1543,9 @@ def gl27(S):
 
 def tt12(S):
     cells = S["tabs"]["targets"]["mathCells"]
-    bad = [c for c in cells if c != ["0", "v2MathTip"]]
+    # JEG-899: inside a row or card list the cell is tabindex -1 (one tab stop per row list; ArrowRight from the
+    # row, or a pointer, focuses it). Still focusable, so the contract is "0 or -1", never absent.
+    bad = [c for c in cells if c[0] not in ("0", "-1") or c[1] != "v2MathTip"]
     return [f"chart values must be focusable and describedby the math tip: {bad[:3]}"] if bad or not cells else []
 
 
@@ -1545,7 +1560,7 @@ def gl26(S):
 def hv02(S):
     h = S["tabs"]["how"]
     errors = []
-    if h["primaries"] != ["DDF Value", "DDF Projections", "Trade chart average"] or not h["edge"]:
+    if h["primaries"] != ["DDF Value", "Trade chart average"] or not h["edge"]:
         errors.append(f"How values work leads with {h['primaries']}, edge section {h['edge']}")
     if "Data Driven Adjustments" in h["outside"] or re.search(r"\bDDA\b", h["outside"]):
         errors.append("How values work still says Data Driven Adjustments / DDA")
@@ -1774,8 +1789,9 @@ def gl07_partial(S):
                 errors.append(f"{tab}: Customize group {gid!r} is {g and g['title']!r}, want {title!r}")
             elif not re.match(r"Select (all|none)$", g["call"].strip()):
                 errors.append(f"{tab}: group {title!r} has no Select all / none ({g['call']!r})")
-        if c["versions"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections"]:
-            errors.append(f"{tab}: DDF Value versions in Customize {c['versions']}")
+        # JEG-863: ddf_value_projections hidden from pickers (sameAs ddf_value); only 2 pickable versions.
+        if c["versions"] != ["ddf_value", "ddf_value_charts"]:
+            errors.append(f"{tab}: DDF Value versions in Customize {c['versions']}, want 2 (ddf_value_projections hidden)")
         for b in ("Reset to default", "Done", "Cancel"):
             if b not in c["footer"]:
                 errors.append(f"{tab}: Customize has no {b!r} button")
@@ -2255,8 +2271,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current
         # (JEG-721: removing the held-source detection makes the chip lie), the 390 px layout scrolls sideways,
         # a Manifesto section dropped.
-        broken_js = cut(js, "const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);",
-                        'const rank = saved && saved.rank ? saved.rank : (hasDdf ? C.getActiveSources()[0] : null);')
+        broken_js = cut(js, "const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? DDF_KEY : null);",
+                        'const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? C.getActiveSources()[0] : null);')
         # JEG-806: the ternary is now multi-line; the anchor is just the assignment start.
         broken_js = cut(broken_js, '$("v2FreshnessLabel").textContent = stuck\n', '$("v2FreshnessLabel").textContent = false\n')
         broken_js = cut(broken_js, '`${weekText}${freshNotes.join(" · ") || "all sources current"}`;\n',
@@ -2274,6 +2290,9 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "GL-05", "a chip claiming every source is current")
         caught(results, "GL-13", "the 390 px layout scrolling sideways")
         caught(results, "MF-01", "a Manifesto section dropped")
+        # JEG-953: with the hamburger button hidden, a phone has no way to reach the tabs.
+        results, _ = run_contract(["GL-13"], {"v2.css": css + "\n.v2-nav .v2-nav-toggle { display: none !important; }\n"})
+        caught(results, "GL-13", "the phone hamburger button hidden (tabs unreachable)")
 
 
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to

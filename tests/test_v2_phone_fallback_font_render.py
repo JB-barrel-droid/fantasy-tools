@@ -3,12 +3,12 @@
 The page asks for Inter. A host without Inter (GitHub's Ubuntu runner, a
 visitor's phone) falls back to a wider face, and the phone layout must still
 fit. The render suites passed on a machine with Inter installed and failed in CI
-on the same code (nav row 6 to 15 px over on every tab, the Player values table
+on the same code (nav row 6 to 15 px over on every tab, before the hamburger menu replaced it, the Player values table
 head 33 px over), so this test forces DejaVu Sans, the widest common fallback,
 on every element and requires scrollWidth == clientWidth on each tab.
 
-Discrimination: test_guard_fails_on_old_nav_rules and test_guard_fails_on_old_table_head_rule serve v2.css with the 13 px tab
-row and the non-shrinking table title and requires the overflow to be found.
+Discrimination: test_guard_fails_on_old_nav_rules and test_guard_fails_on_old_table_head_rule serve v2.css with a 600 px hamburger menu
+basis and the non-shrinking table title and requires the overflow to be found.
 """
 from __future__ import annotations
 
@@ -27,11 +27,10 @@ DIST = ROOT / "dist"
 TABS = ("#writing/manifesto", "#player-values", "#trade-targets", "#risers-fallers", "#compare-trade", "#find-trade", "#writing/how-values", "#writing/research", "#values-auditing")
 WIDE = ("document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');"
         "s.textContent=\"*{font-family:'DejaVu Sans',sans-serif !important}\";document.head.appendChild(s)})")
+# JEG-953: the phone nav is the hamburger menu. These are the table-head rule (JEG-675) and the menu's own sizing rule;
+# the menu is proven open, in the wide face, holding one stand-in item beyond the seven.
 OLD_RULES = (
-    ("padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 12px;",
-     "padding: 8px 2px; min-width: 44px; flex: 1 1 auto; justify-content: center; font-size: 13px;"),
-    # JEG-829: the tab row now also wraps from 360 px in a wide face; the old state has neither the wrap nor the 12 px type.
-    ("@media (min-width: 360px) and (max-width: 767px) { .v2-tabs { flex-wrap: wrap; row-gap: 4px; } }", ""),
+    ("flex: 1 0 100%; display: none; flex-direction: column;", "flex: 1 0 600px; display: none; flex-direction: column;"),
     ("@media (max-width: 767px) { .v2-table-head { flex-wrap: wrap; } .v2-table-head h2, .v2-table-head .v2-meta { flex: 1 1 100%; min-width: 0; } }", ""),
 )
 
@@ -54,7 +53,7 @@ def _served():
             server.shutdown()
 
 
-def _overflows(css=None, tabs=TABS, extra_tabs=0) -> dict:
+def _overflows(css=None, tabs=TABS, extra_tabs=0, open_menu=False) -> dict:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -86,6 +85,8 @@ def _overflows(css=None, tabs=TABS, extra_tabs=0) -> dict:
                 page.evaluate("""(i) => { const nav = document.querySelector('.v2-tabs'); const t = nav.lastElementChild.cloneNode(true);
                   t.dataset.view = 'standin-' + i; t.dataset.short = 'Tab'; t.classList.remove('is-active'); t.removeAttribute('aria-current');
                   nav.appendChild(t); }""", index)
+            if open_menu:
+                page.click('#v2NavToggle')
             page.wait_for_timeout(200)
             over = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
             if over > 0:
@@ -102,19 +103,21 @@ class PhoneFallbackFontTest(unittest.TestCase):
     def test_guard_fails_on_old_table_head_rule(self):
         # The Player values table head must not widen the page (33 px over in JEG-675). Only this rule is reverted.
         css = (ROOT / "app" / "v2" / "v2.css").read_text(encoding="utf-8")
-        new, old = OLD_RULES[2]
+        new, old = OLD_RULES[1]
         self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
         self.assertIn("#player-values", _overflows(css.replace(new, old), tabs=("#player-values",)))
 
     def test_guard_fails_on_old_nav_rules(self):
-        # JEG-880: the nav rules (12 px tab type, wrap from 360 px) are proven on their own, on a route whose table head
-        # cannot overflow. Seven short tabs now fit even with the old rules, so the row is held at eight with one stand-in
-        # tab. Current rules must hold the eight (a wrapped row, no sideways scroll); the old rules must not.
+        # JEG-953: the phone nav is the hamburger menu. Open, with one stand-in item beyond the seven, in the wide face,
+        # it must stay inside the viewport; a menu sized 600 px wide (the broken state) must be caught. Route chosen
+        # so the table head cannot overflow.
         css = (ROOT / "app" / "v2" / "v2.css").read_text(encoding="utf-8")
-        old_css = css
-        for new, old in OLD_RULES[:2]:
-            self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
-            old_css = old_css.replace(new, old)
+        new, old = OLD_RULES[0]
+        self.assertEqual(css.count(new), 1, f"stale mutation anchor: {new[:60]!r}")
         route = ("#trade-targets",)
-        self.assertEqual(_overflows(tabs=route, extra_tabs=1), {}, "current nav rules must hold eight tabs")
-        self.assertIn("#trade-targets", _overflows(old_css, tabs=route, extra_tabs=1), "old nav rules were not caught")
+        self.assertEqual(_overflows(tabs=route, extra_tabs=1, open_menu=True), {}, "current nav rules must hold the open menu")
+        self.assertIn("#trade-targets", _overflows(css.replace(new, old), tabs=route, extra_tabs=1, open_menu=True), "old nav rules were not caught")
+        # The button itself must exist at 390 (a hidden hamburger would leave the phone with no nav).
+        hidden = css + "\n.v2-nav .v2-nav-toggle { display: none !important; }\n"
+        with self.assertRaises(Exception):
+            _overflows(hidden, tabs=route, open_menu=True)

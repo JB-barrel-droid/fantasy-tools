@@ -142,6 +142,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
 	python3 -m unittest tests.test_monitor_alerts
+	python3 -m unittest tests.test_fc_grain_check
 	python3 -m unittest tests.test_fidelity_pulse
 	python3 -m unittest tests.test_fidelity_espn
 	python3 -m unittest tests.test_fidelity_cbsros
@@ -513,7 +514,7 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_phone_layout_render
-	python3 -m unittest tests.test_v2_phone_nav_overflow_render
+	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_phone_rank_overflow_render
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_trade_actions_render
