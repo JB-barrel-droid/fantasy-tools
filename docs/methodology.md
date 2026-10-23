@@ -1731,7 +1731,9 @@ roster and with one superflex slot, plus the DDF Value's prior-week pair.
   series and its VORP vs waivers / Adjusted values views; ESPN, CBS ROS and
   Razzball with their raw VORP vs waivers series). Their fixture sections go
   back to the last published ones, labelled with their own week, and carry
-  `validationHold: {reason, week}`; a held series is never a DDF Value input.
+  `validationHold: {reason, week}`; a held source is hidden from the DDF
+  Value blend and Indexed basis (VP-6.3, VP-6.4) but stays in the pipeline
+  for allocation, weights and pie (VP-1, JEG-569).
   The other sources publish. The hold is released on the first run where the
   two agree.
 - *Report.* `output/value-check.json` (schema `value-check/1`, published as
