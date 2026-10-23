@@ -7,7 +7,8 @@ name: Preview build
 #
 # Deliberate differences from pages.yml:
 #   - make validate is blocking here (on a PR it is the only gate);
-#   - the full test suite (make test-unit) also runs here, non-blocking;
+#   - the full test suite (make test-unit) also runs here, non-blocking, in its
+#     own job (full-suite) so it cannot turn the preview check red (JEG-978);
 #   - a rendered gate (JEG-47) loads the built dist in headless Chromium and fails on any
 #     uncaught page error or a DDF pie readout that does not sum to 100.0 (JEG-24);
 #   - checkout uses the PR head SHA, not the default merge ref, so the build tag
@@ -132,8 +133,38 @@ jobs:
             } else {
               await github.rest.issues.createComment({owner, repo, issue_number, body});
             }
-      - name: Full test suite (informational, non-blocking)
-        if: ${{ !cancelled() }}
-        continue-on-error: true
+
+  # JEG-978: the full suite runs in its own job so it cannot fail the `preview`
+  # check. As a step in that job, a suite that took the runner down (JEG-979:
+  # a test exhausted memory, "runner lost communication") failed the whole job
+  # even with continue-on-error, after validate and the rendered gate passed.
+  # Steps use multi-line run blocks so the pages.yml parity guard
+  # (tests/test_preview_workflow_matches_pages.py) does not read them as build steps.
+  full-suite:
+    name: Full test suite (informational, non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Same setup the suite had as the preview job's last step: the render
+      # tests required, and playwright-core for the JEG-103/JEG-135 harness tests.
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          npm ci --prefix tests/rendered_gate
+          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Build
+        run: |
+          make sync
+      - name: make test-unit
         run: |
           make test-unit
