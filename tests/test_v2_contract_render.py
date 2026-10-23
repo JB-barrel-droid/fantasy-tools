@@ -675,7 +675,14 @@ PHONE_JS = "async (hash) => {" + COMMON + r"""
   location.hash = hash; await sleep(700);
   const page = Object.entries(pagesShown()).find(([, on]) => on);
   const out = {hash, page: page ? page[0] : null, height: page ? $(page[0]).getBoundingClientRect().height : 0,
-    overflow: document.documentElement.scrollWidth - innerWidth, nav: shown(document.querySelector('.v2-tabs'))};
+    overflow: document.documentElement.scrollWidth - innerWidth, nav: false};
+  // JEG-953: on phones the tabs live in the hamburger menu; the nav is usable when the button opens a menu with every tab.
+  const toggle = $('v2NavToggle');
+  if (shown(toggle)) {
+    toggle.click(); await sleep(100);
+    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === 7 && toggle.getAttribute('aria-expanded') === 'true';
+    toggle.click(); await sleep(100);
+  }
   if (hash === '#compare-trade') {
     await addTrade();
     scrollTo(0, document.documentElement.scrollHeight); await sleep(500);
@@ -2274,6 +2281,9 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "GL-05", "a chip claiming every source is current")
         caught(results, "GL-13", "the 390 px layout scrolling sideways")
         caught(results, "MF-01", "a Manifesto section dropped")
+        # JEG-953: with the hamburger button hidden, a phone has no way to reach the tabs.
+        results, _ = run_contract(["GL-13"], {"v2.css": css + "\n.v2-nav .v2-nav-toggle { display: none !important; }\n"})
+        caught(results, "GL-13", "the phone hamburger button hidden (tabs unreachable)")
 
 
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
