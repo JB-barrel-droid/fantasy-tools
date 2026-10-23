@@ -719,16 +719,13 @@ change to them is a value change and is reviewed as one.
 bench, `S_p` and `N_p` per source. `n_p = max(1, round(S_p / T))` is the
 starters per team at `p`, flex winners included.
 
-- **Roster decision (JEG-521 constraint).** The default roster is QB 1 / RB 2 /
-  WR 3 / TE 1 / FLEX 1 / BENCH 6, as in `DEFAULT_ROSTER`, `REF_SLOTS`, the
-  spec reference, the worked example and the v2 steppers. `config/roster.json`
-  says WR 2 / FLEX 2 and is wrong; both shapes have 8 starters and the same
-  pie, but the engine has never priced the WR 2 / FLEX 2 shape by default.
-  The file is corrected when VP-10 retires `build_adjustment_inputs.py`,
-  which is its only consumer that moves a live number (today it sets the
-  starter and bench roles of the `*_adjusted` fit cells, so correcting it
-  before the fit retires would move live values outside this decision).
-  `reindex_comparison_section.py` loads the shape and never uses it.
+- **Roster decision (JEG-563, 2026-10-16; supersedes the JEG-521 constraint).**
+  The default roster is QB 1 / RB 2 / WR 2 / TE 1 / FLEX 1 / BENCH 7, as in
+  `DEFAULT_ROSTER`, `REF_SLOTS` and the spec reference. Bench seats are the
+  roster convention (JEG-561): D'Hondt over teams x 7 on dedicated slots x
+  market backups-per-starter (`config/market_bench.json`), not the old
+  `BENCH_MIX_12` mix. The older WR 3 / BENCH 6 default no longer applies.
+  `reindex_comparison_section.py` loads a roster shape and never uses it.
 
 **ES-3 Lines and depth edges** (per source and position, own units, on the
 work list of VP-2.4).

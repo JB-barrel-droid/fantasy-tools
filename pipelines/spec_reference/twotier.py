@@ -15,8 +15,9 @@ Spec sources (quoted where they decide something):
 - The leg artifact's own `pies_method` text (data/ddf-two-tier/*/ddf_leg.json):
   "pie = sum(max(0, per-game - waiver_pg)); waiver = next-unrostered
   per-game; rostered = teams*slots + flex (teams flex from RB/WR/TE pool after
-  dedicated) + bench_mix scaled by teams/12 (round-half-up)", reference shape
-  QB1 RB2 WR3 TE1 FLEX1, bench mix QB10 RB27 WR33 TE10.
+  dedicated) + bench_mix scaled by teams/12 (round-half-up)" (legacy; bench is
+  now the JEG-561 convention, see bench_counts), reference shape QB1 RB2 WR2
+  TE1 FLEX1 bench 7 (JEG-563).
 - docs/claude-log.md 2026-09-25: the leg prices with a "softplus glide" and
   "slice pricing"; fe-dependency-inventory: values "scaled by 70/max(raw)".
 
@@ -25,8 +26,10 @@ compare.SPEC_GAPS.
 """
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
+from pathlib import Path
 
 POSITIONS = ("QB", "RB", "WR", "TE")
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1}
@@ -34,6 +37,8 @@ REF_FLEX = 1
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
 BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 DEFAULT_BENCH_SHARE = 0.15
+DEFAULT_BENCH = 7  # bench seats per team, JEG-563
+MARKET_BENCH_PATH = Path(__file__).resolve().parents[2] / "config" / "market_bench.json"
 STEP_INSIDE_WINDOW = 0.01
 MAX_HALVINGS = 8
 DISPLAY_TOP = 70.0
@@ -47,8 +52,30 @@ def round_half_up(x: float) -> int:
     return int(math.floor(x + 0.5))
 
 
-def bench_counts(teams: int) -> dict[str, int]:
-    """Two-tier pool bench per position: the 12-team mix scaled by teams/12."""
+def bench_counts(teams: int, slots=None, bench_per_team: int = DEFAULT_BENCH) -> dict[str, int]:
+    """Two-tier pool bench per position, roster convention rule 1 (JEG-561).
+
+    weight_p = dedicated starter slots_p x backups-per-starter_p (frozen
+    one-QB market ratios, config/market_bench.json), D'Hondt over
+    teams x bench_per_team seats, ties to POSITIONS order. Written from the
+    rule's text, not imported from the pipeline. Replaces the legacy
+    BENCH_MIX_12 scaled by teams/12 (kept below only as the negative-test
+    baseline).
+    """
+    slots = slots or REF_SLOTS
+    with open(MARKET_BENCH_PATH, encoding="utf-8") as f:
+        ratios = json.load(f)["one_qb"]["backups_per_starter"]
+    weights = {pos: slots[pos] * ratios[pos] for pos in POSITIONS}
+    seats = {pos: 0 for pos in POSITIONS}
+    for _ in range(teams * bench_per_team):
+        best = max(POSITIONS, key=lambda p: (weights[p] / (seats[p] + 1), -POSITIONS.index(p)))
+        seats[best] += 1
+    return seats
+
+
+def legacy_bench_counts(teams: int) -> dict[str, int]:
+    """The pre-JEG-561 rule: the 12-team mix scaled by teams/12. Not used by
+    pricing; the negative test proves the leg check rejects it."""
     return {pos: round_half_up(BENCH_MIX_12[pos] * teams / 12) for pos in POSITIONS}
 
 
