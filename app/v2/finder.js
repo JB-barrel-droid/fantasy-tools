@@ -977,18 +977,12 @@
     function refresh() {
       const giveRows = group.giveCandidates.filter(r => giveSel.has(keyOf(r))).sort(order);
       const recvRows = group.heavy.concat(group.receiveSide.filter(r => recvSel.has(keyOf(r)))).sort(order);
-      // Selection limits: the package size searched, and at least one player given.
-      let capped = false;
-      boxes.forEach(b => {
-        const give = b.sel === giveSel;
-        const full = give ? giveSel.size >= ctx.maxSize : group.heavy.length + recvSel.size >= ctx.maxSize;
-        const last = give && giveSel.size <= 1;
-        const block = !b.input.checked && full;
-        b.input.disabled = block || (b.input.checked && last);
-        if (block) capped = true;
-      });
-      capNote.hidden = !capped;
-      capNote.textContent = capped ? `Package is capped at ${ctx.maxSize}-for-${ctx.maxSize}; untick a player to pick another.` : "";
+      // Any size can be ticked (Jeremy 2026-10-23); only the last player given is kept. A package larger than the
+      // searched size is labelled, and its math is still exact (evaluateCombo).
+      boxes.forEach(b => { b.input.disabled = b.sel === giveSel && b.input.checked && giveSel.size <= 1; });
+      const larger = giveRows.length > ctx.maxSize || recvRows.length > ctx.maxSize;
+      capNote.hidden = !larger;
+      capNote.textContent = larger ? `Larger package than searched: you searched up to ${ctx.maxSize}-for-${ctx.maxSize}, this is ${giveRows.length}-for-${recvRows.length}. The numbers below are exact, but the search did not look at packages this big.` : "";
       const e = evaluateCombo(giveRows, recvRows, ctx);
       const favor = e.charts.filter(c => c.rivalOk).map(c => CHART_NAMES[c.key] || c.key);
       const unpriced = e.charts.filter(c => c.net === null).length;

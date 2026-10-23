@@ -6,7 +6,7 @@ Two rosters are typed in (top players by DDF Value, alternating), size set to 2-
   * results are group cards (one per received core player, at most 10), each naming its target;
   * toggling a side player (mouse or the keyboard space bar) changes the package line, the DDF Value edge shown and
     the Open in Compare a trade link to exactly the selection, and the edge equals receive minus give from getAllRows;
-  * the package-size cap holds: with the package full, the unticked boxes are disabled and the cap is said;
+  * ticking beyond the searched package size is allowed, labelled 'Larger package than searched', and the numbers follow the rows;
   * a selection the search would not list says why instead of vanishing;
   * the last player given cannot be unticked; every side-player row is at least 44 px; no sideways scroll; no errors.
 
@@ -41,7 +41,7 @@ CARD = """(i) => {
   const boxes = [...li.querySelectorAll('input[type=checkbox]')].map(b => ({checked: b.checked, disabled: b.disabled,
     label: b.getAttribute('aria-label'), h: b.closest('label').getBoundingClientRect().height}));
   return {give, get, edge: sum(get) - sum(give), shownEdge: Number(li.dataset.findEdge), text: li.querySelector('.v2-find-edge').textContent,
-    notes: li.querySelector('.v2-find-notes').textContent, cap: !li.querySelector('.v2-find-cap').hidden,
+    notes: li.querySelector('.v2-find-notes').textContent, cap: !li.querySelector('.v2-find-cap').hidden, capText: li.querySelector('.v2-find-cap').textContent,
     linkOk: [q.get('give').split(',').sort().join(',') === idsOf(give), q.get('get').split(',').sort().join(',') === idsOf(get)],
     target: li.querySelector('.v2-find-target-name').textContent, boxes, junk: /null|undefined|NaN/.test(li.textContent)};
 }"""
@@ -105,15 +105,34 @@ def check(page, tag, width) -> list[str]:
                 errors.append(tag + f"{before['target']}: toggling back did not restore the package")
     if not toggled:
         errors.append(tag + "no side player could be toggled in the first groups: the toggle checks proved nothing")
-    # The cap: a group whose give side is full disables the unticked boxes.
-    capped = False
+    # Beyond the searched size: a full give side (2 ticked at 2-for-2) still lets a third be ticked; the package is labelled
+    # as larger than searched and the numbers still follow the engine rows.
+    bigger = False
     for i in range(count):
         c = page.evaluate(CARD, i)
-        gives = [b for b in c["boxes"]]
-        if gives and sum(1 for b in gives if b["checked"]) >= 2 and any(not b["checked"] for b in gives):
-            capped = True
-            if not all(b["disabled"] for b in gives if not b["checked"]) and len(c["give"]) >= 2 and len(c["get"]) >= 2:
-                errors.append(tag + f"{c['target']}: a full 2-for-2 package still lets a third player be ticked")
+        if sum(1 for b in c["boxes"] if b["checked"]) < 2 or not any(not b["checked"] and not b["disabled"] for b in c["boxes"]) or len(c["give"]) < 2:
+            continue
+        if c["cap"]:
+            errors.append(tag + f"{c['target']}: the larger-package label shows before anything was ticked beyond the size")
+        j = next(k for k, b in enumerate(c["boxes"]) if not b["checked"] and not b["disabled"])
+        box = page.locator(f"#v2FindList > li >> nth={i} >> input[type=checkbox] >> nth={j}")
+        box.focus()
+        page.keyboard.press("Space")
+        big = page.evaluate(CARD, i)
+        bigger = True
+        if not big["cap"] or "Larger package than searched" not in big["capText"]:
+            errors.append(tag + f"{c['target']}: a package larger than searched is not labelled: {big['capText']!r}")
+        if abs(big["edge"] - big["shownEdge"]) > 1e-6 or f"{abs(big['edge']):.1f}" not in big["text"]:
+            errors.append(tag + f"{c['target']}: larger package edge shown {big['shownEdge']} / {big['text'][:40]!r}, engine rows say {big['edge']}")
+        if not all(big["linkOk"]):
+            errors.append(tag + f"{c['target']}: larger package link does not carry the selection")
+        box.focus()
+        page.keyboard.press("Space")
+        if page.evaluate(CARD, i)["cap"]:
+            errors.append(tag + f"{c['target']}: the label stays after going back to the searched size")
+        break
+    if not bigger:
+        errors.append(tag + "no group had a full give side with a spare player: the larger-package check proved nothing")
     for c in cards:
         for b in c["boxes"]:
             if b["h"] < 43.5:
@@ -166,7 +185,9 @@ class FinderGroupsRenderTest(unittest.TestCase):
             "package math stale after a toggle": js.replace("const e = evaluateCombo(giveRows, recvRows, ctx);", "const e = group.__e || (group.__e = evaluateCombo(giveRows, recvRows, ctx));", 1),
             "link not rebuilt": js.replace('open.setAttribute("href", `v2/#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}`);', "", 1),
             "empty side lists print null": js.replace("li.append(...[target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open].filter(Boolean));", "li.append(target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open);", 1),
-            "cap not enforced": js.replace("b.input.disabled = block || (b.input.checked && last);", "b.input.disabled = false;", 1),
+            "larger package not labelled": js.replace("capNote.hidden = !larger;", "capNote.hidden = true;", 1),
+            "ticking beyond the searched size is blocked": js.replace("boxes.forEach(b => { b.input.disabled = b.sel === giveSel && b.input.checked && giveSel.size <= 1; });", "boxes.forEach(b => { b.input.disabled = b.sel === giveSel && !b.input.checked && giveSel.size >= ctx.maxSize; });", 1),
+            "numbers stale on a larger package": js.replace("const e = evaluateCombo(giveRows, recvRows, ctx);", "const e = evaluateCombo(giveRows.slice(0, ctx.maxSize), recvRows, ctx);", 1),
         }
         for name, body in broken.items():
             with self.subTest(mutation=name):

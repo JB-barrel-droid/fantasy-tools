@@ -25,3 +25,10 @@ No `make sync`, no 12-combo sweep (no value moves).
 - Product behaviours taken from the spec text and awaiting Jeremy: gate-failing selections stay selectable with a warning;
   package cap disables extra ticks; 10 groups then "Show N more groups"; 1-for-1 groups have no checkboxes; position need
   is read from the DDF Value lineup. At 3-for-3 the 50% rule yields several near-duplicate multi-player targets.
+
+### Update 2026-10-23 (Jeremy's answers, multiple choice)
+
+- Gate-failing selections stay selectable with a warning; 10 groups then "Show N more groups"; the 50% rule stays as is.
+- Package cap changed: ticking beyond the searched size is allowed and labelled "Larger package than searched ..."; numbers
+  still exact via evaluateCombo. Verified: test_v2_finder_groups_render (label shows, edge and link follow engine rows, label
+  clears on going back; 3 new mutations caught: not labelled, blocked again, stale numbers) plus unit and impact render green.
