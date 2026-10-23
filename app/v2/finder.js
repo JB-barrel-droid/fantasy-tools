@@ -250,7 +250,7 @@
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
     Object.entries(props || {}).forEach(([k, v]) => { if (k === "text") node.textContent = v; else node.setAttribute(k, v); });
-    node.append(...kids);
+    node.append(...kids.filter(Boolean));
     return node;
   }
   const clearOutput = () => { const out = $("v2FindOut"); out.hidden = true; out.replaceChildren(); };
@@ -325,6 +325,171 @@
     return parseEspn(json);
   }
 
+  // ---------- JEG-853: a whole page pasted in (Jeremy, 2026-10-22: "control all, copy the whole page, drop the text in") ----------
+  // roster-paste.js reads the page deterministically in the browser (no LLM, no network) against the engine's own rows.
+  // A sure match (confidence 1: name, team and position agree) goes on the roster; a lesser one (nickname or
+  // "D. Henry" form) waits for a tap; an unmatched line gets a one-tap search. Too few matches adds nothing unless asked.
+  // A matchup page carries two teams: the user taps which is theirs; Swap teams (JEG-854) fixes a wrong pick.
+  const MIN_MATCHED = 3;
+  const MIN_SHARE = 0.5;
+  const SIDE_NAME = {mine: "Your roster", theirs: "Their roster"};
+  const otherSide = side => (side === "mine" ? "theirs" : "mine");
+  const sideId = side => `v2Find${side[0].toUpperCase()}${side.slice(1)}`;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  // The page's slot label as a word: ESPN "Bench"/"IR", Yahoo "BN"/"IR", the ESPN matchup's injured and bye lists;
+  // anything else (QB, FLEX, W/R/T, or no slot column at all, as on a matchup page) is a starter.
+  function slotWord(slot) {
+    const s = String(slot || "").toUpperCase();
+    if (s === "BN" || s === "BENCH") return "Bench";
+    if (s === "IR") return "IR";
+    if (s === "INJURED") return "Injured";
+    if (s === "BYE") return "Bye";
+    return "Starter";
+  }
+  const siteWord = site => (site === "espn" ? " on the ESPN page" : site === "yahoo" ? " on the Yahoo page" : "");
+  const rowMap = () => new Map((engine() ? engine().getAllRows() : []).map(r => [String(r.player_key), r]));
+  const parsePage = text => (root.DDFRosterPaste && engine() ? root.DDFRosterPaste.parse(text, engine().getAllRows()) : null);
+  // A pasted line as a search query: Yahoo's glued "Player Note", ESPN's "D/ST", a bye line's "PIT, K".
+  const cleanLine = line => (root.DDFRosterPaste ? root.DDFRosterPaste.cleanYahooName(String(line || "")) : String(line || ""))
+    .replace(/\s+[A-Z]{2,4},\s*(QB|RB|WR|TE|K|DEF|D\/ST)$/, "").replace(/\s*D\/?ST$/i, "").trim();
+
+  // Parser players onto a side. Sure ones are added now (a player already on the other roster is left there and
+  // named); unsure ones are returned for a tap. replace: the side starts empty (a whole team page is the whole team).
+  function placePlayers(side, players, replace) {
+    const map = rowMap();
+    const other = new Set(S[otherSide(side)].map(p => p.key));
+    const keep = replace ? [] : S[side].slice();
+    const have = new Set(keep.map(p => p.key));
+    const added = [];
+    const onOther = [];
+    const unsure = [];
+    players.forEach(p => {
+      const row = map.get(String(p.id));
+      if (!row) return;
+      const key = String(row.player_key);
+      if (!(p.confidence >= 1)) { unsure.push({...p, row}); return; }
+      if (other.has(key)) { onOther.push(row.name); return; }
+      if (have.has(key)) return;
+      have.add(key);
+      added.push({key, name: row.name, pos: row.pos, team: row.team, slot: p.slot});
+    });
+    S[side] = keep.concat(added);
+    return {added, onOther, unsure};
+  }
+  function addOne(side, row) {
+    const key = String(row.player_key);
+    if (S.mine.concat(S.theirs).some(p => p.key === key)) return false;
+    S[side].push({key, name: row.name, pos: row.pos});
+    renderBoth();
+    clearOutput();
+    return true;
+  }
+  // One tap from an unmatched line to the side's own name search (JEG-861 matcher), query filled in and open.
+  function searchFor(side, line) {
+    const input = $(`${sideId(side)}Search`);
+    if (!input) return;
+    input.value = cleanLine(line);
+    input.dispatchEvent(new Event("input", {bubbles: true}));
+    input.focus();
+    if (input.scrollIntoView) input.scrollIntoView({block: "center"});
+  }
+  const put = (box, ...kids) => box.append(...kids.filter(Boolean));
+  const slotChip = slot => el("span", {class: "v2-find-slot", "data-slot": slotWord(slot), text: slotWord(slot)});
+  const matchedList = added => el("ul", {class: "v2-find-matched"}, ...added.map(p =>
+    el("li", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: ` ${p.pos || ""} ${p.team || ""}`.trimEnd()}), slotChip(p.slot))));
+  function unsureItem(side, p) {
+    const li = el("li", {class: "v2-find-unsure"});
+    const yes = el("button", {type: "button", class: "v2-btn v2-find-confirm", text: "Yes, add", "aria-label": `Yes, add ${p.row.name}`});
+    const no = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "No, search", "aria-label": `No, search for ${cleanLine(p.sourceLine)}`});
+    li.append(el("span", {text: `Pasted “${cleanLine(p.sourceLine)}”: is this `}), el("b", {text: p.row.name}),
+      el("span", {class: "v2-meta", text: ` ${p.row.pos || ""} ${p.row.team || ""}`.trimEnd()}), el("span", {text: "?"}), yes, no);
+    yes.addEventListener("click", () => { const ok = addOne(side, p.row); li.replaceChildren(el("span", {text: ok ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`})); });
+    no.addEventListener("click", () => { li.remove(); searchFor(side, p.sourceLine); });
+    return li;
+  }
+  const unsureBlock = (side, unsure) => (unsure.length ? [
+    el("p", {class: "v2-find-paste-note", text: `Check ${plural(unsure.length, "match")}: not added until you say so.`}),
+    el("ul", {class: "v2-find-unsure-list"}, ...unsure.map(p => unsureItem(side, p)))] : []);
+  const unmatchedBlock = (side, unmatched) => (unmatched.length ? [
+    el("p", {class: "v2-find-paste-note", text: `Not matched (${unmatched.length}): add them by search.`}),
+    el("ul", {class: "v2-find-unmatched"}, ...unmatched.map(u => {
+      const search = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "Search to add", "aria-label": `Search to add ${cleanLine(u.line)}`});
+      search.addEventListener("click", () => searchFor(side, u.line));
+      return el("li", {}, el("span", {text: cleanLine(u.line)}), el("span", {class: "v2-meta", text: ` (${u.reason})`}), search);
+    }))] : []);
+  const benchNote = res => (res.benchIncluded === false
+    ? el("p", {class: "v2-find-paste-note v2-find-bench-note", text: "Bench players are not on this page: expand Show Bench / Show Bench Players on the matchup page and copy again, or paste each team page."})
+    : null);
+  // What a matchup page did list: ESPN adds injured and bye players to the starters.
+  function foundNote(res) {
+    const counts = {};
+    res.players.forEach(p => { const w = slotWord(p.slot); counts[w] = (counts[w] || 0) + 1; });
+    const words = {Starter: n => plural(n, "starter"), Injured: n => `${n} injured`, Bye: n => `${n} on bye`, Bench: n => `${n} on the bench`, IR: n => `${n} on IR`};
+    const parts = Object.keys(words).filter(w => counts[w]).map(w => words[w](counts[w]));
+    const missing = ["Injured", "Bye"].filter(w => res.site === "espn" && !counts[w]).map(w => (w === "Injured" ? "no injured players" : "no bye players"));
+    return el("p", {class: "v2-meta v2-find-found-note", text: `Found ${parts.join(", ")}${missing.length ? `; ${missing.join(", ")} listed` : ""}.`});
+  }
+  const countLine = (res, bad) => el("p", {class: `v2-find-paste-count ${bad ? "is-bad" : res.matched && res.matched === res.total ? "is-ok" : "is-warn"}`,
+    text: `Matched ${res.matched} of ${res.total} players${siteWord(res.site)}.`});
+
+  // text: the pasted page; side: where it was pasted; box: the side's result panel; done(): the paste was used.
+  function readPage(text, side, box, done) {
+    box.replaceChildren();
+    if (!String(text || "").trim()) { put(box, el("p", {class: "v2-meta", text: "Nothing pasted yet."})); return; }
+    const res = parsePage(text);
+    if (!res) { put(box, el("p", {class: "v2-meta", text: "Values are still loading. Try again in a moment."})); return; }
+    if (res.mode === "matchup" && res.teams && res.teams.length === 2) return readMatchup(res, side, box, done);
+    if (!res.matched) {
+      put(box, el("p", {class: "v2-find-paste-count is-bad", text: "No players recognised in that text. Nothing was added."}),
+        el("p", {class: "v2-meta", text: "Paste the whole ESPN or Yahoo team page (Ctrl+A, Ctrl+C on the page), or search and add players by name below."}));
+      return;
+    }
+    if (res.matched < MIN_MATCHED || res.matched / res.total < MIN_SHARE) {
+      const anyway = el("button", {type: "button", class: "v2-btn", id: `${sideId(side)}PasteAnyway`, text: `Add these ${res.matched} anyway`});
+      anyway.addEventListener("click", () => { box.replaceChildren(); placeTeam(side, res, box); done(); });
+      put(box, countLine(res, true), el("p", {class: "v2-meta", text: "That is too few to trust, so nothing was added. Paste the whole team page, or search and add players by name below."}),
+        anyway, ...unmatchedBlock(side, res.unmatched));
+      return;
+    }
+    placeTeam(side, res, box);
+    done();
+  }
+  function placeTeam(side, res, box) {
+    const {added, onOther, unsure} = placePlayers(side, res.players, true);
+    renderBoth();
+    clearOutput();
+    put(box, countLine(res),
+      el("p", {class: "v2-meta", text: `${SIDE_NAME[side]} now has ${plural(S[side].length, "player")}.${onOther.length ? ` Left out because they are on the other roster: ${onOther.join(", ")}.` : ""}`}),
+      matchedList(added), ...unsureBlock(side, unsure), ...unmatchedBlock(side, res.unmatched), benchNote(res));
+  }
+  const teamLabel = (res, i) => res.teams[i].teamName || `Team ${i + 1} (listed ${i ? "second" : "first"})`;
+  function readMatchup(res, side, box, done) {
+    const cards = res.teams.map((t, i) => {
+      const pick = el("button", {type: "button", class: "v2-btn v2-find-pick-team", id: `${sideId(side)}PickTeam${i + 1}`, text: `${teamLabel(res, i)} is mine`});
+      pick.addEventListener("click", () => assignMatchup(res, i, box, done));
+      return el("div", {class: "v2-find-team"}, el("h4", {text: teamLabel(res, i)}),
+        el("p", {class: "v2-meta", text: `${t.matched} of ${t.total} matched: ${t.players.map(p => p.name).join(", ") || "none"}.`}), pick);
+    });
+    put(box, el("p", {class: "v2-find-paste-count is-ok", text: `This is a matchup page with two teams. Matched ${res.matched} of ${res.total} players${siteWord(res.site)}.`}),
+      el("p", {class: "v2-find-which", text: "Which team is yours?"}), el("div", {class: "v2-find-teams"}, ...cards), foundNote(res), benchNote(res));
+  }
+  function assignMatchup(res, mineIdx, box, done) {
+    const sides = [mineIdx === 0 ? "mine" : "theirs", mineIdx === 0 ? "theirs" : "mine"];
+    snapshot();
+    S.mine = []; S.theirs = []; S.sel.clear();
+    const placed = res.teams.map((t, i) => placePlayers(sides[i], t.players, true));
+    renderBoth();
+    clearOutput();
+    box.replaceChildren();
+    put(box, countLine(res),
+      el("p", {class: "v2-find-assigned", text: `Your roster: ${teamLabel(res, mineIdx)} (${plural(S.mine.length, "player")}). Their roster: ${teamLabel(res, 1 - mineIdx)} (${plural(S.theirs.length, "player")}). Wrong way round? Use Swap teams above; Undo puts back what was there before.`}),
+      ...res.teams.flatMap((t, i) => [el("h4", {text: `${teamLabel(res, i)}: ${SIDE_NAME[sides[i]].toLowerCase()}`}), matchedList(placed[i].added),
+        ...unsureBlock(sides[i], placed[i].unsure), ...unmatchedBlock(sides[i], t.unmatched)]),
+      foundNote(res), benchNote(res));
+    arrangeSay(`Filled both rosters from the matchup page: ${teamLabel(res, mineIdx)} is yours.`);
+    done();
+  }
+
   function sideCard(side, title) {
     const id = `v2Find${side[0].toUpperCase()}${side.slice(1)}`;
     const list = el("ul", {class: "v2-trade-players", id: `${id}Players`});
@@ -333,7 +498,7 @@
     const label = el("label", {class: "v2-search"}, el("span", {class: "v2-sr", text: `Search and add a player to ${title.toLowerCase()}`}), input);
     const moveSel = el("button", {type: "button", class: "v2-btn v2-find-movesel", id: `${id}MoveSel`, text: "Move selected to the other team", disabled: ""});
     moveSel.addEventListener("click", () => moveKeys(S[side].filter(p => S.sel.has(p.key)).map(p => p.key)));
-    const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("h3", {text: title}), label, results, list, moveSel, importBox());
+    const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("h3", {text: title}), pasteBox(), label, results, list, moveSel, importBox());
     const render = () => {
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
@@ -347,6 +512,24 @@
       }));
     };
     renders[side] = render;
+    // JEG-853: the default input is the whole page copied from ESPN or Yahoo (Ctrl+A, Ctrl+C), read by
+    // roster-paste.js in the browser. A matchup page fills both rosters; the user taps which team is theirs.
+    function pasteBox() {
+      const other = side === "mine" ? "theirs" : "mine";
+      const area = el("textarea", {id: `${id}PastePage`, rows: "4", autocomplete: "off", spellcheck: "false",
+        "aria-describedby": `${id}PasteHelp`,
+        placeholder: side === "mine"
+          ? "On your ESPN or Yahoo team page press Ctrl+A, Ctrl+C, then paste here. Paste the matchup page to fill both rosters."
+          : "On the other manager's ESPN or Yahoo team page press Ctrl+A, Ctrl+C, then paste here."});
+      const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}PasteHelp`, text: "Pasted text stays in this browser; nothing is sent anywhere. Players are matched to the values by name, team and position."});
+      const read = el("button", {type: "button", class: "v2-btn", id: `${id}PasteGo`, text: "Read the pasted page"});
+      const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
+      const run = () => readPage(area.value, side, result, () => { area.value = ""; });
+      read.addEventListener("click", run);
+      area.addEventListener("paste", () => setTimeout(run, 0));
+      return el("div", {class: "v2-find-paste"}, el("label", {class: "v2-field-label", for: `${id}PastePage`, text: `Paste ${side === "mine" ? "your" : "their"} team page`}),
+        area, help, read, result);
+    }
     // Import: a Sleeper league, a public ESPN league, or pasted names. Names are matched to the engine's rows.
     function importBox() {
       const sel = el("select", {id: `${id}Source`, "aria-label": "Where the roster comes from"},
@@ -408,7 +591,7 @@
         say(teams.length ? `Found ${teams.length} teams. Pick yours and choose Use this team.` : "That league has no teams.");
       });
       use.addEventListener("click", () => { const t = teams[Number(team.value)]; if (t) apply(t.entries, t.label, true); });
-      return el("details", {class: "v2-find-import"}, el("summary", {text: "Import this roster"}),
+      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a Sleeper or ESPN league ID, or a list of names"}),
         el("div", {class: "v2-find-import-body"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel),
           leagueId, paste, load, team, use, status));
     }
@@ -519,7 +702,7 @@
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2FindTitle", text: "Your roster and theirs"}),
-        el("p", {class: "v2-meta", text: "Type in your roster and another manager's. Lists trades where DDF Value says you win and the available trade charts say the other manager breaks even or wins."}))),
+        el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available trade charts say the other manager breaks even or wins."}))),
       el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
       el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster")),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),

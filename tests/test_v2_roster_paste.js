@@ -259,6 +259,8 @@ test("Yahoo matchup page: 20/20 matched, two teams of 10", function () {
   assert.strictEqual(result.teams[0].matched, 10);
   assert.strictEqual(result.teams[1].matched, 10);
   assert.strictEqual(result.benchIncluded, false, "bench is collapsed");
+  assert.strictEqual(result.teams[0].teamName, "My Test Team", "left team name from the logo line");
+  assert.strictEqual(result.teams[1].teamName, "Opponent Team", "right team name from the logo line");
 });
 
 test("ESPN team page: 15/15 matched", function () {
@@ -407,6 +409,24 @@ test("ESPN team page fixture preserves structure across scrubbing", function () 
   assert.ok(text.indexOf("STARTERS") >= 0, "STARTERS header present");
   assert.ok(text.indexOf("Bench") >= 0, "Bench section present");
   assert.ok(/ESPN/i.test(text), "ESPN marker present");
+});
+
+test("slot labels: each matched player carries the page's own slot (JEG-853 phase 2 shows starter/bench/IR)", function () {
+  var yt = P.parse(readFixture("yahoo-team.txt"), PLAYERS);
+  var ySlots = yt.players.map(function (p) { return p.slot; });
+  assert.strictEqual(ySlots.filter(function (s) { return s === "BN"; }).length, 5, "Yahoo team: 5 bench");
+  assert.ok(ySlots.indexOf("QB") >= 0 && ySlots.indexOf("W/R/T") >= 0, "Yahoo team: starter slots kept as printed");
+  var et = P.parse(readFixture("espn-team.txt"), PLAYERS);
+  var eSlots = et.players.map(function (p) { return p.slot; });
+  assert.strictEqual(eSlots.filter(function (s) { return s === "Bench"; }).length, 5, "ESPN team: 5 bench");
+  assert.strictEqual(eSlots.filter(function (s) { return s === "IR"; }).length, 1, "ESPN team: 1 IR");
+  var ym = P.parse(readFixture("yahoo-matchup.txt"), PLAYERS);
+  ym.players.forEach(function (p) { assert.ok(p.slot && p.slot !== "BN", "Yahoo matchup: " + p.name + " has a starter slot, got " + JSON.stringify(p.slot)); });
+  var em = P.parse(readFixture("espn-matchup.txt"), PLAYERS);
+  var emSlots = em.players.map(function (p) { return p.slot; });
+  assert.strictEqual(emSlots.filter(function (s) { return s === "Injured"; }).length, 2, "ESPN matchup: 2 injured");
+  assert.strictEqual(emSlots.filter(function (s) { return s === "Bye"; }).length, 2, "ESPN matchup: 2 bye");
+  assert.strictEqual(emSlots.filter(function (s) { return s === ""; }).length, 18, "ESPN matchup: 18 starters (no slot column)");
 });
 
 // ===========================================================================

@@ -1415,6 +1415,39 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Find .v2-ctoolbar input[type="checkbox"] { width: 20px; height: 20px; }
 #v2Find .v2-ctoolbar label.v2-field { min-height: 44px; }
 
+/* JEG-853: at 320 px in a wide face (+3 px) the Package size select pushed the page 84 px sideways; the field wraps and the select shrinks. */
+#v2Find .v2-ctoolbar label.v2-field { flex-wrap: wrap; max-width: 100%; min-width: 0; }
+#v2Find .v2-ctoolbar select { min-width: 0; max-width: 100%; }
+
+/* JEG-853: a whole ESPN or Yahoo page pasted in is the default roster input; matched list, unsure and unmatched rows, matchup team pick. */
+.v2-find-paste { display: grid; gap: 8px; margin: 0 0 12px; }
+.v2-find-paste > .v2-field-label { font-weight: 600; }
+.v2-find-paste textarea {
+  width: 100%; min-height: 104px; box-sizing: border-box; border: 1px solid var(--v2-border); background: var(--v2-surface); color: inherit;
+  border-radius: var(--v2-radius-btn); padding: 10px 14px; font: inherit; font-size: 16px; resize: vertical;
+}
+.v2-find-paste .v2-meta { margin: 0; }
+.v2-find-paste .v2-btn { min-height: 44px; justify-self: start; }
+.v2-find-paste-result:empty { display: none; }
+.v2-find-paste-result { display: grid; gap: 6px; }
+.v2-find-paste-result p { margin: 0; }
+.v2-find-paste-result h4 { margin: 8px 0 0; font-size: 15px; }
+.v2-find-paste-count { font-weight: 700; }
+.v2-find-paste-count.is-ok { color: var(--v2-action-strong); }
+.v2-find-paste-count.is-warn { color: var(--v2-older); }
+.v2-find-paste-count.is-bad { color: var(--v2-negative); }
+.v2-find-paste-note { font-weight: 600; font-size: 14px; }
+.v2-find-paste-result ul { list-style: none; margin: 0; padding: 0; }
+.v2-find-paste-result li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-height: 32px; padding: 4px 0; border-top: 1px solid var(--v2-border); }
+.v2-find-paste-result li .v2-btn { min-height: 44px; margin-left: auto; }
+.v2-find-slot { display: inline-block; padding: 1px 6px; border: 1px solid var(--v2-border); border-radius: 4px; font-size: 11px; font-weight: 700; line-height: 1.4; color: var(--v2-muted); background: var(--v2-surface); }
+.v2-find-slot[data-slot="Starter"] { border-color: var(--v2-tint-border); background: var(--v2-positive); color: var(--v2-action-strong); }
+.v2-find-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.v2-find-team { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 10px 12px; display: grid; gap: 6px; align-content: start; }
+.v2-find-team h4 { margin: 0; }
+.v2-find-team .v2-btn { min-height: 44px; }
+@media (max-width: 767px) { .v2-find-teams { grid-template-columns: 1fr; } }
+
 /* JEG-854: swap teams, move a player to the other team, undo. 44 px targets. */
 #v2Find .v2-find-arrange { margin: 12px 0 0; }
 #v2Find .v2-find-arrange .v2-btn, #v2Find .v2-find-movesel { min-height: 44px; min-width: 44px; }
