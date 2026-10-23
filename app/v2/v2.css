@@ -971,6 +971,8 @@ a.v2-div-chip:hover { text-decoration: underline; }
   #v2Compare .v2-cverdict > div > p { margin-top: 2px !important; }
   #v2Compare .v2-cverdict h2 { font-size: 16px; }
   #v2Compare .v2-deal { margin-top: 4px; padding-top: 4px; }
+  /* JEG-932: the three net chips wrapped one per line (216 + 389 + 20px gap > 617px); a tighter gap lets two share a row, ~28px shorter. */
+  #v2Compare .v2-deal-nets { gap: 2px 6px; margin: 2px 0; }
   #v2Compare .v2-cstory { padding-top: 4px; margin-top: 0; }
 }
 
