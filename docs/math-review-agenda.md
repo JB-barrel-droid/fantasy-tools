@@ -1785,8 +1785,17 @@ includes flex starters, and at ppr/12 QB drops from 15 bench seats to 4.
 - fixedPieIndexed invariant: PASS all 13 settings
 - Overall bench share readout delta: -0.023 to +0.019 depending on setting
 
-Implementation: commit `720f9652` (flag off), commit TBD (flag on). All three
+Implementation: commit `720f9652` (flag off), `489d6f94` (flag on). All three
 engines (Python reference, JS browser, spec reference) plus 3 parity tests.
+
+**2-QB / superflex skip (Jeremy, 2026-10-23, option A):** flex_bench_seats is
+skipped in 2-QB and superflex rosters. The market_bench 2-QB data (bps 0.28)
+already reflects supply-capped QB benches from FFC draft data; applying
+flex-filled bench weights on top double-counts the effect and inverts the
+JEG-702 2-QB direction gate (ratio 0.950 vs threshold 1.1 at ppr/12). In
+2-QB/superflex, bench allocation uses dedicated starters only. Implementation:
+commit `d753cae7`. 4 additional tests including negative (monkey-patched
+allocate without the skip differs).
 
 ## MR-32 Promotion/demotion model in expected starts (JEG-969, 2026-10-23)
 
