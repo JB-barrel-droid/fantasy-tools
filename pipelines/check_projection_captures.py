@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Fail loudly when a content week's projection capture is missing (JEG-944).
 
-For every content week from pc.FIRST_REQUIRED_WEEK (7) to the current one, each
-source must hold the horizons it offers in public.source_projection_captures, with
-at least the row floor (see pipelines/lib/projection_capture.py):
+Jeremy 2026-10-23: a full copy per source after the Tuesday flip (phase midweek) AND a
+Sunday pre-kickoff copy (phase sunday). For every content week from 7 (Sunday copy from
+8), each source must hold the horizons it offers in public.source_projection_captures,
+at least the row floor (pipelines/lib/projection_capture.py):
   espn week-ahead rows, cbs ros + week rows, razzball ros rows.
-Exit 1 with one line per gap. The current week gets a grace period until
-Wednesday 12:00 UTC (the weekly pulls run Tuesday to Wednesday); past weeks never do.
+A midweek copy is due from Wednesday 12:00 UTC of its week, a Sunday copy from the
+following Monday 12:00 UTC. Exit 1 with one line per gap; a missing Sunday copy fails
+loudly here, in espn-weekly-store.yml, which feeds no published value. The CBS and Razzball
+savers never fail on a capture fault.
 
 Reads through PostgREST with one-row probes, never the table. Usage:
   python3 pipelines/check_projection_captures.py [--season 2026] [--now ISO]
@@ -22,13 +25,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 sys.path.insert(0, str(ROOT / "pipelines"))
 import projection_capture as pc  # noqa: E402
-from nfl_week import content_week  # noqa: E402
-
-
-def in_grace(now: datetime) -> bool:
-    """True from Tuesday 00:00 (the content-week flip) to Wednesday 12:00 UTC."""
-    wd = now.weekday()  # Tuesday = 1
-    return wd == 1 or (wd == 2 and now.hour < 12)
 
 
 def main(argv=None) -> int:
@@ -39,21 +35,20 @@ def main(argv=None) -> int:
     now = datetime.fromisoformat(a.now) if a.now else datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
-    current = content_week(now.date())
+    cells = pc.required_cells(now)
     try:
         import sbclient  # noqa: PLC0415
     except ImportError:
         import gh_sbclient as sbclient  # noqa: PLC0415
-    counts = pc.fetch_capture_counts(sbclient, a.season,
-                                     range(pc.FIRST_REQUIRED_WEEK, current + 1))
-    problems = pc.missing_captures(counts, current_week=current, grace_current=in_grace(now))
+    counts = pc.fetch_capture_counts(sbclient, a.season, cells)
+    problems = pc.missing_captures(counts, cells)
     if problems:
-        print(f"PROJECTION CAPTURE MISSING (season {a.season}, content week {current}):",
+        print(f"PROJECTION CAPTURE MISSING (season {a.season}):",
               file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
-    print(f"projection captures complete for content weeks {pc.FIRST_REQUIRED_WEEK}-{current}")
+    print(f"projection captures complete: {len(cells)} (week, phase) cells checked")
     return 0
 
 

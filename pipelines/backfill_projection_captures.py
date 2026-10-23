@@ -48,7 +48,7 @@ def rows_from_history(path: Path, batch_id: str) -> list[dict]:
                     continue
                 out.append(pc.capture_row(
                     source=source, season=season, source_week=week,
-                    capture_at=sec["captured_at"], horizon="ros", target_week=0,
+                    capture_at=sec["captured_at"], phase="backfill", horizon="ros", target_week=0,
                     player_key=int(pk), scoring_format=fmt, ppg=triple[i], batch_id=batch_id,
                     basis=f"backfill from data/history/week-{week}.json {hist_key}_ppg "
                           "(chart-build per-game ROS value; no total or games)"))

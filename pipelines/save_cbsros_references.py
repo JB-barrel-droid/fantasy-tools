@@ -254,17 +254,18 @@ def save_captures(snapshot_path: Path, vintage: str) -> None:
         registry = build_registry(fetch_players())
         today = datetime.now(timezone.utc).date()
         source_week = current_nfl_week(today)
+        phase = pc.capture_phase(datetime.now(timezone.utc))
         rows, rep = pc.cbs_capture_rows(
             snap.get("rows", []), weekly,
             lambda n, p, norm: resolve_name(str(n or "").strip(), (p or "").upper() or None, registry, norm)[0],
             season=season_for_vintage(today), source_week=source_week, capture_at=utc_now(),
-            batch_id=pc.new_batch(), vintage=vintage)
+            phase=phase, batch_id=pc.new_batch(), vintage=vintage)
         print(f"capture plan: {json.dumps(rep, default=str)}")
         if weekly is None or not weekly.get("weeks"):
             print("::error title=projection capture cbs week::no CBS per-week pages in the pull "
                   f"({(weekly or {}).get('errors')}); only ROS is captured this run")
         for line in pc.save_capture_or_flag(_sb(), rows, "cbs", season_for_vintage(today),
-                                            source_week, ("ros", "week")):
+                                            source_week, phase, ("ros", "week")):
             print(line)
     except Exception as exc:  # noqa: BLE001
         print(f"::error title=projection capture cbs::{type(exc).__name__}: {exc}")

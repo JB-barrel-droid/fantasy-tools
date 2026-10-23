@@ -234,6 +234,24 @@ def build_razzball_rows(
     return clean, review, vintage
 
 
+def save_captures(clean: list[dict[str, Any]], vintage: str) -> None:
+    """JEG-944: append Razzball's ROS rows to source_projection_captures. Never raises."""
+    if upsert_rows is not _default_upsert:
+        return  # the writer is stubbed (tests): never open a live client from here
+    try:
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        season, source_week, phase = season_for_vintage(today), current_nfl_week(today), pc.capture_phase(now)
+        rows = pc.razzball_capture_rows(clean, season=season, source_week=source_week,
+                                        capture_at=utc_now(), phase=phase,
+                                        batch_id=pc.new_batch(), vintage=vintage)
+        for line in pc.save_capture_or_flag(_sb(), rows, "razzball", season, source_week,
+                                            phase, ("ros",)):
+            print(line)
+    except Exception as exc:  # noqa: BLE001 -- never holds back the published-value save
+        print(f"::error title=projection capture razzball::{type(exc).__name__}: {exc}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Save Razzball snapshot to Supabase.")
     parser.add_argument(
@@ -297,18 +315,7 @@ def main() -> None:
         )
     identity_queue.record_misses("razzball", review)
     print("Razzball save complete.")
-    if upsert_rows is not _default_upsert:
-        return  # the writer is stubbed (tests): never open a live client from here
-    try:
-        today = datetime.now(timezone.utc).date()
-        season, source_week = season_for_vintage(today), current_nfl_week(today)
-        rows = pc.razzball_capture_rows(clean, season=season, source_week=source_week,
-                                        capture_at=utc_now(), batch_id=pc.new_batch(),
-                                        vintage=vintage)
-        for line in pc.save_capture_or_flag(_sb(), rows, "razzball", season, source_week, ("ros",)):
-            print(line)
-    except Exception as exc:  # noqa: BLE001 -- never holds back the published-value save
-        print(f"::error title=projection capture razzball::{type(exc).__name__}: {exc}")
+    save_captures(clean, vintage)
 
 
 if __name__ == "__main__":

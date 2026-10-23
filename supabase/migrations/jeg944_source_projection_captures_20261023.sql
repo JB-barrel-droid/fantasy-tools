@@ -4,12 +4,17 @@
 -- source week)", widened the same day: "We should be saving projections for all
 -- weeks ahead, not just one week ahead."
 --
--- One new table, nothing else. No view, function or published output reads it;
+-- Jeremy 2026-10-23, cadence: a full copy per source after the Tuesday flip AND a
+-- Sunday pre-kickoff copy; keep all three scoring formats.
+-- One new table and one schedule. No view, function or published output reads it;
 -- it exists so each source can later be scored against actuals (JEG-945).
 -- Rows are written by pipelines/save_espn_weekly.py (espn, every future week),
 -- pipelines/save_cbsros_references.py (cbs: ROS, current week, next week) and
 -- pipelines/save_razzball_references.py (razzball: ROS only), and once by
 -- pipelines/backfill_projection_captures.py (week-history ROS values).
+-- Sunday copy for CBS and Razzball comes from .github/workflows/projection-capture-sunday.yml
+-- (capture only; writes no published table); ESPN's Sunday copy comes from the existing
+-- espn-weekly-store Sunday cron.
 -- Name: <subproject>_<entity> with subproject 'source' (cross-source), as
 -- source_trade_values.
 
@@ -20,6 +25,9 @@ create table if not exists public.source_projection_captures (
     -- the chain's content week when the capture was taken (pipelines/nfl_week.py)
     source_week   smallint    not null check (source_week between 1 and 18),
     capture_at    timestamptz not null,
+    -- midweek: the first capture of the content week (Tuesday flip to Saturday);
+    -- sunday: the pre-kickoff capture; backfill: week-history rows (JEG-944)
+    capture_phase text        not null check (capture_phase in ('midweek', 'sunday', 'backfill')),
     horizon       text        not null check (horizon in ('week', 'ros')),
     -- week the projection is for; 0 = rest of season (horizon 'ros')
     target_week   smallint    not null check (target_week between 0 and 18),
@@ -36,17 +44,17 @@ create table if not exists public.source_projection_captures (
     constraint source_projection_captures_horizon_week check (
         (horizon = 'ros' and target_week = 0) or (horizon = 'week' and target_week between 1 and 18)),
     constraint source_projection_captures_has_value check (points is not null or ppg is not null),
-    -- one capture per source per content week: the first run of a week wins and a
-    -- later run the same week is a no-op (insert ... on conflict do nothing).
+    -- one capture per source per content week per phase: the first run wins and a
+    -- later run in the same phase is a no-op (insert ... on conflict do nothing).
     constraint source_projection_captures_key unique
-        (source, season, source_week, horizon, target_week, player_key, scoring_format)
+        (source, season, source_week, capture_phase, horizon, target_week, player_key, scoring_format)
 );
 
 comment on table public.source_projection_captures is
     'JEG-944: append-only history of what ESPN (every future week), CBS (ROS, current week, next week) and Razzball (ROS) projected, per capture week and target week. Not read by any published output. Service role only.';
 
 create index if not exists source_projection_captures_lookup_idx
-    on public.source_projection_captures (source, season, source_week, horizon);
+    on public.source_projection_captures (source, season, source_week, capture_phase, horizon);
 create index if not exists source_projection_captures_player_idx
     on public.source_projection_captures (player_key, season, target_week);
 
@@ -65,3 +73,10 @@ create trigger source_projection_captures_no_change
 
 alter table public.source_projection_captures enable row level security;
 revoke all on public.source_projection_captures from anon, authenticated;
+
+-- Sunday 15:30 UTC (10:30 CDT), before the 16:20 ESPN Sunday run and the early kickoffs.
+select cron.schedule(
+    'projection-capture-sunday',
+    '30 15 * * 0',
+    $$SELECT public.dispatch_gha_workflow('projection-capture-sunday.yml', '{"mode": "write"}'::jsonb)$$
+);

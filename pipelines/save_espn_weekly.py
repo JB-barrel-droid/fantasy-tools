@@ -204,7 +204,7 @@ def plan_projections(rows, index: PlayerIndex, games: dict, latest: dict,
 
 
 def plan_captures(rows, index: PlayerIndex, target_weeks, season: int, source_week: int,
-                  now_iso: str, batch_id: str):
+                  now_iso: str, batch_id: str, phase: str):
     """JEG-944: ESPN's projection for EVERY future week, in public.source_projection_captures.
 
     Unlike plan_projections this is not change-only and not limited to the next
@@ -221,7 +221,7 @@ def plan_captures(rows, index: PlayerIndex, target_weeks, season: int, source_we
             continue
         for fmt in FORMATS:
             out.append(pc.capture_row(
-                source="espn", season=season, source_week=source_week, capture_at=now_iso,
+                source="espn", season=season, source_week=source_week, capture_at=now_iso, phase=phase,
                 horizon="week", target_week=r["week"], player_key=e["player_key"],
                 scoring_format=fmt, points=ew.points(r["stats"], fmt), batch_id=batch_id,
                 basis=f"espn weekly projection block; basis={ew.BASIS}; espn_id={r['espn_id']}"))
@@ -288,9 +288,10 @@ def main(argv=None) -> int:
                                           now_iso, str(uuid.uuid4()))
 
     source_week = content_week()
+    phase = pc.capture_phase(datetime.now(timezone.utc))
     cap_rows, cap_rep = plan_captures(projs["rows"], index, set(projs["ros_weeks"]), season,
-                                      source_week, now_iso, str(uuid.uuid4()))
-    cap_rep["source_week"] = source_week
+                                      source_week, now_iso, str(uuid.uuid4()), phase)
+    cap_rep["source_week"], cap_rep["phase"] = source_week, phase
 
     resolved_share = (act_rep["resolved"] - act_rep["n_no_game"]) / max(1, act_rep["rows_in"])
     summary = {"run_at": now_iso, "season": season, "dry_run": a.dry_run,
@@ -309,9 +310,9 @@ def main(argv=None) -> int:
         # After the existing writes, so a capture fault never holds back the
         # actuals or projection_snapshots; it fails the run (exit 1) instead.
         try:
-            if pc.capture_exists(sb, "espn", season, source_week, "week"):
+            if pc.capture_exists(sb, "espn", season, source_week, phase, "week"):
                 cap_rep["written"] = 0
-                cap_rep["note"] = "capture for this content week already stored; first one wins"
+                cap_rep["note"] = "capture for this content week and phase already stored; first one wins"
             elif len(cap_rows) < pc.MIN_ROWS[("espn", "week")]:
                 raise RuntimeError(f"only {len(cap_rows)} capture rows planned "
                                    f"(floor {pc.MIN_ROWS[('espn', 'week')]}); nothing written")

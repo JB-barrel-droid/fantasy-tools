@@ -22,3 +22,9 @@ Contract: Jeremy 2026-10-23, store CBS ROS and Razzball week-ahead projections e
 
 ### Not done
 - Migration not applied, backfill not run (both write to a live database; waiting on Jeremy).
+
+### Update 2026-10-23 (later): Jeremy's decisions
+Quoted, 2026-10-23: apply the migration then run the backfill; "a full copy per source after the Tuesday flip AND a Sunday pre-kickoff copy"; keep all three scoring formats.
+- Cadence: `capture_phase` (midweek, sunday, backfill) added to the table and its unique key (migration edited before any apply); `projection-capture-sunday.yml` + pg_cron job for CBS and Razzball (capture only); ESPN's Sunday copy comes from the existing Sunday run; gate now requires midweek copies from week 7 and Sunday copies from week 8 and fails on a missing one.
+- Verified: 29 tests in `tests.test_projection_captures` OK, 170 with the related suites; six new mutations (midweek satisfies Sunday, Sunday never required, no Sunday phase, workflow runs a saver, capture-only upserts, key without phase) each fail them; migration re-run on a throwaway local Postgres (phases coexist, same-phase duplicate ignored, UPDATE refused, unknown phase refused).
+- NOT done: applying the migration and running the backfill. No documented path from this machine: `docs/selfhost-supabase.md` runs SQL on the Mac mini stack via `docker compose exec db psql`; this Mac has no running Docker daemon and no SUPABASE_* environment; repo history applies migrations after merge via the integrator. Stopped and reported rather than improvising.
