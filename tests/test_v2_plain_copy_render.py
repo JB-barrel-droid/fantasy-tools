@@ -166,7 +166,8 @@ PATCHES = {
     "deal read overclaims": {"trade_patch": ("so the other manager has little reason to refuse.", "so it is easy for them to accept.")},
     # JEG-888 (each proven against the fixture's example trade, which renders Unclear with a projections split).
     "four publishers back": {"v2_patch": ("`We check ${introCharts} against", "`We check four publishers' trade charts against")},
-    "intro count hard-coded": {"v2_patch": ("const introCount = targetsView.used.length;", "const introCount = 4;")},
+    # 7 is more charts than exist, so it differs from the compared count whether the fixture holds CBS (3 charts) or not (4).
+    "intro count hard-coded": {"v2_patch": ("const introCount = targetsView.used.length;", "const introCount = 7;")},
     "Unclear glyph back to ?": {"v2_patch": ('Unclear: "–"', 'Unclear: "?"')},
     # JEG-895: the headline level must not be called "confidence".
     "confidence label back": {"v2_patch": ("document.createTextNode(LEVEL_LABELS[line][h.confidence])", "document.createTextNode(`${h.confidence} confidence`)")},

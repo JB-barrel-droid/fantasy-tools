@@ -152,7 +152,7 @@ class AuditRenderTest(unittest.TestCase):
 
     def test_guard_fails_on_broken_builds(self):
         broken = {
-            "route removed": ('(hashBase() === "#values-auditing" || hashBase().startsWith("#values-auditing/")) ? "audit"', 'false ? "audit"'),
+            "route removed": ('(base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"', 'false ? "audit"'),
             "unknown slug not caught": ("slugs.includes(asked) ? asked : slugs[0]", "asked"),
             "hook not called": ("window.DDFAudit.render(slug, panel,", "(() => 0)(slug, panel,"),
             # JEG-872: the pie tab reads v2's map; with it gone the rows show raw keys ("cbs"), which the check rejects.

@@ -53,7 +53,7 @@ def setUpModule():
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 SHELL = ROOT / "app" / "v2" / "shell.html"
-LANDING = ': hashBase() === "#player-values" ? "values" : "targets");'
+LANDING = 'const currentView = () => viewFor(hashBase()) || "targets";'
 
 TITLE = "Fantasy Football Manifesto"
 SECTIONS = [
