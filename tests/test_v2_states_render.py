@@ -220,8 +220,8 @@ class StatesRenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         broken = {
             "detail columns not split by method": {"v2_js": js.replace(
-                'const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "VORP vs waivers"]];',
-                'const METHOD_COLUMNS = [["vorp", "Our value"], ["indexed", "Rescaled chart"], ["dda", "VORP vs waivers"]];', 1),
+                'const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "Value above waivers"]];',
+                'const METHOD_COLUMNS = [["vorp", "Our value"], ["indexed", "Rescaled chart"], ["dda", "Value above waivers"]];', 1),
                 "with_failure": False},
             "failure leaves values visible": {"v2_js": js.replace(
                 '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });',

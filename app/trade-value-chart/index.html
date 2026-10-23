@@ -1646,7 +1646,7 @@
   <summary><span>Trade value curves</span></summary>
   <div class="curve-body">
   <h2 id="curve-title">Trade value curves</h2>
-  <div class="sub" id="curve-summary">Bottom-up, adjusted, direct, and raw VORP vs waivers series can be compared on the same player order. League settings determine which source curves are available.</div>
+  <div class="sub" id="curve-summary">Bottom-up, adjusted, direct, and raw value above waivers series can be compared on the same player order. League settings determine which source curves are available.</div>
   <p class="curve-status" id="curve-status"><strong>Loading:</strong> validating source value series…</p>
   <!-- JEG-325 (2026-10-04): strangler-fig provider surface. Exposes the active
        consolidation provider, the bake id it came from, and the live
@@ -1696,8 +1696,8 @@
         <small class="view-mode-sub">Trade values from each publisher</small>
       </button>
       <button type="button" role="tab" class="view-mode-tab" id="viewModeVorpTab" data-view-mode="vorp" aria-selected="false">
-        <strong class="view-mode-title">VORP vs waivers</strong>
-        <small class="view-mode-sub">Every source in VORP vs waivers units</small>
+        <strong class="view-mode-title">Value above waivers</strong>
+        <small class="view-mode-sub">Every source in value above waivers units</small>
       </button>
       <button type="button" role="tab" class="view-mode-tab" id="viewModeAdjTab" data-view-mode="adj" aria-selected="false">
         <strong class="view-mode-title">Adjusted values</strong>
@@ -1808,7 +1808,7 @@
             </div>
             <div class="method-step">
               <h3><span class="step-num">2</span> Our view starts from ESPN's projections</h3>
-              <p id="methodologyViewCopy">Our adjusted view isn't another opinion — it's built from ESPN's season projections. We turn ESPN's per-game projections into VORP vs waivers: each position gets a fixed share of total value, split 85% to starters and 15% to the bench. Where the starter line falls depends on your league — with 12 teams and 2 starting running backs, the 24th RB is the last starter; with 10 teams, it's the 20th. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.</p>
+              <p id="methodologyViewCopy">Our adjusted view isn't another opinion — it's built from ESPN's season projections. We turn ESPN's per-game projections into value above waivers: each position gets a fixed share of total value, split 85% to starters and 15% to the bench. Where the starter line falls depends on your league — with 12 teams and 2 starting running backs, the 24th RB is the last starter; with 10 teams, it's the 20th. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.</p>
             </div>
             <div class="method-step">
               <h3><span class="step-num">3</span> Each chart is recalibrated toward that view</h3>
@@ -1955,7 +1955,7 @@
       const lastStarter = teams * 2;
       const benchPct = Math.round((data.bench_share || 0.15) * 100);
       const starterPct = 100 - benchPct;
-      viewCopy.textContent = `Our adjusted view isn\u2019t another opinion \u2014 it\u2019s built from ESPN\u2019s season projections. We turn ESPN\u2019s per-game projections into VORP vs waivers: each position gets a fixed share of total value, split ${starterPct}% to starters and ${benchPct}% to the bench. Where the starter line falls depends on your league \u2014 with ${teams} teams and 2 starting running backs, the ${lastStarter}th RB is the last starter; add teams and that line moves down the rankings. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.`;
+      viewCopy.textContent = `Our adjusted view isn\u2019t another opinion \u2014 it\u2019s built from ESPN\u2019s season projections. We turn ESPN\u2019s per-game projections into value above waivers: each position gets a fixed share of total value, split ${starterPct}% to starters and ${benchPct}% to the bench. Where the starter line falls depends on your league \u2014 with ${teams} teams and 2 starting running backs, the ${lastStarter}th RB is the last starter; add teams and that line moves down the rankings. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.`;
     }
 
     function render() {
@@ -2284,7 +2284,7 @@
           // labeled "VORP-translated"; combos still on the quantile reindex
           // (fallback provenance) keep the "reindexed" label.
           const translated=combo.translation&&combo.translation.method==="vorp-supabase";
-          const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : (source.method_group==="ddf-methodology" ? "Data Driven Football methodology · common scale" : (translated ? "As published · VORP-translated" : "As published · reindexed"));
+          const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : (source.method_group==="ddf-methodology" ? "Data Driven Football methodology · common scale" : (translated ? "As published · translated to value above waivers" : "As published · reindexed"));
           return `<article class="dataset-card ${fresh.status==="current"?"status-live":"status-caution"}" data-source-key="${esc(key)}" data-freshness="${esc(fresh.status)}"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">${esc(badgeText[fresh.status])}</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Content week</dt><dd class="source-freshness">${esc(fresh.text)}</dd></div></dl></article>`;
         });
         if(freshness){

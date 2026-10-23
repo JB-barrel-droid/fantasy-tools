@@ -1,16 +1,16 @@
 {
  "meta": {
-  "as_of": "2026-10-22",
+  "as_of": "2026-10-23",
   "prior_blend_snapshot": "2026-09-23",
   "espn_snapshot": "2026-10-22",
   "rz_snapshot": "2026-10-22",
   "cbsros_snapshot": "2026-10-22",
   "espn_snapshot_id": "sha256:6364d3eda0232f3cab0d96e1c28b4e2e6436effbc33b2fd8fab53b19c1c719a1",
   "cbsros_snapshot_id": "sha256:85d16a2ab35ede530e699828a33671370eb93c4539d79db4f506e4bb8cf9c988",
-  "rz_snapshot_id": "sha256:4e12a852063235ae38fa5a1a2df1eaf937614d458f612a8855010fa349205642",
+  "rz_snapshot_id": "sha256:111c67c8ec99e29c7890dccbd922314cce9bbe8f201eeb013c3421a2975155c3",
   "n_players": 1163,
   "n_espn_complete": 354,
-  "n_rz_complete": 642,
+  "n_rz_complete": 640,
   "n_rz_held": 35,
   "n_cbsros_complete": 366,
   "universe": {
@@ -139,7 +139,7 @@
     },
     "n_not_in_nfl_active": 139,
     "n_practice_squad_inferred": 184,
-    "n_universe_only": 309,
+    "n_universe_only": 310,
     "n_not_on_players_table": 0,
     "not_on_players_table": []
    }
@@ -168,8 +168,8 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-22T23:51:56Z",
-   "as_of": "2026-10-22",
+   "built_at": "2026-10-23T03:56:56Z",
+   "as_of": "2026-10-23",
    "summary": {
     "live": 3,
     "stale": 0,
@@ -196,8 +196,8 @@
       "note": "Every charted player carries a current value model value."
      },
      "freshness": {
-      "snapshot_date": "2026-10-22",
-      "content_date": "2026-10-22",
+      "snapshot_date": "2026-10-23",
+      "content_date": "2026-10-23",
       "note": "Computed at bake time from the ESPN (primary) leg."
      },
      "prior": {
@@ -337,7 +337,7 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 642,
+      "priced": 640,
       "universe": 1163,
       "note": "Razzball where priced; no fill leg. Rank correlation vs ESPN primary 0.78\u20130.91, never 0.99+ \u2014 verified independent 2026-09-17."
      },
@@ -916,26 +916,26 @@
    },
    "rz_ppg": {
     "standard": 13.4,
-    "half_ppr": 17.3,
-    "ppr": 21.1
+    "half_ppr": 17.2,
+    "ppr": 21.0
    },
    "rz_ros": {
     "standard": 147.4,
-    "half_ppr": 190.3,
-    "ppr": 232.1
+    "half_ppr": 189.2,
+    "ppr": 231.0
    },
    "rz_filled_ppg": {
     "standard": 13.4,
-    "half_ppr": 17.3,
-    "ppr": 21.1
+    "half_ppr": 17.2,
+    "ppr": 21.0
    },
    "rz_filled_ros": {
     "standard": 147.4,
-    "half_ppr": 190.3,
-    "ppr": 232.1
+    "half_ppr": 189.2,
+    "ppr": 231.0
    },
-   "delta_rz_espn": -27.69,
-   "delta_rz_espn_ppg": -2.52,
+   "delta_rz_espn": -28.79,
+   "delta_rz_espn_ppg": -2.62,
    "cbsros_ppg": {
     "standard": 13.873,
     "half_ppr": 17.736,
@@ -951,7 +951,7 @@
     "half_ppr": 281.05,
     "ppr": 339.7
    },
-   "delta_rz_espn_ppg_demeaned": -1.95,
+   "delta_rz_espn_ppg_demeaned": -2.04,
    "preseason_ecr_rank": 2
   },
   {
@@ -3438,22 +3438,22 @@
     "ppr": 18.282727
    },
    "rz_ppg": {
-    "standard": 14.3,
+    "standard": 14.4,
     "half_ppr": 16.3,
     "ppr": 18.2
    },
    "rz_ros": {
-    "standard": 157.3,
+    "standard": 158.4,
     "half_ppr": 179.3,
     "ppr": 200.2
    },
    "rz_filled_ppg": {
-    "standard": 14.3,
+    "standard": 14.4,
     "half_ppr": 16.3,
     "ppr": 18.2
    },
    "rz_filled_ros": {
-    "standard": 157.3,
+    "standard": 158.4,
     "half_ppr": 179.3,
     "ppr": 200.2
    },
@@ -4911,22 +4911,22 @@
     "ppr": 16.596364
    },
    "rz_ppg": {
-    "standard": 13.4,
+    "standard": 13.3,
     "half_ppr": 14.4,
     "ppr": 15.5
    },
    "rz_ros": {
-    "standard": 147.4,
+    "standard": 146.3,
     "half_ppr": 158.4,
     "ppr": 170.5
    },
    "rz_filled_ppg": {
-    "standard": 13.4,
+    "standard": 13.3,
     "half_ppr": 14.4,
     "ppr": 15.5
    },
    "rz_filled_ros": {
-    "standard": 147.4,
+    "standard": 146.3,
     "half_ppr": 158.4,
     "ppr": 170.5
    },
@@ -6091,27 +6091,27 @@
     "ppr": 14.44
    },
    "rz_ppg": {
-    "standard": 9.7,
+    "standard": 9.8,
     "half_ppr": 12.3,
-    "ppr": 14.8
+    "ppr": 14.9
    },
    "rz_ros": {
-    "standard": 116.4,
+    "standard": 117.6,
     "half_ppr": 147.6,
-    "ppr": 177.6
+    "ppr": 178.8
    },
    "rz_filled_ppg": {
-    "standard": 9.7,
+    "standard": 9.8,
     "half_ppr": 12.3,
-    "ppr": 14.8
+    "ppr": 14.9
    },
    "rz_filled_ros": {
-    "standard": 116.4,
+    "standard": 117.6,
     "half_ppr": 147.6,
-    "ppr": 177.6
+    "ppr": 178.8
    },
-   "delta_rz_espn": 4.32,
-   "delta_rz_espn_ppg": 0.36,
+   "delta_rz_espn": 5.52,
+   "delta_rz_espn_ppg": 0.46,
    "cbsros_ppg": {
     "standard": 10.075,
     "half_ppr": 12.575,
@@ -6127,7 +6127,7 @@
     "half_ppr": 177.66,
     "ppr": 211.91
    },
-   "delta_rz_espn_ppg_demeaned": 0.93,
+   "delta_rz_espn_ppg_demeaned": 1.03,
    "preseason_ecr_rank": 15
   },
   {
@@ -17389,25 +17389,25 @@
    "rz_ppg": {
     "standard": 4.7,
     "half_ppr": 6.4,
-    "ppr": 8.0
+    "ppr": 8.1
    },
    "rz_ros": {
     "standard": 51.7,
     "half_ppr": 70.4,
-    "ppr": 88.0
+    "ppr": 89.1
    },
    "rz_filled_ppg": {
     "standard": 4.7,
     "half_ppr": 6.4,
-    "ppr": 8.0
+    "ppr": 8.1
    },
    "rz_filled_ros": {
     "standard": 51.7,
     "half_ppr": 70.4,
-    "ppr": 88.0
+    "ppr": 89.1
    },
-   "delta_rz_espn": 11.48,
-   "delta_rz_espn_ppg": 1.04,
+   "delta_rz_espn": 12.58,
+   "delta_rz_espn_ppg": 1.14,
    "cbsros_ppg": {
     "standard": 5.1,
     "half_ppr": 6.918,
@@ -17423,7 +17423,7 @@
     "half_ppr": 50.51,
     "ppr": 61.51
    },
-   "delta_rz_espn_ppg_demeaned": 0.91,
+   "delta_rz_espn_ppg_demeaned": 1.01,
    "preseason_ecr_rank": 46
   },
   {
@@ -23328,22 +23328,22 @@
    },
    "rz_ppg": {
     "standard": 2.1,
-    "half_ppr": 2.6,
+    "half_ppr": 2.7,
     "ppr": 3.2
    },
    "rz_ros": {
     "standard": 23.1,
-    "half_ppr": 28.6,
+    "half_ppr": 29.7,
     "ppr": 35.2
    },
    "rz_filled_ppg": {
     "standard": 2.1,
-    "half_ppr": 2.6,
+    "half_ppr": 2.7,
     "ppr": 3.2
    },
    "rz_filled_ros": {
     "standard": 23.1,
-    "half_ppr": 28.6,
+    "half_ppr": 29.7,
     "ppr": 35.2
    },
    "delta_rz_espn": -3.03,
@@ -24784,22 +24784,22 @@
    },
    "rz_ppg": {
     "standard": 1.0,
-    "half_ppr": 1.3,
+    "half_ppr": 1.4,
     "ppr": 1.7
    },
    "rz_ros": {
     "standard": 11.0,
-    "half_ppr": 14.3,
+    "half_ppr": 15.4,
     "ppr": 18.7
    },
    "rz_filled_ppg": {
     "standard": 1.0,
-    "half_ppr": 1.3,
+    "half_ppr": 1.4,
     "ppr": 1.7
    },
    "rz_filled_ros": {
     "standard": 11.0,
-    "half_ppr": 14.3,
+    "half_ppr": 15.4,
     "ppr": 18.7
    },
    "delta_rz_espn": -14.2,
@@ -26987,22 +26987,22 @@
    },
    "rz_ppg": {
     "standard": 1.1,
-    "half_ppr": 1.6,
+    "half_ppr": 1.7,
     "ppr": 2.2
    },
    "rz_ros": {
     "standard": 13.2,
-    "half_ppr": 19.2,
+    "half_ppr": 20.4,
     "ppr": 26.4
    },
    "rz_filled_ppg": {
     "standard": 1.1,
-    "half_ppr": 1.6,
+    "half_ppr": 1.7,
     "ppr": 2.2
    },
    "rz_filled_ros": {
     "standard": 13.2,
-    "half_ppr": 19.2,
+    "half_ppr": 20.4,
     "ppr": 26.4
    },
    "delta_rz_espn": 4.98,
@@ -27498,22 +27498,22 @@
    },
    "rz_ppg": {
     "standard": 0.7,
-    "half_ppr": 0.9,
+    "half_ppr": 1.0,
     "ppr": 1.2
    },
    "rz_ros": {
     "standard": 8.4,
-    "half_ppr": 10.8,
+    "half_ppr": 12.0,
     "ppr": 14.4
    },
    "rz_filled_ppg": {
     "standard": 0.7,
-    "half_ppr": 0.9,
+    "half_ppr": 1.0,
     "ppr": 1.2
    },
    "rz_filled_ros": {
     "standard": 8.4,
-    "half_ppr": 10.8,
+    "half_ppr": 12.0,
     "ppr": 14.4
    },
    "delta_rz_espn": -3.81,
@@ -37040,13 +37040,9 @@
    "espn_complete": false,
    "espn_comp_count": 0,
    "espn_covered": [],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
    "cbsros_complete": false,
    "cbsros_comp_count": 0,
    "cbsros_covered": [],
@@ -37059,36 +37055,15 @@
    "espn_zeroed": true,
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
-   "universe_sources": [
-    "razzball"
-   ],
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
    "depth_chart_position": "QB",
    "depth_chart_order": 3,
    "sleeper_id": "13295",
+   "universe_only": true,
+   "unpriced_reason": "Active roster (NE). No chart or projection prices this player.",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_ppg": {
-    "standard": 0.1,
-    "half_ppr": 0.1,
-    "ppr": 0.1
-   },
-   "rz_ros": {
-    "standard": 1.1,
-    "half_ppr": 1.1,
-    "ppr": 1.1
-   },
-   "rz_filled_ppg": {
-    "standard": 0.1,
-    "half_ppr": 0.1,
-    "ppr": 0.1
-   },
-   "rz_filled_ros": {
-    "standard": 1.1,
-    "half_ppr": 1.1,
-    "ppr": 1.1
-   },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
    "preseason_ecr_rank": 89
@@ -57533,13 +57508,9 @@
    "espn_complete": false,
    "espn_comp_count": 0,
    "espn_covered": [],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
    "cbsros_complete": false,
    "cbsros_comp_count": 0,
    "cbsros_covered": [],
@@ -57551,9 +57522,6 @@
    "pricing": "espn_only",
    "espn_zeroed": true,
    "espn_status": "ineligible",
-   "universe_sources": [
-    "razzball"
-   ],
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
    "depth_chart_position": "QB",
@@ -57561,26 +57529,6 @@
    "sleeper_id": "1737",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_ppg": {
-    "standard": 0.1,
-    "half_ppr": 0.1,
-    "ppr": 0.1
-   },
-   "rz_ros": {
-    "standard": 1.1,
-    "half_ppr": 1.1,
-    "ppr": 1.1
-   },
-   "rz_filled_ppg": {
-    "standard": 0.1,
-    "half_ppr": 0.1,
-    "ppr": 0.1
-   },
-   "rz_filled_ros": {
-    "standard": 1.1,
-    "half_ppr": 1.1,
-    "ppr": 1.1
-   },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
    "preseason_ecr_rank": 84

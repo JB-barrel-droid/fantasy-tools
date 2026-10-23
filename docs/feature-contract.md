@@ -16,7 +16,7 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
 ## Everywhere (GL)
 
-  - **GL-01** The brand is "Data Driven Football". "Vegas" never appears. "VORP" appears only as "VORP vs waivers".
+  - **GL-01** The brand is "Data Driven Football". "Vegas" never appears. "VORP" never appears; the term is "Value above waivers" (copy-vorp-002, 2026-10-22).
 
   - **GL-02** Every number is right at its source:
 
