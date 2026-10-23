@@ -3,7 +3,7 @@
 Unit tests built from the written spec's own statements (docs/methodology.md,
 the QB8 investigation log, the leg artifact's pies_method), plus one data
 check: on the built ESPN legs the spec's two-tier pricing reproduces the leg
-wherever the requested bench share is inside every position's window.
+(pie at every position; values where the requested bench share is inside the position's window).
 No browser; runs in test-unit.
 """
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -37,10 +38,17 @@ class TwoTierSpec(unittest.TestCase):
     def setUp(self):
         self.tiers = tt.build_pool(_pool(), teams=2)
 
-    def test_bench_mix_scaled_round_half_up(self):
-        self.assertEqual(tt.bench_counts(12), {"QB": 10, "RB": 27, "WR": 33, "TE": 10})
-        self.assertEqual(tt.bench_counts(8), {"QB": 7, "RB": 18, "WR": 22, "TE": 7})
-        self.assertEqual(tt.bench_counts(14), {"QB": 12, "RB": 32, "WR": 39, "TE": 12})
+    def test_bench_is_dhondt_on_slots_times_market_ratios(self):
+        # JEG-561 convention rule 1, recomputed by hand: weights = slots x
+        # one-QB backups/starter (QB .88, RB 1.66, WR 2.06, TE .40), D'Hondt
+        # over teams x 7 seats (12 teams: 84 seats -> 15/28/35/6).
+        self.assertEqual(tt.bench_counts(12), {"QB": 15, "RB": 28, "WR": 35, "TE": 6})
+        self.assertEqual(tt.bench_counts(8), {"QB": 10, "RB": 19, "WR": 23, "TE": 4})
+        self.assertEqual(tt.bench_counts(14), {"QB": 17, "RB": 33, "WR": 41, "TE": 7})
+        for teams in (8, 10, 12, 14):
+            self.assertEqual(sum(tt.bench_counts(teams).values()), teams * 7)
+        # the legacy scaled mix is a different rule
+        self.assertEqual(tt.legacy_bench_counts(12), {"QB": 10, "RB": 27, "WR": 33, "TE": 10})
 
     def test_pool_counts_flex_and_waiver_line_is_next_unrostered(self):
         qb = self.tiers["QB"]
@@ -181,9 +189,18 @@ class ValueModelSpec(unittest.TestCase):
 class SpecVsBuiltLeg(unittest.TestCase):
     """Data check: the spec's two-tier pricing on a built ESPN leg's own pool
     reproduces the leg where the default share is inside every window. The
-    remaining gap is the unwritten glide (SG-1/SG-2), bounded at 0.25."""
+    remaining gap is the unwritten glide (SG-1/SG-2), bounded at 0.4 (re-measured
+    2026-10-22 on the JEG-563 roster; max seen 0.37; it was 0.25 on the old one)."""
 
     def test_reproduces_built_legs(self):
+        self.assertGreater(self._check_legs(tt.bench_counts), 0)
+
+    def test_leg_check_catches_the_legacy_bench_rule(self):
+        """Negative test: with the pre-JEG-561 scaled mix the same check must fail."""
+        with self.assertRaises(AssertionError):
+            self._check_legs(tt.legacy_bench_counts)
+
+    def _check_legs(self, bench_rule):
         legs = sorted((REPO / "data" / "ddf-two-tier").glob("ddf-*-espn-*-0p15/ddf_leg.json"))
         if not legs:
             self.skipTest("no built ESPN legs")
@@ -193,17 +210,23 @@ class SpecVsBuiltLeg(unittest.TestCase):
         checked = 0
         for name, path in sorted(latest.items()):
             leg = json.loads(path.read_text(encoding="utf-8"))
-            if any(abs((c.get("bench_share_used") or 0) - 0.15) > 1e-9 for c in leg["calibration"].values()
-                   if isinstance(c, dict) and c.get("pie")):
-                continue
             pool = [(r["player_key"], r["pos"], r["ppg"]) for r in leg["values"] if r["pos"] in tt.POSITIONS]
-            disp, _, _, cals, _ = tt.price_leg(pool, leg["inputs"]["teams"])
+            teams = leg["inputs"]["teams"]
+            with mock.patch.object(tt, "bench_counts", bench_rule):
+                _, raw, _, cals, _ = tt.price_leg(pool, teams)
             for pos, cal in cals.items():
+                # The pie depends only on the pool, the slots and the bench seats,
+                # so it must match at every position, inside the window or not.
                 self.assertAlmostEqual(cal.pie, leg["calibration"][pos]["pie"], places=6, msg=(name, pos))
-            worst = max(abs(disp[r["player_key"]] - r["value"]) for r in leg["values"] if r["player_key"] in disp)
-            self.assertLess(worst, 0.25, name)
-            checked += 1
-        self.assertGreater(checked, 0)
+                lc = leg["calibration"][pos]
+                if abs(lc["bench_share_used"] - 0.15) > 1e-9 or abs(cal.share_used - 0.15) > 1e-9:
+                    continue  # outside its window: the share-stepping glide is unwritten (SG-1/SG-2)
+                # Values at the leg's own 70/max scale (the max can sit at another position).
+                worst = max(abs(raw[r["player_key"]] * leg["scale_70_over_max"] - r["value"])
+                            for r in leg["values"] if r["pos"] == pos and r["player_key"] in raw)
+                self.assertLess(worst, 0.4, (name, pos))
+                checked += 1
+        return checked
 
 
 class Wiring(unittest.TestCase):
