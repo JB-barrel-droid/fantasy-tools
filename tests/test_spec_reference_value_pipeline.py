@@ -350,8 +350,7 @@ class ExpectedStartsVariant(unittest.TestCase):
         s = copy.deepcopy(fx["setting"])
         s.update(var["setting_change"])
         res = vp.run_week(vp.Setting.from_fixture(s), inp["pos_of"], inp["sources"], inp["included"],
-                          names=inp["names"], lineup=var["lineup"], promotion_model=False,
-                          flex_bench_seats=False)
+                          names=inp["names"], lineup=var["lineup"])
         return esx.variant_problems(fx, name, res)
 
     def test_variants_reproduced(self):
