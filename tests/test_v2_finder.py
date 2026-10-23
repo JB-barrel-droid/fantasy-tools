@@ -109,11 +109,18 @@ def check(finder_js: Path) -> list[str]:
     r = run(finder_js, mine, [row("t1", 25, 18)], {"chartKeys": ["usatoday", "fantasypros"]})
     if r["total"] != 1:
         errors.append(f"a trade accepted on 2 of 2 available charts is not listed: {r}")
-    # But a held chart's key must not be passed; the result's charts should not name held keys.
-    r2 = run(finder_js, mine, [row("t1", 25, 18)], {"chartKeys": ["usatoday", "fantasypros"]})
-    chart_keys_in_result = [c["key"] for t in r2["trades"] for c in t.get("charts", []) if c.get("rivalOk") is not None]
-    if any(k not in ("usatoday", "fantasypros") for k in chart_keys_in_result):
-        errors.append(f"a held chart key appeared in the result: {chart_keys_in_result}")
+    # JEG-881: "cbs" is held, so the caller passes the other three keys. Expectations are
+    # hand-derived, not read back from the call: the held chart must neither be counted nor listed.
+    avail = ["usatoday", "fantasycalc", "fantasypros"]
+    # Only the held chart rejects: 3 of 3 available accept -> listed, priced 3, charts name exactly the available keys.
+    r = run(finder_js, mine, [row("t1", 25, [18, 18, 18, 30])], {"chartKeys": avail})
+    if r["total"] != 1 or r["trades"][0]["priced"] != 3 or r["trades"][0]["ok"] != 3:
+        errors.append(f"a held chart changed the count: {r}")
+    elif [c["key"] for c in r["trades"][0]["charts"]] != avail:
+        errors.append(f"a held chart is listed in charts: {r['trades'][0]['charts']}")
+    # Only the held chart accepts: 2 of 3 available accept -> NOT listed (the held chart cannot make up the third).
+    if run(finder_js, mine, [row("t1", 25, [18, 18, 30, 18])], {"chartKeys": avail})["total"] != 0:
+        errors.append("a held chart's acceptance was counted toward the minimum")
     return errors
 
 
@@ -123,6 +130,7 @@ MUTANTS = {
     "missing chart read as 0": ("if (!finite(v)) return null; total += v;", "total += finite(v) ? v : 0;"),
     "DDF edge not required": [("if (pointsAsShown(edge) <= 0) continue;", ""),
                               ("if (pointsAsShown(theirSubs[mid].sums[0] - give.sums[0]) > 0)", "if (true)")],
+    "chartKeys ignored (held chart counted)": ("const chartKeys = (o.chartKeys || CHART_KEYS).slice();", "const chartKeys = CHART_KEYS.slice();"),
     "default size 3": ("Math.max(1, o.maxSize || 2)", "Math.max(1, o.maxSize || 3)"),
     "no simplicity weight": ("const EXTRA_PLAYER_WEIGHT = 0.1;", "const EXTRA_PLAYER_WEIGHT = 0;"),
 }
