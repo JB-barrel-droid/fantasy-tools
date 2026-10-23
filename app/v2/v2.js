@@ -665,6 +665,11 @@
     const tags = window.PlayerTags;
     return tags && typeof tags.playerTag === "function" ? tags.playerTag(row) : null;
   }
+  // JEG-901: what a hover `title` says, as an accessible description too (keyboard, touch and screen readers).
+  function describe(node, text) {
+    if (text) node.setAttribute("aria-description", text);
+    return node;
+  }
   function tagChip(row) {
     const tag = playerTagOf(row);
     if (!tag) return null;
@@ -672,6 +677,8 @@
     chip.className = `v2-tag v2-tag-${tag.toLowerCase()}`;
     chip.dataset.tag = tag;
     chip.title = TAG_NOTES[tag];
+    chip.setAttribute("role", "img");
+    chip.setAttribute("aria-label", `${tag}: ${TAG_NOTES[tag]}`);
     chip.textContent = tag;
     return chip;
   }
@@ -934,6 +941,7 @@
       const item = view.infoByKey[key];
       const li = document.createElement("li");
       li.title = seriesName(key);
+      describe(li, li.title);
       li.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span>`;
       li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
       const badge = item?.stale ? weekBadge(key) : null;
@@ -1437,6 +1445,63 @@
     tip.style.top = `${Math.max(8, top)}px`;
   }
 
+  // JEG-897 / JEG-899: a row or card that opens the player drawer. It is focusable and opens on Enter or Space and
+  // click; it announces that it opens a dialog and how (v2OpenHint). rove() then leaves one tab stop per list.
+  function makeOpenable(node, open) {
+    node.tabIndex = -1;
+    node.setAttribute("aria-haspopup", "dialog");
+    node.setAttribute("aria-describedby", "v2OpenHint");
+    node.addEventListener("click", () => open());
+    node.addEventListener("keydown", event => {
+      if (event.target !== node) return;
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
+    });
+  }
+  // Roving tabindex (JEG-899): the container has ONE tab stop (its last-focused item, else the first). ArrowUp/Down,
+  // Home and End move between items; ArrowRight enters the item's value cells (the math tooltip cells), ArrowLeft/
+  // Escape comes back. Cells stay focusable by pointer, so mouse and touch behaviour is unchanged.
+  function rove(container, itemSelector) {
+    const items = () => [...container.querySelectorAll(itemSelector)];
+    const list = items();
+    const keep = list.find(item => item.dataset.playerKey && item.dataset.playerKey === container._roveKey) || list[0];
+    list.forEach(item => {
+      item.tabIndex = item === keep ? 0 : -1;
+      item.querySelectorAll(".has-math").forEach(cell => { cell.tabIndex = -1; });
+    });
+    if (container._roving) return;
+    container._roving = true;
+    container.addEventListener("focusin", event => {
+      const all = items();
+      const item = all.find(it => it.contains(event.target));
+      if (!item) return;
+      container._roveKey = item.dataset.playerKey;
+      all.forEach(it => { it.tabIndex = it === item ? 0 : -1; });
+    });
+    container.addEventListener("keydown", event => {
+      const all = items();
+      const item = all.find(it => it.contains(event.target));
+      if (!item) return;
+      const move = at => { event.preventDefault(); const next = all[Math.max(0, Math.min(all.length - 1, at))]; if (next) next.focus(); };
+      if (event.target === item) {
+        const at = all.indexOf(item);
+        if (event.key === "ArrowDown") move(at + 1);
+        else if (event.key === "ArrowUp") move(at - 1);
+        else if (event.key === "Home") move(0);
+        else if (event.key === "End") move(all.length - 1);
+        else if (event.key === "ArrowRight") {
+          const first = item.querySelector(".has-math");
+          if (first) { event.preventDefault(); first.focus(); }
+        }
+      } else if (event.target.classList && event.target.classList.contains("has-math")) {
+        const cells = [...item.querySelectorAll(".has-math")];
+        const at = cells.indexOf(event.target);
+        if (event.key === "ArrowRight" && cells[at + 1]) { event.preventDefault(); cells[at + 1].focus(); }
+        else if (event.key === "ArrowLeft") { event.preventDefault(); (cells[at - 1] || item).focus(); }
+        else if (event.key === "Escape") item.focus();
+      }
+    });
+  }
+
   function indexFromEvent(event, chart, container) {
     const box = container.getBoundingClientRect();
     const scale = chart.width / box.width;
@@ -1467,6 +1532,13 @@
 
   function bindChartKeys() {
     const chartNode = $("v2Chart");
+    // JEG-897: the player under the arrow keys is announced (the tooltip is visual only).
+    const say = document.createElement("div");
+    say.className = "v2-sr";
+    say.id = "v2ChartSay";
+    say.setAttribute("role", "status");
+    say.setAttribute("aria-live", "polite");
+    chartNode.insertAdjacentElement("afterend", say);
     chartNode.addEventListener("keydown", event => {
       if (!mainChart) return;
       const n = mainChart.slice.length;
@@ -1476,6 +1548,8 @@
         state.hoverIndex = Math.max(0, Math.min(n - 1, base + (event.key === "ArrowRight" ? 1 : -1)));
         state.focusIndex = state.hoverIndex;
         drawHover();
+        const at = hoveredRow();
+        if (at) say.textContent = `${at.name}, ${at.pos || ""} ${at.team || ""}, rank ${state.hoverIndex + 1} of ${n}. Enter for details.`.replace(/\s+,/g, ",");
       } else if (event.key === "Enter") {
         const row = hoveredRow();
         if (row) openDrawer(row);
@@ -1672,10 +1746,8 @@
     const rankName = sourceMeta(view.rankKey).short;
     rows.slice(0, state.shown).forEach(row => {
       const tr = document.createElement("tr");
-      tr.tabIndex = 0;
       tr.dataset.playerKey = String(row.player_key);
-      tr.addEventListener("click", () => openDrawer(row));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+      makeOpenable(tr, () => openDrawer(row));
       cols.forEach(col => {
         const td = document.createElement("td");
         if (col.cls) td.className = col.cls;
@@ -1748,6 +1820,8 @@
       tbody.appendChild(tr);
     });
     table.append(thead, tbody);
+    table.setAttribute("role", "grid");
+    rove(table, ":scope > tbody > tr[data-player-key]");
     if (expanded !== "table" && metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
       const wrap = $("v2TableWrap");
       if (wrap.scrollWidth > wrap.clientWidth + 1) { metaNoRoom = true; renderTable(true); return; }
@@ -3714,7 +3788,7 @@
     node.className = "why t-count";
     node.dataset.ddfCount = String(count);
     node.textContent = `from ${count} source${count === 1 ? "" : "s"}`;
-    if (Array.isArray(sources) && sources.length) node.title = sources.map(seriesName).join(", ");
+    if (Array.isArray(sources) && sources.length) { node.title = sources.map(seriesName).join(", "); describe(node, `From ${node.title}`); }
     return node;
   }
   // Our value: the number (with DDF Value's source count), or "—" with the engine's reason.
@@ -3752,6 +3826,7 @@
       note.title = sc
         ? `${scLabel}'s rescaled value is ${fmt(m.value)}, the same as our value.`
         : `The middle value of the ${m.count} compared chart${m.count === 1 ? "" : "s"} is ${fmt(m.value)}, the same as our value.`;
+      describe(note, note.title);
       cell.appendChild(note);
       return;
     }
@@ -3760,12 +3835,12 @@
     count.className = "why t-count";
     count.dataset.marketCount = String(m.count);
     count.textContent = sc ? scLabel : `middle of ${m.count} chart${m.count === 1 ? "" : "s"}${m.left ? ` · ${m.left} left out` : ""}`;
-    if (m.left) count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`;
+    if (m.left) describe(count, count.title = `${m.left} compared chart${m.left === 1 ? " has" : "s have"} no value for this player and ${m.left === 1 ? "is" : "are"} left out.`);
     const diff = document.createElement("span");
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
     // JEG-833: said in words (ours is above / below the consensus), not as a signed number that contradicts the gap.
-    diff.title = "Our value against the market consensus";
+    describe(diff, diff.title = "Our value against the market consensus");
     diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${Math.abs(m.diff).toFixed(1)} ${m.diff > 0 ? "above" : "below"}`;
     cell.append(diff, count);
   }
@@ -3929,6 +4004,7 @@
       node.title = `${ranks}: the charts rank him ${p.row.pos}${b.ranks.market}, we rank him ${p.row.pos}${b.ranks.ours}; our ${p.row.pos}${b.ranks.market} is worth ${fmt(b.ranks.oursAtRank)} to us, ${fmt(p.ours)} minus that is the gap. ` + node.title;
     }
     node.textContent = text;
+    describe(node, node.title);
     return node;
   }
   function agreeNode(b, cls) {
@@ -3946,6 +4022,8 @@
       d.dataset.value = String(dot.value);
       d.title = `${PUBLISHER_NAMES[dot.chart]} (rescaled) ${fmt(dot.value)}: ${dot.side === "above" ? "above" : dot.side === "below" ? "below" : "level with"} our value`;
       d.textContent = "●";
+      d.setAttribute("role", "img");
+      d.setAttribute("aria-label", d.title);
       dots.appendChild(d);
     });
     who.append(document.createTextNode(`${b.agree} of ${b.of} charts agree `), dots);
@@ -4052,10 +4130,8 @@
     list.slice(0, T.shown[side]).forEach(p => {
       const key = String(p.row.player_key);
       const tr = document.createElement("tr");
-      tr.tabIndex = 0;
       tr.dataset.playerKey = key;
-      tr.addEventListener("click", () => openDrawer(p.row, "targets"));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row, "targets"); });
+      makeOpenable(tr, () => openDrawer(p.row, "targets"));
       const td = (cls, text) => {
         const cell = document.createElement("td");
         if (cls) cell.className = cls;
@@ -4134,6 +4210,7 @@
       }
     });
     table.append(thead, tbody);
+    rove(table, ":scope > tbody > tr[data-player-key]");
   }
 
   function renderTargetCards(side, list) {
@@ -4141,10 +4218,8 @@
     ol.replaceChildren();
     list.slice(0, T.shown[side]).forEach(p => {
       const li = document.createElement("li");
-      li.tabIndex = 0;
       li.dataset.playerKey = String(p.row.player_key);
-      li.addEventListener("click", () => openDrawer(p.row, "targets"));
-      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
+      makeOpenable(li, () => openDrawer(p.row, "targets"));
       const top = document.createElement("div");
       top.className = "top";
       const who = document.createElement("div");
@@ -4180,6 +4255,7 @@
       li.append(top, line);
       ol.appendChild(li);
     });
+    rove(ol, "li[data-player-key]");
   }
 
   // JEG-461: each list opens on its top 5; "Show all N" then pages of 25; "Show top 5" collapses.
@@ -4548,14 +4624,13 @@
             c.textContent = text;
             row.appendChild(c);
           });
-          row.tabIndex = 0;
-          row.addEventListener("click", () => openDrawer(p.row, "targets"));
-          row.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row, "targets"); });
+          makeOpenable(row, () => openDrawer(p.row, "targets"));
           ibody.appendChild(row);
         });
         const head = document.createElement("thead");
         head.appendChild(ih);
         inner.append(head, ibody);
+        rove(inner, ":scope > tbody > tr[data-player-key]");
         wrap.appendChild(inner);
         cell.appendChild(wrap);
         detail.appendChild(cell);
@@ -4817,7 +4892,7 @@
       const verb = step.side === "give" ? "Give" : "Receive";
       const el = document.createElement("span");
       el.className = `v2-wf-step ${step.side}${step.missing ? " is-missing" : ""}`;
-      el.tabIndex = 0;
+      el.tabIndex = -1;   // JEG-899: not a tab stop (the numbers are in the table below); a pointer still focuses it
       el.setAttribute("role", "img");
       el.dataset.playerKey = String(step.row.player_key);
       el.dataset.side = step.side;
@@ -4866,7 +4941,7 @@
       const n = netLabel(fall.net);
       const land = document.createElement("span");
       land.className = `v2-wf-land ${n.cls}`;
-      land.tabIndex = 0;
+      land.tabIndex = -1;   // JEG-899
       land.setAttribute("role", "img");
       land.dataset.net = n.text;
       land.setAttribute("aria-label", `Result ${n.text}: ${n.label.replace(/^[▲▼=] /, "")}`);
@@ -5743,6 +5818,7 @@
     if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", syncVerdictBar);
     ["give", "receive"].forEach(side => {
       const input = $(SIDE_IDS[side].search);
+      window.TradeValueNameSearch.combobox(input, $(SIDE_IDS[side].results));   // JEG-900
       input.addEventListener("input", () => renderSearch(side));
       input.addEventListener("keydown", event => {
         if (event.key === "Enter") {
@@ -6003,11 +6079,9 @@
       list.slice(0, DISAGREE_SHOWN).forEach(item => {
         const row = item.row;
         const li = document.createElement("li");
-        li.tabIndex = 0;
         li.dataset.playerKey = String(row.player_key);
         li.dataset.moved = item.moved;
-        li.addEventListener("click", () => openDrawer(row));
-        li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+        makeOpenable(li, () => openDrawer(row));
         const top = document.createElement("div");
         top.className = "m-top";
         const who = document.createElement("div");
@@ -6040,6 +6114,7 @@
         li.append(top, vals, read);
         ol.appendChild(li);
       });
+      rove(ol, "li[data-player-key]");
       const empty = $(emptyId);
       empty.hidden = list.length > 0;
       if (d.available && !rows.length && R.search.trim()) renderNoMatch(empty, R.search, "v2RSearch");
@@ -6062,10 +6137,8 @@
     list.slice(0, R.shown[side]).forEach(item => {
       const row = item.row;
       const li = document.createElement("li");
-      li.tabIndex = 0;
       li.dataset.playerKey = String(row.player_key);
-      li.addEventListener("click", () => openDrawer(row));
-      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+      makeOpenable(li, () => openDrawer(row));
       const top = document.createElement("div");
       top.className = "m-top";
       const who = document.createElement("div");
@@ -6103,6 +6176,7 @@
       li.append(top, bottom);
       ol.appendChild(li);
     });
+    rove(ol, "li[data-player-key]");
     const empty = $(ids.empty);
     empty.hidden = v.available && list.length > 0;
     if (v.available && v.searchMiss) renderNoMatch(empty, R.search, "v2RSearch");
@@ -6527,6 +6601,12 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    $("v2HowWeightsExplainerBtn").addEventListener("click", event => {
+      const button = event.currentTarget;
+      const open = button.getAttribute("aria-expanded") !== "true";
+      button.setAttribute("aria-expanded", String(open));
+      $("v2HowWeightsExplainerBody").hidden = !open;
+    });
     // Skip link: a button, because a #fragment would change the hash route.
     $("v2Skip").addEventListener("click", () => {
       const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden);
