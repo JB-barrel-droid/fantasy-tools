@@ -229,7 +229,7 @@
       </div>
     </div>
 
-    <p class="v2-footnote">DDF Value is our value, built from the inputs you choose in Customize. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
+    <p class="v2-footnote">DDF Value is our value: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -326,7 +326,7 @@
         <p>Gap = the group's share of the market total divided by its share of the DDF Value total, minus 1. Sell this group at +10% or more: the market pays more for it than DDF Value does, so offer those players. Buy this group at -10% or less. In between is fairly priced. Groups with fewer than 3 players show no number; the headline only names groups with 8 or more players. Open a group to see its players.</p>
       </details>
     </section>
-    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">the DDF Value, built from the inputs chosen in Customize on Player values</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">DDF Value, the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -384,13 +384,13 @@
       <div class="v2-movers">
         <section class="v2-card" aria-labelledby="v2RMktTitle">
           <h3 id="v2RMktTitle" class="v2-mhead">Market moved, projections didn't</h3>
-          <p class="v2-meta">Trade chart average moved 2.5 points or more; DDF Projections moved 1.0 or less</p>
+          <p class="v2-meta">Trade chart average moved 2.5 points or more; DDF Value moved 1.0 or less</p>
           <ol class="v2-mlist v2-dlist" id="v2RMkt" aria-labelledby="v2RMktTitle"></ol>
           <p class="v2-meta v2-t-empty" id="v2RMktEmpty" hidden></p>
         </section>
         <section class="v2-card" aria-labelledby="v2RProjTitle">
           <h3 id="v2RProjTitle" class="v2-mhead">Projections moved, market didn't</h3>
-          <p class="v2-meta">DDF Projections moved 2.5 points or more; Trade chart average moved 1.0 or less</p>
+          <p class="v2-meta">DDF Value moved 2.5 points or more; Trade chart average moved 1.0 or less</p>
           <ol class="v2-mlist v2-dlist" id="v2RProj" aria-labelledby="v2RProjTitle"></ol>
           <p class="v2-meta v2-t-empty" id="v2RProjEmpty" hidden></p>
         </section>
@@ -531,15 +531,14 @@
     </div>
 
     <section class="v2-card v2-how-names" id="v2HowNames" aria-labelledby="v2HowNamesTitle">
-      <h2 id="v2HowNamesTitle">Three numbers for every player</h2>
+      <h2 id="v2HowNamesTitle">Two numbers for every player</h2>
       <ul class="v2-how-primaries">
-        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth. It blends the sources you have chosen that are current and passed their data checks, for your league; a held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag. <span class="v2-circular-inline" id="v2HowCircular" hidden></span></li>
-        <li data-primary="ddf_value_projections"><b>DDF Projections</b> What production supports: the projections turned into value for your league.</li>
+        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag. <span class="v2-circular-inline" id="v2HowCircular" hidden></span></li>
         <li data-primary="ddf_value_charts"><b>Trade chart average</b> What the market will pay: the published trade charts, rescaled to the same scale and averaged.</li>
       </ul>
       <h3>Where the edge comes from</h3>
       <p>Buy below DDF Value and sell above it. The best deals are the ones where DDF Value says you win and the market says you lose: the manager across the table is trading off the market, so they see a win too.</p>
-      <p class="v2-meta">When DDF Projections and the Trade chart average disagree, one of the two is wrong. Risers &amp; fallers lists the players where one moved and the other did not.</p>
+      <p class="v2-meta">When DDF Value and the Trade chart average disagree, one of the two is wrong. Risers &amp; fallers lists the players where one moved and the other did not.</p>
     </section>
 
     <h2 class="v2-how-sub">The sources behind them</h2>
