@@ -211,10 +211,10 @@ class FinderRenderTest(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         js = FINDER_JS.read_text(encoding="utf-8")
         broken = {
-            "edge read the wrong way round": js.replace("const edge = get.sums[0] - give.sums[0];", "const edge = give.sums[0] - get.sums[0];", 1),
+            "edge read the wrong way round": js.replace("? null : get[0] - give[0];", "? null : give[0] - get[0];", 1),
             "held chart counted (availability filter dropped)": js.replace("const charts = CHART_KEYS.filter(key => availableKeys.has(key));", "const charts = CHART_KEYS.slice();", 1),
             "finder back inside Compare a trade": js.replace('const host = $("v2FindTrade");', 'const host = $("v2Compare");', 1),
-            "link swaps the sides": js.replace("#compare-trade?give=${ids(t.give)}&get=${ids(t.receive)}", "#compare-trade?give=${ids(t.receive)}&get=${ids(t.give)}", 1),
+            "link swaps the sides": js.replace("#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}", "#compare-trade?give=${ids(recvRows)}&get=${ids(giveRows)}", 1),
         }
         for name, body in broken.items():
             with self.subTest(mutation=name):

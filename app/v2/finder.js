@@ -52,10 +52,58 @@
     return {rows: priced.slice(0, n), unpriced: rows.length - priced.length, searched: n, of: priced.length};
   }
 
-  // mine / theirs: engine rows. opts: {ourKey, chartKeys, maxSize, minCharts, limit}.
-  // Each trade: {give, receive, edge, charts: [{key, net, rivalOk}], pricedCharts, rivalOkCount, score}.
-  // edge and net are receive - give for you; the rival is happy when a chart's net is <= 0 as shown.
+  // ---------- judging one package (JEG-972): the single place a trade is checked ----------
+  // Sums of a package in each series ([ourKey, ...charts]); null when any player lacks that series.
+  function sumsOf(rows, keys) {
+    return keys.map(key => {
+      let total = 0;
+      for (const row of rows) { const v = row.values && row.values[key]; if (!finite(v)) return null; total += v; }
+      return total;
+    });
+  }
+  // give / get: sums arrays. The edge is get - give for you; the rival is happy on a chart when its net is <= 0 as shown.
   // A chart that does not price every player in the package is left out of the count (net null).
+  function judgeSums(give, get, chartKeys, minCharts) {
+    const edge = give[0] === null || get[0] === null ? null : get[0] - give[0];
+    let priced = 0;
+    let ok = 0;
+    const charts = [];
+    for (let c = 0; c < chartKeys.length; c++) {
+      const g = give[c + 1];
+      const r = get[c + 1];
+      if (g === null || r === null) { charts.push({key: chartKeys[c], net: null, rivalOk: null}); continue; }
+      const net = r - g;
+      const rivalOk = pointsAsShown(net) <= 0;
+      priced += 1;
+      if (rivalOk) ok += 1;
+      charts.push({key: chartKeys[c], net, rivalOk});
+    }
+    return {edge, charts, pricedCharts: priced, rivalOkCount: ok,
+      passes: {edge: edge !== null && pointsAsShown(edge) > 0, charts: priced >= minCharts && ok >= minCharts}};
+  }
+  // Roster sanity for a package: {mine, theirs} issue lists, and whether the keep-lineup boxes reject it.
+  function judgeLineup(giveRows, getRows, sanity) {
+    if (!sanity) return {issues: null, passes: true};
+    const issues = {mine: lineupIssues(sanity.mineCounts, giveRows, getRows, sanity.shape),
+      theirs: lineupIssues(sanity.theirCounts, getRows, giveRows, sanity.shape)};
+    return {issues, passes: !((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))};
+  }
+  const scoreOf = (edge, players) => edge * (1 - EXTRA_PLAYER_WEIGHT * (players - 2));
+  // Any package, judged exactly as the search judges it. ctx comes from findTrades (result.ctx).
+  function evaluateCombo(giveRows, receiveRows, ctx) {
+    const keys = [ctx.ourKey].concat(ctx.chartKeys);
+    const judged = judgeSums(sumsOf(giveRows, keys), sumsOf(receiveRows, keys), ctx.chartKeys, ctx.minCharts);
+    const lineup = judgeLineup(giveRows, receiveRows, ctx.sanity);
+    const edge = judged.edge;
+    return {edge, charts: judged.charts, pricedCharts: judged.pricedCharts, rivalOkCount: judged.rivalOkCount, issues: lineup.issues,
+      score: edge === null ? null : scoreOf(edge, giveRows.length + receiveRows.length),
+      passes: {edge: judged.passes.edge, charts: judged.passes.charts, lineup: lineup.passes}};
+  }
+
+  // mine / theirs: engine rows. opts: {ourKey, chartKeys, maxSize, minCharts, limit}.
+  // Each trade: {give, receive, edge, charts: [{key, net, rivalOk}], pricedCharts, rivalOkCount, score, throwIns}.
+  // edge and net are receive - give for you; the rival is happy when a chart's net is <= 0 as shown.
+  // Rows that differ only by a player worth 0.0 everywhere are one row (the simpler trade), see collapseThrowIns.
   function findTrades(mine, theirs, opts) {
     const o = opts || {};
     const ourKey = o.ourKey || OUR_KEY;
@@ -69,15 +117,7 @@
     const mineP = pool(mine, ourKey, maxSize);
     const theirsP = pool(theirs, ourKey, maxSize);
     const keys = [ourKey].concat(chartKeys);
-    // Per subset: the sum in each series, or null when any player in it lacks that series.
-    const describe = (rows, combo) => {
-      const sums = keys.map(key => {
-        let total = 0;
-        for (const i of combo) { const v = rows[i].values[key]; if (!finite(v)) return null; total += v; }
-        return total;
-      });
-      return {combo, sums};
-    };
+    const describe = (rows, combo) => ({combo, sums: sumsOf(combo.map(i => rows[i]), keys)});
     const mineSubs = subsets(mineP.rows.length, maxSize).map(c => describe(mineP.rows, c));
     const theirSubs = subsets(theirsP.rows.length, maxSize).map(c => describe(theirsP.rows, c))
       .sort((a, b) => a.sums[0] - b.sums[0]);
@@ -91,41 +131,92 @@
       }
       for (let t = lo; t < theirSubs.length; t++) {
         const get = theirSubs[t];
-        const edge = get.sums[0] - give.sums[0];
-        if (pointsAsShown(edge) <= 0) continue;
-        let priced = 0;
-        let ok = 0;
-        const charts = [];
-        for (let c = 0; c < chartKeys.length; c++) {
-          const g = give.sums[c + 1];
-          const r = get.sums[c + 1];
-          if (g === null || r === null) { charts.push({key: chartKeys[c], net: null, rivalOk: null}); continue; }
-          const net = r - g;
-          const rivalOk = pointsAsShown(net) <= 0;
-          priced += 1;
-          if (rivalOk) ok += 1;
-          charts.push({key: chartKeys[c], net, rivalOk});
-        }
-        if (priced < minCharts || ok < minCharts) continue;
-        const players = give.combo.length + get.combo.length;
+        const judged = judgeSums(give.sums, get.sums, chartKeys, minCharts);
+        if (!judged.passes.edge || !judged.passes.charts) continue;
         const giveRows = give.combo.map(i => mineP.rows[i]);
         const getRows = get.combo.map(i => theirsP.rows[i]);
-        let issues = null;
-        if (sanity) {
-          issues = {mine: lineupIssues(sanity.mineCounts, giveRows, getRows, sanity.shape),
-            theirs: lineupIssues(sanity.theirCounts, getRows, giveRows, sanity.shape)};
-          if ((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length)) { sanityDropped += 1; continue; }
-        }
-        found.push({give: giveRows, receive: getRows, edge, charts, issues,
-          pricedCharts: priced, rivalOkCount: ok, score: edge * (1 - EXTRA_PLAYER_WEIGHT * (players - 2))});
+        const lineup = judgeLineup(giveRows, getRows, sanity);
+        if (!lineup.passes) { sanityDropped += 1; continue; }
+        found.push({give: giveRows, receive: getRows, edge: judged.edge, charts: judged.charts, issues: lineup.issues,
+          pricedCharts: judged.pricedCharts, rivalOkCount: judged.rivalOkCount, score: scoreOf(judged.edge, giveRows.length + getRows.length)});
       }
     }
-    const idOf = trade => `${trade.give.map(r => r.player_key)}|${trade.receive.map(r => r.player_key)}`;
     found.sort((a, b) => b.score - a.score || b.edge - a.edge
       || (a.give.length + a.receive.length) - (b.give.length + b.receive.length)
       || idOf(a).localeCompare(idOf(b)));
-    return {trades: found.slice(0, limit), total: found.length, sanityDropped, ourKey, chartKeys, minCharts, maxSize,
-      mine: mineP, theirs: theirsP};
+    const collapsed = collapseThrowIns(found, chartKeys, ourKey);
+    return {trades: collapsed.slice(0, limit), total: collapsed.length, foldedThrowIns: found.length - collapsed.length, sanityDropped, ourKey, chartKeys, minCharts, maxSize,
+      mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity}};
+  }
+  const idOf = trade => `${trade.give.map(r => r.player_key)}|${trade.receive.map(r => r.player_key)}`;
+
+  // ---------- JEG-972 / JEG-885: throw-ins and groups ----------
+  // A throw-in is a player worth 0.0 as shown on DDF Value and on every compared chart.
+  const isZeroValue = (row, keys) => keys.every(k => finite(row.values && row.values[k]) && Math.abs(row.values[k]) < 0.05);
+  // Trades that differ only by throw-ins are one row: the one with the fewest players (ties: the better-ranked, as
+  // given). The dropped players are named on it as throwIns {give, receive}. If the simpler trade is not in the list
+  // (it failed a gate), the variant stays: a trade the search did not list is never invented.
+  function collapseThrowIns(trades, chartKeys, ourKey) {
+    const keys = [ourKey].concat(chartKeys);
+    const canon = list => list.filter(r => !isZeroValue(r, keys)).map(r => String(r.player_key)).sort().join(",");
+    const classes = new Map();
+    trades.forEach(t => {
+      const id = `${canon(t.give)}|${canon(t.receive)}`;
+      if (!classes.has(id)) classes.set(id, []);
+      classes.get(id).push(t);
+    });
+    const size = t => t.give.length + t.receive.length;
+    const kept = new Map();
+    classes.forEach(members => {
+      let rep = members[0];
+      for (const m of members) if (size(m) < size(rep)) rep = m;
+      const extra = side => {
+        const have = new Set(rep[side].map(r => String(r.player_key)));
+        const out = new Map();
+        members.forEach(m => m[side].forEach(r => { const k = String(r.player_key); if (!have.has(k) && isZeroValue(r, keys)) out.set(k, r); }));
+        return [...out.values()];
+      };
+      const throwIns = {give: extra("give"), receive: extra("receive")};
+      kept.set(rep, throwIns.give.length || throwIns.receive.length ? throwIns : null);
+    });
+    return trades.filter(t => kept.has(t)).map(t => (kept.get(t) ? {...t, throwIns: kept.get(t)} : t));
+  }
+
+  // The player with the highest DDF Value on a side; ties by lower player_key (the order pool() uses).
+  function coreOf(rows, ourKey) {
+    const sorted = rows.slice().sort((a, b) => b.values[ourKey] - a.values[ourKey] || String(a.player_key).localeCompare(String(b.player_key)));
+    return sorted[0];
+  }
+  const HEAVY_SHARE = 0.5;   // a received player worth this share of the core, or more, is part of the group's identity
+  const byValueDesc = ourKey => (a, b) => b.values[ourKey] - a.values[ourKey] || String(a.player_key).localeCompare(String(b.player_key));
+  // Groups by the player you receive (Jeremy 2026-10-23). opts: {ourKey}. trades: findTrades output, ranked.
+  // Group: {key, core, heavy (core first among the received players worth >= 50% of it), giveCandidates, receiveSide
+  // (smaller received players seen in the group, selectable), trades, best (top score), bestEdge}.
+  function groupTrades(trades, opts) {
+    const ourKey = (opts && opts.ourKey) || OUR_KEY;
+    const order = byValueDesc(ourKey);
+    const map = new Map();
+    trades.forEach(t => {
+      const core = coreOf(t.receive, ourKey);
+      const heavy = t.receive.filter(r => r === core || r.values[ourKey] >= HEAVY_SHARE * core.values[ourKey]).sort(order);
+      const key = heavy.map(r => String(r.player_key)).join(",");
+      if (!map.has(key)) map.set(key, {key, core, heavy, trades: []});
+      map.get(key).trades.push(t);
+    });
+    const groups = [...map.values()].map(g => {
+      const pick = (list, skip) => {
+        const seen = new Map();
+        list.forEach(r => { if (!skip.has(String(r.player_key))) seen.set(String(r.player_key), r); });
+        return [...seen.values()].sort(order);
+      };
+      const heavyKeys = new Set(g.heavy.map(r => String(r.player_key)));
+      const best = g.trades.slice().sort((a, b) => b.score - a.score || b.edge - a.edge || idOf(a).localeCompare(idOf(b)))[0];
+      return {...g, best, bestEdge: best.edge,
+        giveCandidates: pick([].concat(...g.trades.map(t => t.give)), new Set()),
+        receiveSide: pick([].concat(...g.trades.map(t => t.receive)), heavyKeys)};
+    });
+    groups.sort((a, b) => b.bestEdge - a.bestEdge || b.best.score - a.best.score || a.key.localeCompare(b.key));
+    return groups;
   }
 
   // ---------- roster sanity (JEG-481, second slice) ----------
@@ -235,7 +326,7 @@
       .filter(Boolean).map(name => ({name, pos: ""}));
   }
 
-  const api = {findTrades, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -654,7 +745,7 @@
     [["Your", mineRows], ["Their", theirRows]].forEach(([who, rows]) => {
       rosterGaps(rows, shape).forEach(g => note(`${who} roster has ${g.have} ${g.pos} for ${g.need} starting slot${g.need === 1 ? "" : "s"} in this league.`));
     });
-    const res = findTrades(mineRows, theirRows, {chartKeys: charts, maxSize: S.maxSize,
+    const res = findTrades(mineRows, theirRows, {chartKeys: charts, maxSize: S.maxSize, limit: 1e7,
       sanity: shape ? {shape, mine: mineRows, theirs: theirRows, keepMine: S.keepMine, keepTheirs: S.keepTheirs} : null});
     if (res.sanityDropped) note(`${res.sanityDropped} trade${res.sanityDropped === 1 ? "" : "s"} left out because ${res.sanityDropped === 1 ? "it leaves" : "they leave"} a starting lineup short at a position. Untick the boxes below to see ${res.sanityDropped === 1 ? "it" : "them"}.`);
     const skipped = res.mine.unpriced + res.theirs.unpriced;
@@ -665,24 +756,99 @@
     if (!res.trades.length) {
       return note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} available trade chart${charts.length === 1 ? "s say" : "s say"} they break even or win. Try a larger package.`);
     }
-    note(`${res.total} trade${res.total === 1 ? "" : "s"} found; the top ${res.trades.length} are listed, ranked by DDF Value edge with simpler trades first.`);
+    const groups = groupTrades(res.trades, {ourKey: res.ourKey});
+    const shown = Math.min(GROUP_LIMIT, groups.length);
+    note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(groups.length, "group")}; ${groups.length > shown ? `the top ${shown} groups are listed` : "all are listed"}, ranked by the best DDF Value edge in each, with simpler trades first.`
+      + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : ""));
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
-    res.trades.forEach(t => {
-      const favor = t.charts.filter(c => c.rivalOk).map(c => CHART_NAMES[c.key] || c.key);
-      const unpriced = t.charts.filter(c => c.net === null).length;
-      const ids = rows => rows.map(r => encodeURIComponent(r.player_key)).join(",");
-      const thin = t.issues ? [["you", t.issues.mine], ["them", t.issues.theirs]].filter(([, list]) => list.length)
-        .map(([who, list]) => `Leaves ${who} thin: ${list.map(issueText).join("; ")}.`) : [];
-      const open = el("a", {class: "v2-link", href: `v2/#compare-trade?give=${ids(t.give)}&get=${ids(t.receive)}`, text: "Open in Compare a trade"});
-      list.append(el("li", {"data-find-edge": String(t.edge)},
-        el("b", {text: `You give ${names(t.give)}; you receive ${names(t.receive)}`}),
-        el("span", {class: "v2-meta", text: `DDF Value edge ${fmt(t.edge)} for you. ${favor.length} of ${t.pricedCharts} trade chart${t.pricedCharts === 1 ? "" : "s"} have them winning or even${favor.length ? `: ${favor.join(", ")}` : ""}.`
-          + (t.pricedCharts < MIN_CHARTS ? ` Not enough charts to judge acceptance.` : "")
-          + (unpriced ? ` ${unpriced} chart${unpriced === 1 ? " does" : "s do"} not price every player and ${unpriced === 1 ? "is" : "are"} not counted.` : "")
-          + (thin.length ? ` ${thin.join(" ")}` : "")}),
-        open));
-    });
+    const ctx = {...res.ctx, maxSize: res.maxSize};
+    groups.slice(0, shown).forEach(g => list.append(groupCard(g, ctx)));
     out.append(list);
+    if (groups.length > shown) {
+      const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shown, "more group")}`});
+      more.addEventListener("click", () => { groups.slice(shown).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
+      out.append(more);
+    }
+  }
+
+  // One group: the player you receive, the best package for him preselected, side players selectable.
+  // Each toggle re-judges the package with evaluateCombo, the function the search itself uses.
+  const GROUP_LIMIT = 10;
+  const valueText = (row, key) => (finite(row.values[key]) ? row.values[key].toFixed(1) : "no value");
+  function groupCard(group, ctx) {
+    const ourKey = ctx.ourKey;
+    const order = byValueDesc(ourKey);
+    const heavyKeys = new Set(group.heavy.map(r => String(r.player_key)));
+    const giveSel = new Set(group.best.give.map(r => String(r.player_key)));
+    const recvSel = new Set(group.best.receive.map(r => String(r.player_key)).filter(k => !heavyKeys.has(k)));
+    const keyOf = r => String(r.player_key);
+    const tradeLabel = el("b", {class: "v2-find-trade"});
+    const meta = el("span", {class: "v2-meta v2-find-edge"});
+    const notes = el("span", {class: "v2-meta v2-find-notes"});
+    const open = el("a", {class: "v2-link", text: "Open in Compare a trade"});
+    const li = el("li", {class: "v2-find-group"});
+    const target = el("span", {class: "v2-find-target"});
+    target.append(el("span", {class: "v2-find-target-label", text: "Target: "}), el("span", {class: "v2-find-target-name", text: names(group.heavy)}),
+      el("span", {class: "v2-meta", text: ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)} DDF Value`}));
+    const boxes = [];
+    const sideSet = (title, rows, sel, fixed) => {
+      const box = el("fieldset", {class: "v2-find-side-pick"}, el("legend", {text: title}));
+      rows.forEach(r => {
+        const input = el("input", {type: "checkbox", "aria-label": `Include ${r.name} (value ${valueText(r, ourKey)})`});
+        input.checked = sel.has(keyOf(r));
+        if (fixed) input.disabled = true;
+        input.addEventListener("change", () => { if (input.checked) sel.add(keyOf(r)); else sel.delete(keyOf(r)); refresh(); });
+        const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta", text: `(${valueText(r, ourKey)} DDF Value)`}));
+        box.append(label);
+        if (!fixed) boxes.push({input, row: r, sel, side: title});
+      });
+      return box;
+    };
+    const selectable = group.giveCandidates.length > 1 || group.receiveSide.length > 0;
+    const giveBox = selectable ? sideSet("You give", group.giveCandidates, giveSel, false) : null;
+    const recvBox = group.receiveSide.length ? sideSet("You also receive (core stays)", group.receiveSide, recvSel, false) : null;
+    const capNote = el("span", {class: "v2-meta v2-find-cap", hidden: ""});
+    li.append(...[target, tradeLabel, meta, notes, giveBox, recvBox, capNote, open].filter(Boolean));
+
+    function refresh() {
+      const giveRows = group.giveCandidates.filter(r => giveSel.has(keyOf(r))).sort(order);
+      const recvRows = group.heavy.concat(group.receiveSide.filter(r => recvSel.has(keyOf(r)))).sort(order);
+      // Selection limits: the package size searched, and at least one player given.
+      let capped = false;
+      boxes.forEach(b => {
+        const give = b.sel === giveSel;
+        const full = give ? giveSel.size >= ctx.maxSize : group.heavy.length + recvSel.size >= ctx.maxSize;
+        const last = give && giveSel.size <= 1;
+        const block = !b.input.checked && full;
+        b.input.disabled = block || (b.input.checked && last);
+        if (block) capped = true;
+      });
+      capNote.hidden = !capped;
+      capNote.textContent = capped ? `Package is capped at ${ctx.maxSize}-for-${ctx.maxSize}; untick a player to pick another.` : "";
+      const e = evaluateCombo(giveRows, recvRows, ctx);
+      const favor = e.charts.filter(c => c.rivalOk).map(c => CHART_NAMES[c.key] || c.key);
+      const unpriced = e.charts.filter(c => c.net === null).length;
+      const thin = e.issues ? [["you", e.issues.mine], ["them", e.issues.theirs]].filter(([, l]) => l.length)
+        .map(([who, l]) => `Leaves ${who} thin: ${l.map(issueText).join("; ")}.`) : [];
+      const ids = rows => rows.map(r => encodeURIComponent(r.player_key)).join(",");
+      tradeLabel.textContent = `You give ${names(giveRows)}; you receive ${names(recvRows)}`;
+      meta.textContent = `DDF Value edge ${fmt(e.edge)} for you. ${favor.length} of ${e.pricedCharts} trade chart${e.pricedCharts === 1 ? "" : "s"} have them winning or even${favor.length ? `: ${favor.join(", ")}` : ""}.`
+        + (e.pricedCharts < MIN_CHARTS ? " Not enough charts to judge acceptance." : "")
+        + (unpriced ? ` ${unpriced} chart${unpriced === 1 ? " does" : "s do"} not price every player and ${unpriced === 1 ? "is" : "are"} not counted.` : "")
+        + (thin.length ? ` ${thin.join(" ")}` : "");
+      const warn = [];
+      if (!e.passes.edge) warn.push("DDF Value does not say you win this package.");
+      if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} trade charts have them winning or even, so they may say no.`);
+      if (!e.passes.lineup) warn.push("It leaves a starting lineup short at a position.");
+      const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
+      const throwIns = same && same.throwIns ? [].concat(same.throwIns.give.map(r => `${r.name} (${valueText(r, ourKey)})`), same.throwIns.receive.map(r => `${r.name} (${valueText(r, ourKey)})`)) : [];
+      notes.textContent = `${warn.join(" ")}${warn.length && throwIns.length ? " " : ""}${throwIns.length ? `Can add ${throwIns.join(", ")} as a throw-in.` : ""}`;
+      notes.classList.toggle("is-warn", warn.length > 0);
+      open.setAttribute("href", `v2/#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}`);
+      li.dataset.findEdge = String(e.edge);
+    }
+    refresh();
+    return li;
   }
 
   // ---------- JEG-972: collapsible roster input ----------
