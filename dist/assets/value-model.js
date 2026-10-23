@@ -1106,8 +1106,7 @@
       }
       Object.keys(versionSources).forEach(function (version) {
         var keys = versionSources[version].filter(function (k) {
-          // JEG-930 (Jeremy, 2026-10-23): the charts-only version ignores the blend selection.
-          return version === "charts" || !selection || selection.indexOf(k) !== -1;
+          return !selection || selection.indexOf(k) !== -1;
         });
         // JEG-569 part 2: hidden (held) sources are excluded from the DDF
         // blend.  They contributed to weights and pie so no other source's

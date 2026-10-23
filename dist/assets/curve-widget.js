@@ -32,9 +32,9 @@
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     cbs_adjusted: "CBS Adjusted",
-    espn_vorp: "ESPN value above waivers, raw",
-    cbsros_vorp: "CBS ROS value above waivers, raw",
-    razzball_vorp: "Razzball value above waivers, raw",
+    espn_vorp: "ESPN raw VORP vs waivers",
+    cbsros_vorp: "CBS ROS raw VORP vs waivers",
+    razzball_vorp: "Razzball raw VORP vs waivers",
     ddf_value: "DDF Value"
   };
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]);
@@ -70,7 +70,7 @@
   const SOURCE_GROUPS = [
     {label:"Projections (Adjusted values)", keys:["espn", "cbsros", "razzball"]},
     {label:"Trade charts (Adjusted values)", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
-    {label:"Projections (value above waivers)", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
+    {label:"Projections (VORP vs waivers)", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
     {label:"Trade charts (rescaled)", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
   // Pure raw value-above-waivers curves: projection-minus-waiver VORP from
@@ -335,7 +335,7 @@
   // the view tabs are a shipped feature (QA'd 2026-10-04), not migration scope.
   const VIEW_MODE_DEFS = {
     indexed: { title: "Indexed", viewKey: null },
-    vorp: { title: "Value above waivers" },
+    vorp: { title: "VORP vs waivers" },
     adj: { title: "Adjusted values", viewKey: "adj_values" }
   };
   const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
@@ -1022,14 +1022,11 @@
   }
   const normalizeInputKey = key => COMPOSITE_INPUT_ALIASES[key] || key;
   // The sources of one version that feed its DDF Value (I narrowed by family
-  // and the reader's selection). JEG-930 (Jeremy, 2026-10-23): the charts-only
-  // variant ignores the DDF blend selection (the blend lists projections only), so
-  // it always uses every open trade chart and is never blank after a blend edit.
+  // and the reader's selection).
   function versionInputs(version) {
     const family = COMPOSITE_VERSIONS[version];
-    const ignoresBlend = version === "ddf_value_charts";
     return pipelineState.included.filter(key => family.includes(key)
-      && (ignoresBlend || !compositeInputs || compositeInputs.includes(key)));
+      && (!compositeInputs || compositeInputs.includes(key)));
   }
   // JEG-484: product-data's per-asset load outcome (read-only).
   const productLoadStatus = () => window.TradeValueProductData?.getLoadStatus?.() || {assets: {}, adjustmentsLoaded: false};
@@ -3536,7 +3533,7 @@
     // only appear in the VIEW_MODE_ORDER declaration, never in code or copy.
     // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
     const footnoteMiddle = viewMode === VIEW_MODE_ORDER[1]
-      ? "Value above waivers: each source's value above its waiver line, one factor per source so every source totals the league pie"
+      ? "VORP vs waivers: each source's value above its waiver line, one factor per source so every source totals the league pie"
       : viewMode === "adj"
       ? `Adjusted values: every source split by the DDF Value weights (bench ${Math.round(benchShare * 100)}% of the pie) and summing to the league pie`
       : "Indexed: each chart's own numbers times one factor so its listed players total their DDF Value; estimated players marked";
