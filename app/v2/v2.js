@@ -6514,6 +6514,12 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    $("v2HowWeightsExplainerBtn").addEventListener("click", event => {
+      const button = event.currentTarget;
+      const open = button.getAttribute("aria-expanded") !== "true";
+      button.setAttribute("aria-expanded", String(open));
+      $("v2HowWeightsExplainerBody").hidden = !open;
+    });
     // Skip link: a button, because a #fragment would change the hash route.
     $("v2Skip").addEventListener("click", () => {
       const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden);
