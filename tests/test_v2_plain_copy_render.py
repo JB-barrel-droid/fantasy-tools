@@ -134,6 +134,9 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                             hits = [phrase for phrase in OVERCLAIMS if phrase in text]
                             if hits:
                                 errors.append(f"[{width}px deal read] overclaims {hits}: {text!r}")
+                        # JEG-863: DDF Value = projections, so the agree reason always fires in the headline.
+                        if heads.strip() and "DDF Value (projections) agree" not in heads and "DDF Value (projections) cannot" not in heads:
+                            errors.append(f"[{width}px headline] no 'DDF Value (projections) agree/cannot' reason: {heads!r}")
                     if tab == "#writing/research":
                         text = page.evaluate(RESEARCH)
                         if "No posts are published yet" in text:

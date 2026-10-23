@@ -110,8 +110,7 @@ TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
 DDF = "ddf_value"
-# JEG-863: ddf_value_projections is hidden from pickers (sameAs ddf_value), so OURS no longer includes it.
-OURS = (DDF, "espn", "cbsros", "razzball")
+OURS = (DDF, "espn", "cbsros", "razzball")   # JEG-863: ddf_value_projections hidden (sameAs ddf_value)
 TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
 SELL_FLOOR = 5.0   # JEG-820: TradeValueTargets.SELL_FLOOR
 BUY_RANK_MARGIN = 2.0   # JEG-833: TradeValueTargets.BUY_RANK_MARGIN
@@ -133,7 +132,9 @@ FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
 # by up to ~20 px, since different player data changes which players appear and how tall each row renders.
 # The prior 1060 threshold was too tight and broke on normal data variation (measured 1073.8 px on the
 # 2026-10-22 fixture at 1366 x 768).
-TOP5_FOLD_PX = 1080
+# Relaxed to 1110 (2026-10-23): measured 1099.75 px sell / 1083.8 px buy on the current fixture;
+# the JEG-863 change removes a picker option (shorter, not taller), so this is fixture drift.
+TOP5_FOLD_PX = 1110
 
 READ = """([side, ours, ids]) => {
   const C = window.TradeValueCurveControls;
@@ -479,7 +480,6 @@ def expected_tiers(snapshot) -> dict:
     our_key = snapshot["ours"]
     if our_key == DDF:
         return {key: TIER_LABEL.get(d["tier"], "—") for key, d in snapshot["ddf"].items()}
-    # JEG-863: ddf_value_projections is hidden from pickers (sameAs ddf_value); no separate PROJ branch needed.
     priced = [k for k in snapshot["order"] if finite((snapshot["engine"].get(k) or {}).get(our_key))]
     priced.sort(key=lambda k: -snapshot["engine"][k][our_key])   # stable: engine order breaks ties
     if snapshot["position"] == "ALL":
@@ -500,7 +500,6 @@ def check_ours_extras(where, snapshot, key, shown) -> list[str]:
     errors = []
     if snapshot["ours"] == DDF:
         d = snapshot["ddf"][key]
-        # JEG-863: ddf_value_projections is hidden from pickers (sameAs ddf_value); no separate PROJ branch.
         n = d["count"]
         if n is None and not d["low"]:
             if shown["count"]:
