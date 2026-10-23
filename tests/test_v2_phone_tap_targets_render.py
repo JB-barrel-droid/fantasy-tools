@@ -116,6 +116,15 @@ SEARCH_HIT = """() => ['v2GiveSearch', 'v2GetSearch'].map(id => { const i = docu
   const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
   return h === i ? null : `${id}: centre hits ${h ? h.tagName + '.' + h.className : 'nothing'}`; }).filter(Boolean)"""
 
+# JEG-884: the suggestion list under a Compare search box is at least 240 px wide (it was 50 px) and its first row sits inside the window.
+DROPDOWN = """(id) => { const u = document.getElementById(id); const b = u.querySelector('button');
+  if (u.hidden || !b) return [`${id}: no suggestions after typing`];
+  const r = u.getBoundingClientRect(), br = b.getBoundingClientRect(), out = [];
+  if (r.width < 240) out.push(`${id}: suggestion list is ${Math.round(r.width)}px wide, want 240+`);
+  if (r.right > innerWidth) out.push(`${id}: suggestion list runs off the window (${Math.round(r.right)} > ${innerWidth})`);
+  if (br.height > 64) out.push(`${id}: first suggestion wraps onto ${Math.round(br.height)}px`);
+  return out; }"""
+
 
 def _run(css=None) -> dict:
     try:
@@ -174,6 +183,14 @@ def _run(css=None) -> dict:
         for width in SEARCH_WIDTHS:
             page = open_page(browser, width, 800, "compare-trade")
             out["search"][width] = page.evaluate(SEARCH_HIT)
+            for field, results in (("v2GiveSearch", "v2GiveResults"), ("v2GetSearch", "v2GetResults")):
+                page.focus("#" + field)
+                page.keyboard.type("Breece")
+                page.wait_for_timeout(400)
+                out["search"][width] += page.evaluate(DROPDOWN, results)
+                page.fill("#" + field, "")
+            page.close()
+            continue
             page.close()
         browser.close()
     return out

@@ -169,8 +169,6 @@
   //   data     a low-confidence (one-source) DDF Value in the trade lowers the propose line one level.
   const THIN_MARGIN = 0.05;
   const LEVELS = ["Low", "Medium", "High"];
-  // "say you win" / "says you lose" / "call it even": a side in plain words, for a plural or singular subject.
-  const sideWords = (side, say, call) => (side === "even" ? `${call} it even` : `${say} you ${side}`);
   const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
   const capped = (level, cap) => LEVELS[Math.min(LEVELS.indexOf(level), LEVELS.indexOf(cap))];
   function tradeHeadlines(rows, key, ctx) {
@@ -215,9 +213,9 @@
         level = "Low";
         if (thinFlag) reasons.push("the margin is under 5% of the value traded");
         if (pSide === null) reasons.push("DDF Projections cannot score this trade");
-        // JEG-888: "disagree (+7.3)" read as a contradiction; say which way each one points instead.
-        else if (pSide !== vSide) reasons.push(`DDF Projections ${sideWords(pSide, "say", "call")} (${fmtNet(pNet)}) while DDF Value ${sideWords(vSide, "says", "calls")}`);
-        else reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
+        // JEG-930 (Jeremy, 2026-10-23): DDF Value now equals DDF Projections, so the two can never point
+        // different ways; the "DDF Projections say X while DDF Value calls it Y" reason (JEG-888) is deleted.
+        else if (pSide === vSide) reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
