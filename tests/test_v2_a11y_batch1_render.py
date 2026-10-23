@@ -107,6 +107,10 @@ def run_checks(v2_js=None, v2_css=None, only=("tabs", "titles", "contrast")) -> 
                 tag = f"[{scheme}] "
                 if "contrast" in only:
                     errors += [f"{tag}{e}" for e in page.evaluate(TEXT_CONTRAST)]
+                    # The audited 4.06:1 is the hovered row (--v2-hover-rank), the tightest rank-cell background.
+                    page.hover("#v2Table tbody tr:nth-child(3) td.is-rank")
+                    errors += [f"{tag}hover {e}" for e in page.evaluate(TEXT_CONTRAST)]
+                    page.mouse.move(0, 0)
                     errors += [f"{tag}{e}" for e in page.evaluate(BORDER_CONTRAST)]
                     ring = page.evaluate(FOCUS_RING)
                     if ring < 3:
