@@ -466,6 +466,14 @@ VALUES_JS = "async () => {" + COMMON + r"""
   document.querySelector('#v2Table tbody tr[data-player-key]').click(); await sleep(400);
   out.drawer = {shown: shown($('v2Drawer')), text: $('v2Drawer').innerText,
     heads: [...$('v2Drawer').querySelectorAll('thead th')].map(th => th.textContent.trim())};
+  // PV-12 (2026-10-23 list layout): default rows are the selected sources; "Show all sources" adds every kind.
+  const dAll = $('v2DrawerAll');
+  out.drawer.allToggle = dAll ? dAll.checked : null;
+  if (dAll) {
+    dAll.click(); await sleep(400);
+    out.drawer.kindsAll = [...$('v2Drawer').querySelectorAll('.v2-dmatrix tbody tr')].map(tr => ({
+      kind: tr.querySelector('td.kind')?.textContent.trim(), num: tr.querySelector('td.num')?.textContent.trim()}));
+  }
   document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); await sleep(300);
   if (!$('v2Drawer').hidden) $('v2Drawer').querySelector('button')?.click();
   // Δ Prior week
@@ -1452,9 +1460,20 @@ def pv12(S):
     errors = []
     if not d["shown"]:
         errors.append("clicking a row did not open the player detail")
-    for head in ("Our value", "Rescaled chart", "Value above waivers"):
+    # Jeremy 2026-10-23: the detail is a list of the selected sources (source/week, kind, number); the old
+    # publisher-by-method grid left blank cells and is gone. "Show all sources" lists every kind.
+    for head in ("Source / week", "Kind", "Value"):
         if head not in d["heads"]:
             errors.append(f"player detail has no {head!r} column")
+    if d.get("allToggle") is not False:
+        errors.append("'Show all sources' is missing or not off by default")
+    kinds = {r["kind"] for r in d.get("kindsAll") or []}
+    for kind in ("Our value", "Rescaled chart", "Value above waivers"):
+        if kind not in kinds:
+            errors.append(f"'Show all sources' lists no {kind!r} row")
+    for r in d.get("kindsAll") or []:
+        if not r["num"]:
+            errors.append(f"player detail lists a {r['kind']!r} row with no number")
     if RAW_KEY.search(d["text"]):
         errors.append(f"player detail shows an engine key: {RAW_KEY.search(d['text']).group(0)}")
     return errors
@@ -2231,6 +2250,14 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "TT-08", "the ◐ 1 source tag removed (Trade targets)")
         caught(results, "GL-20", "Player values search not listing players with no value")
         caught(results, "TT-06", "the week badge dropped from Compare rows")
+
+        # PV-12 (list layout): "Show all sources" on by default; the kind label dropped from every row.
+        for fault, old, new_text in (
+            ("'Show all sources' on by default", "let drawerAllSources = false;", "let drawerAllSources = true;"),
+            ("the kind column left empty", "      kind.textContent = label;\n", "      kind.textContent = \"\";\n"),
+        ):
+            results, _ = run_contract(["PV-12"], {"v2.js": cut(js, old, new_text)})
+            caught(results, "PV-12", fault)
 
         # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current
         # (JEG-721: removing the held-source detection makes the chip lie), the 390 px layout scrolls sideways,

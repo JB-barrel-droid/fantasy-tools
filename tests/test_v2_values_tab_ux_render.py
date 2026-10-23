@@ -15,12 +15,15 @@ looks right fails:
      changes the engine's position and the toolbar's; hidden in the unexpanded chart (the toolbar has it there).
   5. "Set exact values": no separate toolbar button; it is an item in the Show menu. Picking it (mouse or keyboard
      typeahead) opens the Value range dialog, leaves Show as it was, and Escape returns focus to the Show menu.
-  6. Player page: every available series shows its number without a click: each matrix cell with a data-source shows
-     the engine's value (one decimal), and no available series is represented by a bare "Available" link.
+  6. Player page (Jeremy, 2026-10-23, replacing 2026-10-22's "every series with an Add link"): by default it lists
+     only the sources selected through the chart controls, each with the engine's number (one decimal); no row has an
+     empty value, no "Add" link exists; a clearly labelled "Show all sources" toggle is off by default, and turning
+     it on lists every source that has a number for the player (engine values) and writes nothing to storage.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js / v2.css with one fault each (table back beside the
 chart, search box not forwarded, symbols not drawn, symbols at the right end, position hidden when expanded, exact
-values not in the Show menu, numbers hidden behind Add) and requires each to fail.
+values not in the Show menu, unselected sources listed by default, toggle on by default, toggle ignored, a source row
+with no number) and requires each to fail.
 """
 from __future__ import annotations
 
@@ -73,14 +76,24 @@ SEARCH = """() => { const V2 = window.TradeValueV2, v = V2.view();
     inChart: Boolean(box.closest('.v2-chart-card')), visible: Boolean(box.offsetParent) && r.width > 40 && r.height > 20,
     rows: v.rows.length, names: v.rows.slice(0, 20).map(x => x.name)}; }"""
 
-DRAWER = """() => { const drawer = document.getElementById('v2Drawer');
-  const key = document.querySelector('#v2Table tbody tr').dataset.playerKey || window.TradeValueV2.view().rows[0].player_key;
+DRAWER = """() => { const V2 = window.TradeValueV2, drawer = document.getElementById('v2Drawer');
+  const key = document.querySelector('#v2Table tbody tr').dataset.playerKey || V2.view().rows[0].player_key;
   const row = window.TradeValueCurveControls.getRows().find(r => String(r.player_key) === String(key));
-  const cells = [...drawer.querySelectorAll('.v2-dmatrix td[data-source]')].map(td => ({key: td.dataset.source,
-    text: td.firstChild ? td.firstChild.textContent.trim() : '', add: Boolean(td.querySelector('.v2-dadd'))}));
-  const bare = [...drawer.querySelectorAll('.v2-dmatrix td.num')].filter(td => td.querySelector('.v2-dadd') && !/\\d/.test(td.textContent)).length;
-  return {hidden: drawer.hidden, values: row ? row.values : null, cells, bare,
-    addButtons: drawer.querySelectorAll('.v2-dmatrix .v2-dadd').length}; }"""
+  const view = V2.view();
+  const selected = view.active.filter(k => k === view.rankKey || !V2.state.hiddenSeries.has(k));
+  const available = view.info.filter(i => i.available).map(i => i.key)
+    .concat(['ddf_value', 'ddf_value_charts', 'ddf_value_projections'].filter(k => row && Number.isFinite(row.values[k]) && !view.info.some(i => i.key === k)));
+  const toggle = document.getElementById('v2DrawerAll');
+  const label = toggle ? toggle.closest('label') : null;
+  const rows = [...drawer.querySelectorAll('.v2-dmatrix tbody tr')].map(tr => { const v = tr.querySelector('td.num:last-child') || tr;
+    const kind = tr.querySelector('td.kind');
+    return {key: tr.dataset.source, kind: kind ? kind.textContent : '', hasNumber: Boolean(v.dataset && v.dataset.source), text: v.textContent.trim()}; });
+  const store = JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]);
+  return {hidden: drawer.hidden, values: row ? row.values : null, rows, selected, available, store,
+    toggle: toggle ? {checked: toggle.checked, label: label.textContent.trim(), visible: Boolean(toggle.offsetParent)} : null,
+    addControls: drawer.querySelectorAll('.v2-dadd, [data-add-series]').length,
+    addText: /\\bAdd\\b[^a-z]*↗|Available ↗/.test(drawer.textContent),
+    overflow: document.documentElement.scrollWidth - innerWidth}; }"""
 
 
 def _settle(page, ms=150):
@@ -266,27 +279,94 @@ def check_exact(page, tag) -> list[str]:
     return errors
 
 
+def _finite(value):
+    return isinstance(value, (int, float)) and value == value and abs(value) != float("inf")
+
+
+def _check_rows(d, tag, want_keys) -> list[str]:
+    """Rows listed must be exactly want_keys (those with a number), each showing the engine's number; none blank."""
+    errors = []
+    values = d["values"] or {}
+    numbered = [r for r in d["rows"] if r["hasNumber"]]
+    for r in d["rows"]:
+        if not r["text"]:
+            errors.append(tag + f"player page row {r['key']} has an empty value cell")
+        if r["hasNumber"] and not any(ch.isdigit() for ch in r["text"]):
+            errors.append(tag + f"player page row {r['key']} is listed without a number: {r['text']!r}")
+    for r in numbered:
+        want = values.get(r["key"])
+        if not _finite(want):
+            errors.append(tag + f"player page lists {r['key']} but the engine has no number for this player")
+        elif not r["text"].startswith(f"{want:.1f}"):
+            errors.append(tag + f"player page {r['key']} shows {r['text']!r}, engine {want!r}")
+    got = sorted(r["key"] or "" for r in numbered)
+    want_sorted = sorted(k for k in want_keys if _finite(values.get(k)))
+    if got != want_sorted:
+        errors.append(tag + f"player page lists {got}, want {want_sorted}")
+    return errors
+
+
 def check_drawer(page, tag) -> list[str]:
     errors = []
     page.click("#v2Table tbody tr td:nth-child(2)")
     _settle(page, 600)
     d = page.evaluate(DRAWER)
-    if d["hidden"] or not d["cells"]:
+    if d["hidden"]:
         return [tag + "player page did not open"]
     values = d["values"] or {}
-    for cell in d["cells"]:
-        want = values.get(cell["key"])
-        if isinstance(want, (int, float)) and want == want:
-            if cell["text"] != f"{want:.1f}":
-                errors.append(tag + f"player page {cell['key']} shows {cell['text']!r}, engine {want!r}")
-        elif any(ch.isdigit() for ch in cell["text"]):
-            errors.append(tag + f"player page {cell['key']} has no engine value but shows {cell['text']!r}")
-    if d["bare"]:
-        errors.append(tag + f"player page: {d['bare']} series show only an Available link, no number")
-    off = [c for c in d["cells"] if c["add"]]
-    if not off:
-        errors.append(tag + "player page: no unselected series in the fixture, so the check proves nothing")
+    unselected = [k for k in d["available"] if k not in d["selected"] and _finite(values.get(k))]
+    if not unselected:
+        errors.append(tag + "player page: no unselected source with a number in the fixture, so the check proves nothing")
+    errors += _check_rows(d, tag + "(default) ", d["selected"])
+    if not d["rows"]:
+        errors.append(tag + "player page lists no sources by default")
+    if d["addControls"] or d["addText"]:
+        errors.append(tag + "player page still has an Add control")
+    if not d["toggle"] or not d["toggle"]["visible"]:
+        return errors + [tag + "player page has no visible 'Show all sources' toggle"]
+    if d["toggle"]["label"] != "Show all sources":
+        errors.append(tag + f"toggle is labelled {d['toggle']['label']!r}")
+    if d["toggle"]["checked"]:
+        errors.append(tag + "'Show all sources' is on by default")
+    if d["overflow"] > 0 and tag.startswith("390"):
+        errors.append(tag + f"horizontal overflow {d['overflow']}px")
+    page.click("#v2DrawerAll")
+    _settle(page, 300)
+    on = page.evaluate(DRAWER)
+    errors += _check_rows(on, tag + "(all) ", on["available"])
+    if not on["toggle"] or not on["toggle"]["checked"]:
+        errors.append(tag + "'Show all sources' did not stay on after clicking it")
+    for k in unselected:
+        if k not in [r["key"] for r in on["rows"]]:
+            errors.append(tag + f"'Show all sources' does not list {k}, which has a number")
+    if on["store"] != d["store"]:
+        errors.append(tag + "'Show all sources' wrote to local or session storage")
+    if on["addControls"]:
+        errors.append(tag + "Add control present with all sources shown")
+    page.click("#v2DrawerAll")
+    _settle(page, 300)
+    off = page.evaluate(DRAWER)
+    errors += _check_rows(off, tag + "(off again) ", off["selected"])
     page.keyboard.press("Escape")
+    _settle(page, 300)
+    # A player the engine leaves unpriced for a selected source: that source gets no row (never a blank one).
+    gap = page.evaluate("""() => { const V2 = window.TradeValueV2, v = V2.view();
+      const sel = v.active.filter(k => k === v.rankKey || !V2.state.hiddenSeries.has(k));
+      const r = window.TradeValueCurveControls.getRows().find(r => sel.some(k => !Number.isFinite(r.values[k])));
+      return r ? {name: r.name, missing: sel.filter(k => !Number.isFinite(r.values[k]))} : null; }""")
+    if not gap:
+        return errors + [tag + "fixture has no player unpriced for a selected source, so the no-blank-row check proves nothing"]
+    page.fill("#v2Search", gap["name"])
+    _settle(page, 600)
+    page.click("#v2Table tbody tr td:nth-child(2)")
+    _settle(page, 600)
+    g = page.evaluate(DRAWER)
+    errors += _check_rows(g, tag + f"({gap['name']}) ", [k for k in g["selected"] if k not in gap["missing"]])
+    for key in gap["missing"]:
+        if key in [r["key"] for r in g["rows"]]:
+            errors.append(tag + f"{gap['name']} has no {key} number but the player page lists it")
+    page.keyboard.press("Escape")
+    page.fill("#v2Search", "")
     _settle(page, 300)
     return errors
 
@@ -368,10 +448,15 @@ class ValuesTabUxRenderTest(unittest.TestCase):
                                               "css", ("expanded",), ((1366, 800),)),
             "exact values not in the Show menu": ({"v2.js": js.replace(
                 'if (event.target.value === "exact") {', 'if (false) {', 1)}, "js", ("exact",), ((1366, 800),)),
-            "numbers hidden behind Add": ({"v2.js": js.replace(
-                "        } else {\n          // JEG-926: every available series shows its number",
-                "        } else if (view.active.includes(item.key)) {\n          // JEG-926: every available series shows its number", 1)},
-                                          "js", ("drawer",), ((1366, 800),)),
+            "unselected sources listed by default": ({"v2.js": js.replace(
+                "        if (!selected && !all) return;\n", "", 1)}, "js", ("drawer",), ((1366, 800),)),
+            "toggle on by default": ({"v2.js": js.replace(
+                "let drawerAllSources = false;", "let drawerAllSources = true;", 1)}, "js", ("drawer",), ((1366, 800),)),
+            "toggle ignored": ({"v2.js": js.replace(
+                "drawerSourceRows(row, drawerAllSources)", "drawerSourceRows(row, false)", 1)}, "js", ("drawer",), ((1366, 800),)),
+            "a source row with no number": ({"v2.js": js.replace(
+                "if ((selected || all) && Number.isFinite(value)) {", "if (selected || all) {", 1)},
+                                            "js", ("drawer",), ((1366, 800),)),
         }
         for name, (files, kind, checks, viewports) in broken.items():
             with self.subTest(mutation=name):

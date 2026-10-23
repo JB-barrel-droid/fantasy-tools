@@ -605,11 +605,11 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-dmatrix th.player.is-older { color: var(--v2-older); }
 .v2-dmatrix .th-sub { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); }
 .v2-dmatrix td.num { font-weight: 700; white-space: nowrap; }
+.v2-dmatrix td.kind { color: var(--v2-muted); }
+.v2-dmatrix tr.is-off th.player { font-weight: 400; }
+.v2-dall { margin-top: 4px; }
 .v2-dmatrix .missing { color: var(--v2-muted); font-weight: 400; }
 .v2-dmatrix .missing .why { display: block; font-size: 10px; }
-.v2-dmatrix .v2-dadd { display: block; padding: 0; min-height: 32px; font-size: 12px; position: relative; }
-.v2-dmatrix .v2-dadd::after { content: ""; position: absolute; inset: 50% 0 auto; height: 44px; transform: translateY(-50%); }
-.v2-dmatrix .v2-dadd.is-older { color: var(--v2-older); }
 .v2-dnews { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .v2-dnews a { color: var(--v2-action); }
 .v2-dmenu { display: flex; gap: 8px; flex-basis: 100%; }
@@ -1578,6 +1578,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   #v2Compare .v2-trade-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
   #v2Compare .v2-trade-side > .v2-trade-search-wrap { grid-column: 1 / -1; margin-top: 8px; }
   #v2Compare .v2-trade-results { top: 100%; }
+  /* JEG-884: a 245 px card gave a 217-237 px list at 1280-1366; it is never narrower than 260 px (it overlays the next column, z-index 20). */
+  #v2Compare .v2-trade-side .v2-trade-results { left: 0; right: auto; width: max(100%, 260px); box-sizing: border-box; }
 }
 
 /* JEG-884 (JEG-861 part A): legends whose 44 px hit boxes overlapped a neighbour. On a phone the "On this page" source
