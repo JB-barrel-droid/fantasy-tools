@@ -668,7 +668,7 @@ def ddf_version(values: dict, members: list) -> dict:
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
              lineup: dict | None = None, hidden: list | None = None,
-             promotion_model: bool = False) -> dict:
+             promotion_model: bool = True) -> dict:
     """VP-2 .. VP-7 for one week.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
@@ -890,7 +890,7 @@ VERSIONS = (("blended", "ddf_blended"), ("charts", "ddf_charts"), ("projections"
 def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, included: list,
         selection: list | None = None, names: dict | None = None,
         prior_pos_of: dict | None = None, lineup: dict | None = None,
-        hidden: list | None = None, promotion_model: bool = False) -> dict:
+        hidden: list | None = None, promotion_model: bool = True) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
     cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden,

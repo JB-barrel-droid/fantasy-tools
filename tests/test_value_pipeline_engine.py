@@ -46,14 +46,18 @@ def _node():
 
 
 def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None, variant: str | None = None,
-               promotion_model: bool = False) -> dict:
+               promotion_model: bool | None = None) -> dict:
+    """Run the engine. promotion_model: True forces on, False forces off,
+    None uses the engine default (on since JEG-969, 2026-10-23)."""
     cmd = [_node(), str(DRIVER), str(model), str(FIXTURE)]
     if bench_share is not None:
         cmd += ["--bench-share", repr(bench_share)]
     if variant is not None:
         cmd += ["--variant", variant]
-    if promotion_model:
+    if promotion_model is True:
         cmd += ["--promotion-model"]
+    elif promotion_model is False:
+        cmd += ["--no-promotion-model"]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if proc.returncode != 0:
         raise AssertionError(f"driver failed: {proc.stderr[-2000:]}")
@@ -114,7 +118,7 @@ class WorkedExampleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.doc = json.loads(FIXTURE.read_text())
-        cls.actual = run_engine()
+        cls.actual = run_engine(promotion_model=False)
 
     def test_every_expected_value(self):
         problems = diff(expected_main(self.doc), self.actual, "expected")
@@ -122,7 +126,7 @@ class WorkedExampleTest(unittest.TestCase):
 
     def test_bench_share_variant(self):
         bs = self.doc["variant_bench_share_0_10"]["setting_change"]["bench_share"]
-        problems = variant_diff(self.doc, run_engine(bench_share=bs))
+        problems = variant_diff(self.doc, run_engine(bench_share=bs, promotion_model=False))
         self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_check_covers_the_fixture(self):
@@ -165,7 +169,7 @@ class GuardDiscriminationTest(unittest.TestCase):
     def assert_fails(self, replacements):
         model = _mutated(replacements)
         try:
-            actual = run_engine(model)
+            actual = run_engine(model, promotion_model=False)
         except AssertionError:
             return  # the broken engine crashed: also a failure
         finally:
@@ -206,7 +210,7 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     def test_variants_reproduced(self):
         for name in esx.VARIANTS:
             with self.subTest(variant=name):
-                problems = esx.variant_problems(self.doc, name, run_engine(variant=name))
+                problems = esx.variant_problems(self.doc, name, run_engine(variant=name, promotion_model=False))
                 self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_variant_is_walked(self):
@@ -221,7 +225,7 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     def assert_variant_fails(self, replacements):
         model = _mutated(replacements)
         try:
-            actual = run_engine(model, variant="variant_expected_starts")
+            actual = run_engine(model, variant="variant_expected_starts", promotion_model=False)
         except AssertionError:
             return
         finally:

@@ -1793,3 +1793,28 @@ WR 2.06, TE 0.40} gives bench {QB 15, RB 28, WR 35, TE 6}. With flex_filled
 
 **Depends on:** JEG-969 (bench share and promotion model); the bench share
 readout definition (one number, not two).
+
+## MR-32 Promotion/demotion model in expected starts (JEG-969, 2026-10-23)
+
+**Decided: on by default** (Jeremy, 2026-10-23). The promotion model adjusts
+ES lineup shares for persistent role changes. Bench players gain a promotion
+bonus; marginal starters lose a demotion penalty. Both scale linearly with
+weeks remaining in the fantasy season.
+
+**Rates:** measured from 2015-2025 nflverse weekly actuals
+(`config/promotion_rates.json`, `tools/bench_research/promotion_demotion_rates.py`).
+Per-remaining-week hazard rates by position and bench depth (promotion) or
+position (demotion).
+
+**Formula:** `promo_bonus_share = rate_pw * weeks_remaining * 0.5`; new lineup
+share = `min(avail, ls + bonus * (avail - ls))`. Demotion: `penalty = rate_pw *
+weeks_remaining * 0.5`; new ls = `max(0, ls - penalty * ls)`.
+
+**Impact (12-combo sweep):** bench share readout +0.75 to +1.16pp; applied
++0.33 to +0.51pp. At ppr/12: QB +2.17pp, RB +0.72pp, WR +1.03pp, TE +0.21pp.
+Bench RBs gain ~6.8% DDF Value; marginal starters lose 2-6%.
+
+**Open question:** the rates are from season-to-date PPG rankings (actuals),
+not from projected PPG (what the engine uses for tiering). This proxy may
+over- or understate rates for specific positions. A future refinement could
+use projection-based rankings.

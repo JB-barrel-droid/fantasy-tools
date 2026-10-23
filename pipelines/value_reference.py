@@ -786,7 +786,7 @@ def mean_ppg(sources: dict, included: list) -> dict:
 
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                  selection: list | None = None, lineup: dict | None = None,
-                 hidden: set | None = None, promotion_model: bool = False) -> dict:
+                 hidden: set | None = None, promotion_model: bool = True) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
 
     sources: {key: SourceInput} in source-key order, every source shown (held
@@ -1367,15 +1367,16 @@ class Setting:
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
-                 promotion_model: bool = False):
+                 promotion_model: bool = True):
         """lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
         False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline).
         divergence_exclusions: source keys excluded by a JEG-610 'exclude'
         resolution (treated as hidden, held semantics per JEG-569).
-        promotion_model: JEG-969, off by default. When True, adjusts expected
-        starts for promotion/demotion dynamics (persistent role changes)."""
+        promotion_model: JEG-969, on by default (2026-10-23, Jeremy approved).
+        Adjusts expected starts for promotion/demotion dynamics (persistent
+        role changes scaled by weeks remaining)."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.promotion_model = promotion_model
         self.lineup = (resolve_lineup(load_lineup_config(), **(lineup_settings or {}))
@@ -1582,7 +1583,7 @@ class Setting:
 
 
 def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None,
-            divergence_exclusions: set | None = None, promotion_model: bool = False) -> dict:
+            divergence_exclusions: set | None = None, promotion_model: bool = True) -> dict:
     """One setting in the shape value_check compares: rows per tab, the
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
