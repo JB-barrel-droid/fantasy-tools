@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-23T07:27:59.375786+00:00",
+  "run_at": "2026-10-23T09:42:58.803104+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,7 +14,8 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros"
+    "cbsros",
+    "razzball"
   ],
   "hold_severity": "amber",
   "list_changes": {},
@@ -28,7 +29,20 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Grant Calcaterra, Seydou Traore); parse notes: RB: 3 players listed with another position in the cell (kept as RB",
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Dallen Bentley, Grant Calcaterra); parse notes: RB: 3 players listed with another position in the cell (kept as R",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "razzball": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "razzball",
+        "razzball_vorp"
+      ],
+      "sections": [
+        "razzball"
+      ],
+      "detail": "2025/2025 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
       "hold_severity": "amber",
       "week": 7
     }
@@ -145,6 +159,7 @@
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored"
+    "cbsros": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: publisher_vs_stored"
   }
 }
