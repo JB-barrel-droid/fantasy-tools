@@ -202,6 +202,30 @@ Option 2, chosen by Jeremy (2026-10-06, explicit): "Do 'VORP vs waivers'." Conse
 
 Approved by Jeremy in session on 2026-10-06 ("Do 'VORP vs waivers'"); recorded as `proceeded` because the format has no `approved` outcome.
 
+## copy-vorp-002: User-facing term is "Value above waivers"; VORP never appears
+- id: copy-vorp-002
+- created: 2026-10-22
+- deadline: 2026-10-22
+- category: copy
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-22
+- recommendation: Rename "VORP vs waivers" to "Value above waivers" everywhere and ban "VORP" from user-facing text (supersedes copy-vorp-001).
+
+### Context
+
+copy-vorp-001 locked "VORP vs waivers" as the one allowed user-facing use of VORP; `docs/manifesto.md` says copy says "value above waivers", never VORP. Live QA on 2026-10-22 (JEG-861) found the two rules in conflict.
+
+### Options
+
+- (a) Keep "VORP vs waivers"; amend the manifesto to name the one exception.
+- (b) Rename to "Value above waivers" everywhere; retire copy-vorp-001; rewrite the copy test to ban VORP outright. Recommended.
+- (c) "Points above waivers".
+
+### Outcome Note
+
+Jeremy, 2026-10-22 (multiple choice on JEG-861, recommendation taken): option (b). "VORP vs waivers" is renamed "Value above waivers" everywhere on the site; no "VORP" in user-facing text. Where a raw-vs-adjusted distinction exists the label is "<source> value above waivers, raw". Internal keys (`espn_vorp`, the `vorp` view ID, CSS classes, element ids, URL state) are unchanged. `tests/test_public_copy_no_vorp.py` now flags any "vorp" in widget string literals and sweeps the rendered page's text and accessible names.
+
 ## ops-ownership-001: Muse owns nothing except as a last resort; Supabase-first tooling
 - id: ops-ownership-001
 - created: 2026-10-06

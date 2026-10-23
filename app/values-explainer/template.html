@@ -214,7 +214,7 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <header>
       <div class="eyebrow">2 · Checks</div>
       <h2>Every source spends the same pie</h2>
-      <p class="muted">Each source's Adjusted values and its VORP vs waivers values sum to the league pie over its work list (its listed players plus, for a chart, its estimated ones), and each of its eight group totals equals its budget. These are the deploy gate.</p>
+      <p class="muted">Each source's Adjusted values and its value above waivers values sum to the league pie over its work list (its listed players plus, for a chart, its estimated ones), and each of its eight group totals equals its budget. These are the deploy gate.</p>
     </header>
     <div class="tablewrap"><table id="totalsTable"></table></div>
     <h3>Indexed: one factor per chart, set against DDF Value</h3>
@@ -318,7 +318,7 @@ const D = /*__VALUES_DATA__*/null;
 const POS = ["QB", "RB", "WR", "TE"];
 const ROLES = ["starter", "bench"];
 const GROUPS = POS.flatMap(p => ROLES.map(r => p + "|" + r));
-const VIEWS = [["indexed", "Indexed"], ["vorp", "VORP vs waivers"], ["adj", "Adjusted values"]];
+const VIEWS = [["indexed", "Indexed"], ["vorp", "Value above waivers"], ["adj", "Adjusted values"]];
 const VIEW_NAME = Object.fromEntries(VIEWS);
 const VP = D.vp;
 const CHARTS = ["usatoday", "fantasycalc", "fantasypros", "cbs"].filter(k => VP.sources[k]);
@@ -442,7 +442,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     ["DDF weights = the average", `Average the mixes over the included sources (hidden ones too), then put bench back at ${pct(BS, 0)}. One weight set per setting and week, shared by all three DDF Value versions.`, `W[pos, starter] = (1 − ${BS}) × mean starter mix[pos] ÷ Σ\nW[pos, bench]   = ${BS} × mean bench mix[pos] ÷ Σ`],
     ]),
     ["Fixed league pie, paid on the DDF weights", `Pie = 28 per starting slot = 28 × ${S.teams} teams × ${POS.reduce((s, p) => s + (R[p] || 0), 0) + (R.FLEX || 0) + (R.SUPERFLEX || 0)} starters = <b>${fmt(PIE, 0)}</b>. It depends on neither scoring nor bench size. Each group's budget is pie × W; each source pays its group's budget out in proportion to its ${ES ? "parts" : "slices"}. So every source spends exactly the pie, split exactly by the DDF weights, while keeping its own player order.`, `Adjusted = (budget[pos, bench] ÷ group total[pos, bench]) × ${ES ? "fill-in part" : "bench slice"}\n         + (budget[pos, starter] ÷ group total[pos, starter]) × ${ES ? "start-worthy part" : "starter slice"}`],
-    ["VORP vs waivers (display)", `One factor per source puts its total value above waivers on the pie, keeping the source's own weighting.`, `VORP vs waivers = v × ${fmt(PIE, 0)} ÷ source's total value above waivers`],
+    ["Value above waivers (display)", `One factor per source puts its total value above waivers on the pie, keeping the source's own weighting.`, `Value above waivers = v × ${fmt(PIE, 0)} ÷ source's total value above waivers`],
     ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden sources that price the player. Zeros count; a source that does not price him is left out. Three versions: blended (all included, non-hidden sources), trade charts only, projections only. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value.`, `DDF Value = mean(Adjusted over included, non-hidden sources that price him)`],
     ["Indexed (display only)", `Each chart's published values times one factor, set so the chart's total over the players it lists equals DDF Value's total over the same players. It shows each publisher's own shape on our scale and never feeds DDF Value.`, `Indexed = published value × (Σ DDF Value ÷ Σ published value, over listed players)`],
   ];
@@ -464,7 +464,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     const c = (fp.checks || []).find(x => x.source === k) || {};
     return `<tr><td>${label(k)}${c.included === false ? ` <span class="pill none">not included</span>` : ""}</td><td class="r num">${c.n ?? "—"}</td><td class="r num">${fmt(c.total, 2)}</td><td class="r num">${fmt(c.vorpTotal, 2)}</td><td>${ok(c.groupsOk)}${c.unpaid ? ` <span class="pill warn">${fmt(c.unpaid, 2)} unpaid</span>` : ""}</td><td>${ok(c.ok)}</td></tr>`;
   }).join("");
-  $("totalsTable").innerHTML = `<thead><tr><th>Source</th><th class="r">Work list</th><th class="r">Adjusted total</th><th class="r">VORP vs waivers total</th><th>Groups = budgets</th><th>Pie ${fmt(fp.pie ?? PIE, 0)} ± ${sig(fp.tolerance, 2)}</th></tr></thead><tbody>${rows}</tbody>`;
+  $("totalsTable").innerHTML = `<thead><tr><th>Source</th><th class="r">Work list</th><th class="r">Adjusted total</th><th class="r">Value above waivers total</th><th>Groups = budgets</th><th>Pie ${fmt(fp.pie ?? PIE, 0)} ± ${sig(fp.tolerance, 2)}</th></tr></thead><tbody>${rows}</tbody>`;
 
   const io = D.indexedOrder?.sources || {};
   const ix = fp.indexed || {};
@@ -633,7 +633,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
         <li><div><b>Read the waiver and starter lines at the league's counts</b><p class="muted small">Counts come from the one league allocation (by mean projected points), not from this source. Waiver line = this source's own value at the first rank past the rostered count; starter line = the midpoint of its last starter and first non-starter, in ${unit}.</p></div></li>
         <li><div><b>${ES ? "Split by expected starts and group" : "Slice and group"}</b><p class="muted small">Total value above waivers ${fmtN(s.totalVorp)} ${unit}, in eight groups below.</p></div></li>
         <li><div><b>Pay the pie on the DDF weights</b><div class="formula">rate[group] = pie × W[group] ÷ group total\nAdjusted = rate[pos, bench] × ${ES ? "fill-in part" : "bench slice"} + rate[pos, starter] × ${ES ? "start-worthy part" : "starter slice"}</div></div></li>
-        <li><div><b>VORP vs waivers</b><div class="formula">v × ${sig(s.vorpFactor, 5)}   (${fmt(PIE, 0)} ÷ ${fmtN(s.totalVorp)})</div></div></li>
+        <li><div><b>Value above waivers</b><div class="formula">v × ${sig(s.vorpFactor, 5)}   (${fmt(PIE, 0)} ÷ ${fmtN(s.totalVorp)})</div></div></li>
         ${chart ? `<li><div><b>Indexed</b><div class="formula">published value × ${sig(s.indexedFactor, 5)}</div></div></li>` : ""}
       </ol>
       <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Listed${chart ? " + estimated" : ""}</th><th class="r">Starters / rostered</th><th class="r">Starter line</th><th class="r">Waiver line</th><th>Waiver player</th><th class="r">Starter group</th><th class="r">Bench group</th><th class="r">Starter rate</th><th class="r">Bench rate</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -699,7 +699,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
           + op("→") + (ES ? step("Fill-in part", fmtN(bsl)) + step(`Start-worthy part (line ${fmtN(x.starterLine)})`, fmtN(ssl))
                : step(`Bench slice (to ${fmtN(x.starterLine)})`, fmtN(bsl)) + step("Starter slice", fmtN(ssl)))
           + op("→") + step(`${sig(rb, 4)}×bench + ${sig(rs, 4)}×starter`, fmt(A, 2)) + op("=") + step("Adjusted", fmt(A), true)
-          + step("VORP vs waivers", fmt(Vd), true) + (isChart(src) ? step("Indexed", fmt(Ix), true) : "");
+          + step("Value above waivers", fmt(Vd), true) + (isChart(src) ? step("Indexed", fmt(Ix), true) : "");
         if (est) chain += `<span class="muted small">${esc(p.est?.[src] || "estimated")}</span>`;
       }
       const av = valueOf("adj", src, k);

@@ -1,25 +1,34 @@
-"""Regression: public copy says "VORP vs waivers" and never any other VORP.
+"""Regression: user-facing copy never says VORP; the term is "Value above waivers".
 
-Standing copy rule (decision copy-vorp-001, 2026-10-06; replaced the earlier
-"value above waivers, never VORP" rule): the only user-visible use of the word
-VORP is the exact locked phrase "VORP vs waivers" (capital VORP, lowercase
-"vs waivers"). Any other casing or wording ("Raw VORP", "VORP vs replacement",
-"vorp vs waivers", bare "VORP") still fails. Internal identifiers (rawVorp,
-buildEspnVorpMap, the "espn_vorp" data key) are exempt, so this test scans JS
-*string literals* only -- comments and identifiers never count.
+JEG-861 (Jeremy, 2026-10-22, multiple choice, recommendation taken): "VORP vs
+waivers" is renamed "Value above waivers" everywhere on the site and no
+"VORP" appears in user-facing text (docs/manifesto.md). This retires decision
+copy-vorp-001 (2026-10-06), which had locked "VORP vs waivers" as the one
+allowed phrase; the static scanner below now flags that phrase too.
 
-Negative-tested 2026-09-21: reintroducing `espn_vorp: "ESPN raw VORP"` fails
-this test; restoring the fixed copy passes.
+Two guards:
+  1. Static: every JS *string literal* in the chart widgets that contains
+     "vorp" in any casing fails. Internal identifiers (rawVorp,
+     buildEspnVorpMap, the "espn_vorp" data key, the "vorp" view ID in a key
+     position) are exempt -- comments and identifiers never count.
+  2. Rendered (the source of truth): the built v2 page at 1440 and 390 px,
+     every tab, the Customize dialog and the player detail drawer: no "vorp"
+     in the visible text, the document title, or any aria-label / title /
+     alt / placeholder attribute on any element.
+     Negative-tested in test_dom_guard_fails_on_vorp_labels: a shell with the
+     old "VORP vs waivers" pill and a v2.js that writes VORP into an
+     aria-label each make the sweep fail.
 
 2026-10-08 (copy-guard lane): lowercase snake_case literals in key positions
 (call argument, array element, index, object key, comparison operand) with no
 rendering sink in their statement are internal keys -- see is_internal_key.
-This replaced two single-line regex exemptions for the "vorp" view ID.
 """
 
 import re
 import unittest
 from pathlib import Path
+
+from tests import _render_env
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WIDGETS = [
@@ -31,8 +40,6 @@ WIDGETS = [
 INTERNAL_LITERALS = {"espn_vorp", "cbsros_vorp", "razzball_vorp"}
 
 VORP_RE = re.compile(r"vorp", re.IGNORECASE)
-# The single locked user-facing phrase. Case-sensitive on purpose.
-LOCKED_PHRASE_RE = re.compile(r"\bVORP vs waivers\b")
 INTERP_RE = re.compile(r"\$\{[^{}]*\}")
 
 
@@ -161,7 +168,7 @@ def visible_vorp_literals(source):
     for lineno, text, quote, start, end in string_literals(source):
         if text in INTERNAL_LITERALS or is_internal_key(source, text, start, end):
             continue
-        if VORP_RE.search(LOCKED_PHRASE_RE.sub("", static_text(text, quote))):
+        if VORP_RE.search(static_text(text, quote)):
             offenders.append((lineno, text))
     return offenders
 
@@ -176,7 +183,7 @@ class PublicCopyNoVorpTest(unittest.TestCase):
         self.assertEqual(
             offenders,
             [],
-            "user-visible strings may use VORP only as the exact phrase 'VORP vs waivers':\n"
+            "user-visible strings never say VORP (the term is 'Value above waivers'):\n"
             + "\n".join(offenders),
         )
 
@@ -228,25 +235,135 @@ class InternalKeyPositionTest(unittest.TestCase):
                 self.assertEqual(len(visible_vorp_literals(bad)), 1)
 
     def test_sink_in_a_later_statement_does_not_taint_a_key(self):
-        source = 'if (series.endsWith("_vorp")) {\n  caption.textContent = "VORP vs waivers";\n}'
+        source = 'if (series.endsWith("_vorp")) {\n  caption.textContent = "Value above waivers";\n}'
         self.assertEqual(visible_vorp_literals(source), [])
 
 
-class LockedPhraseTest(unittest.TestCase):
-    """copy-vorp-001: the exemption is one exact phrase, not the word VORP."""
+class RetiredPhraseTest(unittest.TestCase):
+    """JEG-861: the former locked phrase "VORP vs waivers" is copy like any other."""
 
-    def test_locked_phrase_is_allowed(self):
-        for ok in ('const t = "VORP vs waivers";', 'const t = "Raw VORP vs waivers";',
-                   'const t = "ESPN raw VORP vs waivers";', 'const t = `Every source in VORP vs waivers units`;'):
+    def test_retired_phrase_fails(self):
+        for bad in ('const t = "VORP vs waivers";', 'const t = "Raw VORP vs waivers";',
+                    'const t = "ESPN raw VORP vs waivers";', 'const t = `Every source in VORP vs waivers units`;',
+                    'const t = "VORP";', 'const t = "Raw VORP";', 'const t = "vorp vs waivers";',
+                    'const t = "VORP vs replacement";', 'const t = `Publisher VORP`;'):
+            with self.subTest(bad=bad):
+                self.assertEqual(len(visible_vorp_literals(bad)), 1)
+
+    def test_new_term_passes(self):
+        for ok in ('const t = "Value above waivers";', 'const t = "ESPN value above waivers, raw";'):
             with self.subTest(ok=ok):
                 self.assertEqual(visible_vorp_literals(ok), [])
 
-    def test_other_vorp_wording_still_fails(self):
-        for bad in ('const t = "VORP";', 'const t = "Raw VORP";', 'const t = "vorp vs waivers";',
-                    'const t = "VORP vs replacement";', 'const t = "VORP vs waivers and VORP";',
-                    'const t = "VORP vs waiversX";', 'const t = `Publisher VORP`;'):
-            with self.subTest(bad=bad):
-                self.assertEqual(len(visible_vorp_literals(bad)), 1)
+
+# ---------------------------------------------------------------- rendered DOM sweep (JEG-861)
+
+TABS = ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#find-trade",
+        "#writing/how-values", "#writing/research", "#writing/manifesto", "#values-auditing")
+SHELL = REPO_ROOT / "app" / "v2" / "shell.html"
+V2_JS = REPO_ROOT / "app" / "v2" / "v2.js"
+# Visible text plus every accessible-name attribute on every element (hidden ones too: attributes are
+# static copy, and a hidden dialog's label becomes visible when it opens).
+SWEEP = """() => {
+  const out = [];
+  const grab = (node, where) => { if (/vorp/i.test(node)) out.push(where + ': ' + String(node).slice(0, 120)); };
+  grab(document.title, 'title');
+  grab(document.body.innerText, 'text');
+  for (const el of document.querySelectorAll('[aria-label],[title],[alt],[placeholder]')) {
+    for (const a of ['aria-label', 'title', 'alt', 'placeholder']) {
+      const v = el.getAttribute(a);
+      if (v) grab(v, a + ' on ' + (el.id ? '#' + el.id : el.tagName.toLowerCase()));
+    }
+  }
+  return out;
+}"""
+
+
+def dom_vorp_hits(shell_patch=None, v2_patch=None):
+    """Every "vorp" hit in the rendered site, as "[width tab] where: text" lines."""
+    from tests.test_published_league_settings_render import _chromium_executable
+    from tests.test_v2_deal_read_render import _served
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    js = V2_JS.read_text(encoding="utf-8")
+    if v2_patch:
+        assert v2_patch[0] in js, f"v2 patch anchor missing: {v2_patch[0]!r}"
+        js = js.replace(v2_patch[0], v2_patch[1])
+    hits = []
+    with _served() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width, height in ((1440, 1000), (390, 844)):
+                page = browser.new_page(viewport={"width": width, "height": height})
+                page_errors = []
+                page.on("pageerror", lambda e: page_errors.append(str(e)))
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                if v2_patch:
+                    page.route("**/v2/v2.js*", lambda route, *_: route.fulfill(status=200, content_type="text/javascript", body=js))
+                if shell_patch:
+                    def serve_shell(route, *_):
+                        response = route.fetch()
+                        body = response.text()
+                        assert shell_patch[0] in body, f"shell patch anchor missing: {shell_patch[0]!r}"
+                        route.fulfill(response=response, body=body.replace(shell_patch[0], shell_patch[1]))
+                    page.route("**/v2/", serve_shell)
+                page.goto(base + "#player-values", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=60000)
+                # Every method in the shown set so each series label and detail column renders.
+                page.evaluate("() => window.TradeValueV2.setShown(window.TradeValueV2.shown().concat(['espn', 'espn_vorp']))")
+                page.wait_for_timeout(300)
+                for tab in TABS:
+                    page.evaluate("h => { location.hash = h; }", tab)
+                    page.wait_for_timeout(500)
+                    if tab == "#trade-targets":
+                        for _ in range(3):
+                            toggle = page.locator("[data-expand][aria-expanded=false]").first
+                            if toggle.count() and toggle.is_visible():
+                                toggle.click()
+                    if tab == "#player-values":
+                        page.click("#v2Table tbody tr td.player")
+                        page.wait_for_timeout(200)
+                        hits += [f"[{width}px {tab} drawer] {h}" for h in page.evaluate(SWEEP)]
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(100)
+                    if page.locator("#v2EditSources").count() and page.locator("#v2EditSources").first.is_visible():
+                        page.click("#v2EditSources")
+                        page.wait_for_timeout(200)
+                        hits += [f"[{width}px {tab} customize] {h}" for h in page.evaluate(SWEEP)]
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(100)
+                    hits += [f"[{width}px {tab}] {h}" for h in page.evaluate(SWEEP)]
+                if page_errors:
+                    hits.append(f"[{width}px] page errors {page_errors}")
+                page.close()
+        finally:
+            browser.close()
+    return sorted(set(hits))
+
+
+DOM_PATCHES = {
+    "old pill back": {"shell_patch": ('<span class="v2-pill is-vorp">Value above waivers</span>', '<span class="v2-pill is-vorp">VORP vs waivers</span>')},
+    "old series label back": {"v2_patch": ('vorp: "Value above waivers"}', 'vorp: "VORP vs waivers"}')},
+    "VORP in an aria-label": {"v2_patch": ("`${text}: open the publisher's page in a new tab`", "`${text}: open the publisher's VORP page in a new tab`")},
+}
+
+
+class RenderedNoVorpTest(unittest.TestCase):
+    def test_no_vorp_in_rendered_text_or_accessible_names(self):
+        _render_env.ensure_built()
+        self.assertEqual(dom_vorp_hits(), [])
+
+    def test_dom_guard_fails_on_vorp_labels(self):
+        _render_env.ensure_built()
+        for name, kwargs in DOM_PATCHES.items():
+            with self.subTest(patch=name):
+                self.assertNotEqual(dom_vorp_hits(**kwargs), [], f"sweep did not catch: {name}")
 
 
 if __name__ == "__main__":
