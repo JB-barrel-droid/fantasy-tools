@@ -516,7 +516,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-trade-search-wrap { position: relative; }
 .v2-trade-results { list-style: none; margin: 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
 .v2-trade-results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
-.v2-trade-results button:hover, .v2-trade-results button:focus-visible { background: var(--v2-positive); }
+.v2-trade-results button:hover, .v2-trade-results button:focus-visible, .v2-trade-results button.is-active { background: var(--v2-positive); }
 .v2-trade-results .is-empty { padding: 10px 12px; }
 .v2-trade-players { list-style: none; margin: 12px 0 0; padding: 0; }
 .v2-trade-players li { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--v2-border); padding: 8px 0; }

@@ -595,6 +595,7 @@
         el("div", {class: "v2-find-import-body"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel),
           leagueId, paste, load, team, use, status));
     }
+    window.TradeValueNameSearch.combobox(input, results);   // JEG-900
     input.addEventListener("input", () => {
       const q = input.value.trim();
       results.replaceChildren();
