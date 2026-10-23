@@ -1767,3 +1767,29 @@ the trade-target views; not covered.
 - **MR-23 weekly matchups:** lineup hint only, values untouched (option a, confirmed).
 - **MR-20 / JEG-535 direction-check thresholds (PR 637):** keep the loosened thresholds (2-QB +3, peak >28), then have QB values reviewed. After the per-game basis the top QB value over replacement in 2-QB fell from about 60 to about 32 (1-QB is 25); nobody has judged whether 32 is right. Open: examples of QB values on a 2-QB board, and whether to cap part-timers' inflated per-game rates.
 - **JEG-505 compare-trade cutoffs and JEG-477 taller chart:** product decisions, recorded in decisions.md.
+
+## MR-28 Bench seat allocation: should bench weights count flex starters? (JEG-969, 2026-10-23)
+
+**Carried.** Found during the bench share diagnosis (JEG-969 lane A).
+
+The page's bench seat allocation (`value_reference.py bench_seats`, `value-model.js
+vpBenchSeats`) computes bench weight as `dedicated_slots * backups_per_starter`
+and does NOT include flex starters. The ES model's `alloc()` via
+`allocate_league` includes flex starters in the weight.
+
+At ppr/12 the difference is large: QB gets 15 bench seats (no flex) vs 4 (with
+flex). This inflates the page's QB bench share readout to 23.5% vs ~7% in the
+ES model, and is the root cause of the discrepancy between the page and post 1.
+
+**Question:** should bench weights include flex starters? The argument for: a
+position that wins more flex spots (RB/WR) also needs more backups. The argument
+against: flex is dynamic (changes with the players available) while bench seats
+are structural.
+
+**Measured:** without flex_filled, D'Hondt on weights {QB 0.88, RB 1.66,
+WR 2.06, TE 0.40} gives bench {QB 15, RB 28, WR 35, TE 6}. With flex_filled
+{RB 3, WR 9}, weights {QB 0.88, RB 4.15, WR 11.33, TE 0.40} gives bench
+{QB 4, RB 21, WR 57, TE 2}.
+
+**Depends on:** JEG-969 (bench share and promotion model); the bench share
+readout definition (one number, not two).
