@@ -79,9 +79,10 @@ def case_set():
     for net, want in ((3.1, "win"), (3.0, "even"), (-2.9, "even"), (-3.0, "lose")):
         give, receive = rows_for({"v": net, "m": net, "p": net}, total=100.0)
         cases.append({"id": f"large {net}", "give": give, "receive": receive, "want_sides": [want, want, want]})
-    # P disagrees with V: the cell does not move, the production sentence says so.
+    # P disagrees with V: dead after JEG-804 (DDF Value = projections), but kept as defense.
+    # JEG-863: the disagree branch returns "inconclusive" (distinguishable from "backs").
     give, receive = rows_for({"v": 5.0, "m": -5.0, "p": -5.0})
-    cases.append({"id": "p disagrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "not"})
+    cases.append({"id": "p disagrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "inconclusive"})
     give, receive = rows_for({"v": 5.0, "m": -5.0, "p": 5.0})
     cases.append({"id": "p agrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "backs"})
     # Missing values.
@@ -130,6 +131,8 @@ def check(cases, results) -> list[str]:
         if prod == "not" and not (r["production"] or "").startswith("Projected production does not back"):
             errors.append(f"{c['id']}: production {r['production']!r}")
         if prod == "backs" and not (r["production"] or "").startswith("Projected production backs"):
+            errors.append(f"{c['id']}: production {r['production']!r}")
+        if prod == "inconclusive" and not (r["production"] or "").startswith("Production check inconclusive"):
             errors.append(f"{c['id']}: production {r['production']!r}")
     if len(set(titles.values())) != 9 or len(titles) != 9:
         errors.append(f"the nine cells need nine distinct reads: {titles}")

@@ -167,8 +167,12 @@ def check_d3_no_inputs_reason(page):
         if box and box.is_checked() and not box.is_disabled():
             box.click()
     _tab(page, "lines")
-    page.click("#v2Popover [data-series='ddf_value_projections']")
-    note = page.text_content("#v2Popover [data-series='ddf_value_projections'] >> xpath=ancestor::label")
+    # JEG-863: ddf_value_projections is hidden from the picker (sameAs ddf_value); use ddf_value.
+    # ddf_value is on by default, so its label already shows the no-sources warning.
+    box = page.query_selector("#v2Popover [data-series='ddf_value']")
+    if box and not box.is_checked():
+        box.click()
+    note = page.text_content("#v2Popover [data-series='ddf_value'] >> xpath=ancestor::label")
     if "No sources on in the DDF blend" not in note:
         errors.append(f"D3: the dialog does not warn that this DDF Value has no source on: {note!r}")
     _done(page)

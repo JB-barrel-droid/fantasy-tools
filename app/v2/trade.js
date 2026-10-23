@@ -205,19 +205,18 @@
         // Both DDF Value and DDF Projections say you win, margin 5%+.
         answer = "Yes";
         level = pMargin !== null && pMargin >= THIN_MARGIN ? "High" : pSide === "win" ? "Medium" : "Low";
-        reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
+        reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`);
       } else if (vSide === "lose" && pSide === "lose" && !thinFlag) {
         answer = "No";
         level = pMargin !== null && pMargin >= THIN_MARGIN ? "High" : pSide === "lose" ? "Medium" : "Low";
-        reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
+        reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`);
       } else {
         answer = "Unclear";
         level = "Low";
         if (thinFlag) reasons.push("the margin is under 5% of the value traded");
-        if (pSide === null) reasons.push("DDF Projections cannot score this trade");
-        // JEG-888: "disagree (+7.3)" read as a contradiction; say which way each one points instead.
-        else if (pSide !== vSide) reasons.push(`DDF Projections ${sideWords(pSide, "say", "call")} (${fmtNet(pNet)}) while DDF Value ${sideWords(vSide, "says", "calls")}`);
-        else reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
+        if (pSide === null) reasons.push("DDF Value (projections) cannot score this trade");
+        // JEG-863: after JEG-804 DDF Value = projections, so pSide !== vSide is dead; kept as a defensive else.
+        else reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
@@ -332,12 +331,11 @@
       text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
   }
   // One production sentence: P's side against V's side.
+  // JEG-863: after JEG-804 DDF Value = projections, so p !== v is dead; the disagree branch is kept as defense.
   function productionCheck(p, v) {
-    if (p === v) return p === "win" ? "Projected production backs the value: DDF Projections also say you come out ahead."
-      : p === "lose" ? "Projected production backs the value: DDF Projections also say you lose." : "Projected production backs the value: DDF Projections also call it even.";
-    const said = {win: "you come out ahead", lose: "you lose", even: "it is even"}[p];
-    const value = {win: "you win", lose: "you lose", even: "it is even"}[v];
-    return `Projected production does not back the value: DDF Value says ${value} but DDF Projections say ${said}.`;
+    if (p === v) return p === "win" ? "Projected production backs the value: DDF Value (projections) also say you come out ahead."
+      : p === "lose" ? "Projected production backs the value: DDF Value (projections) also say you lose." : "Projected production backs the value: DDF Value (projections) also call it even.";
+    return "Production check inconclusive: the versions disagree.";
   }
   // JEG-832: chartKeys are the compared chart series (e.g. ["usatoday","fantasycalc","fantasypros"]).
   // The market net is the mean of each complete chart row's net, not the DDF blend.

@@ -171,7 +171,8 @@ PATCHES = {
     "Unclear glyph back to ?": {"v2_patch": ('Unclear: "–"', 'Unclear: "?"')},
     # JEG-895: the headline level must not be called "confidence".
     "confidence label back": {"v2_patch": ("document.createTextNode(LEVEL_LABELS[line][h.confidence])", "document.createTextNode(`${h.confidence} confidence`)")},
-    "projections disagree back": {"trade_patch": ("`DDF Projections ${sideWords(pSide, \"say\", \"call\")} (${fmtNet(pNet)}) while DDF Value ${sideWords(vSide, \"says\", \"calls\")}`", "`DDF Projections disagree (${fmtNet(pNet)})`")},
+    # JEG-863: the pSide !== vSide branch is dead (DDF Value = projections); the guard checks the agree reason stays.
+    "projections agree reason removed": {"trade_patch": ("else reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`)", "else {}")},
 }
 
 

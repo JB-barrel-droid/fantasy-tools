@@ -49,7 +49,7 @@
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
     {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
-      note: "Our value for each player, built from the inputs you choose below."},
+      note: "Our value for each player: the projection sources you keep on in the DDF blend, averaged for your league."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
@@ -321,15 +321,24 @@
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
   // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
   const DDF_KEY = "ddf_value";
-  // JEG-542 / GL-09: three DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the
-  // charts-only and projections-only versions are off until picked. `field` is the engine's row.ddfByVersion key.
+  // JEG-542 / GL-09: the DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the trade chart
+  // average is off until picked. `field` is the engine's row.ddfByVersion key.
+  // JEG-863 (Jeremy, 2026-10-22): after JEG-804 DDF Value is the projection sources only, so "DDF Value" and the
+  // engine's projections-only version are one series. The names say what each is; the ids stay (saved selections
+  // and links carry them). The duplicate id is hidden from every picker (`sameAs`), and a saved pick of it reads
+  // as the visible one (ddfPickKey). `blend`: the version the DDF blend tab's inputs build (the charts one is not).
   const DDF_VERSIONS = {
-    ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B"},
-    ddf_value_charts: {field: "charts", label: "DDF Value: charts only", symbol: "✦", light: "#8A5A00", dark: "#E6B450"},
-    ddf_value_projections: {field: "projections", label: "DDF Value: projections only", symbol: "✧", light: "#7A3E8E", dark: "#C795DA"}
+    ddf_value: {field: "blended", label: "DDF Value (projections)", symbol: "★", light: "#A84410", dark: "#F28C5B", blend: true},
+    ddf_value_charts: {field: "charts", label: "Trade chart average", symbol: "✦", light: "#8A5A00", dark: "#E6B450", blend: false},
+    ddf_value_projections: {field: "projections", label: "DDF Value (projections)", symbol: "★", light: "#A84410", dark: "#F28C5B",
+      blend: true, sameAs: "ddf_value"}
   };
   const DDF_KEYS = Object.keys(DDF_VERSIONS);
   const isDdfKey = key => Object.prototype.hasOwnProperty.call(DDF_VERSIONS, key);
+  // The versions a reader can pick (one per distinct series), and the visible id for any DDF id.
+  const DDF_PICK_KEYS = DDF_KEYS.filter(key => !DDF_VERSIONS[key].sameAs);
+  const ddfPickKey = key => (isDdfKey(key) && DDF_VERSIONS[key].sameAs) || key;
+  const pickableSeries = keys => [...new Set(keys.map(ddfPickKey))];
   // One version's entry on an engine row: {value, count, sources, reason, lowConfidence, confidenceNote, prior, ...}.
   const ddfEntry = (row, key) => (row && row.ddfByVersion && isDdfKey(key) ? row.ddfByVersion[DDF_VERSIONS[key].field] : null) || null;
   function sourceMeta(key) {
@@ -923,7 +932,9 @@
     // JEG-850: the line also says when the DDF blend is customized and when the chart legend has turned a line off.
     const customBlend = page === "values" && C.getCompositeInputs ? !C.getCompositeInputs().isDefault : false;
     const legendHidden = page === "values" ? shownKeys.filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length : 0;
-    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
+    // JEG-863: one DDF version on its own is named ("DDF Value (projections)", "Trade chart average").
+    const oneDdf = shownKeys.filter(isDdfKey);
+    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? sourceMeta(oneDdf[0]).label : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
       + (c.g.id === "ddf" && customBlend ? " (custom blend)" : "")).join(" + ") || "nothing selected"}`
       + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
@@ -945,7 +956,7 @@
     const rankBy = $("v2RankBy");
     // The DDF Value versions lead the picker (all three, shown or not), then the other shown series.
     // JEG-477: ESPN, CBS rest of season and Razzball (DDF weighted projections) are always offered, shown or not.
-    const rankKeys = DDF_KEYS.filter(key => view.infoByKey[key])
+    const rankKeys = DDF_PICK_KEYS.filter(key => view.infoByKey[key])
       .concat(view.plotKeys.concat(view.vorpKeys).filter(key => !isDdfKey(key)));
     ["espn", "cbsros", "razzball"].forEach(key => { if (view.infoByKey[key] && !rankKeys.includes(key)) rankKeys.push(key); });
     // The series ranked by now stays pickable even when it went unavailable, so the picker shows it.
@@ -2246,7 +2257,8 @@
   }
   function pageKeys(page) {
     const saved = pageSaved[page];
-    const keys = Array.isArray(saved) ? saved.filter(key => typeof key === "string") : [];
+    // JEG-863: a saved list may name the hidden duplicate DDF id; it reads as the visible one.
+    const keys = Array.isArray(saved) ? pickableSeries(saved.filter(key => typeof key === "string")) : [];
     return keys.length ? keys : pageDefault(page);
   }
   function savePageKeys(page, keys) {
@@ -2283,9 +2295,9 @@
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
     {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "Our blended value, built from the sources on the DDF blend tab.",
-    ddf_value_charts: "DDF Value built only from trade chart sources.",
-    ddf_value_projections: "DDF Value built only from projection sources."};
+    ddf_value: "Our value: the projection sources on the DDF blend tab, averaged for your league.",
+    ddf_value_charts: "The trade charts, rescaled to your league and averaged. A chart line, not a DDF Value input.",
+    ddf_value_projections: "Our value: the projection sources on the DDF blend tab, averaged for your league."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
     const text = String(reason || "");
@@ -2316,12 +2328,13 @@
       (composite.inputs || []).filter(key => Array.isArray(composite.series) && !composite.series.includes(key))
         .forEach(key => { if (!excluded.has(key)) excluded.set(key, plainOutReason(view.infoByKey[key]?.excludedReason)); });
     }
-    const blendKeys = composite ? (composite.allowed || []) : [];
+    const blendKeys = composite ? (composite.allowed || []).filter(key => seriesGroup(key) === "proj") : [];
     const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
     // The last usable input stays on (a held source does not count).
     const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
-    const versionUsable = versionKey => (versionKey === DDF_KEY ? usableOn()
-      : usableOn().filter(key => (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj"))).length;
+    // JEG-863: the blend's inputs are projections only, so every blend-built version reads the same count; the
+    // trade chart average is not built from the blend and never carries the "no sources on" note.
+    const versionUsable = versionKey => (DDF_VERSIONS[versionKey].blend ? usableOn().length : null);
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
       const err = document.createElement("p");
@@ -2370,7 +2383,7 @@
       // DDF blend: intro, the count, the two input lists.
       const blendIntro = document.createElement("p");
       blendIntro.className = "v2-meta v2-cintro";
-      blendIntro.textContent = "Which sources feed into DDF Value. This choice applies on every page.";
+      blendIntro.textContent = "Which projection sources are averaged into DDF Value. Trade charts are chart lines, never DDF Value inputs. This choice applies on every page.";
       const blendSummary = document.createElement("p");
       blendSummary.className = "v2-psummary";
       blendSummary.setAttribute("role", "status");
@@ -2460,7 +2473,8 @@
         const total = blendKeys.length;
         const using = usableOn().length;
         blendSummary.textContent = `Using ${using} of ${total} sources`;
-        [["pub", "Trade charts"], ["proj", "Projections"]].forEach(([groupId, title]) => {
+        // JEG-863: the projection inputs only; a trade chart is never a DDF Value input, whatever the engine lists.
+        [["proj", "Projections"]].forEach(([groupId, title]) => {
           const keys = blendKeys.filter(key => seriesGroup(key) === groupId);
           if (!keys.length) return;
           const section = document.createElement("section");
@@ -2479,7 +2493,8 @@
       function renderLines() {
         groupsBox.replaceChildren();
         DIALOG_GROUPS.forEach(g => {
-          const items = view.info.filter(item => seriesGroup(item.key) === g.id);
+          // JEG-863: the hidden duplicate DDF id has no row (one row per distinct series).
+          const items = view.info.filter(item => seriesGroup(item.key) === g.id && ddfPickKey(item.key) === item.key);
           if (!items.length) return;
           const advanced = g.id === "vorp";
           const section = document.createElement(advanced ? "details" : "section");
@@ -2506,7 +2521,7 @@
           });
           head.appendChild(all);
           section.appendChild(head);
-          const noteText = g.id === "ddf" ? (onValues ? "" : "The sources that build DDF Value are set on Player values.") : g.note;
+          const noteText = g.id === "ddf" ? (onValues ? "" : "The projection sources that build DDF Value are set on Player values.") : g.note;
           if (noteText) {
             const note = document.createElement("p");
             note.className = "v2-meta";
@@ -2613,7 +2628,7 @@
   }
   // Make the shown series equal `keys` (adds before drops, so the engine never has none).
   function applyShown(keys) {
-    const want = new Set(keys);
+    const want = new Set(pickableSeries(keys));   // JEG-863: a saved hidden duplicate id shows as the visible one
     const engineNow = C.getActiveSources();
     const available = new Set(C.getSourceInfo().filter(item => item.available && !isEngineAlias(item.key)).map(item => item.key));
     const adds = [...want].filter(key => !isDdfKey(key) && available.has(key) && !engineNow.includes(key));
@@ -2643,7 +2658,7 @@
     if (hasDdf && saved && Array.isArray(saved.inputs) && saved.inputs.length) C.setCompositeInputs(saved.inputs, false);
     const shown = saved && saved.shown.length ? saved.shown : (hasDdf ? defaultShown() : C.getActiveSources());
     applyShown(shown.filter(key => hasDdf || !isDdfKey(key)));
-    const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);
+    const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? DDF_KEY : null);
     if (rank && rank !== C.getRankSource() && (isDdfKey(rank) || C.getActiveSources().includes(rank))) C.setLockOrder(rank);
     startActive = hasDdf ? defaultShown() : C.getActiveSources().slice();
   }
@@ -3392,7 +3407,7 @@
   function loadTargetsOurs() {
     try {
       const saved = JSON.parse(localStorage.getItem(TARGETS_SAVE_KEY) || "null");
-      return saved && saved.v === 1 && typeof saved.ours === "string" ? saved.ours : null;
+      return saved && saved.v === 1 && typeof saved.ours === "string" ? ddfPickKey(saved.ours) : null;
     } catch (error) { return null; }
   }
   function saveTargetsOurs(ours) {
@@ -3434,12 +3449,16 @@
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
   const INDEXED_INFO = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
-  // JEG-490: our three names, defined once and used wherever they are shown (the "On the chart" row, Risers,
+  // JEG-490: our names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
+  // JEG-863: two names. DDF Value is the projection sources averaged (JEG-804); the trade chart average is the market.
   const NAME_DEFS = [
-    ["DDF Value", "Our estimate of what a player is worth, blended from the sources you have chosen."],
-    ["DDF Projections", "What production supports: the value of the projected stats."],
+    ["DDF Value (projections)", "Our estimate of what a player is worth: the projection sources you have chosen, averaged for your league."],
     ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
+  // The deal read's nets (DEAL_NETS) by the name they define themselves with. Its "DDF Projections" net is the
+  // same series as DDF Value (projections) after JEG-804; the net itself is trade.js's and stays until JEG-863's
+  // follow-up decides it.
+  const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: NAME_DEFS[0]};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
     indexed: {kind: "indexed", what: "rescaled", title: "Rescaled values", lines: [INDEXED_INFO]},
@@ -3644,6 +3663,7 @@
     const oursSelect = $("v2TOurs");
     oursSelect.replaceChildren();
     targetsView.choices.forEach(choice => {
+      if (ddfPickKey(choice.key) !== choice.key) return;   // JEG-863: the hidden duplicate DDF id
       const option = document.createElement("option");
       option.value = choice.key;
       // JEG-851: disable a chart key when it's the same as the single compared chart.
@@ -4313,8 +4333,9 @@
       link.classList.add("v2-srclink-open");
       chartLink.appendChild(link);
     }
+    // JEG-863: DDF Value is the projection sources averaged; the trade chart average is the charts, not a DDF input.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
-      ? `${targetsView.ours === DDF_KEY ? "the DDF Value" : `the ${sourceMeta(targetsView.ours).label} version`}, built from the inputs chosen in Customize on Player values`
+      ? `${targetsView.ours === DDF_KEY ? "DDF Value (projections)" : sourceMeta(targetsView.ours).label}, the projection sources chosen in Customize on Player values, averaged for your league`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
     // JEG-851: rewrite the footnote lead-in for single-chart mode.
     const footEl = $("v2TFootnote");
@@ -5191,9 +5212,9 @@
   // JEG-487 deal read (CT-08): three nets with their questions, the fixed 9-cell grid with the current cell
   // outlined, and one production sentence. Everything is read from compareView.deal (trade.js dealRead).
   const DEAL_NETS = [
-    ["value", "DDF Value", "Are you getting real value?"],
+    ["value", "DDF Value (projections)", "Are you getting real value?"],
     ["market", "Trade chart average", "Does the market think you are winning?"],
-    ["projections", "DDF Projections", "Is the value backed by projected production?"]];
+    ["projections", "DDF Value (projections)", "Is the value backed by projected production?"]];
   const DEAL_SIDE_WORD = {win: "You win", even: "Even", lose: "You lose"};
   function renderDeal() {
     const box = $("v2CDeal");
@@ -5246,7 +5267,7 @@
       const def = document.createElement("span");
       def.className = "v2-deal-def v2-meta";
       def.hidden = true;
-      def.textContent = `${NAME_DEFS.find(([n]) => n === name)[1]} ${question}`;
+      def.textContent = `${(DEAL_NET_DEF[id] || NAME_DEFS.find(([n]) => n === name))[1]} ${question}`;
       info.addEventListener("click", () => { def.hidden = !def.hidden; info.setAttribute("aria-expanded", String(!def.hidden)); });
       const value = document.createElement("b");
       value.className = "v2-deal-net";
@@ -5990,7 +6011,7 @@
           return span;
         };
         vals.append(part("Trade chart average", item.market.delta, "market"), document.createTextNode(" · "),
-          part("DDF Projections", item.projections.delta, "projections"));
+          part("DDF Value (projections)", item.projections.delta, "projections"));
         const read = document.createElement("div");
         read.className = "v2-dread";
         read.dataset.col = "read";

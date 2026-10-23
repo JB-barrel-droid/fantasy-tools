@@ -164,7 +164,7 @@ def run_checks(movers_patch=None) -> list[str]:
                       n: document.querySelectorAll('#v2RMkt li[data-player-key], #v2RProj li[data-player-key]').length})""")
                     if real["meta"].startswith("No comparison yet") and real["n"]:
                         errors.append(f"[real data] no comparison but {real['n']} players listed: {real['meta']!r}")
-                    if real["meta"].startswith("No comparison yet") and "Trade chart average" not in real["meta"] and "DDF Projections" not in real["meta"]:
+                    if real["meta"].startswith("No comparison yet") and "Trade chart average" not in real["meta"] and "DDF Value (projections)" not in real["meta"]:
                         errors.append(f"[real data] the reason names no series: {real['meta']!r}")
                     fresh.close()
                 if page_errors:

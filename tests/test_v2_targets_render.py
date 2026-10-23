@@ -110,8 +110,8 @@ TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
 DDF = "ddf_value"
-PROJ = "ddf_value_projections"   # a choice in the picker, not the default (Jeremy 2026-10-16)
-OURS = (DDF, PROJ, "espn", "cbsros", "razzball")
+# JEG-863: ddf_value_projections is hidden from pickers (sameAs ddf_value), so OURS no longer includes it.
+OURS = (DDF, "espn", "cbsros", "razzball")
 TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
 SELL_FLOOR = 5.0   # JEG-820: TradeValueTargets.SELL_FLOOR
 BUY_RANK_MARGIN = 2.0   # JEG-833: TradeValueTargets.BUY_RANK_MARGIN
@@ -479,20 +479,7 @@ def expected_tiers(snapshot) -> dict:
     our_key = snapshot["ours"]
     if our_key == DDF:
         return {key: TIER_LABEL.get(d["tier"], "—") for key, d in snapshot["ddf"].items()}
-    if our_key == PROJ:
-        # A DDF version other than the blend: rank by it and read the blend's starter / bench counts.
-        counts = {"starter": 0, "bench": 0}
-        for d in snapshot["ddf"].values():
-            if d["tier"] in counts:
-                counts[d["tier"]] += 1
-        values = {k: (snapshot["engine"].get(k) or {}).get(PROJ) for k in snapshot["order"]}
-        out = {}
-        for key, value in values.items():
-            if not finite(value):
-                continue
-            ahead = sum(1 for v in values.values() if finite(v) and v > value)
-            out[key] = "Starter" if ahead < counts["starter"] else "Bench" if ahead < counts["starter"] + counts["bench"] else "Waiver"
-        return out
+    # JEG-863: ddf_value_projections is hidden from pickers (sameAs ddf_value); no separate PROJ branch needed.
     priced = [k for k in snapshot["order"] if finite((snapshot["engine"].get(k) or {}).get(our_key))]
     priced.sort(key=lambda k: -snapshot["engine"][k][our_key])   # stable: engine order breaks ties
     if snapshot["position"] == "ALL":
@@ -511,12 +498,9 @@ def expected_tiers(snapshot) -> dict:
 def check_ours_extras(where, snapshot, key, shown) -> list[str]:
     """JEG-455: DDF Value's source count (or the one-source marker), and the tier from the picked series."""
     errors = []
-    if snapshot["ours"] in (DDF, PROJ):
+    if snapshot["ours"] == DDF:
         d = snapshot["ddf"][key]
-        if snapshot["ours"] == PROJ:
-            version = d["proj"] or {}
-            d = {"count": version.get("count"), "low": bool(version.get("lowConfidence")),
-                 "note": version.get("confidenceNote") or "Only one source prices this player"}
+        # JEG-863: ddf_value_projections is hidden from pickers (sameAs ddf_value); no separate PROJ branch.
         n = d["count"]
         if n is None and not d["low"]:
             if shown["count"]:

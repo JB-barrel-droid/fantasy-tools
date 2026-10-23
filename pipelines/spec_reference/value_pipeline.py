@@ -664,10 +664,9 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     # JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
     # only.  Trade charts are out of the blended DDF Value.
     proj_members = [s for s in inc if s not in hidden_set and family[s] == PROJECTION and (sel is None or s in sel)]
-    # JEG-804 fallback: when no projection is in I (e.g. a saved week where
-    # the only projection is unmatched), use all included sources for blended
-    # so the Indexed basis can still be computed.
-    blended_members = proj_members if proj_members else [s for s in inc if s not in hidden_set and (sel is None or s in sel)]
+    # JEG-863 (Jeremy, 2026-10-23, option B): no fallback to charts. When no
+    # projection source is included, DDF Value is unavailable (null).
+    blended_members = proj_members
     members = {
         "blended": blended_members,
         "charts": [s for s in inc if s not in hidden_set and family[s] == CHART and (sel is None or s in sel)],
