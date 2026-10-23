@@ -18,6 +18,8 @@
   --v2-index-bg: #EAF1FB;
   --v2-index-border: #C9D9F1;
   --v2-index-ink: #1F5FBF;
+  --v2-field-border: #80908B;   /* 3:1 on the page and white (WCAG 1.4.11, JEG-902) */
+  --v2-action-text: #087F5B;
   --v2-action-strong: #066B4C;   /* action text on a tint: 4.5:1 on --v2-positive */
   --v2-tint-border: #CFE7DB;
   --v2-brush-fill: #D7EEE3;
@@ -47,7 +49,7 @@
     --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
     --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26; --v2-rank-sub: #90A6A0; --v2-ddf: #F28C5B;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
-    --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
+    --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-action-text: #38B386; --v2-field-border: #62756F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
     --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
     --v2-heat-down-1: #261C20; --v2-heat-down-2: #302127; --v2-heat-down-3: #3A262D;
   }
@@ -57,7 +59,7 @@
   --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
   --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26; --v2-rank-sub: #90A6A0; --v2-ddf: #F28C5B;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
-    --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
+    --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-action-text: #38B386; --v2-field-border: #62756F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
     --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
     --v2-heat-down-1: #261C20; --v2-heat-down-2: #302127; --v2-heat-down-3: #3A262D;
 }
@@ -78,6 +80,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-app h1, .v2-app h2, .v2-app p { margin: 0; font-family: inherit; letter-spacing: normal; text-transform: none; color: inherit; }
 .v2-app button, .v2-app input, .v2-app select { font: inherit; color: inherit; }
 .v2-app :focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+.v2-nav :focus-visible { outline-color: #fff; }   /* 3:1 on the dark nav bar (JEG-902) */
 .v2-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .v2-wrap { max-width: 1440px; margin: 0 auto; padding: 0 48px; }
 .v2-meta { color: var(--v2-muted); font-size: 12px; }
@@ -109,17 +112,17 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-league-inner { display: flex; align-items: center; gap: 24px; min-height: 64px; flex-wrap: wrap; }
 
 /* Buttons and fields */
-.v2-app .v2-btn { border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
+.v2-app .v2-btn { border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
 .v2-app .v2-btn-primary { background: var(--v2-action); border-color: var(--v2-action); color: var(--v2-action-ink); padding: 10px 24px; }
 @media (hover: hover) { .v2-btn-primary:hover { filter: brightness(1.08); } }
 .v2-link { background: none; border: 0; color: var(--v2-action); cursor: pointer; font-weight: 500; min-height: 44px; padding: 0 6px; }
 .v2-select, .v2-field select, .v2-search input {
-  border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn);
+  border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn);
   padding: 10px 14px; min-height: 44px; cursor: pointer; text-align: left;
 }
 .v2-select::after { content: " ⌄"; color: var(--v2-muted); }
 .v2-select[aria-pressed]::after { content: ""; }
-.v2-select[aria-pressed="true"] { background: var(--v2-positive); border-color: var(--v2-action); color: var(--v2-action); }
+.v2-select[aria-pressed="true"] { background: var(--v2-positive); border-color: var(--v2-action); color: var(--v2-action-strong); }
 .v2-search input { cursor: text; width: 100%; }
 .v2-field { display: inline-flex; align-items: center; }
 .v2-field-rank { background: var(--v2-positive); border: 1px solid var(--v2-tint-border); border-radius: var(--v2-radius-btn); padding-left: 14px; color: var(--v2-action); }
@@ -141,7 +144,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 
 /* League bar actions (JEG-498, revising JEG-462): Edit league is the primary button, Position weights the secondary one; no ↗ on in-page dialogs. */
 .v2-league-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-.v2-app .v2-btn-adjust { background: var(--v2-surface); border: 1px solid var(--v2-border); color: var(--v2-ink); font-weight: 600; min-height: 44px; padding: 8px 16px; }
+.v2-app .v2-btn-adjust { background: var(--v2-surface); border: 1px solid var(--v2-field-border); color: var(--v2-ink); font-weight: 600; min-height: 44px; padding: 8px 16px; }
 @media (hover: hover) { .v2-app .v2-btn-adjust:hover { border-color: var(--v2-action); color: var(--v2-action-strong); } }
 @media (max-width: 767px) {
   .v2-league-actions { margin-left: 0; flex-basis: 100%; }
@@ -237,11 +240,11 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-table tr { cursor: pointer; }
 @media (hover: hover) {
   .v2-table tbody tr:hover td { background: var(--v2-hover); }
-  .v2-table tbody tr:hover td.is-rank { background: var(--v2-hover-rank); }
+  .v2-table tbody tr:hover td.is-rank { background: var(--v2-hover-rank); color: var(--v2-action-strong); }
 }
 .v2-table .num { text-align: right; font-weight: 700; font-size: 15px; }
 .v2-table th.num { text-align: right; }
-.v2-table .is-rank { background: var(--v2-rank-tint); color: var(--v2-action); }
+.v2-table .is-rank { background: var(--v2-rank-tint); color: var(--v2-action-text); }
 .v2-table th.is-rank { color: var(--v2-action); }
 .v2-table .player { font-weight: 700; }
 .v2-table .player-sub { display: none; font-weight: 400; font-size: 11px; color: var(--v2-muted); margin-top: 2px; }

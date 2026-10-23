@@ -10,6 +10,8 @@ name: ESPN weekly store (actuals and projections)
 #       actuals -> public.player_game_stats (under v_player_game_actuals);
 #       projections -> public.projection_snapshots (source espn, change-only);
 #       summary -> output/espn-weekly-store.json
+#   (JEG-944: save_espn_weekly.py also appends every future week to
+#   public.source_projection_captures; check_projection_captures.py gates it)
 #   pipelines/export_weekly_store.py
 #       refreshes data/inputs/weekly_actuals_2024_2026.csv and
 #       data/inputs/espn_weekly_projections_2026.csv from Supabase
@@ -95,6 +97,16 @@ jobs:
             git pull --rebase --autostash origin main
             git push
           fi
+
+      # JEG-944: fails the run (red) when a content week's capture of any source
+      # (espn, cbs, razzball) is missing from public.source_projection_captures.
+      # Runs after the commit step so it never holds back the store itself.
+      - name: Check projection captures (JEG-944)
+        if: always() && github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/check_projection_captures.py
 
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'

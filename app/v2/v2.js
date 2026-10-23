@@ -2488,6 +2488,19 @@
         b.setAttribute("aria-controls", `v2CustPanel-${id}`);
         b.textContent = text;
         b.addEventListener("click", () => { tab = id; err.hidden = true; render(); });
+        // JEG-896: ARIA tabs pattern. Arrow keys, Home and End move focus and selection; only the selected tab is in the Tab order.
+        b.addEventListener("keydown", event => {
+          const last = tabBar.children.length - 1;
+          const at = Array.prototype.indexOf.call(tabBar.children, b);
+          const to = event.key === "ArrowRight" ? (at + 1) % (last + 1) : event.key === "ArrowLeft" ? (at + last) % (last + 1)
+            : event.key === "Home" ? 0 : event.key === "End" ? last : -1;
+          if (to < 0) return;
+          event.preventDefault();
+          tab = tabBar.children[to].dataset.tab;
+          err.hidden = true;
+          render();
+          tabBar.children[to].focus();
+        });
         tabBar.appendChild(b);
         return b;
       });
@@ -6268,6 +6281,26 @@
     : base === "#player-values" ? "values" : null);
   const currentView = () => viewFor(hashBase()) || "targets";   // landing: Trade targets (Jeremy, 2026-10-08)
 
+  // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
+  const BASE_TITLE = document.title;
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade"};
+  const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
+  function syncTitle() {
+    const v = currentView();
+    const parts = [];
+    const text = id => ($(id) && $(id).textContent || "").trim();
+    if (!$("v2Expand").hidden) parts.push(text("v2ExpandTitle"));
+    else if (!$("v2Drawer").hidden) parts.push(text("v2DrawerTitle"));
+    else if (!$("v2Popover").hidden && $("v2Popover").querySelector("#v2PanelTitle")) parts.push(text("v2PanelTitle"));
+    if (v === "writing") parts.push(WRITING_TITLES[writingSection()], "Writing");
+    else if (v === "audit") {
+      const slug = hashBase().startsWith("#values-auditing/") ? decodeURIComponent(hashBase().slice("#values-auditing/".length)) : "";
+      if (slug) parts.push(slug.replace(/-/g, " ").replace(/^./, c => c.toUpperCase()));
+      parts.push("Values auditing");
+    } else parts.push(VIEW_TITLES[v]);
+    document.title = parts.filter(Boolean).concat(BASE_TITLE).join(" \u00b7 ");
+  }
+
   function applyRoute() {
     const v = currentView();
     $("v2Main").hidden = v !== "values";
@@ -6292,6 +6325,7 @@
     if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
     refresh();
+    syncTitle();
   }
 
   // ---------- wiring ----------
@@ -6773,6 +6807,11 @@
       resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
     });
     window.addEventListener("hashchange", () => { canonicalizeHash(); readTradeHash(); applyRoute(); });
+    // Dialogs open and close by toggling `hidden`; the title follows them.
+    if (window.MutationObserver) {
+      const titleWatch = new MutationObserver(syncTitle);
+      ["v2Popover", "v2Drawer", "v2Expand"].forEach(id => titleWatch.observe($(id), {attributes: true, attributeFilter: ["hidden"]}));
+    }
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
     if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", () => { if (C) refresh(); });
     if (metaWideQuery && metaWideQuery.addEventListener) metaWideQuery.addEventListener("change", () => { if (C && currentView() === "values") renderTable(); });
