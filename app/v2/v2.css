@@ -521,7 +521,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-trade-search-wrap { position: relative; }
 .v2-trade-results { list-style: none; margin: 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
 .v2-trade-results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
-.v2-trade-results button:focus-visible { background: var(--v2-positive); }
+.v2-trade-results button:focus-visible, .v2-trade-results button.is-active { background: var(--v2-positive); }
 @media (hover: hover) { .v2-trade-results button:hover { background: var(--v2-positive); } }
 .v2-trade-results .is-empty { padding: 10px 12px; }
 .v2-trade-players { list-style: none; margin: 12px 0 0; padding: 0; }
@@ -558,6 +558,12 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 
 /* How values work (frames 15 / 16): the three views side by side, stacked below 768 px. */
 .v2-how-league p { margin-top: 8px !important; }
+.v2-how-collapse { margin-top: 12px; font-size: 14px; max-width: 72ch; }
+.v2-how-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.v2-how-toggle::before { content: "\25B8"; display: inline-block; transition: transform .15s; }
+.v2-how-toggle[aria-expanded="true"]::before { transform: rotate(90deg); }
+.v2-how-toggle:focus-visible { outline: 2px solid var(--v2-action); outline-offset: 2px; }
+.v2-how-collapse-body[hidden] { display: none; }
 .v2-how-views { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .v2-how-views > li { margin-top: 0; display: flex; flex-direction: column; gap: 10px; }
 .v2-how-views h2 { font-size: 20px; font-weight: 700; }

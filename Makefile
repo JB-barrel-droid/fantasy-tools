@@ -142,6 +142,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
 	python3 -m unittest tests.test_monitor_alerts
+	python3 -m unittest tests.test_fc_grain_check
 	python3 -m unittest tests.test_fidelity_pulse
 	python3 -m unittest tests.test_fidelity_espn
 	python3 -m unittest tests.test_fidelity_cbsros
