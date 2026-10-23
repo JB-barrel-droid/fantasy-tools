@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-23T13:15:40.328903+00:00",
+  "run_at": "2026-10-23T18:01:49.475494+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -16,8 +16,7 @@
   "success": false,
   "outcome": "failed",
   "held": [
-    "cbsros",
-    "razzball"
+    "cbsros"
   ],
   "hold_severity": "amber",
   "list_changes": {
@@ -40,20 +39,7 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Justin Joly, Kaleb Johnson, Kene Nwangwu, Kylen Granson); parse notes: RB: 3 players listed with another position",
-      "hold_severity": "amber",
-      "week": 7
-    },
-    "razzball": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "razzball",
-        "razzball_vorp"
-      ],
-      "sections": [
-        "razzball"
-      ],
-      "detail": "2025/2025 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
+      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Justin Joly, Kaleb Johnson, Kene Nwangwu); parse notes: RB: 3 players listed with another position",
       "hold_severity": "amber",
       "week": 7
     }
@@ -123,7 +109,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-22 -> 12 DDF legs -> section; review passed (7776 values)",
+      "detail": "snapshot 2026-10-23 -> 12 DDF legs -> section; review passed (7776 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -170,15 +156,14 @@
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-22",
+      "content_vintage": "2026-10-23",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored",
-    "razzball": "fidelity: publisher_vs_stored"
+    "cbsros": "fidelity: publisher_vs_stored"
   },
   "post_rebuild_validation": {
     "status": "failed",
@@ -188,12 +173,12 @@
       "FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference"
     ],
     "assertions": [
-      "AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.77 is not >= 1.1 x 1-QB 28.02 (ratio 1.098)'] != []"
+      "AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.78 is not >= 1.1 x 1-QB 28.04 (ratio 1.097)'] != []"
     ],
     "make_targets": [
       "Makefile:543: test-core"
     ],
-    "detail": "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine; FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference; AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.77 is not >= 1.1 x 1-QB 28.02 (ratio 1.098)'] != []",
-    "recorded_at": "2026-10-23T13:39:47.023783+00:00"
+    "detail": "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine; FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference; AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.78 is not >= 1.1 x 1-QB 28.04 (ratio 1.097)'] != []",
+    "recorded_at": "2026-10-23T18:25:44.376476+00:00"
   }
 }

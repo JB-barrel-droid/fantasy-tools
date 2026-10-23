@@ -1844,15 +1844,67 @@
     return hero;
   }
 
-  // Frame 13 "Source values": one row per publisher, one column per method.
+  // JEG-926 (Jeremy, 2026-10-23): the player page lists only the sources selected through the chart controls
+  // (Customize / Show), each with its number. A source with no number for this player gets no row (never a blank
+  // one); every listed row therefore has a number. "Show all sources"
+  // (off by default, kept for this page load only, nothing saved) lists every source that has a number.
+  let drawerAllSources = false;
+  const isSelectedSource = key => view.active.includes(key) && (key === view.rankKey || !state.hiddenSeries.has(key));
+
+  function drawerSourceRows(row, all) {
+    const rows = [];
+    // Our own DDF Value versions come first; they live on the engine's rows, not in its source list.
+    DDF_KEYS.forEach(key => {
+      const value = row.values[key];
+      const selected = isSelectedSource(key);
+      if ((selected || all) && Number.isFinite(value)) {
+        rows.push({pub: "ddf", method: "ddf", label: "Our composite", item: view.infoByKey[key] || {key}, value, selected, ddf: true});
+      }
+    });
+    Object.keys(PUBLISHERS).forEach(pub => {
+      METHOD_COLUMNS.forEach(([method, label]) => {
+        const item = view.info.find(i => sourceMeta(i.key).publisher === pub && sourceMeta(i.key).method === method);
+        if (!item) return;
+        const selected = isSelectedSource(item.key);
+        if (!selected && !all) return;
+        const has = item.available && Number.isFinite(row.values[item.key]);
+        if (has) rows.push({pub, method, label, item, value: row.values[item.key], selected});
+      });
+    });
+    return rows;
+  }
+
+  // Frame 13 "Source values": one row per listed source.
   function drawerMatrix(row) {
-    const section = drawerSection("Source values", "Every available method. A missing value stays missing, never zero.");
+    const section = drawerSection("Source values", "Each source you have selected, with its number. A missing value is never shown as zero.");
+    const toggle = document.createElement("label");
+    toggle.className = "v2-check v2-dall";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.id = "v2DrawerAll";
+    box.checked = drawerAllSources;
+    box.addEventListener("change", () => {
+      drawerAllSources = box.checked;
+      openDrawer(drawerRow);
+      const again = $("v2DrawerAll");
+      if (again) again.focus();
+    });
+    toggle.append(box, document.createTextNode("Show all sources"));
+    section.appendChild(toggle);
+    const listed = drawerSourceRows(row, drawerAllSources);
+    if (!listed.length) {
+      const none = document.createElement("p");
+      none.className = "v2-meta v2-dnone";
+      none.textContent = "None of the sources you selected has a number for this player. Show all sources lists every number we have.";
+      section.appendChild(none);
+      return section;
+    }
     const wrap = document.createElement("div");
     wrap.className = "v2-dmatrix-wrap";
     const table = document.createElement("table");
     table.className = "v2-dmatrix";
     const head = document.createElement("tr");
-    [["Source / week", "player"]].concat(METHOD_COLUMNS.map(([, label]) => [label, "num"])).forEach(([text, cls]) => {
+    [["Source / week", "player"], ["Kind", "kind"], ["Value", "num"]].forEach(([text, cls]) => {
       const th = document.createElement("th");
       th.scope = "col";
       th.className = cls;
@@ -1862,70 +1914,45 @@
     const thead = document.createElement("thead");
     thead.appendChild(head);
     const tbody = document.createElement("tbody");
-    const publishers = Object.keys(PUBLISHERS).filter(pub => view.info.some(item => sourceMeta(item.key).publisher === pub));
-    publishers.forEach(pub => {
+    listed.forEach(({pub, method, label, item, value, selected, ddf}) => {
       const tr = document.createElement("tr");
-      const series = Object.fromEntries(view.info.filter(item => sourceMeta(item.key).publisher === pub)
-        .map(item => [sourceMeta(item.key).method, item]));
-      const any = Object.values(series).find(item => item.available) || Object.values(series)[0];
+      tr.dataset.source = item.key;
+      if (!selected) tr.className = "is-off";
       const th = document.createElement("th");
       th.scope = "row";
-      th.className = `player${any?.stale ? " is-older" : ""}`;
-      th.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
-      th.append(sourceLink(pub, PUBLISHER_NAMES[pub], row.pos), document.createTextNode(any?.week ? ` · W${any.week}` : ""));
-      const prov = document.createElement("span");
-      prov.className = "th-sub";
-      // Provenance only when it says more than the week already in the label.
-      const provText = any ? withWaiverNote(freshnessText(any), any) : "";
-      prov.textContent = provText === `Week ${any?.week}` ? "" : provText;
-      if (prov.textContent) th.appendChild(prov);
-      tr.appendChild(th);
-      METHOD_COLUMNS.forEach(([method]) => {
-        const td = document.createElement("td");
-        td.className = "num";
-        const item = series[method];
-        if (!item) {
-          const na = missingNode(`${PUBLISHER_NAMES[pub]} has no ${METHOD_LABEL[method]} series`, "no such series");
-          na.querySelector(".why").className = "v2-sr";
-          td.appendChild(na);
-          td.classList.add("is-na");
-        } else if (!item.available) {
-          td.appendChild(missingNode(item.paused ? "Waiting on fresh inputs" : "Not available for this league",
-            item.paused ? "waiting on inputs" : "not for this league"));
-        } else {
-          // JEG-926: every available series shows its number, selected or not (the engine prices them all);
-          // one that is not on the chart yet keeps a small Add control beside its number.
-          td.dataset.source = item.key;
-          const v = row.values[item.key];
-          if (Number.isFinite(v)) {
-            td.textContent = fmt(v);
-            appendLowConfidence(td, row, item.key);
-          } else td.appendChild(missingNode(missingReason(item.key, row), "not priced"));
-        }
-        if (item && item.available && !view.active.includes(item.key)) {
-          td.dataset.offChart = "true";
-          const add = document.createElement("button");
-          add.type = "button";
-          add.className = `v2-link v2-dadd${item.stale ? " is-older" : ""}`;
-          add.dataset.addSeries = item.key;
-          add.textContent = item.stale ? "Add (older) ↗" : "Add ↗";
-          add.setAttribute("aria-label", `Add ${seriesName(item.key)}${item.stale ? " (older week)" : ""} to the selected sources`);
-          add.addEventListener("click", () => {
-            if (!toggleEngineSource(item.key)) return;
-            refresh();
-            openDrawer(drawerRow);
-          });
-          td.appendChild(add);
-        }
-        tr.appendChild(td);
-      });
+      th.className = `player${item.stale ? " is-older" : ""}`;
+      if (ddf) {
+        const meta = sourceMeta(item.key);
+        th.innerHTML = `<span style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
+        th.append(document.createTextNode(meta.label));
+      } else {
+        th.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
+        th.append(sourceLink(pub, PUBLISHER_NAMES[pub], row.pos), document.createTextNode(item.week ? ` · W${item.week}` : ""));
+      }
+      const provText = ddf ? "" : withWaiverNote(freshnessText(item), item);
+      if (provText && provText !== `Week ${item.week}`) {
+        const prov = document.createElement("span");
+        prov.className = "th-sub";
+        prov.textContent = provText;
+        th.appendChild(prov);
+      }
+      const kind = document.createElement("td");
+      kind.className = "kind";
+      kind.dataset.method = method;
+      kind.textContent = label;
+      const td = document.createElement("td");
+      td.className = "num";
+      td.dataset.source = item.key;
+      td.textContent = fmt(value);
+      appendLowConfidence(td, row, item.key);
+      tr.append(th, kind, td);
       tbody.appendChild(tr);
     });
     table.append(thead, tbody);
     wrap.appendChild(table);
     const note = document.createElement("p");
     note.className = "v2-meta";
-    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. Value above waivers is each source's own unit and is not comparable to them. Add ↗ puts that series on the chart and the table, on every tab.";
+    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. Value above waivers is each source's own unit and is not comparable to them. Choose sources with Customize.";
     section.append(wrap, note);
     return section;
   }
@@ -2320,7 +2347,9 @@
     const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
     // The last usable input stays on (a held source does not count).
     const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
-    const versionUsable = versionKey => (versionKey === DDF_KEY ? usableOn()
+    // JEG-930: the charts-only version ignores the blend draft; its sources are the open trade charts.
+    const chartsUsable = () => ((C.getCompositeInputs && C.getCompositeInputs("ddf_value_charts").series) || []).length;
+    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable() : versionKey === DDF_KEY ? usableOn()
       : usableOn().filter(key => (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj"))).length;
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
@@ -6464,6 +6493,12 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    $("v2HowWeightsExplainerBtn").addEventListener("click", event => {
+      const button = event.currentTarget;
+      const open = button.getAttribute("aria-expanded") !== "true";
+      button.setAttribute("aria-expanded", String(open));
+      $("v2HowWeightsExplainerBody").hidden = !open;
+    });
     // Skip link: a button, because a #fragment would change the hash route.
     $("v2Skip").addEventListener("click", () => {
       const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden);

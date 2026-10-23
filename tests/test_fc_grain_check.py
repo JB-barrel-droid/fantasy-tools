@@ -4,6 +4,7 @@
 Negative-tested: a genuine column swap is caught; drift on a stale bake is not.
 """
 import sys
+import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +39,7 @@ def _scoring_set(base: dict[int, float], full_bump: float = 50, half_bump: float
     }
 
 
-class TestGenuineSwapDetected:
+class TestGenuineSwapDetected(unittest.TestCase):
     """A real column swap (full stored as half, half as std) must be caught."""
 
     def test_swap_detected_on_fresh_bake(self):
@@ -51,9 +52,9 @@ class TestGenuineSwapDetected:
         stored_vals["std|1"] = swapped_vals["full|1"]
         stored = _make_grains(stored_vals)
         problems = fc_grain_check(live, stored, bake_age_s=60)  # 1 minute old
-        assert len(problems) > 0, "a genuine column swap must be detected on a fresh bake"
+        self.assertGreater(len(problems), 0, "a genuine column swap must be detected on a fresh bake")
         # The message should name the swapped grains
-        assert any("full|1" in p for p in problems)
+        self.assertTrue(any("full|1" in p for p in problems))
 
     def test_swap_detected_when_age_unknown(self):
         """When bake_age_s is None (unknown), the check still runs."""
@@ -65,10 +66,10 @@ class TestGenuineSwapDetected:
         stored_vals["std|2"] = swapped_vals["full|2"]
         stored = _make_grains(stored_vals)
         problems = fc_grain_check(live, stored, bake_age_s=None)
-        assert len(problems) > 0, "a genuine swap must be detected even when bake age is unknown"
+        self.assertGreater(len(problems), 0, "a genuine swap must be detected even when bake age is unknown")
 
 
-class TestFalsePositiveOnStaleBake:
+class TestFalsePositiveOnStaleBake(unittest.TestCase):
     """JEG-705: drift on a stale bake must NOT trigger a false-positive swap."""
 
     def test_drift_exceeding_scoring_gap_skipped_on_stale_bake(self):
@@ -83,9 +84,8 @@ class TestFalsePositiveOnStaleBake:
         stored = _make_grains(stored_vals)
         # On a stale bake (> FC_GRAIN_CHECK_MAX_AGE_S), the check is skipped
         problems = fc_grain_check(live, stored, bake_age_s=FC_GRAIN_CHECK_MAX_AGE_S + 1)
-        assert problems == [], (
-            f"a stale bake must not trigger a column-swap false positive: {problems}"
-        )
+        self.assertEqual(problems, [],
+            f"a stale bake must not trigger a column-swap false positive: {problems}")
 
     def test_drift_does_trigger_on_fresh_bake_when_genuine(self):
         """Verify the negative test: a genuine swap on a fresh bake is still caught."""
@@ -98,19 +98,19 @@ class TestFalsePositiveOnStaleBake:
         stored = _make_grains(stored_vals)
         # Fresh bake: swap IS detected
         problems_fresh = fc_grain_check(live, stored, bake_age_s=60)
-        assert len(problems_fresh) > 0, "fresh bake with a swap must be caught"
+        self.assertGreater(len(problems_fresh), 0, "fresh bake with a swap must be caught")
         # Stale bake: swap is NOT checked (skipped entirely)
         problems_stale = fc_grain_check(live, stored, bake_age_s=FC_GRAIN_CHECK_MAX_AGE_S + 1)
-        assert problems_stale == [], "stale bake skips the check even if data is genuinely swapped"
+        self.assertEqual(problems_stale, [], "stale bake skips the check even if data is genuinely swapped")
 
 
-class TestNoSwapOnCorrectData:
+class TestNoSwapOnCorrectData(unittest.TestCase):
     """Correct data must never trigger the check."""
 
     def test_identical_data(self):
         vals = _scoring_set(_BASE)
         grains = _make_grains(vals)
-        assert fc_grain_check(grains, grains, bake_age_s=0) == []
+        self.assertEqual(fc_grain_check(grains, grains, bake_age_s=0), [])
 
     def test_small_drift_no_swap(self):
         """Small drift (within scoring gap) on a fresh bake is fine."""
@@ -119,4 +119,4 @@ class TestNoSwapOnCorrectData:
                        for g, players in _scoring_set(_BASE).items()}
         live = _make_grains(live_vals)
         stored = _make_grains(stored_vals)
-        assert fc_grain_check(live, stored, bake_age_s=300) == []
+        self.assertEqual(fc_grain_check(live, stored, bake_age_s=300), [])

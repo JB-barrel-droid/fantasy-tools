@@ -868,7 +868,8 @@ def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: d
                 est[key] = e["path"]
         ddf = {}
         for version, fam in DDF_FAMILY.items():
-            keys = [k for k in inc if (fam is None or sources[k].family == fam) and (sel is None or k in sel)]
+            # JEG-930 (Jeremy, 2026-10-23): the charts-only version ignores the blend selection.
+            keys = [k for k in inc if (fam is None or sources[k].family == fam) and (sel is None or version == "charts" or k in sel)]
             # JEG-804 fallback: when no projection is in I (e.g. a saved week
             # where the only projection is unmatched), use all included sources
             # for the blended DDF so the Indexed basis can still be computed.
