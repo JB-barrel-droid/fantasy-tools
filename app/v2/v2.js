@@ -952,6 +952,9 @@
       reason: key === view.rankKey ? null : unavailableReason(view.infoByKey[key])})), view.rankKey);
 
     $("v2Position").value = view.state.position;
+    // JEG-926: the on-graph search and position mirror the toolbar's.
+    $("v2PlotPosition").value = view.state.position;
+    if ($("v2PlotSearch").value !== $("v2Search").value) $("v2PlotSearch").value = $("v2Search").value;
     renderShow();
     // JEG-806: show data week and "as of <date>" so a reader knows how fresh the numbers are.
     const stamp = pageStampText();
@@ -1144,8 +1147,43 @@
       const cls = `series is-${meta.method}${view.infoByKey[key]?.stale ? " is-older" : ""}`;
       el("path", {d, class: cls, stroke: meta.color, "data-source": key}, lines);
     });
+    if (opts.markers) drawSeriesMarkers(svg, keys, slice, {x, y, pad, height, axisZoom});
     const overlay = el("g", {class: "hover"}, svg);
     return {svg, overlay, x, y, slice, width, height, pad, keys, ymin, ymax, axisZoom, zones};
+  }
+
+  // JEG-926: each series' publisher symbol (the same one the legend shows) sits on the line at the left-most visible
+  // player, so the legend reads straight off the left end of the chart. Where two symbols would overlap they are
+  // spread vertically (a short leader joins a moved symbol to its point). A series with no value for the left-most
+  // player is marked at its first valued player.
+  function drawSeriesMarkers(svg, keys, slice, {x, y, pad, height, axisZoom}) {
+    const gap = 14;
+    const top = pad.t + 6;
+    const bottom = height - pad.b - 6;
+    const marks = [];
+    keys.forEach(key => {
+      const i = slice.findIndex(row => Number.isFinite(row.values[key]));
+      if (i < 0) return;
+      const py = y(Math.max(0, slice[i].values[key]));
+      if (axisZoom && (py < pad.t || py > height - pad.b)) return;   // clipped off the zoomed axis: no symbol either
+      marks.push({key, px: x(i), py, gy: Math.max(top, Math.min(bottom, py))});
+    });
+    marks.sort((a, b) => a.gy - b.gy);
+    marks.forEach((m, k) => { if (k && m.gy < marks[k - 1].gy + gap) m.gy = marks[k - 1].gy + gap; });
+    for (let k = marks.length - 1; k >= 0; k -= 1) {   // pushed past the bottom: pull the stack back up
+      const limit = k === marks.length - 1 ? bottom : marks[k + 1].gy - gap;
+      if (marks[k].gy > limit) marks[k].gy = limit;
+    }
+    const layer = el("g", {class: "series-marks", "aria-hidden": "true"}, svg);
+    marks.forEach(m => {
+      const meta = sourceMeta(m.key);
+      if (Math.abs(m.gy - m.py) > 2) {
+        el("line", {x1: m.px, y1: m.py, x2: m.px, y2: m.gy, class: "series-mark-leader", stroke: meta.color}, layer);
+      }
+      const glyph = el("text", {x: m.px, y: m.gy, class: "series-mark", fill: meta.color, "text-anchor": "middle",
+        "dominant-baseline": "central", "data-source": m.key}, layer);
+      glyph.textContent = meta.symbol;
+    });
   }
 
   // JEG-503 (PV-04): Starter / Bench / Waiver. Two vertical lines at the engine's roster boundaries for the
@@ -1198,7 +1236,7 @@
   function renderCharts() {
     renderLegend();
     const big = expanded === "chart";
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys.filter(isSeriesOn), {zones: true, fit: true, label: "Trade value by player rank", names: true, plot: $("v2Plot"),
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys.filter(isSeriesOn), {zones: true, fit: true, markers: true, label: "Trade value by player rank", names: true, plot: $("v2Plot"),
       stagger: big, axisZoom: big && state.axisZoom});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
@@ -1853,19 +1891,23 @@
         } else if (!item.available) {
           td.appendChild(missingNode(item.paused ? "Waiting on fresh inputs" : "Not available for this league",
             item.paused ? "waiting on inputs" : "not for this league"));
-        } else if (view.active.includes(item.key)) {
+        } else {
+          // JEG-926: every available series shows its number, selected or not (the engine prices them all);
+          // one that is not on the chart yet keeps a small Add control beside its number.
           td.dataset.source = item.key;
           const v = row.values[item.key];
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
             appendLowConfidence(td, row, item.key);
           } else td.appendChild(missingNode(missingReason(item.key, row), "not priced"));
-        } else {
+        }
+        if (item && item.available && !view.active.includes(item.key)) {
+          td.dataset.offChart = "true";
           const add = document.createElement("button");
           add.type = "button";
           add.className = `v2-link v2-dadd${item.stale ? " is-older" : ""}`;
           add.dataset.addSeries = item.key;
-          add.textContent = item.stale ? "Older ↗" : "Available ↗";
+          add.textContent = item.stale ? "Add (older) ↗" : "Add ↗";
           add.setAttribute("aria-label", `Add ${seriesName(item.key)}${item.stale ? " (older week)" : ""} to the selected sources`);
           add.addEventListener("click", () => {
             if (!toggleEngineSource(item.key)) return;
@@ -1882,7 +1924,7 @@
     wrap.appendChild(table);
     const note = document.createElement("p");
     note.className = "v2-meta";
-    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
+    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Add ↗ puts that series on the chart and the table, on every tab.";
     section.append(wrap, note);
     return section;
   }
@@ -3158,7 +3200,7 @@
     const values = C.getRows().map(row => row.values[key]).filter(Number.isFinite);
     const lo = values.length ? Math.floor(Math.min(...values)) : 0;
     const hi = values.length ? Math.ceil(Math.max(...values)) : 100;
-    openPanel($("v2YExact"), "Value range", `Basis ${sourceMeta(key).short}${item?.week ? ` · Week ${item.week}` : ""}`, pop => {
+    openPanel($("v2Show"), "Value range", `Basis ${sourceMeta(key).short}${item?.week ? ` · Week ${item.week}` : ""}`, pop => {
       const body = panelBody(pop);
       const lead = document.createElement("p");
       lead.textContent = "Keep players with values between";
@@ -6331,6 +6373,15 @@
       searchTimer = setTimeout(() => { state.search = event.target.value; state.shown = PAGE_SIZE; refresh(); }, 120);
     });
     $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); refresh(); });
+    // JEG-926: search (and, in the expanded chart, position) on the graph itself: the same state, the same handlers.
+    $("v2PlotSearch").addEventListener("input", event => {
+      $("v2Search").value = event.target.value;
+      $("v2Search").dispatchEvent(new Event("input", {bubbles: true}));
+    });
+    $("v2PlotPosition").addEventListener("change", event => {
+      $("v2Position").value = event.target.value;
+      $("v2Position").dispatchEvent(new Event("change", {bubbles: true}));
+    });
     $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; saveSelection(); refresh(); });
     $("v2DeltaBtn").addEventListener("click", () => {
       state.delta = !state.delta;
@@ -6339,6 +6390,8 @@
     });
     $("v2Show").addEventListener("change", event => {
       if (event.target.value === "custom") return;
+      // JEG-926: "Set exact values…" is an item in this menu; it opens the value-range dialog and leaves Show as it was.
+      if (event.target.value === "exact") { event.target.value = state.windowPreset; openRange(); return; }
       applyPreset(event.target.value);
       refresh();
     });
@@ -6364,7 +6417,6 @@
     $("v2AxisZoom").addEventListener("click", () => { state.axisZoom = !state.axisZoom; refresh(); });
     $("v2More").addEventListener("click", openMore);
     $("v2Columns").addEventListener("click", openColumns);
-    $("v2YExact").addEventListener("click", openRange);
     $("v2Reset").addEventListener("click", resetValues);
     $("v2EmptyClear").addEventListener("click", resetValues);
     $("v2NoticeBtn").addEventListener("click", event => openSources(event.currentTarget));

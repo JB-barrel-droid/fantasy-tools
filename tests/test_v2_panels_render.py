@@ -41,8 +41,9 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
     one-decimal numbers with 6–8 px padding, heat tint direction matching the
     two shown values and named in the title, "—" with a reason; the Columns
     menu hides a group but never the ranking series;
-  * above the fold (JEG-470): at 1440 × 900 and 1366 × 768 the chart card and
-    at least six table rows are visible without scrolling; h1 26–28 px; the
+  * above the fold (JEG-470): at 1440 × 900 and 1366 × 768 the chart card is
+    visible without scrolling (JEG-926 dropped the six-table-rows clause: the
+    table now sits under a full-width chart); h1 26–28 px; the
     value line names the engine's week;
   * no page errors, no horizontal overflow at 390.
 
@@ -51,7 +52,7 @@ one fault each (pair toggle applied at once, zone preset ignored, Team box
 ignored, From / To ignored, brush drag keeps the preset, value range ignores
 the rank window, Y brush does nothing, Reset keeps the value range, Columns
 menu ignored, no SUPERFLEX stepper, bench move not reported, shares not
-applied, freshness fails open, league Apply does nothing, no chart-and-table split, header not
+applied, freshness fails open, league Apply does nothing, header not
 sticky, cells wide enough to scroll sideways) and requires each to fail.
 """
 from __future__ import annotations
@@ -552,9 +553,11 @@ def check_toolbar(page) -> list[str]:
     # (JEG-503, PV-07: Jeremy asked for them); tests/test_v2_chart_zones_render.py covers those.
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
       .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl') && !n.classList.contains('v2-legend-item')).map(n => n.id || n.textContent.trim())""")
-    allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
+    allowed = {"v2ZoomIn", "v2ZoomOut", "v2PlotSearch", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
                "v2ExpandChart", "v2ResetZoom",
                "v2ChartSize"}   # JEG-483: expand and (while zoomed) Reset zoom; JEG-477 (#701): the taller/shorter toggle
+    # JEG-926 (Jeremy, 2026-10-22): the search box sits on the graph (v2PlotSearch replaces the removed v2YExact button, which is
+    # now an item in the Show menu); the position selector there shows only in the expanded chart.
     extra = [n for n in inside if n not in allowed]
     if extra:
         errors.append(f"chart: controls other than brushes and zoom inside the chart: {extra}")
@@ -683,7 +686,7 @@ def check_y_brush(page) -> list[str]:
         page.click("#v2Reset")
         page.select_option("#v2RankBy", before_rank)
     # Set exact values (frame 24 popover) still works, names its basis and refuses min > max.
-    page.click("#v2YExact")
+    page.select_option("#v2Show", "exact")   # JEG-926: "Set exact values…" is an item in the Show menu
     sub = page.text_content("#v2Popover .v2-panel-head .v2-meta")
     if "Basis" not in sub:
         errors.append(f"Set exact values: no basis series named: {sub!r}")
@@ -849,8 +852,9 @@ def check_fold(page, width, height) -> list[str]:
     tag = f"above the fold {width}×{height}: "
     if f["chartBottom"] > f["h"] + 0.5:
         errors.append(tag + f"chart card ends at {f['chartBottom']:.0f}px")
-    if f["rows"] < 6:
-        errors.append(tag + f"{f['rows']} table rows visible, want 6")
+    # JEG-926 (Jeremy, 2026-10-22): no side-by-side layout, so the table sits under the full-width chart and its rows are
+    # not expected above the fold any more (the old "at least six rows visible" pinned the removed split);
+    # tests/test_v2_values_tab_ux_render.py guards the full-width chart with the table underneath.
     if not 26 <= f["h1"] <= 28.5:
         errors.append(tag + f"h1 {f['h1']}px, want 26–28")
     week = page.evaluate("() => window.TradeValueProductData?.getSourceFreshness?.()?.current_content_week || window.TradeValueCurveControls.getReferenceWeek()")
@@ -911,7 +915,7 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
                     if full:
                         errors += [tag + e for e in check_sources(page, width)]
                     mobile = page.evaluate("""() => ({ybrush: getComputedStyle(document.getElementById('v2YBrush')).display,
-                      exact: Boolean(document.getElementById('v2YExact').offsetParent)})""")
+                      exact: Boolean(document.getElementById('v2Show').offsetParent && document.getElementById('v2ShowExact'))})""")
                     if mobile["ybrush"] != "none" or not mobile["exact"]:
                         errors.append(tag + f"below 768 px the numeric value range replaces the Y brush: {mobile}")
                 overflow = page.evaluate("() => document.documentElement.scrollWidth - innerWidth")
@@ -975,12 +979,10 @@ class PanelsRenderTest(unittest.TestCase):
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1)},
             # Table fit and above the fold (CSS).
-            "no chart-and-table split": {"v2_css": css.replace(
-                "@media (min-width: 1280px) {\n  .v2-values-grid", "@media (min-width: 99999px) {\n  .v2-values-grid", 1),
-                "viewports": ((1366, 768),), "full": False},
             "header not sticky": {"v2_css": css.replace(
                 "  .v2-vtable thead th { position: sticky;", "  .v2-vtable thead th { position: static;", 1), "full": False},
-            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 140px; }\n", "full": False},
+            # JEG-926: the table now has the full content width, so the fault is wider (140 px cells fit there).
+            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 320px; }\n", "full": False},
         }
         for name, kwargs in broken.items():
             with self.subTest(mutation=name):
