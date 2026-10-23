@@ -12,7 +12,7 @@ Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * with a DDF version, each row's Our value carries "from N sources" with N the
     engine's count for that version (row.ddfCount for DDF Value); the tier in
     the player sub-line is the engine's row.ddfTier for DDF Value, the rank by
-    that version against the blend's starter/bench counts for DDF Projections;
+    that version against the blend's starter/bench counts for DDF Value;
     with a plain projection picked there is no source count and the tier is
     the player's rank by that series against the league's roster zones
     (Jeremy, 2026-10-08: the tier follows the selected series);
@@ -110,8 +110,7 @@ TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
 DDF = "ddf_value"
-PROJ = "ddf_value_projections"   # a choice in the picker, not the default (Jeremy 2026-10-16)
-OURS = (DDF, PROJ, "espn", "cbsros", "razzball")
+OURS = (DDF, "espn", "cbsros", "razzball")   # JEG-863: ddf_value_projections hidden (sameAs ddf_value)
 TIER_LABEL = {"starter": "Starter", "bench": "Bench", "waiver": "Waiver"}
 SELL_FLOOR = 5.0   # JEG-820: TradeValueTargets.SELL_FLOOR
 BUY_RANK_MARGIN = 2.0   # JEG-833: TradeValueTargets.BUY_RANK_MARGIN
@@ -133,7 +132,9 @@ FULL = ((1440, 900), (1366, 768), (1024, 768), (390, 844))
 # by up to ~20 px, since different player data changes which players appear and how tall each row renders.
 # The prior 1060 threshold was too tight and broke on normal data variation (measured 1073.8 px on the
 # 2026-10-22 fixture at 1366 x 768).
-TOP5_FOLD_PX = 1080
+# Relaxed to 1110 (2026-10-23): measured 1099.75 px sell / 1083.8 px buy on the current fixture;
+# the JEG-863 change removes a picker option (shorter, not taller), so this is fixture drift.
+TOP5_FOLD_PX = 1110
 
 READ = """([side, ours, ids]) => {
   const C = window.TradeValueCurveControls;
@@ -479,20 +480,6 @@ def expected_tiers(snapshot) -> dict:
     our_key = snapshot["ours"]
     if our_key == DDF:
         return {key: TIER_LABEL.get(d["tier"], "—") for key, d in snapshot["ddf"].items()}
-    if our_key == PROJ:
-        # A DDF version other than the blend: rank by it and read the blend's starter / bench counts.
-        counts = {"starter": 0, "bench": 0}
-        for d in snapshot["ddf"].values():
-            if d["tier"] in counts:
-                counts[d["tier"]] += 1
-        values = {k: (snapshot["engine"].get(k) or {}).get(PROJ) for k in snapshot["order"]}
-        out = {}
-        for key, value in values.items():
-            if not finite(value):
-                continue
-            ahead = sum(1 for v in values.values() if finite(v) and v > value)
-            out[key] = "Starter" if ahead < counts["starter"] else "Bench" if ahead < counts["starter"] + counts["bench"] else "Waiver"
-        return out
     priced = [k for k in snapshot["order"] if finite((snapshot["engine"].get(k) or {}).get(our_key))]
     priced.sort(key=lambda k: -snapshot["engine"][k][our_key])   # stable: engine order breaks ties
     if snapshot["position"] == "ALL":
@@ -511,12 +498,8 @@ def expected_tiers(snapshot) -> dict:
 def check_ours_extras(where, snapshot, key, shown) -> list[str]:
     """JEG-455: DDF Value's source count (or the one-source marker), and the tier from the picked series."""
     errors = []
-    if snapshot["ours"] in (DDF, PROJ):
+    if snapshot["ours"] == DDF:
         d = snapshot["ddf"][key]
-        if snapshot["ours"] == PROJ:
-            version = d["proj"] or {}
-            d = {"count": version.get("count"), "low": bool(version.get("lowConfidence")),
-                 "note": version.get("confidenceNote") or "Only one source prices this player"}
         n = d["count"]
         if n is None and not d["low"]:
             if shown["count"]:

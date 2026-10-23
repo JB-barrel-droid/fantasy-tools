@@ -1,5 +1,7 @@
 # v2 Mobile Optimization Plan
 
+Status (checked 2026-10-23 against `origin/main` 161461b4, JEG-975): the audit is from 2026-10-22 and has not been re-run. Phase 1 (scrolling tables, tap targets, hover guards, 12 px text; JEG-947) is open PR #853 on branch `fe/mobile-phase1` and is not on `main`; Jeremy chose Decision B1 (sticky-column scroll table) on 2026-10-23 per that PR. Phase 2 navigation (JEG-953, #864) is merged, and it took the hamburger menu (option C2) rather than the scroll strip recommended in Decision C, so Section 3 "Navigation tabs" and Phase 1 ticket 1 below are superseded. Chart touch inspection and pop-out (Phase 2 tickets 6 and 7), Phase 3 and Phase 4 are not started. Tab names: this plan was written before the Writing tab (JEG-855); "Manifesto", "How values work" and "Research" are now sections of the Writing tab, and the nav is seven tabs including Find a trade.
+
 Audit date: 2026-10-22. Screenshots in `~/code/fantasy-tools-selfhost-notes/mobile-audit/`.
 Viewports tested: 390x844 (iPhone 14/15), 360x740 (older Android), 320x568 (iPhone SE), 844x390 (landscape).
 Touch emulation enabled on all viewports with deviceScaleFactor 2.
@@ -13,20 +15,20 @@ Touch emulation enabled on all viewports with deviceScaleFactor 2.
 | Defect | Severity | Screenshot ref |
 |--------|----------|---------------|
 | Nav tabs overflow at 320px: "Research" clipped off-screen | High | `320x568/player-values-viewport.png` |
-| Nav tabs are a grid of 7 items in one row; at 390px they fit but are cramped (font-size 12px, no truncation labels used) | Medium | `390x844/manifesto-viewport.png` |
+| Nav tabs are a grid of 7 items in one row (at audit time: Manifesto, Player values, Trade targets, Risers & fallers, Compare a trade, How values work, Research; today Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Find a trade, Values auditing); at 390px they fit but are cramped (font-size 12px, no truncation labels used) | Medium | `390x844/manifesto-viewport.png` |
 | Sticky topbar (brand + status + nav) consumes ~195px of vertical space on first viewport paint | Medium | all viewport screenshots |
 | League settings bar (scoring, roster, Edit league, Position weights, source legend, Customize) repeats on every tab, consuming another ~280px before any tab content | Medium | `390x844/player-values-viewport.png` |
 | 58 CSS `:hover` rules with no `@media (hover: hover)` guard and no `:focus-visible` fallback; hover-highlighted rows and buttons are invisible on touch devices | High | audit.json `hoverRules` |
 | No `overscroll-behavior` set on the body or scrollable containers -- pull-to-refresh and scroll-chaining can interfere with in-page scroll regions | Low | code audit |
 | Info popovers use `position: fixed` with JS-calculated coords; at 320px they can be clipped by small viewports when content is long | Medium | code audit (v2.js line 1283) |
 
-### 1.2 Manifesto tab
+### 1.2 Manifesto (now a section of the Writing tab)
 
 | Defect | Severity | Screenshot ref |
 |--------|----------|---------------|
 | No mobile-specific issues. Long-form text reads well. | -- | `390x844/manifesto-viewport.png` |
 
-### 1.3 Player values tab (Trade targets)
+### 1.3 Player values tab
 
 | Defect | Severity | Screenshot ref |
 |--------|----------|---------------|
@@ -71,7 +73,7 @@ Touch emulation enabled on all viewports with deviceScaleFactor 2.
 | Trade grid collapses to single column at 900px which works, but "You give" / "You get" side labels have no visual separator on single-column layout | Low | `390x844/compare-trade-viewport.png` |
 | "Find a trade" roster import inputs may overflow on small screens | Medium | `390x844/compare-trade-full.png` |
 
-### 1.7 How values work tab
+### 1.7 How values work (now a section of the Writing tab)
 
 | Defect | Severity | Screenshot ref |
 |--------|----------|---------------|
@@ -79,7 +81,7 @@ Touch emulation enabled on all viewports with deviceScaleFactor 2.
 | Methodology tabs (3-column grid) drop subtitles at 620px -- good | -- | CSS line 1262 |
 | Recalibration table (`recal-table`) has `max-height: 420px` scroll container with sticky thead, but the table can still overflow horizontally | Medium | code audit (CSS line 239-248) |
 
-### 1.8 Research tab
+### 1.8 Research (now a section of the Writing tab)
 
 | Defect | Severity | Screenshot ref |
 |--------|----------|---------------|
@@ -230,11 +232,11 @@ For the Player values and Trade targets tables on screens under 620px:
 
 ### Phase 1: Foundation -- touch targets, overflow, and scroll containers
 **Scope:** Fix the most critical defects that make the app unusable on mobile.
-**Files:** `app/trade-value-chart/v2/v2.css`, `dist/v2/index.html` (the CSS)
+**Files:** `app/v2/v2.css`, `app/v2/shell.html` (`dist/v2/index.html` is built from it; edit the source, not `dist/`)
 **Gate:** All interactive elements >= 44px touch target; no horizontal overflow at 390px; `make validate` green.
 
 Tickets (each one code path):
-1. **Nav tab horizontal scroll** -- add `overflow-x: auto` + scroll-snap to `.v2-tab-strip` at `max-width: 400px`
+1. **Nav tab horizontal scroll** -- add `overflow-x: auto` + scroll-snap to `.v2-tabs` at `max-width: 400px` (superseded: JEG-953 shipped the hamburger menu instead, #864)
 2. **Table scroll containers** -- wrap `.v2-table`, `.v2-wtable`, `.recal-table-wrap` in `overflow-x: auto` containers with sticky first column
 3. **Touch targets pass** -- increase all interactive elements to 44px minimum (source links, table headers, buttons, checkboxes, badges)
 4. **Small text pass** -- increase all text to 12px minimum on mobile
@@ -242,7 +244,7 @@ Tickets (each one code path):
 
 ### Phase 2: Chart mobile interaction
 **Scope:** Make the chart usable on touch devices.
-**Files:** `app/trade-value-chart/v2/v2.js` (chart interaction), `app/trade-value-chart/v2/v2.css`
+**Files:** `app/v2/v2.js` (chart interaction), `app/v2/v2.css`
 **Gate:** Chart tap-to-inspect works on touch; crosshair visible; value label not obscured by finger.
 
 Tickets:
@@ -251,7 +253,7 @@ Tickets:
 
 ### Phase 3: Layout optimization
 **Scope:** Reduce vertical space waste and improve content density.
-**Files:** `app/trade-value-chart/v2/v2.js`, `app/trade-value-chart/v2/v2.css`, `dist/v2/index.html`
+**Files:** `app/v2/v2.js`, `app/v2/v2.css`, `app/v2/shell.html`
 **Gate:** First meaningful content visible within one viewport height on 390px.
 
 Tickets:
@@ -261,7 +263,7 @@ Tickets:
 
 ### Phase 4: Polish and edge cases
 **Scope:** Safe area insets, overscroll, landscape, dialog sizing.
-**Files:** `app/trade-value-chart/v2/v2.css`, `app/trade-value-chart/v2/v2.js`
+**Files:** `app/v2/v2.css`, `app/v2/v2.js`
 **Gate:** No visual issues at 320px-844px range; `make validate` green.
 
 Tickets:

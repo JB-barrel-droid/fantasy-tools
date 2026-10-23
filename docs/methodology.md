@@ -24,7 +24,7 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 | Tiers and ranking | VP-7 | "VP-7 slot fill, tiers, ranking" | `_tiers` | Tier basis is the blended DDF value, with seat counts from the allocation above (`slot_fill`). |
 | Weeks and change since last week | VP-8 | `valuePipelineDiagnostics`, prior-week run | `History`, `history_entry` | Each week's own inputs and weights. |
 
-Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --strict` agreed to 0.05 on every value (915,234 values, zero mismatches) and `tools/engine_dump.py` passed all 13 settings; at a66f3f40 the compare disagrees (see the row above). The 12-combo sweep in `runbooks/sweep-and-rank-guard.md`. Retired in this pipeline: the fit and `*_adjusted` sections (PR 532), the fixed-pie and `roleMap` family, `derivePublishedSetup` and `derivePublishedViews` (PR 514). VP-10 lists what replaced each.
+Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --strict` agreed to 0.05 on every value (915,234 values, zero mismatches) and `tools/engine_dump.py` passed all 13 settings; at a66f3f40 the compare disagreed on every source (GAP-VALUECHECK-REFERENCE-AHEAD, JEG-560); that is cleared: the engine was migrated to the convention, `runbooks/sweep-and-rank-guard.md` section 3 records `agree` with 0 mismatches at e71e8262 (2026-10-15), `make validate` has run `value-check-compare` (`--strict`) since JEG-668, and the JEG-804 log (`docs/claude-log/2026-10-22-jeg-804-ddf-projections-only.md`) records `agree` on 1,224,171 values. The 12-combo sweep in `runbooks/sweep-and-rank-guard.md`. Retired in this pipeline: the fit and `*_adjusted` sections (PR 532), the fixed-pie and `roleMap` family, `derivePublishedSetup` and `derivePublishedViews` (PR 514). VP-10 lists what replaced each.
 
 **Live and pending (checked against `origin/main` 35205b89, 2026-10-23, JEG-874).** Decisions Jeremy has made, split by whether the change is merged. Anything under "Pending" is not live.
 
@@ -35,9 +35,9 @@ Live:
 - **Naming (JEG-861, merged #842).** User-facing copy says "Value above waivers"; "VORP" remains in this document's prose, code identifiers (`vorp`, `PURE_VORP_KEYS`), tests and code comments. Where this document says "VORP vs waivers" it means the view the site labels "Value above waivers". The browser's short method names are `{dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"}` (`SHORT_METHOD`, `app/v2/v2.js`).
 - **Razzball sentinel (JEG-807, merged #816, fidelity not methodology).** The pulse's star-player bands are derived from the other projection sources' half-PPR per-game mean (`SENTINEL_LOW_RATIO` 0.55, `SENTINEL_HIGH_RATIO` 1.50, fixed fallback bands when no other source prices the player). Values are unchanged; only what holds a projection source.
 
-Pending:
+- **Charts-only DDF Value (JEG-930, merged #848, 2026-10-23).** Jeremy, 2026-10-23: the "DDF Value: charts only" variant ignores the Customize DDF blend selection and always uses the open trade charts, so it is never blank after a blend edit. The JS engine and both Python references skip the reader's selection for the charts family (`value-model.js`, `value_reference.py`, `spec_reference/value_pipeline.py`). Paragraphs below that describe charts-only as following the blend selection are history.
 
-- **Charts-only DDF Value ignores the blend selection (JEG-930, #848 open).** Not described as fixed anywhere below.
+Pending: nothing merged-but-unreleased is listed here. The one open item is the explainer-text follow-up (JEG-863, #845, draft), which changes no number.
 
 **Reading order.** The sections below keep their history. Where a paragraph says "Superseded (JEG-508)", "proposed", "pending" or "not live", the status line in this block governs and the paragraph is kept for the before/after. A paragraph in "Source Families And Adjustments", "Published-Chart Configuration Coverage" or "Publisher Flex Allocation" that describes the fit, the two-tier legs as a value source, or the ESPN anchor describes retired behavior.
 

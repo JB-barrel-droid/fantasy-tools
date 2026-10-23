@@ -49,7 +49,7 @@
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
     {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
-      note: "Our value for each player, built from the inputs you choose below."},
+      note: "Our value for each player: the projection sources you keep on in the DDF blend, averaged for your league."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
@@ -114,40 +114,6 @@
   const unavailableReason = item => (!item ? "not available" : item.available ? null
     : heldReason(item) ? "held this week (data check)"
       : item.paused ? "waiting on fresh inputs" : "not available for this league");
-
-  // JEG-826: detect when DDF Value is not independent of the compared trade charts.
-  // The blend's contributing sources (composite.series) are all in the compared chart set,
-  // or fewer than 2 independent inputs exist. Returns {circular, independent, blendSources, chartSet}
-  // or null when the check cannot be performed (no engine, or "Our value" is not a DDF key).
-  const CHART_SET = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
-  function blendIndependenceCheck(ourKey) {
-    if (!C || !C.getCompositeInputs || !isDdfKey(ourKey)) return null;
-    const info = C.getCompositeInputs(ourKey === "ddf_value_projections" ? "projections" : ourKey === "ddf_value_charts" ? "charts" : undefined);
-    if (!info || !Array.isArray(info.series)) return null;
-    const blendSources = info.series;
-    const independent = blendSources.filter(key => !CHART_SET.has(key));
-    return {circular: independent.length < 2 && blendSources.length > 0 && blendSources.every(key => CHART_SET.has(key)),
-      independent: independent.length, blendSources, chartSet: CHART_SET};
-  }
-  // Banner text: plain language, no abbreviations, no promised dates.
-  const CIRCULAR_BANNER = "This week, our value is built entirely from the same trade charts it is compared with. "
-    + "The gaps on this page reflect the rescaling, not an independent check. Projection sources are updating.";
-  const CIRCULAR_HOW = "Right now, DDF Value is built entirely from trade charts. Until a projection source returns, "
-    + "gaps between our value and the charts are not an independent check.";
-  // JEG-826: neutral deal-read copy when the blend is circular.
-  // Replaces actionable instructions ("Arbitrage: send it", "Propose it", "Pass", etc.) with
-  // a neutral observation because the V-vs-M comparison is not an independent check.
-  const CIRCULAR_DEAL_SIDE = {win: "higher", lose: "lower", even: "about the same"};
-  function circularDealTitle(deal) {
-    const vWord = CIRCULAR_DEAL_SIDE[deal.value.side] || "—";
-    return `Our value is ${vWord} than the trade charts say`;
-  }
-  function circularDealText(deal) {
-    const vWord = CIRCULAR_DEAL_SIDE[deal.value.side] || "—";
-    const mWord = CIRCULAR_DEAL_SIDE[deal.market.side] || "—";
-    return `Our value says you come out ${vWord} and the trade charts say ${mWord}. `
-      + "Our value is built from the same charts this week, so treat this as a question, not a recommendation.";
-  }
 
   // Prior-week badge for a series key: the shared JEG-459 badge, named by publisher.
   function weekBadge(key) {
@@ -321,15 +287,24 @@
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
   // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
   const DDF_KEY = "ddf_value";
-  // JEG-542 / GL-09: three DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the
-  // charts-only and projections-only versions are off until picked. `field` is the engine's row.ddfByVersion key.
+  // JEG-542 / GL-09: the DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the trade chart
+  // average is off until picked. `field` is the engine's row.ddfByVersion key.
+  // JEG-863 (Jeremy, 2026-10-22): after JEG-804 DDF Value is the projection sources only, so "DDF Value" and the
+  // engine's projections-only version are one series. The names say what each is; the ids stay (saved selections
+  // and links carry them). The duplicate id is hidden from every picker (`sameAs`), and a saved pick of it reads
+  // as the visible one (ddfPickKey). `blend`: the version the DDF blend tab's inputs build (the charts one is not).
   const DDF_VERSIONS = {
-    ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B"},
-    ddf_value_charts: {field: "charts", label: "DDF Value: charts only", symbol: "✦", light: "#8A5A00", dark: "#E6B450"},
-    ddf_value_projections: {field: "projections", label: "DDF Value: projections only", symbol: "✧", light: "#7A3E8E", dark: "#C795DA"}
+    ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B", blend: true},
+    ddf_value_charts: {field: "charts", label: "Trade chart average", symbol: "✦", light: "#8A5A00", dark: "#E6B450", blend: false},
+    ddf_value_projections: {field: "projections", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B",
+      blend: true, sameAs: "ddf_value"}
   };
   const DDF_KEYS = Object.keys(DDF_VERSIONS);
   const isDdfKey = key => Object.prototype.hasOwnProperty.call(DDF_VERSIONS, key);
+  // The versions a reader can pick (one per distinct series), and the visible id for any DDF id.
+  const DDF_PICK_KEYS = DDF_KEYS.filter(key => !DDF_VERSIONS[key].sameAs);
+  const ddfPickKey = key => (isDdfKey(key) && DDF_VERSIONS[key].sameAs) || key;
+  const pickableSeries = keys => [...new Set(keys.map(ddfPickKey))];
   // One version's entry on an engine row: {value, count, sources, reason, lowConfidence, confidenceNote, prior, ...}.
   const ddfEntry = (row, key) => (row && row.ddfByVersion && isDdfKey(key) ? row.ddfByVersion[DDF_VERSIONS[key].field] : null) || null;
   function sourceMeta(key) {
@@ -930,7 +905,9 @@
     // JEG-850: the line also says when the DDF blend is customized and when the chart legend has turned a line off.
     const customBlend = page === "values" && C.getCompositeInputs ? !C.getCompositeInputs().isDefault : false;
     const legendHidden = page === "values" ? shownKeys.filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length : 0;
-    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? c.g.one : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
+    // JEG-863: one DDF version on its own is named ("DDF Value", "Trade chart average").
+    const oneDdf = shownKeys.filter(isDdfKey);
+    $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? sourceMeta(oneDdf[0]).label : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
       + (c.g.id === "ddf" && customBlend ? " (custom blend)" : "")).join(" + ") || "nothing selected"}`
       + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
@@ -953,7 +930,7 @@
     const rankBy = $("v2RankBy");
     // The DDF Value versions lead the picker (all three, shown or not), then the other shown series.
     // JEG-477: ESPN, CBS rest of season and Razzball (DDF weighted projections) are always offered, shown or not.
-    const rankKeys = DDF_KEYS.filter(key => view.infoByKey[key])
+    const rankKeys = DDF_PICK_KEYS.filter(key => view.infoByKey[key])
       .concat(view.plotKeys.concat(view.vorpKeys).filter(key => !isDdfKey(key)));
     ["espn", "cbsros", "razzball"].forEach(key => { if (view.infoByKey[key] && !rankKeys.includes(key)) rankKeys.push(key); });
     // The series ranked by now stays pickable even when it went unavailable, so the picker shows it.
@@ -1664,10 +1641,12 @@
   // "Not enough players to fit an adjustment"), then row.ddfReason for the DDF Value (JEG-479), then a
   // generic line. A finite 0 is a value ("0.0"), never missing.
   // JEG-850: when a DDF Value version has no source turned on, say that, not "No source prices this player".
+  // JEG-921: DDF Value is projections-only (JEG-804); with every projection source paused it shows no value, never a chart fallback.
+  const ALL_PROJECTIONS_PAUSED = "All projection sources are paused this week";
   function ddfNoInputsReason(key) {
     const info = C.getCompositeInputs ? C.getCompositeInputs(key) : null;
     if (!info || (info.series || []).length) return "";
-    return (info.inputs || []).length ? "Every source in this DDF Value is paused this week"
+    return (info.inputs || []).length ? (key === "ddf_value_charts" ? "Every trade chart source is paused this week" : ALL_PROJECTIONS_PAUSED)
       : "No sources are turned on for this DDF Value (see Customize, DDF blend)";
   }
   function missingReason(key, row) {
@@ -2347,7 +2326,8 @@
   }
   function pageKeys(page) {
     const saved = pageSaved[page];
-    const keys = Array.isArray(saved) ? saved.filter(key => typeof key === "string") : [];
+    // JEG-863: a saved list may name the hidden duplicate DDF id; it reads as the visible one.
+    const keys = Array.isArray(saved) ? pickableSeries(saved.filter(key => typeof key === "string")) : [];
     return keys.length ? keys : pageDefault(page);
   }
   function savePageKeys(page, keys) {
@@ -2384,9 +2364,9 @@
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
     {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "Our blended value, built from the sources on the DDF blend tab.",
-    ddf_value_charts: "DDF Value built only from trade chart sources.",
-    ddf_value_projections: "DDF Value built only from projection sources."};
+    ddf_value: "Our value: the projection sources on the DDF blend tab, averaged for your league.",
+    ddf_value_charts: "The trade charts, rescaled to your league and averaged. A chart line, not a DDF Value input.",
+    ddf_value_projections: "Our value: the projection sources on the DDF blend tab, averaged for your league."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
     const text = String(reason || "");
@@ -2417,14 +2397,15 @@
       (composite.inputs || []).filter(key => Array.isArray(composite.series) && !composite.series.includes(key))
         .forEach(key => { if (!excluded.has(key)) excluded.set(key, plainOutReason(view.infoByKey[key]?.excludedReason)); });
     }
-    const blendKeys = composite ? (composite.allowed || []) : [];
+    const blendKeys = composite ? (composite.allowed || []).filter(key => seriesGroup(key) === "proj") : [];
     const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
     // The last usable input stays on (a held source does not count).
     const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
     // JEG-930: the charts-only version ignores the blend draft; its sources are the open trade charts.
+    // JEG-863: blend-built versions (blend: true) read usableOn; trade chart average (blend: false, not charts) is null.
     const chartsUsable = () => ((C.getCompositeInputs && C.getCompositeInputs("ddf_value_charts").series) || []).length;
-    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable() : versionKey === DDF_KEY ? usableOn()
-      : usableOn().filter(key => (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj"))).length;
+    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable()
+      : DDF_VERSIONS[versionKey].blend ? usableOn().length : null);
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
       const err = document.createElement("p");
@@ -2486,7 +2467,7 @@
       // DDF blend: intro, the count, the two input lists.
       const blendIntro = document.createElement("p");
       blendIntro.className = "v2-meta v2-cintro";
-      blendIntro.textContent = "Which sources feed into DDF Value. This choice applies on every page.";
+      blendIntro.textContent = "Which projection sources are averaged into DDF Value. Trade charts are chart lines, never DDF Value inputs. This choice applies on every page.";
       const blendSummary = document.createElement("p");
       blendSummary.className = "v2-psummary";
       blendSummary.setAttribute("role", "status");
@@ -2576,7 +2557,8 @@
         const total = blendKeys.length;
         const using = usableOn().length;
         blendSummary.textContent = `Using ${using} of ${total} sources`;
-        [["pub", "Trade charts"], ["proj", "Projections"]].forEach(([groupId, title]) => {
+        // JEG-863: the projection inputs only; a trade chart is never a DDF Value input, whatever the engine lists.
+        [["proj", "Projections"]].forEach(([groupId, title]) => {
           const keys = blendKeys.filter(key => seriesGroup(key) === groupId);
           if (!keys.length) return;
           const section = document.createElement("section");
@@ -2595,7 +2577,8 @@
       function renderLines() {
         groupsBox.replaceChildren();
         DIALOG_GROUPS.forEach(g => {
-          const items = view.info.filter(item => seriesGroup(item.key) === g.id);
+          // JEG-863: the hidden duplicate DDF id has no row (one row per distinct series).
+          const items = view.info.filter(item => seriesGroup(item.key) === g.id && ddfPickKey(item.key) === item.key);
           if (!items.length) return;
           const advanced = g.id === "vorp";
           const section = document.createElement(advanced ? "details" : "section");
@@ -2622,7 +2605,7 @@
           });
           head.appendChild(all);
           section.appendChild(head);
-          const noteText = g.id === "ddf" ? (onValues ? "" : "The sources that build DDF Value are set on Player values.") : g.note;
+          const noteText = g.id === "ddf" ? (onValues ? "" : "The projection sources that build DDF Value are set on Player values.") : g.note;
           if (noteText) {
             const note = document.createElement("p");
             note.className = "v2-meta";
@@ -2729,7 +2712,7 @@
   }
   // Make the shown series equal `keys` (adds before drops, so the engine never has none).
   function applyShown(keys) {
-    const want = new Set(keys);
+    const want = new Set(pickableSeries(keys));   // JEG-863: a saved hidden duplicate id shows as the visible one
     const engineNow = C.getActiveSources();
     const available = new Set(C.getSourceInfo().filter(item => item.available && !isEngineAlias(item.key)).map(item => item.key));
     const adds = [...want].filter(key => !isDdfKey(key) && available.has(key) && !engineNow.includes(key));
@@ -2759,7 +2742,7 @@
     if (hasDdf && saved && Array.isArray(saved.inputs) && saved.inputs.length) C.setCompositeInputs(saved.inputs, false);
     const shown = saved && saved.shown.length ? saved.shown : (hasDdf ? defaultShown() : C.getActiveSources());
     applyShown(shown.filter(key => hasDdf || !isDdfKey(key)));
-    const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);
+    const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? DDF_KEY : null);
     if (rank && rank !== C.getRankSource() && (isDdfKey(rank) || C.getActiveSources().includes(rank))) C.setLockOrder(rank);
     startActive = hasDdf ? defaultShown() : C.getActiveSources().slice();
   }
@@ -3508,7 +3491,7 @@
   function loadTargetsOurs() {
     try {
       const saved = JSON.parse(localStorage.getItem(TARGETS_SAVE_KEY) || "null");
-      return saved && saved.v === 1 && typeof saved.ours === "string" ? saved.ours : null;
+      return saved && saved.v === 1 && typeof saved.ours === "string" ? ddfPickKey(saved.ours) : null;
     } catch (error) { return null; }
   }
   function saveTargetsOurs(ours) {
@@ -3550,12 +3533,15 @@
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
   const INDEXED_INFO = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
-  // JEG-490: our three names, defined once and used wherever they are shown (the "On the chart" row, Risers,
+  // JEG-490: our names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
+  // JEG-863: two names. DDF Value is the projection sources averaged (JEG-804); the trade chart average is the market.
   const NAME_DEFS = [
-    ["DDF Value", "Our estimate of what a player is worth, blended from the sources you have chosen."],
-    ["DDF Projections", "What production supports: the value of the projected stats."],
+    ["DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."],
     ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
+  // The deal read's nets (DEAL_NETS) by the name they define themselves with. After JEG-804 DDF Value = projections,
+  // so "value" and "projections" are the same series; the net itself is trade.js's.
+  const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: NAME_DEFS[0]};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
     indexed: {kind: "indexed", what: "rescaled", title: "Rescaled values", lines: [INDEXED_INFO]},
@@ -3760,6 +3746,7 @@
     const oursSelect = $("v2TOurs");
     oursSelect.replaceChildren();
     targetsView.choices.forEach(choice => {
+      if (ddfPickKey(choice.key) !== choice.key) return;   // JEG-863: the hidden duplicate DDF id
       const option = document.createElement("option");
       option.value = choice.key;
       // JEG-851: disable a chart key when it's the same as the single compared chart.
@@ -4302,11 +4289,6 @@
     renderHeader();
     renderUnpriced("v2TUnpriced", T.search);
     renderTargetControls();
-    // JEG-826: honesty banner when the blend has no independent source.
-    const indep = blendIndependenceCheck(targetsView.ours);
-    const circBanner = $("v2TCircularBanner");
-    circBanner.hidden = !(indep && indep.circular);
-    $("v2TCircularText").textContent = indep && indep.circular ? CIRCULAR_BANNER : "";
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;
     // JEG-851: single-chart mode changes text throughout.
@@ -4364,13 +4346,10 @@
             : `No player ${chartsWord} rank ${window.TradeValueTargets.BUY_RANK_MARGIN.toFixed(1)} points or more below where we rank him, backed by 2 or more charts, for this selection.`));
       $(ids.table).hidden = !list.length;
       // JEG-820 / JEG-833: each list is ranked by the gap it shows times the value at stake (the score on every row).
-      // JEG-826: soften actionable copy when the blend is not independent of the compared charts.
       // JEG-851: single-chart mode uses chart-specific language, not "most charts".
       const actionCopy = sc
         ? (side === "sell" ? `Against one chart: ${scName}. ${scName} pays more than our value.` : `Against one chart: ${scName}. ${scName} ranks them lower than we do.`)
-        : indep && indep.circular
-          ? (side === "sell" ? "The charts' rescaled values sit above ours." : "The charts' rescaled values sit below ours.")
-          : (side === "sell" ? `Offer them: most of ${chartsWord} pay more than our value.` : `Ask for them: ${chartsWord} rank them lower than we do.`);
+        : (side === "sell" ? `Offer them: most of ${chartsWord} pay more than our value.` : `Ask for them: ${chartsWord} rank them lower than we do.`);
       $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
     });
     const notes = [];
@@ -4431,8 +4410,9 @@
       link.classList.add("v2-srclink-open");
       chartLink.appendChild(link);
     }
+    // JEG-863: DDF Value is the projection sources averaged; the trade chart average is the charts, not a DDF input.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
-      ? `${targetsView.ours === DDF_KEY ? "the DDF Value" : `the ${sourceMeta(targetsView.ours).label} version`}, built from the inputs chosen in Customize on Player values`
+      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, the projection sources chosen in Customize on Player values, averaged for your league`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
     // JEG-851: rewrite the footnote lead-in for single-chart mode.
     const footEl = $("v2TFootnote");
@@ -5279,17 +5259,10 @@
         + "Your league's adjustments reverse the direction. Compare the same publisher before comparing across sources.";
     } else if (s.kind === "agree") {
       const all = listSeries(s.upKeys.concat(s.downKeys, s.evenKeys));
-      // JEG-826: soften "every source agrees" when the blend is circular.
-      const storyIndep = blendIndependenceCheck(verdictKey());
-      if (storyIndep && storyIndep.circular) {
-        title.textContent = "All sources point the same way (same inputs).";
-        text.textContent = `The sources shown (${all}) share the same inputs this week, so agreement is expected.`;
-      } else {
-        title.textContent = "Every complete source points the same way.";
-        text.textContent = s.up ? `You receive more value than you give by every complete source: ${all}.`
-          : s.down ? `You give more value than you receive by every complete source: ${all}.`
-            : `The trade is even by every complete source: ${all}.`;
-      }
+      title.textContent = "Every complete source points the same way.";
+      text.textContent = s.up ? `You receive more value than you give by every complete source: ${all}.`
+        : s.down ? `You give more value than you receive by every complete source: ${all}.`
+          : `The trade is even by every complete source: ${all}.`;
     } else if (s.kind === "split") {
       // Name the series on each side (Jeremy, 2026-10-08), then who is likeliest to say yes.
       title.textContent = "The sources split.";
@@ -5310,7 +5283,7 @@
   const DEAL_NETS = [
     ["value", "DDF Value", "Are you getting real value?"],
     ["market", "Trade chart average", "Does the market think you are winning?"],
-    ["projections", "DDF Projections", "Is the value backed by projected production?"]];
+    ["projections", "DDF Value", "Is the value backed by projected production?"]];
   const DEAL_SIDE_WORD = {win: "You win", even: "Even", lose: "You lose"};
   function renderDeal() {
     const box = $("v2CDeal");
@@ -5326,22 +5299,13 @@
       return;
     }
     const TC = window.TradeValueTrade;
-    // JEG-826: when the blend is circular, add an "(same inputs)" note to the deal read.
-    const dealIndep = blendIndependenceCheck("ddf_value");
-    const dealCirc = dealIndep && dealIndep.circular;
-    // JEG-826: when circular, replace actionable deal-read copy with a neutral statement.
-    // The original title/action/text assume DDF Value is independent of the charts; when it is
-    // not, instructions like "Arbitrage: send it" are misleading.
-    const dealTitle = dealCirc && deal.kind === "read"
-      ? circularDealTitle(deal) : (deal.kind === "read"
-        // JEG-841: avoid doubled label when the title already contains the action (e.g. "Arbitrage: send it" + "Send it").
-        ? (deal.title.toLowerCase().includes(deal.action.toLowerCase()) ? deal.title : `${deal.title}: ${deal.action}`)
-        : "");
+    const dealTitle = deal.kind === "read"
+      // JEG-841: avoid doubled label when the title already contains the action (e.g. "Arbitrage: send it" + "Send it").
+      ? (deal.title.toLowerCase().includes(deal.action.toLowerCase()) ? deal.title : `${deal.title}: ${deal.action}`)
+      : "";
     $("v2CDealRead").textContent = dealTitle;
     $("v2CDealRead").hidden = deal.kind !== "read";
-    $("v2CDealText").textContent = dealCirc && deal.kind === "read"
-      ? circularDealText(deal)
-      : deal.text;
+    $("v2CDealText").textContent = deal.text;
     const nets = $("v2CDealNets");
     nets.replaceChildren();
     DEAL_NETS.forEach(([id, name, question]) => {
@@ -5363,7 +5327,7 @@
       const def = document.createElement("span");
       def.className = "v2-deal-def v2-meta";
       def.hidden = true;
-      def.textContent = `${NAME_DEFS.find(([n]) => n === name)[1]} ${question}`;
+      def.textContent = `${(DEAL_NET_DEF[id] || NAME_DEFS.find(([n]) => n === name))[1]} ${question}`;
       info.addEventListener("click", () => { def.hidden = !def.hidden; info.setAttribute("aria-expanded", String(!def.hidden)); });
       const value = document.createElement("b");
       value.className = "v2-deal-net";
@@ -5439,9 +5403,6 @@
           + (isDdfKey(key) ? "Each source's own result is in the table below." : "Pick another series in Player values shown.")};
     }
     const net = fmtGap(v.net);
-    // JEG-826: when the blend is circular, soften "every source agrees" language.
-    const vcIndep = blendIndependenceCheck(key);
-    const vcCirc = vcIndep && vcIndep.circular;
     if (v.kind === "win") {
       let text;
       if (v.againstKeys.length) {
@@ -5450,9 +5411,7 @@
       } else if (!v.others) {
         text = "No other complete source to compare with yet.";
       } else if (v.allAgree) {
-        text = vcCirc
-          ? `All sources point the same way (${listSeries(v.agreeKeys)}), but they share the same inputs this week, so this is expected.`
-          : `Every source agrees you win: ${listSeries(v.agreeKeys)}. They will see it too, so expect pushback.`;
+        text = `Every source agrees you win: ${listSeries(v.agreeKeys)}. They will see it too, so expect pushback.`;
       } else {
         text = `No source thinks you lose. ${v.agreeKeys.length ? `${listSeries(v.agreeKeys)} also ${thinks(v.agreeKeys)} you win; ` : ""}even by ${listSeries(v.evenKeys)}.`;
       }
@@ -5462,8 +5421,7 @@
       const text = v.againstKeys.length
         ? `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you win, but ${name} has you giving more value than you get. Rework the offer before you send it.`
         : !v.others ? "No other complete source to compare with yet."
-          : vcCirc ? `All sources point the same way (${listSeries(v.agreeKeys.concat(v.evenKeys))}), but they share the same inputs this week.`
-            : `Every complete source agrees you lose: ${listSeries(v.agreeKeys.concat(v.evenKeys))}.`;
+          : `Every complete source agrees you lose: ${listSeries(v.agreeKeys.concat(v.evenKeys))}.`;
       return {kind: v.kind, sym: "▼", title: `${name}: you lose by ${net}`, text: text + notCounted};
     }
     const parts = [];
@@ -5480,7 +5438,7 @@
   const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "–", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
   // JEG-895 (Jeremy, 2026-10-22): the level is named for what it measures, never "confidence".
-  // propose: the margins on DDF Value and DDF Projections; accept: the share of charts on the answer's side.
+  // propose: the margins on DDF Value; accept: the share of charts on the answer's side.
   const LEVEL_LABELS = {
     propose: {High: "Our value: strong", Medium: "Our value: moderate", Low: "Our value: weak"},
     accept: {High: "Charts agree: strongly", Medium: "Charts agree: mostly", Low: "Charts agree: weakly"},
@@ -5540,13 +5498,6 @@
 
   function renderVerdict() {
     renderHeadlines();
-    // JEG-826: honesty banner on the compare verdict area.
-    const cIndep = blendIndependenceCheck(verdictKey());
-    const cCirc = $("v2CCircularBanner");
-    cCirc.hidden = !(cIndep && cIndep.circular && compareView.ready && !compareView.example);
-    $("v2CCircularText").textContent = cIndep && cIndep.circular
-      ? "This week, our value is built entirely from the same trade charts shown below. The verdict and deal read reflect the rescaling, not an independent check. Projection sources are updating."
-      : "";
     const copy = verdictCopy();
     const card = $("v2CVerdict");
     card.dataset.verdict = copy.kind;
@@ -5898,11 +5849,6 @@
         list.appendChild(li);
       });
     });
-    // JEG-826: inline note on the DDF Value definition when the blend is circular.
-    const howIndep = blendIndependenceCheck("ddf_value");
-    const howNote = $("v2HowCircular");
-    howNote.hidden = !(howIndep && howIndep.circular);
-    howNote.textContent = howIndep && howIndep.circular ? CIRCULAR_HOW : "";
   }
 
   // ---------- Risers & fallers (frames 05 / 06) ----------
@@ -6060,7 +6006,7 @@
     note.textContent = notes.join(" ");
   }
 
-  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Projections disagree. Always the served
+  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Value disagree. Always the served
   // week pair for those two series (the Movement picker and the week pair above do not apply).
   const DISAGREE_SHOWN = 10;
   function renderDisagreements(M, rows) {
@@ -6106,7 +6052,7 @@
           return span;
         };
         vals.append(part("Trade chart average", item.market.delta, "market"), document.createTextNode(" · "),
-          part("DDF Projections", item.projections.delta, "projections"));
+          part("DDF Value", item.projections.delta, "projections"));
         const read = document.createElement("div");
         read.className = "v2-dread";
         read.dataset.col = "read";
@@ -6314,7 +6260,10 @@
     }
     if (view.state.position !== "ALL") why.push(`the position filter is ${view.state.position}`);
     if (view.rows.length && state.windowPreset !== SHOW_DEFAULT) why.push(`Show is set to ${$("v2Show").selectedOptions[0]?.textContent || state.windowPreset}`);
-    $("v2EmptyText").textContent = why.length ? `With these filters, ${why.join("; ")}.` : "No player is priced for this selection.";
+    const paused = !why.length && view.rankKey && isDdfKey(view.rankKey) ? ddfNoInputsReason(view.rankKey) : "";
+    $("v2EmptyText").textContent = why.length ? `With these filters, ${why.join("; ")}.`
+      : paused ? `${paused}, so ${sourceMeta(view.rankKey).short} shows — for every player. Search for a player to see why.`
+        : "No player is priced for this selection.";
     const active = {search: Boolean(state.search.trim()), range: state.range.min !== null || state.range.max !== null,
       position: view.state.position !== "ALL"};
     document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => { button.hidden = !active[button.dataset.clear]; });
@@ -6836,7 +6785,7 @@
     $("v2State").hidden = true;
     applyRoute();
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
-      compare: () => compareView, tradeState: TR, blendIndependenceCheck,
+      compare: () => compareView, tradeState: TR,
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),

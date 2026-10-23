@@ -3,7 +3,7 @@
 Two answers with a three-step level (High / Medium / Low inside trade.js; the page names it
 "Our value: strong / moderate / weak" and "Charts agree: strongly / mostly / weakly", JEG-895):
 
-    "Should you propose or accept?"  by DDF Value + DDF Projections (JEG-841):
+    "Should you propose or accept?"  by DDF Value (JEG-841):
         Yes  when both say you win and the DDF margin is 5%+ of the value traded;
         No   when both say you lose and the DDF margin is 5%+;
         Unclear otherwise (they split, margin under 5%, or projections unavailable).
@@ -148,7 +148,7 @@ def expected(case, charts=CHARTS) -> dict:
     thin = ddf is not None and ddf_traded is not None and (ddf_traded <= 0 or abs(ddf) < 0.05 * ddf_traded)
     result = {}
 
-    # Line 1: JEG-841 — decided by DDF Value + DDF Projections.
+    # Line 1: JEG-841 — decided by DDF Value.
     if ddf is None:
         result["propose"] = {"answer": None, "confidence": None}
     else:
