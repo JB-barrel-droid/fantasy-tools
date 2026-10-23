@@ -219,6 +219,82 @@
     return groups;
   }
 
+
+  // ---------- JEG-972 / JEG-890 / JEG-891: best lineup and roster impact (display only; ranking never reads it) ----------
+  const FLEX_POS = ["RB", "WR", "TE"];
+  const SUPERFLEX_POS = ["QB", "RB", "WR", "TE"];
+  const SLOTS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  const MARKET_KEY = "chart_avg";
+  // The best starting lineup for the league's slots: QB, RB, WR, TE take the highest valueKey at their position, then
+  // FLEX from what is left of RB/WR/TE, then SUPERFLEX from what is left of QB/RB/WR/TE. Ties by lower player_key. A
+  // player with no value is never a starter (listed in unvalued, not counted as 0); a slot nobody can fill stays
+  // empty (empty[slot] = how many), never filled with waiver value.
+  function pickStarters(rows, shape, valueKey) {
+    const hasValue = r => Boolean(r.values) && finite(r.values[valueKey]);
+    const valued = rows.filter(hasValue).sort(byValueDesc(valueKey));
+    const unvalued = rows.filter(r => !hasValue(r));
+    const taken = new Set();
+    const slots = {};
+    const empty = {};
+    const fill = (slot, allowed) => {
+      const want = (shape && shape[slot]) || 0;
+      const got = [];
+      for (const r of valued) {
+        if (got.length >= want) break;
+        if (!taken.has(r) && allowed.includes(r.pos)) { got.push(r); taken.add(r); }
+      }
+      slots[slot] = got;
+      if (got.length < want) empty[slot] = want - got.length;
+    };
+    ["QB", "RB", "WR", "TE"].forEach(pos => fill(pos, [pos]));
+    fill("FLEX", FLEX_POS);
+    fill("SUPERFLEX", SUPERFLEX_POS);
+    return {starters: SLOTS.flatMap(slot => slots[slot]), bench: valued.filter(r => !taken.has(r)), unvalued, slots, empty};
+  }
+  const countWord = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const sumOf = (rows, key) => rows.reduce((total, r) => total + r.values[key], 0);
+  // One team in one point of view: starter, bench and total value, starters per position, empty slots.
+  function lineupValue(rows, shape, valueKey) {
+    const picked = pickStarters(rows, shape, valueKey);
+    const counts = {QB: 0, RB: 0, WR: 0, TE: 0};
+    picked.starters.forEach(r => { counts[r.pos] += 1; });
+    const starterValue = sumOf(picked.starters, valueKey);
+    const benchValue = sumOf(picked.bench, valueKey);
+    return {...picked, starterValue, benchValue, total: starterValue + benchValue, counts, size: rows.length};
+  }
+  // Rows with the mean of the compared charts as one more series (the Trade chart average, as Compare's market read).
+  // A player any compared chart does not price has no average (never read as 0).
+  function withChartAverage(rows, chartKeys) {
+    return rows.map(r => {
+      const vals = chartKeys.map(k => (r.values ? r.values[k] : undefined));
+      const complete = chartKeys.length > 0 && vals.every(finite);
+      return {...r, values: {...r.values, [MARKET_KEY]: complete ? vals.reduce((a, b) => a + b, 0) / vals.length : null}};
+    });
+  }
+  // A team's roster before and after a trade, in one point of view (valueKey).
+  function rosterImpact(roster, leaving, arriving, shape, valueKey) {
+    const gone = new Set(leaving.map(r => String(r.player_key)));
+    const after = roster.filter(r => !gone.has(String(r.player_key))).concat(arriving);
+    const before = lineupValue(roster, shape, valueKey);
+    const next = lineupValue(after, shape, valueKey);
+    return {before, after: next, starterDelta: next.starterValue - before.starterValue, benchDelta: next.benchValue - before.benchValue,
+      totalDelta: next.total - before.total, spotsOpened: before.size - next.size};
+  }
+  // One compact line: where the starter count by position changes, a slot left empty, a roster spot opened.
+  function needLine(impact) {
+    const parts = [];
+    ["QB", "RB", "WR", "TE"].forEach(pos => {
+      const b = impact.before.counts[pos];
+      const a = impact.after.counts[pos];
+      if (a !== b) parts.push(`${pos}: ${countWord(b, "starter")} → ${a}`);
+    });
+    Object.keys(impact.after.empty).forEach(slot => {
+      if (impact.after.empty[slot] > (impact.before.empty[slot] || 0)) parts.push(`${slot} slot left empty`);
+    });
+    if (impact.spotsOpened > 0) parts.push(`opens ${countWord(impact.spotsOpened, "roster spot")} (fill from waivers)`);
+    return parts.length ? parts.join("; ") : "Starters by position unchanged";
+  }
+
   // ---------- roster sanity (JEG-481, second slice) ----------
   // Slots that need a named position. FLEX and SUPERFLEX are not counted, so the check is conservative toward the
   // positions a lineup cannot do without. A side is "thin" at a position when the trade leaves it with fewer players
@@ -326,7 +402,7 @@
       .filter(Boolean).map(name => ({name, pos: ""}));
   }
 
-  const api = {findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -761,7 +837,8 @@
     note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(groups.length, "group")}; ${groups.length > shown ? `the top ${shown} groups are listed` : "all are listed"}, ranked by the best DDF Value edge in each, with simpler trades first.`
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : ""));
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
-    const ctx = {...res.ctx, maxSize: res.maxSize};
+    const ctx = {...res.ctx, maxSize: res.maxSize, lineup: lineupContext(mineRows, theirRows, charts, shape)};
+    if (ctx.lineup) out.append(teamSummary(ctx.lineup, res.ourKey));
     groups.slice(0, shown).forEach(g => list.append(groupCard(g, ctx)));
     out.append(list);
     if (groups.length > shown) {
@@ -769,6 +846,92 @@
       more.addEventListener("click", () => { groups.slice(shown).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
       out.append(more);
     }
+  }
+
+  // ---------- roster impact on the page (display only) ----------
+  // ctx.lineup: both rosters in two points of view. DDF Value is the fundamental view; the Trade chart average (the
+  // mean of the compared charts, as Compare's market read) is the market view, only with enough charts.
+  function lineupContext(mineRows, theirRows, charts, shape) {
+    if (!shape) return null;
+    const market = charts.length >= MIN_CHARTS ? charts : null;
+    const avg = rows => (market ? withChartAverage(rows, market) : null);
+    const mineAvg = avg(mineRows);
+    const theirAvg = avg(theirRows);
+    const byKey = new Map();
+    (mineAvg || []).concat(theirAvg || []).forEach(r => byKey.set(String(r.player_key), r));
+    return {shape, market, mine: {ddf: mineRows, market: mineAvg}, theirs: {ddf: theirRows, market: theirAvg}, byKey};
+  }
+  const VIEW_LABEL = {ddf: "DDF Value", market: "Trade chart average"};
+  const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : MARKET_KEY);
+  const views = lineup => ["ddf"].concat(lineup.market ? ["market"] : []);
+  // The team's rows leaving and arriving, in one view's rows.
+  function sideRows(lineup, view, who, giveRows, recvRows) {
+    const pickRows = rows => (view === "ddf" ? rows : rows.map(r => lineup.byKey.get(String(r.player_key)) || r));
+    const leaving = pickRows(who === "mine" ? giveRows : recvRows);
+    const arriving = pickRows(who === "mine" ? recvRows : giveRows);
+    return {roster: lineup[who][view], leaving, arriving};
+  }
+  function teamSummary(lineup, ourKey) {
+    const box = el("div", {class: "v2-find-teams-sum", id: "v2FindTeams"});
+    [["mine", "Your team"], ["theirs", "Their team"]].forEach(([who, title]) => {
+      const parts = views(lineup).map(view => {
+        const l = lineupValue(lineup[who][view], lineup.shape, viewKey(view, ourKey));
+        return `${VIEW_LABEL[view]}: starters ${l.starterValue.toFixed(1)}, bench ${l.benchValue.toFixed(1)}, total ${l.total.toFixed(1)}`;
+      });
+      const missing = lineupValue(lineup[who].ddf, lineup.shape, ourKey).unvalued.length;
+      box.append(el("p", {class: "v2-meta"}, el("span", {class: "v2-find-who", text: `${title}, best lineup. `}), `${parts.join("; ")}.${missing ? ` ${plural(missing, "player")} with no DDF Value left out.` : ""}`));
+    });
+    return box;
+  }
+  const signed = n => fmt(n);
+  // Slot rows of one lineup: [{slot, row}] in slot order, empty slots as null.
+  function slotList(l, shape) {
+    const out = [];
+    SLOTS.forEach(slot => {
+      const n = (shape && shape[slot]) || 0;
+      for (let i = 0; i < n; i++) out.push({slot: n > 1 ? `${slot}${i + 1}` : slot, row: l.slots[slot][i] || null});
+    });
+    return out;
+  }
+  function lineupTable(title, imp, shape, key) {
+    const before = slotList(imp.before, shape);
+    const after = slotList(imp.after, shape);
+    const cell = row => (row ? `${row.name} ${row.values[key].toFixed(1)}` : "empty");
+    const val = row => (row ? row.values[key] : 0);
+    const body = before.map((b, i) => el("tr", {}, el("th", {scope: "row", text: b.slot}), el("td", {text: cell(b.row)}), el("td", {text: cell(after[i].row)}),
+      el("td", {text: signed(val(after[i].row) - val(b.row))})));
+    body.push(el("tr", {}, el("th", {scope: "row", text: "Starters"}), el("td", {text: imp.before.starterValue.toFixed(1)}), el("td", {text: imp.after.starterValue.toFixed(1)}), el("td", {text: signed(imp.starterDelta)})));
+    body.push(el("tr", {}, el("th", {scope: "row", text: "Bench"}), el("td", {text: imp.before.benchValue.toFixed(1)}), el("td", {text: imp.after.benchValue.toFixed(1)}), el("td", {text: signed(imp.benchDelta)})));
+    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: title}),
+      el("thead", {}, el("tr", {}, ...["Slot", "Before", "After", "Change"].map(h => el("th", {scope: "col", text: h})))), el("tbody", {}, ...body)));
+  }
+  // The block inside one group card; update() re-reads the current selection.
+  function impactBlock(ctx) {
+    const node = el("div", {class: "v2-find-impact"});
+    const lines = el("div", {class: "v2-find-impact-lines"});
+    const detailsBody = el("div", {class: "v2-find-impact-body"});
+    const details = el("details", {class: "v2-find-impact-details"}, el("summary", {text: "Show lineup details"}), detailsBody);
+    node.append(lines, details);
+    return {node, update: (giveRows, recvRows) => {
+      const lineup = ctx.lineup;
+      const ourKey = ctx.ourKey;
+      lines.replaceChildren();
+      detailsBody.replaceChildren();
+      [["mine", "You"], ["theirs", "They"]].forEach(([who, name]) => {
+        const imps = {};
+        views(lineup).forEach(view => {
+          const side = sideRows(lineup, view, who, giveRows, recvRows);
+          imps[view] = rosterImpact(side.roster, side.leaving, side.arriving, lineup.shape, viewKey(view, ourKey));
+        });
+        const parts = views(lineup).map(view => `${VIEW_LABEL[view]} ${imps[view].before.starterValue.toFixed(1)} → ${imps[view].after.starterValue.toFixed(1)} (${signed(imps[view].starterDelta)})`);
+        const marketNote = lineup.market ? "" : " Trade chart average: not enough charts.";
+        lines.append(el("p", {class: "v2-meta v2-find-impact-line"}, el("span", {class: "v2-find-who", text: `${name}: `}), `best starting lineup ${parts.join("; ")}.${marketNote}`),
+          el("p", {class: "v2-meta v2-find-need"}, `${who === "mine" ? "Your" : "Their"} starters by position: ${needLine(imps.ddf)}.`));
+        views(lineup).forEach(view => detailsBody.append(lineupTable(`${who === "mine" ? "Your" : "Their"} best lineup, ${VIEW_LABEL[view]}`, imps[view], lineup.shape, viewKey(view, ourKey))));
+        const missing = imps.ddf.before.unvalued.length;
+        if (missing) detailsBody.append(el("p", {class: "v2-meta", text: `${plural(missing, "player")} on ${who === "mine" ? "your" : "their"} roster ${missing === 1 ? "has" : "have"} no value and ${missing === 1 ? "is" : "are"} left out of the lineup.`}));
+      });
+    }};
   }
 
   // One group: the player you receive, the best package for him preselected, side players selectable.
@@ -808,7 +971,8 @@
     const giveBox = selectable ? sideSet("You give", group.giveCandidates, giveSel, false) : null;
     const recvBox = group.receiveSide.length ? sideSet("You also receive (core stays)", group.receiveSide, recvSel, false) : null;
     const capNote = el("span", {class: "v2-meta v2-find-cap", hidden: ""});
-    li.append(...[target, tradeLabel, meta, notes, giveBox, recvBox, capNote, open].filter(Boolean));
+    const impact = ctx.lineup ? impactBlock(ctx) : null;
+    li.append(...[target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open].filter(Boolean));
 
     function refresh() {
       const giveRows = group.giveCandidates.filter(r => giveSel.has(keyOf(r))).sort(order);
@@ -844,6 +1008,7 @@
       const throwIns = same && same.throwIns ? [].concat(same.throwIns.give.map(r => `${r.name} (${valueText(r, ourKey)})`), same.throwIns.receive.map(r => `${r.name} (${valueText(r, ourKey)})`)) : [];
       notes.textContent = `${warn.join(" ")}${warn.length && throwIns.length ? " " : ""}${throwIns.length ? `Can add ${throwIns.join(", ")} as a throw-in.` : ""}`;
       notes.classList.toggle("is-warn", warn.length > 0);
+      if (impact) impact.update(giveRows, recvRows);
       open.setAttribute("href", `v2/#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}`);
       li.dataset.findEdge = String(e.edge);
     }

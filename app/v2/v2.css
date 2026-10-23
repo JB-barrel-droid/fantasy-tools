@@ -1655,3 +1655,18 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-pick-row { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; overflow-wrap: anywhere; }
 .v2-find-pick-row input { width: 22px; height: 22px; flex: none; margin: 0 4px 0 0; }
 #v2FindMoreGroups { margin-top: 12px; }
+
+/* JEG-972: roster impact (display only) */
+.v2-find-teams-sum { display: grid; gap: 4px; margin: 8px 0 0; }
+.v2-find-teams-sum p { margin: 0; }
+.v2-find-who { font-weight: 600; color: var(--v2-ink); }
+.v2-find-impact { display: grid; gap: 4px; margin: 6px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--v2-border); }
+.v2-find-impact-lines { display: grid; gap: 2px; }
+.v2-find-impact-lines p { margin: 0; }
+.v2-find-impact-details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
+.v2-find-impact-body { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.v2-find-table-wrap { overflow-x: auto; min-width: 0; }
+.v2-find-lineup { border-collapse: collapse; width: 100%; font-size: 13px; }
+.v2-find-lineup caption { text-align: left; font-weight: 600; padding: 4px 0; }
+.v2-find-lineup th, .v2-find-lineup td { text-align: left; padding: 3px 6px; border-top: 1px solid var(--v2-border); overflow-wrap: anywhere; }
+.v2-find-lineup thead th { font-size: 12px; color: var(--v2-muted); }

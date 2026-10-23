@@ -165,7 +165,7 @@ class FinderGroupsRenderTest(unittest.TestCase):
         broken = {
             "package math stale after a toggle": js.replace("const e = evaluateCombo(giveRows, recvRows, ctx);", "const e = group.__e || (group.__e = evaluateCombo(giveRows, recvRows, ctx));", 1),
             "link not rebuilt": js.replace('open.setAttribute("href", `v2/#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}`);', "", 1),
-            "empty side lists print null": js.replace("li.append(...[target, tradeLabel, meta, notes, giveBox, recvBox, capNote, open].filter(Boolean));", "li.append(target, tradeLabel, meta, notes, giveBox, recvBox, capNote, open);", 1),
+            "empty side lists print null": js.replace("li.append(...[target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open].filter(Boolean));", "li.append(target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open);", 1),
             "cap not enforced": js.replace("b.input.disabled = block || (b.input.checked && last);", "b.input.disabled = false;", 1),
         }
         for name, body in broken.items():
