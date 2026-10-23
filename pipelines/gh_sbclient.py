@@ -10,6 +10,7 @@ Drop this on PYTHONPATH as sbclient.py when running outside Muse.
 """
 
 import atexit
+import gzip
 import json
 import os
 import sys
@@ -21,6 +22,10 @@ import urllib.request
 # Supabase egress hogs can be ranked from real numbers. Counts only; no row
 # data, params or keys are ever stored or logged.
 _BYTES = {}
+# JEG-793: on-wire (possibly gzip-compressed) bytes for the same keys. _BYTES
+# stays the decoded body size so lines are comparable with the earlier audit;
+# the wire size is what the egress bill sees.
+_WIRE = {}
 
 
 def _label(path):
@@ -28,10 +33,23 @@ def _label(path):
     return path.split("/rest/v1/", 1)[-1].split("?", 1)[0]
 
 
-def _count(method, path, nbytes):
-    entry = _BYTES.setdefault((method, _label(path)), [0, 0])
+def _count(method, path, nbytes, wire=None):
+    key = (method, _label(path))
+    entry = _BYTES.setdefault(key, [0, 0])
     entry[0] += 1
     entry[1] += nbytes
+    _WIRE[key] = _WIRE.get(key, 0) + (nbytes if wire is None else wire)
+
+
+def _decode_body(raw, headers):
+    """Transparent gzip decode: returns (decoded_bytes, wire_bytes)."""
+    wire = len(raw)
+    encoding = ""
+    if headers is not None:
+        encoding = (headers.get("Content-Encoding") or "").strip().lower()
+    if raw and encoding == "gzip":
+        raw = gzip.decompress(raw)
+    return raw, wire
 
 
 def bytes_summary_enabled():
@@ -47,6 +65,7 @@ def bytes_summary_lines():
     """One compact line per (method, table), largest first."""
     who = os.environ.get("GITHUB_WORKFLOW") or os.path.basename(sys.argv[0] or "python")
     return [f"[supabase-bytes] {who} {m} {t} requests={n} bytes={b}"
+            f" wire={_WIRE.get((m, t), b)}"
             for (m, t), (n, b) in _ranked()]
 
 
@@ -59,10 +78,12 @@ def _emit_bytes_summary():
     if step:
         who = os.environ.get("GITHUB_WORKFLOW") or "run"
         total = sum(b for _, b in _BYTES.values())
-        md = [f"#### Supabase response bytes ({who}, total {total:,})", "",
-              "| method | table | requests | bytes |", "|---|---|---:|---:|"]
+        wire_total = sum(_WIRE.get(k, v[1]) for k, v in _BYTES.items())
+        md = [f"#### Supabase response bytes ({who}, decoded total {total:,}, "
+              f"on-wire total {wire_total:,})", "",
+              "| method | table | requests | bytes | wire |", "|---|---|---:|---:|---:|"]
         for (m, t), (n, b) in _ranked():
-            md.append(f"| {m} | {t} | {n} | {b:,} |")
+            md.append(f"| {m} | {t} | {n} | {b:,} | {_WIRE.get((m, t), b):,} |")
         try:
             with open(step, "a", encoding="utf-8") as fh:
                 fh.write("\n".join(md) + "\n\n")
@@ -99,6 +120,8 @@ def _request(method, path, body=None, params="", prefer="return=representation",
     req.add_header("apikey", _api_key())
     req.add_header("Authorization", f"Bearer {_api_key()}")
     req.add_header("Content-Type", "application/json")
+    # JEG-793: ask for gzip; decoded transparently below (urllib does not).
+    req.add_header("Accept-Encoding", "gzip")
     if schema:
         # PostgREST schema selector for non-public schemas (e.g. api.*).
         req.add_header("Accept-Profile", schema)
@@ -107,8 +130,8 @@ def _request(method, path, body=None, params="", prefer="return=representation",
         req.add_header("Prefer", prefer)
     try:
         resp = urllib.request.urlopen(req, timeout=60)
-        raw = resp.read()
-        _count(method, path, len(raw))
+        raw, wire = _decode_body(resp.read(), getattr(resp, "headers", None))
+        _count(method, path, len(raw), wire)
         if not raw:
             return []
         try:
@@ -116,8 +139,8 @@ def _request(method, path, body=None, params="", prefer="return=representation",
         except json.JSONDecodeError:
             return raw.decode()[:500]
     except urllib.error.HTTPError as e:
-        err = e.read()
-        _count(method, path, len(err))
+        err, wire = _decode_body(e.read(), getattr(e, "headers", None))
+        _count(method, path, len(err), wire)
         raise SupabaseError(f"{method} {path}: HTTP {e.code} {err.decode()[:400]}")
 
 
