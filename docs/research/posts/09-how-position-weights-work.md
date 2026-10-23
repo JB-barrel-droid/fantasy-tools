@@ -1,4 +1,4 @@
-# How the Trade Value Chart sets position weights
+# How we split value across positions
 
 Research post 9 (JEG-925). Draft for Jeremy's review.
 Copy rules: for trades others will accept; no title abbreviations.
@@ -384,9 +384,9 @@ the change in that source's mix.
 > The weights are recomputed every week from fresh data. No position has a
 > fixed share.
 
-**Suggested placement:** the "How values work" tab in the v2 front end
-(`app/v2/shell.html`, line 12, `data-view="how"`), as a collapsible section
-or as a linked card that opens the full research post on the Research tab.
+**Placement (Jeremy, 2026-10-23):** collapsible section in the "How values work"
+tab (`app/v2/shell.html`, `data-view="how"`). No separate card. UI
+implementation is a follow-up ticket.
 
 ---
 

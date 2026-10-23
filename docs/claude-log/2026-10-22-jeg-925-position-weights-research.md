@@ -9,3 +9,4 @@
 - Updated `docs/research/README.md` with post 7 entry.
 - Verified: eight-group sum = 1.0, budgets = pie x weights, per-source group totals match code output. Not verified: approximate sensitivity percentages (2-3% per 1-point shift), 12-combo sweep not run (no engine code changed).
 - Claimed, not checked: full `make validate` (no code changes, only docs).
+- Jeremy decisions (2026-10-23): title is "How we split value across positions"; dashboard explainer goes as a collapsible section in the "How values work" tab, no separate card. UI implementation is a follow-up ticket under JEG-925.
