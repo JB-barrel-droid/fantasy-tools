@@ -1,0 +1,118 @@
+{
+  "scoring": "ppr",
+  "weeks": [
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "total_pairs": 1655,
+  "sources_available": {
+    "2": [
+      "espn"
+    ],
+    "3": [
+      "espn",
+      "razzball"
+    ],
+    "4": [
+      "espn",
+      "cbsros",
+      "razzball"
+    ],
+    "5": [
+      "espn",
+      "cbsros",
+      "razzball"
+    ],
+    "6": [
+      "espn",
+      "cbsros",
+      "razzball"
+    ]
+  },
+  "summary": {
+    "espn": {
+      "n": 1425,
+      "mae": 4.677,
+      "rmse": 6.399,
+      "bias": -0.902,
+      "mae_ci_lo": 4.455,
+      "mae_ci_hi": 4.913
+    },
+    "cbsros": {
+      "n": 703,
+      "mae": 5.046,
+      "rmse": 6.657,
+      "bias": -0.714,
+      "mae_ci_lo": 4.742,
+      "mae_ci_hi": 5.364
+    },
+    "razzball": {
+      "n": 1171,
+      "mae": 4.501,
+      "rmse": 6.304,
+      "bias": -1.267,
+      "mae_ci_lo": 4.222,
+      "mae_ci_hi": 4.746
+    },
+    "espn_weekly": {
+      "n": 1600,
+      "mae": 4.363,
+      "rmse": 5.96,
+      "bias": -0.159,
+      "mae_ci_lo": 4.171,
+      "mae_ci_hi": 4.557
+    },
+    "equal_mean": {
+      "n": 1122,
+      "mae": 4.609,
+      "rmse": 6.277,
+      "bias": -1.105,
+      "mae_ci_lo": 4.371,
+      "mae_ci_hi": 4.866
+    },
+    "median": {
+      "n": 1122,
+      "mae": 4.613,
+      "rmse": 6.299,
+      "bias": -1.133,
+      "mae_ci_lo": 4.374,
+      "mae_ci_hi": 4.874
+    },
+    "equal_mean_QB": {
+      "n": 128,
+      "mae": 5.664,
+      "rmse": 7.19,
+      "bias": -0.656
+    },
+    "equal_mean_RB": {
+      "n": 294,
+      "mae": 4.624,
+      "rmse": 6.294,
+      "bias": -1.17
+    },
+    "equal_mean_WR": {
+      "n": 445,
+      "mae": 4.57,
+      "rmse": 6.354,
+      "bias": -1.223
+    },
+    "equal_mean_TE": {
+      "n": 255,
+      "mae": 4.129,
+      "rmse": 5.593,
+      "bias": -1.049
+    },
+    "inverse_mae_weighted": {
+      "n": 1122,
+      "mae": 4.612,
+      "rmse": 6.283,
+      "bias": -1.115,
+      "mae_ci_lo": 4.375,
+      "mae_ci_hi": 4.869
+    }
+  },
+  "note": "ROS projections vs single-game actuals. ROS ppg is a proxy for week-ahead projection; this overstates the error for sources whose ROS projection is farther from the weekly projection. 5 weeks of data. Preliminary."
+}
