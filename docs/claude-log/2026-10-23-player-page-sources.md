@@ -43,3 +43,18 @@ Branch `fe/player-page-sources`, files `app/v2/v2.js`, `app/v2/v2.css`, two test
 - Ran test_v2_values_tab_ux_render and test_v2_states_render, one at a time, after merging origin/main (both pass). Other render suites not run.
 - Which legend-hidden series count as "selected" is my reading (hidden on the chart means not listed); Jeremy has
   not ruled on it.
+
+### Addendum: PV-12 contract check (same day)
+- v2-render failed at 27ecbcf: `pv12` in tests/test_v2_contract_render.py required "Our value", "Rescaled chart" and
+  "Value above waivers" as table column headers of the player detail. Those were the publisher-by-method grid's columns,
+  which Jeremy's 2026-10-23 decision replaced with a list (source/week, Kind, Value). The old assertion was wrong for the
+  new layout, not a missing value: the three kinds are now the Kind cell of each row.
+- `pv12` now requires the headers Source / week, Kind, Value; "Show all sources" present and off by default; after turning it on,
+  rows of all three kinds, each with a number. The scenario script clicks the toggle to collect the kinds.
+- Guard proven against two simulated broken builds in `test_guard_fails_on_broken_builds` (toggle on by default; kind column
+  emptied): each yields a real PV-12 finding. Whole guard test passes.
+- Verified: `test_every_live_contract_line` passes, and `test_guard_fails_on_broken_builds` passes (run alone, detached).
+- Not changed: docs/feature-contract.md PV-12 text ("all sources, by method") is a mirror of the Google Doc and says never to
+  edit it. The Doc line needs updating by Jeremy to: the sources you selected with number and kind, plus a "Show all sources"
+  toggle (off by default).
+- Decision, Jeremy 2026-10-23: a source hidden via the chart legend is NOT listed on the player page (option A, as built).
