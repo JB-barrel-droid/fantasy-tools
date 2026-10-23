@@ -291,7 +291,7 @@ class A11yBatch2RenderTest(unittest.TestCase):
                                   'event.key === "Enter") { event.preventDefault(); open(); }')], {"values"}),
             "chart not announced": ([("v2.js", "say.textContent = `${at.name}", "void `${at.name}")], {"values"}),
             "table unnamed": ([("index.html", ' role="grid" aria-labelledby="v2TableTitle"', "")], {"values"}),
-            "no combobox": ([("namesearch.js", 'input.setAttribute("role", "combobox");', "")], {"compare"}),
+            "no combobox": ([("namesearch.js", 'status.id = `${list.id}Count`;', 'status.id = "unused";')], {"compare"}),
             "dots unlabeled": ([("v2.js", 'd.setAttribute("aria-label", d.title);', "")], {"targets"}),
             "pie tables unscoped": ([("audit-pie.js", 'node.setAttribute("scope", "col");', "")], {"pie"}),
             "pie heading jump": ([("audit-pie.js", 'el("h2", "audit-pie-heading", "Total pie by source")',
