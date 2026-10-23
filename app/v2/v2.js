@@ -6493,6 +6493,32 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    // JEG-953: phone hamburger menu. The toggle only shows below the phone breakpoint (CSS); the menu is the same
+    // nav element. It closes on selection, Escape (focus returns to the button) and a tap outside.
+    {
+      const header = document.querySelector(".v2-nav");
+      const toggle = $("v2NavToggle");
+      const setNav = (open, returnFocus) => {
+        header.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "Close menu" : "Menu");
+        if (open) (document.querySelector(".v2-tab.is-active") || document.querySelector(".v2-tab")).focus();
+        else if (returnFocus) toggle.focus();
+      };
+      toggle.addEventListener("click", () => setNav(!header.classList.contains("is-open"), true));
+      $("v2Tabs").addEventListener("click", event => { if (event.target.closest(".v2-tab") && header.classList.contains("is-open")) setNav(false, false); });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && header.classList.contains("is-open")) setNav(false, true);
+      });
+      document.addEventListener("pointerdown", event => {
+        if (header.classList.contains("is-open") && !header.contains(event.target)) setNav(false, false);
+      });
+      window.addEventListener("hashchange", () => { if (header.classList.contains("is-open")) setNav(false, false); });
+      // Leaving the phone layout (rotation, resize) must not leave the state open.
+      window.matchMedia("(min-width: 768px) and (min-height: 501px), (min-width: 933px)").addEventListener("change", event => {
+        if (event.matches && header.classList.contains("is-open")) setNav(false, false);
+      });
+    }
     // Skip link: a button, because a #fragment would change the hash route.
     $("v2Skip").addEventListener("click", () => {
       const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden);
