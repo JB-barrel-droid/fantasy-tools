@@ -596,6 +596,43 @@ test-core:
 	# Test sweep (JEG-976): engine worked-example reproduction and the Razzball outlier hold.
 	python3 -m unittest tests.test_value_pipeline_engine
 	python3 -m unittest tests.test_razzball_outlier_guard
+	python3 -m unittest tests.test_render_sweep_coverage
+
+# Daily render sweep (JEG-976): the green headless render modules that are in neither test-core nor
+# test-unit-modules (about 25 min together). Run by .github/workflows/render-sweep.yml, dispatched daily
+# by pg_cron; never part of validate or a deploy. Keeps going past a failure and exits 1 at the end.
+# tests/test_render_sweep_coverage.py fails when a render module is in no list.
+test-render-sweep:
+	python3 tests/run_suite.py test-render-extra
+
+test-render-extra:
+	python3 -m unittest tests.test_v2_a11y_batch1_render
+	python3 -m unittest tests.test_v2_chart_fit_render
+	python3 -m unittest tests.test_v2_a11y_batch2_render
+	python3 -m unittest tests.test_v2_audit_source_render
+	python3 -m unittest tests.test_v2_chart_height_render
+	python3 -m unittest tests.test_v2_advanced_render
+	python3 -m unittest tests.test_v2_chart_zones_render
+	python3 -m unittest tests.test_v2_customize_legend_render
+	python3 -m unittest tests.test_v2_ddf_versions_render
+	python3 -m unittest tests.test_v2_customize_cleanup_render
+	python3 -m unittest tests.test_v2_customize_pages_render
+	python3 -m unittest tests.test_v2_deal_read_render
+	python3 -m unittest tests.test_v2_finder_import_render
+	python3 -m unittest tests.test_v2_divergence_chip_render
+	python3 -m unittest tests.test_v2_held_chip_render
+	python3 -m unittest tests.test_v2_name_search_render
+	python3 -m unittest tests.test_v2_names_render
+	python3 -m unittest tests.test_v2_modules_render
+	python3 -m unittest tests.test_v2_polish_render
+	python3 -m unittest tests.test_v2_research_render
+	python3 -m unittest tests.test_v2_source_count_render
+	python3 -m unittest tests.test_v2_review_polish_render
+	python3 -m unittest tests.test_v2_plain_copy_render
+	python3 -m unittest tests.test_v2_targets_combos_render
+	python3 -m unittest tests.test_v2_values_tab_ux_render
+	python3 -m unittest tests.test_v2_writing_routes_render
+	python3 -m unittest tests.test_v2_finder_paste_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:

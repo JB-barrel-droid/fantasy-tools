@@ -15,3 +15,8 @@ Contract: list every file under tests/ that no Makefile target and no workflow r
 - `make test-unit` was not run end to end (needs a built dist and the node harnesses); only the added lines were run.
 - Which side is stale in each red ticket is a read of the diff, not a decision. `test_endpoint_parity` cause is undetermined.
 - Not wired for CI budget, green (27 render files, roughly 25 more minutes): listed in the PR table as a follow-up for a dedicated render job. The edge-runner parity test needs the Playwright browser path in `tests/_dist_server.py`, which ignores CHROMIUM_PATH; I linked a browser under /opt locally to run it, nothing in the repo.
+
+### Addendum: render sweep job (Jeremy, 2026-10-23, option b)
+- Verified: `make test-render-extra` lists the 27 green render modules (run_suite parses 27 lines); new `tests/test_render_sweep_coverage.py` passes, and with `test_v2_names_render` deleted from the real Makefile it fails naming that file. Also passing: `test_monitoring_coverage`, `test_gha_schedules_pg_cron`, `test_no_failopen_workflows`, `test_run_suite`.
+- Not verified: the new workflow was not run on GitHub; the 27 modules were not re-run together from the new target.
+- Convention found: schedules are pg_cron dispatching `workflow_dispatch`, so `render-sweep.yml` has no `schedule:`. The pg_cron job `render-sweep-daily` is written in `supabase/render_sweep_pg_cron.sql` and NOT applied (production Supabase change, no database access here); until it is, the sweep only runs when dispatched by hand.
