@@ -41,6 +41,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
+import projection_capture as pc  # noqa: E402 -- JEG-944 append-only forward-projection history
 import canonical_players  # noqa: E402 -- the one name -> player_key rule (JEG-438)
 from nfl_week import current_nfl_week  # noqa: E402
 
@@ -296,6 +297,18 @@ def main() -> None:
         )
     identity_queue.record_misses("razzball", review)
     print("Razzball save complete.")
+    if upsert_rows is not _default_upsert:
+        return  # the writer is stubbed (tests): never open a live client from here
+    try:
+        today = datetime.now(timezone.utc).date()
+        season, source_week = season_for_vintage(today), current_nfl_week(today)
+        rows = pc.razzball_capture_rows(clean, season=season, source_week=source_week,
+                                        capture_at=utc_now(), batch_id=pc.new_batch(),
+                                        vintage=vintage)
+        for line in pc.save_capture_or_flag(_sb(), rows, "razzball", season, source_week, ("ros",)):
+            print(line)
+    except Exception as exc:  # noqa: BLE001 -- never holds back the published-value save
+        print(f"::error title=projection capture razzball::{type(exc).__name__}: {exc}")
 
 
 if __name__ == "__main__":
