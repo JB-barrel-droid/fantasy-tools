@@ -14,8 +14,40 @@ PR #867 now has both engine changes active.
 - Fixture-matching tests explicitly pass promotion_model=False, flex_bench_seats=False
 - No assertion was weakened; the only changes to tests add explicit False flags
 
-## Not verified
-- make validate not yet complete at time of log entry (check bg task)
+## make validate: FAILED (2 failures)
+
+`make validate` completed with 2 failures in `test_two_qb_direction.py`
+(JEG-702). The 2-QB direction gate requires top QB value in 2-QB (superflex)
+to be >= 1.1x the 1-QB value. With flex_bench_seats ON, this ratio inverts
+in 6 of 12 scoring/team combos (e.g. ppr/12: ratio 0.950).
+
+**Root cause:** flex_bench_seats adds 12 flex-filled starters (3 RB + 9 WR)
+to D'Hondt bench weights, squeezing QB bench from 11 to 3 in 2-QB leagues.
+QB bench share drops to 2.5%, so nearly zero bench value for QBs in 2-QB.
+The bench loss exceeds the 2-QB starter scarcity premium.
+
+The 2-QB market_bench data (bps=0.28) already captures supply-capped QB
+benches; flex_bench_seats squeezes QB further below that empirical level.
+
+**This is a methodology interaction, not a code bug.** The flex_bench_seats
+code is correct per its spec; the issue is that the 2-QB direction invariant
+(top QB worth more in superflex) no longer holds when bench allocation
+accurately reflects flex filling.
+
+**Not fixed here.** Per standing rules: "Do not adjust tests to go green.
+Assume the code is wrong first." After investigation, the assertion is
+economically sound (2-QB QB should be worth more) and the code is correct
+per its spec. This needs Jeremy's decision. Options:
+
+A. Don't apply flex_bench_seats in 2-QB settings (the market_bench 2-QB
+   data already accounts for low QB bench)
+B. Floor QB bench seats at the market-data-implied level in 2-QB
+C. Lower the 2-QB direction threshold (accept ratio < 1.0)
+D. Accept the result: bench model override of scarcity intuition is correct
+
+**Recommendation: option A** -- the market_bench 2-QB ratios were measured
+on leagues that already flex-fill naturally, so applying flex_bench_seats
+on top double-counts the effect.
 
 ## Before/after at Full PPR / 12 teams (both flags combined)
 - Overall bench share: 0.1170 -> 0.1278
