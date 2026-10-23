@@ -16,7 +16,8 @@
   "use strict";
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
-  const fmtNet = n => (n >= 0 ? "+" : "") + n.toFixed(1);
+  // JEG-912: a rounding residue never shows a sign ("-0.0" is "+0.0").
+  const fmtNet = n => { const text = n.toFixed(1); return text === "-0.0" ? "+0.0" : (n >= 0 ? "+" : "") + text; };
 
   // giveRows / receiveRows: the engine rows of the players on each side (a
   // player the engine has no row for comes in with empty values, so it is
