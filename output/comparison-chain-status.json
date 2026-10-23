@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-23T18:01:49.475494+00:00",
+  "run_at": "2026-10-23T19:18:35.792369+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,10 +15,8 @@
   ],
   "success": false,
   "outcome": "failed",
-  "held": [
-    "cbsros"
-  ],
-  "hold_severity": "amber",
+  "held": [],
+  "hold_severity": "none",
   "list_changes": {
     "fantasycalc": [
       "fantasycalc-full-12-qb1-section full_12_qb1/RB list 60 -> 62: dropped none; added dylan sampson, kimani vidal",
@@ -29,21 +27,7 @@
       "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 76: dropped dezhaun stribling; added quentin johnston"
     ]
   },
-  "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Justin Joly, Kaleb Johnson, Kene Nwangwu); parse notes: RB: 3 players listed with another position",
-      "hold_severity": "amber",
-      "week": 7
-    }
-  },
+  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -84,7 +68,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7056 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7092 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -109,7 +93,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-23 -> 12 DDF legs -> section; review passed (7776 values)",
+      "detail": "snapshot 2026-10-23 -> 12 DDF legs -> section; review passed (7788 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -138,7 +122,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-22",
+      "content_vintage": "2026-10-23",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
@@ -162,9 +146,6 @@
       "lagging_one_week": false
     }
   },
-  "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored"
-  },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
@@ -173,12 +154,12 @@
       "FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference"
     ],
     "assertions": [
-      "AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.78 is not >= 1.1 x 1-QB 28.04 (ratio 1.097)'] != []"
+      "AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.79 is not >= 1.1 x 1-QB 28.06 (ratio 1.097)'] != []"
     ],
     "make_targets": [
-      "Makefile:543: test-core"
+      "Makefile:544: test-core"
     ],
-    "detail": "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine; FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference; AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.78 is not >= 1.1 x 1-QB 28.04 (ratio 1.097)'] != []",
-    "recorded_at": "2026-10-23T18:25:44.376476+00:00"
+    "detail": "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine; FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference; AssertionError: Lists differ: ['ppr/10: 2-QB top QB 30.79 is not >= 1.1 x 1-QB 28.06 (ratio 1.097)'] != []",
+    "recorded_at": "2026-10-23T19:42:59.411839+00:00"
   }
 }
