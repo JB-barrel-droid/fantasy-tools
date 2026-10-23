@@ -1205,7 +1205,7 @@ Jeremy: "Make it so finding a trade is a separate tab from discovering a trade."
   (scoring, teams and roster shape shape the engine rows the search reads). Rosters typed in are kept for the session as before.
 - Phone nav: the final nav is 7 tabs (the Writing tab replaces Manifesto, How values work and Research), so no label changes are needed.
 - Tests: `test_v2_finder_render` (own tab, not inside Compare, result link opens Compare filled), `test_v2_nav_render` (order),
-  `test_v2_phone_nav_overflow_render` (7 tabs), hash sweeps, `live.mjs` `V2_TABS`.
+  `test_v2_hamburger_nav_render` (7 tabs; JEG-953 replaced test_v2_phone_nav_overflow_render), hash sweeps, `live.mjs` `V2_TABS`.
 - JEG-854 (same page): Swap teams exchanges the two rosters; each row has a tick box and Move (to the other team); "Move N selected to the
   other team" moves ticked rows; Undo restores the rosters before the last swap or move. Shown results are recomputed after each change.
   Test: `tests/test_v2_finder_arrange_render.py` (3 mutants caught).
