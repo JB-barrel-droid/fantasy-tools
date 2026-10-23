@@ -743,8 +743,10 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
         shown = s["cards"] if width < 768 else s["rows"]
         if not expanded and shown != want:
             errors.append(f"{side}: {shown} shown on load, expected the top {want} (JEG-461)")
-        if not expanded and s["count"] > 5 and s["more"] != f"Show all {s['count']} {side} targets ▾":
-            errors.append(f"{side}: show-all control reads {s['more']!r}, expected 'Show all {s['count']} {side} targets ▾'")
+        # JEG-910: "Show all N" only when the first page (25) reveals all N; otherwise the control counts.
+        want_more = f"Show all {s['count']} {side} targets ▾" if s["count"] <= 25 else f"Show more (5 of {s['count']}) ▾"
+        if not expanded and s["count"] > 5 and s["more"] != want_more:
+            errors.append(f"{side}: show-all control reads {s['more']!r}, expected {want_more!r}")
         if not expanded and s["less"]:
             errors.append(f"{side}: 'Show top 5' is offered while the list is already collapsed")
         if width < 768:

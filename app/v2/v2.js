@@ -474,7 +474,8 @@
     });
     return info;
   }
-  const fmt = v => Number.isFinite(v) ? v.toFixed(1) : "—";
+  // JEG-912: a rounding residue never shows a sign ("-0.0" is "0.0").
+  const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text; };
 
   // JEG-502 (Jeremy, 2026-10-09): every active NFL player is searchable. A player no source
   // prices (engine universe_only) appears only in search results, never in a table or chart,
@@ -3556,6 +3557,7 @@
       });
     }
     targetsView = {...result, ours: ourKey, choices, used, skipped, prior: prior || [], info, infoByKey, refWeek, blocked,
+      searchMiss: Boolean(needle) && !searched.length,   // JEG-911: the search matched no name at all
       position: C.getState().position, tierScope: {rows, pos: C.getState().position, engineOrder: true},
       omittedReasons: [...omittedReasons].sort((a, b) => b[1] - a[1])};
   }
@@ -4110,9 +4112,25 @@
     };
     more.hidden = list.length <= shown;
     less.hidden = T.shown[side] <= TARGETS_TOP || list.length <= TARGETS_TOP;
-    if (T.shown[side] <= TARGETS_TOP) label(`Show all ${list.length} ${side} targets`);
+    // JEG-910: "Show all N" only when the first page (TARGETS_PAGE) does reveal all N; otherwise the label counts.
+    if (T.shown[side] <= TARGETS_TOP) label(list.length <= TARGETS_PAGE ? `Show all ${list.length} ${side} targets` : `Show more (${shown} of ${list.length})`);
     else label(`Show more (${shown} of ${list.length})`);
     more.setAttribute("aria-controls", `${ids.table} ${ids.cards}`);
+  }
+
+  // JEG-911: a search that matches no name says so (with Clear search), never a list's own "no player…" copy.
+  function renderNoMatch(empty, query, inputId) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "v2-link";
+    clear.textContent = "Clear search";
+    clear.addEventListener("click", () => {
+      const input = $(inputId);
+      input.value = "";
+      input.dispatchEvent(new Event("input", {bubbles: true}));
+      input.focus();
+    });
+    empty.replaceChildren(document.createTextNode(`No player matches “${query.trim()}”. `), clear);
   }
 
   // JEG-888: "N trade charts" from the compared set, singular when one.
@@ -4176,7 +4194,8 @@
       }
       const empty = $(ids.empty);
       empty.hidden = !(blocked || noCharts || !list.length);
-      empty.textContent = blocked || (noCharts
+      if (!blocked && !noCharts && targetsView.searchMiss) renderNoMatch(empty, T.search, "v2TSearch");
+      else empty.textContent = blocked || (noCharts
         ? "No trade chart is available to compare for this selection."
         : sc
           ? (side === "sell" ? `No player ${scName} values above our value for this selection.`
@@ -5840,6 +5859,7 @@
     const needle = R.search.trim();
     const rows = needle ? window.TradeValueNameSearch.filter(source, needle) : source;
     risersView = M.buildMovers(rows, R.series, prior);
+    risersView.searchMiss = Boolean(needle) && !rows.length;   // JEG-911: the search matched no name at all
     const label = priorLabel(R.series);
     const v = risersView;
     const group = seriesGroup(R.series);
@@ -5938,7 +5958,8 @@
       });
       const empty = $(emptyId);
       empty.hidden = list.length > 0;
-      empty.textContent = d.available ? "No player moved this way this week." : "—";
+      if (d.available && !rows.length && R.search.trim()) renderNoMatch(empty, R.search, "v2RSearch");
+      else empty.textContent = d.available ? "No player moved this way this week." : "—";
       if (list.length > DISAGREE_SHOWN) {
         const more = document.createElement("li");
         more.className = "v2-meta v2-dmore";
@@ -6000,7 +6021,8 @@
     });
     const empty = $(ids.empty);
     empty.hidden = v.available && list.length > 0;
-    empty.textContent = !v.available ? "No Δ for this source: see the note above."
+    if (v.available && v.searchMiss) renderNoMatch(empty, R.search, "v2RSearch");
+    else empty.textContent = !v.available ? "No Δ for this source: see the note above."
       : `No player ${side === "rise" ? "rose" : "fell"} in ${priorLabel(R.series)} for this selection.`;
     const more = $(ids.more);
     more.hidden = list.length <= R.shown[side];
@@ -6029,11 +6051,16 @@
   const LEGACY_ROUTES = {"#manifesto": "#writing/manifesto", "#how-values": "#writing/how-values", "#research": "#writing/research"};
   const canonicalBase = base => LEGACY_ROUTES[base] || (base.startsWith("#research/") ? "#writing/" + base.slice(1) : base);
   const hashBase = () => canonicalBase(location.hash.split("?")[0]);
+  // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
+  // (replaceState, so Back still works); its query goes with it. An empty hash is the landing page, not unknown.
+  const DEFAULT_ROUTE = "#trade-targets";
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
-    const next = canonicalBase(base);
+    const legacy = canonicalBase(base);
+    const unknown = base !== "" && viewFor(legacy) === null;
+    const next = unknown ? DEFAULT_ROUTE : legacy;
     if (next === base) return;
-    try { history.replaceState(history.state, "", location.pathname + location.search + next + (query.length ? "?" + query.join("?") : "")); }
+    try { history.replaceState(history.state, "", location.pathname + location.search + next + (query.length && !unknown ? "?" + query.join("?") : "")); }
     catch (error) { /* the route still works through hashBase() */ }
   }
   // The Writing section on show: "manifesto" (also #writing alone and any unknown section), "how-values" or "research".
@@ -6042,13 +6069,15 @@
     const base = hashBase();
     return base === "#writing/how-values" ? "how-values" : (base === "#writing/research" || base.startsWith("#writing/research/")) ? "research" : "manifesto";
   };
-  const currentView = () => (hashBase() === "#trade-targets" ? "targets"
-    : hashBase() === "#risers-fallers" ? "risers"
-    : hashBase() === "#compare-trade" ? "compare"
-    : hashBase() === "#find-trade" ? "find"
-    : (hashBase() === "#writing" || hashBase().startsWith("#writing/")) ? "writing"
-    : (hashBase() === "#values-auditing" || hashBase().startsWith("#values-auditing/")) ? "audit"
-    : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
+  // The route table: the view a (canonical) hash base names, or null when no route claims it (JEG-913).
+  const viewFor = base => (base === "#trade-targets" ? "targets"
+    : base === "#risers-fallers" ? "risers"
+    : base === "#compare-trade" ? "compare"
+    : base === "#find-trade" ? "find"
+    : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
+    : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
+    : base === "#player-values" ? "values" : null);
+  const currentView = () => viewFor(hashBase()) || "targets";   // landing: Trade targets (Jeremy, 2026-10-08)
 
   function applyRoute() {
     const v = currentView();

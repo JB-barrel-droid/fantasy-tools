@@ -48,14 +48,20 @@
     return Math.abs((value - med) / Math.abs(med)) > FLAG_THRESHOLD;
   }
 
+  // JEG-912: a rounding residue never shows a sign ("-0.00" is "0.00").
+  function noNegZero(text) {
+    return /^-0(\.0+)?$/.test(text) ? text.slice(1) : text;
+  }
+
   function fmt(v, decimals) {
     if (v == null || !Number.isFinite(v)) return "—";
-    return v.toFixed(decimals == null ? 1 : decimals);
+    return noNegZero(v.toFixed(decimals == null ? 1 : decimals));
   }
 
   function fmtPct(v) {
     if (v == null || !Number.isFinite(v)) return "—";
-    return (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+    var text = noNegZero((v * 100).toFixed(1));
+    return (text.startsWith("-") ? "" : "+") + text + "%";
   }
 
   function fmtSpreadPct(v) {
@@ -703,6 +709,8 @@
     computeFlags: computeFlags,
     computeVerdicts: computeVerdicts,
     render: render,
+    _fmt: fmt,
+    _fmtPct: fmtPct,
     _FLAG_THRESHOLD: FLAG_THRESHOLD,
     _POSITIONS: POSITIONS
   };
