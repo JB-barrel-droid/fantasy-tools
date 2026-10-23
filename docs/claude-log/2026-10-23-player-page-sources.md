@@ -11,9 +11,7 @@ Branch `fe/player-page-sources`, files `app/v2/v2.js`, `app/v2/v2.css`, two test
   publisher-by-method grid would have left blank cells wherever a source was not selected.
 - Listed by default: sources selected through Customize / Show (`view.active`, minus legend-hidden series, the same
   rule the table columns use), DDF Value versions included. Every listed row has a number.
-- A source with no number for this player gets no row. A selected source that is unavailable for the league or waiting
-  on inputs gets a row that says so in one phrase ("Not available for this league", "Waiting on fresh inputs").
-  If nothing selected has a number, one sentence says so and points at the toggle.
+- A source with no number for this player gets no row, including a selected source that is unavailable for the league (Jeremy: every row always has a number). If nothing selected has a number, one sentence says so and points at the toggle.
 - "Add ↗" / "Add (older) ↗" links and `.v2-dadd` CSS removed.
 - "Show all sources" checkbox (off by default) lists every source that has a number for the player. It is held in a
   variable for the page load only; nothing is written to localStorage or sessionStorage (the test checks both).
@@ -40,6 +38,8 @@ Branch `fe/player-page-sources`, files `app/v2/v2.js`, `app/v2/v2.css`, two test
   fails), nothing is listed without a number.
 
 ### Claimed, not confirmed
-- Dark-theme look of the new rows and toggle was not screenshotted.
+- Screenshots checked at 1366x768 and 390 (default list and toggle on, 390). Dark theme and 1366 with toggle on not looked at.
+- Symbols at the left end of the chart and search on graph and toolbar were already shipped in #841; not re-verified here beyond the unchanged tests passing.
+- Ran test_v2_values_tab_ux_render and test_v2_states_render, one at a time, after merging origin/main (both pass). Other render suites not run.
 - Which legend-hidden series count as "selected" is my reading (hidden on the chart means not listed); Jeremy has
   not ruled on it.
