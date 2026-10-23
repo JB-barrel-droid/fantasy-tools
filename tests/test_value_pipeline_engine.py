@@ -123,7 +123,7 @@ class WorkedExampleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.doc = json.loads(FIXTURE.read_text())
-        cls.actual = run_engine(promotion_model=False)
+        cls.actual = run_engine(promotion_model=False, flex_bench_seats=False)
 
     def test_every_expected_value(self):
         problems = diff(expected_main(self.doc), self.actual, "expected")
@@ -131,7 +131,8 @@ class WorkedExampleTest(unittest.TestCase):
 
     def test_bench_share_variant(self):
         bs = self.doc["variant_bench_share_0_10"]["setting_change"]["bench_share"]
-        problems = variant_diff(self.doc, run_engine(bench_share=bs, promotion_model=False))
+        problems = variant_diff(self.doc, run_engine(bench_share=bs, promotion_model=False,
+                                                      flex_bench_seats=False))
         self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_check_covers_the_fixture(self):
@@ -174,7 +175,7 @@ class GuardDiscriminationTest(unittest.TestCase):
     def assert_fails(self, replacements):
         model = _mutated(replacements)
         try:
-            actual = run_engine(model, promotion_model=False)
+            actual = run_engine(model, promotion_model=False, flex_bench_seats=False)
         except AssertionError:
             return  # the broken engine crashed: also a failure
         finally:
@@ -215,7 +216,8 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     def test_variants_reproduced(self):
         for name in esx.VARIANTS:
             with self.subTest(variant=name):
-                problems = esx.variant_problems(self.doc, name, run_engine(variant=name, promotion_model=False))
+                problems = esx.variant_problems(self.doc, name, run_engine(variant=name, promotion_model=False,
+                                                                                     flex_bench_seats=False))
                 self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_variant_is_walked(self):
@@ -230,7 +232,8 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     def assert_variant_fails(self, replacements):
         model = _mutated(replacements)
         try:
-            actual = run_engine(model, variant="variant_expected_starts", promotion_model=False)
+            actual = run_engine(model, variant="variant_expected_starts", promotion_model=False,
+                               flex_bench_seats=False)
         except AssertionError:
             return
         finally:
@@ -378,15 +381,16 @@ class TestFlexBenchSeats(unittest.TestCase):
         self.assertTrue(len(diffs) > 0,
                         "flex_bench_seats should change at least one position's bench count")
 
-    def test_flex_bench_seats_off_matches_default(self):
-        """With flag off, results match the default (flex_bench_seats is off by default)."""
+    def test_flex_bench_seats_on_matches_default(self):
+        """With flag on, results match the default (flex_bench_seats is on by default,
+        2026-10-23 Jeremy approved)."""
         default = run_engine(variant="variant_expected_starts", promotion_model=False)
-        off_alloc = self.off.get("allocation", {})
+        on_alloc = self.on.get("allocation", {})
         def_alloc = default.get("allocation", {})
         for pos in ("QB", "RB", "WR", "TE"):
-            self.assertEqual(off_alloc.get(pos, {}).get("bench"),
+            self.assertEqual(on_alloc.get(pos, {}).get("bench"),
                              def_alloc.get(pos, {}).get("bench"),
-                             f"{pos} bench should match default when flag is off")
+                             f"{pos} bench should match default when flag is on")
 
     def test_flex_bench_seats_spec_parity(self):
         """Spec reference and JS engine agree on bench allocation with flex_bench_seats."""

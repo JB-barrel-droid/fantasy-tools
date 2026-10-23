@@ -1770,29 +1770,23 @@ the trade-target views; not covered.
 
 ## MR-28 Bench seat allocation: should bench weights count flex starters? (JEG-969, 2026-10-23)
 
-**Carried.** Found during the bench share diagnosis (JEG-969 lane A).
+**Decided: on by default** (Jeremy, 2026-10-23). Bench-seat D'Hondt weights
+now count superflex+flex starters alongside dedicated starters, matching
+`allocate_league` in the ES model. Set `flex_bench_seats=false` to disable.
 
 The page's bench seat allocation (`value_reference.py bench_seats`, `value-model.js
-vpBenchSeats`) computes bench weight as `dedicated_slots * backups_per_starter`
-and does NOT include flex starters. The ES model's `alloc()` via
-`allocate_league` includes flex starters in the weight.
+vpBenchSeats`) previously computed bench weight as `dedicated_slots *
+backups_per_starter` and did NOT include flex starters. With the fix, the weight
+includes flex starters, and at ppr/12 QB drops from 15 bench seats to 4.
 
-At ppr/12 the difference is large: QB gets 15 bench seats (no flex) vs 4 (with
-flex). This inflates the page's QB bench share readout to 23.5% vs ~7% in the
-ES model, and is the root cause of the discrepancy between the page and post 1.
+**Measured impact (12-combo sweep + superflex):**
+- QB bench share: ~25.6% -> ~9.5% (ppr/12)
+- Top QB movers lose 4-5 DDF Value points; top WR movers gain 3-4 points
+- fixedPieIndexed invariant: PASS all 13 settings
+- Overall bench share readout delta: -0.023 to +0.019 depending on setting
 
-**Question:** should bench weights include flex starters? The argument for: a
-position that wins more flex spots (RB/WR) also needs more backups. The argument
-against: flex is dynamic (changes with the players available) while bench seats
-are structural.
-
-**Measured:** without flex_filled, D'Hondt on weights {QB 0.88, RB 1.66,
-WR 2.06, TE 0.40} gives bench {QB 15, RB 28, WR 35, TE 6}. With flex_filled
-{RB 3, WR 9}, weights {QB 0.88, RB 4.15, WR 11.33, TE 0.40} gives bench
-{QB 4, RB 21, WR 57, TE 2}.
-
-**Depends on:** JEG-969 (bench share and promotion model); the bench share
-readout definition (one number, not two).
+Implementation: commit `720f9652` (flag off), commit TBD (flag on). All three
+engines (Python reference, JS browser, spec reference) plus 3 parity tests.
 
 ## MR-32 Promotion/demotion model in expected starts (JEG-969, 2026-10-23)
 

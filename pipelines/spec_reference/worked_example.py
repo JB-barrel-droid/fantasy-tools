@@ -35,12 +35,14 @@ def fixture_inputs(fx: dict) -> dict:
     return {"pos_of": pos_of, "names": names, "sources": sources, "included": included}
 
 
-def run_fixture(fx: dict, setting_change: dict | None = None) -> dict:
+def run_fixture(fx: dict, setting_change: dict | None = None,
+                promotion_model: bool = False, flex_bench_seats: bool = False) -> dict:
     inp = fixture_inputs(fx)
     s = copy.deepcopy(fx["setting"])
     s.update(setting_change or {})
     setting = vp.Setting.from_fixture(s)
-    res = vp.run_week(setting, inp["pos_of"], inp["sources"], inp["included"], names=inp["names"])
+    res = vp.run_week(setting, inp["pos_of"], inp["sources"], inp["included"], names=inp["names"],
+                      promotion_model=promotion_model, flex_bench_seats=flex_bench_seats)
     # expected.flex_contrast: the league flex by projected points against the
     # superseded per-source rule (each source's flex by its own natives, the
     # rule VP-2.2 f still uses in a degenerate week).

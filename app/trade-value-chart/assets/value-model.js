@@ -258,9 +258,10 @@
     var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
       return alloc[pos].dedicated + alloc[pos].superflex;
     }, teams * flexSlots);
-    // MR-28 (JEG-969): when flex_bench_seats is on, recompute bench weights
-    // counting superflex+flex starters, matching allocate_league in the ES model.
-    if (setting.flex_bench_seats) {
+    // MR-28 (JEG-969): flex_bench_seats on by default (2026-10-23, Jeremy approved).
+    // Recompute bench weights counting superflex+flex starters, matching
+    // allocate_league in the ES model.  Off only when explicitly false.
+    if (setting.flex_bench_seats !== false) {
       var ff = {};
       POSITION_ORDER.forEach(function (pos) { ff[pos] = (sf[pos] || 0) + (fx[pos] || 0); });
       bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
@@ -472,7 +473,7 @@
     var flexElig = setting.flex_eligible || VP_FLEX_ELIGIBLE;
     var benchOpts = {superflex: (Number(setting.superflex) || 0) > 0};
     // MR-28: approximate flex_filled for bench weights when flex_bench_seats on
-    if (setting.flex_bench_seats) {
+    if (setting.flex_bench_seats !== false) {
       // shared keys across all charts (same as the shared computation below)
       var sharedKeys = {};
       chartKeys.forEach(function (src) {

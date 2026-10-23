@@ -159,10 +159,11 @@ def dhondt_bench(setting, *, flex_filled: dict | None = None) -> dict:
 
 
 def allocate(setting: Setting, order: dict, scores: dict, *,
-             flex_bench_seats: bool = False) -> dict:
+             flex_bench_seats: bool = True) -> dict:
     """League allocation (VP-2.2 a-e) on a per-position order with scores.
 
-    flex_bench_seats (MR-28): when True, bench weights count sf+flex starters."""
+    flex_bench_seats (MR-28): on by default (2026-10-23, Jeremy approved).
+    Bench weights count sf+flex starters."""
     T = setting.teams
     ded = {p: T * int(setting.slots.get(p, 0)) for p in POSITIONS}
 
@@ -318,7 +319,7 @@ def resolve_lineup(cfg: dict, objective: str | None = None, injury_history: str 
 
 
 def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
-                   *, flex_bench_seats: bool = False) -> dict:
+                   *, flex_bench_seats: bool = True) -> dict:
     """ES-15.3 (SA-ES-3): sigma for the chart family, per position."""
     shared = None
     for c in charts:
@@ -687,7 +688,7 @@ def ddf_version(values: dict, members: list) -> dict:
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
              lineup: dict | None = None, hidden: list | None = None,
-             promotion_model: bool = True, flex_bench_seats: bool = False) -> dict:
+             promotion_model: bool = True, flex_bench_seats: bool = True) -> dict:
     """VP-2 .. VP-7 for one week.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
@@ -912,7 +913,7 @@ def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, inclu
         selection: list | None = None, names: dict | None = None,
         prior_pos_of: dict | None = None, lineup: dict | None = None,
         hidden: list | None = None, promotion_model: bool = True,
-        flex_bench_seats: bool = False) -> dict:
+        flex_bench_seats: bool = True) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
     cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden,

@@ -226,13 +226,14 @@ def bench_seats(league: League, *, flex_filled: dict | None = None) -> dict:
 
 
 def allocate(league: League, order: dict, score: dict, *,
-             flex_bench_seats: bool = False) -> dict:
+             flex_bench_seats: bool = True) -> dict:
     """VP-2.2 a-e on per-position orders (best first) and a score per
     player (mean points per game, or a source's own natives in the
     degenerate week, or blended DDF Value for VP-7.2's degenerate slot fill).
 
     flex_bench_seats (MR-28, JEG-969): when True, bench-seat weights count
-    superflex+flex starters the way allocate_league does in the ES model."""
+    superflex+flex starters the way allocate_league does in the ES model.
+    On by default (2026-10-23, Jeremy approved)."""
     t = int(league.teams)
     d = {p: t * int(league.slots.get(p, 0)) for p in POSITIONS}
 
@@ -390,7 +391,7 @@ def _at_least(n: int, q: float, k: int) -> float:
 
 
 def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict,
-                *, flex_bench_seats: bool = False) -> dict:
+                *, flex_bench_seats: bool = True) -> dict:
     """ES-15.3: the chart family's relative spread per position, on the
     included charts' listed natives put on one common scale."""
     import statistics
@@ -812,7 +813,7 @@ def mean_ppg(sources: dict, included: list) -> dict:
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                  selection: list | None = None, lineup: dict | None = None,
                  hidden: set | None = None, promotion_model: bool = True,
-                 flex_bench_seats: bool = False) -> dict:
+                 flex_bench_seats: bool = True) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
 
     sources: {key: SourceInput} in source-key order, every source shown (held
@@ -1396,7 +1397,7 @@ class Setting:
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
-                 promotion_model: bool = True, flex_bench_seats: bool = False):
+                 promotion_model: bool = True, flex_bench_seats: bool = True):
         """lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
@@ -1406,9 +1407,9 @@ class Setting:
         promotion_model: JEG-969, on by default (2026-10-23, Jeremy approved).
         Adjusts expected starts for promotion/demotion dynamics (persistent
         role changes scaled by weeks remaining).
-        flex_bench_seats: MR-28/JEG-969, off by default. When True, bench-seat
-        weights include flex starters (matching allocate_league in the ES
-        model). Switches QB from ~15 bench seats to ~4."""
+        flex_bench_seats: MR-28/JEG-969, on by default (2026-10-23, Jeremy
+        approved). Bench-seat weights include flex starters (matching
+        allocate_league in the ES model). QB drops from ~15 bench seats to ~4."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.promotion_model = promotion_model
         self.flex_bench_seats = flex_bench_seats
@@ -1619,7 +1620,7 @@ class Setting:
 
 def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None,
             divergence_exclusions: set | None = None, promotion_model: bool = True,
-            flex_bench_seats: bool = False) -> dict:
+            flex_bench_seats: bool = True) -> dict:
     """One setting in the shape value_check compares: rows per tab, the
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
