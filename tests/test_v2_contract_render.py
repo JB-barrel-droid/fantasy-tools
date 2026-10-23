@@ -344,7 +344,8 @@ COMMON = r"""
   const fire = (el, v) => { el.value = String(v); el.dispatchEvent(new Event('input', {bubbles: true}));
     el.dispatchEvent(new Event('change', {bubbles: true})); };
   const C = window.TradeValueCurveControls, V = window.TradeValueV2;
-  const own = n => [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim();
+  // JEG-947: a name cell holds its text in a .v2-nm span (phones show "Last, First"); the contract reads the full "First Last" name, and an empty visible name still reads as empty.
+  const own = n => { const nm = n && n.querySelector && n.querySelector(':scope > .v2-nm'); return nm ? (nm.textContent.trim() ? (nm.dataset.full || nm.textContent.trim()) : '') : [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim(); };
   const rect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; };
   const shown = n => Boolean(n) && !n.hidden && n.getClientRects().length > 0;
   const closePop = async () => { const b = document.querySelector('#v2Popover:not([hidden]) .v2-panel-close')
@@ -2237,6 +2238,15 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "RS-01", "Writing sections out of order")
         caught(results, "CT-01", "Swap removed")
         caught(results, "GL-01", '"Vegas" in the header')
+
+        # JEG-947: a name cell with no visible name, with and without data-full (the helper PV-03 reads through must not hide it).
+        for fault, old, new_text in (
+            ("name cells with no text and no data-full", "    span.dataset.full = row.name;\n    span.dataset.pos = row.pos || \"\";\n    span.title = row.name;\n    span.textContent = phoneName(row.name, row.pos);\n",
+             "    span.dataset.pos = row.pos || \"\";\n"),
+            ("name cells with data-full but an empty visible name", "    span.textContent = phoneName(row.name, row.pos);\n", "    span.textContent = \"\";\n"),
+        ):
+            results, _ = run_contract(["PV-03"], {"v2.js": cut(js, old, new_text)})
+            caught(results, "PV-03", fault)
 
         # Group 2 (v2.js + v2.css): Reset keeps Rank by, prior-week status without a symbol,
         # the DDF line at the others' weight, the ◐ tag removed.
