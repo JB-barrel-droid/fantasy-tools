@@ -1603,3 +1603,34 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (min-width: 1280px) and (max-height: 800px) {
   .v2-chart-head .v2-legend-item::after { height: 30px; }
 }
+
+/* ===== JEG-953 hamburger navigation (phones) =====================================================================
+   Phone = under 768 px wide, or a landscape phone (up to 932 px wide and 500 px tall, e.g. 844x390). There the tab
+   row collapses into a menu opened by a 44x44 button. Desktop and tablet keep the tab row. Keep this block last: it
+   overrides the older short-label and wrap rules above with higher specificity. */
+.v2-nav-toggle { display: none; }
+@media (max-width: 767px), (max-width: 932px) and (max-height: 500px) {
+  .v2-nav .v2-nav-inner { flex-wrap: wrap; gap: 0 12px; padding-top: 8px; padding-bottom: 8px; }
+  .v2-nav .v2-brand { order: 0; }
+  .v2-nav .v2-freshness { order: 1; margin-left: auto; flex: 1 1 0; }
+  .v2-nav .v2-nav-toggle { order: 2; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 1px solid rgba(255,255,255,.3); border-radius: var(--v2-radius-btn); background: none; color: #fff; cursor: pointer; }
+  .v2-nav.is-open .v2-nav-toggle { background: rgba(255,255,255,.12); }
+  .v2-nav-toggle:focus-visible, .v2-nav .v2-tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .v2-nav .v2-tabs { order: 3; flex: 1 0 100%; display: none; flex-direction: column; flex-wrap: nowrap; overflow: visible; gap: 2px; padding: 4px 0 8px; border-top: 1px solid rgba(255,255,255,.18); }
+  .v2-nav.is-open .v2-tabs { display: flex; }
+  .v2-nav .v2-tabs .v2-tab { flex: 0 0 auto; justify-content: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; font-size: 16px; }
+  .v2-nav .v2-tabs .v2-tab::before { content: none; }
+  .v2-nav .v2-tabs .v2-tab .v2-tab-full { display: inline; }
+  .v2-nav .v2-tabs .v2-tab.is-active::after { content: "\2713"; margin-left: auto; padding-left: 12px; }
+}
+@media (max-width: 419px) {
+  /* The wordmark and button fill the first row; the freshness line takes its own row instead of a sliver. */
+  .v2-nav .v2-nav-toggle { order: 1; margin-left: auto; }
+  .v2-nav .v2-freshness { order: 2; flex: 1 0 100%; justify-content: flex-start; text-align: left; margin-left: 0; min-height: 36px; }
+}
+@media (max-height: 500px) and (min-width: 600px) {
+  /* Landscape phone: two columns keep the seven items inside a 390 px tall screen. */
+  .v2-nav.is-open .v2-tabs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+}
+@media (max-width: 767px) { .v2-nav.is-open .v2-tabs { max-height: calc(100vh - 72px); overflow-y: auto; } }
+/* ===== end JEG-953 ================================================================================================ */
