@@ -544,6 +544,47 @@
     badge.append(sym, document.createTextNode(` ${copy.label}`));
     return badge;
   }
+  // JEG-947 (Jeremy 2026-10-23): on phones and touch screens the pinned name column reads "Last, First" and clips with an
+  // ellipsis; the full "First Last" is the title (desktop hover, long press) and a tap on a clipped name shows it in a small
+  // popover. Desktop keeps "First Last" untouched. The text swaps with the media query, so resizing stays correct.
+  const PHONE_NAMES = window.matchMedia("(max-width: 767px), (pointer: coarse)");
+  const phoneName = (name, pos) => (PHONE_NAMES.matches && window.DDFNameFormat ? window.DDFNameFormat.lastFirst(name, pos) : name);
+  function nameSpan(row) {
+    const span = document.createElement("span");
+    span.className = "v2-nm";
+    span.dataset.full = row.name;
+    span.dataset.pos = row.pos || "";
+    span.title = row.name;
+    span.textContent = phoneName(row.name, row.pos);
+    return span;
+  }
+  PHONE_NAMES.addEventListener("change", () => {
+    document.querySelectorAll(".v2-nm").forEach(span => { span.textContent = phoneName(span.dataset.full, span.dataset.pos); });
+  });
+  (() => {
+    let pop = null;
+    const hide = () => { if (pop) { pop.remove(); pop = null; } };
+    // Capture phase: a tap on a clipped name only reveals it (the rest of the row still opens the drawer, as before).
+    document.addEventListener("click", event => {
+      const span = event.target.closest && event.target.closest(".v2-nm");
+      const wasShown = pop && pop.dataset.for === (span && span.dataset.full);
+      hide();
+      if (!span || !PHONE_NAMES.matches || span.scrollWidth <= span.clientWidth + 1 || wasShown) return;
+      event.stopPropagation();
+      pop = document.createElement("div");
+      pop.className = "v2-nm-pop";
+      pop.setAttribute("role", "status");
+      pop.dataset.for = span.dataset.full;
+      pop.textContent = span.dataset.full;
+      (document.querySelector(".v2-app") || document.body).appendChild(pop);   // body.v2 hides every other direct child
+      const box = span.getBoundingClientRect();
+      pop.style.left = `${Math.max(8, Math.min(box.left, innerWidth - pop.offsetWidth - 8))}px`;
+      pop.style.top = `${box.bottom + 4}px`;
+      setTimeout(hide, 3500);
+    }, true);
+    window.addEventListener("scroll", hide, {passive: true, capture: true});
+  })();
+
   function appendEspnZero(parent, row) {
     const badge = espnZeroBadge(row);
     if (badge) parent.appendChild(badge);
@@ -1782,6 +1823,8 @@
           }
           if (col.cls === "col-meta") td.dataset.col = col.id;
           if (col.id === "name") {
+            td.textContent = "";
+            td.appendChild(nameSpan(row));
             appendEspnZero(td, row);
             // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
             const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
@@ -4126,7 +4169,8 @@
         tr.appendChild(cell);
         return cell;
       };
-      const name = td("player", p.row.name);
+      const name = td("player");
+      name.appendChild(nameSpan(p.row));
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
