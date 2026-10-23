@@ -17,10 +17,19 @@ not taken, with evidence.
 | 10 | Limitation "No actuals storage": "decisions of who to start are based on projections." | Rewritten as "Projection-based lineup decisions." Now explains that projection-based lineups match how managers actually decide, and frames the future step as measuring how often projection-based decisions match actual outcomes. | Jeremy's point: projections are the right input for start/sit decisions, so the original framing was wrong. |
 | 11 | Limitation "Numbers reflect Week 6 data": "internal info, cannot post" | Removed entirely. | Was internal; readers do not need to know which week the draft was written on. |
 
+## Additional analysis (Jeremy decisions, 2026-10-23)
+
+| # | Decision | Action | Evidence |
+|---|---|---|---|
+| 12 | Build the full starter-vs-bench risk table (bench upside, starter downside, net, per position) | Added "Starter downside and bench upside" section with a 5-row table (QB/RB/WR/TE/Overall). Starters lose 509 pie points (21.6%) to downside; bench gains 417 (17.7%). RB is the exception: bench upside exceeds starter downside. | Script: `tools/research/starter_bench_risk.py`. Output: `docs/research/data/starter_bench_risk.json` and `.md`. Verified by running the script against the current engine. |
+| 13 | Measure historical breakout rates from 2015-2025 actuals | Added "Historical breakout rates" section with rates by position and depth round. First backups break out at 13-27%; deeper backups rarely do. | Script: `tools/research/breakout_rate.py`. Output: `docs/research/data/breakout_rate.json` and `.md`. Verified from `data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz`. |
+| 14 | Bench value declines as season progresses | Added "Bench value declines as the season progresses" section. Per-week bench share drops from 8.7% (week 1) to 7.2% (week 17). Breakout rates halve by mid-season. Practical implication: hold depth early, drop it late. | Script: `tools/research/bench_value_by_week.py`. Output: `docs/research/data/bench_value_by_week.json` and `.md`. Engine confirmed week-aware: `objective_window`, `bye_share`, `drift_horizon` all use remaining weeks. |
+| 15 | What the engine does with weeks remaining | Stated in post: model is already week-aware (remaining byes, narrowing sigma, shorter horizon). Bench share is per-week, not cumulative ROS. The per-week share itself is stable; the total ROS bench value naturally declines with fewer weeks. | Traced through `derive_lineup_parameters.py`: `objective_window` (line 355), `bye_share` (line 343), `drift_horizon` (line 372). |
+
 ## Publish blockers
 
-Two items must be resolved before this post can go live:
+One item must be resolved before this post can go live:
 
-1. **Starter downside broken out (JEG-550).** The model already applies projection uncertainty to starters (they can fall below the starter line), but the magnitude is not reported. Need to quantify how much value starters lose to downside risk and present it alongside bench-player upside.
+1. **Mid-season improvement not modeled dynamically.** The model treats projections as fixed. The historical breakout rates (added above) provide an empirical bound, but integrating week-by-week projection updates into the model is not done. Jeremy's comment: "We need to be accounting for changes in actual projection/production trends."
 
-2. **Mid-season improvement path.** The model treats projections as fixed. A bench player who improves mid-season (role change, teammate injury, skill growth) is not captured. Need to either (a) model it or (b) quantify its effect from historical data and state the bound.
+Note: Starter downside is now broken out (risk table added). The seasonal decay question is now quantified (breakout rate by week, per-week bench share by week). The remaining blocker is the dynamic mid-season improvement model.

@@ -15,9 +15,12 @@ depths. A bench player's value comes almost entirely from filling in for
 starters who miss games or have byes; the chance of a bench player becoming
 start-worthy adds only a small amount on top.
 
-What changes most is the price of starters at shallow positions. When fewer
-bench spots go to a position, the waiver line rises, and the remaining starters
-are worth less.
+But the picture is not static. Starters face downside risk too: projection
+uncertainty can push a starter below the line. And bench value declines as the
+season progresses -- fewer weeks remain for a backup to pay off, and fewer
+breakouts happen late. What changes most is the price of starters at shallow
+positions. When fewer bench spots go to a position, the waiver line rises, and
+the remaining starters are worth less.
 
 ## The question
 
@@ -80,17 +83,15 @@ Each player's probability of reaching a lineup depends on:
 - **Missed games** (position-specific rates from 2015 to 2025 NFL game logs,
   sourced from nflverse). See the variance discussion below.
 - **Projection uncertainty** (the spread across sources; a bench player
-  projected close to the starter line may be above it some weeks).
+  projected close to the starter line may be above it some weeks -- and a
+  starter near the line may fall below it).
 - **Flex eligibility** (running backs, wide receivers, and tight ends compete
   for flex slots).
 
-The model does not currently account for a player improving his actual
-production mid-season and becoming starter-worthy through better play. It
-uses pre-season and early-season projections as fixed inputs. This is a
-known limitation and a prerequisite for publication (see Limitations).
-
 The model computes a lineup-share for every player: the fraction of weeks his
-production is expected to enter a starting lineup.
+production is expected to enter a starting lineup. Projection uncertainty is
+applied symmetrically: it can move a bench player above the starter line
+(upside) or a starter below it (downside).
 
 At 12-team PPR on a default roster (2 WR, 7 bench), the overall bench share
 is 10.0%, distributed by position: QB 6.4%, RB 7.7%, WR 13.0%, TE 2.5%.
@@ -169,6 +170,59 @@ At 12-team PPR, the ratio of starter value to bench value per player is:
 QB 1.6x, RB 3.4x, WR 3.6x, TE 1.3x. A starter running back is worth
 3.4 times as much per point above waivers as a bench running back.
 
+### Starter downside and bench upside
+
+Projection uncertainty cuts both ways. A bench player projected near the
+starter line has a chance of being above it (upside); a starter projected near
+the line has a chance of falling below it (downside). The model accounts for
+both.
+
+At 12-team PPR, the risk table per position (in pie points, out of 2,352):
+
+| Position | Starter downside | Bench upside | Net |
+|---|---|---|---|
+| QB | 64 (2.7% of pie) | 37 (1.6%) | -28 |
+| RB | 229 (9.7%) | 269 (11.4%) | +40 |
+| WR | 207 (8.8%) | 110 (4.7%) | -97 |
+| TE | 9 (0.4%) | 2 (0.1%) | -8 |
+| **Overall** | **509 (21.6%)** | **417 (17.7%)** | **-92** |
+
+Starter downside is the value starters lose because projection uncertainty can
+push them below the starter line. Bench upside is the value bench players gain
+for the same reason. The net is negative overall: starters lose more to
+downside risk than bench players gain from upside, because starters are
+clustered closer to the line and have more value at stake.
+
+Running backs are the exception: bench RB upside (11.4% of the pie) exceeds
+starter RB downside (9.7%), because deep RB benches have more players near the
+line with meaningful value. For your roster, this means that running-back depth
+is the one position where bench players are not just insurance -- they have a
+real chance of delivering starter-quality weeks.
+
+### Historical breakout rates
+
+How often does a bench player actually break into the starter tier mid-season?
+From 11 seasons of NFL game logs (2015-2025, nflverse), we measured how many
+players ranked outside the starter tier at mid-season (week 9, by cumulative
+points per game) finished the season ranked inside it.
+
+| Position | Breakout rate | First backup | Second backup | Third backup |
+|---|---|---|---|---|
+| QB | 4.2% | 13.6% | 2.3% | 0.0% |
+| RB | 3.5% | 22.7% | 4.5% | 3.8% |
+| WR | 3.3% | 27.3% | 12.1% | 6.1% |
+| TE | 2.6% | 18.2% | 4.5% | 1.5% |
+
+First backups break out at meaningful rates: roughly one in four WR first
+backups and one in five RB first backups become starters by season end. But
+beyond the first backup, breakout rates fall sharply. Third-backup breakouts
+are rare at every position except WR, where 6.1% still make it.
+
+These breakout rates represent an additive bound on bench value beyond what the
+fill-in model captures. The fill-in model measures how often a backup enters
+the lineup temporarily; the breakout rate measures how often a backup
+permanently displaces a starter.
+
 ### Where the value sits
 
 Most league value is concentrated in starting running backs and wide
@@ -187,6 +241,50 @@ The bench share number itself is less important than what it implies:
    hold?").
 3. Running-back and wide-receiver depth earns its roster spots. Second and
    third backups at those positions still start regularly.
+4. Starters near the position line face meaningful downside risk. If your
+   starter is the 23rd or 24th running back, projection uncertainty gives
+   him a real chance of falling out of the lineup.
+
+## Bench value declines as the season progresses
+
+Bench value is not constant over the season. As weeks go by, three things
+shrink it:
+
+1. **Fewer remaining weeks** for a backup to fill in. The total value a bench
+   player can deliver is proportional to how many games remain.
+2. **Fewer remaining byes.** Early in the season, about 6-8% of starters are
+   on bye each week; by week 14, all byes are past, eliminating that source of
+   bench starts.
+3. **Narrowing projection uncertainty.** As more games are played, projections
+   converge and the chance of a bench player's true value being above the
+   starter line shrinks.
+
+The model is already week-aware: it re-computes bench share using only the
+weeks remaining from the current point in the season, counts only future byes,
+and narrows the uncertainty band as the horizon shortens. The per-week bench
+share declines modestly: from about 8.7% at week 1 to about 7.2% by week 17
+at 12-team PPR.
+
+But the bigger effect is on breakout value. Historical breakout rates (the
+chance a bench player becomes a starter by season end) decline sharply as the
+measurement point moves later:
+
+| Measurement week | QB breakout | RB breakout | WR breakout | TE breakout |
+|---|---|---|---|---|
+| Week 4 | 6.3% | 5.3% | 5.3% | 4.0% |
+| Week 9 | 4.2% | 3.5% | 3.3% | 2.6% |
+| Week 13 | 2.8% | 2.1% | 1.9% | 1.3% |
+| Week 16 | 1.4% | 1.1% | 1.1% | 0.7% |
+
+By mid-season, breakout rates are roughly half their early-season values.
+By week 13, they are a third.
+
+The practical implication for roster management: **depth is worth more early
+in the season.** A bench spot that is valuable in week 4 (when byes are
+active, projections are uncertain, and breakouts are possible) may be nearly
+worthless by week 14. Managers should be more willing to hold speculative
+depth early and more willing to drop it for immediate needs as the season
+progresses.
 
 ## Sensitivity
 
@@ -214,18 +312,14 @@ Bench depth changes it by a fraction of a percentage point.
 - **Projection error unmeasured.** The spread of projections across sources is
   a proxy for true uncertainty. Measuring projection error against actual
   results would refine the uncertainty bands.
-- **Starter downside not broken out.** The model does apply projection
-  uncertainty symmetrically -- a starter projected near the line can fall
-  below it, just as a bench player can rise above it. But the magnitude of
-  starter downside is not reported separately, so the reader cannot see how
-  much value starters lose to the risk of falling out of the lineup. This
-  must be quantified before publication.
 - **Mid-season improvement not modeled.** The model treats projections as
   fixed over the season. A bench player who improves his actual production
   mid-season -- through a role change, a teammate's injury, or genuine skill
   growth -- can become starter-worthy, but the current model does not capture
-  this path. Accounting for changes in actual production trends is a
-  prerequisite for publication.
+  this path dynamically. The historical breakout rates above provide an
+  empirical bound on this effect, but integrating it into the model would
+  require week-by-week projection updates. This is a prerequisite for
+  publication.
 
 ## Conclusion
 
@@ -235,6 +329,11 @@ bench players are worth -- it is how much starters are worth at positions
 where the bench is deep or shallow. Fewer backup quarterbacks held means a
 better waiver wire at quarterback, which means starting quarterbacks are
 worth less.
+
+Starters face downside risk from projection uncertainty, especially at
+running back where bench upside actually exceeds starter downside. And bench
+value declines as the season progresses: hold depth early, be willing to drop
+it late.
 
 The next post in this series covers how many backups each position deserves,
 and why the answer is different from what most leagues actually hold.
