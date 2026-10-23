@@ -15,4 +15,4 @@ Contract: bring six docs back in line with `origin/main` 161461b4 after the 2026
 - JEG-877: Jeremy's acceptance of 1080 px (2026-10-23) is taken from the ticket brief; the Linear ticket still reads In Review and its comment was not read. The test comment block in `tests/test_v2_targets_render.py` still says the 1060 value was awaiting Jeremy; left alone (test file).
 - Owner and Verified cells for the new index rows: only the mobile plan (JEG-927, 2026-10-23) is set; the others are `unknown` or `-` rather than guessed.
 - Two bench-share research pages (`bench-share-bounds.md`, `bench-share-decomposition.md`) are still unindexed on purpose (lane A rewrites them).
-- Log policy (CLAUDE.md says no session log is required; the log README and `docs/README.md` say entries go in `docs/claude-log/`) is not changed here. It is Jeremy's call; posted on JEG-975.
+- Log policy: Jeremy decided "1 - A" on 2026-10-23; CLAUDE.md, the log README and `docs/README.md` now require an entry from every session that changes anything. Wording change only; no test pinned the old sentence (grep of tests/ found none).
