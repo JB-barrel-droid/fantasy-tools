@@ -119,7 +119,9 @@ CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypr
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
 H1 = "Where the trade market is wrong this week"
-SUBTITLE = ("We check four publishers' trade charts against our values for your league, two ways: "
+# JEG-888 (#828): the intro counts the charts the view compares, never a hard-coded "four publishers". The pinned
+# fixture (tests/_holds.py) has CBS held, so three charts are compared. test_v2_plain_copy_render proves the count follows data.
+SUBTITLE = ("We check 3 trade charts against our values for your league, two ways: "
             "potential mispricing, player by player, and potential positional weight inflation, position by position. "
             "Sell what they overpay for; buy what they undervalue.")
 INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for your league. "

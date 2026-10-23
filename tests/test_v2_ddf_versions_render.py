@@ -4,8 +4,8 @@ Run against the built dist/ in headless Chromium. Checks:
 
   * defaults: Customize lists "DDF Value", "DDF Value: charts only" and
     "DDF Value: projections only" (JEG-850 names); only the blended one is ticked and shown;
-  * the DDF blend tab lists the inputs once (JEG-850: the per-version copies are gone), the trade
-    charts under "Trade charts" and the projections under "Projections";
+  * the DDF blend tab lists the inputs once (JEG-850: the per-version copies are gone): the
+    projections under "Projections" and, since JEG-804, no trade charts;
   * ticking the other two and pressing Done shows them, and every table cell
     equals the engine row's values[<version key>] to one decimal;
   * the grouped picker (Rank by, Risers & fallers, Compare's Player values
@@ -83,16 +83,15 @@ def check_defaults(page, tag) -> list[str]:
             errors.append(tag + f"Customize ticks {row['key']}={row['on']} by default")
         if not row["name"].endswith(NAMES[row["key"]]):
             errors.append(tag + f"Customize names {row['key']} {row['name']!r}, want {NAMES[row['key']]!r}")
-    # The blend tab lists every input once: charts under "Trade charts", projections under "Projections".
+    # The blend tab lists every input once. JEG-804 (#814, Jeremy 2026-10-22 "Out of DDF Value"): the blend is projections
+    # only, so the tab has the "Projections" group and no "Trade charts" group (charts stay in "Chart lines").
     page.click('#v2Popover [data-tab="blend"]')
     sets = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#v2Popover [data-blend-group]')].map(g =>
       [g.dataset.blendGroup, [...g.querySelectorAll('input[data-ddf-input]')].map(i => i.dataset.ddfInput)]))""")
-    if not sets.get("pub") or not sets.get("proj"):
-        errors.append(tag + f"the blend tab lists no inputs under Trade charts or Projections: {sets}")
-    if not set(sets.get("pub", [])) <= FAMILY["ddf_value_charts"]:
-        errors.append(tag + f"Trade charts lists {sets.get('pub')}")
-    if not set(sets.get("proj", [])) <= FAMILY["ddf_value_projections"]:
-        errors.append(tag + f"Projections lists {sets.get('proj')}")
+    if set(sets.get("proj", [])) != FAMILY["ddf_value_projections"]:
+        errors.append(tag + f"the blend tab lists {sets.get('proj')} under Projections, want {sorted(FAMILY['ddf_value_projections'])}: {sets}")
+    if sets.get("pub"):
+        errors.append(tag + f"trade charts are back in the DDF blend tab: {sets.get('pub')}")
     if page.evaluate("() => document.querySelectorAll('#v2Popover [data-ddf-version-input], #v2Popover fieldset[data-ddf-version]').length"):
         errors.append(tag + "the per-version copies of the inputs are back")
     page.click('#v2Popover [data-apply="sources"]')

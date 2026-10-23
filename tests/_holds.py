@@ -59,8 +59,11 @@ PINNED_OPEN = ("usatoday", "fantasypros", "fantasycalc", "espn", "cbsros", "razz
 PINNED_HELD = ("cbs",)
 
 
-def with_pinned_holds(comparison: dict) -> dict:
-    """A copy of the fixture with PINNED_OPEN sources unheld and PINNED_HELD held; sections are kept."""
+def with_pinned_holds(comparison: dict, extra_held: tuple = ()) -> dict:
+    """A copy of the fixture with PINNED_OPEN sources unheld and PINNED_HELD held; sections are kept.
+
+    extra_held: more roots to hold in this copy only. DDF Value is projections-only since JEG-804, so the pinned CBS
+    hold never reaches the blend; a test that needs a held blend input holds one projection here (e.g. "razzball")."""
     out = copy.deepcopy(comparison)
     sources = out.get("sources") or {}
     for root in PINNED_OPEN:
@@ -69,7 +72,7 @@ def with_pinned_holds(comparison: dict) -> dict:
             if isinstance(section, dict):
                 for field in HOLD_FIELDS:
                     section.pop(field, None)
-    for root in PINNED_HELD:
+    for root in (*PINNED_HELD, *extra_held):
         section = sources.get(root)
         if isinstance(section, dict):
             section["validationHold"] = {"reason": "chain hold: review hold", "root": root,
@@ -77,10 +80,10 @@ def with_pinned_holds(comparison: dict) -> dict:
     return out
 
 
-def pin_holds_in_dist(dist) -> None:
-    """Rewrite a test's own copy of dist/assets/comparison-sources-data.json with the pinned holds."""
+def pin_holds_in_dist(dist, extra_held: tuple = ()) -> None:
+    """Rewrite a test's own copy of dist/assets/comparison-sources-data.json with the pinned holds (+ extra_held)."""
     import json
     from pathlib import Path
     path = Path(dist) / "assets" / "comparison-sources-data.json"
-    path.write_text(json.dumps(with_pinned_holds(json.loads(path.read_text(encoding="utf-8"))),
+    path.write_text(json.dumps(with_pinned_holds(json.loads(path.read_text(encoding="utf-8")), extra_held),
                                separators=(",", ":")), encoding="utf-8")

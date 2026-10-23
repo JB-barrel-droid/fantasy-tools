@@ -177,7 +177,7 @@ def run_checks(posts=None, remove_route=False, remove_redirect=False) -> list[st
     errors = []
     js = V2_JS.read_text(encoding="utf-8")
     if remove_route:
-        route = '(hashBase() === "#writing" || hashBase().startsWith("#writing/")) ? "writing"'
+        route = '(base === "#writing" || base.startsWith("#writing/")) ? "writing"'
         assert route in js
         js = js.replace(route, 'false ? "writing"', 1)
     if remove_redirect:

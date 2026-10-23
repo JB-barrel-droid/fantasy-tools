@@ -9,7 +9,7 @@ JEG-569: weights and pie stay stable) but blends only `series`; v2 counted the
 pool.
 
 Builds dist/v2 into a temp copy of the built dist/ with the pinned holds
-(tests/_holds.py: CBS held), loads it headless and checks against the engine:
+(tests/_holds.py: CBS held, plus Razzball held here, JEG-804), loads it headless and checks against the engine:
 
   * Customize (Player values), DDF blend tab (JEG-850): "Using N of M sources" where
     N = ticked inputs the engine blends (getCompositeInputs().series) and M = the
@@ -51,6 +51,9 @@ def setUpModule():
 
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
+# JEG-804 (#814): DDF Value is projections-only, so the pinned CBS hold (a trade chart) no longer reaches the blend.
+# Razzball is held in this test's copy so the pool (3 projections) still differs from the blend (2), the JEG-807 premise.
+HELD_INPUT = ("razzball",)
 
 
 def _serve(body, content_type, route, *_):
@@ -64,7 +67,7 @@ def _built_dist():
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
-        pin_holds_in_dist(dist)
+        pin_holds_in_dist(dist, extra_held=HELD_INPUT)
         build_v2_page.build(dist)
 
         class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -123,7 +126,7 @@ def run_checks(v2_js=None) -> list[str]:
             page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=30000)
             engine = page.evaluate(ENGINE)
             hidden = [k for k in engine["inputs"] if k not in engine["series"]]
-            # Premise: the pinned CBS hold keeps a hidden source in the pool, so pool and blend differ.
+            # Premise: the Razzball hold keeps a hidden source in the pool, so pool and blend differ.
             if not hidden:
                 errors.append(f"premise: no held source in the engine pool (inputs {engine['inputs']}, series {engine['series']})")
 

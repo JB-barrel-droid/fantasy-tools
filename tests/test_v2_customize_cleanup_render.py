@@ -56,7 +56,9 @@ def _served():
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
         # Held-proof fixture (tests/_holds.py): one held DDF input, so "a held input does not count" is exercised.
-        pin_holds_in_dist(dist)
+        # JEG-804 (#814): DDF Value is projections-only, so the pinned CBS (a trade chart) hold is not a DDF input;
+        # Razzball is held here as the held DDF input.
+        pin_holds_in_dist(dist, extra_held=("razzball",))
         build_v2_page.build(dist)
 
         class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -183,7 +185,7 @@ def check_d4_strip_and_reset(page):
     strip = lambda: page.text_content("#v2ShowingText")  # noqa: E731
     _customize(page)
     _tab(page, "blend")
-    page.click("#v2Popover [data-ddf-input='fantasycalc']")
+    page.click("#v2Popover [data-ddf-input='espn']")   # JEG-804: the blend tab lists projections only (was FantasyCalc)
     _done(page)
     if "custom blend" not in strip():
         errors.append(f"D4: the 'On the chart' line does not say the DDF blend is customized: {strip()!r}")

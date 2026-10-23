@@ -2,7 +2,8 @@
 
 Headless against a temp copy of dist/ with the pinned holds (tests/_holds.py: CBS held) and source_divergence
 putting CBS inside its usual range (the state that drew the check next to "Paused this week" on the live site,
-build tv-20261022-2012-1795eb2, FantasyCalc). Two cases, both tabs of Customize:
+build tv-20261022-2012-1795eb2, FantasyCalc). Two cases, checked on Customize > Chart lines (since JEG-804 the DDF blend
+tab lists projections only, and the test requires that no trade chart row or chip is there):
 
   * red hold (the pinned hold, no hold_level): no `.v2-ok-mark` anywhere on CBS; the chip reads "Paused" (glyph next
     to the row's "Paused this week" note), data-status "held";
@@ -111,15 +112,25 @@ def read_chips(level, v2_js=None) -> dict:
             page.click("#v2Popover [role=tab]:nth-of-type(2)")
             page.wait_for_timeout(400)
             out["blend"] = [c for c in page.evaluate(CHIPS) if c["where"] == "customize"]
+            out["blend_text"] = page.evaluate("() => document.querySelector('#v2Popover').innerText")
         finally:
             browser.close()
     return out
 
 
-def check(level, v2_js=None) -> list[str]:
-    got = read_chips(level, v2_js)
+CHART_LABELS = ("USA Today", "FantasyCalc", "FantasyPros", "CBS Sports")
+
+
+def problems(got, level) -> list[str]:
     errors = list(got["errors"])
-    for where in ("lines", "blend"):
+    # JEG-804 (#814, Jeremy 2026-10-22 "Out of DDF Value"): the DDF blend tab lists projections only, so no trade chart
+    # (held or open) has a row or a chip there; the chart chips are on Chart lines.
+    charts_in_blend = [label for label in CHART_LABELS if label in got["blend_text"]]
+    if charts_in_blend or got["blend"]:
+        errors.append(f"[blend] trade charts are not DDF Value inputs, yet the blend tab shows {charts_in_blend or got['blend']}")
+    if "Projections" not in got["blend_text"]:
+        errors.append(f"[blend] the blend tab does not list the projection inputs: {got['blend_text'][:200]!r}")
+    for where in ("lines",):
         held = [c for c in got[where] if c["src"] == HELD]
         if not held:
             errors.append(f"[{where}] the held source carries no chip at all (its row should say why it is out)")
@@ -149,12 +160,24 @@ def check(level, v2_js=None) -> list[str]:
     return errors
 
 
+def check(level, v2_js=None) -> list[str]:
+    return problems(read_chips(level, v2_js), level)
+
+
 class HeldChipRenderTest(unittest.TestCase):
     def test_red_hold_shows_paused_not_the_check(self):
         self.assertEqual(check("red"), [])
 
     def test_amber_hold_shows_the_lag_flag_not_the_check(self):
         self.assertEqual(check("amber"), [])
+
+    def test_guard_fails_when_a_chart_is_in_the_blend_tab(self):
+        """A chart row or chip in the blend tab (the pre-JEG-804 shape) is reported."""
+        for level in ("red", "amber"):
+            got = read_chips(level)
+            self.assertEqual(problems(got, level), [], "premise: the unmodified page is clean")
+            self.assertTrue(problems({**got, "blend_text": got["blend_text"] + "\nCBS Sports"}, level), level)
+            self.assertTrue(problems({**got, "blend": got["lines"]}, level), level)
 
     def test_guard_fails_on_broken_build(self):
         v2 = V2_JS.read_text(encoding="utf-8")
