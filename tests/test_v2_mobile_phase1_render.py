@@ -13,6 +13,9 @@ Checks the built page headless with touch emulation (has_touch + is_mobile, devi
   * hover:      no :hover rule outside @media (hover: hover) in the v2 style sheets, and an unsorted Values header
                 still shows its sort arrow where there is no hover;
   * text:       no visible text below 12 px at 320, 360 and 390 px (the chart's SVG and brush labels are phase 2);
+  * names:      the pinned name column reads "Last, First" (suffixes and "St. Brown" kept together), clips with an
+                ellipsis, titles carry the full name, a tap on a clipped name shows it in a popover without opening the row,
+                and desktop names are untouched (JEG-947, Jeremy 2026-10-23);
   * desktop:    at 1366 x 768, 1280 x 800 and 1024 x 768 (fine pointer) none of the touch rules apply.
 
 Discrimination: test_guard_fails_on_broken_builds serves a broken v2.css / audit-pie.css for each check and requires
@@ -30,6 +33,7 @@ from tests.test_published_league_settings_render import _chromium_executable  # 
 from tests.test_v2_expand_render import V2_CSS, _built_dist, _serve  # noqa: E402
 
 AUDIT_PIE_CSS = V2_CSS.parent / "audit-pie.css"
+NAMEFMT_JS = (V2_CSS.parent / "name-format.js").read_text(encoding="utf-8")
 
 ALL_TABS = ("writing/manifesto", "player-values", "trade-targets", "risers-fallers", "compare-trade", "find-trade", "writing/how-values", "values-auditing")
 TAP_TABS = ("player-values", "trade-targets", "compare-trade", "find-trade", "values-auditing")
@@ -140,6 +144,35 @@ TEXT = r"""() => {
   return Object.keys(bad);
 }""" % CHART
 
+NAMES = r"""(phone) => {
+  const out = [];
+  const spans = [...document.querySelectorAll('#v2Table .v2-nm, .v2-ttable .v2-nm')].filter(e => e.checkVisibility());
+  if (!spans.length) return ['no visible player-name cells found'];
+  for (const e of spans.slice(0, 60)) {
+    const full = e.dataset.full, t = e.textContent;
+    if (e.title !== full) out.push('title is not the full name for ' + full);
+    if (!phone) { if (t !== full) out.push('desktop name changed: ' + t); continue; }
+    if (!/, /.test(t) || t === full) out.push('phone name is not Last, First: ' + t + ' (' + full + ')');
+    if (/ (Jr\.|Sr\.|II|III|IV|V)$/.test(full) && !/^[^,]+ (Jr\.|Sr\.|II|III|IV|V), /.test(t)) out.push('suffix not kept with the last name: ' + t);
+    const cs = getComputedStyle(e);
+    if (cs.textOverflow !== 'ellipsis' || cs.overflow !== 'hidden' || cs.whiteSpace !== 'nowrap') out.push('long names do not clip with an ellipsis (' + cs.textOverflow + ', ' + cs.overflow + ')');
+  }
+  const names = new Map(spans.map(e => [e.dataset.full, e.textContent]));
+  if (phone && names.has('Kenneth Walker III') && names.get('Kenneth Walker III') !== 'Walker III, Kenneth') out.push('Kenneth Walker III shows as ' + names.get('Kenneth Walker III'));
+  if (phone && names.has('Jaxon Smith-Njigba') && names.get('Jaxon Smith-Njigba') !== 'Smith-Njigba, Jaxon') out.push('Jaxon Smith-Njigba shows as ' + names.get('Jaxon Smith-Njigba'));
+  if (phone && names.has('Amon-Ra St. Brown') && names.get('Amon-Ra St. Brown') !== 'St. Brown, Amon-Ra') out.push('Amon-Ra St. Brown shows as ' + names.get('Amon-Ra St. Brown'));
+  return out;
+}"""
+
+NAME_TAP = r"""() => {
+  const out = [];
+  const span = [...document.querySelectorAll('#v2Table .v2-nm')].find(e => e.checkVisibility() && e.scrollWidth > e.clientWidth + 1);
+  if (!span) return ['no clipped name found to tap'];
+  span.scrollIntoView({block: 'center', behavior: 'instant'});
+  const r = span.getBoundingClientRect();
+  return {x: r.left + 6, y: r.top + r.height / 2, full: span.dataset.full};
+}"""
+
 DESKTOP = r"""() => {
   const out = [];
   const rowH = getComputedStyle(document.documentElement).getPropertyValue('--v2-row-h').trim();
@@ -154,7 +187,7 @@ DESKTOP = r"""() => {
 }"""
 
 
-def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "text", "desktop")) -> list[str]:
+def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "text", "desktop", "names")) -> list[str]:
     from playwright.sync_api import sync_playwright
     errors = []
     with _built_dist() as base, sync_playwright() as playwright:
@@ -180,7 +213,7 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
 
         try:
             for width, height in PHONES:
-                if not ({"overflow", "tables", "text", "hover"} & set(checks)):
+                if not ({"overflow", "tables", "text", "hover", "names"} & set(checks)):
                     break
                 ctx, page = open_page(width, height, True)
                 tag = f"[{width}x{height}] "
@@ -197,6 +230,20 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
                             errors.append(f"{tag}{tab}: page overflows sideways by {max(o['doc'], o['body'])}px")
                     if "text" in checks:
                         errors += [f"{tag}{tab}: text under 12px {e}" for e in page.evaluate(TEXT)]
+                    if "names" in checks and width == 390 and tab == "player-values":
+                        errors += [f"{tag}{tab}: {e}" for e in page.evaluate(NAMES, True)]
+                        hit = page.evaluate(NAME_TAP)
+                        page.wait_for_timeout(300)
+                        if isinstance(hit, list):
+                            errors += [f"{tag}{tab}: {e}" for e in hit]
+                        else:
+                            page.touchscreen.tap(hit["x"], hit["y"])
+                            page.wait_for_timeout(200)
+                            pop = page.evaluate("document.querySelector('.v2-nm-pop')?.textContent || ''")
+                            if pop != hit["full"]:
+                                errors.append(f"{tag}{tab}: tapping a clipped name shows {pop!r}, not {hit['full']!r}")
+                            if page.evaluate("document.querySelector('.v2-drawer') && !document.querySelector('.v2-drawer').hidden"):
+                                errors.append(f"{tag}{tab}: tapping the name popover opened the row drawer instead")
                     if "tables" in checks and width == 360 and tab in TABLE_TABS:
                         errors += [f"{tag}{tab}: {e}" for e in page.evaluate(TABLES)]
                 ctx.close()
@@ -212,6 +259,8 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
                 for tab in ("player-values", "trade-targets"):
                     go(page, tab)
                     errors += [f"[844x390] {tab}: {e}" for e in page.evaluate(TABLES)]
+                    if "names" in checks and tab == "trade-targets":
+                        errors += [f"[844x390] {tab}: {e}" for e in page.evaluate(NAMES, True)]
                 ctx.close()
             if "desktop" in checks:
                 for width, height in DESKTOPS:
@@ -219,6 +268,8 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
                     for tab in ("player-values", "trade-targets", "values-auditing"):
                         go(page, tab)
                         errors += [f"[{width}x{height}] {tab}: {e}" for e in page.evaluate(DESKTOP)]
+                        if "names" in checks and tab != "values-auditing":
+                            errors += [f"[{width}x{height}] {tab}: {e}" for e in page.evaluate(NAMES, False)]
                     ctx.close()
         finally:
             browser.close()
@@ -253,10 +304,16 @@ class MobilePhase1RenderTest(unittest.TestCase):
                                     "@media (hover: none) { .v2-vtable th button .th-1::after { content: \" ↕\"; opacity: .45; } }"),
             "small text back to 11px": ("text", {"v2.css": (css.replace(".v2-find-slot, .v2-tab.is-soon::after { font-size: 12px; }", ".v2-find-slot, .v2-tab.is-soon::after { font-size: 12px; }\n@media (max-width: 767px) { .v2-table .player-sub, .v2-vtable .player-sub, .v2-vtable .th-2 { font-size: 11px; } }", 1), text_css)},
                                          ".v2-find-slot, .v2-tab.is-soon::after { font-size: 12px; }"),
+            "names stay First Last on phones": ("names", {"name-format.js": (NAMEFMT_JS.replace("function lastFirst(name, pos) {", "function lastFirst(name, pos) { return String(name);", 1), "application/javascript")}, None),
+            "suffix dropped from the last name": ("names", {"name-format.js": (NAMEFMT_JS.replace("var SUFFIX_RE = /^(jr|sr|ii|iii|iv|v)\\.?$/i;", "var SUFFIX_RE = /^$/;", 1), "application/javascript")}, None),
+            "names no longer clip": ("names", {"v2.css": (css + "\n@media (max-width: 767px), (pointer: coarse) { .v2-table td.player .v2-nm, .v2-ttable td.player .v2-nm { text-overflow: clip; white-space: normal; } }\n", text_css)}, None),
             "touch rules leak to desktop": ("desktop", {"v2.css": (css + "\n.v2-table-wrap { -webkit-mask-image: linear-gradient(to right, #000 90%, transparent); mask-image: linear-gradient(to right, #000 90%, transparent); }\n", text_css)}, None),
         }
         for name, (check, files, anchor) in broken.items():
             with self.subTest(mutation=name):
+                for fname, (body, _) in files.items():
+                    if fname == "name-format.js":
+                        self.assertNotEqual(body, NAMEFMT_JS, f"mutation {name!r} changed nothing")
                 if anchor is not None:
                     self.assertIn(anchor, css + pie, f"mutation anchor for {name!r} is stale")
                     self.assertTrue(any(body != (css if fname == "v2.css" else pie) for fname, (body, _) in files.items()), f"mutation {name!r} changed nothing")

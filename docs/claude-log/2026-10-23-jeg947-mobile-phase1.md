@@ -15,3 +15,26 @@ Changes: `app/v2/v2.css` (touch rules apply below 768 px and on coarse pointers;
 - Full `make validate` not run (value lanes in flux; only the new render file run).
 - CSS scroll-driven fade needs `animation-timeline`; browsers without it show no fade (table still scrolls).
 - Name column is narrow when pinned, so long names clip at 390 px.
+
+### Addendum: "Last, First" names in the pinned column (Jeremy decision, 2026-10-23)
+Changes: `app/v2/name-format.js` (new pure `DDFNameFormat.lastFirst(name, pos)`: suffix Jr./Sr./II/III/IV/V stays with the last name,
+particles after the first name start a multi-word last name (St., De, Van, Von, Di, Du, ...), one-word names, "Chris Jr.", names
+with a comma and DST/DEF pos unchanged), `app/v2/v2.js` (`nameSpan` in the Values and Targets name cells; text swaps with the
+phone/touch media query; capture-phase tap handler shows the full name in `.v2-nm-pop`), `app/v2/v2.css` (clip with ellipsis),
+`pipelines/build_v2_page.py` (script tag + copy), `Makefile` (node unit test), `tests/test_v2_name_format.js` (new),
+`tests/test_v2_mobile_phase1_render.py` (new "names" check + 3 broken-build mutations).
+Behavior: phones and coarse pointers show "Harrison Jr., Marvin"; desktop keeps "First Last". `title` carries the full name (hover on desktop).
+On touch, tapping a CLIPPED name shows the full name in a popover and does not open the drawer; tapping anywhere else in the row
+(sub-line, any other cell) opens the drawer as before. Unclipped names open the drawer on tap, as before.
+Scope note: at 390 px the Targets view is the card layout (not a pinned table), so cards keep "First Last"; the Targets table
+(landscape phones / touch tablets, 768 px and up) uses the new format.
+#### Verified (named checks)
+- `node tests/test_v2_name_format.js`: 29 table cases incl. Jr./Sr./II/III/IV/V, St. Brown, De Jesus, Van Vooren, first name "Van", Smith-Njigba, Dont'e Thornton Jr., O'Connell, one-word and DST unchanged; negatives: removing SUFFIX_RE or PARTICLE_RE makes the suffix/particle rows fail. The table found one real bug while writing it ("Chris Jr." became "Jr., Chris"); fixed in the code, not the test.
+- Real-data pass over the 1,163 engine players: names with St./Van/De/Le/apostrophes format as expected (spot-checked in the 390 and 844x390 screenshots).
+- Screenshots in `~/code/fantasy-tools-selfhost-notes/mobile-phase1/` (`*-names-*`): 390 Values, 390 tap popover, 844x390 Targets table, 1366 unchanged.
+- `tests.test_v2_mobile_phase1_render` `test_phase1_guards_hold` with the new "names" check (390 Values text, title, ellipsis clip, tap popover without opening the drawer, 844x390 Targets table, desktop 1366/1280/1024 untouched): OK.
+- `test_guard_fails_on_broken_builds`: OK with 3 new mutations (names left First Last, suffix handling removed, clipping removed) each reported an error.
+- `tests.test_build_v2_page`: OK.
+#### Not verified
+- Real-phone tap behavior (Chromium touch emulation only); `make validate` not run (value lanes in flux).
+- Decision for Jeremy: a tap on a clipped name shows the popover and does not open the drawer (tap elsewhere on the row still does). The alternative is popover plus drawer together.

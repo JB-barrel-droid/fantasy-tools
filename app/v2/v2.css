@@ -1652,3 +1652,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-vtable .th-2 .v2-div-chip > span, .v2-vtable .v2-group-row th, .v2-tag, .v2-srank, .v2-prank,
   .v2-subrow .v2-tag, .player-sub .v2-tag, .v2-meta .v2-tag, .v2-find-slot, .v2-tab.is-soon::after { font-size: 12px; }
 }
+
+/* JEG-947 (Jeremy 2026-10-23): names in the pinned column read "Last, First" on phones and clip with an ellipsis. */
+.v2-nm-pop { position: fixed; z-index: 60; max-width: calc(100vw - 16px); padding: 6px 10px; border-radius: var(--v2-radius-btn);
+  background: var(--v2-ink); color: var(--v2-surface); font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(20, 43, 37, .25); pointer-events: none; }
+@media (max-width: 767px), (pointer: coarse) {
+  .v2-table td.player .v2-nm, .v2-ttable td.player .v2-nm { display: block; max-width: 148px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
