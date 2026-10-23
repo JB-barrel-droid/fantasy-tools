@@ -111,7 +111,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* Buttons and fields */
 .v2-app .v2-btn { border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
 .v2-app .v2-btn-primary { background: var(--v2-action); border-color: var(--v2-action); color: var(--v2-action-ink); padding: 10px 24px; }
-.v2-btn-primary:hover { filter: brightness(1.08); }
+@media (hover: hover) { .v2-btn-primary:hover { filter: brightness(1.08); } }
 .v2-link { background: none; border: 0; color: var(--v2-action); cursor: pointer; font-weight: 500; min-height: 44px; padding: 0 6px; }
 .v2-select, .v2-field select, .v2-search input {
   border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn);
@@ -142,7 +142,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* League bar actions (JEG-498, revising JEG-462): Edit league is the primary button, Position weights the secondary one; no ↗ on in-page dialogs. */
 .v2-league-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 .v2-app .v2-btn-adjust { background: var(--v2-surface); border: 1px solid var(--v2-border); color: var(--v2-ink); font-weight: 600; min-height: 44px; padding: 8px 16px; }
-.v2-app .v2-btn-adjust:hover { border-color: var(--v2-action); color: var(--v2-action-strong); }
+@media (hover: hover) { .v2-app .v2-btn-adjust:hover { border-color: var(--v2-action); color: var(--v2-action-strong); } }
 @media (max-width: 767px) {
   .v2-league-actions { margin-left: 0; flex-basis: 100%; }
   .v2-league-actions .v2-btn { flex: 1 1 0; }
@@ -235,8 +235,10 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-table th[aria-sort="ascending"] button::after { content: " ↑"; opacity: 1; }
 .v2-table td { padding: 12px; border-bottom: 1px solid var(--v2-border); vertical-align: top; white-space: nowrap; }
 .v2-table tr { cursor: pointer; }
-.v2-table tbody tr:hover td { background: var(--v2-hover); }
-.v2-table tbody tr:hover td.is-rank { background: var(--v2-hover-rank); }
+@media (hover: hover) {
+  .v2-table tbody tr:hover td { background: var(--v2-hover); }
+  .v2-table tbody tr:hover td.is-rank { background: var(--v2-hover-rank); }
+}
 .v2-table .num { text-align: right; font-weight: 700; font-size: 15px; }
 .v2-table th.num { text-align: right; }
 .v2-table .is-rank { background: var(--v2-rank-tint); color: var(--v2-action); }
@@ -354,7 +356,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .t-dot.level { color: var(--v2-muted); }
 .v2-ttable td.t-expand, .v2-ttable th.t-expand { width: 44px; padding: 4px 0; vertical-align: middle; }
 .v2-texpand { width: 44px; height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: none; color: var(--v2-muted); cursor: pointer; font-size: 14px; }
-.v2-texpand:hover, .v2-texpand[aria-expanded="true"] { border-color: var(--v2-tint-border); color: var(--v2-action); background: var(--v2-positive); }
+.v2-texpand[aria-expanded="true"] { border-color: var(--v2-tint-border); color: var(--v2-action); background: var(--v2-positive); }
+@media (hover: hover) { .v2-texpand:hover { border-color: var(--v2-tint-border); color: var(--v2-action); background: var(--v2-positive); } }
 .v2-ttable tr.t-detail { cursor: default; }
 .v2-ttable tr.t-detail td { padding-top: 0; white-space: normal; background: var(--v2-hover); }
 .v2-table .missing .why, .v2-tcards .missing .why { display: block; font-size: 11px; font-weight: 400; }
@@ -384,7 +387,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-tdiv { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
 /* Source links and the indexed-value math (JEG-457). */
 .v2-srclink { color: inherit; text-decoration: underline; text-decoration-color: var(--v2-border); text-underline-offset: 2px; }
-.v2-srclink:hover, .v2-srclink:focus-visible { text-decoration-color: currentColor; }
+.v2-srclink:focus-visible { text-decoration-color: currentColor; }
+@media (hover: hover) { .v2-srclink:hover { text-decoration-color: currentColor; } }
 .v2-srclink-head { font-size: 11px; margin-left: 2px; color: var(--v2-muted); text-decoration: none; padding: 0 3px; }
 .v2-srclink-open { font-size: 12px; margin-left: 8px; }
 .has-math { cursor: help; text-decoration: underline dotted var(--v2-muted); text-underline-offset: 3px; }
@@ -433,10 +437,11 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-div-chip.is-paused { color: var(--v2-muted); }
 .v2-div-chip.is-reviewed { border-color: var(--v2-tint-border); color: var(--v2-action-strong); }
 .v2-div-chip.is-excluded { border-color: var(--v2-older); color: var(--v2-older); opacity: 0.7; }
-a.v2-div-chip:hover { text-decoration: underline; }
+@media (hover: hover) { a.v2-div-chip:hover { text-decoration: underline; } }
 .v2-prior-badge { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; }
 .v2-info { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -10px -4px -10px -10px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--v2-muted); cursor: pointer; font-size: 15px; font-weight: 400; line-height: 1; }
-.v2-info:hover, .v2-info[aria-expanded="true"] { color: var(--v2-action); }
+.v2-info[aria-expanded="true"] { color: var(--v2-action); }
+@media (hover: hover) { .v2-info:hover { color: var(--v2-action); } }
 .v2-tcompare .v2-info { margin: 0 -8px; }
 /* Not a sort button: no sort arrow, and its own 44 px box is the hit area. */
 .v2-table th .v2-info::after, .v2-table th .v2-info::before { content: none; }
@@ -516,7 +521,8 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-trade-search-wrap { position: relative; }
 .v2-trade-results { list-style: none; margin: 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
 .v2-trade-results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
-.v2-trade-results button:hover, .v2-trade-results button:focus-visible { background: var(--v2-positive); }
+.v2-trade-results button:focus-visible { background: var(--v2-positive); }
+@media (hover: hover) { .v2-trade-results button:hover { background: var(--v2-positive); } }
 .v2-trade-results .is-empty { padding: 10px 12px; }
 .v2-trade-players { list-style: none; margin: 12px 0 0; padding: 0; }
 .v2-trade-players li { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--v2-border); padding: 8px 0; }
@@ -664,7 +670,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-mhead.down { color: var(--v2-negative); }
 .v2-mlist { list-style: none; margin: 12px 0 0; padding: 0; }
 .v2-mlist li { border-top: 1px solid var(--v2-border); padding: 12px 0; cursor: pointer; }
-.v2-mlist li:hover { background: var(--v2-hover); }
+@media (hover: hover) { .v2-mlist li:hover { background: var(--v2-hover); } }
 .v2-mlist .m-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .v2-mlist .m-top b { display: block; font-size: 15px; }
 .v2-mlist .big { font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -700,7 +706,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-side-total b { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .v2-trade-results button { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; }
 .v2-trade-results button:disabled { cursor: default; opacity: .75; }
-.v2-trade-results button:disabled:hover { background: none; }
+@media (hover: hover) { .v2-trade-results button:disabled:hover { background: none; } }
 .v2-added { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--v2-action); background: var(--v2-positive); border-radius: 999px; padding: 2px 10px; }
 .v2-cstory { border-left: 4px solid var(--v2-action); }
 .v2-cstory[data-story="split"], .v2-cstory[data-story="contrast"] { border-left-color: var(--v2-older); }
@@ -1082,7 +1088,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-zoom { position: absolute; top: 2px; right: 2px; display: flex; gap: 4px; }
 .v2-zoom button { width: 44px; height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn);
   background: var(--v2-surface); color: var(--v2-ink); font-size: 18px; line-height: 1; cursor: pointer; opacity: .92; }
-.v2-zoom button:hover { border-color: var(--v2-action); opacity: 1; }
+@media (hover: hover) { .v2-zoom button:hover { border-color: var(--v2-action); opacity: 1; } }
 
 /* Thumb labels: small pills beside each handle. */
 .v2-thumb-label { position: absolute; pointer-events: none; font-size: 10px; font-weight: 700; line-height: 1;
@@ -1168,7 +1174,10 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-vtable .th-1 { white-space: nowrap; font-size: 12px; }
 /* Unsorted columns show their sort arrow on hover or focus only, so headers stay narrow. */
 .v2-vtable .th-1::after { content: ""; font-size: 10px; }
-.v2-vtable th button:hover .th-1::after, .v2-vtable th button:focus-visible .th-1::after { content: " ↕"; opacity: .45; }
+.v2-vtable th button:focus-visible .th-1::after { content: " ↕"; opacity: .45; }
+@media (hover: hover) { .v2-vtable th button:hover .th-1::after { content: " ↕"; opacity: .45; } }
+/* Touch has no hover or focus ring: unsorted headers keep the sort arrow visible so the column reads as sortable (JEG-947). */
+@media (hover: none) { .v2-vtable th button .th-1::after { content: " ↕"; opacity: .45; } }
 .v2-vtable th[aria-sort="descending"] .th-1::after { content: " ↓"; opacity: 1; }
 .v2-vtable th[aria-sort="ascending"] .th-1::after { content: " ↑"; opacity: 1; }
 .v2-vtable .th-2 { font-size: 11px; font-weight: 500; font-variant-caps: all-small-caps; letter-spacing: .02em; white-space: nowrap; }
@@ -1226,7 +1235,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
   border: 1px solid var(--v2-tint-border); border-radius: 999px; background: var(--v2-positive); color: var(--v2-action-strong);
   font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .v2-fchip::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
-.v2-fchip:hover { border-color: var(--v2-action); }
+@media (hover: hover) { .v2-fchip:hover { border-color: var(--v2-action); } }
 .v2-zoom .v2-zoom-reset { width: auto; padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--v2-action-strong); }
 .v2-zoom .v2-zoom-reset[hidden] { display: none; }
 #v2ExpandChart { font-size: 20px; }
@@ -1290,7 +1299,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-rs-list { list-style: none; margin: 28px 0 0; padding: 0; }
 .v2-rs-list li { display: grid; gap: 4px; padding: 16px 0; border-top: 1px solid var(--v2-border); }
 .v2-rs-link { font-size: 19px; font-weight: 700; text-decoration: none; }
-.v2-rs-link:hover { text-decoration: underline; }
+@media (hover: hover) { .v2-rs-link:hover { text-decoration: underline; } }
 .v2-rs-date, .v2-rs-meta { color: var(--v2-muted, #5b6472); font-size: 14px; }
 .v2-mf-text .v2-mf-eyebrow a { color: inherit; text-decoration: none; }
 .v2-rs-back { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--v2-border); }
@@ -1308,7 +1317,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-mod { position: relative; }
 .v2-mod-ctl { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; z-index: 2; }
 .v2-mod-btn { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--v2-muted, inherit); font: inherit; font-size: 22px; line-height: 1; cursor: pointer; border-radius: 8px; }
-.v2-mod-btn:hover { background: var(--v2-border); }
+@media (hover: hover) { .v2-mod-btn:hover { background: var(--v2-border); } }
 .v2-mod-btn[hidden] { display: none; }
 .v2-mod-chevron span { display: inline-block; transition: transform .15s; }
 .v2-mod[data-collapsed="true"] .v2-mod-chevron span { transform: rotate(-90deg); }
@@ -1482,7 +1491,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 
 /* JEG-817 (phone): source links keep their look but get a 44 x 44 hit area. Inline padding grows the hit box and the
    equal negative side margin cancels it, so no line or chip moves. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) {
   .v2-srclink { padding: 15px; margin: -15px; }
   /* The extended link hit area reaches into the next row; a value cell with a math tip sits above it so a tap on
      the number opens its tip instead of the publisher's page (JEG-725: Targets cards at 390 px). */
@@ -1541,7 +1550,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    fill was a 16 px strip (a centered pseudo-element gives it the track's 44 px hit area, nothing moves); the ↗ header source
    link on Values was 39 x 43: its padding grows 1 px up and down and 3 px sideways, and the right margin cancels 5 px less,
    so each chart column is 5 px wider and the box ends 1 px inside the next header (3 px before). */
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) {
   #v2Compare .v2-search input, #v2Compare .v2-field-rank select { min-height: 44px; }
   .v2-weight-how summary, .v2-deal-more summary, #v2Compare .v2-cstory summary { min-height: 44px; display: flex; align-items: center; }
   .v2-brush-fill::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
@@ -1585,10 +1594,61 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    covered the left of the one above it: the rows are now 44 px tall and the links extend 6 px sideways, so the boxes
    meet the 12 px column gap and the 2 px row gap without crossing. On a short desktop viewport (1280+, 800 or less)
    the chart legend packs its rows 30 px apart to keep the chart above the fold, so its hit box is the row pitch there. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) {
   .v2-showing-legend li { min-height: 44px; }
   .v2-showing-legend .v2-srclink { padding: 13.5px 6px; margin: -13.5px -6px; }
 }
 @media (min-width: 1280px) and (max-height: 800px) {
   .v2-chart-head .v2-legend-item::after { height: 30px; }
+}
+
+/* ===== JEG-947 mobile phase 1: tap targets, scrolling tables, text size (phones and touch screens) =====
+   Touch rules apply below 768 px and on any coarse pointer (landscape phones are 844 px wide). Desktop (fine pointer,
+   768 px and up) is untouched. The chart is out of scope here (phase 2). */
+@media (max-width: 767px), (pointer: coarse) {
+  /* Tap targets: 44 px rows and buttons. Row height drives the Values table cells (the value cells open the math tip). */
+  :root { --v2-row-h: 44px; }
+  .v2-vtable th button, .v2-select, .v2-cexpand, #v2Compare .v2-ctable td.player .v2-cexpand { min-height: 44px; }
+  .v2-cexpand { display: inline-flex; align-items: center; }
+  .v2-app #v2Columns { min-height: 44px; }
+  .v2-tcards .vals { gap: 0 12px; }
+  .v2-tcards .vals > span { min-height: 44px; align-items: center; }
+  .v2-tcards .vals .val.has-math { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; padding: 0 8px; margin: 0 -8px; box-sizing: border-box; justify-content: center; }
+}
+
+/* Scrolling tables (decision B1, Jeremy 2026-10-23): the table scrolls sideways inside its own box, the name column stays
+   pinned, and the right edge fades while more columns are off screen. The fade follows the scroll position (CSS scroll-driven
+   animation), so it is gone at the end of the table and where the table fits. */
+@property --v2-edge-fade { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes v2-edge-fade { 0%, 96% { --v2-edge-fade: 28px; } 100% { --v2-edge-fade: 0px; } }
+@media (max-width: 767px), (pointer: coarse) {
+  @supports (animation-timeline: scroll(self x)) {
+    .v2-table-wrap, .v2-ptable-wrap, .v2-dmatrix-wrap, .audit-pie-scroll {
+      animation: v2-edge-fade linear both; animation-timeline: scroll(self x);
+      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--v2-edge-fade)), transparent);
+      mask-image: linear-gradient(to right, #000 calc(100% - var(--v2-edge-fade)), transparent);
+    }
+  }
+  /* Targets tables on a landscape phone (768 px and up, so the 767 px rules above do not pin them). */
+  .v2-ttable td.player, .v2-ttable th.player, .v2-wtable td.player, .v2-wtable th.player { position: sticky; left: 0; z-index: 1; background: var(--v2-surface); box-shadow: 1px 0 0 var(--v2-border); }
+  .v2-wtable tr.w-detail td.player, .v2-ttable tr.t-detail td.player { position: static; box-shadow: none; }
+}
+
+/* Values auditing tables: the first column (source or position) stays pinned while the rest scroll. */
+@media (max-width: 767px) {
+  .audit-pie-table tr:not(.audit-pie-verdict-row) > :first-child { position: sticky; left: 0; z-index: 1; background: var(--v2-surface); box-shadow: 1px 0 0 var(--v2-border); }
+}
+
+/* Body text on phones is 12 px or larger (the chart's own axis, zone and brush labels are phase 2). */
+@media (max-width: 767px) {
+  .v2-eyebrow, .v2-hint, .v2-sym, .v2-table .player-sub, .v2-table .delta, .v2-tip .row .val .why, .v2-popover .group h3,
+  .v2-popover .reason, .v2-table .th-sub, .v2-ttable td[data-ours] .t-count, .v2-lowconf, .v2-estimated,
+  .v2-ttable td.t-avg .t-count, .v2-ttable td.t-avg .t-equal, .v2-ttable td.t-avg .t-diff, .v2-ttable td.best .t-score,
+  .t-dots, .v2-table .missing .why, .v2-tcards .missing .why, .v2-table .at-waiver, .v2-div-chip, .v2-srclink-head,
+  .v2-prior-badge, .v2-espn-zero, .v2-ctable td.player .th-sub, .v2-ctable .v2-cverdict-tag, .v2-ctable td[data-col="net"] .missing .why,
+  .v2-ctable td[data-label]::before, .v2-dmatrix .th-sub, .v2-dmatrix .missing .why, .v2-trade-value .missing .why,
+  .v2-side-total .missing .why, .v2-ptable thead th, .v2-ptable .th-sub, .v2-wf-label, .v2-wf-none, .v2-heat-key,
+  .v2-vtable .player-sub, .v2-vtable .delta, .v2-vtable .v2-espn-zero, .v2-vtable .th-1::after, .v2-vtable .th-2,
+  .v2-vtable .th-2 .v2-div-chip > span, .v2-vtable .v2-group-row th, .v2-tag, .v2-srank, .v2-prank,
+  .v2-subrow .v2-tag, .player-sub .v2-tag, .v2-meta .v2-tag, .v2-find-slot, .v2-tab.is-soon::after { font-size: 12px; }
 }
