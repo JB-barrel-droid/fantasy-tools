@@ -182,6 +182,7 @@ def check_d3_charts_only_survives_blend_edit(page):
     _tab(page, "blend")
     page.click("#v2Popover [data-ddf-input='espn']")   # a real edit: the selection is no longer the default
     _tab(page, "lines")
+    # JEG-930: charts-only must NOT show the blend warning. JEG-863: ddf_value_projections hidden, use ddf_value_charts.
     page.click("#v2Popover [data-series='ddf_value_charts']")
     note = page.text_content("#v2Popover [data-series='ddf_value_charts'] >> xpath=ancestor::label")
     if "No sources on in the DDF blend" in note:
@@ -378,7 +379,7 @@ class CustomizeCleanupTest(unittest.TestCase):
                             "!selection || selection.indexOf(k) !== -1", self.model)
         self.assertCaught(check_d3_charts_only_survives_blend_edit, "values blanked by the blend", assets={"value-model.js": model})
         # The dialog row counting the blend draft for the charts variant again.
-        js = self.mutate('versionKey === "ddf_value_charts" ? chartsUsable() : ', "")
+        js = self.mutate("chartsUsable()", "0")
         self.assertCaught(check_d3_charts_only_survives_blend_edit, "row warns 'No sources on in the DDF blend'", js=js)
 
     # ---- D4 ----

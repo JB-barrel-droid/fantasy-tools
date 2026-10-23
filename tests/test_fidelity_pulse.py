@@ -472,6 +472,41 @@ class Stage1FantasyCalc(unittest.TestCase):
         self.assertEqual(1, res["fantasycalc"]["stages"]["publisher_vs_stored"]["counts"]["list_churn"])
 
 
+def grain_lists(offsets: dict) -> dict:
+    """{grain: {key: cell}} with 30 shared players; each grain's values are its offset + key."""
+    return {g: {k: {"value": float(off + k)} for k in range(30)} for g, off in offsets.items()}
+
+
+def bounded_grain_check(test, left, right, seconds=10.0):
+    """fc_grain_check in a daemon thread: a walk that never ends fails the test instead of
+    exhausting the machine's memory (JEG-979 took a CI runner down that way)."""
+    import threading
+    out = {}
+    t = threading.Thread(target=lambda: out.update(r=fp.fc_grain_check(left, right)), daemon=True)
+    t.start()
+    t.join(seconds)
+    test.assertFalse(t.is_alive(), f"fc_grain_check did not return within {seconds}s")
+    return out["r"]
+
+
+class FcGrainCheckWalk(unittest.TestCase):
+    """JEG-979: the JEG-920 cycle walk on nearest-list maps that do not close at their start."""
+    LIVE = {"a": 0, "b": 100, "c": 200}
+
+    def test_chain_ending_on_a_column_nearest_itself_returns(self):
+        # stored c nearest live b, stored b nearest live b: one list drifted, no swap
+        stored = grain_lists({"a": 0, "b": 100, "c": 110})
+        self.assertEqual([], bounded_grain_check(self, grain_lists(self.LIVE), stored))
+
+    def test_cycle_not_through_the_start_is_flagged(self):
+        # stored a -> b, b -> c, c -> b: the b/c exchange is a swap; a drifted onto it
+        stored = grain_lists({"a": 90, "b": 190, "c": 110})
+        problems = bounded_grain_check(self, grain_lists(self.LIVE), stored)
+        self.assertEqual(2, len(problems), problems)
+        self.assertTrue(problems[0].startswith("stored b list is closest to the live c list"), problems)
+        self.assertTrue(problems[1].startswith("stored c list is closest to the live b list"), problems)
+
+
 class Stage2StoredVsChart(unittest.TestCase):
     def test_chart_value_differs_from_stored_red(self):
         for source in fp.TRADE_CHARTS:

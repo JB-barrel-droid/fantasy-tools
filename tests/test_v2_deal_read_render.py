@@ -3,7 +3,7 @@
 Loads the built page headless, opens trades by link (#compare-trade?give=..&get=..) and checks that:
 
   * the outlined cell of the 3x3 grid, the three nets and their sides equal an independent recomputation from the
-    engine rows (DDF Value, Trade chart average, DDF Projections: win at or above max(1, 3% of the average side
+    engine rows (DDF Value, Trade chart average: win at or above max(1, 3% of the average side
     total), lose at or below the negative of that);
   * the grid has nine cells, exactly one outlined (aria-current), and none for an incomplete trade;
   * each net has an info button that opens its one-line definition;
