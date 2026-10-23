@@ -40,36 +40,46 @@ ORDERING_CASES = [
 ]
 
 
+def ordering_inversions(native: dict, reindexed: dict) -> list[tuple[str, str, float, float, float, float]]:
+    """Adjacent pairs (by native value, descending) where the higher native player's
+    reindexed value is below the lower native player's: an ordering flip."""
+    common = [slug for slug in reindexed if slug in native
+              and isinstance(native[slug], (int, float)) and isinstance(reindexed[slug], (int, float))]
+    by_native = sorted(common, key=lambda slug: -native[slug])
+    return [(a, b, native[a], native[b], reindexed[a], reindexed[b])
+            for a, b in zip(by_native, by_native[1:])
+            if native[a] > native[b] and reindexed[a] < reindexed[b]]
+
+
 class TestVorpWiring(unittest.TestCase):
     def test_ordering_preserved(self):
-        """VORP-translated values must preserve native player ordering."""
-        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        """VORP-translated values must preserve native player ordering.
 
-        for source, combo_key, higher_name, lower_name in ORDERING_CASES:
+        JEG-916 (2026-10-22): the named pair (JSN over Nacua) no longer holds in the
+        fixture's natives (USA Today lists Nacua 78 over JSN 77 since the 2026-10-22
+        refresh), so the check walks every adjacent native pair of the combo instead
+        of pinning one pair whose order the publisher can change."""
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        for source, combo_key, _higher, _lower in ORDERING_CASES:
             with self.subTest(source=source, combo=combo_key):
                 combo = fixture["sources"][source]["combos"][combo_key]
-                native = combo["native"]
-                reindexed = combo["reindexed"]
+                native, reindexed = combo["native"], combo["reindexed"]
+                self.assertGreater(len(set(native) & set(reindexed)), 20, "too few translated rows to test")
+                flips = ordering_inversions(native, reindexed)
+                self.assertEqual(flips, [], "ORDERING FLIP (higher native, lower reindexed): "
+                                 + "; ".join(f"{a} {na:.0f}>{nb:.0f} but {ra:.1f}<{rb:.1f} {b}"
+                                             for a, b, na, nb, ra, rb in flips[:5]))
 
-                higher_slug = next(s for s in reindexed if higher_name in s.lower())
-                lower_slug = next(s for s in reindexed if lower_name in s.lower())
-
-                higher_native = native[higher_slug]
-                lower_native = native[lower_slug]
-                self.assertGreater(
-                    higher_native, lower_native,
-                    f"Test premise wrong: native {higher_name} should > {lower_name}"
-                )
-
-                higher_trans = reindexed[higher_slug]
-                lower_trans = reindexed[lower_slug]
-                self.assertGreater(
-                    higher_trans, lower_trans,
-                    f"ORDERING FLIP: {higher_name} native={higher_native:.0f} > "
-                    f"{lower_name} native={lower_native:.0f}, but "
-                    f"reindexed {higher_trans:.1f} <= {lower_trans:.1f}. "
-                    f"VORP wiring is broken."
-                )
+    def test_ordering_check_catches_a_flip(self):
+        """The guard fails on a simulated flip: two reindexed values swapped."""
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        combo = fixture["sources"]["usatoday"]["combos"]["full_12"]
+        native, reindexed = combo["native"], dict(combo["reindexed"])
+        self.assertEqual(ordering_inversions(native, reindexed), [])
+        top = sorted((s for s in reindexed if s in native), key=lambda s: -native[s])
+        a, b = next((a, b) for a, b in zip(top, top[1:]) if native[a] > native[b] and reindexed[a] > reindexed[b])
+        reindexed[a], reindexed[b] = reindexed[b], reindexed[a]
+        self.assertEqual([(x, y) for x, y, *_ in ordering_inversions(native, reindexed)], [(a, b)])
 
 
 class TestCanonicalIdentityResolution(unittest.TestCase):

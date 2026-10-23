@@ -9,10 +9,15 @@ Writing section and rewrites the address in place:
     and only the matching page shown;
   * the redirect replaces the history entry: Back from an old route goes to the page
     before it, not into a loop back to the old route;
-  * the built page links to no old route (no href to #manifesto, #how-values, #research).
+  * JEG-905: every in-page hash link in the built DOM (every route, hidden pages included)
+    targets a route the page defines (a tab, a Writing or auditing sub-tab, a published
+    post) and never an old route, and no built script carries an old-route literal
+    outside the redirect map (the Trade targets popover builds its link in JS).
 
 Discrimination: test_guard_fails_on_broken_builds drops each old redirect and the
-address rewrite, and requires the checks to fail on each.
+address rewrite and points the popover link at the old route;
+test_link_guard_fails_on_broken_html points a sub-tab at the old route and a link at
+a route that does not exist. Each must fail the checks.
 """
 from __future__ import annotations
 
@@ -66,7 +71,7 @@ def setUpModule():
 
 
 @contextlib.contextmanager
-def _built_dist():
+def _built_dist(html_mutation=None):
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
@@ -76,6 +81,12 @@ def _built_dist():
         for slug, (meta, body) in POSTS.items():
             (research / f"{slug}.html").write_text(f"<!--post {json.dumps(meta)} -->\n{body}\n", encoding="utf-8")
         build_v2_page.build(dist, research_dir=research)
+        if html_mutation is not None:
+            index = dist / "v2" / "index.html"
+            html = index.read_text(encoding="utf-8")
+            old, new = html_mutation
+            assert html.count(old) == 1, f"stale mutation anchor: {old[:60]!r}"
+            index.write_text(html.replace(old, new, 1), encoding="utf-8")
 
         class Quiet(http.server.SimpleHTTPRequestHandler):
             def log_message(self, *args):
@@ -103,14 +114,14 @@ def check_landed(snap, old, tag) -> list[str]:
     return errors
 
 
-def run_checks(v2_js=None) -> list[str]:
+def run_checks(v2_js=None, html_mutation=None) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
         raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     errors = []
-    with _built_dist() as base, sync_playwright() as playwright:
+    with _built_dist(html_mutation) as base, sync_playwright() as playwright:
         try:
             browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
@@ -148,14 +159,59 @@ def run_checks(v2_js=None) -> list[str]:
             for old in ROUTES:
                 page = open_page(1440, old)
                 errors += check_landed(page.evaluate(READ), old, "[landing] ")
-                if width == 390 or old == "#manifesto":
-                    html = page.evaluate(READ)["html"]
-                    stale = re.findall(r'href="(?:v2/)?#(?:manifesto|how-values|research)[^"]*"', html)
-                    if stale:
-                        errors.append(f"the page still links to old routes: {sorted(set(stale))}")
                 page.close()
+            # JEG-905: in-page links use the new routes directly; the redirects are a safety net.
+            page = open_page(1440)
+            errors += check_in_page_links(page, v2_js)
+            page.close()
         finally:
             browser.close()
+    return errors
+
+
+LEGACY_LINK = re.compile(r'^(?:v2/)?#(?:manifesto|how-values|research)(?:/|$)')
+# Hash literals a script may build a link from. The redirect map in v2.js is the one allowed place for an old route.
+JS_HASH_LITERAL = re.compile(r'["\'`]((?:v2/)?#(?:manifesto|how-values|research)(?:/[^"\'`]*)?)["\'`]')
+REDIRECT_CODE = (
+    'const LEGACY_ROUTES = {"#manifesto": "#writing/manifesto", "#how-values": "#writing/how-values", "#research": "#writing/research"};',
+    'base.startsWith("#research/")',
+)
+
+
+def check_in_page_links(page, v2_js=None) -> list[str]:
+    """Every hash link in the built DOM (all routes, hidden pages included) points at a route the page
+    defines (a tab, a Writing or auditing sub-tab, or a published post), never at a legacy route; and no
+    built script carries a legacy-route literal outside the redirect map (the popover link is built in JS)."""
+    errors = []
+    links = {}
+    for hash_ in ("#trade-targets", "#player-values", "#risers-fallers", "#compare-trade", "#writing/manifesto",
+                  "#writing/how-values", "#writing/research", "#writing/research/bench-share", "#values-auditing"):
+        page.evaluate("h => { location.hash = h; }", hash_)
+        page.wait_for_timeout(250)
+        for href in page.evaluate("() => [...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href'))"):
+            if href.startswith("#") or href.startswith("v2/#"):
+                links.setdefault(href, hash_)
+    defined = page.evaluate("""() => [...document.querySelectorAll('.v2-tab[data-view], .v2-subtab, #v2Research .v2-rs-link')]
+      .map(a => a.getAttribute('href').replace(/^v2\\//, '').split('?')[0])""")
+    defined = set(defined) | {"#writing"}
+    if not {"#writing/manifesto", "#writing/how-values", "#writing/research", "#writing/research/bench-share"} <= defined:
+        errors.append(f"route definitions not found in the DOM: {sorted(defined)}")
+    for href, seen_on in sorted(links.items()):
+        if LEGACY_LINK.match(href):
+            errors.append(f"in-page link {href!r} (on {seen_on}) points at a legacy route; link the Writing route directly")
+        elif href.replace("v2/", "", 1).split("?")[0] not in defined:
+            errors.append(f"in-page link {href!r} (on {seen_on}) targets no route the page defines")
+    scripts = {"v2.js": v2_js} if v2_js is not None else {}
+    for path in sorted((DIST / "v2").glob("*.js")):
+        scripts.setdefault(path.name, path.read_text(encoding="utf-8"))
+    for name, text in scripts.items():
+        if name == "v2.js":
+            for code in REDIRECT_CODE:
+                if text.count(code) != 1:
+                    errors.append(f"v2.js: the redirect code {code[:40]!r} moved; update REDIRECT_CODE in this test")
+                text = text.replace(code, "")
+        for literal in JS_HASH_LITERAL.findall(text):
+            errors.append(f"{name}: legacy route literal {literal!r}; build links from the Writing routes")
     return errors
 
 
@@ -170,11 +226,23 @@ class WritingRoutesRenderTest(unittest.TestCase):
             "#research redirect removed": ('"#research": "#writing/research"', '"#research": "#research"'),
             "#research/<slug> redirect removed": ('(base.startsWith("#research/") ? "#writing/" + base.slice(1) : base)', "base"),
             "address not rewritten": ('    if (next === base) return;\n', '    return;\n'),
+            # JEG-905: a script-built link (the targets popover) pointing at the old route.
+            "popover links the old route": ('link.href = "v2/#writing/how-values";', 'link.href = "v2/#how-values";'),
         }
         for name, (old, new) in broken.items():
             with self.subTest(mutation=name):
                 self.assertEqual(js.count(old), 1, f"stale mutation anchor: {old[:60]!r}")
                 self.assertNotEqual(run_checks(v2_js=js.replace(old, new, 1)), [], f"render checks did not catch: {name}")
+
+    def test_link_guard_fails_on_broken_html(self):
+        """JEG-905: an in-page link in the built HTML at a legacy route, or at a route the page does not define."""
+        broken = {
+            "sub-tab links the old route": ('href="#writing/how-values" data-writing="how-values"', 'href="#how-values" data-writing="how-values"'),
+            "link to a route that no longer exists": ('href="v2/#compare-trade">Compare a trade ↗</a>', 'href="v2/#trade-builder">Compare a trade ↗</a>'),
+        }
+        for name, mutation in broken.items():
+            with self.subTest(mutation=name):
+                self.assertNotEqual(run_checks(html_mutation=mutation), [], f"link guard did not catch: {name}")
 
 
 if __name__ == "__main__":

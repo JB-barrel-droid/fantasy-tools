@@ -350,7 +350,12 @@ def check_chips(page, tag) -> list[str]:
     _apply_all_filters(page)
     full = page.evaluate(SNAP)
     texts = {c["id"]: c["text"] for c in full["chips"]}
-    want = {"range": "Value 2–40 ✕", "ranks": "Ranks 3–30 ✕", "search": "Search: a ✕", "position": "Position: WR ✕"}
+    # The rank window clamps to the position's row count (v2.js state.window), so the chip reads the
+    # clamp when the fixture lists fewer than 30 WRs (JEG-916: 26 after the 2026-10-22 fixture refresh).
+    hi = min(30, full["n"])
+    if full["window"] != [3, hi]:
+        errors.append(tag + f"rank window {full['window']} != [3, {hi}] (3..30 clamped to {full['n']} rows)")
+    want = {"range": "Value 2–40 ✕", "ranks": f"Ranks 3–{hi} ✕", "search": "Search: a ✕", "position": "Position: WR ✕"}
     if texts != want:
         errors.append(tag + f"filter chips {texts}, want {want}")
     filters = lambda s: {"range": s["range"], "ranks": s["window"] if s["preset"] == "custom" else None,

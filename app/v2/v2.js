@@ -5301,6 +5301,14 @@
   // JEG-888: the Unclear glyph is not "?": the question already ends with one and the line read "…accept? ? Unclear".
   const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "–", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
+  // JEG-895 (Jeremy, 2026-10-22): the level is named for what it measures, never "confidence".
+  // propose: the margins on DDF Value and DDF Projections; accept: the share of charts on the answer's side.
+  const LEVEL_LABELS = {
+    propose: {High: "Our value: strong", Medium: "Our value: moderate", Low: "Our value: weak"},
+    accept: {High: "Charts agree: strongly", Medium: "Charts agree: mostly", Low: "Charts agree: weakly"},
+  };
+  // The chart count ("N of M trade charts agree") is its own line, so it is never read as the level.
+  const CHART_COUNT_REASON = / trade charts agree$/;
   function renderHeadlines() {
     const box = $("v2CHeads");
     const heads = compareView.headlines;
@@ -5338,11 +5346,17 @@
       const cs = document.createElement("span");
       cs.setAttribute("aria-hidden", "true");
       cs.textContent = `${CONFIDENCE_SYMBOLS[h.confidence]} `;
-      c.append(cs, document.createTextNode(`${h.confidence} confidence`));
+      c.append(cs, document.createTextNode(LEVEL_LABELS[line][h.confidence]));
       const why = document.createElement("span");
       why.className = "why";
-      why.textContent = h.reasons.join("; ");
+      why.textContent = h.reasons.filter(r => !CHART_COUNT_REASON.test(r)).join("; ");
       p.append(a, document.createTextNode(" · "), c, why);
+      h.reasons.filter(r => CHART_COUNT_REASON.test(r)).forEach(r => {
+        const charts = document.createElement("span");
+        charts.className = "why charts";
+        charts.textContent = r;
+        p.appendChild(charts);
+      });
     });
   }
 

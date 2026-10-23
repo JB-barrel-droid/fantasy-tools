@@ -168,12 +168,12 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
   - **CT-01** Give and Receive pickers, Swap, Clear, and a shareable link that carries the league settings.
 
-  - **CT-02** The headline answers two questions in plain words, each with a confidence level (High / Medium / Low) *(to build: JEG-505)*:
+  - **CT-02** The headline answers two questions in plain words, each with a three-step level named for what it measures (JEG-895, Jeremy 2026-10-22; decided by DDF Value + DDF Projections since JEG-841) *(to build: JEG-505)*:
 
-1.  Should you propose or accept this trade? This is judged by DDF Value.
-2.  Will a competing manager accept it? This is judged by the rescaled trade charts.
+1.  Should you propose or accept this trade? Judged by DDF Value and DDF Projections. Level "Our value: strong / moderate / weak" (strong when the DDF Projections margin is also 5%+, moderate when they agree by less, weak when Unclear).
+2.  Will a competing manager accept it? Judged by the rescaled trade charts. Level "Charts agree: strongly / mostly / weakly" (75%+ of charts on the answer's side, 60%+, else weakly).
 
-Confidence comes from how many sources agree. It drops to Low when any DDF Value in the trade comes from one source, or when the DDF margin is under 5% of the total value traded.
+The level drops one step when any DDF Value in the trade comes from one source, and to weak when the DDF margin is under 5% of the total value traded. "N of M trade charts agree" is its own line under the first answer; it never sets that answer's level. The word "confidence" is not used.
 
   - **CT-03** The verdict is by DDF Value:
 

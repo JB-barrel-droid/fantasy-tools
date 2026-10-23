@@ -159,7 +159,8 @@
   //   accept:  "Will they accept?" from the published value charts (chartKeys): the share of complete
   //            charts on which the other manager wins or breaks even (our net <= 0, as shown).
   //            Likely at two thirds or more, Unlikely at one third or less, otherwise Toss-up.
-  // Confidence is High / Medium / Low:
+  // The level is High / Medium / Low here; the page names it for what it measures (JEG-895, v2.js
+  // LEVEL_LABELS: "Our value: strong / moderate / weak", "Charts agree: strongly / mostly / weakly"):
   //   propose  High when DDF Projections margin also 5%+, Medium when DDF Projections agree but margin
   //            under 5%, Low when DDF Projections are even or missing;
   //   accept   agreement: >= 75% of charts on the answer's side = High, >= 60% = Medium, else Low;
@@ -218,7 +219,7 @@
         else reasons.push(`DDF Projections agree (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
-      // Honesty: always show the chart agreement count.
+      // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
       reasons.push(`${chartAgree} of ${chartTotal} trade charts agree`);
       propose = {answer, confidence: level, agree: chartAgree, of: chartTotal, margin, reasons};
     }

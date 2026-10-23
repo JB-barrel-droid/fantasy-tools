@@ -61,15 +61,32 @@ class CoverageLiveVerifyTest(unittest.TestCase):
         self.assertIn("live tail", detail)
 
     def test_live_rank_within_depth_or_unknown_stays_a_contradiction(self):
+        # JEG-667 (#668, 2026-10-16): a live value in the bottom COVERAGE_CHURN_TAIL_FRAC of the
+        # position's range is tail churn whatever its rank, so a priced-live contradiction needs
+        # the player inside the depth AND clear of the value tail. Higbee at 5000 of a 20..5900
+        # range is both; Kittle at 20 is the floor that defines the range.
         live = [{"player": {"name": "Brock Bowers", "position": "TE"}, "value": 5900},
-                {"player": {"name": "Tyler Higbee", "position": "TE"}, "value": 20},
+                {"player": {"name": "Tyler Higbee", "position": "TE"}, "value": 5000},
+                {"player": {"name": "George Kittle", "position": "TE"}, "value": 20},
                 {"player": {"name": "Jauan Jennings"}, "value": 900}]  # no position
         fake = lambda req, timeout=60: io.BytesIO(json.dumps(live).encode())  # noqa: E731
         with mock.patch.object(r.urllib.request, "urlopen", fake):
-            # rank 2 <= depth 2: the bake should have held him.
+            # rank 2 <= depth 2 and value 5000 of 5900: the bake should have held him.
             ok, detail = r.verify_coverage_drop_live(
                 "fantasycalc", "full_12_qb1", ["tyler higbee"], pos="TE", depth=2)
+            self.assertFalse(ok)
             self.assertIn("still priced live", detail)
+            # Sensitivity: a tail fraction of 1.0 would swallow him into the tail rule.
+            with mock.patch.object(r, "COVERAGE_CHURN_TAIL_FRAC", 1.0):
+                _ok, swallowed = r.verify_coverage_drop_live(
+                    "fantasycalc", "full_12_qb1", ["tyler higbee"], pos="TE", depth=2)
+            self.assertIn("tail rule applies", swallowed)
+            # The same rank at the value floor is tail churn (JEG-667), not a contradiction.
+            ok, detail = r.verify_coverage_drop_live(
+                "fantasycalc", "full_12_qb1", ["george kittle"], pos="TE", depth=3)
+            self.assertFalse(ok)
+            self.assertIn("tail rule applies", detail)
+            self.assertNotIn("still priced live", detail)
             # live position unknown: cannot rank him -> fail closed.
             ok, detail = r.verify_coverage_drop_live(
                 "fantasycalc", "full_12_qb1", ["jauan jennings"], pos="WR", depth=0)

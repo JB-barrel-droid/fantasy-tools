@@ -15,6 +15,8 @@ manager will do ("easy for them to accept", "will likely accept", "and is not").
 JEG-888 (2026-10-22): the Trade targets intro counts the charts the view compares ("We check 3 trade charts", read
 from window.TradeValueV2.targets().used), the Compare headline never shows "? ? Unclear", and a projections split
 is worded "DDF Projections say you win (+7.3) while DDF Value calls it even", not "DDF Projections disagree (+7.3)".
+JEG-895 (2026-10-22): the headline levels are named for what they measure ("Our value: …", "Charts agree: …") and
+the word "confidence" never appears in the headline.
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the old USAT label, with "Wk" back, with
 "median of" back, with the page stamp not rendered and with "NFL" dropped from it, trade.js with the old
 overclaiming sentence, and the shell with the old panel title and the old Research line, and requires failures.
@@ -123,6 +125,11 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                             errors.append(f"[{width}px headline] still says 'DDF Projections disagree': {heads!r}")
                         if "Unclear" in heads and "say you" not in heads and "call it even" not in heads and "cannot score" not in heads and "under 5%" not in heads:
                             errors.append(f"[{width}px headline] Unclear with no plain reason: {heads!r}")
+                        # JEG-895: the level is named for what it measures ("Our value: …", "Charts agree: …"), never "confidence".
+                        if "confidence" in heads.lower():
+                            errors.append(f"[{width}px headline] still says 'confidence': {heads!r}")
+                        if heads.strip() and not ("Our value:" in heads and "Charts agree:" in heads):
+                            errors.append(f"[{width}px headline] levels not named for what they measure: {heads!r}")
                         for text in page.evaluate(DEAL_TEXTS):
                             hits = [phrase for phrase in OVERCLAIMS if phrase in text]
                             if hits:
@@ -161,6 +168,8 @@ PATCHES = {
     "four publishers back": {"v2_patch": ("`We check ${introCharts} against", "`We check four publishers' trade charts against")},
     "intro count hard-coded": {"v2_patch": ("const introCount = targetsView.used.length;", "const introCount = 4;")},
     "Unclear glyph back to ?": {"v2_patch": ('Unclear: "–"', 'Unclear: "?"')},
+    # JEG-895: the headline level must not be called "confidence".
+    "confidence label back": {"v2_patch": ("document.createTextNode(LEVEL_LABELS[line][h.confidence])", "document.createTextNode(`${h.confidence} confidence`)")},
     "projections disagree back": {"trade_patch": ("`DDF Projections ${sideWords(pSide, \"say\", \"call\")} (${fmtNet(pNet)}) while DDF Value ${sideWords(vSide, \"says\", \"calls\")}`", "`DDF Projections disagree (${fmtNet(pNet)})`")},
 }
 

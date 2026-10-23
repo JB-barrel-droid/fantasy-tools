@@ -101,11 +101,23 @@ def failing(script, after_calls=0, write=None, exc=False):
 
 
 # --- checks (each negative-tested below) -------------------------------------
+def assert_section_kept(before, after, source):
+    """The failed source's section is its last good one, byte for byte, plus the
+    chain hold JEG-676 (#617, 2026-10-15) writes on a held section so the served-week
+    checks exclude it: validationHold names the failed stage and nothing else moves."""
+    hold = after.get("validationHold")
+    assert isinstance(hold, dict) and str(hold.get("reason", "")).startswith("chain hold: failed at stage"), \
+        f"{source}: kept section carries no chain hold: {hold!r}"
+    assert hold.get("stage"), f"{source}: chain hold names no stage: {hold!r}"
+    kept = {k: v for k, v in after.items() if k != "validationHold"}
+    assert kept == before, f"{source} section changed"
+
+
 def check_failed_source_kept_and_others_publish(run, failed):
     status, before, after = run["status"], run["before"], run["after"]
     assert status["success"] is True, status["failed"]
     assert failed in status["held"], (failed, status["held"])
-    assert after["sources"][failed] == before["sources"][failed], f"{failed} section changed"
+    assert_section_kept(before["sources"][failed], after["sources"][failed], failed)
     for s in GATED:
         if s != failed:
             assert after["sources"][s]["week_designated"] == "Week 5", f"{s} did not publish"
@@ -116,6 +128,31 @@ def check_legs_kept(run, source="espn"):
     pick = lambda legs: {k: v for k, v in legs.items() if f"-{source}-" in k}  # noqa: E731
     after, before = pick(run["legs_after"]), pick(run["legs_before"])
     assert after == before, sorted(set(after) ^ set(before))
+
+
+class SectionKeptGuardTest(unittest.TestCase):
+    """assert_section_kept must still fail on a changed section or a missing hold."""
+    before = {"combos": {"full_12": {"values": {"old player": 50.0}}}, "week_designated": "Week 4"}
+    hold = {"reason": "chain hold: failed at stage 'section'", "stage": "section", "week": 5}
+
+    def test_kept_section_with_hold_passes(self):
+        assert_section_kept(self.before, {**self.before, "validationHold": self.hold}, "x")
+
+    def test_changed_values_fail(self):
+        after = {"combos": {"full_12": {"values": {"old player": 51.0}}}, "week_designated": "Week 4",
+                 "validationHold": self.hold}
+        with self.assertRaises(AssertionError):
+            assert_section_kept(self.before, after, "x")
+
+    def test_new_week_fails(self):
+        with self.assertRaises(AssertionError):
+            assert_section_kept(self.before, {**self.before, "week_designated": "Week 5", "validationHold": self.hold}, "x")
+
+    def test_missing_or_foreign_hold_fails(self):
+        with self.assertRaises(AssertionError):
+            assert_section_kept(self.before, dict(self.before), "x")
+        with self.assertRaises(AssertionError):
+            assert_section_kept(self.before, {**self.before, "validationHold": {"reason": "review hold"}}, "x")
 
 
 class SourceResiliencyTest(unittest.TestCase):
@@ -173,7 +210,7 @@ class SourceResiliencyTest(unittest.TestCase):
         run = run_chain(self.tmp / "espn", wrap=failing("build_espn_section_from_ddf_leg.py"))
         self.assertTrue(run["status"]["success"], run["status"]["failed"])
         self.assertIn("espn", run["status"]["held"])
-        self.assertEqual(run["after"]["sources"]["espn"], run["before"]["sources"]["espn"])
+        assert_section_kept(run["before"]["sources"]["espn"], run["after"]["sources"]["espn"], "espn")
         check_legs_kept(run)
         for s in GATED:
             self.assertEqual(run["after"]["sources"][s]["week_designated"], "Week 5", s)
@@ -186,7 +223,7 @@ class SourceResiliencyTest(unittest.TestCase):
         run = run_chain(self.tmp / "espn-corrupt",
                         wrap=failing("build_espn_section_from_ddf_leg.py", write=corrupt))
         self.assertTrue(run["status"]["success"], run["status"]["failed"])
-        self.assertEqual(run["after"]["sources"]["espn"], run["before"]["sources"]["espn"])
+        assert_section_kept(run["before"]["sources"]["espn"], run["after"]["sources"]["espn"], "espn")
         check_legs_kept(run)
 
     def test_failed_cbsros_leg_build_restores_partial_legs(self):
@@ -209,7 +246,7 @@ class SourceResiliencyTest(unittest.TestCase):
         run = run_chain(self.tmp / "cbsros", wrap=wrap)
         self.assertTrue(run["status"]["success"], run["status"]["failed"])
         self.assertIn("cbsros", run["status"]["held"])
-        self.assertEqual(run["after"]["sources"]["cbsros"], run["before"]["sources"]["cbsros"])
+        assert_section_kept(run["before"]["sources"]["cbsros"], run["after"]["sources"]["cbsros"], "cbsros")
         check_legs_kept(run, "cbsros")
 
     def test_week_ten_snapshot_beats_week_nine_and_committed_week_four(self):
@@ -234,7 +271,7 @@ class SourceResiliencyTest(unittest.TestCase):
         self.assertFalse(run["status"]["success"])
         self.assertIn("all_review_gated_sources_held", run["status"]["failed"])
         for s in GATED:
-            self.assertEqual(run["after"]["sources"][s], run["before"]["sources"][s])
+            assert_section_kept(run["before"]["sources"][s], run["after"]["sources"][s], s)
 
     def test_unverifiable_leg_restore_fails_closed(self):
         def bad_restore(repo, source, before_legs):

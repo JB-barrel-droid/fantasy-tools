@@ -1,6 +1,7 @@
 """v2 Compare a trade: the rule-based deal read in app/v2/trade.js (JEG-487, contract CT-08).
 
-Three nets from engine series: DDF Value (V), Trade chart average (M, ddf_value_charts) and DDF Projections
+Three nets from engine series: DDF Value (V), Trade chart average (M: JEG-832 #780, the mean of the compared
+charts' nets, at least MIN_DEAL_CHARTS = 3 complete charts, else no read) and DDF Projections
 (P, ddf_value_projections). The side of a net is win at or above max(1, 3% of the average side total of that
 series), lose at or below the negative of that, else even. The read is a fixed table on (V, M): V win with M lose is
 "Arbitrage: send it", V lose with M win is "Trap". P is a production sentence against V. These checks pin, against
@@ -9,8 +10,8 @@ an independent recomputation:
   * the side thresholds, including the 1.0 floor and the 3% scale on a large trade, at both edges;
   * all nine (V, M) combinations land in their own cell, and the two named reads are where the ticket puts them;
   * the read does not depend on P, only the production sentence does;
-  * a series with a missing player value has no net: no V or no M means no read (never a 0 standing in), a missing
-    P only drops the production sentence.
+  * a series with a missing player value has no net: no V, or fewer than 3 complete charts for M, means no read
+    (never a 0 standing in), a missing P only drops the production sentence.
 
 Discrimination: test_checks_fail_on_broken_builds mutates trade.js (floor dropped, percentage changed, arbitrage and
 trap swapped, a missing value read as 0, the production sentence inverted, P changing the cell) and requires failures.
@@ -26,7 +27,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TRADE_JS = ROOT / "app" / "v2" / "trade.js"
-KEYS = {"v": "ddf_value", "m": "ddf_value_charts", "p": "ddf_value_projections"}
+KEYS = {"v": "ddf_value", "p": "ddf_value_projections"}
+# JEG-832: M is the mean of the compared charts' nets; dealRead takes the chart keys as its third argument.
+CHARTS = ["usatoday", "fantasycalc", "fantasypros"]
 
 
 def side(net, give, receive):
@@ -41,8 +44,12 @@ def rows_for(nets, total=20.0, missing=None):
     for letter, key in KEYS.items():
         give["values"][key] = total
         receive["values"][key] = total + nets[letter]
+    for chart in CHARTS:  # every chart nets the same, so the mean of their nets is nets["m"]
+        give["values"][chart] = total
+        receive["values"][chart] = total + nets["m"]
     for letter, who in (missing or []):
-        (give if who == "give" else receive)["values"][KEYS[letter]] = None
+        for key in (CHARTS if letter == "m" else [KEYS[letter]]):
+            (give if who == "give" else receive)["values"][key] = None
     return [give], [receive]
 
 
@@ -50,7 +57,7 @@ HARNESS = """
 const T = require(process.argv[1]);
 const cases = JSON.parse(process.argv[2]);
 console.log(JSON.stringify(cases.map(c => {
-  const r = T.dealRead(c.give, c.receive);
+  const r = T.dealRead(c.give, c.receive, c.charts || JSON.parse(process.argv[3]));
   return {id: c.id, kind: r.kind, cell: r.cell || null, title: r.title || null, sides: [r.value.side, r.market.side, r.projections.side],
     production: r.production || null, text: r.text};
 })));
@@ -84,6 +91,11 @@ def case_set():
     cases.append({"id": "m missing", "give": give, "receive": receive, "want_kind": "incomplete"})
     give, receive = rows_for({"v": 5.0, "m": -5.0, "p": 5.0}, missing=[("v", "receive")])
     cases.append({"id": "v missing", "give": give, "receive": receive, "want_kind": "incomplete"})
+    # JEG-832: fewer than MIN_DEAL_CHARTS complete charts is no market read.
+    give, receive = rows_for({"v": 5.0, "m": -5.0, "p": 5.0})
+    cases.append({"id": "two charts", "give": give, "receive": receive, "charts": CHARTS[:2], "want_kind": "incomplete"})
+    give, receive = rows_for({"v": 5.0, "m": -5.0, "p": 5.0}, missing=[("m", "give")])
+    cases.append({"id": "one chart missing a value", "give": give, "receive": receive, "want_kind": "incomplete"})
     return cases
 
 
@@ -92,7 +104,8 @@ def run(path: Path):
     if not node:
         raise unittest.SkipTest("node is not available")
     cases = case_set()
-    out = subprocess.run([node, "-e", HARNESS, str(path), json.dumps(cases)], capture_output=True, text=True, check=True)
+    out = subprocess.run([node, "-e", HARNESS, str(path), json.dumps(cases), json.dumps(CHARTS)],
+                         capture_output=True, text=True, check=True)
     return cases, {r["id"]: r for r in json.loads(out.stdout)}
 
 

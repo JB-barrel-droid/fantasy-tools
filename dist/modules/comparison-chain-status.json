@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T23:02:08.258555+00:00",
+  "run_at": "2026-10-23T01:06:25.457436+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,24 +10,41 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "published_with_holds",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
-    "fantasycalc"
+    "cbsros",
+    "razzball"
   ],
   "hold_severity": "red",
   "list_changes": {},
   "held_detail": {
-    "fantasycalc": {
+    "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
-        "fantasycalc"
+        "cbsros",
+        "cbsros_vorp"
       ],
       "sections": [
-        "fantasycalc"
+        "cbsros"
       ],
-      "detail": "11/1143 values match exactly across 6 columns; 1132 values differ, 29 outside the movement band; 0 live players not stored, 1 stored players not live (above the list's churn line); 15 players entered or left the bottom of the list since the save (churn)",
+      "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Andrew Beck (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in ",
+      "hold_severity": "amber",
+      "week": 7
+    },
+    "razzball": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "razzball",
+        "razzball_vorp"
+      ],
+      "sections": [
+        "razzball"
+      ],
+      "detail": "1806/1938 chart values equal stored snapshot 2026-10-22 (per game, 1 decimals); 28 stored players are left off the chart by its own rule (missed-games guard, JEG-555): Alec Pierce, Ben Skowronek, Bryce Lance, Brycen Tremayne, Christian Kirk, Colbie Young, Darnell Mooney, De'Zhaun Stribling, Demarcus",
       "hold_severity": "red",
       "week": 7
     }
@@ -90,7 +107,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-22 -> 12 DDF legs -> section; review passed (7776 values)",
+      "detail": "snapshot 2026-10-22 -> 12 DDF legs -> section; review passed (7788 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -144,6 +161,23 @@
     }
   },
   "fidelity_holds": {
-    "fantasycalc": "fidelity: publisher_vs_stored"
+    "cbsros": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: stored_vs_chart"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine",
+      "FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference"
+    ],
+    "assertions": [
+      "AssertionError: Lists differ: ['standard/14: 2-QB top QB 38.12 is not >=[173 chars]91)'] != []"
+    ],
+    "make_targets": [
+      "Makefile:544: test-core"
+    ],
+    "detail": "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine; FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference; AssertionError: Lists differ: ['standard/14: 2-QB top QB 38.12 is not >=[173 chars]91)'] != []",
+    "recorded_at": "2026-10-23T01:29:46.306629+00:00"
   }
 }

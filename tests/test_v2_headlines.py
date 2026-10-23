@@ -1,6 +1,7 @@
 """v2 Compare a trade headline (JEG-505, JEG-821, JEG-841, contract CT-02).
 
-Two answers with a confidence level:
+Two answers with a three-step level (High / Medium / Low inside trade.js; the page names it
+"Our value: strong / moderate / weak" and "Charts agree: strongly / mostly / weakly", JEG-895):
 
     "Should you propose or accept?"  by DDF Value + DDF Projections (JEG-841):
         Yes  when both say you win and the DDF margin is 5%+ of the value traded;
