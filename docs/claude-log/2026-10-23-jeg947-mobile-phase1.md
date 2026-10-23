@@ -38,3 +38,4 @@ Scope note: at 390 px the Targets view is the card layout (not a pinned table), 
 #### Not verified
 - Real-phone tap behavior (Chromium touch emulation only); `make validate` not run (value lanes in flux).
 - Decision for Jeremy: a tap on a clipped name shows the popover and does not open the drawer (tap elsewhere on the row still does). The alternative is popover plus drawer together.
+- After the second plain merge of origin/main (no conflicts): `test_phase1_guards_hold` OK and `node tests/test_v2_name_format.js` OK again.
