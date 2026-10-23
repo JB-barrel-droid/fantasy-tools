@@ -163,7 +163,7 @@ class A11yBatch1Test(unittest.TestCase):
         broken = {
             "no arrow keys": ({"v2_js": js.replace('const to = event.key === "ArrowRight" ?', 'const to = event.key === "NeverRight" ?', 1)}, ("tabs",)),
             "title never set": ({"v2_js": js.replace("document.title = parts", "void parts", 1)}, ("titles",)),
-            "rank text reverted": ({"v2_css": css.replace(".v2-table .is-rank { background: var(--v2-rank-tint); color: var(--v2-action-text); }", ".v2-table .is-rank { background: var(--v2-rank-tint); color: var(--v2-action); }", 1)}, ("contrast",)),
+            "rank text reverted": ({"v2_css": css.replace("background: var(--v2-hover-rank); color: var(--v2-action-strong); }", "background: var(--v2-hover-rank); }", 1)}, ("contrast",)),
             "field border reverted": ({"v2_css": css.replace("border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn);\n  padding: 10px 14px;",
                                                            "border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn);\n  padding: 10px 14px;", 1)}, ("contrast",)),
             "nav ring reverted": ({"v2_css": css.replace(".v2-nav :focus-visible { outline-color: #fff; }", "", 1)}, ("contrast",)),
