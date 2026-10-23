@@ -163,7 +163,9 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     """League allocation (VP-2.2 a-e) on a per-position order with scores.
 
     flex_bench_seats (MR-28): on by default (2026-10-23, Jeremy approved).
-    Bench weights count sf+flex starters."""
+    Bench weights count sf+flex starters.
+    Skipped in 2-QB / superflex (Jeremy, 2026-10-23, option A):
+    market_bench 2-QB data already reflects supply-capped QB benches."""
     T = setting.teams
     ded = {p: T * int(setting.slots.get(p, 0)) for p in POSITIONS}
 
@@ -179,7 +181,10 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    ff = {p: sf[p] + fx[p] for p in POSITIONS} if flex_bench_seats else None
+    # Skip flex_bench_seats in 2-QB / superflex (Jeremy, 2026-10-23).
+    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+    use_flex = flex_bench_seats and not is_two_qb
+    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
     bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
@@ -331,8 +336,10 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
         t = fsum_in_order(natives[c][k] for k in sorted(shared))
         scale[c] = 1000.0 / t if t > 0 else 1.0
     # MR-28: approximate flex_filled for bench weights
+    # Skipped in 2-QB / superflex (Jeremy, 2026-10-23).
+    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
     ff = None
-    if flex_bench_seats:
+    if flex_bench_seats and not is_two_qb:
         ff = {}
         sf_total = setting.teams * setting.superflex
         fx_total = setting.teams * setting.flex

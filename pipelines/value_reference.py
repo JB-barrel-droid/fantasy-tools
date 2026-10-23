@@ -233,7 +233,12 @@ def allocate(league: League, order: dict, score: dict, *,
 
     flex_bench_seats (MR-28, JEG-969): when True, bench-seat weights count
     superflex+flex starters the way allocate_league does in the ES model.
-    On by default (2026-10-23, Jeremy approved)."""
+    On by default (2026-10-23, Jeremy approved).
+
+    Skipped in 2-QB / superflex rosters (Jeremy, 2026-10-23, option A):
+    market_bench 2-QB data (bps 0.28) already reflects supply-capped QB
+    benches from FFC draft data; applying flex_bench_seats on top
+    double-counts the effect and inverts the 2-QB direction gate."""
     t = int(league.teams)
     d = {p: t * int(league.slots.get(p, 0)) for p in POSITIONS}
 
@@ -249,7 +254,11 @@ def allocate(league: League, order: dict, score: dict, *,
     fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
-    ff = {p: sf[p] + fx[p] for p in POSITIONS} if flex_bench_seats else None
+    # Skip flex_bench_seats in 2-QB / superflex: market_bench 2-QB data
+    # already captures supply-capped QB benches (Jeremy, 2026-10-23).
+    is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
+    use_flex = flex_bench_seats and not is_two_qb
+    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
     b = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
@@ -404,8 +413,10 @@ def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict,
     # MR-28: approximate flex_filled for bench weights when flex_bench_seats
     # is on.  Uses the same cap as the starters approximation below: at most
     # as many flex starters per position as there are extra listed players.
+    # Skipped in 2-QB / superflex (Jeremy, 2026-10-23).
+    is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
     ff = None
-    if flex_bench_seats:
+    if flex_bench_seats and not is_two_qb:
         ff = {}
         sf_total = league.teams * int(league.superflex)
         fx_total = league.teams * int(league.flex)
