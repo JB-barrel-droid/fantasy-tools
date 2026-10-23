@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 sys.path.insert(0, str(ROOT / "pipelines"))
 import projection_capture as pc  # noqa: E402
+from timestamps import parse_iso_timestamp  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -32,7 +33,7 @@ def main(argv=None) -> int:
     ap.add_argument("--season", type=int, default=2026)
     ap.add_argument("--now", help="ISO time, tests only")
     a = ap.parse_args(argv)
-    now = datetime.fromisoformat(a.now) if a.now else datetime.now(timezone.utc)
+    now = parse_iso_timestamp(a.now) if a.now else datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     cells = pc.required_cells(now)

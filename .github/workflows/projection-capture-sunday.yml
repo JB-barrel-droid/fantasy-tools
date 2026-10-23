@@ -53,3 +53,10 @@ jobs:
           python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
           python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball
           python3 pipelines/capture_projections_only.py --cbs /tmp/cbsros_snapshot --razzball /tmp/razzball $flag
+
+      - name: Record monitored check
+        if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id projection_capture_sunday --owner projection-capture-sunday.yml --outcome "${{ job.status }}"
