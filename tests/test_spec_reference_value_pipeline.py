@@ -240,11 +240,14 @@ class LiveDump(unittest.TestCase):
         from spec_reference import pipeline_live as pl
         paths = pl.default_paths()
         fixture = json.loads(Path(paths["fixture"]).read_text(encoding="utf-8"))
-        # Amber-hold all projections: they should remain eligible and visible.
+        # Only hold projections present in the fixture (rotowire may be
+        # registered but absent when its build flag is off -- JEG-969 lane D).
+        fx_projs = [p for p in pl.PROJECTIONS
+                    if (fixture.get("sources") or {}).get(p)]
         amber_holds = {root: {"stage": "stored_vs_chart",
                               "reason": "fidelity: stored_vs_chart",
                               "hold_level": "amber"}
-                       for root in pl.PROJECTIONS}
+                       for root in fx_projs}
         held, _ = fh.apply_fidelity_holds(fixture, amber_holds, 6)
         with tempfile.TemporaryDirectory() as tmp:
             fx_path = Path(tmp) / "comparison-sources-data.json"
@@ -253,14 +256,14 @@ class LiveDump(unittest.TestCase):
                            only=["ppr/12/sf0"])
         s = rep["settings"]["ppr/12/sf0"]
         # Amber-held projections must not be excluded for "held".
-        for root in pl.PROJECTIONS:
+        for root in fx_projs:
             held_exclusions = [e for e in s["excluded"] if e["key"] == root and e["reason"] == "held"]
             self.assertEqual(held_exclusions, [],
                              f"amber-held {root} should not be excluded for 'held'")
         # Any amber-held projection that made it into included must NOT be
         # hidden from the DDF blend (i.e. it must appear in at least one
         # row's blend sources -- players that source prices).
-        for root in pl.PROJECTIONS:
+        for root in fx_projs:
             if root not in s["included"]:
                 continue  # excluded for another reason (e.g. no prior week)
             found = any(root in row["ddf"]["blended"]["sources"]
@@ -276,10 +279,14 @@ class LiveDump(unittest.TestCase):
         from spec_reference import pipeline_live as pl
         paths = pl.default_paths()
         fixture = json.loads(Path(paths["fixture"]).read_text(encoding="utf-8"))
+        # Only hold projections present in the fixture (rotowire may be
+        # registered but absent when its build flag is off -- JEG-969 lane D).
+        fx_projs = [p for p in pl.PROJECTIONS
+                    if (fixture.get("sources") or {}).get(p)]
         red_holds = {root: {"stage": "stored_vs_chart",
                             "reason": "fidelity: stored_vs_chart",
                             "hold_level": "red"}
-                     for root in pl.PROJECTIONS}
+                     for root in fx_projs}
         held_r, _ = fh.apply_fidelity_holds(fixture, red_holds, 6)
         with tempfile.TemporaryDirectory() as tmp:
             fx_path = Path(tmp) / "comparison-sources-data.json"
@@ -289,15 +296,15 @@ class LiveDump(unittest.TestCase):
         sr = rep_r["settings"]["ppr/12/sf0"]
         excluded_keys = {e["key"] for e in sr["excluded"]}
         # Red-held projections must NOT be excluded (they are eligible).
-        for root in pl.PROJECTIONS:
+        for root in fx_projs:
             self.assertNotIn(root, excluded_keys,
                              f"red-held {root} should be eligible, not excluded")
         # Red-held projections must be in included (for weights/pie).
-        for root in pl.PROJECTIONS:
+        for root in fx_projs:
             self.assertIn(root, sr["included"],
                           f"red-held {root} should be in the included set")
         # Red-held projections must be hidden from DDF blend.
-        for root in pl.PROJECTIONS:
+        for root in fx_projs:
             for k, row in sr["rows"].items():
                 ddf = row["ddf"]["blended"]
                 if ddf["count"] > 0:

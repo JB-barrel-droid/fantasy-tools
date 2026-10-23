@@ -72,7 +72,8 @@ from spec_reference import value_pipeline as vp  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 SCHEMA = "spec-reference-pipeline/1"
-PROJECTIONS = ("espn", "cbsros", "razzball")
+# JEG-969 lane D: rotowire added (inert unless fixture has sources.rotowire).
+PROJECTIONS = ("espn", "cbsros", "razzball", "rotowire")
 CHARTS = ("cbs", "fantasycalc", "fantasypros", "usatoday")
 SOURCE_ORDER = PROJECTIONS + CHARTS
 SCORINGS = ("standard", "half_ppr", "ppr")
@@ -159,7 +160,7 @@ def current_natives(data: dict, s: str, scoring: str, teams: int, sf: int, dropp
     return out
 
 
-PPG_FIELD = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg"}
+PPG_FIELD = {"espn": "espn_ppg", "cbsros": "cbsros_ppg", "razzball": "rz_ppg", "rotowire": "rotowire_ppg"}
 
 
 def projection_natives(data: dict, s: str, scoring: str) -> dict | None:

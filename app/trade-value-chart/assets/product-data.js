@@ -58,6 +58,7 @@
     "espn",
     "cbsros",
     "razzball",
+    "rotowire",               // JEG-969 lane D (inert unless fixture has the section)
     "fantasycalc_adjusted",
     "usatoday_adjusted",
     "fantasypros_adjusted",
@@ -66,6 +67,7 @@
     "espn_vorp",
     "cbsros_vorp",
     "razzball_vorp",
+    "rotowire_vorp",          // JEG-969 lane D
   ]);
 
   // Adjusted indexed keys (drive the pause logic in §3.4.2).
@@ -81,7 +83,7 @@
   const rawSourceKey = key => (key.endsWith("_adjusted") ? key.slice(0, -"_adjusted".length) : key);
 
   // Pure VORP keys (browser-computed from per-game projections).
-  const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp"]);
+  const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp", "rotowire_vorp"]);
 
 
   // As-published sources (singleScale: true in normalizeToFixedPie).
@@ -512,13 +514,15 @@
     {source: "espn", label: "ESPN", kind: "projections", series: {adjusted: "espn", vorp_vs_waivers: "espn_vorp"}},
     {source: "cbsros", label: "CBS ROS", kind: "projections", series: {adjusted: "cbsros", vorp_vs_waivers: "cbsros_vorp"}},
     {source: "razzball", label: "Razzball", kind: "projections", series: {adjusted: "razzball", vorp_vs_waivers: "razzball_vorp"}},
+    {source: "rotowire", label: "RotoWire", kind: "projections", series: {adjusted: "rotowire", vorp_vs_waivers: "rotowire_vorp"}},  // JEG-969 lane D
   ].map(entry => Object.freeze({...entry, series: Object.freeze({...entry.series})})));
   const DEFAULT_PAIR_METHOD = "adjusted";
   // Series priced from per-game projections on the player records, not from
   // fixture combos. Field names match the players island.
   const PPG_FIELD_FOR_SERIES = Object.freeze({
-    cbsros: "cbsros_ppg", razzball: "rz_ppg",
+    cbsros: "cbsros_ppg", razzball: "rz_ppg", rotowire: "rotowire_ppg",
     espn_vorp: "espn_ppg", cbsros_vorp: "cbsros_ppg", razzball_vorp: "rz_ppg",
+    rotowire_vorp: "rotowire_ppg",                                              // JEG-969 lane D
   });
   const CHART_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
   const PPG_SCORING_FIELD = {ppr: "ppr", full: "ppr", half_ppr: "half_ppr", half: "half_ppr", standard: "standard"};
@@ -726,7 +730,7 @@
     else if (view === "adj_values") valueProvenance = "adj";
 
     let modelVsPublished = "published";
-    if (["espn", "cbsros", "razzball"].includes(sourceKey)) modelVsPublished = "model";
+    if (["espn", "cbsros", "razzball", "rotowire"].includes(sourceKey)) modelVsPublished = "model";
 
     const detailLocator = `sources.${sourceKey}.combos.${comboKeyStr}.${cellField === combo.native ? "native" : cellField === combo.native_superflex ? "native_superflex" : "values"}`;
 

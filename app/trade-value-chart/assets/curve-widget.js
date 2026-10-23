@@ -28,6 +28,7 @@
     espn: "ESPN adjusted",
     cbsros: "CBS ROS",
     razzball: "Razzball",
+    rotowire: "RotoWire",                                    // JEG-969 lane D
     fantasycalc_adjusted: "FC Adjusted",
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
@@ -35,6 +36,7 @@
     espn_vorp: "ESPN value above waivers, raw",
     cbsros_vorp: "CBS ROS value above waivers, raw",
     razzball_vorp: "Razzball value above waivers, raw",
+    rotowire_vorp: "RotoWire value above waivers, raw",     // JEG-969 lane D
     ddf_value: "DDF Value"
   };
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]);
@@ -46,6 +48,7 @@
     "espn",
     "cbsros",
     "razzball",
+    "rotowire",               // JEG-969 lane D (inert unless fixture has the section)
     "fantasycalc_adjusted",
     "usatoday_adjusted",
     "fantasypros_adjusted",
@@ -59,18 +62,20 @@
     espn: {color: "#6b55a3", dash: []},
     cbsros: {color: "#c9842b", dash: []},
     razzball: {color: "#2b9dc9", dash: []},
+    rotowire: {color: "#e6443a", dash: []},                  // JEG-969 lane D
     fantasycalc_adjusted: {color: "#236a96", dash: [7, 4]},
     usatoday_adjusted: {color: "#d5531d", dash: [7, 4]},
     fantasypros_adjusted: {color: "#16815d", dash: [7, 4]},
     cbs_adjusted: {color: "#b83e45", dash: [7, 4]},
     espn_vorp: {color: "#6b55a3", dash: []},
     cbsros_vorp: {color: "#c9842b", dash: []},
-    razzball_vorp: {color: "#2b9dc9", dash: []}
+    razzball_vorp: {color: "#2b9dc9", dash: []},
+    rotowire_vorp: {color: "#e6443a", dash: []}              // JEG-969 lane D
   };
   const SOURCE_GROUPS = [
-    {label:"Projections (Adjusted values)", keys:["espn", "cbsros", "razzball"]},
+    {label:"Projections (Adjusted values)", keys:["espn", "cbsros", "razzball", "rotowire"]},
     {label:"Trade charts (Adjusted values)", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
-    {label:"Projections (value above waivers)", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
+    {label:"Projections (value above waivers)", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp", "rotowire_vorp"]},
     {label:"Trade charts (rescaled)", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
   // Pure raw value-above-waivers curves: projection-minus-waiver VORP from
@@ -80,8 +85,9 @@
     espn_vorp: {ppgField: "espn_ppg", short: "ESPN"},
     cbsros_vorp: {ppgField: "cbsros_ppg", short: "CBS ROS"},
     razzball_vorp: {ppgField: "rz_ppg", short: "Razzball"},
+    rotowire_vorp: {ppgField: "rotowire_ppg", short: "RotoWire"},  // JEG-969 lane D
   };
-  const PURE_VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
+  const PURE_VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp", "rotowire_vorp"];
   // DDF Value (JEG-497 / JEG-508, docs/methodology.md "Value Pipeline",
   // VP-6.3): the equal-weight mean of the included sources' Adjusted values,
   // in three versions (blended, charts, projections), one number per player in
@@ -93,6 +99,8 @@
   // setCompositeInputs and mapped to the chart (COMPOSITE_INPUT_ALIASES).
   // JEG-804 (Jeremy Q4, 2026-10-22): DDF Value = projection sources only.
   // Trade charts are out of DDF Value; they stay on the Indexed/VORP tabs.
+  // JEG-969 lane D: rotowire is a valid input when its data is in the fixture;
+  // omitted when the build flag is off. The array is extended at init time.
   const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball"];
   const EXTRA_SOURCE_KEYS = [];
   // The four "*_adjusted" series are deprecated aliases (VP-11 retires them):
@@ -3803,6 +3811,10 @@
   async function init() {
     try {
       data = await loadComparisonData();
+      // JEG-969 lane D: extend COMPOSITE_INPUT_KEYS for rotowire when present.
+      if (!sourceMissingFromData("rotowire") && !COMPOSITE_INPUT_KEYS.includes("rotowire")) {
+        COMPOSITE_INPUT_KEYS.push("rotowire");
+      }
       // JEG-479 / VP-1.2: the prior week is priced inside every rebuild, so
       // its history reads are fetched before the first one.
       await preloadCompositeHistory();

@@ -82,6 +82,18 @@ COMPOSITE_SERIES = ("ddf_inputs", "ddf_weights", "allocation", "pie")
 WEIGHT_TOL = 1e-4   # VP-12: 1e-4 on weights
 
 
+def register_source(root: str, kind: str = "projection") -> None:
+    """Extend SOURCE_DERIVED at runtime (e.g. when rotowire flag is on)."""
+    if root in SOURCE_DERIVED:
+        return
+    if kind == "projection":
+        SOURCE_DERIVED[root] = {"sections": [root], "series": [root, f"{root}_vorp"]}
+    else:
+        SOURCE_DERIVED[root] = {"sections": [root], "series": [root]}
+    ROOT_OF.update({s: root for s in SOURCE_DERIVED[root]["series"]})
+    DIAG_ROOT[f"{root}_weights"] = root
+
+
 def derived_series(root: str) -> list[str]:
     return list(SOURCE_DERIVED[root]["series"])
 

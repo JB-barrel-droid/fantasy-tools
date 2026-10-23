@@ -68,7 +68,8 @@ def pulse_holds(pulse: dict | None) -> dict:
 def _held_sections(root: str) -> list[str]:
     """The fixture sections to strip when holding a source: its own sections
     plus any derivative sections (e.g. *_adjusted for published charts)."""
-    base = list(vc.SOURCE_DERIVED[root]["sections"])
+    derived = vc.SOURCE_DERIVED.get(root)
+    base = list(derived["sections"]) if derived else [root]
     # _adjusted sections are derivatives of published charts that live in the
     # fixture but aren't tracked in SOURCE_DERIVED (retired by JEG-508).
     for sec in list(base):

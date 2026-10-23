@@ -90,6 +90,44 @@ VIEW_SERIES = {
     "vorp": (*PUBLISHED, *VORP_KEYS),
     "adj": (*PUBLISHED, *PROJECTIONS),
 }
+
+# JEG-969 lane D: RotoWire as a fourth projection source (OFF by default).
+# When enabled, PROJECTIONS/SOURCES/FAMILY/PPG_FIELD/VORP_KEYS/VIEW_SERIES
+# gain "rotowire". The fixture must have a sources.rotowire section built
+# by build_rotowire_section_from_ddf_leg.py. Per-game PPG is the average of
+# remaining-week projections from Sleeper's weekly feed (a genuine ROS view:
+# RotoWire publishes all 18 weeks preseason, updated weekly; see JEG-969
+# lane D evidence on the Linear ticket).
+ROTOWIRE_SOURCE_KEY = "rotowire"
+ROTOWIRE_PPG_FIELD = "rotowire_ppg"      # column in players.json when built
+
+
+def _extend_for_rotowire():
+    """Extend module-level source lists to include RotoWire.
+
+    Called ONCE, gated on the rotowire_source flag. All downstream code reads
+    the module-level tuples/dicts, so adding here propagates everywhere."""
+    global PROJECTIONS, SOURCES, FAMILY, VORP_KEYS, SERIES_KEYS, PPG_FIELD, VIEW_SERIES
+    if ROTOWIRE_SOURCE_KEY in PROJECTIONS:
+        return  # already extended
+    PROJECTIONS = (*PROJECTIONS, ROTOWIRE_SOURCE_KEY)
+    SOURCES = (*PUBLISHED, *PROJECTIONS)
+    FAMILY = {**{k: "chart" for k in PUBLISHED}, **{k: "projection" for k in PROJECTIONS}}
+    VORP_KEYS = {**VORP_KEYS, f"{ROTOWIRE_SOURCE_KEY}_vorp": ROTOWIRE_SOURCE_KEY}
+    SERIES_KEYS = (*SOURCES, *VORP_KEYS)
+    PPG_FIELD = {**PPG_FIELD, ROTOWIRE_SOURCE_KEY: ROTOWIRE_PPG_FIELD}
+    VIEW_SERIES = {
+        "indexed": (*PUBLISHED, *PROJECTIONS),
+        "vorp": (*PUBLISHED, *VORP_KEYS),
+        "adj": (*PUBLISHED, *PROJECTIONS),
+    }
+    # Also register in value_check.SOURCE_DERIVED so fidelity holds know the
+    # source's derived sections/series (avoids KeyError in fidelity_hold).
+    try:
+        import value_check as _vc
+        _vc.register_source(ROTOWIRE_SOURCE_KEY, kind="projection")
+    except ImportError:
+        pass  # value_check not on sys.path (e.g. front-end-only import)
 COMPOSITE_KEY = "ddf_value"
 DDF_VERSIONS = {"ddf_value": "blended", "ddf_value_charts": "charts", "ddf_value_projections": "projections"}
 # JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources only.
@@ -1232,13 +1270,17 @@ class Setting:
                  hist: History | None = None, qb: int = 1, bench_share: float | None = None,
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
-                 expected_starts: bool = True, divergence_exclusions: set | None = None):
+                 expected_starts: bool = True, divergence_exclusions: set | None = None,
+                 rotowire_source: bool = False):
         """lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
         False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline).
         divergence_exclusions: source keys excluded by a JEG-610 'exclude'
-        resolution (treated as hidden, held semantics per JEG-569)."""
+        resolution (treated as hidden, held semantics per JEG-569).
+        rotowire_source: JEG-969 lane D, OFF by default (2026-10-23)."""
+        if rotowire_source:
+            _extend_for_rotowire()
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.lineup = (resolve_lineup(load_lineup_config(), **(lineup_settings or {}))
                        if expected_starts else None)
@@ -1442,7 +1484,7 @@ class Setting:
 
 
 def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None,
-            divergence_exclusions: set | None = None) -> dict:
+            divergence_exclusions: set | None = None, rotowire_source: bool = False) -> dict:
     """One setting in the shape value_check compares: rows per tab, the
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
@@ -1451,7 +1493,8 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
                 lineup_settings=setting_spec.get("lineup"),
                 bench_share_override=setting_spec.get("bench_share_override"),
                 expected_starts=setting_spec.get("expected_starts", True),
-                divergence_exclusions=divergence_exclusions)
+                divergence_exclusions=divergence_exclusions,
+                rotowire_source=rotowire_source)
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}
