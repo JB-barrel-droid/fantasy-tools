@@ -76,7 +76,11 @@
     return node;
   }
 
-  function th(text, cls) { return el("th", cls || "", text); }
+  function th(text, cls) {
+    var node = el("th", cls || "", text);
+    node.setAttribute("scope", "col");   // JEG-904
+    return node;
+  }
   function td(text, cls) { return el("td", cls || "", text); }
 
   // ── Data extraction ─────────────────────────────────────────────────
@@ -341,10 +345,11 @@
 
   function buildSummaryTable(data, verdicts) {
     var section = el("div", "audit-pie-section");
-    var heading = el("h3", "audit-pie-heading", "Total pie by source");
+    var heading = el("h2", "audit-pie-heading", "Total pie by source");
     section.appendChild(heading);
 
     var table = el("table", "audit-pie-table audit-pie-summary");
+      table.setAttribute("aria-label", "Total pie by source");   // JEG-904
     var thead = el("thead");
     var hr = el("tr");
     ["Source", "Family", "Players posted", "Rosterable", "Estimated",
@@ -425,10 +430,11 @@
 
   function buildReconcileTable(data) {
     var section = el("div", "audit-pie-section audit-pie-reconcile");
-    section.appendChild(el("h3", "audit-pie-heading", "Reconciling to Player values"));
+    section.appendChild(el("h2", "audit-pie-heading", "Reconciling to Player values"));
     section.appendChild(el("p", "audit-pie-note", RECONCILE_NOTE));
 
     var table = el("table", "audit-pie-table audit-pie-reconcile-table");
+      table.setAttribute("aria-label", "Reconciling to Player values");   // JEG-904
     var thead = el("thead");
     var hr = el("tr");
     ["Source", "Own values (posted)", "Filled in from other charts", "Total adjusted",
@@ -464,7 +470,7 @@
 
   function buildPositionTable(data, verdicts) {
     var section = el("div", "audit-pie-section");
-    var heading = el("h3", "audit-pie-heading", "By position: adjusted values");
+    var heading = el("h2", "audit-pie-heading", "By position: adjusted values");
     section.appendChild(heading);
 
     var note = el("p", "audit-pie-note",
@@ -474,10 +480,11 @@
 
     POSITIONS.forEach(function (pos, pi) {
       var sub = el("div", "audit-pie-pos-block");
-      var posHead = el("h4", "audit-pie-pos-heading", pos);
+      var posHead = el("h3", "audit-pie-pos-heading", pos);
       sub.appendChild(posHead);
 
       var table = el("table", "audit-pie-table audit-pie-pos");
+      table.setAttribute("aria-label", "By position: adjusted values, " + pos);   // JEG-904
       var thead = el("thead");
       var hr = el("tr");
       ["Source", "Listed", "Starters", "Bench", "Rosterable", "Estimated",
@@ -537,7 +544,7 @@
 
   function buildRawVsAdjustedTable(data) {
     var section = el("div", "audit-pie-section");
-    var heading = el("h3", "audit-pie-heading", "Raw slices vs adjusted values");
+    var heading = el("h2", "audit-pie-heading", "Raw slices vs adjusted values");
     section.appendChild(heading);
 
     var note = el("p", "audit-pie-note",
@@ -550,10 +557,11 @@
 
     POSITIONS.forEach(function (pos, pi) {
       var sub = el("div", "audit-pie-pos-block");
-      var posHead = el("h4", "audit-pie-pos-heading", pos);
+      var posHead = el("h3", "audit-pie-pos-heading", pos);
       sub.appendChild(posHead);
 
       var table = el("table", "audit-pie-table audit-pie-raw");
+      table.setAttribute("aria-label", "Raw slices vs adjusted values, " + pos);   // JEG-904
       var thead = el("thead");
       var hr = el("tr");
       ["Source", "Raw starter", "Raw bench", "Raw total",
@@ -601,7 +609,7 @@
 
   function buildCoverageTable(data) {
     var section = el("div", "audit-pie-section");
-    var heading = el("h3", "audit-pie-heading", "Coverage: players posted vs rosterable slots");
+    var heading = el("h2", "audit-pie-heading", "Coverage: players posted vs rosterable slots");
     section.appendChild(heading);
 
     var note = el("p", "audit-pie-note",
@@ -613,10 +621,11 @@
 
     POSITIONS.forEach(function (pos, pi) {
       var sub = el("div", "audit-pie-pos-block");
-      var posHead = el("h4", "audit-pie-pos-heading", pos);
+      var posHead = el("h3", "audit-pie-pos-heading", pos);
       sub.appendChild(posHead);
 
       var table = el("table", "audit-pie-table audit-pie-coverage");
+      table.setAttribute("aria-label", "Coverage: players posted vs rosterable slots, " + pos);   // JEG-904
       var thead = el("thead");
       var hr = el("tr");
       ["Source", "Listed", "Rosterable", "Estimated",

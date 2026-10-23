@@ -16,17 +16,50 @@ and with the link opening the wrong sides, and requires each to fail.
 """
 from __future__ import annotations
 
+import contextlib
 import functools
+import http.server
+import shutil
+import socketserver
 import sys
+import tempfile
+import threading
 import unittest
 from pathlib import Path
 
-from tests import _render_env
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipelines"))
+import build_v2_page  # noqa: E402
+from tests import _render_env  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable
-from tests.test_v2_modules_render import _built_dist, _serve
+from tests._holds import pin_holds_in_dist
+from tests.test_v2_modules_render import DIST, _serve
 
 ROOT = Path(__file__).resolve().parents[1]
 FINDER_JS = ROOT / "app" / "v2" / "finder.js"
+
+
+@contextlib.contextmanager
+def _built_dist():
+    """Built dist with the pinned holds (CBS held), so the held-chart check has a held chart to look for (JEG-881)."""
+    if not (DIST / "index.html").exists():
+        raise _render_env.unavailable("dist/index.html is not built")
+    with tempfile.TemporaryDirectory() as tmp:
+        dist = Path(tmp) / "dist"
+        shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        pin_holds_in_dist(dist)
+        build_v2_page.build(dist)
+
+        class Quiet(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass
+
+        with socketserver.ThreadingTCPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=str(dist))) as server:
+            server.daemon_threads = True
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2/"
+            finally:
+                server.shutdown()
 
 
 def setUpModule():
@@ -107,6 +140,9 @@ def check(page, tag, width) -> list[str]:
     if got["rowsShown"] > 10:
         errors.append(tag + f"{got['rowsShown']} rows listed, max 10")
     # JEG-819: a held chart must not appear in the finder's output text.
+    # JEG-881: the loop is vacuous without a held chart, so require at least one.
+    if not got.get("heldNames"):
+        errors.append(tag + "no held chart in the served fixture: the held-name check proves nothing")
     for held in got.get("heldNames", []):
         if held in got["out"]:
             errors.append(tag + f"held chart '{held}' appears in finder output")
@@ -175,6 +211,7 @@ class FinderRenderTest(unittest.TestCase):
         js = FINDER_JS.read_text(encoding="utf-8")
         broken = {
             "edge read the wrong way round": js.replace("const edge = get.sums[0] - give.sums[0];", "const edge = give.sums[0] - get.sums[0];", 1),
+            "held chart counted (availability filter dropped)": js.replace("const charts = CHART_KEYS.filter(key => availableKeys.has(key));", "const charts = CHART_KEYS.slice();", 1),
             "finder back inside Compare a trade": js.replace('const host = $("v2FindTrade");', 'const host = $("v2Compare");', 1),
             "link swaps the sides": js.replace("#compare-trade?give=${ids(t.give)}&get=${ids(t.receive)}", "#compare-trade?give=${ids(t.receive)}&get=${ids(t.give)}", 1),
         }

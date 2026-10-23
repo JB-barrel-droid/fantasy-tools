@@ -1,5 +1,6 @@
 <div id="v2App" class="v2-app">
   <button type="button" class="v2-skip" id="v2Skip">Skip to content</button>
+  <span class="v2-sr" id="v2OpenHint">Opens player details. Press Enter or Space.</span>
   <header class="v2-nav">
     <div class="v2-nav-inner">
       <a class="v2-brand" href="v2/#trade-targets">Data Driven Football</a>
@@ -155,7 +156,7 @@
           <input type="range" id="v2YBrushLo" aria-label="Lowest value shown" aria-orientation="vertical" min="0" max="100" step="0.5" value="0">
         </div>
         <div class="v2-plot-main">
-          <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
+          <div class="v2-chart" id="v2Chart" tabindex="0" role="group" aria-roledescription="chart" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
           <div class="v2-zoom" role="group" aria-label="Zoom">
             <button type="button" class="v2-zoom-reset" id="v2ResetZoom" hidden>Reset zoom</button>
             <button type="button" id="v2ChartSize" aria-pressed="false" aria-label="Make chart taller" title="Make chart taller">↕</button>
@@ -185,7 +186,7 @@
         <button type="button" class="v2-select v2-texpand-btn" id="v2ExpandTable" aria-haspopup="dialog"><span aria-hidden="true">⤢</span> Expand</button>
       </div>
       <div class="v2-table-wrap" id="v2TableWrap">
-        <table class="v2-table v2-vtable" id="v2Table"></table>
+        <table class="v2-table v2-vtable" id="v2Table" role="grid" aria-labelledby="v2TableTitle"></table>
         <div class="v2-table-foot">
           <button type="button" class="v2-btn" id="v2ShowMore" hidden>Show more players</button>
         </div>
@@ -425,9 +426,9 @@
         <h2 id="v2GiveTitle">You give</h2>
         <div class="v2-trade-search-wrap">
           <label class="v2-search"><span class="v2-sr">Search and add a player you give</span>
-            <input type="search" id="v2GiveSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GiveResults">
+            <input type="search" id="v2GiveSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GiveResults" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="listbox">
           </label>
-          <ul class="v2-trade-results" id="v2GiveResults" hidden></ul>
+          <ul class="v2-trade-results" id="v2GiveResults" role="listbox" aria-label="Matching players" hidden></ul>
         </div>
         <ul class="v2-trade-players" id="v2GivePlayers"></ul>
         <p class="v2-side-total" id="v2GiveTotal" hidden></p>
@@ -436,9 +437,9 @@
         <h2 id="v2GetTitle">You receive</h2>
         <div class="v2-trade-search-wrap">
           <label class="v2-search"><span class="v2-sr">Search and add a player you receive</span>
-            <input type="search" id="v2GetSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GetResults">
+            <input type="search" id="v2GetSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GetResults" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="listbox">
           </label>
-          <ul class="v2-trade-results" id="v2GetResults" hidden></ul>
+          <ul class="v2-trade-results" id="v2GetResults" role="listbox" aria-label="Matching players" hidden></ul>
         </div>
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
@@ -467,7 +468,7 @@
           <details class="v2-deal-more">
             <summary>Every pairing of our value and the trade charts</summary>
             <div class="v2-table-wrap">
-              <table class="v2-deal-grid" id="v2CDealGrid"></table>
+              <table class="v2-deal-grid" id="v2CDealGrid" aria-labelledby="v2CDealTitle"></table>
             </div>
           </details>
         </div>
@@ -493,7 +494,7 @@
       <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
       <p class="v2-meta v2-t-empty" id="v2CEmpty">No result until both sides have at least one player.</p>
       <div class="v2-table-wrap">
-        <table class="v2-table v2-ctable" id="v2CTable" hidden></table>
+        <table class="v2-table v2-ctable" id="v2CTable" aria-labelledby="v2CResultTitle" hidden></table>
       </div>
     </section>
 

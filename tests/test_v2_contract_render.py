@@ -1537,7 +1537,9 @@ def gl27(S):
 
 def tt12(S):
     cells = S["tabs"]["targets"]["mathCells"]
-    bad = [c for c in cells if c != ["0", "v2MathTip"]]
+    # JEG-899: inside a row or card list the cell is tabindex -1 (one tab stop per row list; ArrowRight from the
+    # row, or a pointer, focuses it). Still focusable, so the contract is "0 or -1", never absent.
+    bad = [c for c in cells if c[0] not in ("0", "-1") or c[1] != "v2MathTip"]
     return [f"chart values must be focusable and describedby the math tip: {bad[:3]}"] if bad or not cells else []
 
 
