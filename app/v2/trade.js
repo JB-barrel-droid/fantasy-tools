@@ -152,7 +152,7 @@
   }
 
   // JEG-505 headline (contract CT-02). Two plain answers with a confidence level:
-  //   propose: "Should you propose or accept?" by DDF Value AND DDF Projections (JEG-841).
+  //   propose: "Should you propose or accept?" by DDF Value (JEG-841, JEG-863: DDF Value = projections).
   //            Yes when both say you win and the DDF margin is 5%+ of the value traded;
   //            confidence from the projections margin (High when projections also 5%+, Low when even).
   //            Unclear when they split or the margin is under 5%.
@@ -162,8 +162,8 @@
   //            Likely at two thirds or more, Unlikely at one third or less, otherwise Toss-up.
   // The level is High / Medium / Low here; the page names it for what it measures (JEG-895, v2.js
   // LEVEL_LABELS: "Our value: strong / moderate / weak", "Charts agree: strongly / mostly / weakly"):
-  //   propose  High when DDF Projections margin also 5%+, Medium when DDF Projections agree but margin
-  //            under 5%, Low when DDF Projections are even or missing;
+  //   propose  High when margin 5%+, Medium when DDF Value agrees but margin
+  //            under 5%, Low when DDF Value is even or missing;
   //   accept   agreement: >= 75% of charts on the answer's side = High, >= 60% = Medium, else Low;
   //   few sources fewer than 3 complete sources caps at Medium;
   //   data     a low-confidence (one-source) DDF Value in the trade lowers the propose line one level.
@@ -182,7 +182,7 @@
     const chartSet = new Set((ctx && ctx.chartKeys) || []);
     const chartAgree = v.agreeKeys ? v.agreeKeys.filter(k => chartSet.has(k)).length : 0;
     const chartTotal = v.others != null ? rows.filter(row => chartSet.has(row.key) && row.net !== null).length : 0;
-    // Line 1: should you propose or accept (JEG-841: decided by DDF Value + DDF Projections).
+    // Line 1: should you propose or accept (JEG-841: decided by DDF Value).
     const deal = ctx && ctx.deal;
     let propose;
     if (!head || v.kind === null || v.kind === "incomplete") {
@@ -200,21 +200,21 @@
       const pMargin = pTraded > 0 && pNet !== null ? Math.abs(pNet) / pTraded : null;
       let answer, level;
       if (vSide === "win" && pSide === "win" && !thinFlag) {
-        // Both DDF Value and DDF Projections say you win, margin 5%+.
+        // DDF Value says you win, margin 5%+.
         answer = "Yes";
         level = pMargin !== null && pMargin >= THIN_MARGIN ? "High" : pSide === "win" ? "Medium" : "Low";
-        reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`);
+        reasons.push(`DDF Value agrees (${fmtNet(pNet)})`);
       } else if (vSide === "lose" && pSide === "lose" && !thinFlag) {
         answer = "No";
         level = pMargin !== null && pMargin >= THIN_MARGIN ? "High" : pSide === "lose" ? "Medium" : "Low";
-        reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`);
+        reasons.push(`DDF Value agrees (${fmtNet(pNet)})`);
       } else {
         answer = "Unclear";
         level = "Low";
         if (thinFlag) reasons.push("the margin is under 5% of the value traded");
-        if (pSide === null) reasons.push("DDF Value (projections) cannot score this trade");
+        if (pSide === null) reasons.push("DDF Value cannot score this trade");
         // JEG-863 + JEG-930: DDF Value = projections (JEG-804), so pSide !== vSide is dead; kept as defensive else.
-        else reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`);
+        else reasons.push(`DDF Value agrees (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
@@ -270,7 +270,7 @@
   // Three nets, each answering one question:
   //   V  DDF Value net              (ddf_value)             are you getting real value?
   //   M  Trade chart average net    (mean of compared chart rows)  does the market think you are winning?
-  //   P  DDF Projections net        (ddf_value_projections) is the value backed by projected production?
+  //   P  DDF Value net               (ddf_value_projections) is the value backed by projected production?
   // JEG-832: M is the plain mean of the per-chart rescaled nets (the same rows Compare shows), NOT
   // the DDF Value · trade charts blend (which equals DDF Value when projections are held). When fewer
   // than MIN_DEAL_CHARTS charts price every player the market card says "not enough charts".
@@ -331,8 +331,8 @@
   // One production sentence: P's side against V's side.
   // JEG-863: after JEG-804 DDF Value = projections, so p !== v is dead; the disagree branch is kept as defense.
   function productionCheck(p, v) {
-    if (p === v) return p === "win" ? "Projected production backs the value: DDF Value (projections) also say you come out ahead."
-      : p === "lose" ? "Projected production backs the value: DDF Value (projections) also say you lose." : "Projected production backs the value: DDF Value (projections) also call it even.";
+    if (p === v) return p === "win" ? "Projected production backs the value: DDF Value also says you come out ahead."
+      : p === "lose" ? "Projected production backs the value: DDF Value also says you lose." : "Projected production backs the value: DDF Value also calls it even.";
     return "Production check inconclusive: the versions disagree.";
   }
   // JEG-832: chartKeys are the compared chart series (e.g. ["usatoday","fantasycalc","fantasypros"]).

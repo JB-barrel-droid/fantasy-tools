@@ -328,9 +328,9 @@
   // and links carry them). The duplicate id is hidden from every picker (`sameAs`), and a saved pick of it reads
   // as the visible one (ddfPickKey). `blend`: the version the DDF blend tab's inputs build (the charts one is not).
   const DDF_VERSIONS = {
-    ddf_value: {field: "blended", label: "DDF Value (projections)", symbol: "★", light: "#A84410", dark: "#F28C5B", blend: true},
+    ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B", blend: true},
     ddf_value_charts: {field: "charts", label: "Trade chart average", symbol: "✦", light: "#8A5A00", dark: "#E6B450", blend: false},
-    ddf_value_projections: {field: "projections", label: "DDF Value (projections)", symbol: "★", light: "#A84410", dark: "#F28C5B",
+    ddf_value_projections: {field: "projections", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B",
       blend: true, sameAs: "ddf_value"}
   };
   const DDF_KEYS = Object.keys(DDF_VERSIONS);
@@ -939,7 +939,7 @@
     // JEG-850: the line also says when the DDF blend is customized and when the chart legend has turned a line off.
     const customBlend = page === "values" && C.getCompositeInputs ? !C.getCompositeInputs().isDefault : false;
     const legendHidden = page === "values" ? shownKeys.filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length : 0;
-    // JEG-863: one DDF version on its own is named ("DDF Value (projections)", "Trade chart average").
+    // JEG-863: one DDF version on its own is named ("DDF Value", "Trade chart average").
     const oneDdf = shownKeys.filter(isDdfKey);
     $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? sourceMeta(oneDdf[0]).label : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
       + (c.g.id === "ddf" && customBlend ? " (custom blend)" : "")).join(" + ") || "nothing selected"}`
@@ -3556,11 +3556,10 @@
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
   // JEG-863: two names. DDF Value is the projection sources averaged (JEG-804); the trade chart average is the market.
   const NAME_DEFS = [
-    ["DDF Value (projections)", "Our estimate of what a player is worth: the projection sources you have chosen, averaged for your league."],
+    ["DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."],
     ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
-  // The deal read's nets (DEAL_NETS) by the name they define themselves with. Its "DDF Projections" net is the
-  // same series as DDF Value (projections) after JEG-804; the net itself is trade.js's and stays until JEG-863's
-  // follow-up decides it.
+  // The deal read's nets (DEAL_NETS) by the name they define themselves with. After JEG-804 DDF Value = projections,
+  // so "value" and "projections" are the same series; the net itself is trade.js's.
   const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: NAME_DEFS[0]};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
@@ -4440,7 +4439,7 @@
     }
     // JEG-863: DDF Value is the projection sources averaged; the trade chart average is the charts, not a DDF input.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
-      ? `${targetsView.ours === DDF_KEY ? "DDF Value (projections)" : sourceMeta(targetsView.ours).label}, the projection sources chosen in Customize on Player values, averaged for your league`
+      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, the projection sources chosen in Customize on Player values, averaged for your league`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
     // JEG-851: rewrite the footnote lead-in for single-chart mode.
     const footEl = $("v2TFootnote");
@@ -5316,9 +5315,9 @@
   // JEG-487 deal read (CT-08): three nets with their questions, the fixed 9-cell grid with the current cell
   // outlined, and one production sentence. Everything is read from compareView.deal (trade.js dealRead).
   const DEAL_NETS = [
-    ["value", "DDF Value (projections)", "Are you getting real value?"],
+    ["value", "DDF Value", "Are you getting real value?"],
     ["market", "Trade chart average", "Does the market think you are winning?"],
-    ["projections", "DDF Value (projections)", "Is the value backed by projected production?"]];
+    ["projections", "DDF Value", "Is the value backed by projected production?"]];
   const DEAL_SIDE_WORD = {win: "You win", even: "Even", lose: "You lose"};
   function renderDeal() {
     const box = $("v2CDeal");
@@ -5488,7 +5487,7 @@
   const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "–", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
   const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
   // JEG-895 (Jeremy, 2026-10-22): the level is named for what it measures, never "confidence".
-  // propose: the margins on DDF Value and DDF Projections; accept: the share of charts on the answer's side.
+  // propose: the margins on DDF Value; accept: the share of charts on the answer's side.
   const LEVEL_LABELS = {
     propose: {High: "Our value: strong", Medium: "Our value: moderate", Low: "Our value: weak"},
     accept: {High: "Charts agree: strongly", Medium: "Charts agree: mostly", Low: "Charts agree: weakly"},
@@ -6068,7 +6067,7 @@
     note.textContent = notes.join(" ");
   }
 
-  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Projections disagree. Always the served
+  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Value disagree. Always the served
   // week pair for those two series (the Movement picker and the week pair above do not apply).
   const DISAGREE_SHOWN = 10;
   function renderDisagreements(M, rows) {
@@ -6114,7 +6113,7 @@
           return span;
         };
         vals.append(part("Trade chart average", item.market.delta, "market"), document.createTextNode(" · "),
-          part("DDF Value (projections)", item.projections.delta, "projections"));
+          part("DDF Value", item.projections.delta, "projections"));
         const read = document.createElement("div");
         read.className = "v2-dread";
         read.dataset.col = "read";

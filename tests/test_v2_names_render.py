@@ -1,6 +1,6 @@
 """v2 "Explain our names" (JEG-490, contract GL-26, HV-02), rendered.
 
-DDF Value, DDF Projections and Trade chart average are defined once and shown wherever the names appear:
+DDF Value and Trade chart average are defined once and shown wherever the names appear:
 
   * the header row reads "On the chart:" (not "Showing:") with an info button; opening it shows the three definitions
     and the edge in plain words (Esc closes it);
@@ -36,7 +36,7 @@ from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 DEFS = [
-    ("DDF Value (projections)", "Our estimate of what a player is worth: the projection sources you have chosen, averaged for your league."),
+    ("DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."),
     ("Trade chart average", "What the market will pay: the rescaled trade charts, averaged."),
 ]
 EDGE = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose."
@@ -194,7 +194,7 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
 
 JS_PATCHES = {
-    "definition changed": ('["DDF Value (projections)", "Our estimate of what a player is worth: the projection sources you have chosen, averaged for your league."],', '["DDF Value (projections)", "A number."],'),
+    "definition changed": ('["DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."],', '["DDF Value", "A number."],'),
     "customize info dropped": ('          if (g.id === "ddf") head.appendChild(namesInfoButton("Customize"));', ""),
 }
 SHELL_PATCHES = {

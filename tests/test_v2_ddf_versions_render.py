@@ -2,7 +2,7 @@
 
 Run against the built dist/ in headless Chromium. Checks:
 
-  * defaults: Customize lists "DDF Value (projections)" and "Trade chart average"
+  * defaults: Customize lists "DDF Value" and "Trade chart average"
     (JEG-863 names); ddf_value_projections is hidden (sameAs ddf_value); only the blended one
     is ticked and shown;
   * the DDF blend tab lists the inputs once (JEG-850: the per-version copies are gone): the
@@ -41,7 +41,7 @@ V2_JS = ROOT / "app" / "v2" / "v2.js"
 KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections"]
 # JEG-863: ddf_value_projections is hidden (sameAs ddf_value). Only two are pickable.
 PICK_KEYS = ["ddf_value", "ddf_value_charts"]
-NAMES = {"ddf_value": "DDF Value (projections)", "ddf_value_charts": "Trade chart average"}
+NAMES = {"ddf_value": "DDF Value", "ddf_value_charts": "Trade chart average"}
 FAMILY = {"ddf_value_charts": {"fantasycalc", "usatoday", "fantasypros", "cbs"},
           "ddf_value_projections": {"espn", "cbsros", "razzball"}}
 

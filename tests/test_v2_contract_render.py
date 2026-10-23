@@ -1553,7 +1553,7 @@ def gl26(S):
 def hv02(S):
     h = S["tabs"]["how"]
     errors = []
-    if h["primaries"] != ["DDF Value (projections)", "Trade chart average"] or not h["edge"]:
+    if h["primaries"] != ["DDF Value", "Trade chart average"] or not h["edge"]:
         errors.append(f"How values work leads with {h['primaries']}, edge section {h['edge']}")
     if "Data Driven Adjustments" in h["outside"] or re.search(r"\bDDA\b", h["outside"]):
         errors.append("How values work still says Data Driven Adjustments / DDA")

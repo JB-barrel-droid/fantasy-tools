@@ -31,7 +31,7 @@
   "use strict";
 
   // Jeremy 2026-10-16 (JEG-677 follow-up): Check 1 compares DDF Value (the blend) to the market consensus of
-  // the INDEXED trade charts. DDF Projections and the other versions stay selectable.
+  // the rescaled trade charts. The other versions stay selectable.
   // JEG-851: chart keys are also selectable as "Our value", so you can compare any one source against any other.
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
@@ -40,9 +40,9 @@
   const DDF_VALUE_KEY = "ddf_value";
   // JEG-863: the names say what each is (DDF Value = projections only after JEG-804; ddf_value_projections is the same
   // series and is hidden from the picker by v2.js).
-  const OUR_NAMES = {ddf_value: "DDF Value (projections)", ddf_value_charts: "Trade chart average", ddf_value_projections: "DDF Value (projections)", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections",
+  const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "Trade chart average", ddf_value_projections: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections",
     usatoday: "USA Today trade chart", fantasycalc: "FantasyCalc trade chart", fantasypros: "FantasyPros trade chart", cbs: "CBS Sports trade chart"};
-  const OUR_SHORT = {ddf_value: "DDF Value (projections)", ddf_value_charts: "Trade chart average", ddf_value_projections: "DDF Value (projections)", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections",
+  const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "Trade chart average", ddf_value_projections: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections",
     usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
 
   const finite = value => typeof value === "number" && Number.isFinite(value);

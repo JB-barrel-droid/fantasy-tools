@@ -1,7 +1,7 @@
 """v2 Compare a trade: the rule-based deal read in app/v2/trade.js (JEG-487, contract CT-08).
 
 Three nets from engine series: DDF Value (V), Trade chart average (M: JEG-832 #780, the mean of the compared
-charts' nets, at least MIN_DEAL_CHARTS = 3 complete charts, else no read) and DDF Projections
+charts' nets, at least MIN_DEAL_CHARTS = 3 complete charts, else no read) and DDF Value
 (P, ddf_value_projections). The side of a net is win at or above max(1, 3% of the average side total of that
 series), lose at or below the negative of that, else even. The read is a fixed table on (V, M): V win with M lose is
 "Arbitrage: send it", V lose with M win is "Trap". P is a production sentence against V. These checks pin, against

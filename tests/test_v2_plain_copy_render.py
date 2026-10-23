@@ -121,8 +121,8 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                         heads = page.evaluate(HEADS)
                         if DOUBLE_Q.search(heads):
                             errors.append(f"[{width}px headline] doubled question mark: {heads!r}")
-                        if "Projections disagree" in heads:
-                            errors.append(f"[{width}px headline] still says 'DDF Projections disagree': {heads!r}")
+                        if "Projections disagree" in heads or "DDF Projections" in heads:
+                            errors.append(f"[{width}px headline] still says 'DDF Projections': {heads!r}")
                         if "Unclear" in heads and "say you" not in heads and "call it even" not in heads and "cannot score" not in heads and "under 5%" not in heads:
                             errors.append(f"[{width}px headline] Unclear with no plain reason: {heads!r}")
                         # JEG-895: the level is named for what it measures ("Our value: …", "Charts agree: …"), never "confidence".
@@ -135,8 +135,8 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                             if hits:
                                 errors.append(f"[{width}px deal read] overclaims {hits}: {text!r}")
                         # JEG-863: DDF Value = projections, so the agree reason always fires in the headline.
-                        if heads.strip() and "DDF Value (projections) agree" not in heads and "DDF Value (projections) cannot" not in heads:
-                            errors.append(f"[{width}px headline] no 'DDF Value (projections) agree/cannot' reason: {heads!r}")
+                        if heads.strip() and "DDF Value agrees" not in heads and "DDF Value cannot" not in heads:
+                            errors.append(f"[{width}px headline] no 'DDF Value agrees/cannot' reason: {heads!r}")
                     if tab == "#writing/research":
                         text = page.evaluate(RESEARCH)
                         if "No posts are published yet" in text:
@@ -175,7 +175,7 @@ PATCHES = {
     # JEG-895: the headline level must not be called "confidence".
     "confidence label back": {"v2_patch": ("document.createTextNode(LEVEL_LABELS[line][h.confidence])", "document.createTextNode(`${h.confidence} confidence`)")},
     # JEG-863 + JEG-930: pSide !== vSide is dead (DDF Value = projections); guard checks the agree reason stays.
-    "projections agree reason removed": {"trade_patch": ("else reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`)", "else {}")},
+    "projections agree reason removed": {"trade_patch": ("else reasons.push(`DDF Value agrees (${fmtNet(pNet)})`)", "else {}")},
 }
 
 

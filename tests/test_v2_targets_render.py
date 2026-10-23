@@ -12,7 +12,7 @@ Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
   * with a DDF version, each row's Our value carries "from N sources" with N the
     engine's count for that version (row.ddfCount for DDF Value); the tier in
     the player sub-line is the engine's row.ddfTier for DDF Value, the rank by
-    that version against the blend's starter/bench counts for DDF Projections;
+    that version against the blend's starter/bench counts for DDF Value;
     with a plain projection picked there is no source count and the tier is
     the player's rank by that series against the league's roster zones
     (Jeremy, 2026-10-08: the tier follows the selected series);
