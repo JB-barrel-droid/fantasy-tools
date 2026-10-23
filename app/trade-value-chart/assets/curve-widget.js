@@ -1022,11 +1022,14 @@
   }
   const normalizeInputKey = key => COMPOSITE_INPUT_ALIASES[key] || key;
   // The sources of one version that feed its DDF Value (I narrowed by family
-  // and the reader's selection).
+  // and the reader's selection). JEG-930 (Jeremy, 2026-10-23): the charts-only
+  // variant ignores the DDF blend selection (the blend lists projections only), so
+  // it always uses every open trade chart and is never blank after a blend edit.
   function versionInputs(version) {
     const family = COMPOSITE_VERSIONS[version];
+    const ignoresBlend = version === "ddf_value_charts";
     return pipelineState.included.filter(key => family.includes(key)
-      && (!compositeInputs || compositeInputs.includes(key)));
+      && (ignoresBlend || !compositeInputs || compositeInputs.includes(key)));
   }
   // JEG-484: product-data's per-asset load outcome (read-only).
   const productLoadStatus = () => window.TradeValueProductData?.getLoadStatus?.() || {assets: {}, adjustmentsLoaded: false};

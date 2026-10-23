@@ -2320,7 +2320,9 @@
     const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
     // The last usable input stays on (a held source does not count).
     const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
-    const versionUsable = versionKey => (versionKey === DDF_KEY ? usableOn()
+    // JEG-930: the charts-only version ignores the blend draft; its sources are the open trade charts.
+    const chartsUsable = () => ((C.getCompositeInputs && C.getCompositeInputs("ddf_value_charts").series) || []).length;
+    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable() : versionKey === DDF_KEY ? usableOn()
       : usableOn().filter(key => (versionKey === "ddf_value_projections") === (seriesGroup(key) === "proj"))).length;
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
