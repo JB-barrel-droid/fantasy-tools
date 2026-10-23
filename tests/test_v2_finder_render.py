@@ -161,6 +161,7 @@ def check(page, tag, width) -> list[str]:
         errors.append(tag + f"link opened {sides}, expected give {first['give']} get {first['get']}")
     # Remove clears the result.
     page.evaluate("() => { location.hash = '#find-trade'; }")
+    page.click("#v2FindEdit")   # JEG-972: the roster input is folded after Find
     page.click("#v2FindMinePlayers li >> nth=0 >> button.v2-find-remove")
     if page.evaluate("() => !document.getElementById('v2FindOut').hidden"):
         errors.append(tag + "the result stayed after a roster changed")

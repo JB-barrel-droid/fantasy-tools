@@ -244,7 +244,7 @@
   const $ = id => document.getElementById(id);
   const engine = () => root.TradeValueCurveControls;
   // mine / theirs: [{key, name, pos}]; sel: keys ticked for "Move selected"; undo: the rosters before the last swap or move (JEG-854).
-  const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null};
+  const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""}};
   const renders = {};
 
   function el(tag, props, ...kids) {
@@ -281,6 +281,7 @@
   function swapTeams() {
     snapshot();
     [S.mine, S.theirs] = [S.theirs, S.mine];
+    [S.label.mine, S.label.theirs] = [S.label.theirs, S.label.mine];
     afterArrange("Swapped: your roster is now the one that was theirs. Undo puts them back.");
   }
   function moveKeys(keys) {
@@ -477,6 +478,7 @@
     const sides = [mineIdx === 0 ? "mine" : "theirs", mineIdx === 0 ? "theirs" : "mine"];
     snapshot();
     S.mine = []; S.theirs = []; S.sel.clear();
+    S.label = {mine: res.teams[mineIdx].teamName || "", theirs: res.teams[1 - mineIdx].teamName || ""};
     const placed = res.teams.map((t, i) => placePlayers(sides[i], t.players, true));
     renderBoth();
     clearOutput();
@@ -683,6 +685,54 @@
     out.append(list);
   }
 
+  // ---------- JEG-972: collapsible roster input ----------
+  // After every Find trades press the roster input folds into one summary row per team (name, first three players,
+  // position counts); "Edit rosters" opens it again. The package size, lineup boxes and Find button stay visible.
+  const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
+  function positionCounts(list) {
+    const counts = {};
+    list.forEach(p => { const pos = p.pos || "?"; counts[pos] = (counts[pos] || 0) + 1; });
+    const known = POS_ORDER.filter(pos => counts[pos]);
+    const rest = Object.keys(counts).filter(pos => !POS_ORDER.includes(pos)).sort();
+    return known.concat(rest).map(pos => `${counts[pos]} ${pos}`).join(", ");
+  }
+  function summaryText(list) {
+    if (!list.length) return {names: "No players yet", counts: ""};
+    const first = list.slice(0, 3).map(p => p.name).join(", ");
+    const more = list.length - 3;
+    return {names: more > 0 ? `${first} + ${more} more` : first, counts: `${plural(list.length, "player")}: ${positionCounts(list)}`};
+  }
+  function updateSummary() {
+    const box = $("v2FindSummary");
+    if (!box) return;
+    ["mine", "theirs"].forEach(side => {
+      const t = summaryText(S[side]);
+      const node = $(`${sideId(side)}Summary`);
+      node.replaceChildren(el("b", {text: S.label[side] ? `${SIDE_NAME[side]}: ${S.label[side]}` : SIDE_NAME[side]}), el("span", {class: "v2-find-sum-names", text: t.names}), el("span", {class: "v2-meta", text: t.counts}));
+    });
+    $("v2FindEdit").setAttribute("aria-label", `Edit rosters: your roster has ${plural(S.mine.length, "player")}, their roster has ${plural(S.theirs.length, "player")}`);
+  }
+  function setCollapsed(collapsed, focus) {
+    const input = $("v2FindInput");
+    const summary = $("v2FindSummary");
+    const edit = $("v2FindEdit");
+    if (!input || !summary) return;
+    if (collapsed) updateSummary();
+    input.hidden = collapsed;
+    summary.hidden = !collapsed;
+    edit.setAttribute("aria-expanded", String(!collapsed));
+    if (focus === "input") { const first = $("v2FindMinePastePage"); if (first) first.focus(); }
+    else if (focus === "edit") edit.focus();
+  }
+  const hasResults = () => { const out = $("v2FindOut"); return Boolean(out) && !out.hidden && out.childElementCount > 0; };
+  function findPressed() {
+    run();
+    if (!S.mine.length || !S.theirs.length) return;
+    setCollapsed(true);
+    const out = $("v2FindOut");
+    if (out && out.scrollIntoView && root.innerWidth < 768) out.scrollIntoView({block: "start", behavior: "instant"});
+  }
+
   function build() {
     const host = $("v2FindTrade");
     if (!host || $("v2Find")) return;
@@ -695,20 +745,30 @@
       return el("label", {class: "v2-field"}, box, el("span", {text: ` ${label}`}));
     };
     const go = el("button", {type: "button", class: "v2-btn", id: "v2FindGo", text: "Find trades"});
-    go.addEventListener("click", run);
+    go.addEventListener("click", findPressed);
     const swap = el("button", {type: "button", class: "v2-btn", id: "v2FindSwap", text: "Swap teams"});
     swap.addEventListener("click", swapTeams);
     const undo = el("button", {type: "button", class: "v2-btn", id: "v2FindUndo", text: "Undo", disabled: ""});
     undo.addEventListener("click", undoArrange);
+    const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput"});
+    edit.addEventListener("click", () => setCollapsed(false, "input"));
+    const summaryRow = el("div", {class: "v2-find-summary", id: "v2FindSummary", hidden: ""},
+      el("div", {class: "v2-find-sumrow", id: "v2FindMineSummary"}), el("div", {class: "v2-find-sumrow", id: "v2FindTheirsSummary"}), edit);
+    // Escape inside the opened input folds it back once there are results to read.
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2FindTitle", text: "Your roster and theirs"}),
         el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available trade charts say the other manager breaks even or wins."}))),
-      el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
-      el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster")),
+      summaryRow,
+      el("div", {id: "v2FindInput"},
+        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
+        el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),
       el("div", {id: "v2FindOut", "aria-live": "polite", hidden: ""}));
+    card.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !$("v2FindInput").hidden && hasResults() && S.mine.length && S.theirs.length) { setCollapsed(true, "edit"); }
+    });
     host.insertBefore(card, host.querySelector(".v2-footnote"));
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);

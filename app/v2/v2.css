@@ -1634,3 +1634,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 }
 @media (max-width: 767px) { .v2-nav.is-open .v2-tabs { max-height: calc(100vh - 72px); overflow-y: auto; } }
 /* ===== end JEG-953 ================================================================================================ */
+
+/* JEG-972: collapsed roster summary */
+.v2-find-summary { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px 16px; align-items: center; margin: 12px 0 0; padding: 12px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); }
+.v2-find-summary[hidden] { display: none; }
+.v2-find-sumrow { display: grid; gap: 2px; min-width: 0; }
+.v2-find-sumrow .v2-meta { margin: 0; }
+.v2-find-sum-names { overflow-wrap: anywhere; }
+@media (max-width: 767px) { .v2-find-summary { grid-template-columns: 1fr; } .v2-find-summary .v2-btn { justify-self: start; } }
