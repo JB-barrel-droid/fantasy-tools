@@ -1810,6 +1810,12 @@ def gl22_partial(S):
     return errors
 
 
+CT02_LEVEL_LABELS = {
+    "propose": {"High": "Our value: strong", "Medium": "Our value: moderate", "Low": "Our value: weak"},
+    "accept": {"High": "Charts agree: strongly", "Medium": "Charts agree: mostly", "Low": "Charts agree: weakly"},
+}
+
+
 def ct02_partial(S):
     h = S["shipped"]["headlines"]
     errors = []
@@ -1823,10 +1829,14 @@ def ct02_partial(S):
             errors.append(f"{line['line']}: question {question!r} missing from {line['text']!r}")
         if line["answer"] not in answers:
             errors.append(f"{line['line']}: answer {line['answer']!r}, want one of {sorted(answers)}")
-        if line["confidence"] not in ("High", "Medium", "Low") or f"{line['confidence']} confidence" not in line["text"]:
-            errors.append(f"{line['line']}: confidence {line['confidence']!r} not stated in words in {line['text']!r}")
+        # JEG-895: the level is named for what it measures, never "confidence".
+        label = CT02_LEVEL_LABELS[line["line"]].get(line["confidence"])
+        if not label or label not in line["text"]:
+            errors.append(f"{line['line']}: level {line['confidence']!r} not stated as {label!r} in {line['text']!r}")
+        if "confidence" in line["text"].lower():
+            errors.append(f"{line['line']}: still says confidence in {line['text']!r}")
         if "margin is under 5%" in line["text"] and line["confidence"] != "Low":
-            errors.append(f"{line['line']}: DDF margin under 5% but confidence is {line['confidence']}")
+            errors.append(f"{line['line']}: DDF margin under 5% but the level is {line['confidence']}")
     return errors
 
 
