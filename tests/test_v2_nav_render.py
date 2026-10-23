@@ -3,9 +3,7 @@
 Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
   * the nav is Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing (JEG-855);
-  * at 390 px every tab sits fully on screen on one row with its short label
-    (frames 02 / 04 / 06 / 08 / 16: below 768 px the navigation shortens;
-    nothing hides behind a sideways scroll), and every in-build tab still
+  * below 768 px the tabs sit in a hamburger menu (JEG-953; see test_v2_hamburger_nav_render.py), and every in-build tab still
     carries its visible "soon" label;
   * Δ prior week on with the default series: the reason is visible text on the
     page (not only a hover title), and every Δ cell of a series the engine has
@@ -51,7 +49,6 @@ def setUpModule():
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-NAV_CSS = "/* Below 768 px the tabs use short labels on one row (frames 02 / 04 / 06 / 08 / 16). */"
 
 
 def _serve(body, content_type, route, *_):
@@ -114,11 +111,9 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
             names = [tab["text"] for tab in tabs]
             if names != ["Writing", "Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Find a trade", "Values auditing"]:
                 errors.append(f"nav order: {names}, want Writing first, Values auditing last and no Manifesto / How values work / Research tabs")
-            if len({round(tab["top"]) for tab in tabs}) != 1:
-                errors.append(f"tabs are not on one row at 390px: {[(t['text'], round(t['top'])) for t in tabs]}")
+            # JEG-953 (Jeremy, 2026-10-23): below 768 px the tabs live in a hamburger menu, so their row layout is
+            # no longer pinned here; tests/test_v2_hamburger_nav_render.py covers the phone menu.
             for tab in tabs:
-                if tab["left"] < 0 or tab["right"] > 390:
-                    errors.append(f"tab {tab['text']!r} is off screen at 390px ({tab['left']:.0f}–{tab['right']:.0f})")
                 if tab["soon"] and "soon" not in (tab["after"] or ""):
                     errors.append(f"tab {tab['text']!r} is in build but has no visible label")
 
@@ -193,8 +188,6 @@ class NavRenderTest(unittest.TestCase):
         js = V2_JS.read_text(encoding="utf-8")
         css = V2_CSS.read_text(encoding="utf-8")
         broken = {
-            "full labels on extra rows": {"v2_css": css.replace(NAV_CSS + "\n@media (max-width: 767px) {",
-                                                            NAV_CSS + "\n@media (max-width: 0px) {", 1)},
             "Δ reason only on hover": {"v2_js": js.replace("    if (state.delta) {\n      const keys = view.plotKeys.concat(view.vorpKeys);",
                                                        "    if (false) {\n      const keys = view.plotKeys.concat(view.vorpKeys);", 1)},
             "added to the wrong side": {"v2_js": js.replace(
