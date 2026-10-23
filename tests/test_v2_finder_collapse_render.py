@@ -57,6 +57,7 @@ def check(page, tag, width) -> list[str]:
     if not s["input"] or s["summary"] or s["expanded"] != "true":
         errors.append(tag + f"before Find the input should be open with no summary: {s}")
     page.focus("#v2FindGo")
+    page.wait_for_timeout(900)   # the page scrolls smoothly to the focused button; a user presses Find once it has stopped
     page.keyboard.press("Enter")
     page.wait_for_timeout(400)
     s = page.evaluate(STATE)
@@ -84,7 +85,7 @@ def check(page, tag, width) -> list[str]:
     s = page.evaluate(STATE)
     if not s["input"] or s["summary"] or s["expanded"] != "true":
         errors.append(tag + f"Edit rosters did not open the input: {s}")
-    if s["focus"] != "v2FindMinePastePage":
+    if s["focus"] != "v2FindMineSearch":
         errors.append(tag + f"focus after Edit rosters is {s['focus']!r}, expected the first paste box")
     page.keyboard.press("Escape")
     page.wait_for_timeout(200)

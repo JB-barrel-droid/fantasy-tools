@@ -402,7 +402,22 @@
       .filter(Boolean).map(name => ({name, pos: ""}));
   }
 
-  const api = {findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // ---------- JEG-988: one box per side; defenses and kickers kept but not evaluated ----------
+  // Text that arrives in a side's one box is a pasted page when it has two or more non-empty lines or is longer than
+  // 120 characters (no player name comes near that); anything shorter is a name search.
+  const PAGE_MIN_LINES = 2;
+  const PAGE_MIN_LENGTH = 121;
+  function looksLikePage(text) {
+    const value = String(text || "");
+    const lines = value.split(/\r?\n/).filter(line => line.trim());
+    return lines.length >= PAGE_MIN_LINES || value.trim().length >= PAGE_MIN_LENGTH;
+  }
+  // Defenses and kickers have no value in any series: they stay on a roster, are shown "Not evaluated", and are left out
+  // of every sum (never nulled, never dropped, never counted as 0).
+  const NOT_EVALUATED_POS = ["K", "DEF", "DST"];
+  const isNotEvaluated = row => Boolean(row) && NOT_EVALUATED_POS.includes(row.pos);
+
+  const api = {looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -443,7 +458,7 @@
     clearOutput();
     if (had) run();
   }
-  function snapshot() { S.undo = {mine: S.mine.slice(), theirs: S.theirs.slice()}; }
+  function snapshot() { S.undo = {mine: S.mine.slice(), theirs: S.theirs.slice(), label: {...S.label}}; }
   function afterArrange(text) { S.sel.clear(); renderBoth(); rerun(); arrangeSay(text); }
   function swapTeams() {
     snapshot();
@@ -466,6 +481,7 @@
     if (!S.undo) return;
     S.mine = S.undo.mine;
     S.theirs = S.undo.theirs;
+    if (S.undo.label) S.label = {...S.undo.label};
     S.undo = null;
     afterArrange("Undone.");
   }
@@ -500,6 +516,7 @@
   // A matchup page carries two teams: the user taps which is theirs; Swap teams (JEG-854) fixes a wrong pick.
   const MIN_MATCHED = 3;
   const MIN_SHARE = 0.5;
+  const NAME_LIST_SHARE = 0.8;   // a pasted list of names: this share of its lines must be players, else it is not a roster
   const SIDE_NAME = {mine: "Your roster", theirs: "Their roster"};
   const otherSide = side => (side === "mine" ? "theirs" : "mine");
   const sideId = side => `v2Find${side[0].toUpperCase()}${side.slice(1)}`;
@@ -544,6 +561,24 @@
     S[side] = keep.concat(added);
     return {added, onOther, unsure};
   }
+  // JEG-988: the engine prices no defense or kicker, so the parser leaves them unmatched. They are still roster players
+  // (Jeremy: "don't make those null"): kept on the side as entries without an engine row, shown "Not evaluated", left out
+  // of every sum. u: an unmatched line or import entry ({line | name, pos, team}).
+  function keepNotEvaluated(side, unmatched) {
+    const keptNames = [];
+    const taken = new Set(S.mine.concat(S.theirs).map(p => p.key));
+    (unmatched || []).filter(isNotEvaluated).forEach(u => {
+      const name = cleanLine(u.line || u.name);
+      const key = `x:${u.pos}:${u.team || normName(name)}`;
+      if (!name || taken.has(key)) return;
+      taken.add(key);
+      S[side].push({key, name, pos: u.pos, team: u.team || "", slot: u.slot});
+      keptNames.push(`${name} (${u.pos})`);
+    });
+    return keptNames;
+  }
+  const keptNote = names => (names.length ? el("p", {class: "v2-meta v2-find-kept", text: `Kept, not evaluated (no value for defenses and kickers): ${names.join(", ")}.`}) : null);
+  const evaluatedOnly = unmatched => (unmatched || []).filter(u => !isNotEvaluated(u));
   function addOne(side, row) {
     const key = String(row.player_key);
     if (S.mine.concat(S.theirs).some(p => p.key === key)) return false;
@@ -616,7 +651,7 @@
       const anyway = el("button", {type: "button", class: "v2-btn", id: `${sideId(side)}PasteAnyway`, text: `Add these ${res.matched} anyway`});
       anyway.addEventListener("click", () => { box.replaceChildren(); placeTeam(side, res, box); done(); });
       put(box, countLine(res, true), el("p", {class: "v2-meta", text: "That is too few to trust, so nothing was added. Paste the whole team page, or search and add players by name below."}),
-        anyway, ...unmatchedBlock(side, res.unmatched));
+        anyway, ...unmatchedBlock(side, evaluatedOnly(res.unmatched)));
       return;
     }
     placeTeam(side, res, box);
@@ -624,11 +659,12 @@
   }
   function placeTeam(side, res, box) {
     const {added, onOther, unsure} = placePlayers(side, res.players, true);
+    const kept = keepNotEvaluated(side, res.unmatched);
     renderBoth();
     clearOutput();
     put(box, countLine(res),
       el("p", {class: "v2-meta", text: `${SIDE_NAME[side]} now has ${plural(S[side].length, "player")}.${onOther.length ? ` Left out because they are on the other roster: ${onOther.join(", ")}.` : ""}`}),
-      matchedList(added), ...unsureBlock(side, unsure), ...unmatchedBlock(side, res.unmatched), benchNote(res));
+      matchedList(added), keptNote(kept), ...unsureBlock(side, unsure), ...unmatchedBlock(side, evaluatedOnly(res.unmatched)), benchNote(res));
   }
   const teamLabel = (res, i) => res.teams[i].teamName || `Team ${i + 1} (listed ${i ? "second" : "first"})`;
   function readMatchup(res, side, box, done) {
@@ -647,28 +683,52 @@
     S.mine = []; S.theirs = []; S.sel.clear();
     S.label = {mine: res.teams[mineIdx].teamName || "", theirs: res.teams[1 - mineIdx].teamName || ""};
     const placed = res.teams.map((t, i) => placePlayers(sides[i], t.players, true));
+    const kept = res.teams.map((t, i) => keepNotEvaluated(sides[i], t.unmatched));
     renderBoth();
     clearOutput();
     box.replaceChildren();
     put(box, countLine(res),
       el("p", {class: "v2-find-assigned", text: `Your roster: ${teamLabel(res, mineIdx)} (${plural(S.mine.length, "player")}). Their roster: ${teamLabel(res, 1 - mineIdx)} (${plural(S.theirs.length, "player")}). Wrong way round? Use Swap teams above; Undo puts back what was there before.`}),
-      ...res.teams.flatMap((t, i) => [el("h4", {text: `${teamLabel(res, i)}: ${SIDE_NAME[sides[i]].toLowerCase()}`}), matchedList(placed[i].added),
-        ...unsureBlock(sides[i], placed[i].unsure), ...unmatchedBlock(sides[i], t.unmatched)]),
+      ...res.teams.flatMap((t, i) => [el("h4", {text: `${teamLabel(res, i)}: ${SIDE_NAME[sides[i]].toLowerCase()}`}), matchedList(placed[i].added), keptNote(kept[i]),
+        ...unsureBlock(sides[i], placed[i].unsure), ...unmatchedBlock(sides[i], evaluatedOnly(t.unmatched))]),
       foundNote(res), benchNote(res));
     arrangeSay(`Filled both rosters from the matchup page: ${teamLabel(res, mineIdx)} is yours.`);
     done();
   }
 
   function sideCard(side, title) {
-    const id = `v2Find${side[0].toUpperCase()}${side.slice(1)}`;
+    const id = sideId(side);
     const list = el("ul", {class: "v2-trade-players", id: `${id}Players`});
     const results = el("ul", {class: "v2-trade-results", id: `${id}Results`, hidden: ""});
-    const input = el("input", {type: "search", id: `${id}Search`, placeholder: "Search and add a player…", autocomplete: "off", "aria-controls": `${id}Results`});
-    const label = el("label", {class: "v2-search"}, el("span", {class: "v2-sr", text: `Search and add a player to ${title.toLowerCase()}`}), input);
+    // JEG-988: one box per side. A textarea (one row, styled as a field) because a single-line input strips the
+    // line breaks out of a pasted page. Its list opens inside .v2-find-search-wrap, so it sits directly under the box.
+    const input = el("textarea", {id: `${id}Search`, rows: "1", placeholder: "Search a player, or paste a team page", autocomplete: "off",
+      spellcheck: "false", "aria-controls": `${id}Results`, "aria-describedby": `${id}PasteHelp`});
+    const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole team page`}), input);
+    const searchWrap = el("div", {class: "v2-find-search-wrap"}, label, results);
+    const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}PasteHelp`,
+      text: "Type a name to search, or paste a whole ESPN or Yahoo team page (Ctrl+A, Ctrl+C on the page; a matchup page fills both rosters). Pasted text stays in this browser; nothing is sent anywhere."});
+    const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
+    const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
+    clear.addEventListener("click", () => {
+      snapshot();
+      const keys = new Set(S[side].map(p => p.key));
+      S[side] = [];
+      S.label[side] = "";
+      keys.forEach(k => S.sel.delete(k));
+      result.replaceChildren();
+      input.value = "";
+      results.replaceChildren();
+      results.hidden = true;
+      afterArrange(`Cleared ${title.toLowerCase()}. Undo puts it back.`);
+      input.focus();
+    });
     const moveSel = el("button", {type: "button", class: "v2-btn v2-find-movesel", id: `${id}MoveSel`, text: "Move selected to the other team", disabled: ""});
     moveSel.addEventListener("click", () => moveKeys(S[side].filter(p => S.sel.has(p.key)).map(p => p.key)));
-    const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("h3", {text: title}), pasteBox(), label, results, list, moveSel, importBox());
+    const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("div", {class: "v2-find-side-head"}, el("h3", {text: title}), clear),
+      searchWrap, help, result, list, moveSel, importBox());
     const render = () => {
+      clear.hidden = !S[side].length;
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
         remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); render(); updateArrange(); clearOutput(); });
@@ -677,27 +737,60 @@
         pick.addEventListener("change", () => { if (pick.checked) S.sel.add(p.key); else S.sel.delete(p.key); updateArrange(); });
         const move = el("button", {type: "button", class: "v2-link v2-find-move", "aria-label": `Move ${p.name} to the other team`, text: "Move"});
         move.addEventListener("click", () => moveKeys([p.key]));
-        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""})), move, remove);
+        const badge = isNotEvaluated(p) ? el("span", {class: "v2-find-noteval", text: "Not evaluated"}) : null;
+        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}), badge), move, remove);
       }));
     };
     renders[side] = render;
-    // JEG-853: the default input is the whole page copied from ESPN or Yahoo (Ctrl+A, Ctrl+C), read by
-    // roster-paste.js in the browser. A matchup page fills both rosters; the user taps which team is theirs.
-    function pasteBox() {
-      const other = side === "mine" ? "theirs" : "mine";
-      const area = el("textarea", {id: `${id}PastePage`, rows: "4", autocomplete: "off", spellcheck: "false",
-        "aria-describedby": `${id}PasteHelp`,
-        placeholder: side === "mine"
-          ? "On your ESPN or Yahoo team page press Ctrl+A, Ctrl+C, then paste here. Paste the matchup page to fill both rosters."
-          : "On the other manager's ESPN or Yahoo team page press Ctrl+A, Ctrl+C, then paste here."});
-      const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}PasteHelp`, text: "Pasted text stays in this browser; nothing is sent anywhere. Players are matched to the values by name, team and position."});
-      const read = el("button", {type: "button", class: "v2-btn", id: `${id}PasteGo`, text: "Read the pasted page"});
-      const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
-      const run = () => readPage(area.value, side, result, () => { area.value = ""; });
-      read.addEventListener("click", run);
-      area.addEventListener("paste", () => setTimeout(run, 0));
-      return el("div", {class: "v2-find-paste"}, el("label", {class: "v2-field-label", for: `${id}PastePage`, text: `Paste ${side === "mine" ? "your" : "their"} team page`}),
-        area, help, read, result);
+    // JEG-853 / JEG-988: text that is a whole page (looksLikePage) is read by roster-paste.js in the browser. A matchup
+    // page fills both rosters; the user taps which team is theirs. A list of names (nothing a page parser recognises, but
+    // nearly every line a player) is added by name, as "Pasted names" under "Other ways".
+    function consume(text) {
+      input.value = "";
+      results.replaceChildren();
+      results.hidden = true;
+      const res = parsePage(text);
+      if (res && !res.matched) {
+        const lines = parsePasted(text);
+        const { matched } = matchNames(lines, engine().getAllRows());
+        if (matched.length >= 2 && matched.length >= NAME_LIST_SHARE * lines.length) {
+          result.replaceChildren(el("p", {class: "v2-meta", text: apply(lines, "the list", false)}));
+          return;
+        }
+      }
+      readPage(text, side, result, () => {});
+    }
+    input.addEventListener("paste", event => {
+      const text = event.clipboardData ? event.clipboardData.getData("text") : "";
+      if (text && looksLikePage(text)) { event.preventDefault(); consume(text); }
+    });
+    input.addEventListener("keydown", event => { if (event.key === "Enter" && !event.shiftKey) event.preventDefault(); });
+    // entries -> engine rows; replace (a team) or add (pasted names). A player on the other roster is not moved.
+    // Returns the sentence that says what happened.
+    function apply(entries, from, replace) {
+      const rows = engine() ? engine().getAllRows() : [];
+      const {matched, unmatched} = matchNames(entries, rows);
+      const other = new Set(S[otherSide(side)].map(p => p.key));
+      const keep = replace ? [] : S[side];
+      const have = new Set(keep.map(p => p.key));
+      const added = [];
+      const onOther = [];
+      matched.forEach(row => {
+        const key = String(row.player_key);
+        if (other.has(key)) onOther.push(row.name);
+        else if (!have.has(key)) { have.add(key); added.push({key, name: row.name, pos: row.pos}); }
+      });
+      S[side] = keep.concat(added);
+      const kept = keepNotEvaluated(side, unmatched);
+      render();
+      updateArrange();
+      clearOutput();
+      const parts = [`Added ${added.length} player${added.length === 1 ? "" : "s"}${from ? ` from ${from}` : ""}.`];
+      if (kept.length) parts.push(`Kept, not evaluated: ${kept.join(", ")}.`);
+      if (onOther.length) parts.push(`Left out because they are on the other roster: ${onOther.join(", ")}.`);
+      const rest = evaluatedOnly(unmatched);
+      if (rest.length) parts.push(`Not matched (${rest.length}): ${rest.slice(0, 8).map(u => u.name).join(", ")}${rest.length > 8 ? ", …" : ""}.`);
+      return parts.join(" ");
     }
     // Import: a Sleeper league, a public ESPN league, or pasted names. Names are matched to the engine's rows.
     function importBox() {
@@ -719,31 +812,8 @@
         load.textContent = isPaste ? "Add players" : "Load teams";
         team.hidden = true; use.hidden = true; say("");
       });
-      // entries -> engine rows; replace (a team) or add (pasted names). A player on the other roster is not moved.
-      function apply(entries, from, replace) {
-        const rows = engine() ? engine().getAllRows() : [];
-        const {matched, unmatched} = matchNames(entries, rows);
-        const other = new Set(S[side === "mine" ? "theirs" : "mine"].map(p => p.key));
-        const keep = replace ? [] : S[side];
-        const have = new Set(keep.map(p => p.key));
-        const added = [];
-        const onOther = [];
-        matched.forEach(row => {
-          const key = String(row.player_key);
-          if (other.has(key)) onOther.push(row.name);
-          else if (!have.has(key)) { have.add(key); added.push({key, name: row.name, pos: row.pos}); }
-        });
-        S[side] = keep.concat(added);
-        render();
-        updateArrange();
-        clearOutput();
-        const parts = [`Added ${added.length} player${added.length === 1 ? "" : "s"}${from ? ` from ${from}` : ""}.`];
-        if (onOther.length) parts.push(`Left out because they are on the other roster: ${onOther.join(", ")}.`);
-        if (unmatched.length) parts.push(`Not matched (${unmatched.length}): ${unmatched.slice(0, 8).map(u => u.name).join(", ")}${unmatched.length > 8 ? ", …" : ""}.`);
-        say(parts.join(" "));
-      }
       load.addEventListener("click", async () => {
-        if (sel.value === "paste") { apply(parsePasted(paste.value), "", false); paste.value = ""; return; }
+        if (sel.value === "paste") { say(apply(parsePasted(paste.value), "", false)); paste.value = ""; return; }
         const idText = leagueId.value.trim();
         if (!/^[A-Za-z0-9_-]+$/.test(idText)) { say("Enter the league ID: the number in your league's web address."); return; }
         say(sel.value === "sleeper" ? "Loading the league and Sleeper's player names (about 15 MB the first time)…" : "Loading the league…");
@@ -759,13 +829,14 @@
         team.hidden = !teams.length; use.hidden = !teams.length;
         say(teams.length ? `Found ${teams.length} teams. Pick yours and choose Use this team.` : "That league has no teams.");
       });
-      use.addEventListener("click", () => { const t = teams[Number(team.value)]; if (t) apply(t.entries, t.label, true); });
+      use.addEventListener("click", () => { const t = teams[Number(team.value)]; if (t) say(apply(t.entries, t.label, true)); });
       return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a Sleeper or ESPN league ID, or a list of names"}),
         el("div", {class: "v2-find-import-body"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel),
           leagueId, paste, load, team, use, status));
     }
     window.TradeValueNameSearch.combobox(input, results);   // JEG-900
     input.addEventListener("input", () => {
+      if (looksLikePage(input.value)) { consume(input.value); return; }
       const q = input.value.trim();
       results.replaceChildren();
       results.hidden = !q;
@@ -824,8 +895,11 @@
     const res = findTrades(mineRows, theirRows, {chartKeys: charts, maxSize: S.maxSize, limit: 1e7,
       sanity: shape ? {shape, mine: mineRows, theirs: theirRows, keepMine: S.keepMine, keepTheirs: S.keepTheirs} : null});
     if (res.sanityDropped) note(`${res.sanityDropped} trade${res.sanityDropped === 1 ? "" : "s"} left out because ${res.sanityDropped === 1 ? "it leaves" : "they leave"} a starting lineup short at a position. Untick the boxes below to see ${res.sanityDropped === 1 ? "it" : "them"}.`);
+    // JEG-988: defenses and kickers stay on the rosters and are not evaluated: they are named apart from players who merely lack a value.
+    const notEval = S.mine.concat(S.theirs).filter(isNotEvaluated).length;
+    if (notEval) note(`${notEval} ${notEval === 1 ? "defense or kicker is" : "defenses and kickers are"} kept on the rosters, not evaluated (no DDF Value or trade chart value; left out of every sum, not counted as 0).`);
     const skipped = res.mine.unpriced + res.theirs.unpriced;
-    if (skipped) note(`${skipped} player${skipped === 1 ? " has" : "s have"} no DDF Value and ${skipped === 1 ? "is" : "are"} left out, not counted as 0.`);
+    if (skipped > 0) note(`${skipped} player${skipped === 1 ? " has" : "s have"} no DDF Value and ${skipped === 1 ? "is" : "are"} left out, not counted as 0.`);
     if (res.mine.searched < res.mine.of || res.theirs.searched < res.theirs.of) {
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
@@ -878,7 +952,7 @@
         const l = lineupValue(lineup[who][view], lineup.shape, viewKey(view, ourKey));
         return `${VIEW_LABEL[view]}: starters ${l.starterValue.toFixed(1)}, bench ${l.benchValue.toFixed(1)}, total ${l.total.toFixed(1)}`;
       });
-      const missing = lineupValue(lineup[who].ddf, lineup.shape, ourKey).unvalued.length;
+      const missing = lineupValue(lineup[who].ddf, lineup.shape, ourKey).unvalued.filter(r => !isNotEvaluated(r)).length;
       box.append(el("p", {class: "v2-meta"}, el("span", {class: "v2-find-who", text: `${title}, best lineup. `}), `${parts.join("; ")}.${missing ? ` ${plural(missing, "player")} with no DDF Value left out.` : ""}`));
     });
     return box;
@@ -928,7 +1002,7 @@
         lines.append(el("p", {class: "v2-meta v2-find-impact-line"}, el("span", {class: "v2-find-who", text: `${name}: `}), `best starting lineup ${parts.join("; ")}.${marketNote}`),
           el("p", {class: "v2-meta v2-find-need"}, `${who === "mine" ? "Your" : "Their"} starters by position: ${needLine(imps.ddf)}.`));
         views(lineup).forEach(view => detailsBody.append(lineupTable(`${who === "mine" ? "Your" : "Their"} best lineup, ${VIEW_LABEL[view]}`, imps[view], lineup.shape, viewKey(view, ourKey))));
-        const missing = imps.ddf.before.unvalued.length;
+        const missing = imps.ddf.before.unvalued.filter(r => !isNotEvaluated(r)).length;
         if (missing) detailsBody.append(el("p", {class: "v2-meta", text: `${plural(missing, "player")} on ${who === "mine" ? "your" : "their"} roster ${missing === 1 ? "has" : "have"} no value and ${missing === 1 ? "is" : "are"} left out of the lineup.`}));
       });
     }};
@@ -1046,7 +1120,7 @@
     input.hidden = collapsed;
     summary.hidden = !collapsed;
     edit.setAttribute("aria-expanded", String(!collapsed));
-    if (focus === "input") { const first = $("v2FindMinePastePage"); if (first) first.focus(); }
+    if (focus === "input") { const first = $("v2FindMineSearch"); if (first) first.focus(); }
     else if (focus === "edit") edit.focus();
   }
   const hasResults = () => { const out = $("v2FindOut"); return Boolean(out) && !out.hidden && out.childElementCount > 0; };

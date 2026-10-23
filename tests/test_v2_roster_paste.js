@@ -429,6 +429,21 @@ test("slot labels: each matched player carries the page's own slot (JEG-853 phas
   assert.strictEqual(emSlots.filter(function (s) { return s === ""; }).length, 18, "ESPN matchup: 18 starters (no slot column)");
 });
 
+test("unmatched lines carry their position and team, so a kicker or defense can be kept (JEG-988)", function () {
+  var want = {"yahoo-team.txt": ["K:PIT", "DEF:KC"], "espn-team.txt": ["DEF:DEN", "K:PIT"]};
+  var priced = PLAYERS.filter(function (p) { return p.pos !== "K" && p.pos !== "DEF"; });   // the engine has no K or DEF row
+  Object.keys(want).forEach(function (name) {
+    var r = P.parse(readFixture(name), priced);
+    var got = r.unmatched.filter(function (u) { return u.pos === "K" || u.pos === "DEF"; }).map(function (u) { return u.pos + ":" + u.team; }).sort();
+    assert.deepStrictEqual(got, want[name].slice().sort(), name + ": kicker and defense lines keep pos and team");
+  });
+  var matchup = P.parse(readFixture("espn-matchup.txt"), priced);
+  matchup.teams.forEach(function (t) {
+    assert.ok(t.unmatched.some(function (u) { return u.pos === "K"; }), "matchup team keeps its kicker line");
+    assert.ok(t.unmatched.some(function (u) { return u.pos === "DEF"; }), "matchup team keeps its defense line");
+  });
+});
+
 // ===========================================================================
 //  Summary
 // ===========================================================================

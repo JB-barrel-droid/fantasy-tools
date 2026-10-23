@@ -363,7 +363,7 @@
               if (result.match) {
                 players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine, slot: trimmed});
               } else if (result.reason !== "duplicate") {
-                unmatched.push({line: nameLine, reason: result.reason || "not in the values"});
+                unmatched.push({line: nameLine, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
               }
               i += 3;
               continue;
@@ -460,7 +460,7 @@
     if (result.match) {
       team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine, slot: slot || ""});
     } else if (result.reason !== "duplicate") {
-      team.unmatched.push({line: nameLine, reason: result.reason || "not in the values"});
+      team.unmatched.push({line: nameLine, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
     }
   }
 
@@ -560,7 +560,7 @@
           if (result.match) {
             players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: singleName, slot: trimmed});
           } else if (result.reason !== "duplicate") {
-            unmatched.push({line: singleName, reason: result.reason || "not in the values"});
+            unmatched.push({line: singleName, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
           }
         }
       }
@@ -697,7 +697,7 @@
         if (result.match) {
           players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: playerName, slot: ""});
         } else if (result.reason !== "duplicate") {
-          unmatched.push({line: playerName, reason: result.reason || "not in the values"});
+          unmatched.push({line: playerName, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
         }
         // Skip past this player's block
         i += (look || 1) + 1;
@@ -750,7 +750,7 @@
             team.matched++;
             team.total++;
           } else if (result.reason !== "duplicate") {
-            team.unmatched.push({line: name, reason: result.reason || "not in the values"});
+            team.unmatched.push({line: name, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
             team.total++;
           }
           i += 3;
@@ -804,7 +804,7 @@
               team.matched++;
               team.total++;
             } else if (result.reason !== "duplicate") {
-              team.unmatched.push({line: trimmed, reason: result.reason || "not in the values"});
+              team.unmatched.push({line: trimmed, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
               team.total++;
             }
           }
