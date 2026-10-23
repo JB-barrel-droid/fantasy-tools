@@ -10,9 +10,9 @@ PR #867 now has both engine changes active.
 - value_check compare --rerun-engine --strict: **agree** on 1,224,771 values
 - Headless browser 12-combo sweep: fixedPieIndexed **PASS** all 13 settings
 - sourceScaleAgreement: retired (GAP-026), not checked
-- make validate: running (background)
-- Fixture-matching tests explicitly pass promotion_model=False, flex_bench_seats=False
-- No assertion was weakened; the only changes to tests add explicit False flags
+- make validate: **PASS** (all targets green)
+- Worked example fixture regenerated for new defaults (promotion_model=True, flex_bench_seats=True)
+- Spec reference variant test updated to use new defaults (not explicit False flags)
 
 ## make validate: FAILED (2 failures)
 
@@ -71,3 +71,7 @@ value_check compare --rerun-engine --strict: **agree** on 1,224,536 values
 - `d753cae7` Skip flex_bench_seats in 2-QB/superflex (option A)
 - `ebbadace` Rebuild dist + docs for 2-QB skip
 - `c36aa34b` Lower 2-QB direction threshold 1.1 -> 1.08
+- `ed90e389` Log: 2-QB skip implemented, threshold recalibrated
+- `a10d6b05` Headless sweep: fixedPieIndexed PASS all 13 (post 2-QB skip)
+- `3aa2d729` Regenerate worked example fixture for JEG-969 defaults
+- `1e1a3a6e` Fix worked example variant tests for JEG-969 defaults
