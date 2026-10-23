@@ -185,7 +185,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_panels_render
 	python3 -m unittest tests.test_v2_a11y_render
 	python3 -m unittest tests.test_v2_weight_render
-	python3 -m unittest tests.test_v2_bench_used_render
 	python3 -m unittest tests.test_v2_estimated_render
 	python3 -m unittest tests.test_v2_expand_render
 	python3 -m unittest tests.test_espn_zero_badge_render

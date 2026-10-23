@@ -46,7 +46,8 @@ class TwoTierSpec(unittest.TestCase):
         qb = self.tiers["QB"]
         self.assertEqual(len(qb.starters), 2)  # 2 teams x QB1, QB not flex-eligible
         flex_starters = sum(len(self.tiers[p].starters) for p in tt.FLEX_ELIGIBLE)
-        self.assertEqual(flex_starters, 2 * (2 + 3 + 1) + 2)  # dedicated + 2 x FLEX1
+        # JEG-563 default QB1 RB2 WR2 TE1 FLEX1: dedicated RB/WR/TE = 2 teams x (2+2+1), plus 2 x FLEX1
+        self.assertEqual(flex_starters, 2 * (2 + 2 + 1) + 2)
         for t in self.tiers.values():
             self.assertEqual(t.rw, t.waiver[0][1])
             self.assertAlmostEqual(t.pie, sum(max(0, p - t.rw) for _, p in t.rostered))
@@ -133,7 +134,7 @@ class ValueModelSpec(unittest.TestCase):
                 k += 1
         tr = vm.translate(natives, pos_of, teams=12)
         self.assertEqual(sum(tr["flex"].values()), 12)
-        self.assertEqual(sum(tr["bench"].values()), 72)
+        self.assertEqual(sum(tr["bench"].values()), 12 * 7)  # JEG-563: BENCH 7 per team (was 6)
         for pos in tt.POSITIONS:
             ranked = sorted((v for kk, v in natives.items() if pos_of[kk] == pos), reverse=True)
             self.assertEqual(tr["waiver"][pos], ranked[tr["rostered"][pos]])
