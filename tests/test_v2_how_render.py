@@ -8,11 +8,11 @@ league, and checks:
     (getState scoring and teams, getRosterShape counts, getPositionWeights,
     getBenchShareReadout), so it follows Edit league and Position weights; the Methods
     row is shown (frame 15);
-  * each of the three views (VORP vs waivers, Data Driven Adjustments,
+  * each of the three views (Value above waivers, Data Driven Adjustments,
     Rescaled, JEG-510) lists exactly the engine's series of that method from
     getSourceInfo(), unavailable ones marked with a reason, older weeks labeled per the
     data's freshness record;
-  * copy rules (CLAUDE.md): no "Vegas"; "VORP" only inside "VORP vs waivers";
+  * copy rules (CLAUDE.md): no "Vegas"; no "VORP" at all (JEG-861, 2026-10-22);
     no numbers anywhere on the tab except the engine-filled league card;
   * no page errors and no horizontal overflow at 390 px.
 
@@ -128,9 +128,9 @@ def check(snap) -> list[str]:
                 errors.append(f"{view}/{w['key']}: older-week label {g['text']!r} vs engine stale={w.get('stale')}")
     if re.search(r"vegas", snap["text"], re.I):
         errors.append("copy mentions Vegas")
-    bare = re.sub(r"VORP vs waivers", "", snap["text"])
-    if "VORP" in bare:
-        errors.append("copy uses VORP outside the phrase 'VORP vs waivers'")
+    # JEG-861 (2026-10-22): the term is "Value above waivers"; "VORP" never appears in user-facing copy.
+    if re.search(r"vorp", snap["text"], re.I):
+        errors.append("copy says VORP")
     # JEG-822: plain language, no overclaim; "estimated" is explained where the engine's count appears.
     for phrase in ("really worth", "All nine reads"):
         if phrase in snap["text"]:

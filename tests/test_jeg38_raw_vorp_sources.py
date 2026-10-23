@@ -87,8 +87,8 @@ class WidgetRawGroupTest(unittest.TestCase):
         )
         # The group was "Raw VORP vs waivers" until the public-copy rule limited
         # VORP to the exact phrase "VORP vs waivers".
-        raw = [g for g in groups if g["label"] == "Projections (VORP vs waivers)"]
-        self.assertEqual(len(raw), 1, "expected exactly one projections VORP vs waivers group")
+        raw = [g for g in groups if g["label"] == "Projections (value above waivers)"]
+        self.assertEqual(len(raw), 1, "expected exactly one projections value-above-waivers group")
         self.assertEqual(raw[0]["keys"], ["espn_vorp", "cbsros_vorp", "razzball_vorp"])
 
     def test_vorp_defs_map_to_source_pure_fields(self):
@@ -115,9 +115,9 @@ class DashboardRawColumnsTest(unittest.TestCase):
             CONST_EVAL_SCRIPT,
             {"t": _extract_const(DASH.read_text(encoding="utf-8"), "LABELS")},
         )
-        self.assertIn("raw vorp vs waivers", labels["espn_vorp"].lower())
-        self.assertIn("raw vorp vs waivers", labels["cbsros_vorp"].lower())
-        self.assertIn("raw vorp vs waivers", labels["razzball_vorp"].lower())
+        self.assertIn("value above waivers, raw", labels["espn_vorp"].lower())
+        self.assertIn("value above waivers, raw", labels["cbsros_vorp"].lower())
+        self.assertIn("value above waivers, raw", labels["razzball_vorp"].lower())
 
     def test_dashboard_vorp_defs_source_pure(self):
         defs = _node_eval(

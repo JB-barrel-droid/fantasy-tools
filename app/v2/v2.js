@@ -43,8 +43,8 @@
   let expanded = null;      // JEG-483: "chart" | "table" while the expanded view is open
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
-  const SHORT_METHOD = {dda: "Our value", indexed: "Rescaled", vorp: "VORP vs waivers"};
-  const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "VORP vs waivers"};
+  const SHORT_METHOD = {dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"};
+  const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "Value above waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
@@ -1203,7 +1203,7 @@
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
     vorpChart = view.vorpKeys.length
-      ? drawSeriesChart($("v2VorpChart"), view.vorpKeys.filter(isSeriesOn), {label: "VORP vs waivers by player rank"})
+      ? drawSeriesChart($("v2VorpChart"), view.vorpKeys.filter(isSeriesOn), {label: "Value above waivers by player rank"})
       : null;
     const [lo, hi] = state.window;
     const n = Math.max(1, view.rows.length);
@@ -1452,7 +1452,7 @@
   // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
   const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"],
-    ["published", "Trade charts (rescaled)"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
+    ["published", "Trade charts (rescaled)"], ["vorp", "Value above waivers"], ["spread", "Spread"]];
   function tableGroup(key) {
     if (isDdfKey(key)) return "ddf";
     const meta = sourceMeta(key);
@@ -1736,8 +1736,8 @@
     if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
     return valuesTier(row);
   }
-  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "VORP vs waivers"]];
-  const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Rescaled", vorp: "VORP vs waivers"};
+  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "Value above waivers"]];
+  const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Rescaled", vorp: "Value above waivers"};
 
   function drawerSection(title, sub) {
     const section = document.createElement("section");
@@ -1778,7 +1778,7 @@
     else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
     unit.className = "v2-meta";
-    unit.textContent = meta.method === "vorp" ? "VORP vs waivers, on this source's own scale" : "Trade-value points";
+    unit.textContent = meta.method === "vorp" ? "Value above waivers, on this source's own scale" : "Trade-value points";
     main.append(eyebrow, big, unit);
     if (estimatedReason(row, key)) {
       const why = document.createElement("p");
@@ -1882,7 +1882,7 @@
     wrap.appendChild(table);
     const note = document.createElement("p");
     note.className = "v2-meta";
-    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
+    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. Value above waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
     section.append(wrap, note);
     return section;
   }
@@ -4267,7 +4267,7 @@
         oursSpan,
         document.createTextNode(`; the chart is rescaled to the same point scale. Against one chart: ${scName}. `),
         priorSpan,
-        document.createTextNode("VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
+        document.createTextNode("Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
     } else if (footEl.firstChild && footEl.firstChild.nodeType === 3 && !footEl.firstChild.textContent.startsWith("Gap = market consensus")) {
       // Restore the multi-chart footnote if previously in single-chart mode.
       footEl.textContent = "";
@@ -4276,7 +4276,7 @@
         oursSpan,
         document.createTextNode("; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. "),
         priorSpan,
-        document.createTextNode("VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
+        document.createTextNode("Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
     }
     // Footnote: each compared chart that is still on an earlier week, with its badge.
     const priorNote = priorSpan;
@@ -4660,7 +4660,7 @@
     sum.className = `v2-cbreak-net ${result.net === null ? "" : netLabel(result.net).cls}`;
     sum.textContent = result.net === null
       ? "Receive − give: incomplete. A missing value is never counted as zero."
-      : `Receive − give = ${fmtGap(result.net)} ${sourceMeta(result.key).method === "vorp" ? "VORP vs waivers points" : "trade-value points"}`;
+      : `Receive − give = ${fmtGap(result.net)} ${sourceMeta(result.key).method === "vorp" ? "value above waivers points" : "trade-value points"}`;
     td.append(grid, sum);
     tr.appendChild(td);
     return tr;

@@ -214,7 +214,7 @@ ALLOWED = {
 REASON_CODES = {None, "stale_vintage", "not_offered", "insufficient_overlap",
                 "league_setting_unsupported", "adjustment_pending"}
 VORP_RE = re.compile(r"vorp", re.IGNORECASE)
-LOCKED = re.compile(r"\bVORP vs waivers\b")
+# JEG-861 (2026-10-22): no locked phrase any more; "VORP" never appears in user-facing copy.
 
 
 def registry(**kw):
@@ -233,7 +233,7 @@ def copy_violations(texts):
     for text in texts:
         if not text:
             continue
-        if VORP_RE.search(LOCKED.sub("", text)):
+        if VORP_RE.search(text):
             bad.append(text)
         if "the market" in text.lower() or "pure vorp" in text.lower():
             bad.append(text)
@@ -259,7 +259,7 @@ class PairRegistryTest(unittest.TestCase):
         offered_rows = [r for r in reg["rows"] if r["series_key"]]
         self.assertTrue(all(r["available"] for r in offered_rows),
                         [r for r in offered_rows if not r["available"]])
-        self.assertEqual(row(reg, "espn", "vorp_vs_waivers")["method_label"], "VORP vs waivers")
+        self.assertEqual(row(reg, "espn", "vorp_vs_waivers")["method_label"], "Value above waivers")
         self.assertEqual(row(reg, "cbs", "adjusted")["method_label"], "Our Data Driven Adjustments")
 
     def test_unsaved_team_count_is_derived_from_the_12_team_base(self):
@@ -336,7 +336,8 @@ class PairRegistryTest(unittest.TestCase):
         self.assertTrue(copy_violations(["Pure VORP"]))
         self.assertTrue(copy_violations(["Raw VORP"]))
         self.assertTrue(copy_violations(["matches the market"]))
-        self.assertEqual(copy_violations(["VORP vs waivers"]), [])
+        self.assertTrue(copy_violations(["VORP vs waivers"]))
+        self.assertEqual(copy_violations(["Value above waivers"]), [])
 
 
 # ---------------------------------------------------------------- JEG-806 checks

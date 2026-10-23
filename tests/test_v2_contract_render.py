@@ -938,10 +938,10 @@ def gl01(S):
             errors.append(f"{tab}: no 'Data Driven Football'")
         if re.search(r"vegas", text, re.I):
             errors.append(f"{tab}: says Vegas")
-        for m in re.finditer(r"VORP", text):
-            if text[m.start():m.start() + len("VORP vs waivers")] != "VORP vs waivers":
-                errors.append(f"{tab}: 'VORP' not as 'VORP vs waivers': {text[max(0, m.start() - 20):m.start() + 30]!r}")
-                break
+        # JEG-861 (2026-10-22): no "VORP" anywhere in user-facing text; the term is "Value above waivers".
+        m = re.search(r"vorp", text, re.I)
+        if m:
+            errors.append(f"{tab}: says VORP: {text[max(0, m.start() - 20):m.start() + 30]!r}")
     return errors
 
 
@@ -1446,7 +1446,7 @@ def pv12(S):
     errors = []
     if not d["shown"]:
         errors.append("clicking a row did not open the player detail")
-    for head in ("Our value", "Rescaled chart", "VORP vs waivers"):
+    for head in ("Our value", "Rescaled chart", "Value above waivers"):
         if head not in d["heads"]:
             errors.append(f"player detail has no {head!r} column")
     if RAW_KEY.search(d["text"]):
