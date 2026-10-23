@@ -39,3 +39,7 @@ Scope note: at 390 px the Targets view is the card layout (not a pinned table), 
 - Real-phone tap behavior (Chromium touch emulation only); `make validate` not run (value lanes in flux).
 - Decision for Jeremy: a tap on a clipped name shows the popover and does not open the drawer (tap elsewhere on the row still does). The alternative is popover plus drawer together.
 - After the second plain merge of origin/main (no conflicts): `test_phase1_guards_hold` OK and `node tests/test_v2_name_format.js` OK again.
+
+### Addendum 2: contract PV-03 failed at c46f0b1 (names read back empty)
+Cause: test reader, not a page bug. The contract's `own()` helper reads only the direct text nodes of a name cell; the cell text now lives in a `.v2-nm` span (names are present and visible, "Last, First" on phones). Fix: `own()` returns the span's `data-full` (the full "First Last" name) when the cell has a `.v2-nm`. The PV-03 assertion is unchanged (still requires the zoomed rows to be named in the chart labels), so it still fails if names are really empty.
+Verified: `tests.test_v2_contract_render` (6 tests, including its broken-build discrimination run) OK; `test_v2_values_tab_ux_render`, `test_v2_states_render`, `test_v2_targets_render` each run alone, OK. Plain merge of origin/main (#852, #854, #855), no conflicts. Not separately re-proved: a dedicated empty-name mutation for PV-03 (the file's existing broken-build run is the guard).

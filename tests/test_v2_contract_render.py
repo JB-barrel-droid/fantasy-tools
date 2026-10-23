@@ -344,7 +344,8 @@ COMMON = r"""
   const fire = (el, v) => { el.value = String(v); el.dispatchEvent(new Event('input', {bubbles: true}));
     el.dispatchEvent(new Event('change', {bubbles: true})); };
   const C = window.TradeValueCurveControls, V = window.TradeValueV2;
-  const own = n => [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim();
+  // JEG-947: a name cell holds its text in a .v2-nm span (phones show "Last, First"); the contract reads the full "First Last" name.
+  const own = n => { const nm = n && n.querySelector && n.querySelector(':scope > .v2-nm'); return nm ? nm.dataset.full : [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim(); };
   const rect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; };
   const shown = n => Boolean(n) && !n.hidden && n.getClientRects().length > 0;
   const closePop = async () => { const b = document.querySelector('#v2Popover:not([hidden]) .v2-panel-close')
