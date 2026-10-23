@@ -209,21 +209,30 @@ class SourceInput:
 # VP-2.2 league allocation
 # ---------------------------------------------------------------------------
 
-def bench_seats(league: League) -> dict:
+def bench_seats(league: League, *, flex_filled: dict | None = None) -> dict:
     """VP-2.2d: D'Hondt bench seats via roster convention (market bench
-    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights."""
+    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights.
+
+    flex_filled: optional {pos: count} of superflex+flex starters assigned
+    to that position (MR-28, JEG-969).  When provided, those starters count
+    toward bench weights just as allocate_league does in the ES model."""
     slots = {p: int(league.slots.get(p, 0)) for p in _CONV_POSITIONS}
     seats = _convention_bench_seats(
         slots, league.teams, league.bench,
         superflex=(league.superflex > 0),
+        flex_filled=flex_filled,
     )
     return {p: seats.get(p, 0) for p in POSITIONS}
 
 
-def allocate(league: League, order: dict, score: dict) -> dict:
+def allocate(league: League, order: dict, score: dict, *,
+             flex_bench_seats: bool = False) -> dict:
     """VP-2.2 a-e on per-position orders (best first) and a score per
     player (mean points per game, or a source's own natives in the
-    degenerate week, or blended DDF Value for VP-7.2's degenerate slot fill)."""
+    degenerate week, or blended DDF Value for VP-7.2's degenerate slot fill).
+
+    flex_bench_seats (MR-28, JEG-969): when True, bench-seat weights count
+    superflex+flex starters the way allocate_league does in the ES model."""
     t = int(league.teams)
     d = {p: t * int(league.slots.get(p, 0)) for p in POSITIONS}
 
@@ -239,7 +248,8 @@ def allocate(league: League, order: dict, score: dict) -> dict:
     fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
-    b = bench_seats(league)
+    ff = {p: sf[p] + fx[p] for p in POSITIONS} if flex_bench_seats else None
+    b = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         s = d[p] + sf[p] + fx[p]
@@ -379,7 +389,8 @@ def _at_least(n: int, q: float, k: int) -> float:
     return sum(math.comb(n, j) * q ** j * (1.0 - q) ** (n - j) for j in range(k, n + 1))
 
 
-def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict) -> dict:
+def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict,
+                *, flex_bench_seats: bool = False) -> dict:
     """ES-15.3: the chart family's relative spread per position, on the
     included charts' listed natives put on one common scale."""
     import statistics
@@ -389,7 +400,21 @@ def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict) -
     for v in lists:
         tot = sum(v[i] for i in sorted(shared))
         factors.append(CHART_COMMON_TOTAL / tot if tot > 0 else 1.0)
-    seats = bench_seats(league)
+    # MR-28: approximate flex_filled for bench weights when flex_bench_seats
+    # is on.  Uses the same cap as the starters approximation below: at most
+    # as many flex starters per position as there are extra listed players.
+    ff = None
+    if flex_bench_seats:
+        ff = {}
+        sf_total = league.teams * int(league.superflex)
+        fx_total = league.teams * int(league.flex)
+        for p in POSITIONS:
+            n_listed = sum(1 for i in shared if pos_of.get(i) == p)
+            ded = league.teams * int(league.slots.get(p, 0))
+            avail = max(0, n_listed - ded)
+            # apportion conservatively: cap sf+fx by available players
+            ff[p] = min(sf_total + (fx_total if p in league.flex_eligible else 0), avail)
+    seats = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         acc = {}
@@ -786,7 +811,8 @@ def mean_ppg(sources: dict, included: list) -> dict:
 
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                  selection: list | None = None, lineup: dict | None = None,
-                 hidden: set | None = None, promotion_model: bool = True) -> dict:
+                 hidden: set | None = None, promotion_model: bool = True,
+                 flex_bench_seats: bool = False) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
 
     sources: {key: SourceInput} in source-key order, every source shown (held
@@ -801,13 +827,15 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     degenerate = not any(sources[k].family == "projection" for k in inc)
     order_m = {p: sorted((i for i in m if pos_of[i] == p), key=lambda i: (-m[i], i)) for p in POSITIONS}
 
-    alloc = None if degenerate else allocate(league, order_m, m)
+    alloc = None if degenerate else allocate(league, order_m, m,
+                                              flex_bench_seats=flex_bench_seats)
     fill_sets = {} if degenerate else {p: order_m[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     chart_peers = [sources[k] for k in inc if sources[k].family == "chart"]
     es = None
     if lineup is not None:
         es = {"teams": int(league.teams), "lineup": lineup,
-              "chart_sigma": chart_sigma(league, sources, [k.key for k in chart_peers], pos_of)}
+              "chart_sigma": chart_sigma(league, sources, [k.key for k in chart_peers], pos_of,
+                                         flex_bench_seats=flex_bench_seats)}
     share_in = league.bench_share
     if es is not None:
         share_in = league.bench_share_override   # None = computed (ES-14)
@@ -830,7 +858,8 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     for key, src in sources.items():
         own_order = {p: sorted((i for i in src.values if pos_of[i] == p), key=lambda i: (-src.values[i], i))
                      for p in POSITIONS}
-        s_alloc = alloc if alloc is not None else allocate(league, own_order, src.values)
+        s_alloc = alloc if alloc is not None else allocate(league, own_order, src.values,
+                                                               flex_bench_seats=flex_bench_seats)
         estimates = {}
         if src.family == "chart" and not degenerate:
             peers = [k for k in chart_peers if k.key != key]
@@ -900,7 +929,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
         scored = {i: v for i, v in blended.items() if v is not None}
         order_d = {p: sorted((i for i in scored if pos_of[i] == p), key=lambda i: (-scored[i], i))
                    for p in POSITIONS}
-        slot_fill = allocate(league, order_d, scored)
+        slot_fill = allocate(league, order_d, scored, flex_bench_seats=flex_bench_seats)
     else:
         slot_fill = alloc
     _tiers(rows, slot_fill, m)
@@ -1367,7 +1396,7 @@ class Setting:
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
-                 promotion_model: bool = True):
+                 promotion_model: bool = True, flex_bench_seats: bool = False):
         """lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
@@ -1376,9 +1405,13 @@ class Setting:
         resolution (treated as hidden, held semantics per JEG-569).
         promotion_model: JEG-969, on by default (2026-10-23, Jeremy approved).
         Adjusts expected starts for promotion/demotion dynamics (persistent
-        role changes scaled by weeks remaining)."""
+        role changes scaled by weeks remaining).
+        flex_bench_seats: MR-28/JEG-969, off by default. When True, bench-seat
+        weights include flex starters (matching allocate_league in the ES
+        model). Switches QB from ~15 bench seats to ~4."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.promotion_model = promotion_model
+        self.flex_bench_seats = flex_bench_seats
         self.lineup = (resolve_lineup(load_lineup_config(), **(lineup_settings or {}))
                        if expected_starts else None)
         # JEG-702: qb = the page's QB stepper (dedicated QB slots per team).
@@ -1513,7 +1546,8 @@ class Setting:
             self._current = run_pipeline(self.league, self._sources(st["current"]), self.pos_of,
                                          st["included"], self.selection, lineup=self.lineup,
                                          hidden=st.get("hidden"),
-                                         promotion_model=self.promotion_model)
+                                         promotion_model=self.promotion_model,
+                                         flex_bench_seats=self.flex_bench_seats)
         return self._current
 
     def prior_result(self) -> dict | None:
@@ -1526,7 +1560,8 @@ class Setting:
                                        self.pos_of,
                                        st["included"], self.selection, lineup=self.lineup,
                                        hidden=st.get("hidden"),
-                                       promotion_model=self.promotion_model)
+                                       promotion_model=self.promotion_model,
+                                       flex_bench_seats=self.flex_bench_seats)
         return self._prior
 
     # -- VP-11 rows --------------------------------------------------------
@@ -1583,7 +1618,8 @@ class Setting:
 
 
 def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None = None,
-            divergence_exclusions: set | None = None, promotion_model: bool = True) -> dict:
+            divergence_exclusions: set | None = None, promotion_model: bool = True,
+            flex_bench_seats: bool = False) -> dict:
     """One setting in the shape value_check compares: rows per tab, the
     estimated flags, each DDF version's prior-week pair (the shape of the
     engine's getPriorWeek(version)), the included set and the diagnostics."""
@@ -1593,7 +1629,8 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
                 bench_share_override=setting_spec.get("bench_share_override"),
                 expected_starts=setting_spec.get("expected_starts", True),
                 divergence_exclusions=divergence_exclusions,
-                promotion_model=promotion_model)
+                promotion_model=promotion_model,
+                flex_bench_seats=flex_bench_seats)
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}

@@ -258,6 +258,15 @@
     var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
       return alloc[pos].dedicated + alloc[pos].superflex;
     }, teams * flexSlots);
+    // MR-28 (JEG-969): when flex_bench_seats is on, recompute bench weights
+    // counting superflex+flex starters, matching allocate_league in the ES model.
+    if (setting.flex_bench_seats) {
+      var ff = {};
+      POSITION_ORDER.forEach(function (pos) { ff[pos] = (sf[pos] || 0) + (fx[pos] || 0); });
+      bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
+                           {superflex: sfSlots > 0, flexFilled: ff});
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
+    }
     POSITION_ORDER.forEach(function (pos) {
       var a = alloc[pos];
       a.flex = fx[pos] || 0;
@@ -461,8 +470,42 @@
     var teams = Number(setting.teams) || 0;
     var slots = setting.slots || {};
     var flexElig = setting.flex_eligible || VP_FLEX_ELIGIBLE;
-    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                             {superflex: (Number(setting.superflex) || 0) > 0});
+    var benchOpts = {superflex: (Number(setting.superflex) || 0) > 0};
+    // MR-28: approximate flex_filled for bench weights when flex_bench_seats on
+    if (setting.flex_bench_seats) {
+      // shared keys across all charts (same as the shared computation below)
+      var sharedKeys = {};
+      chartKeys.forEach(function (src) {
+        var ks = {};
+        POSITION_ORDER.forEach(function (pos) {
+          listed[src][pos].forEach(function (r) { ks[r.key] = (ks[r.key] || 0); });
+        });
+        if (!Object.keys(sharedKeys).length) { sharedKeys = ks; }
+        else {
+          Object.keys(sharedKeys).forEach(function (k) {
+            if (!(k in ks)) delete sharedKeys[k];
+          });
+        }
+      });
+      // Build pos_of from listed data to count per-position shared players
+      var posOf = {};
+      chartKeys.forEach(function (src) {
+        POSITION_ORDER.forEach(function (pos) {
+          listed[src][pos].forEach(function (r) { posOf[r.key] = pos; });
+        });
+      });
+      var ff = {};
+      var sfTotal = teams * Math.max(0, Number(setting.superflex) || 0);
+      var fxTotal = teams * Math.max(0, Number(setting.flex) || 0);
+      POSITION_ORDER.forEach(function (pos) {
+        var nListed = Object.keys(sharedKeys).filter(function (k) { return posOf[k] === pos; }).length;
+        var ded = teams * (Number(slots[pos]) || 0);
+        var avail = Math.max(0, nListed - ded);
+        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail);
+      });
+      benchOpts.flexFilled = ff;
+    }
+    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0), benchOpts);
     var maps = chartKeys.map(function (src) {
       var m = {};
       POSITION_ORDER.forEach(function (pos) { listed[src][pos].forEach(function (r) { m[r.key] = r.native; }); });

@@ -23,6 +23,10 @@ if (bsFlag !== -1) setting.bench_share = Number(args[bsFlag + 1]);
 // --promotion-model forces on, --no-promotion-model forces off.
 if (args.indexOf("--promotion-model") !== -1) setting.promotion_model = true;
 if (args.indexOf("--no-promotion-model") !== -1) setting.promotion_model = false;
+// MR-28 / JEG-969: flex bench seats flag (off by default).
+// --flex-bench-seats forces on, --no-flex-bench-seats forces off.
+if (args.indexOf("--flex-bench-seats") !== -1) setting.flex_bench_seats = true;
+if (args.indexOf("--no-flex-bench-seats") !== -1) setting.flex_bench_seats = false;
 // --variant <name>: a fixture variant with lineup parameters (JEG-536,
 // expected starts): its `lineup` and `setting_change` apply.
 const varFlag = args.indexOf("--variant");

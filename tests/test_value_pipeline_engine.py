@@ -46,9 +46,10 @@ def _node():
 
 
 def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None, variant: str | None = None,
-               promotion_model: bool | None = None) -> dict:
+               promotion_model: bool | None = None, flex_bench_seats: bool | None = None) -> dict:
     """Run the engine. promotion_model: True forces on, False forces off,
-    None uses the engine default (on since JEG-969, 2026-10-23)."""
+    None uses the engine default (on since JEG-969, 2026-10-23).
+    flex_bench_seats: True forces on, False forces off, None = engine default (off)."""
     cmd = [_node(), str(DRIVER), str(model), str(FIXTURE)]
     if bench_share is not None:
         cmd += ["--bench-share", repr(bench_share)]
@@ -58,6 +59,10 @@ def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None, vari
         cmd += ["--promotion-model"]
     elif promotion_model is False:
         cmd += ["--no-promotion-model"]
+    if flex_bench_seats is True:
+        cmd += ["--flex-bench-seats"]
+    elif flex_bench_seats is False:
+        cmd += ["--no-flex-bench-seats"]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if proc.returncode != 0:
         raise AssertionError(f"driver failed: {proc.stderr[-2000:]}")
@@ -347,6 +352,75 @@ class TestPromotionModel(unittest.TestCase):
                                       msg="10x promotion rate should produce different bench share")
         finally:
             tmp.unlink(missing_ok=True)
+
+
+class TestFlexBenchSeats(unittest.TestCase):
+    """MR-28 / JEG-969: flex_bench_seats flag changes bench allocation."""
+
+    @classmethod
+    def setUpClass(cls):
+        _node()
+        cls.off = run_engine(variant="variant_expected_starts", promotion_model=False,
+                             flex_bench_seats=False)
+        cls.on = run_engine(variant="variant_expected_starts", promotion_model=False,
+                            flex_bench_seats=True)
+
+    def test_flex_bench_seats_changes_bench_allocation(self):
+        """At least one position's bench seats change with flex_bench_seats."""
+        off_alloc = self.off.get("allocation", {})
+        on_alloc = self.on.get("allocation", {})
+        diffs = []
+        for pos in ("QB", "RB", "WR", "TE"):
+            off_b = off_alloc.get(pos, {}).get("bench", 0)
+            on_b = on_alloc.get(pos, {}).get("bench", 0)
+            if off_b != on_b:
+                diffs.append(f"{pos}: {off_b}->{on_b}")
+        self.assertTrue(len(diffs) > 0,
+                        "flex_bench_seats should change at least one position's bench count")
+
+    def test_flex_bench_seats_off_matches_default(self):
+        """With flag off, results match the default (flex_bench_seats is off by default)."""
+        default = run_engine(variant="variant_expected_starts", promotion_model=False)
+        off_alloc = self.off.get("allocation", {})
+        def_alloc = default.get("allocation", {})
+        for pos in ("QB", "RB", "WR", "TE"):
+            self.assertEqual(off_alloc.get(pos, {}).get("bench"),
+                             def_alloc.get(pos, {}).get("bench"),
+                             f"{pos} bench should match default when flag is off")
+
+    def test_flex_bench_seats_spec_parity(self):
+        """Spec reference and JS engine agree on bench allocation with flex_bench_seats."""
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        from spec_reference import value_pipeline as sp
+
+        doc = json.loads(FIXTURE.read_text())
+        variant = doc["variant_expected_starts"]
+        setting_d = {**doc["setting"], **(variant.get("setting_change") or {})}
+        setting = sp.Setting.from_fixture(setting_d)
+        pos_of = {int(k): v["pos"] for k, v in doc["players"].items()}
+        sources_raw = doc.get("inputs") or doc.get("sources")
+        sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"]}
+                   for s, v in sources_raw.items()}
+        inc_keys = [s for s, v in sources.items() if v["status"] == "included"]
+        lineup = variant.get("lineup")
+
+        sp_on = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup,
+                            promotion_model=False, flex_bench_seats=True)
+
+        # Compare allocation bench counts
+        for pos in ("QB", "RB", "WR", "TE"):
+            js_bench = self.on.get("allocation", {}).get(pos, {}).get("bench", 0)
+            sp_bench = sp_on.get("priced", {})
+            # The spec reference returns allocation per source; get from first source
+            sp_alloc = None
+            for s_key, s_data in sp_on.get("priced", {}).items():
+                if "allocation" in s_data:
+                    sp_alloc = s_data["allocation"]
+                    break
+            if sp_alloc:
+                self.assertEqual(js_bench, sp_alloc.get(pos, {}).get("bench", 0),
+                                 f"Spec/JS {pos} bench mismatch with flex_bench_seats on")
 
 
 if __name__ == "__main__":

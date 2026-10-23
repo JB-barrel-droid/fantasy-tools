@@ -144,19 +144,25 @@ def score_order(scores: dict, pos_of: dict) -> dict:
 
 # ---------------------------------------------------------------- VP-2.2 allocation
 
-def dhondt_bench(setting) -> dict:
+def dhondt_bench(setting, *, flex_filled: dict | None = None) -> dict:
     """VP-2.2d: D'Hondt bench seats via roster convention (market bench
-    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights."""
+    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights.
+
+    flex_filled: optional {pos: count} of superflex+flex starters (MR-28)."""
     slots = {p: int(setting.slots.get(p, 0)) for p in _CONV_POSITIONS}
     seats = _convention_bench_seats(
         slots, setting.teams, setting.bench_per_team,
         superflex=(setting.superflex > 0),
+        flex_filled=flex_filled,
     )
     return {p: seats.get(p, 0) for p in POSITIONS}
 
 
-def allocate(setting: Setting, order: dict, scores: dict) -> dict:
-    """League allocation (VP-2.2 a-e) on a per-position order with scores."""
+def allocate(setting: Setting, order: dict, scores: dict, *,
+             flex_bench_seats: bool = False) -> dict:
+    """League allocation (VP-2.2 a-e) on a per-position order with scores.
+
+    flex_bench_seats (MR-28): when True, bench weights count sf+flex starters."""
     T = setting.teams
     ded = {p: T * int(setting.slots.get(p, 0)) for p in POSITIONS}
 
@@ -172,7 +178,8 @@ def allocate(setting: Setting, order: dict, scores: dict) -> dict:
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    bench = dhondt_bench(setting)
+    ff = {p: sf[p] + fx[p] for p in POSITIONS} if flex_bench_seats else None
+    bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         starters = ded[p] + sf[p] + fx[p]
@@ -310,7 +317,8 @@ def resolve_lineup(cfg: dict, objective: str | None = None, injury_history: str 
     return {"bye": b, "projection_confidence": conf, "window": [lo, hi], "positions": pos}
 
 
-def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) -> dict:
+def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
+                   *, flex_bench_seats: bool = False) -> dict:
     """ES-15.3 (SA-ES-3): sigma for the chart family, per position."""
     shared = None
     for c in charts:
@@ -321,7 +329,18 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) 
     for c in charts:
         t = fsum_in_order(natives[c][k] for k in sorted(shared))
         scale[c] = 1000.0 / t if t > 0 else 1.0
-    bench = dhondt_bench(setting)
+    # MR-28: approximate flex_filled for bench weights
+    ff = None
+    if flex_bench_seats:
+        ff = {}
+        sf_total = setting.teams * setting.superflex
+        fx_total = setting.teams * setting.flex
+        for p in POSITIONS:
+            n_listed = sum(1 for k in shared if pos_of.get(k) == p)
+            ded = setting.teams * int(setting.slots.get(p, 0))
+            avail = max(0, n_listed - ded)
+            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail)
+    bench = dhondt_bench(setting, flex_filled=ff)
     res = {}
     for p in POSITIONS:
         vals: dict = {}
@@ -668,7 +687,7 @@ def ddf_version(values: dict, members: list) -> dict:
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
              lineup: dict | None = None, hidden: list | None = None,
-             promotion_model: bool = True) -> dict:
+             promotion_model: bool = True, flex_bench_seats: bool = False) -> dict:
     """VP-2 .. VP-7 for one week.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
@@ -693,7 +712,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     degenerate = not proj_in
     if not degenerate:
         p_order = score_order(m, pos_of)
-        alloc = allocate(setting, p_order, m)
+        alloc = allocate(setting, p_order, m, flex_bench_seats=flex_bench_seats)
         fill_sets = {p: p_order[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     else:   # VP-2.2 f (SA-3)
         alloc, fill_sets, p_order = None, None, None
@@ -702,7 +721,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     if lineup is not None:
         charts_in = [s for s in inc if family[s] == CHART]
         es = {"teams": setting.teams, "lineup": lineup,
-              "chart_sigma": es_chart_sigma(setting, natives, charts_in, pos_of)}
+              "chart_sigma": es_chart_sigma(setting, natives, charts_in, pos_of,
+                                            flex_bench_seats=flex_bench_seats)}
         bs = setting.bench_share_override
 
     # JEG-969: promotion/demotion model (off by default)
@@ -722,7 +742,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     for s in sources:
         if degenerate:
             own = score_order(natives[s], pos_of)
-            a = allocate(setting, own, natives[s])
+            a = allocate(setting, own, natives[s], flex_bench_seats=flex_bench_seats)
         else:
             a = alloc
         peers = [k for k in peers_all if k != s]
@@ -802,7 +822,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     if degenerate:
         ddf_scores = {k: rows[k]["ddf_blended"]["value"] for k in row_keys
                       if rows[k]["ddf_blended"]["value"] is not None}
-        slot_fill = allocate(setting, score_order(ddf_scores, pos_of), ddf_scores)
+        slot_fill = allocate(setting, score_order(ddf_scores, pos_of), ddf_scores,
+                             flex_bench_seats=flex_bench_seats)
     else:
         slot_fill = alloc
     for p in POSITIONS:
@@ -890,16 +911,17 @@ VERSIONS = (("blended", "ddf_blended"), ("charts", "ddf_charts"), ("projections"
 def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, included: list,
         selection: list | None = None, names: dict | None = None,
         prior_pos_of: dict | None = None, lineup: dict | None = None,
-        hidden: list | None = None, promotion_model: bool = True) -> dict:
+        hidden: list | None = None, promotion_model: bool = True,
+        flex_bench_seats: bool = False) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
     cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden,
-                   promotion_model=promotion_model)
+                   promotion_model=promotion_model, flex_bench_seats=flex_bench_seats)
     out = {"current": cur, "prior": None}
     if prior:
         prior_src = {s: prior[s] for s in included if s in prior}
         pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup, hidden=hidden,
-                      promotion_model=promotion_model)
+                      promotion_model=promotion_model, flex_bench_seats=flex_bench_seats)
         out["prior"] = pw
         for k, row in cur["rows"].items():
             prow = pw["rows"].get(k)
