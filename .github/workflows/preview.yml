@@ -136,4 +136,5 @@ jobs:
         if: ${{ !cancelled() }}
         continue-on-error: true
         run: |
+          python3 -m pip install --quiet pytest
           make test-unit
