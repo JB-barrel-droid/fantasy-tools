@@ -670,7 +670,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     blended_members = proj_members if proj_members else [s for s in inc if s not in hidden_set and (sel is None or s in sel)]
     members = {
         "blended": blended_members,
-        "charts": [s for s in inc if s not in hidden_set and family[s] == CHART and (sel is None or s in sel)],
+        "charts": [s for s in inc if s not in hidden_set and family[s] == CHART],   # JEG-930: charts-only ignores the blend selection
         "projections": proj_members,
     }
     rows = {}
