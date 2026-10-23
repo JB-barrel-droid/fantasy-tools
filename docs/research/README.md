@@ -8,6 +8,9 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [roster-convention-audit.md](roster-convention-audit.md) | The JEG-556 audit of inconsistent roster rules, and the convention that replaces them. |
 | [qb-bench-share.md](qb-bench-share.md) | The 22.6% QB bench share, why it was an artifact, and what superseded it. |
 | [research-post-1-facts.md](research-post-1-facts.md) | JEG-544 decisions and the fact tickets, with status. |
+| [post-1-review-2026-10-23.md](post-1-review-2026-10-23.md) | Post 1 review: each of Jeremy's comments mapped to the change made (JEG-544, #846). |
+| [ddf-predictive-plan.md](ddf-predictive-plan.md) | JEG-943 internal plan behind post 10: data inventory, evaluation protocol, what is missing. |
+| [source-discovery-2026-10-15.md](source-discovery-2026-10-15.md) | JEG-622/JEG-623 source shortlist and FantasyFootballAnalytics access check. |
 
 ## Post drafts
 
@@ -20,7 +23,11 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | 5. Missing = 0 and the one-source rule | [posts/05-missing-zero-one-source.md](posts/05-missing-zero-one-source.md) | JEG-545 | Draft |
 | 6. Trade confidence | [posts/06-trade-confidence.md](posts/06-trade-confidence.md) | JEG-545 | Draft; partially gated on JEG-505 |
 | 7. Does the market gap predict anything? | [posts/07-does-the-gap-predict.md](posts/07-does-the-gap-predict.md) | JEG-882 | Draft; weeks 2-7 only, re-run at season end. Script `tools/research/gap_backtest.py`, figures in [data/gap_backtest.md](data/gap_backtest.md) (2026-10-22, reference engine, DDF Value blend and projections-only) |
-| 8. When do the trade charts agree? | [posts/08-when-charts-agree.md](posts/08-when-charts-agree.md) | JEG-883 | Draft; script `tools/research/chart_agreement.py`, outputs `data/post8/` (2026-10-22, engine cc576e71, DDF Value blended: PR #814 open) |
+| 8. When do the trade charts agree? | [posts/08-when-charts-agree.md](posts/08-when-charts-agree.md) | JEG-883 | Draft (merged #826); script `tools/research/chart_agreement.py`, outputs `data/post8/` (2026-10-22, engine cc576e71). Computed on the old DDF Value blend that included trade charts; #814 (projections only) has since merged, so figures that use the blend are stale until re-run (the post also shows a projections-only column; not re-checked here). |
+| 9. How we split value across positions | not on `main` | JEG-925 | Pending: draft is on open PR #837 (branch `research/position-weights`); index the file here when it merges. |
+| 10. How DDF Value should be built | [posts/10-how-ddf-value-should-be-built.md](posts/10-how-ddf-value-should-be-built.md) | JEG-943 | Draft (merged #847); script `tools/research/source_accuracy_backtest.py`, figures in [data/source_accuracy_backtest.md](data/source_accuracy_backtest.md) (2026-10-23, Python reference engine). Internal plan: [ddf-predictive-plan.md](ddf-predictive-plan.md). |
+
+In-page links to research use the Writing routes (`#writing/research`, `#writing/manifesto`, `#writing/how-values`); the old `#research` style routes only redirect (JEG-905, #830). The red-test sweep that found a link-route break outside the gate is JEG-916 (`docs/claude-log/red-render-triage/log.md`).
 
 Rules: do not freeze a number that is known to be wrong; mark figures computed on an older engine as stale with the date; name the script or say "none yet". Bench scripts go to `tools/bench_research` (JEG-566); other research scripts to `tools/research/`, each writing its figures to `docs/research/data/` (JEG-882).
 

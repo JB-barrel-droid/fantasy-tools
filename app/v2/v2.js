@@ -2332,9 +2332,11 @@
     const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
     // The last usable input stays on (a held source does not count).
     const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
-    // JEG-863: the blend's inputs are projections only, so every blend-built version reads the same count; the
-    // trade chart average is not built from the blend and never carries the "no sources on" note.
-    const versionUsable = versionKey => (DDF_VERSIONS[versionKey].blend ? usableOn().length : null);
+    // JEG-930: the charts-only version ignores the blend draft; its sources are the open trade charts.
+    // JEG-863: blend-built versions (blend: true) read usableOn; trade chart average (blend: false, not charts) is null.
+    const chartsUsable = () => ((C.getCompositeInputs && C.getCompositeInputs("ddf_value_charts").series) || []).length;
+    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable()
+      : DDF_VERSIONS[versionKey].blend ? usableOn().length : null);
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
       const err = document.createElement("p");

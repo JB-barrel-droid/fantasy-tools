@@ -14,7 +14,7 @@ says "middle of N charts" instead of "median of N", and the Deal read sentences 
 manager will do ("easy for them to accept", "will likely accept", "and is not").
 JEG-888 (2026-10-22): the Trade targets intro counts the charts the view compares ("We check 3 trade charts", read
 from window.TradeValueV2.targets().used), the Compare headline never shows "? ? Unclear", and a projections split
-is worded "DDF Projections say you win (+7.3) while DDF Value calls it even", not "DDF Projections disagree (+7.3)".
+never says "DDF Projections disagree (+7.3)". (JEG-930, 2026-10-23: the "say you win while DDF Value calls it even" reason was deleted, DDF Value now equals DDF Projections.)
 JEG-895 (2026-10-22): the headline levels are named for what they measure ("Our value: …", "Charts agree: …") and
 the word "confidence" never appears in the headline.
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the old USAT label, with "Wk" back, with
@@ -171,7 +171,7 @@ PATCHES = {
     "Unclear glyph back to ?": {"v2_patch": ('Unclear: "–"', 'Unclear: "?"')},
     # JEG-895: the headline level must not be called "confidence".
     "confidence label back": {"v2_patch": ("document.createTextNode(LEVEL_LABELS[line][h.confidence])", "document.createTextNode(`${h.confidence} confidence`)")},
-    # JEG-863: the pSide !== vSide branch is dead (DDF Value = projections); the guard checks the agree reason stays.
+    # JEG-863 + JEG-930: pSide !== vSide is dead (DDF Value = projections); guard checks the agree reason stays.
     "projections agree reason removed": {"trade_patch": ("else reasons.push(`DDF Value (projections) agree (${fmtNet(pNet)})`)", "else {}")},
 }
 
