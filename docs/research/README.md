@@ -22,4 +22,6 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | 7. Does the market gap predict anything? | [posts/07-does-the-gap-predict.md](posts/07-does-the-gap-predict.md) | JEG-882 | Draft; weeks 2-7 only, re-run at season end. Script `tools/research/gap_backtest.py`, figures in [data/gap_backtest.md](data/gap_backtest.md) (2026-10-22, reference engine, DDF Value blend and projections-only) |
 | 8. When do the trade charts agree? | [posts/08-when-charts-agree.md](posts/08-when-charts-agree.md) | JEG-883 | Draft; script `tools/research/chart_agreement.py`, outputs `data/post8/` (2026-10-22, engine cc576e71, DDF Value blended: PR #814 open) |
 
+| 9. How the Trade Value Chart sets position weights | [posts/09-how-position-weights-work.md](posts/09-how-position-weights-work.md) | JEG-925 | Draft |
+
 Rules: do not freeze a number that is known to be wrong; mark figures computed on an older engine as stale with the date; name the script or say "none yet". Bench scripts go to `tools/bench_research` (JEG-566); other research scripts to `tools/research/`, each writing its figures to `docs/research/data/` (JEG-882).
