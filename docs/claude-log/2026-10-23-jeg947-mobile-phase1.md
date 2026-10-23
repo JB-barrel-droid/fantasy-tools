@@ -46,3 +46,7 @@ Verified: `tests.test_v2_contract_render` (6 tests, including its broken-build d
 
 ### Addendum 3: PV-03 guard proof after the `own()` change
 `own()` now returns '' when the visible `.v2-nm` text is empty (even if `data-full` is set), else `data-full`. Added two broken builds to `test_guard_fails_on_broken_builds`: name cells with no text and no data-full, and name cells with data-full but an empty visible name; PV-03 must report a real finding for each. Verified: `tests.test_v2_contract_render` alone (6 tests) OK after a plain merge of origin/main. Claimed, not run separately: that the second build would have passed PV-03 with the previous `own()` (it returned data-full unconditionally, so by reading it would).
+
+### Addendum 4: merge of origin/main with a11y batch 2 (#862) and #852/#854/#855/#861
+One conflict, in `app/v2/v2.css` (`.v2-trade-results button` hover rules): kept both intents, hover under `@media (hover: hover)` and #862's keyboard state `.is-active` unguarded with `:focus-visible`. v2.js, shell and the contract test merged automatically; the `.v2-nm` name span carries no tabindex, so #862's roving tabindex on rows is unaffected, and the `own()` helper change did not conflict with #862's contract edits.
+Verified (each file alone under the render lock, all OK): test_v2_mobile_phase1_render, test_v2_contract_render, test_v2_a11y_batch2_render, test_v2_values_tab_ux_render, test_v2_states_render, test_v2_targets_render.
