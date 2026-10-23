@@ -1,0 +1,386 @@
+"""Player values tab: chart layout, search on the graph, source symbols, exact values, player page numbers (JEG-926), rendered.
+
+Jeremy, 2026-10-22. Builds dist/v2 into a temp copy of the built dist/ and loads Player values headless at 1366, 1280,
+1024 and 390 px. Each value check reads the engine back (TradeValueCurveControls / TradeValueV2), so a view that only
+looks right fails:
+
+  1. Layout: the chart card spans the full content width and the values table card sits underneath it (same left and
+     right edge, table top below chart bottom), at every width; no horizontal overflow at 390.
+  2. Search on the graph: #v2PlotSearch is inside the chart, visible, and drives the same search as the toolbar box
+     (engine rows narrow to the match, the toolbar box mirrors it, clearing restores the list).
+  3. Source symbols: every plotted series has its publisher symbol (the legend's) on the chart, anchored at that
+     series' left-most visible player (x equals the chart's x for the first player the series prices), and the symbols
+     follow the left-most player when the rank window or position changes.
+  4. Expanded chart: the position selector is visible on the graph (inside #v2Plot, inside the dialog), changing it
+     changes the engine's position and the toolbar's; hidden in the unexpanded chart (the toolbar has it there).
+  5. "Set exact values": no separate toolbar button; it is an item in the Show menu. Picking it (mouse or keyboard
+     typeahead) opens the Value range dialog, leaves Show as it was, and Escape returns focus to the Show menu.
+  6. Player page: every available series shows its number without a click: each matrix cell with a data-source shows
+     the engine's value (one decimal), and no available series is represented by a bare "Available" link.
+
+Discrimination: test_guard_fails_on_broken_builds serves v2.js / v2.css with one fault each (table back beside the
+chart, search box not forwarded, symbols not drawn, symbols at the right end, position hidden when expanded, exact
+values not in the Show menu, numbers hidden behind Add) and requires each to fail.
+"""
+from __future__ import annotations
+
+import contextlib
+import functools
+import http.server
+import shutil
+import socketserver
+import sys
+import tempfile
+import threading
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+DIST = ROOT / "dist"
+sys.path.insert(0, str(ROOT / "pipelines"))
+import build_v2_page  # noqa: E402
+
+from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    _render_env.ensure_built()
+
+
+V2_JS = ROOT / "app" / "v2" / "v2.js"
+V2_CSS = ROOT / "app" / "v2" / "v2.css"
+
+LAYOUT = """() => { const r = s => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect();
+  return {left: b.left, right: b.right, top: b.top + scrollY, bottom: b.bottom + scrollY, width: b.width}; };
+  return {chart: r('.v2-chart-card'), table: r('.v2-table-card'), main: r('#v2Main'), overflow: document.documentElement.scrollWidth - innerWidth}; }"""
+
+# Symbols against the engine: for each plotted series, where its symbol sits and where the chart puts that series'
+# first priced player.
+MARKS = """() => { const V2 = window.TradeValueV2, ch = V2.chart(), C = window.TradeValueCurveControls;
+  const byKey = new Map(C.getRows().map(r => [String(r.player_key), r]));
+  const keys = [...document.querySelectorAll('#v2Chart path.series')].map(p => p.dataset.source);
+  const legend = document.getElementById('v2Legend') ? document.getElementById('v2Legend').textContent : '';
+  const marks = [...document.querySelectorAll('#v2Chart text.series-mark')].map(t => ({key: t.dataset.source, text: t.textContent,
+    x: Number(t.getAttribute('x')), y: Number(t.getAttribute('y'))}));
+  const want = keys.map(key => { const i = ch.slice.findIndex(r => Number.isFinite(byKey.get(String(r.player_key)).values[key]));
+    return {key, x: i < 0 ? null : ch.x(i), first: i < 0 ? null : ch.slice[i].name, leftmost: ch.slice[0].name}; });
+  return {keys, marks, want, legend, plotH: ch.height, n: ch.slice.length}; }"""
+
+SEARCH = """() => { const V2 = window.TradeValueV2, v = V2.view();
+  const box = document.getElementById('v2PlotSearch'), r = box.getBoundingClientRect();
+  return {state: V2.state.search, toolbar: document.getElementById('v2Search').value, chartBox: box.value,
+    inChart: Boolean(box.closest('.v2-chart-card')), visible: Boolean(box.offsetParent) && r.width > 40 && r.height > 20,
+    rows: v.rows.length, names: v.rows.slice(0, 20).map(x => x.name)}; }"""
+
+DRAWER = """() => { const drawer = document.getElementById('v2Drawer');
+  const key = document.querySelector('#v2Table tbody tr').dataset.playerKey || window.TradeValueV2.view().rows[0].player_key;
+  const row = window.TradeValueCurveControls.getRows().find(r => String(r.player_key) === String(key));
+  const cells = [...drawer.querySelectorAll('.v2-dmatrix td[data-source]')].map(td => ({key: td.dataset.source,
+    text: td.firstChild ? td.firstChild.textContent.trim() : '', add: Boolean(td.querySelector('.v2-dadd'))}));
+  const bare = [...drawer.querySelectorAll('.v2-dmatrix td.num')].filter(td => td.querySelector('.v2-dadd') && !/\\d/.test(td.textContent)).length;
+  return {hidden: drawer.hidden, values: row ? row.values : null, cells, bare,
+    addButtons: drawer.querySelectorAll('.v2-dmatrix .v2-dadd').length}; }"""
+
+
+def _settle(page, ms=150):
+    page.wait_for_timeout(ms)
+
+
+def _serve(body, ctype, route, *_):
+    route.fulfill(status=200, content_type=ctype, body=body)
+
+
+@contextlib.contextmanager
+def _built_dist():
+    if not (DIST / "index.html").exists():
+        raise _render_env.unavailable("dist/index.html is not built")
+    with tempfile.TemporaryDirectory() as tmp:
+        dist = Path(tmp) / "dist"
+        shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
+        build_v2_page.build(dist)
+
+        class QuietHandler(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass
+        handler = functools.partial(QuietHandler, directory=str(dist))
+        with socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
+            server.daemon_threads = True
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                yield f"http://127.0.0.1:{server.server_address[1]}/v2/"
+            finally:
+                server.shutdown()
+
+
+def check_layout(page, tag, width) -> list[str]:
+    errors = []
+    page.evaluate("() => window.scrollTo(0, 0)")
+    lay = page.evaluate(LAYOUT)
+    chart, table = lay["chart"], lay["table"]
+    if not chart or not table:
+        return [tag + "chart or table card missing"]
+    if abs(chart["left"] - table["left"]) > 1 or abs(chart["right"] - table["right"]) > 1:
+        errors.append(tag + f"chart card ({chart['left']:.0f}-{chart['right']:.0f}) and table card "
+                      f"({table['left']:.0f}-{table['right']:.0f}) do not share the full content width")
+    if table["top"] < chart["bottom"] - 1:
+        errors.append(tag + f"table starts at {table['top']:.0f}px, inside the chart card (ends {chart['bottom']:.0f}px): side by side")
+    if chart["width"] < 0.9 * lay["main"]["width"]:
+        errors.append(tag + f"chart card is {chart['width']:.0f}px of {lay['main']['width']:.0f}px content width")
+    if width <= 390 and lay["overflow"] > 0:
+        errors.append(tag + f"horizontal overflow {lay['overflow']}px")
+    return errors
+
+
+def check_search(page, tag) -> list[str]:
+    errors = []
+    base = page.evaluate(SEARCH)
+    if not base["inChart"] or not base["visible"]:
+        return [tag + f"search box is not visible on the graph: {base}"]
+    page.fill("#v2PlotSearch", "Chase")
+    _settle(page, 500)
+    snap = page.evaluate(SEARCH)
+    if snap["state"] != "Chase" or snap["toolbar"] != "Chase":
+        errors.append(tag + f"typing on the graph: search state {snap['state']!r}, toolbar box {snap['toolbar']!r}")
+    if not (0 < snap["rows"] < base["rows"]) or not all("chase" in n.lower() for n in snap["names"]):
+        errors.append(tag + f"typing on the graph did not narrow the engine rows to the match: {snap['rows']} rows {snap['names'][:3]}")
+    # The toolbar box drives the on-graph box too.
+    page.fill("#v2Search", "")
+    _settle(page, 500)
+    back = page.evaluate(SEARCH)
+    if back["chartBox"] != "" or back["rows"] != base["rows"]:
+        errors.append(tag + f"clearing the toolbar search: graph box {back['chartBox']!r}, rows {back['rows']} (was {base['rows']})")
+    return errors
+
+
+def check_marks(page, tag) -> list[str]:
+    errors = []
+
+    def read(label):
+        snap = page.evaluate(MARKS)
+        if not snap["keys"]:
+            return [label + "no series plotted"]
+        found = {m["key"]: m for m in snap["marks"]}
+        problems = []
+        for want in snap["want"]:
+            mark = found.get(want["key"])
+            if want["x"] is None:
+                continue
+            if not mark:
+                problems.append(label + f"{want['key']}: no source symbol on the chart")
+                continue
+            if abs(mark["x"] - want["x"]) > 0.6:
+                problems.append(label + f"{want['key']}: symbol at x={mark['x']:.1f}, the series' left-most visible player "
+                                f"({want['first']}) is at x={want['x']:.1f}")
+            if mark["text"] not in snap["legend"]:
+                problems.append(label + f"{want['key']}: symbol {mark['text']!r} is not the legend's")
+            if not (0 <= mark["y"] <= snap["plotH"]):
+                problems.append(label + f"{want['key']}: symbol at y={mark['y']:.0f} is outside the plot")
+        ys = sorted(m["y"] for m in snap["marks"])
+        if any(b - a < 10 for a, b in zip(ys, ys[1:])):
+            problems.append(label + f"symbols overlap: y positions {[round(y) for y in ys]}")
+        return problems
+    errors += read(tag + "Top 100: ")
+    page.select_option("#v2Show", "25")
+    page.select_option("#v2Position", "WR")
+    _settle(page, 300)
+    errors += read(tag + "Top 25 WR: ")
+    page.click("#v2Reset")
+    _settle(page, 300)
+    return errors
+
+
+def check_expanded_position(page, tag) -> list[str]:
+    errors = []
+    hidden = page.evaluate("() => { const s = document.getElementById('v2PlotPosition'); return !s.offsetParent; }")
+    if not hidden:
+        errors.append(tag + "the position selector is on the unexpanded chart as well as the toolbar")
+    page.click("#v2ExpandChart")
+    _settle(page, 300)
+    info = page.evaluate("""() => { const s = document.getElementById('v2PlotPosition'), r = s.getBoundingClientRect();
+      const plot = document.getElementById('v2Plot').getBoundingClientRect();
+      return {visible: Boolean(s.offsetParent) && r.width > 40 && r.height > 20, inDialog: Boolean(s.closest('#v2Expand')),
+        inPlot: Boolean(s.closest('#v2Plot')), within: r.top >= plot.top - 1 && r.bottom <= plot.bottom + 1,
+        search: Boolean(document.getElementById('v2PlotSearch').offsetParent)}; }""")
+    if not (info["visible"] and info["inDialog"] and info["inPlot"] and info["within"]):
+        errors.append(tag + f"expanded chart: the position selector is not visible on the graph: {info}")
+    if not info["search"]:
+        errors.append(tag + "expanded chart: the search box is not on the graph")
+    elif info["visible"]:
+        page.select_option("#v2PlotPosition", "RB")
+        _settle(page, 400)
+        got = page.evaluate("() => ({engine: window.TradeValueCurveControls.getState().position, toolbar: document.getElementById('v2Position').value,"
+                            " rows: window.TradeValueV2.view().visible.map(r => r.pos)})")
+        if got["engine"] != "RB" or got["toolbar"] != "RB" or any(p != "RB" for p in got["rows"]) or not got["rows"]:
+            errors.append(tag + f"expanded chart: position selector did not set RB: {got['engine']} / {got['toolbar']} / {set(got['rows'])}")
+    page.keyboard.press("Escape")
+    _settle(page, 300)
+    page.click("#v2Reset")
+    _settle(page, 300)
+    return errors
+
+
+def check_exact(page, tag) -> list[str]:
+    errors = []
+    if page.query_selector("#v2YExact"):
+        errors.append(tag + "the separate Set exact values button is still on the page")
+    opts = page.evaluate("() => [...document.querySelectorAll('#v2Show option')].map(o => o.textContent.trim())")
+    if not any(o.lower().startswith("set exact values") for o in opts):
+        return errors + [tag + f"Show menu has no Set exact values item: {opts}"]
+    page.select_option("#v2Show", "50")
+    _settle(page)
+    # Mouse / pointer path.
+    page.select_option("#v2Show", "exact")
+    _settle(page, 300)
+    snap = page.evaluate("""() => ({open: !document.getElementById('v2Popover').hidden,
+      title: (document.querySelector('#v2Popover .v2-panel-head') || {}).textContent || '', show: document.getElementById('v2Show').value,
+      preset: window.TradeValueV2.state.windowPreset})""")
+    if not snap["open"] or "Value range" not in snap["title"]:
+        errors.append(tag + f"Set exact values did not open the Value range dialog: {snap}")
+    if snap["show"] != "50" or snap["preset"] != "50":
+        errors.append(tag + f"Set exact values changed Show to {snap['show']!r} / {snap['preset']!r}, want 50")
+    page.keyboard.press("Escape")
+    _settle(page, 300)
+    back = page.evaluate("() => ({open: !document.getElementById('v2Popover').hidden, focus: document.activeElement && document.activeElement.id})")
+    if back["open"] or back["focus"] != "v2Show":
+        errors.append(tag + f"closing the dialog: open {back['open']}, focus on {back['focus']!r}, want the Show menu")
+    # Keyboard path: focus the menu and type the item's first letters.
+    page.focus("#v2Show")
+    page.keyboard.type("Set exact")
+    _settle(page, 400)
+    kb = page.evaluate("() => ({open: !document.getElementById('v2Popover').hidden, show: document.getElementById('v2Show').value})")
+    if not kb["open"]:
+        errors.append(tag + f"keyboard (typeahead on the Show menu) did not open the dialog: {kb}")
+    # And the dialog still applies a range.
+    if kb["open"]:
+        inputs = page.locator("#v2Popover .row2 input")
+        inputs.nth(0).fill("10")
+        inputs.nth(1).fill("40")
+        page.click('#v2Popover [data-apply="range"]')
+        _settle(page, 300)
+        applied = page.evaluate("() => window.TradeValueV2.state.range")
+        if applied["min"] != 10 or applied["max"] != 40:
+            errors.append(tag + f"the Value range dialog applied {applied}, want 10 to 40")
+    page.click("#v2Reset")
+    _settle(page, 300)
+    return errors
+
+
+def check_drawer(page, tag) -> list[str]:
+    errors = []
+    page.click("#v2Table tbody tr td:nth-child(2)")
+    _settle(page, 600)
+    d = page.evaluate(DRAWER)
+    if d["hidden"] or not d["cells"]:
+        return [tag + "player page did not open"]
+    values = d["values"] or {}
+    for cell in d["cells"]:
+        want = values.get(cell["key"])
+        if isinstance(want, (int, float)) and want == want:
+            if cell["text"] != f"{want:.1f}":
+                errors.append(tag + f"player page {cell['key']} shows {cell['text']!r}, engine {want!r}")
+        elif any(ch.isdigit() for ch in cell["text"]):
+            errors.append(tag + f"player page {cell['key']} has no engine value but shows {cell['text']!r}")
+    if d["bare"]:
+        errors.append(tag + f"player page: {d['bare']} series show only an Available link, no number")
+    off = [c for c in d["cells"] if c["add"]]
+    if not off:
+        errors.append(tag + "player page: no unselected series in the fixture, so the check proves nothing")
+    page.keyboard.press("Escape")
+    _settle(page, 300)
+    return errors
+
+
+CHECKS = ("layout", "search", "marks", "expanded", "exact", "drawer")
+VIEWPORTS = ((1366, 800), (1280, 800), (1024, 768), (390, 844))
+
+
+def run_checks(overrides=None, viewports=VIEWPORTS, checks=CHECKS) -> list[str]:
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    errors = []
+    with _built_dist() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width, height in viewports:
+                tag = f"[{width}px] "
+                context = browser.new_context(viewport={"width": width, "height": height})
+                page = context.new_page()
+                page_errors = []
+                page.on("pageerror", lambda e: page_errors.append(str(e)))
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                for name, (body, ctype) in (overrides or {}).items():
+                    page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
+                page.goto(base + "#player-values", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=60000)
+                _settle(page, 400)
+                deep = width in (1366, 390)
+                if "layout" in checks:
+                    errors += check_layout(page, tag, width)
+                if "search" in checks and deep:
+                    errors += check_search(page, tag)
+                if "marks" in checks and deep:
+                    errors += check_marks(page, tag)
+                if "expanded" in checks and deep:
+                    errors += check_expanded_position(page, tag)
+                if "exact" in checks and deep:
+                    errors += check_exact(page, tag)
+                if "drawer" in checks and deep:
+                    errors += check_drawer(page, tag)
+                if width <= 390:
+                    overflow = page.evaluate("() => document.documentElement.scrollWidth - innerWidth")
+                    if overflow > 0:
+                        errors.append(tag + f"horizontal overflow {overflow}px")
+                if page_errors:
+                    errors.append(tag + f"page errors {page_errors}")
+                context.close()
+        finally:
+            browser.close()
+    return errors
+
+
+class ValuesTabUxRenderTest(unittest.TestCase):
+    def test_values_tab_ux(self):
+        self.assertEqual(run_checks(), [])
+
+    def test_guard_fails_on_broken_builds(self):
+        js = V2_JS.read_text(encoding="utf-8")
+        css = V2_CSS.read_text(encoding="utf-8")
+        broken = {
+            "table beside the chart again": ({"v2.css": css + "\n@media (min-width: 1280px) { .v2-values-grid { display: grid; grid-template-columns: 420px 1fr; gap: 12px; } }\n"},
+                                             "css", ("layout",), ((1366, 800),)),
+            "search box not forwarded": ({"v2.js": js.replace(
+                '      $("v2Search").dispatchEvent(new Event("input", {bubbles: true}));\n', "", 1)}, "js", ("search",), ((1366, 800),)),
+            "source symbols not drawn": ({"v2.js": js.replace("if (opts.markers) drawSeriesMarkers(", "if (false) drawSeriesMarkers(", 1)},
+                                         "js", ("marks",), ((1366, 800),)),
+            "source symbols at the right end": ({"v2.js": js.replace(
+                "const i = slice.findIndex(row => Number.isFinite(row.values[key]));",
+                "const i = slice.length - 1 - [...slice].reverse().findIndex(row => Number.isFinite(row.values[key]));", 1)},
+                                                "js", ("marks",), ((1366, 800),)),
+            "position hidden when expanded": ({"v2.css": css.replace(
+                ".v2-expand .v2-plot-pos { display: flex; }", ".v2-expand .v2-plot-pos { display: none; }", 1)},
+                                              "css", ("expanded",), ((1366, 800),)),
+            "exact values not in the Show menu": ({"v2.js": js.replace(
+                'if (event.target.value === "exact") {', 'if (false) {', 1)}, "js", ("exact",), ((1366, 800),)),
+            "numbers hidden behind Add": ({"v2.js": js.replace(
+                "        } else {\n          // JEG-926: every available series shows its number",
+                "        } else if (view.active.includes(item.key)) {\n          // JEG-926: every available series shows its number", 1)},
+                                          "js", ("drawer",), ((1366, 800),)),
+        }
+        for name, (files, kind, checks, viewports) in broken.items():
+            with self.subTest(mutation=name):
+                (fname, body), = files.items()
+                self.assertNotEqual(body, js if kind == "js" else css, f"mutation anchor for {name!r} is stale")
+                overrides = {fname: (body, "text/javascript" if kind == "js" else "text/css")}
+                self.assertNotEqual(run_checks(overrides, viewports=viewports, checks=checks), [],
+                                    f"render checks did not catch: {name}")
+
+
+if __name__ == "__main__":
+    unittest.main()

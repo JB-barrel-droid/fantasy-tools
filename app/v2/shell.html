@@ -82,6 +82,7 @@
           <option value="bench">Bench</option>
           <option value="waiver">Waiver</option>
           <option value="custom" id="v2ShowCustom" hidden>Custom</option>
+          <option value="exact" id="v2ShowExact">Set exact values…</option>
         </select>
       </label>
       <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank by</span>
@@ -106,7 +107,6 @@
       <div class="v2-card-head v2-chart-head">
         <h2 id="v2ChartTitle">Trade value by player rank</h2>
         <div class="v2-legend" id="v2Legend"></div>
-        <button type="button" class="v2-select v2-yexact" id="v2YExact" aria-haspopup="dialog">Set exact values</button>
       </div>
       <div class="v2-empty" id="v2Empty" hidden>
         <p><span aria-hidden="true">∅</span> <b id="v2EmptyTitle">No players match.</b></p>
@@ -119,8 +119,22 @@
         </div>
         <p class="v2-meta">Source selections, weights and league settings stay as they are.</p>
       </div>
-      <!-- Inside the plot: direct manipulation only. Y value brush (JEG-472), the plot, zoom, X rank brush. -->
+      <!-- Inside the plot: direct manipulation only. Y value brush (JEG-472), the plot, zoom, X rank brush.
+           JEG-926: the search box sits on the graph (and, expanded, the position selector); both mirror the toolbar's controls. -->
       <div class="v2-plot" id="v2Plot">
+        <div class="v2-plot-tools" id="v2PlotTools">
+          <label class="v2-search v2-plot-search"><span class="v2-sr">Search players on the chart</span>
+            <input type="search" id="v2PlotSearch" placeholder="Search players…" autocomplete="off">
+          </label>
+          <label class="v2-field v2-plot-pos"><span class="v2-sr">Position on the chart</span>
+            <select id="v2PlotPosition">
+              <option value="ALL">All positions</option>
+              <option value="QB">QB</option><option value="RB">RB</option>
+              <option value="WR">WR</option><option value="TE">TE</option>
+              <option value="FLEX">FLEX (RB/WR/TE)</option>
+            </select>
+          </label>
+        </div>
         <div class="v2-ybrush" id="v2YBrush">
           <svg class="v2-ybrush-overview" id="v2YBrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
           <div class="v2-ybrush-fill" id="v2YBrushFill"></div>

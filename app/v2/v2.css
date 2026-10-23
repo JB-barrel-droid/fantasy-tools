@@ -211,6 +211,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-chart .crosshair { stroke: var(--v2-action); stroke-dasharray: 3 3; }
 .v2-chart .hover-dot { stroke: var(--v2-surface); stroke-width: 2; }
 .v2-chart .name-label { font-size: 10px; fill: var(--v2-muted); }
+/* JEG-926: source symbols at the left end of each series; a surface-coloured halo keeps them readable over the lines. */
+.v2-chart .series-mark { font-size: 14px; font-weight: 700; paint-order: stroke; stroke: var(--v2-surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.v2-chart .series-mark-leader { stroke-width: 1; opacity: .7; pointer-events: none; }
 
 .v2-brush { margin-top: 4px; }
 .v2-brush-track { position: relative; height: 44px; }
@@ -604,7 +607,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-dmatrix td.num { font-weight: 700; white-space: nowrap; }
 .v2-dmatrix .missing { color: var(--v2-muted); font-weight: 400; }
 .v2-dmatrix .missing .why { display: block; font-size: 10px; }
-.v2-dmatrix .v2-dadd { padding: 0; min-height: 32px; font-size: 12px; position: relative; }
+.v2-dmatrix .v2-dadd { display: block; padding: 0; min-height: 32px; font-size: 12px; position: relative; }
 .v2-dmatrix .v2-dadd::after { content: ""; position: absolute; inset: 50% 0 auto; height: 44px; transform: translateY(-50%); }
 .v2-dmatrix .v2-dadd.is-older { color: var(--v2-older); }
 .v2-dnews { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -1050,7 +1053,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 }
 
 /* Chart card: title and legend on one line, the line-style key inside the legend. */
-.v2-chart-head { align-items: center; justify-content: flex-start; gap: 0 14px; flex-wrap: wrap; }
+.v2-chart-head { align-items: center; justify-content: flex-start; gap: 0 14px; flex-wrap: wrap; min-height: 44px; }   /* JEG-926: keeps the card's 44 px controls inside the head */
 /* The legend items flow on after the title; "Set exact values" ends the last line. */
 .v2-chart-head h2 { line-height: 22px; margin-right: 4px; }
 /* JEG-675: the legend is its own wrapping box, so only its rows get a 22 px gap: 44 px between row centres gives each wrapped
@@ -1060,17 +1063,22 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-chart-head .v2-legend svg { width: 16px; }
 
 .v2-legend .v2-legend-key { color: var(--v2-muted); }
-/* "Set exact values" (JEG-483): a full 44 px control at the end of the chart card's title line. */
-.v2-app .v2-yexact { margin-left: auto; min-height: 44px; padding: 8px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
-.v2-yexact::after, #v2ExpandTable::after { content: none; }
+/* "Set exact values" is an item in the Show menu (JEG-926). */
+#v2ExpandTable::after { content: none; }
 
 /* The plot: Y value brush | chart, X rank brush underneath. Height includes both brushes. */
-.v2-plot { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 44px;
-  height: var(--v2-chart-h); margin-top: 6px; }
+.v2-plot { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) 44px;
+  height: calc(var(--v2-chart-h) + 50px); margin-top: 6px; }
+/* JEG-926: the search box on the graph (always) and the position selector (expanded view only; the toolbar has it otherwise). */
+.v2-plot-tools { grid-column: 1 / -1; grid-row: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 0 0 6px 56px; }
+.v2-plot-tools .v2-search { flex: 0 1 260px; max-width: 260px; min-width: 0; }
+.v2-plot-tools .v2-field { flex: 0 0 auto; }
+.v2-plot-pos { display: none; }
+.v2-expand .v2-plot-pos { display: flex; }
 .v2-plot[hidden] { display: none; }
-.v2-plot-main { grid-column: 2; grid-row: 1; position: relative; min-height: 0; }
+.v2-plot-main { grid-column: 2; grid-row: 2; position: relative; min-height: 0; }
 #v2Main .v2-plot-main .v2-chart { height: 100%; margin: 0; }
-#v2Main .v2-plot .v2-brush { grid-column: 2; grid-row: 2; margin: 0; }
+#v2Main .v2-plot .v2-brush { grid-column: 2; grid-row: 3; margin: 0; }
 .v2-zoom { position: absolute; top: 2px; right: 2px; display: flex; gap: 4px; }
 .v2-zoom button { width: 44px; height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn);
   background: var(--v2-surface); color: var(--v2-ink); font-size: 18px; line-height: 1; cursor: pointer; opacity: .92; }
@@ -1084,7 +1092,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 #v2XHiLabel { top: 14px; transform: translateX(calc(-100% - 10px)); }
 
 /* JEG-472 Y value brush: mirrors the X brush (track, fill, thumbs, overview), vertical. */
-.v2-ybrush { grid-column: 1; grid-row: 1; position: relative; margin: 12px 0 var(--v2-plot-pad-b, 46px); }
+.v2-ybrush { grid-column: 1; grid-row: 2; position: relative; margin: 12px 0 var(--v2-plot-pad-b, 46px); }
 .v2-ybrush::before { content: ""; position: absolute; top: 0; bottom: 0; left: 29px; width: 16px; background: var(--v2-canvas);
   border: 1px solid var(--v2-border); border-radius: 4px; }
 .v2-ybrush-overview { position: absolute; top: 0; bottom: 0; left: 29px; width: 16px; height: 100%; overflow: visible; }
@@ -1104,22 +1112,13 @@ a.v2-div-chip:hover { text-decoration: underline; }
 .v2-ybrush input[type=range]::-webkit-slider-runnable-track { background: none; }
 .v2-ybrush input[type=range]::-moz-range-track { background: none; }
 
-/* Layout: chart left, table right from 1280 px, so both are above the fold at 1366 × 768 and 1440 × 900. */
-@media (min-width: 1280px) {
-  .v2-values-grid { display: grid; grid-template-columns: minmax(420px, 1fr) fit-content(66%); gap: var(--v2-gap);
-    align-items: stretch; margin-top: 6px; }
-  #v2Main .v2-values-grid > .v2-card { margin-top: 0; min-width: 0; }
-  /* The table card takes the chart card's height (it adds nothing to the row) and scrolls inside. */
-  .v2-values-grid > .v2-table-card { height: 0; min-height: 100%; display: flex; flex-direction: column; }
-  .v2-values-grid > .v2-table-card .v2-table-wrap { flex: 1 1 0; min-height: 0; }
-  .v2-values-grid > .v2-table-card[hidden] { display: none; }
-  /* JEG-500: a collapsed chart no longer sets the row's height, so the table keeps its own. */
-  .v2-values-grid:has(> .v2-chart-card[data-collapsed="true"]) > .v2-table-card { height: auto; min-height: 0; }
-  .v2-values-grid:has(> .v2-chart-card[data-collapsed="true"]) > .v2-table-card .v2-table-wrap { flex: none; max-height: calc(100vh - 220px); }
-}
+/* Layout (JEG-926, Jeremy 2026-10-22): the chart spans the full content width at every width and the values table sits
+   underneath; no side-by-side split. */
+.v2-values-grid { display: block; margin-top: 6px; }
+#v2Main .v2-values-grid > .v2-card { min-width: 0; }
 
 /* JEG-473 table fit. */
-.v2-table-head { align-items: center; flex-wrap: nowrap; gap: 4px 12px; }
+.v2-table-head { align-items: center; flex-wrap: nowrap; gap: 4px 12px; min-height: 44px; }   /* JEG-926: the table sits on screen under the chart, so its 44 px card controls must fit inside the head */
 .v2-table-head h2 { flex: none; line-height: 1.3; }
 /* Phone: the buttons stay on the card and the title gives way, in any fallback face (JEG-675). */
 /* JEG-809: at 320-767 px the head wraps (title and count line take the row, the buttons sit below); nowrap squeezed the title to 2 px. */
@@ -1131,8 +1130,10 @@ a.v2-div-chip:hover { text-decoration: underline; }
 #v2Main .v2-table-foot:has(> [hidden]) { display: none; }
 .v2-heat-key { margin-top: 6px !important; font-size: 11px; }
 #v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: auto; }   /* contains the screen-reader spans */
-@media (min-width: 768px) and (max-width: 1279px) {
+@media (min-width: 768px) {
   #v2Main .v2-table-wrap { max-height: calc(100vh - 120px); }
+}
+@media (min-width: 768px) and (max-width: 1279px) {
   #v2Main { --v2-chart-h: clamp(280px, 36vh, 400px); }   /* stacked: the table follows under the chart */
 }
 /* JEG-470 laptop fold: at 1366x768 the chart card must end within the viewport.
@@ -1211,6 +1212,7 @@ a.v2-div-chip:hover { text-decoration: underline; }
 @media (max-width: 767px) {
   .v2-plot { grid-template-columns: minmax(0, 1fr); height: auto; }
   .v2-ybrush { display: none; }
+  .v2-plot-tools { padding-left: 0; }
   .v2-plot-main, #v2Main .v2-plot .v2-brush { grid-column: 1; }
   .v2-plot-main { height: 260px; }
   .v2-toolbar .v2-search { max-width: none; }
@@ -1260,6 +1262,7 @@ body.v2-expand-open { overflow: hidden; }
   /* Full screen there is room for the Y brush again. */
   .v2-expand[data-kind="chart"] .v2-expand-body .v2-plot { grid-template-columns: 56px minmax(0, 1fr); height: 70vh; }
   .v2-expand .v2-ybrush { display: block; }
+  .v2-expand .v2-plot-tools { padding-left: 56px; }
   .v2-expand .v2-plot-main { grid-column: 2; height: auto; }
   #v2Main .v2-expand .v2-plot .v2-brush { grid-column: 2; }
 }
@@ -1506,7 +1509,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-plot-main { padding-top: 48px; box-sizing: border-box; }
   .v2-ybrush { margin-top: 60px; }
 }
-@media (min-width: 768px) and (max-width: 1023px) { .v2-plot { height: calc(var(--v2-chart-h) + 48px); } }
+@media (min-width: 768px) and (max-width: 1023px) { .v2-plot { height: calc(var(--v2-chart-h) + 98px); } }
 @media (max-width: 767px) { .v2-plot-main { height: 308px; } }
 
 /* JEG-829: a host without Inter (Verdana, DejaVu Sans) is wider; the phone layouts must still fit. Tighter cell padding keeps Signal on first view in the weight table, and from 360 px the tab row wraps instead of overflowing (below 360 px the JEG-818 rule already wraps it). */

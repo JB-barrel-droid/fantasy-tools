@@ -64,7 +64,9 @@ READ_DRAWER = """() => {
   return {hidden: drawer.hidden, values: row ? row.values : null,
     groups: ['dda', 'indexed', 'vorp'].map((method, i) => ({method,
       cells: [...drawer.querySelectorAll('.v2-dmatrix tbody tr')].map(tr => tr.children[i + 1])
-        .filter(td => td && td.dataset.source).map(td => ({key: td.dataset.source, text: td.textContent}))})),
+        .filter(td => td && td.dataset.source)
+        // JEG-926: a series not on the chart shows its number plus an "Add" control; the number is what is read here.
+        .map(td => ({key: td.dataset.source, text: [...td.childNodes].filter(n => !(n.matches && n.matches('.v2-dadd'))).map(n => n.textContent).join('')}))})),
     hero: [...drawer.querySelectorAll('.v2-dhero [data-source]')].map(n => ({key: n.dataset.source, text: n.textContent})),
     box: {left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height},
     vw: window.innerWidth, vh: window.innerHeight,
