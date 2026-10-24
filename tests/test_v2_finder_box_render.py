@@ -170,7 +170,7 @@ def check(page, tag, width) -> list[str]:
     return errors
 
 
-def run_checks(overrides=None, css=None, viewports=((1440, 900), (390, 844))) -> list[str]:
+def run_checks(overrides=None, css=None, viewports=((1440, 900), (390, 844), (320, 640))) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright

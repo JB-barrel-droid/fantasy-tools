@@ -471,7 +471,128 @@
     return head + value + note;
   }
 
-  const api = {expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // ---------- JEG-988: natural fit and force fit ----------
+  // Each team is judged in its OWN view: you in DDF Value (fundamentals), they in the Trade chart average (the market
+  // they read). A team's net change is its best-lineup starter value plus its bench value at the engine's bench weight
+  // (the share of starts the bench takes), after minus before. A change counts only when it clears the noise of the
+  // sources: FIT_Z standard errors of the disagreement between the sources that price the players moving (never below
+  // one shown 0.0). Need is the distance from the expected depth band (starters plus bench seats, see rosterBalance)
+  // plus empty starting slots. A team is served when it gains and does not move away from its depth, or when it is
+  // level and moves toward its depth (a bench rebalance). Natural: both served and at least one moves toward its depth.
+  // Value fit: both served and neither does. Force: a team loses, gains nothing, or gains while deepening a position it
+  // is already deep at (or thinning one it is short at).
+  const FIT_Z = 1;
+  const NET_FLOOR = 0.05;
+  const FIT_TIER = {natural: 0, value: 1, force: 2};
+  // The standard error of one player's value in a view: DDF Value, half the gap between its chart-based and
+  // projection-based versions (two readings of one value); the Trade chart average, the standard error of the mean of
+  // the compared charts. 0 when the sources cannot say.
+  function valueNoise(row, key, chartKeys) {
+    const v = (row && row.values) || {};
+    if (key === OUR_KEY) return finite(v.ddf_value_charts) && finite(v.ddf_value_projections) ? Math.abs(v.ddf_value_charts - v.ddf_value_projections) / 2 : 0;
+    const vals = (chartKeys || CHART_KEYS).map(k => v[k]).filter(finite);
+    if (vals.length < 2) return 0;
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const variance = vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (vals.length - 1);
+    return Math.sqrt(variance / vals.length);
+  }
+  const benchWeight = (weights, pos) => (weights && finite(weights[pos]) ? weights[pos] : weights && finite(weights.overall) ? weights.overall : 0);
+  const netOf = (l, key, weights) => l.starterValue + l.bench.reduce((total, r) => total + benchWeight(weights, r.pos) * r.values[key], 0);
+  const bandDistance = (have, e) => Math.max(0, e.lo - have, have - (e.hi + 1));
+  // One team in one view. team: {roster, leaving, arriving} (rows carrying every series); ctx: {shape, expected, weights, chartKeys, z}.
+  function teamFit(team, ctx, key) {
+    const gone = new Set(team.leaving.map(r => String(r.player_key)));
+    const after = team.roster.filter(r => !gone.has(String(r.player_key))).concat(team.arriving);
+    const before = lineupValue(team.roster, ctx.shape, key);
+    const next = lineupValue(after, ctx.shape, key);
+    const starterDelta = next.starterValue - before.starterValue;
+    const net = netOf(next, key, ctx.weights) - netOf(before, key, ctx.weights);
+    const noise = Math.sqrt(team.leaving.concat(team.arriving).reduce((total, r) => total + Math.pow(valueNoise(r, key, ctx.chartKeys), 2), 0));
+    const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);
+    const balB = rosterBalance(team.roster, ctx.expected, key, ctx.shape);
+    const balA = rosterBalance(after, ctx.expected, key, ctx.shape);
+    const ready = Boolean(balB && balB.ready);
+    const depth = {};
+    let needBefore = 0;
+    let needAfter = 0;
+    DEPTH_POS.forEach(pos => {
+      if (!ready) return;
+      const e = ctx.expected[pos];
+      const b = balB.positions[pos].have;
+      const a = balA.positions[pos].have;
+      depth[pos] = {before: b, after: a, range: balB.positions[pos].range, distBefore: bandDistance(b, e), distAfter: bandDistance(a, e), statusBefore: balB.positions[pos].status, statusAfter: balA.positions[pos].status};
+      needBefore += depth[pos].distBefore;
+      needAfter += depth[pos].distAfter;
+    });
+    const emptyBefore = Object.values(before.empty).reduce((a, b) => a + b, 0);
+    const emptyAfter = Object.values(next.empty).reduce((a, b) => a + b, 0);
+    needBefore += emptyBefore;
+    needAfter += emptyAfter;
+    const up = net > tau;
+    const down = net < -tau;
+    const toward = needAfter < needBefore;
+    const away = needAfter > needBefore;
+    const awayAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter > depth[pos].distBefore);
+    const towardAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter < depth[pos].distBefore);
+    return {key, net, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
+      needBefore, needAfter, emptyBefore, emptyAfter, ok: (up && !away) || (!up && !down && toward)};
+  }
+  // sides: {mine, theirs: {roster, leaving, arriving}}; ctx adds ourKey and marketKey. null when the market view is not available.
+  function tradeFit(sides, ctx) {
+    if (!ctx || !ctx.marketKey) return null;
+    const us = teamFit(sides.mine, ctx, ctx.ourKey);
+    const them = teamFit(sides.theirs, ctx, ctx.marketKey);
+    const usOther = teamFit(sides.mine, ctx, ctx.marketKey);
+    const themOther = teamFit(sides.theirs, ctx, ctx.ourKey);
+    const fillsNeed = us.toward || them.toward;
+    const label = us.ok && them.ok ? (fillsNeed ? "natural" : "value") : "force";
+    return {label, us, them, usOther, themOther, fillsNeed};
+  }
+  const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average"};
+  function stateText(t) {
+    const short = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "under");
+    const deep = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "over");
+    const parts = [];
+    if (short.length) parts.push(`short at ${listJoin(short)}`);
+    if (deep.length) parts.push(`deep at ${listJoin(deep)}`);
+    return parts.length ? parts.join(" and ") : "balanced by position";
+  }
+  // The one-line reading of a fit, built from the numbers above. Both teams' depth and net appear in it.
+  function fitText(fit) {
+    const {us, them} = fit;
+    const net = (t, who) => (t.up ? `${who} gain ${fitFmt(t.net)} on ${VIEW_NAME[t.key]}`
+      : t.down ? `${who} lose ${Math.abs(t.net).toFixed(1)} on ${VIEW_NAME[t.key]}`
+        : `${who} are level on ${VIEW_NAME[t.key]} (${fitFmt(t.net)}, inside the ${t.tau.toFixed(1)} noise floor)`);
+    const depth = us.ready || them.ready
+      ? ` ${us.ready ? `You are ${stateText(us)}` : ""}${us.ready && them.ready ? "; " : ""}${them.ready ? `${us.ready ? "they" : "They"} are ${stateText(them)}` : ""}.`
+      : "";
+    if (fit.label === "natural") {
+      const at = t => (t.towardAt.length ? `at ${listJoin(t.towardAt)}` : "(a starting slot filled)");
+      const moves = [us.toward ? `you ${at(us)}` : "", them.toward ? `them ${at(them)}` : ""].filter(Boolean);
+      return `Natural fit: ${net(us, "you")} and ${net(them, "they")}.${depth} It moves ${listJoin(moves)} toward the expected depth.`;
+    }
+    if (fit.label === "value") return `Value fit: ${net(us, "you")} and ${net(them, "they")}, but neither team's depth needs change.${depth}`;
+    const why = [];
+    [[us, "You", "you"], [them, "They", "they"]].forEach(([t, Who, who]) => {
+      if (t.ok) return;
+      if (t.down) why.push(`${Who} lose ${Math.abs(t.net).toFixed(1)} on ${VIEW_NAME[t.key]}, the view ${who === "you" ? "you use" : "they use"}.`);
+      else if (t.up && t.away) why.push(`${Who} gain ${fitFmt(t.net)} but the trade moves ${who} away from the expected depth at ${listJoin(t.awayAt)}.`);
+      else why.push(`${Who} gain nothing measurable on ${VIEW_NAME[t.key]} (${fitFmt(t.net)}, noise floor ${t.tau.toFixed(1)}).`);
+    });
+    const other = [[fit.usOther, "you", us], [fit.themOther, "they", them]].filter(([o, , own]) => !own.ok && o.up).map(([o, who]) => `Only on ${VIEW_NAME[o.key]} do ${who} gain (${fitFmt(o.net)}).`);
+    return `Force fit: ${why.join(" ")}${other.length ? ` ${other.join(" ")}` : ""}${depth}`;
+  }
+  // Natural fits first, then value fits, then force fits; each tier keeps the incoming order (the edge ranking). No group
+  // is changed or dropped, only moved. fitOf(group) -> a fit, or null (no fit: kept after the rest, in order).
+  function tierOrder(labels) {
+    return labels.map((label, i) => ({i, t: label ? FIT_TIER[label] : 3})).sort((a, b) => a.t - b.t || a.i - b.i).map(item => item.i);
+  }
+  function tierGroups(groups, fitOf) {
+    return tierOrder(groups.map(g => { const f = fitOf(g); return f ? f.label : null; })).map(i => groups[i]);
+  }
+
+  const api = {teamFit, tradeFit, fitText, valueNoise, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -716,6 +837,27 @@
           el("thead", {}, el("tr", {}, ...head.map(h => el("th", {scope: "col", text: h})))), el("tbody", {}, ...body)))));
     }
     return box;
+  }
+  // JEG-988: the engine's bench weights (the share of starts the bench takes, per position) and the fit context.
+  function benchWeights() {
+    const C = engine();
+    const readout = C && C.getBenchShareReadout ? C.getBenchShareReadout() : null;
+    const overall = readout && finite(readout.overall) ? readout.overall : (C && C.getBenchShare ? C.getBenchShare() : null);
+    const weights = {overall: finite(overall) ? overall : 0};
+    DEPTH_POS.forEach(pos => { if (readout && finite(readout[pos])) weights[pos] = readout[pos]; });
+    return weights;
+  }
+  function fitContext(lineup) {
+    const depth = depthContext();
+    if (!lineup || !lineup.market || !depth) return null;
+    return {shape: lineup.shape, expected: depth.expected, weights: benchWeights(), ourKey: OUR_KEY, marketKey: MARKET_KEY, chartKeys: lineup.market, z: FIT_Z};
+  }
+  // Rows of both teams carry DDF Value and the Trade chart average (lineup.*.market are the engine rows plus chart_avg).
+  function fitFor(lineup, fitCtx, giveRows, recvRows) {
+    const wide = rows => rows.map(r => lineup.byKey.get(String(r.player_key)) || r);
+    const give = wide(giveRows);
+    const recv = wide(recvRows);
+    return tradeFit({mine: {roster: lineup.mine.market, leaving: give, arriving: recv}, theirs: {roster: lineup.theirs.market, leaving: recv, arriving: give}}, fitCtx);
   }
   const put = (box, ...kids) => box.append(...kids.filter(Boolean));
   const slotChip = slot => el("span", {class: "v2-find-slot", "data-slot": slotWord(slot), text: slotWord(slot)});
@@ -1036,12 +1178,16 @@
       if (empty) out.append(teamSummary(empty, res.ourKey));
       return undefined;   // the roster evaluation is worth reading even when no trade is found
     }
-    const groups = groupTrades(res.trades, {ourKey: res.ourKey});
+    let groups = groupTrades(res.trades, {ourKey: res.ourKey});
+    const lineup = lineupContext(mineRows, theirRows, charts, shape);
+    const fitCtx = fitContext(lineup);
+    // Natural fits first, then value fits, then force fits (Jeremy 2026-10-23); each tier keeps the edge ranking. Only the order changes.
+    if (fitCtx) groups = tierGroups(groups, g => fitFor(lineup, fitCtx, g.best.give, g.best.receive));
     const shown = Math.min(GROUP_LIMIT, groups.length);
-    note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(groups.length, "group")}; ${groups.length > shown ? `the top ${shown} groups are listed` : "all are listed"}, ranked by the best DDF Value edge in each, with simpler trades first.`
+    note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(groups.length, "group")}; ${groups.length > shown ? `the top ${shown} groups are listed` : "all are listed"}, ranked ${fitCtx ? "natural fits first, then value fits, then force fits, and within each by" : "by"} the best DDF Value edge in each, with simpler trades first.`
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : ""));
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
-    const ctx = {...res.ctx, maxSize: res.maxSize, lineup: lineupContext(mineRows, theirRows, charts, shape)};
+    const ctx = {...res.ctx, maxSize: res.maxSize, lineup, fit: fitCtx};
     if (ctx.lineup) out.append(teamSummary(ctx.lineup, res.ourKey));
     groups.slice(0, shown).forEach(g => list.append(groupCard(g, ctx)));
     out.append(list);
@@ -1154,6 +1300,7 @@
     const tradeLabel = el("b", {class: "v2-find-trade"});
     const meta = el("span", {class: "v2-meta v2-find-edge"});
     const notes = el("span", {class: "v2-meta v2-find-notes"});
+    const fitLine = el("p", {class: "v2-find-fit", hidden: ""});
     const open = el("a", {class: "v2-link", text: "Open in Compare a trade"});
     const li = el("li", {class: "v2-find-group"});
     const target = el("span", {class: "v2-find-target"});
@@ -1178,7 +1325,7 @@
     const recvBox = group.receiveSide.length ? sideSet("You also receive (core stays)", group.receiveSide, recvSel, false) : null;
     const capNote = el("span", {class: "v2-meta v2-find-cap", hidden: ""});
     const impact = ctx.lineup ? impactBlock(ctx) : null;
-    li.append(...[target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open].filter(Boolean));
+    li.append(...[target, tradeLabel, meta, fitLine, notes, impact && impact.node, giveBox, recvBox, capNote, open].filter(Boolean));
 
     function refresh() {
       const giveRows = group.giveCandidates.filter(r => giveSel.has(keyOf(r))).sort(order);
@@ -1209,6 +1356,15 @@
       notes.textContent = `${warn.join(" ")}${warn.length && throwIns.length ? " " : ""}${throwIns.length ? `Can add ${throwIns.join(", ")} as a throw-in.` : ""}`;
       notes.classList.toggle("is-warn", warn.length > 0);
       if (impact) impact.update(giveRows, recvRows);
+      const fit = ctx.fit ? fitFor(ctx.lineup, ctx.fit, giveRows, recvRows) : null;
+      fitLine.hidden = !fit;
+      if (fit) {
+        const text = fitText(fit);
+        const cut = text.indexOf(": ");
+        fitLine.replaceChildren(el("b", {text: text.slice(0, cut + 1)}), ` ${text.slice(cut + 2)}`);
+        fitLine.dataset.fit = fit.label;
+        li.dataset.findFit = fit.label;
+      }
       open.setAttribute("href", `v2/#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}`);
       li.dataset.findEdge = String(e.edge);
     }

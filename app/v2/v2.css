@@ -1762,3 +1762,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-lineup td.is-under { color: var(--v2-older); font-weight: 600; }
 .v2-find-lineup td.is-over { color: var(--v2-muted); }
 .v2-find-teams-sum .v2-find-eval { margin: 0 0 8px; padding: 8px 12px; }
+
+/* JEG-988: natural / value / force fit per group. */
+.v2-find-fit { margin: 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.v2-find-fit[hidden] { display: none; }
+.v2-find-fit b { color: var(--v2-muted); }
+.v2-find-list li.v2-find-group[data-find-fit="natural"] { border-left: 4px solid var(--v2-action); }
+.v2-find-list li.v2-find-group[data-find-fit="natural"] .v2-find-fit b { color: var(--v2-action-strong); }
+.v2-find-list li.v2-find-group[data-find-fit="force"] .v2-find-fit b { color: var(--v2-older); }

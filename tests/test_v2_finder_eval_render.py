@@ -111,7 +111,7 @@ def check(page, tag, width) -> list[str]:
     return errors
 
 
-def run_checks(overrides=None, viewports=((1440, 900), (390, 844))) -> list[str]:
+def run_checks(overrides=None, viewports=((1440, 900), (390, 844), (320, 640))) -> list[str]:
     from playwright.sync_api import sync_playwright
     errors = []
     with _built_dist() as base, sync_playwright() as playwright:

@@ -184,7 +184,7 @@ class FinderGroupsRenderTest(unittest.TestCase):
         broken = {
             "package math stale after a toggle": js.replace("const e = evaluateCombo(giveRows, recvRows, ctx);", "const e = group.__e || (group.__e = evaluateCombo(giveRows, recvRows, ctx));", 1),
             "link not rebuilt": js.replace('open.setAttribute("href", `v2/#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}`);', "", 1),
-            "empty side lists print null": js.replace("li.append(...[target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open].filter(Boolean));", "li.append(target, tradeLabel, meta, notes, impact && impact.node, giveBox, recvBox, capNote, open);", 1),
+            "empty side lists print null": js.replace("li.append(...[target, tradeLabel, meta, fitLine, notes, impact && impact.node, giveBox, recvBox, capNote, open].filter(Boolean));", "li.append(target, tradeLabel, meta, fitLine, notes, impact && impact.node, giveBox, recvBox, capNote, open);", 1),
             "larger package not labelled": js.replace("capNote.hidden = !larger;", "capNote.hidden = true;", 1),
             "ticking beyond the searched size is blocked": js.replace("boxes.forEach(b => { b.input.disabled = b.sel === giveSel && b.input.checked && giveSel.size <= 1; });", "boxes.forEach(b => { b.input.disabled = b.sel === giveSel && !b.input.checked && giveSel.size >= ctx.maxSize; });", 1),
             "numbers stale on a larger package": js.replace("const e = evaluateCombo(giveRows, recvRows, ctx);", "const e = evaluateCombo(giveRows.slice(0, ctx.maxSize), recvRows, ctx);", 1),
