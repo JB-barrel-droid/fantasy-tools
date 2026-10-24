@@ -109,7 +109,10 @@ class BenchShareReadoutMatchesReference(unittest.TestCase):
                 self.assertFalse(got["readout"]["override"])
                 # The share in effect is the computed overall share.
                 self.assertAlmostEqual(got["benchShare"], got["readout"]["overall"], places=12)
-                self.assertTrue(0.05 < got["readout"]["overall"] < 0.15, got["readout"])
+                # Plausibility band, widened from 15% to 18% (Jeremy, 2026-10-24, JEG-1034):
+                # 8-team half-PPR reached 15.4% on the week 7 data with the engine
+                # matching the reference.
+                self.assertTrue(0.05 < got["readout"]["overall"] < 0.18, got["readout"])
 
     def test_three_non_default_settings(self):
         base = {f"{sc}/{t}": got for (sc, t, _, _), got in zip(self.cases[:12], self.engine[:12])}
