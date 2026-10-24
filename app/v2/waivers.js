@@ -270,5 +270,615 @@
     orderResults, pairsOf, evaluateCombos, headlineFor, evaluateAll, encodeHash, decodeHash, ddfOf, marketOf, fmt, isRequiredSpecial};
   if (isNode) { module.exports = api; return; }
   root.TradeValueWaivers = api;
-  // (page code follows in the browser build)
+
+  // ======================= the tab (browser only) =======================
+  const $ = id => document.getElementById(id);
+  const engine = () => root.TradeValueCurveControls;
+  const UI = () => F.ui;   // finder.js's page helpers: the one assessment table and the one "my roster"
+  const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
+  const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+  const VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
+  const STORE_MINE = "ddf.v2.myRoster";
+  const STORE_CANDS = "ddf.v2.waiverCandidates";
+  const MIN_MATCHED = 3;
+  const MIN_SHARE = 0.5;
+  const NAME_LIST_SHARE = 0.8;
+  const SLOT_WORD = {SUPERFLEX: "Superflex"};
+  const boxes = {};
+  const S = {cands: [], sort: {key: "verdict", dir: "asc"}, collapsed: false, hadResults: false, answered: new Set(), linkRead: false, scheduled: false,
+    notes: [], last: null, mineSig: ""};
+
+  function el(tag, props, ...kids) {
+    const node = document.createElement(tag);
+    Object.entries(props || {}).forEach(([k, v]) => { if (k === "text") node.textContent = v; else node.setAttribute(k, v); });
+    node.append(...kids.filter(Boolean));
+    return node;
+  }
+  const readJson = key => { try { const raw = root.localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (error) { return null; } };
+  const writeJson = (key, value) => { try { root.localStorage.setItem(key, JSON.stringify(value)); } catch (error) { /* private window or full: the tab still works */ } };
+  const keep = list => list.map(p => ({key: String(p.key), name: p.name, pos: p.pos, team: p.team || ""}));
+
+  // "My roster" is ONE list across Find a trade and Waivers (Jeremy, 2026-10-24). Until the league workspace store lands
+  // (JEG-1021, store-api.md) it is the list Find a trade already holds, mirrored to localStorage; swap this adapter then.
+  const mineStore = {
+    get: () => (UI() ? UI().getMine() : []),
+    set: list => { if (UI()) UI().setMine(list); },
+    subscribe: fn => { if (UI()) UI().onMineChange(fn); }
+  };
+  const candStore = {
+    get: () => S.cands,
+    set: list => { S.cands = keep(list); writeJson(STORE_CANDS, S.cands); }
+  };
+  const stores = {mine: mineStore, cands: candStore};
+  const TITLES = {mine: "Your roster", cands: "Waiver candidates"};
+
+  const rowsAll = () => (engine() ? engine().getAllRows() : []);
+  const rowMap = () => new Map(rowsAll().map(r => [String(r.player_key), r]));
+  const teamCode = team => { const paste = root.DDFRosterPaste; return (paste && paste.normTeam ? paste.normTeam(team) : null) || String(team || "").toUpperCase(); };
+  const cleanLine = line => (root.DDFRosterPaste ? root.DDFRosterPaste.cleanYahooName(String(line || "")) : String(line || ""))
+    .replace(/\s+[A-Z]{2,4},\s*(QB|RB|WR|TE|K|DEF|D\/ST)$/, "").replace(/\s*D\/?ST$/i, "").trim();
+  // Every defense and the kickers on a team, by name, as unpriced entries (the same list Find a trade's search offers).
+  function notEvaluatedChoices() {
+    const data = root.TradeValueKDef || {};
+    const choose = (list, pos) => (list || []).filter(item => item && item.name).map(item => {
+      const team = teamCode(item.team);
+      return {player_key: pos === "DEF" ? `x:DEF:${team}` : `x:K:${F.normName(item.name)}`, name: item.name, pos, team, notEvaluated: true};
+    });
+    return choose(data.defenses, "DEF").concat(choose(data.kickers, "K"));
+  }
+  const entryOfRow = row => ({key: String(row.player_key), name: row.name, pos: row.pos, team: row.team || ""});
+  const specialEntry = u => {
+    const name = cleanLine(u.line || u.name);
+    return name ? {key: `x:${u.pos}:${u.team || F.normName(name)}`, name, pos: u.pos, team: u.team || ""} : null;
+  };
+
+  // ---------- the number cells ----------
+  function valueAboveWaivers(row) {
+    const vals = VORP_KEYS.map(k => (row.values ? row.values[k] : null)).filter(v => typeof v === "number" && Number.isFinite(v));
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  }
+  const dash = () => el("span", {}, el("span", {"aria-hidden": "true", text: "—"}), el("span", {class: "v2-sr", text: "no value"}));
+  const numCell = (value, signed) => (value === null || value === undefined ? dash() : document.createTextNode(signed ? api.fmt(value) : value.toFixed(1)));
+  const injuryOf = row => (row && row.injury_status && !["Active", "Inactive"].includes(row.injury_status) ? row.injury_status : null);
+  const injuryTag = row => (injuryOf(row) ? el("span", {class: "v2-wv-inj", "data-status": injuryOf(row), text: injuryOf(row)}) : null);
+
+  // ---------- the one box ----------
+  const chip = (label, value) => el("span", {class: `v2-find-chip${value === null ? " is-missing" : ""}`},
+    el("span", {class: "v2-find-chip-value", text: value === null ? "no value" : value.toFixed(1)}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
+  function placeList(target, listNode) {
+    const byKey = rowMap();
+    const charts = UI() ? UI().marketKeys() : null;
+    listNode.replaceChildren(...stores[target].get().map(p => {
+      const row = byKey.get(String(p.key));
+      const remove = el("button", {type: "button", class: "v2-link v2-wv-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
+      remove.addEventListener("click", () => {
+        stores[target].set(stores[target].get().filter(q => q.key !== p.key));
+        schedule();
+        const box = $(`v2Waivers${target === "mine" ? "Mine" : "Cands"}Search`);
+        if (box) box.focus();
+      });
+      let tail;
+      if (F.isNotEvaluated(p)) tail = el("span", {class: "v2-find-noteval", text: "Not evaluated"});
+      else if (!row) tail = el("span", {class: "v2-find-noteval", text: "No longer in the data"});
+      else {
+        const avg = charts ? withChartAverage([row], charts)[0] : null;
+        tail = el("span", {class: "v2-find-chips"}, chip("DDF Value", api.ddfOf(row)), chip("Trade chart avg", avg ? api.marketOf(avg) : null));
+      }
+      return el("li", {class: "v2-wv-row"}, el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}${p.team ? ` ${p.team}` : ""}` : ""}), injuryTag(row) ? document.createTextNode(" ") : null, injuryTag(row), tail), remove);
+    }));
+  }
+
+  function oneBox(target) {
+    const id = `v2Waivers${target === "mine" ? "Mine" : "Cands"}`;
+    const title = TITLES[target];
+    const list = el("ul", {class: "v2-wv-players", id: `${id}List`});
+    const results = el("ul", {class: "v2-trade-results", id: `${id}Results`, hidden: ""});
+    const input = el("textarea", {id: `${id}Search`, rows: "1", placeholder: target === "mine" ? "Search a player, or paste your team page" : "Search a player, or paste a waiver wire page",
+      autocomplete: "off", spellcheck: "false", "aria-controls": `${id}Results`, "aria-describedby": `${id}Help`});
+    const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole page`}), input);
+    const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}Help`,
+      text: target === "mine"
+        ? "Type a name to search, or paste your team page from any fantasy site (Ctrl+A, Ctrl+C on the page). Pasted text stays in this browser; nothing is sent anywhere."
+        : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. Pasted text stays in this browser."});
+    const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
+    const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
+    clear.addEventListener("click", () => {
+      stores[target].set([]);
+      result.replaceChildren();
+      input.value = "";
+      results.replaceChildren();
+      results.hidden = true;
+      schedule();
+      input.focus();
+    });
+    const wrap = el("div", {class: "v2-wv-input", id: `${id}Input`}, el("div", {class: "v2-find-search-wrap"}, label, results), help, result, list);
+
+    // Add entries (a team page replaces my roster; everything else adds). Returns the entries now on the list.
+    function put(entries, replace) {
+      const have = replace ? [] : stores[target].get().slice();
+      const keys = new Set(have.map(p => p.key));
+      entries.forEach(e => { if (!keys.has(e.key)) { keys.add(e.key); have.push(e); } });
+      stores[target].set(have);
+      schedule();
+    }
+    const note = (text, cls) => el("p", {class: cls || "v2-meta", text});
+    const unmatchedBlock = unmatched => (unmatched.length ? [note(`Not matched (${unmatched.length}): add them by search.`, "v2-find-paste-note"),
+      el("ul", {class: "v2-find-unmatched"}, ...unmatched.slice(0, 50).map(u => {
+        const b = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "Search to add", "aria-label": `Search to add ${cleanLine(u.line || u.name)}`});
+        b.addEventListener("click", () => searchFor(u.line || u.name));
+        return el("li", {}, el("span", {text: cleanLine(u.line || u.name)}), el("span", {class: "v2-meta", text: u.reason ? ` (${u.reason})` : ""}), b);
+      }))] : []);
+    function searchFor(line) {
+      input.value = cleanLine(line);
+      input.dispatchEvent(new Event("input", {bubbles: true}));
+      input.focus();
+    }
+    const unsureBlock = unsure => (unsure.length ? [note(`Check ${plural(unsure.length, "match")}: not added until you say so.`, "v2-find-paste-note"),
+      el("ul", {class: "v2-find-unsure-list"}, ...unsure.map(p => {
+        const li = el("li", {class: "v2-find-unsure", "data-unsure-id": String(p.id)});
+        const yes = el("button", {type: "button", class: "v2-btn v2-find-confirm", text: "Yes, add", "aria-label": `Yes, add ${p.row.name}`});
+        const no = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "No, search", "aria-label": `No, search for ${cleanLine(p.sourceLine)}`});
+        li.append(el("span", {text: `Pasted “${cleanLine(p.sourceLine)}”: is this `}), el("b", {text: p.row.name}), el("span", {text: "?"}), yes, no);
+        yes.addEventListener("click", () => { put([entryOfRow(p.row)], false); li.replaceChildren(el("span", {text: `Added ${p.row.name}.`})); });
+        no.addEventListener("click", () => { li.remove(); searchFor(p.sourceLine); });
+        return li;
+      }))] : []);
+    function ignoredBlock(lines) {
+      if (!lines || !lines.length) return null;
+      return el("details", {class: "v2-find-ignored"}, el("summary", {text: `Show ${plural(lines.length, "ignored line")}`}),
+        el("ul", {class: "v2-find-ignored-list"}, ...lines.slice(0, 50).map(line => {
+          const b = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "Search", "aria-label": `Search for ${cleanLine(line)}`});
+          b.addEventListener("click", () => searchFor(line));
+          return el("li", {}, el("span", {class: "v2-meta", text: cleanLine(line)}), b);
+        })));
+    }
+    // A pasted page. res: DDFRosterPaste.parse(). team: for a matchup page, which of its two teams.
+    function place(res, team, replace) {
+      const map = rowMap();
+      const players = team !== null && res.teams && res.teams[team] ? res.teams[team].players : res.players;
+      const unmatched = team !== null && res.teams && res.teams[team] ? res.teams[team].unmatched : res.unmatched;
+      const sure = [];
+      const unsure = [];
+      players.forEach(p => {
+        const row = map.get(String(p.id));
+        if (!row) return;
+        if (p.confidence >= 1) sure.push(entryOfRow(row)); else unsure.push({...p, row});
+      });
+      const special = (unmatched || []).filter(F.isNotEvaluated).map(specialEntry).filter(Boolean);
+      put(sure.concat(special), replace);
+      const rest = (unmatched || []).filter(u => !F.isNotEvaluated(u));
+      result.replaceChildren(el("p", {class: `v2-find-paste-count ${sure.length ? "is-ok" : "is-bad"}`, text: `Found ${plural(sure.length + special.length, "player")}${(res.ignoredLines || []).length ? `, ignored ${plural(res.ignoredLines.length, "line")}` : ""}.`}),
+        note(`${title} now has ${plural(stores[target].get().length, "player")}.`),
+        special.length ? note(`Kept, not evaluated (no value for defenses and kickers): ${special.map(e => `${e.name} (${e.pos})`).join(", ")}.`, "v2-meta v2-find-kept") : null,
+        ...unsureBlock(unsure), ...unmatchedBlock(rest), ignoredBlock(res.ignoredLines));
+    }
+    function consume(text) {
+      input.value = "";
+      results.replaceChildren();
+      results.hidden = true;
+      const rows = rowsAll();
+      if (!rows.length || !root.DDFRosterPaste) { result.replaceChildren(note("Values are still loading. Try again in a moment.")); return; }
+      // A clean list of names (80% or more are players) is added directly.
+      const lines = F.parsePasted(text);
+      const {matched, unmatched} = F.matchNames(lines, rows);
+      if (matched.length >= 2 && matched.length >= NAME_LIST_SHARE * lines.length) {
+        const special = unmatched.filter(F.isNotEvaluated).map(specialEntry).filter(Boolean);
+        put(matched.map(entryOfRow).concat(special), false);
+        const rest = unmatched.filter(u => !F.isNotEvaluated(u));
+        result.replaceChildren(note(`Added ${plural(matched.length, "player")} from the list.${special.length ? ` Kept, not evaluated: ${special.map(e => e.name).join(", ")}.` : ""}`),
+          ...unmatchedBlock(rest));
+        return;
+      }
+      const res = root.DDFRosterPaste.parse(text, rows);
+      if (!res) { result.replaceChildren(note("Values are still loading. Try again in a moment.")); return; }
+      if (res.mode === "matchup" && res.teams && res.teams.length === 2 && target === "mine") {
+        const label2 = (t, i) => t.teamName || `Team ${i + 1} (listed ${i ? "second" : "first"})`;
+        result.replaceChildren(note("This is a matchup page with two teams. Which team is yours?", "v2-find-which"),
+          el("div", {class: "v2-find-teams"}, ...res.teams.map((t, i) => {
+            const b = el("button", {type: "button", class: "v2-btn v2-find-pick-team", text: `${label2(t, i)} is mine`});
+            b.addEventListener("click", () => place(res, i, true));
+            return el("div", {class: "v2-find-team"}, el("h4", {text: label2(t, i)}), el("p", {class: "v2-meta", text: `${t.matched} of ${t.total} matched: ${t.players.map(p => p.name).join(", ") || "none"}.`}), b);
+          })));
+        return;
+      }
+      if (!res.matched) {
+        result.replaceChildren(el("p", {class: "v2-find-paste-count is-bad", text: "No players recognised in that text. Nothing was added."}),
+          note("Paste a page from any fantasy site (Ctrl+A, Ctrl+C on the page), or a list of player names. Search and add players by name above."));
+        return;
+      }
+      // My roster: a team page is the whole team; too few matches is not trusted unless asked.
+      if (target === "mine" && res.mode !== "extract" && (res.matched < MIN_MATCHED || res.matched / res.total < MIN_SHARE)) {
+        const anyway = el("button", {type: "button", class: "v2-btn", text: `Add these ${res.matched} anyway`});
+        anyway.addEventListener("click", () => place(res, null, true));
+        result.replaceChildren(el("p", {class: "v2-find-paste-count is-bad", text: `Matched ${res.matched} of ${res.total} players.`}),
+          note("That is too few to trust, so nothing was added. Paste the whole team page, or search and add players by name above."), anyway);
+        return;
+      }
+      place(res, null, target === "mine");
+    }
+    input.addEventListener("paste", event => {
+      const text = event.clipboardData ? event.clipboardData.getData("text") : "";
+      if (text && F.looksLikePage(text)) { event.preventDefault(); consume(text); }
+    });
+    input.addEventListener("keydown", event => { if (event.key === "Enter" && !event.shiftKey) event.preventDefault(); });
+    if (root.TradeValueNameSearch) root.TradeValueNameSearch.combobox(input, results);
+    input.addEventListener("input", () => {
+      if (F.looksLikePage(input.value)) { consume(input.value); return; }
+      const q = input.value.trim();
+      results.replaceChildren();
+      results.hidden = !q;
+      if (!q || !engine() || !root.TradeValueNameSearch) return;
+      const onList = stores.mine.get().concat(stores.cands.get());
+      const hits = root.TradeValueNameSearch.search(rowsAll().concat(notEvaluatedChoices()), q).slice(0, 8);
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      hits.forEach(row => {
+        const key = String(row.player_key);
+        const added = onList.some(p => p.key === key || (F.isNotEvaluated(p) && F.isNotEvaluated(row) && p.pos === row.pos && F.normName(p.name) === F.normName(row.name)));
+        const tag = row.notEvaluated ? el("span", {class: "v2-find-noteval", text: "Not evaluated"}) : null;
+        const button = el("button", {type: "button"}, `${`${row.name} · ${row.pos || ""} ${row.team || ""}`.trim()}${added ? " ✓ Added" : ""}`, tag);
+        if (added) button.disabled = true;
+        button.addEventListener("click", () => {
+          put([{key, name: row.name, pos: row.pos, team: row.team || ""}], false);
+          input.value = "";
+          results.replaceChildren();
+          results.hidden = true;
+          input.focus();
+        });
+        results.append(el("li", {}, button));
+      });
+    });
+    return {wrap, list, clear, input, result, render: () => { clear.hidden = !stores[target].get().length; placeList(target, list); }};
+  }
+
+  // ---------- the results ----------
+  const VERDICT_CLASS = {"Pick up": "pick", "Pick up (force)": "force", "Consider": "consider", "Hold": "hold", "Skip": "skip", "Not evaluated": "none"};
+  const COLS = [
+    {id: "name", label: "Candidate", sort: true, text: true}, {id: "pos", label: "Pos"},
+    {id: "ddf", label: "DDF Value", sort: true, num: true}, {id: "vaw", label: "Value above waivers", sort: true, num: true},
+    {id: "market", label: "Market value", sort: true, num: true}, {id: "starter", label: "Starter change", sort: true, num: true, signed: true},
+    {id: "bench", label: "Bench change", sort: true, num: true, signed: true}, {id: "drop", label: "Best drop"},
+    {id: "verdict", label: "Verdict", sort: true}, {id: "reason", label: "Reason"}];
+  const cellValue = (r, id) => ({name: r.name, ddf: r.ddf, vaw: r.vaw, market: r.market, starter: r.starterDelta, bench: r.benchDelta}[id]);
+  function sortedResults(list) {
+    const {key, dir} = S.sort;
+    const col = COLS.find(c => c.id === key);
+    if (!col || key === "verdict") return dir === "asc" ? list.slice() : list.slice().reverse();
+    const sign = dir === "asc" ? 1 : -1;
+    return list.map((r, i) => ({r, i})).sort((a, b) => {
+      const x = cellValue(a.r, key);
+      const y = cellValue(b.r, key);
+      const nx = x === null || x === undefined;
+      const ny = y === null || y === undefined;
+      if (nx !== ny) return nx ? 1 : -1;   // dashes last, whichever way
+      if (nx) return a.i - b.i;
+      return (col.text ? String(x).localeCompare(String(y)) : x - y) * sign || a.i - b.i;
+    }).map(x => x.r);
+  }
+  const dropText = r => (r.verdict === api.VERDICT.none ? null : r.drop ? r.drop.name : "Open slot");
+  const slotLabel = slot => SLOT_WORD[slot] || slot;
+  function lineupRows(l) {
+    const starters = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"].flatMap(slot => (l.slots[slot] || []).map(r => ({slot: slotLabel(slot), r})));
+    return starters.concat(l.bench.map(r => ({slot: "Bench", r})));
+  }
+  function lineupTable(title, l, mark) {
+    const body = lineupRows(l).map(({slot, r}) => el("tr", mark && mark(r) ? {class: "is-new"} : {}, el("td", {text: slot}), el("td", {text: r.name + (mark && mark(r) ? " (new)" : "")}),
+      el("td", {class: "num", text: api.ddfOf(r) === null ? "—" : api.ddfOf(r).toFixed(1)})));
+    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"},
+      el("caption", {text: `${title}: starters ${l.starterValue.toFixed(1)}, bench ${l.benchValue.toFixed(1)}, total ${l.total.toFixed(1)}`}),
+      el("thead", {}, el("tr", {}, el("th", {scope: "col", text: "Slot"}), el("th", {scope: "col", text: "Player"}), el("th", {scope: "col", text: "DDF Value"}))), el("tbody", {}, ...body)));
+  }
+  function marketTable(r, dropRow) {
+    const rows = [r.candidate].concat(dropRow ? [dropRow] : []);
+    const cell = (row, k) => (row.values && typeof row.values[k] === "number" && Number.isFinite(row.values[k]) ? row.values[k].toFixed(1) : "—");
+    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: "Market value by trade chart"}),
+      el("thead", {}, el("tr", {}, el("th", {scope: "col", text: "Player"}), ...CHART_KEYS.map(k => el("th", {scope: "col", text: CHART_NAMES[k]})), el("th", {scope: "col", text: "Average"}))),
+      el("tbody", {}, ...rows.map(row => el("tr", {}, el("th", {scope: "row", text: row.name}), ...CHART_KEYS.map(k => el("td", {class: "num", text: cell(row, k)})),
+        el("td", {class: "num", text: row.values && api.marketOf(row) !== null ? api.marketOf(row).toFixed(1) : "—"}))))));
+  }
+  function detailBlock(r, roster) {
+    const body = el("div", {class: "v2-wv-detail-body"});
+    if (!r.impact) {
+      body.append(el("p", {class: "v2-meta", text: r.reason}));
+      if (r.market !== null) body.append(marketTable(r, null));
+      return body;
+    }
+    const isNew = x => x === r.candidate;
+    body.append(el("div", {class: "v2-wv-lineups"}, lineupTable("Before", r.impact.before), lineupTable("After", r.impact.after, isNew)));
+    const depth = DEPTH_POS.filter(pos => r.fit.depth[pos]).map(pos => {
+      const d = r.fit.depth[pos];
+      return `${pos}: ${d.before} → ${d.after} counted (${d.range} expected)`;
+    });
+    body.append(el("p", {class: "v2-meta", text: r.fit.ready ? `Depth by position: ${depth.join("; ")}.` : "Depth by position is not judged until the roster has at least as many players as the league has starting slots."}));
+    if (r.bye) body.append(el("p", {class: "v2-meta", text: r.bye.text}));
+    if (r.injury) body.append(el("p", {class: "v2-meta", text: r.injury.text}));
+    if (UI() && UI().marketKeys()) body.append(marketTable(r, r.drop && !r.drop.notEvaluated ? r.drop : null));
+    return body;
+  }
+  function verdictTag(r) {
+    return el("span", {class: "v2-wv-verdict", "data-verdict": VERDICT_CLASS[r.verdict], text: r.verdict});
+  }
+  function cardFor(r, roster) {
+    const rowsDef = [["DDF Value", numCell(r.ddf)], ["Value above waivers", numCell(r.vaw)], ["Market value", numCell(r.market)],
+      ["Starter change", numCell(r.starterDelta, true)], ["Bench change", numCell(r.benchDelta, true)], ["Best drop", dropText(r) || dash()]];
+    return el("li", {class: "v2-wv-card", "data-verdict": VERDICT_CLASS[r.verdict]},
+      el("div", {class: "v2-wv-card-banner"}, verdictTag(r)),
+      el("div", {class: "v2-wv-card-name"}, el("b", {text: r.name}), el("span", {class: "v2-meta", text: ` ${r.pos || ""}${r.team ? ` ${r.team}` : ""}`})),
+      el("dl", {class: "v2-wv-card-facts"}, ...rowsDef.flatMap(([k, v]) => [el("dt", {text: k}), el("dd", {}, v)])),
+      el("p", {class: "v2-wv-card-reason", text: r.reason}),
+      el("details", {class: "v2-wv-detail"}, el("summary", {text: `Details for ${r.name}`}), detailBlock(r, roster)));
+  }
+  function resultsTable(list, roster) {
+    const head = el("tr", {}, ...COLS.map(col => {
+      const th = el("th", {scope: "col", "data-col": col.id, class: col.num ? "num" : ""});
+      if (S.sort.key === col.id) th.setAttribute("aria-sort", S.sort.dir === "asc" ? "ascending" : "descending");
+      if (col.sort) {
+        const b = el("button", {type: "button", text: col.label});
+        b.addEventListener("click", () => {
+          const first = col.text || col.id === "verdict" ? "asc" : "desc";
+          S.sort = S.sort.key === col.id ? {key: col.id, dir: S.sort.dir === "asc" ? "desc" : "asc"} : {key: col.id, dir: first};
+          const again = renderResultsOnly();
+          const nb = document.querySelector(`#v2WaiversTable th[data-col="${col.id}"] button`);
+          if (nb) nb.focus();
+          return again;
+        });
+        th.append(b);
+      } else th.textContent = col.label;
+      return th;
+    }));
+    const body = [];
+    list.forEach(r => {
+      body.push(el("tr", {class: "v2-wv-main", "data-verdict": VERDICT_CLASS[r.verdict]},
+        el("th", {scope: "row", class: "v2-wv-name"}, el("b", {text: r.name}), injuryTag(r.candidate) ? document.createTextNode(" ") : null, injuryTag(r.candidate)), el("td", {text: r.pos || ""}),
+        el("td", {class: "num"}, numCell(r.ddf)), el("td", {class: "num"}, numCell(r.vaw)), el("td", {class: "num"}, numCell(r.market)),
+        el("td", {class: "num"}, numCell(r.starterDelta, true)), el("td", {class: "num"}, numCell(r.benchDelta, true)),
+        el("td", {}, dropText(r) || dash()), el("td", {}, verdictTag(r)), el("td", {class: "v2-wv-reason", text: r.reason})));
+      body.push(el("tr", {class: "v2-wv-detailrow"}, el("td", {colspan: String(COLS.length)},
+        el("details", {class: "v2-wv-detail"}, el("summary", {text: `Details for ${r.name}`}), detailBlock(r, roster)))));
+    });
+    const table = el("table", {class: "v2-wv-table", id: "v2WaiversTable", role: "grid", "aria-labelledby": "v2WaiversHeadline"},
+      el("thead", {}, head), el("tbody", {}, ...body));
+    // Arrow keys walk the controls of the grid (the sort buttons and the detail toggles) in reading order.
+    table.addEventListener("keydown", event => {
+      const keys = {ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1};
+      if (!(event.key in keys)) return;
+      const items = [...table.querySelectorAll("th button, summary")];
+      const at = items.indexOf(document.activeElement);
+      if (at < 0) return;
+      const next = items[at + keys[event.key]];
+      if (next) { event.preventDefault(); next.focus(); }
+    });
+    return table;
+  }
+
+  // ---------- compute and render ----------
+  function context() {
+    const C = engine();
+    if (!C || !UI()) return null;
+    const depth = UI().depthContext();
+    const shape = C.getRosterShape();
+    return {shape, expected: depth ? depth.expected : null, chartKeys: UI().marketKeys(), rosterSize: rosterSizeOf(shape),
+      byes: root.TradeValueByes ? root.TradeValueByes.byes : null};
+  }
+  function compute() {
+    const ctx = context();
+    if (!ctx || !rowsAll().length) return {state: "loading"};
+    const byKey = rowMap();
+    const mineEntries = mineStore.get();
+    const mine = rowsFor(mineEntries, byKey);
+    const dd = dedupe(candStore.get(), mineEntries);
+    const cands = rowsFor(dd.kept, byKey);
+    const specials = mine.rows.filter(r => r.notEvaluated);
+    if (!mine.rows.length) return {state: "no-roster", ctx, mine, cands, dd};
+    if (!cands.rows.length) return {state: "no-candidates", ctx, mine, cands, dd};
+    const out = api.evaluateAll(ctx, mine.rows, cands.rows);
+    out.results.forEach(r => { r.vaw = r.candidate.notEvaluated ? null : valueAboveWaivers(r.candidate); });
+    const allSpecial = out.results.length && out.results.every(r => r.verdict === api.VERDICT.none && r.reasonKind === "kdef");
+    return {state: allSpecial ? "all-special" : "ok", ctx, mine, cands, dd, out, specials};
+  }
+  function setText(node, text) { if (node.textContent !== text) node.textContent = text; }
+  function summaryText(list) {
+    const counts = {};
+    list.forEach(p => { counts[p.pos] = (counts[p.pos] || 0) + 1; });
+    return ["QB", "RB", "WR", "TE", "K", "DEF"].filter(pos => counts[pos]).map(pos => `${pos} ${counts[pos]}`).join(", ");
+  }
+  function renderSummary() {
+    const mine = mineStore.get();
+    const box = $("v2WaiversSummary");
+    if (!box) return;
+    const names = mine.slice(0, 3).map(p => p.name).join(", ");
+    box.querySelector(".v2-wv-sumtext").replaceChildren(
+      el("span", {class: "v2-find-sum-names", text: `${names}${mine.length > 3 ? ` + ${mine.length - 3} more` : ""}`}),
+      el("span", {class: "v2-meta", text: `${plural(mine.length, "player")}${summaryText(mine) ? `: ${summaryText(mine)}` : ""}`}));
+    const edit = $("v2WaiversEdit");
+    edit.setAttribute("aria-expanded", String(!S.collapsed));
+    edit.setAttribute("aria-label", S.collapsed ? `Edit roster (${plural(mine.length, "player")})` : "Hide the roster input");
+    edit.textContent = S.collapsed ? "Edit roster" : "Hide roster";
+    box.hidden = !mine.length;
+    $("v2WaiversMineInput").hidden = S.collapsed && mine.length > 0;
+  }
+  function renderAssess(c) {
+    const box = $("v2WaiversAssess");
+    box.replaceChildren();
+    const entries = mineStore.get();
+    if (!UI() || !entries.length || c.state === "loading") { box.hidden = true; return; }
+    const a = UI().sideAssessment("mine", entries);
+    box.hidden = !a;
+    if (!a) return;
+    if (!a.ready) {
+      box.append(el("p", {class: "v2-meta", text: `The roster assessment shows once the roster has at least as many QB, RB, WR and TE players as the league has starting slots. Your roster has ${a.have} of ${a.slots}.`}));
+      return;
+    }
+    box.append(UI().assessmentTable(a));
+    const f = UI().biggestImbalance(a.ddf.balance);
+    const m = a.market ? UI().biggestImbalance(a.market.balance) : null;
+    const notes = el("ul", {class: "v2-find-assess-notes"});
+    let line = f ? `Your biggest imbalance: ${UI().imbalanceText(f)} in DDF Value.` : "Your roster is balanced by position in DDF Value.";
+    if (m && (!f || m.pos !== f.pos || m.status !== f.status)) line += ` In Trade chart average: ${UI().imbalanceText(m)}.`;
+    else if (!a.market) line += " Trade chart average: not enough charts this week.";
+    notes.append(el("li", {"data-note": "imbalance", text: line}));
+    if (a.kept.length) notes.append(el("li", {"data-note": "not-evaluated", text: `Not evaluated, left out of every count and sum: ${a.kept.map(p => p.pos).join(", ")}.`}));
+    box.append(notes);
+  }
+  const HEAD_TEXT = {
+    loading: "Values are still loading.", "no-roster": "Add your roster first.", "no-candidates": "Add waiver candidates to see recommendations.",
+    "all-special": "All candidates are kickers or defenses (not evaluated). Add QB, RB, WR or TE candidates."};
+  function renderResultsOnly() {
+    if (S.last && S.last.state === "ok") drawResults(S.last);
+  }
+  function drawResults(c) {
+    const box = $("v2WaiversOut");
+    const list = sortedResults(c.out.results);
+    const cards = el("ol", {class: "v2-wv-cards", "aria-label": "Waiver candidates as cards"}, ...list.map(r => cardFor(r, c.out.roster)));
+    const kids = [el("div", {class: "v2-find-table-wrap v2-wv-tablewrap"}, resultsTable(list, c.out.roster)), cards,
+      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in DDF Value. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price him). A dash means no value, never zero."})];
+    if (c.out.combos.length) {
+      const sum = `Show ${plural(c.out.combos.length, "combo")}`;
+      const det = el("details", {class: "v2-wv-combos", id: "v2WaiversCombos"}, el("summary", {text: sum}),
+        el("ul", {class: "v2-wv-combolist"}, ...c.out.combos.slice(0, 20).map(k => el("li", {text: k.text}))));
+      det.addEventListener("toggle", () => { det.querySelector("summary").textContent = det.open ? `Hide ${plural(c.out.combos.length, "combo")}` : sum; });
+      kids.push(el("h3", {class: "v2-wv-sub", text: "Combo pickups (two in, two out)"}), det);
+    }
+    // Keep open details open across a redraw (a sort, a settings change).
+    const open = new Set([...box.querySelectorAll("details.v2-wv-detail[open] summary")].map(s => s.textContent));
+    const comboOpen = box.querySelector("#v2WaiversCombos[open]");
+    box.replaceChildren(...kids);
+    box.querySelectorAll("details.v2-wv-detail").forEach(d => { if (open.has(d.querySelector("summary").textContent)) d.open = true; });
+    const combo = box.querySelector("#v2WaiversCombos");
+    if (combo && comboOpen) { combo.open = true; combo.querySelector("summary").textContent = `Hide ${plural(c.out.combos.length, "combo")}`; }
+    box.hidden = false;
+  }
+  function render() {
+    S.scheduled = false;
+    const wanted = $("v2Waivers");
+    if (!wanted || !$("v2WaiversHeadline")) return;
+    const c = compute();
+    S.last = c;
+    const headline = $("v2WaiversHeadline");
+    const state = c.state === "ok" ? c.out.headline.state : c.state;
+    const text = c.state === "ok" ? c.out.headline.text : HEAD_TEXT[c.state];
+    headline.dataset.state = state;
+    setText(headline.querySelector("b"), text);
+    const count = $("v2WaiversCount");
+    const notes = [];
+    if (c.state !== "loading") {
+      if (c.dd.onRoster) notes.push(`${plural(c.dd.onRoster, "player")} already on your roster ${c.dd.onRoster === 1 ? "was" : "were"} ignored.`);
+      if (c.dd.repeats) notes.push(`${plural(c.dd.repeats, "duplicate")} removed.`);
+      if (c.mine.gone.length) notes.push(`Your roster no longer has ${c.mine.gone.map(p => p.name).join(", ")} in the data (left out).`);
+      if (c.cands.gone.length) notes.push(`${c.cands.gone.map(p => p.name).join(", ")}: no longer in the data (left out).`);
+      if (c.ctx && !c.ctx.chartKeys) notes.push("Not enough trade charts are available this week for the market view. The fundamental evaluation is unaffected.");
+    }
+    if (c.state === "ok") {
+      const n = c.out.results.filter(r => r.verdict === api.VERDICT.pick).length;
+      notes.unshift(`${plural(c.out.results.length, "candidate")} evaluated${n ? `, ${n} to pick up` : ""}${c.out.combos.length ? `, ${plural(c.out.combos.length, "combo")}` : ""}.`);
+    }
+    setText(count, notes.join(" "));
+    S.notes = c.state !== "loading" ? c.mine.gone.concat(c.cands.gone) : [];
+    renderAssess(c);
+    const out = $("v2WaiversOut");
+    if (c.state === "ok") {
+      if (!S.hadResults) { S.hadResults = true; S.collapsed = true; }
+      drawResults(c);
+    } else { out.hidden = true; out.replaceChildren(); S.hadResults = false; if (c.state !== "loading") S.collapsed = false; }
+    renderSummary();
+    boxes.mine.render();
+    boxes.cands.render();
+    syncHash();
+  }
+  function schedule() {
+    if (S.scheduled) return;
+    S.scheduled = true;
+    Promise.resolve().then(render);
+  }
+  function syncHash() {
+    if (!/^#waivers(\?|$)/.test(location.hash)) return;
+    const mine = mineStore.get().map(p => p.key);
+    const cands = candStore.get().map(p => p.key);
+    const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? (() => { try { return root.TradeValueV2.leagueQuery(); } catch (error) { return ""; } })() : "";
+    const want = api.encodeHash(mine, cands, league);
+    if (location.hash !== want) { try { history.replaceState(null, "", want); } catch (error) { /* the page still works */ } }
+  }
+
+  // ---------- the page ----------
+  function build() {
+    const host = $("v2Waivers");
+    if (!host || $("v2WaiversHeadline")) return;
+    const headline = el("div", {class: "v2-find-headline v2-wv-headline", id: "v2WaiversHeadline", role: "status", "aria-live": "polite", "aria-atomic": "true", "data-state": "loading"}, el("b", {text: HEAD_TEXT.loading}));
+    const count = el("p", {class: "v2-meta v2-wv-count", id: "v2WaiversCount"});
+    const mineBox = oneBox("mine");
+    const candsBox = oneBox("cands");
+    const edit = el("button", {type: "button", class: "v2-btn", id: "v2WaiversEdit", "aria-expanded": "true", "aria-controls": "v2WaiversMineInput", text: "Hide roster"});
+    edit.addEventListener("click", () => { S.collapsed = !S.collapsed; renderSummary(); if (!S.collapsed) mineBox.input.focus(); });
+    const summary = el("div", {class: "v2-find-summary v2-wv-summary", id: "v2WaiversSummary", hidden: ""}, el("div", {class: "v2-find-sumrow v2-wv-sumtext"}), edit);
+    const mineCard = el("section", {class: "v2-card", id: "v2WaiversMine", "aria-labelledby": "v2WaiversMineTitle"},
+      el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2WaiversMineTitle", text: "Your roster"}),
+        el("p", {class: "v2-meta", text: "The same roster as Find a trade: enter it once."})), mineBox.clear),
+      summary, mineBox.wrap, el("section", {class: "v2-find-assess", id: "v2WaiversAssess", "aria-label": "Roster assessment", hidden: ""}));
+    const candsCard = el("section", {class: "v2-card", id: "v2WaiversCands", "aria-labelledby": "v2WaiversCandsTitle"},
+      el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2WaiversCandsTitle", text: "Waiver candidates"}),
+        el("p", {class: "v2-meta", text: "The top options on the wire. Kickers and defenses are kept but not evaluated."})), candsBox.clear),
+      candsBox.wrap);
+    const outCard = el("section", {class: "v2-card", id: "v2WaiversResults", "aria-labelledby": "v2WaiversResultsTitle"},
+      el("div", {class: "v2-card-head"}, el("h2", {id: "v2WaiversResultsTitle", text: "Who to pick up"})),
+      el("div", {id: "v2WaiversOut", hidden: ""}));
+    const foot = host.querySelector(".v2-footnote");
+    const live = el("div", {class: "v2-wv-live"}, headline, count);
+    host.insertBefore(live, foot);
+    [mineCard, candsCard, outCard].forEach(card => host.insertBefore(card, foot));
+    boxes.mine = mineBox;
+    boxes.cands = candsBox;
+    mineCard.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !S.collapsed && S.hadResults && mineStore.get().length) { S.collapsed = true; renderSummary(); edit.focus(); }
+    });
+  }
+
+  // First time the tab is shown: saved lists, then a shared link.
+  function firstShow() {
+    if (S.linkRead) return;
+    S.linkRead = true;
+    const stored = readJson(STORE_CANDS);
+    if (Array.isArray(stored)) S.cands = keep(stored.filter(p => p && p.key));
+    const storedMine = readJson(STORE_MINE);
+    if (Array.isArray(storedMine) && storedMine.length && !mineStore.get().length) mineStore.set(keep(storedMine.filter(p => p && p.key)));
+    mineStore.subscribe(() => {
+      const list = mineStore.get();
+      writeJson(STORE_MINE, keep(list));
+      const sig = list.map(p => p.key).join(",");
+      if (sig !== S.mineSig) { S.mineSig = sig; schedule(); }
+    });
+    const link = api.decodeHash(location.hash);
+    if (link.mine.length || link.cands.length) {
+      const map = rowMap();
+      const choices = new Map(notEvaluatedChoices().map(c => [String(c.player_key), c]));
+      const toEntry = key => {
+        const row = map.get(key);
+        if (row) return entryOfRow(row);
+        const special = choices.get(key);
+        return special ? {key, name: special.name, pos: special.pos, team: special.team || ""} : null;
+      };
+      const mine = link.mine.map(toEntry);
+      const cands = link.cands.map(toEntry);
+      const lost = mine.concat(cands).filter(x => !x).length;
+      if (link.mine.length) mineStore.set(mine.filter(Boolean));
+      if (link.cands.length) candStore.set(cands.filter(Boolean));
+      if (lost) S.linkNote = `${plural(lost, "player")} from the shared link ${lost === 1 ? "was" : "were"} not found in the current data.`;
+    }
+  }
+  function activate() {
+    build();
+    if (!engine() || !rowsAll().length) { schedule(); return; }
+    firstShow();
+    render();
+    if (S.linkNote) { const c = $("v2WaiversCount"); c.textContent = `${S.linkNote} ${c.textContent}`.trim(); }
+  }
+  api.activate = activate;
+  function onLeagueSettingsChanged(event) {
+    if (!$("v2WaiversHeadline") || !S.linkRead) return;
+    render();
+    const note = (S.notes || []).map(p => p.name);
+    if (note.length && event && event.detail && event.detail.notes) event.detail.notes.push(`Waivers: ${note.join(", ")} no longer in the data under these settings.`);
+  }
+  document.addEventListener("ddf:league-settings-changed", onLeagueSettingsChanged);
+  const start = () => { build(); if (/^#waivers/.test(location.hash)) schedule(); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
 })(typeof window !== "undefined" ? window : globalThis);

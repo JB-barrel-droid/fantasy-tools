@@ -620,7 +620,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
   const mineListeners = [];
   const mineChanged = () => mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } });
-  api.ui = {depthContext, marketKeys, benchWeights, sideAssessment, assessmentTable, imbalanceText, biggestImbalance, rowMap,
+  api.ui = {depthContext, marketKeys, benchWeights, sideAssessment, assessmentTable, imbalanceText: w => imbalanceText(w), biggestImbalance,
     getMine: () => S.mine.map(p => ({...p})),
     setMine: list => { S.mine = list.map(p => ({...p})); S.sel.clear(); renderBoth(); if ($("v2FindOut")) clearOutput(); },
     onMineChange: fn => { mineListeners.push(fn); }};
