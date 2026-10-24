@@ -57,7 +57,7 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
   - **GL-10** The reader's selection (series, DDF inputs, ranking) is remembered on this device.
 
-  - **GL-11** Changes to league settings are a draft until Apply. Nothing reaches the values before Apply.
+  - **GL-11** Changes to league settings apply as they change: no Apply or Save step. Rapid changes are one recompute; an invalid in-between state keeps the last valid results and says why; Find a trade re-reads the pasted roster text and re-runs under the new settings. *(Changed 2026-10-24 from "a draft until Apply", Jeremy, JEG-1020.)*
 
   - **GL-12** The bench share shown is the one the engine computed from the reader's settings (the readout in GL-23) or, when the override is on, the reader's own number. v2 does no math on it.
 
