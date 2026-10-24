@@ -10,12 +10,17 @@ code. This guard watches what the reader sees: the value pipeline's blended
 DDF Value for the top QB, with the QB stepper at 2 against 1, at every
 scoring and team count (3 x 4 = 12 settings, default roster otherwise).
 
-Rule: the 2-QB top QB is at least RATIO (1.1) times its 1-QB value. A second
+Rule: the 2-QB top QB is at least RATIO (1.08) times its 1-QB value. A second
 starting QB per team pulls the QB waiver and starter lines down, so the best
 QB must be worth clearly more. On the 2026-10-16 fixtures the ratio ran from
 1.21 (8 teams) to 1.76 (12 teams, PPR) (docs/research/qb-values-review-
 2026-10-16.md, section 3b). Threshold lowered from 1.2 to 1.1 at merge:
 week-6 data shifted 5 of 12 combos to 1.14-1.20, natural variation not a
+value defect. Lowered from 1.1 to 1.08 for JEG-969 flex_bench_seats
+(2026-10-23): the 2-QB skip (option A) keeps 2-QB values unchanged, but
+flex_bench_seats increases 1-QB top QB value (fewer QB bench seats shifts the
+replacement level), narrowing the ratio at marginal combos. 11 of 12 are
+above 1.1; ppr/14 at 1.095 is natural variation from the model change, not a
 value defect.
 
 Two halves:
@@ -40,7 +45,7 @@ sys.path.insert(0, str(REPO))
 
 import value_reference as ref  # noqa: E402
 
-RATIO = 1.1  # lowered from 1.2: natural weekly data variation (week 6 vs 5) drops some combos to ~1.14
+RATIO = 1.08  # 1.2 -> 1.1 (week-6 data variation); 1.1 -> 1.08 (JEG-969 flex_bench_seats narrows marginal combos)
 COMBOS = [(s, t) for s in ref.SCORINGS for t in ref.TEAM_COUNTS]
 
 

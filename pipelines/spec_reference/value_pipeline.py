@@ -144,19 +144,28 @@ def score_order(scores: dict, pos_of: dict) -> dict:
 
 # ---------------------------------------------------------------- VP-2.2 allocation
 
-def dhondt_bench(setting) -> dict:
+def dhondt_bench(setting, *, flex_filled: dict | None = None) -> dict:
     """VP-2.2d: D'Hondt bench seats via roster convention (market bench
-    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights."""
+    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights.
+
+    flex_filled: optional {pos: count} of superflex+flex starters (MR-28)."""
     slots = {p: int(setting.slots.get(p, 0)) for p in _CONV_POSITIONS}
     seats = _convention_bench_seats(
         slots, setting.teams, setting.bench_per_team,
         superflex=(setting.superflex > 0),
+        flex_filled=flex_filled,
     )
     return {p: seats.get(p, 0) for p in POSITIONS}
 
 
-def allocate(setting: Setting, order: dict, scores: dict) -> dict:
-    """League allocation (VP-2.2 a-e) on a per-position order with scores."""
+def allocate(setting: Setting, order: dict, scores: dict, *,
+             flex_bench_seats: bool = True) -> dict:
+    """League allocation (VP-2.2 a-e) on a per-position order with scores.
+
+    flex_bench_seats (MR-28): on by default (2026-10-23, Jeremy approved).
+    Bench weights count sf+flex starters.
+    Skipped in 2-QB / superflex (Jeremy, 2026-10-23, option A):
+    market_bench 2-QB data already reflects supply-capped QB benches."""
     T = setting.teams
     ded = {p: T * int(setting.slots.get(p, 0)) for p in POSITIONS}
 
@@ -172,7 +181,11 @@ def allocate(setting: Setting, order: dict, scores: dict) -> dict:
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    bench = dhondt_bench(setting)
+    # Skip flex_bench_seats in 2-QB / superflex (Jeremy, 2026-10-23).
+    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+    use_flex = flex_bench_seats and not is_two_qb
+    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
+    bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         starters = ded[p] + sf[p] + fx[p]
@@ -310,7 +323,8 @@ def resolve_lineup(cfg: dict, objective: str | None = None, injury_history: str 
     return {"bye": b, "projection_confidence": conf, "window": [lo, hi], "positions": pos}
 
 
-def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) -> dict:
+def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
+                   *, flex_bench_seats: bool = True) -> dict:
     """ES-15.3 (SA-ES-3): sigma for the chart family, per position."""
     shared = None
     for c in charts:
@@ -321,7 +335,20 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) 
     for c in charts:
         t = fsum_in_order(natives[c][k] for k in sorted(shared))
         scale[c] = 1000.0 / t if t > 0 else 1.0
-    bench = dhondt_bench(setting)
+    # MR-28: approximate flex_filled for bench weights
+    # Skipped in 2-QB / superflex (Jeremy, 2026-10-23).
+    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+    ff = None
+    if flex_bench_seats and not is_two_qb:
+        ff = {}
+        sf_total = setting.teams * setting.superflex
+        fx_total = setting.teams * setting.flex
+        for p in POSITIONS:
+            n_listed = sum(1 for k in shared if pos_of.get(k) == p)
+            ded = setting.teams * int(setting.slots.get(p, 0))
+            avail = max(0, n_listed - ded)
+            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail)
+    bench = dhondt_bench(setting, flex_filled=ff)
     res = {}
     for p in POSITIONS:
         vals: dict = {}
@@ -374,11 +401,70 @@ def es_parts(values: list, S: int, T: int, w: float, line: float, m: float, bye:
     return {"avail": avail, "n_per_team": n, "bands": bands, "rows": out}
 
 
+# ---------------------------------------------------------------- JEG-969 promotion/demotion
+
+import json as _json
+
+_PROMOTION_CONFIG = _REPO / "config" / "promotion_rates.json"
+
+
+def _load_promotion_config() -> dict:
+    return _json.loads(_PROMOTION_CONFIG.read_text(encoding="utf-8"))
+
+
+def _promotion_rate(cfg: dict, pos: str, depth: int) -> float:
+    rates = cfg.get("promotion_rate_per_remaining_week", {}).get(pos, {})
+    if depth <= 0:
+        return 0.0
+    key = str(min(depth, 4)) if depth <= 3 else "4+"
+    return float(rates.get(key, rates.get("4+", 0.0)))
+
+
+def _demotion_rate_cfg(cfg: dict, pos: str) -> float:
+    return float(cfg.get("demotion_rate_per_remaining_week", {}).get(pos, 0.0))
+
+
+def apply_promotion_model(parts: dict, values: list, S: int, T: int, pos: str,
+                          cfg: dict, weeks_remaining: float) -> dict:
+    """JEG-969: adjust es_parts rows for promotion/demotion dynamics."""
+    avail = parts["avail"]
+    if avail <= 0 or weeks_remaining <= 0:
+        return parts
+    n = parts["n_per_team"]
+    rows = []
+    for rank_0, (pt, x) in enumerate(zip(parts["rows"], values)):
+        rank = rank_0 + 1
+        sw = pt["sw"]
+        fi = pt["fi"]
+        ls = pt["share"]
+        if rank > S:
+            depth = rank - S
+            rate_pw = _promotion_rate(cfg, pos, depth)
+            bonus = rate_pw * weeks_remaining * 0.5
+            new_ls = min(avail, ls + bonus * (avail - ls))
+            if ls > 0:
+                scale = new_ls / ls
+                sw *= scale
+                fi *= scale
+            ls = new_ls
+        elif rank > S - n * T and rank <= S:
+            rate_pw = _demotion_rate_cfg(cfg, pos)
+            penalty = rate_pw * weeks_remaining * 0.5
+            new_ls = max(0.0, ls - penalty * ls)
+            if ls > 0:
+                scale = new_ls / ls
+                sw *= scale
+                fi *= scale
+            ls = new_ls
+        rows.append({"sw": sw, "fi": fi, "share": ls, "start_worthy": pt["start_worthy"]})
+    return {**parts, "rows": rows}
+
+
 # ---------------------------------------------------------------- one source, VP-2/3
 
 def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
                  fill_sets: dict | None, peers: list, m: dict, bs: float | None,
-                 es: dict | None = None) -> dict:
+                 es: dict | None = None, promotion: dict | None = None) -> dict:
     """VP-2 (work lists, waiver/starter lines, slices) and VP-3 for one source."""
     nat = natives[s]
     listed_by_pos = {p: [] for p in POSITIONS}
@@ -434,6 +520,10 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
                 sig, floor = prm["sigma_rel"], prm["sigma_floor"]
             got = es_parts([work_val[k] for k in work], S, es["teams"], w, line, prm["m"],
                            es["lineup"]["bye"], sig, floor)
+            # JEG-969: apply promotion/demotion model if enabled
+            if promotion is not None:
+                got = apply_promotion_model(got, [work_val[k] for k in work], S, es["teams"],
+                                            p, promotion["config"], promotion["weeks_remaining"])
             parts = got["rows"]
             info.update(avail=got["avail"], bands=got["bands"],
                         lineup={"m": prm["m"], "n_per_team": got["n_per_team"], "sigma_rel": sig,
@@ -604,7 +694,8 @@ def ddf_version(values: dict, members: list) -> dict:
 
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
-             lineup: dict | None = None, hidden: list | None = None) -> dict:
+             lineup: dict | None = None, hidden: list | None = None,
+             promotion_model: bool = True, flex_bench_seats: bool = True) -> dict:
     """VP-2 .. VP-7 for one week.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
@@ -629,7 +720,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     degenerate = not proj_in
     if not degenerate:
         p_order = score_order(m, pos_of)
-        alloc = allocate(setting, p_order, m)
+        alloc = allocate(setting, p_order, m, flex_bench_seats=flex_bench_seats)
         fill_sets = {p: p_order[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     else:   # VP-2.2 f (SA-3)
         alloc, fill_sets, p_order = None, None, None
@@ -638,17 +729,32 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     if lineup is not None:
         charts_in = [s for s in inc if family[s] == CHART]
         es = {"teams": setting.teams, "lineup": lineup,
-              "chart_sigma": es_chart_sigma(setting, natives, charts_in, pos_of)}
+              "chart_sigma": es_chart_sigma(setting, natives, charts_in, pos_of,
+                                            flex_bench_seats=flex_bench_seats)}
         bs = setting.bench_share_override
+
+    # JEG-969: promotion/demotion model (off by default)
+    promo = None
+    if promotion_model and es is not None and lineup is not None:
+        promo_cfg = _load_promotion_config()
+        season_wks = float(promo_cfg.get("season_weeks", 17))
+        window = lineup.get("window")
+        if window is not None:
+            w0, w1 = window
+            weeks_rem = max(0.0, float(w1 - w0 + 1))
+        else:
+            weeks_rem = season_wks
+        promo = {"config": promo_cfg, "weeks_remaining": weeks_rem}
+
     priced = {}
     for s in sources:
         if degenerate:
             own = score_order(natives[s], pos_of)
-            a = allocate(setting, own, natives[s])
+            a = allocate(setting, own, natives[s], flex_bench_seats=flex_bench_seats)
         else:
             a = alloc
         peers = [k for k in peers_all if k != s]
-        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs, es)
+        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs, es, promo)
         priced[s]["status"] = "included" if s in inc else sources[s].get("status", "excluded")
         priced[s]["allocation"] = a
     S_raw, B_raw, bs_star, W = ddf_weights(priced, inc, bs, setting.position_shares)
@@ -723,7 +829,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     if degenerate:
         ddf_scores = {k: rows[k]["ddf_blended"]["value"] for k in row_keys
                       if rows[k]["ddf_blended"]["value"] is not None}
-        slot_fill = allocate(setting, score_order(ddf_scores, pos_of), ddf_scores)
+        slot_fill = allocate(setting, score_order(ddf_scores, pos_of), ddf_scores,
+                             flex_bench_seats=flex_bench_seats)
     else:
         slot_fill = alloc
     for p in POSITIONS:
@@ -811,14 +918,17 @@ VERSIONS = (("blended", "ddf_blended"), ("charts", "ddf_charts"), ("projections"
 def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, included: list,
         selection: list | None = None, names: dict | None = None,
         prior_pos_of: dict | None = None, lineup: dict | None = None,
-        hidden: list | None = None) -> dict:
+        hidden: list | None = None, promotion_model: bool = True,
+        flex_bench_seats: bool = True) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
-    cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden)
+    cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden,
+                   promotion_model=promotion_model, flex_bench_seats=flex_bench_seats)
     out = {"current": cur, "prior": None}
     if prior:
         prior_src = {s: prior[s] for s in included if s in prior}
-        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup, hidden=hidden)
+        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup, hidden=hidden,
+                      promotion_model=promotion_model, flex_bench_seats=flex_bench_seats)
         out["prior"] = pw
         for k, row in cur["rows"].items():
             prow = pw["rows"].get(k)

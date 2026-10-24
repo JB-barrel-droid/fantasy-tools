@@ -1767,3 +1767,57 @@ the trade-target views; not covered.
 - **MR-23 weekly matchups:** lineup hint only, values untouched (option a, confirmed).
 - **MR-20 / JEG-535 direction-check thresholds (PR 637):** keep the loosened thresholds (2-QB +3, peak >28), then have QB values reviewed. After the per-game basis the top QB value over replacement in 2-QB fell from about 60 to about 32 (1-QB is 25); nobody has judged whether 32 is right. Open: examples of QB values on a 2-QB board, and whether to cap part-timers' inflated per-game rates.
 - **JEG-505 compare-trade cutoffs and JEG-477 taller chart:** product decisions, recorded in decisions.md.
+
+## MR-28 Bench seat allocation: should bench weights count flex starters? (JEG-969, 2026-10-23)
+
+**Decided: on by default** (Jeremy, 2026-10-23). Bench-seat D'Hondt weights
+now count superflex+flex starters alongside dedicated starters, matching
+`allocate_league` in the ES model. Set `flex_bench_seats=false` to disable.
+
+The page's bench seat allocation (`value_reference.py bench_seats`, `value-model.js
+vpBenchSeats`) previously computed bench weight as `dedicated_slots *
+backups_per_starter` and did NOT include flex starters. With the fix, the weight
+includes flex starters, and at ppr/12 QB drops from 15 bench seats to 4.
+
+**Measured impact (12-combo sweep + superflex):**
+- QB bench share: ~25.6% -> ~9.5% (ppr/12)
+- Top QB movers lose 4-5 DDF Value points; top WR movers gain 3-4 points
+- fixedPieIndexed invariant: PASS all 13 settings
+- Overall bench share readout delta: -0.023 to +0.019 depending on setting
+
+Implementation: commit `720f9652` (flag off), `489d6f94` (flag on). All three
+engines (Python reference, JS browser, spec reference) plus 3 parity tests.
+
+**2-QB / superflex skip (Jeremy, 2026-10-23, option A):** flex_bench_seats is
+skipped in 2-QB and superflex rosters. The market_bench 2-QB data (bps 0.28)
+already reflects supply-capped QB benches from FFC draft data; applying
+flex-filled bench weights on top double-counts the effect and inverts the
+JEG-702 2-QB direction gate (ratio 0.950 vs threshold 1.1 at ppr/12). In
+2-QB/superflex, bench allocation uses dedicated starters only. Implementation:
+commit `d753cae7`. 4 additional tests including negative (monkey-patched
+allocate without the skip differs).
+
+## MR-32 Promotion/demotion model in expected starts (JEG-969, 2026-10-23)
+
+**Decided: on by default** (Jeremy, 2026-10-23). The promotion model adjusts
+ES lineup shares for persistent role changes. Bench players gain a promotion
+bonus; marginal starters lose a demotion penalty. Both scale linearly with
+weeks remaining in the fantasy season.
+
+**Rates:** measured from 2015-2025 nflverse weekly actuals
+(`config/promotion_rates.json`, `tools/bench_research/promotion_demotion_rates.py`).
+Per-remaining-week hazard rates by position and bench depth (promotion) or
+position (demotion).
+
+**Formula:** `promo_bonus_share = rate_pw * weeks_remaining * 0.5`; new lineup
+share = `min(avail, ls + bonus * (avail - ls))`. Demotion: `penalty = rate_pw *
+weeks_remaining * 0.5`; new ls = `max(0, ls - penalty * ls)`.
+
+**Impact (12-combo sweep):** bench share readout +0.75 to +1.16pp; applied
++0.33 to +0.51pp. At ppr/12: QB +2.17pp, RB +0.72pp, WR +1.03pp, TE +0.21pp.
+Bench RBs gain ~6.8% DDF Value; marginal starters lose 2-6%.
+
+**Open question:** the rates are from season-to-date PPG rankings (actuals),
+not from projected PPG (what the engine uses for tiering). This proxy may
+over- or understate rates for specific positions. A future refinement could
+use projection-based rankings.
