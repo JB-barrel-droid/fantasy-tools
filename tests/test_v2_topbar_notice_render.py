@@ -158,6 +158,18 @@ def run_checks(css=None, js=None) -> list[str]:
                 if abs(gone - BASE_HEADER[size]) > 1:
                     errors.append(f"{tag}: header {gone} px dismissed; was {BASE_HEADER[size]} px")
                 ctx.close()
+            # Tablet widths: the tab row wraps there, so the notice may add its one 18 px row but no more.
+            for size in ((768, 1024), (820, 1180)):
+                tag = f"{size[0]}x{size[1]}"
+                ctx, page, _ = _new(browser, base, size, css, js)
+                shown = page.evaluate(STATE)
+                _click(page, "#v2SeasonNoteClose", tag, errors)
+                gone = page.evaluate(STATE)
+                if shown["header"] - gone["header"] > 18.5:
+                    errors.append(f"{tag}: header grows {shown['header'] - gone['header']} px with the notice; want at most 18")
+                if shown["over"] > 0:
+                    errors.append(f"{tag}: page scrolls sideways by {shown['over']}")
+                ctx.close()
             # Phones: no sideways scroll, shown or dismissed.
             for size in PHONES:
                 tag = f"{size[0]}x{size[1]}"
@@ -169,6 +181,7 @@ def run_checks(css=None, js=None) -> list[str]:
                         if s["over"] > 0:
                             errors.append(f"{tag} {state_name} {route}: page scrolls sideways by {s['over']}")
                     if state_name == "shown":
+                        grown = s["header"]
                         if not s["textInView"] or not s["closeVis"] or not s["moreVis"]:
                             errors.append(f"{tag}: notice text or buttons are off screen")
                         _click(page, "#v2SeasonNoteMore", tag, errors)
@@ -177,6 +190,8 @@ def run_checks(css=None, js=None) -> list[str]:
                             errors.append(f"{tag}: open full list overflows ({s['over']}, {s['detailOver']})")
                         _click(page, "#v2SeasonNoteMore", tag, errors)
                         _click(page, "#v2SeasonNoteClose", tag, errors)
+                        if size[0] < 768 and grown - page.evaluate(STATE)["header"] > 45:
+                            errors.append(f"{tag}: header grows {grown - page.evaluate(STATE)['header']} px with the notice; want at most 45")
                 ctx.close()
             # Dismiss: every route, across navigation, reload, a fresh context, and blocked storage.
             for blocked in (False, True):
