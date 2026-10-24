@@ -684,7 +684,7 @@ PHONE_JS = "async (hash) => {" + COMMON + r"""
   const toggle = $('v2NavToggle');
   if (shown(toggle)) {
     toggle.click(); await sleep(100);
-    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === 7 && toggle.getAttribute('aria-expanded') === 'true';
+    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === 8 && toggle.getAttribute('aria-expanded') === 'true';
     toggle.click(); await sleep(100);
   }
   if (hash === '#compare-trade') {
