@@ -52,6 +52,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [design/llm-site-state.md](design/llm-site-state.md) | Maintained | JEG-1025 | 2026-10-24 | The DDF state object and its two encodings (URL query, pasteable block) that move work between LLM chats and the site; reader rules and open gaps (JEG-1025, JEG-1024). |
 | [product/jeg-303-dashboard-ideas.md](product/jeg-303-dashboard-ideas.md) | Record | - | - | Dashboard idea scoping (JEG-303). |
 | [v2-design-notes.md](v2-design-notes.md) | Maintained | JEG-602 | 2026-10-22 | v2 front end design notes and back-end contracts; dated build-log sections archived 2026-10-15 (JEG-602); nav structure, sub-routes, DDFAudit registry, Value pie, Writing tab, Customize tabs, shared search, chips and links, single-source compare, roster paste parser as merged 2026-10-22 (JEG-874). |
+| [health-check-thresholds.md](health-check-thresholds.md) | Maintained | JEG-1011 | 2026-10-24 | Health check (Values auditing) flag limits: how each was derived from the engine on training weeks, validated on held-out weeks, and what is information only. |
 | [v2-mobile-plan.md](v2-mobile-plan.md) | Maintained | JEG-927 | 2026-10-23 | Phone audit of the v2 pages (2026-10-22), defects per tab, chart and table patterns, three decisions, and the phased tickets; its status line says which phases are merged (JEG-927, JEG-947, JEG-953). |
 | [fixture-transition-proposal.md](fixture-transition-proposal.md) | Record | - | - | Decision to pause stale adjusted curves, staged 2026-09-22. |
 
