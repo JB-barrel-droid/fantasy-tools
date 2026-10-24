@@ -1,0 +1,223 @@
+{
+ "name": "waiver-all-worse",
+ "split": "held-out",
+ "description": "Strong, balanced roster; every candidate is worse than the weakest rostered player.",
+ "teams": 12,
+ "alloc": [
+  {
+   "pos": "QB",
+   "lineup": 12,
+   "bench": 15,
+   "rostered": 27
+  },
+  {
+   "pos": "RB",
+   "lineup": 27,
+   "bench": 28,
+   "rostered": 55
+  },
+  {
+   "pos": "WR",
+   "lineup": 33,
+   "bench": 35,
+   "rostered": 68
+  },
+  {
+   "pos": "TE",
+   "lineup": 12,
+   "bench": 6,
+   "rostered": 18
+  }
+ ],
+ "shape": {
+  "QB": 1,
+  "RB": 2,
+  "WR": 2,
+  "TE": 1,
+  "FLEX": 1,
+  "SUPERFLEX": 0,
+  "BENCH": 8,
+  "K": 0,
+  "DST": 0
+ },
+ "roster": [
+  {
+   "key": "QB501",
+   "name": "Q One",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 25,
+   "noise": 0.0,
+   "market": 22.5
+  },
+  {
+   "key": "QB502",
+   "name": "Q Two",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 12,
+   "noise": 0.0,
+   "market": 10.8
+  },
+  {
+   "key": "RB503",
+   "name": "R1",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 30,
+   "noise": 0.0,
+   "market": 27.0
+  },
+  {
+   "key": "RB504",
+   "name": "R2",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 24,
+   "noise": 0.0,
+   "market": 21.6
+  },
+  {
+   "key": "RB505",
+   "name": "R3",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 18,
+   "noise": 0.0,
+   "market": 16.2
+  },
+  {
+   "key": "RB506",
+   "name": "R4",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 12,
+   "noise": 0.0,
+   "market": 10.8
+  },
+  {
+   "key": "RB507",
+   "name": "R5",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 9,
+   "noise": 0.0,
+   "market": 8.1
+  },
+  {
+   "key": "WR508",
+   "name": "W1",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 28,
+   "noise": 0.0,
+   "market": 25.2
+  },
+  {
+   "key": "WR509",
+   "name": "W2",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 22,
+   "noise": 0.0,
+   "market": 19.8
+  },
+  {
+   "key": "WR510",
+   "name": "W3",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 16,
+   "noise": 0.0,
+   "market": 14.4
+  },
+  {
+   "key": "WR511",
+   "name": "W4",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 11,
+   "noise": 0.0,
+   "market": 9.9
+  },
+  {
+   "key": "WR512",
+   "name": "W5",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 9,
+   "noise": 0.0,
+   "market": 8.1
+  },
+  {
+   "key": "WR513",
+   "name": "W6",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 8,
+   "noise": 0.0,
+   "market": 7.2
+  },
+  {
+   "key": "TE514",
+   "name": "T One",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 15,
+   "noise": 0.0,
+   "market": 13.5
+  },
+  {
+   "key": "TE515",
+   "name": "T Two",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 8.5,
+   "noise": 0.0,
+   "market": 7.65
+  }
+ ],
+ "candidates": [
+  {
+   "key": "WR516",
+   "name": "Wee Worse",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 2.0,
+   "noise": 0.0,
+   "market": 1.8
+  },
+  {
+   "key": "RB517",
+   "name": "Rin Worse",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 1.5,
+   "noise": 0.0,
+   "market": 1.35
+  },
+  {
+   "key": "TE518",
+   "name": "Tab Worse",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 0.0,
+   "noise": 0.0,
+   "market": null
+  }
+ ],
+ "expect": {
+  "verdicts": {
+   "Wee Worse": "Skip",
+   "Rin Worse": "Skip",
+   "Tab Worse": "Skip"
+  },
+  "order": [
+   "Wee Worse",
+   "Rin Worse",
+   "Tab Worse"
+  ],
+  "headline": "No pickup improves your roster this week",
+  "combo": false
+ }
+}

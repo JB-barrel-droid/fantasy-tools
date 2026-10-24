@@ -1,0 +1,220 @@
+{
+ "name": "waiver-thin-rb",
+ "split": "training",
+ "description": "Thin at RB: three RB candidates and a WR. Full 11-man roster (BENCH 2, K1, DST1).",
+ "teams": 12,
+ "alloc": [
+  {
+   "pos": "QB",
+   "lineup": 12,
+   "bench": 15,
+   "rostered": 27
+  },
+  {
+   "pos": "RB",
+   "lineup": 27,
+   "bench": 28,
+   "rostered": 55
+  },
+  {
+   "pos": "WR",
+   "lineup": 33,
+   "bench": 35,
+   "rostered": 68
+  },
+  {
+   "pos": "TE",
+   "lineup": 12,
+   "bench": 6,
+   "rostered": 18
+  }
+ ],
+ "shape": {
+  "QB": 1,
+  "RB": 2,
+  "WR": 2,
+  "TE": 1,
+  "FLEX": 1,
+  "SUPERFLEX": 0,
+  "BENCH": 2,
+  "K": 1,
+  "DST": 1
+ },
+ "roster": [
+  {
+   "key": "QB1",
+   "name": "Quinn Quarter",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 20,
+   "noise": 0.0,
+   "market": 18.0
+  },
+  {
+   "key": "RB2",
+   "name": "Rex RunOne",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 30,
+   "noise": 0.0,
+   "market": 27.0
+  },
+  {
+   "key": "RB3",
+   "name": "Rudy RunTwo",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 12,
+   "noise": 0.0,
+   "market": 10.8
+  },
+  {
+   "key": "WR4",
+   "name": "Wes WideOne",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 28,
+   "noise": 0.0,
+   "market": 25.2
+  },
+  {
+   "key": "WR5",
+   "name": "Walt WideTwo",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 20,
+   "noise": 0.0,
+   "market": 18.0
+  },
+  {
+   "key": "WR6",
+   "name": "Wade WideThree",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 8,
+   "noise": 0.0,
+   "market": 7.2
+  },
+  {
+   "key": "WR7",
+   "name": "Wyatt WideFour",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 3,
+   "noise": 0.0,
+   "market": 2.7
+  },
+  {
+   "key": "TE8",
+   "name": "Tom TightOne",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 15,
+   "noise": 0.0,
+   "market": 13.5
+  },
+  {
+   "key": "TE9",
+   "name": "Tim TightTwo",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 2,
+   "noise": 0.0,
+   "market": 1.8
+  },
+  {
+   "key": "x:K:AAA",
+   "name": "Kyle Kicker",
+   "pos": "K",
+   "team": "AAA",
+   "ddf": null,
+   "noise": 0,
+   "market": null,
+   "notEvaluated": true
+  },
+  {
+   "key": "x:DEF:BOS",
+   "name": "Boston Defense",
+   "pos": "DEF",
+   "team": "BOS",
+   "ddf": null,
+   "noise": 0,
+   "market": null,
+   "notEvaluated": true
+  }
+ ],
+ "candidates": [
+  {
+   "key": "RB10",
+   "name": "Akers Alpha",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 18,
+   "noise": 0.0,
+   "market": 16.2
+  },
+  {
+   "key": "RB11",
+   "name": "Andre Beta",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 9,
+   "noise": 0.0,
+   "market": 8.1
+  },
+  {
+   "key": "RB12",
+   "name": "Abel Gamma",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 1.0,
+   "noise": 0.0,
+   "market": 0.9
+  },
+  {
+   "key": "WR13",
+   "name": "Bo Wideout",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 4,
+   "noise": 0.0,
+   "market": 3.6
+  }
+ ],
+ "expect": {
+  "verdicts": {
+   "Akers Alpha": "Pick up",
+   "Andre Beta": "Pick up",
+   "Abel Gamma": "Skip",
+   "Bo Wideout": "Pick up"
+  },
+  "drops": {
+   "Akers Alpha": "Tim TightTwo",
+   "Andre Beta": "Tim TightTwo",
+   "Abel Gamma": "Tim TightTwo",
+   "Bo Wideout": "Tim TightTwo"
+  },
+  "order": [
+   "Akers Alpha",
+   "Andre Beta",
+   "Bo Wideout",
+   "Abel Gamma"
+  ],
+  "starter": {
+   "Akers Alpha": 10.0,
+   "Andre Beta": 1.0
+  },
+  "total": {
+   "Akers Alpha": 16.0,
+   "Andre Beta": 7.0,
+   "Bo Wideout": 2.0,
+   "Abel Gamma": -1.0
+  },
+  "headline": "Pick up Akers Alpha, drop Tim TightTwo: +10.0 starter value",
+  "combo_top": [
+   "Akers Alpha",
+   "Andre Beta"
+  ],
+  "combo_total": 22.0
+ }
+}

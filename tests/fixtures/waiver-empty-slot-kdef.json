@@ -1,0 +1,202 @@
+{
+ "name": "waiver-empty-slot-kdef",
+ "split": "held-out",
+ "description": "12 players for 13 roster spots (one open): the RB comes without a drop; the kicker is not evaluated.",
+ "teams": 12,
+ "alloc": [
+  {
+   "pos": "QB",
+   "lineup": 12,
+   "bench": 15,
+   "rostered": 27
+  },
+  {
+   "pos": "RB",
+   "lineup": 27,
+   "bench": 28,
+   "rostered": 55
+  },
+  {
+   "pos": "WR",
+   "lineup": 33,
+   "bench": 35,
+   "rostered": 68
+  },
+  {
+   "pos": "TE",
+   "lineup": 12,
+   "bench": 6,
+   "rostered": 18
+  }
+ ],
+ "shape": {
+  "QB": 1,
+  "RB": 2,
+  "WR": 2,
+  "TE": 1,
+  "FLEX": 1,
+  "SUPERFLEX": 0,
+  "BENCH": 4,
+  "K": 1,
+  "DST": 1
+ },
+ "roster": [
+  {
+   "key": "QB301",
+   "name": "Quen One",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 20,
+   "noise": 0.0,
+   "market": 18.0
+  },
+  {
+   "key": "QB302",
+   "name": "Quen Two",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 6,
+   "noise": 0.0,
+   "market": 5.4
+  },
+  {
+   "key": "RB303",
+   "name": "Rae One",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 25,
+   "noise": 0.0,
+   "market": 22.5
+  },
+  {
+   "key": "RB304",
+   "name": "Rae Two",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 15,
+   "noise": 0.0,
+   "market": 13.5
+  },
+  {
+   "key": "RB305",
+   "name": "Rae Three",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 5,
+   "noise": 0.0,
+   "market": 4.5
+  },
+  {
+   "key": "WR306",
+   "name": "Wil One",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 22,
+   "noise": 0.0,
+   "market": 19.8
+  },
+  {
+   "key": "WR307",
+   "name": "Wil Two",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 18,
+   "noise": 0.0,
+   "market": 16.2
+  },
+  {
+   "key": "WR308",
+   "name": "Wil Three",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 7,
+   "noise": 0.0,
+   "market": 6.3
+  },
+  {
+   "key": "WR309",
+   "name": "Wil Four",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 3,
+   "noise": 0.0,
+   "market": 2.7
+  },
+  {
+   "key": "TE310",
+   "name": "Tad One",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 10,
+   "noise": 0.0,
+   "market": 9.0
+  },
+  {
+   "key": "x:K:CCC",
+   "name": "Kip Kicker",
+   "pos": "K",
+   "team": "CCC",
+   "ddf": null,
+   "noise": 0,
+   "market": null,
+   "notEvaluated": true
+  },
+  {
+   "key": "x:DEF:CHI",
+   "name": "Chicago Defense",
+   "pos": "DEF",
+   "team": "CHI",
+   "ddf": null,
+   "noise": 0,
+   "market": null,
+   "notEvaluated": true
+  }
+ ],
+ "candidates": [
+  {
+   "key": "RB311",
+   "name": "Rhett Add",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 11,
+   "noise": 0.0,
+   "market": 9.9
+  },
+  {
+   "key": "x:K:DDD",
+   "name": "Kirk Kicker",
+   "pos": "K",
+   "team": "DDD",
+   "ddf": null,
+   "noise": 0,
+   "market": null,
+   "notEvaluated": true
+  }
+ ],
+ "expect": {
+  "verdicts": {
+   "Rhett Add": "Pick up",
+   "Kirk Kicker": "Not evaluated"
+  },
+  "drops": {
+   "Rhett Add": null
+  },
+  "openSlot": {
+   "Rhett Add": true
+  },
+  "order": [
+   "Rhett Add",
+   "Kirk Kicker"
+  ],
+  "total": {
+   "Rhett Add": 11.0
+  },
+  "starter": {
+   "Rhett Add": 4.0
+  },
+  "slot": {
+   "Rhett Add": "FLEX"
+  },
+  "headline": "Pick up Rhett Add (open roster slot): +4.0 starter value"
+ }
+}

@@ -1,0 +1,181 @@
+{
+ "name": "waiver-no-chart-value",
+ "split": "held-out",
+ "description": "Full roster; the one candidate has a DDF Value but no chart prices him: market shows a dash.",
+ "teams": 12,
+ "alloc": [
+  {
+   "pos": "QB",
+   "lineup": 12,
+   "bench": 15,
+   "rostered": 27
+  },
+  {
+   "pos": "RB",
+   "lineup": 27,
+   "bench": 28,
+   "rostered": 55
+  },
+  {
+   "pos": "WR",
+   "lineup": 33,
+   "bench": 35,
+   "rostered": 68
+  },
+  {
+   "pos": "TE",
+   "lineup": 12,
+   "bench": 6,
+   "rostered": 18
+  }
+ ],
+ "shape": {
+  "QB": 1,
+  "RB": 2,
+  "WR": 2,
+  "TE": 1,
+  "FLEX": 1,
+  "SUPERFLEX": 0,
+  "BENCH": 2,
+  "K": 1,
+  "DST": 1
+ },
+ "roster": [
+  {
+   "key": "QB401",
+   "name": "Quade One",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 20,
+   "noise": 0.0,
+   "market": 18.0
+  },
+  {
+   "key": "RB402",
+   "name": "Rex Run",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 30,
+   "noise": 0.0,
+   "market": 27.0
+  },
+  {
+   "key": "RB403",
+   "name": "Rudy Run",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 12,
+   "noise": 0.0,
+   "market": 10.8
+  },
+  {
+   "key": "WR404",
+   "name": "Wes Wide",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 28,
+   "noise": 0.0,
+   "market": 25.2
+  },
+  {
+   "key": "WR405",
+   "name": "Walt Wide",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 20,
+   "noise": 0.0,
+   "market": 18.0
+  },
+  {
+   "key": "WR406",
+   "name": "Wade Wide",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 8,
+   "noise": 0.0,
+   "market": 7.2
+  },
+  {
+   "key": "WR407",
+   "name": "Wyatt Wide",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 3,
+   "noise": 0.0,
+   "market": 2.7
+  },
+  {
+   "key": "TE408",
+   "name": "Tom Tight",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 15,
+   "noise": 0.0,
+   "market": 13.5
+  },
+  {
+   "key": "TE409",
+   "name": "Tim Tight",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 2,
+   "noise": 0.0,
+   "market": 1.8
+  },
+  {
+   "key": "x:K:EEE",
+   "name": "Kyle K",
+   "pos": "K",
+   "team": "EEE",
+   "ddf": null,
+   "noise": 0,
+   "market": null,
+   "notEvaluated": true
+  },
+  {
+   "key": "x:DEF:DAL",
+   "name": "Dallas Defense",
+   "pos": "DEF",
+   "team": "DAL",
+   "ddf": null,
+   "noise": 0,
+   "market": null,
+   "notEvaluated": true
+  }
+ ],
+ "candidates": [
+  {
+   "key": "RB410",
+   "name": "Nico NoChart",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 13,
+   "noise": 0.0,
+   "market": null
+  }
+ ],
+ "expect": {
+  "verdicts": {
+   "Nico NoChart": "Pick up"
+  },
+  "drops": {
+   "Nico NoChart": "Tim Tight"
+  },
+  "market": {
+   "Nico NoChart": null
+  },
+  "reason_has": {
+   "Nico NoChart": "No market value available."
+  },
+  "order": [
+   "Nico NoChart"
+  ],
+  "headline": "Pick up Nico NoChart, drop Tim Tight: +5.0 starter value",
+  "starter": {
+   "Nico NoChart": 5.0
+  },
+  "total": {
+   "Nico NoChart": 11.0
+  }
+ }
+}
