@@ -8,7 +8,7 @@ the Trade chart average, the card shows the best starting lineup before and afte
   * the market view is the mean of the available compared charts, not DDF Value;
   * toggling a side player recomputes both teams' numbers;
   * "Show lineup details" opens slot tables (before, after, change, starters and bench); closed by default;
-  * a team-value line for both teams sits above the groups;
+  * the roster assessment table for both teams sits above the groups;
   * no sideways scroll, no page errors.
 
 Discrimination: test_guard_fails_on_broken_builds serves finder.js with the two teams' packages swapped, the market view
@@ -55,10 +55,25 @@ EXPECT = """(i) => {
   for (const view of charts.length >= 3 ? ['ddf', 'market'] : ['ddf']) {
     res[view] = {you: [best(mine, view), best(swap(mine, give, get), view)], they: [best(theirs, view), best(swap(theirs, get, give), view)]};
   }
+  const valued = (team, view) => team.filter(r => Number.isFinite(val(r, view)));
+  const cells = [...document.querySelectorAll('#v2FindAssess tbody tr[data-pos] td[data-cell]')].map(td => Number(td.textContent));
+  const totals = [...document.querySelectorAll('#v2FindAssess tbody tr[data-row=total] td[data-cell]')].map(td => Number(td.textContent));
+  const table = cells.length === 32 && totals.length === 4 ? Object.fromEntries(['ddf', 'market'].map((view, v) => [view, Object.fromEntries([['you', mine], ['they', theirs]].map(([who, team], t) => {
+    const at = k => [0, 1, 2, 3].map(pos => cells[pos * 8 + t * 4 + (v * 2) + k]).reduce((n, x) => n + x, 0);
+    return [who, {starters: at(0), bench: at(1), total: totals[t * 2 + v], indTotal: valued(team, view).reduce((n, r) => n + val(r, view), 0)}];
+  }))])) : null;
   const lines = [...li.querySelectorAll('.v2-find-impact-line')].map(p => p.textContent);
-  return {expect: res, lines, tables: li.querySelectorAll('.v2-find-lineup').length, detailsOpen: li.querySelector('.v2-find-impact-details').open,
-    need: [...li.querySelectorAll('.v2-find-need')].map(p => p.textContent), teams: document.querySelectorAll('#v2FindTeams p').length,
+  return {expect: res, table, lines, tables: li.querySelectorAll('.v2-find-lineup').length, detailsOpen: li.querySelector('.v2-find-impact-details').open,
+    need: [...li.querySelectorAll('.v2-find-need')].map(p => p.textContent), teams: document.querySelectorAll('#v2FindAssess tbody tr').length,
     boxes: li.querySelectorAll('input[type=checkbox]:not(:disabled)').length};
+}"""
+
+# Extra unique players for the short side, so both rosters have the starting slots and the assessment table is shown.
+MORE = """(taken) => {
+  const C = window.TradeValueCurveControls;
+  const rows = C.getAllRows().filter(r => r.values && Number.isFinite(r.values.ddf_value) && r.name && !taken.includes(r.name)).sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const counts = new Map(); C.getAllRows().forEach(r => counts.set(r.name, (counts.get(r.name) || 0) + 1));
+  return rows.filter(r => counts.get(r.name) === 1).slice(30, 36).map(r => r.name);
 }"""
 
 import re
@@ -84,9 +99,38 @@ def verify(card, tag, label) -> list[str]:
             wb, wa = card["expect"][view][names[who]]
             if not (close(b, wb) and close(a, wa) and close(d, wa - wb)):
                 errors.append(tag + f"{label}: {who} {name} shows {b} → {a} ({d}); the rows say {wb:.1f} → {wa:.1f}")
+    errors += verify_table(card, tag, label)
     if len(card["lines"]) != 2:
         errors.append(tag + f"{label}: expected a You line and a They line, got {card['lines']}")
     return errors
+
+
+def verify_table(card, tag, label) -> list[str]:
+    """The assessment table's starter / bench / total cells equal the independent lineup computation AND the 'before' number the
+    group card's impact line shows for the same team and view (they must be one number)."""
+    errors = []
+    table = card["table"]
+    if table is None:
+        return [tag + f"{label}: the assessment table is missing or incomplete (needs both rosters at the starting slots)"]
+    for view, name in (("ddf", "DDF Value"), ("market", "Trade chart average")):
+        if view not in card["expect"]:
+            continue
+        for who, prefix in (("you", "You"), ("they", "They")):
+            t = table[view][who]
+            want_start = card["expect"][view][who][0]
+            line = next((l for l in card["lines"] if l.startswith(prefix)), "")
+            m = re.search(re.escape(name) + r" ([\d.]+) → ", line)
+            if not close_cells(t["starters"], want_start):
+                errors.append(tag + f"{label}: table {who} {view} starters {t['starters']:.1f}, independent {want_start:.1f}")
+            if not m or not close_cells(t["starters"], float(m.group(1))):
+                errors.append(tag + f"{label}: table {who} {view} starters {t['starters']:.1f} differ from the impact line {line[:90]!r}")
+            if not close_cells(t["total"], t["indTotal"]) or not close_cells(t["starters"] + t["bench"], t["indTotal"]):
+                errors.append(tag + f"{label}: table {who} {view} total {t['total']:.1f} / starters + bench {t['starters'] + t['bench']:.1f}, independent total {t['indTotal']:.1f}")
+    return errors
+
+
+def close_cells(a, b):
+    return abs(a - b) < 0.3   # up to eight cells each rounded to 0.1
 
 
 def check(page, tag, width) -> list[str]:
@@ -96,7 +140,7 @@ def check(page, tag, width) -> list[str]:
     pick = page.evaluate(PICK)
     for name in pick["mine"]:
         add(page, "Mine", name)
-    for name in pick["theirs"]:
+    for name in pick["theirs"] + page.evaluate(MORE, pick["mine"] + pick["theirs"]):
         add(page, "Theirs", name)
     page.select_option("#v2FindSize", "2")
     page.click("#v2FindGo")
@@ -110,8 +154,8 @@ def check(page, tag, width) -> list[str]:
         if i == 0:
             if card["detailsOpen"]:
                 errors.append(tag + "lineup details are open by default")
-            if card["teams"] < 2:
-                errors.append(tag + "no team-value line for both teams above the groups")
+            if card["teams"] < 6:
+                errors.append(tag + "no assessment table (QB, RB, WR, TE, bench, total) above the groups")
             if "market" not in card["expect"]:
                 errors.append(tag + "market view missing (fewer than 3 charts?): the check proves less")
             if len(card["need"]) != 2:
@@ -182,6 +226,8 @@ class FinderImpactRenderTest(unittest.TestCase):
         broken = {
             "the two teams' packages swapped": js.replace('const leaving = pickRows(who === "mine" ? giveRows : recvRows);', 'const leaving = pickRows(who === "mine" ? recvRows : giveRows);', 1),
             "market view reads DDF Value": js.replace('const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : MARKET_KEY);', "const viewKey = (view, ourKey) => ourKey;", 1),
+            "table total differs from the lineup": js.replace('money(part.lineup.total)) : el("td"', 'money(part.lineup.starterValue)) : el("td"', 1),
+            "table starters read the bench": js.replace("cell(money(posSum(part.lineup.starters, pos, v.key))", "cell(money(posSum(part.lineup.bench, pos, v.key))", 1),
             "numbers not updated after a toggle": js.replace("if (impact) impact.update(giveRows, recvRows);", "if (impact && !impact.done) { impact.done = true; impact.update(giveRows, recvRows); }", 1),
         }
         for name, body in broken.items():

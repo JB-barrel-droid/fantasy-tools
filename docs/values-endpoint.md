@@ -71,3 +71,11 @@ Connector URL: `https://<PROJECT_REF>.supabase.co/functions/v1/mcp`.
 
 Not yet verified (2026-10-24): the deployed function against a real client,
 and `deno check` on `index.ts` (no Deno in the build sandbox).
+
+### Shared state with the site (JEG-1027)
+
+Spec: `design/llm-site-state.md`. Every tool takes an optional `state` (a pasted `ddf-state` block, JSON or site link) that supplies the league; explicit arguments win. Every result ends with a link to the same view on the site (`/#compare-trade?...`, `/#trade-targets?...`, `/#find-trade?...`) and returns the state in `structuredContent.state`. `read_state` resolves a pasted state to players and prices them; `make_state` turns names from the chat into a block and link for the site.
+
+- The function loads the codec `app/v2/ddf-state.js` from `<site>/v2/ddf-state.js` at cold start (published by the v2 build). If that fails, tools answer from their plain arguments and say the pasted state was not read.
+- **Pricing limit:** `get-values` prices only scoring, teams and superflex. A pasted league with a roster shape, position shares, season weeks or advanced settings is priced with the site's default lineup, and the result says so (JEG-1029 tracks pricing the full league).
+- **Site side:** compare links open today (`give`, `get`, `scoring`, `roster`...). `teams`, `mine`, `theirs` and `target` are read by the site in JEG-1026; until then those links open the right tab with the league settings the site already understands.

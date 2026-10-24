@@ -17,6 +17,13 @@ class DdfStateTests(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertTrue(out.stdout.strip().endswith("ok"))
 
+    def test_build_publishes_the_codec(self):
+        # The remote MCP function loads <site>/v2/ddf-state.js at cold start (JEG-1027); if the build
+        # stops copying it, chat tools silently lose the shared state reader.
+        build = (ROOT / "pipelines/build_v2_page.py").read_text()
+        self.assertIn('"ddf-state.js"', build)
+        self.assertTrue((ROOT / "app/v2/ddf-state.js").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -140,7 +140,13 @@ def head_for_v2(html: str, at_root: bool) -> str:
     # v2 has a dark theme: let form controls follow it, and use the v2 nav colour for the browser bar.
     html = html.replace('<meta name="color-scheme" content="light" />', '<meta name="color-scheme" content="light dark" />', 1)
     html = html.replace('<meta name="theme-color" content="#17364c" />', '<meta name="theme-color" content="#142B25" />', 1)
-    return html.replace("</head>", f'  <link rel="canonical" href="{SITE_URL}">\n</head>', 1)
+    # JEG-1028: a machine-readable pointer for AI assistants (what the site is, the MCP server, the skill).
+    return html.replace(
+        "</head>",
+        f'  <link rel="canonical" href="{SITE_URL}">\n'
+        f'  <link rel="alternate" type="text/plain" title="For AI assistants" href="{SITE_URL}llms.txt">\n</head>',
+        1,
+    )
 
 
 # ---------- Research tab (JEG-543) ----------
@@ -298,7 +304,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "finder.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "name-format.js", "v2.js"):
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "name-format.js", "ddf-state.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 
