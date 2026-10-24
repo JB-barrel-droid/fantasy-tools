@@ -79,6 +79,25 @@ STATE = """() => {
 }"""
 
 
+# The 44 px rule (JEG-861), for this tab only: every control inside #v2Waivers that a thumb can reach on a phone.
+SMALL = """() => {
+  const sel = 'a[href], button, input, select, textarea, summary, [role=button], [tabindex]:not([tabindex="-1"])';
+  const out = []; let total = 0;
+  for (const el of document.querySelectorAll('#v2Waivers ' + sel.split(', ').join(', #v2Waivers '))) {
+    if (el.closest('[hidden], [aria-hidden="true"]')) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    if (cs.display === 'inline' && el.tagName === 'A' && el.closest('p, li, .v2-meta')) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    total++;
+    if (r.width >= 43.5 && r.height >= 43.5) continue;
+    out.push(`${el.tagName.toLowerCase()}#${el.id}.${String(el.className).slice(0, 30)} '${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 20)}' ${Math.round(r.width)}x${Math.round(r.height)}`);
+  }
+  return {small: out, total};
+}"""
+
+
 def fill_lists(page, pick):
     page.fill("#v2WaiversMineSearch", "\n".join(pick["roster"]))
     page.wait_for_timeout(300)
@@ -192,6 +211,17 @@ def check(page, tag, width, base) -> list[str]:
         page.keyboard.press("ArrowRight")
         if page.evaluate("() => document.activeElement.closest('th') && document.activeElement.closest('th').dataset.col") != "ddf":
             errors.append(tag + "arrow keys do not move along the header buttons")
+    if phone:
+        page.click("#v2WaiversOut .v2-wv-cards li >> nth=0 >> summary")
+        page.click("#v2WaiversEdit")
+        page.fill("#v2WaiversCandsSearch", pick["cands"][0][:4])
+        page.wait_for_timeout(300)
+        tap = page.evaluate(SMALL)
+        if tap["total"] < 12 or tap["small"]:
+            errors.append(tag + f"controls under 44 px on the Waivers tab ({tap['total']} checked): {tap['small'][:6]}")
+        page.fill("#v2WaiversCandsSearch", "")
+        page.click("#v2WaiversEdit")   # fold the roster again
+        page.click("#v2WaiversOut .v2-wv-cards li >> nth=0 >> summary")
     # a detail opens and shows before / after
     page.click("#v2WaiversOut details.v2-wv-detail >> nth=0 >> summary") if not phone else page.click("#v2WaiversOut .v2-wv-cards li >> nth=0 >> summary")
     page.wait_for_timeout(150)
@@ -310,6 +340,7 @@ class WaiversRenderTests(unittest.TestCase):
             "dashes sorted first": ("waivers.js", js.replace("return nx ? 1 : -1;   // dashes last, whichever way", "return nx ? -1 : 1;", 1), "text/javascript"),
             "settings listener removed": ("waivers.js", js.replace('document.addEventListener("ddf:league-settings-changed", onLeagueSettingsChanged);', "", 1), "text/javascript"),
             "no grid role": ("waivers.js", js.replace('role: "grid", ', "", 1), "text/javascript"),
+            "remove buttons 20 px tall": ("waivers.css", css.replace("#v2Waivers .v2-wv-remove { min-height: 44px; min-width: 44px; padding: 0 8px; }", "#v2Waivers .v2-wv-remove { min-height: 20px; min-width: 20px; padding: 0 2px; }", 1), "text/css"),
             "no verdict text": ("waivers.js", js.replace('"data-verdict": VERDICT_CLASS[r.verdict], text: r.verdict});', '"data-verdict": VERDICT_CLASS[r.verdict]});', 1), "text/javascript"),
         }
         for name, (file, body, kind) in broken.items():
