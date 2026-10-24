@@ -47,3 +47,16 @@ change; no `make sync` (render tests rebuild dist/ in the worktree; generated fi
 
 - Real review rosters and the live site.
 - Compare 1366x768 fit and the a11y suites are expected unchanged (Compare is untouched); see the PR for which render files were run.
+
+### Review follow-up (PR #883 feedback, 2026-10-24)
+
+- test_v2_finder_fit_render now runs both orientations (Yahoo mine / ESPN theirs: no natural group; ESPN mine / Yahoo theirs: natural
+  and force groups, asserted present so the order check cannot go vacuous). The "tier ordering off" mutant is now caught (verified:
+  2 passed). The earlier "pre-existing vacuous guard" finding is fixed here, not left.
+- test_v2_finder_impact_render keeps full rosters (6 extra players for the short side) so the assessment table shows, and compares the
+  table's starters, bench and total per team and view with the independent lineup, with the group card's impact-line "before"
+  number, and with the independent sum of valued players. Two new broken builds (wrong total, starters reading the bench) caught.
+- tests/test_v2_finder_search_unchanged.py: seeded synthetic 9v9 rosters (LCG seed 7), 3-for-3 (92 trades, 27 groups) and 2-for-2
+  (12 trades, 7 groups); sha256 of every trade and group (members, edge, score, order) from origin/main equals this branch's. The
+  "221-trade" fixture quoted from the JEG-972 entry was not kept; these fixtures are what was compared. 3 mutants caught.
+- Waterfall short-viewport guard still fails on clean origin/main; untouched.
