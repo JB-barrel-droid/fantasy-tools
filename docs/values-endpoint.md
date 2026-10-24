@@ -117,9 +117,9 @@ The site's `finder.js` can load the same logic later.
 
 1. **Arbitrage**: user receives more DDF value than sent.
 2. **Perceived fairness**: other team receives >= what it sends on market value.
-3. **User lineup improves**: user's starting lineup improves on DDF value.
-4. **Their lineup improves**: other team's starting lineup improves on market value.
-5. **Position protection**: no position the other team gives up gets meaningfully weaker in starters.
+3. **User lineup improves**: user's starting lineup strictly improves on DDF value (> 0, not break-even). (Jeremy 2026-10-24.)
+4. **Their lineup improves**: other team's starting lineup strictly improves on market value (> 0). (Jeremy 2026-10-24.)
+5. **Position protection**: other team's resulting starting lineup total market value must not decrease. Empty slots filled at replacement level (0), so a real hole shows as a value loss. Per-position before/after starters are display-only, not pass/fail. (Jeremy 2026-10-24: dropped per-position 15% weaker test.)
 6. **Depth**: neither team lacks healthy relevant players for starting slots plus backups at RB/WR.
 7. **Roster space**: a team taking more players than it sends must have dead weight to drop.
 8. **QB kept**: both teams keep a QB.
@@ -145,9 +145,9 @@ once. Output includes the user's lineup after the package.
 | `minMarketNet` | 0 | Minimum market-value gain for the other team |
 | `minUserLineupGain` | 0 | Minimum user lineup improvement |
 | `minTheirLineupGain` | 0 | Minimum their lineup improvement |
-| `positionWeakerThreshold` | 0.15 | Starter group drop fraction = "meaningfully weaker" |
-| `depthPlayerCutoff` | 0.5 | Minimum DDF value for a player to count as depth |
-| `deadWeightCutoff` | 0.5 | Maximum DDF value for a player to be considered droppable |
+| `positionWeakerThreshold` | 0.15 | _(Unused, kept for compat. Per-position test removed 2026-10-24.)_ |
+| `depthPlayerCutoff` | 0.5 | Minimum DDF value for a player to count as depth _(pending Jeremy's answer)_ |
+| `deadWeightCutoff` | 0.5 | Maximum DDF value for a player to be considered droppable _(pending Jeremy's answer)_ |
 | `minRbBackups` | 1 | Minimum healthy RB backups beyond starters |
 | `minWrBackups` | 1 | Minimum healthy WR backups beyond starters |
 | `guardrails` | `[]` | User-defined position protections |

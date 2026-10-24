@@ -64,8 +64,8 @@ export interface ViabilityConfig {
   minUserLineupGain: number;
   /** Minimum market lineup improvement for the other team. Default 0. */
   minTheirLineupGain: number;
-  /** Starter value drop threshold: "meaningfully weaker" if starter group at a position
-   *  drops by more than this fraction of the position's starter value. Default 0.15 (15%). */
+  /** (Removed: per-position weaker threshold replaced by total lineup check.
+   *  Kept as unused field for config compat; ignored by checks.) */
   positionWeakerThreshold: number;
   /** Minimum value for a player to count as real depth. Default 0.5 (DDF points). */
   depthPlayerCutoff: number;
@@ -362,8 +362,8 @@ export function runViabilityChecks(
       : `Looks lopsided to them (${theirMarketNet.toFixed(1)} market value)`,
   });
 
-  // 3. User's starting lineup improves on DDF value.
-  const userLineupPass = userLineupDelta >= cfg.minUserLineupGain;
+  // 3. User's starting lineup improves on DDF value (strictly > 0; Jeremy 2026-10-24).
+  const userLineupPass = userLineupDelta > cfg.minUserLineupGain;
   checks.push({
     name: "user_lineup_improves",
     passed: userLineupPass,
@@ -372,8 +372,8 @@ export function runViabilityChecks(
       : `Your lineup ${userLineupDelta >= 0 ? "doesn't improve" : "gets weaker by " + Math.abs(userLineupDelta).toFixed(1)}`,
   });
 
-  // 4. Other team's starting lineup improves on market value.
-  const theirLineupPass = theirLineupDelta >= cfg.minTheirLineupGain;
+  // 4. Other team's starting lineup improves on market value (strictly > 0; Jeremy 2026-10-24).
+  const theirLineupPass = theirLineupDelta > cfg.minTheirLineupGain;
   checks.push({
     name: "their_lineup_improves",
     passed: theirLineupPass,
@@ -382,12 +382,13 @@ export function runViabilityChecks(
       : `Doesn't improve their lineup (${theirLineupDelta.toFixed(1)} market value)`,
   });
 
-  // 5. Position protection: no position they give up gets meaningfully weaker.
-  const positionsTheyGiveUp = [...new Set(userGets.map((r) => r.pos))];
-  let posProtectionPass = true;
-  const posProtectionDetails: string[] = [];
+  // 5. Position protection: their resulting starting lineup total market value
+  //    must not decrease. Empty slots are filled at replacement level (0), so a
+  //    real hole shows up as a value loss. Per-position before/after is display
+  //    only, not a pass/fail gate. (Jeremy 2026-10-24: dropped per-position 15%
+  //    weaker test; focus on total starting lineup market value.)
 
-  // Build their position before/after for every position
+  // Build their position before/after for every position (display only)
   const theirPosBefore: Record<string, { starters: string[]; value: number }> = {};
   const theirPosAfter: Record<string, { starters: string[]; value: number }> = {};
   for (const pos of POSITION_SLOTS) {
@@ -397,24 +398,31 @@ export function runViabilityChecks(
     theirPosAfter[pos] = { starters: after.starters.map((r) => r.name), value: after.value };
   }
 
-  for (const pos of positionsTheyGiveUp) {
-    if (!POSITION_SLOTS.includes(pos as typeof POSITION_SLOTS[number])) continue;
-    const before = theirPosBefore[pos];
-    const after = theirPosAfter[pos];
-    if (before.value > 0) {
-      const drop = (before.value - after.value) / before.value;
-      if (drop > cfg.positionWeakerThreshold) {
-        posProtectionPass = false;
-        posProtectionDetails.push(`Weakens their ${pos} starters by ${(drop * 100).toFixed(0)}%`);
-      }
-    }
+  // Total starting lineup market value check
+  const theirPickedAfter = pickStarters(theirAfterM, shape, "_market");
+  const emptySlots = Object.entries(theirPickedAfter.empty);
+  let posProtectionPass: boolean;
+  let posProtectionDetail: string;
+
+  if (emptySlots.length > 0) {
+    // Trade leaves them unable to fill starting slots
+    posProtectionPass = false;
+    const slotNames = emptySlots.map(([slot, count]) => `${count} ${slot}`).join(", ");
+    posProtectionDetail = `Trade leaves them unable to fill starting slots: ${slotNames}`;
+  } else if (theirLineupAfterM < theirLineupBeforeM - 0.05) {
+    // Their total starting lineup value drops
+    posProtectionPass = false;
+    const drop = theirLineupBeforeM - theirLineupAfterM;
+    posProtectionDetail = `Their starting lineup drops ${drop.toFixed(1)} market value`;
+  } else {
+    posProtectionPass = true;
+    posProtectionDetail = "Their starting lineup holds or improves on market value";
   }
+
   checks.push({
     name: "position_protection",
     passed: posProtectionPass,
-    detail: posProtectionPass
-      ? "No position they give up gets meaningfully weaker"
-      : posProtectionDetails.join("; "),
+    detail: posProtectionDetail,
   });
 
   // 6. Depth: neither team lacks enough healthy relevant players.
@@ -528,8 +536,9 @@ export function runViabilityChecks(
   // --- Label ---
   let label: ViabilityResult["label"] = null;
   if (viable) {
-    // High: a position they give up actually gets better AND their lineup clearly improves
-    const posGetsStronger = positionsTheyGiveUp.some((pos) => {
+    // High: a position they traded from actually gets better AND their lineup clearly improves
+    const positionsTheyTraded = [...new Set(userGets.map((r) => r.pos))];
+    const posGetsStronger = positionsTheyTraded.some((pos) => {
       if (!POSITION_SLOTS.includes(pos as typeof POSITION_SLOTS[number])) return false;
       return (theirPosAfter[pos]?.value ?? 0) > (theirPosBefore[pos]?.value ?? 0) + 0.05;
     });

@@ -187,14 +187,13 @@ test("NEGATIVE: fails when their lineup gets weaker on market value", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Check 5: Position protection
+// Check 5: Position protection (total starting lineup market value)
 // ---------------------------------------------------------------------------
-console.log("\n--- Check 5: Position protection ---");
+console.log("\n--- Check 5: Position protection (total lineup) ---");
 
-test("passes when position they give up does not get meaningfully weaker", () => {
+test("passes when their total starting lineup holds or improves", () => {
   // They give their BN1 (RB, bench-tier, not a starter) and get a WR.
-  // Their RB starters (T-RB1, T-RB2) are untouched.
-  // Use a simple swap where the user gives a low-value WR for their low-value bench RB.
+  // Their starting lineup is unchanged -> total value holds.
   const result = runViabilityChecks(
     userRoster, theirRoster,
     [userRoster[7]], // U-WR4 ddf=12, market=12
@@ -202,19 +201,46 @@ test("passes when position they give up does not get meaningfully weaker", () =>
     SHAPE,
   );
   assert.ok(findCheck(result, "position_protection").passed,
-    "bench RB swap should not weaken their RB starters: " + findCheck(result, "position_protection").detail);
+    "bench RB swap should not hurt their total lineup: " + findCheck(result, "position_protection").detail);
 });
 
-test("NEGATIVE: fails when a position they give up creates a hole", () => {
-  // They give both RB1 and RB2 (their starting RBs), get only WRs
+test("NEGATIVE: fails when trade creates an unfillable starting slot", () => {
+  // Tiny roster: they have exactly 1 QB and we take it, giving them a WR.
+  // After: 0 QBs -> unfillable QB slot.
+  const tinyTheir = [
+    makePlayer(8001, "T-QB1", "QB", 20, c(20)),
+    makePlayer(8002, "T-RB1", "RB", 18, c(18)),
+    makePlayer(8003, "T-RB2", "RB", 15, c(15)),
+    makePlayer(8004, "T-RB3", "RB", 10, c(10)),
+    makePlayer(8005, "T-WR1", "WR", 17, c(17)),
+    makePlayer(8006, "T-WR2", "WR", 14, c(14)),
+    makePlayer(8007, "T-WR3", "WR", 11, c(11)),
+    makePlayer(8008, "T-WR4", "WR", 8, c(8)),
+    makePlayer(8009, "T-TE1", "TE", 12, c(12)),
+  ];
+  const result = runViabilityChecks(
+    userRoster, tinyTheir,
+    [userRoster[7]], // U-WR4 (give them a WR)
+    [tinyTheir[0]], // Take their only QB
+    SHAPE,
+  );
+  const ch = findCheck(result, "position_protection");
+  assert.ok(!ch.passed, "should fail when trade creates an unfillable starting slot: " + ch.detail);
+  assert.ok(ch.detail.includes("unable to fill"), "detail should mention unfillable slots: " + ch.detail);
+});
+
+test("NEGATIVE: fails when their total starting lineup value drops", () => {
+  // They give both RB1 and RB2 (their top starters), get only low-value WRs.
+  // After: they still fill all slots but with much weaker players -> total drops.
   const bigUser = [...userRoster, makePlayer(9901, "X-WR5", "WR", 20, c(20))];
   const result = runViabilityChecks(
     bigUser, theirRoster,
-    [bigUser[4], bigUser[5]], // U-WR1, U-WR2
-    [theirRoster[1], theirRoster[2]], // T-RB1, T-RB2 (their starters)
+    [bigUser[4], bigUser[5]], // U-WR1(mkt=24), U-WR2(mkt=21) — they get these
+    [theirRoster[1], theirRoster[2]], // T-RB1(mkt=27), T-RB2(mkt=22) — they lose these
     SHAPE,
   );
-  assert.ok(!findCheck(result, "position_protection").passed, "should fail when RB starters gutted");
+  const ch = findCheck(result, "position_protection");
+  assert.ok(!ch.passed, "should fail when their total starting lineup drops: " + ch.detail);
 });
 
 // ---------------------------------------------------------------------------
