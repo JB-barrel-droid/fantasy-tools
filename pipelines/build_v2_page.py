@@ -140,7 +140,13 @@ def head_for_v2(html: str, at_root: bool) -> str:
     # v2 has a dark theme: let form controls follow it, and use the v2 nav colour for the browser bar.
     html = html.replace('<meta name="color-scheme" content="light" />', '<meta name="color-scheme" content="light dark" />', 1)
     html = html.replace('<meta name="theme-color" content="#17364c" />', '<meta name="theme-color" content="#142B25" />', 1)
-    return html.replace("</head>", f'  <link rel="canonical" href="{SITE_URL}">\n</head>', 1)
+    # JEG-1028: a machine-readable pointer for AI assistants (what the site is, the MCP server, the skill).
+    return html.replace(
+        "</head>",
+        f'  <link rel="canonical" href="{SITE_URL}">\n'
+        f'  <link rel="alternate" type="text/plain" title="For AI assistants" href="{SITE_URL}llms.txt">\n</head>',
+        1,
+    )
 
 
 # ---------- Research tab (JEG-543) ----------
