@@ -1790,6 +1790,36 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-list li.v2-find-group[data-find-fit="natural"] .v2-find-fit b { color: var(--v2-action-strong); }
 .v2-find-list li.v2-find-group[data-find-fit="force"] .v2-find-fit b { color: var(--v2-older); }
 
+/* ===== Season-value notice in the top bar ===========================================================================
+   A slim row under the tab row. On desktop it takes the 18 px the nav row gives up (46 + 18 = the old 64 px), so the
+   header is the same height shown or dismissed. The full list opens as an overlay under the bar, so it adds no height.
+   On a phone it is one truncated line with 44 px More and Dismiss buttons. */
+.v2-nav { position: relative; }
+.v2-topnote { color: rgba(255,255,255,.88); font-size: 12px; line-height: 18px; }
+.v2-topnote[hidden] { display: none; }
+.v2-topnote-inner { max-width: 1440px; margin: 0 auto; padding: 0 48px; display: flex; align-items: center; gap: 8px; height: 18px; }
+.v2-topnote-text { margin: 0; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-topnote-more, .v2-topnote-close { background: none; border: 0; color: #fff; font: inherit; font-size: 12px; line-height: 18px; height: 18px; padding: 0 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.v2-topnote-more { text-decoration: underline; text-underline-offset: 2px; }
+.v2-topnote-close { padding: 0 4px; }
+.v2-topnote .v2-topnote-more:focus-visible, .v2-topnote .v2-topnote-close:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.v2-nav.has-notice > .v2-nav-inner { min-height: 46px; }
+.v2-topnote-detail { position: absolute; left: 0; right: 0; top: 100%; z-index: 40; background: var(--v2-nav); color: #fff; border-top: 1px solid rgba(255,255,255,.18); box-shadow: 0 8px 20px rgba(0,0,0,.25); padding: 12px 48px 14px; font-size: 14px; line-height: 1.45; }
+.v2-topnote-detail[hidden] { display: none; }
+.v2-topnote-detail > * { max-width: 1344px; margin-left: auto; margin-right: auto; }
+.v2-topnote-detail p { margin: 0 auto 6px; }
+.v2-topnote-detail ul { margin: 0 auto; padding-left: 20px; }
+@media (min-width: 1024px) and (max-width: 1279px) { .v2-topnote-inner, .v2-topnote-detail { padding-left: 24px; padding-right: 24px; } }
+@media (max-width: 767px), (max-width: 932px) and (max-height: 500px) {
+  .v2-topnote-inner { padding: 0 16px; height: auto; min-height: 44px; gap: 0; }
+  .v2-topnote-text { flex: 1 1 0; }
+  .v2-topnote-more, .v2-topnote-close { min-width: 44px; height: 44px; font-size: 13px; }
+  .v2-nav.has-notice > .v2-nav-inner { min-height: 0; }
+  .v2-topnote-detail { padding: 12px 16px 14px; max-height: calc(100vh - 120px); overflow-y: auto; }
+}
+@media (max-width: 767px) { .v2-nav.is-open .v2-tabs { max-height: calc(100vh - 116px); } }
+/* ===== end season-value notice ==================================================================================== */
+
 /* JEG-1021: Your league (any number of named teams), the team summary and the trade opportunities table. */
 .v2-lg-toolbar { align-items: center; }
 .v2-lg-toolbar .v2-btn, .v2-lg-actions .v2-btn, .v2-lg-filters .v2-btn { min-height: 44px; }
