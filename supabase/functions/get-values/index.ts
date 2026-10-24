@@ -20,6 +20,8 @@ const PAGE_URL = `${SITE_ORIGIN}/`;
 const VALUE_MODEL_URL = `${SITE_ORIGIN}/assets/value-model.js`;
 const LINEUP_PARAMS_URL = `${SITE_ORIGIN}/assets/lineup-parameters.json`;
 
+import { type League, type LeagueInputs, type LineupDefaults, leagueKey, mapLeague } from "./league.ts";
+
 // --- In-memory cache (lives for the function instance's lifetime) ----------
 
 interface CachedBundle {
@@ -193,12 +195,9 @@ async function loadBundle(): Promise<CachedBundle> {
 }
 
 // Build the pipeline input for the given settings.
-function buildPipelineInput(
-  bundle: CachedBundle,
-  scoring: string,
-  teams: number,
-  superflex: number,
-) {
+function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
+  const { scoring, teams } = m;
+  const superflex = m.setting.superflex;
   // deno-lint-ignore no-explicit-any
   const detail = bundle.detail as any;
   const players = bundle.players;
@@ -351,31 +350,11 @@ function buildPipelineInput(
     // deno-lint-ignore no-explicit-any
     const lp = bundle.lineupConfig as any;
     const d = lp.defaults || {};
-    resolvedLineup = ValueModel.resolveLineupParameters(lp, {
-      objective: d.objective || "season",
-      injury_history: d.injury_history || "recent",
-      league_weeks: {
-        regular_season_end: d.league_weeks?.regular_season_end ?? 14,
-        playoff_weeks: [...(d.league_weeks?.playoff_weeks || [15, 17])],
-      },
-      projection_confidence: d.projection_confidence ?? 1.0,
-      content_week: null,
-    });
+    resolvedLineup = ValueModel.resolveLineupParameters(lp, m.lineupArgs);
   }
 
-  // Pipeline setting.
-  const setting = {
-    teams,
-    // Must match DEFAULT_ROSTER (curve-widget.js) and SAVED_SETUP_SHAPE
-    // (value-model.js): QB:1, RB:2, WR:2, TE:1, BENCH:7.
-    slots: { QB: 1, RB: 2, WR: 2, TE: 1 },
-    flex: 1,
-    superflex,
-    bench_per_team: 7,
-    bench_share: 0.15,
-    bench_share_override: null,
-    position_shares: null,
-  };
+  // JEG-1031: the pipeline setting is the mapped league (roster shape, shares, bench override).
+  const setting = m.setting;
 
   return {
     setting,
@@ -398,6 +377,7 @@ function formatResponse(
   scoring: string,
   teams: number,
   superflex: number,
+  custom: string[] = [],
 ) {
   const rows = pipeline.rows || {};
   const values: Array<{
@@ -435,6 +415,7 @@ function formatResponse(
     attribution: `Data Driven Football — ${SITE_ORIGIN}/`,
     as_of: (meta as Record<string, string>).as_of || null,
     setting: { scoring, teams, superflex },
+    league_custom: custom,
     players: values,
     sources_included: Object.keys(pipeline.sources || {}).filter(
       (k: string) => pipeline.sources[k]?.included !== false,
@@ -473,8 +454,13 @@ function corsHeaders(req: Request): Record<string, string> {
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // requests per window
 const RATE_WINDOW_MS = 60_000; // 1 minute
+// JEG-1031: a custom league is a fresh engine run (about 0.8 s warm), so it gets a tighter budget.
+const COMPUTE_RATE_LIMIT = 10;
+// Answers kept in memory only: a few entries, the same 5-minute TTL. Nothing is written anywhere.
+const ANSWER_CACHE_MAX = 6;
+const answerCache = new Map<string, { at: number; body: unknown }>();
 
-function checkRate(ip: string): boolean {
+function checkRate(ip: string, limit = RATE_LIMIT): boolean {
   const now = Date.now();
   let bucket = rateBuckets.get(ip);
   if (!bucket || now >= bucket.resetAt) {
@@ -482,7 +468,7 @@ function checkRate(ip: string): boolean {
     rateBuckets.set(ip, bucket);
   }
   bucket.count++;
-  return bucket.count <= RATE_LIMIT;
+  return bucket.count <= limit;
 }
 
 // --- Serve ------------------------------------------------------------------
@@ -505,22 +491,31 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Parse parameters from GET query or POST body.
+    // Parse parameters from GET query or POST body. `league` is the normalized DDF league section
+    // (roster, shares, bso, inj, conf, weeks); scoring, teams and superflex still work on their own.
     let scoring = "ppr";
     let teams = 12;
     let superflex = 0;
+    let league: League = {};
+    let rawLeague: unknown = null;
 
     if (req.method === "POST") {
       const body = await req.json();
       scoring = body.scoring || scoring;
       teams = Number(body.teams) || teams;
       superflex = Number(body.superflex) || 0;
+      rawLeague = body.league ?? null;
     } else {
       const url = new URL(req.url);
       scoring = url.searchParams.get("scoring") || scoring;
       teams = Number(url.searchParams.get("teams")) || teams;
       superflex = Number(url.searchParams.get("superflex")) || 0;
+      rawLeague = url.searchParams.get("league");
     }
+    if (typeof rawLeague === "string" && rawLeague.length <= 2000) {
+      try { rawLeague = JSON.parse(rawLeague); } catch { rawLeague = null; }
+    }
+    if (rawLeague && typeof rawLeague === "object" && !Array.isArray(rawLeague)) league = rawLeague as League;
 
     // Validate.
     const validScorings = ["standard", "half_ppr", "ppr"];
@@ -537,18 +532,41 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: cors },
       );
     }
-    superflex = superflex ? 1 : 0;
+    // The top-level fields are the base; the league section adds what they cannot say.
+    const merged: League = { ...league, scoring, teams };
+    if (superflex && merged.roster?.SUPERFLEX === undefined) {
+      merged.roster = { ...(merged.roster ?? {}), SUPERFLEX: 1 };
+    }
 
-    // Load bundle and run pipeline.
+    // Load bundle, map the league, and run the pipeline (answers are kept in memory only).
     const bundle = await loadBundle();
-    const input = buildPipelineInput(bundle, scoring, teams, superflex);
-    // deno-lint-ignore no-explicit-any
-    const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
-    const response = formatResponse(
-      pipeline, input.players, bundle.meta, scoring, teams, superflex,
+    const mapped = mapLeague(
+      merged,
+      bundle.lineupConfig as { defaults?: LineupDefaults; content_week?: number | null } | null,
     );
+    const key = leagueKey(mapped);
+    let response = answerCache.get(key);
+    if (!response || Date.now() - response.at > CACHE_TTL_MS) {
+      if (mapped.custom.length && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
+        return Response.json(
+          { error: "rate limited", retry_after_seconds: 60 },
+          { status: 429, headers: cors },
+        );
+      }
+      const input = buildPipelineInput(bundle, mapped);
+      // deno-lint-ignore no-explicit-any
+      const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
+      response = {
+        at: Date.now(),
+        body: formatResponse(
+          pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, mapped.custom,
+        ),
+      };
+      if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
+      answerCache.set(key, response);
+    }
 
-    return Response.json(response, {
+    return Response.json(response.body, {
       status: 200,
       headers: { ...cors, "Cache-Control": "public, max-age=300" },
     });

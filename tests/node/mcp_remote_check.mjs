@@ -15,8 +15,10 @@ const players = [
   { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver" },
 ];
 let calls = [];
-const stub = async (scoring, teams, superflex) => {
+let leagues = [];
+const stub = async (scoring, teams, superflex, league) => {
   calls.push([scoring, teams, superflex]);
+  leagues.push(league);
   return {
     attribution: "Data Driven Football", as_of: "2026-10-24",
     setting: { scoring, teams, superflex }, players,
@@ -125,10 +127,11 @@ assert.deepEqual(calls.at(-1), ["standard", 8, 1]);
 await callD("get_values", { state: pasted, scoring: "ppr", limit: 1 });
 assert.deepEqual(calls.at(-1), ["ppr", 8, 1]);
 
-// A league the endpoint cannot price is said out loud, so numbers are never silently different.
+// JEG-1031: a league with shares is sent to the endpoint, not noted as unpriced.
 const custom = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, shares: { QB: 0.2, RB: 0.35, WR: 0.35, TE: 0.1 } } });
 r = await callD("get_values", { state: custom, limit: 1 });
-assert.match(r.result.content[0].text, /not applied here/);
+assert.doesNotMatch(r.result.content[0].text, /not applied here/);
+assert.deepEqual(leagues.at(-1), { shares: { QB: 0.2, RB: 0.35, WR: 0.35, TE: 0.1 } });
 assert.equal((await callD("get_values", { limit: 1 })).result.content[0].text.includes("not applied here"), false);
 
 // Work carried in a state survives a tool call that does not touch it.
@@ -194,16 +197,23 @@ assert.doesNotMatch(t, /around 70|45\+|30-45|15-30/);
 assert.match(t, /no fixed maximum/);
 r = await call("explain", { topic: "how_to_trade" });
 assert.match(r.result.content[0].text, /rule of thumb/);
-// JEG-1033: a league the endpoint fully prices must not trigger the "numbers can differ" note. make_state's
-// own output (roster has only SUPERFLEX) used to, so every round trip through the chat warned for nothing.
+// JEG-1033 / JEG-1031: a pasted league is priced by the endpoint, so no "numbers can differ" note, and the
+// settings beyond scoring/teams/superflex go to get-values as `league`.
 const sfOnly = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { SUPERFLEX: 1 } } });
 r = await callD("get_values", { state: sfOnly, limit: 1 });
-assert.doesNotMatch(r.result.content[0].text, /not applied here/);
+assert.doesNotMatch(r.result.content[0].text, /not applied here|default lineup/);
+assert.equal(leagues.at(-1), undefined);
 const ms = await callD("make_state", { scoring: "ppr", superflex: true, mine: "Josh Allen" });
 r = await callD("read_state", { state: ms.result.content[0].text });
-assert.doesNotMatch(r.result.content[0].text, /not applied here/);
-// A full roster shape is still flagged (it may differ from the default lineup).
-const fullRoster = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 6 } } });
-r = await callD("get_values", { state: fullRoster, limit: 1 });
-assert.match(r.result.content[0].text, /not applied here/);
+assert.doesNotMatch(r.result.content[0].text, /not applied here|default lineup/);
+const customLeague = { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 1, BENCH: 6 },
+  shares: { QB: 0.2, RB: 0.4, WR: 0.3, TE: 0.1 }, bso: 0.2, inj: "all", conf: 1.5, weeks: { regend: 13, playoffs: [14, 16] } };
+r = await callD("get_values", { state: codec.encodeBlock({ league: customLeague }), limit: 1 });
+assert.doesNotMatch(r.result.content[0].text, /not applied here|default lineup/);
+assert.deepEqual(calls.at(-1), ["ppr", 12, 1]);
+assert.deepEqual(leagues.at(-1), { roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 },
+  shares: customLeague.shares, bso: 0.2, inj: "all", conf: 1.5, weeks: customLeague.weeks });
+// An explicit argument still wins over the pasted state for the top-level settings.
+r = await callD("get_values", { state: codec.encodeBlock({ league: customLeague }), superflex: false, limit: 1 });
+assert.deepEqual(calls.at(-1), ["ppr", 12, 0]);
 console.log("ok");
