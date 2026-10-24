@@ -596,6 +596,26 @@
     input.focus();
     if (input.scrollIntoView) input.scrollIntoView({block: "center"});
   }
+  // JEG-988: the trade charts the engine says are available, and only with enough of them is there a Trade chart average.
+  function marketKeys() {
+    const C = engine();
+    const info = C && C.getSourceInfo ? C.getSourceInfo() : [];
+    const available = new Set(info.filter(item => item.available).map(item => item.key));
+    const keys = CHART_KEYS.filter(key => available.has(key));
+    return keys.length >= MIN_CHARTS ? keys : null;
+  }
+  // The two scores the search uses, shown on each roster row: DDF Value (fundamental, what you win by) and the Trade
+  // chart average (market, what the other manager sees). A missing score reads "no value", never 0. Chips are the only
+  // text that changes with the engine; they are read from the rows, no math of their own.
+  function scoreChips(player, byKey, charts) {
+    const row = byKey.get(player.key);
+    if (isNotEvaluated(player) || !row) return null;
+    const ddf = row.values ? row.values[OUR_KEY] : null;
+    const avg = charts ? withChartAverage([row], charts)[0].values[MARKET_KEY] : null;
+    const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind, title: label},
+      el("span", {class: "v2-find-chip-value", text: finite(value) ? value.toFixed(1) : "no value"}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
+    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", charts ? "Trade chart avg" : "Trade chart avg (too few charts)", avg));
+  }
   const put = (box, ...kids) => box.append(...kids.filter(Boolean));
   const slotChip = slot => el("span", {class: "v2-find-slot", "data-slot": slotWord(slot), text: slotWord(slot)});
   const matchedList = added => el("ul", {class: "v2-find-matched"}, ...added.map(p =>
@@ -729,6 +749,8 @@
       searchWrap, help, result, list, moveSel, importBox());
     const render = () => {
       clear.hidden = !S[side].length;
+      const byKey = rowMap();
+      const charts = marketKeys();
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
         remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); render(); updateArrange(); clearOutput(); });
@@ -738,7 +760,7 @@
         const move = el("button", {type: "button", class: "v2-link v2-find-move", "aria-label": `Move ${p.name} to the other team`, text: "Move"});
         move.addEventListener("click", () => moveKeys([p.key]));
         const badge = isNotEvaluated(p) ? el("span", {class: "v2-find-noteval", text: "Not evaluated"}) : null;
-        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}), badge), move, remove);
+        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}), badge, scoreChips(p, byKey, charts)), move, remove);
       }));
     };
     renders[side] = render;
