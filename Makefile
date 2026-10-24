@@ -537,6 +537,7 @@ test-core:
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
 	python3 -m unittest tests.test_bench_share_readout_matches_reference
+	python3 -m unittest tests.test_lineup_content_week_advance
 	python3 -m unittest tests.test_position_weights_setter
 	python3 -m unittest tests.test_ddf_composite_value
 	python3 -m unittest tests.test_view_switch_hidden_defaults
