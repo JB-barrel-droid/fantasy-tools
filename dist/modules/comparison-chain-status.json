@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-24T12:14:29.878766+00:00",
+  "run_at": "2026-10-24T13:09:30.184663+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -15,10 +15,8 @@
   ],
   "success": false,
   "outcome": "failed",
-  "held": [
-    "cbsros"
-  ],
-  "hold_severity": "amber",
+  "held": [],
+  "hold_severity": "none",
   "list_changes": {
     "fantasycalc": [
       "fantasycalc-full-12-qb1-section full_12_qb1/QB list 33 -> 34: dropped none; added jameis winston",
@@ -29,21 +27,7 @@
       "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan"
     ]
   },
-  "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, DJ Giddens, Eli Stowers, Kaleb Johnson); parse notes: RB: 3 players listed with another position i",
-      "hold_severity": "amber",
-      "week": 7
-    }
-  },
+  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -162,9 +146,6 @@
       "lagging_one_week": false
     }
   },
-  "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored"
-  },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
@@ -178,6 +159,6 @@
       "Makefile:537: test-core"
     ],
     "detail": "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; AssertionError: False is not true : {'QB': 0.12971478703486694, 'RB': 0.15589395108251722, 'WR': 0.16861501976167298, 'TE': 0.027716467089886447, 'overall': 0.15290218207857573, 'override': False, 'overrideValue': None, 'fillInShare': 0.06178000948202819, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}",
-    "recorded_at": "2026-10-24T12:36:34.783869+00:00"
+    "recorded_at": "2026-10-24T13:31:46.471525+00:00"
   }
 }
