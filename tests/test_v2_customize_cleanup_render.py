@@ -5,8 +5,9 @@ Audit: ~/code/fantasy-tools-selfhost-notes/customize-toggle-audit.md (8 defects)
   D1  Done applies exactly what the dialog shows. A draft with no engine series (Trade charts "Select none", DDF Value
       alone) is refused with "Pick at least one source" and nothing changes.
   D2  The last usable DDF input is locked on; a held input never counts, so every usable input cannot be unticked.
-  D3  A DDF version with no source on says so ("No sources are turned on ..."), never "No source prices this player",
-      and the dialog warns on its row.
+  D3  "DDF Value: charts only" ignores the DDF blend selection (JEG-930, Jeremy 2026-10-23): a blend edit never blanks it
+      and its dialog row never warns "No sources on in the DDF blend". (The old D3, "a version with no source on says so",
+      could only be reached through that bug: the engine refuses an empty selection and locks the last usable input.)
   D4  The "On the chart" line says when the DDF blend is customized and when the chart legend hid a line; the dialog
       counter names a legend hide; Reset to default clears it.
   D5  No raw pipeline text ("held: fidelity: scrape_validity") anywhere in the dialog; a held input says "Paused this week".
@@ -40,6 +41,8 @@ from tests._holds import pin_holds_in_dist  # noqa: E402
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
+WIDGET_JS = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
+MODEL_JS = ROOT / "app" / "trade-value-chart" / "assets" / "value-model.js"
 ACTIVE = "() => window.TradeValueV2.shown()"
 RAW_TEXT = re.compile(r"scrape_validity|fidelity:|held:|validation|divergence:|_vorp|_adj_values", re.I)
 
@@ -77,10 +80,16 @@ def _served():
                 server.shutdown()
 
 
-def _open(browser, base, width, height=900, js=None, css=None):
+def _serve_body(body, route):
+    route.fulfill(status=200, content_type="text/javascript", body=body)
+
+
+def _open(browser, base, width, height=900, js=None, css=None, assets=None):
     page = browser.new_page(viewport={"width": width, "height": height})
     page.errors = []
     page.on("pageerror", lambda error: page.errors.append(str(error)))
+    for name, body in (assets or {}).items():   # engine files served with one fault, e.g. {"value-model.js": ...}
+        page.route(f"**/assets/{name}*", functools.partial(_serve_body, body))
     if js is not None:
         page.route("**/v2/v2.js*", lambda route: route.fulfill(status=200, content_type="text/javascript", body=js))
     if css is not None:
@@ -158,25 +167,36 @@ def check_d2_last_input(page):
     return errors
 
 
-def check_d3_no_inputs_reason(page):
+CHARTS_COUNT = """() => window.TradeValueCurveControls.getRows()
+  .filter(r => (r.ddf_value_charts != null) || (r.values && r.values.ddf_value_charts != null)).length"""
+
+
+def check_d3_charts_only_survives_blend_edit(page):
+    """JEG-930 (Jeremy, 2026-10-23): 'DDF Value: charts only' ignores the DDF blend selection, so editing the blend
+    never blanks it and its dialog row never says 'No sources on in the DDF blend'."""
     errors = []
+    before = page.evaluate(CHARTS_COUNT)
+    if not before:
+        return ["D3: the pinned fixture gives 'DDF Value: charts only' no values before any edit, so the check proves nothing"]
     _customize(page)
     _tab(page, "blend")
-    for key in ("espn", "cbsros", "razzball"):
-        box = page.query_selector(f"#v2Popover [data-ddf-input='{key}']")
-        if box and box.is_checked() and not box.is_disabled():
-            box.click()
+    page.click("#v2Popover [data-ddf-input='espn']")   # a real edit: the selection is no longer the default
     _tab(page, "lines")
-    page.click("#v2Popover [data-series='ddf_value_projections']")
-    note = page.text_content("#v2Popover [data-series='ddf_value_projections'] >> xpath=ancestor::label")
-    if "No sources on in the DDF blend" not in note:
-        errors.append(f"D3: the dialog does not warn that this DDF Value has no source on: {note!r}")
+    # JEG-930: charts-only must NOT show the blend warning. JEG-863: ddf_value_projections hidden, use ddf_value_charts.
+    page.click("#v2Popover [data-series='ddf_value_charts']")
+    note = page.text_content("#v2Popover [data-series='ddf_value_charts'] >> xpath=ancestor::label")
+    if "No sources on in the DDF blend" in note:
+        errors.append(f"D3: the dialog row of 'DDF Value: charts only' warns about the DDF blend after a blend edit: {note!r}")
     _done(page)
+    after = page.evaluate(CHARTS_COUNT)
+    if after != before:
+        errors.append(f"D3: 'DDF Value: charts only' has {after} values after a blend edit, wanted the {before} it had before")
+    series = page.evaluate("() => window.TradeValueCurveControls.getCompositeInputs('ddf_value_charts').series")
+    if not series:
+        errors.append("D3: the engine lists no sources for 'DDF Value: charts only' after a blend edit")
     titles = page.evaluate("() => [...new Set([...document.querySelectorAll('#v2Table .missing')].map(m => m.title))]")
-    if "No source prices this player" in titles:
-        errors.append(f"D3: a blank DDF cell blames players ('No source prices this player') when no source is on: {titles}")
-    if not any("No sources are turned on" in t for t in titles):
-        errors.append(f"D3: no blank cell says no source is turned on: {titles}")
+    if any("No sources are turned on" in t for t in titles):
+        errors.append(f"D3: a blank cell says no source is turned on after a blend edit: {titles}")
     return errors
 
 
@@ -302,14 +322,16 @@ class CustomizeCleanupTest(unittest.TestCase):
         cls.browser = cls.pw.chromium.launch(executable_path=exe, args=_render_env.HERMETIC_ARGS)
         cls.js = V2_JS.read_text(encoding="utf-8")
         cls.css = V2_CSS.read_text(encoding="utf-8")
+        cls.widget = WIDGET_JS.read_text(encoding="utf-8")
+        cls.model = MODEL_JS.read_text(encoding="utf-8")
 
     @classmethod
     def tearDownClass(cls):
         cls.browser.close()
         cls._stack.close()
 
-    def run_check(self, check, width=1440, js=None, css=None, *args):
-        page = _open(self.browser, self.base, width, 812 if width < 500 else 900, js, css)
+    def run_check(self, check, width=1440, js=None, css=None, *args, assets=None):
+        page = _open(self.browser, self.base, width, 812 if width < 500 else 900, js, css, assets)
         try:
             return check(page, *args)
         except Exception as error:   # a control the check needs is missing: that is a failure, not a pass
@@ -322,8 +344,8 @@ class CustomizeCleanupTest(unittest.TestCase):
         self.assertEqual(source.count(old), 1, f"stale mutation anchor: {old[:60]!r}")
         return source.replace(old, new)
 
-    def assertCaught(self, check, label, *, js=None, css=None, width=1440, args=()):
-        self.assertTrue(self.run_check(check, width, js, css, *args), f"the guard did not catch: {label}")
+    def assertCaught(self, check, label, *, js=None, css=None, width=1440, args=(), assets=None):
+        self.assertTrue(self.run_check(check, width, js, css, *args, assets=assets), f"the guard did not catch: {label}")
 
     # ---- D1 ----
     def test_d1_done_matches_the_dialog(self):
@@ -344,15 +366,21 @@ class CustomizeCleanupTest(unittest.TestCase):
         self.assertCaught(check_d2_last_input, "the lock counts held inputs", js=js)
 
     # ---- D3 ----
-    def test_d3_no_inputs_says_so(self):
-        self.assertEqual(self.run_check(check_d3_no_inputs_reason), [])
+    def test_d3_charts_only_survives_a_blend_edit(self):
+        self.assertEqual(self.run_check(check_d3_charts_only_survives_blend_edit), [])
 
-    def test_d3_guard_catches_the_wrong_reason(self):
-        js = self.mutate('if (isDdfKey(key) && own === "No source prices this player" && ddfNoInputsReason(key)) return ddfNoInputsReason(key);   // JEG-850',
-                         "")
-        self.assertCaught(check_d3_no_inputs_reason, "wrong blank reason", js=js)
-        js = self.mutate('versionUsable(item.key) === 0) {', 'false) {')
-        self.assertCaught(check_d3_no_inputs_reason, "no warning on the variant row", js=js)
+    def test_d3_guard_catches_the_blank_charts_variant(self):
+        # The engine's per-version pool (curve-widget.js) honouring the blend again.
+        widget = self.mutate("(ignoresBlend || !compositeInputs || compositeInputs.includes(key))",
+                             "(!compositeInputs || compositeInputs.includes(key))", self.widget)
+        self.assertCaught(check_d3_charts_only_survives_blend_edit, "engine inputs emptied by the blend", assets={"curve-widget.js": widget})
+        # The value pipeline (value-model.js) filtering the charts by the selection again.
+        model = self.mutate('version === "charts" || !selection || selection.indexOf(k) !== -1',
+                            "!selection || selection.indexOf(k) !== -1", self.model)
+        self.assertCaught(check_d3_charts_only_survives_blend_edit, "values blanked by the blend", assets={"value-model.js": model})
+        # The dialog row counting the blend draft for the charts variant again.
+        js = self.mutate("chartsUsable()", "0")
+        self.assertCaught(check_d3_charts_only_survives_blend_edit, "row warns 'No sources on in the DDF blend'", js=js)
 
     # ---- D4 ----
     def test_d4_strip_counter_and_reset(self):

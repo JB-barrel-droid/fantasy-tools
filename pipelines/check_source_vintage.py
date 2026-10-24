@@ -41,6 +41,17 @@ SOURCE_TABLES = {
 }
 
 
+VINTAGE_COLUMNS = "source_content_date,week,bake_id,created_at"
+# Snapshot-dated tables: date column the selection scopes on, plus the
+# columns _derive_db_vintage reads (it always reads source_content_date and
+# week; espn derives from its own snapshot date).
+SNAPSHOT_COLUMNS = {
+    "espn": ("espn_snapshot_date", "espn_snapshot_date,week"),
+    "cbsros": ("cbs_snapshot_date", "cbs_snapshot_date,source_content_date,week"),
+    "razzball": ("razzball_snapshot_date", "razzball_snapshot_date,source_content_date,week"),
+}
+
+
 def _get_supabase_rows(table: str, params: str) -> list[dict[str, Any]]:
     if SUPABASE_SKILL_BIN not in sys.path:
         sys.path.insert(0, SUPABASE_SKILL_BIN)
@@ -62,6 +73,21 @@ def _get_supabase_page(table: str, params: str) -> list[dict[str, Any]]:
     return [row for row in rows or [] if isinstance(row, dict)]
 
 
+def _latest_date_param(table: str, date_col: str) -> str:
+    """`&<date_col>=eq.<newest>` read server-side (JEG-793 egress trim).
+
+    The hourly check used to download every historical snapshot of the
+    multi-vintage tables and keep only the newest date client-side
+    (_select_latest_snapshot_date). Same selection from one limit=1 row;
+    null dates never win (order=desc sorts NULLs first, so they are filtered).
+    Returns "" when no row carries a date; the caller then keeps the
+    unscoped read and its week fallback exactly as before.
+    """
+    top = _get_supabase_page(
+        table, f"?select={date_col}&{date_col}=not.is.null&order={date_col}.desc&limit=1")
+    return f"&{date_col}=eq.{top[0][date_col]}" if top and top[0].get(date_col) else ""
+
+
 def _latest_week_param(table: str, params: str) -> str:
     """`&week=eq.<N>` for the newest week present, read server-side.
 
@@ -71,7 +97,7 @@ def _latest_week_param(table: str, params: str) -> str:
     2026-10-08), so the all-weeks read would grow by ~585 rows per save all
     season. Returns "" when no row carries a week (behaviour unchanged).
     """
-    base = params.replace("select=*", "select=week", 1)
+    base = params.replace(f"select={VINTAGE_COLUMNS}", "select=week", 1)
     top = _get_supabase_page(table, f"{base}&week=not.is.null&order=week.desc&limit=1")
     return f"&week=eq.{top[0]['week']}" if top else ""
 
@@ -119,11 +145,20 @@ def _derive_db_vintage(rows, source):
     raise SystemExit(f"Fail closed: vintage undeterminable for {source}")
 
 
+def _snapshot_params(source, table):
+    """Narrow, newest-date-scoped read for the snapshot-dated tables."""
+    date_col, columns = SNAPSHOT_COLUMNS[source]
+    return f"?select={columns}" + _latest_date_param(table, date_col)
+
+
 def get_current_vintage(source):
     """Get the current vintage for a source from the database."""
     table = SOURCE_TABLES[source]
     # Base params - will be modified based on source-specific scoping
-    base_params = "?select=*"
+    # JEG-793: only the columns the vintage derivation reads (was select=*).
+    # source_content_date/week feed _derive_db_vintage, bake_id/created_at
+    # feed _select_latest_bake.
+    base_params = f"?select={VINTAGE_COLUMNS}"
 
     if source in ("fantasycalc", "usatoday", "fantasypros"):
         # These use source_trade_values with source + variant filters, plus week + bake scoping
@@ -137,7 +172,7 @@ def get_current_vintage(source):
         rows, _ = _select_latest_bake(rows)
     elif source == "espn":
         # ESPN uses espn_snapshot_date for scoping
-        params = base_params
+        params = _snapshot_params(source, table)
         rows = _get_supabase_rows(table, params)
         if not rows:
             raise SystemExit(f"Fail closed: source {source} returned zero rows")
@@ -155,7 +190,7 @@ def get_current_vintage(source):
     elif source == "cbsros":
         # CBSROS: scopes to latest cbs_snapshot_date
         # Matches canonical logic from import_supabase_references.py lines 723-736
-        params = base_params
+        params = _snapshot_params(source, table)
         rows = _get_supabase_rows(table, params)
         if not rows:
             raise SystemExit(f"Fail closed: source {source} returned zero rows")
@@ -163,7 +198,7 @@ def get_current_vintage(source):
     elif source == "razzball":
         # Razzball: scopes to latest razzball_snapshot_date
         # Matches canonical logic from import_supabase_references.py lines 883-893
-        params = base_params
+        params = _snapshot_params(source, table)
         rows = _get_supabase_rows(table, params)
         if not rows:
             raise SystemExit(f"Fail closed: source {source} returned zero rows")

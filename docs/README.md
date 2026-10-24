@@ -20,7 +20,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 |---|---|---|---|---|
 | [manifesto.md](manifesto.md) | Maintained | unknown | unknown | Jeremy's reasoning for the project (market, fundamental, portfolio value); scope features against it. |
 | [manifesto-mirror.md](manifesto-mirror.md) | Maintained | unknown | unknown | Mirror of the manifesto Google Doc. |
-| [methodology.md](methodology.md) | Maintained | JEG-597 | 2026-10-12 | Required methodology entrypoint: how values are computed. Opens with a step-to-code map checked 2026-10-12 (JEG-597) and a "Pending, not live" list (JEG-804, JEG-787 open PRs; 2026-10-22). |
+| [methodology.md](methodology.md) | Maintained | JEG-597 | 2026-10-12 | Required methodology entrypoint: how values are computed. Opens with a step-to-code map checked 2026-10-12 (JEG-597) and a "Live and pending" status block (JEG-804 and JEG-787 are merged; JEG-930 merged; refreshed 2026-10-23, JEG-975). |
 | [math-review-agenda.md](math-review-agenda.md) | Maintained | JEG-450 | 2026-10-12 | Queue of math and logic questions for the coordinated full review (JEG-450), with a closed-or-carried table for every item (JEG-597, 2026-10-12). |
 | [fidelity-tolerances.md](fidelity-tolerances.md) | Maintained | unknown | unknown | Tolerances and hold rules for the fidelity pulse. |
 | [league-settings-inventory.md](league-settings-inventory.md) | Maintained | unknown | unknown | Inventory of league settings the backend saves and uses. |
@@ -32,6 +32,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [contract/feature-contract-id-map.md](contract/feature-contract-id-map.md) | Maintained | JEG-602 | 2026-10-22 | Maps every contract ID to its check or ticket, lists the Doc edits that need Jeremy's Drive (JEG-602), and the lines the Doc needs for the 2026-10-22 merges with the tests that pin them (JEG-874). |
 | [kdst-group-contract.md](kdst-group-contract.md) | Record | - | - | K/DST group definitions, units and source availability (JEG-211). |
 | [kdst-source-audit.md](kdst-source-audit.md) | Record | - | - | K/DST source diagnosis, evidence from 2026-10-01 (JEG-19). |
+| [math-review-questions-2026-10-12.md](math-review-questions-2026-10-12.md) | Record | - | - | Judgment calls left for Jeremy after the 2026-10-15 verification of the math review agenda (JEG-450). |
 | [player-scenario-regression-tests.md](player-scenario-regression-tests.md) | Maintained | unknown | unknown | Football-question scenarios used as regression tests on current players. |
 | [QA_FRAMEWORKS.md](QA_FRAMEWORKS.md) | Maintained | unknown | unknown | Systematic QA frameworks for whole dimensions of the dashboard. |
 
@@ -50,6 +51,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [design/fidelity-all-hold.md](design/fidelity-all-hold.md) | Record | JEG-799 | 2026-10-22 | Why a week boundary holds every source and fails the chain closed (GAP-FIDELITY-ALL-HOLD); options A/B/C with measured evidence, recommendation (a hold applies to the build it measured), decision for Jeremy. |
 | [product/jeg-303-dashboard-ideas.md](product/jeg-303-dashboard-ideas.md) | Record | - | - | Dashboard idea scoping (JEG-303). |
 | [v2-design-notes.md](v2-design-notes.md) | Maintained | JEG-602 | 2026-10-22 | v2 front end design notes and back-end contracts; dated build-log sections archived 2026-10-15 (JEG-602); nav structure, sub-routes, DDFAudit registry, Value pie, Writing tab, Customize tabs, shared search, chips and links, single-source compare, roster paste parser as merged 2026-10-22 (JEG-874). |
+| [v2-mobile-plan.md](v2-mobile-plan.md) | Maintained | JEG-927 | 2026-10-23 | Phone audit of the v2 pages (2026-10-22), defects per tab, chart and table patterns, three decisions, and the phased tickets; its status line says which phases are merged (JEG-927, JEG-947, JEG-953). |
 | [fixture-transition-proposal.md](fixture-transition-proposal.md) | Record | - | - | Decision to pause stale adjusted curves, staged 2026-09-22. |
 
 ## Supabase
@@ -60,6 +62,9 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [supabase-source-mapping.md](supabase-source-mapping.md) | Maintained | unknown | unknown | How scraped references map into Supabase. |
 | [SUPABASE_WRITER_AUDIT.md](SUPABASE_WRITER_AUDIT.md) | Record | - | - | Audit of Supabase writers' missing safeguards. |
 | [supabase-tables.md](supabase-tables.md) | Maintained | JEG-600 | 2026-10-12 | Every public table and view, who writes it, who reads it, and whether it is live or legacy (JEG-600). |
+| [projection-captures.md](projection-captures.md) | Maintained | JEG-944 | unknown | Forward-projection captures: what each source offers, the capture cadence, and the append-only table (JEG-944, parent JEG-943). |
+| [values-endpoint.md](values-endpoint.md) | Maintained | JEG-616 | unknown | The `get-values` Supabase edge function and the MCP server that serve blended values (JEG-616). |
+| [supabase-egress-notes.md](supabase-egress-notes.md) | Record | JEG-793 | - | Which reads cost the cloud project's egress; steps 1 to 3 of JEG-793, figures inferred from code, not measured (2026-10-21). |
 | [import-health-schema.md](import-health-schema.md) | Maintained | unknown | unknown | Import health tables (each section states its status). |
 
 ## Operations, process and agents
@@ -67,6 +72,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
 | [preview-deploys.md](preview-deploys.md) | Maintained | unknown | unknown | Preview deploy design and phase 1 status. |
+| [qa-report.md](qa-report.md) | Record | - | - | Generated contract QA report (2026-10-19, `scripts/contract_qa_report.py`); do not edit, rerun the script. |
 | [watchdog.md](watchdog.md) | Maintained | unknown | unknown | Every source-pulling job, who schedules it, and what watches it. |
 | [guard-harness.md](guard-harness.md) | Maintained | unknown | unknown | Node harness for the browser curve-widget guard math. |
 | [wiring-through-process.md](wiring-through-process.md) | Maintained | unknown | unknown | Standing rule: a fix is not done until wired to the live path. |

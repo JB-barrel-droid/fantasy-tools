@@ -60,6 +60,8 @@
      "records": [{"check_id": "espn_weekly_store", "file": ".github/workflows/espn-weekly-store.yml", "contains": "--check-id espn_weekly_store --owner espn-weekly-store.yml"}]},
     {"workflow": "espn-weekly-store.yml", "scheduler": "pg_cron", "pg_cron_job": "espn-weekly-store-sunday",
      "records": [{"check_id": "espn_weekly_store", "file": ".github/workflows/espn-weekly-store.yml", "contains": "--check-id espn_weekly_store --owner espn-weekly-store.yml"}]},
+    {"workflow": "projection-capture-sunday.yml", "scheduler": "pg_cron", "pg_cron_job": "projection-capture-sunday",
+     "records": [{"check_id": "projection_capture_sunday", "file": ".github/workflows/projection-capture-sunday.yml", "contains": "--check-id projection_capture_sunday --owner projection-capture-sunday.yml"}]},
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-live",
      "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-sunday",

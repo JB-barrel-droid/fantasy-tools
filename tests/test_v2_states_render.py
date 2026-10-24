@@ -63,13 +63,19 @@ READ_DRAWER = """() => {
   const box = drawer.getBoundingClientRect();
   return {hidden: drawer.hidden, values: row ? row.values : null,
     groups: ['dda', 'indexed', 'vorp'].map((method, i) => ({method,
-      cells: [...drawer.querySelectorAll('.v2-dmatrix tbody tr')].map(tr => tr.children[i + 1])
-        .filter(td => td && td.dataset.source).map(td => ({key: td.dataset.source, text: td.textContent}))})),
+      // JEG-926 (2026-10-23): the player page lists one row per selected source, with its kind in its own column.
+      cells: [...drawer.querySelectorAll('.v2-dmatrix tbody tr')]
+        .filter(tr => tr.querySelector('td.kind').dataset.method === method)
+        .map(tr => ({tr, td: tr.querySelector('td.num')})).filter(c => c.td.dataset.source)
+        .map(c => ({key: c.td.dataset.source, kindLabel: c.tr.querySelector('td.kind').textContent, text: c.td.textContent}))})),
     hero: [...drawer.querySelectorAll('.v2-dhero [data-source]')].map(n => ({key: n.dataset.source, text: n.textContent})),
     box: {left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height},
     vw: window.innerWidth, vh: window.innerHeight,
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
+
+
+KIND_LABEL = {"dda": "Our value", "indexed": "Rescaled chart", "vorp": "Value above waivers"}
 
 
 def finite(value):
@@ -86,6 +92,8 @@ def check_drawer(snap, width) -> list[str]:
         for cell in group["cells"]:
             key = cell["key"]
             is_vorp = key.endswith("_vorp")
+            if group["method"] is not None and cell.get("kindLabel") != KIND_LABEL[group["method"]]:
+                errors.append(f"{width}px: {key} labelled {cell.get('kindLabel')!r} under {group['method']}")
             if group["method"] is not None and is_vorp != (group["method"] == "vorp"):
                 errors.append(f"{width}px: {key} listed under {group['method']}")
             value = values.get(key)

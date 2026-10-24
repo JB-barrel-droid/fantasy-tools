@@ -21,9 +21,9 @@ own search boxes, and checks against window.TradeValueCurveControls.getAllRows()
   * no page errors and no horizontal overflow at 390 px;
   * JEG-875: both headline lines (answer and confidence) equal the rule
     recomputed from the engine values by test_v2_headlines.expected (DDF Value +
-    DDF Projections decide, JEG-841), on the search-box trade (a chart missing,
+    DDF Value decide, JEG-841), on the search-box trade (a chart missing,
     so Unclear) and on a second trade opened by link where the charts disagree
-    with each other and DDF Value + DDF Projections agree (Yes or No);
+    with each other and DDF Value agrees (Yes or No);
   * JEG-886: the Deal read never says "fair market price" / "little reason to
     refuse" unless "Will they accept?" is Likely, never "will likely see a loss"
     unless it is Unlikely, and when the per-chart count does not support the
@@ -86,7 +86,7 @@ CHART_COUNT = re.compile(r"\d+ of \d+ trade charts agree")
 HARD_SELL_COPY = ("will likely see a loss",)
 
 # JEG-875/886: a second trade, opened by link, where the compared charts disagree with each
-# other (nets on both sides of zero) while DDF Value and DDF Projections both say win by 5%+
+# other (nets on both sides of zero) while DDF Value says win by 5%+
 # of the value traded. Prefers one where the per-chart count contradicts the chart average's
 # side (the JEG-886 split). Selection only: the checks recompute everything in Python.
 PICK_SPLIT = """() => {
@@ -318,7 +318,7 @@ def check_headlines(snap, heads, point_keys) -> list[str]:
         if got != exp:
             errors.append(f"{line} line says {got}, the rule on the engine values says {exp} ({snap['kind']} trade)")
     if snap["kind"] == "split" and want["propose"]["answer"] not in ("Yes", "No"):
-        errors.append(f"the split trade must have DDF Value and DDF Projections agreeing, rule says {want['propose']}")
+        errors.append(f"the split trade must have DDF Value agreeing, rule says {want['propose']}")
     return errors
 
 
@@ -443,7 +443,7 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
                 # JEG-875/886: the second trade, opened by link (a shared trade).
                 split = page.evaluate(PICK_SPLIT)
                 if not split:
-                    raise AssertionError("the fixture has no 2-for-1 where the charts disagree and DDF Value + DDF Projections agree")
+                    raise AssertionError("the fixture has no 2-for-1 where the charts disagree and DDF Value agrees")
                 link = "#compare-trade?give=" + ",".join(k for k, _ in split["give"]) + "&get=" + ",".join(k for k, _ in split["receive"])
                 page.evaluate("link => { location.hash = link; }", link)
                 page.wait_for_function(

@@ -45,7 +45,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+sys.path.insert(0, str(ROOT / "pipelines"))
 import espn_weekly as ew  # noqa: E402
+import projection_capture as pc  # noqa: E402
+from nfl_week import content_week  # noqa: E402
 from player_key_index import PlayerIndex  # noqa: E402
 
 SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
@@ -200,6 +203,33 @@ def plan_projections(rows, index: PlayerIndex, games: dict, latest: dict,
                      "no_game_skipped": no_game}
 
 
+def plan_captures(rows, index: PlayerIndex, target_weeks, season: int, source_week: int,
+                  now_iso: str, batch_id: str, phase: str):
+    """JEG-944: ESPN's projection for EVERY future week, in public.source_projection_captures.
+
+    Unlike plan_projections this is not change-only and not limited to the next
+    week: one full copy per content week, target weeks = all unplayed weeks, byes
+    and outs stored as the 0 ESPN gives (MR-20). ESPN offers no ROS total, so no
+    'ros' rows (ROS is the sum of these weeks)."""
+    out, unresolved = [], 0
+    for r in rows:
+        if r["week"] not in target_weeks:
+            continue
+        e, _why = index.resolve_espn(r["espn_id"], r["name"], r["pos"])
+        if e is None:
+            unresolved += 1
+            continue
+        for fmt in FORMATS:
+            out.append(pc.capture_row(
+                source="espn", season=season, source_week=source_week, capture_at=now_iso, phase=phase,
+                horizon="week", target_week=r["week"], player_key=e["player_key"],
+                scoring_format=fmt, points=ew.points(r["stats"], fmt), batch_id=batch_id,
+                basis=f"espn weekly projection block; basis={ew.BASIS}; espn_id={r['espn_id']}"))
+    out = pc.dedupe(out)
+    return out, {"target_weeks": sorted(target_weeks), "rows": len(out),
+                 "unresolved_rows": unresolved}
+
+
 # ---------------------------------------------------------------- IO
 
 def _sb():
@@ -257,10 +287,17 @@ def main(argv=None) -> int:
     proj_ins, proj_rep = plan_projections(projs["rows"], index, games, latest, pweeks,
                                           now_iso, str(uuid.uuid4()))
 
+    source_week = content_week()
+    phase = pc.capture_phase(datetime.now(timezone.utc))
+    cap_rows, cap_rep = plan_captures(projs["rows"], index, set(projs["ros_weeks"]), season,
+                                      source_week, now_iso, str(uuid.uuid4()), phase)
+    cap_rep["source_week"], cap_rep["phase"] = source_week, phase
+
     resolved_share = (act_rep["resolved"] - act_rep["n_no_game"]) / max(1, act_rep["rows_in"])
     summary = {"run_at": now_iso, "season": season, "dry_run": a.dry_run,
                "pulled_at": acts.get("pulled_at"), "played_weeks": acts.get("played_weeks"),
                "actual_weeks": act_weeks, "actuals": act_rep, "projections": proj_rep,
+               "captures": cap_rep,
                "resolved_share": round(resolved_share, 4)}
     ok = resolved_share >= MIN_RESOLVED
     if ok and not a.dry_run:
@@ -268,12 +305,31 @@ def main(argv=None) -> int:
         upsert(sb, "projection_snapshots", proj_ins)
         summary["written"] = {"player_game_stats": len(act_up),
                               "projection_snapshots": len(proj_ins)}
+    capture_failed = False
+    if ok and not a.dry_run:
+        # After the existing writes, so a capture fault never holds back the
+        # actuals or projection_snapshots; it fails the run (exit 1) instead.
+        try:
+            if pc.capture_exists(sb, "espn", season, source_week, phase, "week"):
+                cap_rep["written"] = 0
+                cap_rep["note"] = "capture for this content week and phase already stored; first one wins"
+            elif len(cap_rows) < pc.MIN_ROWS[("espn", "week")]:
+                raise RuntimeError(f"only {len(cap_rows)} capture rows planned "
+                                   f"(floor {pc.MIN_ROWS[('espn', 'week')]}); nothing written")
+            else:
+                cap_rep["written"] = pc.write_capture(sb, cap_rows)
+        except Exception as exc:  # noqa: BLE001 -- reported, then exit 1
+            capture_failed = True
+            cap_rep["error"] = f"{type(exc).__name__}: {exc}"
+            print(f"CAPTURE FAILED (source_projection_captures): {cap_rep['error']}", file=sys.stderr)
     a.summary.parent.mkdir(parents=True, exist_ok=True)
     a.summary.write_text(json.dumps(summary, indent=1, default=str) + "\n")
     print(json.dumps({k: summary[k] for k in ("actual_weeks", "resolved_share")}
                      | {"to_upsert": act_rep["to_upsert"],
                         "comparison": act_rep["comparison_with_existing"]["by_position"],
                         "projection_rows": proj_rep["rows_written"]}, indent=1))
+    if capture_failed:
+        return 1
     if not ok:
         print(f"FAILED: only {resolved_share:.1%} of actual rows resolved to a player "
               f"and game (floor {MIN_RESOLVED:.0%}); nothing written", file=sys.stderr)

@@ -1107,10 +1107,38 @@ def fc_grain_check(left: dict, right: dict, *, bake_age_s: float | None = None) 
                 dist[g2] = sum(abs(R[k]["value"] - L[k]["value"]) for k in shared) / len(shared)
         if dist:
             nearest[g], dist_of[g] = min(dist, key=dist.get), dist
+    # JEG-920: detect cycles of any length >= 2, not only mutual (2-cycle)
+    # swaps.  A save-time column mix-up can be any permutation; a 3-cycle
+    # (stored full→live half, stored half→live std, stored std→live full) is
+    # just as real as a pair swap.  Walk the nearest map from each displaced
+    # column; if the chain closes back to the start, every column on the cycle
+    # is swapped.  The FC_SWAP_RATIO gate still applies per column.
+    on_cycle: set[str] = set()
+    visited: set[str] = set()
+    for start in nearest:
+        if start in visited or nearest[start] == start:
+            continue
+        # Walk the chain from `start`
+        chain = [start]
+        cur = nearest[start]
+        # JEG-979: stop on any column already on this chain, not only `start`.
+        # A chain can end on a column nearest itself (stored std -> live half,
+        # half -> half) or run into a cycle that excludes `start` (a -> b -> c
+        # -> b); checking only `start` never ended the walk (unbounded memory).
+        while cur not in chain and cur not in visited and cur in nearest:
+            chain.append(cur)
+            cur = nearest[cur]
+        if cur in chain:
+            loop = chain[chain.index(cur):]
+            if len(loop) >= 2:
+                on_cycle.update(loop)
+        visited.update(chain)
+
     problems = []
-    for g, n in nearest.items():
+    for g in sorted(on_cycle):
+        n = nearest[g]
         dist = dist_of[g]
-        if n != g and dist.get(g, float("inf")) > FC_SWAP_RATIO * dist[n] and nearest.get(n) == g:
+        if dist.get(g, float("inf")) > FC_SWAP_RATIO * dist[n]:
             problems.append(f"stored {g} list is closest to the live {n} list "
                             f"(mean |diff| {dist[n]:.0f} vs {dist.get(g, float('nan')):.0f})")
     return problems

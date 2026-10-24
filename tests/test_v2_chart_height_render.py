@@ -26,7 +26,8 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-PLOT = "() => { const r = document.getElementById('v2Plot').getBoundingClientRect(); const s = document.querySelector('#v2Chart svg'); return {plot: r.height, svg: s ? s.getBoundingClientRect().height : 0}; }"
+# JEG-926: the search strip on the graph (#v2PlotTools) is a row of the plot box; the height rules govern the plot below it.
+PLOT = "() => { const r = document.getElementById('v2Plot').getBoundingClientRect(); const t = document.getElementById('v2PlotTools').getBoundingClientRect(); const s = document.querySelector('#v2Chart svg'); return {plot: r.height - t.height, svg: s ? s.getBoundingClientRect().height : 0}; }"
 
 
 def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1920, 1080), (2560, 1440))) -> list[str]:
