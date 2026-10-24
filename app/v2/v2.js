@@ -2743,6 +2743,8 @@
         saveSelection();
         closePopover();
         refresh();
+        announceLeagueChange("sources");   // JEG-1020: Find a trade re-runs on a source change like on a league change
+        announceLive("Results updated for the new source selection.");
       }, {"data-apply": "sources"}]], reset).classList.add("v2-cust-foot");
       body.classList.add("v2-cust-body");
       render();
@@ -3216,6 +3218,7 @@
         if (C.setBenchShareOverride) C.setBenchShareOverride(null);
         refresh();
         syncReadout();
+        announceLeagueChange("bench");
       });
       readoutBox.append(readout, resetLink, info);
       body.appendChild(readoutBox);
@@ -3231,7 +3234,7 @@
       eyebrow(body, "Position shares of total value");
       const shares = document.createElement("p");
       shares.className = "v2-meta";
-      shares.textContent = "Shares total 100%. Shares you leave alone split the rest in proportion when you apply.";
+      shares.textContent = "Shares total 100%. Shares you leave alone split the rest in proportion. Changes apply as you make them.";
       body.appendChild(shares);
       const weights = C.getPositionWeights();
       const shareBounds = C.getPositionWeightBounds ? C.getPositionWeightBounds() : null;
@@ -3239,6 +3242,12 @@
       let resetShares = false;
       const inputs = {};
       const lastValid = {};
+      const bars = {};
+      const nows = {};
+      const openedWeights = {...weights};
+      let timer = 0;
+      let lastMs = 0;
+      let queue = () => {};   // JEG-1020: set below; a valid share starts the same debounce as Your league
       const shareMsg = document.createElement("p");
       shareMsg.className = "v2-meta v2-share-msg";
       shareMsg.dataset.shareMessage = "";
@@ -3280,12 +3289,13 @@
             input.removeAttribute("aria-invalid");
             shareMsg.hidden = true;
             shareMsg.textContent = "";
+            resetShares = false;
+            queue();
           } else {
             input.setAttribute("aria-invalid", "true");
             shareMsg.hidden = false;
             shareMsg.textContent = `${pos} share must be between ${+(lo * 100).toFixed(1)}% and ${+(hi * 100).toFixed(1)}%. Keeping ${lastValid[pos] === null ? "the current value" : `${lastValid[pos].toFixed(1)}%`}.`;
           }
-          resetShares = false;
         });
         input.addEventListener("change", () => {
           if (input.getAttribute("aria-invalid") === "true" && lastValid[pos] !== null) {
@@ -3294,46 +3304,96 @@
           }
         });
         inputs[pos] = input;
+        bars[pos] = bar;
         const now = document.createElement("span");
         now.className = "v2-meta";
         now.dataset.weight = pos;
         now.textContent = Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : "—";
+        nows[pos] = now;
         field.append(input, document.createTextNode("% "));
         line.append(label, bar, field, now);
         body.appendChild(line);
+      });
+      const msg = document.createElement("p");
+      msg.className = "v2-meta v2-league-msg";
+      msg.dataset.leagueMsg = "";
+      const undo = document.createElement("button");
+      undo.type = "button";
+      undo.className = "v2-btn v2-preset";
+      undo.textContent = "Undo changes";
+      undo.dataset.weightsUndo = "";
+      undo.disabled = true;
+      // What the engine holds now goes back into the boxes (the shares you did not edit were rebalanced there).
+      function showEngineShares() {
+        const now = C.getPositionWeights();
+        ["QB", "RB", "WR", "TE"].forEach(pos => {
+          const v = Number(now[pos]);
+          if (!Number.isFinite(v)) return;
+          nows[pos].textContent = `${(v * 100).toFixed(1)}%`;
+          bars[pos].firstElementChild.style.width = `${Math.min(100, v * 100)}%`;
+          if (document.activeElement !== inputs[pos]) inputs[pos].value = (v * 100).toFixed(1);
+          lastValid[pos] = Number((v * 100).toFixed(1));
+        });
+        syncReadout();
+      }
+      function commit() {
+        clearTimeout(timer);
+        timer = 0;
+        const t0 = performance.now();
+        let note = "";
+        let notes = [];
+        try {
+          if (resetShares && C.resetPositionWeights) C.resetPositionWeights();
+          else if (Object.keys(edited).length && C.setPositionWeights) {
+            const result = C.setPositionWeights(edited);
+            if (result && result.ok && result.clamped) note = "Some position shares were held to their allowed range.";
+            else if (result && !result.ok) note = "Position shares were not changed. The results still show the last valid shares.";
+          }
+          try { refresh(); } catch (error) { console.warn("Refresh after a weights change failed:", error); }
+          notes = announceLeagueChange("weights");
+        } catch (caught) {
+          note = `Not applied: ${(caught && caught.message) || "those shares could not be applied."} The results still show the last valid shares.`;
+        }
+        Object.keys(edited).forEach(pos => delete edited[pos]);
+        resetShares = false;
+        lastMs = performance.now() - t0;
+        (window.__leagueApplyLog = window.__leagueApplyLog || []).push(Math.round(lastMs));
+        msg.textContent = note;
+        showEngineShares();
+        announceLive(["Results updated for the new league settings.", ...notes].join(" "));
+        undo.disabled = JSON.stringify(C.getPositionWeights()) === JSON.stringify(openedWeights);
+      }
+      queue = () => {
+        undo.disabled = false;
+        clearTimeout(timer);
+        if (lastMs >= LEAGUE_SLOW_MS * 0.8) msg.textContent = "Updating…";
+        timer = setTimeout(() => setTimeout(commit, 0), LEAGUE_DEBOUNCE_MS);
+      };
+      popoverCloseHook = () => { if (timer) commit(); };
+      undo.addEventListener("click", () => {
+        Object.keys(edited).forEach(pos => delete edited[pos]);
+        const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
+        const isDefault = defaults && ["QB", "RB", "WR", "TE"].every(pos => Math.abs(Number(defaults[pos]) - Number(openedWeights[pos])) < 1e-9);
+        if (isDefault) resetShares = true; else Object.assign(edited, openedWeights);
+        shareMsg.hidden = true;
+        commit();
       });
       const reset = document.createElement("button");
       reset.type = "button";
       reset.className = "v2-btn v2-preset";
       reset.textContent = "Reset defaults";
+      reset.dataset.weightsReset = "";
       reset.addEventListener("click", () => {
-        const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
         Object.keys(edited).forEach(pos => delete edited[pos]);
         resetShares = true;
-        if (defaults) Object.entries(inputs).forEach(([pos, input]) => {
-          input.value = (Number(defaults[pos]) * 100).toFixed(1);
-          lastValid[pos] = Number(input.value);
-          input.removeAttribute("aria-invalid");
-        });
+        Object.values(inputs).forEach(input => input.removeAttribute("aria-invalid"));
         shareMsg.hidden = true;
+        commit();
       });
-      panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
-        let note = "";
-        if (resetShares && C.resetPositionWeights) C.resetPositionWeights();
-        else if (Object.keys(edited).length && C.setPositionWeights) {
-          const result = C.setPositionWeights(edited);
-          if (result && result.ok && result.clamped) note = "Some position shares were held to their allowed range.";
-          else if (result && !result.ok) note = "Position shares were not changed.";
-        }
-        closePopover();
-        refresh();
-        announceLeagueChange("weights");
-        if (note) {
-          setStatus(note);
-          clearTimeout(statusTimer);
-          statusTimer = setTimeout(() => setStatus(""), 6000);
-        }
-      }, {"data-apply": "weights"}]], reset);
+      const tools = document.createElement("div");
+      tools.className = "v2-league-tools";
+      tools.append(reset, undo, msg);
+      panelActions(pop, [["Done", true, closePopover, {"data-done": "weights"}]], tools);
     });
   }
 

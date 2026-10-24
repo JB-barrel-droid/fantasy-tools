@@ -21,7 +21,11 @@ settings are changed." Loads dist/v2 headless (the same built copy the other ren
   * at 390 and 320 px the panel has no sideways scroll and every footer control is at least 44 px tall and on screen;
   * recompute time at the defaults and at extreme settings is measured and held under a generous ceiling.
 
-Discrimination: test_guard_fails_on_broken_builds serves a build with each of: the apply step back (changes only apply
+Position weights (Jeremy, 2026-10-24) applies live the same way; changing Customize sources re-runs Find; a lesser-match
+question ("A. Rodgers: is this Aaron Rodgers?") that was still waiting is asked again after a change, named if the player
+can no longer be matched, and an answered one stays answered.
+
+Discrimination: test_guard_fails_on_broken_builds serves a build with each of: the apply step back (Your league and Position weights), Customize leaving Find stale, the unsure question not asked again, (changes only apply
 on Done), no debounce (the recompute runs in the input handler), the Find listener removed (results go stale), an
 invalid intermediate that throws, no Updating state, no live-region announcement, and focus stolen on update.
 """
@@ -54,6 +58,10 @@ PATCHES = {
     "invalid intermediate crashes": ("v2_js", '        error = (caught && caught.message) || "Those settings could not be applied.";', "        throw caught;"),
     "no Updating state": ("v2_js", '        if (lastMs >= LEAGUE_SLOW_MS * 0.8) showMsg("Updating…");', ""),
     "no live announcement": ("v2_js", '          announceLive(["Results updated for the new league settings.", ...notes].join(" "));', ""),
+    "weights apply step is back": ("v2_js", '        if (lastMs >= LEAGUE_SLOW_MS * 0.8) msg.textContent = "Updating…";\n        timer = setTimeout(() => setTimeout(commit, 0), LEAGUE_DEBOUNCE_MS);',
+                                   '        timer = 1;'),
+    "customize change leaves Find stale": ("v2_js", '        announceLeagueChange("sources");', ""),
+    "unsure prompt not asked again": ("finder_js", "      if (unsure.length) { asks[side] = unsure;", "      if (false) { asks[side] = unsure;"),
     "focus stolen": ("v2_js", '        showMsg("");\n        if (error) {', '        showMsg(""); document.getElementById("v2EditLeague").focus();\n        if (error) {'),
 }
 
@@ -308,6 +316,143 @@ def check_find(browser, base, overrides, errors):
     b.close()
 
 
+UNSURE_ROWS = "() => [...document.querySelectorAll('#v2FindMinePasteResult li.v2-find-unsure')].map(li => ({id: li.dataset.unsureId, name: li.dataset.unsureName, pending: Boolean(li.querySelector('button'))}))"
+
+
+def check_weights_live(browser, base, overrides, errors):
+    page = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[weights] ")
+    _find_flow(page)
+    start = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
+    page.click("#v2Weights")
+    buttons = page.evaluate("() => [...document.querySelectorAll('#v2Popover button')].map(b => b.textContent.trim())")
+    if "Apply" in buttons or "Cancel" in buttons or not {"Reset defaults", "Undo changes", "Done"} <= set(buttons):
+        errors.append(f"[weights] the Position weights footer is {buttons}, wanted Reset defaults, Undo changes, Done and no Apply or Cancel")
+    page.fill("#v2ShareQB", "30")
+    if abs(page.evaluate("() => window.TradeValueCurveControls.getPositionWeights().QB") - start["QB"]) > 1e-9:
+        errors.append("[weights] a share reached the engine inside the input handler (no debounce)")
+    _settle(page, 800)
+    got = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
+    if abs(got["QB"] - 0.30) > 0.002:
+        errors.append(f"[weights] QB 30 did not apply on its own: {got}")
+    shown = page.evaluate("() => Object.fromEntries(['QB','RB','WR','TE'].map(p => [p, document.getElementById('v2Share' + p).value]))")
+    if any(abs(float(shown[p]) - got[p] * 100) > 0.06 for p in shown):
+        errors.append(f"[weights] the boxes {shown} do not show the rebalanced engine shares {got}")
+    if page.evaluate(LIVE) != LIVE_TEXT:
+        errors.append(f"[weights] live region reads {page.evaluate(LIVE)!r}")
+    if "new league settings" not in page.evaluate("() => document.getElementById('v2FindSettingsNote').textContent"):
+        errors.append("[weights] Find was not re-run after a share change")
+    page.fill("#v2ShareWR", "150")
+    _settle(page, 600)
+    if page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()") != got:
+        errors.append("[weights] an invalid share (150) changed the engine")
+    if "between" not in (page.text_content("#v2Popover [data-share-message]") or ""):
+        errors.append("[weights] an invalid share showed no inline message")
+    page.click("#v2Popover [data-weights-undo]")
+    if page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()") != start:
+        errors.append("[weights] Undo changes did not return the opening shares")
+    page.fill("#v2ShareQB", "28")
+    page.click('#v2Popover [data-done="weights"]')
+    if abs(page.evaluate("() => window.TradeValueCurveControls.getPositionWeights().QB") - 0.28) > 0.002:
+        errors.append("[weights] Done did not flush a pending share")
+    page.click("#v2Weights")
+    page.click("#v2Popover [data-weights-reset]")
+    page.click('#v2Popover [data-done="weights"]')
+    if page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()") != start:
+        errors.append("[weights] Reset defaults did not return the shares")
+    page.close()
+    # Find after a live share change equals a page that had the share from the start.
+    a = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[weights a] ")
+    _find_flow(a)
+    a.click("#v2Weights")
+    a.fill("#v2ShareQB", "30")
+    _settle(a, 800)
+    a.click('#v2Popover [data-done="weights"]')
+    _settle(a, 300)
+    b = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[weights b] ")
+    b.click("#v2Weights")
+    b.fill("#v2ShareQB", "30")
+    _settle(b, 800)
+    b.click('#v2Popover [data-done="weights"]')
+    _find_flow(b)
+    if a.evaluate(FIND_OUT) != b.evaluate(FIND_OUT):
+        errors.append("[weights] Find results after a live share change differ from a page that had the share first")
+    a.close()
+    b.close()
+
+
+def check_sources(browser, base, overrides, errors):
+    page = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[sources] ")
+    _find_flow(page)
+    page.evaluate("() => { location.hash = '#player-values'; }")
+    _settle(page, 600)
+    page.click("#v2EditSources")
+    page.wait_for_selector("#v2Popover input[data-series]")
+    keys = page.evaluate("() => [...document.querySelectorAll('#v2Popover input[data-series]')].filter(i => i.checked && !i.disabled).map(i => i.dataset.series)")
+    pick = next((k for k in keys if k.startswith("fantasypros") or k.startswith("cbs") or k.startswith("usatoday")), keys[-1] if keys else None)
+    if pick is None:
+        errors.append("[sources] no source to change in Customize")
+        page.close()
+        return
+    page.evaluate("k => document.querySelector(`#v2Popover input[data-series=\"${k}\"]`).click()", pick)
+    page.click('#v2Popover [data-apply="sources"]')
+    _settle(page, 800)
+    page.evaluate("() => { location.hash = '#find-trade'; }")
+    _settle(page, 600)
+    note = page.evaluate("() => document.getElementById('v2FindSettingsNote').textContent")
+    if "new source selection" not in note:
+        errors.append(f"[sources] Find was not re-run after a Customize change: note {note!r}")
+    if not page.evaluate("() => document.querySelectorAll('#v2FindOut .v2-find-group').length"):
+        errors.append("[sources] the Find results vanished after a Customize change")
+    if "source selection" not in page.evaluate(LIVE):
+        errors.append(f"[sources] live region reads {page.evaluate(LIVE)!r}")
+    page.close()
+
+
+def check_unsure(browser, base, overrides, errors):
+    lesser = fixture("yahoo-team.txt").replace("Aaron RodgersPlayer Note\nPit - QB", "A. RodgersPlayer Note\nPit - QB")
+    page = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[unsure] ")
+    paste(page, "Mine", lesser)
+    page.wait_for_timeout(400)
+    rows = page.evaluate(UNSURE_ROWS)
+    if len(rows) != 1 or not rows[0]["pending"]:
+        errors.append(f"[unsure] fixture should leave one waiting question: {rows}")
+        page.close()
+        return
+    page.click("#v2EditLeague")
+    page.focus('#v2Popover [aria-label="More SUPERFLEX"]')
+    page.click('#v2Popover [aria-label="More SUPERFLEX"]')
+    _settle(page, 900)
+    rows = page.evaluate(UNSURE_ROWS)
+    if len(rows) != 1 or not rows[0]["pending"]:
+        errors.append(f"[unsure] the question was not asked again after a settings change: {rows}")
+    if "check again" not in page.evaluate(LIVE):
+        errors.append(f"[unsure] the live region does not say a question is back: {page.evaluate(LIVE)!r}")
+    if page.evaluate("() => document.activeElement && document.activeElement.getAttribute('aria-label')") not in ("More SUPERFLEX", "Fewer SUPERFLEX"):
+        errors.append("[unsure] asking again moved focus")
+    page.click('#v2Popover [data-done="league"]')
+    # An answered question stays answered.
+    page.click("#v2FindMinePasteResult li.v2-find-unsure .v2-find-confirm")
+    page.click("#v2EditLeague")
+    page.click('#v2Popover [aria-label="Fewer SUPERFLEX"]')
+    _settle(page, 900)
+    page.click('#v2Popover [data-done="league"]')
+    if any(r["pending"] for r in page.evaluate(UNSURE_ROWS)):
+        errors.append("[unsure] an answered question was asked again")
+    page.close()
+    # A player who can no longer be matched is named.
+    gone = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[unsure gone] ")
+    paste(gone, "Mine", lesser)
+    gone.wait_for_timeout(400)
+    gone.evaluate("""() => { const C = window.TradeValueCurveControls; const all = C.getAllRows.bind(C);
+      C.getAllRows = () => all().filter(r => r.name !== 'Aaron Rodgers'); }""")
+    gone.click("#v2EditLeague")
+    gone.click('#v2Popover [aria-label="More SUPERFLEX"]')
+    _settle(gone, 900)
+    if "Aaron Rodgers can no longer be matched" not in gone.evaluate("() => document.getElementById('v2FindSettingsNote').textContent"):
+        errors.append("[unsure] a player who can no longer be matched was not named")
+    gone.close()
+
+
 def check_tabs(browser, base, overrides, errors):
     probe = _open(browser, base, "#player-values", overrides=overrides, errors=errors, tag="[probe] ")
     keys = probe.evaluate("() => window.TradeValueCurveControls.getAllRows().filter(r => r.pos === 'RB' || r.pos === 'QB').slice(0, 4).map(r => String(r.player_key))")
@@ -410,6 +555,9 @@ def run_checks(patch=None, report=None) -> list[str]:
         try:
             check_panel(browser, base, overrides, errors)
             check_find(browser, base, overrides, errors)
+            check_weights_live(browser, base, overrides, errors)
+            check_sources(browser, base, overrides, errors)
+            check_unsure(browser, base, overrides, errors)
             if not patch:
                 check_tabs(browser, base, overrides, errors)
                 check_phone(browser, base, overrides, errors)

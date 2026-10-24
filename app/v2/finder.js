@@ -604,7 +604,7 @@
   // src: the page text each side was read from (JEG-1020: re-read when the league settings change); removed: players the
 // reader took off by hand, which a re-read must not bring back.
 const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
-    src: {mine: null, theirs: null}, removed: new Set()};
+    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set()};
   const renders = {};
 
   function el(tag, props, ...kids) {
@@ -888,13 +888,13 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   const matchedList = added => el("ul", {class: "v2-find-matched"}, ...added.map(p =>
     el("li", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: ` ${p.pos || ""} ${p.team || ""}`.trimEnd()}), slotChip(p.slot))));
   function unsureItem(side, p) {
-    const li = el("li", {class: "v2-find-unsure"});
+    const li = el("li", {class: "v2-find-unsure", "data-unsure-id": String(p.id), "data-unsure-name": p.row.name});
     const yes = el("button", {type: "button", class: "v2-btn v2-find-confirm", text: "Yes, add", "aria-label": `Yes, add ${p.row.name}`});
     const no = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "No, search", "aria-label": `No, search for ${cleanLine(p.sourceLine)}`});
     li.append(el("span", {text: `Pasted “${cleanLine(p.sourceLine)}”: is this `}), el("b", {text: p.row.name}),
       el("span", {class: "v2-meta", text: ` ${p.row.pos || ""} ${p.row.team || ""}`.trimEnd()}), el("span", {text: "?"}), yes, no);
-    yes.addEventListener("click", () => { const ok = addOne(side, p.row); li.replaceChildren(el("span", {text: ok ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`})); });
-    no.addEventListener("click", () => { li.remove(); searchFor(side, p.sourceLine); });
+    yes.addEventListener("click", () => { S.answered.add(String(p.id)); const ok = addOne(side, p.row); li.replaceChildren(el("span", {text: ok ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`})); });
+    no.addEventListener("click", () => { S.answered.add(String(p.id)); li.remove(); searchFor(side, p.sourceLine); });
     return li;
   }
   const unsureBlock = (side, unsure) => (unsure.length ? [
@@ -969,7 +969,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   }
   function placeTeam(side, res, box) {
     const {added, onOther, unsure} = placePlayers(side, res.players, true);
-    S.src[side] = {text: res.sourceText, team: null}; S.removed.clear();
+    S.src[side] = {text: res.sourceText, team: null}; S.removed.clear(); S.answered.clear();
     const kept = keepNotEvaluated(side, res.unmatched);
     renderBoth();
     clearOutput();
@@ -980,7 +980,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // JEG-1010: place players from an extraction result (any source, noisy text).
   function placeExtracted(side, res, box) {
     const {added, onOther, unsure} = placePlayers(side, res.players, true);
-    S.src[side] = {text: res.sourceText, team: null}; S.removed.clear();
+    S.src[side] = {text: res.sourceText, team: null}; S.removed.clear(); S.answered.clear();
     const kept = keepNotEvaluated(side, res.unmatched);
     renderBoth();
     clearOutput();
@@ -1005,7 +1005,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     S.mine = []; S.theirs = []; S.sel.clear();
     S.label = {mine: res.teams[mineIdx].teamName || "", theirs: res.teams[1 - mineIdx].teamName || ""};
     const placed = res.teams.map((t, i) => placePlayers(sides[i], t.players, true));
-    S.src.mine = {text: res.sourceText, team: mineIdx}; S.src.theirs = {text: res.sourceText, team: 1 - mineIdx}; S.removed.clear();
+    S.src.mine = {text: res.sourceText, team: mineIdx}; S.src.theirs = {text: res.sourceText, team: 1 - mineIdx}; S.removed.clear(); S.answered.clear();
     const kept = res.teams.map((t, i) => keepNotEvaluated(sides[i], t.unmatched));
     renderBoth();
     clearOutput();
@@ -1513,9 +1513,15 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     });
     return kept;
   };
-  function reprocessRosters() {
+  function reprocessRosters(asks) {
     const map = rowMap();
     const say = [];
+    // Prompts that were still waiting for a tap before the change (JEG-1020: asked again, or said to be gone).
+    const waiting = {};
+    ["mine", "theirs"].forEach(side => {
+      waiting[side] = [...document.querySelectorAll(`#${sideId(side)}PasteResult li.v2-find-unsure[data-unsure-id]`)]
+        .filter(li => li.querySelector("button")).map(li => ({id: li.dataset.unsureId, name: li.dataset.unsureName}));
+    });
     ["mine", "theirs"].forEach(side => {
       const who = side === "mine" ? "Your" : "Their";
       const dropped = S[side].filter(p => !isNotEvaluated(p) && !map.has(p.key));
@@ -1543,6 +1549,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         added.push(row.name);
       });
       if (added.length) say.push(`${side === "mine" ? "Your" : "Their"} roster read again: added ${added.join(", ")}.`);
+      const unsure = players.filter(p => !(p.confidence >= 1) && map.get(String(p.id)) && !S.answered.has(String(p.id))
+        && !here.has(String(map.get(String(p.id)).player_key)) && !S.removed.has(String(map.get(String(p.id)).player_key)))
+        .map(p => ({...p, row: map.get(String(p.id))}));
+      const still = new Set(unsure.map(p => String(p.id)));
+      waiting[side].filter(w => !still.has(w.id)).forEach(w => say.push(`${side === "mine" ? "Your" : "Their"} roster: ${w.name} can no longer be matched, so the question about that player is gone.`));
+      if (unsure.length) { asks[side] = unsure; say.push(`${side === "mine" ? "Your" : "Their"} roster: ${plural(unsure.length, "match")} to check again (${unsure.map(p => p.row.name).join(", ")}).`); }
     });
     S.sel = new Set([...S.sel].filter(k => S.mine.concat(S.theirs).some(p => p.key === k)));
     return say;
@@ -1552,12 +1564,17 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const hadResults = hasResults();
     const saved = hadResults ? groupState() : null;
     const evalOpen = ["mine", "theirs"].map(side => Boolean(document.querySelector(`#${sideId(side)}Eval details[open]`)));
-    const say = reprocessRosters();
+    const asks = {};
+    const say = reprocessRosters(asks);
     renderBoth();
     ["mine", "theirs"].forEach((side, i) => {
       const d = document.querySelector(`#${sideId(side)}Eval details`);
       if (d && evalOpen[i]) d.open = true;
-      if (say.length && S[side].length) { const box = $(`${sideId(side)}PasteResult`); if (box && box.childElementCount) box.replaceChildren(el("p", {class: "v2-meta", text: `${SIDE_NAME[side]} now has ${plural(S[side].length, "player")} under the new league settings.`})); }
+      const box = $(`${sideId(side)}PasteResult`);
+      if (box && (asks[side] || (say.length && S[side].length && box.childElementCount))) {
+        // Asked again below the roster line; nothing here takes focus.
+        box.replaceChildren(el("p", {class: "v2-meta", text: `${SIDE_NAME[side]} now has ${plural(S[side].length, "player")} under the new settings.`}), ...unsureBlock(side, asks[side] || []));
+      }
     });
     if (hadResults) {
       // The page's own live region says "Results updated for the new league settings"; the rebuilt list is not read out again.
@@ -1571,7 +1588,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     }
     if (!$("v2FindSummary").hidden) updateSummary();
     const note = $("v2FindSettingsNote");
-    const text = (hadResults || S.mine.length || S.theirs.length) ? `Updated for the new league settings. ${say.join(" ")}`.trim() : "";
+    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
     if (note) note.textContent = text;
     if (event && event.detail && event.detail.notes) event.detail.notes.push(...say);
   }

@@ -291,8 +291,15 @@ def check_weights(page) -> list[str]:
             errors.append(f"weights: {pos} shows {text}, engine {weights[pos]}")
     # Position shares (frame 11, JEG-452): the edited share reaches the engine, the rest rebalance there.
     # Use 30% (far from the default ~10%) so a no-op Apply is caught.
+    # JEG-1020 (Jeremy, 2026-10-24): Position weights applies live like Your league, no Apply step.
     page.fill("#v2ShareQB", "30")
-    page.click('#v2Popover [data-apply="weights"]')
+    try:
+        page.wait_for_function("() => Math.abs(window.TradeValueCurveControls.getPositionWeights().QB - 0.30) < 0.002", timeout=3000)
+    except Exception:
+        errors.append("weights: a valid share never reached the engine on its own")
+    if page.locator('#v2Popover [data-apply="weights"]').count() or page.locator('#v2Popover button:has-text("Apply")').count() or page.locator('#v2Popover button:has-text("Cancel")').count():
+        errors.append("weights: an Apply or Cancel button is still on Position weights")
+    page.click('#v2Popover [data-done="weights"]')
     got = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if abs(got["QB"] - 0.30) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
         errors.append(f"weights: QB 30% applied as {got}")
@@ -309,13 +316,14 @@ def check_weights(page) -> list[str]:
     if abs(float(page.input_value("#v2ShareWR")) - before["WR"] * 100) > 0.06:
         errors.append(f"weights: WR 150 left {page.input_value('#v2ShareWR')} in the box, last valid was {before['WR'] * 100:.1f}")
     page.fill("#v2ShareWR", "150")
-    page.click('#v2Popover [data-apply="weights"]')
+    page.wait_for_timeout(600)
+    page.click('#v2Popover [data-done="weights"]')
     after = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if any(abs(after[p] - before[p]) > 1e-9 for p in before):
         errors.append(f"weights: WR 150 changed the engine shares {before} -> {after}")
     page.click("#v2Weights")
-    page.click("#v2Popover .v2-preset")
-    page.click('#v2Popover [data-apply="weights"]')
+    page.click("#v2Popover [data-weights-reset]")
+    page.click('#v2Popover [data-done="weights"]')
     back = page.evaluate("""() => { const C = window.TradeValueCurveControls; const a = C.getPositionWeights(), d = C.getDefaultPositionWeights();
       return ['QB', 'RB', 'WR', 'TE'].every(p => Math.abs(a[p] - d[p]) < 1e-9); }""")
     if not back:
