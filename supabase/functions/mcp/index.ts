@@ -23,17 +23,21 @@ const VALUES_URL = Deno.env.get("DDF_API_URL") ||
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; data: ValuesResponse }>();
 
-const fetchValues: FetchValues = async (scoring, teams, superflex) => {
-  const key = `${scoring}|${teams}|${superflex}`;
+const CACHE_MAX = 12;
+
+const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
   url.searchParams.set("scoring", scoring);
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
+  if (league) url.searchParams.set("league", JSON.stringify(league));
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`get-values ${res.status}`);
   const data = await res.json() as ValuesResponse;
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
   cache.set(key, { at: Date.now(), data });
   return data;
 };

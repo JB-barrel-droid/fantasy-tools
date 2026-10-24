@@ -44,6 +44,6 @@ A list entry is `{key, name?}` or a name-only `{name}`. Keys are the engine's `p
 
 ## Open gaps (found writing this; tracked on the child tickets)
 
-- **`get-values` takes only scoring, teams and superflex.** It does not accept the roster shape, position shares, season weeks or advanced settings. A chat can carry a customized league in the state but cannot yet price it. Until `get-values` accepts the full `league`, MCP answers for a customized league would not match the page, so tools must say which league they priced. JEG-1027, JEG-1029.
+- **`get-values` prices the full league (JEG-1031).** It accepts the normalized `league` (roster shape, position shares, season weeks, advanced settings), maps it with the page's clamps and computes on demand with nothing stored. MCP passes `state.league` through and no longer adds the unpriced-league note.
 - **Today's trade link does not carry the team count.** The codec adds `teams`; the site writes and reads it in JEG-1026.
 - **`sources` and `asOf` are advisory.** The receiver's shown sources and week win unless the person asks to match the sender.
