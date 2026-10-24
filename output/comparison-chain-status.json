@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-24T19:28:10.497871+00:00",
+  "run_at": "2026-10-24T20:02:02.501705+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,11 +10,9 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "green",
   "held": [],
   "hold_severity": "none",
   "list_changes": {
@@ -145,20 +143,5 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults"
-    ],
-    "assertions": [
-      "AssertionError: False is not true : {'QB': 0.14078106131434043, 'RB': 0.15622643634222091, 'WR': 0.1688812074023909, 'TE': 0.027743221530236513, 'overall': 0.15379638715203495, 'override': False, 'overrideValue': None, 'fillInShare': 0.062092359833403866, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}"
-    ],
-    "make_targets": [
-      "Makefile:539: test-core"
-    ],
-    "detail": "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; AssertionError: False is not true : {'QB': 0.14078106131434043, 'RB': 0.15622643634222091, 'WR': 0.1688812074023909, 'TE': 0.027743221530236513, 'overall': 0.15379638715203495, 'override': False, 'overrideValue': None, 'fillInShare': 0.062092359833403866, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}",
-    "recorded_at": "2026-10-24T19:51:24.571634+00:00"
   }
 }
