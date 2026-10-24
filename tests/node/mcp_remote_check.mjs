@@ -36,7 +36,7 @@ assert.equal(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialize
 assert.deepEqual((await rpc("ping")).result, {});
 r = await rpc("tools/list");
 assert.deepEqual(r.result.tools.map((t) => t.name),
-  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "explain"]);
+  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "explain"]);
 assert.ok(r.result.tools.every((t) => t.inputSchema.type === "object" && !/0-70/.test(t.description)));
 assert.equal((await rpc("nope")).error.code, -32601);
 assert.equal((await handleRpc({ foo: 1 }, stub)).error.code, -32600);
@@ -206,4 +206,85 @@ assert.doesNotMatch(r.result.content[0].text, /not applied here/);
 const fullRoster = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 6 } } });
 r = await callD("get_values", { state: fullRoster, limit: 1 });
 assert.match(r.result.content[0].text, /not applied here/);
+// JEG-1029 (interim): the chat verdict says what it is, so it is not mistaken for the site's lineup-aware view.
+r = await call("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson" });
+assert.match(r.result.content[0].text, /market-value sum, not lineup-aware/);
+assert.match(r.result.content[0].text, /per-source breakdown/);
+assert.equal(r.result.structuredContent.method, "sum_of_blended_values");
+assert.match((await rpc("tools/list")).result.tools.find((t) => t.name === "compare_trade").description, /not lineup-aware/);
+
+// ---------- find_trades tool ----------
+const finder = createRequire(import.meta.url)("../../app/v2/finder.js");
+
+// Chart-enriched stub: adds chart_values and DDF sub-versions to each player.
+const chartPlayers = [
+  { player_key: 1, name: "Bijan Robinson", pos: "RB", value: 71.8, tier: "starter",
+    chart_values: { usatoday: 65, fantasycalc: 68, fantasypros: 70, cbs: 66 },
+    ddf_value_charts: 72, ddf_value_projections: 71.5 },
+  { player_key: 2, name: "Ja'Marr Chase", pos: "WR", value: 70.2, tier: "starter",
+    chart_values: { usatoday: 64, fantasycalc: 67, fantasypros: 69, cbs: 65 },
+    ddf_value_charts: 70, ddf_value_projections: 70.5 },
+  { player_key: 3, name: "Josh Allen", pos: "QB", value: 40, tier: "starter",
+    chart_values: { usatoday: 35, fantasycalc: 38, fantasypros: 42, cbs: 36 },
+    ddf_value_charts: 41, ddf_value_projections: 39 },
+  { player_key: 4, name: "Josh Jacobs", pos: "RB", value: 39, tier: "starter",
+    chart_values: { usatoday: 34, fantasycalc: 37, fantasypros: 41, cbs: 35 },
+    ddf_value_charts: 40, ddf_value_projections: 38 },
+  { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver",
+    chart_values: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
+    ddf_value_charts: 0, ddf_value_projections: 0 },
+];
+const chartStub = async (scoring, teams, superflex) => ({
+  attribution: "Data Driven Football", as_of: "2026-10-24",
+  setting: { scoring, teams, superflex }, players: chartPlayers,
+  sources_included: ["espn", "usatoday", "fantasycalc", "fantasypros", "cbs"], sources_excluded: [],
+});
+const finderDeps = { finder, fetchCharts: chartStub };
+const callF = (name, args) => handleRpc(
+  { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
+  stub, deps, finderDeps);
+
+// find_trades: basic search between two rosters.
+r = await callF("find_trades", { mine: "Josh Allen, Josh Jacobs", theirs: "Bijan Robinson, Ja'Marr Chase" });
+assert.notEqual(r.result.isError, true, "find_trades should not error: " + JSON.stringify(r.result));
+const ft = r.result.structuredContent;
+assert.ok(ft.total >= 0, "total trades is a number");
+assert.ok(Array.isArray(ft.trades), "trades is an array");
+assert.ok(r.result.content[0].text.includes("Data Driven Football"), "text includes attribution");
+assert.ok(r.result.content[0].text.includes("Open this on the site"), "text includes site link");
+assert.ok(ft.mine.searched > 0, "mine searched > 0");
+assert.ok(ft.theirs.searched > 0, "theirs searched > 0");
+
+// If trades are found, each has the expected shape.
+if (ft.trades.length > 0) {
+  const first = ft.trades[0];
+  assert.ok(Array.isArray(first.give) && first.give.length > 0, "give is a non-empty array");
+  assert.ok(Array.isArray(first.receive) && first.receive.length > 0, "receive is a non-empty array");
+  assert.equal(typeof first.edge, "number", "edge is a number");
+  assert.equal(typeof first.rivalOkCount, "number", "rivalOkCount is a number");
+  assert.ok(first.edge > 0, "your edge is positive (you gain)");
+  assert.ok(first.rivalOkCount >= 3, "at least 3 charts say the rival wins");
+}
+
+// Unmatched names are reported.
+r = await callF("find_trades", { mine: "Josh Allen, Ghost", theirs: "Bijan Robinson" });
+assert.notEqual(r.result.isError, true);
+assert.deepEqual(r.result.structuredContent.mine.unmatched, ["Ghost"]);
+
+// Empty roster is an error.
+r = await callF("find_trades", { mine: "", theirs: "Bijan Robinson" });
+assert.equal(r.result.isError, true);
+
+// Missing finder dependency surfaces as a tool error.
+const noFinderDeps = { finder: null, fetchCharts: chartStub };
+r = await handleRpc(
+  { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "find_trades", arguments: { mine: "Josh Allen", theirs: "Bijan Robinson" } } },
+  stub, deps, noFinderDeps);
+assert.equal(r.result.isError, true);
+assert.match(r.result.content[0].text, /unavailable/);
+
+// The site link points to find-trade.
+r = await callF("find_trades", { mine: "Josh Allen", theirs: "Bijan Robinson" });
+assert.ok(r.result.structuredContent.site_url.includes("#find-trade"), "link points to find-trade view");
+
 console.log("ok");

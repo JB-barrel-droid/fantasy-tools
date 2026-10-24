@@ -612,7 +612,10 @@
   const $ = id => document.getElementById(id);
   const engine = () => root.TradeValueCurveControls;
   // mine / theirs: [{key, name, pos}]; sel: keys ticked for "Move selected"; undo: the rosters before the last swap or move (JEG-854).
-  const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""}};
+  // src: the page text each side was read from (JEG-1020: re-read when the league settings change); removed: players the
+// reader took off by hand, which a re-read must not bring back.
+const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
+    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set()};
   const renders = {};
 
   function el(tag, props, ...kids) {
@@ -662,12 +665,13 @@
     clearOutput();
     if (had) run();
   }
-  function snapshot() { S.undo = {mine: S.mine.slice(), theirs: S.theirs.slice(), label: {...S.label}}; }
+  function snapshot() { S.undo = {mine: S.mine.slice(), theirs: S.theirs.slice(), label: {...S.label}, src: {...S.src}}; }
   function afterArrange(text) { S.sel.clear(); renderBoth(); rerun(); arrangeSay(text); }
   function swapTeams() {
     snapshot();
     [S.mine, S.theirs] = [S.theirs, S.mine];
     [S.label.mine, S.label.theirs] = [S.label.theirs, S.label.mine];
+    [S.src.mine, S.src.theirs] = [S.src.theirs, S.src.mine];
     afterArrange("Swapped: your roster is now the one that was theirs. Undo puts them back.");
   }
   function moveKeys(keys) {
@@ -686,6 +690,7 @@
     S.mine = S.undo.mine;
     S.theirs = S.undo.theirs;
     if (S.undo.label) S.label = {...S.undo.label};
+    if (S.undo.src) S.src = {...S.undo.src};
     S.undo = null;
     afterArrange("Undone.");
   }
@@ -973,13 +978,13 @@
   const matchedList = added => el("ul", {class: "v2-find-matched"}, ...added.map(p =>
     el("li", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: ` ${p.pos || ""} ${p.team || ""}`.trimEnd()}), slotChip(p.slot))));
   function unsureItem(side, p) {
-    const li = el("li", {class: "v2-find-unsure"});
+    const li = el("li", {class: "v2-find-unsure", "data-unsure-id": String(p.id), "data-unsure-name": p.row.name});
     const yes = el("button", {type: "button", class: "v2-btn v2-find-confirm", text: "Yes, add", "aria-label": `Yes, add ${p.row.name}`});
     const no = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "No, search", "aria-label": `No, search for ${cleanLine(p.sourceLine)}`});
     li.append(el("span", {text: `Pasted “${cleanLine(p.sourceLine)}”: is this `}), el("b", {text: p.row.name}),
       el("span", {class: "v2-meta", text: ` ${p.row.pos || ""} ${p.row.team || ""}`.trimEnd()}), el("span", {text: "?"}), yes, no);
-    yes.addEventListener("click", () => { const ok = addOne(side, p.row); li.replaceChildren(el("span", {text: ok ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`})); });
-    no.addEventListener("click", () => { li.remove(); searchFor(side, p.sourceLine); });
+    yes.addEventListener("click", () => { S.answered.add(String(p.id)); const ok = addOne(side, p.row); li.replaceChildren(el("span", {text: ok ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`})); });
+    no.addEventListener("click", () => { S.answered.add(String(p.id)); li.remove(); searchFor(side, p.sourceLine); });
     return li;
   }
   const unsureBlock = (side, unsure) => (unsure.length ? [
@@ -1029,6 +1034,7 @@
     if (!String(text || "").trim()) { put(box, el("p", {class: "v2-meta", text: "Nothing pasted yet."})); return; }
     const res = parsePage(text);
     if (!res) { put(box, el("p", {class: "v2-meta", text: "Values are still loading. Try again in a moment."})); return; }
+    res.sourceText = text;
     if (res.mode === "matchup" && res.teams && res.teams.length === 2) return readMatchup(res, side, box, done);
     if (!res.matched) {
       put(box, el("p", {class: "v2-find-paste-count is-bad", text: "No players recognised in that text. Nothing was added."}),
@@ -1053,6 +1059,7 @@
   }
   function placeTeam(side, res, box) {
     const {added, onOther, unsure} = placePlayers(side, res.players, true);
+    S.src[side] = {text: res.sourceText, team: null}; S.removed.clear(); S.answered.clear();
     const kept = keepNotEvaluated(side, res.unmatched);
     renderBoth();
     clearOutput();
@@ -1063,6 +1070,7 @@
   // JEG-1010: place players from an extraction result (any source, noisy text).
   function placeExtracted(side, res, box) {
     const {added, onOther, unsure} = placePlayers(side, res.players, true);
+    S.src[side] = {text: res.sourceText, team: null}; S.removed.clear(); S.answered.clear();
     const kept = keepNotEvaluated(side, res.unmatched);
     renderBoth();
     clearOutput();
@@ -1087,6 +1095,7 @@
     S.mine = []; S.theirs = []; S.sel.clear();
     S.label = {mine: res.teams[mineIdx].teamName || "", theirs: res.teams[1 - mineIdx].teamName || ""};
     const placed = res.teams.map((t, i) => placePlayers(sides[i], t.players, true));
+    S.src.mine = {text: res.sourceText, team: mineIdx}; S.src.theirs = {text: res.sourceText, team: 1 - mineIdx}; S.removed.clear(); S.answered.clear();
     const kept = res.teams.map((t, i) => keepNotEvaluated(sides[i], t.unmatched));
     renderBoth();
     clearOutput();
@@ -1118,6 +1127,7 @@
       snapshot();
       const keys = new Set(S[side].map(p => p.key));
       S[side] = [];
+      S.src[side] = null;
       S.label[side] = "";
       keys.forEach(k => S.sel.delete(k));
       result.replaceChildren();
@@ -1138,7 +1148,7 @@
       renderAssessment();
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
-        remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); render(); updateArrange(); clearOutput(); });
+        remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); S.removed.add(p.key); render(); updateArrange(); clearOutput(); });
         const pick = el("input", {type: "checkbox", class: "v2-find-pick", "aria-label": `Select ${p.name} to move`});
         pick.checked = S.sel.has(p.key);
         pick.addEventListener("change", () => { if (pick.checked) S.sel.add(p.key); else S.sel.delete(p.key); updateArrange(); });
@@ -1432,7 +1442,7 @@
     const notes = el("span", {class: "v2-meta v2-find-notes"});
     const fitLine = el("p", {class: "v2-find-fit", hidden: ""});
     const open = el("a", {class: "v2-link", text: "Open in Compare a trade"});
-    const li = el("li", {class: "v2-find-group"});
+    const li = el("li", {class: "v2-find-group", "data-group": group.heavy.map(keyOf).join(",")});
     const target = el("span", {class: "v2-find-target"});
     target.append(el("span", {class: "v2-find-target-label", text: "Target: "}), el("span", {class: "v2-find-target-name", text: names(group.heavy)}),
       el("span", {class: "v2-meta", text: ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)} DDF Value`}));
@@ -1440,8 +1450,9 @@
     const sideSet = (title, rows, sel, fixed) => {
       const box = el("fieldset", {class: "v2-find-side-pick"}, el("legend", {text: title}));
       rows.forEach(r => {
-        const input = el("input", {type: "checkbox", "aria-label": `Include ${r.name} (value ${valueText(r, ourKey)})`});
+        const input = el("input", {type: "checkbox", "data-key": keyOf(r), "aria-label": `Include ${r.name} (value ${valueText(r, ourKey)})`});
         input.checked = sel.has(keyOf(r));
+        input.defaultChecked = input.checked;   // JEG-1020: a settings change keeps only the ticks the reader changed
         if (fixed) input.disabled = true;
         input.addEventListener("change", () => { if (input.checked) sel.add(keyOf(r)); else sel.delete(keyOf(r)); refresh(); });
         const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta", text: `(${valueText(r, ourKey)} DDF Value)`}));
@@ -1551,6 +1562,115 @@
     if (headline && headline.scrollIntoView && root.innerWidth < 768) headline.scrollIntoView({block: "start", behavior: "instant"});
   }
 
+  // ---------- JEG-1020: the league settings changed (Your league applies live) ----------
+  // Re-read the stored page text under the new settings, refresh every roster line and result from the engine, and keep
+  // the reader's choices that still apply: the players ticked inside each group, which details are open, the folded or
+  // open roster input, cleared sides and hand-removed players. Only players the engine no longer has are dropped.
+  const groupState = () => {
+    const state = new Map();
+    document.querySelectorAll("#v2FindOut .v2-find-group").forEach(li => {
+      const picks = {};
+      li.querySelectorAll("input[data-key]").forEach(input => { if (input.checked !== input.defaultChecked) picks[input.dataset.key] = input.checked; });
+      const open = [...li.querySelectorAll("details")].map(d => d.open);
+      state.set(li.dataset.group, {picks, open});
+    });
+    return {groups: state, more: state.size > GROUP_LIMIT};
+  };
+  const restoreGroups = saved => {
+    let kept = 0;
+    document.querySelectorAll("#v2FindOut .v2-find-group").forEach(li => {
+      const old = saved.groups.get(li.dataset.group);
+      if (!old) return;
+      kept += 1;
+      li.querySelectorAll("details").forEach((d, i) => { if (old.open[i] !== undefined) d.open = old.open[i]; });
+      li.querySelectorAll("input[data-key]").forEach(input => {
+        if (old.picks[input.dataset.key] === undefined || input.checked === old.picks[input.dataset.key]) return;
+        input.checked = old.picks[input.dataset.key];
+        input.dispatchEvent(new Event("change", {bubbles: true}));
+      });
+    });
+    return kept;
+  };
+  function reprocessRosters(asks) {
+    const map = rowMap();
+    const say = [];
+    // Prompts that were still waiting for a tap before the change (JEG-1020: asked again, or said to be gone).
+    const waiting = {};
+    ["mine", "theirs"].forEach(side => {
+      waiting[side] = [...document.querySelectorAll(`#${sideId(side)}PasteResult li.v2-find-unsure[data-unsure-id]`)]
+        .filter(li => li.querySelector("button")).map(li => ({id: li.dataset.unsureId, name: li.dataset.unsureName}));
+    });
+    ["mine", "theirs"].forEach(side => {
+      const who = side === "mine" ? "Your" : "Their";
+      const dropped = S[side].filter(p => !isNotEvaluated(p) && !map.has(p.key));
+      if (dropped.length) {
+        S[side] = S[side].filter(p => !dropped.includes(p));
+        dropped.forEach(p => S.sel.delete(p.key));
+        say.push(`${who} roster no longer has ${dropped.map(p => p.name).join(", ")} (not priced under these settings).`);
+      }
+      S[side].forEach(p => { const row = map.get(p.key); if (row) { p.name = row.name; p.pos = row.pos; } });
+    });
+    ["mine", "theirs"].forEach(side => {
+      const src = S.src[side];
+      const res = src && parsePage(src.text);
+      if (!res) return;
+      const players = src.team !== null && res.teams && res.teams[src.team] ? res.teams[src.team].players : res.players;
+      const here = new Set(S.mine.concat(S.theirs).map(p => p.key));
+      const added = [];
+      players.forEach(p => {
+        const row = map.get(String(p.id));
+        if (!row || !(p.confidence >= 1)) return;
+        const key = String(row.player_key);
+        if (here.has(key) || S.removed.has(key)) return;
+        here.add(key);
+        S[side].push({key, name: row.name, pos: row.pos, team: row.team, slot: p.slot});
+        added.push(row.name);
+      });
+      if (added.length) say.push(`${side === "mine" ? "Your" : "Their"} roster read again: added ${added.join(", ")}.`);
+      const unsure = players.filter(p => !(p.confidence >= 1) && map.get(String(p.id)) && !S.answered.has(String(p.id))
+        && !here.has(String(map.get(String(p.id)).player_key)) && !S.removed.has(String(map.get(String(p.id)).player_key)))
+        .map(p => ({...p, row: map.get(String(p.id))}));
+      const still = new Set(unsure.map(p => String(p.id)));
+      waiting[side].filter(w => !still.has(w.id)).forEach(w => say.push(`${side === "mine" ? "Your" : "Their"} roster: ${w.name} can no longer be matched, so the question about that player is gone.`));
+      if (unsure.length) { asks[side] = unsure; say.push(`${side === "mine" ? "Your" : "Their"} roster: ${plural(unsure.length, "match")} to check again (${unsure.map(p => p.row.name).join(", ")}).`); }
+    });
+    S.sel = new Set([...S.sel].filter(k => S.mine.concat(S.theirs).some(p => p.key === k)));
+    return say;
+  }
+  function onLeagueSettingsChanged(event) {
+    if (!$("v2Find") || !engine()) return;
+    const hadResults = hasResults();
+    const saved = hadResults ? groupState() : null;
+    const asks = {};
+    const say = reprocessRosters(asks);
+    renderBoth();
+    ["mine", "theirs"].forEach(side => {
+      const box = $(`${sideId(side)}PasteResult`);
+      if (box && (asks[side] || (say.length && S[side].length && box.childElementCount))) {
+        // Asked again below the roster line; nothing here takes focus.
+        box.replaceChildren(el("p", {class: "v2-meta", text: `${SIDE_NAME[side]} now has ${plural(S[side].length, "player")} under the new settings.`}), ...unsureBlock(side, asks[side] || []));
+      }
+    });
+    if (hadResults) {
+      // The page's own live region says "Results updated for the new league settings"; the rebuilt list is not read out again.
+      const out = $("v2FindOut");
+      const headline = $("v2FindFit");
+      out.setAttribute("aria-live", "off");
+      if (headline) headline.setAttribute("aria-live", "off");
+      clearOutput();
+      run();
+      restoreGroups(saved);
+      if (saved.more && $("v2FindMoreGroups")) $("v2FindMoreGroups").click();
+      setTimeout(() => { out.setAttribute("aria-live", "polite"); if (headline) headline.setAttribute("aria-live", "polite"); }, 150);
+    }
+    if (!$("v2FindSummary").hidden) updateSummary();
+    const note = $("v2FindSettingsNote");
+    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
+    if (note) note.textContent = text;
+    if (event && event.detail && event.detail.notes) event.detail.notes.push(...say);
+  }
+  document.addEventListener("ddf:league-settings-changed", onLeagueSettingsChanged);
+
   function build() {
     const host = $("v2FindTrade");
     if (!host || $("v2Find")) return;
@@ -1585,6 +1705,7 @@
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),
       el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
       el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),
+      el("p", {class: "v2-meta", id: "v2FindSettingsNote"}),
       el("div", {id: "v2FindOut", "aria-live": "polite", hidden: ""}));
     card.addEventListener("keydown", event => {
       if (event.key === "Escape" && !$("v2FindInput").hidden && hasResults() && S.mine.length && S.theirs.length) { setCollapsed(true, "edit"); }
