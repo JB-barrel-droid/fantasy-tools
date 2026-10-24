@@ -123,6 +123,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_run_suite
 	python3 -m unittest tests.test_validate_runner
 	python3 -m unittest tests.test_doc_staleness
+	python3 -m unittest tests.test_mcp_remote
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
