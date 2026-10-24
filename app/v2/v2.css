@@ -1752,3 +1752,13 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-chip-value { color: var(--v2-ink); font-variant-numeric: tabular-nums; }
 .v2-find-chip.is-missing .v2-find-chip-value { font-weight: 500; color: var(--v2-muted); }
 .v2-trade-players li > div > .v2-find-chips { display: flex; }
+
+/* JEG-988: roster balance and the generated evaluation, per roster and in the team summary. */
+.v2-find-eval { display: grid; gap: 6px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); }
+.v2-find-eval[hidden] { display: none; }
+.v2-find-eval p { margin: 0; overflow-wrap: anywhere; }
+.v2-find-eval-line { font-size: 14px; line-height: 1.45; }
+.v2-find-eval-details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
+.v2-find-lineup td.is-under { color: var(--v2-older); font-weight: 600; }
+.v2-find-lineup td.is-over { color: var(--v2-muted); }
+.v2-find-teams-sum .v2-find-eval { margin: 0 0 8px; padding: 8px 12px; }

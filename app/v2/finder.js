@@ -417,7 +417,61 @@
   const NOT_EVALUATED_POS = ["K", "DEF", "DST"];
   const isNotEvaluated = row => Boolean(row) && NOT_EVALUATED_POS.includes(row.pos);
 
-  const api = {looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // ---------- JEG-988: roster balance and the generated evaluation ----------
+  // Expected depth per position for one team, from the engine's own seats (adjustment allocation: dedicated, flex and
+  // superflex starters plus D'Hondt bench seats by market bench ratios), divided by the teams. A fraction is shown as a
+  // range (4.6 -> 4-5). allocation: [{pos, rostered, lineup, bench}] league-wide; teams: the league size.
+  const DEPTH_POS = ["QB", "RB", "WR", "TE"];
+  function expectedDepth(allocation, teams) {
+    if (!Array.isArray(allocation) || !(teams > 0)) return null;
+    const out = {};
+    for (const pos of DEPTH_POS) {
+      const a = allocation.find(item => item.pos === pos);
+      if (!a || !finite(a.rostered) || !finite(a.lineup)) return null;
+      const expected = a.rostered / teams;
+      out[pos] = {starters: a.lineup / teams, bench: (a.bench || 0) / teams, expected, lo: Math.floor(expected + 1e-9), hi: Math.ceil(expected - 1e-9)};
+    }
+    return out;
+  }
+  const USABLE_MIN = 0.05;   // a value that shows as 0.0 is no depth: the player is not counted toward a view's depth
+  const rangeText = e => (e.lo === e.hi ? String(e.lo) : `${e.lo}-${e.hi}`);
+  // Players per position in one view against the expected range. A player counts toward depth in a view only when that
+  // view gives him a usable value (DDF Value, or the Trade chart average for the market view); the rest are listed as
+  // unusable, never counted as 0 and never dropped. Under: fewer than the low end; over: two or more above the high end
+  // (one extra is normal depth). shape: the league's slots; ready: the roster has at least as many QB/RB/WR/TE players
+  // as the league has starting slots (a partial roster is not judged).
+  function rosterBalance(rows, expected, valueKey, shape) {
+    if (!expected) return null;
+    const slots = SLOT_KEYS.reduce((n, slot) => n + ((shape && shape[slot]) || 0), 0);
+    const out = {positions: {}, ready: rows.filter(r => DEPTH_POS.includes(r.pos)).length >= slots && slots > 0, over: [], under: [], unusable: 0};
+    for (const pos of DEPTH_POS) {
+      const atPos = rows.filter(r => r.pos === pos);
+      const usable = atPos.filter(r => r.values && finite(r.values[valueKey]) && r.values[valueKey] >= USABLE_MIN);
+      const e = expected[pos];
+      const have = usable.length;
+      const status = have < e.lo ? "under" : have > e.hi + 1 ? "over" : "ok";
+      out.positions[pos] = {pos, have, rostered: atPos.length, unusable: atPos.length - have, lo: e.lo, hi: e.hi, range: rangeText(e), status};
+      out.unusable += atPos.length - have;
+      if (status !== "ok") out[status].push(pos);
+    }
+    return out;
+  }
+  const SLOT_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  const listJoin = items => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
+  // One short sentence for one team in one view. who: "your" | "their"; view: "fundamentals" | "market pricing";
+  // unit: "DDF Value" | "trade chart average"; sums: {starters, bench} in that view.
+  function evalSentence(who, view, unit, balance, sums) {
+    const phrase = pos => { const b = balance.positions[pos]; return `${pos} (${b.have} counted, ${b.range} expected)`; };
+    const bits = [];
+    if (balance.over.length) bits.push(`overweight at ${listJoin(balance.over.map(phrase))}`);
+    if (balance.under.length) bits.push(`underweight at ${listJoin(balance.under.map(phrase))}`);
+    const head = `Based on ${view}, ${who} roster is ${bits.length ? bits.join(" and ") : "balanced by position"}.`;
+    const value = sums ? ` ${who[0].toUpperCase()}${who.slice(1)} starting lineup is worth ${sums.starters.toFixed(1)} in ${unit}; the bench adds ${sums.bench.toFixed(1)}.` : "";
+    const note = balance.unusable ? ` ${balance.unusable} ${balance.unusable === 1 ? "player has" : "players have"} no usable value in this view and ${balance.unusable === 1 ? "is" : "are"} not counted toward depth.` : "";
+    return head + value + note;
+  }
+
+  const api = {expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -616,6 +670,53 @@
       el("span", {class: "v2-find-chip-value", text: finite(value) ? value.toFixed(1) : "no value"}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
     return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", charts ? "Trade chart avg" : "Trade chart avg (too few charts)", avg));
   }
+  // JEG-988: roster balance and the generated evaluation for one side, in both views: fundamentals (DDF Value) and market
+  // pricing (Trade chart average, only with enough charts). Expected depth is the engine's own seats per team.
+  function depthContext() {
+    const C = engine();
+    if (!C || !C.getAdjustmentWeights || !C.getRosterShape) return null;
+    let allocation;
+    try { allocation = C.getAdjustmentWeights().allocation; } catch (error) { return null; }
+    const expected = expectedDepth(allocation, C.getState().teams);
+    return expected ? {expected, shape: C.getRosterShape()} : null;
+  }
+  const STATUS_WORD = {under: "underweight", over: "overweight", ok: "ok"};
+  function evaluationNode(side, compact) {
+    const who = side === "mine" ? "your" : "their";
+    const box = el("div", {class: "v2-find-eval", id: compact ? `${sideId(side)}EvalSummary` : `${sideId(side)}Eval`});
+    const ctx = depthContext();
+    if (!ctx || !S[side].length) { box.hidden = true; return box; }
+    const byKey = rowMap();
+    const rows = S[side].map(p => byKey.get(p.key)).filter(Boolean);
+    const slots = SLOT_KEYS.reduce((n, slot) => n + (ctx.shape[slot] || 0), 0);
+    const charts = marketKeys();
+    const fundBalance = rosterBalance(rows, ctx.expected, OUR_KEY, ctx.shape);
+    if (!fundBalance.ready) {
+      box.append(el("p", {class: "v2-meta", text: `Roster balance shows once ${SIDE_NAME[side].toLowerCase()} has ${slots} players or more at QB, RB, WR and TE (${rows.filter(r => DEPTH_POS.includes(r.pos)).length} so far).`}));
+      return box;
+    }
+    const marketRows = charts ? withChartAverage(rows, charts) : null;
+    const views = [{id: "ddf", word: "fundamentals", unit: "DDF Value", key: OUR_KEY, rows}];
+    if (marketRows) views.push({id: "market", word: "market pricing", unit: "trade chart average", key: MARKET_KEY, rows: marketRows});
+    views.forEach(v => {
+      v.balance = rosterBalance(v.rows, ctx.expected, v.key, ctx.shape);
+      const l = lineupValue(v.rows, ctx.shape, v.key);
+      v.sentence = evalSentence(who, v.word, v.unit, v.balance, {starters: l.starterValue, bench: l.benchValue});
+      box.append(el("p", {class: "v2-find-eval-line", "data-view": v.id, text: v.sentence}));
+    });
+    if (!marketRows) box.append(el("p", {class: "v2-meta", text: "Market view: not enough trade charts are available this week."}));
+    const kept = S[side].filter(isNotEvaluated);
+    if (kept.length) box.append(el("p", {class: "v2-meta", text: `${listJoin(kept.map(p => p.pos))} present, not evaluated.`}));
+    if (!compact) {
+      const head = ["Position", "Expected"].concat(views.map(v => v.id === "ddf" ? "Fundamentals" : "Market"));
+      const body = DEPTH_POS.map(pos => el("tr", {}, el("th", {scope: "row", text: pos}), el("td", {text: views[0].balance.positions[pos].range}),
+        ...views.map(v => { const b = v.balance.positions[pos]; return el("td", {class: `is-${b.status}`, text: `${b.have} ${STATUS_WORD[b.status]}`}); })));
+      box.append(el("details", {class: "v2-find-eval-details"}, el("summary", {text: "Position by position"}),
+        el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: `${SIDE_NAME[side]}: players counted per position`}),
+          el("thead", {}, el("tr", {}, ...head.map(h => el("th", {scope: "col", text: h})))), el("tbody", {}, ...body)))));
+    }
+    return box;
+  }
   const put = (box, ...kids) => box.append(...kids.filter(Boolean));
   const slotChip = slot => el("span", {class: "v2-find-slot", "data-slot": slotWord(slot), text: slotWord(slot)});
   const matchedList = added => el("ul", {class: "v2-find-matched"}, ...added.map(p =>
@@ -743,14 +844,18 @@
       afterArrange(`Cleared ${title.toLowerCase()}. Undo puts it back.`);
       input.focus();
     });
+    const evalSlot = el("div", {class: "v2-find-eval", id: `${id}Eval`, hidden: ""});
     const moveSel = el("button", {type: "button", class: "v2-btn v2-find-movesel", id: `${id}MoveSel`, text: "Move selected to the other team", disabled: ""});
     moveSel.addEventListener("click", () => moveKeys(S[side].filter(p => S.sel.has(p.key)).map(p => p.key)));
     const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("div", {class: "v2-find-side-head"}, el("h3", {text: title}), clear),
-      searchWrap, help, result, list, moveSel, importBox());
+      searchWrap, help, result, list, evalSlot, moveSel, importBox());
     const render = () => {
       clear.hidden = !S[side].length;
       const byKey = rowMap();
       const charts = marketKeys();
+      const fresh = evaluationNode(side, false);
+      evalSlot.replaceChildren(...fresh.childNodes);
+      evalSlot.hidden = fresh.hidden;
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
         remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); render(); updateArrange(); clearOutput(); });
@@ -926,7 +1031,10 @@
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
     if (!res.trades.length) {
-      return note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} available trade chart${charts.length === 1 ? "s say" : "s say"} they break even or win. Try a larger package.`);
+      note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} available trade chart${charts.length === 1 ? "s say" : "s say"} they break even or win. Try a larger package.`);
+      const empty = lineupContext(mineRows, theirRows, charts, shape);
+      if (empty) out.append(teamSummary(empty, res.ourKey));
+      return undefined;   // the roster evaluation is worth reading even when no trade is found
     }
     const groups = groupTrades(res.trades, {ourKey: res.ourKey});
     const shown = Math.min(GROUP_LIMIT, groups.length);
@@ -976,6 +1084,8 @@
       });
       const missing = lineupValue(lineup[who].ddf, lineup.shape, ourKey).unvalued.filter(r => !isNotEvaluated(r)).length;
       box.append(el("p", {class: "v2-meta"}, el("span", {class: "v2-find-who", text: `${title}, best lineup. `}), `${parts.join("; ")}.${missing ? ` ${plural(missing, "player")} with no DDF Value left out.` : ""}`));
+      const evaluation = evaluationNode(who, true);
+      if (!evaluation.hidden) box.append(evaluation);
     });
     return box;
   }
