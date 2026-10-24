@@ -5,11 +5,11 @@
   "espn_snapshot": "2026-10-24",
   "rz_snapshot": "2026-10-24",
   "cbsros_snapshot": "2026-10-24",
-  "espn_snapshot_id": "sha256:ec27f2f9a16ff7fd9dff6605be01f553b098781421ff133c28232068bafda21b",
+  "espn_snapshot_id": "sha256:b2723d56517b80b3778a65e41b822271e73e4befe07d4448f8051c4e29188367",
   "cbsros_snapshot_id": "sha256:24392909540ad83bccdeb54d2a8fc1c9fbdc8c33b70c656ef7d0f731ff82279c",
   "rz_snapshot_id": "sha256:baf75eead50add3b13524c4d2fd90bdf98a99cb8b25a76a5ec12270a05cecd9e",
   "n_players": 1163,
-  "n_espn_complete": 365,
+  "n_espn_complete": 366,
   "n_rz_complete": 628,
   "n_rz_held": 39,
   "n_cbsros_complete": 366,
@@ -168,7 +168,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-24T20:01:12Z",
+   "built_at": "2026-10-24T21:41:46Z",
    "as_of": "2026-10-24",
    "summary": {
     "live": 3,
@@ -203,7 +203,7 @@
      "prior": {
       "available": true,
       "prior_date": "2026-09-23",
-      "delta_summary": "Genuine prior bake (players_2026-09-23.json): 522 of 533 players changed value vs the 2026-09-23 bake; median move -22.8, mean absolute move 39.54 full-PPR trade-value points.",
+      "delta_summary": "Genuine prior bake (players_2026-09-23.json): 522 of 533 players changed value vs the 2026-09-23 bake; median move -22.8, mean absolute move 39.64 full-PPR trade-value points.",
       "espn_leg_note": "Separately, prior_blend_ros measures the ESPN-PRIMARY move (blend == ESPN since 2026-10-05): 522 of 533 players moved vs the 2026-09-23 bake."
      },
      "stale": false,
@@ -221,7 +221,7 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 365,
+      "priced": 366,
       "universe": 1163,
       "note": "Pure read over priced components only \u2014 missing components default to 0.0 in the primary leg (fantasy_points treats 0 identically to 'missing'). No expert blend fills the gap."
      },
@@ -558,7 +558,7 @@
     "half_ppr": 351.48,
     "ppr": 351.48
    },
-   "delta_rz_espn_ppg_demeaned": -0.25,
+   "delta_rz_espn_ppg_demeaned": -0.31,
    "preseason_ecr_rank": 1
   },
   {
@@ -567,9 +567,9 @@
    "pos": "WR",
    "team": "CIN",
    "espn_ros": {
-    "standard": 172.47,
-    "half_ppr": 218.77,
-    "ppr": 265.07
+    "standard": 172.35,
+    "half_ppr": 218.55,
+    "ppr": 264.75
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -597,9 +597,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 172.47,
-    "half_ppr": 218.77,
-    "ppr": 265.07
+    "standard": 172.35,
+    "half_ppr": 218.55,
+    "ppr": 264.75
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -611,14 +611,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 14.3725,
-    "half_ppr": 18.230833,
-    "ppr": 22.089167
+    "standard": 14.3625,
+    "half_ppr": 18.2125,
+    "ppr": 22.0625
    },
    "espn_ppg": {
-    "standard": 14.3725,
-    "half_ppr": 18.230833,
-    "ppr": 22.089167
+    "standard": 14.3625,
+    "half_ppr": 18.2125,
+    "ppr": 22.0625
    },
    "rz_ppg": {
     "standard": 11.2,
@@ -640,8 +640,8 @@
     "half_ppr": 176.4,
     "ppr": 217.2
    },
-   "delta_rz_espn": -47.87,
-   "delta_rz_espn_ppg": -3.99,
+   "delta_rz_espn": -47.55,
+   "delta_rz_espn_ppg": -3.96,
    "cbsros_ppg": {
     "standard": 12.125,
     "half_ppr": 15.375,
@@ -657,7 +657,7 @@
     "half_ppr": 276.87,
     "ppr": 337.12
    },
-   "delta_rz_espn_ppg_demeaned": -3.68,
+   "delta_rz_espn_ppg_demeaned": -3.66,
    "preseason_ecr_rank": 1
   },
   {
@@ -666,9 +666,9 @@
    "pos": "QB",
    "team": "CIN",
    "espn_ros": {
-    "standard": 261.36,
-    "half_ppr": 261.36,
-    "ppr": 261.36
+    "standard": 261.25,
+    "half_ppr": 261.25,
+    "ppr": 261.25
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -696,9 +696,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 261.36,
-    "half_ppr": 261.36,
-    "ppr": 261.36
+    "standard": 261.25,
+    "half_ppr": 261.25,
+    "ppr": 261.25
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -709,14 +709,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 21.78,
-    "half_ppr": 21.78,
-    "ppr": 21.78
+    "standard": 21.770833,
+    "half_ppr": 21.770833,
+    "ppr": 21.770833
    },
    "espn_ppg": {
-    "standard": 21.78,
-    "half_ppr": 21.78,
-    "ppr": 21.78
+    "standard": 21.770833,
+    "half_ppr": 21.770833,
+    "ppr": 21.770833
    },
    "rz_ppg": {
     "standard": 16.4,
@@ -738,8 +738,8 @@
     "half_ppr": 196.8,
     "ppr": 196.8
    },
-   "delta_rz_espn": -64.56,
-   "delta_rz_espn_ppg": -5.38,
+   "delta_rz_espn": -64.45,
+   "delta_rz_espn_ppg": -5.37,
    "cbsros_ppg": {
     "standard": 24.05,
     "half_ppr": 24.05,
@@ -755,7 +755,7 @@
     "half_ppr": 313.02,
     "ppr": 313.02
    },
-   "delta_rz_espn_ppg_demeaned": -1.57,
+   "delta_rz_espn_ppg_demeaned": -1.62,
    "preseason_ecr_rank": 4
   },
   {
@@ -764,9 +764,9 @@
    "pos": "RB",
    "team": "KC",
    "espn_ros": {
-    "standard": 230.55,
-    "half_ppr": 245.75,
-    "ppr": 260.95
+    "standard": 230.57,
+    "half_ppr": 245.77,
+    "ppr": 260.97
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -794,9 +794,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 230.55,
-    "half_ppr": 245.75,
-    "ppr": 260.95
+    "standard": 230.57,
+    "half_ppr": 245.77,
+    "ppr": 260.97
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -807,14 +807,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 19.2125,
-    "half_ppr": 20.479167,
-    "ppr": 21.745833
+    "standard": 19.214167,
+    "half_ppr": 20.480833,
+    "ppr": 21.7475
    },
    "espn_ppg": {
-    "standard": 19.2125,
-    "half_ppr": 20.479167,
-    "ppr": 21.745833
+    "standard": 19.214167,
+    "half_ppr": 20.480833,
+    "ppr": 21.7475
    },
    "rz_ppg": {
     "standard": 20.6,
@@ -836,7 +836,7 @@
     "half_ppr": 267.6,
     "ppr": 286.8
    },
-   "delta_rz_espn": 25.85,
+   "delta_rz_espn": 25.83,
    "delta_rz_espn_ppg": 2.15,
    "cbsros_ppg": {
     "standard": 18.283,
@@ -951,7 +951,7 @@
     "half_ppr": 331.15,
     "ppr": 331.15
    },
-   "delta_rz_espn_ppg_demeaned": -3.42,
+   "delta_rz_espn_ppg_demeaned": -3.48,
    "preseason_ecr_rank": 3
   },
   {
@@ -1049,7 +1049,7 @@
     "half_ppr": 311.94,
     "ppr": 311.94
    },
-   "delta_rz_espn_ppg_demeaned": -1.95,
+   "delta_rz_espn_ppg_demeaned": -2.01,
    "preseason_ecr_rank": 6
   },
   {
@@ -1147,7 +1147,7 @@
     "half_ppr": 305.48,
     "ppr": 305.48
    },
-   "delta_rz_espn_ppg_demeaned": -3.98,
+   "delta_rz_espn_ppg_demeaned": -4.04,
    "preseason_ecr_rank": 9
   },
   {
@@ -1245,7 +1245,7 @@
     "half_ppr": 237.63,
     "ppr": 237.63
    },
-   "delta_rz_espn_ppg_demeaned": -0.58,
+   "delta_rz_espn_ppg_demeaned": -0.64,
    "preseason_ecr_rank": 26
   },
   {
@@ -1343,7 +1343,7 @@
     "half_ppr": 310.68,
     "ppr": 310.68
    },
-   "delta_rz_espn_ppg_demeaned": -2.72,
+   "delta_rz_espn_ppg_demeaned": -2.78,
    "preseason_ecr_rank": 11
   },
   {
@@ -1441,7 +1441,7 @@
     "half_ppr": 294.03,
     "ppr": 294.03
    },
-   "delta_rz_espn_ppg_demeaned": 0.02,
+   "delta_rz_espn_ppg_demeaned": -0.04,
    "preseason_ecr_rank": 15
   },
   {
@@ -1539,7 +1539,7 @@
     "half_ppr": 249.44,
     "ppr": 305.64
    },
-   "delta_rz_espn_ppg_demeaned": -0.62,
+   "delta_rz_espn_ppg_demeaned": -0.63,
    "preseason_ecr_rank": 4
   },
   {
@@ -1637,7 +1637,7 @@
     "half_ppr": 281.05,
     "ppr": 339.7
    },
-   "delta_rz_espn_ppg_demeaned": -0.03,
+   "delta_rz_espn_ppg_demeaned": -0.04,
    "preseason_ecr_rank": 2
   },
   {
@@ -1735,7 +1735,7 @@
     "half_ppr": 298.02,
     "ppr": 298.02
    },
-   "delta_rz_espn_ppg_demeaned": -1.91,
+   "delta_rz_espn_ppg_demeaned": -1.97,
    "preseason_ecr_rank": 14
   },
   {
@@ -1833,7 +1833,7 @@
     "half_ppr": 249.16,
     "ppr": 300.11
    },
-   "delta_rz_espn_ppg_demeaned": 0.83,
+   "delta_rz_espn_ppg_demeaned": 0.82,
    "preseason_ecr_rank": 3
   },
   {
@@ -1932,105 +1932,6 @@
     "ppr": 325.87
    },
    "delta_rz_espn_ppg_demeaned": 7.12,
-   "preseason_ecr_rank": 2
-  },
-  {
-   "player_key": 506,
-   "name": "Lamar Jackson",
-   "pos": "QB",
-   "team": "BAL",
-   "espn_ros": {
-    "standard": 225.67,
-    "half_ppr": 225.67,
-    "ppr": 225.67
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "blend_ros": {
-    "standard": 225.67,
-    "half_ppr": 225.67,
-    "ppr": 225.67
-   },
-   "pricing": "espn_only",
-   "roster_status": "active_roster",
-   "roster_status_label": "Active roster",
-   "injury_status": "Out",
-   "depth_chart_position": "QB",
-   "depth_chart_order": 2,
-   "sleeper_id": "4881",
-   "games_remaining": 11,
-   "espn_expected_games": 11,
-   "blend_ppg": {
-    "standard": 20.515455,
-    "half_ppr": 20.515455,
-    "ppr": 20.515455
-   },
-   "espn_ppg": {
-    "standard": 20.515455,
-    "half_ppr": 20.515455,
-    "ppr": 20.515455
-   },
-   "rz_ppg": {
-    "standard": 17.9,
-    "half_ppr": 17.9,
-    "ppr": 17.9
-   },
-   "rz_ros": {
-    "standard": 196.9,
-    "half_ppr": 196.9,
-    "ppr": 196.9
-   },
-   "rz_filled_ppg": {
-    "standard": 17.9,
-    "half_ppr": 17.9,
-    "ppr": 17.9
-   },
-   "rz_filled_ros": {
-    "standard": 196.9,
-    "half_ppr": 196.9,
-    "ppr": 196.9
-   },
-   "delta_rz_espn": -28.77,
-   "delta_rz_espn_ppg": -2.62,
-   "cbsros_ppg": {
-    "standard": 22.864,
-    "half_ppr": 22.864,
-    "ppr": 22.864
-   },
-   "prior_espn_ros": {
-    "standard": 302.52,
-    "half_ppr": 302.52,
-    "ppr": 302.52
-   },
-   "prior_blend_ros": {
-    "standard": 319.14,
-    "half_ppr": 319.14,
-    "ppr": 319.14
-   },
-   "delta_rz_espn_ppg_demeaned": 1.19,
    "preseason_ecr_rank": 2
   },
   {
@@ -2295,7 +2196,7 @@
     "half_ppr": 198.65,
     "ppr": 245.2
    },
-   "delta_rz_espn_ppg_demeaned": -3.01,
+   "delta_rz_espn_ppg_demeaned": -3.02,
    "preseason_ecr_rank": null
   },
   {
@@ -2393,7 +2294,7 @@
     "half_ppr": 318.87,
     "ppr": 318.87
    },
-   "delta_rz_espn_ppg_demeaned": -1.35,
+   "delta_rz_espn_ppg_demeaned": -1.41,
    "preseason_ecr_rank": 17
   },
   {
@@ -2491,7 +2392,7 @@
     "half_ppr": 270.29,
     "ppr": 270.29
    },
-   "delta_rz_espn_ppg_demeaned": 1.13,
+   "delta_rz_espn_ppg_demeaned": 1.07,
    "preseason_ecr_rank": 18
   },
   {
@@ -2590,7 +2491,7 @@
     "half_ppr": 281.51,
     "ppr": 281.51
    },
-   "delta_rz_espn_ppg_demeaned": 0.74,
+   "delta_rz_espn_ppg_demeaned": 0.68,
    "preseason_ecr_rank": 7
   },
   {
@@ -2786,7 +2687,7 @@
     "half_ppr": 258.68,
     "ppr": 258.68
    },
-   "delta_rz_espn_ppg_demeaned": 1.36,
+   "delta_rz_espn_ppg_demeaned": 1.3,
    "preseason_ecr_rank": 23
   },
   {
@@ -2885,7 +2786,7 @@
     "half_ppr": 222.23,
     "ppr": 270.28
    },
-   "delta_rz_espn_ppg_demeaned": -0.12,
+   "delta_rz_espn_ppg_demeaned": -0.13,
    "preseason_ecr_rank": 5
   },
   {
@@ -2983,7 +2884,7 @@
     "half_ppr": 306.6,
     "ppr": 306.6
    },
-   "delta_rz_espn_ppg_demeaned": 0.59,
+   "delta_rz_espn_ppg_demeaned": 0.53,
    "preseason_ecr_rank": 16
   },
   {
@@ -3081,18 +2982,18 @@
     "half_ppr": 269.35,
     "ppr": 269.35
    },
-   "delta_rz_espn_ppg_demeaned": -1.0,
+   "delta_rz_espn_ppg_demeaned": -1.06,
    "preseason_ecr_rank": 20
   },
   {
-   "player_key": 560,
-   "name": "Derrick Henry",
-   "pos": "RB",
+   "player_key": 506,
+   "name": "Lamar Jackson",
+   "pos": "QB",
    "team": "BAL",
    "espn_ros": {
-    "standard": 191.07,
-    "half_ppr": 198.17,
-    "ppr": 205.27
+    "standard": 204.45,
+    "half_ppr": 204.45,
+    "ppr": 204.45
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -3120,67 +3021,68 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 191.07,
-    "half_ppr": 198.17,
-    "ppr": 205.27
+    "standard": 204.45,
+    "half_ppr": 204.45,
+    "ppr": 204.45
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
-   "depth_chart_position": "RB",
-   "depth_chart_order": 1,
-   "sleeper_id": "3198",
+   "injury_status": "Out",
+   "depth_chart_position": "QB",
+   "depth_chart_order": 2,
+   "sleeper_id": "4881",
    "games_remaining": 11,
-   "espn_expected_games": 11,
+   "espn_expected_games": 10,
    "blend_ppg": {
-    "standard": 17.37,
-    "half_ppr": 18.015455,
-    "ppr": 18.660909
+    "standard": 18.586364,
+    "half_ppr": 18.586364,
+    "ppr": 18.586364
    },
    "espn_ppg": {
-    "standard": 17.37,
-    "half_ppr": 18.015455,
-    "ppr": 18.660909
+    "standard": 18.586364,
+    "half_ppr": 18.586364,
+    "ppr": 18.586364
    },
    "rz_ppg": {
-    "standard": 15.5,
-    "half_ppr": 16.0,
-    "ppr": 16.6
+    "standard": 17.9,
+    "half_ppr": 17.9,
+    "ppr": 17.9
    },
    "rz_ros": {
-    "standard": 170.5,
-    "half_ppr": 176.0,
-    "ppr": 182.6
+    "standard": 196.9,
+    "half_ppr": 196.9,
+    "ppr": 196.9
    },
    "rz_filled_ppg": {
-    "standard": 15.5,
-    "half_ppr": 16.0,
-    "ppr": 16.6
+    "standard": 17.9,
+    "half_ppr": 17.9,
+    "ppr": 17.9
    },
    "rz_filled_ros": {
-    "standard": 170.5,
-    "half_ppr": 176.0,
-    "ppr": 182.6
+    "standard": 196.9,
+    "half_ppr": 196.9,
+    "ppr": 196.9
    },
-   "delta_rz_espn": -22.67,
-   "delta_rz_espn_ppg": -2.06,
+   "delta_rz_espn": -7.55,
+   "delta_rz_espn_ppg": -0.69,
    "cbsros_ppg": {
-    "standard": 15.573,
-    "half_ppr": 16.209,
-    "ppr": 16.845
+    "standard": 22.864,
+    "half_ppr": 22.864,
+    "ppr": 22.864
    },
    "prior_espn_ros": {
-    "standard": 246.62,
-    "half_ppr": 256.77,
-    "ppr": 266.92
+    "standard": 302.52,
+    "half_ppr": 302.52,
+    "ppr": 302.52
    },
    "prior_blend_ros": {
-    "standard": 226.13,
-    "half_ppr": 236.43,
-    "ppr": 246.73
+    "standard": 319.14,
+    "half_ppr": 319.14,
+    "ppr": 319.14
    },
-   "delta_rz_espn_ppg_demeaned": -2.28,
-   "preseason_ecr_rank": 7
+   "delta_rz_espn_ppg_demeaned": 3.06,
+   "preseason_ecr_rank": 2
   },
   {
    "player_key": 1285,
@@ -3277,8 +3179,106 @@
     "half_ppr": 316.72,
     "ppr": 316.72
    },
-   "delta_rz_espn_ppg_demeaned": 1.8,
+   "delta_rz_espn_ppg_demeaned": 1.74,
    "preseason_ecr_rank": 10
+  },
+  {
+   "player_key": 560,
+   "name": "Derrick Henry",
+   "pos": "RB",
+   "team": "BAL",
+   "espn_ros": {
+    "standard": 189.39,
+    "half_ppr": 196.49,
+    "ppr": 203.59
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "blend_ros": {
+    "standard": 189.39,
+    "half_ppr": 196.49,
+    "ppr": 203.59
+   },
+   "pricing": "espn_only",
+   "roster_status": "active_roster",
+   "roster_status_label": "Active roster",
+   "depth_chart_position": "RB",
+   "depth_chart_order": 1,
+   "sleeper_id": "3198",
+   "games_remaining": 11,
+   "espn_expected_games": 11,
+   "blend_ppg": {
+    "standard": 17.217273,
+    "half_ppr": 17.862727,
+    "ppr": 18.508182
+   },
+   "espn_ppg": {
+    "standard": 17.217273,
+    "half_ppr": 17.862727,
+    "ppr": 18.508182
+   },
+   "rz_ppg": {
+    "standard": 15.5,
+    "half_ppr": 16.0,
+    "ppr": 16.6
+   },
+   "rz_ros": {
+    "standard": 170.5,
+    "half_ppr": 176.0,
+    "ppr": 182.6
+   },
+   "rz_filled_ppg": {
+    "standard": 15.5,
+    "half_ppr": 16.0,
+    "ppr": 16.6
+   },
+   "rz_filled_ros": {
+    "standard": 170.5,
+    "half_ppr": 176.0,
+    "ppr": 182.6
+   },
+   "delta_rz_espn": -20.99,
+   "delta_rz_espn_ppg": -1.91,
+   "cbsros_ppg": {
+    "standard": 15.573,
+    "half_ppr": 16.209,
+    "ppr": 16.845
+   },
+   "prior_espn_ros": {
+    "standard": 246.62,
+    "half_ppr": 256.77,
+    "ppr": 266.92
+   },
+   "prior_blend_ros": {
+    "standard": 226.13,
+    "half_ppr": 236.43,
+    "ppr": 246.73
+   },
+   "delta_rz_espn_ppg_demeaned": -2.13,
+   "preseason_ecr_rank": 7
   },
   {
    "player_key": 327,
@@ -3376,7 +3376,7 @@
     "half_ppr": 288.26,
     "ppr": 288.26
    },
-   "delta_rz_espn_ppg_demeaned": 0.35,
+   "delta_rz_espn_ppg_demeaned": 0.29,
    "preseason_ecr_rank": 19
   },
   {
@@ -3670,7 +3670,7 @@
     "half_ppr": 232.56,
     "ppr": 232.56
    },
-   "delta_rz_espn_ppg_demeaned": 0.55,
+   "delta_rz_espn_ppg_demeaned": 0.49,
    "preseason_ecr_rank": 28
   },
   {
@@ -3769,7 +3769,7 @@
     "half_ppr": 163.76,
     "ppr": 197.06
    },
-   "delta_rz_espn_ppg_demeaned": -1.93,
+   "delta_rz_espn_ppg_demeaned": -1.94,
    "preseason_ecr_rank": 12
   },
   {
@@ -3867,7 +3867,7 @@
     "half_ppr": 174.39,
     "ppr": 211.09
    },
-   "delta_rz_espn_ppg_demeaned": -1.45,
+   "delta_rz_espn_ppg_demeaned": -1.46,
    "preseason_ecr_rank": 18
   },
   {
@@ -4063,7 +4063,7 @@
     "half_ppr": 276.99,
     "ppr": 276.99
    },
-   "delta_rz_espn_ppg_demeaned": 0.92,
+   "delta_rz_espn_ppg_demeaned": 0.86,
    "preseason_ecr_rank": 21
   },
   {
@@ -4162,7 +4162,7 @@
     "half_ppr": 88.24,
     "ppr": 112.04
    },
-   "delta_rz_espn_ppg_demeaned": 0.57,
+   "delta_rz_espn_ppg_demeaned": 0.56,
    "preseason_ecr_rank": 53
   },
   {
@@ -4260,7 +4260,7 @@
     "half_ppr": 219.89,
     "ppr": 267.74
    },
-   "delta_rz_espn_ppg_demeaned": -0.52,
+   "delta_rz_espn_ppg_demeaned": -0.53,
    "preseason_ecr_rank": 9
   },
   {
@@ -4269,9 +4269,9 @@
    "pos": "WR",
    "team": "BAL",
    "espn_ros": {
-    "standard": 119.54,
-    "half_ppr": 153.99,
-    "ppr": 188.44
+    "standard": 117.88,
+    "half_ppr": 152.58,
+    "ppr": 187.28
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -4299,9 +4299,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 119.54,
-    "half_ppr": 153.99,
-    "ppr": 188.44
+    "standard": 117.88,
+    "half_ppr": 152.58,
+    "ppr": 187.28
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -4313,14 +4313,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 10.867273,
-    "half_ppr": 13.999091,
-    "ppr": 17.130909
+    "standard": 10.716364,
+    "half_ppr": 13.870909,
+    "ppr": 17.025455
    },
    "espn_ppg": {
-    "standard": 10.867273,
-    "half_ppr": 13.999091,
-    "ppr": 17.130909
+    "standard": 10.716364,
+    "half_ppr": 13.870909,
+    "ppr": 17.025455
    },
    "rz_ppg": {
     "standard": 10.0,
@@ -4342,8 +4342,8 @@
     "half_ppr": 137.5,
     "ppr": 163.9
    },
-   "delta_rz_espn": -24.54,
-   "delta_rz_espn_ppg": -2.23,
+   "delta_rz_espn": -23.38,
+   "delta_rz_espn_ppg": -2.13,
    "cbsros_ppg": {
     "standard": 10.9,
     "half_ppr": 13.855,
@@ -4359,7 +4359,7 @@
     "half_ppr": 189.8,
     "ppr": 229.2
    },
-   "delta_rz_espn_ppg_demeaned": -1.92,
+   "delta_rz_espn_ppg_demeaned": -1.83,
    "preseason_ecr_rank": 13
   },
   {
@@ -4457,7 +4457,7 @@
     "half_ppr": 242.17,
     "ppr": 242.17
    },
-   "delta_rz_espn_ppg_demeaned": 0.1,
+   "delta_rz_espn_ppg_demeaned": 0.04,
    "preseason_ecr_rank": 27
   },
   {
@@ -4555,7 +4555,7 @@
     "half_ppr": 297.82,
     "ppr": 297.82
    },
-   "delta_rz_espn_ppg_demeaned": 1.42,
+   "delta_rz_espn_ppg_demeaned": 1.36,
    "preseason_ecr_rank": 22
   },
   {
@@ -4564,9 +4564,9 @@
    "pos": "RB",
    "team": "CIN",
    "espn_ros": {
-    "standard": 134.47,
-    "half_ppr": 159.72,
-    "ppr": 184.97
+    "standard": 134.69,
+    "half_ppr": 159.89,
+    "ppr": 185.09
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -4594,9 +4594,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 134.47,
-    "half_ppr": 159.72,
-    "ppr": 184.97
+    "standard": 134.69,
+    "half_ppr": 159.89,
+    "ppr": 185.09
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -4607,14 +4607,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 11.205833,
-    "half_ppr": 13.31,
-    "ppr": 15.414167
+    "standard": 11.224167,
+    "half_ppr": 13.324167,
+    "ppr": 15.424167
    },
    "espn_ppg": {
-    "standard": 11.205833,
-    "half_ppr": 13.31,
-    "ppr": 15.414167
+    "standard": 11.224167,
+    "half_ppr": 13.324167,
+    "ppr": 15.424167
    },
    "rz_ppg": {
     "standard": 11.9,
@@ -4636,8 +4636,8 @@
     "half_ppr": 168.0,
     "ppr": 193.2
    },
-   "delta_rz_espn": 8.23,
-   "delta_rz_espn_ppg": 0.69,
+   "delta_rz_espn": 8.11,
+   "delta_rz_espn_ppg": 0.68,
    "cbsros_ppg": {
     "standard": 11.483,
     "half_ppr": 13.775,
@@ -4653,7 +4653,7 @@
     "half_ppr": 239.51,
     "ppr": 269.61
    },
-   "delta_rz_espn_ppg_demeaned": 0.47,
+   "delta_rz_espn_ppg_demeaned": 0.46,
    "preseason_ecr_rank": 8
   },
   {
@@ -4849,7 +4849,7 @@
     "half_ppr": 156.86,
     "ppr": 156.86
    },
-   "delta_rz_espn_ppg_demeaned": -0.76,
+   "delta_rz_espn_ppg_demeaned": -0.82,
    "preseason_ecr_rank": 35
   },
   {
@@ -5045,7 +5045,7 @@
     "half_ppr": 80.16,
     "ppr": 80.16
    },
-   "delta_rz_espn_ppg_demeaned": -2.07,
+   "delta_rz_espn_ppg_demeaned": -2.13,
    "preseason_ecr_rank": 32
   },
   {
@@ -5340,7 +5340,7 @@
     "half_ppr": 191.49,
     "ppr": 230.64
    },
-   "delta_rz_espn_ppg_demeaned": -1.31,
+   "delta_rz_espn_ppg_demeaned": -1.32,
    "preseason_ecr_rank": 8
   },
   {
@@ -5438,7 +5438,7 @@
     "half_ppr": 147.16,
     "ppr": 178.11
    },
-   "delta_rz_espn_ppg_demeaned": -2.29,
+   "delta_rz_espn_ppg_demeaned": -2.3,
    "preseason_ecr_rank": 30
   },
   {
@@ -5536,7 +5536,7 @@
     "half_ppr": 301.32,
     "ppr": 301.32
    },
-   "delta_rz_espn_ppg_demeaned": 2.59,
+   "delta_rz_espn_ppg_demeaned": 2.53,
    "preseason_ecr_rank": 12
   },
   {
@@ -5732,7 +5732,7 @@
     "half_ppr": 118.97,
     "ppr": 144.12
    },
-   "delta_rz_espn_ppg_demeaned": -0.4,
+   "delta_rz_espn_ppg_demeaned": -0.41,
    "preseason_ecr_rank": 47
   },
   {
@@ -5830,7 +5830,7 @@
     "half_ppr": 239.83,
     "ppr": 239.83
    },
-   "delta_rz_espn_ppg_demeaned": -0.43,
+   "delta_rz_espn_ppg_demeaned": -0.49,
    "preseason_ecr_rank": 29
   },
   {
@@ -5929,107 +5929,8 @@
     "half_ppr": 216.38,
     "ppr": 260.68
    },
-   "delta_rz_espn_ppg_demeaned": -2.96,
+   "delta_rz_espn_ppg_demeaned": -2.97,
    "preseason_ecr_rank": 6
-  },
-  {
-   "player_key": 4474,
-   "name": "Tee Higgins",
-   "pos": "WR",
-   "team": "CIN",
-   "espn_ros": {
-    "standard": 112.78,
-    "half_ppr": 143.03,
-    "ppr": 173.28
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "blend_ros": {
-    "standard": 112.78,
-    "half_ppr": 143.03,
-    "ppr": 173.28
-   },
-   "pricing": "espn_only",
-   "roster_status": "active_roster",
-   "roster_status_label": "Active roster",
-   "injury_status": "Questionable",
-   "depth_chart_position": "RWR",
-   "depth_chart_order": 2,
-   "sleeper_id": "6801",
-   "games_remaining": 12,
-   "espn_expected_games": 12,
-   "blend_ppg": {
-    "standard": 9.398333,
-    "half_ppr": 11.919167,
-    "ppr": 14.44
-   },
-   "espn_ppg": {
-    "standard": 9.398333,
-    "half_ppr": 11.919167,
-    "ppr": 14.44
-   },
-   "rz_ppg": {
-    "standard": 9.8,
-    "half_ppr": 12.3,
-    "ppr": 14.9
-   },
-   "rz_ros": {
-    "standard": 117.6,
-    "half_ppr": 147.6,
-    "ppr": 178.8
-   },
-   "rz_filled_ppg": {
-    "standard": 9.8,
-    "half_ppr": 12.3,
-    "ppr": 14.9
-   },
-   "rz_filled_ros": {
-    "standard": 117.6,
-    "half_ppr": 147.6,
-    "ppr": 178.8
-   },
-   "delta_rz_espn": 5.52,
-   "delta_rz_espn_ppg": 0.46,
-   "cbsros_ppg": {
-    "standard": 10.075,
-    "half_ppr": 12.575,
-    "ppr": 15.075
-   },
-   "prior_espn_ros": {
-    "standard": 127.55,
-    "half_ppr": 160.05,
-    "ppr": 192.55
-   },
-   "prior_blend_ros": {
-    "standard": 143.41,
-    "half_ppr": 177.66,
-    "ppr": 211.91
-   },
-   "delta_rz_espn_ppg_demeaned": 0.77,
-   "preseason_ecr_rank": 15
   },
   {
    "player_key": 3843,
@@ -6126,8 +6027,107 @@
     "half_ppr": 138.14,
     "ppr": 164.64
    },
-   "delta_rz_espn_ppg_demeaned": 0.47,
+   "delta_rz_espn_ppg_demeaned": 0.46,
    "preseason_ecr_rank": 24
+  },
+  {
+   "player_key": 4474,
+   "name": "Tee Higgins",
+   "pos": "WR",
+   "team": "CIN",
+   "espn_ros": {
+    "standard": 112.7,
+    "half_ppr": 142.9,
+    "ppr": 173.1
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "blend_ros": {
+    "standard": 112.7,
+    "half_ppr": 142.9,
+    "ppr": 173.1
+   },
+   "pricing": "espn_only",
+   "roster_status": "active_roster",
+   "roster_status_label": "Active roster",
+   "injury_status": "Questionable",
+   "depth_chart_position": "RWR",
+   "depth_chart_order": 2,
+   "sleeper_id": "6801",
+   "games_remaining": 12,
+   "espn_expected_games": 12,
+   "blend_ppg": {
+    "standard": 9.391667,
+    "half_ppr": 11.908333,
+    "ppr": 14.425
+   },
+   "espn_ppg": {
+    "standard": 9.391667,
+    "half_ppr": 11.908333,
+    "ppr": 14.425
+   },
+   "rz_ppg": {
+    "standard": 9.8,
+    "half_ppr": 12.3,
+    "ppr": 14.9
+   },
+   "rz_ros": {
+    "standard": 117.6,
+    "half_ppr": 147.6,
+    "ppr": 178.8
+   },
+   "rz_filled_ppg": {
+    "standard": 9.8,
+    "half_ppr": 12.3,
+    "ppr": 14.9
+   },
+   "rz_filled_ros": {
+    "standard": 117.6,
+    "half_ppr": 147.6,
+    "ppr": 178.8
+   },
+   "delta_rz_espn": 5.7,
+   "delta_rz_espn_ppg": 0.47,
+   "cbsros_ppg": {
+    "standard": 10.075,
+    "half_ppr": 12.575,
+    "ppr": 15.075
+   },
+   "prior_espn_ros": {
+    "standard": 127.55,
+    "half_ppr": 160.05,
+    "ppr": 192.55
+   },
+   "prior_blend_ros": {
+    "standard": 143.41,
+    "half_ppr": 177.66,
+    "ppr": 211.91
+   },
+   "delta_rz_espn_ppg_demeaned": 0.77,
+   "preseason_ecr_rank": 15
   },
   {
    "player_key": 2606,
@@ -6421,7 +6421,7 @@
     "half_ppr": 189.98,
     "ppr": 233.03
    },
-   "delta_rz_espn_ppg_demeaned": -2.37,
+   "delta_rz_espn_ppg_demeaned": -2.38,
    "preseason_ecr_rank": 11
   },
   {
@@ -6430,9 +6430,9 @@
    "pos": "RB",
    "team": "TB",
    "espn_ros": {
-    "standard": 135.48,
-    "half_ppr": 150.38,
-    "ppr": 165.28
+    "standard": 135.49,
+    "half_ppr": 150.39,
+    "ppr": 165.29
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -6460,9 +6460,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 135.48,
-    "half_ppr": 150.38,
-    "ppr": 165.28
+    "standard": 135.49,
+    "half_ppr": 150.39,
+    "ppr": 165.29
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -6473,14 +6473,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 12.316364,
-    "half_ppr": 13.670909,
-    "ppr": 15.025455
+    "standard": 12.317273,
+    "half_ppr": 13.671818,
+    "ppr": 15.026364
    },
    "espn_ppg": {
-    "standard": 12.316364,
-    "half_ppr": 13.670909,
-    "ppr": 15.025455
+    "standard": 12.317273,
+    "half_ppr": 13.671818,
+    "ppr": 15.026364
    },
    "rz_ppg": {
     "standard": 15.4,
@@ -6502,7 +6502,7 @@
     "half_ppr": 188.1,
     "ppr": 206.8
    },
-   "delta_rz_espn": 41.52,
+   "delta_rz_espn": 41.51,
    "delta_rz_espn_ppg": 3.77,
    "cbsros_ppg": {
     "standard": 11.391,
@@ -6613,7 +6613,7 @@
     "half_ppr": 10.63,
     "ppr": 10.63
    },
-   "delta_rz_espn_ppg_demeaned": -1.08,
+   "delta_rz_espn_ppg_demeaned": -1.14,
    "preseason_ecr_rank": 75
   },
   {
@@ -6711,7 +6711,7 @@
     "half_ppr": 181.31,
     "ppr": 225.56
    },
-   "delta_rz_espn_ppg_demeaned": -0.79,
+   "delta_rz_espn_ppg_demeaned": -0.8,
    "preseason_ecr_rank": 23
   },
   {
@@ -6809,7 +6809,7 @@
     "half_ppr": 281.01,
     "ppr": 281.01
    },
-   "delta_rz_espn_ppg_demeaned": 2.49,
+   "delta_rz_espn_ppg_demeaned": 2.43,
    "preseason_ecr_rank": 24
   },
   {
@@ -7114,9 +7114,9 @@
    "pos": "WR",
    "team": "KC",
    "espn_ros": {
-    "standard": 96.82,
-    "half_ppr": 126.57,
-    "ppr": 156.32
+    "standard": 96.87,
+    "half_ppr": 126.67,
+    "ppr": 156.47
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -7140,9 +7140,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 96.82,
-    "half_ppr": 126.57,
-    "ppr": 156.32
+    "standard": 96.87,
+    "half_ppr": 126.67,
+    "ppr": 156.47
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -7154,14 +7154,14 @@
    "games_remaining": 12,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 8.068333,
-    "half_ppr": 10.5475,
-    "ppr": 13.026667
+    "standard": 8.0725,
+    "half_ppr": 10.555833,
+    "ppr": 13.039167
    },
    "espn_ppg": {
-    "standard": 8.068333,
-    "half_ppr": 10.5475,
-    "ppr": 13.026667
+    "standard": 8.0725,
+    "half_ppr": 10.555833,
+    "ppr": 13.039167
    },
    "cbsros_ppg": {
     "standard": 8.282,
@@ -7347,7 +7347,7 @@
     "half_ppr": 304.79,
     "ppr": 304.79
    },
-   "delta_rz_espn_ppg_demeaned": 5.19,
+   "delta_rz_espn_ppg_demeaned": 5.13,
    "preseason_ecr_rank": 8
   },
   {
@@ -7544,7 +7544,7 @@
     "half_ppr": 184.73,
     "ppr": 226.73
    },
-   "delta_rz_espn_ppg_demeaned": -0.74,
+   "delta_rz_espn_ppg_demeaned": -0.75,
    "preseason_ecr_rank": null
   },
   {
@@ -7838,7 +7838,7 @@
     "half_ppr": 207.34,
     "ppr": 247.64
    },
-   "delta_rz_espn_ppg_demeaned": 1.95,
+   "delta_rz_espn_ppg_demeaned": 1.94,
    "preseason_ecr_rank": 10
   },
   {
@@ -7936,7 +7936,7 @@
     "half_ppr": 240.59,
     "ppr": 240.59
    },
-   "delta_rz_espn_ppg_demeaned": 3.68,
+   "delta_rz_espn_ppg_demeaned": 3.62,
    "preseason_ecr_rank": 25
   },
   {
@@ -8034,7 +8034,7 @@
     "half_ppr": 156.31,
     "ppr": 186.86
    },
-   "delta_rz_espn_ppg_demeaned": 0.03,
+   "delta_rz_espn_ppg_demeaned": 0.02,
    "preseason_ecr_rank": 32
   },
   {
@@ -8232,7 +8232,7 @@
     "half_ppr": 148.5,
     "ppr": 180.0
    },
-   "delta_rz_espn_ppg_demeaned": -3.26,
+   "delta_rz_espn_ppg_demeaned": -3.27,
    "preseason_ecr_rank": 27
   },
   {
@@ -8429,7 +8429,7 @@
     "half_ppr": 136.74,
     "ppr": 168.09
    },
-   "delta_rz_espn_ppg_demeaned": -0.82,
+   "delta_rz_espn_ppg_demeaned": -0.83,
    "preseason_ecr_rank": 39
   },
   {
@@ -8696,7 +8696,7 @@
     "half_ppr": 159.02,
     "ppr": 191.77
    },
-   "delta_rz_espn_ppg_demeaned": 0.03,
+   "delta_rz_espn_ppg_demeaned": 0.02,
    "preseason_ecr_rank": 26
   },
   {
@@ -8893,7 +8893,7 @@
     "half_ppr": 118.46,
     "ppr": 149.46
    },
-   "delta_rz_espn_ppg_demeaned": -0.07,
+   "delta_rz_espn_ppg_demeaned": -0.08,
    "preseason_ecr_rank": 43
   },
   {
@@ -9188,7 +9188,7 @@
     "half_ppr": 96.97,
     "ppr": 122.82
    },
-   "delta_rz_espn_ppg_demeaned": -1.2,
+   "delta_rz_espn_ppg_demeaned": -1.21,
    "preseason_ecr_rank": 58
   },
   {
@@ -9483,7 +9483,7 @@
     "half_ppr": 80.85,
     "ppr": 99.6
    },
-   "delta_rz_espn_ppg_demeaned": -4.12,
+   "delta_rz_espn_ppg_demeaned": -4.13,
    "preseason_ecr_rank": 85
   },
   {
@@ -9581,7 +9581,7 @@
     "half_ppr": 187.03,
     "ppr": 187.03
    },
-   "delta_rz_espn_ppg_demeaned": -1.05,
+   "delta_rz_espn_ppg_demeaned": -1.11,
    "preseason_ecr_rank": 30
   },
   {
@@ -9679,7 +9679,7 @@
     "half_ppr": 140.01,
     "ppr": 170.31
    },
-   "delta_rz_espn_ppg_demeaned": -0.04,
+   "delta_rz_espn_ppg_demeaned": -0.05,
    "preseason_ecr_rank": 34
   },
   {
@@ -9777,7 +9777,7 @@
     "half_ppr": 176.15,
     "ppr": 206.85
    },
-   "delta_rz_espn_ppg_demeaned": -0.48,
+   "delta_rz_espn_ppg_demeaned": -0.49,
    "preseason_ecr_rank": 21
   },
   {
@@ -9876,7 +9876,7 @@
     "half_ppr": 145.82,
     "ppr": 175.12
    },
-   "delta_rz_espn_ppg_demeaned": -0.27,
+   "delta_rz_espn_ppg_demeaned": -0.28,
    "preseason_ecr_rank": 41
   },
   {
@@ -10073,7 +10073,7 @@
     "half_ppr": 85.94,
     "ppr": 108.19
    },
-   "delta_rz_espn_ppg_demeaned": -0.12,
+   "delta_rz_espn_ppg_demeaned": -0.13,
    "preseason_ecr_rank": 74
   },
   {
@@ -10377,9 +10377,9 @@
    "pos": "TE",
    "team": "KC",
    "espn_ros": {
-    "standard": 76.71,
-    "half_ppr": 100.36,
-    "ppr": 124.01
+    "standard": 76.76,
+    "half_ppr": 100.41,
+    "ppr": 124.06
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -10407,9 +10407,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 76.71,
-    "half_ppr": 100.36,
-    "ppr": 124.01
+    "standard": 76.76,
+    "half_ppr": 100.41,
+    "ppr": 124.06
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -10420,14 +10420,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 6.3925,
-    "half_ppr": 8.363333,
-    "ppr": 10.334167
+    "standard": 6.396667,
+    "half_ppr": 8.3675,
+    "ppr": 10.338333
    },
    "espn_ppg": {
-    "standard": 6.3925,
-    "half_ppr": 8.363333,
-    "ppr": 10.334167
+    "standard": 6.396667,
+    "half_ppr": 8.3675,
+    "ppr": 10.338333
    },
    "rz_ppg": {
     "standard": 5.5,
@@ -10449,8 +10449,8 @@
     "half_ppr": 87.6,
     "ppr": 110.4
    },
-   "delta_rz_espn": -13.61,
-   "delta_rz_espn_ppg": -1.13,
+   "delta_rz_espn": -13.66,
+   "delta_rz_espn_ppg": -1.14,
    "cbsros_ppg": {
     "standard": 8.475,
     "half_ppr": 11.1,
@@ -10466,7 +10466,7 @@
     "half_ppr": 139.97,
     "ppr": 176.17
    },
-   "delta_rz_espn_ppg_demeaned": -1.41,
+   "delta_rz_espn_ppg_demeaned": -1.42,
    "preseason_ecr_rank": 11
   },
   {
@@ -10475,9 +10475,9 @@
    "pos": "WR",
    "team": "KC",
    "espn_ros": {
-    "standard": 77.48,
-    "half_ppr": 99.83,
-    "ppr": 122.18
+    "standard": 77.52,
+    "half_ppr": 99.87,
+    "ppr": 122.22
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -10505,9 +10505,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 77.48,
-    "half_ppr": 99.83,
-    "ppr": 122.18
+    "standard": 77.52,
+    "half_ppr": 99.87,
+    "ppr": 122.22
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -10518,14 +10518,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 6.456667,
-    "half_ppr": 8.319167,
-    "ppr": 10.181667
+    "standard": 6.46,
+    "half_ppr": 8.3225,
+    "ppr": 10.185
    },
    "espn_ppg": {
-    "standard": 6.456667,
-    "half_ppr": 8.319167,
-    "ppr": 10.181667
+    "standard": 6.46,
+    "half_ppr": 8.3225,
+    "ppr": 10.185
    },
    "rz_ppg": {
     "standard": 5.9,
@@ -10547,7 +10547,7 @@
     "half_ppr": 93.6,
     "ppr": 117.6
    },
-   "delta_rz_espn": -4.58,
+   "delta_rz_espn": -4.62,
    "delta_rz_espn_ppg": -0.38,
    "cbsros_ppg": {
     "standard": 6.908,
@@ -10564,7 +10564,7 @@
     "half_ppr": 132.96,
     "ppr": 159.41
    },
-   "delta_rz_espn_ppg_demeaned": -0.07,
+   "delta_rz_espn_ppg_demeaned": -0.08,
    "preseason_ecr_rank": 48
   },
   {
@@ -10733,7 +10733,7 @@
     "half_ppr": 136.09,
     "ppr": 169.74
    },
-   "delta_rz_espn_ppg_demeaned": -1.39,
+   "delta_rz_espn_ppg_demeaned": -1.4,
    "preseason_ecr_rank": 49
   },
   {
@@ -11002,7 +11002,7 @@
     "half_ppr": 157.82,
     "ppr": 194.27
    },
-   "delta_rz_espn_ppg_demeaned": -2.85,
+   "delta_rz_espn_ppg_demeaned": -2.86,
    "preseason_ecr_rank": 20
   },
   {
@@ -11198,7 +11198,7 @@
     "half_ppr": 171.59,
     "ppr": 208.59
    },
-   "delta_rz_espn_ppg_demeaned": 0.24,
+   "delta_rz_espn_ppg_demeaned": 0.23,
    "preseason_ecr_rank": 19
   },
   {
@@ -11296,7 +11296,7 @@
     "half_ppr": 68.69,
     "ppr": 83.44
    },
-   "delta_rz_espn_ppg_demeaned": -1.82,
+   "delta_rz_espn_ppg_demeaned": -1.83,
    "preseason_ecr_rank": 109
   },
   {
@@ -11493,7 +11493,7 @@
     "half_ppr": 121.53,
     "ppr": 146.93
    },
-   "delta_rz_espn_ppg_demeaned": 1.14,
+   "delta_rz_espn_ppg_demeaned": 1.13,
    "preseason_ecr_rank": 56
   },
   {
@@ -11591,7 +11591,7 @@
     "half_ppr": 157.18,
     "ppr": 186.33
    },
-   "delta_rz_espn_ppg_demeaned": 0.46,
+   "delta_rz_espn_ppg_demeaned": 0.45,
    "preseason_ecr_rank": 28
   },
   {
@@ -12084,7 +12084,7 @@
     "half_ppr": 101.51,
     "ppr": 123.51
    },
-   "delta_rz_espn_ppg_demeaned": -0.76,
+   "delta_rz_espn_ppg_demeaned": -0.77,
    "preseason_ecr_rank": 57
   },
   {
@@ -12191,9 +12191,9 @@
    "pos": "WR",
    "team": "TB",
    "espn_ros": {
-    "standard": 58.48,
-    "half_ppr": 81.03,
-    "ppr": 103.58
+    "standard": 58.5,
+    "half_ppr": 81.05,
+    "ppr": 103.6
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -12221,9 +12221,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 58.48,
-    "half_ppr": 81.03,
-    "ppr": 103.58
+    "standard": 58.5,
+    "half_ppr": 81.05,
+    "ppr": 103.6
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -12234,14 +12234,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 5.316364,
-    "half_ppr": 7.366364,
-    "ppr": 9.416364
+    "standard": 5.318182,
+    "half_ppr": 7.368182,
+    "ppr": 9.418182
    },
    "espn_ppg": {
-    "standard": 5.316364,
-    "half_ppr": 7.366364,
-    "ppr": 9.416364
+    "standard": 5.318182,
+    "half_ppr": 7.368182,
+    "ppr": 9.418182
    },
    "rz_ppg": {
     "standard": 6.0,
@@ -12263,7 +12263,7 @@
     "half_ppr": 88.0,
     "ppr": 111.1
    },
-   "delta_rz_espn": 7.52,
+   "delta_rz_espn": 7.5,
    "delta_rz_espn_ppg": 0.68,
    "cbsros_ppg": {
     "standard": 6.273,
@@ -12280,7 +12280,7 @@
     "half_ppr": 140.92,
     "ppr": 173.87
    },
-   "delta_rz_espn_ppg_demeaned": 0.99,
+   "delta_rz_espn_ppg_demeaned": 0.98,
    "preseason_ecr_rank": 38
   },
   {
@@ -12574,7 +12574,7 @@
     "half_ppr": 116.64,
     "ppr": 144.34
    },
-   "delta_rz_espn_ppg_demeaned": 2.26,
+   "delta_rz_espn_ppg_demeaned": 2.25,
    "preseason_ecr_rank": 50
   },
   {
@@ -12672,7 +12672,7 @@
     "half_ppr": 130.3,
     "ppr": 166.1
    },
-   "delta_rz_espn_ppg_demeaned": 0.36,
+   "delta_rz_espn_ppg_demeaned": 0.35,
    "preseason_ecr_rank": 52
   },
   {
@@ -12770,7 +12770,7 @@
     "half_ppr": 55.31,
     "ppr": 67.81
    },
-   "delta_rz_espn_ppg_demeaned": 0.31,
+   "delta_rz_espn_ppg_demeaned": 0.3,
    "preseason_ecr_rank": 68
   },
   {
@@ -12868,7 +12868,7 @@
     "half_ppr": 122.55,
     "ppr": 155.25
    },
-   "delta_rz_espn_ppg_demeaned": 1.72,
+   "delta_rz_espn_ppg_demeaned": 1.71,
    "preseason_ecr_rank": 44
   },
   {
@@ -12966,7 +12966,7 @@
     "half_ppr": 40.46,
     "ppr": 49.26
    },
-   "delta_rz_espn_ppg_demeaned": -1.96,
+   "delta_rz_espn_ppg_demeaned": -1.97,
    "preseason_ecr_rank": 123
   },
   {
@@ -13064,7 +13064,7 @@
     "half_ppr": 128.34,
     "ppr": 161.89
    },
-   "delta_rz_espn_ppg_demeaned": -1.86,
+   "delta_rz_espn_ppg_demeaned": -1.87,
    "preseason_ecr_rank": 55
   },
   {
@@ -13359,7 +13359,7 @@
     "half_ppr": 106.47,
     "ppr": 132.67
    },
-   "delta_rz_espn_ppg_demeaned": 2.55,
+   "delta_rz_espn_ppg_demeaned": 2.54,
    "preseason_ecr_rank": 72
   },
   {
@@ -13368,9 +13368,9 @@
    "pos": "TE",
    "team": "BAL",
    "espn_ros": {
-    "standard": 56.11,
-    "half_ppr": 75.71,
-    "ppr": 95.31
+    "standard": 55.65,
+    "half_ppr": 75.25,
+    "ppr": 94.85
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -13398,9 +13398,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 56.11,
-    "half_ppr": 75.71,
-    "ppr": 95.31
+    "standard": 55.65,
+    "half_ppr": 75.25,
+    "ppr": 94.85
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -13411,14 +13411,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 5.100909,
-    "half_ppr": 6.882727,
-    "ppr": 8.664545
+    "standard": 5.059091,
+    "half_ppr": 6.840909,
+    "ppr": 8.622727
    },
    "espn_ppg": {
-    "standard": 5.100909,
-    "half_ppr": 6.882727,
-    "ppr": 8.664545
+    "standard": 5.059091,
+    "half_ppr": 6.840909,
+    "ppr": 8.622727
    },
    "rz_ppg": {
     "standard": 5.7,
@@ -13440,8 +13440,8 @@
     "half_ppr": 84.7,
     "ppr": 106.7
    },
-   "delta_rz_espn": 11.39,
-   "delta_rz_espn_ppg": 1.04,
+   "delta_rz_espn": 11.85,
+   "delta_rz_espn_ppg": 1.08,
    "cbsros_ppg": {
     "standard": 4.755,
     "half_ppr": 6.391,
@@ -13457,7 +13457,7 @@
     "half_ppr": 132.34,
     "ppr": 160.54
    },
-   "delta_rz_espn_ppg_demeaned": 0.76,
+   "delta_rz_espn_ppg_demeaned": 0.8,
    "preseason_ecr_rank": 14
   },
   {
@@ -13653,7 +13653,7 @@
     "half_ppr": 65.09,
     "ppr": 80.49
    },
-   "delta_rz_espn_ppg_demeaned": -0.27,
+   "delta_rz_espn_ppg_demeaned": -0.28,
    "preseason_ecr_rank": 84
   },
   {
@@ -13947,7 +13947,7 @@
     "half_ppr": 152.56,
     "ppr": 183.71
    },
-   "delta_rz_espn_ppg_demeaned": -0.64,
+   "delta_rz_espn_ppg_demeaned": -0.65,
    "preseason_ecr_rank": 37
   },
   {
@@ -14340,7 +14340,7 @@
     "half_ppr": 30.26,
     "ppr": 37.11
    },
-   "delta_rz_espn_ppg_demeaned": 0.52,
+   "delta_rz_espn_ppg_demeaned": 0.51,
    "preseason_ecr_rank": 117
   },
   {
@@ -14575,7 +14575,7 @@
     "half_ppr": 52.28,
     "ppr": 64.33
    },
-   "delta_rz_espn_ppg_demeaned": -2.71,
+   "delta_rz_espn_ppg_demeaned": -2.72,
    "preseason_ecr_rank": 86
   },
   {
@@ -14584,9 +14584,9 @@
    "pos": "WR",
    "team": "TB",
    "espn_ros": {
-    "standard": 61.34,
-    "half_ppr": 75.59,
-    "ppr": 89.84
+    "standard": 61.06,
+    "half_ppr": 75.21,
+    "ppr": 89.36
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -14614,9 +14614,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 61.34,
-    "half_ppr": 75.59,
-    "ppr": 89.84
+    "standard": 61.06,
+    "half_ppr": 75.21,
+    "ppr": 89.36
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -14627,14 +14627,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 5.576364,
-    "half_ppr": 6.871818,
-    "ppr": 8.167273
+    "standard": 5.550909,
+    "half_ppr": 6.837273,
+    "ppr": 8.123636
    },
    "espn_ppg": {
-    "standard": 5.576364,
-    "half_ppr": 6.871818,
-    "ppr": 8.167273
+    "standard": 5.550909,
+    "half_ppr": 6.837273,
+    "ppr": 8.123636
    },
    "rz_ppg": {
     "standard": 5.4,
@@ -14656,8 +14656,8 @@
     "half_ppr": 74.8,
     "ppr": 91.3
    },
-   "delta_rz_espn": 1.46,
-   "delta_rz_espn_ppg": 0.13,
+   "delta_rz_espn": 1.94,
+   "delta_rz_espn_ppg": 0.18,
    "cbsros_ppg": {
     "standard": 3.745,
     "half_ppr": 4.745,
@@ -14673,7 +14673,7 @@
     "half_ppr": 55.93,
     "ppr": 67.48
    },
-   "delta_rz_espn_ppg_demeaned": 0.44,
+   "delta_rz_espn_ppg_demeaned": 0.48,
    "preseason_ecr_rank": 88
   },
   {
@@ -14771,7 +14771,7 @@
     "half_ppr": 55.99,
     "ppr": 68.34
    },
-   "delta_rz_espn_ppg_demeaned": -0.77,
+   "delta_rz_espn_ppg_demeaned": -0.78,
    "preseason_ecr_rank": 141
   },
   {
@@ -14869,7 +14869,7 @@
     "half_ppr": 66.42,
     "ppr": 78.67
    },
-   "delta_rz_espn_ppg_demeaned": -1.57,
+   "delta_rz_espn_ppg_demeaned": -1.58,
    "preseason_ecr_rank": 77
   },
   {
@@ -14967,7 +14967,7 @@
     "half_ppr": 129.14,
     "ppr": 153.19
    },
-   "delta_rz_espn_ppg_demeaned": -1.51,
+   "delta_rz_espn_ppg_demeaned": -1.52,
    "preseason_ecr_rank": 54
   },
   {
@@ -14976,9 +14976,9 @@
    "pos": "TE",
    "team": "TB",
    "espn_ros": {
-    "standard": 48.47,
-    "half_ppr": 68.27,
-    "ppr": 88.07
+    "standard": 48.48,
+    "half_ppr": 68.28,
+    "ppr": 88.08
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -15006,9 +15006,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 48.47,
-    "half_ppr": 68.27,
-    "ppr": 88.07
+    "standard": 48.48,
+    "half_ppr": 68.28,
+    "ppr": 88.08
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -15019,14 +15019,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 4.406364,
-    "half_ppr": 6.206364,
-    "ppr": 8.006364
+    "standard": 4.407273,
+    "half_ppr": 6.207273,
+    "ppr": 8.007273
    },
    "espn_ppg": {
-    "standard": 4.406364,
-    "half_ppr": 6.206364,
-    "ppr": 8.006364
+    "standard": 4.407273,
+    "half_ppr": 6.207273,
+    "ppr": 8.007273
    },
    "rz_ppg": {
     "standard": 4.2,
@@ -15048,7 +15048,7 @@
     "half_ppr": 66.0,
     "ppr": 85.8
    },
-   "delta_rz_espn": -2.27,
+   "delta_rz_espn": -2.28,
    "delta_rz_espn_ppg": -0.21,
    "cbsros_ppg": {
     "standard": 4.618,
@@ -15557,7 +15557,7 @@
     "half_ppr": 73.25,
     "ppr": 90.75
    },
-   "delta_rz_espn_ppg_demeaned": -2.32,
+   "delta_rz_espn_ppg_demeaned": -2.33,
    "preseason_ecr_rank": 110
   },
   {
@@ -15835,9 +15835,9 @@
    "pos": "TE",
    "team": "CIN",
    "espn_ros": {
-    "standard": 55.51,
-    "half_ppr": 69.71,
-    "ppr": 83.91
+    "standard": 55.49,
+    "half_ppr": 69.64,
+    "ppr": 83.79
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -15865,9 +15865,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 55.51,
-    "half_ppr": 69.71,
-    "ppr": 83.91
+    "standard": 55.49,
+    "half_ppr": 69.64,
+    "ppr": 83.79
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -15878,14 +15878,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 4.625833,
-    "half_ppr": 5.809167,
-    "ppr": 6.9925
+    "standard": 4.624167,
+    "half_ppr": 5.803333,
+    "ppr": 6.9825
    },
    "espn_ppg": {
-    "standard": 4.625833,
-    "half_ppr": 5.809167,
-    "ppr": 6.9925
+    "standard": 4.624167,
+    "half_ppr": 5.803333,
+    "ppr": 6.9825
    },
    "rz_ppg": {
     "standard": 5.1,
@@ -15907,8 +15907,8 @@
     "half_ppr": 80.4,
     "ppr": 100.8
    },
-   "delta_rz_espn": 16.89,
-   "delta_rz_espn_ppg": 1.41,
+   "delta_rz_espn": 17.01,
+   "delta_rz_espn_ppg": 1.42,
    "cbsros_ppg": {
     "standard": 6.275,
     "half_ppr": 7.817,
@@ -15924,7 +15924,7 @@
     "half_ppr": 71.97,
     "ppr": 90.92
    },
-   "delta_rz_espn_ppg_demeaned": 1.13,
+   "delta_rz_espn_ppg_demeaned": 1.14,
    "preseason_ecr_rank": 36
   },
   {
@@ -16023,7 +16023,7 @@
     "half_ppr": 64.32,
     "ppr": 81.57
    },
-   "delta_rz_espn_ppg_demeaned": 0.71,
+   "delta_rz_espn_ppg_demeaned": 0.7,
    "preseason_ecr_rank": 63
   },
   {
@@ -16121,7 +16121,7 @@
     "half_ppr": 59.68,
     "ppr": 73.63
    },
-   "delta_rz_espn_ppg_demeaned": -2.92,
+   "delta_rz_espn_ppg_demeaned": -2.93,
    "preseason_ecr_rank": 82
   },
   {
@@ -16309,7 +16309,7 @@
     "half_ppr": 21.13,
     "ppr": 25.33
    },
-   "delta_rz_espn_ppg_demeaned": -0.4,
+   "delta_rz_espn_ppg_demeaned": -0.41,
    "preseason_ecr_rank": 135
   },
   {
@@ -16699,7 +16699,7 @@
     "half_ppr": 84.56,
     "ppr": 104.31
    },
-   "delta_rz_espn_ppg_demeaned": 1.0,
+   "delta_rz_espn_ppg_demeaned": 0.99,
    "preseason_ecr_rank": 70
   },
   {
@@ -16797,7 +16797,7 @@
     "half_ppr": 155.23,
     "ppr": 187.43
    },
-   "delta_rz_espn_ppg_demeaned": 0.48,
+   "delta_rz_espn_ppg_demeaned": 0.47,
    "preseason_ecr_rank": 31
   },
   {
@@ -16806,9 +16806,9 @@
    "pos": "RB",
    "team": "CIN",
    "espn_ros": {
-    "standard": 61.03,
-    "half_ppr": 69.68,
-    "ppr": 78.33
+    "standard": 61.13,
+    "half_ppr": 69.78,
+    "ppr": 78.43
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -16836,9 +16836,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 61.03,
-    "half_ppr": 69.68,
-    "ppr": 78.33
+    "standard": 61.13,
+    "half_ppr": 69.78,
+    "ppr": 78.43
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -16849,14 +16849,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 5.085833,
-    "half_ppr": 5.806667,
-    "ppr": 6.5275
+    "standard": 5.094167,
+    "half_ppr": 5.815,
+    "ppr": 6.535833
    },
    "espn_ppg": {
-    "standard": 5.085833,
-    "half_ppr": 5.806667,
-    "ppr": 6.5275
+    "standard": 5.094167,
+    "half_ppr": 5.815,
+    "ppr": 6.535833
    },
    "rz_ppg": {
     "standard": 5.8,
@@ -16878,8 +16878,8 @@
     "half_ppr": 78.0,
     "ppr": 86.4
    },
-   "delta_rz_espn": 8.07,
-   "delta_rz_espn_ppg": 0.67,
+   "delta_rz_espn": 7.97,
+   "delta_rz_espn_ppg": 0.66,
    "cbsros_ppg": {
     "standard": 4.283,
     "half_ppr": 4.825,
@@ -16895,7 +16895,7 @@
     "half_ppr": 75.35,
     "ppr": 82.4
    },
-   "delta_rz_espn_ppg_demeaned": 0.45,
+   "delta_rz_espn_ppg_demeaned": 0.44,
    "preseason_ecr_rank": 73
   },
   {
@@ -16993,7 +16993,7 @@
     "half_ppr": 87.45,
     "ppr": 108.75
    },
-   "delta_rz_espn_ppg_demeaned": 0.39,
+   "delta_rz_espn_ppg_demeaned": 0.38,
    "preseason_ecr_rank": 78
   },
   {
@@ -17190,7 +17190,7 @@
     "half_ppr": 71.8,
     "ppr": 87.2
    },
-   "delta_rz_espn_ppg_demeaned": -1.14,
+   "delta_rz_espn_ppg_demeaned": -1.15,
    "preseason_ecr_rank": 61
   },
   {
@@ -17292,104 +17292,6 @@
    "preseason_ecr_rank": 41
   },
   {
-   "player_key": 3606,
-   "name": "Rashod Bateman",
-   "pos": "WR",
-   "team": "BAL",
-   "espn_ros": {
-    "standard": 50.68,
-    "half_ppr": 63.43,
-    "ppr": 76.18
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "blend_ros": {
-    "standard": 50.68,
-    "half_ppr": 63.43,
-    "ppr": 76.18
-   },
-   "pricing": "espn_only",
-   "roster_status": "active_roster",
-   "roster_status_label": "Active roster",
-   "depth_chart_position": "LWR",
-   "depth_chart_order": 2,
-   "sleeper_id": "7571",
-   "games_remaining": 11,
-   "espn_expected_games": 11,
-   "blend_ppg": {
-    "standard": 4.607273,
-    "half_ppr": 5.766364,
-    "ppr": 6.925455
-   },
-   "espn_ppg": {
-    "standard": 4.607273,
-    "half_ppr": 5.766364,
-    "ppr": 6.925455
-   },
-   "rz_ppg": {
-    "standard": 3.7,
-    "half_ppr": 4.7,
-    "ppr": 5.7
-   },
-   "rz_ros": {
-    "standard": 40.7,
-    "half_ppr": 51.7,
-    "ppr": 62.7
-   },
-   "rz_filled_ppg": {
-    "standard": 3.7,
-    "half_ppr": 4.7,
-    "ppr": 5.7
-   },
-   "rz_filled_ros": {
-    "standard": 40.7,
-    "half_ppr": 51.7,
-    "ppr": 62.7
-   },
-   "delta_rz_espn": -13.48,
-   "delta_rz_espn_ppg": -1.23,
-   "cbsros_ppg": {
-    "standard": 5.709,
-    "half_ppr": 6.982,
-    "ppr": 8.255
-   },
-   "prior_espn_ros": {
-    "standard": 75.33,
-    "half_ppr": 92.83,
-    "ppr": 110.33
-   },
-   "prior_blend_ros": {
-    "standard": 86.67,
-    "half_ppr": 105.27,
-    "ppr": 123.87
-   },
-   "delta_rz_espn_ppg_demeaned": -0.92,
-   "preseason_ecr_rank": 75
-  },
-  {
    "player_key": 536,
    "name": "Rico Dowdle",
    "pos": "RB",
@@ -17487,6 +17389,104 @@
    },
    "delta_rz_espn_ppg_demeaned": 0.38,
    "preseason_ecr_rank": 28
+  },
+  {
+   "player_key": 3606,
+   "name": "Rashod Bateman",
+   "pos": "WR",
+   "team": "BAL",
+   "espn_ros": {
+    "standard": 49.92,
+    "half_ppr": 62.72,
+    "ppr": 75.52
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "blend_ros": {
+    "standard": 49.92,
+    "half_ppr": 62.72,
+    "ppr": 75.52
+   },
+   "pricing": "espn_only",
+   "roster_status": "active_roster",
+   "roster_status_label": "Active roster",
+   "depth_chart_position": "LWR",
+   "depth_chart_order": 2,
+   "sleeper_id": "7571",
+   "games_remaining": 11,
+   "espn_expected_games": 11,
+   "blend_ppg": {
+    "standard": 4.538182,
+    "half_ppr": 5.701818,
+    "ppr": 6.865455
+   },
+   "espn_ppg": {
+    "standard": 4.538182,
+    "half_ppr": 5.701818,
+    "ppr": 6.865455
+   },
+   "rz_ppg": {
+    "standard": 3.7,
+    "half_ppr": 4.7,
+    "ppr": 5.7
+   },
+   "rz_ros": {
+    "standard": 40.7,
+    "half_ppr": 51.7,
+    "ppr": 62.7
+   },
+   "rz_filled_ppg": {
+    "standard": 3.7,
+    "half_ppr": 4.7,
+    "ppr": 5.7
+   },
+   "rz_filled_ros": {
+    "standard": 40.7,
+    "half_ppr": 51.7,
+    "ppr": 62.7
+   },
+   "delta_rz_espn": -12.82,
+   "delta_rz_espn_ppg": -1.17,
+   "cbsros_ppg": {
+    "standard": 5.709,
+    "half_ppr": 6.982,
+    "ppr": 8.255
+   },
+   "prior_espn_ros": {
+    "standard": 75.33,
+    "half_ppr": 92.83,
+    "ppr": 110.33
+   },
+   "prior_blend_ros": {
+    "standard": 86.67,
+    "half_ppr": 105.27,
+    "ppr": 123.87
+   },
+   "delta_rz_espn_ppg_demeaned": -0.87,
+   "preseason_ecr_rank": 75
   },
   {
    "player_key": 3459,
@@ -17681,7 +17681,7 @@
     "half_ppr": 113.34,
     "ppr": 138.84
    },
-   "delta_rz_espn_ppg_demeaned": 0.22,
+   "delta_rz_espn_ppg_demeaned": 0.21,
    "preseason_ecr_rank": 83
   },
   {
@@ -17770,7 +17770,7 @@
     "half_ppr": 54.13,
     "ppr": 67.68
    },
-   "delta_rz_espn_ppg_demeaned": -0.57,
+   "delta_rz_espn_ppg_demeaned": -0.58,
    "preseason_ecr_rank": 130
   },
   {
@@ -18064,7 +18064,7 @@
     "half_ppr": 51.88,
     "ppr": 62.03
    },
-   "delta_rz_espn_ppg_demeaned": -0.56,
+   "delta_rz_espn_ppg_demeaned": -0.57,
    "preseason_ecr_rank": 89
   },
   {
@@ -18163,7 +18163,7 @@
     "half_ppr": 141.55,
     "ppr": 168.4
    },
-   "delta_rz_espn_ppg_demeaned": 0.25,
+   "delta_rz_espn_ppg_demeaned": 0.24,
    "preseason_ecr_rank": 35
   },
   {
@@ -18172,9 +18172,9 @@
    "pos": "RB",
    "team": "KC",
    "espn_ros": {
-    "standard": 52.58,
-    "half_ppr": 61.08,
-    "ppr": 69.58
+    "standard": 52.59,
+    "half_ppr": 61.09,
+    "ppr": 69.59
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -18202,9 +18202,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 52.58,
-    "half_ppr": 61.08,
-    "ppr": 69.58
+    "standard": 52.59,
+    "half_ppr": 61.09,
+    "ppr": 69.59
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -18215,14 +18215,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 4.381667,
-    "half_ppr": 5.09,
-    "ppr": 5.798333
+    "standard": 4.3825,
+    "half_ppr": 5.090833,
+    "ppr": 5.799167
    },
    "espn_ppg": {
-    "standard": 4.381667,
-    "half_ppr": 5.09,
-    "ppr": 5.798333
+    "standard": 4.3825,
+    "half_ppr": 5.090833,
+    "ppr": 5.799167
    },
    "rz_ppg": {
     "standard": 2.9,
@@ -18244,7 +18244,7 @@
     "half_ppr": 44.4,
     "ppr": 54.0
    },
-   "delta_rz_espn": -15.58,
+   "delta_rz_espn": -15.59,
    "delta_rz_espn_ppg": -1.3,
    "cbsros_ppg": {
     "standard": 2.3,
@@ -18432,7 +18432,7 @@
     "half_ppr": 86.25,
     "ppr": 106.05
    },
-   "delta_rz_espn_ppg_demeaned": -1.42,
+   "delta_rz_espn_ppg_demeaned": -1.43,
    "preseason_ecr_rank": 76
   },
   {
@@ -18536,9 +18536,9 @@
    "pos": "WR",
    "team": "PHI",
    "espn_ros": {
-    "standard": 33.03,
-    "half_ppr": 50.73,
-    "ppr": 68.43
+    "standard": 32.78,
+    "half_ppr": 50.33,
+    "ppr": 67.88
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -18566,9 +18566,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 33.03,
-    "half_ppr": 50.73,
-    "ppr": 68.43
+    "standard": 32.78,
+    "half_ppr": 50.33,
+    "ppr": 67.88
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -18579,14 +18579,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 3.002727,
-    "half_ppr": 4.611818,
-    "ppr": 6.220909
+    "standard": 2.98,
+    "half_ppr": 4.575455,
+    "ppr": 6.170909
    },
    "espn_ppg": {
-    "standard": 3.002727,
-    "half_ppr": 4.611818,
-    "ppr": 6.220909
+    "standard": 2.98,
+    "half_ppr": 4.575455,
+    "ppr": 6.170909
    },
    "rz_ppg": {
     "standard": 4.3,
@@ -18608,8 +18608,8 @@
     "half_ppr": 68.2,
     "ppr": 88.0
    },
-   "delta_rz_espn": 19.57,
-   "delta_rz_espn_ppg": 1.78,
+   "delta_rz_espn": 20.12,
+   "delta_rz_espn_ppg": 1.83,
    "cbsros_ppg": {
     "standard": 3.336,
     "half_ppr": 4.7,
@@ -18625,7 +18625,7 @@
     "half_ppr": 127.86,
     "ppr": 153.91
    },
-   "delta_rz_espn_ppg_demeaned": 2.09,
+   "delta_rz_espn_ppg_demeaned": 2.13,
    "preseason_ecr_rank": 46
   },
   {
@@ -18723,7 +18723,7 @@
     "half_ppr": 117.8,
     "ppr": 145.9
    },
-   "delta_rz_espn_ppg_demeaned": 0.45,
+   "delta_rz_espn_ppg_demeaned": 0.44,
    "preseason_ecr_rank": 67
   },
   {
@@ -18732,9 +18732,9 @@
    "pos": "WR",
    "team": "CIN",
    "espn_ros": {
-    "standard": 41.56,
-    "half_ppr": 54.56,
-    "ppr": 67.56
+    "standard": 41.54,
+    "half_ppr": 54.54,
+    "ppr": 67.54
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -18758,9 +18758,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 41.56,
-    "half_ppr": 54.56,
-    "ppr": 67.56
+    "standard": 41.54,
+    "half_ppr": 54.54,
+    "ppr": 67.54
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -18771,14 +18771,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 3.463333,
-    "half_ppr": 4.546667,
-    "ppr": 5.63
+    "standard": 3.461667,
+    "half_ppr": 4.545,
+    "ppr": 5.628333
    },
    "espn_ppg": {
-    "standard": 3.463333,
-    "half_ppr": 4.546667,
-    "ppr": 5.63
+    "standard": 3.461667,
+    "half_ppr": 4.545,
+    "ppr": 5.628333
    },
    "rz_held": "razzball standard 0.8 ppg is 21% of the ESPN/CBS mean 3.9 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
@@ -18893,7 +18893,7 @@
     "half_ppr": 77.28,
     "ppr": 94.98
    },
-   "delta_rz_espn_ppg_demeaned": 0.19,
+   "delta_rz_espn_ppg_demeaned": 0.18,
    "preseason_ecr_rank": 66
   },
   {
@@ -19241,9 +19241,9 @@
    "pos": "WR",
    "team": "KC",
    "espn_ros": {
-    "standard": 43.71,
-    "half_ppr": 54.91,
-    "ppr": 66.11
+    "standard": 43.73,
+    "half_ppr": 54.93,
+    "ppr": 66.13
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -19267,9 +19267,9 @@
    "cbsros_comp_count": 0,
    "cbsros_covered": [],
    "blend_ros": {
-    "standard": 43.71,
-    "half_ppr": 54.91,
-    "ppr": 66.11
+    "standard": 43.73,
+    "half_ppr": 54.93,
+    "ppr": 66.13
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -19280,14 +19280,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 3.6425,
-    "half_ppr": 4.575833,
-    "ppr": 5.509167
+    "standard": 3.644167,
+    "half_ppr": 4.5775,
+    "ppr": 5.510833
    },
    "espn_ppg": {
-    "standard": 3.6425,
-    "half_ppr": 4.575833,
-    "ppr": 5.509167
+    "standard": 3.644167,
+    "half_ppr": 4.5775,
+    "ppr": 5.510833
    },
    "rz_ppg": {
     "standard": 4.9,
@@ -19309,7 +19309,7 @@
     "half_ppr": 76.8,
     "ppr": 94.8
    },
-   "delta_rz_espn": 28.69,
+   "delta_rz_espn": 28.67,
    "delta_rz_espn_ppg": 2.39,
    "prior_espn_ros": {
     "standard": 19.41,
@@ -19321,7 +19321,7 @@
     "half_ppr": 19.49,
     "ppr": 23.74
    },
-   "delta_rz_espn_ppg_demeaned": 2.7,
+   "delta_rz_espn_ppg_demeaned": 2.69,
    "preseason_ecr_rank": 120
   },
   {
@@ -19500,9 +19500,9 @@
    "pos": "RB",
    "team": "BAL",
    "espn_ros": {
-    "standard": 44.18,
-    "half_ppr": 54.63,
-    "ppr": 65.08
+    "standard": 44.01,
+    "half_ppr": 54.46,
+    "ppr": 64.91
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -19530,9 +19530,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 44.18,
-    "half_ppr": 54.63,
-    "ppr": 65.08
+    "standard": 44.01,
+    "half_ppr": 54.46,
+    "ppr": 64.91
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -19543,14 +19543,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 4.016364,
-    "half_ppr": 4.966364,
-    "ppr": 5.916364
+    "standard": 4.000909,
+    "half_ppr": 4.950909,
+    "ppr": 5.900909
    },
    "espn_ppg": {
-    "standard": 4.016364,
-    "half_ppr": 4.966364,
-    "ppr": 5.916364
+    "standard": 4.000909,
+    "half_ppr": 4.950909,
+    "ppr": 5.900909
    },
    "rz_ppg": {
     "standard": 3.7,
@@ -19572,8 +19572,8 @@
     "half_ppr": 50.6,
     "ppr": 60.5
    },
-   "delta_rz_espn": -4.58,
-   "delta_rz_espn_ppg": -0.42,
+   "delta_rz_espn": -4.41,
+   "delta_rz_espn_ppg": -0.4,
    "cbsros_ppg": {
     "standard": 4.545,
     "half_ppr": 5.409,
@@ -19589,7 +19589,7 @@
     "half_ppr": 74.19,
     "ppr": 86.39
    },
-   "delta_rz_espn_ppg_demeaned": -0.64,
+   "delta_rz_espn_ppg_demeaned": -0.62,
    "preseason_ecr_rank": 70
   },
   {
@@ -19964,7 +19964,7 @@
     "half_ppr": -2.21,
     "ppr": -1.61
    },
-   "delta_rz_espn_ppg_demeaned": -1.56,
+   "delta_rz_espn_ppg_demeaned": -1.57,
    "preseason_ecr_rank": 161
   },
   {
@@ -20064,101 +20064,6 @@
    },
    "delta_rz_espn_ppg_demeaned": 0.51,
    "preseason_ecr_rank": 55
-  },
-  {
-   "player_key": 4026,
-   "name": "Ja'Kobi Lane",
-   "pos": "WR",
-   "team": "BAL",
-   "espn_ros": {
-    "standard": 41.55,
-    "half_ppr": 51.35,
-    "ppr": 61.15
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "blend_ros": {
-    "standard": 41.55,
-    "half_ppr": 51.35,
-    "ppr": 61.15
-   },
-   "pricing": "espn_only",
-   "roster_status": "injured_reserve",
-   "roster_status_label": "Injured reserve",
-   "injury_status": "IR",
-   "depth_chart_position": "RWR",
-   "depth_chart_order": 9,
-   "sleeper_id": "13293",
-   "games_remaining": 11,
-   "espn_expected_games": 11,
-   "blend_ppg": {
-    "standard": 3.777273,
-    "half_ppr": 4.668182,
-    "ppr": 5.559091
-   },
-   "espn_ppg": {
-    "standard": 3.777273,
-    "half_ppr": 4.668182,
-    "ppr": 5.559091
-   },
-   "rz_ppg": {
-    "standard": 2.8,
-    "half_ppr": 3.6,
-    "ppr": 4.4
-   },
-   "rz_ros": {
-    "standard": 30.8,
-    "half_ppr": 39.6,
-    "ppr": 48.4
-   },
-   "rz_filled_ppg": {
-    "standard": 2.8,
-    "half_ppr": 3.6,
-    "ppr": 4.4
-   },
-   "rz_filled_ros": {
-    "standard": 30.8,
-    "half_ppr": 39.6,
-    "ppr": 48.4
-   },
-   "delta_rz_espn": -12.75,
-   "delta_rz_espn_ppg": -1.16,
-   "cbsros_ppg": {
-    "standard": 5.409,
-    "half_ppr": 6.955,
-    "ppr": 8.5
-   },
-   "prior_espn_ros": null,
-   "prior_blend_ros": {
-    "standard": 64.76,
-    "half_ppr": 78.56,
-    "ppr": 92.36
-   },
-   "delta_rz_espn_ppg_demeaned": -0.85,
-   "preseason_ecr_rank": 69
   },
   {
    "player_key": 2261,
@@ -20442,7 +20347,7 @@
     "half_ppr": 139.68,
     "ppr": 166.68
    },
-   "delta_rz_espn_ppg_demeaned": 2.05,
+   "delta_rz_espn_ppg_demeaned": 2.04,
    "preseason_ecr_rank": 33
   },
   {
@@ -20532,8 +20437,103 @@
     "half_ppr": 94.01,
     "ppr": 113.26
    },
-   "delta_rz_espn_ppg_demeaned": 0.58,
+   "delta_rz_espn_ppg_demeaned": 0.57,
    "preseason_ecr_rank": 64
+  },
+  {
+   "player_key": 4026,
+   "name": "Ja'Kobi Lane",
+   "pos": "WR",
+   "team": "BAL",
+   "espn_ros": {
+    "standard": 40.41,
+    "half_ppr": 50.01,
+    "ppr": 59.61
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "blend_ros": {
+    "standard": 40.41,
+    "half_ppr": 50.01,
+    "ppr": 59.61
+   },
+   "pricing": "espn_only",
+   "roster_status": "injured_reserve",
+   "roster_status_label": "Injured reserve",
+   "injury_status": "IR",
+   "depth_chart_position": "RWR",
+   "depth_chart_order": 9,
+   "sleeper_id": "13293",
+   "games_remaining": 11,
+   "espn_expected_games": 11,
+   "blend_ppg": {
+    "standard": 3.673636,
+    "half_ppr": 4.546364,
+    "ppr": 5.419091
+   },
+   "espn_ppg": {
+    "standard": 3.673636,
+    "half_ppr": 4.546364,
+    "ppr": 5.419091
+   },
+   "rz_ppg": {
+    "standard": 2.8,
+    "half_ppr": 3.6,
+    "ppr": 4.4
+   },
+   "rz_ros": {
+    "standard": 30.8,
+    "half_ppr": 39.6,
+    "ppr": 48.4
+   },
+   "rz_filled_ppg": {
+    "standard": 2.8,
+    "half_ppr": 3.6,
+    "ppr": 4.4
+   },
+   "rz_filled_ros": {
+    "standard": 30.8,
+    "half_ppr": 39.6,
+    "ppr": 48.4
+   },
+   "delta_rz_espn": -11.21,
+   "delta_rz_espn_ppg": -1.02,
+   "cbsros_ppg": {
+    "standard": 5.409,
+    "half_ppr": 6.955,
+    "ppr": 8.5
+   },
+   "prior_espn_ros": null,
+   "prior_blend_ros": {
+    "standard": 64.76,
+    "half_ppr": 78.56,
+    "ppr": 92.36
+   },
+   "delta_rz_espn_ppg_demeaned": -0.72,
+   "preseason_ecr_rank": 69
   },
   {
    "player_key": 999,
@@ -20621,7 +20621,7 @@
     "half_ppr": 69.88,
     "ppr": 87.98
    },
-   "delta_rz_espn_ppg_demeaned": -1.05,
+   "delta_rz_espn_ppg_demeaned": -1.06,
    "preseason_ecr_rank": 141
   },
   {
@@ -20808,7 +20808,7 @@
     "half_ppr": 29.07,
     "ppr": 35.27
    },
-   "delta_rz_espn_ppg_demeaned": 0.11,
+   "delta_rz_espn_ppg_demeaned": 0.1,
    "preseason_ecr_rank": 143
   },
   {
@@ -21005,7 +21005,7 @@
     "half_ppr": 31.33,
     "ppr": 37.73
    },
-   "delta_rz_espn_ppg_demeaned": 2.74,
+   "delta_rz_espn_ppg_demeaned": 2.73,
    "preseason_ecr_rank": 128
   },
   {
@@ -21154,7 +21154,7 @@
     "half_ppr": 70.72,
     "ppr": 87.17
    },
-   "delta_rz_espn_ppg_demeaned": -1.13,
+   "delta_rz_espn_ppg_demeaned": -1.14,
    "preseason_ecr_rank": 99
   },
   {
@@ -21392,9 +21392,9 @@
    "pos": "WR",
    "team": "TB",
    "espn_ros": {
-    "standard": 38.28,
-    "half_ppr": 46.58,
-    "ppr": 54.88
+    "standard": 38.29,
+    "half_ppr": 46.59,
+    "ppr": 54.89
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -21418,9 +21418,9 @@
    "cbsros_comp_count": 0,
    "cbsros_covered": [],
    "blend_ros": {
-    "standard": 38.28,
-    "half_ppr": 46.58,
-    "ppr": 54.88
+    "standard": 38.29,
+    "half_ppr": 46.59,
+    "ppr": 54.89
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -21431,14 +21431,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 3.48,
-    "half_ppr": 4.234545,
-    "ppr": 4.989091
+    "standard": 3.480909,
+    "half_ppr": 4.235455,
+    "ppr": 4.99
    },
    "espn_ppg": {
-    "standard": 3.48,
-    "half_ppr": 4.234545,
-    "ppr": 4.989091
+    "standard": 3.480909,
+    "half_ppr": 4.235455,
+    "ppr": 4.99
    },
    "rz_ppg": {
     "standard": 5.7,
@@ -21460,7 +21460,7 @@
     "half_ppr": 78.1,
     "ppr": 93.5
    },
-   "delta_rz_espn": 38.62,
+   "delta_rz_espn": 38.61,
    "delta_rz_espn_ppg": 3.51,
    "prior_espn_ros": {
     "standard": 20.14,
@@ -21472,7 +21472,7 @@
     "half_ppr": 26.08,
     "ppr": 31.18
    },
-   "delta_rz_espn_ppg_demeaned": 3.82,
+   "delta_rz_espn_ppg_demeaned": 3.81,
    "preseason_ecr_rank": 115
   },
   {
@@ -21579,9 +21579,9 @@
    "pos": "TE",
    "team": "CIN",
    "espn_ros": {
-    "standard": 31.91,
-    "half_ppr": 42.96,
-    "ppr": 54.01
+    "standard": 31.89,
+    "half_ppr": 42.89,
+    "ppr": 53.89
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -21605,9 +21605,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 31.91,
-    "half_ppr": 42.96,
-    "ppr": 54.01
+    "standard": 31.89,
+    "half_ppr": 42.89,
+    "ppr": 53.89
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -21618,14 +21618,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 2.659167,
-    "half_ppr": 3.58,
-    "ppr": 4.500833
+    "standard": 2.6575,
+    "half_ppr": 3.574167,
+    "ppr": 4.490833
    },
    "espn_ppg": {
-    "standard": 2.659167,
-    "half_ppr": 3.58,
-    "ppr": 4.500833
+    "standard": 2.6575,
+    "half_ppr": 3.574167,
+    "ppr": 4.490833
    },
    "cbsros_ppg": {
     "standard": 0.908,
@@ -21726,7 +21726,7 @@
     "half_ppr": 3.76,
     "ppr": 4.66
    },
-   "delta_rz_espn_ppg_demeaned": -0.07,
+   "delta_rz_espn_ppg_demeaned": -0.08,
    "preseason_ecr_rank": 173
   },
   {
@@ -22004,9 +22004,9 @@
    "pos": "TE",
    "team": "KC",
    "espn_ros": {
-    "standard": 28.68,
-    "half_ppr": 38.98,
-    "ppr": 49.28
+    "standard": 28.7,
+    "half_ppr": 39.0,
+    "ppr": 49.3
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -22034,9 +22034,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 28.68,
-    "half_ppr": 38.98,
-    "ppr": 49.28
+    "standard": 28.7,
+    "half_ppr": 39.0,
+    "ppr": 49.3
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -22047,14 +22047,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 2.39,
-    "half_ppr": 3.248333,
-    "ppr": 4.106667
+    "standard": 2.391667,
+    "half_ppr": 3.25,
+    "ppr": 4.108333
    },
    "espn_ppg": {
-    "standard": 2.39,
-    "half_ppr": 3.248333,
-    "ppr": 4.106667
+    "standard": 2.391667,
+    "half_ppr": 3.25,
+    "ppr": 4.108333
    },
    "rz_ppg": {
     "standard": 2.8,
@@ -22076,7 +22076,7 @@
     "half_ppr": 46.8,
     "ppr": 60.0
    },
-   "delta_rz_espn": 10.72,
+   "delta_rz_espn": 10.7,
    "delta_rz_espn_ppg": 0.89,
    "cbsros_ppg": {
     "standard": 1.475,
@@ -22263,9 +22263,9 @@
    "pos": "WR",
    "team": "PHI",
    "espn_ros": {
-    "standard": 30.64,
-    "half_ppr": 38.59,
-    "ppr": 46.54
+    "standard": 30.33,
+    "half_ppr": 38.18,
+    "ppr": 46.03
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -22289,9 +22289,9 @@
    "cbsros_comp_count": 0,
    "cbsros_covered": [],
    "blend_ros": {
-    "standard": 30.64,
-    "half_ppr": 38.59,
-    "ppr": 46.54
+    "standard": 30.33,
+    "half_ppr": 38.18,
+    "ppr": 46.03
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -22302,14 +22302,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 2.785455,
-    "half_ppr": 3.508182,
-    "ppr": 4.230909
+    "standard": 2.757273,
+    "half_ppr": 3.470909,
+    "ppr": 4.184545
    },
    "espn_ppg": {
-    "standard": 2.785455,
-    "half_ppr": 3.508182,
-    "ppr": 4.230909
+    "standard": 2.757273,
+    "half_ppr": 3.470909,
+    "ppr": 4.184545
    },
    "rz_ppg": {
     "standard": 2.3,
@@ -22331,8 +22331,8 @@
     "half_ppr": 33.0,
     "ppr": 39.6
    },
-   "delta_rz_espn": -6.94,
-   "delta_rz_espn_ppg": -0.63,
+   "delta_rz_espn": -6.43,
+   "delta_rz_espn_ppg": -0.58,
    "prior_espn_ros": {
     "standard": 14.49,
     "half_ppr": 18.69,
@@ -22343,7 +22343,7 @@
     "half_ppr": 7.22,
     "ppr": 8.87
    },
-   "delta_rz_espn_ppg_demeaned": -0.32,
+   "delta_rz_espn_ppg_demeaned": -0.28,
    "preseason_ecr_rank": 163
   },
   {
@@ -22441,7 +22441,7 @@
     "half_ppr": 67.2,
     "ppr": 82.35
    },
-   "delta_rz_espn_ppg_demeaned": -0.66,
+   "delta_rz_espn_ppg_demeaned": -0.67,
    "preseason_ecr_rank": 94
   },
   {
@@ -22629,7 +22629,7 @@
     "half_ppr": 79.54,
     "ppr": 97.79
    },
-   "delta_rz_espn_ppg_demeaned": -0.43,
+   "delta_rz_espn_ppg_demeaned": -0.44,
    "preseason_ecr_rank": 90
   },
   {
@@ -22714,7 +22714,7 @@
     "half_ppr": 53.84,
     "ppr": 65.04
    },
-   "delta_rz_espn_ppg_demeaned": -0.39,
+   "delta_rz_espn_ppg_demeaned": -0.4,
    "preseason_ecr_rank": 132
   },
   {
@@ -23163,7 +23163,7 @@
     "half_ppr": 15.39,
     "ppr": 18.79
    },
-   "delta_rz_espn_ppg_demeaned": 0.24,
+   "delta_rz_espn_ppg_demeaned": 0.23,
    "preseason_ecr_rank": 251
   },
   {
@@ -23387,7 +23387,7 @@
     "half_ppr": 65.24,
     "ppr": 80.94
    },
-   "delta_rz_espn_ppg_demeaned": 1.2,
+   "delta_rz_espn_ppg_demeaned": 1.19,
    "preseason_ecr_rank": 81
   },
   {
@@ -23574,7 +23574,7 @@
     "half_ppr": 121.07,
     "ppr": 144.52
    },
-   "delta_rz_espn_ppg_demeaned": 1.64,
+   "delta_rz_espn_ppg_demeaned": 1.63,
    "preseason_ecr_rank": 73
   },
   {
@@ -23821,96 +23821,6 @@
    "preseason_ecr_rank": 126
   },
   {
-   "player_key": 2182,
-   "name": "Matthew Hibner",
-   "pos": "TE",
-   "team": "BAL",
-   "espn_ros": {
-    "standard": 21.76,
-    "half_ppr": 28.51,
-    "ppr": 35.26
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "blend_ros": {
-    "standard": 21.76,
-    "half_ppr": 28.51,
-    "ppr": 35.26
-   },
-   "pricing": "espn_only",
-   "roster_status": "active_roster",
-   "roster_status_label": "Active roster",
-   "depth_chart_position": "TE",
-   "depth_chart_order": 2,
-   "sleeper_id": "13324",
-   "games_remaining": 11,
-   "espn_expected_games": 11,
-   "blend_ppg": {
-    "standard": 1.978182,
-    "half_ppr": 2.591818,
-    "ppr": 3.205455
-   },
-   "espn_ppg": {
-    "standard": 1.978182,
-    "half_ppr": 2.591818,
-    "ppr": 3.205455
-   },
-   "rz_ppg": {
-    "standard": 1.5,
-    "half_ppr": 2.1,
-    "ppr": 2.7
-   },
-   "rz_ros": {
-    "standard": 16.5,
-    "half_ppr": 23.1,
-    "ppr": 29.7
-   },
-   "rz_filled_ppg": {
-    "standard": 1.5,
-    "half_ppr": 2.1,
-    "ppr": 2.7
-   },
-   "rz_filled_ros": {
-    "standard": 16.5,
-    "half_ppr": 23.1,
-    "ppr": 29.7
-   },
-   "delta_rz_espn": -5.56,
-   "delta_rz_espn_ppg": -0.51,
-   "cbsros_ppg": {
-    "standard": 3.382,
-    "half_ppr": 4.382,
-    "ppr": 5.382
-   },
-   "prior_espn_ros": null,
-   "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -0.79,
-   "preseason_ecr_rank": null
-  },
-  {
    "player_key": 843,
    "name": "Tyler Goodson",
    "pos": "RB",
@@ -24001,6 +23911,96 @@
    "preseason_ecr_rank": 121
   },
   {
+   "player_key": 2182,
+   "name": "Matthew Hibner",
+   "pos": "TE",
+   "team": "BAL",
+   "espn_ros": {
+    "standard": 21.61,
+    "half_ppr": 28.36,
+    "ppr": 35.11
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "blend_ros": {
+    "standard": 21.61,
+    "half_ppr": 28.36,
+    "ppr": 35.11
+   },
+   "pricing": "espn_only",
+   "roster_status": "active_roster",
+   "roster_status_label": "Active roster",
+   "depth_chart_position": "TE",
+   "depth_chart_order": 2,
+   "sleeper_id": "13324",
+   "games_remaining": 11,
+   "espn_expected_games": 11,
+   "blend_ppg": {
+    "standard": 1.964545,
+    "half_ppr": 2.578182,
+    "ppr": 3.191818
+   },
+   "espn_ppg": {
+    "standard": 1.964545,
+    "half_ppr": 2.578182,
+    "ppr": 3.191818
+   },
+   "rz_ppg": {
+    "standard": 1.5,
+    "half_ppr": 2.1,
+    "ppr": 2.7
+   },
+   "rz_ros": {
+    "standard": 16.5,
+    "half_ppr": 23.1,
+    "ppr": 29.7
+   },
+   "rz_filled_ppg": {
+    "standard": 1.5,
+    "half_ppr": 2.1,
+    "ppr": 2.7
+   },
+   "rz_filled_ros": {
+    "standard": 16.5,
+    "half_ppr": 23.1,
+    "ppr": 29.7
+   },
+   "delta_rz_espn": -5.41,
+   "delta_rz_espn_ppg": -0.49,
+   "cbsros_ppg": {
+    "standard": 3.382,
+    "half_ppr": 4.382,
+    "ppr": 5.382
+   },
+   "prior_espn_ros": null,
+   "prior_blend_ros": null,
+   "delta_rz_espn_ppg_demeaned": -0.77,
+   "preseason_ecr_rank": null
+  },
+  {
    "player_key": 374,
    "name": "Olamide Zaccheaus",
    "pos": "WR",
@@ -24086,7 +24086,7 @@
     "half_ppr": 53.92,
     "ppr": 67.67
    },
-   "delta_rz_espn_ppg_demeaned": 0.87,
+   "delta_rz_espn_ppg_demeaned": 0.86,
    "preseason_ecr_rank": 116
   },
   {
@@ -24661,7 +24661,7 @@
     "half_ppr": 110.92,
     "ppr": 133.82
    },
-   "delta_rz_espn_ppg_demeaned": 2.18,
+   "delta_rz_espn_ppg_demeaned": 2.17,
    "preseason_ecr_rank": 60
   },
   {
@@ -24832,9 +24832,9 @@
    "pos": "TE",
    "team": "CIN",
    "espn_ros": {
-    "standard": 16.26,
-    "half_ppr": 22.86,
-    "ppr": 29.46
+    "standard": 16.25,
+    "half_ppr": 22.85,
+    "ppr": 29.45
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -24862,9 +24862,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 16.26,
-    "half_ppr": 22.86,
-    "ppr": 29.46
+    "standard": 16.25,
+    "half_ppr": 22.85,
+    "ppr": 29.45
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -24875,14 +24875,14 @@
    "games_remaining": 12,
    "espn_expected_games": 12,
    "blend_ppg": {
-    "standard": 1.355,
-    "half_ppr": 1.905,
-    "ppr": 2.455
+    "standard": 1.354167,
+    "half_ppr": 1.904167,
+    "ppr": 2.454167
    },
    "espn_ppg": {
-    "standard": 1.355,
-    "half_ppr": 1.905,
-    "ppr": 2.455
+    "standard": 1.354167,
+    "half_ppr": 1.904167,
+    "ppr": 2.454167
    },
    "rz_ppg": {
     "standard": 1.2,
@@ -24904,8 +24904,8 @@
     "half_ppr": 21.6,
     "ppr": 27.6
    },
-   "delta_rz_espn": -1.86,
-   "delta_rz_espn_ppg": -0.16,
+   "delta_rz_espn": -1.85,
+   "delta_rz_espn_ppg": -0.15,
    "cbsros_ppg": {
     "standard": 0.908,
     "half_ppr": 1.283,
@@ -24921,7 +24921,7 @@
     "half_ppr": 25.16,
     "ppr": 31.81
    },
-   "delta_rz_espn_ppg_demeaned": -0.44,
+   "delta_rz_espn_ppg_demeaned": -0.43,
    "preseason_ecr_rank": 82
   },
   {
@@ -25021,6 +25021,86 @@
    },
    "delta_rz_espn_ppg_demeaned": 0.47,
    "preseason_ecr_rank": 54
+  },
+  {
+   "player_key": 1925,
+   "name": "Andrew Armstrong",
+   "pos": "WR",
+   "team": "KC",
+   "espn_ros": {
+    "standard": 18.74,
+    "half_ppr": 23.84,
+    "ppr": 28.94
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
+   "blend_ros": {
+    "standard": 18.74,
+    "half_ppr": 23.84,
+    "ppr": 28.94
+   },
+   "pricing": "espn_only",
+   "roster_status": "practice_squad",
+   "roster_status_label": "Practice squad",
+   "sleeper_id": "12863",
+   "roster_status_inferred": true,
+   "games_remaining": 12,
+   "espn_expected_games": 12,
+   "blend_ppg": {
+    "standard": 1.561667,
+    "half_ppr": 1.986667,
+    "ppr": 2.411667
+   },
+   "espn_ppg": {
+    "standard": 1.561667,
+    "half_ppr": 1.986667,
+    "ppr": 2.411667
+   },
+   "rz_ppg": {
+    "standard": 0.8,
+    "half_ppr": 1.0,
+    "ppr": 1.2
+   },
+   "rz_ros": {
+    "standard": 9.6,
+    "half_ppr": 12.0,
+    "ppr": 14.4
+   },
+   "rz_filled_ppg": {
+    "standard": 0.8,
+    "half_ppr": 1.0,
+    "ppr": 1.2
+   },
+   "rz_filled_ros": {
+    "standard": 9.6,
+    "half_ppr": 12.0,
+    "ppr": 14.4
+   },
+   "delta_rz_espn": -14.54,
+   "delta_rz_espn_ppg": -1.21,
+   "prior_espn_ros": null,
+   "prior_blend_ros": null,
+   "delta_rz_espn_ppg_demeaned": -0.91,
+   "preseason_ecr_rank": 249
   },
   {
    "player_key": 3376,
@@ -25211,7 +25291,7 @@
     "half_ppr": 43.89,
     "ppr": 55.49
    },
-   "delta_rz_espn_ppg_demeaned": 1.63,
+   "delta_rz_espn_ppg_demeaned": 1.62,
    "preseason_ecr_rank": null
   },
   {
@@ -25308,91 +25388,6 @@
    },
    "delta_rz_espn_ppg_demeaned": 1.35,
    "preseason_ecr_rank": 45
-  },
-  {
-   "player_key": 3298,
-   "name": "Cyrus Allen",
-   "pos": "WR",
-   "team": "KC",
-   "espn_ros": {
-    "standard": 17.67,
-    "half_ppr": 22.57,
-    "ppr": 27.47
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
-   "blend_ros": {
-    "standard": 17.67,
-    "half_ppr": 22.57,
-    "ppr": 27.47
-   },
-   "pricing": "espn_only",
-   "roster_status": "active_roster",
-   "roster_status_label": "Active roster",
-   "depth_chart_position": "SWR",
-   "depth_chart_order": 4,
-   "sleeper_id": "13413",
-   "games_remaining": 12,
-   "espn_expected_games": 12,
-   "blend_ppg": {
-    "standard": 1.4725,
-    "half_ppr": 1.880833,
-    "ppr": 2.289167
-   },
-   "espn_ppg": {
-    "standard": 1.4725,
-    "half_ppr": 1.880833,
-    "ppr": 2.289167
-   },
-   "rz_ppg": {
-    "standard": 2.3,
-    "half_ppr": 3.1,
-    "ppr": 3.8
-   },
-   "rz_ros": {
-    "standard": 27.6,
-    "half_ppr": 37.2,
-    "ppr": 45.6
-   },
-   "rz_filled_ppg": {
-    "standard": 2.3,
-    "half_ppr": 3.1,
-    "ppr": 3.8
-   },
-   "rz_filled_ros": {
-    "standard": 27.6,
-    "half_ppr": 37.2,
-    "ppr": 45.6
-   },
-   "delta_rz_espn": 18.13,
-   "delta_rz_espn_ppg": 1.51,
-   "prior_espn_ros": null,
-   "prior_blend_ros": {
-    "standard": 33.5,
-    "half_ppr": 43.2,
-    "ppr": 52.9
-   },
-   "delta_rz_espn_ppg_demeaned": 1.82,
-   "preseason_ecr_rank": 97
   },
   {
    "player_key": 4490,
@@ -25893,7 +25888,7 @@
     "half_ppr": 64.34,
     "ppr": 78.24
    },
-   "delta_rz_espn_ppg_demeaned": 0.87,
+   "delta_rz_espn_ppg_demeaned": 0.86,
    "preseason_ecr_rank": 98
   },
   {
@@ -26072,7 +26067,7 @@
     "half_ppr": 11.89,
     "ppr": 13.94
    },
-   "delta_rz_espn_ppg_demeaned": 0.28,
+   "delta_rz_espn_ppg_demeaned": 0.27,
    "preseason_ecr_rank": 176
   },
   {
@@ -26081,9 +26076,9 @@
    "pos": "WR",
    "team": "BAL",
    "espn_ros": {
-    "standard": 17.06,
-    "half_ppr": 20.71,
-    "ppr": 24.36
+    "standard": 16.83,
+    "half_ppr": 20.48,
+    "ppr": 24.13
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -26111,9 +26106,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 17.06,
-    "half_ppr": 20.71,
-    "ppr": 24.36
+    "standard": 16.83,
+    "half_ppr": 20.48,
+    "ppr": 24.13
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -26124,14 +26119,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 1.550909,
-    "half_ppr": 1.882727,
-    "ppr": 2.214545
+    "standard": 1.53,
+    "half_ppr": 1.861818,
+    "ppr": 2.193636
    },
    "espn_ppg": {
-    "standard": 1.550909,
-    "half_ppr": 1.882727,
-    "ppr": 2.214545
+    "standard": 1.53,
+    "half_ppr": 1.861818,
+    "ppr": 2.193636
    },
    "rz_ppg": {
     "standard": 2.1,
@@ -26153,8 +26148,8 @@
     "half_ppr": 28.6,
     "ppr": 33.0
    },
-   "delta_rz_espn": 8.64,
-   "delta_rz_espn_ppg": 0.79,
+   "delta_rz_espn": 8.87,
+   "delta_rz_espn_ppg": 0.81,
    "cbsros_ppg": {
     "standard": 4.264,
     "half_ppr": 4.945,
@@ -26170,7 +26165,7 @@
     "half_ppr": 50.51,
     "ppr": 59.56
    },
-   "delta_rz_espn_ppg_demeaned": 1.1,
+   "delta_rz_espn_ppg_demeaned": 1.11,
    "preseason_ecr_rank": 144
   },
   {
@@ -26268,7 +26263,7 @@
     "half_ppr": 98.65,
     "ppr": 120.6
    },
-   "delta_rz_espn_ppg_demeaned": 3.05,
+   "delta_rz_espn_ppg_demeaned": 3.04,
    "preseason_ecr_rank": 65
   },
   {
@@ -26357,7 +26352,7 @@
     "half_ppr": 13.77,
     "ppr": 17.32
    },
-   "delta_rz_espn_ppg_demeaned": 0.1,
+   "delta_rz_espn_ppg_demeaned": 0.09,
    "preseason_ecr_rank": 174
   },
   {
@@ -26544,7 +26539,7 @@
     "half_ppr": 63.79,
     "ppr": 75.94
    },
-   "delta_rz_espn_ppg_demeaned": 2.84,
+   "delta_rz_espn_ppg_demeaned": 2.83,
    "preseason_ecr_rank": 93
   },
   {
@@ -26789,7 +26784,7 @@
    "delta_rz_espn_ppg": -1.9,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -1.59,
+   "delta_rz_espn_ppg_demeaned": -1.6,
    "preseason_ecr_rank": null
   },
   {
@@ -27235,7 +27230,7 @@
    "delta_rz_espn_ppg": -1.0,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -0.69,
+   "delta_rz_espn_ppg_demeaned": -0.7,
    "preseason_ecr_rank": 175
   },
   {
@@ -27774,9 +27769,9 @@
    "pos": "TE",
    "team": "BAL",
    "espn_ros": {
-    "standard": 10.86,
-    "half_ppr": 14.21,
-    "ppr": 17.56
+    "standard": 10.79,
+    "half_ppr": 14.14,
+    "ppr": 17.49
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -27804,9 +27799,9 @@
     "standard"
    ],
    "blend_ros": {
-    "standard": 10.86,
-    "half_ppr": 14.21,
-    "ppr": 17.56
+    "standard": 10.79,
+    "half_ppr": 14.14,
+    "ppr": 17.49
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -27817,14 +27812,14 @@
    "games_remaining": 11,
    "espn_expected_games": 11,
    "blend_ppg": {
-    "standard": 0.987273,
-    "half_ppr": 1.291818,
-    "ppr": 1.596364
+    "standard": 0.980909,
+    "half_ppr": 1.285455,
+    "ppr": 1.59
    },
    "espn_ppg": {
-    "standard": 0.987273,
-    "half_ppr": 1.291818,
-    "ppr": 1.596364
+    "standard": 0.980909,
+    "half_ppr": 1.285455,
+    "ppr": 1.59
    },
    "rz_ppg": {
     "standard": 1.9,
@@ -27846,8 +27841,8 @@
     "half_ppr": 29.7,
     "ppr": 37.4
    },
-   "delta_rz_espn": 19.84,
-   "delta_rz_espn_ppg": 1.8,
+   "delta_rz_espn": 19.91,
+   "delta_rz_espn_ppg": 1.81,
    "cbsros_ppg": {
     "standard": 2.118,
     "half_ppr": 2.709,
@@ -27863,7 +27858,7 @@
     "half_ppr": 14.88,
     "ppr": 18.18
    },
-   "delta_rz_espn_ppg_demeaned": 1.52,
+   "delta_rz_espn_ppg_demeaned": 1.53,
    "preseason_ecr_rank": 98
   },
   {
@@ -27948,8 +27943,76 @@
     "half_ppr": 39.56,
     "ppr": 46.96
    },
-   "delta_rz_espn_ppg_demeaned": -0.26,
+   "delta_rz_espn_ppg_demeaned": -0.27,
    "preseason_ecr_rank": 119
+  },
+  {
+   "player_key": 508,
+   "name": "Tyler Huntley",
+   "pos": "QB",
+   "team": "BAL",
+   "espn_ros": {
+    "standard": 17.16,
+    "half_ppr": 17.16,
+    "ppr": 17.16
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "blend_ros": {
+    "standard": 17.16,
+    "half_ppr": 17.16,
+    "ppr": 17.16
+   },
+   "pricing": "espn_only",
+   "roster_status": "active_roster",
+   "roster_status_label": "Active roster",
+   "depth_chart_position": "QB",
+   "depth_chart_order": 1,
+   "sleeper_id": "7083",
+   "games_remaining": 11,
+   "espn_expected_games": 1,
+   "blend_ppg": {
+    "standard": 1.56,
+    "half_ppr": 1.56,
+    "ppr": 1.56
+   },
+   "espn_ppg": {
+    "standard": 1.56,
+    "half_ppr": 1.56,
+    "ppr": 1.56
+   },
+   "rz_held": "razzball standard 0.1 ppg is 1% of the ESPN/CBS mean 9.0 (< 60%): likely an expected-missed-games discount",
+   "cbsros_ppg": {
+    "standard": 0.827,
+    "half_ppr": 0.827,
+    "ppr": 0.827
+   },
+   "prior_espn_ros": null,
+   "prior_blend_ros": {
+    "standard": 8.39,
+    "half_ppr": 8.39,
+    "ppr": 8.39
+   },
+   "preseason_ecr_rank": 53
   },
   {
    "player_key": 3736,
@@ -28033,7 +28096,7 @@
     "half_ppr": 18.43,
     "ppr": 22.38
    },
-   "delta_rz_espn_ppg_demeaned": -0.83,
+   "delta_rz_espn_ppg_demeaned": -0.84,
    "preseason_ecr_rank": 125
   },
   {
@@ -28288,7 +28351,7 @@
     "half_ppr": 38.3,
     "ppr": 46.95
    },
-   "delta_rz_espn_ppg_demeaned": 0.42,
+   "delta_rz_espn_ppg_demeaned": 0.41,
    "preseason_ecr_rank": 159
   },
   {
@@ -28372,7 +28435,7 @@
     "half_ppr": 52.44,
     "ppr": 64.74
    },
-   "delta_rz_espn_ppg_demeaned": 1.56,
+   "delta_rz_espn_ppg_demeaned": 1.55,
    "preseason_ecr_rank": 168
   },
   {
@@ -28640,7 +28703,7 @@
    "delta_rz_espn_ppg": 2.17,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 2.48,
+   "delta_rz_espn_ppg_demeaned": 2.47,
    "preseason_ecr_rank": 221
   },
   {
@@ -29014,7 +29077,7 @@
     "half_ppr": 53.97,
     "ppr": 66.87
    },
-   "delta_rz_espn_ppg_demeaned": 1.12,
+   "delta_rz_espn_ppg_demeaned": 1.11,
    "preseason_ecr_rank": 124
   },
   {
@@ -29095,7 +29158,7 @@
    "delta_rz_espn_ppg": -0.38,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -0.07,
+   "delta_rz_espn_ppg_demeaned": -0.08,
    "preseason_ecr_rank": 198
   },
   {
@@ -29184,7 +29247,7 @@
     "half_ppr": 17.76,
     "ppr": 22.16
    },
-   "delta_rz_espn_ppg_demeaned": -0.35,
+   "delta_rz_espn_ppg_demeaned": -0.36,
    "preseason_ecr_rank": 148
   },
   {
@@ -29274,7 +29337,7 @@
     "half_ppr": 45.76,
     "ppr": 53.41
    },
-   "delta_rz_espn_ppg_demeaned": 1.96,
+   "delta_rz_espn_ppg_demeaned": 1.95,
    "preseason_ecr_rank": 145
   },
   {
@@ -29363,7 +29426,7 @@
     "half_ppr": 19.96,
     "ppr": 24.61
    },
-   "delta_rz_espn_ppg_demeaned": 2.17,
+   "delta_rz_espn_ppg_demeaned": 2.16,
    "preseason_ecr_rank": 170
   },
   {
@@ -29882,7 +29945,7 @@
     "half_ppr": 12.65,
     "ppr": 15.85
    },
-   "delta_rz_espn_ppg_demeaned": -0.63,
+   "delta_rz_espn_ppg_demeaned": -0.64,
    "preseason_ecr_rank": 211
   },
   {
@@ -30137,7 +30200,7 @@
     "half_ppr": 82.46,
     "ppr": 101.91
    },
-   "delta_rz_espn_ppg_demeaned": 1.41,
+   "delta_rz_espn_ppg_demeaned": 1.4,
    "preseason_ecr_rank": 112
   },
   {
@@ -30385,7 +30448,7 @@
     "half_ppr": 25.33,
     "ppr": 31.28
    },
-   "delta_rz_espn_ppg_demeaned": -0.46,
+   "delta_rz_espn_ppg_demeaned": -0.47,
    "preseason_ecr_rank": 153
   },
   {
@@ -30893,7 +30956,7 @@
    "delta_rz_espn_ppg": -0.09,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.22,
+   "delta_rz_espn_ppg_demeaned": 0.21,
    "preseason_ecr_rank": 185
   },
   {
@@ -31422,60 +31485,6 @@
    "preseason_ecr_rank": 123
   },
   {
-   "player_key": 1925,
-   "name": "Andrew Armstrong",
-   "pos": "WR",
-   "team": "KC",
-   "espn_ros": {
-    "standard": 3.75,
-    "half_ppr": 4.85,
-    "ppr": 5.95
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": false,
-   "rz_comp_count": 0,
-   "rz_covered": [],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
-   "blend_ros": {
-    "standard": 3.75,
-    "half_ppr": 4.85,
-    "ppr": 5.95
-   },
-   "pricing": "espn_only",
-   "roster_status": "practice_squad",
-   "roster_status_label": "Practice squad",
-   "sleeper_id": "12863",
-   "roster_status_inferred": true,
-   "games_remaining": 12,
-   "espn_expected_games": 1,
-   "blend_ppg": {
-    "standard": 0.3125,
-    "half_ppr": 0.404167,
-    "ppr": 0.495833
-   },
-   "espn_ppg": {
-    "standard": 0.3125,
-    "half_ppr": 0.404167,
-    "ppr": 0.495833
-   },
-   "rz_held": "razzball standard 0.8 ppg is 21% of the ESPN/CBS mean 3.8 (< 60%): likely an expected-missed-games discount",
-   "prior_espn_ros": null,
-   "prior_blend_ros": null,
-   "preseason_ecr_rank": 249
-  },
-  {
    "player_key": 3257,
    "name": "Jahdae Walker",
    "pos": "WR",
@@ -31561,7 +31570,7 @@
     "half_ppr": 49.93,
     "ppr": 60.68
    },
-   "delta_rz_espn_ppg_demeaned": -0.03,
+   "delta_rz_espn_ppg_demeaned": -0.04,
    "preseason_ecr_rank": 146
   },
   {
@@ -31744,7 +31753,7 @@
     "half_ppr": 17.87,
     "ppr": 21.82
    },
-   "delta_rz_espn_ppg_demeaned": 0.61,
+   "delta_rz_espn_ppg_demeaned": 0.6,
    "preseason_ecr_rank": 104
   },
   {
@@ -31998,7 +32007,7 @@
     "half_ppr": 0.0,
     "ppr": 0.0
    },
-   "delta_rz_espn_ppg_demeaned": 0.16,
+   "delta_rz_espn_ppg_demeaned": 0.15,
    "preseason_ecr_rank": 180
   },
   {
@@ -32097,9 +32106,9 @@
    "pos": "WR",
    "team": "PHI",
    "espn_ros": {
-    "standard": 2.97,
-    "half_ppr": 4.02,
-    "ppr": 5.07
+    "standard": 2.98,
+    "half_ppr": 4.03,
+    "ppr": 5.08
    },
    "espn_complete": true,
    "espn_comp_count": 7,
@@ -32119,9 +32128,9 @@
    "cbsros_comp_count": 0,
    "cbsros_covered": [],
    "blend_ros": {
-    "standard": 2.97,
-    "half_ppr": 4.02,
-    "ppr": 5.07
+    "standard": 2.98,
+    "half_ppr": 4.03,
+    "ppr": 5.08
    },
    "pricing": "espn_only",
    "roster_status": "active_roster",
@@ -32132,14 +32141,14 @@
    "games_remaining": 11,
    "espn_expected_games": 1,
    "blend_ppg": {
-    "standard": 0.27,
-    "half_ppr": 0.365455,
-    "ppr": 0.460909
+    "standard": 0.270909,
+    "half_ppr": 0.366364,
+    "ppr": 0.461818
    },
    "espn_ppg": {
-    "standard": 0.27,
-    "half_ppr": 0.365455,
-    "ppr": 0.460909
+    "standard": 0.270909,
+    "half_ppr": 0.366364,
+    "ppr": 0.461818
    },
    "rz_held": "razzball half_ppr 0.5 ppg is 12% of the ESPN/CBS mean 4.0 (< 60%): likely an expected-missed-games discount",
    "prior_espn_ros": null,
@@ -32465,6 +32474,70 @@
    "preseason_ecr_rank": 182
   },
   {
+   "player_key": 453,
+   "name": "Marquise Brown",
+   "pos": "WR",
+   "team": "PHI",
+   "espn_ros": {
+    "standard": 2.99,
+    "half_ppr": 3.94,
+    "ppr": 4.89
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
+   "blend_ros": {
+    "standard": 2.99,
+    "half_ppr": 3.94,
+    "ppr": 4.89
+   },
+   "pricing": "espn_only",
+   "roster_status": "active_roster",
+   "roster_status_label": "Active roster",
+   "injury_status": "Questionable",
+   "depth_chart_position": "SWR",
+   "depth_chart_order": 5,
+   "sleeper_id": "5848",
+   "games_remaining": 11,
+   "espn_expected_games": 1,
+   "blend_ppg": {
+    "standard": 0.271818,
+    "half_ppr": 0.358182,
+    "ppr": 0.444545
+   },
+   "espn_ppg": {
+    "standard": 0.271818,
+    "half_ppr": 0.358182,
+    "ppr": 0.444545
+   },
+   "rz_held": "razzball half_ppr 0.1 ppg is 3% of the ESPN/CBS mean 3.9 (< 60%): likely an expected-missed-games discount",
+   "prior_espn_ros": {
+    "standard": 7.52,
+    "half_ppr": 8.67,
+    "ppr": 9.82
+   },
+   "prior_blend_ros": {
+    "standard": 47.65,
+    "half_ppr": 60.7,
+    "ppr": 73.75
+   },
+   "preseason_ecr_rank": 102
+  },
+  {
    "player_key": 4283,
    "name": "Michael Burton",
    "pos": "RB",
@@ -32643,7 +32716,7 @@
     "half_ppr": 33.72,
     "ppr": 41.12
    },
-   "delta_rz_espn_ppg_demeaned": 2.67,
+   "delta_rz_espn_ppg_demeaned": 2.66,
    "preseason_ecr_rank": 107
   },
   {
@@ -32733,14 +32806,14 @@
     "half_ppr": 22.85,
     "ppr": 27.6
    },
-   "delta_rz_espn_ppg_demeaned": 0.68,
+   "delta_rz_espn_ppg_demeaned": 0.67,
    "preseason_ecr_rank": 122
   },
   {
    "player_key": 3222,
    "name": "Khalil Herbert",
    "pos": "RB",
-   "team": "CIN",
+   "team": "ATL",
    "espn_ros": {
     "standard": 3.73,
     "half_ppr": 3.98,
@@ -32773,22 +32846,107 @@
    "roster_status_label": "Practice squad",
    "sleeper_id": "7608",
    "roster_status_inferred": true,
-   "games_remaining": 12,
+   "games_remaining": 11,
    "espn_expected_games": 1,
    "blend_ppg": {
-    "standard": 0.310833,
-    "half_ppr": 0.331667,
-    "ppr": 0.3525
+    "standard": 0.339091,
+    "half_ppr": 0.361818,
+    "ppr": 0.384545
    },
    "espn_ppg": {
-    "standard": 0.310833,
-    "half_ppr": 0.331667,
-    "ppr": 0.3525
+    "standard": 0.339091,
+    "half_ppr": 0.361818,
+    "ppr": 0.384545
    },
    "rz_held": "razzball standard 2.1 ppg is 56% of the ESPN/CBS mean 3.7 (< 60%): likely an expected-missed-games discount",
    "prior_espn_ros": null,
    "prior_blend_ros": null,
    "preseason_ecr_rank": 139
+  },
+  {
+   "player_key": 3298,
+   "name": "Cyrus Allen",
+   "pos": "WR",
+   "team": "KC",
+   "espn_ros": {
+    "standard": 2.46,
+    "half_ppr": 3.26,
+    "ppr": 4.06
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
+   "blend_ros": {
+    "standard": 2.46,
+    "half_ppr": 3.26,
+    "ppr": 4.06
+   },
+   "pricing": "espn_only",
+   "roster_status": "active_roster",
+   "roster_status_label": "Active roster",
+   "depth_chart_position": "SWR",
+   "depth_chart_order": 4,
+   "sleeper_id": "13413",
+   "games_remaining": 12,
+   "espn_expected_games": 1,
+   "blend_ppg": {
+    "standard": 0.205,
+    "half_ppr": 0.271667,
+    "ppr": 0.338333
+   },
+   "espn_ppg": {
+    "standard": 0.205,
+    "half_ppr": 0.271667,
+    "ppr": 0.338333
+   },
+   "rz_ppg": {
+    "standard": 2.3,
+    "half_ppr": 3.1,
+    "ppr": 3.8
+   },
+   "rz_ros": {
+    "standard": 27.6,
+    "half_ppr": 37.2,
+    "ppr": 45.6
+   },
+   "rz_filled_ppg": {
+    "standard": 2.3,
+    "half_ppr": 3.1,
+    "ppr": 3.8
+   },
+   "rz_filled_ros": {
+    "standard": 27.6,
+    "half_ppr": 37.2,
+    "ppr": 45.6
+   },
+   "delta_rz_espn": 41.54,
+   "delta_rz_espn_ppg": 3.46,
+   "prior_espn_ros": null,
+   "prior_blend_ros": {
+    "standard": 33.5,
+    "half_ppr": 43.2,
+    "ppr": 52.9
+   },
+   "delta_rz_espn_ppg_demeaned": 3.76,
+   "preseason_ecr_rank": 97
   },
   {
    "player_key": 855,
@@ -32844,70 +33002,6 @@
    "prior_espn_ros": null,
    "prior_blend_ros": null,
    "preseason_ecr_rank": 247
-  },
-  {
-   "player_key": 453,
-   "name": "Marquise Brown",
-   "pos": "WR",
-   "team": "PHI",
-   "espn_ros": {
-    "standard": 2.43,
-    "half_ppr": 3.18,
-    "ppr": 3.93
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": false,
-   "rz_comp_count": 0,
-   "rz_covered": [],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
-   "blend_ros": {
-    "standard": 2.43,
-    "half_ppr": 3.18,
-    "ppr": 3.93
-   },
-   "pricing": "espn_only",
-   "roster_status": "active_roster",
-   "roster_status_label": "Active roster",
-   "injury_status": "Questionable",
-   "depth_chart_position": "SWR",
-   "depth_chart_order": 5,
-   "sleeper_id": "5848",
-   "games_remaining": 11,
-   "espn_expected_games": 1,
-   "blend_ppg": {
-    "standard": 0.220909,
-    "half_ppr": 0.289091,
-    "ppr": 0.357273
-   },
-   "espn_ppg": {
-    "standard": 0.220909,
-    "half_ppr": 0.289091,
-    "ppr": 0.357273
-   },
-   "rz_held": "razzball half_ppr 0.1 ppg is 3% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
-   "prior_espn_ros": {
-    "standard": 7.52,
-    "half_ppr": 8.67,
-    "ppr": 9.82
-   },
-   "prior_blend_ros": {
-    "standard": 47.65,
-    "half_ppr": 60.7,
-    "ppr": 73.75
-   },
-   "preseason_ecr_rank": 102
   },
   {
    "player_key": 2414,
@@ -33301,7 +33395,7 @@
    "delta_rz_espn_ppg": 0.05,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.36,
+   "delta_rz_espn_ppg_demeaned": 0.35,
    "preseason_ecr_rank": 250
   },
   {
@@ -33391,7 +33485,7 @@
     "half_ppr": 14.83,
     "ppr": 18.43
    },
-   "delta_rz_espn_ppg_demeaned": 1.28,
+   "delta_rz_espn_ppg_demeaned": 1.27,
    "preseason_ecr_rank": 142
   },
   {
@@ -33476,8 +33570,94 @@
     "half_ppr": 11.28,
     "ppr": 13.88
    },
-   "delta_rz_espn_ppg_demeaned": 0.2,
+   "delta_rz_espn_ppg_demeaned": 0.19,
    "preseason_ecr_rank": 156
+  },
+  {
+   "player_key": 413,
+   "name": "David Sills",
+   "pos": "WR",
+   "team": "TB",
+   "espn_ros": {
+    "standard": 1.49,
+    "half_ppr": 1.89,
+    "ppr": 2.29
+   },
+   "espn_complete": true,
+   "espn_comp_count": 7,
+   "espn_covered": [
+    "passing_tds",
+    "passing_yards",
+    "receiving_tds",
+    "receiving_yards",
+    "receptions",
+    "rushing_tds",
+    "rushing_yards"
+   ],
+   "rz_complete": true,
+   "rz_comp_count": 3,
+   "rz_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
+   "blend_ros": {
+    "standard": 1.49,
+    "half_ppr": 1.89,
+    "ppr": 2.29
+   },
+   "pricing": "espn_only",
+   "roster_status": "injured_reserve",
+   "roster_status_label": "Injured reserve",
+   "injury_status": "IR",
+   "depth_chart_position": "RWR",
+   "depth_chart_order": 6,
+   "sleeper_id": "6154",
+   "games_remaining": 11,
+   "espn_expected_games": 1,
+   "blend_ppg": {
+    "standard": 0.135455,
+    "half_ppr": 0.171818,
+    "ppr": 0.208182
+   },
+   "espn_ppg": {
+    "standard": 0.135455,
+    "half_ppr": 0.171818,
+    "ppr": 0.208182
+   },
+   "rz_ppg": {
+    "standard": 0.5,
+    "half_ppr": 0.6,
+    "ppr": 0.8
+   },
+   "rz_ros": {
+    "standard": 5.5,
+    "half_ppr": 6.6,
+    "ppr": 8.8
+   },
+   "rz_filled_ppg": {
+    "standard": 0.5,
+    "half_ppr": 0.6,
+    "ppr": 0.8
+   },
+   "rz_filled_ros": {
+    "standard": 5.5,
+    "half_ppr": 6.6,
+    "ppr": 8.8
+   },
+   "delta_rz_espn": 6.51,
+   "delta_rz_espn_ppg": 0.59,
+   "prior_espn_ros": null,
+   "prior_blend_ros": {
+    "standard": 6.31,
+    "half_ppr": 8.11,
+    "ppr": 9.91
+   },
+   "delta_rz_espn_ppg_demeaned": 0.89,
+   "preseason_ecr_rank": 212
   },
   {
    "player_key": 1902,
@@ -33654,92 +33834,6 @@
    "preseason_ecr_rank": null
   },
   {
-   "player_key": 413,
-   "name": "David Sills",
-   "pos": "WR",
-   "team": "TB",
-   "espn_ros": {
-    "standard": 0.66,
-    "half_ppr": 0.96,
-    "ppr": 1.26
-   },
-   "espn_complete": true,
-   "espn_comp_count": 7,
-   "espn_covered": [
-    "passing_tds",
-    "passing_yards",
-    "receiving_tds",
-    "receiving_yards",
-    "receptions",
-    "rushing_tds",
-    "rushing_yards"
-   ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
-   "blend_ros": {
-    "standard": 0.66,
-    "half_ppr": 0.96,
-    "ppr": 1.26
-   },
-   "pricing": "espn_only",
-   "roster_status": "injured_reserve",
-   "roster_status_label": "Injured reserve",
-   "injury_status": "IR",
-   "depth_chart_position": "RWR",
-   "depth_chart_order": 6,
-   "sleeper_id": "6154",
-   "games_remaining": 11,
-   "espn_expected_games": 1,
-   "blend_ppg": {
-    "standard": 0.06,
-    "half_ppr": 0.087273,
-    "ppr": 0.114545
-   },
-   "espn_ppg": {
-    "standard": 0.06,
-    "half_ppr": 0.087273,
-    "ppr": 0.114545
-   },
-   "rz_ppg": {
-    "standard": 0.5,
-    "half_ppr": 0.6,
-    "ppr": 0.8
-   },
-   "rz_ros": {
-    "standard": 5.5,
-    "half_ppr": 6.6,
-    "ppr": 8.8
-   },
-   "rz_filled_ppg": {
-    "standard": 0.5,
-    "half_ppr": 0.6,
-    "ppr": 0.8
-   },
-   "rz_filled_ros": {
-    "standard": 5.5,
-    "half_ppr": 6.6,
-    "ppr": 8.8
-   },
-   "delta_rz_espn": 7.54,
-   "delta_rz_espn_ppg": 0.69,
-   "prior_espn_ros": null,
-   "prior_blend_ros": {
-    "standard": 6.31,
-    "half_ppr": 8.11,
-    "ppr": 9.91
-   },
-   "delta_rz_espn_ppg_demeaned": 1.0,
-   "preseason_ecr_rank": 212
-  },
-  {
    "player_key": 193,
    "name": "Pharaoh Brown",
    "pos": "TE",
@@ -33901,7 +33995,7 @@
     "half_ppr": 12.05,
     "ppr": 14.6
    },
-   "delta_rz_espn_ppg_demeaned": 4.33,
+   "delta_rz_espn_ppg_demeaned": 4.32,
    "preseason_ecr_rank": 178
   },
   {
@@ -37223,85 +37317,6 @@
    "prior_espn_ros": null,
    "prior_blend_ros": null,
    "preseason_ecr_rank": null
-  },
-  {
-   "player_key": 508,
-   "name": "Tyler Huntley",
-   "pos": "QB",
-   "team": "BAL",
-   "espn_ros": {
-    "standard": 0.0,
-    "half_ppr": 0.0,
-    "ppr": 0.0
-   },
-   "espn_complete": false,
-   "espn_comp_count": 0,
-   "espn_covered": [],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
-   "blend_ros": {
-    "standard": 0.0,
-    "half_ppr": 0.0,
-    "ppr": 0.0
-   },
-   "pricing": "espn_only",
-   "espn_zeroed": true,
-   "espn_status": "ineligible",
-   "universe_sources": [
-    "cbsros",
-    "razzball"
-   ],
-   "roster_status": "active_roster",
-   "roster_status_label": "Active roster",
-   "depth_chart_position": "QB",
-   "depth_chart_order": 1,
-   "sleeper_id": "7083",
-   "games_remaining": 11,
-   "espn_expected_games": null,
-   "rz_ppg": {
-    "standard": 0.1,
-    "half_ppr": 0.1,
-    "ppr": 0.1
-   },
-   "rz_ros": {
-    "standard": 1.1,
-    "half_ppr": 1.1,
-    "ppr": 1.1
-   },
-   "rz_filled_ppg": {
-    "standard": 0.1,
-    "half_ppr": 0.1,
-    "ppr": 0.1
-   },
-   "rz_filled_ros": {
-    "standard": 1.1,
-    "half_ppr": 1.1,
-    "ppr": 1.1
-   },
-   "cbsros_ppg": {
-    "standard": 0.827,
-    "half_ppr": 0.827,
-    "ppr": 0.827
-   },
-   "prior_espn_ros": null,
-   "prior_blend_ros": {
-    "standard": 8.39,
-    "half_ppr": 8.39,
-    "ppr": 8.39
-   },
-   "preseason_ecr_rank": 53
   },
   {
    "player_key": 511,
