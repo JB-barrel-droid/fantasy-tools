@@ -26,7 +26,7 @@ Value and at least 3 of 4 trade charts say the rival breaks even or wins.
   unmatched names, empty roster error, missing finder dep error, site link target)
 - `python3 -m unittest tests.test_mcp_remote` -- 2 tests ok
 - `python3 -m unittest tests.test_llm_surfaces` -- 7 tests ok
-- `make validate` -- running (includes build, reference data, headless browser suite)
+- `make validate` -- green, exit 0 (includes build, reference data, headless browser suite)
 
 ### Not verified
 
