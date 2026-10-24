@@ -2215,8 +2215,11 @@
   let popoverAnchor = null;
   let hoverOpened = false;
   let hoverHold = null; // the hovered info button's timers, so the popover can hold or release it
+  let popoverCloseHook = null;   // JEG-1020: a live panel (Your league) flushes its pending change when it closes
+  function runPopoverCloseHook() { const hook = popoverCloseHook; popoverCloseHook = null; if (hook) hook(); }
   function openPopover(anchor, build) {
     const pop = $("v2Popover");
+    runPopoverCloseHook();
     pop.replaceChildren();
     pop.classList.remove("v2-info-pop");
     build(pop);
@@ -2235,6 +2238,7 @@
   function closePopover(skipFocus) {
     const pop = $("v2Popover");
     if (pop.hidden) return;
+    runPopoverCloseHook();
     pop.hidden = true;
     if (panelOpen) {
       panelOpen = false;
@@ -2793,18 +2797,30 @@
   // Frame 18: when a league change makes a selected series unavailable, say which one was dropped.
   let statusTimer = null;
   // JEG-444: when the new league's feasible bench range moves the bench share, say so too.
+  // JEG-1020: every consumer of the league settings outside v2.js (Find a trade) listens for this event; a handler
+  // pushes a short sentence on detail.notes when it changed something the reader should hear about.
+  const LEAGUE_EVENT = "ddf:league-settings-changed";
+  function announceLeagueChange(reason) {
+    const detail = {reason, notes: []};
+    try { document.dispatchEvent(new CustomEvent(LEAGUE_EVENT, {detail})); } catch (error) { console.warn("League change listener failed:", error); }
+    return detail.notes;
+  }
   function leagueChange(apply) {
     const before = C.getActiveSources();
-    apply();
-    refresh();
+    try { apply(); } finally {
+      try { refresh(); } catch (error) { console.warn("Refresh after a league change failed:", error); }
+    }
     const after = new Set(C.getActiveSources());
     const dropped = before.filter(key => !after.has(key));
     const notes = [];
     if (dropped.length) notes.push(`Removed ${dropped.map(key => sourceMeta(key).short).join(", ")}: not available for this league.`);
-    if (!notes.length) return;
-    setStatus(notes.join(" "));
-    clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => setStatus(""), 6000);
+    const others = announceLeagueChange("league");
+    if (notes.length) {
+      setStatus(notes.join(" "));
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(() => setStatus(""), 6000);
+    }
+    return notes.concat(others);   // the live region reads these after "Results updated for the new league settings"
   }
 
   // ---------- 12 Your league ----------
@@ -2854,10 +2870,26 @@
     try { C.setLineupSettings(changed); } catch (error) { return error.message || "Those advanced settings are not valid."; }
     return "";
   }
+  // JEG-1020 (Jeremy, 2026-10-24: "Don't require hitting accept or save when league settings are changed"): every control
+  // here applies as it changes. Rapid taps coalesce into one recompute (LEAGUE_DEBOUNCE_MS); the recompute runs off the
+  // input handler; an invalid intermediate state is refused by the engine, the last valid result stays and one inline line
+  // says why. Done only closes the panel. Undo changes returns to the settings the panel opened with.
+  const LEAGUE_DEBOUNCE_MS = 150;
+  const LEAGUE_SLOW_MS = 250;     // a recompute this slow shows "Updating" before it starts (the previous one predicts it)
+  function announceLive(text) {
+    const node = $("v2LeagueLive");
+    if (!node) return;
+    node.textContent = "";
+    setTimeout(() => { node.textContent = text; }, 50);
+  }
   function openLeague() {
-    const s = view.state;
+    const s = C.getState();
     const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}, weeks: seasonWeeksState(false),
       adv: advancedState(false), advOpen: false};
+    const opened = JSON.parse(JSON.stringify(draft));
+    let timer = 0;
+    let lastMs = 0;
+    let queue = () => {};
     openPanel($("v2EditLeague"), "Your league", "One league setup for charts, tables and trades.", pop => {
       const body = panelBody(pop);
       const content = document.createElement("div");
@@ -2866,9 +2898,9 @@
         content.replaceChildren();
         eyebrow(content, "Scoring");
         content.appendChild(segmented("Scoring", [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]],
-          draft.scoring, v => { draft.scoring = v; }));
+          draft.scoring, v => { draft.scoring = v; queue(); }));
         eyebrow(content, "Teams");
-        content.appendChild(segmented("Teams", [8, 10, 12, 14].map(v => [v, String(v)]), draft.teams, v => { draft.teams = v; }));
+        content.appendChild(segmented("Teams", [8, 10, 12, 14].map(v => [v, String(v)]), draft.teams, v => { draft.teams = v; queue(); }));
         eyebrow(content, "Starting roster");
         ROSTER_SLOTS.forEach(([key, label, min, max]) => {
           const line = document.createElement("div");
@@ -2890,8 +2922,10 @@
             b.addEventListener("click", () => {
               draft.roster[key] = Math.max(min, Math.min(max, draft.roster[key] + delta));
               render();
+              queue();
               const again = content.querySelector(`[aria-label="${aria} ${label}"]`);
-              if (again && !again.disabled) again.focus();
+              const other = content.querySelector(`[aria-label="${aria === "Fewer" ? "More" : "Fewer"} ${label}"]`);
+              if (again && !again.disabled) again.focus(); else if (other && !other.disabled) other.focus();   // at a limit, focus stays on the stepper
             });
             return b;
           };
@@ -2919,10 +2953,10 @@
         details.appendChild(summary);
         eyebrow(details, "Injury history");
         details.appendChild(segmented("Injury history", [["recent", "Recent seasons"], ["all", "All seasons equally"]],
-          adv.injuryHistory, v => { adv.injuryHistory = v; }));
+          adv.injuryHistory, v => { adv.injuryHistory = v; queue(); }));
         eyebrow(details, "Projection confidence");
         details.appendChild(segmented("Projection confidence", [[1.5, "Less"], [1, "As measured"], [0.5, "More"]],
-          adv.projectionConfidence, v => { adv.projectionConfidence = v; }));
+          adv.projectionConfidence, v => { adv.projectionConfidence = v; queue(); }));
         const confNote = document.createElement("p");
         confNote.className = "v2-meta";
         confNote.textContent = "How much to trust the projections: Less widens the range of outcomes, More narrows it.";
@@ -2955,7 +2989,7 @@
           slider.setAttribute("aria-label", "Bench share override");
           slider.min = "0.01"; slider.max = "0.30"; slider.step = "0.005";
           slider.value = String(adv.benchShareOverride);
-          slider.addEventListener("input", () => { adv.benchShareOverride = Number(slider.value); out.textContent = `${(adv.benchShareOverride * 100).toFixed(1)}%`; });
+          slider.addEventListener("input", () => { adv.benchShareOverride = Number(slider.value); out.textContent = `${(adv.benchShareOverride * 100).toFixed(1)}%`; queue(); });
           line.append(slider, out);
           details.appendChild(line);
         }
@@ -2971,6 +3005,7 @@
           render();
           const again = content.querySelector("#v2BenchOverride");
           if (again) again.focus();
+          queue();
         });
         content.appendChild(details);
       }
@@ -3001,7 +3036,9 @@
               if (after) after();
               render();
               const again = content.querySelector(`[aria-label="${aria} ${label}"]`);
-              if (again && !again.disabled) again.focus();
+              const other = content.querySelector(`[aria-label="${aria === "Fewer" ? "More" : "Fewer"} ${label}"]`);
+              if (again && !again.disabled) again.focus(); else if (other && !other.disabled) other.focus();   // at a limit, focus stays on the stepper
+              queue();
             });
             return b;
           };
@@ -3020,7 +3057,7 @@
         stepLine("v2StepPlayoffHi", "Last playoff week", "playoffHi", w.playoffLo, 18);
         eyebrow(content, "Optimize for");
         content.appendChild(segmented("Optimize for", [["season", "Whole season"], ["regular", "Regular season"], ["playoffs", "Playoffs"]],
-          w.optimize, v => { w.optimize = v; }));
+          w.optimize, v => { w.optimize = v; queue(); }));
         const lo = w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
         const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
         const weeksNote = document.createElement("p");
@@ -3032,35 +3069,115 @@
         content.appendChild(weeksNote);
       }
       render();
-      panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
-        const cur = view.state;
+      const msg = document.createElement("p");
+      msg.className = "v2-meta v2-league-msg";
+      msg.dataset.leagueMsg = "";
+      const issue = document.createElement("p");
+      issue.className = "v2-league-issue";
+      issue.dataset.leagueIssue = "";
+      issue.setAttribute("role", "alert");
+      issue.hidden = true;
+      const showMsg = text => { msg.textContent = text; };
+      const showIssue = text => { issue.textContent = text; issue.hidden = !text; };
+      const undo = document.createElement("button");
+      undo.type = "button";
+      undo.className = "v2-btn v2-preset";
+      undo.textContent = "Undo changes";
+      undo.dataset.leagueUndo = "";
+      undo.disabled = true;
+      const sameAsOpened = () => JSON.stringify([draft.scoring, draft.teams, draft.roster, draft.weeks, draft.adv])
+        === JSON.stringify([opened.scoring, opened.teams, opened.roster, opened.weeks, opened.adv]);
+      // The engine holds some values to a range (a roster slot to its stepper bounds, the bench-share override to the
+      // league's feasible range): the panel shows what is in force, and says so when it moved a value.
+      function syncDraftFromEngine(notes) {
         const shape = C.getRosterShape();
-        let weekError = "";
-        leagueChange(() => {
-          if (draft.scoring !== cur.scoring) C.setScoring(draft.scoring);
-          if (draft.teams !== cur.teams) C.setTeams(draft.teams);
-          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });
-          if (draft.weeks) weekError = applySeasonWeeks(draft.weeks);
-          if (!weekError && draft.adv) weekError = applyAdvanced(draft.adv);
-        });
-        if (weekError) { setStatus(weekError); return; }
-        closePopover();
-      }, {"data-apply": "league"}]], (() => {
-        const reset = document.createElement("button");
-        reset.type = "button";
-        reset.className = "v2-btn v2-preset";
-        reset.textContent = "Reset defaults";
-        reset.addEventListener("click", () => {
-          if (!leagueDefaults) return;
-          draft.scoring = leagueDefaults.scoring;
-          draft.teams = leagueDefaults.teams;
-          draft.roster = {...leagueDefaults.roster};
-          if (draft.weeks) draft.weeks = seasonWeeksState(true);
-          if (draft.adv) draft.adv = advancedState(true);
-          render();
-        });
-        return reset;
-      })());
+        const was = JSON.stringify([draft.roster, draft.adv]);
+        ROSTER_SLOTS.forEach(([key]) => { draft.roster[key] = shape[key]; });
+        if (draft.adv) {
+          const now = advancedState(false);
+          if (now.benchShareOverride !== draft.adv.benchShareOverride && draft.adv.benchShareOverride !== null) {
+            notes.push(now.benchShareOverride === null ? "The bench-share override was cleared for this league."
+              : `The bench-share override was held to ${(now.benchShareOverride * 100).toFixed(1)}% for this league.`);
+          }
+          draft.adv = now;
+        }
+        if (JSON.stringify([draft.roster, draft.adv]) === was) return;   // nothing moved: leave the controls (and focus) alone
+        const held = document.activeElement;
+        const label = held && held.getAttribute ? held.getAttribute("aria-label") || held.id : "";
+        render();
+        const again = label && [...content.querySelectorAll("button, input")].find(n => (n.getAttribute("aria-label") || n.id) === label);
+        if (again) again.focus();
+      }
+      function commit() {
+        clearTimeout(timer);
+        timer = 0;
+        const t0 = performance.now();
+        const cur = C.getState();   // the engine's own state: view.state is stale on tabs that do not collect()
+        const shape = C.getRosterShape();
+        let error = "";
+        let notes = [];
+        try {
+          notes = leagueChange(() => {
+            if (draft.scoring !== cur.scoring) C.setScoring(draft.scoring);
+            if (draft.teams !== cur.teams) C.setTeams(draft.teams);
+            ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });
+            if (draft.weeks) error = applySeasonWeeks(draft.weeks);
+            if (!error && draft.adv) error = applyAdvanced(draft.adv);
+          }) || [];
+        } catch (caught) {
+          error = (caught && caught.message) || "Those settings could not be applied.";
+        }
+        lastMs = performance.now() - t0;
+        (window.__leagueApplyLog = window.__leagueApplyLog || []).push(Math.round(lastMs));
+        showMsg("");
+        if (error) {
+          showIssue(`Not applied: ${error} The results still show the last valid settings.`);
+        } else {
+          showIssue("");
+          const held = [];
+          syncDraftFromEngine(held);
+          notes = notes.concat(held);
+          if (held.length) { showMsg(held.join(" ")); }
+          announceLive(["Results updated for the new league settings.", ...notes].join(" "));
+        }
+        undo.disabled = sameAsOpened();
+      }
+      // The input handler only records the draft and starts the timer; the recompute runs from the timer.
+      queue = () => {
+        undo.disabled = false;
+        clearTimeout(timer);
+        if (lastMs >= LEAGUE_SLOW_MS * 0.8) showMsg("Updating…");
+        timer = setTimeout(() => setTimeout(commit, 0), LEAGUE_DEBOUNCE_MS);
+      };
+      popoverCloseHook = () => { if (timer) commit(); };
+      undo.addEventListener("click", () => {
+        draft.scoring = opened.scoring;
+        draft.teams = opened.teams;
+        draft.roster = {...opened.roster};
+        draft.weeks = opened.weeks && {...opened.weeks};
+        draft.adv = opened.adv && {...opened.adv};
+        render();
+        commit();
+      });
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.className = "v2-btn v2-preset";
+      reset.textContent = "Reset defaults";
+      reset.dataset.leagueReset = "";
+      reset.addEventListener("click", () => {
+        if (!leagueDefaults) return;
+        draft.scoring = leagueDefaults.scoring;
+        draft.teams = leagueDefaults.teams;
+        draft.roster = {...leagueDefaults.roster};
+        if (draft.weeks) draft.weeks = seasonWeeksState(true);
+        if (draft.adv) draft.adv = advancedState(true);
+        render();
+        commit();
+      });
+      const tools = document.createElement("div");
+      tools.className = "v2-league-tools";
+      tools.append(reset, undo, msg, issue);
+      panelActions(pop, [["Done", true, closePopover, {"data-done": "league"}]], tools);
     });
   }
 
@@ -3210,6 +3327,7 @@
         }
         closePopover();
         refresh();
+        announceLeagueChange("weights");
         if (note) {
           setStatus(note);
           clearTimeout(statusTimer);
@@ -5743,6 +5861,7 @@
     }
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
+    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");   // JEG-1020: Find a trade reads the link's settings too
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
