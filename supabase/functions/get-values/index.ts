@@ -387,6 +387,9 @@ function buildPipelineInput(
   };
 }
 
+// The chart source keys the finder compares (must match finder.js CHART_KEYS).
+const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+
 // Format pipeline output for the API response.
 function formatResponse(
   // deno-lint-ignore no-explicit-any
@@ -398,15 +401,11 @@ function formatResponse(
   scoring: string,
   teams: number,
   superflex: number,
+  includeCharts = false,
 ) {
   const rows = pipeline.rows || {};
-  const values: Array<{
-    player_key: number;
-    name: string;
-    pos: string;
-    value: number;
-    tier: number;
-  }> = [];
+  // deno-lint-ignore no-explicit-any
+  const values: any[] = [];
 
   for (const [pk, row] of Object.entries(rows)) {
     // deno-lint-ignore no-explicit-any
@@ -419,17 +418,36 @@ function formatResponse(
     const blended = ddfVersions?.blended?.value;
     if (typeof blended !== "number" || !Number.isFinite(blended)) continue;
 
-    values.push({
+    // deno-lint-ignore no-explicit-any
+    const entry: any = {
       player_key: Number(pk),
       name: player.name,
       pos: player.pos,
       value: Math.round(blended * 10) / 10,
       tier: r.tier ?? 0,
-    });
+    };
+
+    // include=charts: add per-chart adjusted values and DDF sub-versions
+    // so the finder can check whether trade charts say the rival breaks even.
+    if (includeCharts) {
+      const cv: Record<string, number | null> = {};
+      for (const ck of CHART_KEYS) {
+        const v = r.adjusted?.[ck];
+        cv[ck] = typeof v === "number" && Number.isFinite(v) ? Math.round(v * 10) / 10 : null;
+      }
+      entry.chart_values = cv;
+      // DDF Value sub-versions (charts-only and projections-only) for noise estimation.
+      const charts = ddfVersions?.charts?.value;
+      const projs = ddfVersions?.projections?.value;
+      entry.ddf_value_charts = typeof charts === "number" && Number.isFinite(charts) ? Math.round(charts * 10) / 10 : null;
+      entry.ddf_value_projections = typeof projs === "number" && Number.isFinite(projs) ? Math.round(projs * 10) / 10 : null;
+    }
+
+    values.push(entry);
   }
 
   // Sort by value descending.
-  values.sort((a, b) => b.value - a.value);
+  values.sort((a: { value: number }, b: { value: number }) => b.value - a.value);
 
   return {
     attribution: `Data Driven Football — ${SITE_ORIGIN}/`,
@@ -509,17 +527,20 @@ Deno.serve(async (req: Request) => {
     let scoring = "ppr";
     let teams = 12;
     let superflex = 0;
+    let includeCharts = false;
 
     if (req.method === "POST") {
       const body = await req.json();
       scoring = body.scoring || scoring;
       teams = Number(body.teams) || teams;
       superflex = Number(body.superflex) || 0;
+      includeCharts = body.include === "charts";
     } else {
       const url = new URL(req.url);
       scoring = url.searchParams.get("scoring") || scoring;
       teams = Number(url.searchParams.get("teams")) || teams;
       superflex = Number(url.searchParams.get("superflex")) || 0;
+      includeCharts = url.searchParams.get("include") === "charts";
     }
 
     // Validate.
@@ -545,7 +566,7 @@ Deno.serve(async (req: Request) => {
     // deno-lint-ignore no-explicit-any
     const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
     const response = formatResponse(
-      pipeline, input.players, bundle.meta, scoring, teams, superflex,
+      pipeline, input.players, bundle.meta, scoring, teams, superflex, includeCharts,
     );
 
     return Response.json(response, {
