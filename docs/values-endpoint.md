@@ -20,7 +20,10 @@ normalized DDF league section (`roster`, `shares`, `bso`, `inj`, `conf`, `weeks`
 a JSON object in a POST body, a JSON string in a GET query). The top-level
 `scoring`, `teams` and `superflex` win over the same fields inside `league`.
 The response lists the settings that differ from the site defaults in
-`league_custom`.
+`league_custom`. Optional `include=charts` adds
+per-chart adjusted values (`chart_values`) and DDF sub-versions
+(`ddf_value_charts`, `ddf_value_projections`) to each player record (used
+internally by the MCP `find_trades` tool).
 
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)
 
@@ -79,9 +82,15 @@ that needs a URL instead of a local process.
 - It calls `get-values` (`DDF_API_URL` secret overrides the URL; default is
   `$SUPABASE_URL/functions/v1/get-values`), so tool numbers match the site.
 - Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`,
-  `explain`. Name lookup and trade math run server-side; each result also
-  carries `structuredContent`. `risers_fallers` is not offered: the endpoint
-  has no prior-week data.
+  `read_state`, `make_state`, `find_trades`, `explain`. Name lookup and trade
+  math run server-side; each result also carries `structuredContent`.
+  `risers_fallers` is not offered: the endpoint has no prior-week data.
+- `find_trades`: takes two rosters (comma-separated names), finds trade packages
+  where you gain DDF Value and at least 3 of 4 trade charts say the other team
+  breaks even or wins. Loads `finder.js` from the site (like the codec) and
+  calls `get-values?include=charts` for per-chart values. Optional: `max_per_side`
+  (1-4, default 2), `min_rival_edge`, `limit`. The pure function
+  `findTradesForPair` is in `mcp/find-trades.ts` for reuse by the batch tool.
 - Tests: `tests/test_mcp_remote.py` (node, stub values, no network) in
   `make test-unit`.
 

@@ -126,7 +126,10 @@ function sectionHold(sourceSection) {
   for (const field of HOLD_FIELDS) {
     const hold = sourceSection[field];
     if (hold && typeof hold === "object" && hold.reason) {
-      return { reason: hold.reason, field, source: hold.source || null, week: hold.week || null };
+      // JEG-726 / JEG-787 (as in get-values/index.ts): an amber validationHold labels the source but
+      // does not hide it from DDF Value. Only red holds (hold_level absent) and promotionHolds hide.
+      const isAmber = field === "validationHold" && hold.hold_level === "amber";
+      return { reason: hold.reason, field, source: hold.source || null, week: hold.week || null, hidden: !isAmber };
     }
   }
   return null;
@@ -294,7 +297,7 @@ for (const key of PIPELINE_SOURCE_KEYS) {
   included.push(key);
 
   // Mark as hidden if held, validation-held, or divergence-excluded.
-  if (hold || isValidationHeld || isDivergenceExcluded) {
+  if ((hold && hold.hidden) || isValidationHeld || isDivergenceExcluded) {
     hiddenKeys.push(key);
   }
 }

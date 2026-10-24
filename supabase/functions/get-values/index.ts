@@ -366,6 +366,9 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
   };
 }
 
+// The chart source keys the finder compares (must match finder.js CHART_KEYS).
+const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+
 // Format pipeline output for the API response.
 function formatResponse(
   // deno-lint-ignore no-explicit-any
@@ -377,16 +380,12 @@ function formatResponse(
   scoring: string,
   teams: number,
   superflex: number,
+  includeCharts = false,
   custom: string[] = [],
 ) {
   const rows = pipeline.rows || {};
-  const values: Array<{
-    player_key: number;
-    name: string;
-    pos: string;
-    value: number;
-    tier: number;
-  }> = [];
+  // deno-lint-ignore no-explicit-any
+  const values: any[] = [];
 
   for (const [pk, row] of Object.entries(rows)) {
     // deno-lint-ignore no-explicit-any
@@ -399,17 +398,36 @@ function formatResponse(
     const blended = ddfVersions?.blended?.value;
     if (typeof blended !== "number" || !Number.isFinite(blended)) continue;
 
-    values.push({
+    // deno-lint-ignore no-explicit-any
+    const entry: any = {
       player_key: Number(pk),
       name: player.name,
       pos: player.pos,
       value: Math.round(blended * 10) / 10,
       tier: r.tier ?? 0,
-    });
+    };
+
+    // include=charts: add per-chart adjusted values and DDF sub-versions
+    // so the finder can check whether trade charts say the rival breaks even.
+    if (includeCharts) {
+      const cv: Record<string, number | null> = {};
+      for (const ck of CHART_KEYS) {
+        const v = r.adjusted?.[ck];
+        cv[ck] = typeof v === "number" && Number.isFinite(v) ? Math.round(v * 10) / 10 : null;
+      }
+      entry.chart_values = cv;
+      // DDF Value sub-versions (charts-only and projections-only) for noise estimation.
+      const charts = ddfVersions?.charts?.value;
+      const projs = ddfVersions?.projections?.value;
+      entry.ddf_value_charts = typeof charts === "number" && Number.isFinite(charts) ? Math.round(charts * 10) / 10 : null;
+      entry.ddf_value_projections = typeof projs === "number" && Number.isFinite(projs) ? Math.round(projs * 10) / 10 : null;
+    }
+
+    values.push(entry);
   }
 
   // Sort by value descending.
-  values.sort((a, b) => b.value - a.value);
+  values.sort((a: { value: number }, b: { value: number }) => b.value - a.value);
 
   return {
     attribution: `Data Driven Football — ${SITE_ORIGIN}/`,
@@ -496,22 +514,18 @@ Deno.serve(async (req: Request) => {
     let scoring = "ppr";
     let teams = 12;
     let superflex = 0;
-    let league: League = {};
-    let rawLeague: unknown = null;
-
+    let includeCharts = false;\n\1
     if (req.method === "POST") {
       const body = await req.json();
       scoring = body.scoring || scoring;
       teams = Number(body.teams) || teams;
       superflex = Number(body.superflex) || 0;
-      rawLeague = body.league ?? null;
-    } else {
+      includeCharts = body.include === "charts";\n\1    } else {
       const url = new URL(req.url);
       scoring = url.searchParams.get("scoring") || scoring;
       teams = Number(url.searchParams.get("teams")) || teams;
       superflex = Number(url.searchParams.get("superflex")) || 0;
-      rawLeague = url.searchParams.get("league");
-    }
+      includeCharts = url.searchParams.get("include") === "charts";\n\1    }
     if (typeof rawLeague === "string" && rawLeague.length <= 2000) {
       try { rawLeague = JSON.parse(rawLeague); } catch { rawLeague = null; }
     }
@@ -540,11 +554,8 @@ Deno.serve(async (req: Request) => {
 
     // Load bundle, map the league, and run the pipeline (answers are kept in memory only).
     const bundle = await loadBundle();
-    const mapped = mapLeague(
-      merged,
-      bundle.lineupConfig as { defaults?: LineupDefaults; content_week?: number | null } | null,
-    );
-    const key = leagueKey(mapped);
+\1    );
+    const key = leagueKey(mapped) + (includeCharts ? "|charts" : "");
     let response = answerCache.get(key);
     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
       if (mapped.custom.length && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
@@ -559,7 +570,7 @@ Deno.serve(async (req: Request) => {
       response = {
         at: Date.now(),
         body: formatResponse(
-          pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, mapped.custom,
+          pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts, mapped.custom,
         ),
       };
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
