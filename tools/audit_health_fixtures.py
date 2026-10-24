@@ -12,6 +12,8 @@ changes would replace them, so it refuses to overwrite an existing fixture.
   extreme_8team_halfppr.json    week 7, half PPR, 8 teams (the engine's smallest league, widest roster share; the
                                 spec's 4-team case is not a setting the engine accepts: teams are 8, 10, 12 or 14)
   history_week5.json            week 5, PPR, 12 teams
+  held_week3_ppr12.json         held-out week 3, PPR, 12 teams (6 sources: CBS rest of season has no week 3)
+  held_week4_halfppr8.json      held-out week 4, half PPR, 8 teams (the extreme setting)
 
 Usage: python3 tools/audit_health_fixtures.py --dump DIR   (DIR has w7_ppr_12, w5_ppr_12 and w7_half_ppr_8)
 """
@@ -71,6 +73,10 @@ def main(argv=None):
     week5 = json.loads((dump / "w5_ppr_12.json").read_text())
     week5.pop("liveMatch", None)
     write("history_week5.json", week5)
+    for name, src in (("held_week3_ppr12.json", "w3_ppr_12.json"), ("held_week4_halfppr8.json", "w4_half_ppr_8.json")):
+        doc = json.loads((dump / src).read_text())
+        doc.pop("liveMatch", None)
+        write(name, doc)
     small = json.loads((dump / "w7_half_ppr_8.json").read_text())
     small.pop("liveMatch", None)
     write("extreme_8team_halfppr.json", small)

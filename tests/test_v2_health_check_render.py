@@ -37,6 +37,8 @@ FIXTURES = ROOT / "tests" / "fixtures" / "audit"
 # Flags that fire on the unperturbed week 7 fixture today (PPR, 12 teams). Stable across iterations: a change
 # here is a change of what "healthy" means and needs a logged justification (docs/health-check-thresholds.md).
 HEALTHY_FLAGS: list[str] = []
+# The derived limits (tools/audit_health_thresholds.py, 2026-10-24). Changing one needs a re-derivation and a logged justification.
+DERIVED_LIMITS = {"starterSpread": 0.17, "positionStarterSpread": 0.24, "estimatedShare": 0.75, "positionTotalSpread": 0.01, "pieDelta": 0.5, "reconcileDelta": 1.0}
 CHECK_IDS = ["starters", "positions", "qb", "bench", "totals", "coverage", "reconcile"]
 INFO_IDS = ["qb", "bench"]
 QUESTION = re.compile(r"^(Do|Are|Does|How|Did)\b")
@@ -75,6 +77,33 @@ RENDER_JS = """(insp) => {
     benchNote: Boolean(host.querySelector('[data-bench-note]')),
     benchBg: getComputedStyle(host.querySelector('.audit-pie-check-info .audit-pie-badge')).backgroundColor,
   };
+}"""
+
+# Where each flag flips: scale one source's starters until the metric crosses its limit, and require the row to be
+# Pass just below the limit and Flag just above it (anti-overfit: the limit is the line, not a decoration).
+BISECT_JS = """([insp, src, pos, metric, checkId]) => {
+  const T = AuditPie._THRESHOLDS;
+  const limit = metric === 'starterSpread' ? T.starterSpread : T.positionStarterSpread;
+  const run = f => {
+    const c = JSON.parse(JSON.stringify(insp));
+    Object.values(c.players[src]).forEach(p => { if (p.role === 'starter' && (!pos || p.pos === pos)) p.adjusted *= f; });
+    const d = AuditPie.extract(c); AuditPie.computeFlags(d);
+    const m = AuditPie.computeMetrics(d);
+    const value = metric === 'starterSpread' ? m.starterSpread : m.posStarterSpread[pos];
+    const status = AuditPie.computeChecks(d).find(x => x.id === checkId).status;
+    return {value, status};
+  };
+  let lo = 1, hi = 6;
+  for (let i = 0; i < 60; i += 1) { const mid = (lo + hi) / 2; if (run(mid).value > limit) hi = mid; else lo = mid; }
+  return {limit, below: run(lo), above: run(hi)};
+}"""
+
+SHARE_JS = """([insp, src, pos, nEst]) => {
+  const c = JSON.parse(JSON.stringify(insp));
+  c.valuePipeline.sources[src].positions[pos].nEstimated = nEst;
+  const d = AuditPie.extract(c); AuditPie.computeFlags(d);
+  return {share: nEst / c.valuePipeline.sources[src].positions[pos].rostered, status: AuditPie.computeChecks(d).find(x => x.id === 'coverage').status,
+          limit: AuditPie._THRESHOLDS.estimatedShare};
 }"""
 
 LOW_LEVEL = """(insp) => { const d = AuditPie.extract(insp); AuditPie.computeFlags(d); return AuditPie.computeMetrics(d); }"""
@@ -150,6 +179,27 @@ def logic_checks(pie_js: str | None = None) -> list[str]:
             qb_row = next(c for c in page.evaluate(CHECKS_JS, scaled(healthy, "razzball", 3.0, pos="QB")) if c["id"] == "qb")
             if qb_row["status"] != "info":
                 errors.append(f"razzball QB starters x3: the QB row became {qb_row['status']}, it must stay information")
+            limits = page.evaluate("() => AuditPie._THRESHOLDS")
+            for key, want in DERIVED_LIMITS.items():
+                if abs(limits[key] - want) > 1e-9:
+                    errors.append(f"limit {key} is {limits[key]}, the derived value is {want} (docs/health-check-thresholds.md)")
+            # Each flag fires at its limit: Pass just below, Flag just above.
+            for src, pos, metric, check_id in (("espn", None, "starterSpread", "starters"), ("razzball", "WR", "posStarterSpread", "positions")):
+                got = page.evaluate(BISECT_JS, [healthy, src, pos, metric, check_id])
+                label = f"{check_id} limit {got['limit']}"
+                if got["below"]["status"] != "pass" or got["above"]["status"] != "flag":
+                    errors.append(f"{label}: below={got['below']} above={got['above']} (must be pass then flag)")
+                if abs(got["below"]["value"] - got["limit"]) > 1e-4 or abs(got["above"]["value"] - got["limit"]) > 1e-4:
+                    errors.append(f"{label}: the flag flips at {got['below']['value']:.4f}, not at the limit")
+            below = page.evaluate(SHARE_JS, [healthy, "cbs", "WR", 67])
+            above = page.evaluate(SHARE_JS, [healthy, "cbs", "WR", 68])
+            if below["status"] != "pass" or above["status"] != "flag" or not (below["share"] <= below["limit"] < above["share"]):
+                errors.append(f"filled-in share limit {below['limit']}: {below} then {above} (must be pass then flag)")
+            # Held-out weeks 3 and 4 (default and extreme setting) stay quiet at the derived limits.
+            for name in ("held_week3_ppr12.json", "held_week4_halfppr8.json"):
+                got = page.evaluate(CHECKS_JS, fixture(name))
+                if [c["id"] for c in got if c["status"] == "flag"] != []:
+                    errors.append(f"{name}: flags {[c['id'] for c in got if c['status'] == 'flag']} on held-out data")
             # A different source: the flag follows the perturbed source, it does not stick to ESPN.
             got = page.evaluate(CHECKS_JS, scaled(healthy, "fantasycalc", 1.2))
             named = sorted({s for c in got if c["status"] == "flag" for s in c["sources"]})
@@ -446,6 +496,8 @@ BROKEN_LOGIC = {
     "row not announced": ('li.setAttribute("aria-live", "polite");', ""),
     "status decided by wording": ('status: stFlag ? "flag" : "pass",', 'status: stFlag && plainLabel("espn").length <= 4 ? "flag" : "pass",'),
     "table cell mark dropped": ('if (stCheck.status === "flag" && stCheck.sources.indexOf(r.src) >= 0) {', 'if (false) {'),
+    "starter limit off by a point": ("starterSpread: 0.17,", "starterSpread: 0.18,"),
+    "filled-in limit off": ("estimatedShare: 0.75,", "estimatedShare: 0.80,"),
     "bench explanation dropped": ('note.setAttribute("data-bench-note", "");', 'note.remove();'),
 }
 
