@@ -18,7 +18,7 @@ If the user pastes a block that starts with ```ddf-state, or a link to the Data 
 ## 3. Pick the tool
 
 - A specific player's worth: `get_player_value` (several names at once).
-- Is this trade fair: `compare_trade` (side A is what the user gives, side B is what they get).
+- Is this trade fair: `compare_trade` (side A is what the user gives, side B is what they get). It adds up blended values and is not lineup-aware, with no per-source breakdown; say so, and send the user to the site link for the full view before they act on a close call.
 - Who could I trade for: `trade_targets`.
 - Top of the board, by position: `get_values`.
 - How the numbers work: `explain`.
