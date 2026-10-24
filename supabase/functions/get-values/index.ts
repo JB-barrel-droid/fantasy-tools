@@ -349,7 +349,6 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
       (bundle.lineupConfig as Record<string, unknown>).schema === "lineup-parameters-config/2") {
     // deno-lint-ignore no-explicit-any
     const lp = bundle.lineupConfig as any;
-    const d = lp.defaults || {};
     resolvedLineup = ValueModel.resolveLineupParameters(lp, m.lineupArgs);
   }
 
@@ -514,18 +513,25 @@ Deno.serve(async (req: Request) => {
     let scoring = "ppr";
     let teams = 12;
     let superflex = 0;
-    let includeCharts = false;\n\1
+    let includeCharts = false;
+    let league: League = {};
+    let rawLeague: unknown = null;
+
     if (req.method === "POST") {
       const body = await req.json();
       scoring = body.scoring || scoring;
       teams = Number(body.teams) || teams;
       superflex = Number(body.superflex) || 0;
-      includeCharts = body.include === "charts";\n\1    } else {
+      includeCharts = body.include === "charts";
+      rawLeague = body.league ?? null;
+    } else {
       const url = new URL(req.url);
       scoring = url.searchParams.get("scoring") || scoring;
       teams = Number(url.searchParams.get("teams")) || teams;
       superflex = Number(url.searchParams.get("superflex")) || 0;
-      includeCharts = url.searchParams.get("include") === "charts";\n\1    }
+      includeCharts = url.searchParams.get("include") === "charts";
+      rawLeague = url.searchParams.get("league");
+    }
     if (typeof rawLeague === "string" && rawLeague.length <= 2000) {
       try { rawLeague = JSON.parse(rawLeague); } catch { rawLeague = null; }
     }
@@ -554,7 +560,10 @@ Deno.serve(async (req: Request) => {
 
     // Load bundle, map the league, and run the pipeline (answers are kept in memory only).
     const bundle = await loadBundle();
-\1    );
+    const mapped = mapLeague(
+      merged,
+      bundle.lineupConfig as { defaults?: LineupDefaults; content_week?: number | null } | null,
+    );
     const key = leagueKey(mapped) + (includeCharts ? "|charts" : "");
     let response = answerCache.get(key);
     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
