@@ -105,7 +105,7 @@
       const ctx = mathContext();
       list.replaceChildren(...t.entries.map(entry => {
         const remove = button("Remove", {class: "v2-link v2-find-remove", "aria-label": `Remove ${entry.name} from ${t.name}`}, () => {
-          update(w => W.ops.addRemoved(W.ops.setEntries(w, teamId, t.entries.filter(e => e.key !== entry.key)), teamId, entry.key), "entries");
+          update(w => W.ops.addRemoved(W.ops.setEntries(w, teamId, teamById(w, teamId).entries.filter(e => e.key !== entry.key)), teamId, entry.key), "entries");
           announce(`Removed ${entry.name}.`);
         });
         return el("li", {class: "v2-find-row v2-lg-row"}, el("div", {}, el("b", {text: entry.name}), el("span", {class: "v2-meta", text: entry.pos ? ` ${entry.pos}` : ""}), chipsFor(entry, ctx)), remove);
@@ -301,6 +301,7 @@
     const li = el("li", {class: "v2-lg-team", "data-team-id": team.id});
     const star = button("", {class: "v2-lg-star", "aria-pressed": "false"});
     const nameSlot = el("span", {class: "v2-lg-nameslot"});
+    const nameBtn = button("", {class: "v2-lg-name", title: "Rename"}, () => comp.startRename());
     const meta = el("span", {class: "v2-meta v2-lg-count"});
     const toggle = button("", {class: "v2-mod-btn v2-lg-toggle", "aria-controls": bodyId, "aria-expanded": "true"});
     const up = button("Up", {class: "v2-btn v2-lg-up"});
@@ -351,6 +352,7 @@
       const finish = save => {
         if (done) return;
         done = true;
+        nameSlot.replaceChildren();
         if (save) { update(w => W.ops.renameTeam(w, team.id, input.value), "rename"); announce(`Renamed to ${current().name}.`); }
         comp.update();
         const b = nameSlot.querySelector(".v2-lg-name");
@@ -373,7 +375,9 @@
       star.textContent = mine ? "★" : "☆";
       star.setAttribute("aria-pressed", String(mine));
       star.setAttribute("aria-label", mine ? `${t.name} is my team (press to unmark)` : `Set ${t.name} as my team`);
-      if (!nameSlot.querySelector("input")) nameSlot.replaceChildren(button(t.name, {class: "v2-lg-name", title: "Rename", "aria-label": `${t.name}, rename`}, startRename));
+      nameBtn.textContent = t.name;
+      nameBtn.setAttribute("aria-label", `${t.name}, rename`);
+      if (!nameSlot.querySelector("input") && !nameSlot.contains(nameBtn)) nameSlot.replaceChildren(nameBtn);
       meta.textContent = `(${rosterNote(t)})`;
       up.disabled = i === 0;
       down.disabled = i === ws2.teams.length - 1;
@@ -512,25 +516,18 @@
   }
 
   // ---------- sort controls shared by both tables ----------
-  function sortHeader(table, groups, columns, state, onSort) {
-    return groups.map(g => {
-      const ids = g.buttons.map(b => b.id);
-      const active = ids.find(id => state.col === id);
-      const th = el("th", {scope: "col", class: g.cls || false, "aria-sort": active ? S.ariaSort(state, active) : "none", "data-col": ids[0]});
-      g.buttons.forEach(b => {
-        const column = columns.find(c => c.id === b.id);
-        if (!column) return;
-        const on = state.col === b.id;
-        const arrow = el("span", {class: "v2-lg-arrow", "aria-hidden": "true", text: on ? (state.dir === "asc" ? "▲" : "▼") : "↕"});
-        const btn = button(b.label || column.label, {class: `v2-lg-sort${on ? " is-active" : ""}`, "data-sort": b.id,
-          title: `Sort by ${column.label.toLowerCase()}`}, () => onSort(S.nextState(state, b.id, columns)));
-        btn.append(" ", arrow);
-        th.append(btn);
-      });
-      if (!g.buttons.length) th.append(g.label);
-      return th;
-    });
+  // One th per sortable column: a real button inside it (one tab stop), aria-sort on the th (valid ARIA; the button names the sort).
+  function sortTh(id, columns, state, onSort, attrs, label) {
+    const column = columns.find(c => c.id === id);
+    const on = state.col === id;
+    const th = el("th", {scope: "col", "aria-sort": S.ariaSort(state, id), "data-col": id, ...(attrs || {})});
+    const arrow = el("span", {class: "v2-lg-arrow", "aria-hidden": "true", text: on ? (state.dir === "asc" ? "▲" : "▼") : "↕"});
+    const btn = button(label || column.label, {class: `v2-lg-sort${on ? " is-active" : ""}`, "data-sort": id, title: `Sort by ${column.label.toLowerCase()}`}, () => onSort(S.nextState(state, id, columns)));
+    btn.append(" ", arrow);
+    th.append(btn);
+    return th;
   }
+  const plainTh = (text, attrs) => el("th", {scope: "col", ...(attrs || {})}, text);
   function phoneSort(prefix, columns, state, onSort, extra) {
     const sel = el("select", {id: `${prefix}SortBy`, "aria-label": "Sort cards by"}, ...columns.map(c => el("option", {value: c.id, text: c.label})));
     sel.value = state.col;
@@ -594,9 +591,8 @@
     const reset = button("Reset sort", {class: "v2-btn", id: "v2LgSummaryReset", hidden: S.sameState(state, T.SUMMARY_DEFAULT)}, () => onSort(T.SUMMARY_DEFAULT));
     const tools = el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Rank by:"}), basisSel), reset);
     const alt = basis === "market" ? "fund" : "market";
-    const groups = [{buttons: [{id: "rank"}]}, {buttons: [{id: "team"}]}, {buttons: [{id: "rosterF"}]}, {buttons: [{id: "starterF"}]}, {buttons: [{id: "benchF"}]},
-      {buttons: [{id: "rosterM"}]}, {buttons: [{id: "starterM"}]}, {buttons: [{id: "benchM"}]}, {buttons: [{id: "altRank"}]}, {buttons: [{id: "under"}]}, {buttons: [{id: "over"}]}];
-    const thead = el("thead", {}, el("tr", {}, ...sortHeader(null, groups, cols, state, onSort)));
+    const ids = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "under", "over"];
+    const thead = el("thead", {}, el("tr", {}, ...ids.map(id => sortTh(id, cols, state, onSort))));
     const num = (v, extra) => el("td", {class: "num", ...(extra || {})}, v === null || v === undefined ? "—" : money(v));
     const tbodies = rows.map(t => {
       const none = !t.hasRoster;
@@ -613,7 +609,7 @@
         el("td", {class: "num", "data-cell": "altRank"}, same ? "=" : altText),
         el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "undervalued", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "overvalued", t.id)));
       const detail = el("tr", {class: "v2-lg-detail", "data-team-id": t.id},
-        el("td", {colspan: String(groups.length)}, none ? "" : detailText(t, summary, basis)));
+        el("td", {colspan: String(ids.length)}, none ? "" : detailText(t, summary, basis)));
       return el("tbody", {}, main, detail);
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgSummaryTable"},
@@ -639,8 +635,7 @@
   }
 
   // ---------- trade opportunities ----------
-  const OPP_GROUPS = [{buttons: [{id: "opponent"}]}, {label: "Trade", buttons: []}, {buttons: [{id: "capture"}]}, {label: "Our team fit", buttons: []},
-    {buttons: [{id: "market"}, {id: "fair", label: "Charts fair"}]}, {label: "Their team fit", buttons: []}, {buttons: [{id: "overall"}]}, {buttons: [{id: "rank"}]}];
+  const OPP_COLSPAN = 9;   // eight columns; Market perception has two sub-columns (the chart edge and the charts that call it fair)
   const tradeNodes = (r, ctx) => {
     const names = list => list.map(p => p.name).join(" + ");
     const recv = r.receive.map((p, i) => (p === r.core ? el("b", {text: p.name}) : p.name)).reduce((acc, n, i) => acc.concat(i ? [" + ", n] : [n]), []);
@@ -732,8 +727,12 @@
     if (res.skipped) warn.push(`${plural(res.skipped, "team")} with no roster ${res.skipped === 1 ? "was" : "were"} skipped.`);
     const notEval = ws.teams.some(t => t.entries.some(isK));
     const reset = button("Reset sort", {class: "v2-btn", id: "v2LgOppsReset", hidden: S.sameState(state, O.OPP_DEFAULT)}, () => onSort(O.OPP_DEFAULT));
-    const thead = el("thead", {}, el("tr", {}, ...sortHeader(null, OPP_GROUPS, cols, state, onSort)));
-    const colspan = OPP_GROUPS.length;
+    const two = {rowspan: "2"};
+    const thead = el("thead", {},
+      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), plainTh("Our team fit", two),
+        plainTh("Market perception", {colspan: "2", scope: "colgroup"}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two)),
+      el("tr", {}, sortTh("market", cols, state, onSort, null, "Edge"), sortTh("fair", cols, state, onSort, null, "Charts fair")));
+    const colspan = OPP_COLSPAN;
     const bodyRows = [];
     shownRows.forEach(r => {
       const open = UI.expanded.has(r.id);
@@ -747,7 +746,8 @@
         el("th", {scope: "row", class: "v2-lg-trade"}, ...tradeNodes(r, ctx), el("br"), details),
         el("td", {class: "num", "data-cell": "capture"}, `${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
         el("td", {"data-cell": "ours"}, r.ours ? `${r.ours.label[0].toUpperCase()}${r.ours.label.slice(1)}` : "—", r.ours ? el("span", {class: "v2-meta", text: ` ${r.ours.detail}`}) : null),
-        el("td", {class: "num", "data-cell": "market"}, r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`),
+        el("td", {class: "num", "data-cell": "market"}, r.chartEdge === null ? "—" : signed(r.chartEdge)),
+        el("td", {class: "num", "data-cell": "fair"}, `${r.rivalOkCount}/${r.chartCount} fair`),
         el("td", {"data-cell": "theirs"}, r.theirs ? r.theirs.detail[0].toUpperCase() + r.theirs.detail.slice(1) : "—"),
         el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord})),
         el("td", {class: "num", "data-cell": "rank"}, String(r.rank)));
@@ -807,6 +807,8 @@
 
   // ---------- keeping the page in step ----------
   function refreshAll(reason) {
+    // The engine's numbers (or its readiness) changed: the player lines show values, so they are drawn again.
+    if (reason === "load" || reason === "settings" || reason === "replace" || reason === "other-tab") UI.comps.forEach(c => { c.lastEntries = null; });
     renderTeams();
     renderStatus();
     if (String(reason).startsWith("ui:")) {
