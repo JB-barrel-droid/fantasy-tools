@@ -88,3 +88,66 @@ Spec: `design/llm-site-state.md`. Every tool takes an optional `state` (a pasted
 - The function loads the codec `app/v2/ddf-state.js` from `<site>/v2/ddf-state.js` at cold start (published by the v2 build). If that fails, tools answer from their plain arguments and say the pasted state was not read.
 - **Pricing limit:** `get-values` prices only scoring, teams and superflex. A pasted league with a roster shape, position shares, season weeks or advanced settings is priced with the site's default lineup, and the result says so (JEG-1029 tracks pricing the full league).
 - **Site side:** compare links open today (`give`, `get`, `scoring`, `roster`...). `teams`, `mine`, `theirs` and `target` are read by the site in JEG-1026; until then those links open the right tab with the league settings the site already understands.
+
+### Viability scoring (JEG-1038)
+
+`mcp/viability.ts` — pure module, no I/O. Scores and ranks trade offers by
+viability. Used by `find_trades` (single pair) and the batch league tool.
+The site's `finder.js` can load the same logic later.
+
+**Per-offer output (`ScoredOffer`):**
+
+| Field | Type | Description |
+|---|---|---|
+| `team` | string | Opponent team name |
+| `userGives` / `userGets` | `[{player_key, name, pos, ddfValue}]` | Players traded |
+| `ddfEdge` | number | DDF Value gain (receive − give) for the user |
+| `userLineupDelta` | number | User's starting lineup value change on DDF |
+| `theirMarketNet` | number | Other team's market-value net (what they get − give) |
+| `theirLineupDelta` | number | Other team's lineup change on market value |
+| `theirPositionsBefore` / `After` | `{pos: {starters, value}}` | Their starters at each position, before/after |
+| `userProtectedAfter` | `{pos: {starters, value}}` | User's starters at guardrail positions, after |
+| `viable` | boolean | All 9 checks passed |
+| `label` | `"High" \| "Med-High" \| "Medium" \| null` | Acceptance likelihood (null when non-viable) |
+| `failedChecks` | `string[]` | Human-readable failure reasons |
+| `temporaryGap` | boolean | Either team cannot fill a starting slot while injured players are out |
+| `checks` | `CheckResult[]` | All 9 checks with name, passed, detail |
+
+**Viability checks (all run on every offer):**
+
+1. **Arbitrage**: user receives more DDF value than sent.
+2. **Perceived fairness**: other team receives >= what it sends on market value.
+3. **User lineup improves**: user's starting lineup improves on DDF value.
+4. **Their lineup improves**: other team's starting lineup improves on market value.
+5. **Position protection**: no position the other team gives up gets meaningfully weaker in starters.
+6. **Depth**: neither team lacks healthy relevant players for starting slots plus backups at RB/WR.
+7. **Roster space**: a team taking more players than it sends must have dead weight to drop.
+8. **QB kept**: both teams keep a QB.
+9. **User guardrails**: user-defined position protections are satisfied.
+
+**Ordering:** viable first (by DDF edge, then user lineup improvement, then
+perceived fairness). Non-viable follow (fewest failed checks, then DDF edge).
+Deduplicated by received players.
+
+**Labels:** High = a position they give up actually gets better and their lineup
+clearly improves; Med-High = their lineup or perceived value clearly improves;
+Medium = fair swap with small gain for them.
+
+**Package (`selectPackage`):** across all added teams, the best combination of
+viable offers that never sends the same player twice and uses each team at most
+once. Output includes the user's lineup after the package.
+
+**Configurable defaults (awaiting Jeremy's review):**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `minDdfEdge` | 0 | Minimum DDF value gain for the user |
+| `minMarketNet` | 0 | Minimum market-value gain for the other team |
+| `minUserLineupGain` | 0 | Minimum user lineup improvement |
+| `minTheirLineupGain` | 0 | Minimum their lineup improvement |
+| `positionWeakerThreshold` | 0.15 | Starter group drop fraction = "meaningfully weaker" |
+| `depthPlayerCutoff` | 0.5 | Minimum DDF value for a player to count as depth |
+| `deadWeightCutoff` | 0.5 | Maximum DDF value for a player to be considered droppable |
+| `minRbBackups` | 1 | Minimum healthy RB backups beyond starters |
+| `minWrBackups` | 1 | Minimum healthy WR backups beyond starters |
+| `guardrails` | `[]` | User-defined position protections |
