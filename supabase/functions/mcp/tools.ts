@@ -134,7 +134,7 @@ export const TOOLS = [
   {
     name: "compare_trade",
     description:
-      "Compare two sides of a trade by total value. Pass comma-separated player names for each side. Side A is what team A gives up.",
+      "Compare two sides of a trade by the sum of their blended values. Pass comma-separated player names for each side. Side A is what team A gives up. This is a market-value sum: it is not lineup-aware and has no per-source breakdown, so point the user to the site link for the full view.",
     inputSchema: {
       type: "object",
       properties: {
@@ -381,7 +381,8 @@ export async function runTool(
       `Team B gives up (total ${sumB.toFixed(1)}):`,
       fmt(b),
       "",
-      `Verdict: ${verdict}.`,
+      `Verdict (market-value sum, not lineup-aware; a gap under 2 points counts as roughly even, a rule of thumb): ${verdict}.`,
+      "The site's Compare a trade shows the per-source breakdown for this trade; open the link below.",
       ...(notFound.length ? [`Warning: not found, counted as 0: ${notFound.join(", ")}`] : []),
     ].join("\n");
     // The site's Compare a trade reads "give" as what the person gives up: team A is the person.
@@ -393,6 +394,7 @@ export async function runTool(
         side_b: { total: sumB, players: b },
         difference: diff,
         verdict,
+        method: "sum_of_blended_values",
         not_found: notFound,
       }),
       {

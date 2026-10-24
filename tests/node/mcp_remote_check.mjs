@@ -206,6 +206,12 @@ assert.doesNotMatch(r.result.content[0].text, /not applied here/);
 const fullRoster = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 6 } } });
 r = await callD("get_values", { state: fullRoster, limit: 1 });
 assert.match(r.result.content[0].text, /not applied here/);
+// JEG-1029 (interim): the chat verdict says what it is, so it is not mistaken for the site's lineup-aware view.
+r = await call("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson" });
+assert.match(r.result.content[0].text, /market-value sum, not lineup-aware/);
+assert.match(r.result.content[0].text, /per-source breakdown/);
+assert.equal(r.result.structuredContent.method, "sum_of_blended_values");
+assert.match((await rpc("tools/list")).result.tools.find((t) => t.name === "compare_trade").description, /not lineup-aware/);
 
 // ---------- find_trades tool ----------
 const finder = createRequire(import.meta.url)("../../app/v2/finder.js");
