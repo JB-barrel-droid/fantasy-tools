@@ -240,6 +240,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
         '  <link rel="stylesheet" href="v2/v2.css">\n'
         '  <link rel="stylesheet" href="v2/audit-pie.css">\n'
         '  <link rel="stylesheet" href="v2/audit-source.css">\n'
+        '  <link rel="stylesheet" href="v2/overrides.css">\n'
         + FETCH_SHARE_SHIM
         + (ROOT_LINK_SHIM if at_root else "")
     )
@@ -266,6 +267,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/audit-core.js" defer></script>'
                   '\n  <script src="v2/audit-pie.js" defer></script>'
                   '\n  <script src="v2/audit-source.js" defer></script>'
+                  '\n  <script src="v2/overrides.js" defer></script>'
                   '\n  <script src="v2/name-format.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
@@ -304,7 +306,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "finder.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "name-format.js", "ddf-state.js", "v2.js"):
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "name-format.js", "ddf-state.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 
