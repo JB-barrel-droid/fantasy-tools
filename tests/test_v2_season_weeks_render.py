@@ -5,7 +5,7 @@ Loads dist/v2 headless and checks that:
   * Edit league shows the week the values are for, the last regular-season
     week, the playoff weeks and Optimize for, at the defaults (build week,
     14, 15-17, Whole season);
-  * changing them and pressing Apply reaches the engine (getLeagueWeeks,
+  * changing them reaches (live, no Apply: JEG-1020) the engine (getLeagueWeeks,
     getOptimizeFor, getContentWeek) and moves the bench-share window;
   * Reset defaults in the panel returns them;
   * a shared trade link carries a non-default setting and a fresh page
@@ -14,7 +14,7 @@ Loads dist/v2 headless and checks that:
 The engine's numbers for these settings are pinned against the Python
 reference in test_bench_share_readout_matches_reference.
 
-Discrimination: test_guard_fails_on_broken_builds serves v2.js with Apply
+Discrimination: test_guard_fails_on_broken_builds serves v2.js with the live change
 ignoring the weeks and with the link ignoring them, and requires failure.
 """
 from __future__ import annotations
@@ -83,7 +83,7 @@ def run_checks(v2_js=None) -> list[str]:
             click(page, "Earlier Last playoff week")
             click(page, f"Earlier {label}")
             page.click('.v2-pseg[aria-label="Optimize for"] button[data-value="regular"]')
-            page.click('[data-apply="league"]')
+            page.click('[data-done="league"]')   # JEG-1020: no Apply; Done flushes the pending change and closes
             page.wait_for_timeout(300)
             got = page.evaluate(STATE)
             if got["weeks"] != {"regularSeasonEnd": 13, "playoffWeeks": [15, 16]}:
@@ -96,8 +96,8 @@ def run_checks(v2_js=None) -> list[str]:
                 errors.append(f"window {got['window']} != {[build, 13]}")
             # Reset defaults inside the panel returns to the build's week, 14, 15-17, Whole season.
             page.click("#v2EditLeague")
-            page.click("button.v2-preset")
-            page.click('[data-apply="league"]')
+            page.click("[data-league-reset]")
+            page.click('[data-done="league"]')
             page.wait_for_timeout(300)
             back = page.evaluate(STATE)
             if (back["weeks"], back["optimize"], back["week"]) != (first["weeks"], "season", build):
@@ -133,7 +133,7 @@ class SeasonWeeksRenderTest(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         js = V2_JS.read_text(encoding="utf-8")
         broken = {
-            "apply ignores weeks": js.replace("if (draft.weeks) weekError = applySeasonWeeks(draft.weeks);", "", 1),
+            "live change ignores weeks": js.replace("if (draft.weeks) error = applySeasonWeeks(draft.weeks);", "", 1),
             "old week label": js.replace("\"Data through week\", \"content\"", "\"Week the values are for\", \"content\"", 1),
             "link ignores weeks": js.replace("const error = applySeasonWeeks(weeksChange);", "const error = '';", 1),
         }
