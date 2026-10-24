@@ -6,7 +6,7 @@
   "website": "{{SITE_URL}}",
   "transport": {"type": "streamable-http", "url": "{{MCP_URL}}"},
   "authentication": {"required": false},
-  "tools": ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "explain"],
+  "tools": ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "explain"],
   "instructions": "{{SITE_URL}}llms.txt",
   "skill": "{{SITE_URL}}ddf-skill.zip",
   "note": "MCP server cards are a draft convention; fields may change. llms.txt is the human and model readable description."
