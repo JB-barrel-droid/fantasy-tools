@@ -423,6 +423,9 @@ def main() -> int:
     DIST.mkdir(parents=True, exist_ok=True)
     for name in ("icon.jpg", "404.html"):
         shutil.copy2(APP / name, DIST / name)
+    # JEG-1028: what an AI assistant needs to find and use the tools (llms.txt, skill, server card).
+    from build_llm_surfaces import build as build_llm_surfaces
+    build_llm_surfaces(DIST, SITE_URL)
     # JEG-453: the engine page is build-only; /classic/ publishes a redirect.
     from build_v2_page import ENGINE_PAGE
     ENGINE_PAGE.parent.mkdir(parents=True, exist_ok=True)
