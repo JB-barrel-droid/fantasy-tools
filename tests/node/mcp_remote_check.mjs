@@ -194,4 +194,16 @@ assert.doesNotMatch(t, /around 70|45\+|30-45|15-30/);
 assert.match(t, /no fixed maximum/);
 r = await call("explain", { topic: "how_to_trade" });
 assert.match(r.result.content[0].text, /rule of thumb/);
+// JEG-1033: a league the endpoint fully prices must not trigger the "numbers can differ" note. make_state's
+// own output (roster has only SUPERFLEX) used to, so every round trip through the chat warned for nothing.
+const sfOnly = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { SUPERFLEX: 1 } } });
+r = await callD("get_values", { state: sfOnly, limit: 1 });
+assert.doesNotMatch(r.result.content[0].text, /not applied here/);
+const ms = await callD("make_state", { scoring: "ppr", superflex: true, mine: "Josh Allen" });
+r = await callD("read_state", { state: ms.result.content[0].text });
+assert.doesNotMatch(r.result.content[0].text, /not applied here/);
+// A full roster shape is still flagged (it may differ from the default lineup).
+const fullRoster = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 6 } } });
+r = await callD("get_values", { state: fullRoster, limit: 1 });
+assert.match(r.result.content[0].text, /not applied here/);
 console.log("ok");
