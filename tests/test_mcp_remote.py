@@ -18,6 +18,16 @@ class RemoteMcpTests(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertTrue(out.stdout.strip().endswith("ok"))
 
+    @unittest.skipIf(shutil.which("node") is None, "node not installed")
+    def test_batch_trade_discovery(self):
+        out = subprocess.run(
+            ["node", "--experimental-strip-types", "--no-warnings",
+             str(ROOT / "tests/node/batch_trade_check.mjs")],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("All batch trade tests passed", out.stdout)
+
     def test_function_is_public_like_get_values(self):
         cfg = (ROOT / "supabase/config.toml").read_text()
         self.assertIn("[functions.mcp]\nverify_jwt = false", cfg)
