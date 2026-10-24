@@ -393,7 +393,12 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 /* Shared: the prior-week badge (JEG-459) and the ⓘ "indexed" button (JEG-458). */
 /* Source divergence chip (JEG-609): the same slot and size as the prior-week badge; amber for Check, green for Reviewed. */
 .v2-div-chip { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; text-decoration: none; }
-.v2-tdiv { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+/* JEG-1042 (Jeremy, 2026-10-24): the review chips sit side by side on one line above the filters. A wrapped row keeps
+   a 44 px pitch, and 15 px to the filters keeps each linked chip's 44 px hit area clear of the selects. */
+.v2-tdiv { display: flex; flex-wrap: wrap; align-items: center; gap: 30px 16px; margin: 12px 0 0; }
+#v2Targets .v2-tdiv { margin-bottom: 0 !important; }
+#v2TDivergence:not([hidden]) + .v2-filters { margin-top: 15px; }
+.v2-tdiv-item { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
 /* Source links and the indexed-value math (JEG-457). */
 .v2-srclink { color: inherit; text-decoration: underline; text-decoration-color: var(--v2-border); text-underline-offset: 2px; }
 .v2-srclink:focus-visible { text-decoration-color: currentColor; }

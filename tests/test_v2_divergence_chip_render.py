@@ -168,10 +168,12 @@ def run_checks(patch=None) -> list[str]:
                 errors.append(f"[trade targets] want at least USA Today and FantasyPros shown to carry chips: {shown_heads}")
             chips = page.evaluate(CHIPS)
             errors += check_chips(chips, "trade targets note", "note", True, expect)
-            note = page.evaluate("() => document.getElementById('v2TDivergence').textContent")
+            # JEG-1042 (Jeremy, 2026-10-24): the note shows chips side by side; each chip's explanation is its hover
+            # text (title) and accessible name, not inline text.
+            note_titles = page.evaluate("() => [...document.querySelectorAll('#v2TDivergence .v2-div-chip')].map(c => (c.title || '') + ' ' + (c.getAttribute('aria-label') || '')).join(' ')")
             for message in (MESSAGES[k] for k in expect):
-                if message not in note:
-                    errors.append(f"[trade targets] the note does not say: {message!r}")
+                if message not in note_titles:
+                    errors.append(f"[trade targets] no note chip explains: {message!r}")
             # Per-chart columns are folded from 1024 px (v2.css, #639), so the head chips are on screen below it.
             page.set_viewport_size({"width": 900, "height": 1000})
             page.wait_for_timeout(400)

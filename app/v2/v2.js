@@ -4616,7 +4616,9 @@
       if (!chip) return;
       const line = document.createElement("span");
       line.className = "v2-tdiv-item";
-      line.append(chip, document.createTextNode(` ${chip.title}`));
+      // JEG-1042 (Jeremy, 2026-10-24: chips side by side): chip + source name on one line; the explanation is the
+      // chip's hover text and accessible name, so each linked chip keeps its own 44 px target.
+      line.append(chip, document.createTextNode(` ${PUBLISHER_NAMES[chip.dataset.divergence] || chip.dataset.divergence}`));
       flags.appendChild(line);
     });
     flags.hidden = !flags.childNodes.length;
