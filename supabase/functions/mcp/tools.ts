@@ -572,7 +572,7 @@ function inferView(work: Record<string, unknown>): string {
 }
 
 async function readState(args: Record<string, unknown>, fetchValues: FetchValues, deps?: Deps): Promise<ToolResult> {
-  if (!deps?.codec) throw new ToolInputError("The shared state reader is unavailable right now. Try again shortly.");
+  if (!deps?.codec) throw new ToolUnavailableError("The shared state reader is unavailable right now. Try again shortly.");
   if (!String(args.state ?? "").trim()) throw new ToolInputError("state is required: paste a ddf-state block or a site link");
   const prepared = prepare(args, deps);
   if (!prepared.state) {
@@ -615,7 +615,7 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
 }
 
 async function makeState(args: Record<string, unknown>, fetchValues: FetchValues, deps?: Deps): Promise<ToolResult> {
-  if (!deps?.codec) throw new ToolInputError("The shared state writer is unavailable right now. Try again shortly.");
+  if (!deps?.codec) throw new ToolUnavailableError("The shared state writer is unavailable right now. Try again shortly.");
   const prepared = prepare(args, deps);
   const a = prepared.args;
   const s = settings(a);

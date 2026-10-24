@@ -54,6 +54,8 @@ async function loadCodec(): Promise<Codec | null> {
       // deno-lint-ignore no-explicit-any
       const c = (globalThis as any).DDFState;
       if (c && typeof c.decodeBlock === "function" && typeof c.encodeQuery === "function") codec = c as Codec;
+    } else {
+      console.error(`ddf-state load failed: ${res.status} from ${SITE_ORIGIN}/v2/ddf-state.js`);
     }
   } catch (e) {
     console.error("ddf-state load failed:", e);
