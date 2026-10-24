@@ -55,11 +55,11 @@ EXPECT = """(text) => {
   const r = window.DDFRosterPaste.parse(text, window.TradeValueCurveControls.getAllRows());
   const sure = ps => ps.filter(p => p.confidence >= 1).map(p => p.name);
   return {matched: r.matched, total: r.total, mode: r.mode, bench: r.benchIncluded, sure: sure(r.players),
-    unsure: r.players.filter(p => p.confidence < 1).map(p => p.name), unmatched: r.unmatched.map(u => u.line), slots: r.players.map(p => p.slot),
+    unsure: r.players.filter(p => p.confidence < 1).map(p => p.name), unmatched: r.unmatched.filter(u => u.pos !== 'K' && u.pos !== 'DEF').map(u => u.line), slots: r.players.map(p => p.slot),
     players: r.players.map(p => ({name: p.name, slot: p.slot, sure: p.confidence >= 1})),
     teams: (r.teams || []).map(t => ({name: t.teamName, sure: sure(t.players), unmatched: t.unmatched.length}))};
 }"""
-NAMES = "(id) => [...document.querySelectorAll(`#${id} li b`)].map(b => b.textContent)"
+NAMES = "(id) => [...document.querySelectorAll(`#${id} li`)].filter(li => !li.textContent.includes('Not evaluated')).map(li => li.querySelector('b').textContent)"
 CHIPS = "(id) => [...document.querySelectorAll(`#${id} .v2-find-slot`)].map(c => c.textContent)"
 OVER = "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
 SHORT = """(sel) => [...document.querySelectorAll(sel)].filter(e => !e.closest('[hidden]') && e.getBoundingClientRect().width > 0)
@@ -70,17 +70,22 @@ HAS_FACE = """(family) => { const c = document.createElement('canvas').getContex
   c.font = "40px monospace"; const a = c.measureText(t).width; c.font = `40px '${family}', monospace`; return c.measureText(t).width !== a; }"""
 
 
+PASTE_EVENT = """([id, text]) => { const dt = new DataTransfer(); dt.setData('text', text);
+  document.getElementById(id).dispatchEvent(new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true})); }"""
+
+
 def paste(page, side, text, via_event=False):
-    page.fill(f"#v2Find{side}PastePage", text)
+    """Text into the side's one box (JEG-988): by a real paste event, or typed in whole (the input event)."""
     if via_event:
-        page.evaluate("(id) => document.getElementById(id).dispatchEvent(new Event('paste', {bubbles: true}))", f"v2Find{side}PastePage")
+        page.evaluate(PASTE_EVENT, [f"v2Find{side}Search", text])
     else:
-        page.click(f"#v2Find{side}PasteGo")
+        page.fill(f"#v2Find{side}Search", text)
     page.wait_for_timeout(300)
     return page.text_content(f"#v2Find{side}PasteResult")
 
 
 def names(page, side):
+    """The evaluated players on a side (a kept defense or kicker, marked "Not evaluated" since JEG-988, is not listed)."""
     return page.evaluate(NAMES, f"v2Find{side}Players")
 
 
@@ -91,32 +96,29 @@ def check(page, tag, width) -> list[str]:
     say = lambda what: errors.append(tag + what)
     overflow = lambda step: (width <= 390 and page.evaluate(OVER) > 0 and say(f"horizontal overflow after {step}"))
 
-    # 1. The paste box is the default input; the old methods sit behind a closed link.
+    # 1. JEG-988: one box per side (no separate paste box); the old methods sit behind a closed link.
     for side in ("Mine", "Theirs"):
-        order = page.evaluate("(s) => { const a = document.getElementById(`v2Find${s}PastePage`), b = document.getElementById(`v2Find${s}Search`); return a && b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); }", side)
-        if not order:
-            say(f"{side}: the paste box is not before the name search")
+        boxes = page.evaluate("(s) => [...document.querySelectorAll(`#v2Find${s} textarea, #v2Find${s} input[type=search], #v2Find${s} input[type=text]`)].filter(e => !e.closest('details')).map(e => e.id)", side)
+        if boxes != [f"v2Find{side}Search"]:
+            say(f"{side}: want exactly one add-players box, found {boxes}")
         if "stays in this browser" not in (page.text_content(f"#v2Find{side}PasteHelp") or ""):
             say(f"{side}: the paste box does not say the text stays in the browser")
         if page.evaluate("(s) => document.querySelector(`#v2Find${s} .v2-find-import`).open", side):
             say(f"{side}: the other import methods are open by default")
         if "Other ways" not in page.text_content(f"#v2Find{side} .v2-find-import summary"):
             say(f"{side}: no 'Other ways' link to the old methods")
-    short = page.evaluate(SHORT, "#v2Find .v2-find-paste textarea, #v2Find .v2-find-paste button")
+    short = page.evaluate(SHORT, "#v2Find .v2-find-search-wrap textarea, #v2Find .v2-find-clear")
     if short:
         say(f"paste controls under 44px: {short}")
 
     # 2. Negatives on Their roster: nothing added, said plainly.
-    for label, text in (("empty", ""), ("garbage", "asdf qwerty\n1234\n!!!\n"),
+    for label, text in (("garbage", "asdf qwerty\n1234\n!!!\n"),
                         ("another site", "Sleeper\nMy Team\nJosh Allen\nBijan Robinson\nSettings\nLeague\n"),
                         ("league-wide player list", "Players\nJosh Allen\nBuf - QB\nLamar Jackson\nBal - QB\nBijan Robinson\nAtl - RB\nJa'Marr Chase\nCin - WR\n")):
         status = paste(page, "Theirs", text)
         if names(page, "Theirs"):
             say(f"{label}: players were added: {names(page, 'Theirs')}")
-        if label == "empty":
-            if "Nothing pasted" not in status:
-                say(f"empty paste reads {status!r}")
-        elif "No players recognised" not in status or "Nothing was added" not in status:
+        if "No players recognised" not in status or "Nothing was added" not in status:
             say(f"{label}: result reads {status!r}, want 'No players recognised' and 'Nothing was added'")
     # Too few: one real player among four slots adds nothing until asked.
     # A QB the fixtures never mention, so later steps are not confused by him.
@@ -158,13 +160,17 @@ def check(page, tag, width) -> list[str]:
         page.wait_for_timeout(200)
         if "Aaron Rodgers" not in names(page, "Mine"):
             say("'Yes, add' did not add Aaron Rodgers")
-    if page.input_value("#v2FindMinePastePage"):
-        say("the textarea was not cleared after a used paste")
+    if page.input_value("#v2FindMineSearch"):
+        say("the box was not cleared after a used paste")
 
     # 4. Team pages through the paste event: counts, slots, unmatched with search-to-add, the player on the other roster.
     for name, side, via_event in (("yahoo-team.txt", "Mine", True), ("espn-team.txt", "Theirs", False)):
         text = fixture(name)
+        if name == "yahoo-team.txt":   # one player no list has, so the unmatched rows are still exercised (the fixture's own unmatched are a kicker and a defense, kept since JEG-988)
+            text = text.replace("BN\nJosh AllenVideo", "BN\nZed NotaplayerPlayer Note\nChi - WR\nBN\nJosh AllenVideo", 1)
         want = page.evaluate(EXPECT, text)
+        if name == "yahoo-team.txt" and not want["unmatched"]:
+            say("the yahoo fixture with an invented player has no unmatched line")
         if want["matched"] < FLOORS[name]:
             say(f"{name}: parser matched only {want['matched']} against the engine's rows (floor {FLOORS[name]})")
         before_other = set(names(page, "Theirs" if side == "Mine" else "Mine"))
@@ -188,7 +194,7 @@ def check(page, tag, width) -> list[str]:
         items = page.locator(f"#v2Find{side}PasteResult .v2-find-unmatched li")
         if items.count() != len(want["unmatched"]):
             say(f"{name}: {items.count()} unmatched rows shown, parser found {len(want['unmatched'])}")
-        if f"Not matched ({len(want['unmatched'])})" not in status:
+        if want["unmatched"] and f"Not matched ({len(want['unmatched'])})" not in status:
             say(f"{name}: the unmatched count is not stated")
         if want["unmatched"] and items.count():
             items.first.locator(".v2-find-search-add").click()

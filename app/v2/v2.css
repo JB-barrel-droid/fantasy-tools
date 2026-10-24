@@ -1730,3 +1730,43 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-lineup caption { text-align: left; font-weight: 600; padding: 4px 0; }
 .v2-find-lineup th, .v2-find-lineup td { text-align: left; padding: 3px 6px; border-top: 1px solid var(--v2-border); overflow-wrap: anywhere; }
 .v2-find-lineup thead th { font-size: 12px; color: var(--v2-muted); }
+
+/* JEG-988: one box per side. The wrapper is the list's positioned parent, so the suggestions open directly under the box. */
+.v2-find-search-wrap { position: relative; }
+.v2-find-search-label { display: block; }
+.v2-find-search-wrap textarea {
+  display: block; width: 100%; box-sizing: border-box; height: 44px; min-height: 44px; resize: none; overflow: hidden; white-space: nowrap;
+  border: 1px solid var(--v2-field-border); background: var(--v2-surface); color: inherit; border-radius: var(--v2-radius-btn);
+  padding: 10px 14px; font: inherit; font-size: 16px; line-height: 22px;
+}
+.v2-find-search-wrap textarea::placeholder { overflow: hidden; text-overflow: ellipsis; }
+.v2-find-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin: 0 0 4px; }
+.v2-find-side-head h3 { margin: 0; }
+.v2-find-side-head .v2-find-clear { min-width: 44px; }
+.v2-find-clear[hidden] { display: none; }
+.v2-find-side > .v2-find-paste-help { margin: 6px 0 8px; }
+.v2-find-noteval { display: inline-block; margin-left: 8px; padding: 1px 6px; border: 1px dashed var(--v2-border); border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--v2-muted); }
+
+/* JEG-988: score chips on each roster row (DDF Value, Trade chart average). */
+.v2-find-chips { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; font-size: 13px; color: var(--v2-muted); }
+.v2-find-chip-value { color: var(--v2-ink); font-variant-numeric: tabular-nums; }
+.v2-find-chip.is-missing .v2-find-chip-value { font-weight: 500; color: var(--v2-muted); }
+.v2-trade-players li > div > .v2-find-chips { display: flex; }
+
+/* JEG-988: roster balance and the generated evaluation, per roster and in the team summary. */
+.v2-find-eval { display: grid; gap: 6px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); }
+.v2-find-eval[hidden] { display: none; }
+.v2-find-eval p { margin: 0; overflow-wrap: anywhere; }
+.v2-find-eval-line { font-size: 14px; line-height: 1.45; }
+.v2-find-eval-details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
+.v2-find-lineup td.is-under { color: var(--v2-older); font-weight: 600; }
+.v2-find-lineup td.is-over { color: var(--v2-muted); }
+.v2-find-teams-sum .v2-find-eval { margin: 0 0 8px; padding: 8px 12px; }
+
+/* JEG-988: natural / value / force fit per group. */
+.v2-find-fit { margin: 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.v2-find-fit[hidden] { display: none; }
+.v2-find-fit b { color: var(--v2-muted); }
+.v2-find-list li.v2-find-group[data-find-fit="natural"] { border-left: 4px solid var(--v2-action); }
+.v2-find-list li.v2-find-group[data-find-fit="natural"] .v2-find-fit b { color: var(--v2-action-strong); }
+.v2-find-list li.v2-find-group[data-find-fit="force"] .v2-find-fit b { color: var(--v2-older); }
