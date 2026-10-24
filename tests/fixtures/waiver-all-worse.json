@@ -192,9 +192,9 @@
    "name": "Rin Worse",
    "pos": "RB",
    "team": "XXX",
-   "ddf": 1.5,
+   "ddf": 1.0,
    "noise": 0.0,
-   "market": 1.35
+   "market": 0.9
   },
   {
    "key": "TE518",
@@ -218,6 +218,19 @@
    "Tab Worse"
   ],
   "headline": "No pickup improves your roster this week",
-  "combo": false
- }
+  "combo": false,
+  "total": {
+   "Wee Worse": -0.55,
+   "Rin Worse": -0.65,
+   "Tab Worse": -0.85
+  }
+ },
+ "weights": {
+  "overall": 0.15,
+  "QB": 0.1,
+  "RB": 0.2,
+  "WR": 0.15,
+  "TE": 0.1
+ },
+ "weights_note": "bench weights (the engine's share of starts the bench takes), per position; bench value counts at these weights, starters in full"
 }

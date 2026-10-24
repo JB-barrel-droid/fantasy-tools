@@ -165,9 +165,9 @@
    "name": "Wally Add",
    "pos": "WR",
    "team": "XXX",
-   "ddf": 15,
+   "ddf": 16,
    "noise": 0.0,
-   "market": 13.5
+   "market": 14.4
   },
   {
    "key": "WR115",
@@ -182,7 +182,7 @@
  "expect": {
   "verdicts": {
    "Wally Add": "Pick up (force)",
-   "Wendell Weak": "Skip"
+   "Wendell Weak": "Hold"
   },
   "drops": {
    "Wally Add": "Tad TightTwo",
@@ -193,9 +193,17 @@
    "Wendell Weak"
   ],
   "total": {
-   "Wally Add": 14.0,
-   "Wendell Weak": -0.5
+   "Wally Add": 2.3,
+   "Wendell Weak": -0.025
   },
-  "headline": "Pick up Wally Add, drop Tad TightTwo: +14.0 bench value, but it moves you away from the expected depth"
- }
+  "headline": "Pick up Wally Add, drop Tad TightTwo: +2.3 bench value, but it moves you away from the expected depth"
+ },
+ "weights": {
+  "overall": 0.15,
+  "QB": 0.1,
+  "RB": 0.2,
+  "WR": 0.15,
+  "TE": 0.1
+ },
+ "weights_note": "bench weights (the engine's share of starts the bench takes), per position; bench value counts at these weights, starters in full"
 }

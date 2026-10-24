@@ -62,11 +62,15 @@
   }
 
   // ---------- who to drop ----------
-  // Loss in total value (starters + bench) if the player left with no replacement. A kicker, defense or player with no
-  // DDF Value contributes nothing, so leaves at 0.
-  function marginalValue(roster, row, shape, key) {
-    const before = lineupValue(roster, shape, key).total;
-    const after = lineupValue(roster.filter(r => r !== row), shape, key).total;
+  // A roster's worth in one view: the best lineup's starter value in full plus the bench at the engine's bench weights
+  // (the share of starts the bench takes, per position: the same weights the fit rule uses; Jeremy / coordinator,
+  // 2026-10-24: a bench player never counts at full weight). weights: {overall, QB, RB, WR, TE}.
+  const netOf = (l, key, weights) => l.starterValue + l.bench.reduce((t, r) => t + F.benchWeight(weights, r.pos) * r.values[key], 0);
+  // Loss in worth (starters in full + weighted bench) if the player left with no replacement. A kicker, defense or player
+  // with no DDF Value contributes nothing, so leaves at 0.
+  function marginalValue(roster, row, shape, key, weights) {
+    const before = netOf(lineupValue(roster, shape, key), key, weights);
+    const after = netOf(lineupValue(roster.filter(r => r !== row), shape, key), key, weights);
     return Math.max(0, settle(before - after));
   }
   // Kickers and defenses the league requires are not offered as drops (dropping the only kicker leaves a slot empty);
@@ -79,9 +83,9 @@
     return have <= need;
   }
   // Drop candidates, best first: lowest marginal value; then a kicker / defense; then lower DDF Value, lower market value, name.
-  function dropRanking(roster, shape, key) {
+  function dropRanking(roster, shape, key, weights) {
     const list = roster.filter(r => !isRequiredSpecial(r, roster, shape))
-      .map(row => ({row, marginal: marginalValue(roster, row, shape, key)}));
+      .map(row => ({row, marginal: marginalValue(roster, row, shape, key, weights)}));
     return list.sort((a, b) => a.marginal - b.marginal
       || Number(isNotEvaluated(b.row)) - Number(isNotEvaluated(a.row))
       || (ddfOf(a.row) || 0) - (ddfOf(b.row) || 0)
@@ -89,11 +93,11 @@
       || String(a.row.name).localeCompare(String(b.row.name)) || keyOf(a.row).localeCompare(keyOf(b.row)));
   }
   // The n best drops one after the other (each marginal is recomputed on what is left).
-  function bestDrops(roster, shape, key, n) {
+  function bestDrops(roster, shape, key, n, weights) {
     const out = [];
     let left = roster;
     for (let i = 0; i < n; i++) {
-      const ranked = dropRanking(left, shape, key);
+      const ranked = dropRanking(left, shape, key, weights);
       if (!ranked.length) break;
       out.push(ranked[0]);
       left = left.filter(r => r !== ranked[0].row);
@@ -143,11 +147,14 @@
           : `${candidate.name}: not in the engine's projections (not evaluated). Search the name on a chart site to check.`};
     }
     const free = openSlots(roster, ctx.rosterSize);
-    const drop = free > 0 ? null : dropRanking(roster, ctx.shape, OUR_KEY)[0] || null;
+    const weights = ctx.weights || {};
+    const drop = free > 0 ? null : dropRanking(roster, ctx.shape, OUR_KEY, weights)[0] || null;
     const leaving = drop ? [drop.row] : [];
     const impact = rosterImpact(roster, leaving, [candidate], ctx.shape, OUR_KEY);
-    const fit = teamFit({roster, leaving, arriving: [candidate]}, {shape: ctx.shape, expected: ctx.expected, weights: {}, chartKeys: charts || undefined, z: FIT_Z}, OUR_KEY);
-    const total = impact.totalDelta;
+    const fit = teamFit({roster, leaving, arriving: [candidate]}, {shape: ctx.shape, expected: ctx.expected, weights, chartKeys: charts || undefined, z: FIT_Z}, OUR_KEY);
+    // Verdicts run on the weighted worth: starters in full, the bench at its weights (fit.net); the raw bench change is kept for the detail.
+    const total = fit.net;
+    const benchDelta = fit.benchDelta;
     const tau = fit.tau;
     const up = total > tau;
     const down = total < -tau;
@@ -164,7 +171,7 @@
     const extras = (bye ? ` ${bye.text}` : "") + (injury ? ` ${injury.text}` : "");
     const deepens = awayAt.length ? awayAt.map(pos => `${fit.depth[pos].distAfter > fit.depth[pos].distBefore && fit.depth[pos].after > fit.depth[pos].before ? "deepens" : "thins"} ${pos}`).join(" and ") : "moves away from the expected depth";
     let reason;
-    if (verdict === VERDICT.pick) reason = `Pick up ${candidate.name}${dropClause}: ${fmt(impact.starterDelta)} starter value, ${fmt(impact.benchDelta)} bench.${need}${stash}${extras}${marketText}`;
+    if (verdict === VERDICT.pick) reason = `Pick up ${candidate.name}${dropClause}: ${fmt(impact.starterDelta)} starter value, ${fmt(benchDelta)} bench (weighted).${need}${stash}${extras}${marketText}`;
     else if (verdict === VERDICT.force) reason = `Pick up ${candidate.name}${dropClause}: ${fmt(total)} total value, but ${deepens}.${stash}${extras}${marketText}`;
     else if (verdict === VERDICT.consider) reason = `Consider ${candidate.name}${dropName ? ` for ${dropName}` : ""}: value is level (${fmt(total)}, inside the ${tau.toFixed(1)} noise floor), but fills ${towardAt.length ? `a need at ${towardAt[0]}` : "an open starting slot"}.${extras}${marketText}`;
     else if (verdict === VERDICT.hold) {
@@ -172,7 +179,7 @@
       reason = `No clear gain from ${candidate.name} (${fmt(total)}, inside the ${tau.toFixed(1)} noise floor).${deep ? ` Already deep at ${depthText(fit.depth, deep)}.` : ""}${marketText}`;
     } else reason = `${candidate.name} does not improve the roster (${fmt(total)}${dropName ? ` against ${dropName}` : ""}).${marketText}`;
     return {...base, verdict, drop: drop ? drop.row : null, dropMarginal: drop ? drop.marginal : null, openSlot: free > 0,
-      starterDelta: impact.starterDelta, benchDelta: impact.benchDelta, totalDelta: total, tau, noise: fit.tau, impact, fit,
+      starterDelta: impact.starterDelta, benchDelta, rawBenchDelta: impact.benchDelta, totalDelta: total, tau, noise: fit.tau, impact, fit,
       needGain: fit.needBefore - fit.needAfter, awayAt, towardAt, slot, starts: Boolean(slot), bye, injury, reason};
   }
   // Pick up first (biggest gain first), then force, consider (biggest need improvement), hold, skip (least negative first), then not evaluated.
@@ -200,22 +207,26 @@
     if (valued.length < 2) return [];
     const free = openSlots(roster, ctx.rosterSize);
     const need = Math.max(0, 2 - free);
+    const weights = ctx.weights || {};
     const out = [];
     pairsOf(valued).forEach(([a, b]) => {
-      const drops = bestDrops(roster, ctx.shape, OUR_KEY, need);
+      const drops = bestDrops(roster, ctx.shape, OUR_KEY, need, weights);
       if (drops.length < need) return;
       const leaving = drops.map(d => d.row);
       const arriving = [a.candidate, b.candidate];
       const impact = rosterImpact(roster, leaving, arriving, ctx.shape, OUR_KEY);
+      const net = netOf(impact.after, OUR_KEY, weights) - netOf(impact.before, OUR_KEY, weights);
+      impact.netDelta = net;
+      impact.weightedBench = net - impact.starterDelta;
       const noise = Math.sqrt(leaving.concat(arriving).reduce((t, r) => t + Math.pow(valueNoise(r, OUR_KEY, ctx.chartKeys || undefined), 2), 0));
       const tau = Math.max(NET_FLOOR, FIT_Z * noise);
       const best = Math.max(a.totalDelta, b.totalDelta);
       // It must clear the noise floor, and what it adds over the better single pickup must clear it too.
-      if (!(impact.totalDelta > tau) || !(impact.totalDelta - best > tau)) return;
+      if (!(net > tau) || !(net - best > tau)) return;
       const names = rows => rows.map(r => r.name).join(" + ");
-      out.push({candidates: [a.candidate, b.candidate], drops: leaving, starterDelta: impact.starterDelta, benchDelta: impact.benchDelta,
-        totalDelta: impact.totalDelta, tau, bestSingle: best, impact,
-        text: `Pick up ${names(arriving)}${leaving.length ? `, drop ${names(leaving)}` : " (open roster slots)"}: ${fmt(impact.totalDelta)} total value (${fmt(impact.starterDelta)} starters, ${fmt(impact.benchDelta)} bench).`});
+      out.push({candidates: [a.candidate, b.candidate], drops: leaving, starterDelta: impact.starterDelta, benchDelta: impact.weightedBench,
+        totalDelta: net, tau, bestSingle: best, impact,
+        text: `Pick up ${names(arriving)}${leaving.length ? `, drop ${names(leaving)}` : " (open roster slots)"}: ${fmt(net)} total value (${fmt(impact.starterDelta)} starters, ${fmt(impact.weightedBench)} bench, weighted).`});
     });
     return out.sort((x, y) => y.totalDelta - x.totalDelta);
   }
@@ -266,7 +277,7 @@
     return {mine: read("mine"), cands: read("cands"), params};
   }
 
-  const api = {VERDICT, TIER, MAX_PAIRS, NET_FLOOR, OUT_STATUS, rowsFor, dedupe, marginalValue, dropRanking, bestDrops, openSlots, rosterSizeOf, evaluateCandidate,
+  const api = {VERDICT, TIER, MAX_PAIRS, NET_FLOOR, OUT_STATUS, rowsFor, dedupe, netOf, marginalValue, dropRanking, bestDrops, openSlots, rosterSizeOf, evaluateCandidate,
     orderResults, pairsOf, evaluateCombos, headlineFor, evaluateAll, encodeHash, decodeHash, ddfOf, marketOf, fmt, isRequiredSpecial};
   if (isNode) { module.exports = api; return; }
   root.TradeValueWaivers = api;
@@ -589,6 +600,7 @@
       return `${pos}: ${d.before} → ${d.after} counted (${d.range} expected)`;
     });
     body.append(el("p", {class: "v2-meta", text: r.fit.ready ? `Depth by position: ${depth.join("; ")}.` : "Depth by position is not judged until the roster has at least as many players as the league has starting slots."}));
+    body.append(el("p", {class: "v2-meta", text: `Bench change in raw DDF Value, before the bench weights: ${api.fmt(r.rawBenchDelta)}.`}));
     if (r.bye) body.append(el("p", {class: "v2-meta", text: r.bye.text}));
     if (r.injury) body.append(el("p", {class: "v2-meta", text: r.injury.text}));
     if (UI() && UI().marketKeys()) body.append(marketTable(r, r.drop && !r.drop.notEvaluated ? r.drop : null));
@@ -656,7 +668,7 @@
     if (!C || !UI()) return null;
     const depth = UI().depthContext();
     const shape = C.getRosterShape();
-    return {shape, expected: depth ? depth.expected : null, chartKeys: UI().marketKeys(), rosterSize: rosterSizeOf(shape),
+    return {shape, weights: UI().benchWeights(), expected: depth ? depth.expected : null, chartKeys: UI().marketKeys(), rosterSize: rosterSizeOf(shape),
       byes: root.TradeValueByes ? root.TradeValueByes.byes : null};
   }
   function compute() {
@@ -730,7 +742,7 @@
     const list = sortedResults(c.out.results);
     const cards = el("ol", {class: "v2-wv-cards", "aria-label": "Waiver candidates as cards"}, ...list.map(r => cardFor(r, c.out.roster)));
     const kids = [el("div", {class: "v2-find-table-wrap v2-wv-tablewrap"}, resultsTable(list, c.out.roster)), cards,
-      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in DDF Value. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price him). A dash means no value, never zero."})];
+      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in DDF Value; the bench counts at the engine's bench weights, never in full. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price him). A dash means no value, never zero."})];
     if (c.out.combos.length) {
       const sum = `Show ${plural(c.out.combos.length, "combo")}`;
       const det = el("details", {class: "v2-wv-combos", id: "v2WaiversCombos"}, el("summary", {text: sum}),

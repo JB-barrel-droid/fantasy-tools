@@ -41,7 +41,7 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const row = p => ({player_key: p.key, name: p.name, pos: p.pos, team: p.team, notEvaluated: Boolean(p.notEvaluated),
   values: p.ddf === null ? {usatoday: p.market, fantasycalc: p.market, fantasypros: p.market, cbs: p.market}
     : {ddf_value: p.ddf, ddf_value_charts: p.ddf - p.noise, ddf_value_projections: p.ddf + p.noise, usatoday: p.market, fantasycalc: p.market, fantasypros: p.market, cbs: p.market}});
-const ctxOf = fx => ({shape: fx.shape, expected: F.expectedDepth(fx.alloc, fx.teams), chartKeys: %s, rosterSize: W.rosterSizeOf(fx.shape)});
+const ctxOf = fx => ({shape: fx.shape, expected: F.expectedDepth(fx.alloc, fx.teams), chartKeys: %s, rosterSize: W.rosterSizeOf(fx.shape), weights: fx.weights});
 const out = (function () { %s })();
 console.log(JSON.stringify(out));
 """
@@ -125,16 +125,16 @@ def check_fixtures(js: Path) -> list[str]:
 def check_unit(js: Path) -> list[str]:
     errors = []
     fx = load("thin-rb")
-    # T1: marginal value. Tim TightTwo (bench, 2.0) leaves 2.0 behind; Rex RunOne (starter 30) leaves more; the kicker 0.
+    # T1: marginal value. Tim TightTwo (bench TE, 2.0 at the TE bench weight 0.1) leaves 0.2 behind; Rex RunOne (starter 30) leaves more; the kicker 0.
     body = """
     const fx = input.fx; const rows = fx.roster.map(row); const shape = fx.shape;
     const by = n => rows.find(r => r.name === n);
-    const m = n => W.marginalValue(rows, by(n), shape, 'ddf_value');
+    const m = n => W.marginalValue(rows, by(n), shape, 'ddf_value', input.fx.weights);
     return {bench: m('Tim TightTwo'), starter: m('Rex RunOne'), kicker: m('Kyle Kicker'), defense: m('Boston Defense'),
-      ranking: W.dropRanking(rows, shape, 'ddf_value').map(x => [x.row.name, x.marginal])};
+      ranking: W.dropRanking(rows, shape, 'ddf_value', input.fx.weights).map(x => [x.row.name, x.marginal])};
     """
     got = node(js, body, {"fx": fx})
-    if not close(got["bench"], 2.0) or not (got["starter"] > got["bench"]):
+    if not close(got["bench"], 0.2) or not (got["starter"] > got["bench"]):
         errors.append(f"T1 marginal: bench {got['bench']} starter {got['starter']}")
     if got["kicker"] != 0 or got["defense"] != 0:
         errors.append(f"T1 a kicker or defense has marginal {got['kicker']}/{got['defense']}, want 0")
@@ -146,7 +146,7 @@ def check_unit(js: Path) -> list[str]:
         errors.append("T2 drop ranking is not in ascending marginal order")
     body2 = """
     const fx = input.fx; const rows = fx.roster.map(row); rows.push(row({key: 'x:K:ZZZ', name: 'Spare Kicker', pos: 'K', team: 'ZZZ', ddf: null, market: null, notEvaluated: true}));
-    return W.dropRanking(rows, fx.shape, 'ddf_value').slice(0, 2).map(x => x.row.name);
+    return W.dropRanking(rows, fx.shape, 'ddf_value', fx.weights).slice(0, 2).map(x => x.row.name);
     """
     first = node(js, body2, {"fx": fx})
     if first[0] not in ("Spare Kicker", "Kyle Kicker"):
@@ -154,7 +154,7 @@ def check_unit(js: Path) -> list[str]:
     shape0 = dict(fx["shape"], K=0, DST=0)
     body3 = """
     const fx = input.fx; const rows = fx.roster.map(row);
-    return W.dropRanking(rows, Object.assign({}, fx.shape, {K: 0, DST: 0}), 'ddf_value').slice(0, 2).map(x => x.row.name);
+    return W.dropRanking(rows, Object.assign({}, fx.shape, {K: 0, DST: 0}), 'ddf_value', fx.weights).slice(0, 2).map(x => x.row.name);
     """
     first = node(js, body3, {"fx": fx})
     if set(first) != {"Kyle Kicker", "Boston Defense"}:
@@ -164,19 +164,20 @@ def check_unit(js: Path) -> list[str]:
     const fx = input.fx; const ctx = ctxOf(fx); const rows = fx.roster.map(row); const cands = fx.candidates.map(row);
     const res = W.evaluateCandidate(ctx, rows, cands[0]);
     const imp = F.rosterImpact(rows, [res.drop], [cands[0]], fx.shape, 'ddf_value');
-    return {s: res.starterDelta, b: res.benchDelta, t: res.totalDelta, is: imp.starterDelta, ib: imp.benchDelta, it: imp.totalDelta};
+    return {s: res.starterDelta, b: res.benchDelta, rb: res.rawBenchDelta, t: res.totalDelta, is: imp.starterDelta, ib: imp.benchDelta, it: imp.totalDelta};
     """
     g = node(js, body4, {"fx": fx})
-    if not (close(g["s"], g["is"]) and close(g["b"], g["ib"]) and close(g["t"], g["it"]) and close(g["t"], 16.0)):
-        errors.append(f"T3 swap {g} does not match rosterImpact / the hand sum 16.0")
+    if not (close(g["s"], g["is"]) and close(g["b"], 1.0) and close(g["rb"], g["ib"]) and close(g["t"], g["s"] + g["b"]) and close(g["t"], 11.0)):
+        errors.append(f"T3 swap {g} does not match rosterImpact (starters) / the hand sums: starters +10.0, weighted bench +1.0")
     # T4: the verdict flips at tau. Same swap, the candidate's gain moved across the noise floor.
     body5 = """
     const fx = input.fx; const ctx = ctxOf(fx);
     const mine = fx.roster.map(row);
     const probe = (value, noise) => { const c = row({key: 'P1', name: 'Probe', pos: 'RB', team: 'XXX', ddf: value, noise, market: value}); return W.evaluateCandidate(ctx, mine, c); };
-    // The drop is Tim TightTwo (2.0). A bench-level RB worth 2.0 + d adds d. Noise n gives tau = max(0.05, n).
-    return {tau: probe(5, 1.0).tau, below: probe(2.0 + 0.99, 1.0).verdict, above: probe(2.0 + 1.01, 1.0).verdict,
-      lowBelow: probe(2.0 + 0.04, 0).verdict, lowAbove: probe(2.0 + 0.06, 0).verdict, neg: probe(2.0 - 1.01, 1.0).verdict, negIn: probe(2.0 - 0.99, 1.0).verdict};
+    // The drop is Tim TightTwo (a bench TE, 2.0 x 0.1 = 0.2 of worth). A bench-level RB worth v adds 0.2 v at the RB bench
+    // weight 0.2, so the gain is 0.2 v - 0.2. Noise n gives tau = max(0.05, n).
+    return {tau: probe(5, 1.0).tau, below: probe(5.95, 1.0).verdict, above: probe(6.05, 1.0).verdict,
+      lowBelow: probe(1.2, 0).verdict, lowAbove: probe(1.3, 0).verdict, neg: probe(0.5, 0).verdict, negIn: probe(0.9, 0).verdict, negNoisy: probe(0.0, 1.0).verdict};
     """
     g = node(js, body5, {"fx": fx})
     if not close(g["tau"], 1.0):
@@ -187,8 +188,8 @@ def check_unit(js: Path) -> list[str]:
         errors.append(f"T4 the 0.05 floor: {g['lowAbove']!r} above, {g['lowBelow']!r} below")
     if g["neg"] != "Skip" or g["negIn"] == "Skip":
         errors.append(f"T4 skip boundary: {g['neg']!r} below -tau, {g['negIn']!r} inside it")
-    if g["below"] not in ("Consider", "Hold") or g["negIn"] not in ("Consider", "Hold"):
-        errors.append(f"T4 inside the noise floor the verdict is Consider or Hold, got {g['below']!r} / {g['negIn']!r}")
+    if g["below"] not in ("Consider", "Hold") or g["negIn"] not in ("Consider", "Hold") or g["negNoisy"] == "Skip":
+        errors.append(f"T4 inside the noise floor the verdict is Consider or Hold, got {g['below']!r} / {g['negIn']!r} / {g['negNoisy']!r}")
     # T5: order of tiers (also checked per fixture above): pick up before skip before not evaluated.
     body6 = """
     const rank = W.TIER; const list = ['Not evaluated', 'Skip', 'Hold', 'Consider', 'Pick up (force)', 'Pick up'].map((v, i) => ({verdict: v, totalDelta: v === 'Not evaluated' ? null : i, ddf: 1}));
@@ -246,6 +247,11 @@ def check_unit(js: Path) -> list[str]:
         errors.append(f"T8 a player nothing prices: {g['unpriced']}")
     if g["withDdf"][0] == "Not evaluated" or g["withDdf"][1] is not None:
         errors.append(f"T8 giving him a DDF Value must evaluate him (and no chart is a dash): {g['withDdf']}")
+    # Bench weights: a bench stash counts at the bench weight, never in full. Bo Wideout (WR 4.0) takes the bench seat of a
+    # TE worth 2.0: 4.0 x 0.15 - 2.0 x 0.1 = +0.4, not the raw +2.0; the raw change is kept for the detail.
+    res = {r["name"]: r for r in evaluate(js, load("thin-rb"))["results"]}
+    if not close(res["Bo Wideout"]["bench"], 0.4) or not close(res["Bo Wideout"]["total"], 0.4):
+        errors.append(f"bench weights: Bo Wideout bench {res['Bo Wideout']['bench']} total {res['Bo Wideout']['total']}, want 0.4 and 0.4")
     # T14: starts vs stash.
     res = {r["name"]: r for r in evaluate(js, load("thin-rb"))["results"]}
     if res["Akers Alpha"]["slot"] != "RB" or "Starts immediately at RB." not in res["Akers Alpha"]["reason"]:
@@ -282,8 +288,8 @@ MUTANTS = {
     "tiers out of order": ("const TIER = {[VERDICT.pick]: 0, [VERDICT.force]: 1,", "const TIER = {[VERDICT.pick]: 1, [VERDICT.force]: 0,"),
     "not evaluated first": ("[VERDICT.skip]: 4, [VERDICT.none]: 5}", "[VERDICT.skip]: 4, [VERDICT.none]: -1}"),
     "pair cap raised": ("const MAX_PAIRS = 100;", "const MAX_PAIRS = 1000;"),
-    "combo needs only the floor": ("!(impact.totalDelta - best > tau)", "false"),
-    "combo ignores the single pickup": ("!(impact.totalDelta > tau) ||", "false ||"),
+    "combo needs only the floor": ("!(net - best > tau)", "false"),
+    "combo ignores the single pickup": ("!(net > tau) ||", "false ||"),
     "roster players kept as candidates": ("if (mine.has(key)) { onRoster += 1; return; }", ""),
     "repeats kept": ("if (seen.has(key)) { repeats += 1; return; }", ""),
     "a kicker is evaluated": ("if (isNotEvaluated(candidate)) {", "if (false) {"),
@@ -292,6 +298,8 @@ MUTANTS = {
     "stash called a start": ("const slot = slotOf(impact.after, candidate);", "const slot = SLOT_KEYS[0];"),
     "share link loses the candidates": ("if (candKeys.length) parts.push(`cands=${enc(candKeys)}`);", ""),
     "headline picks the worst": ("const pick = first(VERDICT.pick);", "const pick = results.filter(r => r.verdict === VERDICT.pick).pop();"),
+    "bench counted at full weight": ("F.benchWeight(weights, r.pos) * r.values[key]", "1 * r.values[key]"),
+    "bench weights not passed to the fit": ("weights, chartKeys: charts || undefined, z: FIT_Z}", "weights: {}, chartKeys: charts || undefined, z: FIT_Z}"),
     "marginal counts the bench twice": ("return Math.max(0, settle(before - after));", "return Math.max(0, settle((before - after) * 2));"),
 }
 

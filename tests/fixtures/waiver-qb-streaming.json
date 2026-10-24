@@ -147,9 +147,9 @@
    "name": "Mo MarginalQB",
    "pos": "QB",
    "team": "XXX",
-   "ddf": 5.0,
+   "ddf": 5.5,
    "noise": 1.0,
-   "market": 4.5
+   "market": 4.95
   }
  ],
  "expect": {
@@ -166,14 +166,25 @@
    "Mo MarginalQB"
   ],
   "total": {
-   "Gus GoodQB": 9.5,
-   "Mo MarginalQB": 0.5
+   "Gus GoodQB": 8.15,
+   "Mo MarginalQB": 0.1
   },
   "tau": {
    "Mo MarginalQB": 1.0
   },
   "headline": "Pick up Gus GoodQB, drop Tex Two: +8.0 starter value",
   "combos": [],
-  "_combos_note": "Gus + Mo adds 0.2 over Gus alone, inside the 1.0 noise floor of Mo: not listed."
- }
+  "_combos_note": "Gus + Mo is worth 7.98, less than Gus alone (8.15): not listed.",
+  "starter": {
+   "Gus GoodQB": 8.0
+  }
+ },
+ "weights": {
+  "overall": 0.15,
+  "QB": 0.1,
+  "RB": 0.2,
+  "WR": 0.15,
+  "TE": 0.1
+ },
+ "weights_note": "bench weights (the engine's share of starts the bench takes), per position; bench value counts at these weights, starters in full"
 }
