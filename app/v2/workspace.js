@@ -58,7 +58,7 @@
   function newTeam(name, opts) {
     const o = opts || {};
     const now = o.now || Date.now();
-    return {id: o.id || newId("team"), name: cleanName(name, "Team"), sourceText: "", removed: [], entries: cleanEntries(o.entries), createdAt: now, updatedAt: now};
+    return {id: o.id || newId("team"), name: cleanName(name, "Team"), sourceText: "", sourceTeam: null, removed: [], entries: cleanEntries(o.entries), createdAt: now, updatedAt: now};
   }
   function newWorkspace(opts) {
     const o = opts || {};
@@ -77,7 +77,7 @@
       const id = t.id ? String(t.id) : newId("team");
       if (ids.has(id) || teams.length >= MAX_TEAMS) return;
       ids.add(id);
-      teams.push({id, name: cleanName(t.name, `Team ${teams.length + 1}`), sourceText: typeof t.sourceText === "string" ? t.sourceText : "",
+      teams.push({id, name: cleanName(t.name, `Team ${teams.length + 1}`), sourceText: typeof t.sourceText === "string" ? t.sourceText : "", sourceTeam: Number.isInteger(t.sourceTeam) ? t.sourceTeam : null,
         removed: Array.isArray(t.removed) ? t.removed.map(String) : [], entries: cleanEntries(t.entries),
         createdAt: Number(t.createdAt) || base.createdAt, updatedAt: Number(t.updatedAt) || base.createdAt});
     });
@@ -105,7 +105,7 @@
     },
     renameTeam: (ws, id, name) => mapTeam(ws, id, t => ({...t, name: cleanName(name, t.name)})),
     setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => ({...t, entries: cleanEntries(entries), ...(extra || {})})),
-    clearTeam: (ws, id) => mapTeam(ws, id, t => ({...t, entries: [], sourceText: "", removed: []})),
+    clearTeam: (ws, id) => mapTeam(ws, id, t => ({...t, entries: [], sourceText: "", sourceTeam: null, removed: []})),
     setSourceText: (ws, id, text) => mapTeam(ws, id, t => ({...t, sourceText: String(text || "")})),
     addRemoved: (ws, id, key) => mapTeam(ws, id, t => ({...t, removed: t.removed.includes(String(key)) ? t.removed : t.removed.concat([String(key)])})),
     setMyTeam: (ws, id) => (id === null || ws.teams.some(t => t.id === id) ? touch({...ws, myTeamId: id}) : ws),
@@ -301,7 +301,7 @@
             const team = newTeam("My team", {entries: list});
             return touch({...w, teams: w.teams.length >= MAX_TEAMS ? w.teams : w.teams.concat([team]), myTeamId: w.teams.length >= MAX_TEAMS ? w.myTeamId : team.id});
           }
-          return ops.setEntries(w, w.myTeamId, list, {sourceText: ""});
+          return ops.setEntries(w, w.myTeamId, list, {sourceText: "", sourceTeam: null});
         }, "my-roster");
         return myEntries(ws);
       },

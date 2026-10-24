@@ -1713,6 +1713,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     });
     host.insertBefore(card, host.querySelector(".v2-footnote"));
   }
+  // JEG-1021: the league page (league.js) reads rosters with the same parser, name list reader and defense / kicker choices.
+  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, loadSleeper, loadEspn, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);
   else build();
 })(typeof window !== "undefined" ? window : globalThis);
