@@ -68,7 +68,7 @@ PATCHES = {
 STATE = """() => { const C = window.TradeValueCurveControls; return {shape: C.getRosterShape(), teams: C.getState().teams, scoring: C.getState().scoring,
   lineup: C.getLineupSettings()}; }"""
 FIND_OUT = """() => ({out: document.getElementById('v2FindOut').innerText,
-  eval: ['Mine', 'Theirs'].map(s => (document.getElementById('v2Find' + s + 'Eval') || {}).innerText || '').join('|'),
+  headline: document.getElementById('v2FindFit').innerText, assess: document.getElementById('v2FindAssess').innerText,
   rosters: ['Mine', 'Theirs'].map(s => [...document.querySelectorAll('#v2Find' + s + 'Players .v2-find-row b')].map(b => b.textContent).join(',')).join('|')})"""
 GROUPS = """() => [...document.querySelectorAll('#v2FindOut .v2-find-group')].map(g => ({id: g.dataset.group, edge: g.dataset.findEdge,
   open: [...g.querySelectorAll('details')].map(d => d.open),

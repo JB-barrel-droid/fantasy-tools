@@ -73,14 +73,19 @@ THIN = """() => {
 }"""
 
 
-def check(page, tag, width) -> list[str]:
+def orientation(page, tag, swap) -> list[str]:
+    """Yahoo as mine and ESPN as theirs has no natural group on current data; the swap has several (and force ones), which is what
+    makes the tier-order assertion test something."""
     errors = []
+    tag = f"{tag}{'ESPN mine / Yahoo theirs: ' if swap else 'Yahoo mine / ESPN theirs: '}"
     say = lambda what: errors.append(tag + what)
-    page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2Find') && window.DDFRosterPaste && window.TradeValueFinder", timeout=60000)
-    page.evaluate("() => { location.hash = '#find-trade'; }")
-    page.wait_for_function("() => !document.getElementById('v2FindTrade').hidden", timeout=20000)
-    page.fill("#v2FindMineSearch", FIXTURE.read_text(encoding="utf-8"))
-    page.fill("#v2FindTheirsSearch", ESPN.read_text(encoding="utf-8"))
+    if swap:
+        if page.locator("#v2FindInput").is_hidden():
+            page.click("#v2FindEdit")
+        for side in ("Mine", "Theirs"):
+            page.click(f"#v2Find{side}Clear")
+    page.fill("#v2FindMineSearch", (ESPN if swap else FIXTURE).read_text(encoding="utf-8"))
+    page.fill("#v2FindTheirsSearch", (FIXTURE if swap else ESPN).read_text(encoding="utf-8"))
     page.wait_for_timeout(400)
     page.select_option("#v2FindSize", "3")
     page.click("#v2FindGo")
@@ -94,6 +99,9 @@ def check(page, tag, width) -> list[str]:
     if not shown:
         say("no groups listed")
         return errors
+    kinds = {g["fit"] for g in shown}
+    if swap and not ({"natural", "force"} <= kinds):
+        say(f"the swapped rosters must list natural and force groups so the tier order is exercised, got {sorted(map(str, kinds))}: the guard would test nothing")
     if not all(g["visible"] for g in shown):
         say("a group's fit line is not visible")
     if any(g["fit"] is None or not re.match(r"^(Natural|Value|Force) fit:", g["line"]) for g in shown):
@@ -110,6 +118,17 @@ def check(page, tag, width) -> list[str]:
             say(f"tier {tier} is not in edge order: {[round(e, 2) for e in edges]}")
     if sorted(round(g["edge"], 6) for g in shown) != sorted(round(e, 6) for e in base):
         say(f"the shown group edges {sorted(round(g['edge'], 2) for g in shown)[:6]} differ from the search's {sorted(round(e, 2) for e in base)[:6]}: values changed or groups lost")
+    return errors
+
+
+def check(page, tag, width) -> list[str]:
+    errors = []
+    say = lambda what: errors.append(tag + what)
+    page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2Find') && window.DDFRosterPaste && window.TradeValueFinder", timeout=60000)
+    page.evaluate("() => { location.hash = '#find-trade'; }")
+    page.wait_for_function("() => !document.getElementById('v2FindTrade').hidden", timeout=20000)
+    errors += orientation(page, tag, False)
+    errors += orientation(page, tag, True)
     if width <= 390 and page.evaluate(OVER) > 0:
         say("horizontal overflow")
     if width > 390:

@@ -11,7 +11,7 @@ export interface PlayerValue {
   name: string;
   pos: string;
   value: number;
-  tier: number;
+  tier: string;
 }
 
 export interface ValuesResponse {
@@ -364,15 +364,15 @@ const EXPLANATIONS: Record<string, string> = {
   sources:
     "Projection sources: ESPN, CBS rest-of-season, Razzball. Published trade charts: FantasyCalc, USA Today, FantasyPros, CBS. The get_values response lists which sources are included and excluded for the current week.",
   value_scale:
-    "Higher is more valuable and there is no fixed maximum; the best players are around 70 or a little above. Roughly: 45+ premium assets, 30-45 solid starters, 15-30 flex and depth, under 15 bench and lottery tickets. A value near 0 means replacement level in that league, not worthless.",
+    "Value is points above a replacement-level player in that league. There is no fixed maximum: read values against each other, with the top of the list setting the scale. Players the league leaves on the waiver wire are worth about 0, and a value near 0 means replacement level in that league, not worthless. Always quote the value the tool returned.",
   scoring_formats:
     "standard = no points per reception, half_ppr = 0.5, ppr = 1.0. PPR lifts high-target receivers and pass-catching backs; standard favors rushers and touchdown-dependent players.",
   superflex:
     "Superflex adds a slot that takes a QB, which sharply raises QB values and shifts replacement levels. Charts that publish their own superflex values use them.",
   tiers:
-    "Tiers group players with similar value. Trading within a tier is roughly even; across tiers one side gives up meaningfully more.",
+    "Tier is where a player sits in the league: starter (fills a starting lineup slot), bench (worth rostering as depth) or waiver (replacement level, freely available). It is not a quality band, so two players in the same tier can have very different values; compare values, not tiers.",
   how_to_trade:
-    "1) Use compare_trade on both sides. 2) A gap under about 2 points is roughly even; 5 or more is meaningful. 3) Use trade_targets to find similar-value partners. 4) Your own roster needs can outweigh market value. Values update weekly.",
+    "1) Use compare_trade on both sides. 2) As a rough guide, a gap under about 2 points is roughly even and 5 or more is meaningful; this is a rule of thumb, not a measured threshold. 3) Use trade_targets to find similar-value partners. 4) Your own roster needs can outweigh market value. Values update weekly.",
 };
 
 function explain(topic: string): ToolResult {
