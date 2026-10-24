@@ -63,13 +63,13 @@ STATE = """() => {
   const cell = (tr, i) => (tr.children[i].innerText || '').replace(/\\s+/g, ' ').trim();
   return {head: head.innerText.trim(), headBottom: head.getBoundingClientRect().bottom, vh: innerHeight, headVisible: vis(head),
     live: head.getAttribute('aria-live'), role: head.getAttribute('role'),
-    heads: table ? [...table.querySelectorAll('thead th')].map(th => th.innerText.replace(/[↕↑↓]/g, '').trim()) : [],
+    heads: table ? [...table.querySelectorAll(':scope > thead > tr > th')].map(th => th.innerText.replace(/[↕↑↓]/g, '').trim()) : [],
     grid: table && table.getAttribute('role'), labelled: table && table.getAttribute('aria-labelledby'),
     tableVisible: vis(table), cardsVisible: cards.length > 0 && vis(cards[0]), cardCount: cards.length,
     cards: cards.map(c => ({banner: (c.querySelector('.v2-wv-card-banner').innerText || '').trim(), bannerH: c.querySelector('.v2-wv-card-banner').getBoundingClientRect().height})),
     rows: rows.map(tr => ({name: tr.children[0].querySelector('b').innerText, pos: cell(tr, 1), ddf: cell(tr, 2), vaw: cell(tr, 3), market: cell(tr, 4), starter: cell(tr, 5), bench: cell(tr, 6),
       drop: cell(tr, 7), verdict: cell(tr, 8), reason: cell(tr, 9)})),
-    sorts: table ? [...table.querySelectorAll('thead th[aria-sort]')].map(th => [th.dataset.col, th.getAttribute('aria-sort')]) : [],
+    sorts: table ? [...table.querySelectorAll(':scope > thead > tr > th[aria-sort]')].map(th => [th.dataset.col, th.getAttribute('aria-sort')]) : [],
     summaryVisible: vis(document.getElementById('v2WaiversSummary')), summary: document.getElementById('v2WaiversSummary').innerText.replace(/\\s+/g, ' '),
     inputVisible: vis(document.getElementById('v2WaiversMineInput')), edit: document.getElementById('v2WaiversEdit').getAttribute('aria-expanded'),
     count: document.getElementById('v2WaiversCount').innerText, assess: document.getElementById('v2WaiversAssess').innerText.replace(/\\s+/g, ' '),
@@ -283,6 +283,8 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (360, 740), (
 
 
 class WaiversRenderTests(unittest.TestCase):
+    maxDiff = None
+
     def test_tab(self):
         self.assertEqual(run_checks(), [])
 
