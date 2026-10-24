@@ -104,6 +104,12 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 @media (min-width: 1024px) and (max-width: 1279px) {
   .v2-nav-inner { padding: 0 24px; gap: 16px; } .v2-brand { font-size: 18px; } .v2-tab { padding: 8px 8px; }
 }
+/* JEG-1035: eight tabs since Overrides. Tighter tabs keep one row with no sideways scroll at 1024 px and leave the
+   freshness label room at 1280 px. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .v2-nav-inner { gap: 10px; } .v2-tab { padding: 8px 6px; font-size: 13px; }
+}
+@media (min-width: 1280px) and (max-width: 1439px) { .v2-tab { padding: 8px 8px; } }
 .v2-dot { width: 8px; height: 8px; border-radius: 50%; background: #9BE3C1; display: inline-block; }
 .v2-freshness.is-older .v2-dot { background: var(--v2-older); }
 
