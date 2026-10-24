@@ -8,7 +8,7 @@ the Trade chart average, the card shows the best starting lineup before and afte
   * the market view is the mean of the available compared charts, not DDF Value;
   * toggling a side player recomputes both teams' numbers;
   * "Show lineup details" opens slot tables (before, after, change, starters and bench); closed by default;
-  * a team-value line for both teams sits above the groups;
+  * the roster assessment table for both teams sits above the groups;
   * no sideways scroll, no page errors.
 
 Discrimination: test_guard_fails_on_broken_builds serves finder.js with the two teams' packages swapped, the market view
@@ -57,7 +57,7 @@ EXPECT = """(i) => {
   }
   const lines = [...li.querySelectorAll('.v2-find-impact-line')].map(p => p.textContent);
   return {expect: res, lines, tables: li.querySelectorAll('.v2-find-lineup').length, detailsOpen: li.querySelector('.v2-find-impact-details').open,
-    need: [...li.querySelectorAll('.v2-find-need')].map(p => p.textContent), teams: document.querySelectorAll('#v2FindTeams p').length,
+    need: [...li.querySelectorAll('.v2-find-need')].map(p => p.textContent), teams: document.querySelectorAll('#v2FindAssess tbody tr').length + (document.getElementById('v2FindAssess').textContent.includes('shows once') ? 6 : 0),
     boxes: li.querySelectorAll('input[type=checkbox]:not(:disabled)').length};
 }"""
 
@@ -110,8 +110,8 @@ def check(page, tag, width) -> list[str]:
         if i == 0:
             if card["detailsOpen"]:
                 errors.append(tag + "lineup details are open by default")
-            if card["teams"] < 2:
-                errors.append(tag + "no team-value line for both teams above the groups")
+            if card["teams"] < 6:
+                errors.append(tag + "no roster assessment (the table, or its note for a short roster) above the groups")
             if "market" not in card["expect"]:
                 errors.append(tag + "market view missing (fewer than 3 charts?): the check proves less")
             if len(card["need"]) != 2:
