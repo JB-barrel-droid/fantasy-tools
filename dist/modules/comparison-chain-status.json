@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-24T15:02:49.714632+00:00",
+  "run_at": "2026-10-24T15:27:53.909877+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -85,7 +85,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-23 -> 12 DDF legs -> section; review passed (4392 values)",
+      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (4392 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -93,7 +93,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7704 values)",
+      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7692 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -122,7 +122,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-23",
+      "content_vintage": "2026-10-24",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
@@ -134,7 +134,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-23",
+      "content_vintage": "2026-10-24",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
@@ -153,12 +153,12 @@
       "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults"
     ],
     "assertions": [
-      "AssertionError: False is not true : {'QB': 0.12971478703486694, 'RB': 0.15589395108251722, 'WR': 0.16861501976167298, 'TE': 0.027716467089886447, 'overall': 0.15290218207857573, 'override': False, 'overrideValue': None, 'fillInShare': 0.06178000948202819, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}"
+      "AssertionError: False is not true : {'QB': 0.14075670283054142, 'RB': 0.15611678205768229, 'WR': 0.1688036655965546, 'TE': 0.02771986927907828, 'overall': 0.15368887918189197, 'override': False, 'overrideValue': None, 'fillInShare': 0.061789769556286026, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}"
     ],
     "make_targets": [
       "Makefile:537: test-core"
     ],
-    "detail": "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; AssertionError: False is not true : {'QB': 0.12971478703486694, 'RB': 0.15589395108251722, 'WR': 0.16861501976167298, 'TE': 0.027716467089886447, 'overall': 0.15290218207857573, 'override': False, 'overrideValue': None, 'fillInShare': 0.06178000948202819, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}",
-    "recorded_at": "2026-10-24T15:24:52.048769+00:00"
+    "detail": "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; AssertionError: False is not true : {'QB': 0.14075670283054142, 'RB': 0.15611678205768229, 'WR': 0.1688036655965546, 'TE': 0.02771986927907828, 'overall': 0.15368887918189197, 'override': False, 'overrideValue': None, 'fillInShare': 0.061789769556286026, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}",
+    "recorded_at": "2026-10-24T15:46:35.206882+00:00"
   }
 }
