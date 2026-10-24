@@ -1167,10 +1167,15 @@
             }
             if (overlap) continue;
 
-            // Quick rejection: first or last token must be a known player-name word
+            // Quick rejection: first or last token must contain a known player-name word
+            // normName may produce multi-word results (e.g. "Amon-Ra" -> "amon ra"),
+            // so check each word of the normalized form, not just the whole string.
             var fn = normName(tokens[start].replace(/,$/, ""));
             var ln = normName(tokens[start + winLen - 1]);
-            if ((!fn || !firstWords[fn]) && (!ln || !firstWords[ln])) continue;
+            var fnHit = false, lnHit = false;
+            if (fn) { var fnParts = fn.split(" "); for (var fp = 0; fp < fnParts.length; fp++) { if (firstWords[fnParts[fp]]) { fnHit = true; break; } } }
+            if (ln) { var lnParts = ln.split(" "); for (var lp = 0; lp < lnParts.length; lp++) { if (firstWords[lnParts[lp]]) { lnHit = true; break; } } }
+            if (!fnHit && !lnHit) continue;
 
             var match = tryNameMatch(tokens, start, winLen, index);
             if (!match) continue;
