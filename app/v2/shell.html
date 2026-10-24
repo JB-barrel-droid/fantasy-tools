@@ -21,6 +21,23 @@
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
       </button>
     </div>
+    <div class="v2-topnote" id="v2SeasonNote">
+      <div class="v2-topnote-inner">
+        <p class="v2-topnote-text" id="v2SeasonNoteText">Built for season-long value, not weekly start/sit decisions or playoff optimization.</p>
+        <button type="button" class="v2-topnote-more" id="v2SeasonNoteMore" aria-expanded="false" aria-controls="v2SeasonNoteDetail">More</button>
+        <button type="button" class="v2-topnote-close" id="v2SeasonNoteClose" aria-label="Dismiss notice"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="v2-topnote-detail" id="v2SeasonNoteDetail" hidden>
+        <p><strong>What this dashboard is for right now</strong></p>
+        <ul>
+          <li>It is designed for season-long value.</li>
+          <li>It is not designed for weekly start/sit decisions.</li>
+          <li>It is not designed for playoff optimization.</li>
+          <li>The &ldquo;Optimize for playoffs&rdquo; setting has not been reviewed and likely is not working.</li>
+          <li>Defenses and kickers are not yet accounted for.</li>
+        </ul>
+      </div>
+    </div>
   </header>
 
   <div class="v2-wrap v2-writing-nav" id="v2Writing" hidden>
@@ -798,6 +815,7 @@
   </main>
 
   <div class="v2-status" id="v2Status" role="status" hidden></div>
+  <div class="v2-sr" id="v2LeagueLive" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div class="v2-tip" id="v2Tip" role="tooltip" hidden></div>
   <div class="v2-tip v2-mathtip" id="v2MathTip" role="tooltip" hidden></div>

@@ -515,20 +515,23 @@ VALUES_JS = "async () => {" + COMMON + r"""
   fire($('v2Search'), 'a'); await sleep(600);
   $('v2Reset').click(); await sleep(600);
   out.reset = {rank: $('v2RankBy').value, position: $('v2Position').value, search: $('v2Search').value, show: $('v2Show').value};
-  // League edits are a draft until Apply
+  // League edits apply live (JEG-1020): no Apply, no Cancel; Undo changes returns to the opening settings
   const leagueBefore = $('v2LeagueName').textContent;
   const engineTeams = C.getState().teams;
   $('v2EditLeague').click(); await sleep(300);
   const teams = [...document.querySelectorAll('#v2Popover [aria-label="Teams"] button')].find(b => b.getAttribute('aria-pressed') !== 'true');
-  if (teams) { teams.click(); await sleep(200); }
-  const draftTeams = C.getState().teams;
+  const immediateTeams = (teams ? (teams.click(), C.getState().teams) : engineTeams);   // before the debounce
+  await sleep(700);
+  const liveTeams = C.getState().teams;
   const buttons = [...document.querySelectorAll('#v2Popover button')].map(b => b.textContent.trim());
-  const cancel = [...document.querySelectorAll('#v2Popover button')].find(b => b.textContent.trim() === 'Cancel');
-  if (cancel) cancel.click(); else await closePop();
+  const undo = document.querySelector('#v2Popover [data-league-undo]');
+  if (undo) undo.click(); else await closePop();
   await sleep(500);
+  const afterUndo = C.getState().teams;
+  await closePop();
   out.league = {before: leagueBefore, after: $('v2LeagueName').textContent, changed: Boolean(teams),
-    engineTeams, draftTeams, afterTeams: C.getState().teams,
-    hasApply: buttons.includes('Apply'), hasCancel: Boolean(cancel)};
+    engineTeams, immediateTeams, liveTeams, afterTeams: afterUndo,
+    hasApply: buttons.includes('Apply'), hasCancel: buttons.includes('Cancel'), hasUndo: Boolean(undo)};
   // Remembered selection: pick another Rank by, then the caller reloads
   const third = [...$('v2RankBy').options].map(o => o.value).filter(v => v !== 'ddf_value').pop();
   fire($('v2RankBy'), third); await sleep(400);
@@ -1160,18 +1163,19 @@ def gl10(S):
 def gl11(S):
     v = S["values"]
     errors = []
-    # GL-11 (v1.2) is draft-until-Apply only; "Edit league is primary" is GL-22 (JEG-498).
+    # GL-11 (v1.2) was draft-until-Apply; JEG-1020 (Jeremy, 2026-10-24) replaced it: settings apply as they change.
     # Buttons are found by ID, never by label ("Weights & bench" becomes "Position weights").
     if not v["s0"]["leagueButtons"]["edit"]:
         errors.append("no Edit league control (#v2EditLeague)")
     lg = v["league"]
-    if not (lg["changed"] and lg["hasApply"] and lg["hasCancel"]):
-        errors.append(f"Edit league dialog: changed {lg['changed']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
-    if lg["after"] != lg["before"]:
-        errors.append(f"a cancelled league edit applied: {lg['before']!r} -> {lg['after']!r}")
-    if lg["draftTeams"] != lg["engineTeams"] or lg["afterTeams"] != lg["engineTeams"]:
-        errors.append(f"a league draft reached the engine before Apply: teams {lg['engineTeams']} -> "
-                      f"{lg['draftTeams']} (draft) -> {lg['afterTeams']} (cancelled)")
+    if not (lg["changed"] and lg["hasUndo"]) or lg["hasApply"] or lg["hasCancel"]:
+        errors.append(f"Edit league dialog: changed {lg['changed']}, Undo {lg['hasUndo']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
+    if lg["immediateTeams"] != lg["engineTeams"]:
+        errors.append(f"a league tap reached the engine inside the input handler (no debounce): {lg['engineTeams']} -> {lg['immediateTeams']}")
+    if lg["liveTeams"] == lg["engineTeams"]:
+        errors.append(f"a league change did not apply on its own: teams stayed {lg['liveTeams']}")
+    if lg["afterTeams"] != lg["engineTeams"] or lg["after"] != lg["before"]:
+        errors.append(f"Undo changes did not return the league: teams {lg['engineTeams']} -> {lg['liveTeams']} -> {lg['afterTeams']}; {lg['before']!r} -> {lg['after']!r}")
     return errors
 
 
