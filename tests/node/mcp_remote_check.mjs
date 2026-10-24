@@ -36,7 +36,7 @@ assert.equal(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialize
 assert.deepEqual((await rpc("ping")).result, {});
 r = await rpc("tools/list");
 assert.deepEqual(r.result.tools.map((t) => t.name),
-  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "explain"]);
+  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "explain"]);
 assert.ok(r.result.tools.every((t) => t.inputSchema.type === "object" && !/0-70/.test(t.description)));
 assert.equal((await rpc("nope")).error.code, -32601);
 assert.equal((await handleRpc({ foo: 1 }, stub)).error.code, -32600);
@@ -255,15 +255,19 @@ assert.ok(r.result.content[0].text.includes("Open this on the site"), "text incl
 assert.ok(ft.mine.searched > 0, "mine searched > 0");
 assert.ok(ft.theirs.searched > 0, "theirs searched > 0");
 
-// If trades are found, each has the expected shape.
+// If trades are found, each has the viability-scored shape.
 if (ft.trades.length > 0) {
   const first = ft.trades[0];
-  assert.ok(Array.isArray(first.give) && first.give.length > 0, "give is a non-empty array");
-  assert.ok(Array.isArray(first.receive) && first.receive.length > 0, "receive is a non-empty array");
-  assert.equal(typeof first.edge, "number", "edge is a number");
-  assert.equal(typeof first.rivalOkCount, "number", "rivalOkCount is a number");
-  assert.ok(first.edge > 0, "your edge is positive (you gain)");
-  assert.ok(first.rivalOkCount >= 3, "at least 3 charts say the rival wins");
+  assert.ok(Array.isArray(first.userGives) && first.userGives.length > 0, "userGives is a non-empty array");
+  assert.ok(Array.isArray(first.userGets) && first.userGets.length > 0, "userGets is a non-empty array");
+  assert.equal(typeof first.ddfEdge, "number", "ddfEdge is a number");
+  assert.equal(typeof first.viable, "boolean", "viable is a boolean");
+  assert.ok(Array.isArray(first.checks), "checks is an array");
+  assert.equal(first.checks.length, 9, "9 viability checks");
+  assert.ok(first.ddfEdge > 0, "your edge is positive (you gain)");
+  if (first.viable) {
+    assert.ok(["High", "Med-High", "Medium"].includes(first.label), "viable offer has a label");
+  }
 }
 
 // Unmatched names are reported.

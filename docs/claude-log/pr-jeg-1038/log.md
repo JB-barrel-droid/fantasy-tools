@@ -24,3 +24,23 @@
 - Risk register: added GAP-VIABILITY-DEFAULTS-UNREVIEWED and GAP-VIABILITY-NOT-WIRED.
 - Branch: `be/viability-scoring`, based on `origin/be/find-trades-tool` with
   `origin/be/jeg-1036-batch-trade-discovery` merged in.
+
+## 2026-10-24 - Wired viability into find_trades / find_trades_league tools
+
+- Merged origin/main (PRs #893, #895, #896 now on main) into be/viability-scoring.
+- Jeremy (2026-10-24) confirmed: keep checks 6/7 as-is.
+- Wired viability scoring into `find_trades` tool in tools.ts: each trade candidate is scored
+  on the 9 viability checks, labelled, and the output includes viable/label/failedChecks/
+  temporaryGap/checks. Added `viable_only` filter flag.
+- Registered `find_trades_league` tool: takes user roster + up to 15 opponents, runs find_trades
+  for each pair, scores all candidates via `scoreAndRankOffers`, selects best package via
+  `selectPackage`, returns ranked trades + package + projected lineup.
+- Exposed viability thresholds as optional tool arguments (roster_shape, min_ddf_edge,
+  min_market_net, depth_player_cutoff, dead_weight_cutoff, min_rb_backups, min_wr_backups,
+  viable_only) with DEFAULT_CONFIG defaults.
+- Updated doc surfaces: llms.txt, server-card.json, SKILL.md, values-endpoint.md,
+  tests/test_llm_surfaces.py, tests/node/mcp_remote_check.mjs all list find_trades_league.
+- Risk register: GAP-VIABILITY-NOT-WIRED fixed; GAP-VIABILITY-DEFAULTS-UNREVIEWED controlled.
+- Verified: 26 viability unit tests pass, 7 LLM surface tests pass, MCP remote check passes,
+  make validate green.
+- Not verified: Supabase deploy (per instructions: no deploy).

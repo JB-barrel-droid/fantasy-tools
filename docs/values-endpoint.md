@@ -63,15 +63,26 @@ that needs a URL instead of a local process.
 - It calls `get-values` (`DDF_API_URL` secret overrides the URL; default is
   `$SUPABASE_URL/functions/v1/get-values`), so tool numbers match the site.
 - Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`,
-  `read_state`, `make_state`, `find_trades`, `explain`. Name lookup and trade
-  math run server-side; each result also carries `structuredContent`.
-  `risers_fallers` is not offered: the endpoint has no prior-week data.
+  `read_state`, `make_state`, `find_trades`, `find_trades_league`, `explain`.
+  Name lookup and trade math run server-side; each result also carries
+  `structuredContent`. `risers_fallers` is not offered: the endpoint has no
+  prior-week data.
 - `find_trades`: takes two rosters (comma-separated names), finds trade packages
   where you gain DDF Value and at least 3 of 4 trade charts say the other team
-  breaks even or wins. Loads `finder.js` from the site (like the codec) and
-  calls `get-values?include=charts` for per-chart values. Optional: `max_per_side`
-  (1-4, default 2), `min_rival_edge`, `limit`. The pure function
-  `findTradesForPair` is in `mcp/find-trades.ts` for reuse by the batch tool.
+  breaks even or wins. Each trade is scored on the 9 viability checks (see
+  "Viability scoring" below) and labelled High/Med-High/Medium when viable.
+  Optional: `max_per_side` (1-4, default 2), `min_rival_edge`, `limit`,
+  `viable_only`, viability threshold overrides. Loads `finder.js` from the site
+  (like the codec) and calls `get-values?include=charts` for per-chart values.
+  The pure function `findTradesForPair` is in `mcp/find-trades.ts`.
+- `find_trades_league`: takes your roster plus up to 15 opponents (each with a
+  name and roster). Runs `find_trades` for each pair, scores all candidates on
+  the 9 viability checks, ranks viable-first, and selects the best package
+  (non-conflicting viable offers: no player sent twice, each opponent at most
+  once). Returns ranked trades with labels/failure reasons/temporary-gap flags,
+  the recommended package, and your projected lineup after. Optional:
+  `max_per_side`, `min_rival_edge`, `limit`, `viable_only`, viability threshold
+  overrides.
 - Tests: `tests/test_mcp_remote.py` (node, stub values, no network) in
   `make test-unit`.
 
