@@ -27,6 +27,13 @@ export const ROUTES: Record<string, string> = {
 // These get-values inputs are the only ones the endpoint prices today (scoring, teams, superflex).
 const UNPRICED = ["roster", "shares", "bso", "inj", "conf", "weeks"];
 
+// A roster that only says SUPERFLEX is fully priced (superflex is an input); anything else is not.
+function unpriced(league: State, key: string): boolean {
+  if (league[key] === undefined) return false;
+  if (key !== "roster") return true;
+  return Object.keys(league.roster ?? {}).some((k) => k !== "SUPERFLEX" && league.roster[k] !== undefined);
+}
+
 export interface Prepared {
   args: Record<string, unknown>;
   state: State | null;
@@ -64,7 +71,7 @@ export function prepare(args: Record<string, unknown>, deps?: Deps): Prepared {
 // never silently different from the page. Tracked in JEG-1029.
 export function leagueNote(state: State | null): string | null {
   const league = state?.league;
-  if (!league || !UNPRICED.some((k) => league[k] !== undefined)) return null;
+  if (!league || !UNPRICED.some((k) => unpriced(league, k))) return null;
   return "Note: these values use the site's default lineup for this scoring, team count and superflex setting. " +
     "The pasted league's roster shape, position shares, season weeks or advanced settings are not applied here, " +
     "so if you changed them on the site the numbers can differ. Open the link to see your exact league.";
