@@ -752,6 +752,25 @@
     });
     return keptNames;
   }
+  // JEG-995: typed search also offers every defense and the kickers on a team now, by name, as the same unpriced entries a
+  // paste keeps. The names come from window.TradeValueKDef (built from the Sleeper identity base, kdef-names.js); the engine
+  // rows are never touched. A defense is keyed by team (as a paste keys it), a kicker by name.
+  const teamCode = team => {
+    const paste = window.DDFRosterPaste;
+    return (paste && paste.normTeam ? paste.normTeam(team) : null) || String(team || "").toUpperCase();
+  };
+  function notEvaluatedChoices() {
+    const data = window.TradeValueKDef || {};
+    const choose = (list, pos) => (list || []).filter(item => item && item.name).map(item => {
+      const team = teamCode(item.team);
+      return {player_key: pos === "DEF" ? `x:DEF:${team}` : `x:K:${normName(item.name)}`, name: item.name, pos, team, notEvaluated: true};
+    });
+    return choose(data.defenses, "DEF").concat(choose(data.kickers, "K"));
+  }
+  // True when this choice is already on a roster: same key, or the same kicker name, or the same defense team (a pasted page
+  // keys a kicker by team and a defense by its own wording).
+  const alreadyOnRoster = (choice, onRosters) => onRosters.some(p => p.key === String(choice.player_key)
+    || (isNotEvaluated(p) && p.pos === choice.pos && (choice.pos === "DEF" ? teamCode(p.team) === choice.team : normName(p.name) === normName(choice.name))));
   const keptNote = names => (names.length ? el("p", {class: "v2-meta v2-find-kept", text: `Kept, not evaluated (no value for defenses and kickers): ${names.join(", ")}.`}) : null);
   const evaluatedOnly = unmatched => (unmatched || []).filter(u => !isNotEvaluated(u));
   function addOne(side, row) {
@@ -1110,17 +1129,19 @@
       results.replaceChildren();
       results.hidden = !q;
       if (!q || !engine()) return;
-      const taken = new Set(S.mine.concat(S.theirs).map(p => p.key));
-      // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains".
-      const hits = window.TradeValueNameSearch.search(engine().getAllRows(), q).slice(0, 8);
+      const onRosters = S.mine.concat(S.theirs);
+      // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains". JEG-995: priced
+      // players first, so on a tie they come before a defense or kicker.
+      const hits = window.TradeValueNameSearch.search(engine().getAllRows().concat(notEvaluatedChoices()), q).slice(0, 8);
       if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
-        const added = taken.has(key);
-        const button = el("button", {type: "button", text: `${`${row.name} · ${row.pos || ""} ${row.team || ""}`.trim()}${added ? " ✓ Added" : ""}`});
+        const added = alreadyOnRoster(row, onRosters);
+        const tag = row.notEvaluated ? el("span", {class: "v2-find-noteval", text: "Not evaluated"}) : null;
+        const button = el("button", {type: "button"}, `${`${row.name} · ${row.pos || ""} ${row.team || ""}`.trim()}${added ? " ✓ Added" : ""}`, tag);
         if (added) button.disabled = true;
         button.addEventListener("click", () => {
-          S[side].push({key, name: row.name, pos: row.pos});
+          S[side].push(row.notEvaluated ? {key, name: row.name, pos: row.pos, team: row.team} : {key, name: row.name, pos: row.pos});
           input.value = "";
           results.replaceChildren();
           results.hidden = true;

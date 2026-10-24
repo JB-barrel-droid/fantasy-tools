@@ -28,6 +28,21 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_V2 = ROOT / "app" / "v2"
 DIST = ROOT / "dist"
 RESEARCH_DIR = APP_V2 / "research"
+# Sleeper /players/nfl, refreshed twice a week by .github/workflows/sleeper-identity-refresh.yml.
+SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
+
+# The 32 team defenses (name, team code as roster-paste.js writes it: Jacksonville is JAC). The engine prices no
+# defense (JEG-988), so Find a trade offers these by name as unpriced "Not evaluated" entries (JEG-995).
+DEFENSES = [
+    ("Arizona Cardinals", "ARI"), ("Atlanta Falcons", "ATL"), ("Baltimore Ravens", "BAL"), ("Buffalo Bills", "BUF"),
+    ("Carolina Panthers", "CAR"), ("Chicago Bears", "CHI"), ("Cincinnati Bengals", "CIN"), ("Cleveland Browns", "CLE"),
+    ("Dallas Cowboys", "DAL"), ("Denver Broncos", "DEN"), ("Detroit Lions", "DET"), ("Green Bay Packers", "GB"),
+    ("Houston Texans", "HOU"), ("Indianapolis Colts", "IND"), ("Jacksonville Jaguars", "JAC"), ("Kansas City Chiefs", "KC"),
+    ("Las Vegas Raiders", "LV"), ("Los Angeles Chargers", "LAC"), ("Los Angeles Rams", "LAR"), ("Miami Dolphins", "MIA"),
+    ("Minnesota Vikings", "MIN"), ("New England Patriots", "NE"), ("New Orleans Saints", "NO"), ("New York Giants", "NYG"),
+    ("New York Jets", "NYJ"), ("Philadelphia Eagles", "PHI"), ("Pittsburgh Steelers", "PIT"), ("San Francisco 49ers", "SF"),
+    ("Seattle Seahawks", "SEA"), ("Tampa Bay Buccaneers", "TB"), ("Tennessee Titans", "TEN"), ("Washington Commanders", "WAS"),
+]
 
 SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # The engine page sync_dashboard_artifacts writes. Outside dist/, so Pages never
@@ -238,6 +253,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/movers.js" defer></script>'
+                  '\n  <script src="v2/kdef-names.js" defer></script>'
                   '\n  <script src="v2/roster-paste.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
@@ -250,6 +266,27 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
     return html
 
 
+def kdef_names_js(base_path: Path = SLEEPER_BASE) -> str:
+    """window.TradeValueKDef: the 32 defenses and the kickers on an NFL team now, for Find a trade's typed search (JEG-995).
+
+    Kickers come from the Sleeper identity base (position K with a current team: Sleeper leaves a free agent's team
+    empty, and the base keeps retired kickers marked active, so a team is the only current signal). Derived at build
+    time, so the twice-weekly Sleeper refresh is the refresh path and nothing generated is committed. A missing base
+    gives defenses only."""
+    kickers, pulled_at = [], None
+    if base_path.exists():
+        base = json.loads(base_path.read_text(encoding="utf-8"))
+        pulled_at = (base.get("meta") or {}).get("pulled_at")
+        seen = set()
+        for player in (base.get("by_sleeper_id") or {}).values():
+            if player.get("pos") == "K" and player.get("team") and player.get("name") and player["name"] not in seen:
+                seen.add(player["name"])
+                kickers.append({"name": player["name"], "team": player["team"]})
+        kickers.sort(key=lambda k: k["name"])
+    data = {"defenses": [{"name": n, "team": t} for n, t in DEFENSES], "kickers": kickers, "kickers_pulled_at": pulled_at}
+    return "window.TradeValueKDef = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
+
+
 def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path = RESEARCH_DIR) -> Path:
     """Write dist/index.html (root) and dist/v2/index.html; return the /v2/ page."""
     index_html = engine_page.read_text(encoding="utf-8")
@@ -259,6 +296,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     posts = load_posts(research_dir)
     (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html, posts=posts), encoding="utf-8")
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
+    (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "finder.js", "modules.js",
                  "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "name-format.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
