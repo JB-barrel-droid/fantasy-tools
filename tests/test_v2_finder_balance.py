@@ -84,10 +84,25 @@ def check(finder_js: Path) -> list[str]:
     s = call(finder_js, "evalSentence", "your", "fundamentals", "DDF Value", call(finder_js, "rosterBalance", a, expected, "ddf_value", SHAPE), {"starters": 1, "bench": 1})
     if "1 player has no usable value in this view and is not counted toward depth." not in s:
         errors.append(f"the unusable note is missing: {s!r}")
+    # JEG-1019: the biggest imbalance (the one line the table does not say) and the natural-fit headline texts.
+    worst = call(finder_js, "biggestImbalance", call(finder_js, "rosterBalance", roster({"QB": 2, "RB": 7, "WR": 2, "TE": 2}), expected, "ddf_value", SHAPE))
+    if not worst or (worst["pos"], worst["status"]) != ("WR", "under") or worst["gap"] != 3:
+        errors.append(f"the biggest imbalance is {worst} (WR is 3 short, RB 2 over)")
+    if call(finder_js, "biggestImbalance", ok) is not None:
+        errors.append("a balanced roster has a biggest imbalance")
+    heads = {k: call(finder_js, "fitHeadline", k, v)["text"] for k, v in (("missing", {}), ("pending", {}), ("natural", {"count": 1}), ("none", {}), ("unjudged", {}))}
+    if heads["missing"] != "Add both rosters to see fit" or heads["natural"] != "Natural fit found: 1 group" or call(finder_js, "fitHeadline", "natural", {"count": 3})["text"] != "Natural fit found: 3 groups":
+        errors.append(f"headline texts: {heads}")
+    if heads["none"] != "No natural fit between these rosters: the trades below are value-only or force fits":
+        errors.append(f"the no-natural headline reads {heads['none']!r}")
+    if call(finder_js, "fitHeadline", "natural", {"count": 2})["link"] is None or call(finder_js, "fitHeadline", "none", {})["link"] is not None:
+        errors.append("the jump link is offered without a natural group, or missing with one")
     return errors
 
 
 MUTANTS = {
+    "headline says natural for none": ('return {text: `No natural fit between these rosters:', 'return {text: `Natural fit found:'),
+    "biggest imbalance picks the smallest": ("(!worst || gap > worst.gap)", "(!worst || gap < worst.gap)"),
     "bench seats ignored": ("const expected = a.rostered / teams;", "const expected = a.lineup / teams;"),
     "range lo rounded up": ("lo: Math.floor(expected + 1e-9)", "lo: Math.ceil(expected - 1e-9)"),
     "zero-value counted as depth": ("r.values[valueKey] >= USABLE_MIN", "r.values[valueKey] >= 0"),
