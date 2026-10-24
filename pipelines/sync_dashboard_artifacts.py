@@ -389,8 +389,14 @@ def main() -> int:
     else:
         shutil.copy2(FIXTURES / "comparison-sources-data.json", fixture_dest)
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
+    sync_week_history(APP / "assets" / "history")
     # JEG-536 (ES-1, ES-14): the expected-starts building blocks the engine
     # resolves the reader's league weeks and advanced settings against.
+    # JEG-1034: content_week first follows the served data (the index above).
+    from derive_lineup_parameters import advance_content_week
+    history_index = ROOT / "data" / "history" / "index.json"
+    if history_index.exists():
+        advance_content_week(history_index, ROOT / "config" / "lineup_parameters.json")
     shutil.copy2(ROOT / "config" / "lineup_parameters.json", APP / "assets" / "lineup-parameters.json")
     # JEG-534 MR-23 option (a): lineup signal (display only).
     lineup_signal = ROOT / "config" / "lineup_signal.json"
@@ -400,7 +406,6 @@ def main() -> int:
     # for the slip measurement behind the Grace/Slip rows. Only copied when a
     # checker run has produced it -- the page falls back to the 6h default
     # (unmeasured) when the asset is absent.
-    sync_week_history(APP / "assets" / "history")
     deadline_checker = ROOT / "output" / "deadline-checker.json"
     if deadline_checker.exists():
         shutil.copy2(deadline_checker, APP / "assets" / "deadline-checker.json")

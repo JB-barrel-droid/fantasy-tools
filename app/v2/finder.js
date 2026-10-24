@@ -1650,13 +1650,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (!$("v2Find") || !engine()) return;
     const hadResults = hasResults();
     const saved = hadResults ? groupState() : null;
-    const evalOpen = ["mine", "theirs"].map(side => Boolean(document.querySelector(`#${sideId(side)}Eval details[open]`)));
     const asks = {};
     const say = reprocessRosters(asks);
     renderBoth();
-    ["mine", "theirs"].forEach((side, i) => {
-      const d = document.querySelector(`#${sideId(side)}Eval details`);
-      if (d && evalOpen[i]) d.open = true;
+    ["mine", "theirs"].forEach(side => {
       const box = $(`${sideId(side)}PasteResult`);
       if (box && (asks[side] || (say.length && S[side].length && box.childElementCount))) {
         // Asked again below the roster line; nothing here takes focus.
@@ -1666,12 +1663,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (hadResults) {
       // The page's own live region says "Results updated for the new league settings"; the rebuilt list is not read out again.
       const out = $("v2FindOut");
+      const headline = $("v2FindFit");
       out.setAttribute("aria-live", "off");
+      if (headline) headline.setAttribute("aria-live", "off");
       clearOutput();
       run();
       restoreGroups(saved);
       if (saved.more && $("v2FindMoreGroups")) $("v2FindMoreGroups").click();
-      setTimeout(() => out.setAttribute("aria-live", "polite"), 150);
+      setTimeout(() => { out.setAttribute("aria-live", "polite"); if (headline) headline.setAttribute("aria-live", "polite"); }, 150);
     }
     if (!$("v2FindSummary").hidden) updateSummary();
     const note = $("v2FindSettingsNote");

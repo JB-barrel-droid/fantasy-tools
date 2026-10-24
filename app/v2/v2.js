@@ -6808,6 +6808,41 @@
         if (event.matches && header.classList.contains("is-open")) setNav(false, false);
       });
     }
+    // Season-value notice in the top bar (JEG-1023). Dismissed state lasts for the browser session; if storage is
+    // blocked it lasts until reload. The notice stays in the markup either way, so it is read once, not announced per route.
+    {
+      const KEY = "v2.seasonNoticeDismissed";
+      const header = document.querySelector(".v2-nav");
+      const notice = $("v2SeasonNote");
+      const more = $("v2SeasonNoteMore");
+      const detail = $("v2SeasonNoteDetail");
+      let dismissedInMemory = false;
+      const wasDismissed = () => { try { return sessionStorage.getItem(KEY) === "1"; } catch (error) { return dismissedInMemory; } };
+      const setDetail = open => {
+        detail.hidden = !open;
+        more.setAttribute("aria-expanded", open ? "true" : "false");
+        more.textContent = open ? "Less" : "More";
+      };
+      const applyShown = () => {
+        const shown = !wasDismissed();
+        notice.hidden = !shown;
+        header.classList.toggle("has-notice", shown);
+        if (!shown) setDetail(false);
+      };
+      applyShown();
+      more.addEventListener("click", () => setDetail(detail.hidden));
+      $("v2SeasonNoteClose").addEventListener("click", () => {
+        dismissedInMemory = true;
+        try { sessionStorage.setItem(KEY, "1"); } catch (error) { /* in-memory flag above */ }
+        applyShown();
+        const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden) || $("v2Writing");
+        if (main) { main.tabIndex = -1; main.focus(); }
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !detail.hidden) { setDetail(false); more.focus(); }
+      });
+      document.addEventListener("pointerdown", event => { if (!detail.hidden && !notice.contains(event.target)) setDetail(false); });
+    }
     $("v2HowWeightsExplainerBtn").addEventListener("click", event => {
       const button = event.currentTarget;
       const open = button.getAttribute("aria-expanded") !== "true";

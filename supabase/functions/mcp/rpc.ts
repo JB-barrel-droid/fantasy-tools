@@ -1,7 +1,7 @@
 // JEG-1012: minimal stateless MCP (Streamable HTTP, JSON responses only).
 // JSON-RPC 2.0 dispatch, no Deno APIs, so it runs under node in the tests.
 
-import { type FetchValues, runTool, ToolInputError, TOOLS } from "./tools.ts";
+import { type FetchValues, runTool, ToolInputError, ToolUnavailableError, TOOLS } from "./tools.ts";
 import type { Deps } from "./state.ts";
 
 const SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -56,6 +56,7 @@ export async function handleRpc(msg: Json, fetchValues: FetchValues, deps?: Deps
         const result = await runTool(String(params?.name ?? ""), params?.arguments ?? {}, fetchValues, deps);
         return { jsonrpc: "2.0", id, result };
       } catch (e) {
+        if (e instanceof ToolUnavailableError) console.error("tool dependency unavailable:", e.message);
         if (e instanceof ToolInputError) {
           return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: e.message }], isError: true } };
         }
