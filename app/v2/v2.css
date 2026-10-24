@@ -445,6 +445,10 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-div-chip.is-hold { border: 0; padding: 0; background: none; color: var(--v2-older); }
 .v2-div-chip.is-paused { color: var(--v2-muted); }
 .v2-div-chip.is-reviewed { border-color: var(--v2-tint-border); color: var(--v2-action-strong); }
+/* A "Reviewed" / "Excluded" chip that links to its resolution issue is a control: give it a 44 px tall hit area
+   (frame 17) without changing how it looks, by extending the link's box above and below the chip. */
+a.v2-div-chip { position: relative; z-index: 1; }
+a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: -15px; bottom: -15px; }
 .v2-div-chip.is-excluded { border-color: var(--v2-older); color: var(--v2-older); opacity: 0.7; }
 @media (hover: hover) { a.v2-div-chip:hover { text-decoration: underline; } }
 .v2-prior-badge { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; }
