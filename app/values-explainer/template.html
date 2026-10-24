@@ -203,7 +203,7 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <header>
       <div class="eyebrow">1 · The pipeline</div>
       <h2>One recipe for all seven sources</h2>
-      <p class="muted">Three projections (ESPN, CBS rest of season, Razzball) and four published trade charts (USA Today, FantasyCalc, FantasyPros, CBS) all go through the same steps. No source is an anchor. DDF Value is the mean of the sources' Adjusted values; Indexed exists only to show the charts on one scale and never feeds DDF Value.</p>
+      <p class="muted">Three projections (ESPN, CBS rest of season, Razzball) and four published trade charts (USA Today, FantasyCalc, FantasyPros, CBS) all go through the same steps. No source is an anchor. All seven set the allocation, the DDF weights and the pie, but DDF Value is the mean of the three <b>projections'</b> Adjusted values only: the trade charts are market prices shown alongside it, not inputs to it (Jeremy, 2026-10-22, JEG-804). Indexed exists only to show the charts on one scale and never feeds DDF Value.</p>
     </header>
     <div class="panel"><ol class="recipe" id="pipeSteps"></ol></div>
     <h3>What each view shows</h3>
@@ -330,6 +330,9 @@ const SRC_KEYS = [...PROJ, ...CHARTS];
 // composite inputs list it; its display series do not.
 const HIDDEN = new Set((D.composite?.inputs || []).filter(k => !(D.composite?.series || D.composite?.inputs || []).includes(k)));
 const COUNTED = (VP.included || []).filter(k => !HIDDEN.has(k));
+// JEG-804: blended DDF Value averages the counted projections only; if no
+// projection is counted, the engine falls back to every counted source.
+const BLENDED = COUNTED.filter(k => ["espn", "cbsros", "razzball"].includes(k)).length ? COUNTED.filter(k => ["espn", "cbsros", "razzball"].includes(k)) : COUNTED;
 const hiddenTxt = k => { const r = (D.info || []).find(x => x.key === k)?.excludedReason; return esc(nameOf(k)) + (r ? ` (${esc(r)})` : ""); };
 const DDF = [["blended", "ddf_value"], ["charts", "ddf_value_charts"], ["projections", "ddf_value_projections"]];
 const DDF_KEYS = DDF.map(([, k]) => k);
@@ -443,7 +446,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     ]),
     ["Fixed league pie, paid on the DDF weights", `Pie = 28 per starting slot = 28 × ${S.teams} teams × ${POS.reduce((s, p) => s + (R[p] || 0), 0) + (R.FLEX || 0) + (R.SUPERFLEX || 0)} starters = <b>${fmt(PIE, 0)}</b>. It depends on neither scoring nor bench size. Each group's budget is pie × W; each source pays its group's budget out in proportion to its ${ES ? "parts" : "slices"}. So every source spends exactly the pie, split exactly by the DDF weights, while keeping its own player order.`, `Adjusted = (budget[pos, bench] ÷ group total[pos, bench]) × ${ES ? "fill-in part" : "bench slice"}\n         + (budget[pos, starter] ÷ group total[pos, starter]) × ${ES ? "start-worthy part" : "starter slice"}`],
     ["Value above waivers (display)", `One factor per source puts its total value above waivers on the pie, keeping the source's own weighting.`, `Value above waivers = v × ${fmt(PIE, 0)} ÷ source's total value above waivers`],
-    ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden sources that price the player. Zeros count; a source that does not price him is left out. Three versions: blended (all included, non-hidden sources), trade charts only, projections only. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value.`, `DDF Value = mean(Adjusted over included, non-hidden sources that price him)`],
+    ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden <b>projections</b> (ESPN, CBS rest of season, Razzball) that price the player; the trade charts are not inputs (JEG-804). If no projection is included at a setting, it falls back to every included, non-hidden source. Zeros count; a source that does not price him is left out. Three versions: blended (the projections, as above), trade charts only, projections only; with every projection included, blended and projections only are the same number. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value.`, `DDF Value = mean(Adjusted over included, non-hidden projections that price him)`],
     ["Indexed (display only)", `Each chart's published values times one factor, set so the chart's total over the players it lists equals DDF Value's total over the same players. It shows each publisher's own shape on our scale and never feeds DDF Value.`, `Indexed = published value × (Σ DDF Value ÷ Σ published value, over listed players)`],
   ];
   $("pipeSteps").innerHTML = steps.map(([t, body, f]) => `<li><div><b>${t}</b><p class="muted small">${body}</p>${f ? `<div class="formula">${esc(f)}</div>` : ""}</div></li>`).join("");
@@ -649,10 +652,10 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     DDF.forEach(([v]) => { counts[v] = {n: 0, zero: 0, low: 0}; Object.values(P).forEach(p => { const d = p.ddf?.[v]; if (d && d[0] !== null) { counts[v].n++; if (d[0] === 0) counts[v].zero++; if (d[2]) counts[v].low++; } }); });
     return `<div class="panel cards">
       <h3>DDF Value</h3>
-      <div class="formula">DDF Value = mean(Adjusted value of each included, non-hidden source that prices him)</div>
+      <div class="formula">DDF Value = mean(Adjusted value of each included, non-hidden projection that prices him)</div>
       <p>Inputs in use: ${(c.inputs || []).map(label).join(" ")}.</p>
-      <p class="muted small">${c.isDefault ? "These are the defaults: every included source; hidden ones are then left out of the mean." : "The reader changed the inputs."} The reader's selection only narrows the averaging; it never changes the weights or any source's values. A source that does not price a player is left out of his mean; a chart that skips a player below rosterable depth counts as 0. One number in every view.</p>
-      <div class="tablewrap"><table><thead><tr><th>Version</th><th>Sources</th><th class="r">Players with a value</th><th class="r">At 0</th><th class="r">One source only</th></tr></thead><tbody>${DDF.map(([v, k]) => `<tr><td>${label(k)}</td><td class="small">${(v === "blended" ? COUNTED : v === "charts" ? CHARTS.filter(x => COUNTED.includes(x)) : PROJ.filter(x => COUNTED.includes(x))).map(nameOf).join(", ")}</td><td class="r num">${counts[v].n}</td><td class="r num">${counts[v].zero}</td><td class="r num">${counts[v].low}</td></tr>`).join("")}</tbody></table></div>
+      <p class="muted small">${c.isDefault ? "These are the defaults: the three projections (trade charts are not DDF Value inputs, JEG-804); hidden ones are then left out of the mean." : "The reader changed the inputs."} The reader's selection only narrows the averaging; it never changes the weights or any source's values. A source that does not price a player is left out of his mean; in the trade-charts version, a chart that skips a player below rosterable depth counts as 0. One number in every view.</p>
+      <div class="tablewrap"><table><thead><tr><th>Version</th><th>Sources</th><th class="r">Players with a value</th><th class="r">At 0</th><th class="r">One source only</th></tr></thead><tbody>${DDF.map(([v, k]) => `<tr><td>${label(k)}</td><td class="small">${(v === "blended" ? BLENDED : v === "charts" ? CHARTS.filter(x => COUNTED.includes(x)) : PROJ.filter(x => COUNTED.includes(x))).map(nameOf).join(", ")}</td><td class="r num">${counts[v].n}</td><td class="r num">${counts[v].zero}</td><td class="r num">${counts[v].low}</td></tr>`).join("")}</tbody></table></div>
       <p class="muted small">Tiers: within a position, rank by blended DDF Value; the first ${POS.map(p => `${ALLOC[p]?.starters} ${p}`).join(", ")} are starters, then bench to the rostered count; DDF Value 0 is waiver.</p>
       <p class="codepath">value-model.js · compositeValue · curve-widget.js · getCompositeInputs, getCompositeValues</p>
     </div>`;
@@ -703,7 +706,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
         if (est) chain += `<span class="muted small">${esc(p.est?.[src] || "estimated")}</span>`;
       }
       const av = valueOf("adj", src, k);
-      if (COUNTED.includes(src) && av !== null && isFinite(av)) adjs.push([src, av]);
+      if (BLENDED.includes(src) && av !== null && isFinite(av)) adjs.push([src, av]);
       blocks.push(`<div class="panel"><div class="steps">${label(src)}</div><div class="steps">${chain}</div></div>`);
     });
     const mean = adjs.length ? adjs.reduce((s, [, v]) => s + v, 0) / adjs.length : null;
@@ -831,7 +834,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
   const zero = all.filter(p => p.ddf?.blended?.[0] === 0).length;
   add("info", `${zero} of ${all.length} rows have DDF Value 0`, `Rows are every player any source lists; players below rosterable depth on every source are 0. The methodology tracks this share at Full PPR 12 teams (about 383 of 648 before the fill-in).`);
   const low = all.filter(p => p.ddf?.blended?.[2]).length;
-  if (low) add("info", `${low} players priced by one source only`, "Their DDF Value is that one source's Adjusted value, marked low confidence.");
+  if (low) add("info", `${low} players priced by one source only`, "Their DDF Value is that one projection's Adjusted value, marked low confidence.");
   // reconstruction check
   const off = D.reconstruction?.off || {};
   if (Object.keys(off).length) add("check", "This page's per-source numbers don't land on the chart's values",
