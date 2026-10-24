@@ -11,14 +11,24 @@ import type { FetchValues, ValuesResponse } from "./tools.ts";
 const VALUES_URL = Deno.env.get("DDF_API_URL") ||
   `${(Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "")}/functions/v1/get-values`;
 
+// get-values is slow on a cold start (about 3.7 MB of inputs), so keep each
+// league setting's answer for 5 minutes, the same TTL get-values uses.
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const cache = new Map<string, { at: number; data: ValuesResponse }>();
+
 const fetchValues: FetchValues = async (scoring, teams, superflex) => {
+  const key = `${scoring}|${teams}|${superflex}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
   url.searchParams.set("scoring", scoring);
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`get-values ${res.status}`);
-  return await res.json() as ValuesResponse;
+  const data = await res.json() as ValuesResponse;
+  cache.set(key, { at: Date.now(), data });
+  return data;
 };
 
 // MCP clients are not browsers, but browser-based inspectors send CORS preflights.
