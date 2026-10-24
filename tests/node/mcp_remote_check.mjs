@@ -8,11 +8,11 @@ const ORIGIN = "https://site.test";
 const deps = { codec, siteOrigin: ORIGIN };
 
 const players = [
-  { player_key: 1, name: "Bijan Robinson", pos: "RB", value: 71.8, tier: 1 },
-  { player_key: 2, name: "Ja'Marr Chase", pos: "WR", value: 70.2, tier: 1 },
-  { player_key: 3, name: "Josh Allen", pos: "QB", value: 40, tier: 3 },
-  { player_key: 4, name: "Josh Jacobs", pos: "RB", value: 39, tier: 3 },
-  { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: 9 },
+  { player_key: 1, name: "Bijan Robinson", pos: "RB", value: 71.8, tier: "starter" },
+  { player_key: 2, name: "Ja'Marr Chase", pos: "WR", value: 70.2, tier: "starter" },
+  { player_key: 3, name: "Josh Allen", pos: "QB", value: 40, tier: "starter" },
+  { player_key: 4, name: "Josh Jacobs", pos: "RB", value: 39, tier: "starter" },
+  { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver" },
 ];
 let calls = [];
 const stub = async (scoring, teams, superflex) => {
@@ -182,4 +182,16 @@ const init = await handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize", para
 assert.match(init.result.instructions, /always include that link/);
 assert.match(init.result.instructions, /read_state/);
 assert.match(init.result.instructions, /make_state/);
+// JEG-1032: the explanations state what the live data shows (tier = starter/bench/waiver, no 0-70 scale).
+r = await call("explain", { topic: "tiers" });
+let t = r.result.content[0].text;
+assert.match(t, /starter/); assert.match(t, /bench/); assert.match(t, /waiver/);
+assert.match(t, /not a quality band/);
+assert.doesNotMatch(t, /similar value/);
+r = await call("explain", { topic: "value_scale" });
+t = r.result.content[0].text;
+assert.doesNotMatch(t, /around 70|45\+|30-45|15-30/);
+assert.match(t, /no fixed maximum/);
+r = await call("explain", { topic: "how_to_trade" });
+assert.match(r.result.content[0].text, /rule of thumb/);
 console.log("ok");

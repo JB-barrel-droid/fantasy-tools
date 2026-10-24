@@ -26,7 +26,7 @@ If the user pastes a block that starts with ```ddf-state, or a link to the Data 
 
 ## 4. Present the answer
 
-- Quote the values and tiers the tool returned; say the as-of date. A gap under about 2 points is roughly even and 5 or more is meaningful.
+- Quote the values the tool returned and say the as-of date. A tier is where a player sits in the league (starter, bench or waiver), not a quality band: compare values, not tiers. As a rough guide, a gap under about 2 points is roughly even and 5 or more is meaningful; it is a rule of thumb, not a measured threshold.
 - Never turn a missing value into zero, never invent a player or a number, and say plainly when a name did not match.
 - Give a recommendation, then the numbers behind it. Roster needs can outweigh market value; say so when it matters.
 - If a result says the pasted league has settings the tools do not apply (roster shape, position shares, season weeks, advanced settings), tell the user the numbers may differ from the site.
