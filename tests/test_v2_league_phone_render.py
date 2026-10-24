@@ -85,9 +85,8 @@ def check_contrast(browser, base, overrides, errors):
             page = open_page(browser, base, width=width, height=800, overrides=overrides, errors=errors, tag=tag, scheme=scheme)
             seed(page, "4team")
             wait_opps(page)
-            page.locator("#v2LgOppsTable .v2-lg-details-btn, #v2LgOppsCards li").first.scroll_into_view_if_needed()
-            if page.locator("#v2LgOppsTable").count() and page.is_visible("#v2LgOppsTable"):
-                page.click("#v2LgOppsTable .v2-lg-details-btn >> nth=0")
+            if width > 720:
+                page.click("#v2LgOppsTable .v2-lg-details-btn >> nth=0")   # an open Details row is text too
             bad = page.evaluate(CONTRAST)
             errors += [f"{tag}low contrast {b}" for b in bad]
             page.context.close()

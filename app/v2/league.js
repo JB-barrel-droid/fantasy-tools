@@ -545,6 +545,23 @@
     if (column) announce(S.announce(column, state.dir));
   }
 
+  // A table is drawn again whenever it sorts or filters, which removes the control the reader just used. The same control (by id, sort
+  // button or Details button) gets the focus back, so a keyboard reader can press it again.
+  function keepFocus(box, draw) {
+    const a = document.activeElement;
+    let selector = null;
+    if (a && box && box.contains(a)) {
+      if (a.id) selector = `#${a.id}`;
+      else if (a.dataset && a.dataset.sort) selector = `#${a.closest("table").id} thead button[data-sort="${a.dataset.sort}"]`;
+      else if (a.dataset && a.dataset.detailsFor) selector = `[data-details-for="${a.dataset.detailsFor}"]`;
+    }
+    draw();
+    const again = selector && document.querySelector(selector);
+    if (again && again !== document.activeElement) again.focus({preventScroll: true});
+  }
+  const renderSummary = () => keepFocus($("v2LgSummaryBody"), renderSummaryNow);
+  const renderOpps = () => keepFocus($("v2LgOppsBody"), renderOppsNow);
+
   // ---------- team summary ----------
   function summaryData() {
     const ws = store.get();
@@ -567,7 +584,7 @@
     return wrap;
   }
   const rankText = (r, ranked) => (r === null || r === undefined ? "—" : ranked < 2 ? "—" : String(r));
-  function renderSummary() {
+  function renderSummaryNow() {
     const card = $("v2LgSummary");
     if (!card) return;
     const data = summaryData();
@@ -688,7 +705,7 @@
       sel("v2LgFilterCharts", "Min charts fair:", [[0, "Any"], [1, "1"], [2, "2"], [3, "3"], [4, "4"]], f.minCharts, v => set({filters: {minCharts: Number(v)}})),
       hide);
   }
-  function renderOpps() {
+  function renderOppsNow() {
     const card = $("v2LgOpps");
     if (!card) return;
     const ws = store.get();
@@ -736,7 +753,7 @@
     const bodyRows = [];
     shownRows.forEach(r => {
       const open = UI.expanded.has(r.id);
-      const details = button(open ? "Hide details" : "Details", {class: "v2-link v2-lg-details-btn", "aria-expanded": String(open), "aria-label": `${open ? "Hide" : "Show"} details for ${r.opponent}: ${r.give.map(p => p.name).join(" and ")} for ${r.receive.map(p => p.name).join(" and ")}`}, () => {
+      const details = button(open ? "Hide details" : "Details", {class: "v2-link v2-lg-details-btn", "data-details-for": r.id, "aria-expanded": String(open), "aria-label": `${open ? "Hide" : "Show"} details for ${r.opponent}: ${r.give.map(p => p.name).join(" and ")} for ${r.receive.map(p => p.name).join(" and ")}`}, () => {
         if (UI.expanded.has(r.id)) UI.expanded.delete(r.id); else UI.expanded.add(r.id);
         renderOpps();
       });

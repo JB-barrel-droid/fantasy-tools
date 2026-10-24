@@ -131,7 +131,7 @@ def check_summary(browser, base, overrides, errors):
             direction = "asc" if state[0].endswith("ascending") else "desc"
             if click == 1:
                 first = direction
-                want = "asc" if col in ("rank", "altRank") else "desc"
+                want = "asc" if col == "altRank" else "desc" if col == "rank" else "desc"   # rank is already the default sort, so its first click reverses it
                 if direction != want:
                     errors.append(f"[summary] {col} first click sorted {direction}, expected {want}")
             elif direction == first:
@@ -205,7 +205,7 @@ def check_opps(browser, base, overrides, errors):
     for r, edge in zip(rows, check):
         if edge is None or abs(edge - r["capture"]) > 0.06:
             errors.append(f"[opps] capture shown {r['capture']} but the engine edge for '{r['trade']}' is {edge}")
-    ids_rank = {r["id"]: r["rank"] for r in rows}
+    all_ranks = dict(page.evaluate("() => window.TradeValueLeague.ui.result.rows.map(r => [r.id, r.rank])"))   # every row, not only the 20 shown
     # Every numeric column sorts both ways; the rank column keeps its value.
     for col in ("capture", "market", "fair", "rank", "opponent"):
         first = None
@@ -218,7 +218,7 @@ def check_opps(browser, base, overrides, errors):
             direction = "asc" if state[0].endswith("ascending") else "desc"
             if click == 1:
                 first = direction
-                want = "asc" if col in ("rank", "opponent") else "desc"
+                want = "asc" if col == "opponent" else "desc"   # rank is already the default sort, so its first click reverses it
                 if direction != want:
                     errors.append(f"[opps] {col} first click sorted {direction}, expected {want}")
             elif direction == first:
@@ -228,7 +228,7 @@ def check_opps(browser, base, overrides, errors):
             vals = [r[key] for r in shown]
             if vals != independent(shown, key, direction, textual=col == "opponent"):
                 errors.append(f"[opps] {col} {direction}: shown {vals}")
-            if {r["id"]: r["rank"] for r in shown} != ids_rank:
+            if any(all_ranks.get(r["id"]) != r["rank"] for r in shown):
                 errors.append(f"[opps] sorting by {col} changed a rank")
     page.click("#v2LgOppsReset")
     # Filters.
