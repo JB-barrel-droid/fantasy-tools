@@ -592,7 +592,18 @@
     return tierOrder(groups.map(g => { const f = fitOf(g); return f ? f.label : null; })).map(i => groups[i]);
   }
 
-  const api = {teamFit, tradeFit, fitText, valueNoise, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // JEG-1019: the one-line answer to "is there a natural fit?", from the labels the groups already carry (no new math).
+  // state: "missing" (a roster is empty), "pending" (rosters in, no search yet), "natural" (count groups), "none"
+  // (no natural group: the trades are value-only or force fits, or none were found), "unjudged" (too few charts to judge fit).
+  function fitHeadline(state, info) {
+    const n = (info && info.count) || 0;
+    if (state === "missing") return {text: "Add both rosters to see fit", link: null};
+    if (state === "pending") return {text: "Press Find trades to see fit", link: null};
+    if (state === "natural") return {text: `Natural fit found: ${n} group${n === 1 ? "" : "s"}`, link: "Jump to the first natural group"};
+    if (state === "unjudged") return {text: "Fit not judged: not enough trade charts are available this week", link: null};
+    return {text: `No natural fit between these rosters: ${info && info.reason ? info.reason : "the trades below are value-only or force fits"}`, link: null};
+  }
+  const api = {fitHeadline, biggestImbalance, teamFit, tradeFit, fitText, valueNoise, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -610,7 +621,25 @@
     node.append(...kids.filter(Boolean));
     return node;
   }
-  const clearOutput = () => { const out = $("v2FindOut"); out.hidden = true; out.replaceChildren(); };
+  function setHeadline(state, info) {
+    const box = $("v2FindFit");
+    if (!box) return;
+    const h = fitHeadline(state, info);
+    box.dataset.state = state;
+    box.replaceChildren(el("b", {text: h.text}));
+    if (h.link) {
+      const jump = el("a", {href: "#v2FindFirstNatural", class: "v2-link", text: h.link});
+      jump.addEventListener("click", event => {
+        const target = $("v2FindFirstNatural");
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({block: "start", behavior: "auto"});
+        target.focus({preventScroll: true});
+      });
+      box.append(" ", jump);
+    }
+  }
+  const clearOutput = () => { const out = $("v2FindOut"); out.hidden = true; out.replaceChildren(); setHeadline(S.mine.length && S.theirs.length ? "pending" : "missing"); };
 
   // JEG-854: fixing which team is which must be one tap. Swap and Move change the rosters wholesale, so the shown
   // results are recomputed from the new rosters (never left standing from the old assignment); Undo restores the last one.
@@ -820,42 +849,103 @@
     const expected = expectedDepth(allocation, C.getState().teams);
     return expected ? {expected, shape: C.getRosterShape()} : null;
   }
-  const STATUS_WORD = {under: "underweight", over: "overweight", ok: "ok"};
-  function evaluationNode(side, compact) {
-    const who = side === "mine" ? "your" : "their";
-    const box = el("div", {class: "v2-find-eval", id: compact ? `${sideId(side)}EvalSummary` : `${sideId(side)}Eval`});
+  const STATUS_WORD = {under: "Under", over: "Over", ok: "OK"};
+  // JEG-1019: ONE roster assessment for both teams, as a table. Each team in two views (DDF Value, Trade chart average):
+  // players counted per position against the expected depth, the over / under flag, and the starter and bench value.
+  // Nothing here is new math: lineupValue splits a view's best lineup into starters and bench, rosterBalance judges depth.
+  function sideAssessment(side) {
     const ctx = depthContext();
-    if (!ctx || !S[side].length) { box.hidden = true; return box; }
+    if (!ctx || !S[side].length) return null;
     const byKey = rowMap();
     const rows = S[side].map(p => byKey.get(p.key)).filter(Boolean);
     const slots = SLOT_KEYS.reduce((n, slot) => n + (ctx.shape[slot] || 0), 0);
+    const have = rows.filter(r => DEPTH_POS.includes(r.pos)).length;
+    const balance = rosterBalance(rows, ctx.expected, OUR_KEY, ctx.shape);
+    if (!balance.ready) return {side, ready: false, slots, have};
     const charts = marketKeys();
-    const fundBalance = rosterBalance(rows, ctx.expected, OUR_KEY, ctx.shape);
-    if (!fundBalance.ready) {
-      box.append(el("p", {class: "v2-meta", text: `Roster balance shows once ${SIDE_NAME[side].toLowerCase()} has ${slots} players or more at QB, RB, WR and TE (${rows.filter(r => DEPTH_POS.includes(r.pos)).length} so far).`}));
-      return box;
-    }
     const marketRows = charts ? withChartAverage(rows, charts) : null;
-    const views = [{id: "ddf", word: "fundamentals", unit: "DDF Value", key: OUR_KEY, rows}];
-    if (marketRows) views.push({id: "market", word: "market pricing", unit: "trade chart average", key: MARKET_KEY, rows: marketRows});
-    views.forEach(v => {
-      v.balance = rosterBalance(v.rows, ctx.expected, v.key, ctx.shape);
-      const l = lineupValue(v.rows, ctx.shape, v.key);
-      v.sentence = evalSentence(who, v.word, v.unit, v.balance, {starters: l.starterValue, bench: l.benchValue});
-      box.append(el("p", {class: "v2-find-eval-line", "data-view": v.id, text: v.sentence}));
+    const view = (rowsOf, key) => (rowsOf ? {balance: rosterBalance(rowsOf, ctx.expected, key, ctx.shape), lineup: lineupValue(rowsOf, ctx.shape, key)} : null);
+    return {side, ready: true, expected: ctx.expected, ddf: view(rows, OUR_KEY), market: view(marketRows, MARKET_KEY), kept: S[side].filter(isNotEvaluated),
+      missing: lineupValue(rows, ctx.shape, OUR_KEY).unvalued.filter(r => !isNotEvaluated(r)).length};
+  }
+  const posSum = (list, pos, key) => list.filter(r => r.pos === pos).reduce((n, r) => n + r.values[key], 0);
+  // The one imbalance of a view that is furthest from the expected range (the table shows the rest); null when balanced.
+  function biggestImbalance(balance) {
+    let worst = null;
+    DEPTH_POS.forEach(pos => {
+      const b = balance.positions[pos];
+      const gap = b.status === "under" ? b.lo - b.have : b.status === "over" ? b.have - b.hi : 0;
+      if (b.status !== "ok" && (!worst || gap > worst.gap)) worst = {pos, status: b.status, have: b.have, range: b.range, gap};
     });
-    if (!marketRows) box.append(el("p", {class: "v2-meta", text: "Market view: not enough trade charts are available this week."}));
-    const kept = S[side].filter(isNotEvaluated);
-    if (kept.length) box.append(el("p", {class: "v2-meta", text: `${listJoin(kept.map(p => p.pos))} present, not evaluated.`}));
-    if (!compact) {
-      const head = ["Position", "Expected"].concat(views.map(v => v.id === "ddf" ? "Fundamentals" : "Market"));
-      const body = DEPTH_POS.map(pos => el("tr", {}, el("th", {scope: "row", text: pos}), el("td", {text: views[0].balance.positions[pos].range}),
-        ...views.map(v => { const b = v.balance.positions[pos]; return el("td", {class: `is-${b.status}`, text: `${b.have} ${STATUS_WORD[b.status]}`}); })));
-      box.append(el("details", {class: "v2-find-eval-details"}, el("summary", {text: "Position by position"}),
-        el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: `${SIDE_NAME[side]}: players counted per position`}),
-          el("thead", {}, el("tr", {}, ...head.map(h => el("th", {scope: "col", text: h})))), el("tbody", {}, ...body)))));
+    return worst;
+  }
+  const imbalanceText = w => `${w.pos} ${w.status === "over" ? "overweight" : "underweight"} (${w.have} counted, ${w.range} expected)`;
+  const money = n => n.toFixed(1);
+  function assessmentTable(a, b) {
+    const sides = [a, b];
+    const views = [{id: "ddf", label: "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: MARKET_KEY}];
+    const cell = (text, props) => el("td", props || {}, text);
+    const head1 = el("tr", {}, el("th", {scope: "col", rowspan: "3", class: "v2-find-pos", text: "Position"}), el("th", {scope: "col", rowspan: "3", class: "v2-find-nowrap", text: "Expected"}),
+      ...sides.map(x => el("th", {scope: "colgroup", colspan: "6", class: "v2-find-assess-team", text: x.side === "mine" ? "Your team" : "Their team"})));
+    const head2 = el("tr", {}, ...sides.flatMap(() => [el("th", {scope: "colgroup", colspan: "2", text: "Players"}),
+      ...views.map(v => el("th", {scope: "colgroup", colspan: "2", text: v.label}))]));
+    const head3 = el("tr", {}, ...sides.flatMap(() => ["Counted", "Flag", "Starters", "Bench", "Starters", "Bench"].map(t => el("th", {scope: "col", text: t}))));
+    const flagOf = (x, pos) => {
+      const f = x.ddf.balance.positions[pos].status;
+      const m = x.market ? x.market.balance.positions[pos].status : f;
+      return {text: STATUS_WORD[f] + (m !== f ? ` (market: ${STATUS_WORD[m].toLowerCase()})` : ""), cls: f !== "ok" ? `is-${f}` : (m !== "ok" ? `is-${m}` : "")};
+    };
+    const valueCells = (x, fn) => views.flatMap(v => {
+      const part = x[v.id];
+      return fn(part, v);
+    });
+    const body = DEPTH_POS.map(pos => el("tr", {"data-pos": pos}, el("th", {scope: "row", class: "v2-find-pos", text: pos}), cell(rangeText(a.expected[pos])),
+      ...sides.flatMap(x => {
+        const flag = flagOf(x, pos);
+        return [cell(String(x.ddf.balance.positions[pos].have), {class: "num"}), cell(flag.text, {class: flag.cls}),
+          ...valueCells(x, (part, v) => (part
+            ? [cell(money(posSum(part.lineup.starters, pos, v.key)), {class: "num", "data-cell": `${v.id}-starters`}), cell(money(posSum(part.lineup.bench, pos, v.key)), {class: "num", "data-cell": `${v.id}-bench`})]
+            : [cell("n/a", {class: "num"}), cell("n/a", {class: "num"})]))];
+      })));
+    const benchRow = el("tr", {"data-row": "bench"}, el("th", {scope: "row", class: "v2-find-pos", text: "Bench subtotal"}), cell(""),
+      ...sides.flatMap(x => [cell(String(x.ddf.lineup.bench.length), {class: "num"}), cell(""), ...valueCells(x, (part, v) => (part
+        ? [cell(""), cell(money(part.lineup.benchValue), {class: "num", "data-cell": `${v.id}-bench-total`})] : [cell(""), cell("n/a", {class: "num"})]))]));
+    const totalRow = el("tr", {"data-row": "total"}, el("th", {scope: "row", class: "v2-find-pos", text: "Total"}), cell(""),
+      ...sides.flatMap(x => [cell(String(x.ddf.lineup.starters.length + x.ddf.lineup.bench.length), {class: "num"}), cell(""), ...valueCells(x, (part, v) => [
+        part ? el("td", {colspan: "2", class: "num", "data-cell": `${v.id}-total`}, money(part.lineup.total)) : el("td", {colspan: "2", class: "num"}, "n/a")])]));
+    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup v2-find-assess-table"},
+      el("caption", {text: "Roster assessment: players counted against expected depth, and best-lineup value, starters and bench, by position"}),
+      el("thead", {}, head1, head2, head3), el("tbody", {}, ...body, benchRow, totalRow)));
+  }
+  function renderAssessment() {
+    const box = $("v2FindAssess");
+    if (!box) return;
+    const a = sideAssessment("mine");
+    const b = sideAssessment("theirs");
+    box.replaceChildren();
+    box.hidden = true;
+    if (!a && !b) return;
+    box.hidden = false;
+    const waiting = [a, b].filter(x => x && !x.ready);
+    if (!a || !b || waiting.length) {
+      const bits = [["mine", a], ["theirs", b]].map(([side, x]) => (!x ? `${SIDE_NAME[side]} has no players yet.` : !x.ready ? `${SIDE_NAME[side]} has ${x.have} of ${x.slots} players needed at QB, RB, WR and TE.` : ""));
+      box.append(el("p", {class: "v2-meta", text: `The roster assessment shows once both rosters have at least as many QB, RB, WR and TE players as the league has starting slots. ${bits.filter(Boolean).join(" ")}`}));
+      return;
     }
-    return box;
+    box.append(assessmentTable(a, b));
+    const notes = el("ul", {class: "v2-find-assess-notes"});
+    [[a, "Your"], [b, "Their"]].forEach(([x, who]) => {
+      const f = biggestImbalance(x.ddf.balance);
+      const m = x.market ? biggestImbalance(x.market.balance) : null;
+      let line = f ? `${who} biggest imbalance: ${imbalanceText(f)} in DDF Value.` : `${who} roster is balanced by position in DDF Value.`;
+      if (m && (!f || m.pos !== f.pos || m.status !== f.status)) line += ` In Trade chart average: ${imbalanceText(m)}.`;
+      else if (!m && x.market === null) line += " Trade chart average: not enough charts this week.";
+      if (x.missing) line += ` ${plural(x.missing, "player")} with no DDF Value left out of the counts and sums.`;
+      notes.append(el("li", {"data-note": "imbalance", text: line}));
+    });
+    const kept = a.kept.concat(b.kept);
+    if (kept.length) notes.append(el("li", {"data-note": "not-evaluated", text: `Not evaluated, left out of every count and sum: ${[["Your team", a.kept], ["Their team", b.kept]].filter(([, l]) => l.length).map(([who, l]) => `${who} ${listJoin(l.map(p => p.pos))}`).join("; ")}.`}));
+    box.append(notes);
   }
   // JEG-988: the engine's bench weights (the share of starts the bench takes, per position) and the fit context.
   function benchWeights() {
@@ -1037,18 +1127,15 @@
       afterArrange(`Cleared ${title.toLowerCase()}. Undo puts it back.`);
       input.focus();
     });
-    const evalSlot = el("div", {class: "v2-find-eval", id: `${id}Eval`, hidden: ""});
     const moveSel = el("button", {type: "button", class: "v2-btn v2-find-movesel", id: `${id}MoveSel`, text: "Move selected to the other team", disabled: ""});
     moveSel.addEventListener("click", () => moveKeys(S[side].filter(p => S.sel.has(p.key)).map(p => p.key)));
     const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("div", {class: "v2-find-side-head"}, el("h3", {text: title}), clear),
-      searchWrap, help, result, list, evalSlot, moveSel, importBox());
+      searchWrap, help, result, list, moveSel, importBox());
     const render = () => {
       clear.hidden = !S[side].length;
       const byKey = rowMap();
       const charts = marketKeys();
-      const fresh = evaluationNode(side, false);
-      evalSlot.replaceChildren(...fresh.childNodes);
-      evalSlot.hidden = fresh.hidden;
+      renderAssessment();
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
         remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); render(); updateArrange(); clearOutput(); });
@@ -1197,7 +1284,7 @@
     const note = text => out.append(el("p", {class: "v2-meta", text}));
     const C = engine();
     if (!C) return note("Values are still loading.");
-    if (!S.mine.length || !S.theirs.length) return note("Add at least one player to each roster.");
+    if (!S.mine.length || !S.theirs.length) { setHeadline("missing"); return note("Add at least one player to each roster."); }
     const all = C.getAllRows();
     const byKey = new Map(all.map(r => [String(r.player_key), r]));
     const rowsOf = list => list.map(p => byKey.get(p.key)).filter(Boolean);
@@ -1205,7 +1292,7 @@
     const sourceInfo = C.getSourceInfo ? C.getSourceInfo() : [];
     const availableKeys = new Set(sourceInfo.filter(item => item.available).map(item => item.key));
     const charts = CHART_KEYS.filter(key => availableKeys.has(key));
-    if (!charts.length) return note("No trade chart is available this week.");
+    if (!charts.length) { setHeadline("unjudged"); return note("No trade chart is available this week."); }
     if (charts.length < MIN_CHARTS) note(`Only ${charts.length} trade chart${charts.length === 1 ? " is" : "s are"} available this week. Not enough charts to judge acceptance.`);
     const shape = C.getRosterShape ? C.getRosterShape() : null;
     const mineRows = rowsOf(S.mine);
@@ -1227,9 +1314,8 @@
     }
     if (!res.trades.length) {
       note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} available trade chart${charts.length === 1 ? "s say" : "s say"} they break even or win. Try a larger package.`);
-      const empty = lineupContext(mineRows, theirRows, charts, shape);
-      if (empty) out.append(teamSummary(empty, res.ourKey));
-      return undefined;   // the roster evaluation is worth reading even when no trade is found
+      setHeadline("none", {reason: "no trades were found"});
+      return undefined;   // the roster assessment above stays: it is worth reading even when no trade is found
     }
     let groups = groupTrades(res.trades, {ourKey: res.ourKey});
     const lineup = lineupContext(mineRows, theirRows, charts, shape);
@@ -1237,12 +1323,17 @@
     // Natural fits first, then value fits, then force fits (Jeremy 2026-10-23); each tier keeps the edge ranking. Only the order changes.
     if (fitCtx) groups = tierGroups(groups, g => fitFor(lineup, fitCtx, g.best.give, g.best.receive));
     const shown = Math.min(GROUP_LIMIT, groups.length);
+    const fitLabels = fitCtx ? groups.map(g => fitFor(lineup, fitCtx, g.best.give, g.best.receive).label) : [];
+    const naturalCount = fitLabels.filter(label => label === "natural").length;
+    if (!fitCtx) setHeadline("unjudged");
+    else if (naturalCount) setHeadline("natural", {count: naturalCount});
+    else setHeadline("none");
     note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(groups.length, "group")}; ${groups.length > shown ? `the top ${shown} groups are listed` : "all are listed"}, ranked ${fitCtx ? "natural fits first, then value fits, then force fits, and within each by" : "by"} the best DDF Value edge in each, with simpler trades first.`
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : ""));
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
     const ctx = {...res.ctx, maxSize: res.maxSize, lineup, fit: fitCtx};
-    if (ctx.lineup) out.append(teamSummary(ctx.lineup, res.ourKey));
     groups.slice(0, shown).forEach(g => list.append(groupCard(g, ctx)));
+    if (naturalCount && list.firstElementChild) { list.firstElementChild.id = "v2FindFirstNatural"; list.firstElementChild.tabIndex = -1; }
     out.append(list);
     if (groups.length > shown) {
       const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shown, "more group")}`});
@@ -1273,20 +1364,6 @@
     const leaving = pickRows(who === "mine" ? giveRows : recvRows);
     const arriving = pickRows(who === "mine" ? recvRows : giveRows);
     return {roster: lineup[who][view], leaving, arriving};
-  }
-  function teamSummary(lineup, ourKey) {
-    const box = el("div", {class: "v2-find-teams-sum", id: "v2FindTeams"});
-    [["mine", "Your team"], ["theirs", "Their team"]].forEach(([who, title]) => {
-      const parts = views(lineup).map(view => {
-        const l = lineupValue(lineup[who][view], lineup.shape, viewKey(view, ourKey));
-        return `${VIEW_LABEL[view]}: starters ${l.starterValue.toFixed(1)}, bench ${l.benchValue.toFixed(1)}, total ${l.total.toFixed(1)}`;
-      });
-      const missing = lineupValue(lineup[who].ddf, lineup.shape, ourKey).unvalued.filter(r => !isNotEvaluated(r)).length;
-      box.append(el("p", {class: "v2-meta"}, el("span", {class: "v2-find-who", text: `${title}, best lineup. `}), `${parts.join("; ")}.${missing ? ` ${plural(missing, "player")} with no DDF Value left out.` : ""}`));
-      const evaluation = evaluationNode(who, true);
-      if (!evaluation.hidden) box.append(evaluation);
-    });
-    return box;
   }
   const signed = n => fmt(n);
   // Slot rows of one lineup: [{slot, row}] in slot order, empty slots as null.
@@ -1470,7 +1547,8 @@
     if (!S.mine.length || !S.theirs.length) return;
     setCollapsed(true);
     const out = $("v2FindOut");
-    if (out && out.scrollIntoView && root.innerWidth < 768) out.scrollIntoView({block: "start", behavior: "instant"});
+    const headline = $("v2FindFit");
+    if (headline && headline.scrollIntoView && root.innerWidth < 768) headline.scrollIntoView({block: "start", behavior: "instant"});
   }
 
   function build() {
@@ -1505,6 +1583,8 @@
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),
+      el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
+      el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),
       el("div", {id: "v2FindOut", "aria-live": "polite", hidden: ""}));
     card.addEventListener("keydown", event => {
       if (event.key === "Escape" && !$("v2FindInput").hidden && hasResults() && S.mine.length && S.theirs.length) { setCollapsed(true, "edit"); }
