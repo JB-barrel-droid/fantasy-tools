@@ -1,0 +1,185 @@
+// JEG-1012: exercises the remote MCP dispatch and tool logic with a stub
+// get-values, so it needs no network. Run by tests/test_mcp_remote.py.
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
+const codec = createRequire(import.meta.url)("../../app/v2/ddf-state.js");
+const ORIGIN = "https://site.test";
+const deps = { codec, siteOrigin: ORIGIN };
+
+const players = [
+  { player_key: 1, name: "Bijan Robinson", pos: "RB", value: 71.8, tier: 1 },
+  { player_key: 2, name: "Ja'Marr Chase", pos: "WR", value: 70.2, tier: 1 },
+  { player_key: 3, name: "Josh Allen", pos: "QB", value: 40, tier: 3 },
+  { player_key: 4, name: "Josh Jacobs", pos: "RB", value: 39, tier: 3 },
+  { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: 9 },
+];
+let calls = [];
+const stub = async (scoring, teams, superflex) => {
+  calls.push([scoring, teams, superflex]);
+  return {
+    attribution: "Data Driven Football", as_of: "2026-10-24",
+    setting: { scoring, teams, superflex }, players,
+    sources_included: ["espn"], sources_excluded: [],
+  };
+};
+const rpc = (method, params, id = 1) => handleRpc({ jsonrpc: "2.0", id, method, params }, stub);
+const call = (name, args) => rpc("tools/call", { name, arguments: args });
+
+let r = await rpc("initialize", { protocolVersion: "2025-06-18" });
+assert.equal(r.result.protocolVersion, "2025-06-18");
+assert.ok(r.result.capabilities.tools);
+r = await rpc("initialize", { protocolVersion: "1999-01-01" });
+assert.equal(r.result.protocolVersion, "2025-06-18");
+
+assert.equal(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialized" }, stub), null);
+assert.deepEqual((await rpc("ping")).result, {});
+r = await rpc("tools/list");
+assert.deepEqual(r.result.tools.map((t) => t.name),
+  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "explain"]);
+assert.ok(r.result.tools.every((t) => t.inputSchema.type === "object" && !/0-70/.test(t.description)));
+assert.equal((await rpc("nope")).error.code, -32601);
+assert.equal((await handleRpc({ foo: 1 }, stub)).error.code, -32600);
+
+// get_values: position filter, limit, structured output, settings forwarded.
+r = await call("get_values", { scoring: "half_ppr", teams: 10, superflex: true, position: "RB", limit: 1 });
+assert.deepEqual(calls.at(-1), ["half_ppr", 10, 1]);
+assert.deepEqual(r.result.structuredContent.players.map((p) => p.name), ["Bijan Robinson"]);
+
+// Names: apostrophes, partial matches; a 0 value is shown as 0, not dropped.
+r = await call("get_player_value", { names: "jamarr chase, zero guy, nobody" });
+const res = r.result.structuredContent.results;
+assert.equal(res[0].player.name, "Ja'Marr Chase");
+assert.equal(res[1].player.value, 0);
+assert.equal(res[2].player, null);
+assert.match(r.result.content[0].text, /nobody: NOT FOUND/);
+
+// Partial match picks the best-valued candidate, exact wins over partial.
+r = await call("get_player_value", { names: "josh" });
+assert.equal(r.result.structuredContent.results[0].player.name, "Josh Allen");
+
+r = await call("trade_targets", { player_name: "Josh Allen", range_pct: 10 });
+assert.deepEqual(r.result.structuredContent.targets.map((t) => t.name), ["Josh Jacobs"]);
+r = await call("trade_targets", { player_name: "Nobody" });
+assert.equal(r.result.isError, true);
+
+// compare_trade: verdict direction and missing names.
+r = await call("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson" });
+const c = r.result.structuredContent;
+assert.equal(c.difference, -31.8);
+assert.match(c.verdict, /team B gives up more value|team A comes out ahead/);
+assert.match(c.verdict, /team A comes out ahead by 31\.8/);
+r = await call("compare_trade", { side_a: "Josh Allen", side_b: "Josh Jacobs, Ghost" });
+assert.deepEqual(r.result.structuredContent.not_found, ["Ghost"]);
+assert.match(r.result.structuredContent.verdict, /roughly even/);
+
+// Bad input is a tool error, not a protocol error.
+for (const [name, args] of [["get_values", { scoring: "bad" }], ["get_values", { teams: 11 }],
+  ["get_values", { position: "K" }], ["explain", { topic: "x" }], ["nope", {}],
+  ["compare_trade", { side_a: "", side_b: "x" }]]) {
+  const e = await call(name, args);
+  assert.equal(e.result.isError, true, name + JSON.stringify(args));
+}
+r = await call("explain", { topic: "value_scale" });
+assert.doesNotMatch(r.result.content[0].text, /0-70/);
+
+// An upstream failure surfaces as a tool error without leaking details.
+const down = await handleRpc({ jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "get_values", arguments: {} } },
+  async () => { throw new Error("get-values 500 secret"); });
+assert.equal(down.result.isError, true);
+assert.doesNotMatch(down.result.content[0].text, /secret/);
+// ---------- JEG-1027: state in and out, links back to the site ----------
+const callD = (name, args, d = deps) => handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, stub, d);
+
+// Without deps the tools behave as before: no link.
+r = await call("get_values", { limit: 1 });
+assert.doesNotMatch(r.result.content[0].text, /Open this on the site/);
+
+// Every result ends with a link to the exact view, carrying the league used.
+r = await callD("get_values", { scoring: "half_ppr", teams: 10, superflex: true, limit: 1 });
+let url = r.result.structuredContent.site_url;
+assert.ok(url.startsWith(ORIGIN + "/#trade-targets?"), url);
+assert.match(r.result.content[0].text, /Open this on the site: https:\/\/site\.test\/#trade-targets\?/);
+let back = codec.decodeQuery(url.split("?")[1]).state;
+assert.equal(back.league.scoring, "half_ppr");
+assert.equal(back.league.teams, 10);
+assert.equal(back.league.roster.SUPERFLEX, 1);
+
+// compare_trade: the link is a Compare a trade link; team A gives, team B gets; keys not just names.
+r = await callD("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson, Ghost" });
+url = r.result.structuredContent.site_url;
+assert.ok(url.startsWith(ORIGIN + "/#compare-trade?"));
+back = codec.decodeQuery(url.split("?")[1]).state;
+assert.deepEqual(back.work.give, [{ key: "3" }]);
+assert.deepEqual(back.work.get, [{ key: "1" }, { name: "Ghost" }]);
+
+// Trade targets links the target player.
+r = await callD("trade_targets", { player_name: "Josh Allen" });
+back = codec.decodeQuery(r.result.structuredContent.site_url.split("?")[1]).state;
+assert.deepEqual(back.work.target, { key: "3" });
+
+// A pasted state supplies the league; explicit arguments win; the call prices that league.
+const pasted = codec.encodeBlock({ league: { scoring: "standard", teams: 8, roster: { SUPERFLEX: 1 } }, work: { give: [{ key: "3" }] } });
+await callD("get_values", { state: pasted, limit: 1 });
+assert.deepEqual(calls.at(-1), ["standard", 8, 1]);
+await callD("get_values", { state: pasted, scoring: "ppr", limit: 1 });
+assert.deepEqual(calls.at(-1), ["ppr", 8, 1]);
+
+// A league the endpoint cannot price is said out loud, so numbers are never silently different.
+const custom = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, shares: { QB: 0.2, RB: 0.35, WR: 0.35, TE: 0.1 } } });
+r = await callD("get_values", { state: custom, limit: 1 });
+assert.match(r.result.content[0].text, /not applied here/);
+assert.equal((await callD("get_values", { limit: 1 })).result.content[0].text.includes("not applied here"), false);
+
+// Work carried in a state survives a tool call that does not touch it.
+const carried = codec.encodeBlock({ league: { scoring: "ppr" }, work: { mine: [{ key: "1" }, { key: "2" }], theirs: [{ key: "3" }] } });
+r = await callD("get_values", { state: carried, limit: 1 });
+assert.deepEqual(r.result.structuredContent.state.work.mine, [{ key: "1" }, { key: "2" }]);
+
+// If the codec cannot be loaded, tools still answer and say the state was not read.
+r = await callD("get_values", { state: pasted, limit: 1 }, { codec: null, siteOrigin: ORIGIN });
+assert.notEqual(r.result.isError, true);
+assert.match(r.result.content[0].text, /state reader is unavailable/);
+r = await callD("read_state", { state: pasted }, { codec: null, siteOrigin: ORIGIN });
+assert.equal(r.result.isError, true);
+
+// read_state: resolves keys and names, totals each list, lists what it could not match.
+const work = codec.encodeBlock({ league: { scoring: "ppr", teams: 12 },
+  work: { give: [{ key: "3" }, { name: "jamarr chase" }], get: [{ name: "Nobody" }], target: { name: "Zero Guy" } } });
+r = await callD("read_state", { state: work });
+const sc = r.result.structuredContent;
+assert.deepEqual(sc.unmatched, ["Nobody"]);
+assert.equal(sc.lists.give[1].player.name, "Ja'Marr Chase");
+assert.match(r.result.content[0].text, /give \(total 110\.2\)/);
+assert.match(r.result.content[0].text, /target: Zero Guy \(TE\): 0/);
+assert.deepEqual(sc.state.work.give, [{ key: "3", name: "Josh Allen" }, { key: "2", name: "Ja'Marr Chase" }]);
+assert.ok(sc.site_url.startsWith(ORIGIN + "/#compare-trade?"), "view inferred from give/get");
+for (const bad of ["", "no state here"]) {
+  r = await callD("read_state", { state: bad });
+  assert.equal(r.result.isError, true, JSON.stringify(bad));
+}
+
+// make_state: names in, a pasteable block and a link out; the block reads back to the same work.
+r = await callD("make_state", { scoring: "ppr", teams: 12, mine: "Josh Allen, Josh Jacobs", theirs: "Bijan Robinson, Ghost" });
+const text = r.result.content[0].text;
+assert.match(text, /```ddf-state/);
+assert.match(text, /Could not match: Ghost/);
+const readBack = codec.decodeBlock(text).state;
+assert.deepEqual(readBack.work.mine, [{ key: "3", name: "Josh Allen" }, { key: "4", name: "Josh Jacobs" }]);
+assert.deepEqual(readBack.work.theirs, [{ key: "1", name: "Bijan Robinson" }, { name: "Ghost" }]);
+assert.equal(readBack.work.view, "finder");
+assert.ok(r.result.structuredContent.site_url.startsWith(ORIGIN + "/#find-trade?"));
+r = await callD("make_state", { scoring: "ppr" });
+assert.equal(r.result.isError, true);
+
+// explain points back to the site without imposing a league.
+r = await callD("explain", { topic: "tiers" });
+assert.equal(r.result.structuredContent.site_url, ORIGIN + "/");
+assert.equal(r.result.structuredContent.state, null);
+
+// The server instructions tell the model to link back and to use the state tools.
+const init = await handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }, stub, deps);
+assert.match(init.result.instructions, /always include that link/);
+assert.match(init.result.instructions, /read_state/);
+assert.match(init.result.instructions, /make_state/);
+console.log("ok");
