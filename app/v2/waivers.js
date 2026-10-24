@@ -473,9 +473,16 @@
       const lines = F.parsePasted(text);
       const {matched, unmatched} = F.matchNames(lines, rows);
       if (matched.length >= 2 && matched.length >= NAME_LIST_SHARE * lines.length) {
-        const special = unmatched.filter(F.isNotEvaluated).map(specialEntry).filter(Boolean);
+        // A typed defense or kicker name is kept, not evaluated (the same names Find a trade's search offers).
+        const choices = new Map(notEvaluatedChoices().map(c => [F.normName(c.name), c]));
+        const asSpecial = u => {
+          const c = choices.get(F.normName(u.name));
+          return c ? {key: String(c.player_key), name: c.name, pos: c.pos, team: c.team || ""} : null;
+        };
+        const special = unmatched.map(u => (F.isNotEvaluated(u) ? specialEntry(u) : asSpecial(u))).filter(Boolean);
+        unmatched.splice(0, unmatched.length, ...unmatched.filter(u => !F.isNotEvaluated(u) && !asSpecial(u)));
         put(matched.map(entryOfRow).concat(special), false);
-        const rest = unmatched.filter(u => !F.isNotEvaluated(u));
+        const rest = unmatched;
         result.replaceChildren(note(`Added ${plural(matched.length, "player")} from the list.${special.length ? ` Kept, not evaluated: ${special.map(e => e.name).join(", ")}.` : ""}`),
           ...unmatchedBlock(rest));
         return;

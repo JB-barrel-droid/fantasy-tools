@@ -51,7 +51,8 @@ PICK = """() => {
   const cands = [].concat(take('RB', 14, 3), take('WR', 20, 3), take('QB', 0, 1), take('TE', 0, 1), take('RB', 90, 1));
   const unpriced = C.getAllRows().filter(r => r.name && Number.isFinite(r.values.ddf_value) && !(r.values.usatoday > 0.05) && !(r.values.cbs > 0.05) && r.values.ddf_value >= 0).slice(0, 1).map(r => r.name);
   const defense = (window.TradeValueKDef.defenses[0] || {}).name;
-  return {roster, cands: cands.concat([roster[0], defense]), defense, unpriced};
+  const theirs = [].concat(take('QB', 8, 2), take('RB', 24, 6), take('WR', 34, 6), take('TE', 8, 2));
+  return {roster, cands: cands.concat([roster[0], defense]), defense, unpriced, theirs};
 }"""
 
 STATE = """() => {
@@ -111,8 +112,8 @@ def check(page, tag, width, base) -> list[str]:
     if s["live"] != "polite" or s["role"] != "status":
         errors.append(tag + f"headline live region {s['role']}/{s['live']}")
     # table
-    if len(s["rows"]) != 9:
-        errors.append(tag + f"{len(s['rows'])} result rows, want 9 (10 candidates less the one already on the roster... and the defense counted)")
+    if len(s["rows"]) != 10:
+        errors.append(tag + f"{len(s['rows'])} result rows, want 10 (nine players and a defense; the player already on the roster left out)")
     if phone:
         if s["tableVisible"] or not s["cardsVisible"] or s["cardCount"] != len(s["rows"]):
             errors.append(tag + f"phone layout: table {s['tableVisible']} cards {s['cardsVisible']} count {s['cardCount']}")
@@ -199,15 +200,19 @@ def check(page, tag, width, base) -> list[str]:
     # assessment: the one Find a trade builds, for the same roster
     page.evaluate("() => { location.hash = '#find-trade'; }")
     page.wait_for_function("() => !document.getElementById('v2FindTrade').hidden", timeout=20000)
+    page.fill("#v2FindTheirsSearch", "\n".join(pick["theirs"]))   # Find's assessment table shows once both rosters are in
+    page.wait_for_timeout(600)
     find = page.evaluate("""() => ({mine: [...document.querySelectorAll('#v2FindMinePlayers .v2-find-row b')].map(b => b.textContent),
-      cells: [...document.querySelectorAll('#v2FindAssess tbody tr')].map(tr => [...tr.children].slice(0, 8).map(c => c.innerText.trim()).join('|'))})""")
+      cells: [...document.querySelectorAll('#v2FindAssess tbody tr')].map(tr => [...tr.children].map(c => c.innerText.trim()))})""")
     if sorted(find["mine"]) != sorted(pick["roster"]):
         errors.append(tag + "Find a trade does not hold the same roster")
     page.evaluate("() => { location.hash = '#waivers'; }")
     page.wait_for_function("() => !document.getElementById('v2Waivers').hidden", timeout=20000)
-    mine = page.evaluate("""() => [...document.querySelectorAll('#v2WaiversAssess tbody tr')].map(tr => [...tr.children].slice(0, 8).map(c => c.innerText.trim()).join('|'))""")
-    if mine != find["cells"] or not mine:
-        errors.append(tag + f"assessment differs from Find a trade's: {mine[:2]} vs {find['cells'][:2]}")
+    mine = page.evaluate("""() => [...document.querySelectorAll('#v2WaiversAssess tbody tr')].map(tr => [...tr.children].map(c => c.innerText.trim()))""")
+    # Find shows two teams side by side: the first cells of each row, as many as this tab's one-team row has, are the same.
+    cut = [row[:len(m)] for row, m in zip(find["cells"], mine)]
+    if cut != mine or not mine:
+        errors.append(tag + f"assessment differs from Find a trade's: {[(a, b) for a, b in zip(mine, cut) if a != b][:2]}")
     page.wait_for_timeout(200)
     # share link round trip
     link = page.evaluate("() => location.href")
@@ -231,6 +236,13 @@ def check(page, tag, width, base) -> list[str]:
         errors.append(tag + "the page reloaded on a scoring change")
     if [r["ddf"] for r in before] == [r["ddf"] for r in after] and [r["name"] for r in before] == [r["name"] for r in after]:
         errors.append(tag + "a scoring change left every result as it was")
+    # The event itself redraws the tab (the engine's own change may not announce): wipe the results, send the event.
+    page.evaluate("""() => { document.getElementById('v2WaiversOut').replaceChildren(); document.getElementById('v2WaiversHeadline').querySelector('b').textContent = 'stale';
+      document.dispatchEvent(new CustomEvent('ddf:league-settings-changed', {detail: {reason: 'league', notes: []}})); }""")
+    page.wait_for_timeout(400)
+    again = page.evaluate(STATE)
+    if again["head"] == "stale" or not again["rows"] and not again["cardCount"]:
+        errors.append(tag + "the league-settings event did not redraw the tab")
     return errors
 
 
