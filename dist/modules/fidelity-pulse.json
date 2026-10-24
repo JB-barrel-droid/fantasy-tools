@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-24T06:40:15.421506Z",
- "run_id": "5489203a-fbf1-4018-85b0-cbdd302f5f14",
+ "checked_at": "2026-10-24T09:40:16.041233Z",
+ "run_id": "d209b128-f8c6-4948-aae7-525ac46ef791",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -33,7 +33,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "fcwk7_2026-10-24t0305_v1",
    "measured_site": "2026-10-23T06:05:19+00:00",
-   "since": "2026-10-24T06:40:15.421506Z",
+   "since": "2026-10-24T09:40:16.041233Z",
    "summary": "1182/1182 chart values equal stored bake fcwk7_2026-10-23t0605_v1; newer stored bake fcwk7_2026-10-24t0305_v1 (week 7, saved 2026-10-24T03:05:25.335751Z) is not on the chart yet: 1143 values changed, 30 added, 24 dropped"
   },
   "espn": {
@@ -45,7 +45,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-23@2026-10-23T21:55:56.633060Z",
    "measured_site": "2026-10-22",
-   "since": "2026-10-24T06:40:15.421506Z",
+   "since": "2026-10-24T09:40:16.041233Z",
    "summary": "the chart's snapshot 2026-10-22 is no longer stored: the stored set is now 2026-10-23; the chart is behind until the next chain run rebuilds it"
   },
   "cbsros": {
@@ -57,8 +57,8 @@
    "reason": "fidelity: publisher_vs_stored",
    "identity": "2026-10-23@2026-10-23T23:25:58.273548Z",
    "measured_site": "2026-10-23",
-   "since": "2026-10-24T06:40:15.421506Z",
-   "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Hunter Long); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['"
+   "since": "2026-10-24T09:40:16.041233Z",
+   "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, DJ Giddens, Eli Stowers, Kaleb Johnson); parse notes: RB: 3 players listed with another position i"
   },
   "razzball": {
    "stage": "publisher_vs_stored",
@@ -82,7 +82,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-24@2026-10-24T04:45:29.192825Z",
    "measured_site": null,
-   "since": "2026-10-24T06:40:15.421506Z",
+   "since": "2026-10-24T09:40:16.041233Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -94,7 +94,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
    "measured_site": null,
-   "since": "2026-10-24T06:40:15.421506Z",
+   "since": "2026-10-24T09:40:16.041233Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -312,17 +312,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "16/1182 values match exactly across 6 columns; 1166 of 1182 values moved since the save at 2026-10-24T03:05:25.335751Z (largest 88%; 7 outside the max(25%, 50) band: Deshaun Watson, Geno Smith, Jacoby Brissett); 3 players entered or left the bottom of the list since the save (churn)",
+     "summary": "16/1176 values match exactly across 6 columns; 1160 of 1176 values moved since the save at 2026-10-24T03:05:25.335751Z (largest 88%; 10 outside the max(25%, 50) band: Cam Ward, Deshaun Watson, Geno Smith, Jacoby Brissett); 6 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
+      "publisher_players": 200,
       "stored_players": 198,
-      "compared": 1182,
+      "compared": 1176,
       "matched": 16,
-      "mismatched": 1166,
+      "mismatched": 1160,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 3,
+      "list_churn": 6,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -334,9 +334,9 @@
       "full|1": {
        "left": 198,
        "right": 198,
-       "mismatched": 194,
-       "missing": 1,
-       "extra": 1
+       "mismatched": 193,
+       "missing": 3,
+       "extra": 3
       },
       "full|2": {
        "left": 198,
@@ -346,16 +346,16 @@
        "extra": 1
       },
       "half|1": {
-       "left": 198,
+       "left": 197,
        "right": 198,
-       "mismatched": 197,
-       "missing": 1,
-       "extra": 1
+       "mismatched": 193,
+       "missing": 2,
+       "extra": 3
       },
       "half|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 194,
+       "mismatched": 193,
        "missing": 1,
        "extra": 1
       },
@@ -370,11 +370,21 @@
        "left": 198,
        "right": 198,
        "mismatched": 194,
-       "missing": 1,
-       "extra": 1
+       "missing": 3,
+       "extra": 3
       }
      },
      "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 2608,
+       "name": "Geno Smith",
+       "pos": "QB",
+       "left": "1106",
+       "right": 626.0,
+       "delta": -480.0
+      },
       {
        "type": "value_mismatch",
        "grain": "full|2",
@@ -391,19 +401,19 @@
        "player_key": 2608,
        "name": "Geno Smith",
        "pos": "QB",
-       "left": "1073",
+       "left": "1098",
        "right": 634.0,
-       "delta": -439.0
+       "delta": -464.0
       },
       {
        "type": "value_mismatch",
        "grain": "std|2",
-       "player_key": 2608,
-       "name": "Geno Smith",
+       "player_key": 4203,
+       "name": "Deshaun Watson",
        "pos": "QB",
-       "left": "1061",
-       "right": 626.0,
-       "delta": -435.0
+       "left": "1186",
+       "right": 758.0,
+       "delta": -428.0
       },
       {
        "type": "value_mismatch",
@@ -417,6 +427,26 @@
       },
       {
        "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 303,
+       "name": "CeeDee Lamb",
+       "pos": "WR",
+       "left": "8039",
+       "right": 7649.0,
+       "delta": -390.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 4158,
+       "name": "C.J. Stroud",
+       "pos": "QB",
+       "left": "3239",
+       "right": 2878.0,
+       "delta": -361.0
+      },
+      {
+       "type": "value_mismatch",
        "grain": "std|1",
        "player_key": 337,
        "name": "Bucky Irving",
@@ -424,36 +454,6 @@
        "left": "3717",
        "right": 3368.0,
        "delta": -349.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 4203,
-       "name": "Deshaun Watson",
-       "pos": "QB",
-       "left": "1115",
-       "right": 767.0,
-       "delta": -348.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 337,
-       "name": "Bucky Irving",
-       "pos": "RB",
-       "left": "3696",
-       "right": 3349.0,
-       "delta": -347.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 303,
-       "name": "CeeDee Lamb",
-       "pos": "WR",
-       "left": "7923",
-       "right": 7589.0,
-       "delta": -334.0
       }
      ],
      "outside_universe": [],
@@ -551,9 +551,9 @@
       "position_counts": {
        "week_compared": 6,
        "publisher": {
-        "QB": 32,
-        "RB": 65,
-        "WR": 73,
+        "QB": 34,
+        "RB": 63,
+        "WR": 72,
         "TE": 28
        },
        "stored": {
@@ -600,6 +600,17 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 2608,
+     "name": "Geno Smith",
+     "pos": "QB",
+     "left": "1106",
+     "right": 626.0,
+     "delta": -480.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "full|2",
      "player_key": 2608,
      "name": "Geno Smith",
@@ -615,20 +626,20 @@
      "player_key": 2608,
      "name": "Geno Smith",
      "pos": "QB",
-     "left": "1073",
+     "left": "1098",
      "right": 634.0,
-     "delta": -439.0
+     "delta": -464.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
      "grain": "std|2",
-     "player_key": 2608,
-     "name": "Geno Smith",
+     "player_key": 4203,
+     "name": "Deshaun Watson",
      "pos": "QB",
-     "left": "1061",
-     "right": 626.0,
-     "delta": -435.0
+     "left": "1186",
+     "right": 758.0,
+     "delta": -428.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -644,6 +655,28 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 303,
+     "name": "CeeDee Lamb",
+     "pos": "WR",
+     "left": "8039",
+     "right": 7649.0,
+     "delta": -390.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 4158,
+     "name": "C.J. Stroud",
+     "pos": "QB",
+     "left": "3239",
+     "right": 2878.0,
+     "delta": -361.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "std|1",
      "player_key": 337,
      "name": "Bucky Irving",
@@ -651,39 +684,6 @@
      "left": "3717",
      "right": 3368.0,
      "delta": -349.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 4203,
-     "name": "Deshaun Watson",
-     "pos": "QB",
-     "left": "1115",
-     "right": 767.0,
-     "delta": -348.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 337,
-     "name": "Bucky Irving",
-     "pos": "RB",
-     "left": "3696",
-     "right": 3349.0,
-     "delta": -347.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 303,
-     "name": "CeeDee Lamb",
-     "pos": "WR",
-     "left": "7923",
-     "right": 7589.0,
-     "delta": -334.0
     }
    ],
    "held": null,
@@ -696,7 +696,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "fcwk7_2026-10-24t0305_v1",
     "measured_site": "2026-10-23T06:05:19+00:00",
-    "since": "2026-10-24T06:40:15.421506Z",
+    "since": "2026-10-24T09:40:16.041233Z",
     "summary": "1182/1182 chart values equal stored bake fcwk7_2026-10-23t0605_v1; newer stored bake fcwk7_2026-10-24t0305_v1 (week 7, saved 2026-10-24T03:05:25.335751Z) is not on the chart yet: 1143 values changed, 30 added, 24 dropped"
    }
   },
@@ -1234,7 +1234,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-23@2026-10-23T21:55:56.633060Z",
     "measured_site": "2026-10-22",
-    "since": "2026-10-24T06:40:15.421506Z",
+    "since": "2026-10-24T09:40:16.041233Z",
     "summary": "the chart's snapshot 2026-10-22 is no longer stored: the stored set is now 2026-10-23; the chart is behind until the next chain run rebuilds it"
    }
   },
@@ -1251,17 +1251,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Hunter Long); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)', 'Andrew Beck (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, DJ Giddens, Eli Stowers, Kaleb Johnson); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)', 'Andrew Beck (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 366,
       "stored_players": 366,
-      "compared": 1095,
-      "matched": 1095,
+      "compared": 1092,
+      "matched": 1092,
       "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 2,
+      "list_churn": 4,
       "unresolved_names": 1
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -1273,22 +1273,22 @@
        "left": 366,
        "right": 366,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 2,
+       "extra": 2
       },
       "half|1": {
        "left": 366,
        "right": 366,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 2,
+       "extra": 2
       },
       "std|1": {
        "left": 366,
        "right": 366,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 2,
+       "extra": 2
       }
      },
      "publisher_version": null,
@@ -1583,8 +1583,8 @@
     "reason": "fidelity: publisher_vs_stored",
     "identity": "2026-10-23@2026-10-23T23:25:58.273548Z",
     "measured_site": "2026-10-23",
-    "since": "2026-10-24T06:40:15.421506Z",
-    "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Hunter Long); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['"
+    "since": "2026-10-24T09:40:16.041233Z",
+    "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, DJ Giddens, Eli Stowers, Kaleb Johnson); parse notes: RB: 3 players listed with another position i"
    }
   },
   {
@@ -1709,7 +1709,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher updated 2026-10-23 (4 h ago); chart shows snapshot 2026-10-22; stored has 2026-10-23",
+     "summary": "publisher updated 2026-10-23 (7 h ago); chart shows snapshot 2026-10-22; stored has 2026-10-23",
      "chart_snapshot": "2026-10-22",
      "publisher_vintage": "2026-10-23"
     },
@@ -1987,7 +1987,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-24@2026-10-24T04:45:29.192825Z",
     "measured_site": null,
-    "since": "2026-10-24T06:40:15.421506Z",
+    "since": "2026-10-24T09:40:16.041233Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -2050,7 +2050,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
     "measured_site": null,
-    "since": "2026-10-24T06:40:15.421506Z",
+    "since": "2026-10-24T09:40:16.041233Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
