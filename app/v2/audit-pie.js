@@ -431,7 +431,7 @@
           direction(worst) + " the middle source (spread " + fmtSpreadPct(worst.spread) + ", limit " + pctWhole(T.positionStarterSpread) + ")" +
           (flaggedPos.length > 1 ? "; also " + flaggedPos.slice(1).join(", ") : "") + "."
         : "RB " + fmtSpreadPct(posInfo.RB.spread) + ", WR " + fmtSpreadPct(posInfo.WR.spread) + ", TE " +
-          fmtSpreadPct(posInfo.TE.spread) + " (limit " + pctWhole(T.positionStarterSpread) + ")."
+          fmtSpreadPct(posInfo.TE.spread) + ": all within the " + pctWhole(T.positionStarterSpread) + " limit."
     });
 
     // 3. QB starters: informational, never flagged (Jeremy, 2026-10-24).
@@ -518,7 +518,7 @@
           ? plainLabel(recon[0].src) + ", all positions: Player values add up to " + fmt(recon[0].got) + ", not the value pie " + fmt(recon[0].want)
           : plainLabel(recon[0].src) + ", all positions: Rescaled adds up to " + fmt(recon[0].got) + " for its listed players, DDF Value " + fmt(recon[0].want)) +
           (recon.length > 1 ? "; " + (recon.length - 1) + " more below" : "") + "."
-        : "Projections add up to the value pie; charts match DDF Value on their listed players."
+        : "Projections add up to the value pie, and charts match DDF Value on the players they list."
     });
 
     data.coverFlags = cover;

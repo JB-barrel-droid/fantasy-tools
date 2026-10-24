@@ -66,7 +66,7 @@ RENDER_JS = """(insp) => {
     headings: q('h2').map(h => h.textContent),
     questionSections: q('section.audit-pie-section, details.audit-pie-section').filter(s => !s.classList.contains('audit-pie-terms')).map(s => ({
       id: s.id, q: (s.querySelector('h2') || {}).textContent, how: Boolean(s.querySelector('.audit-pie-how'))})),
-    flagCells: q('[data-flag]').map(c => ({table: (c.closest('table') || {getAttribute: () => ''}).getAttribute('aria-label'), row: c.parentElement.cells[0].textContent, text: c.textContent})),
+    flagCells: q('[data-flag]').map(c => ({table: (c.closest('table') || {getAttribute: () => ''}).getAttribute('aria-label'), row: c.parentElement.cells[0].textContent, col: c.closest('table').rows[0].cells[c.cellIndex].textContent, text: c.textContent})),
     tables: q('table').map(t => ({label: t.getAttribute('aria-label'), caption: Boolean(t.querySelector('caption')),
       cols: t.rows[0].cells.length, unscoped: [...t.querySelectorAll('th')].filter(h => !h.getAttribute('scope')).length, collapsed: Boolean(t.closest('details:not([open])'))})),
     visibleCols: Math.max(0, ...visibleTables.map(t => t.rows[0].cells.length)),
@@ -258,9 +258,9 @@ def logic_checks(pie_js: str | None = None) -> list[str]:
                 errors.append("perturbed ESPN: no flag row names the source")
             if rp["headline"] and "need a look" not in rp["headline"]:
                 errors.append(f"perturbed ESPN: headline {rp['headline']!r} does not say something needs a look")
-            marked = [c for c in rp["flagCells"] if "ESPN" in c["row"]]
+            marked = [c for c in rp["flagCells"] if "ESPN" in c["row"] and c["col"] == "Starters"]
             if not marked:
-                errors.append("perturbed ESPN: no table cell is marked for ESPN (strip and tables must agree)")
+                errors.append("perturbed ESPN: the Starters cell of the ESPN row is not marked (strip and tables must agree)")
             if any("ESPN" not in c["row"] for c in rp["flagCells"] if c["table"] and "Starter, bench and total value by source" == c["table"]):
                 errors.append("perturbed ESPN: a table cell is marked for a source that is not the problem")
             if page_errors:
@@ -357,7 +357,69 @@ def live_checks(pie_js: str | None = None, shell_edit=None) -> list[str]:
     return errors
 
 
+SWEEP_JS = """async ([scoring, teams]) => {
+  const C = window.TradeValueCurveControls;
+  C.setScoring(scoring); C.setTeams(teams);
+  window.dispatchEvent(new CustomEvent('trade-value-shared-change'));
+  await new Promise(r => setTimeout(r, 250));
+  const rows = [...document.querySelectorAll('.audit-pie-check')].map(r => [r.dataset.check, r.dataset.status, r.innerText]);
+  const insp = C.getInspection();
+  return {rows, pie: insp.valuePipeline.pie, meta: document.querySelector('.audit-pie-meta').textContent,
+    bad: /NaN|undefined|Infinity|null/.test(document.getElementById('audit-pie-root').innerText),
+    tables: document.querySelectorAll('#audit-pie-root table').length, teams: insp.setting.teams, scoring: insp.setting.scoring};
+}"""
+
+
+def sweep_checks() -> list[str]:
+    """3 scorings x 4 league sizes on the live page: the tab follows each setting, renders cleanly, and healthy data stays healthy."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:  # noqa: BLE001
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    errors: list[str] = []
+    with _built_dist(POSTS) as base, sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(pw))
+        except Exception as exc:  # noqa: BLE001
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            page = browser.new_page(viewport={"width": 1366, "height": 768})
+            page_errors: list[str] = []
+            page.on("pageerror", lambda e: page_errors.append(str(e)))
+            page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+            page.goto(base + "#values-auditing/health-check", wait_until="networkidle")
+            page.wait_for_function("() => window.TradeValueV2 && window.TradeValueCurveControls.isReady()", timeout=40000)
+            page.wait_for_selector(".audit-pie-checks", timeout=15000)
+            seen = set()
+            for scoring in ("standard", "half_ppr", "ppr"):
+                for teams in (8, 10, 12, 14):
+                    got = page.evaluate(SWEEP_JS, [scoring, teams])
+                    tag = f"[{scoring} {teams}] "
+                    seen.add(got["pie"])
+                    if [r[0] for r in got["rows"]] != CHECK_IDS:
+                        errors.append(f"{tag}rows {[r[0] for r in got['rows']]}")
+                    if got["bad"] or got["tables"] < 9:
+                        errors.append(f"{tag}page text has NaN/undefined or {got['tables']} tables")
+                    if f"{teams} teams" not in got["meta"]:
+                        errors.append(f"{tag}header does not follow the league size: {got['meta']!r}")
+                    flags = [r[0] for r in got["rows"] if r[1] == "flag"]
+                    if flags != HEALTHY_FLAGS:
+                        errors.append(f"{tag}flags {flags} on healthy data")
+                    if any(r[0] in INFO_IDS and r[1] != "info" for r in got["rows"]):
+                        errors.append(f"{tag}an information row changed status")
+            if len(seen) != 4:
+                errors.append(f"the value pie took {len(seen)} values across 12 settings, want 4 (one per league size)")
+            if page_errors:
+                errors.append(f"page errors {page_errors}")
+        finally:
+            browser.close()
+    return errors
+
+
 class HealthCheckRenderTest(unittest.TestCase):
+    def test_twelve_combo_sweep(self):
+        self.assertEqual(sweep_checks(), [])
+
     def test_logic_and_copy_on_frozen_fixtures(self):
         self.assertEqual(logic_checks(), [])
 
