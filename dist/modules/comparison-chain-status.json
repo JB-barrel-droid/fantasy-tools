@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-24T11:01:57.202170+00:00",
+  "run_at": "2026-10-24T11:28:08.386859+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -109,7 +109,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-23 -> 12 DDF legs -> section; review passed (7704 values)",
+      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7704 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -156,7 +156,7 @@
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-23",
+      "content_vintage": "2026-10-24",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
@@ -172,12 +172,12 @@
       "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults"
     ],
     "assertions": [
-      "AssertionError: False is not true : {'QB': 0.12971525612770948, 'RB': 0.15548599773415844, 'WR': 0.16862628776777755, 'TE': 0.027716563863950428, 'overall': 0.15271439537541204, 'override': False, 'overrideValue': None, 'fillInShare': 0.06106231072128104, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}"
+      "AssertionError: False is not true : {'QB': 0.12971478703486694, 'RB': 0.15589395108251722, 'WR': 0.16861501976167298, 'TE': 0.027716467089886447, 'overall': 0.15290218207857573, 'override': False, 'overrideValue': None, 'fillInShare': 0.06178000948202819, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}"
     ],
     "make_targets": [
       "Makefile:537: test-core"
     ],
-    "detail": "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; AssertionError: False is not true : {'QB': 0.12971525612770948, 'RB': 0.15548599773415844, 'WR': 0.16862628776777755, 'TE': 0.027716563863950428, 'overall': 0.15271439537541204, 'override': False, 'overrideValue': None, 'fillInShare': 0.06106231072128104, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}",
-    "recorded_at": "2026-10-24T11:21:52.130874+00:00"
+    "detail": "FAIL tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; AssertionError: False is not true : {'QB': 0.12971478703486694, 'RB': 0.15589395108251722, 'WR': 0.16861501976167298, 'TE': 0.027716467089886447, 'overall': 0.15290218207857573, 'override': False, 'overrideValue': None, 'fillInShare': 0.06178000948202819, 'method': 'expected-starts', 'contentWeek': 6, 'window': [7, 17], 'error': None}",
+    "recorded_at": "2026-10-24T11:50:45.625314+00:00"
   }
 }
