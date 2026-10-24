@@ -916,6 +916,22 @@
   }
   const countLine = (res, bad) => el("p", {class: `v2-find-paste-count ${bad ? "is-bad" : res.matched && res.matched === res.total ? "is-ok" : "is-warn"}`,
     text: `Matched ${res.matched} of ${res.total} players${siteWord(res.site)}.`});
+  // JEG-1010: for extraction results, show "Found N players" and the ignored-lines disclosure.
+  function extractCountLine(res) {
+    const ignored = (res.ignoredLines || []).length;
+    return el("p", {class: `v2-find-paste-count ${res.matched ? "is-ok" : "is-bad"}`,
+      text: `Found ${plural(res.matched, "player")}${ignored ? `, ignored ${plural(ignored, "line")}` : ""}.`});
+  }
+  function ignoredBlock(side, ignoredLines) {
+    if (!ignoredLines || !ignoredLines.length) return null;
+    const items = ignoredLines.slice(0, 50).map(line => {
+      const search = el("button", {type: "button", class: "v2-btn v2-find-search-add", text: "Search", "aria-label": `Search for ${cleanLine(line)}`});
+      search.addEventListener("click", () => searchFor(side, line));
+      return el("li", {}, el("span", {class: "v2-meta", text: cleanLine(line)}), search);
+    });
+    return el("details", {class: "v2-find-ignored"}, el("summary", {text: `Show ${plural(ignoredLines.length, "ignored line")}`}),
+      el("ul", {class: "v2-find-ignored-list"}, ...items));
+  }
 
   // text: the pasted page; side: where it was pasted; box: the side's result panel; done(): the paste was used.
   function readPage(text, side, box, done) {
@@ -926,7 +942,13 @@
     if (res.mode === "matchup" && res.teams && res.teams.length === 2) return readMatchup(res, side, box, done);
     if (!res.matched) {
       put(box, el("p", {class: "v2-find-paste-count is-bad", text: "No players recognised in that text. Nothing was added."}),
-        el("p", {class: "v2-meta", text: "Paste the whole ESPN or Yahoo team page (Ctrl+A, Ctrl+C on the page), or search and add players by name below."}));
+        el("p", {class: "v2-meta", text: "Paste a team page from any fantasy site (Ctrl+A, Ctrl+C on the page), or a list of player names. Search and add players by name below."}));
+      return;
+    }
+    // JEG-1010: extraction results (mode "extract") always show what was found, no minimum-share gate.
+    if (res.mode === "extract") {
+      placeExtracted(side, res, box);
+      done();
       return;
     }
     if (res.matched < MIN_MATCHED || res.matched / res.total < MIN_SHARE) {
@@ -947,6 +969,16 @@
     put(box, countLine(res),
       el("p", {class: "v2-meta", text: `${SIDE_NAME[side]} now has ${plural(S[side].length, "player")}.${onOther.length ? ` Left out because they are on the other roster: ${onOther.join(", ")}.` : ""}`}),
       matchedList(added), keptNote(kept), ...unsureBlock(side, unsure), ...unmatchedBlock(side, evaluatedOnly(res.unmatched)), benchNote(res));
+  }
+  // JEG-1010: place players from an extraction result (any source, noisy text).
+  function placeExtracted(side, res, box) {
+    const {added, onOther, unsure} = placePlayers(side, res.players, true);
+    const kept = keepNotEvaluated(side, res.unmatched);
+    renderBoth();
+    clearOutput();
+    put(box, extractCountLine(res),
+      el("p", {class: "v2-meta", text: `${SIDE_NAME[side]} now has ${plural(S[side].length, "player")}.${onOther.length ? ` Left out because they are on the other roster: ${onOther.join(", ")}.` : ""}`}),
+      matchedList(added), keptNote(kept), ...unsureBlock(side, unsure), ...unmatchedBlock(side, evaluatedOnly(res.unmatched)), ignoredBlock(side, res.ignoredLines));
   }
   const teamLabel = (res, i) => res.teams[i].teamName || `Team ${i + 1} (listed ${i ? "second" : "first"})`;
   function readMatchup(res, side, box, done) {
@@ -989,7 +1021,7 @@
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole team page`}), input);
     const searchWrap = el("div", {class: "v2-find-search-wrap"}, label, results);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}PasteHelp`,
-      text: "Type a name to search, or paste a whole ESPN or Yahoo team page (Ctrl+A, Ctrl+C on the page; a matchup page fills both rosters). Pasted text stays in this browser; nothing is sent anywhere."});
+      text: "Type a name to search, or paste a team page from any fantasy site (Ctrl+A, Ctrl+C on the page; a matchup page fills both rosters). Pasted text stays in this browser; nothing is sent anywhere."});
     const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
     const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
     clear.addEventListener("click", () => {
@@ -1030,22 +1062,22 @@
       }));
     };
     renders[side] = render;
-    // JEG-853 / JEG-988: text that is a whole page (looksLikePage) is read by roster-paste.js in the browser. A matchup
-    // page fills both rosters; the user taps which team is theirs. A list of names (nothing a page parser recognises, but
-    // nearly every line a player) is added by name, as "Pasted names" under "Other ways".
+    // JEG-853 / JEG-988 / JEG-1010: text that is a whole page (looksLikePage) is read by roster-paste.js in the
+    // browser. Format-specific parsers (Yahoo, ESPN) run first; the n-gram extractor (JEG-1010) handles everything
+    // else. A matchup page fills both rosters; the user taps which team is theirs. A simple name-per-line list that
+    // is 80%+ players is added directly.
     function consume(text) {
       input.value = "";
       results.replaceChildren();
       results.hidden = true;
-      const res = parsePage(text);
-      if (res && !res.matched) {
-        const lines = parsePasted(text);
-        const { matched } = matchNames(lines, engine().getAllRows());
-        if (matched.length >= 2 && matched.length >= NAME_LIST_SHARE * lines.length) {
-          result.replaceChildren(el("p", {class: "v2-meta", text: apply(lines, "the list", false)}));
-          return;
-        }
+      // Quick path: if parsePasted thinks it is a clean name list (80%+ players), add them directly.
+      const lines = parsePasted(text);
+      const { matched: nameMatches } = matchNames(lines, engine() ? engine().getAllRows() : []);
+      if (nameMatches.length >= 2 && nameMatches.length >= NAME_LIST_SHARE * lines.length) {
+        result.replaceChildren(el("p", {class: "v2-meta", text: apply(lines, "the list", false)}));
+        return;
       }
+      // Otherwise go through parsePage (which falls back to extractPlayers for unknown sites).
       readPage(text, side, result, () => {});
     }
     input.addEventListener("paste", event => {
