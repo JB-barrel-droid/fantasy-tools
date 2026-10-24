@@ -298,7 +298,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "finder.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "name-format.js", "v2.js"):
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "name-format.js", "ddf-state.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 

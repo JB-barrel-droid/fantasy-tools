@@ -4,6 +4,8 @@
 // Lookups and trade math run here, so a tool call returns a small answer
 // instead of the whole player list.
 
+import { type Deps, finish, prepare } from "./state.ts";
+
 export interface PlayerValue {
   player_key: number;
   name: string;
@@ -50,6 +52,19 @@ const settingsProps = {
   scoring: { type: "string", enum: SCORINGS, default: "ppr", description: "League scoring format" },
   teams: { type: "integer", enum: TEAMS, default: 12, description: "Number of teams in the league" },
   superflex: { type: "boolean", default: false, description: "Whether the league has a superflex slot" },
+  state: {
+    type: "string",
+    description:
+      "Optional: a DDF state pasted from the site (a ```ddf-state block, JSON, or a site link). Supplies the league settings; explicit settings above win.",
+  },
+};
+
+const listProps = {
+  give: { type: "string", description: "Comma-separated names: what you give (Compare a trade)" },
+  get: { type: "string", description: "Comma-separated names: what you get (Compare a trade)" },
+  mine: { type: "string", description: "Comma-separated names: your roster (Find a trade)" },
+  theirs: { type: "string", description: "Comma-separated names: their roster (Find a trade)" },
+  target: { type: "string", description: "One player name (Trade targets)" },
 };
 
 export const TOOLS = [
@@ -109,6 +124,31 @@ export const TOOLS = [
         side_b: { type: "string", description: "Comma-separated names team B gives up" },
       },
       required: ["side_a", "side_b"],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "read_state",
+    description:
+      "Read a DDF state pasted from the Data Driven Football site (a ```ddf-state block, JSON, or a site link): the league, rosters and trade the person was working on. Resolves names to players, prices them, and reports anything it could not match. Use this first when the user pastes site work.",
+    inputSchema: {
+      type: "object",
+      properties: { state: { type: "string", description: "The pasted block, JSON or site link" } },
+      required: ["state"],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "make_state",
+    description:
+      "Save work from this chat as a DDF state the person can paste into the Data Driven Football site (or open by link): league settings plus a trade, rosters or a target player, by name. Returns the pasteable block and the link.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...settingsProps,
+        ...listProps,
+        view: { type: "string", enum: ["compare", "targets", "finder"], description: "Which site view to open; inferred if omitted" },
+      },
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
@@ -179,10 +219,19 @@ export async function runTool(
   name: string,
   args: Record<string, unknown>,
   fetchValues: FetchValues,
+  deps?: Deps,
 ): Promise<ToolResult> {
-  if (name === "explain") return explain(String(args.topic ?? ""));
+  if (name === "read_state") return await readState(args, fetchValues, deps);
+  if (name === "make_state") return await makeState(args, fetchValues, deps);
+  const prepared = prepare(args, deps);
+  args = prepared.args;
+  if (name === "explain") {
+    const dummy = { scoring: "ppr", teams: 12, superflex: 0 };
+    return finish(explain(String(args.topic ?? "")), { prepared, deps, settings: dummy, view: "targets", bare: true });
+  }
 
   const s = settings(args);
+  const entry = (input: string, p: PlayerValue | null) => p ? { key: String(p.player_key), name: p.name } : { name: input };
 
   if (name === "get_values") {
     const pos = position(args);
@@ -196,12 +245,10 @@ export async function runTool(
       "Rank | Player | Pos | Value | Tier",
       ...players.map((p, i) => `${i + 1} | ${p.name} | ${p.pos} | ${p.value} | ${p.tier}`),
     ].join("\n");
-    return ok(text, {
-      as_of: data.as_of,
-      setting: data.setting,
-      sources_included: data.sources_included,
-      players,
-    });
+    return finish(
+      ok(text, { as_of: data.as_of, setting: data.setting, sources_included: data.sources_included, players }),
+      { prepared, deps, settings: s, view: "targets" },
+    );
   }
 
   if (name === "get_player_value") {
@@ -218,7 +265,11 @@ export async function runTool(
           : `${r.input}: NOT FOUND`
       ),
     ].join("\n");
-    return ok(text, { as_of: data.as_of, setting: data.setting, results });
+    const first = results.find((r) => r.player);
+    return finish(ok(text, { as_of: data.as_of, setting: data.setting, results }), {
+      prepared, deps, settings: s, view: "targets",
+      work: first ? { target: entry(first.input, first.player) } : undefined,
+    });
   }
 
   if (name === "trade_targets") {
@@ -248,7 +299,9 @@ export async function runTool(
       "Player | Pos | Value | Tier | Diff",
       ...targets.map((t) => `${t.name} | ${t.pos} | ${t.value} | ${t.tier} | ${t.diff >= 0 ? "+" : ""}${t.diff.toFixed(1)}`),
     ].join("\n");
-    return ok(text, { as_of: data.as_of, setting: data.setting, player, targets });
+    return finish(ok(text, { as_of: data.as_of, setting: data.setting, player, targets }), {
+      prepared, deps, settings: s, view: "targets", work: { target: entry(String(args.player_name), player) },
+    });
   }
 
   if (name === "compare_trade") {
@@ -284,15 +337,22 @@ export async function runTool(
       `Verdict: ${verdict}.`,
       ...(notFound.length ? [`Warning: not found, counted as 0: ${notFound.join(", ")}`] : []),
     ].join("\n");
-    return ok(text, {
-      as_of: data.as_of,
-      setting: data.setting,
-      side_a: { total: sumA, players: a },
-      side_b: { total: sumB, players: b },
-      difference: diff,
-      verdict,
-      not_found: notFound,
-    });
+    // The site's Compare a trade reads "give" as what the person gives up: team A is the person.
+    return finish(
+      ok(text, {
+        as_of: data.as_of,
+        setting: data.setting,
+        side_a: { total: sumA, players: a },
+        side_b: { total: sumB, players: b },
+        difference: diff,
+        verdict,
+        not_found: notFound,
+      }),
+      {
+        prepared, deps, settings: s, view: "compare",
+        work: { give: a.map((r) => entry(r.input, r.player)), get: b.map((r) => entry(r.input, r.player)) },
+      },
+    );
   }
 
   throw new ToolInputError(`unknown tool: ${name}`);
@@ -319,4 +379,99 @@ function explain(topic: string): ToolResult {
   const text = EXPLANATIONS[topic];
   if (!text) throw new ToolInputError(`unknown topic: ${topic}. Must be one of: ${EXPLAIN_TOPICS.join(", ")}`);
   return ok(`Data Driven Football\n\n${text}`, { topic, text });
+}
+
+// ---------- state tools (JEG-1027) ----------
+
+type Entry = { key?: string; name?: string };
+const WORK_LISTS = ["give", "get", "mine", "theirs"];
+
+function resolveEntry(players: PlayerValue[], e: Entry): { input: string; player: PlayerValue | null } {
+  const byKey = e.key !== undefined ? players.find((p) => String(p.player_key) === e.key) ?? null : null;
+  const player = byKey ?? (e.name ? findPlayer(players, e.name) : null);
+  return { input: e.name ?? e.key ?? "", player };
+}
+
+function inferView(work: Record<string, unknown>): string {
+  if (work.give || work.get) return "compare";
+  if (work.mine || work.theirs) return "finder";
+  return "targets";
+}
+
+async function readState(args: Record<string, unknown>, fetchValues: FetchValues, deps?: Deps): Promise<ToolResult> {
+  if (!deps?.codec) throw new ToolInputError("The shared state reader is unavailable right now. Try again shortly.");
+  if (!String(args.state ?? "").trim()) throw new ToolInputError("state is required: paste a ddf-state block or a site link");
+  const prepared = prepare(args, deps);
+  if (!prepared.state) {
+    throw new ToolInputError(`No usable DDF state found in the text. ${prepared.warnings.join(" ")}`.trim());
+  }
+  const s = settings(prepared.args);
+  const data = await fetchValues(s.scoring, s.teams, s.superflex);
+  const work = (prepared.state.work ?? {}) as Record<string, unknown>;
+
+  const lists: Record<string, Array<{ input: string; player: PlayerValue | null }>> = {};
+  const resolvedWork: Record<string, unknown> = {};
+  const unmatched: string[] = [];
+  const lines: string[] = [...header(data, s), ""];
+  for (const name of WORK_LISTS) {
+    const list = work[name] as Entry[] | undefined;
+    if (!list?.length) continue;
+    const rows = list.map((e) => resolveEntry(data.players, e));
+    lists[name] = rows;
+    resolvedWork[name] = rows.map((r, i) => r.player ? { key: String(r.player.player_key), name: r.player.name } : list[i]);
+    rows.filter((r) => !r.player).forEach((r) => unmatched.push(r.input));
+    const total = Math.round(rows.reduce((t, r) => t + (r.player?.value ?? 0), 0) * 10) / 10;
+    lines.push(`${name} (total ${total.toFixed(1)}):`);
+    lines.push(...rows.map((r) => r.player ? `  ${r.player.name} (${r.player.pos}): ${r.player.value}` : `  ${r.input}: NOT FOUND`));
+  }
+  if (work.target) {
+    const r = resolveEntry(data.players, work.target as Entry);
+    lists.target = [r];
+    resolvedWork.target = r.player ? { key: String(r.player.player_key), name: r.player.name } : work.target;
+    if (!r.player) unmatched.push(r.input);
+    lines.push(`target: ${r.player ? `${r.player.name} (${r.player.pos}): ${r.player.value}` : `${r.input}: NOT FOUND`}`);
+  }
+  if (!Object.keys(lists).length) lines.push("The state carries league settings only, no players.");
+  if (unmatched.length) lines.push("", `Could not match: ${unmatched.join(", ")}. Ask the user to check the spelling.`);
+
+  const view = typeof work.view === "string" ? work.view : inferView(work);
+  return finish(
+    ok(lines.join("\n"), { as_of: data.as_of, setting: data.setting, lists, unmatched }),
+    { prepared, deps, settings: s, view, work: resolvedWork },
+  );
+}
+
+async function makeState(args: Record<string, unknown>, fetchValues: FetchValues, deps?: Deps): Promise<ToolResult> {
+  if (!deps?.codec) throw new ToolInputError("The shared state writer is unavailable right now. Try again shortly.");
+  const prepared = prepare(args, deps);
+  const a = prepared.args;
+  const s = settings(a);
+  const data = await fetchValues(s.scoring, s.teams, s.superflex);
+  const names = (v: unknown) => String(v ?? "").split(",").map((n) => n.trim()).filter(Boolean);
+  const work: Record<string, unknown> = {};
+  const unmatched: string[] = [];
+  const toEntry = (input: string) => {
+    const p = findPlayer(data.players, input);
+    if (!p) unmatched.push(input);
+    return p ? { key: String(p.player_key), name: p.name } : { name: input };
+  };
+  for (const name of WORK_LISTS) {
+    const list = names(a[name]);
+    if (list.length) work[name] = list.map(toEntry);
+  }
+  if (String(a.target ?? "").trim()) work.target = toEntry(String(a.target).trim());
+  if (!Object.keys(work).length && !prepared.state) {
+    throw new ToolInputError("Give at least one of give, get, mine, theirs or target, or a pasted state.");
+  }
+  const allViews = ["compare", "targets", "finder"];
+  const view = allViews.includes(String(a.view)) ? String(a.view) : inferView({ ...(prepared.state?.work ?? {}), ...work });
+  const text = [
+    ...header(data, s),
+    "",
+    "Saved as a DDF state. The person can paste the block below into the site's paste box, or open the link.",
+    ...(unmatched.length ? [`Could not match: ${unmatched.join(", ")} (kept by name; the site will try again).`] : []),
+  ].join("\n");
+  return finish(ok(text, { as_of: data.as_of, setting: data.setting, unmatched }), {
+    prepared, deps, settings: s, view, work, block: true,
+  });
 }
