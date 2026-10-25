@@ -259,10 +259,10 @@ def run_checks(patches=(), only=None) -> list[str]:
                     errors.append(f"find: search is not an announced combobox {combo} (JEG-900)")
                 page.close()
 
-            # Values auditing: Value pie tables and heading levels.
+            # Values auditing: Health check tables and heading levels (JEG-1011: was the Value pie).
             if want("pie"):
                 page = fresh(1440)
-                _goto(page, base, "values-auditing/value-pie", "() => document.querySelector('table.audit-pie-table')")
+                _goto(page, base, "values-auditing/health-check", "() => document.querySelector('table.audit-pie-table')")
                 pie = page.evaluate("""() => {
                   const t = [...document.querySelectorAll('table.audit-pie-table')];
                   const levels = [...document.querySelectorAll('main h1, main h2, main h3, main h4')].filter(h => h.offsetParent !== null).map(h => Number(h.tagName[1]));
@@ -294,8 +294,8 @@ class A11yBatch2RenderTest(unittest.TestCase):
             "no combobox": ([("namesearch.js", 'status.id = `${list.id}Count`;', 'status.id = "unused";')], {"compare"}),
             "dots unlabeled": ([("v2.js", 'd.setAttribute("aria-label", d.title);', "")], {"targets"}),
             "pie tables unscoped": ([("audit-pie.js", 'node.setAttribute("scope", "col");', "")], {"pie"}),
-            "pie heading jump": ([("audit-pie.js", 'el("h2", "audit-pie-heading", "Total pie by source")',
-                                   'el("h3", "audit-pie-heading", "Total pie by source")')], {"pie"}),
+            "pie heading jump": ([("audit-pie.js", 'var q = el("h2", "audit-pie-heading audit-pie-verdict-q", "Is anything wrong?");',
+                                   'var q = el("h4", "audit-pie-heading audit-pie-verdict-q", "Is anything wrong?");')], {"pie"}),
         }
         for name, (patches, only) in broken.items():
             with self.subTest(mutation=name):

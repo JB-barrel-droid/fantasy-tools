@@ -1,6 +1,6 @@
-"""Value pie tab unit tests (JEG-848): the tab's totals are tied to the engine
-output, flag rules work, verdicts show cross-source spread, and missing values
-are never zero.
+"""Health check tab unit tests (JEG-848, tab renamed and redesigned in JEG-1011): the
+tab's totals are tied to the engine output, flag rules work, verdicts show
+cross-source spread, and missing values are never zero.
 
 These tests exercise the pure data functions in audit-pie.js (AuditPie.extract,
 AuditPie.computeFlags, AuditPie.computeVerdicts) by loading the module in a
@@ -350,15 +350,15 @@ def _render_in_browser(fixture_json, *, width=1440, height=900):
                 cellCount: cells.length,
                 hasContent: root.innerHTML.length > 100,
                 horizontalOverflow: over,
-                headings: [...root.querySelectorAll('h3, h4')].map(h => h.textContent),
+                headings: [...root.querySelectorAll('h2, h3, h4')].map(h => h.textContent),
                 flagTexts: [...flags].map(f => f.textContent),
                 emptyText: root.querySelector('.audit-pie-empty')?.textContent || null,
-                verdictCount: verdictRows.length,
-                verdictTexts: [...verdictRows].map(r => r.textContent),
-                reconcileNote: root.querySelector('.audit-pie-reconcile .audit-pie-note')?.textContent || '',
-                reconcileLabels: [...root.querySelectorAll('.audit-pie-reconcile-table tbody tr')].map(r => r.cells[0].textContent),
-                reconcileCells: [...root.querySelectorAll('.audit-pie-reconcile-table tbody tr')].map(r => [...r.cells].map(c => c.textContent)),
-                summaryLabels: [...root.querySelectorAll('.audit-pie-summary tbody tr:not(.audit-pie-verdict-row):not(.audit-pie-verdict-note)')].map(r => r.cells[0].textContent),
+                verdictCount: root.querySelectorAll('.audit-pie-check').length,
+                verdictTexts: [...root.querySelectorAll('.audit-pie-check-reason')].map(r => r.textContent),
+                reconcileNote: root.querySelector('#audit-pie-sec-reconcile .audit-pie-how')?.textContent || '',
+                reconcileLabels: [...root.querySelectorAll('table[aria-label="Reconciling each source to Player values"] tbody tr')].map(r => r.cells[0].textContent),
+                reconcileCells: [...root.querySelectorAll('table[aria-label="Reconciling each source to Player values"] tbody tr')].map(r => [...r.cells].map(c => c.textContent)),
+                summaryLabels: [...root.querySelectorAll('table[aria-label="Starter, bench and total value by source"] tbody tr')].map(r => r.cells[0].textContent),
                 zeroValues: [...cells].filter(c => c.textContent.trim() === '0.0').map(c => {{
                     const row = c.closest('tr');
                     return {{ cell: c.textContent, row: row ? row.cells[0]?.textContent : null }};
@@ -541,12 +541,14 @@ class AuditPieReconcileTest(unittest.TestCase):
         """The section, its plain-language note and the Player values labels
         (JEG-872: symbol + name, "CBS rest of season" not "CBS ROS")."""
         result = _render_in_browser(FIXTURE_JSON, width=1440, height=900)
-        self.assertIn("Reconciling to Player values", result["headings"])
-        self.assertIn("filled in from other charts", result["reconcileNote"])
-        self.assertIn("not held to the pie", result["reconcileNote"])
+        self.assertIn("Does DDF Value reconcile?", result["headings"])
+        self.assertIn("fill-ins", result["reconcileNote"])
+        self.assertIn("Rescaled", result["reconcileNote"])
         self.assertEqual(result["reconcileLabels"], ["● ESPN", "■ FantasyCalc"])
         self.assertEqual(result["summaryLabels"], ["● ESPN", "■ FantasyCalc"])
-        self.assertEqual(result["reconcileCells"][1][1:], ["1020.0", "180.0", "1200.0", "1200.0", "1512.0", "312.0"])
+        # Own, filled in, total adjusted, Player values sum, difference from the pie, listed players Rescaled minus DDF Value
+        # (the fixture's rows carry no DDF Value, so that last cell is a dash, never a zero).
+        self.assertEqual(result["reconcileCells"][1][1:], ["1020.0", "180.0", "1200.0", "1512.0", "312.0", "—"])
 
 
 @unittest.skipIf(_skip_no_pw(), "playwright not installed")
@@ -737,27 +739,20 @@ class AuditPieRenderTest(unittest.TestCase):
     def test_headings_present(self):
         result = _render_in_browser(FIXTURE_JSON, width=1440)
         headings = result["headings"]
-        self.assertIn("Total pie by source", headings)
-        self.assertIn("By position: adjusted values", headings)
-        self.assertIn("Raw slices vs adjusted values", headings)
-        self.assertIn("Coverage: players posted vs rosterable slots", headings)
+        for question in ("Is anything wrong?", "Do sources agree on total value?", "Do sources agree by position?",
+                         "Are any players valued oddly?", "Does DDF Value reconcile?", "How do raw and adjusted values compare?"):
+            self.assertIn(question, headings)
 
     def test_verdict_rows_rendered(self):
-        """Verdict rows appear in the rendered DOM."""
+        """One verdict row per check appears in the rendered DOM (JEG-1011)."""
         result = _render_in_browser(FIXTURE_JSON, width=1440)
-        # Summary table: 3 verdicts (starters, bench, total)
-        # Position tables: 4 positions x 3 verdicts each = 12
-        # Total: at least 15 verdict rows
-        self.assertGreaterEqual(result["verdictCount"], 15,
-            f"Expected >= 15 verdict rows, got {result['verdictCount']}")
+        self.assertEqual(result["verdictCount"], 7, f"Expected 7 verdict rows, got {result['verdictCount']}")
 
     def test_verdict_text_has_spread(self):
-        """Verdict rows contain 'spread' and 'within' text."""
+        """Verdict rows say the spread in words a reader can check."""
         result = _render_in_browser(FIXTURE_JSON, width=1440)
-        self.assertTrue(any("spread" in t for t in result["verdictTexts"]),
-            "Verdict rows should mention 'spread'")
-        self.assertTrue(any("within" in t for t in result["verdictTexts"]),
-            "Verdict rows should mention 'within'")
+        self.assertTrue(any("pread" in t for t in result["verdictTexts"]),
+            "Verdict rows should mention the spread")
 
 
 @unittest.skipIf(_skip_no_pw(), "playwright not installed")
