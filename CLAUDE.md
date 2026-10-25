@@ -87,9 +87,11 @@ Several Claude sessions work this repo at once: the back end, and the front end 
 - **Do not adjust tests to go green.** If a test fails, assume the code is
   wrong. Change an assertion only when the assertion itself was wrong or the
   rule it pins was changed by Jeremy, and say which in the commit message.
-- **The commit message and PR description are the record.** Say what you
-  verified (name the check) separately from what you assumed. No separate
-  session log is required; `docs/claude-log/` is kept as history.
+- **Every session that changes anything writes a log entry** in
+  `docs/claude-log/YYYY-MM-DD-slug.md` (Jeremy, 2026-10-23, JEG-975: "1 - A").
+  One file per PR, with "Verified (check named)" separate from "Claimed, not
+  confirmed"; the format is in `docs/claude-log/README.md`. The commit message
+  and PR description say the same in short.
 - **`make sync` is the single publish path** and stamps the build tag. Do not
   re-add `dist/static`, `dist/server`, `space.json` or `deploy.sh`.
 - **Do not touch `~/Projects/"fantasy tools"`** on the user's machine beyond the
