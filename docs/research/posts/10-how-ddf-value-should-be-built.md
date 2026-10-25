@@ -1,22 +1,27 @@
 # How DDF Value should be built
 
-Research post 10. Draft for Jeremy's review.
-Copy rules: for trades others will accept; no title abbreviations; no vanity stats.
+Every number below was computed on 23 October 2026 unless otherwise noted,
+using our reference implementation of the value engine.
 
-Every number below was written by `tools/research/source_accuracy_backtest.py`
-on 2026-10-23 unless otherwise noted. The engine is the Python value reference
-(value-reference-002/2). No production code was changed.
+Terms used below:
+
+- **DDF Value** is our own value for a player: the average of the projection
+  sources' Adjusted values.
+- **Value above waivers** is how many points a player adds over the best freely
+  available player at his position.
+- **Adjusted value** is a source's value above waivers after it has been put on
+  one common point scale, so sources can be averaged.
 
 ---
 
 ## Abstract
 
 DDF Value is the equal-weight average of the projection sources' Adjusted
-values. This post asks whether that average can be improved -- whether some
+values (defined above). This post asks whether that average can be improved -- whether some
 sources are more accurate than others, and whether weighting or adjusting them
 would produce a better fundamental estimate. The answer, on the data we have
-today, is: probably not yet, and we cannot be confident until we store the
-right data going forward.
+today, is: probably not, and we cannot be confident until the right data has
+been saved over more weeks.
 
 The core problem is that we do not yet have week-ahead projections from all
 three sources saved in a form that can be compared against realised fantasy
@@ -29,13 +34,13 @@ exists.
 
 ## What DDF Value does today
 
-Since PR #814, DDF Value is the equal-weight mean of the Adjusted values from
+DDF Value is the equal-weight mean of the Adjusted values from
 the three projection sources: ESPN, CBS rest of season, and Razzball. Each
 source's raw projections go through the same pipeline (value above waivers,
 expected starts, fixed pie, DDF weights) and come out on a common scale. The
 mean of those three numbers is DDF Value.
 
-Equal weights were chosen for good reasons (post 3): no single source is
+Equal weights were chosen for good reasons (see post 3): no single source is
 consistently better across positions and seasons, the blend is robust to one
 source having a bad week, and the reader can see each source's contribution.
 But "no evidence that unequal weights help" is different from "equal weights
@@ -45,9 +50,8 @@ are optimal". This post is about whether the evidence exists to say more.
 
 ### Projection snapshots
 
-The repo stores a weekly snapshot of every source's values in
-`data/history/week-N.json` (weeks 2 through 7 of the 2026 season). Each
-snapshot holds the rest-of-season per-game projection from each projection
+We save a weekly snapshot of every source's values (weeks 2 through 7 of the
+2026 season). Each snapshot holds the rest-of-season per-game projection from each projection
 source and the native trade values from each chart source. All seven sources
 are present from week 4 onward; weeks 2 and 3 are missing CBS rest of season
 (week 2 also missing Razzball).
@@ -62,45 +66,45 @@ account for a player being on bye next week.
 Separately, ESPN week-ahead projections are saved for 2026 weeks 1 through 7
 (about 500 players per week), and RotoWire week-ahead projections via Sleeper
 exist from 2018 onward (about 350 to 400 players per week). CBS rest of season
-and Razzball week-ahead projections are not stored.
+and Razzball week-ahead projections are not saved.
 
 ### Actual fantasy points
 
-Weekly actual points for every player who recorded a stat line are stored for
-2024, 2025, and 2026 weeks 1 through 6. The nflverse historical file covers
-2015 through 2025. A player who did not play (bye, injury, inactive) has no
+Weekly actual points for every player who recorded a stat line are saved for
+2024, 2025, and 2026 weeks 1 through 6. NFL game logs from 2015 through 2025
+(nflverse) cover the earlier seasons. A player who did not play (bye, injury, inactive) has no
 row, which is correct: the projection should predict zero value for a player
 who does not play, and the absence of a row encodes that.
 
 ### What the data can answer today
 
 1. How accurate is each rest-of-season projection source at predicting
-   single-week realised points? (A noisy proxy for source quality, since ROS
+   single-week realised points? (A noisy proxy for source quality, since rest-of-season
    projections are not designed for single-week prediction.)
-2. How does the equal-weight mean of the ROS sources compare to the best
+2. How does the equal-weight mean of the rest-of-season sources compare to the best
    single source, to the median, and to inverse-error-weighted combinations?
-3. How do ESPN's week-ahead projections compare to the ROS projections?
+3. How do ESPN's week-ahead projections compare to the rest-of-season projections?
 
 ### What the data cannot answer yet
 
 1. **Which source is best at week-ahead prediction.** We have week-ahead
-   projections only from ESPN. Until CBS ROS and Razzball week-ahead
-   projections are also stored, we cannot compare the three sources on the
-   target that matters.
+   projections only from ESPN. Without CBS rest of season and Razzball
+   week-ahead projections, we cannot compare the three sources on the target
+   that matters.
 2. **Whether weighting improves on equal weights for week-ahead projections.**
-   The inverse-error weighting test below uses ROS projections, which is the
+   The inverse-error weighting test below uses rest-of-season projections, which is the
    wrong target. The weights might differ for week-ahead accuracy.
 3. **Rest-of-season accuracy.** Evaluating a rest-of-season projection
    requires waiting until the season ends and comparing the projection against
    the full-season average. We have no completed season with all three sources
-   stored.
+   saved.
 4. **Cross-season stability.** We have one partial season of data. Whether a
    source that is more accurate in 2026 weeks 2 through 6 would have been more
    accurate in 2025 or 2024 cannot be tested from the repo's data alone.
 5. **Position-specific and tier-specific accuracy.** Five weeks is too few to
    split by position and tier with any confidence.
 
-## Preliminary backtest: ROS projections versus actual points
+## Preliminary backtest: rest-of-season projections versus actual points
 
 ### Setup
 
@@ -108,16 +112,19 @@ For each of the five weeks where we have both saved projections and actuals
 (weeks 2 through 6), we take each projection source's rest-of-season PPR
 per-game projection for every player it covers and compare it to that player's
 actual PPR points in that week's game. This is a noisy test -- a player on bye
-scores zero while the ROS projection is positive, and single-game variance is
+scores zero while the rest-of-season projection is positive, and single-game variance is
 large relative to the projection -- but it is the test the data supports.
 
 ### Results
 
+MAE is the mean absolute error, the average size of the miss in points; RMSE
+is the root mean squared error, which penalises large misses more.
+
 | Source | Player-weeks | MAE | RMSE | Bias | 95% CI on MAE |
 |---|---|---|---|---|---|
-| ESPN (ROS) | 1,425 | 4.68 | 6.40 | -0.90 | [4.46, 4.91] |
-| CBS ROS | 703 | 5.05 | 6.66 | -0.71 | [4.74, 5.36] |
-| Razzball (ROS) | 1,171 | 4.50 | 6.30 | -1.27 | [4.22, 4.75] |
+| ESPN (rest of season) | 1,425 | 4.68 | 6.40 | -0.90 | [4.46, 4.91] |
+| CBS rest-of-season | 703 | 5.05 | 6.66 | -0.71 | [4.74, 5.36] |
+| Razzball (rest of season) | 1,171 | 4.50 | 6.30 | -1.27 | [4.22, 4.75] |
 | ESPN (week-ahead) | 1,600 | 4.36 | 5.96 | -0.16 | [4.17, 4.56] |
 | Equal-weight mean | 1,122 | 4.61 | 6.28 | -1.10 | [4.37, 4.87] |
 | Median | 1,122 | 4.61 | 6.30 | -1.13 | [4.37, 4.87] |
@@ -125,18 +132,19 @@ large relative to the projection -- but it is the test the data supports.
 
 "Bias" is the mean signed error (projection minus actual); negative means the
 projections run low on average, which is expected because bye-week zeros pull
-the actuals down while the ROS projection does not account for byes.
+the actuals down while the rest-of-season projection does not account for
+byes.
 
 ### What the numbers say
 
 1. **ESPN week-ahead projections are the most accurate single predictor**
    (MAE 4.36), because they account for byes, matchups, and that week's injury
-   status. Every ROS source is worse, as expected.
+   status. Every rest-of-season source is worse, as expected.
 
-2. **Among the ROS sources, Razzball is the most accurate** (MAE 4.50),
-   followed by ESPN (4.68) and CBS ROS (5.05). But the confidence intervals
+2. **Among the rest-of-season sources, Razzball is the most accurate** (MAE 4.50),
+   followed by ESPN (4.68) and CBS rest-of-season (5.05). But the confidence intervals
    overlap: Razzball's upper bound (4.75) overlaps ESPN's lower bound (4.46),
-   and ESPN's upper bound (4.91) overlaps CBS ROS's lower bound (4.74). On
+   and ESPN's upper bound (4.91) overlaps CBS rest-of-season's lower bound (4.74). On
    five weeks of data, we cannot confidently rank them.
 
 3. **The equal-weight mean is indistinguishable from inverse-error weighting**
@@ -149,30 +157,29 @@ the actuals down while the ROS projection does not account for byes.
    position) and we cannot draw position-specific weighting conclusions.
 
 5. **The bias is consistent across sources** (all negative, -0.71 to -1.27),
-   which means all three ROS projections overshoot actuals by a similar amount.
-   This is the bye/injury effect: the ROS projection assumes the player plays,
-   and about 7 to 15 percent of the time he does not. A bias correction that
-   accounts for the bye schedule and the injury hazard (which expected starts
-   already does, section ES-1 of the methodology) is the right fix, not
-   per-source adjustment.
+   which means all three rest-of-season projections overshoot actuals by a similar amount.
+   This is the bye/injury effect: the rest-of-season projection assumes the player plays,
+   and about 7 to 15 percent of the time he does not. Our expected-starts
+   model already accounts for the bye schedule and the injury hazard; that,
+   not a per-source adjustment, is the right fix for this bias.
 
 ### Honest limits
 
 - Five weeks. Any of the per-source MAE differences could reverse with five
   more weeks of data.
-- ROS versus weekly. The test compares a rest-of-season number against a
-  single game. A source that publishes a more stable ROS line would look
+- rest-of-season versus weekly. The test compares a rest-of-season number against a
+  single game. A source that publishes a more stable rest-of-season line would look
   better here than one that reacts to weekly matchups, even though the
   matchup-adjusted one might be better for weekly predictions.
-- Coverage. CBS ROS covers 703 player-weeks (absent weeks 2 and 3); ESPN and
+- Coverage. CBS rest-of-season covers 703 player-weeks (absent weeks 2 and 3); ESPN and
   Razzball cover 1,425 and 1,171. The comparison is not apples to apples.
 - Survivorship. The player universe is today's; players dropped before
   week 7 are missing from every week.
 
 ## Evaluation protocol for the full study
 
-When week-ahead projections from all three sources are stored (from week 8
-onward with the proposed pipeline), the proper evaluation is:
+Once week-ahead projections from all three sources have been saved for enough
+weeks, the proper evaluation is:
 
 ### Target
 
@@ -186,8 +193,8 @@ Two targets, at different horizons:
 2. **Rest-of-season value above waivers.** DDF Value is a rest-of-season
    quantity: it estimates a player's remaining usable production above the
    waiver line. That value declines as the season progresses -- fewer weeks
-   remain for fill-in starts and breakout opportunities (manifesto sections 5
-   and 8). The evaluation should therefore test whether source accuracy and
+   remain for fill-in starts and breakout opportunities (see our manifesto on
+   the value of a bench spot). The evaluation should therefore test whether source accuracy and
    optimal weights change with the week of the season. A source that is more
    accurate early (when the rest-of-season window is long and uncertain) may
    be less accurate late (when matchups and injury status dominate), or vice
@@ -207,7 +214,7 @@ week-ahead accuracy improves late when late-season decisions matter most.
 Rolling-origin, time-ordered. Train on weeks 1 through t, evaluate on week
 t+1. No future data ever enters the training window. The evaluation starts at
 the first week where all three sources have at least four training weeks
-(roughly week 8 if storage starts at week 8 of 2026, or earlier if historical
+(roughly week 8 if saving starts at week 8 of 2026, or earlier if historical
 data can be reconstructed).
 
 ### Metrics
@@ -234,8 +241,8 @@ data can be reconstructed).
 - **Equal-weight mean** (the current DDF Value method): each source counts
   equally.
 - **Median**: more robust to one source being an outlier.
-- **Best single source**: the source with the lowest MAE in the training
-  window. If one source is consistently best, the optimal aggregator is to use
+- **Best single source**: the source with the lowest MAE (mean absolute
+  error) in the training window. If one source is consistently best, the optimal aggregator is to use
   only that source.
 
 ### Uncertainty
@@ -320,9 +327,9 @@ correction; a multiplicative correction (scale factor) or a per-position
 correction needs more data.
 
 Overfit risk: low for overall additive bias (one parameter per source). The
-preliminary backtest shows all three ROS sources have similar negative bias
+preliminary backtest shows all three rest-of-season sources have similar negative bias
 (-0.7 to -1.3), which is the bye/injury effect already addressed by expected
-starts. A per-source correction might remove a real difference (CBS ROS's
+starts (the expected number of games a player starts, after byes and injuries). A per-source correction might remove a real difference (CBS rest-of-season's
 bias is -0.71 vs Razzball's -1.27) or might fit noise.
 
 ### 7. Shrinkage toward a prior
@@ -375,13 +382,13 @@ there are nine weight parameters. One season provides only about 5-6 weeks
 per stratum, which is not enough for stable estimates. Two full seasons would
 give a plausible pilot.
 
-What it implies for DDF Value: if the weights should change mid-season, the
-production implementation would re-derive the weights at a cadence (monthly or
-at a defined week) rather than fixing them at the start of the season. The
-expected-starts model already accounts for the declining value of later weeks
-(ES-1: the bye share falls as weeks pass, and sigma drifts with remaining
-weeks), so some horizon adjustment is already built in. The question is
-whether the source weights need to change too.
+What it implies for DDF Value: if the weights should change mid-season, they
+would need to be re-derived at a regular cadence (monthly or at a defined
+week) rather than fixed at the start of the season. The expected-starts model
+already accounts for the declining value of later weeks (the bye share falls
+as weeks pass, and the spread of outcomes drifts with remaining weeks), so some
+horizon adjustment is already built in. The question is whether the source
+weights need to change too.
 
 ### 10. Recency and production trend (moved from 9)
 
@@ -420,8 +427,8 @@ player changes for reasons beyond projection accuracy:
    whose surplus enters the lineup every week, because the expected number of
    fill-in opportunities shrinks with the calendar.
 
-2. **Reduced breakout runway.** A bench player with upside (manifesto section
-   5) has fewer weeks to prove himself as the season progresses. The option
+2. **Reduced breakout runway.** A bench player with upside (our manifesto
+   explains why that upside is worth paying for) has fewer weeks to prove himself as the season progresses. The option
    value of holding him declines.
 
 3. **Better information late.** By week 12, projections are informed by ten
@@ -430,28 +437,27 @@ player changes for reasons beyond projection accuracy:
    the value of insurance against that surprise drops with it.
 
 4. **Position-specific rates.** Running backs have the highest missed-game
-   hazard (15.3%, ES-1) and therefore the highest fill-in value early. But
+   hazard (15.3%) and therefore the highest fill-in value early. But
    running back injuries also tend to be more catastrophic (season-ending),
    so the fill-in value at that position falls more steeply: by week 14, the
    fill-in opportunities from early-season injuries have already been
    realised.
 
-The expected-starts model (ES-1 through ES-14) already accounts for the
-declining bye share (ES-1: bye share b falls to 0 from week 15) and the
-widening sigma drift (which increases, not decreases, with remaining weeks).
-What it does NOT model is:
+The expected-starts model already accounts for the declining bye share (it
+falls to 0 from week 15) and for the spread of outcomes, which widens with
+the number of remaining weeks. What it does not model is:
 
-- **Decay of option value** (manifesto section 5: the convex value of a
-  level change). ES-8 explicitly leaves this out.
-- **Discounting of later weeks** (manifesto section 9). The current model
-  treats every remaining week equally.
+- **Decay of option value** (the extra value of a player who might break out;
+  the model leaves this out on purpose).
+- **Discounting of later weeks.** The current model treats every remaining week
+  equally.
 - **Whether source accuracy changes with the season.** A source that is
   accurate early may be inaccurate late, or vice versa.
 
-### What must be resolved before changing the dashboard
+### Open questions about decay
 
-The decay definition is a prerequisite for any change to DDF Value that
-depends on the time of season. Specifically:
+Any change to DDF Value that depends on the time of season needs a definition
+of decay first. The open questions are:
 
 1. **What decays:** the fill-in share (already declining via expected starts),
    the option/breakout component (not modeled), or the overall value
@@ -467,37 +473,32 @@ depends on the time of season. Specifically:
    -- but it should fall faster for bench players than for starters, and
    faster at deep positions than shallow ones.
 
-Post 1 (revision, PR #846) notes that mid-season improvement is not modeled
-and lists it as a prerequisite for publication. That is the upward-drift
-component of the same question: a bench player can gain value through actual
+Post 1 notes that mid-season improvement is not modeled. That is the
+upward-drift component of the same question: a bench player can gain value through actual
 production, and that gain partially offsets the time decay. The two posts do
 not conflict: post 1 describes the current model's bench-share mechanics,
 this post asks how to aggregate sources and whether the aggregation should
 change over time.
 
-The decay question is listed as a decision for Jeremy in the handback.
+## What the full evaluation requires
 
-## What must be stored from now on
-
-To run the evaluation protocol, each weekly build should save a structured
-record of:
+To run the evaluation protocol, each week needs a structured record of:
 
 1. **Week-ahead per-game projections** from each projection source (ESPN, CBS
-   ROS, Razzball), captured before Sunday kickoff, keyed by the repo's
-   player\_key, for each scoring. ESPN weekly projections are already saved.
-   CBS ROS and Razzball need a weekly-projections snapshot pipeline (the
-   rest-of-season value is already saved, but the week-ahead value is not).
+   rest of season, Razzball), captured before Sunday kickoff, for each
+   scoring. ESPN weekly projections are already saved. For CBS rest of season
+   and Razzball we save the rest-of-season value but not the week-ahead value,
+   which is the gap.
 
-2. **Actuals** per player per week, which are already stored and updated.
+2. **Actuals** per player per week, which are saved and kept current.
 
-3. **Injury and bye status** per player per week (player\_status\_history is
-   stored daily; bye schedule is stored). This is needed to separate the
-   accuracy of the projection from the accuracy of the availability estimate.
+3. **Injury and bye status** per player per week (injury status is saved daily
+   and the bye schedule is known). This is needed to separate the accuracy of
+   the projection from the accuracy of the availability estimate.
 
-The proposed storage is a CSV or database table:
-`weekly_projection_snapshots(season, week, source, player_key, scoring,
-projection_ppg, snapshot_at, projection_type)` where projection\_type is
-"week_ahead" or "ros". The existing ESPN weekly CSV already fits this schema.
+Each record needs the season, week, source, player, scoring, the projected
+points per game, when the snapshot was taken, and whether it is a week-ahead or
+rest-of-season projection.
 
 ## Conclusion
 
@@ -505,29 +506,26 @@ On five weeks of 2026 data, the three projection sources are close enough in
 accuracy that equal weights and inverse-error weights produce the same result
 to three decimal places. The data cannot yet distinguish them.
 
-The most important next step is not a fancier aggregation method. It is
-storing the right data: week-ahead projections from all three sources, aligned
-with actuals, starting now and continuing through the season. With ten or more
-weeks of aligned data, the evaluation protocol described here can produce a
-defensible answer. Until then, equal weights remain the honest choice.
+The limiting factor is data, not method: a fancier aggregation cannot be
+validated without week-ahead projections from all three sources, aligned with
+actuals. With ten or more weeks of aligned data, the evaluation protocol
+described here can produce a defensible answer. Until then, equal weights are
+the honest choice.
 
 If the data does eventually show that one source is consistently more
 accurate, the simplest change to DDF Value would be inverse-error weighting
-(method 4) applied to the Adjusted values. That requires changing one line in
-the pipeline and adds no new parameters. More complex methods (stacking,
-position-specific weights) should wait until a full season of data exists and
-the simpler methods have been tested first.
+(method 4) applied to the Adjusted values. It adds no new parameters. More
+complex methods (stacking, position-specific weights) need a full season of
+data and should be tested only after the simpler methods.
 
 ---
 
-## Evidence links
+## Sources
 
-| Claim | Source |
+| Claim | Where it comes from |
 |---|---|
-| Per-source MAE and bias, equal mean vs inverse-error, by position | `docs/research/data/source_accuracy_backtest.json` (2026-10-23) |
-| Backtest script | `tools/research/source_accuracy_backtest.py` |
-| History snapshots and their sources | `data/history/week-N.json` (N = 2..7) |
-| ESPN weekly projections | `data/inputs/espn_weekly_projections_2026.csv` |
-| Actuals | `data/inputs/weekly_actuals_2024_2026.csv` |
-| Methodology: DDF Value from projections only | `docs/methodology.md` VP-6.3, JEG-804 |
-| Expected starts and the bye/injury bias | `docs/methodology.md` ES-0 to ES-14 |
+| Per-source error, bias, equal mean vs inverse-error, by position | Our source-accuracy backtest, run 23 October 2026 on the reference value engine |
+| Weekly source values, weeks 2 to 7 | Saved weekly snapshots of every source |
+| ESPN week-ahead projections | Saved weekly ESPN projections, 2026 |
+| Actuals | Saved weekly game results, 2024 to 2026 |
+| DDF Value from projections only; expected starts and the bye/injury bias | The value methodology |

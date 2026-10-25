@@ -56,8 +56,10 @@ TARGETS = """() => { const bad = [];
     if (n.matches('a.v2-srclink')) return;
     const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
     const owner = n.closest('label') || n;
-    const ok = [-21, 21].every(dy => { const e = document.elementFromPoint(cx, cy + dy); return e && (owner === e || owner.contains(e)); });
-    if (!ok || b.width < 43) bad.push(`${n.tagName} "${(n.textContent || '').trim().slice(0, 24)}" ${Math.round(b.width)}x${Math.round(b.height)}`);
+    // Jeremy, 2026-10-24 (JEG-1042): the top-bar notice's buttons are 24 px targets on desktop (WCAG 2.5.8); 44 on phones.
+    const half = n.closest('.v2-topnote') && innerWidth >= 768 ? 11 : 21;
+    const ok = [-half, half].every(dy => { const e = document.elementFromPoint(cx, cy + dy); return e && (owner === e || owner.contains(e)); });
+    if (!ok || b.width < 2 * half + 1) bad.push(`${n.tagName} "${(n.textContent || '').trim().slice(0, 24)}" ${Math.round(b.width)}x${Math.round(b.height)}`);
   });
   return {bad, tabs: [...document.querySelectorAll('.v2-tab')].filter(t => t.getBoundingClientRect().right > innerWidth + 0.5)
     .map(t => t.textContent), overflow: document.documentElement.scrollWidth - innerWidth};

@@ -8,25 +8,30 @@ value against the Playwright-driven engine dump for the same setting.
 Negative-tested: a deliberately wrong bench_per_team (99 instead of 6) must
 produce at least one value that differs by more than 0.1 from the correct run.
 
-Requires: a built dist/ (make sync), Playwright chromium.
+JEG-1031: the same comparison for custom leagues (roster shape, position shares, bench override,
+advanced settings, season weeks), with the edge side mapping the league through
+supabase/functions/get-values/league.ts, the module the deployed function uses.
+
+Requires: a built dist/ and build/engine/ (make sync), Playwright chromium, node 22.6+.
+Run by `make test-unit-modules`; CI sets RENDER_TESTS_REQUIRED=1 so a missing browser fails.
 """
 from __future__ import annotations
 
 import json
 import subprocess
 import sys
+import unittest
 from pathlib import Path
-
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from tests import _dist_server  # noqa: E402
+from tests import _dist_server, _render_env  # noqa: E402
 
 
 # The Node.js script that runs the edge function's pipeline logic headlessly.
 EDGE_RUNNER = ROOT / "tests" / "_edge_pipeline_runner.cjs"
+NODE = ["node", "--experimental-strip-types", "--no-warnings", str(EDGE_RUNNER)]
 
 # Test a representative subset of settings (full sweep is slow).
 SETTINGS = [
@@ -36,55 +41,52 @@ SETTINGS = [
     ("ppr", 12, 1),  # superflex
 ]
 
+# JEG-1031: custom leagues (roster shape, shares, bench override, advanced, season weeks), in the
+# normalized DDF league form. The page applies them through its own setters, in applyLinkLeague's
+# order (league, roster, weeks, advanced, shares last); the endpoint maps them in league.ts.
+CUSTOM_LEAGUES = {
+    "all_fields": {
+        "scoring": "half_ppr", "teams": 10, "roster": {"WR": 3, "BENCH": 6, "SUPERFLEX": 1},
+        "shares": {"QB": 0.2, "RB": 0.4, "WR": 0.3, "TE": 0.1}, "bso": 0.2, "inj": "all", "conf": 1.5,
+        "weeks": {"regend": 13, "playoffs": [14, 16], "optimize": "playoffs", "week": 5},
+    },
+    "roster_and_shares": {
+        "scoring": "ppr", "teams": 14, "roster": {"QB": 2, "FLEX": 2, "BENCH": 10},
+        "shares": {"QB": 0.05, "RB": 0.5, "WR": 0.4, "TE": 0.05},
+    },
+    "weeks_and_bench": {
+        "scoring": "standard", "teams": 8, "bso": 0.05, "conf": 0.5,
+        "weeks": {"regend": 12, "playoffs": [13, 15], "optimize": "regular"},
+    },
+}
 
-def run_engine_dump(setting):
-    """Run engine_dump.py for one setting via Playwright and return {pk: blended_value}."""
-    from playwright.sync_api import sync_playwright
-
-    scoring, teams, sf = setting
-    with _dist_server.serve() as base, sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            executable_path=_dist_server.chromium_executable(pw),
-            args=["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"],
-        )
-        try:
-            page = browser.new_page()
-            page.goto(f"{base}/{_dist_server.ENGINE_URL}")
-            page.wait_for_function(
-                "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
-                timeout=120000,
-            )
-            # Extract DDF blended values.
-            result = page.evaluate(
-                """([scoring, teams, sf]) => {
-                    const c = window.TradeValueCurveControls;
-                    c.setScoring(scoring); c.setTeams(teams); c.setRosterSpot('SUPERFLEX', sf);
-                    const H = window.TradeValueCurveHarness;
-                    const result = H.pipeline();
-                    const values = {};
-                    Object.entries(result.rows).forEach(([pk, row]) => {
-                        const v = row.ddfByVersion?.blended?.value;
-                        if (typeof v === 'number' && Number.isFinite(v)) values[pk] = v;
-                    });
-                    return values;
-                }""",
-                [scoring, teams, sf],
-            )
-            return result
-        finally:
-            browser.close()
+PAGE_APPLY_LEAGUE = """(l) => {
+    const c = window.TradeValueCurveControls;
+    c.setScoring(l.scoring, false); c.setTeams(l.teams, false);
+    Object.entries(l.roster || {}).forEach(([k, v]) => c.setRosterSpot(k, v, false));
+    const w = l.weeks || {};
+    if (w.regend !== undefined || w.playoffs) {
+        c.setLeagueWeeks({regularSeasonEnd: w.regend ?? 14, playoffWeeks: w.playoffs || [15, 17]}, false);
+    }
+    if (w.optimize) c.setOptimizeFor(w.optimize, false);
+    if (w.week !== undefined) c.setContentWeek(w.week, false);
+    if (l.inj) c.setInjuryHistory(l.inj, false);
+    if (l.conf) c.setProjectionConfidence(l.conf, false);
+    if (l.bso !== undefined) c.setBenchShareOverride(l.bso, false);
+    if (l.shares) c.setPositionWeights(l.shares, false);
+    const values = {};
+    Object.entries(window.TradeValueCurveHarness.pipeline().rows).forEach(([pk, row]) => {
+        const v = row.ddfByVersion?.blended?.value;
+        if (typeof v === 'number' && Number.isFinite(v)) values[pk] = v;
+    });
+    return values;
+}"""
 
 
-def run_edge_pipeline(setting, override_bench=None):
-    """Run the edge function's pipeline in Node.js and return {pk: blended_value}."""
-    scoring, teams, sf = setting
-    args = [
-        "node", str(EDGE_RUNNER),
-        "--scoring", scoring,
-        "--teams", str(teams),
-        "--superflex", str(sf),
-        "--dist", str(ROOT / "dist"),
-    ]
+
+def run_edge(extra, override_bench=None):
+    """The edge function's pipeline in Node.js, {pk: blended_value}."""
+    args = NODE + extra + ["--dist", str(ROOT / "dist")]
     if override_bench is not None:
         args += ["--bench", str(override_bench)]
     result = subprocess.run(args, capture_output=True, text=True, timeout=60)
@@ -93,66 +95,122 @@ def run_edge_pipeline(setting, override_bench=None):
     return json.loads(result.stdout)
 
 
-@pytest.fixture(scope="module")
-def engine_results():
-    """Pre-compute engine dump results for all test settings."""
-    results = {}
-    for setting in SETTINGS:
-        results[setting] = run_engine_dump(setting)
-    return results
+def run_edge_pipeline(setting, override_bench=None):
+    scoring, teams, sf = setting
+    return run_edge(["--scoring", scoring, "--teams", str(teams), "--superflex", str(sf)], override_bench)
 
 
-@pytest.mark.parametrize("setting", SETTINGS, ids=[f"{s}_{t}_sf{sf}" for s, t, sf in SETTINGS])
-def test_parity(setting, engine_results):
-    """Edge function pipeline values must match the headless engine page exactly."""
-    engine = engine_results[setting]
-    edge = run_edge_pipeline(setting)
-
-    # Both must have players.
-    assert len(engine) > 50, f"Engine returned too few players: {len(engine)}"
-    assert len(edge) > 50, f"Edge returned too few players: {len(edge)}"
-
-    # Every engine player with a non-zero value must appear in edge.
-    # Players with value 0 may be absent from the edge (they're below waiver
-    # in all sources and the edge function drops them as no-ops).
-    mismatches = []
-    missing_nonzero = []
-    for pk, engine_val in engine.items():
-        edge_val = edge.get(str(pk))
-        if edge_val is None:
-            if abs(engine_val) > 0.01:
-                missing_nonzero.append((pk, engine_val))
-            continue
-        # Allow tiny floating point difference (< 0.01).
-        if abs(engine_val - edge_val) > 0.01:
-            mismatches.append((pk, engine_val, edge_val))
-
-    assert not missing_nonzero, (
-        f"{len(missing_nonzero)} non-zero players in engine but not in edge:\n"
-        + "\n".join(f"  pk={pk}: engine={ev}" for pk, ev in missing_nonzero[:20])
-    )
-    assert not mismatches, (
-        f"{len(mismatches)} value mismatches (engine vs edge):\n"
-        + "\n".join(f"  pk={pk}: engine={ev}, edge={edv}" for pk, ev, edv in mismatches[:20])
-    )
+def run_edge_league(league, override_bench=None):
+    return run_edge(["--league", json.dumps(league)], override_bench)
 
 
-def test_negative_wrong_bench():
-    """A wrong bench_per_team must produce different values, proving the test catches bugs."""
-    setting = ("ppr", 12, 0)
-    correct = run_edge_pipeline(setting)
-    wrong = run_edge_pipeline(setting, override_bench=99)
+LEGACY_APPLY = """([scoring, teams, sf]) => {
+    const c = window.TradeValueCurveControls;
+    c.setScoring(scoring); c.setTeams(teams); c.setRosterSpot('SUPERFLEX', sf);
+    const values = {};
+    Object.entries(window.TradeValueCurveHarness.pipeline().rows).forEach(([pk, row]) => {
+        const v = row.ddfByVersion?.blended?.value;
+        if (typeof v === 'number' && Number.isFinite(v)) values[pk] = v;
+    });
+    return values;
+}"""
 
-    # At least one player's value must differ by more than 0.1.
-    any_diff = False
-    for pk in correct:
-        c = correct[pk]
-        w = wrong.get(pk)
-        if w is not None and abs(c - w) > 0.1:
-            any_diff = True
-            break
 
-    assert any_diff, (
-        "Wrong bench_per_team=99 did not change any values — "
-        "the parity test would not catch a bench bug."
-    )
+def mismatches(engine, edge):
+    """(pk, page, edge) where the page's value is more than 0.01 from the edge's (absent = 0)."""
+    return [(pk, ev, edge.get(str(pk))) for pk, ev in engine.items()
+            if abs(ev - (edge.get(str(pk)) or 0.0)) > 0.01]
+
+
+class EndpointParityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _render_env.ensure_built()
+        if not _dist_server.engine_built():
+            raise _render_env.unavailable("build/engine not built (run make sync)")
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+        cls._pw = sync_playwright().start()
+        exe = _dist_server.chromium_executable(cls._pw)
+        if not exe:
+            cls._pw.stop()
+            raise _render_env.unavailable("no Chromium available")
+        cls._serve = _dist_server.serve()
+        base = cls._serve.__enter__()
+        cls._browser = cls._pw.chromium.launch(
+            executable_path=exe, args=_render_env.HERMETIC_ARGS)
+        cls._base = base
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._browser.close()
+        cls._serve.__exit__(None, None, None)
+        cls._pw.stop()
+
+    def page_values(self, script, arg):
+        """A fresh engine page (every run starts from the default league), then `script(arg)`."""
+        page = self._browser.new_page()
+        try:
+            page.goto(f"{self._base}/{_dist_server.ENGINE_URL}")
+            page.wait_for_function(
+                "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
+                timeout=120000,
+            )
+            return page.evaluate(script, arg)
+        finally:
+            page.close()
+
+    def test_parity(self):
+        """Edge function pipeline values must match the headless engine page."""
+        for setting in SETTINGS:
+            with self.subTest(setting=setting):
+                engine = self.page_values(LEGACY_APPLY, list(setting))
+                edge = run_edge_pipeline(setting)
+                self.assertGreater(len(engine), 50)
+                self.assertGreater(len(edge), 50)
+                bad = mismatches(engine, edge)
+                self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+
+    def test_custom_league_parity(self):
+        """JEG-1031: a custom league prices the same on the endpoint as on the page."""
+        for name, league in sorted(CUSTOM_LEAGUES.items()):
+            with self.subTest(league=name):
+                engine = self.page_values(PAGE_APPLY_LEAGUE, league)
+                edge = run_edge_league(league)
+                self.assertGreater(len(engine), 50)
+                bad = mismatches(engine, edge)
+                self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+
+    def test_negative_wrong_bench(self):
+        """A wrong bench_per_team must produce different values, proving the test catches bugs."""
+        setting = ("ppr", 12, 0)
+        correct = run_edge_pipeline(setting)
+        wrong = run_edge_pipeline(setting, override_bench=99)
+        self.assertTrue(
+            any(pk in wrong and abs(v - wrong[pk]) > 0.1 for pk, v in correct.items()),
+            "Wrong bench_per_team=99 did not change any values.")
+
+    def test_negative_custom_league_field_changes_values(self):
+        """Each custom field moves the values, so a wrongly mapped field would fail the parity above."""
+        league = CUSTOM_LEAGUES["all_fields"]
+        base = run_edge_league(league)
+        variants = {
+            "wr": {**league, "roster": {**league["roster"], "WR": 2}},
+            "shares": {**league, "shares": {"QB": 0.25, "RB": 0.25, "WR": 0.25, "TE": 0.25}},
+            "bso": {**league, "bso": 0.1},
+            "inj": {**league, "inj": "recent"},
+            "conf": {**league, "conf": 1},
+            "weeks": {**league, "weeks": {**league["weeks"], "regend": 12, "playoffs": [13, 16]}},
+            "optimize": {**league, "weeks": {**league["weeks"], "optimize": "season"}},
+        }
+        for name, variant in variants.items():
+            with self.subTest(field=name):
+                other = run_edge_league(variant)
+                self.assertTrue(any(abs(base[pk] - other.get(pk, 0.0)) > 0.1 for pk in base),
+                                f"changing {name} did not change any values")
+
+
+if __name__ == "__main__":
+    unittest.main()

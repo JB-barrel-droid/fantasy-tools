@@ -247,10 +247,10 @@ class CheckerCatchesBrokenRules(unittest.TestCase):
     def test_flex_by_own_values(self):
         real = ref.allocate
 
-        def own_values_allocate(league, order, score):
+        def own_values_allocate(league, order, score, **kw):
             # The superseded rule: no shared league allocation; signal by
             # pushing every flex slot to RB.
-            out = real(league, order, score)
+            out = real(league, order, score, **kw)
             for p in ("WR", "TE"):
                 out["RB"]["flex"] += out[p]["flex"]
                 out["RB"]["starters"] += out[p]["flex"]

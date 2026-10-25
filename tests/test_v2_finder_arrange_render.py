@@ -78,6 +78,7 @@ def check(page, tag) -> list[str]:
     first = page.evaluate(STATE)
     if not first["outShown"]:
         return [tag + "no result to start from"]
+    page.click("#v2FindEdit")   # JEG-972: Find folds the roster input away; reopen it to arrange the teams
     if page.evaluate("() => document.getElementById('v2FindUndo').disabled") is not True:
         errors.append(tag + "Undo is enabled before anything was changed")
     small = page.evaluate(SIZES)
