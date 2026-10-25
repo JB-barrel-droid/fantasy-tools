@@ -617,6 +617,13 @@
 const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
     src: {mine: null, theirs: null}, removed: new Set(), answered: new Set()};
   const renders = {};
+  // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
+  const mineListeners = [];
+  const mineChanged = () => mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } });
+  api.ui = {depthContext, marketKeys, benchWeights, sideAssessment, assessmentTable, imbalanceText: w => imbalanceText(w), biggestImbalance,
+    getMine: () => S.mine.map(p => ({...p})),
+    setMine: list => { S.mine = list.map(p => ({...p})); S.sel.clear(); renderBoth(); if ($("v2FindOut")) clearOutput(); },
+    onMineChange: fn => { mineListeners.push(fn); }};
 
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
@@ -858,11 +865,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // JEG-1019: ONE roster assessment for both teams, as a table. Each team in two views (DDF Value, Trade chart average):
   // players counted per position against the expected depth, the over / under flag, and the starter and bench value.
   // Nothing here is new math: lineupValue splits a view's best lineup into starters and bench, rosterBalance judges depth.
-  function sideAssessment(side) {
+  function sideAssessment(side, list) {
     const ctx = depthContext();
-    if (!ctx || !S[side].length) return null;
+    const players = list || S[side];   // JEG-1022: the Waivers tab assesses its own copy of "my roster"
+    if (!ctx || !players.length) return null;
     const byKey = rowMap();
-    const rows = S[side].map(p => byKey.get(p.key)).filter(Boolean);
+    const rows = players.map(p => byKey.get(p.key)).filter(Boolean);
     const slots = SLOT_KEYS.reduce((n, slot) => n + (ctx.shape[slot] || 0), 0);
     const have = rows.filter(r => DEPTH_POS.includes(r.pos)).length;
     const balance = rosterBalance(rows, ctx.expected, OUR_KEY, ctx.shape);
@@ -870,7 +878,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const charts = marketKeys();
     const marketRows = charts ? withChartAverage(rows, charts) : null;
     const view = (rowsOf, key) => (rowsOf ? {balance: rosterBalance(rowsOf, ctx.expected, key, ctx.shape), lineup: lineupValue(rowsOf, ctx.shape, key)} : null);
-    return {side, ready: true, expected: ctx.expected, ddf: view(rows, OUR_KEY), market: view(marketRows, MARKET_KEY), kept: S[side].filter(isNotEvaluated),
+    return {side, ready: true, expected: ctx.expected, ddf: view(rows, OUR_KEY), market: view(marketRows, MARKET_KEY), kept: players.filter(isNotEvaluated),
       missing: lineupValue(rows, ctx.shape, OUR_KEY).unvalued.filter(r => !isNotEvaluated(r)).length};
   }
   const posSum = (list, pos, key) => list.filter(r => r.pos === pos).reduce((n, r) => n + r.values[key], 0);
@@ -887,7 +895,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   const imbalanceText = w => `${w.pos} ${w.status === "over" ? "overweight" : "underweight"} (${w.have} counted, ${w.range} expected)`;
   const money = n => n.toFixed(1);
   function assessmentTable(a, b) {
-    const sides = [a, b];
+    const sides = [a, b].filter(Boolean);   // JEG-1022: one team (Waivers) or both (Find a trade)
     const views = [{id: "ddf", label: "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: MARKET_KEY}];
     const cell = (text, props) => el("td", props || {}, text);
     const head1 = el("tr", {}, el("th", {scope: "col", rowspan: "3", class: "v2-find-pos", text: "Position"}), el("th", {scope: "col", rowspan: "3", class: "v2-find-nowrap", text: "Expected"}),
@@ -1157,6 +1165,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const badge = isNotEvaluated(p) ? el("span", {class: "v2-find-noteval", text: "Not evaluated"}) : null;
         return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}), badge, scoreChips(p, byKey, charts)), move, remove);
       }));
+      if (side === "mine") mineChanged();
     };
     renders[side] = render;
     // JEG-853 / JEG-988 / JEG-1010: text that is a whole page (looksLikePage) is read by roster-paste.js in the

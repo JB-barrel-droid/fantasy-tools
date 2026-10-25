@@ -1854,7 +1854,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-nav.has-notice > .v2-nav-inner { min-height: 0; }
   .v2-topnote-detail { padding: 12px 16px 14px; max-height: calc(100vh - 120px); overflow-y: auto; }
 }
-@media (max-width: 767px) { .v2-nav.is-open .v2-tabs { max-height: calc(100vh - 116px); } }
+/* JEG-1022: with nine tabs the open menu would fill a 320x568 screen to the bottom edge; keep a 56 px strip below it to tap outside (the menu scrolls). */
+@media (max-width: 767px) { .v2-nav.is-open .v2-tabs { max-height: calc(100vh - 172px); } }
 /* ===== end season-value notice ==================================================================================== */
 
 /* JEG-1023: "not reviewed" caption under the Optimize for control. */
