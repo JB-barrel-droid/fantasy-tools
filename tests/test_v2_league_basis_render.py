@@ -2,8 +2,9 @@
 
 Team summary (roster, starter and bench value in DDF Value, "fundamental") and
 Trade opportunities (fundamentals capture) read the engine rows, so choosing a
-basis on the Overrides tab must move them; the market side (Trade chart
-average, the "market" columns and the market-perception column) must not.
+basis on the Overrides tab must move them. The market side is the average of the
+rescaled charts: it stays the chart average (and teams keep their market order)
+but is in the basis's point scale, because Rescaled follows the basis.
 Checked against an independent recomputation from the engine rows
 (tests/test_v2_league_tables_render.EXPECT), on the frozen 4-team league, with
 USA Today as the whole basis.
@@ -66,19 +67,25 @@ def check(overrides=None) -> list[str]:
         moved = [a["rosterF"] for a, b in zip(after["summary"], before["summary"]) if a["rosterF"] != b["rosterF"]]
         if not moved:
             problems.append("no team's roster value (DDF) moved when the basis changed")
-        # Market stays the chart average.
-        for a, b in zip(after["summary"], before["summary"]):
-            for col in ("rosterM", "starterM", "benchM"):
-                if a[col] != b[col]:
-                    problems.append(f"{a['name']} {col} (market) moved with the basis: {b[col]} -> {a[col]}")
+        # Market stays the chart average. The average is of the rescaled charts, and Rescaled follows the basis
+        # (Jeremy Q2 = B), so its points shift to the basis's scale; what must hold is that it is still the chart
+        # average of the rows (independent recomputation) and that the teams' market order does not change.
+        for r in after["summary"]:
+            t = next(x for x in after["exp"]["teams"] if x["id"] == r["id"])
+            for col, key in (("rosterM", "rosterM"), ("starterM", "starterM"), ("benchM", "benchM")):
+                try:
+                    shown = float(r[col])
+                except (TypeError, ValueError):
+                    continue
+                if abs(shown - t[key]) > 0.051:
+                    problems.append(f"{r['name']} {col} (market) shows {shown}, the chart average of the rows is {t[key]:.2f}")
+        order = lambda snap: [x["id"] for x in sorted((x for x in snap["exp"]["teams"] if x["has"]), key=lambda x: (-round(x["rosterM"], 1), x["id"]))]
+        if order(after) != order(before):
+            problems.append(f"the teams' market order changed with the basis: {order(before)} -> {order(after)}")
         cap_before = {(o["id"], o["trade"]): o["capture"] for o in before["opps"]}
         cap_after = {(o["id"], o["trade"]): o["capture"] for o in after["opps"]}
         if cap_before == cap_after:
             problems.append("no fundamentals capture changed in the opportunities table")
-        mk_before = {(o["id"], o["trade"]): o["market"] for o in before["opps"]}
-        for o in after["opps"]:
-            if (o["id"], o["trade"]) in mk_before and mk_before[(o["id"], o["trade"])] != o["market"]:
-                problems.append(f"market perception moved with the basis for {o['trade']}")
         # Back to ours restores the first screen.
         go(page, "overrides")
         page.click('[data-preset="default"]')
