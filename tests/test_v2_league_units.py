@@ -29,6 +29,7 @@ REQUIRED = [
     "test_sort_tiebreak", "test_opportunities_columns", "test_opportunities_fit_label", "test_opportunities_fit_label_rows",
     "test_opportunities_rank", "test_opportunities_tier_before_edge", "test_opportunities_1_opponent", "test_opportunities_partial",
     "test_multi_trade_cache", "test_opportunities_filters", "test_opportunities_cap_and_headline",
+    "test_summary_ranks_proj", "test_summary_disagree_list", "test_summary_allocation_wording", "test_summary_proj_partial", "test_summary_disagree_charts_key",
 ]
 
 
@@ -66,6 +67,13 @@ MUTATIONS = {
     "roster value is the starters only": ("team-summary.js", "rosterValue: lineup.total,", "rosterValue: lineup.starterValue,", {"test_summary_roster_value"}),
     "a player listed as both under and over": ("team-summary.js", "else if (gap < -floor) over.push(item);",
         "if (Math.abs(gap) > floor) over.push(item);", {"test_summary_overvalued"}),
+    "disagreement floor 1.0 instead of 2.0": ("team-summary.js", "const DISAGREE_FLOOR = 2.0;", "const DISAGREE_FLOOR = 1.0;", {"test_summary_disagree_list"}),
+    "projections view built from any one projected player": ("team-summary.js", "rows.filter(r => POSITIONS.includes(r.pos)).every(r => r.values && finite(r.values[PROJ_KEY]))", "rows.some(r => r.values && finite(r.values[PROJ_KEY]))", {"test_summary_proj_partial"}),
+    "disagreement reads DDF Value instead of the charts": ("team-summary.js", "const charts = finite(v[CHARTS_KEY]) ? v[CHARTS_KEY] : v[OUR_KEY];", "const charts = v[OUR_KEY];", {"test_summary_disagree_charts_key"}),
+    "disagreement column sorts unsigned": ("team-summary.js", "list.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0].gap", "Math.abs(list.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0].gap)", {"test_summary_disagree_charts_key"}),
+    "disagreement sign inverted": ("team-summary.js", "const gap = proj - charts;", "const gap = charts - proj;", {"test_summary_disagree_list"}),
+    "projections rank taken from the DDF value": ("team-summary.js", "const pr = denseRanks(projTeams, r => r.proj.rosterValue);", "const pr = denseRanks(projTeams, r => r.fund.rosterValue);", {"test_summary_ranks_proj"}),
+    "allocation wording dropped": ("team-summary.js", "`${pos} allocation ${med !== null ? \"above the league median\" : \"at or above the expected depth\"} (", "`${pos} (", {"test_summary_allocation_wording"}),
     "market rank taken from the DDF value": ("team-summary.js", "const m = denseRanks(marketTeams, r => r.market.rosterValue);",
         "const m = denseRanks(marketTeams, r => r.fund.rosterValue);", {"test_summary_ranks_market"}),
     "blank values sort first when descending": ("table-sort.js", "return ab === bb ? chain(a, b) : ab ? 1 : -1;   // blanks last",
