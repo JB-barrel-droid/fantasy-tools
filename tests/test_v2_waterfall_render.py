@@ -22,7 +22,9 @@ window.TradeValueCurveControls.getAllRows():
     waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
-    directly below; no horizontal scroll at 1100 or 390;
+    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1280 in DejaVu Sans, the face GitHub's
+    runner falls back to without Inter (JEG-1056; test_wide_font_guard_fails_on_broken_nav serves the old nav rule
+    and a tab row that shrinks before the freshness label, and requires both to be caught);
   * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
     and the address keeps no trade.
 
@@ -30,7 +32,9 @@ Discrimination: test_guard_fails_on_broken_builds serves a per-row scale, the
 verdict following the picker instead of DDF Value, a verdict naming no source, no example,
 the landing drawn on incomplete rows, the 3-column layout removed, and the short-viewport
 wide verdict column removed (JEG-917), and
-requires the checks to fail on each.
+requires the checks to fail on each, and prints one GUARD CAUGHT / NOT CAUGHT line per
+mutation to stderr so the make validate log shows the result (JEG-1056: the short-viewport mutation
+was once not caught because the pinned fixture wraps the same at both column widths).
 """
 from __future__ import annotations
 
@@ -168,7 +172,7 @@ READ = """() => {
       receive: document.querySelector('[data-trade-side="receive"]').getBoundingClientRect().toJSON(),
       verdict: box('v2CVerdict'), verdictFall: box('v2CVerdictFall'),
       table: document.getElementById('v2CTable').closest('.v2-card').getBoundingClientRect().toJSON()},
-    innerHeight, overflow: document.documentElement.scrollWidth - innerWidth};
+    innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
 
 
@@ -274,6 +278,9 @@ def check_verdict(snap, pick) -> list[str]:
     return errors
 
 
+SHORT_VIEWPORT_MIN_VERDICT_WIDTH = 600
+
+
 def check_layout(snap) -> list[str]:
     b, h = snap["boxes"], snap["innerHeight"]
     errors = []
@@ -283,6 +290,15 @@ def check_layout(snap) -> list[str]:
             errors.append(f"{name} not fully on screen at height {h}: {box}")
     if b.get("verdict") and b["verdict"]["top"] > b["give"]["bottom"]:
         errors.append("verdict is below the sides, not beside them")
+    # JEG-917/JEG-1056: on a short desktop viewport the verdict column is the wide one (minmax(420px, 2.2fr),
+    # 649 px at 1366). The fold check above cannot see its loss with the pinned fixture, whose verdict text wraps
+    # the same at 551 px (the 1.6fr column of the plain >= 1280 rule) as at 649 px, so pin the width itself.
+    # 600 sits between the two. Measured on Linux Chromium 2026-10-25: clean 649.5, rule removed 551.1.
+    verdict = b.get("verdict")
+    if snap.get("innerWidth", 0) >= 1280 and h <= 800 and verdict:
+        width = verdict["right"] - verdict["left"]
+        if width < SHORT_VIEWPORT_MIN_VERDICT_WIDTH:
+            errors.append(f"verdict column is {width:.0f}px wide at {snap['innerWidth']}x{h}; the short-viewport rule needs >= {SHORT_VIEWPORT_MIN_VERDICT_WIDTH}px (JEG-917)")
     if b["table"]["top"] < b["give"]["bottom"] or b["table"]["top"] - max(b["give"]["bottom"], b["verdict"]["bottom"] if b.get("verdict") else 0) > 40:
         errors.append(f"per-source table does not start directly below the trade: {b['table']}")
     return errors
@@ -377,7 +393,9 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 page.wait_for_function("() => !document.getElementById('v2CTable').hidden")
                 options = page.evaluate("() => [...document.querySelectorAll('#v2CShown option')].map(o => o.value)")
                 current = page.evaluate("() => document.getElementById('v2CShown').value")
-                other = next((k for k in options if k != current and not k.endswith("_vorp")), None)
+                # ddf_value_charts is the same numbers under the same name as ddf_value since JEG-1073, so a verdict that
+                # wrongly follows the picker would be invisible on it; pick a series with its own name and values.
+                other = next((k for k in options if k not in (current, "ddf_value", "ddf_value_charts") and not k.endswith("_vorp")), None)
                 if other:
                     page.select_option("#v2CShown", other)
                 page.evaluate("() => window.scrollTo(0, 0)")
@@ -405,7 +423,74 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
     return errors
 
 
+WIDE_FONT_CSS = '\n.v2-app, .v2-app * { font-family: "DejaVu Sans", sans-serif !important; }\n'
+
+
+def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
+    """Page overflow and tab-row squeeze per width with the app drawn in DejaVu Sans, the font CI falls back to
+    when Inter is not installed (the hermetic browser blocks Google Fonts). Local Inter hid JEG-1056's overflow."""
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    out = {}
+    with _built_dist() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width in widths:
+                page = browser.new_page(viewport={"width": width, "height": 900})
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                page.route("**/v2/v2.css*", functools.partial(_serve, css + WIDE_FONT_CSS, "text/css"))
+                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
+                out[width] = page.evaluate("""() => { const t = document.querySelector('.v2-tabs');
+                  return {overflow: document.documentElement.scrollWidth - innerWidth, tabsScroll: t.scrollWidth, tabsClient: t.clientWidth}; }""")
+                page.close()
+        finally:
+            browser.close()
+    return out
+
+
+def check_wide_font(result: dict) -> list[str]:
+    """No sideways page scroll at any width, the tab row squeezed at 1024 (else the face was not wide and the check is
+    vacuous), and the tabs not squeezed at 1279, where the freshness label still has room to give way (JEG-675)."""
+    errors = [f"[{w}] horizontal overflow {r['overflow']}px in DejaVu Sans" for w, r in result.items() if r["overflow"] > 0]
+    if result[1024]["tabsScroll"] <= result[1024]["tabsClient"]:
+        errors.append("DejaVu Sans did not widen the nav at 1024; the check is vacuous")
+    if result[1279]["tabsScroll"] > result[1279]["tabsClient"]:
+        errors.append(f"[1279] tab row squeezed to {result[1279]['tabsClient']} of {result[1279]['tabsScroll']}px while the freshness label could give way (JEG-675)")
+    return errors
+
+
+# JEG-1056 mutations of the nav rule: the old non-shrinking tab row, and tabs that shrink as readily as the label.
+NAV_RULE = ".v2-tabs { flex-shrink: 1; min-width: 0; }\n.v2-freshness { flex: 0 100000 auto; min-width: 0; }"
+NAV_MUTATIONS = {
+    "tabs never shrink (pre-JEG-1056)": ".v2-freshness { flex: 0 1 auto; min-width: 0; }",
+    "tabs shrink with the label": ".v2-tabs { flex-shrink: 1; min-width: 0; }\n.v2-freshness { flex: 0 1 auto; min-width: 0; }",
+}
+
+
 class WaterfallRenderTest(unittest.TestCase):
+    def test_no_sideways_scroll_with_a_wide_fallback_font(self):
+        """JEG-1056: CI draws the page in DejaVu Sans (no Inter); the non-shrinking 872 px tab row pushed the page
+        113/37/48 px sideways at 1024/1100/1280."""
+        result = wide_font_overflow(V2_CSS.read_text(encoding="utf-8"))
+        print("WIDE FONT", result, file=sys.stderr, flush=True)
+        self.assertEqual(check_wide_font(result), [])
+
+    def test_wide_font_guard_fails_on_broken_nav(self):
+        css = V2_CSS.read_text(encoding="utf-8")
+        self.assertEqual(css.count(NAV_RULE), 1, "JEG-1056 nav rule anchor is stale")
+        for name, rule in NAV_MUTATIONS.items():
+            with self.subTest(name):
+                errors = check_wide_font(wide_font_overflow(css.replace(NAV_RULE, rule)))
+                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({errors[0] if errors else '-'})", file=sys.stderr, flush=True)
+                self.assertNotEqual(errors, [], f"wide-font check did not catch: {name}")
+
     def test_waterfall_verdict_layout_example(self):
         self.assertEqual(run_checks(), [])
 
@@ -441,11 +526,19 @@ class WaterfallRenderTest(unittest.TestCase):
         # With the SIMULATE_GAP fixture, a gap player is always available, so every
         # mutation is expected to be caught.
         sources = {"v2.js": v2, "v2.css": css, "trade.js": trade}
+        # JEG-1056: only an error the clean build does not already have counts as a catch. When the clean build fails
+        # (the 45 px inputs strip pushed Compare past the 1366x768 fold), every mutation looked caught by that error.
+        # Numbers are masked so a mutation that only moves an already-failing box does not count as a new error.
+        shape = lambda e: re.sub(r"-?\d+(\.\d+)?", "#", e)  # noqa: E731
+        baseline = {shape(e) for e in run_checks(viewports=((1366, 768),))}
         for name, overrides in broken.items():
             with self.subTest(mutation=name):
                 for file, (body, _) in overrides.items():
                     self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
-                errors = run_checks(overrides, viewports=((1366, 768),))
+                errors = [e for e in run_checks(overrides, viewports=((1366, 768),)) if shape(e) not in baseline]
+                # Printed so the blocking `make validate` log shows each guard result, caught or not (JEG-1056).
+                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({len(errors)} new errors; first: {errors[0] if errors else '-'})",
+                      file=sys.stderr, flush=True)
                 self.assertNotEqual(errors, [], f"render checks did not catch: {name}")
 
 

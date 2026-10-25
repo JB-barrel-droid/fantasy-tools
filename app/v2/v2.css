@@ -97,8 +97,13 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-tab.is-soon::after { content: "soon"; font-size: 10px; margin-left: 6px; padding: 1px 6px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; }
 .v2-freshness { background: none; border: 0; color: rgba(255,255,255,.85); font-size: 12px; display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 44px; white-space: nowrap; }
 /* JEG-675: with seven tabs the long "prior week" label squeezed the tab row, and Research slid under the freshness
-   button. The tabs keep their width; the label gives way with an ellipsis. */
-.v2-freshness { flex: 0 1 auto; min-width: 0; }
+   button. The tabs keep their width; the label gives way with an ellipsis.
+   JEG-1056: the tabs never shrank (flex: 1 0 auto), so once the label was gone a wider face pushed the page sideways:
+   without Inter (DejaVu Sans, as on GitHub's runner) the eight tabs are 872 px and the page scrolled 113/37/48 px at
+   1024/1100/1280; even Inter scrolled 28 px at 1024. Now the tab row may shrink and scroll inside itself, but only
+   after the label: its huge shrink weight leaves the tabs about 0.01 px of any deficit until it hits its minimum. */
+.v2-tabs { flex-shrink: 1; min-width: 0; }
+.v2-freshness { flex: 0 100000 auto; min-width: 0; }
 .v2-freshness #v2FreshnessLabel { overflow: hidden; text-overflow: ellipsis; }
 @media (min-width: 1024px) { .v2-nav-inner { gap: 24px; } .v2-tab { padding: 8px 12px; } }
 @media (min-width: 1024px) and (max-width: 1279px) {
