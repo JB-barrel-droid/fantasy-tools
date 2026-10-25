@@ -164,6 +164,10 @@
   //   included: [keys] (optional; overrides status, used for the prior week
   //             so both weeks share one I, VP-8),
   //   compositeInputs: [keys] (optional; the reader's selection, VP-1.5),
+  //   basisConfig: {mode: "default"|"single"|"blend", source?, sources?,
+  //             weights?: {key: integer percent}} (optional; JEG-1044, the
+  //             reader's value basis, VP-6.3; null/default = today's
+  //             equal-weight projections, byte-identical),
   //   pie: number (optional; VP-8 prior week reuses the current pie)
   // }
   // Player keys are numeric strings; every output map is keyed by String(key).
@@ -652,6 +656,70 @@
       bands: es.bands, parts: parts };
   }
 
+  // ===================================================================
+  // JEG-1044: the value basis (VP-6.3). "Our value" is DDF Value, the blended
+  // version. By default it is the equal-weight mean of the projection sources'
+  // Adjusted values. A reader may instead name one source ("single") or a
+  // weighted mean over any subset ("blend") on the same Adjusted scale. The
+  // basis only changes which Adjusted values the blended version averages (and
+  // therefore the Indexed basis, tiers and ranking that read it); VP-1 to
+  // VP-5 (allocation, weights, pie, Adjusted values) never see it, and the
+  // charts-only and projections versions are unchanged (Jeremy, 2026-10-24).
+  // Returns null for the default, else {mode, keys: [requested keys in the
+  // caller's source order], weights: {key: positive number}}.
+  function vpNormalizeBasis(cfg, sourceKeys) {
+    if (!cfg || typeof cfg !== "object" || !cfg.mode || cfg.mode === "default") return null;
+    var asked = [], weights = {};
+    if (cfg.mode === "single") {
+      var one = cfg.source !== undefined && cfg.source !== null ? cfg.source
+        : (Array.isArray(cfg.sources) ? cfg.sources[0] : null);
+      if (one === null || one === undefined) return null;
+      asked = [String(one)];
+      weights[asked[0]] = 1;
+    } else if (cfg.mode === "blend") {
+      var named = Array.isArray(cfg.sources) ? cfg.sources
+        : Object.keys(cfg.weights || {});
+      named.forEach(function (k) {
+        k = String(k);
+        var w = cfg.weights && cfg.weights[k] !== undefined ? Number(cfg.weights[k]) : 1;
+        if (!vpFinite(w) || w <= 0 || weights[k] !== undefined) return;
+        asked.push(k); weights[k] = w;
+      });
+    } else {
+      return null;
+    }
+    var keys = sourceKeys.filter(function (k) { return asked.indexOf(k) !== -1; });
+    return asked.length ? { mode: cfg.mode, asked: asked, keys: keys, weights: weights } : null;
+  }
+
+  // The weighted mean of `keys` over the player's finite Adjusted values,
+  // re-normalised over the sources that price him. {value, used}.
+  function vpWeightedMean(adjusted, keys, weights) {
+    var used = [], sum = 0, wsum = 0;
+    keys.forEach(function (k) {
+      var v = adjusted[k];
+      if (!vpFinite(v)) return;
+      used.push(k); sum += weights[k] * v; wsum += weights[k];
+    });
+    return { value: used.length ? sum / wsum : null, used: used };
+  }
+
+  // JEG-1035 / JEG-1044: a reader override of DDF Value is a row-level
+  // overlay applied after the pipeline. It touches only the DDF entry it is
+  // given; Adjusted values, the pie, Indexed factors and the charts-only
+  // version are never read or written. Absolute value only. Returns the
+  // entry (mutated).
+  function applyDdfOverride(entry, override) {
+    entry.pipelineValue = entry.value;
+    entry.overridden = override !== null && override !== undefined;
+    if (!entry.overridden) return entry;
+    entry.value = override;
+    entry.reason = null;
+    entry.lowConfidence = false;
+    entry.confidenceNote = null;
+    return entry;
+  }
+
   function runValuePipeline(input) {
     var setting = input.setting || {};
     var players = input.players || {};
@@ -687,6 +755,14 @@
     var hiddenKeys = Array.isArray(input.hidden) ? input.hidden : [];
     var isHidden = {};
     hiddenKeys.forEach(function (k) { isHidden[k] = true; });
+    // JEG-1044: the reader's basis. A basis none of whose sources is usable
+    // (not in I, or hidden) falls back to the default and says so.
+    var basisAsked = vpNormalizeBasis(input.basisConfig, sourceKeys);
+    var basisPlan = null;
+    if (basisAsked) {
+      var basisMembers = basisAsked.keys.filter(function (k) { return inI[k] && !isHidden[k]; });
+      if (basisMembers.length) basisPlan = { mode: basisAsked.mode, keys: basisMembers, weights: basisAsked.weights };
+    }
 
     // --- Lists (VP-0, VP-2.1): finite natives at a known position.
     var listed = {}; // src -> {pos: [{key, native}] sorted}
@@ -1253,11 +1329,19 @@
           if (!vpFinite(v)) return;
           used.push(k); sum += v;
         });
-        var entry = { value: used.length ? sum / used.length : null, count: used.length, sources: used,
-          lowConfidence: used.length === 1, reason: null };
+        var blendValue = used.length ? sum / used.length : null;
+        if (basisPlan && version === "blended") {
+          var wm = vpWeightedMean(row.adjusted, basisPlan.keys, basisPlan.weights);
+          used = wm.used; blendValue = wm.value;
+        }
+        // One source pricing him is a low-confidence note only when the
+        // reader chose several; a one-source basis is not "only one source".
+        var oneIsThin = !(basisPlan && version === "blended" && basisPlan.keys.length === 1);
+        var entry = { value: blendValue, count: used.length, sources: used,
+          lowConfidence: used.length === 1 && oneIsThin, reason: null };
         if (!included.length) entry.reason = "No source available this week";
         else if (!used.length) entry.reason = "No source prices this player";
-        else if (used.length === 1) entry.reason = "Only one source prices this player";
+        else if (used.length === 1 && oneIsThin) entry.reason = "Only one source prices this player";
         row.ddfByVersion[version] = entry;
       });
       rows[key] = row;
@@ -1275,6 +1359,9 @@
     // displayed blended DDF Value.
     var indexBasis = {};
     rowKeys.forEach(function (key) {
+      // JEG-1044: with a reader basis the Indexed basis is that basis (the
+      // blended value), so every chart is rescaled to it.
+      if (basisPlan) { indexBasis[key] = rows[key].ddfByVersion.blended.value; return; }
       var sum = 0, n = 0;
       versionSources.blended.forEach(function (k) {
         if (isHidden[k]) return;
@@ -1401,6 +1488,10 @@
       benchShareApplied: bsStar,
       included: included,
       excluded: excluded,
+      basis: basisAsked ? { mode: basisAsked.mode, requested: basisAsked.asked.slice(),
+        applied: !!basisPlan, members: basisPlan ? basisPlan.keys.slice() : [],
+        weights: basisPlan ? Object.assign({}, basisPlan.weights) : {},
+        fellBackToDefault: !basisPlan } : null,
       degenerate: degenerate,
       meanPpg: meanPpg,
       allocation: allocation,
@@ -1454,6 +1545,7 @@
       benchShare: result.benchShare, benchShareInput: result.benchShareInput,
       benchShareOverride: result.benchShareOverride, lineup: result.lineup, chartSigma: result.chartSigma,
       benchShareApplied: result.benchShareApplied, included: result.included, excluded: result.excluded,
+      basis: result.basis || null,
       degenerate: result.degenerate, ddfWeights: result.ddfWeights, allocation: result.allocation,
       slotFill: result.slotFill, fillSets: result.fillSets, sources: sources
     };
@@ -1464,6 +1556,8 @@
     VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,
+    applyDdfOverride: applyDdfOverride,
+    normalizeBasis: vpNormalizeBasis,
     resolveLineupParameters: resolveLineupParameters,
     lineupWindow: lineupWindow,
     LINEUP_OBJECTIVES: LINEUP_OBJECTIVES,

@@ -43,6 +43,7 @@
   let expanded = null;      // JEG-483: "chart" | "table" while the expanded view is open
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
+  let RESCALED_TO = "";   // JEG-1044: " to FantasyCalc" under a reader basis (syncBasisLabels), so "rescaled" never misleads
   const SHORT_METHOD = {dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"};
   const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "Value above waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
@@ -69,7 +70,7 @@
     if (isDdfKey(key)) return sourceMeta(key).label;
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
-    return {proj: `${name} projection`, pub: `${name} chart (rescaled)`,
+    return {proj: `${name} projection`, pub: `${name} chart (rescaled${RESCALED_TO})`,
       vorp: `${name} value above waivers`}[seriesGroup(key)];
   }
   const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
@@ -281,7 +282,7 @@
   function plainSeries(publisher, method) {
     if (publisher === "ddf") return "DDF Value";
     const name = PLAIN_NAMES[publisher] || PUBLISHER_NAMES[publisher] || publisher;
-    return method === "indexed" ? `${name} chart (rescaled)` : `${name} · ${PLAIN_METHOD[method]}`;
+    return method === "indexed" ? `${name} chart (rescaled${RESCALED_TO})` : `${name} · ${PLAIN_METHOD[method]}`;
   }
 
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
@@ -944,12 +945,12 @@
     $("v2ShowingLabel").textContent = page === "values" ? "On the chart:" : "On this page:";
     const counts = SERIES_GROUPS.map(g => ({g, n: shownKeys.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
     // JEG-850: the line also says when the DDF blend is customized and when the chart legend has turned a line off.
-    const customBlend = page === "values" && C.getCompositeInputs ? !C.getCompositeInputs().isDefault : false;
+    const customBlend = page === "values" && C.getBasis ? !C.getBasis().isDefault : false;
     const legendHidden = page === "values" ? shownKeys.filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length : 0;
     // JEG-863: one DDF version on its own is named ("DDF Value", "Trade chart average").
     const oneDdf = shownKeys.filter(isDdfKey);
     $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? sourceMeta(oneDdf[0]).label : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
-      + (c.g.id === "ddf" && customBlend ? " (custom blend)" : "")).join(" + ") || "nothing selected"}`
+      + (c.g.id === "ddf" && customBlend ? " (your basis, not ours)" : "")).join(" + ") || "nothing selected"}`
       + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
     const legend = $("v2ShowingLegend");
@@ -1057,7 +1058,7 @@
     });
     // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
     const methods = new Set(view.plotKeys.map(k => sourceMeta(k).method));
-    const words = isNarrow() ? {dda: "Solid = DDA", indexed: "Dashed = rescaled"} : {dda: "Solid = our value", indexed: "Dashed = rescaled chart"};
+    const words = isNarrow() ? {dda: "Solid = DDA", indexed: `Dashed = rescaled${RESCALED_TO}`} : {dda: "Solid = our value", indexed: `Dashed = rescaled chart${RESCALED_TO}`};
     const key = document.createElement("span");
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
@@ -1688,7 +1689,7 @@
     const info = C.getCompositeInputs ? C.getCompositeInputs(key) : null;
     if (!info || (info.series || []).length) return "";
     return (info.inputs || []).length ? (key === "ddf_value_charts" ? "Every trade chart source is paused this week" : ALL_PROJECTIONS_PAUSED)
-      : "No sources are turned on for this DDF Value (see Customize, DDF blend)";
+      : "No sources are turned on for this DDF Value (see Overrides)";
   }
   function missingReason(key, row) {
     const own = row && row.missingReasons ? row.missingReasons[key] : null;
@@ -2413,7 +2414,7 @@
   const DDF_ROW_TIPS = {
     ddf_value: "Our value: the projection sources on the DDF blend tab, averaged for your league.",
     ddf_value_charts: "The trade charts, rescaled to your league and averaged. A chart line, not a DDF Value input.",
-    ddf_value_projections: "Our value: the projection sources on the DDF blend tab, averaged for your league."};
+    ddf_value_projections: "Our methodology: ESPN, CBS rest of season and Razzball, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
     const text = String(reason || "");
@@ -2429,30 +2430,13 @@
     // (its row says why); ticking it, Select all or Reset to default turns it back on, and Done applies the draft as
     // shown, so no legend hide survives Done.
     const draft = new Set(onValues ? view.active.filter(key => key === view.rankKey || !state.hiddenSeries.has(key)) : pageKeys(page));
-    const composite = onValues && C.getCompositeInputs ? C.getCompositeInputs() : null;
-    const inputsDraft = composite ? new Set(composite.inputs) : null;
-    const hasBlend = Boolean(composite);
-    let tab = "lines";
+    // JEG-1044: the DDF blend lives on the Overrides tab now; this dialog only picks chart lines. It still asks the
+    // engine whether a DDF version has anything to show (versionUsable).
+    const hasBlend = onValues && typeof C.getCompositeInputs === "function";
     const legendHid = key => onValues && key !== view.rankKey && view.active.includes(key) && state.hiddenSeries.has(key);
-    // JEG-542: a source out of the blend this week (held, left out, not published): never selectable. Only
-    // "not selected" stays selectable. JEG-807: a held input stays in the engine's pool (weights, pie) but out of
-    // its blend (`series`); the engine lists it under inputs, not excluded, so it is added here with its hold.
-    const excluded = new Map();
-    if (composite) {
-      (composite.excluded || []).filter(item => item.reason !== "not selected")
-        .forEach(item => excluded.set(item.key, plainOutReason(item.reason)));
-      (composite.inputs || []).filter(key => Array.isArray(composite.series) && !composite.series.includes(key))
-        .forEach(key => { if (!excluded.has(key)) excluded.set(key, plainOutReason(view.infoByKey[key]?.excludedReason)); });
-    }
-    const blendKeys = composite ? (composite.allowed || []).filter(key => seriesGroup(key) === "proj") : [];
-    const usableOn = () => blendKeys.filter(key => inputsDraft.has(key) && !excluded.has(key));
-    // The last usable input stays on (a held source does not count).
-    const isLastInput = key => usableOn().length === 1 && usableOn()[0] === key;
-    // JEG-930: the charts-only version ignores the blend draft; its sources are the open trade charts.
-    // JEG-863: blend-built versions (blend: true) read usableOn; trade chart average (blend: false, not charts) is null.
-    const chartsUsable = () => ((C.getCompositeInputs && C.getCompositeInputs("ddf_value_charts").series) || []).length;
-    const versionUsable = versionKey => (versionKey === "ddf_value_charts" ? chartsUsable()
-      : DDF_VERSIONS[versionKey].blend ? usableOn().length : null);
+    // JEG-930 / JEG-863: how many sources feed a DDF version this week (null: not a blend-built version).
+    const versionUsable = versionKey => (versionKey === "ddf_value_charts" || DDF_VERSIONS[versionKey].blend
+      ? ((C.getCompositeInputs && C.getCompositeInputs(versionKey).series) || []).length : null);
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
       const err = document.createElement("p");
@@ -2460,47 +2444,14 @@
       err.setAttribute("role", "alert");
       err.hidden = true;
       err.textContent = "Choose at least one series.";
-      const tabBar = document.createElement("div");
-      tabBar.className = "v2-pseg v2-ctabs";
-      tabBar.setAttribute("role", "tablist");
-      tabBar.setAttribute("aria-label", "Customize sections");
-      const tabButtons = [["lines", "Chart lines"], ["blend", "DDF blend"]].map(([id, text]) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.id = `v2CustTab-${id}`;
-        b.dataset.tab = id;
-        b.setAttribute("role", "tab");
-        b.setAttribute("aria-controls", `v2CustPanel-${id}`);
-        b.textContent = text;
-        b.addEventListener("click", () => { tab = id; err.hidden = true; render(); });
-        // JEG-896: ARIA tabs pattern. Arrow keys, Home and End move focus and selection; only the selected tab is in the Tab order.
-        b.addEventListener("keydown", event => {
-          const last = tabBar.children.length - 1;
-          const at = Array.prototype.indexOf.call(tabBar.children, b);
-          const to = event.key === "ArrowRight" ? (at + 1) % (last + 1) : event.key === "ArrowLeft" ? (at + last) % (last + 1)
-            : event.key === "Home" ? 0 : event.key === "End" ? last : -1;
-          if (to < 0) return;
-          event.preventDefault();
-          tab = tabBar.children[to].dataset.tab;
-          err.hidden = true;
-          render();
-          tabBar.children[to].focus();
-        });
-        tabBar.appendChild(b);
-        return b;
-      });
-      if (hasBlend) body.appendChild(tabBar);
       body.appendChild(err);
       const panelFor = id => {
         const box = document.createElement("div");
         box.id = `v2CustPanel-${id}`;
         box.dataset.panel = id;
-        box.setAttribute("role", "tabpanel");
-        box.setAttribute("aria-labelledby", `v2CustTab-${id}`);
         return box;
       };
       const linesPanel = panelFor("lines");
-      const blendPanel = panelFor("blend");
       // Chart lines: intro, then the groups.
       const linesIntro = document.createElement("p");
       linesIntro.className = "v2-meta v2-cintro";
@@ -2511,17 +2462,19 @@
       linesSummary.setAttribute("role", "status");
       const groupsBox = document.createElement("div");
       linesPanel.append(linesIntro, linesSummary, groupsBox);
-      // DDF blend: intro, the count, the two input lists.
-      const blendIntro = document.createElement("p");
-      blendIntro.className = "v2-meta v2-cintro";
-      blendIntro.textContent = "Which projection sources are averaged into DDF Value. Trade charts are chart lines, never DDF Value inputs. This choice applies on every page.";
-      const blendSummary = document.createElement("p");
-      blendSummary.className = "v2-psummary";
-      blendSummary.setAttribute("role", "status");
-      const blendBox = document.createElement("div");
-      blendPanel.append(blendIntro, blendSummary, blendBox);
       body.append(linesPanel);
-      if (hasBlend) body.append(blendPanel);
+      if (hasBlend) {
+        // JEG-1044 (Jeremy, 2026-10-24): the DDF blend tab is gone; the basis picker on Overrides replaces it.
+        const moved = document.createElement("p");
+        moved.className = "v2-meta v2-cintro";
+        moved.append("What DDF Value is built from (which sources, and their weights) is set on ");
+        const link = document.createElement("a");
+        link.href = "v2/#value-overrides";
+        link.textContent = "Overrides";
+        link.addEventListener("click", () => closePopover());
+        moved.append(link, ".");
+        body.append(moved);
+      }
 
       function metaNote(label, text) {
         const why = document.createElement("span");
@@ -2568,58 +2521,6 @@
         }
         label.title = isDdfKey(item.key) ? DDF_ROW_TIPS[item.key] : (item.waiverNote && item.available ? item.waiverNote : "");
         return label;
-      }
-      // One blend input. The inputs are one shared choice (the engine's setCompositeInputs).
-      function blendRow(key) {
-        const meta = sourceMeta(key);
-        const label = document.createElement("label");
-        const out = excluded.get(key);
-        const last = isLastInput(key);
-        label.className = `v2-crow${out ? " is-disabled" : ""}`;
-        const input = document.createElement("input");
-        input.type = "checkbox";
-        input.dataset.ddfInput = key;
-        input.checked = inputsDraft.has(key) && !out;
-        input.disabled = Boolean(out) || last;
-        input.addEventListener("change", () => {
-          if (input.checked) inputsDraft.add(key); else inputsDraft.delete(key);
-          err.hidden = true;
-          render();
-          refocus(`[data-ddf-input="${key}"]`);
-        });
-        const name = document.createElement("span");
-        name.className = "v2-crow-name";
-        name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
-        name.append(sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
-        label.append(input, name);
-        if (view.infoByKey[key]?.stale) label.appendChild(weekBadge(key));
-        appendDivergence(label, key, {heldNoted: Boolean(out)});
-        if (out) metaNote(label, out);
-        else if (last) metaNote(label, "Last source stays on");
-        return label;
-      }
-      function renderBlend() {
-        blendBox.replaceChildren();
-        if (!hasBlend) return;
-        const total = blendKeys.length;
-        const using = usableOn().length;
-        blendSummary.textContent = `Using ${using} of ${total} sources`;
-        // JEG-863: the projection inputs only; a trade chart is never a DDF Value input, whatever the engine lists.
-        [["proj", "Projections"]].forEach(([groupId, title]) => {
-          const keys = blendKeys.filter(key => seriesGroup(key) === groupId);
-          if (!keys.length) return;
-          const section = document.createElement("section");
-          section.className = "v2-cgroup";
-          section.dataset.blendGroup = groupId;
-          const h = document.createElement("h3");
-          h.textContent = title;
-          const head = document.createElement("div");
-          head.className = "v2-cgroup-head";
-          head.appendChild(h);
-          section.appendChild(head);
-          keys.forEach(key => section.appendChild(blendRow(key)));
-          blendBox.appendChild(section);
-        });
       }
       function renderLines() {
         groupsBox.replaceChildren();
@@ -2670,20 +2571,10 @@
       }
       function render() {
         renderLines();
-        renderBlend();
-        tabButtons.forEach(b => {
-          const on = b.dataset.tab === tab;
-          b.classList.toggle("is-on", on);
-          b.setAttribute("aria-selected", String(on));
-          b.tabIndex = on ? 0 : -1;
-        });
-        linesPanel.hidden = tab !== "lines";
-        blendPanel.hidden = tab !== "blend";
       }
-      function fail(text, onTab) {
+      function fail(text) {
         err.textContent = text;
         err.hidden = false;
-        tab = onTab;
         render();
       }
       const reset = document.createElement("button");
@@ -2693,15 +2584,14 @@
       reset.addEventListener("click", () => {
         draft.clear();
         (onValues ? startActive || [] : pageDefault(page)).forEach(key => draft.add(key));
-        if (inputsDraft) { inputsDraft.clear(); (composite.defaults || []).forEach(key => inputsDraft.add(key)); }
         err.hidden = true;
         render();
       });
       panelActions(pop, [["Cancel", false, closePopover], ["Done", true, () => {
         if (!onValues) {
-          if (!draft.size) { fail("Choose at least one series.", "lines"); return; }
+          if (!draft.size) { fail("Choose at least one series."); return; }
           const need = pageNeed(page, draft);
-          if (need) { fail(need, "lines"); return; }
+          if (need) { fail(need); return; }
           savePageKeys(page, [...draft]);
           // The page follows its new set: Trade targets reads the first ticked value as ours, Risers opens on the first
           // ticked series. The on-page pickers still offer every series for a one-off look.
@@ -2717,11 +2607,7 @@
         }
         // JEG-850: the engine always keeps one source, so a draft with none cannot be applied as shown. Block it.
         if (![...draft].some(key => !isDdfKey(key) && view.infoByKey[key] && view.infoByKey[key].available)) {
-          fail("Pick at least one source. DDF Value is built from sources, so it cannot be shown on its own.", "lines");
-          return;
-        }
-        if (inputsDraft && !usableOn().length) {
-          fail("Keep at least one source on in the DDF blend.", "blend");
+          fail("Pick at least one source. DDF Value is built from sources, so it cannot be shown on its own.");
           return;
         }
         const adds = [...draft].filter(key => !view.active.includes(key));
@@ -2729,17 +2615,6 @@
         adds.forEach(toggleEngineSource);
         drops.forEach(toggleEngineSource);
         state.hiddenSeries.clear();   // JEG-907: the draft is the whole state; a legend hide never survives Done
-        if (inputsDraft && C.setCompositeInputs) {
-          const info = C.getCompositeInputs();
-          const defaults = info.defaults || [];
-          const isDefaultDraft = inputsDraft.size === defaults.length && defaults.every(key => inputsDraft.has(key));
-          // The default set goes back to the engine's own defaults (null), so it follows them as they change.
-          if (isDefaultDraft) { if (!info.isDefault) C.resetCompositeInputs(); }
-          else {
-            const changed = inputsDraft.size !== info.inputs.length || info.inputs.some(key => !inputsDraft.has(key));
-            if (changed) C.setCompositeInputs([...inputsDraft]);
-          }
-        }
         saveSelection();
         closePopover();
         refresh();
@@ -2773,9 +2648,9 @@
   }
   function saveSelection() {
     try {
-      const inputs = C.getCompositeInputs ? C.getCompositeInputs() : null;
+      // JEG-1044: the DDF blend choice is the basis now (Overrides tab, its own saved record); `inputs` stays null.
       localStorage.setItem(SAVE_KEY, JSON.stringify({v: 1, shown: ddfShownList().concat(C.getActiveSources()),
-        inputs: inputs && !inputs.isDefault ? inputs.inputs : null, rank: C.getRankSource()}));
+        inputs: null, rank: C.getRankSource()}));
     } catch (error) { /* storage unavailable: the choice lasts this visit only */ }
   }
   function loadSelection() {
@@ -2788,7 +2663,6 @@
   function applyStartSelection() {
     const hasDdf = typeof C.getCompositeInputs === "function";
     const saved = loadSelection();
-    if (hasDdf && saved && Array.isArray(saved.inputs) && saved.inputs.length) C.setCompositeInputs(saved.inputs, false);
     const shown = saved && saved.shown.length ? saved.shown : (hasDdf ? defaultShown() : C.getActiveSources());
     applyShown(shown.filter(key => hasDdf || !isDdfKey(key)));
     const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? DDF_KEY : null);
@@ -3761,7 +3635,8 @@
   // Shared ⓘ (JEG-458): why trade chart values are "rescaled". A 44 px
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
-  const INDEXED_INFO = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
+  const INDEXED_INFO_DEFAULT = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
+  const INDEXED_INFO = INDEXED_INFO_DEFAULT;
   // JEG-490: our names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
   // JEG-863: two names. DDF Value is the projection sources averaged (JEG-804); the trade chart average is the market.
@@ -3773,7 +3648,7 @@
   const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: NAME_DEFS[0]};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
-    indexed: {kind: "indexed", what: "rescaled", title: "Rescaled values", lines: [INDEXED_INFO]},
+    indexed: {kind: "indexed", what: "rescaled", title: "Rescaled values", lines: [INDEXED_INFO]},   // syncBasisLabels rewrites the line
     names: {kind: "names", what: "our names", title: "Our names", lines: NAME_DEFS.map(([name, text]) => [name, text]).concat([["", EDGE_DEF]])}
   };
   function namesInfoButton(context) { return indexedInfoButton(context, INFO_SPECS.names); }
@@ -4644,7 +4519,7 @@
     }
     // JEG-863: DDF Value is the projection sources averaged; the trade chart average is the charts, not a DDF input.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
-      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, the projection sources chosen in Customize on Player values, averaged for your league`
+      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, ${targetsView.ours === DDF_KEY ? basisPhrase() : "the projection sources ESPN, CBS rest of season and Razzball, averaged for your league"}`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
     // JEG-851: rewrite the footnote lead-in for single-chart mode.
     const footEl = $("v2TFootnote");
@@ -5864,9 +5739,21 @@
     const parts = [];
     if (TR.give.length) parts.push(`give=${keys("give")}`);
     if (TR.receive.length) parts.push(`get=${keys("receive")}`);
-    if (parts.length) parts.push(...leagueLinkParts());
+    if (parts.length) {
+      parts.push(...leagueLinkParts());
+      // JEG-1044: the reader's value basis and player overrides travel with the link (absent = ours / none).
+      // Past the budget the player overrides drop out and the sender is told to use Export.
+      const ov = window.DDFOverrides && window.DDFOverrides.shareParams ? window.DDFOverrides.shareParams() : null;
+      shareDroppedOverrides = false;
+      if (ov && ov.basis) parts.push(`basis=${ov.basis}`);
+      if (ov && ov.ov) {
+        if (parts.join("&").length + ov.ov.length + 4 > 1800) shareDroppedOverrides = true;
+        else parts.push(`ov=${ov.ov}`);
+      }
+    }
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
+  let shareDroppedOverrides = false;
   // Apply a link's scoring and roster when they differ from the reader's; say so.
   function applyLinkLeague(params) {
     const scoring = params.get("scoring");
@@ -5957,6 +5844,8 @@
     TR.give = read("give");
     TR.receive = read("get");
     applyLinkLeague(params);
+    // JEG-1044: a link's basis and player overrides apply for this visit, with a banner and a one-click way back.
+    if (window.DDFOverrides && window.DDFOverrides.applyLink) window.DDFOverrides.applyLink(params);
   }
   function syncTradeHash() {
     if (currentView() !== "compare") return;
@@ -5967,11 +5856,16 @@
     const url = location.href;
     const note = $("v2CShareNote");
     note.hidden = false;
+    // JEG-1044: say what else the link carries, and when the player overrides did not fit.
+    const carries = /[?&]basis=/.test(url) || /[?&]ov=/.test(url)
+      ? " Your value basis and player overrides are in the link too; the reader can switch back to our methodology in one click." : "";
+    const dropped = shareDroppedOverrides && window.DDFOverrides ? ` ${window.DDFOverrides.dropOverridesNote()}` : "";
     try {
       await navigator.clipboard.writeText(url);
-      note.textContent = "✓ Link copied. It opens this trade with your scoring, roster, bench share and position shares; the team count stays the reader's.";
+      note.textContent = "✓ Link copied. It opens this trade with your scoring, roster, bench share and position shares; the team count stays the reader's."
+        + carries + dropped;
     } catch (error) {
-      note.textContent = `Copy this link: ${url}`;
+      note.textContent = `Copy this link: ${url}${dropped}`;
     }
   }
 
@@ -6446,6 +6340,7 @@
   }
 
   function applyRoute() {
+    syncBasisLabels();
     const v = currentView();
     $("v2Main").hidden = v !== "values";
     $("v2Targets").hidden = v !== "targets";
@@ -6528,7 +6423,43 @@
   }
 
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
+  // JEG-1044: the words that depend on the reader's basis (Overrides tab). With our methodology every string is the
+  // one it always was; with another basis a "Rescaled" value says which basis it is rescaled to, and DDF Value says
+  // it is not ours, so a reader is never misled about what a number means.
+  const OURS_DEFAULT = "the projection sources ESPN, CBS rest of season and Razzball, averaged for your league";
+  function currentBasis() { return C && C.getBasis ? C.getBasis() : null; }
+  function basisPhrase() {
+    const b = currentBasis();
+    if (!b || b.isDefault) return OURS_DEFAULT;
+    return b.mode === "single" ? `${b.label} alone (your basis, not our methodology)`
+      : `${b.label} (your basis, not our methodology), averaged for your league`;
+  }
+  function syncBasisLabels() {
+    const b = currentBasis();
+    const custom = Boolean(b && !b.isDefault);
+    const to = custom ? ` (to ${b.label})` : "";
+    RESCALED_TO = custom ? ` to ${b.label}` : "";
+    SHORT_METHOD.indexed = `Rescaled${to}`;
+    PLAIN_METHOD.indexed = `Rescaled chart${to}`;
+    METHOD_COLUMNS[1][1] = `Rescaled chart${to}`;
+    METHOD_FULL.indexed = `Rescaled${to}`;
+    const pub = SERIES_GROUPS.find(g => g.id === "pub");
+    pub.title = custom ? `Trade charts (rescaled${to})` : "Trade charts (rescaled)";
+    pub.note = custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis). Their ranking order is unchanged.`
+      : "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
+    SERIES_GROUPS.find(g => g.id === "ddf").note = custom ? `Our value for each player, following your basis: ${basisPhrase()}.`
+      : "Our value for each player: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league.";
+    DDF_ROW_TIPS.ddf_value = custom ? `Your basis, not ours: ${basisPhrase()}. Change it on Overrides.` : `Our value: ${OURS_DEFAULT}.`;
+    INFO_SPECS.indexed.lines = [custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis, not our methodology). Their ranking order is unchanged.` : INDEXED_INFO_DEFAULT];
+    NAME_DEFS[0][1] = custom ? `Your estimate of what a player is worth, following your basis: ${basisPhrase()}.`
+      : `Our estimate of what a player is worth: ${OURS_DEFAULT}.`;
+    INFO_SPECS.names.lines = NAME_DEFS.map(([name, text]) => [name, text]).concat([["", EDGE_DEF]]);
+    document.querySelectorAll("[data-basis-ours]").forEach(node => { node.textContent = basisPhrase(); });
+    const cap = $("v2TChartCaption");
+    if (cap && cap.firstChild && cap.firstChild.nodeType === 3) cap.firstChild.nodeValue = custom ? `Rescaled to ${b.label}'s point scale ` : "Rescaled to our point scale ";
+  }
   function refresh() {
+    syncBasisLabels();
     if (currentView() === "targets") renderTargets();
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
@@ -6544,6 +6475,13 @@
   // Each sub-tab fills its own mount through DDFAudit (audit-pie.js, audit-source.js).
   function renderAudit() {
     collect(); renderHeader();
+    // JEG-1044: the checks here were set on our methodology. Under another basis, say so.
+    const basisNote = $("v2AuditBasisNote");
+    const basis = currentBasis();
+    if (basisNote) {
+      basisNote.hidden = !basis || basis.isDefault;
+      basisNote.textContent = basisNote.hidden ? "" : `Values are shown for your custom basis (${basis.label}). Diagnostics may differ from our methodology, and the thresholds on these pages were set on our methodology.`;
+    }
     const slugs = window.DDFAudit ? window.DDFAudit.slugs : ["health-check", "single-source"];
     const asked = decodeURIComponent(hashBase().slice("#values-auditing/".length));
     const slug = hashBase().startsWith("#values-auditing/") && slugs.includes(asked) ? asked : slugs[0];

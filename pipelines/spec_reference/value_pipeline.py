@@ -677,17 +677,74 @@ def row_value(r: dict, family: str, k: int, p: str, view: str):
     return None, None             # projection that does not list him
 
 
-def ddf_version(values: dict, members: list) -> dict:
+def normalize_basis(cfg: dict | None, source_order: list) -> dict | None:
+    """JEG-1044: the reader's value basis. None = the default (equal-weight
+    projections). Else {"mode", "asked", "keys" (in source order), "weights"}.
+    "single": one source, weight 1. "blend": every named source with a positive
+    weight (a missing weight reads as 1)."""
+    if not cfg or not cfg.get("mode") or cfg["mode"] == "default":
+        return None
+    asked, weights = [], {}
+    if cfg["mode"] == "single":
+        one = cfg.get("source")
+        if one is None and cfg.get("sources"):
+            one = cfg["sources"][0]
+        if one is None:
+            return None
+        asked, weights = [str(one)], {str(one): 1.0}
+    elif cfg["mode"] == "blend":
+        named = cfg.get("sources")
+        if named is None:
+            named = list((cfg.get("weights") or {}).keys())
+        for k in named:
+            k = str(k)
+            w = float((cfg.get("weights") or {}).get(k, 1))
+            if not (w > 0) or w == float("inf") or k in weights:
+                continue
+            asked.append(k)
+            weights[k] = w
+    else:
+        return None
+    if not asked:
+        return None
+    return {"mode": cfg["mode"], "asked": asked, "keys": [s for s in source_order if s in asked],
+            "weights": weights}
+
+
+def ddf_version(values: dict, members: list, weights: dict | None = None) -> dict:
     used = [(s, values[s]) for s in members if values.get(s) is not None]
     if not used:
         return {"value": None, "count": 0, "low_confidence": False, "sources": [],
                 "reason": "No source prices this player"}
-    val = fsum_in_order(v for _, v in used) / len(used)
-    out = {"value": val, "count": len(used), "low_confidence": len(used) == 1,
+    if weights is not None:
+        # Weighted mean on the Adjusted scale, re-normalised over the sources
+        # that price the player (JEG-1044).
+        val = fsum_in_order(weights[s] * v for s, v in used) / fsum_in_order(weights[s] for s, _ in used)
+    else:
+        val = fsum_in_order(v for _, v in used) / len(used)
+    thin = len(used) == 1 and (weights is None or len(members) > 1)   # a one-source basis is not "only one source"
+    out = {"value": val, "count": len(used), "low_confidence": thin,
            "sources": [s for s, _ in used]}
-    if len(used) == 1:
+    if thin:
         out["reason"] = "Only one source prices this player"
     return out
+
+
+def apply_value_overrides(rows: dict, overrides: dict) -> None:
+    """JEG-1035 / JEG-1044: the reader's per-player DDF Value overrides, a
+    row-level overlay applied after the pipeline. It replaces the blended and
+    projections DDF values only; Adjusted values, Indexed values, the pie and
+    the charts-only version are never touched. Absolute values."""
+    for k, row in rows.items():
+        ov = overrides.get(k)
+        for field_ in ("ddf_blended", "ddf_projections"):
+            entry = row[field_]
+            entry["pipeline_value"] = entry["value"]
+            entry["overridden"] = ov is not None
+            if ov is not None:
+                entry["value"] = float(ov)
+                entry["low_confidence"] = False
+                entry.pop("reason", None)
 
 
 # ---------------------------------------------------------------- one week
@@ -695,8 +752,14 @@ def ddf_version(values: dict, members: list) -> dict:
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
              lineup: dict | None = None, hidden: list | None = None,
-             promotion_model: bool = True, flex_bench_seats: bool = True) -> dict:
+             promotion_model: bool = True, flex_bench_seats: bool = True,
+             basis: dict | None = None) -> dict:
     """VP-2 .. VP-7 for one week.
+
+    basis: JEG-1044, the reader's value basis ({"mode": "single"|"blend", ...});
+           None or mode "default" = equal-weight projections. It changes only
+           the blended DDF Value (and so the Indexed basis, tiers, ranking);
+           allocation, weights, pie and Adjusted values never see it.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
              in source-key display order; natives already carry the superflex
@@ -773,6 +836,17 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     # JEG-863 (Jeremy, 2026-10-23, option B): no fallback to charts. When no
     # projection source is included, DDF Value is unavailable (null).
     blended_members = proj_members
+    blend_weights = None
+    asked = normalize_basis(basis, list(sources))
+    basis_out = None
+    if asked is not None:
+        usable = [s for s in asked["keys"] if s in inc and s not in hidden_set]
+        basis_out = {"mode": asked["mode"], "requested": list(asked["asked"]), "applied": bool(usable),
+                     "members": list(usable), "weights": {s: asked["weights"][s] for s in usable},
+                     "fell_back_to_default": not usable}
+        if usable:
+            blended_members = usable
+            blend_weights = asked["weights"]
     members = {
         "blended": blended_members,
         "charts": [s for s in inc if s not in hidden_set and family[s] == CHART],   # JEG-930: charts-only ignores the blend selection
@@ -790,7 +864,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
                 est[s] = path
         rows[k] = {"name": (names or {}).get(k), "pos": p, "adjusted": adj, "vorp_vs_waivers": vorp,
                    "estimated": est,
-                   "ddf_blended": ddf_version(adj, members["blended"]),
+                   "ddf_blended": ddf_version(adj, members["blended"], blend_weights),
                    "ddf_charts": ddf_version(adj, members["charts"]),
                    "ddf_projections": ddf_version(adj, members["projections"]),
                    "mean_ppg": m.get(k)}
@@ -889,6 +963,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
             src_out[s]["allocation"] = r["allocation"]
     return {
         "included": inc,
+        "basis": basis_out,
         "hidden": [s for s in inc if s in hidden_set],
         "pie": pie,
         "starting_slots_per_team": setting.starting_slots_per_team(),
@@ -919,16 +994,16 @@ def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, inclu
         selection: list | None = None, names: dict | None = None,
         prior_pos_of: dict | None = None, lineup: dict | None = None,
         hidden: list | None = None, promotion_model: bool = True,
-        flex_bench_seats: bool = True) -> dict:
+        flex_bench_seats: bool = True, basis: dict | None = None) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
     cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden,
-                   promotion_model=promotion_model, flex_bench_seats=flex_bench_seats)
+                   promotion_model=promotion_model, flex_bench_seats=flex_bench_seats, basis=basis)
     out = {"current": cur, "prior": None}
     if prior:
         prior_src = {s: prior[s] for s in included if s in prior}
         pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup, hidden=hidden,
-                      promotion_model=promotion_model, flex_bench_seats=flex_bench_seats)
+                      promotion_model=promotion_model, flex_bench_seats=flex_bench_seats, basis=basis)
         out["prior"] = pw
         for k, row in cur["rows"].items():
             prow = pw["rows"].get(k)

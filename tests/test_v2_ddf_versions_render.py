@@ -5,8 +5,8 @@ Run against the built dist/ in headless Chromium. Checks:
   * defaults: Customize lists "DDF Value" and "Trade chart average"
     (JEG-863 names); ddf_value_projections is hidden (sameAs ddf_value); only the blended one
     is ticked and shown;
-  * the DDF blend tab lists the inputs once (JEG-850: the per-version copies are gone): the
-    projections under "Projections" and, since JEG-804, no trade charts;
+  * Customize has no DDF blend tab or inputs (JEG-1044: it moved to Overrides, Jeremy 2026-10-24) and no
+    per-version copies; Overrides' Custom blend lists each of the seven sources once;
   * ticking Trade chart average and pressing Done shows it, and every table cell
     equals the engine row's values[<version key>] to one decimal;
   * the grouped picker (Rank by, Risers & fallers, Compare's Player values
@@ -92,19 +92,26 @@ def check_defaults(page, tag) -> list[str]:
     }""")
     if hidden:
         errors.append(tag + "ddf_value_projections has a Customize row but should be hidden (sameAs ddf_value)")
-    # The blend tab lists every input once. JEG-804 (#814, Jeremy 2026-10-22 "Out of DDF Value"): the blend is projections
-    # only, so the tab has the "Projections" group and no "Trade charts" group (charts stay in "Chart lines").
-    page.click('#v2Popover [data-tab="blend"]')
-    sets = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#v2Popover [data-blend-group]')].map(g =>
-      [g.dataset.blendGroup, [...g.querySelectorAll('input[data-ddf-input]')].map(i => i.dataset.ddfInput)]))""")
-    if set(sets.get("proj", [])) != FAMILY["ddf_value_projections"]:
-        errors.append(tag + f"the blend tab lists {sets.get('proj')} under Projections, want {sorted(FAMILY['ddf_value_projections'])}: {sets}")
-    if sets.get("pub"):
-        errors.append(tag + f"trade charts are back in the DDF blend tab: {sets.get('pub')}")
+    # JEG-1044 (Jeremy 2026-10-24): the blend tab is gone; Customize keeps only the chart lines. The sources and their
+    # weights are on Overrides, which lists each of the seven sources once.
+    if page.evaluate("() => document.querySelectorAll('#v2Popover [role=tab], #v2Popover [data-tab], #v2Popover [data-ddf-input]').length"):
+        errors.append(tag + "the DDF blend tab or its inputs are back in Customize")
     if page.evaluate("() => document.querySelectorAll('#v2Popover [data-ddf-version-input], #v2Popover fieldset[data-ddf-version]').length"):
         errors.append(tag + "the per-version copies of the inputs are back")
     page.click('#v2Popover [data-apply="sources"]')
     page.wait_for_timeout(250)
+    page.evaluate("() => { location.hash = '#value-overrides'; }")
+    page.wait_for_selector("#v2OvPresets")
+    page.click('#v2OvPresets [data-preset="blend"]')
+    page.wait_for_selector("#v2OvOn-espn")
+    listed = page.evaluate("() => [...document.querySelectorAll('[id^=v2OvOn-]')].map(i => i.dataset.source)")
+    want = sorted(FAMILY["ddf_value_projections"] | FAMILY["ddf_value_charts"])
+    if sorted(listed) != want:
+        errors.append(tag + f"Overrides' blend lists {listed}, want each of the seven sources once: {want}")
+    page.click('#v2OvPresets [data-preset="default"]')
+    page.wait_for_timeout(300)
+    page.evaluate("() => { location.hash = '#player-values'; }")
+    ready(page)
     return errors
 
 

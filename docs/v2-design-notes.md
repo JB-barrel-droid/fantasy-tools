@@ -599,6 +599,22 @@ cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj
   detail carries `compositeInputs` (`null` = defaults). `resetCompositeInputs(publish = true)` =
   `setCompositeInputs(null)`. Chosen inputs persist across league changes; one unavailable at a
   setting is skipped there.
+  **JEG-1044 (2026-10-24): the DDF blend became the value basis.** `setBasis(config, publish = true)` /
+  `getBasis()` / `resetBasis()` replace the Customize DDF blend tab (removed; v2 keeps `setCompositeInputs`
+  only as an alias for an equal-weight projection blend). `config`: `null`, `"default"` or `{mode:
+  "default"}` (our methodology); `{mode: "single", source}`; `{mode: "blend", sources?, weights: {key:
+  1-100}}` over the seven pipeline sources. `getBasis()` → `{mode, isDefault, source, sources, weights,
+  percents (sum 100), label ("FantasyCalc", "60% ESPN + 40% Razzball"), shortLabel, rescaledLabel
+  ("Rescaled (to FantasyCalc)"), applied, members, fellBackToDefault, sourceStates: [{key, label, family,
+  usable, reason}]}`. It drives `ddf_value` only (blended), the Indexed basis, tiers and ranking; the
+  trade chart average and `ddf_value_projections` ignore it; the prior week is run on it. The shared-state
+  event detail carries `basis`. `value_check compare --basis '<json>'` runs page and reference under one.
+  The reader's basis and player overrides are one record in localStorage `ddf-v2-value-overrides` (v2:
+  `{v, basis, values, names}`; v1 = values and names only; the retired `ddf.v2.selection.inputs` migrates
+  in once). `window.DDFOverrides` (app/v2/overrides.js) owns the tab, the "Overrides active" bar, the
+  share-link parameters (`basis=`, `ov=`) and the banner; other tabs read rows and need nothing else, and a
+  consumer that re-runs on league changes listens for `ddf:league-settings-changed` (reason `sources` for a
+  basis change, `overrides` for a player value).
 - **Values.** `getCompositeValues([version])` → `{version, inputs, series, currentWeek, priorWeek,
   priorAvailable, priorReason, current, currentCounts, prior, priorCounts, minSources}` (objects
   keyed by `player_key`; players without a value are absent; `prior` is `null` without a prior

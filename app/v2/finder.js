@@ -1699,7 +1699,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     }
     if (!$("v2FindSummary").hidden) updateSummary();
     const note = $("v2FindSettingsNote");
-    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
+    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : event && event.detail && event.detail.reason === "overrides" ? "Updated for your value overrides." : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
     if (note) note.textContent = text;
     if (event && event.detail && event.detail.notes) event.detail.notes.push(...say);
   }

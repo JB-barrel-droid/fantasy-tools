@@ -775,7 +775,8 @@
     });
     return ValueModel.runValuePipeline({
       setting: pipelineSetting(), players: pipelinePlayers(), sources, included,
-      compositeInputs: compositeInputs ? [...compositeInputs] : null, lineup: resolvedLineup(), ...extra,
+      basisConfig: basisConfig ? {...basisConfig, sources: [...basisConfig.sources], weights: {...basisConfig.weights}} : null,
+      lineup: resolvedLineup(), ...extra,
     });
   }
 
@@ -937,10 +938,20 @@
   }
 
   // ---- DDF Value (VP-6.3) ----
-  // null = every included source; otherwise the reader's chosen sources
-  // (setCompositeInputs), kept across league changes. The choice narrows
-  // only the DDF averaging (VP-1.5), never I, the weights or any series.
-  let compositeInputs = null;
+  // JEG-1044 (Jeremy, 2026-10-24): the reader's value basis. null = our
+  // methodology (DDF Value = the equal-weight mean of the projection sources'
+  // Adjusted values). Else {mode: "single"|"blend", source?, sources, weights:
+  // {key: integer percent}}: DDF Value is that one source, or the weighted mean
+  // of those sources, on the same Adjusted scale. Kept across league changes.
+  // It decides only which Adjusted values the blended DDF Value averages (and
+  // so the Indexed basis, tiers and ranking that read it); I, the weights, the
+  // pie and every source's own series are untouched (VP-1.5, VP-6.3).
+  let basisConfig = null;
+  const BASIS_SOURCE_KEYS = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"];
+  const BASIS_MAX_WEIGHT = 100;
+  // The reader's selection as a plain list (the retired setCompositeInputs
+  // vocabulary): null for our methodology, else the basis' sources.
+  const basisSelection = () => basisConfig ? [...basisConfig.sources] : null;
   let compositeMap = new Map();
   // JEG-1035 (Jeremy, 2026-10-24: "select a player and say their ddf is actually a
   // different value ... have it permeate through the full dashboard"): reader
@@ -1037,9 +1048,14 @@
   // it always uses every open trade chart and is never blank after a blend edit.
   function versionInputs(version) {
     const family = COMPOSITE_VERSIONS[version];
-    const ignoresBlend = version === "ddf_value_charts";
-    return pipelineState.included.filter(key => family.includes(key)
-      && (ignoresBlend || !compositeInputs || compositeInputs.includes(key)));
+    // JEG-1044: under a reader basis the blended version's inputs are the
+    // basis' sources (any family); the charts-only and projections versions
+    // are fixed (the projections version stays the equal-weight reference).
+    if (version === COMPOSITE_KEY && basisConfig) {
+      const members = pipelineState.included.filter(key => basisConfig.sources.includes(key));
+      if (members.length) return members;
+    }
+    return pipelineState.included.filter(key => family.includes(key));
   }
   // JEG-484: product-data's per-asset load outcome (read-only).
   const productLoadStatus = () => window.TradeValueProductData?.getLoadStatus?.() || {assets: {}, adjustmentsLoaded: false};
@@ -1052,7 +1068,7 @@
       if (inputs.includes(key)) return;
       const entry = pipelineState.excluded.find(e => e.key === key);
       if (entry) excluded.push({...entry});
-      else if (compositeInputs && !compositeInputs.includes(key)) excluded.push({key, series: key, reason: "not selected"});
+      else if (basisConfig && version === COMPOSITE_KEY) excluded.push({key, series: key, reason: "not in your basis"});
     });
     // JEG-569 part 2: hidden sources are in the pipeline inputs (for
     // stable weights/pie) but excluded from the display-facing series
@@ -1062,8 +1078,8 @@
       version,
       inputs,
       series,
-      requested: compositeInputs ? [...compositeInputs] : null,
-      isDefault: compositeInputs === null,
+      requested: basisSelection(),
+      isDefault: basisConfig === null,
       defaults: [...COMPOSITE_INPUT_KEYS],
       allowed: [...COMPOSITE_INPUT_KEYS],
       excluded,
@@ -1123,13 +1139,8 @@
     // JEG-1035: the reader's override, if any, replaces DDF Value on this row.
     const override = valueOverrides.has(row.player_key) ? valueOverrides.get(row.player_key) : null;
     OVERRIDE_VERSIONS.forEach(version => {
-      const entry = row.ddfByVersion[COMPOSITE_VERSION_NAMES[version]];
-      entry.pipelineValue = entry.value;
-      entry.overridden = override !== null;
+      const entry = ValueModel.applyDdfOverride(row.ddfByVersion[COMPOSITE_VERSION_NAMES[version]], override);
       if (override === null) return;
-      entry.value = override;
-      entry.reason = null;
-      entry.lowConfidence = false;
       entry.confidenceNote = null;
       row.values[version] = override;
       delete row.missingReasons[version];
@@ -1215,7 +1226,7 @@
       composite: true,
       inputs,
       series: inputs.filter(key => !pipelineState.hidden?.has(key)),
-      isDefault: compositeInputs === null,
+      isDefault: basisConfig === null,
       week: pipelineState.currentWeek ?? activeReferenceWeek(),
       priorWeek: pipelineState.priorWeek,
       stale: false,
@@ -2125,7 +2136,9 @@
       + (amberHeldKeys.length
       ? ` ${amberHeldKeys.map(sourceLabel).join(", ")} ${amberHeldKeys.length === 1 ? "is" : "are"} lagging (included in DDF Value; a refresh is pending).`
       : "");
-    const ddfText = included
+    const ddfText = basisConfig
+      ? `DDF Value follows your basis (${basisLabelOf(basisConfig)}), averaging Adjusted values on one league pie. This is not our methodology.`
+      : included
       ? `DDF Value is the mean of ${included} source${included === 1 ? "" : "s"}' Adjusted values, every source on one league pie.`
       : "No source is available this week, so there is no DDF Value.";
     status.innerHTML = `<strong>Validated:</strong> ${ddfText} The published trade charts are shown by default; projections and value-above-waivers series can be turned on below.${olderWeekNote}${heldNote}`;
@@ -2152,7 +2165,7 @@
   function publishShared() {
     const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare,
       benchShareOverride, lineupSettings: getLineupSettings(), positionWeights: activePositionWeights(),
-      compositeInputs: compositeInputs ? [...compositeInputs] : null};
+      compositeInputs: basisSelection(), basis: basisConfig ? JSON.parse(JSON.stringify(basisConfig)) : null};
     window.TradeValueSharedState = detail;
     window.dispatchEvent(new CustomEvent("trade-value-shared-change", {detail}));
   }
@@ -2423,10 +2436,127 @@
       const defaults = COMPOSITE_INPUT_KEYS;
       if (next && next.length === defaults.length && next.every(key => defaults.includes(key))) next = null;
     }
-    const before = JSON.stringify(compositeInputs);
-    compositeInputs = next;
-    if (engineReady && JSON.stringify(compositeInputs) !== before) refreshComposite(publish);
+    const config = next === null ? null
+      : {mode: "blend", sources: next, weights: Object.fromEntries(next.map(key => [key, 1]))};
+    const result = setBasis(config, publish);
+    if (!result.ok) return result;
     return {ok: true, ...compositeInputsInfo(), ...(dropped.length ? {dropped} : {}), ...(fellBack ? {fellBackToDefaults: true} : {})};
+  }
+
+  // ---- JEG-1044: the value basis API ----
+  // setBasis(config, publish = true): config is null / "default" /
+  // {mode: "default"} (our methodology), {mode: "single", source}, or
+  // {mode: "blend", sources?, weights: {key: percent}}. Keys are the seven
+  // pipeline sources (espn, cbsros, razzball, fantasycalc, usatoday,
+  // fantasypros, cbs; the "*_adjusted" aliases are accepted). Weights are
+  // whole percents 1-100 (Jeremy, 2026-10-24: integer weights); a weight of 0
+  // or less leaves the source out. A blend of exactly the three projection
+  // sources at equal weights is our methodology and is stored as such.
+  // Recomputes, redraws and fires trade-value-rows-change, then
+  // trade-value-shared-change (with basis) unless publish is false. Returns
+  // {ok: true, ...getBasis()} or {ok: false, error}.
+  function canonicalBasis(config) {
+    if (config === null || config === undefined || config === "default") return {ok: true, value: null};
+    if (typeof config !== "object" || Array.isArray(config)) {
+      return {ok: false, error: "expected null, \"default\" or {mode, source|sources, weights}"};
+    }
+    const mode = config.mode || "default";
+    if (mode === "default") return {ok: true, value: null};
+    const keyOf = raw => normalizeInputKey(String(raw));
+    const unknown = list => list.filter(key => !BASIS_SOURCE_KEYS.includes(keyOf(key)));
+    if (mode === "single") {
+      const raw = config.source !== undefined && config.source !== null ? config.source
+        : (Array.isArray(config.sources) ? config.sources[0] : undefined);
+      if (raw === undefined || raw === null) return {ok: false, error: "a single-source basis needs a source"};
+      if (unknown([raw]).length) return {ok: false, error: `not a value source: ${String(raw)} (expected ${BASIS_SOURCE_KEYS.join(", ")})`};
+      const source = keyOf(raw);
+      return {ok: true, value: {mode: "single", source, sources: [source], weights: {[source]: BASIS_MAX_WEIGHT}}};
+    }
+    if (mode === "blend") {
+      const named = Array.isArray(config.sources) ? config.sources : Object.keys(config.weights || {});
+      if (unknown(named).length) return {ok: false, error: `not a value source: ${unknown(named).map(String).join(", ")} (expected ${BASIS_SOURCE_KEYS.join(", ")})`};
+      const weights = {};
+      named.forEach(raw => {
+        const key = keyOf(raw);
+        const asked = config.weights && (config.weights[raw] !== undefined ? config.weights[raw] : config.weights[key]);
+        const w = Math.round(asked === undefined ? 1 : Number(asked));
+        if (!Number.isFinite(w) || w < 1 || weights[key] !== undefined) return;
+        weights[key] = Math.min(BASIS_MAX_WEIGHT, w);
+      });
+      const sources = BASIS_SOURCE_KEYS.filter(key => weights[key] !== undefined);
+      if (!sources.length) return {ok: false, error: "a blend needs at least one source with a weight of 1 or more"};
+      const equalProjections = sources.length === COMPOSITE_INPUT_KEYS.length
+        && COMPOSITE_INPUT_KEYS.every(key => sources.includes(key))
+        && new Set(sources.map(key => weights[key])).size === 1;
+      if (equalProjections) return {ok: true, value: null};
+      return {ok: true, value: {mode: "blend", sources, weights: Object.fromEntries(sources.map(key => [key, weights[key]]))}};
+    }
+    return {ok: false, error: `unknown basis mode: ${String(mode)} (expected default, single or blend)`};
+  }
+  function setBasis(config, publish = true) {
+    const parsed = canonicalBasis(config);
+    if (!parsed.ok) return parsed;
+    const before = JSON.stringify(basisConfig);
+    basisConfig = parsed.value;
+    if (engineReady && JSON.stringify(basisConfig) !== before) refreshComposite(publish);
+    return {ok: true, ...getBasis()};
+  }
+  // Whole percents that sum to 100 (largest remainder), keyed by source.
+  function basisPercents(config) {
+    if (!config) return {};
+    const total = config.sources.reduce((sum, key) => sum + config.weights[key], 0);
+    const exact = config.sources.map(key => [key, 100 * config.weights[key] / total]);
+    const out = Object.fromEntries(exact.map(([key, value]) => [key, Math.floor(value)]));
+    let left = 100 - Object.values(out).reduce((a, b) => a + b, 0);
+    exact.slice().sort((a, b) => (b[1] - Math.floor(b[1])) - (a[1] - Math.floor(a[1]))).forEach(([key]) => {
+      if (left > 0) { out[key] += 1; left -= 1; }
+    });
+    return out;
+  }
+  // The words a reader sees for a basis: "our methodology", "FantasyCalc",
+  // "60% ESPN + 40% Razzball".
+  function basisLabelOf(config) {
+    if (!config) return "our methodology";
+    if (config.mode === "single") return pipelineLabel(config.source);
+    const percents = basisPercents(config);
+    return config.sources.map(key => `${percents[key]}% ${pipelineLabel(key)}`).join(" + ");
+  }
+  function basisShortLabelOf(config) {
+    if (!config) return "Our methodology";
+    if (config.mode === "single") return `${pipelineLabel(config.source)} only`;
+    return `Custom blend (${config.sources.length} source${config.sources.length === 1 ? "" : "s"})`;
+  }
+  // getBasis(): the reader's basis and how the engine applied it.
+  //   mode, isDefault, source, sources, weights (whole percents as set),
+  //   percents (normalised, sum 100), label, shortLabel, rescaledLabel,
+  //   applied (the engine used it), members (the sources actually averaged:
+  //   in I and not held), fellBackToDefault (none usable this week),
+  //   sourceStates [{key, label, family, usable, reason}] for all seven.
+  function getBasis() {
+    const run = pipeline?.basis || null;
+    const config = basisConfig;
+    const label = basisLabelOf(config);
+    return {
+      mode: config ? config.mode : "default",
+      isDefault: config === null,
+      source: config && config.mode === "single" ? config.source : null,
+      sources: config ? [...config.sources] : [],
+      weights: config ? {...config.weights} : {},
+      percents: basisPercents(config),
+      label,
+      shortLabel: basisShortLabelOf(config),
+      rescaledLabel: config ? `Rescaled (to ${label})` : "Rescaled",
+      applied: config ? Boolean(run?.applied) : true,
+      members: run ? [...run.members] : [],
+      fellBackToDefault: Boolean(config && run && run.fellBackToDefault),
+      defaults: [...COMPOSITE_INPUT_KEYS],
+      sourceStates: BASIS_SOURCE_KEYS.map(key => {
+        const usable = pipelineState.included.includes(key) && !pipelineState.hidden?.has(key);
+        const block = compositeBlock(key);
+        const why = usable ? null : (block?.reason || pipelineState.excluded.find(e => e.key === key)?.reason || "not available this week");
+        return {key, label: pipelineLabel(key), family: familyOf(key), usable, reason: why};
+      })
+    };
   }
 
   // Only the DDF Value fields depend on the inputs, but they are computed in
@@ -3042,6 +3172,11 @@
     // key ddf_value | ddf_value_charts | ddf_value_projections; the same in
     // every view. Anything else (a former view name) reads the blend.
     getCompositeInputs: version => compositeInputsInfo(version),
+    // JEG-1044: the value basis (see setBasis). setCompositeInputs below is
+    // kept as a thin alias: an equal-weight blend of the projection sources.
+    setBasis,
+    getBasis,
+    resetBasis: (publish = true) => setBasis(null, publish),
     getCompositeValues: version => compositeValuesInfo(version),
     getLoadStatus: () => productLoadStatus(),
     setCompositeInputs,
