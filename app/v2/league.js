@@ -782,10 +782,10 @@
     const more = sorted.length > shownRows.length
       ? button(`Show ${Math.min(PAGE, sorted.length - shownRows.length)} more (${shownRows.length} of ${sorted.length} shown)`, {class: "v2-btn", id: "v2LgOppsMore"}, () => { UI.oppsShown += PAGE; renderOpps(); }) : null;
     const empty = !sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsMsg", text: res.rows.length ? "No opportunity matches these filters." : "No trade opportunities found."}) : null;
-    body.replaceChildren(headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), el("div", {class: "v2-ctoolbar"}, reset),
+    body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
       sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
-      el("p", {class: "v2-meta v2-footnote", text: `Showing ${shownRows.length} of ${sorted.length}.${notEval ? " K and DEF are on rosters but not evaluated." : ""}`}));
+      el("p", {class: "v2-meta v2-footnote", text: `Showing ${shownRows.length} of ${sorted.length}.${notEval ? " K and DEF are on rosters but not evaluated." : ""}`})].filter(Boolean));
   }
 
   // The finder runs for my team against every other team: debounced, one pairing at a time, cached by roster and values.

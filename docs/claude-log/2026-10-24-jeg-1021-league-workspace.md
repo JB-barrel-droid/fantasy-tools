@@ -16,4 +16,12 @@ Jeremy, 2026-10-24: "I want the ability to enter teams and save their names in v
 - Ranking inside a tier uses the fundamentals edge (DDF receive minus give), not the finder's size-discounted score.
 - Not built: per-opponent row grouping (4.8), arrow-key roving in a player list, league settings inside share links.
 
-(Verified / claimed sections are completed at the end of the build.)
+**Verified (named checks)**
+- `tests/test_v2_league_units.py`: 39 Node checks on the frozen fixtures (2, 4, 20 teams, partial) pass; 22 mutations, each caught by a named check.
+- `tests/test_v2_league_render.py` (team list, rename, star, reorder, remove + Undo, paste, Saved, reload, corrupt value, Download / Load; 9 broken builds caught), `test_v2_league_tables_render.py` (summary numbers vs an independent recomputation from engine rows, ranks, sort both ways on every numeric column, rank unchanged by sort, headline stable, filters, Hide force fits, capture equals the engine edge, 1 opponent same table, settings change reprocesses and keeps teams, 20 teams; broken builds caught), `test_v2_league_phone_render.py` (390/360/320 no sideways scroll, cards, 44 px controls, sort selector, contrast light and dark, keyboard sort, one tab stop per header; 6 broken builds caught): all pass.
+- `make -o sync validate`: exit 0 on the build before the final polish (null text, rank label, nowrap, tier edge); rerun before the PR (see PR body).
+- Fresh-eyes review (separate agent, screenshots of the 12-team league): 12 of 13 rubric items, the settings item not visible in a still; all four task-script questions answerable; verdict DONE.
+- Found by looking at screenshots, not by a test: the word "null" printed in the opportunities card, a wrapped rank header, a wrapped number; fixed, with a check and a broken-build proof added.
+
+**Claimed, not checked**
+- Share-link open (`#find-trade?workspace=`) and Copy link; whole-league load from Sleeper / ESPN (network); Copy as text; a real screen reader; 3-for-3 and 4-for-4 across 19 opponents (budget in the spec, not timed here); the Waivers tab reading the shared store (no Waivers code exists yet).

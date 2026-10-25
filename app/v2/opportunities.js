@@ -185,7 +185,7 @@
     const counts = ["natural", "value", "market", "force"].map(k => ({k, n: rows.filter(r => r.overall === k).length}));
     const head = `${plural(rows.length, "trade opportunity").replace("opportunitys", "opportunities")} across ${plural(opponents, "opponent")}.`;
     const best = natural ? ` Best natural fit: ${tradeSentence(natural)}.`
-      : ` No natural fits found. ${counts.filter(c => c.k !== "natural" && c.n).map(c => `${c.n} ${c.k === "market" ? "market-only" : c.k} fit${c.n === 1 ? "" : "s"}`).join(", ") || "None judged"} across ${plural(opponents, "opponent")}.`;
+      : ` No natural fits found: ${counts.filter(c => c.k !== "natural" && c.n).map(c => `${c.n} ${c.k === "market" ? "market-only" : c.k} fit${c.n === 1 ? "" : "s"}`).join(", ") || "none judged"}.`;
     const bal = mineBalance && (mineBalance.over.length || mineBalance.under.length)
       ? ` Your roster is ${[mineBalance.over.length ? `overweight at ${listJoin(mineBalance.over)}` : "", mineBalance.under.length ? `underweight at ${listJoin(mineBalance.under)}` : ""].filter(Boolean).join(" and ")}.` : "";
     return `${head}${best}${bal}`;

@@ -1873,3 +1873,6 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-lg-actions { flex: 1 1 100%; }
   .v2-lg-actions .v2-btn { flex: 1 1 auto; }
 }
+.v2-lg-table td.num, .v2-lg-table th.num { white-space: nowrap; }
+.v2-lg-opp[data-overall="natural"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-action); }
+.v2-lg-opp[data-overall="force"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-older); }

@@ -95,7 +95,7 @@ def check_summary(browser, base, overrides, errors):
     if len(rows) != 4:
         errors.append(f"[summary] {len(rows)} rows for 4 teams")
     heads = page.evaluate("() => [...document.querySelectorAll('#v2LgSummaryTable thead th')].map(th => th.textContent.replace(/[▲▼↕]/g, '').trim())")
-    for want in ("Fundamental rank", "Team", "Roster value (DDF)", "Starter value (DDF)", "Bench value (DDF)", "Roster value (market)", "Starter value (market)", "Bench value (market)", "Market rank", "Undervalued by market", "Overvalued by market"):
+    for want in ("Rank", "Team", "Roster value (DDF)", "Starter value (DDF)", "Bench value (DDF)", "Roster value (market)", "Starter value (market)", "Bench value (market)", "Market rank", "Undervalued by market", "Overvalued by market"):
         if want not in heads:
             errors.append(f"[summary] no column {want!r}: {heads}")
     exp = page.evaluate(EXPECT)
@@ -168,8 +168,8 @@ def check_summary(browser, base, overrides, errors):
     shown = page.evaluate(SUMMARY_ROWS)
     if {r["id"]: r["rank"] for r in shown} != exp["market"]:
         errors.append(f"[summary] market ranks {({r['id']: r['rank'] for r in shown})} expected {exp['market']}")
-    if "Market rank" not in page.inner_text("#v2LgSummaryTable thead th[data-col=rank]"):
-        errors.append("[summary] the rank column does not say Market rank on the market basis")
+    if "ranked by market roster value" not in page.inner_text("#v2LgSummaryTable caption") or "Fundamental rank" not in page.inner_text("#v2LgSummaryTable thead th[data-col=altRank]"):
+        errors.append("[summary] the table does not say it ranks by market and shows the fundamental rank beside it")
     page.context.close()
 
 
@@ -181,6 +181,9 @@ def check_opps(browser, base, overrides, errors):
         errors.append(f"[opps] no table: {page.inner_text('#v2LgOppsBody')[:200]}")
         page.context.close()
         return
+    for box in ("#v2LgOppsBody", "#v2LgSummaryBody"):
+        if "null" in page.inner_text(box) or "undefined" in page.inner_text(box):
+            errors.append(f"[opps] {box} shows the word null or undefined")
     heads = page.evaluate("() => [...document.querySelectorAll('#v2LgOppsTable thead tr:first-child th')].map(th => th.textContent.replace(/[▲▼↕]/g, '').trim())")
     if heads != OPP_HEADERS:
         errors.append(f"[opps] columns {heads}")
@@ -373,9 +376,10 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "one opponent hides the opponent column": ({"league.js": league.replace('el("tr", {}, sortTh("opponent", cols, state, onSort, two),', 'el("tr", {}, (res.perOpponent.length > 1 ? sortTh("opponent", cols, state, onSort, two) : plainTh("", two)),', 1)}, {"opps"}),
             "Natural only does nothing": ({"opportunities.js": opps.replace('if (f.fit === "natural" && r.overall !== "natural") return false;', '', 1)}, {"opps"}),
             "force fits not hidden": ({"opportunities.js": opps.replace("if (hideForce && r.overall === \"force\") return false;", "", 1)}, {"opps"}),
+            "a missing piece is printed as null": ({"league.js": league.replace("})].filter(Boolean));\n  }\n\n  // The finder runs", "}));\n  }\n\n  // The finder runs", 1)}, {"opps"}),
             "settings change ignored": ({"league.js": league.replace('document.addEventListener("ddf:league-settings-changed", onSettingsChanged);', '', 1)}, {"settings"}),
             "settings change loses the teams": ({"league.js": league.replace('store.replace(ws, "settings");', 'store.replace(W.newWorkspace(), "settings");', 1)}, {"settings"}),
-            "opponents silently dropped": ({"opportunities.js": opps.replace("const run = eligible.slice(0, MAX_OPPONENTS);", "const run = eligible;", 1).replace("const MAX_OPPONENTS = 20;", "const MAX_OPPONENTS = 5;", 1)}, {"twenty"}),
+            "opponents silently dropped": ({"opportunities.js": opps.replace("const run = eligible.slice(0, MAX_OPPONENTS);", "const run = eligible.slice(0, 5);", 1)}, {"twenty"}),
         }
         for name, (overrides, only) in broken.items():
             with self.subTest(mutation=name):

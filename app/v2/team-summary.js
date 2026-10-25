@@ -208,7 +208,7 @@
     const other = basis === "market" ? "fund" : "market";
     const money = (key, part) => t => (t[key] ? t[key][part] : null);
     return [
-      {id: "rank", label: basis === "market" ? "Market rank" : "Fundamental rank", type: "number", first: "asc", rank: true, get: t => t.rank[basis]},
+      {id: "rank", label: "Rank", type: "number", first: "asc", rank: true, get: t => t.rank[basis]},
       {id: "team", label: "Team", type: "text", first: "asc", get: t => t.name},
       {id: "rosterF", label: "Roster value (DDF)", type: "number", first: "desc", get: money("fund", "rosterValue")},
       {id: "starterF", label: "Starter value (DDF)", type: "number", first: "desc", get: money("fund", "starterValue")},
