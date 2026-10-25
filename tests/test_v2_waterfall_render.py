@@ -22,7 +22,9 @@ window.TradeValueCurveControls.getAllRows():
     waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
-    directly below; no horizontal scroll at 1100 or 390;
+    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1280 in DejaVu Sans, the face GitHub's
+    runner falls back to without Inter (JEG-1056; test_wide_font_guard_fails_on_broken_nav serves the old nav rule
+    and a tab row that shrinks before the freshness label, and requires both to be caught);
   * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
     and the address keeps no trade.
 
@@ -422,7 +424,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
 WIDE_FONT_CSS = '\n.v2-app, .v2-app * { font-family: "DejaVu Sans", sans-serif !important; }\n'
 
 
-def wide_font_overflow(css: str, widths=(1024, 1100, 1279)) -> dict:
+def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
     """Page overflow and tab-row squeeze per width with the app drawn in DejaVu Sans, the font CI falls back to
     when Inter is not installed (the hermetic browser blocks Google Fonts). Local Inter hid JEG-1056's overflow."""
     try:
@@ -451,14 +453,41 @@ def wide_font_overflow(css: str, widths=(1024, 1100, 1279)) -> dict:
     return out
 
 
+def check_wide_font(result: dict) -> list[str]:
+    """No sideways page scroll at any width, the tab row squeezed at 1024 (else the face was not wide and the check is
+    vacuous), and the tabs not squeezed at 1279, where the freshness label still has room to give way (JEG-675)."""
+    errors = [f"[{w}] horizontal overflow {r['overflow']}px in DejaVu Sans" for w, r in result.items() if r["overflow"] > 0]
+    if result[1024]["tabsScroll"] <= result[1024]["tabsClient"]:
+        errors.append("DejaVu Sans did not widen the nav at 1024; the check is vacuous")
+    if result[1279]["tabsScroll"] > result[1279]["tabsClient"]:
+        errors.append(f"[1279] tab row squeezed to {result[1279]['tabsClient']} of {result[1279]['tabsScroll']}px while the freshness label could give way (JEG-675)")
+    return errors
+
+
+# JEG-1056 mutations of the nav rule: the old non-shrinking tab row, and tabs that shrink as readily as the label.
+NAV_RULE = ".v2-tabs { flex-shrink: 1; min-width: 0; }\n.v2-freshness { flex: 0 100000 auto; min-width: 0; }"
+NAV_MUTATIONS = {
+    "tabs never shrink (pre-JEG-1056)": ".v2-freshness { flex: 0 1 auto; min-width: 0; }",
+    "tabs shrink with the label": ".v2-tabs { flex-shrink: 1; min-width: 0; }\n.v2-freshness { flex: 0 1 auto; min-width: 0; }",
+}
+
+
 class WaterfallRenderTest(unittest.TestCase):
     def test_no_sideways_scroll_with_a_wide_fallback_font(self):
-        """JEG-1056: CI draws the page in DejaVu Sans (no Inter), which made the nav 37 px wider than 1100 px."""
+        """JEG-1056: CI draws the page in DejaVu Sans (no Inter); the non-shrinking 872 px tab row pushed the page
+        113/37/48 px sideways at 1024/1100/1280."""
         result = wide_font_overflow(V2_CSS.read_text(encoding="utf-8"))
         print("WIDE FONT", result, file=sys.stderr, flush=True)
-        self.assertEqual({w: r["overflow"] for w, r in result.items()}, {w: 0 for w in result})
-        # The stress must be real: at 1024 the tab row has to be squeezed, or the font was not wide here.
-        self.assertGreater(result[1024]["tabsScroll"], result[1024]["tabsClient"], "DejaVu Sans did not widen the nav; the check is vacuous")
+        self.assertEqual(check_wide_font(result), [])
+
+    def test_wide_font_guard_fails_on_broken_nav(self):
+        css = V2_CSS.read_text(encoding="utf-8")
+        self.assertEqual(css.count(NAV_RULE), 1, "JEG-1056 nav rule anchor is stale")
+        for name, rule in NAV_MUTATIONS.items():
+            with self.subTest(name):
+                errors = check_wide_font(wide_font_overflow(css.replace(NAV_RULE, rule)))
+                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({errors[0] if errors else '-'})", file=sys.stderr, flush=True)
+                self.assertNotEqual(errors, [], f"wide-font check did not catch: {name}")
 
     def test_waterfall_verdict_layout_example(self):
         self.assertEqual(run_checks(), [])
