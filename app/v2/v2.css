@@ -1937,3 +1937,12 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-assist-actions { flex-basis: 100%; }
   .v2-assist-actions .v2-btn { flex: 1 1 140px; white-space: normal; }
 }
+
+/* Inputs status strip (inputs-status.js): soft notes under the league row. */
+.v2-inputs[hidden] { display: none; }
+.v2-inputs-note { background: var(--v2-rank-tint); border-bottom: 1px solid var(--v2-border); }
+.v2-inputs-note.is-info { background: var(--v2-surface); }
+.v2-inputs-note.is-quiet .v2-inputs-text { color: var(--v2-muted); }
+.v2-inputs-in { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding-block: 6px; margin-inline: auto; }
+.v2-inputs-text { flex: 1 1 32ch; }
+.v2-app .v2-inputs-note .v2-btn { min-height: 32px; padding: 4px 12px; }
