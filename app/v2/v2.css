@@ -1943,6 +1943,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-inputs-note { background: var(--v2-rank-tint); border-bottom: 1px solid var(--v2-border); }
 .v2-inputs-note.is-info { background: var(--v2-surface); }
 .v2-inputs-note.is-quiet .v2-inputs-text { color: var(--v2-muted); }
-.v2-inputs-in { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding-block: 6px; margin-inline: auto; }
-.v2-inputs-text { flex: 1 1 32ch; }
-.v2-app .v2-inputs-note .v2-btn { min-height: 32px; padding: 4px 12px; }
+/* JEG-1084: one slim line (about 28 px) on desktop so Compare's trade boxes stay above the 1366x768 fold (the strip was
+   45 px and pushed them to y=775 / 792 in the CI font). The text gives way with an ellipsis (the full note is in its
+   title) before the strip wraps; phones may wrap and keep 44 px buttons. */
+.v2-inputs-in { display: flex; align-items: center; flex-wrap: nowrap; gap: 12px; padding-block: 1px; margin-inline: auto; font-size: 13px; line-height: 20px; }
+.v2-inputs-text { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-inputs-in .v2-link { flex: none; white-space: nowrap; }
+.v2-app .v2-inputs-note .v2-btn { flex: none; min-height: 24px; padding: 0 10px; font-size: 12px; line-height: 20px; white-space: nowrap; }
+@media (max-width: 767px) {
+  .v2-inputs-in { flex-wrap: wrap; gap: 4px 12px; padding-block: 6px; }
+  .v2-inputs-text { flex: 1 1 100%; overflow: visible; white-space: normal; }
+  .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
+  .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
+}
