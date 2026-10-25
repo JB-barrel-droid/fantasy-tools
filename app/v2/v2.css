@@ -1764,6 +1764,19 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-impact { display: grid; gap: 4px; margin: 6px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--v2-border); }
 .v2-find-impact-lines { display: grid; gap: 2px; }
 .v2-find-impact-lines p { margin: 0; }
+/* JEG-1081: the projections view is a subdued third group; under 1024px it waits behind "Show projections"; the impact's other views wait behind "Show other views" under 768px. */
+.v2-find-proj-col { color: var(--v2-muted); }
+.v2-find-assess-table td.v2-find-flag { min-width: 5em; }
+.v2-find-proj-toggle { display: none; margin: 0 0 6px; position: sticky; left: 0; }
+.v2-find-impact-more { display: none; min-height: 44px; text-align: left; }
+@media (max-width: 1023px) {
+  .v2-find-proj-toggle { display: inline-flex; min-height: 44px; align-items: center; }
+  .v2-find-table-wrap:not([data-show-proj="1"]) .v2-find-proj-col { display: none; }
+}
+@media (max-width: 767px) {
+  .v2-find-impact-more { display: inline-flex; align-items: center; }
+  .v2-find-impact:not([data-expanded="1"]) .v2-find-impact-secondary { display: none; }
+}
 .v2-find-impact-details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
 .v2-find-impact-body { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
 .v2-find-table-wrap { overflow-x: auto; min-width: 0; }

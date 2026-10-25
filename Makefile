@@ -660,6 +660,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_finder_groups_render
 	python3 -m unittest tests.test_v2_finder_impact_render
 	python3 -m unittest tests.test_v2_finder_kdef_search_render
+	python3 -m unittest tests.test_v2_finder_triview_render
 	python3 -m unittest tests.test_v2_league_basis_render
 	python3 -m unittest tests.test_v2_league_live_render
 	python3 -m unittest tests.test_v2_league_phone_render
