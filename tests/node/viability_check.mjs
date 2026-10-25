@@ -548,6 +548,21 @@ test("every offer records all 9 checks", () => {
   assert.equal(names.length, expected.length);
 });
 
+test("temporary gap is false when both rosters are healthy and complete", () => {
+  const give = [userRoster.find((r) => r.name === "U-RB3")];
+  const get = [theirRoster.find((r) => r.name === "T-RB3")];
+  const r = runViabilityChecks(userRoster, theirRoster, give, get, SHAPE, DEFAULT_CONFIG);
+  assert.equal(r.temporaryGap, false);
+});
+
+test("NEGATIVE: temporary gap is true when their only QB is out", () => {
+  const hurt = theirRoster.map((p) => (p.pos === "QB" ? { ...p, status: "out" } : p));
+  const give = [userRoster.find((r) => r.name === "U-RB3")];
+  const get = [hurt.find((r) => r.name === "T-RB3")];
+  const r = runViabilityChecks(userRoster, hurt, give, get, SHAPE, DEFAULT_CONFIG);
+  assert.equal(r.temporaryGap, true);
+});
+
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------

@@ -527,7 +527,7 @@ export function runViabilityChecks(
 
   // --- Temporary gap flag ---
   const tempGap = checkTemporaryGap(userAfter, shape, ddf) ||
-    checkTemporaryGap(theirAfter, shape, "_market");
+    checkTemporaryGap(theirAfterM, shape, "_market");
 
   // --- Viable? ---
   const failedChecks = checks.filter((c) => !c.passed);
