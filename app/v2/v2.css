@@ -116,6 +116,10 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* League bar */
 .v2-league { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
 .v2-league-inner { display: flex; align-items: center; gap: 24px; min-height: 64px; flex-wrap: wrap; }
+/* JEG-1084: with the Copy / Paste buttons (JEG-1026) the row no longer fits one line in a wide fallback face (DejaVu Sans
+   on GitHub's runner), and the second 68 px row pushed Compare's trade boxes past the 1366x768 fold. The roster line has
+   a small flex-basis so the row breaks only when the buttons cannot fit; it then wraps inside its own cell. */
+@media (min-width: 768px) { .v2-league-inner > .v2-meta { flex: 1 1 120px; min-width: 0; } }
 
 /* Buttons and fields */
 .v2-app .v2-btn { border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
