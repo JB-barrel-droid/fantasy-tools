@@ -1822,10 +1822,19 @@ not from projected PPG (what the engine uses for tiering). This proxy may
 over- or understate rates for specific positions. A future refinement could
 use projection-based rankings.
 
-## MR-33 Sub-waiver tail: engine Adjusted 0 vs reference ~0.006 (JEG-1044, 2026-10-24)
+## MR-34 Sub-waiver tail: engine Adjusted 0 vs reference ~0.006 (JEG-1044, 2026-10-24)
 
 Found by running `value_check compare --basis '{"mode":"single","source":"fantasycalc"}' --strict` (page vs Python reference, 12 combos, no superflex). For players below the waiver line on a trade chart, the engine's Adjusted value is exactly 0 and the Python reference's is about 0.006 (inside the 0.05 tolerance, so the default compare is green). With one chart as the whole value basis, DDF Value is that Adjusted value and the `v == 0 -> waiver` tier rule (VP-7.3) decides on it: about 20 boundary players per setting land in a different tier and tag (Hold vs Drop) between engine and reference. Values agree; tiers do not.
 
 **Question for the coordinated review:** which is right for a below-waiver tail player, an exact 0 (engine) or a small positive (reference's smooth tail)? Whichever it is, both implementations and the spec reference must match before a one-source basis is gated by `--strict`.
 
 **State:** default behaviour is byte-identical and untouched. Logged in docs/risk-register.md as GAP-BASIS-FC-TAIL-TIERS. No one-off change made.
+
+## MR-33 League workspace constants: noise floor, median rule, opportunity ranking (JEG-1021, 2026-10-24)
+
+Jeremy decided these on JEG-1021 (2026-10-24: ranking and the strength / noise-floor recommendations under "decide based on math"); they sit here so the full review sees them. No value math changed.
+
+- **Market-gap noise floor 2.0 points** (`NOISE_FLOOR` in `app/v2/team-summary.js`): a player is listed as undervalued (DDF Value above the Trade chart average) or overvalued only when the gap is more than 2.0. The two series are on one scale in this product; 2.0 is about 5% of a mid-tier player. Not measured against the live distribution of gaps. Option B (1.0) and C (10% of value) not tried.
+- **Strength / weakness by the league median** (`MIN_MEDIAN_TEAMS = 3`): a position is a strength when depth is at or above the expected range AND the team's starters there are at or above the median of the teams with a starter there; below 3 such teams, depth alone decides. With a median, every position is a strength or a weakness (half the league on each side). The depth range is `rosterBalance` (D'Hondt bench seats), already on the agenda as MR-28.
+- **Opportunity ranking**: fit tier first (natural, value, market-only, force), then the fundamentals edge (DDF receive minus give, as shown). The finder's size-discounted score (`EXTRA_PLAYER_WEIGHT`) only picks the 10 trades kept per pairing, so a large high-edge package can be cut before the tier sort sees it. Open: keep more per pairing, or rank the cut by edge.
+- **Overall fit truth table** (spec 4.3): "market fit" (we gain, charts call it fair, but the chart-average edge for them is below 0 as shown) is rare when 3 of 4 charts must each be fair; the table was built before that gate was counted.
