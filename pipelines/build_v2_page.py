@@ -277,6 +277,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/audit-pie.js" defer></script>'
                   '\n  <script src="v2/audit-source.js" defer></script>'
                   '\n  <script src="v2/overrides.js" defer></script>'
+                  '\n  <script src="v2/inputs-status.js" defer></script>'
                   '\n  <script src="v2/name-format.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
@@ -330,7 +331,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "league.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "name-format.js", "ddf-state.js", "waivers.js", "waivers.css", "v2.js"):
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "waivers.js", "waivers.css", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 
