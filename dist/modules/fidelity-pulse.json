@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-25T12:39:53.519684Z",
- "run_id": "e58e763d-e4b3-46e3-b9e9-2624adea1f5f",
+ "checked_at": "2026-10-25T12:41:04.230262Z",
+ "run_id": "9eb35a92-2ed4-4137-9d08-dd49f4c9be5b",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -24,6 +24,18 @@
   "resave": "stage 2: a same-day re-save after the chart was built (the snapshot's last row write, or the probe fingerprint acknowledged with that save, is after the chart's raw_built_at) is amber until the next chain run for every changed, added or dropped player stage 1 shows equal to the publisher"
  },
  "holds": {
+  "espn": {
+   "stage": "stored_vs_chart",
+   "stages": [
+    "stored_vs_chart"
+   ],
+   "hold_level": "amber",
+   "reason": "fidelity: stored_vs_chart",
+   "identity": "2026-10-25@2026-10-25T12:41:07.581589Z",
+   "measured_site": "2026-10-24",
+   "since": "2026-10-25T12:41:04.230262Z",
+   "summary": "the chart's snapshot 2026-10-24 is no longer stored: the stored set is now 2026-10-25; the chart is behind until the next chain run rebuilds it"
+  },
   "razzball": {
    "stage": "publisher_vs_stored",
    "stages": [
@@ -45,7 +57,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-25@2026-10-25T04:45:26.417658Z",
    "measured_site": null,
-   "since": "2026-10-25T12:39:53.519684Z",
+   "since": "2026-10-25T12:41:04.230262Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -57,7 +69,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
    "measured_site": null,
-   "since": "2026-10-25T12:39:53.519684Z",
+   "since": "2026-10-25T12:41:04.230262Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -1050,19 +1062,19 @@
    "stored_week": null,
    "chart_week": null,
    "content_week": 7,
-   "stored_snapshot": "2026-10-24",
+   "stored_snapshot": "2026-10-25",
    "chart_snapshot": "2026-10-24",
-   "stored_bake": "2026-10-24",
+   "stored_bake": "2026-10-25",
    "stages": {
     "publisher_vs_stored": {
-     "status": "amber",
-     "summary": "1643/1779 values match exactly across 3 columns; 136 value mismatches, 0 publisher players not stored, 0 stored players not on the page; update available, ingest pending: the publisher changed since the save (fingerprint 7d113f07cdfa448b19e69ca4 at the save, ffbcb034baa16a05f0d57fb3 now); re-sync requested (espn-supabase-sync.yml): red only if the mismatch survives it; parse notes: rest-of-season weeks 7-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5, 6, 7]); 371 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
+     "status": "green",
+     "summary": "1779/1779 values match exactly across 3 columns; parse notes: rest-of-season weeks 7-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5, 6, 7]); 371 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
      "counts": {
       "publisher_players": 593,
       "stored_players": 593,
       "compared": 1779,
-      "matched": 1643,
-      "mismatched": 136,
+      "matched": 1779,
+      "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
@@ -1071,140 +1083,8 @@
      },
      "url": "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info",
      "publisher_vintage": null,
-     "stored_snapshot": "2026-10-24",
-     "stored_saved_at": "2026-10-24T23:25:47.967338Z",
-     "grains": {
-      "full|1": {
-       "left": 593,
-       "right": 593,
-       "mismatched": 46,
-       "missing": 0,
-       "extra": 0
-      },
-      "half|1": {
-       "left": 593,
-       "right": 593,
-       "mismatched": 46,
-       "missing": 0,
-       "extra": 0
-      },
-      "std|1": {
-       "left": 593,
-       "right": 593,
-       "mismatched": 44,
-       "missing": 0,
-       "extra": 0
-      }
-     },
-     "publisher_version": "changed",
-     "resync": {
-      "workflow": "espn-supabase-sync.yml",
-      "fingerprint": "ffbcb034baa16a05f0d57fb3",
-      "saved_at": "2026-10-24T23:25:47.967338Z",
-      "probe_dispatched_at": null
-     },
-     "examples": [
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 1370,
-       "name": "Puka Nacua",
-       "pos": "WR",
-       "left": "258.00",
-       "right": 234.75,
-       "delta": -23.25
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 1370,
-       "name": "Puka Nacua",
-       "pos": "WR",
-       "left": "213.95",
-       "right": 194.5,
-       "delta": -19.45
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 1370,
-       "name": "Puka Nacua",
-       "pos": "WR",
-       "left": "169.90",
-       "right": 154.25,
-       "delta": -15.65
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 3664,
-       "name": "Cam Skattebo",
-       "pos": "RB",
-       "left": "95.43",
-       "right": 79.95,
-       "delta": -15.48
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 1107,
-       "name": "Breece Hall",
-       "pos": "RB",
-       "left": "142.33",
-       "right": 156.65,
-       "delta": 14.32
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 3664,
-       "name": "Cam Skattebo",
-       "pos": "RB",
-       "left": "90.23",
-       "right": 76.05,
-       "delta": -14.18
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 1107,
-       "name": "Breece Hall",
-       "pos": "RB",
-       "left": "129.93",
-       "right": 143.15,
-       "delta": 13.22
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 3664,
-       "name": "Cam Skattebo",
-       "pos": "RB",
-       "left": "85.03",
-       "right": 72.14999999999999,
-       "delta": -12.88
-      }
-     ],
-     "outside_universe": [],
-     "unresolved": []
-    },
-    "stored_vs_chart": {
-     "status": "green",
-     "summary": "1779/1779 chart values equal stored snapshot 2026-10-24 (per game, 2 decimals)",
-     "counts": {
-      "chart_players": 593,
-      "stored_players": 593,
-      "compared": 1779,
-      "matched": 1779,
-      "mismatched": 0,
-      "missing_on_chart": 0,
-      "extra_on_chart": 0,
-      "outside_universe": 0,
-      "unresolved_names": 0,
-      "dropped_by_rule": 0
-     },
-     "chart_snapshot": "2026-10-24",
-     "behind": null,
+     "stored_snapshot": "2026-10-25",
+     "stored_saved_at": "2026-10-25T12:41:07.581589Z",
      "grains": {
       "full|1": {
        "left": 593,
@@ -1228,14 +1108,24 @@
        "extra": 0
       }
      },
+     "publisher_version": null,
+     "resync": null,
      "examples": [],
      "outside_universe": [],
      "unresolved": []
     },
+    "stored_vs_chart": {
+     "status": "amber",
+     "summary": "the chart's snapshot 2026-10-24 is no longer stored: the stored set is now 2026-10-25; the chart is behind until the next chain run rebuilds it",
+     "chart_snapshot": "2026-10-24",
+     "behind": {
+      "snapshot": "2026-10-25"
+     }
+    },
     "freshness": {
      "status": "green",
-     "summary": "chart shows snapshot 2026-10-24 (1 d old); the publisher prints no update date",
-     "chart_snapshot": "2026-10-24",
+     "summary": "chart shows snapshot 2026-10-25 (stored has 2026-10-25, not published yet) (0 d old); the publisher prints no update date",
+     "chart_snapshot": "2026-10-25",
      "publisher_vintage": null
     },
     "reference_vs_engine": {
@@ -1261,12 +1151,7 @@
         "WR": 239,
         "TE": 128
        },
-       "chart": {
-        "QB": 81,
-        "RB": 145,
-        "WR": 239,
-        "TE": 128
-       },
+       "chart": null,
        "prior_week": {
         "QB": 81,
         "RB": 142,
@@ -1287,98 +1172,20 @@
      }
     }
    },
-   "worst_examples": [
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 1370,
-     "name": "Puka Nacua",
-     "pos": "WR",
-     "left": "258.00",
-     "right": 234.75,
-     "delta": -23.25
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 1370,
-     "name": "Puka Nacua",
-     "pos": "WR",
-     "left": "213.95",
-     "right": 194.5,
-     "delta": -19.45
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 1370,
-     "name": "Puka Nacua",
-     "pos": "WR",
-     "left": "169.90",
-     "right": 154.25,
-     "delta": -15.65
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 3664,
-     "name": "Cam Skattebo",
-     "pos": "RB",
-     "left": "95.43",
-     "right": 79.95,
-     "delta": -15.48
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 1107,
-     "name": "Breece Hall",
-     "pos": "RB",
-     "left": "142.33",
-     "right": 156.65,
-     "delta": 14.32
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 3664,
-     "name": "Cam Skattebo",
-     "pos": "RB",
-     "left": "90.23",
-     "right": 76.05,
-     "delta": -14.18
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 1107,
-     "name": "Breece Hall",
-     "pos": "RB",
-     "left": "129.93",
-     "right": 143.15,
-     "delta": 13.22
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 3664,
-     "name": "Cam Skattebo",
-     "pos": "RB",
-     "left": "85.03",
-     "right": 72.14999999999999,
-     "delta": -12.88
-    }
-   ],
+   "worst_examples": [],
    "held": null,
-   "hold": null
+   "hold": {
+    "stage": "stored_vs_chart",
+    "stages": [
+     "stored_vs_chart"
+    ],
+    "hold_level": "amber",
+    "reason": "fidelity: stored_vs_chart",
+    "identity": "2026-10-25@2026-10-25T12:41:07.581589Z",
+    "measured_site": "2026-10-24",
+    "since": "2026-10-25T12:41:04.230262Z",
+    "summary": "the chart's snapshot 2026-10-24 is no longer stored: the stored set is now 2026-10-25; the chart is behind until the next chain run rebuilds it"
+   }
   },
   {
    "source": "cbsros",
@@ -2296,7 +2103,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-25@2026-10-25T04:45:26.417658Z",
     "measured_site": null,
-    "since": "2026-10-25T12:39:53.519684Z",
+    "since": "2026-10-25T12:41:04.230262Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -2359,7 +2166,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
     "measured_site": null,
-    "since": "2026-10-25T12:39:53.519684Z",
+    "since": "2026-10-25T12:41:04.230262Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2396,15 +2203,6 @@
   "draftsharks": "2026-10-16T07:19:25.781124+00:00",
   "fantasysharks": "2026-10-16T07:19:25.781124+00:00"
  },
- "resyncs": {
-  "espn": {
-   "workflow": "espn-supabase-sync.yml",
-   "fingerprint": "ffbcb034baa16a05f0d57fb3",
-   "saved_at": "2026-10-24T23:25:47.967338Z",
-   "probe_dispatched_at": null,
-   "dispatch": true,
-   "requested_at": "2026-10-25T12:39:53.519684Z"
-  }
- },
+ "resyncs": {},
  "holds_changed": true
 }
