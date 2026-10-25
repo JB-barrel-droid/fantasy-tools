@@ -30,7 +30,9 @@ Discrimination: test_guard_fails_on_broken_builds serves a per-row scale, the
 verdict following the picker instead of DDF Value, a verdict naming no source, no example,
 the landing drawn on incomplete rows, the 3-column layout removed, and the short-viewport
 wide verdict column removed (JEG-917), and
-requires the checks to fail on each.
+requires the checks to fail on each, and prints one GUARD CAUGHT / NOT CAUGHT line per
+mutation to stderr so the make validate log shows the result (JEG-1056: the short-viewport mutation
+was once not caught because the pinned fixture wraps the same at both column widths).
 """
 from __future__ import annotations
 
@@ -168,7 +170,7 @@ READ = """() => {
       receive: document.querySelector('[data-trade-side="receive"]').getBoundingClientRect().toJSON(),
       verdict: box('v2CVerdict'), verdictFall: box('v2CVerdictFall'),
       table: document.getElementById('v2CTable').closest('.v2-card').getBoundingClientRect().toJSON()},
-    innerHeight, overflow: document.documentElement.scrollWidth - innerWidth};
+    innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
 
 
@@ -274,6 +276,9 @@ def check_verdict(snap, pick) -> list[str]:
     return errors
 
 
+SHORT_VIEWPORT_MIN_VERDICT_WIDTH = 600
+
+
 def check_layout(snap) -> list[str]:
     b, h = snap["boxes"], snap["innerHeight"]
     errors = []
@@ -283,6 +288,15 @@ def check_layout(snap) -> list[str]:
             errors.append(f"{name} not fully on screen at height {h}: {box}")
     if b.get("verdict") and b["verdict"]["top"] > b["give"]["bottom"]:
         errors.append("verdict is below the sides, not beside them")
+    # JEG-917/JEG-1056: on a short desktop viewport the verdict column is the wide one (minmax(420px, 2.2fr),
+    # 649 px at 1366). The fold check above cannot see its loss with the pinned fixture, whose verdict text wraps
+    # the same at 551 px (the 1.6fr column of the plain >= 1280 rule) as at 649 px, so pin the width itself.
+    # 600 sits between the two. Measured on Linux Chromium 2026-10-25: clean 649.5, rule removed 551.1.
+    verdict = b.get("verdict")
+    if snap.get("innerWidth", 0) >= 1280 and h <= 800 and verdict:
+        width = verdict["right"] - verdict["left"]
+        if width < SHORT_VIEWPORT_MIN_VERDICT_WIDTH:
+            errors.append(f"verdict column is {width:.0f}px wide at {snap['innerWidth']}x{h}; the short-viewport rule needs >= {SHORT_VIEWPORT_MIN_VERDICT_WIDTH}px (JEG-917)")
     if b["table"]["top"] < b["give"]["bottom"] or b["table"]["top"] - max(b["give"]["bottom"], b["verdict"]["bottom"] if b.get("verdict") else 0) > 40:
         errors.append(f"per-source table does not start directly below the trade: {b['table']}")
     return errors
@@ -446,6 +460,9 @@ class WaterfallRenderTest(unittest.TestCase):
                 for file, (body, _) in overrides.items():
                     self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
                 errors = run_checks(overrides, viewports=((1366, 768),))
+                # Printed so the blocking `make validate` log shows each guard result, caught or not (JEG-1056).
+                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+                      file=sys.stderr, flush=True)
                 self.assertNotEqual(errors, [], f"render checks did not catch: {name}")
 
 
