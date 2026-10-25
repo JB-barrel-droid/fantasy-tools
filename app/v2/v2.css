@@ -119,7 +119,9 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* JEG-1084: with the Copy / Paste buttons (JEG-1026) the row no longer fits one line in a wide fallback face (DejaVu Sans
    on GitHub's runner), and the second 68 px row pushed Compare's trade boxes past the 1366x768 fold. The roster line has
    a small flex-basis so the row breaks only when the buttons cannot fit; it then wraps inside its own cell. */
-@media (min-width: 768px) { .v2-league-inner > .v2-meta { flex: 1 1 120px; min-width: 0; } }
+/* Jeremy, 2026-10-25 ("Trim the league row height"): from 768 px the row shrinks to its content (44 px buttons plus
+   6 px above and below) instead of holding a 64 px minimum, which saves 8 px on every tab. */
+@media (min-width: 768px) { .v2-league-inner > .v2-meta { flex: 1 1 120px; min-width: 0; } .v2-league-inner { min-height: 0; padding-block: 6px; } }
 
 /* Buttons and fields */
 .v2-app .v2-btn { border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
