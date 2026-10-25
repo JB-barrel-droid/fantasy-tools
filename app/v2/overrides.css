@@ -1,0 +1,92 @@
+/* Value overrides tab (JEG-1035). Uses the v2 tokens from v2.css only. */
+.v2-ov-card { position: relative; }
+.v2-ov-search { display: block; max-width: 420px; }
+.v2-ov-results { list-style: none; margin: 6px 0 0; padding: 0; max-width: 420px; }
+.v2-ov-results li + li { border-top: 1px solid var(--v2-border); }
+.v2-app .v2-ov-hit { display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 10px;
+  background: none; border: 0; color: var(--v2-ink); text-align: left; cursor: pointer; border-radius: var(--v2-radius-btn); }
+@media (hover: hover) { .v2-ov-hit:hover { background: var(--v2-hover); } }
+.v2-ov-hit:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 1px; }
+.v2-ov-hit-name { font-weight: 600; }
+.v2-ov-hit-meta, .v2-ov-none { color: var(--v2-muted); font-size: 13px; }
+.v2-ov-none { padding: 8px 10px; }
+
+.v2-ov-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.v2-ov-head h2 { font-size: var(--v2-title-2); }
+.v2-ov-yours { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.v2-ov-yours input { width: 96px; min-height: 44px; padding: 8px 10px; font: 700 16px/1 Inter, system-ui, sans-serif; text-align: right;
+  border: 1px solid var(--v2-action); border-radius: var(--v2-radius-btn); background: var(--v2-surface); color: var(--v2-ddf); }
+.v2-ov-scope { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.v2-ov-plot { margin-top: 12px; }
+.v2-ov-chart { display: block; width: 100%; height: auto; max-height: 360px; touch-action: none; cursor: ns-resize; user-select: none; }
+.v2-ov-grid { stroke: var(--v2-border); stroke-width: 1; }
+.v2-ov-axis { fill: var(--v2-muted); font-size: 11px; }
+.v2-ov-dot { fill: var(--v2-muted); opacity: .45; }
+.v2-ov-dot.is-near { fill: var(--v2-action); opacity: 1; r: 4.5; }
+.v2-ov-model { stroke: var(--v2-muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.v2-ov-model-label { fill: var(--v2-muted); font-size: 11px; }
+.v2-ov-line { stroke: var(--v2-ddf); stroke-width: 2; }
+.v2-ov-handle { fill: var(--v2-ddf); stroke: var(--v2-surface); stroke-width: 2; }
+.v2-ov-tag { fill: var(--v2-ddf); font-size: 13px; font-weight: 700; }
+.v2-ov-range { display: block; margin-top: 4px; }
+.v2-ov-range input { width: 100%; min-height: 44px; accent-color: var(--v2-ddf); }
+
+.v2-ov-near { margin-top: 16px; }
+.v2-ov-near h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+.v2-ov-table { width: 100%; border-collapse: collapse; }
+.v2-ov-table th, .v2-ov-table td { padding: 6px var(--v2-cell-pad-x, 6px); border-bottom: 1px solid var(--v2-border); text-align: left; }
+.v2-ov-table th { font-size: 12px; color: var(--v2-muted); font-weight: 600; }
+.v2-ov-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.v2-ov-self td { background: var(--v2-rank-tint); font-weight: 700; color: var(--v2-ddf); }
+.v2-ov-table tr.is-selected td { background: var(--v2-rank-tint); }
+.v2-ov-yours-cell { color: var(--v2-ddf); }
+.v2-ov-mark { color: var(--v2-ddf); font-size: 12px; font-weight: 600; }
+.v2-app .v2-ov-link { background: none; border: 0; padding: 0; min-height: 32px; color: var(--v2-action-text); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+@media (hover: hover) { .v2-ov-link:hover { text-decoration: underline; } }
+.v2-ov-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.v2-app .v2-btn-quiet { border-color: var(--v2-border); color: var(--v2-muted); }
+
+/* Header badge on every view while any override is on. */
+.v2-ov-badge { display: inline-flex; align-items: center; min-height: 32px; padding: 2px 10px; margin-right: 8px; border-radius: 999px;
+  background: var(--v2-ddf); color: var(--v2-surface); font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.v2-ov-badge[hidden] { display: none; }
+@media (max-width: 640px) {
+  .v2-ov-head { align-items: flex-start; }
+}
+
+/* JEG-1044: the value basis picker, the bar under the header, the shared-link banner. */
+.v2-ov-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.v2-app .v2-ov-preset { min-height: 44px; }
+.v2-app .v2-ov-preset[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.v2-ov-blend { margin-top: 16px; }
+.v2-ov-wlist { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-width: 760px; }
+.v2-ov-wrow { display: grid; grid-template-columns: 170px 28px minmax(120px, 1fr) 76px 120px; align-items: center; gap: 8px; min-height: 44px; }
+.v2-ov-wrow .v2-ov-wnote { grid-column: 2 / -1; margin-top: -6px; }
+.v2-ov-wname { font-weight: 600; }
+.v2-ov-wrow input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--v2-ddf); }
+.v2-ov-wrow input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--v2-ddf); }
+.v2-ov-wnum { width: 76px; min-height: 44px; padding: 6px 8px; font: 600 15px/1 Inter, system-ui, sans-serif; text-align: right;
+  border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); color: var(--v2-ink); }
+.v2-ov-wpct { color: var(--v2-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.v2-ov-wrow.is-paused { opacity: .6; }
+.v2-ov-summary { margin-top: 16px; }
+.v2-ov-summary p { margin: 0 0 6px; }
+#v2OvSummaryText { font-weight: 600; outline-offset: 3px; }
+.v2-ov-warn { color: var(--v2-ink); background: var(--v2-rank-tint); padding: 8px 10px; border-radius: var(--v2-radius-btn); }
+.v2-ov-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.v2-app .v2-btn.is-hint { border-color: var(--v2-action); color: var(--v2-action-text); box-shadow: 0 0 0 2px var(--v2-action); }
+
+.v2-ov-bar { display: inline-flex; align-items: center; gap: 8px; }
+.v2-ov-bar[hidden], .v2-ov-banners[hidden] { display: none; }
+.v2-ov-banner-in { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block: 6px; margin-inline: auto; }
+.v2-ov-banner { background: var(--v2-rank-tint); }
+.v2-ov-bar .v2-ov-badge { margin-right: 0; white-space: nowrap; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 767px) { .v2-ov-bar { flex-wrap: wrap; } .v2-ov-bar .v2-ov-badge { white-space: normal; max-width: none; } }
+.v2-app .v2-ov-reset { min-height: 32px; }
+@media (max-width: 760px) {
+  .v2-ov-wrow { grid-template-columns: 1fr 28px; row-gap: 2px; padding: 6px 0; border-bottom: 1px solid var(--v2-border); }
+  .v2-ov-wrow input[type="range"], .v2-ov-wrow .v2-ov-wpct { grid-column: 1 / -1; }
+  .v2-ov-wrow .v2-ov-wnum { grid-column: 1 / -1; width: 100%; }
+  .v2-ov-wrow .v2-ov-wnote { grid-column: 1 / -1; margin-top: 0; }
+}

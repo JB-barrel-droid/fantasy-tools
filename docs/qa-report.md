@@ -26,7 +26,7 @@ Generated 2026-10-19 18:01 UTC by scripts/contract_qa_report.py. Do not edit; re
 | GL-08 | pass | DDF is the core value everywhere |
 | GL-09 | pass | Three DDF Value versions are available on every page: the blended DDF Value, DDF Value from trade charts only, |
 | GL-10 | pass | The reader's selection (series, DDF inputs, ranking) is remembered on this device. |
-| GL-11 | pass | Changes to league settings are a draft until Apply |
+| GL-11 | pass | Changes to league settings apply as they change; no Apply step (JEG-1020) |
 | GL-12 | pass | The bench share shown is the one the engine computed from the reader's settings (the readout in GL-23) or, whe |
 | GL-13 | pass | On phones (390 px), no page scrolls sideways and every tab is usable. |
 | GL-14 | pass | If the engine fails, the page shows a failure state, never stale or partial numbers. |

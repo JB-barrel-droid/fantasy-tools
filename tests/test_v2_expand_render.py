@@ -19,15 +19,16 @@ headless at 1440 x 900 and 390 x 844. Every value check reads the engine back
   * Reset zoom: hidden until a zoom or brush makes Show Custom; it restores
     the Show preset from before the zoom and leaves search alone;
   * filter chips: one per active filter (value, ranks, search, position) and
-    each clears only its own filter; "Set exact values" is a 44 px control;
+    each clears only its own filter; "Set exact values" is an item in the 44 px Show menu (JEG-926);
   * no page errors; no horizontal overflow at 390, expanded views full screen.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js / v2.css with
 one fault each (expanded chart drops a line, Esc leaves it open, focus not
 returned, expanded table hides Pos / Team / Tier, Tier read from ESPN, Reset
 zoom ignores the remembered preset, the value chip also clears search, the
-ranks chip also clears the value range, "Set exact values" back to a small
-link) and requires each to fail.
+ranks chip also clears the value range) and requires each to fail. (The
+"Set exact values back to a small link" fault is gone with the button, JEG-926;
+tests/test_v2_values_tab_ux_render.py guards the Show-menu item.)
 """
 from __future__ import annotations
 
@@ -384,10 +385,12 @@ def check_chips(page, tag) -> list[str]:
             errors.append(tag + f"chip {chip} still shown after clearing")
     page.click("#v2Reset")
     _settle(page)
-    exact = page.evaluate("() => { const b = document.getElementById('v2YExact'); const r = b.getBoundingClientRect();"
-                          " return {h: r.height, w: r.width, font: parseFloat(getComputedStyle(b).fontSize)}; }")
-    if exact["h"] < 44 or exact["w"] < 44 or exact["font"] < 12:
-        errors.append(tag + f"Set exact values is not a 44 px control: {exact}")
+    # JEG-926: "Set exact values" is an item in the Show menu (a 44 px select), not a separate button.
+    exact = page.evaluate("() => { const b = document.getElementById('v2Show'); const r = b.getBoundingClientRect();"
+                          " return {h: r.height, item: [...b.options].some(o => /^set exact values/i.test(o.textContent.trim())),"
+                          " button: Boolean(document.getElementById('v2YExact'))}; }")
+    if exact["h"] < 44 or not exact["item"] or exact["button"]:
+        errors.append(tag + f"Set exact values is not an item in a 44 px Show menu: {exact}")
     return errors
 
 
@@ -493,9 +496,6 @@ class ExpandRenderTest(unittest.TestCase):
                 "clear: () => { state.search = \"\"; $(\"v2Search\").value = \"\"; setRange({min: null, max: null}); }});", 1), js)}),
             "ranks chip also clears the value range": ("chips", {"v2.js": (v2.replace(
                 "  function clearRankZoom() {\n", "  function clearRankZoom() {\n    state.range = {min: null, max: null};\n", 1), js)}),
-            "Set exact values a small link": ("chips", {"v2.css": (css.replace(
-                ".v2-app .v2-yexact { margin-left: auto; min-height: 44px; padding: 8px 12px; font-size: 13px;",
-                ".v2-app .v2-yexact { margin-left: auto; min-height: 30px; padding: 0 2px; font-size: 10px;", 1), cs)}),
         }
         for name, (check, overrides) in broken.items():
             with self.subTest(mutation=name):

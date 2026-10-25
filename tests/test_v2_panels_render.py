@@ -8,8 +8,8 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
     Apply; Apply adds exactly that pair to getActiveSources(); Cancel
     discards; an empty draft cannot be applied ("Choose at least one");
     an unavailable pair is disabled; full screen at 390;
-  * Your league (12): steppers and segmented buttons are a draft; Apply sets
-    getRosterShape() / getState().teams, SUPERFLEX included; a change that
+  * Your league (12): steppers and segmented buttons apply as they change (JEG-1020, no Apply
+    button; Done only closes); the change sets getRosterShape() / getState().teams, SUPERFLEX included; a change that
     moves the bench share says so (JEG-444); Reset defaults returns to the
     first-load league;
   * Position weights (11): position shares shown equal getPositionWeights();
@@ -41,8 +41,9 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
     one-decimal numbers with 6–8 px padding, heat tint direction matching the
     two shown values and named in the title, "—" with a reason; the Columns
     menu hides a group but never the ranking series;
-  * above the fold (JEG-470): at 1440 × 900 and 1366 × 768 the chart card and
-    at least six table rows are visible without scrolling; h1 26–28 px; the
+  * above the fold (JEG-470): at 1440 × 900 and 1366 × 768 the chart card is
+    visible without scrolling (JEG-926 dropped the six-table-rows clause: the
+    table now sits under a full-width chart); h1 26–28 px; the
     value line names the engine's week;
   * no page errors, no horizontal overflow at 390.
 
@@ -51,7 +52,7 @@ one fault each (pair toggle applied at once, zone preset ignored, Team box
 ignored, From / To ignored, brush drag keeps the preset, value range ignores
 the rank window, Y brush does nothing, Reset keeps the value range, Columns
 menu ignored, no SUPERFLEX stepper, bench move not reported, shares not
-applied, freshness fails open, league Apply does nothing, no chart-and-table split, header not
+applied, freshness fails open, league Apply does nothing, header not
 sticky, cells wide enough to scroll sideways) and requires each to fail.
 """
 from __future__ import annotations
@@ -227,7 +228,7 @@ def check_league(page) -> list[str]:
     if page.locator('#v2Popover [aria-label="Fewer K"]').count():
         page.click('#v2Popover [aria-label="Fewer K"]')
         page.click('#v2Popover [aria-label="Fewer DEF"]')
-        page.click('#v2Popover [data-apply="league"]')
+        page.click('#v2Popover [data-done="league"]')
         kd = page.evaluate("() => { const s = window.TradeValueCurveControls.getRosterShape(); return [s.K, s.DST]; }")
         line0 = page.text_content("#v2RosterLine")
         if kd != [0, 0] or " K " in line0 or "DEF" in line0:
@@ -235,18 +236,25 @@ def check_league(page) -> list[str]:
         page.click("#v2EditLeague")
         page.click('#v2Popover [aria-label="More K"]')
         page.click('#v2Popover [aria-label="More DEF"]')
-        page.click('#v2Popover [data-apply="league"]')
+        page.click('#v2Popover [data-done="league"]')
     else:
         page.keyboard.press("Escape")
     page.click("#v2EditLeague")
     page.click('#v2Popover [aria-label="More WR"]')
     page.click('#v2Popover .v2-pseg button[data-value="10"]')
+    # JEG-1020: no Apply step; the change reaches the engine on its own after the debounce (and not before it).
     if page.evaluate("() => window.TradeValueCurveControls.getRosterShape().WR") != start["shape"]["WR"]:
-        errors.append("league: a stepper reached the engine before Apply")
-    page.click('#v2Popover [data-apply="league"]')
+        errors.append("league: a stepper reached the engine before the debounce")
+    try:
+        page.wait_for_function("(wr) => window.TradeValueCurveControls.getRosterShape().WR === wr", arg=start["shape"]["WR"] + 1, timeout=3000)
+    except Exception:
+        errors.append("league: the stepper change never reached the engine on its own")
+    if page.locator('#v2Popover [data-apply="league"]').count() or page.locator('#v2Popover button:has-text("Apply")').count():
+        errors.append("league: an Apply button is still on the panel")
+    page.click('#v2Popover [data-done="league"]')
     now = page.evaluate("() => ({shape: window.TradeValueCurveControls.getRosterShape(), teams: window.TradeValueCurveControls.getState().teams})")
     if now["shape"]["WR"] != start["shape"]["WR"] + 1 or now["teams"] != 10:
-        errors.append(f"league: Apply gave WR {now['shape']['WR']} teams {now['teams']}, wanted WR {start['shape']['WR'] + 1} teams 10")
+        errors.append(f"league: live change gave WR {now['shape']['WR']} teams {now['teams']}, wanted WR {start['shape']['WR'] + 1} teams 10")
     line = page.text_content("#v2RosterLine")
     if f"{now['shape']['WR']} WR" not in line:
         errors.append(f"league: roster line {line!r} does not follow the engine")
@@ -254,7 +262,7 @@ def check_league(page) -> list[str]:
     page.click("#v2EditLeague")
     if page.locator('#v2Popover [aria-label="More SUPERFLEX"]').count():
         page.click('#v2Popover [aria-label="More SUPERFLEX"]')
-    page.click('#v2Popover [data-apply="league"]')
+    page.click('#v2Popover [data-done="league"]')
     sf = page.evaluate("() => window.TradeValueCurveControls.getRosterShape().SUPERFLEX")
     if sf != 1 or "1 SUPERFLEX" not in page.text_content("#v2RosterLine"):
         errors.append(f"league: SUPERFLEX stepper gave engine {sf}, roster line {page.text_content('#v2RosterLine')!r}")
@@ -263,10 +271,10 @@ def check_league(page) -> list[str]:
     # change simply changes the readout; tests/test_v2_advanced_render.py covers it).
     page.click("#v2EditLeague")
     page.click('#v2Popover .v2-pseg button[data-value="14"]')
-    page.click('#v2Popover [data-apply="league"]')
+    page.click('#v2Popover [data-done="league"]')
     page.click("#v2EditLeague")
-    page.click("#v2Popover .v2-preset")
-    page.click('#v2Popover [data-apply="league"]')
+    page.click("#v2Popover [data-league-reset]")
+    page.click('#v2Popover [data-done="league"]')
     back = page.evaluate("() => ({shape: window.TradeValueCurveControls.getRosterShape(), teams: window.TradeValueCurveControls.getState().teams})")
     if back != start:
         errors.append(f"league: Reset defaults gave {back}, first load was {start}")
@@ -283,8 +291,15 @@ def check_weights(page) -> list[str]:
             errors.append(f"weights: {pos} shows {text}, engine {weights[pos]}")
     # Position shares (frame 11, JEG-452): the edited share reaches the engine, the rest rebalance there.
     # Use 30% (far from the default ~10%) so a no-op Apply is caught.
+    # JEG-1020 (Jeremy, 2026-10-24): Position weights applies live like Your league, no Apply step.
     page.fill("#v2ShareQB", "30")
-    page.click('#v2Popover [data-apply="weights"]')
+    try:
+        page.wait_for_function("() => Math.abs(window.TradeValueCurveControls.getPositionWeights().QB - 0.30) < 0.002", timeout=3000)
+    except Exception:
+        errors.append("weights: a valid share never reached the engine on its own")
+    if page.locator('#v2Popover [data-apply="weights"]').count() or page.locator('#v2Popover button:has-text("Apply")').count() or page.locator('#v2Popover button:has-text("Cancel")').count():
+        errors.append("weights: an Apply or Cancel button is still on Position weights")
+    page.click('#v2Popover [data-done="weights"]')
     got = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if abs(got["QB"] - 0.30) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
         errors.append(f"weights: QB 30% applied as {got}")
@@ -301,13 +316,14 @@ def check_weights(page) -> list[str]:
     if abs(float(page.input_value("#v2ShareWR")) - before["WR"] * 100) > 0.06:
         errors.append(f"weights: WR 150 left {page.input_value('#v2ShareWR')} in the box, last valid was {before['WR'] * 100:.1f}")
     page.fill("#v2ShareWR", "150")
-    page.click('#v2Popover [data-apply="weights"]')
+    page.wait_for_timeout(600)
+    page.click('#v2Popover [data-done="weights"]')
     after = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if any(abs(after[p] - before[p]) > 1e-9 for p in before):
         errors.append(f"weights: WR 150 changed the engine shares {before} -> {after}")
     page.click("#v2Weights")
-    page.click("#v2Popover .v2-preset")
-    page.click('#v2Popover [data-apply="weights"]')
+    page.click("#v2Popover [data-weights-reset]")
+    page.click('#v2Popover [data-done="weights"]')
     back = page.evaluate("""() => { const C = window.TradeValueCurveControls; const a = C.getPositionWeights(), d = C.getDefaultPositionWeights();
       return ['QB', 'RB', 'WR', 'TE'].every(p => Math.abs(a[p] - d[p]) < 1e-9); }""")
     if not back:
@@ -552,9 +568,11 @@ def check_toolbar(page) -> list[str]:
     # (JEG-503, PV-07: Jeremy asked for them); tests/test_v2_chart_zones_render.py covers those.
     inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
       .filter(n => n.offsetParent && !n.closest('.v2-mod-ctl') && !n.classList.contains('v2-legend-item')).map(n => n.id || n.textContent.trim())""")
-    allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
+    allowed = {"v2ZoomIn", "v2ZoomOut", "v2PlotSearch", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi",
                "v2ExpandChart", "v2ResetZoom",
                "v2ChartSize"}   # JEG-483: expand and (while zoomed) Reset zoom; JEG-477 (#701): the taller/shorter toggle
+    # JEG-926 (Jeremy, 2026-10-22): the search box sits on the graph (v2PlotSearch replaces the removed v2YExact button, which is
+    # now an item in the Show menu); the position selector there shows only in the expanded chart.
     extra = [n for n in inside if n not in allowed]
     if extra:
         errors.append(f"chart: controls other than brushes and zoom inside the chart: {extra}")
@@ -683,7 +701,7 @@ def check_y_brush(page) -> list[str]:
         page.click("#v2Reset")
         page.select_option("#v2RankBy", before_rank)
     # Set exact values (frame 24 popover) still works, names its basis and refuses min > max.
-    page.click("#v2YExact")
+    page.select_option("#v2Show", "exact")   # JEG-926: "Set exact values…" is an item in the Show menu
     sub = page.text_content("#v2Popover .v2-panel-head .v2-meta")
     if "Basis" not in sub:
         errors.append(f"Set exact values: no basis series named: {sub!r}")
@@ -827,7 +845,7 @@ def check_table_fit(page, width) -> list[str]:
             errors.append(tag + f"{col} is in group {group}, its method says {_group_of(col)}")
         if group and group_cell not in (group, "rank-series"):
             errors.append(tag + f"{col} sits under group cell {group_cell!r}, not {group!r}")
-    if not set(fit["groupLabels"]) & {"Projections", "Trade charts adjusted", "Trade charts (rescaled)", "VORP vs waivers"}:
+    if not set(fit["groupLabels"]) & {"Projections", "Trade charts adjusted", "Trade charts (rescaled)", "Value above waivers"}:
         errors.append(tag + f"no method group header: {fit['groupLabels']}")
     return errors
 
@@ -849,8 +867,9 @@ def check_fold(page, width, height) -> list[str]:
     tag = f"above the fold {width}×{height}: "
     if f["chartBottom"] > f["h"] + 0.5:
         errors.append(tag + f"chart card ends at {f['chartBottom']:.0f}px")
-    if f["rows"] < 6:
-        errors.append(tag + f"{f['rows']} table rows visible, want 6")
+    # JEG-926 (Jeremy, 2026-10-22): no side-by-side layout, so the table sits under the full-width chart and its rows are
+    # not expected above the fold any more (the old "at least six rows visible" pinned the removed split);
+    # tests/test_v2_values_tab_ux_render.py guards the full-width chart with the table underneath.
     if not 26 <= f["h1"] <= 28.5:
         errors.append(tag + f"h1 {f['h1']}px, want 26–28")
     week = page.evaluate("() => window.TradeValueProductData?.getSourceFreshness?.()?.current_content_week || window.TradeValueCurveControls.getReferenceWeek()")
@@ -911,7 +930,7 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
                     if full:
                         errors += [tag + e for e in check_sources(page, width)]
                     mobile = page.evaluate("""() => ({ybrush: getComputedStyle(document.getElementById('v2YBrush')).display,
-                      exact: Boolean(document.getElementById('v2YExact').offsetParent)})""")
+                      exact: Boolean(document.getElementById('v2Show').offsetParent && document.getElementById('v2ShowExact'))})""")
                     if mobile["ybrush"] != "none" or not mobile["exact"]:
                         errors.append(tag + f"below 768 px the numeric value range replaces the Y brush: {mobile}")
                 overflow = page.evaluate("() => document.documentElement.scrollWidth - innerWidth")
@@ -971,16 +990,14 @@ class PanelsRenderTest(unittest.TestCase):
             # JEG-675: CBS is held in the pinned fixture and a week behind in the pipeline; a held source is not "Prior week".
             "held source reads Prior week": {"v2_js": v2.replace(
                 "const shown = items.some(item => item.available);", "const shown = true;", 1)},
-            "league Apply does nothing": {"v2_js": v2.replace(
-                "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
+            "league live change does nothing": {"v2_js": v2.replace(
+                "            ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1)},
             # Table fit and above the fold (CSS).
-            "no chart-and-table split": {"v2_css": css.replace(
-                "@media (min-width: 1280px) {\n  .v2-values-grid", "@media (min-width: 99999px) {\n  .v2-values-grid", 1),
-                "viewports": ((1366, 768),), "full": False},
             "header not sticky": {"v2_css": css.replace(
                 "  .v2-vtable thead th { position: sticky;", "  .v2-vtable thead th { position: static;", 1), "full": False},
-            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 140px; }\n", "full": False},
+            # JEG-926: the table now has the full content width, so the fault is wider (140 px cells fit there).
+            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 320px; }\n", "full": False},
         }
         for name, kwargs in broken.items():
             with self.subTest(mutation=name):

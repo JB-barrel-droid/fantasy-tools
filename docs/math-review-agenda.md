@@ -1536,6 +1536,202 @@ the trade-target views; not covered.
   consensus gap gives LaPorta, Warren, McConkey, Likely, Dobbins), and whether
   QBs' rank gaps (Goff, Mahomes) are a positional-weight effect.
 
+## MR-29 - Pin anchor top player to exactly 70 (JEG-800, 2026-10-23)
+
+- **Question.** Goal S1 says the anchor top player = 70. The engine does not
+  enforce it: the pie is `28 * teams * starting_slots` (VP-5.1), and the top
+  DDF Value falls out of projections, waiver lines and DDF weights. Should a
+  post-pipeline rescale pin it to exactly 70?
+- **What the code does today.** `value-model.js:182` `VP_PIE_PER_STARTING_SLOT = 28`;
+  `value-model.js:641-642` pie = `28 * teams * startingSlots` when no explicit
+  pie is passed. `value_reference.py:73` `PIE_PER_STARTING_SLOT = 28.0`;
+  `value_reference.py:192-194` `League.pie = PIE_PER_STARTING_SLOT * teams *
+  starting_slots`. No post-pipeline rescale exists.
+- **Measured top DDF Value (week-7, 12 combos, live-numbers audit 2026-10-22).**
+  standard 8/10/12/14 = 71.82 / 73.60 / 75.69 / 73.65;
+  half_ppr 8/10/12/14 = 69.93 / 72.23 / 74.57 / 72.55;
+  ppr 8/10/12/14 = 66.89 / 70.69 / 71.94 / 71.79.
+  Range: 66.89 (ppr/8) to 75.69 (standard/12). 7 of 12 setups are above 70.
+- **Impact of a post-pipeline rescale to 70.** A global rescale factor
+  (70 / top_value) applied to all Adjusted values preserves ratios and order but
+  shifts every value. Worst case (standard/12, top=75.69): factor 0.925, all
+  values drop ~7.5%; every player with value above ~13 moves by more than 1
+  point, roughly 50-70 players per source. At ppr/8 (top=66.89): factor 1.047,
+  all values rise ~4.7%. Players move most at setups farthest from 70. The
+  direction reverses between setups (some up, some down), which changes
+  cross-setup comparisons. Per-source Adjusted maxima run higher (CBS up to
+  91.38 standard/14; FantasyCalc up to 95.93) so the pin constrains only the
+  blended DDF Value, not individual sources.
+- **Interactions.**
+  - *JEG-801 (Indexed cap):* independent. The pin rescales the Adjusted/DDF
+    view; the Indexed cap would rescale the Indexed view. If both apply, the
+    rescales compose.
+  - *JEG-803 (bench share fallback):* the fallback only fires on non-ES paths.
+    When ES is active (all defaults), the top value is unchanged by cleaning up
+    the 0.15 fallback.
+  - *JEG-948 (decay):* decay will lower bench value in later weeks, raising the
+    top starter's share of pie, pushing the top above 70 by more. A pin
+    compensates, but the factor would grow through the season.
+  - *JEG-943 (DDF predictive):* unequal source weights would change the
+    blended top value. The pin would absorb the shift, but the rescale factor
+    becomes weight-dependent.
+- **Risks.** (1) The "28" constant is documented as an arbitrary unit of
+  account (post 1: "The number 28 is a chosen unit of account -- it sets the
+  size of the currency, not the results"). A pin makes 70 a function of the
+  projection mix, not a neutral constant. (2) Cross-setup comparisons: a
+  player worth 50 in ppr/12 (top=71.94, factor 0.973) and 50 in standard/12
+  (top=75.69, factor 0.925) would become 48.7 vs 46.2 -- the gap changes.
+  (3) If the pin is per-setup, the pie total changes per setup (breaks the
+  "one pie" invariant unless the pin is documented as a display rescale, not a
+  pie change). (4) If applied only to DDF Value and not per-source Adjusted,
+  it creates a discrepancy between the sum of source Adjusted and the DDF
+  display value.
+- **Options.**
+  (a) **No pin.** Keep 28 as a unit of account. The top is ~67-76 across
+  setups and the range is documented. Simplest; preserves all current
+  invariants.
+  (b) **Post-pipeline display rescale at DDF Value only.** Multiply all DDF
+  Value by (70 / max_ddf_value) per setup. Per-source Adjusted unchanged.
+  Breaks: Adjusted total != Indexed total for DDF. Gains: the top line reads
+  exactly 70.
+  (c) **Adjust VP_PIE_PER_STARTING_SLOT per setup** so that the resulting top
+  DDF Value lands at 70. Different pie per setup; breaks the fixed-pie
+  simplicity but preserves sum invariants. Requires solving for the constant
+  iteratively since the top depends on the pie.
+  (d) **Adjust VP_PIE_PER_STARTING_SLOT to a single new value** (e.g. ~26.5)
+  that brings the median setup's top closer to 70. Simple, but some setups
+  will still be above or below 70.
+  **Recommendation:** (a) no pin. The top is close to 70 already (mean 71.9,
+  median 71.9); the engine invariants are simpler without a rescale; the
+  research posts document 28 as a unit of account; and decay/DDF-predictive
+  work would require re-tuning the pin. If Jeremy wants the top line to read
+  exactly 70, option (b) is the least invasive.
+
+**Depends on:** nothing directly, but interacts with JEG-948, JEG-943.
+
+## MR-30 - Cap Indexed pie at league rostered count by position (JEG-801, 2026-10-23)
+
+- **Question.** Jeremy's Q1 answer (2026-10-22) said: if the pie exceeds the
+  number of rostered players in the league configuration, set the total value to
+  the league player count by position. Should the Indexed view cap per-position
+  pie at the rostered count?
+- **What the code does today.** The Indexed view uses `fixedPieIndexed`: each
+  chart's Indexed total over its listed players equals the blended DDF total
+  over those same players. The pie is `28 * teams * starting_slots`, allocated
+  to positions by DDF weights (VP-4). No per-position cap at the rostered
+  count.
+- **Status: likely moot.** Jeremy's subsequent answer was "Keep VP-2.4 fill-in"
+  (no switch to the pie-allocation rule). Three Linear comments (2026-10-22)
+  record this: the ticket was briefly canceled, then restored to Backlog as
+  Jeremy's call. The fill-in rule (VP-2.4) estimates values for missing
+  players from peer charts, which addresses the spirit of the original request
+  without a per-position pie cap.
+- **Measured at 12 setups.** fixedPieIndexed Pass and indexedOrderOk Pass at
+  all 12. The cap would be a behavior change, not a bug fix.
+- **Impact if implemented.** At setups where a chart lists more players than
+  rostered at a position, the excess value would be redistributed. This mainly
+  affects WR and RB at 8-team leagues (more listed than rostered). Magnitude
+  not measured because the ticket appears moot.
+- **Interactions.**
+  - *JEG-800 (pin anchor):* independent (Adjusted vs Indexed view).
+  - *JEG-803 (bench share):* the rostered count includes bench seats, so a
+    change in bench allocation changes the cap. Minimal in practice since ES
+    bench is ~6%, not 15%.
+- **Risks.** (1) Capping redistributes value from over-represented positions
+  to under-represented ones, changing relative values. (2) The cap rule as
+  stated is per-position, but the current pie is allocated by group
+  (position x starter/bench), not headcount.
+- **Options.**
+  (a) **Cancel the ticket.** Jeremy's VP-2.4 fill-in decision addresses the
+  spirit. The measured invariants pass. No code change.
+  (b) **Implement the cap.** Add per-position rostered-count cap to the
+  Indexed pie allocation. Requires measuring the effect and ensuring
+  fixedPieIndexed still holds.
+  (c) **Defer.** Leave in Backlog for the review; measure the gap between
+  VP-2.4 fill-in and the literal cap if Jeremy wants data.
+  **Recommendation:** (a) cancel. Jeremy decided VP-2.4 fill-in, the
+  invariants pass, and the cap adds complexity with unclear benefit.
+
+**Depends on:** nothing. Likely moot per Jeremy's 2026-10-22 VP-2.4 decision.
+
+## MR-31 - Replace hardcoded 0.15 bench share with expected-starts defaults (JEG-803, 2026-10-23)
+
+- **Question.** Jeremy (Q5, 2026-10-22): bench share is dictated by project
+  research, not 15%. The live engine uses expected-starts (ES-14/ES-15) and
+  computes bench share from lineup parameters. But 0.15 persists as a fallback
+  in six code sites and the config. Should the fallback be replaced?
+- **What the code does today.** Live path (all default setups): expected-starts
+  mode computes bench share as an output. Measured values (week-7, 12 combos):
+  standard 8/10/12/14 = 7.4% / 7.5% / 6.7% / 6.4%;
+  half_ppr 8/10/12/14 = 5.0% / 5.9% / 5.9% / 6.2%;
+  ppr 8/10/12/14 = 6.2% / 6.2% / 6.1% / 6.5%.
+  Range: 5.0% to 7.5%. All well below 15%.
+  Fallback sites (only fire when ES is off or when pipeline builders construct
+  reference data):
+  `value-model.js:181` `VP_DEFAULT_BENCH_SHARE = 0.15`;
+  `product-data.js:222` `bench_share_default: 0.15`;
+  `config/roster.json` `"bench_share": 0.15`;
+  `value_reference.py:72` `DEFAULT_BENCH_SHARE = 0.15`;
+  `build_ddf_two_tier_leg.py:76` fallback `0.15`;
+  `reindex_comparison_section.py:118` fallback `0.15`.
+- **Impact if changed.** On the live default path: zero. ES mode is always
+  active at default setups and the 0.15 fallback never fires. On the fallback
+  path (non-ES mode, or pipeline builders without lineup data): changing the
+  default from 0.15 to, say, 0.07 (the ES median) would move the bench budget
+  from 15% to 7% of pie. This affects: (1) the two-tier-leg builder
+  (`build_ddf_two_tier_leg.py`), which constructs reindexed comparison values
+  for trade charts, and (2) the reindex builder, which constructs
+  comparison-section data. Both currently slice at 15%. Changing them to ~7%
+  shifts bench value to starters in those comparison outputs. Measured (from
+  the two-tier-leg documentation): at 15% bench share, bench_raw = 0.15 * pie
+  and starter_raw = 0.85 * pie. At 7%, bench_raw = 0.07 * pie, starter_raw =
+  0.93 * pie. For a 12-team/7-slot pie (2352): bench budget drops from 353 to
+  165, starter budget rises from 1999 to 2187. Every bench player's Adjusted
+  value falls ~53% in the comparison section; every starter rises ~9%.
+- **Interactions.**
+  - *JEG-800 (pin anchor):* the pin targets the DDF blended top. If the
+    fallback change also affects the DDF blend (it does not on the live path),
+    the two interact. On the live ES path, independent.
+  - *JEG-801 (Indexed cap):* independent (the cap is on Indexed; the bench
+    share is on Adjusted allocation).
+  - *JEG-948 (decay):* decay scales bench value by weeks remaining. A lower
+    bench budget amplifies the decay effect (bench is already smaller). The
+    composition matters if both land.
+  - *JEG-943 (DDF predictive):* independent unless predictive weights change
+    the bench share computation.
+  - *JEG-859 (bench totals differ 62% across sources):* the bench share
+    discrepancy across sources (QB bench 177%, TE bench 127%) is measured at
+    the ES bench share, not 0.15. Cleaning up the fallback does not fix that
+    discrepancy but removes the misleading documented default.
+- **Risks.** (1) The non-ES fallback path is not dead code: pipeline builders
+  use it for comparison-section data. Changing the default changes those
+  outputs. Need to verify what consumers read the comparison section and
+  whether the new values are correct. (2) `config/roster.json` is read by
+  multiple pipelines; a change there propagates. (3) The goals doc wording
+  ("default 15%") is stale but widely cited; updating it is a doc change.
+- **Options.**
+  (a) **Replace 0.15 with ES-derived median (~0.07) everywhere.** All
+  fallback paths use the research-based number. Simple, but the
+  comparison-section outputs change.
+  (b) **Replace 0.15 with a computed ES default** at each fallback site
+  (call `resolve_lineup` and read the bench share). More correct but heavier:
+  every fallback site needs access to lineup parameters.
+  (c) **Remove the non-ES fallback path entirely.** Require ES mode always.
+  The fallback exists for backward compatibility; if no consumer needs it,
+  remove it. Needs an audit of callers.
+  (d) **Document 0.15 as a legacy default, add a comment, leave it.** The
+  live path is correct. The fallback is only used by pipeline builders that
+  are not on the critical display path. Lowest risk.
+  **Recommendation:** (d) for now. The live path already uses expected-starts.
+  The 0.15 fallback only fires in pipeline builders for comparison data, not
+  in the displayed DDF Value or Adjusted views. Document the stale default,
+  plan to remove it when the comparison builders are refactored (or when
+  the non-ES path is confirmed dead). If Jeremy wants the fallback to match
+  the research, (a) is the next step but requires verifying the
+  comparison-section consumers.
+
+**Depends on:** JEG-859 findings (bench totals across sources).
+
 ## Math review answers 2026-10-15 (Jeremy, JEG-450; decisions.md math-review-2026-10-15)
 
 - Q1 GAP-TIER-FROM-ESPN: label the tier column "ESPN Tier" (implemented by another agent).
@@ -1571,3 +1767,74 @@ the trade-target views; not covered.
 - **MR-23 weekly matchups:** lineup hint only, values untouched (option a, confirmed).
 - **MR-20 / JEG-535 direction-check thresholds (PR 637):** keep the loosened thresholds (2-QB +3, peak >28), then have QB values reviewed. After the per-game basis the top QB value over replacement in 2-QB fell from about 60 to about 32 (1-QB is 25); nobody has judged whether 32 is right. Open: examples of QB values on a 2-QB board, and whether to cap part-timers' inflated per-game rates.
 - **JEG-505 compare-trade cutoffs and JEG-477 taller chart:** product decisions, recorded in decisions.md.
+
+## MR-28 Bench seat allocation: should bench weights count flex starters? (JEG-969, 2026-10-23)
+
+**Decided: on by default** (Jeremy, 2026-10-23). Bench-seat D'Hondt weights
+now count superflex+flex starters alongside dedicated starters, matching
+`allocate_league` in the ES model. Set `flex_bench_seats=false` to disable.
+
+The page's bench seat allocation (`value_reference.py bench_seats`, `value-model.js
+vpBenchSeats`) previously computed bench weight as `dedicated_slots *
+backups_per_starter` and did NOT include flex starters. With the fix, the weight
+includes flex starters, and at ppr/12 QB drops from 15 bench seats to 4.
+
+**Measured impact (12-combo sweep + superflex):**
+- QB bench share: ~25.6% -> ~9.5% (ppr/12)
+- Top QB movers lose 4-5 DDF Value points; top WR movers gain 3-4 points
+- fixedPieIndexed invariant: PASS all 13 settings
+- Overall bench share readout delta: -0.023 to +0.019 depending on setting
+
+Implementation: commit `720f9652` (flag off), `489d6f94` (flag on). All three
+engines (Python reference, JS browser, spec reference) plus 3 parity tests.
+
+**2-QB / superflex skip (Jeremy, 2026-10-23, option A):** flex_bench_seats is
+skipped in 2-QB and superflex rosters. The market_bench 2-QB data (bps 0.28)
+already reflects supply-capped QB benches from FFC draft data; applying
+flex-filled bench weights on top double-counts the effect and inverts the
+JEG-702 2-QB direction gate (ratio 0.950 vs threshold 1.1 at ppr/12). In
+2-QB/superflex, bench allocation uses dedicated starters only. Implementation:
+commit `d753cae7`. 4 additional tests including negative (monkey-patched
+allocate without the skip differs).
+
+## MR-32 Promotion/demotion model in expected starts (JEG-969, 2026-10-23)
+
+**Decided: on by default** (Jeremy, 2026-10-23). The promotion model adjusts
+ES lineup shares for persistent role changes. Bench players gain a promotion
+bonus; marginal starters lose a demotion penalty. Both scale linearly with
+weeks remaining in the fantasy season.
+
+**Rates:** measured from 2015-2025 nflverse weekly actuals
+(`config/promotion_rates.json`, `tools/bench_research/promotion_demotion_rates.py`).
+Per-remaining-week hazard rates by position and bench depth (promotion) or
+position (demotion).
+
+**Formula:** `promo_bonus_share = rate_pw * weeks_remaining * 0.5`; new lineup
+share = `min(avail, ls + bonus * (avail - ls))`. Demotion: `penalty = rate_pw *
+weeks_remaining * 0.5`; new ls = `max(0, ls - penalty * ls)`.
+
+**Impact (12-combo sweep):** bench share readout +0.75 to +1.16pp; applied
++0.33 to +0.51pp. At ppr/12: QB +2.17pp, RB +0.72pp, WR +1.03pp, TE +0.21pp.
+Bench RBs gain ~6.8% DDF Value; marginal starters lose 2-6%.
+
+**Open question:** the rates are from season-to-date PPG rankings (actuals),
+not from projected PPG (what the engine uses for tiering). This proxy may
+over- or understate rates for specific positions. A future refinement could
+use projection-based rankings.
+
+## MR-34 Sub-waiver tail: engine Adjusted 0 vs reference ~0.006 (JEG-1044, 2026-10-24)
+
+Found by running `value_check compare --basis '{"mode":"single","source":"fantasycalc"}' --strict` (page vs Python reference, 12 combos, no superflex). For players below the waiver line on a trade chart, the engine's Adjusted value is exactly 0 and the Python reference's is about 0.006 (inside the 0.05 tolerance, so the default compare is green). With one chart as the whole value basis, DDF Value is that Adjusted value and the `v == 0 -> waiver` tier rule (VP-7.3) decides on it: about 20 boundary players per setting land in a different tier and tag (Hold vs Drop) between engine and reference. Values agree; tiers do not.
+
+**Question for the coordinated review:** which is right for a below-waiver tail player, an exact 0 (engine) or a small positive (reference's smooth tail)? Whichever it is, both implementations and the spec reference must match before a one-source basis is gated by `--strict`.
+
+**State:** default behaviour is byte-identical and untouched. Logged in docs/risk-register.md as GAP-BASIS-FC-TAIL-TIERS. No one-off change made.
+
+## MR-33 League workspace constants: noise floor, median rule, opportunity ranking (JEG-1021, 2026-10-24)
+
+Jeremy decided these on JEG-1021 (2026-10-24: ranking and the strength / noise-floor recommendations under "decide based on math"); they sit here so the full review sees them. No value math changed.
+
+- **Market-gap noise floor 2.0 points** (`NOISE_FLOOR` in `app/v2/team-summary.js`): a player is listed as undervalued (DDF Value above the Trade chart average) or overvalued only when the gap is more than 2.0. The two series are on one scale in this product; 2.0 is about 5% of a mid-tier player. Not measured against the live distribution of gaps. Option B (1.0) and C (10% of value) not tried.
+- **Strength / weakness by the league median** (`MIN_MEDIAN_TEAMS = 3`): a position is a strength when depth is at or above the expected range AND the team's starters there are at or above the median of the teams with a starter there; below 3 such teams, depth alone decides. With a median, every position is a strength or a weakness (half the league on each side). The depth range is `rosterBalance` (D'Hondt bench seats), already on the agenda as MR-28.
+- **Opportunity ranking**: fit tier first (natural, value, market-only, force), then the fundamentals edge (DDF receive minus give, as shown). The finder's size-discounted score (`EXTRA_PLAYER_WEIGHT`) only picks the 10 trades kept per pairing, so a large high-edge package can be cut before the tier sort sees it. Open: keep more per pairing, or rank the cut by edge.
+- **Overall fit truth table** (spec 4.3): "market fit" (we gain, charts call it fair, but the chart-average edge for them is below 0 as shown) is rare when 3 of 4 charts must each be fair; the table was built before that gate was counted.

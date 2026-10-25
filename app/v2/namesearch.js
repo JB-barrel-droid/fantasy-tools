@@ -138,7 +138,76 @@
     return rows.filter(row => hits.has(row));
   }
 
+  // JEG-900: the ARIA combobox pattern for a name box whose matches are `li > button` in a list the caller fills
+  // and shows or hides. DOM only, browser only. The input keeps focus; ArrowDown / ArrowUp move aria-activedescendant
+  // through the enabled results, Enter picks the highlighted one (else the caller's own Enter handling runs), and a
+  // polite status line says how many players match. The caller's code is unchanged: a MutationObserver on the list
+  // watches what it renders.
+  function combobox(input, list) {
+    if (!input || !list || input.getAttribute("role") === "combobox" && input._combobox) return;
+    input._combobox = true;
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-haspopup", "listbox");
+    input.setAttribute("aria-controls", list.id);
+    input.setAttribute("aria-expanded", "false");
+    list.setAttribute("role", "listbox");
+    if (!list.hasAttribute("aria-label")) list.setAttribute("aria-label", "Matching players");
+    const status = document.createElement("div");
+    status.className = "v2-sr";
+    status.id = `${list.id}Count`;
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    list.insertAdjacentElement("afterend", status);
+    let active = -1;
+    const buttons = () => [...list.querySelectorAll("li:not(.is-empty) > button")];
+    const enabled = () => buttons().filter(b => !b.disabled);
+    const setActive = at => {
+      const all = enabled();
+      buttons().forEach(b => { b.classList.remove("is-active"); b.setAttribute("aria-selected", "false"); });
+      active = at;
+      const b = all[at];
+      if (!b) { input.removeAttribute("aria-activedescendant"); return; }
+      b.classList.add("is-active");
+      b.setAttribute("aria-selected", "true");
+      input.setAttribute("aria-activedescendant", b.id);
+      if (b.scrollIntoView) b.scrollIntoView({block: "nearest"});
+    };
+    let n = 0;
+    const sync = () => {
+      const all = buttons();
+      all.forEach(b => {
+        b.setAttribute("role", "option");
+        b.tabIndex = -1;
+        if (!b.id) b.id = `${list.id}Opt${++n}`;
+        b.parentElement.setAttribute("role", "presentation");
+      });
+      const open = !list.hidden;
+      input.setAttribute("aria-expanded", String(open));
+      active = -1;
+      input.removeAttribute("aria-activedescendant");
+      const empty = !!list.querySelector("li.is-empty");
+      status.textContent = !open ? "" : all.length && !empty ? `${all.length} player${all.length === 1 ? "" : "s"} match` : "No players match";
+    };
+    new MutationObserver(sync).observe(list, {childList: true, attributes: true, attributeFilter: ["hidden"]});
+    // Capture phase: runs before the caller's own Enter / Escape handler on the same input.
+    input.addEventListener("keydown", event => {
+      if (list.hidden) return;
+      const all = enabled();
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        if (!all.length) return;
+        event.preventDefault();
+        setActive(event.key === "ArrowDown" ? (active + 1) % all.length : (active - 1 + all.length) % all.length);
+      } else if (event.key === "Enter" && all[active]) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        all[active].click();
+      }
+    }, true);
+  }
+
   const api = {key, tokens, rank, distance, fuzzyDistance, search, filter};
+  if (typeof document !== "undefined") api.combobox = combobox;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueNameSearch = api;
 })(typeof window !== "undefined" ? window : globalThis);

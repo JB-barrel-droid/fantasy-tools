@@ -226,7 +226,7 @@ class FinderImportRenderTest(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         js = FINDER_JS.read_text(encoding="utf-8")
         broken = {
-            "keep flags ignored": ("if ((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))", "if (false)"),
+            "keep flags ignored": ("((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))", "false"),
             "every roster read as the first team's": ("entries: (r.players || []).map(id => {", "entries: ((rosters[0] || {}).players || []).map(id => {"),
         }
         for name, (old, new) in broken.items():

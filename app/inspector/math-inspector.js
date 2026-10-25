@@ -167,12 +167,12 @@
   // ---------- 0. checks ----------
   function renderChecks() {
     const body = section("mi-checks");
-    body.appendChild(para("The fixed-pie invariant (VP-5): every source's Adjusted values over its work list (listed and estimated players) sum to the league pie, each group to its budget (pie x DDF weight), and its VORP vs waivers values to the pie. Each chart's Indexed values over the players it lists sum to their blended DDF Value (VP-6.4)."));
+    body.appendChild(para("The fixed-pie invariant (VP-5): every source's Adjusted values over its work list (listed and estimated players) sum to the league pie, each group to its budget (pie x DDF weight), and its value above waivers values to the pie. Each chart's Indexed values over the players it lists sum to their blended DDF Value (VP-6.4)."));
     const fp = snap.fixedPie;
     body.appendChild(table("fixed-pie", `Every source against the ${fmt.n1(fp.pie)} pie`, [
       {key: "label", label: "Source"}, {key: "n", label: "Players (work list)", fmt: "int"},
       {key: "total", label: "Adjusted total", fmt: "n4"}, {key: "target", label: "Pie (less unpaid)", fmt: "n4"},
-      {key: "delta", label: "Delta", fmt: "sci"}, {key: "vorpTotal", label: "VORP vs waivers total", fmt: "n4"},
+      {key: "delta", label: "Delta", fmt: "sci"}, {key: "vorpTotal", label: "Value above waivers total", fmt: "n4"},
       {key: "groupsOk", label: "Groups = budgets"}, {key: "ok", label: "Holds"}
     ], fp.checks.map(c => ({_id: c.source, label: label(c.source), ...c, groupsOk: String(c.groupsOk), ok: String(c.ok)}))));
     body.appendChild(table("indexed-check", "Indexed: listed players' total = their blended DDF Value", [
@@ -290,7 +290,7 @@
       "Charts: native (or estimate) x the chart's factor. Projections: their Adjusted values. Rebuilt columns recompute each value from the pipeline's intermediates."));
   }
   function renderVorp() {
-    section("mi-vorp").appendChild(viewTable("vorp-players", "vorp", "VORP vs waivers: value above waivers x one factor per source (total = pie)",
+    section("mi-vorp").appendChild(viewTable("vorp-players", "vorp", "Value above waivers: value above waivers x one factor per source (total = pie)",
       "Rebuilt = value above waivers (own units) x pie / the source's total above waivers."));
   }
   function renderAdjusted() {
@@ -346,7 +346,7 @@
       {key: "waiver", label: "Waiver line", fmt: "n3"}, {key: "starterLine", label: "Starter line", fmt: "n3"},
       {key: "vorp", label: "Above waivers (own units)", fmt: "n3"}, {key: "benchSlice", label: "Bench slice", fmt: "n3"},
       {key: "starterSlice", label: "Starter slice", fmt: "n3"}, {key: "adjusted", label: "Adjusted", fmt: "n3"},
-      {key: "vorpShown", label: "VORP vs waivers", fmt: "n3"}, {key: "indexed", label: "Indexed", fmt: "n3"},
+      {key: "vorpShown", label: "Value above waivers", fmt: "n3"}, {key: "indexed", label: "Indexed", fmt: "n3"},
       {key: "reason", label: "Why no value"}, {key: "prior", label: "Prior week (this tab)", fmt: "n3"},
       {key: "prior_note", label: "Prior week note"}
     ], rows));

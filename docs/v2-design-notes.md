@@ -1,5 +1,7 @@
 # v2 front end: design source and build notes
 
+Last updated: 2026-10-23 (JEG-975: merged PRs and Done tickets no longer described as open; seven tabs; roster paste wired; phone menu). Where a dated section below disagrees with the "Nav structure" section, the later section governs.
+
 Figma file: https://www.figma.com/design/fCffo4EdZgUBkoVb7cQdr3/Trade-Dashboard-v2---Design-Review
 (page "V3 · Resolved design & handoff"). The file opens without signing in. The Figma connector is
 on the Starter plan and runs out of calls quickly, so these notes record what was read from the
@@ -597,6 +599,22 @@ cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj
   detail carries `compositeInputs` (`null` = defaults). `resetCompositeInputs(publish = true)` =
   `setCompositeInputs(null)`. Chosen inputs persist across league changes; one unavailable at a
   setting is skipped there.
+  **JEG-1044 (2026-10-24): the DDF blend became the value basis.** `setBasis(config, publish = true)` /
+  `getBasis()` / `resetBasis()` replace the Customize DDF blend tab (removed; v2 keeps `setCompositeInputs`
+  only as an alias for an equal-weight projection blend). `config`: `null`, `"default"` or `{mode:
+  "default"}` (our methodology); `{mode: "single", source}`; `{mode: "blend", sources?, weights: {key:
+  1-100}}` over the seven pipeline sources. `getBasis()` → `{mode, isDefault, source, sources, weights,
+  percents (sum 100), label ("FantasyCalc", "60% ESPN + 40% Razzball"), shortLabel, rescaledLabel
+  ("Rescaled (to FantasyCalc)"), applied, members, fellBackToDefault, sourceStates: [{key, label, family,
+  usable, reason}]}`. It drives `ddf_value` only (blended), the Indexed basis, tiers and ranking; the
+  trade chart average and `ddf_value_projections` ignore it; the prior week is run on it. The shared-state
+  event detail carries `basis`. `value_check compare --basis '<json>'` runs page and reference under one.
+  The reader's basis and player overrides are one record in localStorage `ddf-v2-value-overrides` (v2:
+  `{v, basis, values, names}`; v1 = values and names only; the retired `ddf.v2.selection.inputs` migrates
+  in once). `window.DDFOverrides` (app/v2/overrides.js) owns the tab, the "Overrides active" bar, the
+  share-link parameters (`basis=`, `ov=`) and the banner; other tabs read rows and need nothing else, and a
+  consumer that re-runs on league changes listens for `ddf:league-settings-changed` (reason `sources` for a
+  basis change, `overrides` for a player value).
 - **Values.** `getCompositeValues([version])` → `{version, inputs, series, currentWeek, priorWeek,
   priorAvailable, priorReason, current, currentCounts, prior, priorCounts, minSources}` (objects
   keyed by `player_key`; players without a value are absent; `prior` is `null` without a prior
@@ -706,9 +724,8 @@ no blended score, but one series now gives a verdict.
   "Show top 5" collapses. State is per list (`T.shown.sell` / `T.shown.buy`) and resets when a filter
   changes. Filters are one row (search, position, our value, compare against + caption + ⓘ); the
   "players left out" note moved below the lists. At 1440 × 900 and 1366 × 768 the H1 and subtitle are
-  above the fold; the top 5 of both lists end by 1060 px (proposed 2026-10-17, JEG-675, awaiting
-  Jeremy: the rows are two-line since #639, so the old "top 5 above a 768/900 px fold" no longer holds;
-  measured 1058.5 px at 1440 × 900 and 1055.5 px at 1366 × 768 on the pinned-holds fixture).
+  above the fold; the top 5 of both lists end by 1080 px (JEG-675 proposed 1060 on 2026-10-17; Jeremy accepted 1080 px on 2026-10-23, JEG-877 option B. The rows are two-line since #639, so the old "top 5 above a 768/900 px fold" no longer holds;
+  measured 1058.5 px at 1440 × 900 and 1055.5 px at 1366 × 768 on the pinned-holds fixture when 1060 was proposed, and 1073.8 px at 1366 × 768 on the 2026-10-22 fixture).
 - Two-column rows are compact: Player (with Pos · Team · Tier), Our value, Largest gap with the chart
   it came from, and a 44 px ▾ that opens the row's per-chart values (value, gap, badge) underneath.
   The per-chart cells stay in the DOM but are hidden at ≥1280 px. The player drawer is unchanged.
@@ -959,7 +976,7 @@ removed" and the small "Set exact values" link in the JEG-470/472/473/475 sectio
 - **Plain text only (Jeremy, 2026-10-09: "Why does manifesto need so many controls. Its text."):** no contents list, no links to the tool, no buttons. A first build had both; they were removed before shipping.
 - **Chrome:** the league bar and the Showing bar are hidden on this tab (no values on it). The nav freshness label still updates.
 - **No engine needed:** the page shows as soon as the script runs, without the loading card, and still shows if the engine fails (`applyStatic()` in v2.js).
-- **Layout:** one 70ch text column, 17 px / 1.7 (16 px / 1.65 below 768 px), v2 tokens and Inter. No horizontal scroll at 390 px; the six short tab labels still fit on one row.
+- **Layout:** one 70ch text column, 17 px / 1.7 (16 px / 1.65 below 768 px), v2 tokens and Inter. No horizontal scroll at 390 px; the tab row fits on one row at tablet width and up (phones use the menu, JEG-953).
 - **Tests:** `tests/test_v2_manifesto_render.py` (test-unit), with 4 deliberately broken builds (section 7 dropped, Manifesto not first, a link added to the text, Manifesto as landing). It also checks the tab has no links, buttons or form controls. `test_v2_nav_render` checks Manifesto is first; `test_v2_a11y_render` includes the tab in its contrast sweep.
 
 ## Feature contract test (JEG-506, 2026-10-09; contract v1.2 2026-10-10)
@@ -1205,17 +1222,17 @@ Jeremy: "Make it so finding a trade is a separate tab from discovering a trade."
   (scoring, teams and roster shape shape the engine rows the search reads). Rosters typed in are kept for the session as before.
 - Phone nav: the final nav is 7 tabs (the Writing tab replaces Manifesto, How values work and Research), so no label changes are needed.
 - Tests: `test_v2_finder_render` (own tab, not inside Compare, result link opens Compare filled), `test_v2_nav_render` (order),
-  `test_v2_phone_nav_overflow_render` (7 tabs), hash sweeps, `live.mjs` `V2_TABS`.
+  `test_v2_hamburger_nav_render` (7 tabs; JEG-953 replaced test_v2_phone_nav_overflow_render), hash sweeps, `live.mjs` `V2_TABS`.
 - JEG-854 (same page): Swap teams exchanges the two rosters; each row has a tick box and Move (to the other team); "Move N selected to the
   other team" moves ticked rows; Undo restores the rosters before the last swap or move. Shown results are recomputed after each change.
   Test: `tests/test_v2_finder_arrange_render.py` (3 mutants caught).
 
 ## Values auditing shell (JEG-847, 2026-10-22)
 
-- Last tab, `#values-auditing` (view `audit`, page `#v2Audit`, short label "Audit"). Sub-tabs follow the Research precedent: `#values-auditing/value-pie` and `#values-auditing/single-source`; an unknown sub-route shows the Value pie. The Showing bar is hidden; the league bar stays.
+- Last tab, `#values-auditing` (view `audit`, page `#v2Audit`, short label "Audit"). Sub-tabs follow the Research precedent: `#values-auditing/health-check` (JEG-1011; was `value-pie`) and `#values-auditing/single-source`; an unknown sub-route shows the Health check. The Showing bar is hidden; the league bar stays.
 - Each sub-tab fills its own mount (`#audit-pie-root`, `#audit-source-root`) from its own file (`audit-pie.js`, `audit-source.js`, own CSS) through the `window.DDFAudit` registry in `audit-core.js`: `register(slug, fn)`; v2.js calls `fn(mount, {slug, engine})` on every refresh while that sub-tab shows. Hooks must be idempotent.
 - The placeholders are not `.v2-card`, so contract GL-17/GL-18 (chevron and expand control) do not apply until a sub-tab adds cards (then add them to `modules.js` CARDS).
-- Phone nav: the stopgap compression for eight tabs (10 px type, 4 px gutter from 360 to 420 px, "Audit" label) was removed by JEG-855, which folds three tabs into Writing (six tabs); the original 12 px type and gutter hold at 390 px, with the full "Values auditing" label if it fits. Pinned by `tests/test_v2_nav_render.py`; the shell by `tests/test_v2_audit_render.py`.
+- Phone nav: the stopgap compression for eight tabs (10 px type, 4 px gutter from 360 to 420 px, "Audit" label) was removed by JEG-855, which folds three tabs into Writing (six tabs at the time; Find a trade, JEG-852, made it seven); the original 12 px type and gutter hold at 390 px, with the full "Values auditing" label if it fits. Pinned by `tests/test_v2_nav_render.py`; the shell by `tests/test_v2_audit_render.py`.
 
 ## Writing tab (JEG-855, Jeremy, 2026-10-22)
 
@@ -1227,11 +1244,11 @@ Jeremy: "Make it so finding a trade is a separate tab from discovering a trade."
 
 ## Nav structure, sub-routes and the audit registry (as merged 2026-10-22, JEG-874)
 
-- **Tabs on `main` c1ae4e5 (six, in order):** Writing (`#writing`), Player values (`#values`), Trade targets (`#targets`, the landing tab), Risers & fallers (`#risers`), Compare a trade (`#compare`), Values auditing (`#values-auditing`, view `audit`). Order per Jeremy, 2026-10-22 (JEG-855). `data-view` ids in `app/v2/shell.html`; the list is mirrored in `tests/rendered_gate/live.mjs` `V2_TABS` and pinned by `tests/test_v2_nav_render.py`. A seventh tab, Find a trade (JEG-852), is in PR #809 and not merged; the nav-width guards already pad one stand-in tab for it (#810).
-- **Sub-route pattern:** a section tab owns `#<tab>/<slug>` routes: `#writing/manifesto` (default), `#writing/how-values`, `#writing/research`, `#writing/research/<slug>`; `#values-auditing/value-pie` (default) and `#values-auditing/single-source`. An unknown slug shows the tab's default. Old top-level routes (`#manifesto`, `#how-values`, `#research`, `#research/<slug>`) are rewritten with `replaceState` (query kept) so Back skips them (`tests/test_v2_writing_routes_render.py`). The sub-nav is `.v2-subtabs` / `.v2-subtab` with `aria-current="page"`.
+- **Tabs on `main` 35205b89 (seven, in order; checked 2026-10-23 with `grep -o 'data-view="[a-z-]*"' app/v2/shell.html`):** Writing (`#writing`), Player values (`#values`), Trade targets (`#targets`, the landing tab), Risers & fallers (`#risers`), Compare a trade (`#compare`), Find a trade (`#find-trade`, view `find`, JEG-852, merged #809), Values auditing (`#values-auditing`, view `audit`). Order per Jeremy, 2026-10-22 (JEG-855). `data-view` ids in `app/v2/shell.html`; the list is mirrored in `tests/rendered_gate/live.mjs` `V2_TABS` and pinned by `tests/test_v2_nav_render.py`. JEG-880 proves the nav rules alone with a stand-in eighth tab in `tests/test_v2_phone_fallback_font_render.py`.
+- **Sub-route pattern:** a section tab owns `#<tab>/<slug>` routes: `#writing/manifesto` (default), `#writing/how-values`, `#writing/research`, `#writing/research/<slug>`; `#values-auditing/health-check` (default; the old `#values-auditing/value-pie` is a legacy route rewritten by `canonicalizeHash()`, JEG-1011) and `#values-auditing/single-source`. An unknown slug shows the tab's default. Old top-level routes (`#manifesto`, `#how-values`, `#research`, `#research/<slug>`) are rewritten with `replaceState` (query kept) so Back skips them (`tests/test_v2_writing_routes_render.py`). The sub-nav is `.v2-subtabs` / `.v2-subtab` with `aria-current="page"`.
 - **`DDFAudit` registry contract (`app/v2/audit-core.js`, #808):** each audit sub-tab is its own file and CSS (`audit-pie.js`, `audit-source.js`) that calls `window.DDFAudit.register(slug, fn)`; `v2.js` calls `fn(mount, {slug, engine})` into that slug's mount (`#audit-pie-root`, `#audit-source-root`) on every refresh while the sub-tab shows, so hooks must be idempotent. The Showing bar is hidden on the tab; the league bar stays. Placeholders are not `.v2-card`, so GL-17/18 do not apply until a sub-tab adds cards.
-- **Value pie tab (`#values-auditing/value-pie`, #802, JEG-848):** reads `valuePipelineDiagnostics` (`groups[pos|role]` pre-rescale totals, `budgets[pos|role]`, `pie`, `positions[pos].listed/starters/rostered/nEstimated`) and `players[key].adjusted`. Shows per source starter/bench/total Adjusted against the pie (VP-5 holds to rounding), by position, raw vs adjusted, coverage vs rosterable slots, and verdict rows ("Starters: spread X%, within 10%: yes/no"). Flag at more than 10% from the cross-source middle. Copy uses plain source names and "middle value across sources" (#821). Open: JEG-871 (pie total 2352.0 vs the Player values CBS column sum 2430.6), JEG-872 (source names). Tests: `tests/test_audit_pie.py`.
-- **Phone nav rules:** below 768 px the tabs wrap (2026-10-08); below 360 px the seven-tab nav wrapped instead of scrolling sideways (JEG-818, #766); #808's eight-tab compression (10 px type, 4 px gutter, "Audit" label) was reverted by #810 once there were six tabs: 12 px type and the full "Values auditing" label at 390 px. At 320 px the nav wraps to two rows because "Values auditing" has no short phone label (JEG-873, PR #823 open). GL-13 (no sideways scroll at 390 px) is the contract line.
+- **Value pie tab (now the Health check, see "Health check" below; `#values-auditing/value-pie`, #802, JEG-848):** reads `valuePipelineDiagnostics` (`groups[pos|role]` pre-rescale totals, `budgets[pos|role]`, `pie`, `positions[pos].listed/starters/rostered/nEstimated`) and `players[key].adjusted`. Shows per source starter/bench/total Adjusted against the pie (VP-5 holds to rounding), by position, raw vs adjusted, coverage vs rosterable slots, and verdict rows ("Starters: spread X%, within 10%: yes/no"). Flag at more than 10% from the cross-source middle. Copy uses plain source names and "middle value across sources" (#821). JEG-871 (pie total 2352.0 vs the Player values CBS column sum 2430.6) and JEG-872 (source names) are Done (checked in Linear 2026-10-23). Tests: `tests/test_audit_pie.py`.
+- **Phone nav rules:** below 768 px the tabs wrap (2026-10-08); below 360 px the seven-tab nav wrapped instead of scrolling sideways (JEG-818, #766); #808's eight-tab compression (10 px type, 4 px gutter, "Audit" label) was reverted by #810 once there were six tabs. JEG-873 (#823, merged 2026-10-22) put the nav on one row at 320 px with an "Audit" label. Since JEG-953 (#864, merged 2026-10-23) phones (under 768 px wide, or a landscape phone up to 932 x 500) show a 44 px menu button that opens the seven tabs as a full-width list with full labels (`app/v2/v2.css`, "JEG-953 hamburger navigation"); the tab row stays from 768 px up. Pinned by `tests/test_v2_hamburger_nav_render.py`. GL-13 (no sideways scroll at 390 px) is the contract line.
 
 ## Shared player search (JEG-861 B, #819, 2026-10-22)
 
@@ -1249,12 +1266,47 @@ One helper, `app/v2/namesearch.js`, serves Player values, Trade targets, Risers 
 ## In-range check and source links (JEG-856 A and B, #805 and #806)
 
 - `divergenceChip` (v2.js) is the one helper: in range renders a green SVG check (`.v2-ok-mark`, role img, aria-label and title "Normal range: in line with its usual range ..."); out of range is plain amber text, no box. Feeds Trade targets notes and heads, the strip, Customize and Player values heads. Divergence logic and data untouched. `tests/test_v2_divergence_chip_render.py`.
-- Source URLs live in `assets/comparison-sources-data.json` `sources.<id>.url`, else `.source_url`; `v2.js sourceUrl()` reads them; promotion rewrites the weekly articles (usatoday, fantasypros, cbs) from `source_provenance.source_url`. FantasyCalc is `https://fantasycalc.com/trade-value-chart` (a single-page app returns 200 for any path, so the lead checked the page title in a browser). ESPN has no link (Jeremy, 2026-10-22). USA Today answers 402/403 to automation, so its URL is unverified. `tests/test_source_link_urls.py`. Part C (links on the build-up view) is in #803, not merged.
+- Source URLs live in `assets/comparison-sources-data.json` `sources.<id>.url`, else `.source_url`; `v2.js sourceUrl()` reads them; promotion rewrites the weekly articles (usatoday, fantasypros, cbs) from `source_provenance.source_url`. FantasyCalc is `https://fantasycalc.com/trade-value-chart` (a single-page app returns 200 for any path, so the lead checked the page title in a browser). ESPN has no link (Jeremy, 2026-10-22). USA Today answers 402/403 to automation, so its URL is unverified. `tests/test_source_link_urls.py`. Part C (links on the build-up view) was in #803, merged 2026-10-23.
 
 ## Trade targets: compare against one source (JEG-851, #807)
 
-`targets.js`: chart keys join `OUR_KEYS`; when Our value is a chart, `effectiveCharts` excludes it; with one compared chart `minCharts` is 1 (else 2) and `buildTargets` returns `singleChart`. `v2.js`: Compare against enables every chart except the current Our value, and the reverse; heading, empty state, footnote and tooltip name the chart instead of "market consensus". Rank-gap, `BUY_RANK_MARGIN` 2, `SELL_FLOOR` 5 and the out/estimated exclusions (JEG-842) are unchanged. Found and fixed on the way: an out-of-scope `TT` reference in `renderTargets()` that errored the page before `window.TradeValueV2.targets()` existed. Open on live: JEG-868, JEG-869 (PR #824).
+`targets.js`: chart keys join `OUR_KEYS`; when Our value is a chart, `effectiveCharts` excludes it; with one compared chart `minCharts` is 1 (else 2) and `buildTargets` returns `singleChart`. `v2.js`: Compare against enables every chart except the current Our value, and the reverse; heading, empty state, footnote and tooltip name the chart instead of "market consensus". Rank-gap, `BUY_RANK_MARGIN` 2, `SELL_FLOOR` 5 and the out/estimated exclusions (JEG-842) are unchanged. Found and fixed on the way: an out-of-scope `TT` reference in `renderTargets()` that errored the page before `window.TradeValueV2.targets()` existed. Follow-ups JEG-868 and JEG-869 are Done (PR #824, merged 2026-10-22).
 
 ## Roster paste parser, phase 1 (JEG-853, #804)
 
-`app/v2/roster-paste.js` exposes `window.DDFRosterPaste.parse(text, playerIndex)`: a deterministic parser (no LLM, no network) for a whole-page Ctrl+A copy of an ESPN or Yahoo team or matchup page, matching against the site's own player list and splitting a matchup page into two teams (`benchIncluded` false when the bench is collapsed). Scrubbed fixtures in `tests/fixtures/roster_paste/` parse 15/15, 20/20, 15/15 and 22/22 with zero false positives; nav trap names ("Hodl Beckham Jr") match nothing. Not wired to any input yet: phase 2 follows the Find a trade tab (JEG-852, #809). Assumed, not verified: a bench-expanded Yahoo matchup; ESPN structure across league configurations. Test: `node tests/test_v2_roster_paste.js` (34).
+`app/v2/roster-paste.js` exposes `window.DDFRosterPaste.parse(text, playerIndex)`: a deterministic parser (no LLM, no network) for a whole-page Ctrl+A copy of an ESPN or Yahoo team or matchup page, matching against the site's own player list and splitting a matchup page into two teams (`benchIncluded` false when the bench is collapsed). Scrubbed fixtures in `tests/fixtures/roster_paste/` parse 15/15, 20/20, 15/15 and 22/22 with zero false positives; nav trap names ("Hodl Beckham Jr") match nothing. Phase 1 wired it to no input; phase 2 (next section) wired it to Find a trade (JEG-852, #809). Assumed, not verified: a bench-expanded Yahoo matchup; ESPN structure across league configurations. Test: `node tests/test_v2_roster_paste.js` (34).
+
+## Roster paste, phase 2: the default input on Find a trade (JEG-853, 2026-10-22)
+
+Jeremy, 2026-10-22: "make dropping in text the default method ... hit control all, copy the whole page, and just drop all the text in ... or look at the matchup page, copy paste all text and it will build both teams."
+
+- Each side of `#v2Find` opens with a paste box (`#v2Find{Mine,Theirs}PastePage`, "Read the pasted page" button, result panel `...PasteResult`), then the name search, then the roster, then the old methods (Sleeper / ESPN league ID / list of names) behind a closed "Other ways to add players" link. The box says the text stays in the browser.
+- The paste event or the button calls `DDFRosterPaste.parse(text, engine().getAllRows())`. The engine rows carry `team`, so team and position tie-breaks work. The engine prices QB/RB/WR/TE only, so a K or DEF line is "not in the values" and listed as unmatched: through the UI the four fixtures match 13/15 (Yahoo team), 13/15 (ESPN team), 16/20 (Yahoo matchup), 18/22 (ESPN matchup); the shortfall is K and DEF each time.
+- A team page replaces the side's roster with the sure matches (confidence 1: name, team and position agree), each row with the page's own slot (`slot` added to the parser's players: `BN`/`Bench` → Bench, `IR` → IR, ESPN matchup injured and bye lists → Injured / Bye, everything else Starter). A lesser match (nickname 0.9 or "A. Rodgers" 0.8) is shown as "Pasted 'A. Rodgers': is this Aaron Rodgers?" with Yes, add / No, search and is not added until tapped. Unmatched lines carry "Search to add", which fills the side's name search (JEG-861 matcher) and opens it. A player already on the other roster is left there and named.
+- Fewer than 3 matched, or under half: nothing is added; "Add these N anyway" is offered. Zero matched (garbage, another site, a league-wide player list, empty): "No players recognised ... Nothing was added."
+- A matchup page shows both teams (ESPN team names from the block headers; Yahoo names from the `logo` line before each header, added to the parser) with counts, asks "Which team is yours?", and fills both rosters on one tap; the result says which is which and points to Swap teams (JEG-854); Undo restores what was there. `benchIncluded === false` shows "Bench players are not on this page: expand Show Bench / Show Bench Players ... or paste each team page"; the ESPN result also says what was found ("Found 14 starters, 2 injured, 2 on bye").
+- 320 px wide-face +3 px: the Package size select pushed the page 84 px sideways (tap-target agent); `#v2Find .v2-ctoolbar label.v2-field` wraps and the select shrinks.
+- Tests: `tests/test_v2_finder_paste_render.py` (four fixtures through the page at 1440 and 375, negatives, lesser match, matchup pick + Swap, 6 finder.js mutants and the 320 CSS mutant caught); `node tests/test_v2_roster_paste.js` (35: slot labels pinned, Yahoo team names asserted). Assumed, not verified: a real phone keyboard paste (the paste event is dispatched synthetically in the test); a bench-expanded matchup page.
+
+## Health check (JEG-1011, Jeremy, 2026-10-24)
+
+The Value pie tab is now **Health check** (`#values-auditing/health-check`, `app/v2/audit-pie.js`, `audit-pie.css`; slug in `audit-core.js`; the old `#values-auditing/value-pie` hash is a `LEGACY_ROUTES` entry in `v2.js`). Spec and iteration log: `fantasy-tools-selfhost-notes/jeg-1011-values-auditing/` (spec.md, changelog.md). Thresholds, how they were derived and validated: `docs/health-check-thresholds.md`.
+
+- **Reading order:** "Is anything wrong?" first (one row per check, one column: Pass / Flag / Info badge, the check's name as a link to its drill-down, a plain reason naming the source and position), then five drill-down sections that each open with a question and a how-to-read line (starters and bench by source, by position, filled-in players, DDF Value reconciliation, and "How do raw and adjusted values compare?", collapsed), then "Terms used on this page".
+- **One computation:** `AuditPie.computeChecks()` decides every status; the strip and the amber table cells both read it, so a row can not pass while its table flags. Status never depends on wording.
+- **Information, never flags (Jeremy, 2026-10-24):** the QB starter spread and the bench spread. The number is shown with an explanation.
+- **Reconciliation (what is checked):** projections' Player values add up to the value pie; a trade chart's Rescaled values for the players it lists add up to their DDF Value (VP-6.4). A chart's whole Player values column does not equal the pie by design, so it is shown, not judged.
+- **Single source:** heading "How a source's values are built"; the Published line is drawn as a percentage of the source's own largest value (right-hand axis in %), raw numbers stay in the table.
+- **Follow-up, not built:** week-over-week change tracking (new flags since last week) needs stored flag state; ticket-ready note in the notes folder.
+- **Tests:** `tests/test_v2_health_check_render.py` (frozen fixtures in `tests/fixtures/audit/`, live page, broken-build guards), `tests/test_audit_pie.py`, `tests/test_v2_audit_render.py`, `tests/test_v2_audit_source_render.py`.
+
+## League workspace: any number of named teams (JEG-1021, 2026-10-24)
+
+Spec: `jeg-1021-league-workspace/spec.md` (decided by Jeremy 2026-10-24: name "Your league", one saved league, K/DEF counted, table on desktop and cards on phone, auto-save with a Saved indicator, up/down reorder; one opportunities table, same for 1 or 20 opponents; team summary; sorting on every numeric column; ranking = fit tier then fundamentals edge; force fits shown with a one-click Hide).
+
+- Files, all with no DOM except `league.js`: `workspace.js` (store, localStorage `ddf.v2.workspaces`, also the shared "my roster" for the Waivers tab: `getMyRoster`, `setMyRoster`, `subscribe`), `table-sort.js`, `team-summary.js`, `opportunities.js`, `league.js` (three cards above the two-team finder on Find a trade). Script order in `build_v2_page.py`: the four pure files, `finder.js`, `league.js`, `modules.js`.
+- No value math: starters, bench, depth and fit come from `finder.js` (`lineupValue`, `rosterBalance`, `withChartAverage`, `findTrades`, `tradeFit`), which is unchanged except `api.page` (the page's parser and loaders, shared with `league.js`). The two-team card and all its ids are unchanged (25 test files pin them).
+- Constants: market-gap noise floor 2.0 points; median needs 3 teams; at most 20 opponents; 10 trades kept per pairing (the finder's LIMIT); 20 table rows at a time. Listed in `docs/math-review-agenda.md` MR-33.
+- Cache: a pairing is keyed by both rosters' values (DDF Value and the four charts) plus the league shape, expected depth and bench weights, so a settings change never reuses an old answer and a rename recomputes nothing.
+- a11y: aria-sort is on the th (valid ARIA), one button per header, Market perception is two sub-columns so each sorts from its own header.
+- Tests: `tests/test_v2_league_units.py` (Node harness over the frozen fixtures `tests/fixtures/league/`, 22 mutations), `test_v2_league_render.py`, `test_v2_league_tables_render.py`, `test_v2_league_phone_render.py`.

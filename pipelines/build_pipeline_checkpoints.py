@@ -1206,8 +1206,8 @@ def build_methodology_consistency():
         )
 
     return {
-        "label": "VORP / Adj: legacy methodology consistency",
-        "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
+        "label": "Value above waivers / Adj: legacy methodology consistency",
+        "what": "Legacy reindex method/anchor consistency; not eight-group value above waivers or shared reweight readiness",
         "timestamp": iso_now(),
         "status": status,
         "reason": reason,

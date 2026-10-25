@@ -4,15 +4,18 @@ Audit: ~/code/fantasy-tools-selfhost-notes/customize-toggle-audit.md (8 defects)
 
   D1  Done applies exactly what the dialog shows. A draft with no engine series (Trade charts "Select none", DDF Value
       alone) is refused with "Pick at least one source" and nothing changes.
-  D2  The last usable DDF input is locked on; a held input never counts, so every usable input cannot be unticked.
-  D3  A DDF version with no source on says so ("No sources are turned on ..."), never "No source prices this player",
-      and the dialog warns on its row.
-  D4  The "On the chart" line says when the DDF blend is customized and when the chart legend hid a line; the dialog
-      counter names a legend hide; Reset to default clears it.
-  D5  No raw pipeline text ("held: fidelity: scrape_validity") anywhere in the dialog; a held input says "Paused this week".
-  Structure: two tabs ("Chart lines", "DDF blend") keep one draft; the blend tab says it applies on every page and
-  counts "Using N of M sources"; every row, tab and footer action is 44 px at 375; the phone footer stacks Done, Cancel,
-  Reset; the VORP group is collapsed until one is selected.
+  D2  JEG-1044 (Jeremy 2026-10-24): the DDF blend tab moved to the Overrides tab's Custom blend. The last usable source
+      is locked on there; a held source never counts, so every usable source cannot be unticked.
+  D3  "DDF Value: charts only" and the projections reference ignore the value basis (JEG-930, now the Overrides basis): a
+      basis change never blanks them and the dialog row never warns "No sources on in the DDF blend".
+  D4  The "On the chart" line says "(your basis, not ours)" when a basis is chosen on Overrides and when the chart legend
+      hid a line; the dialog counter names a legend hide; Reset to default clears the legend hide and Overrides'
+      Reset all clears the basis.
+  D5  No raw pipeline text ("held: fidelity: scrape_validity") anywhere in the dialog or the Overrides blend rows; a
+      held source says "Paused this week".
+  Structure: the dialog has only the chart-lines panel (no tab, no DDF-blend input) and a link to Overrides that works;
+  every chart-line row, blend row and footer action is 44 px at 375; the phone footer stacks Done, Cancel, Reset; the
+  VORP group is collapsed until one is selected. (The two-tab draft and "Using N of M sources" checks went with the tab.)
 
 Discrimination: every check also runs against a build with exactly one fault (the fault each check names) and must fail.
 """
@@ -40,6 +43,8 @@ from tests._holds import pin_holds_in_dist  # noqa: E402
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
+WIDGET_JS = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
+MODEL_JS = ROOT / "app" / "trade-value-chart" / "assets" / "value-model.js"
 ACTIVE = "() => window.TradeValueV2.shown()"
 RAW_TEXT = re.compile(r"scrape_validity|fidelity:|held:|validation|divergence:|_vorp|_adj_values", re.I)
 
@@ -56,7 +61,9 @@ def _served():
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
         # Held-proof fixture (tests/_holds.py): one held DDF input, so "a held input does not count" is exercised.
-        pin_holds_in_dist(dist)
+        # JEG-804 (#814): DDF Value is projections-only, so the pinned CBS (a trade chart) hold is not a DDF input;
+        # Razzball is held here as the held DDF input.
+        pin_holds_in_dist(dist, extra_held=("razzball",))
         build_v2_page.build(dist)
 
         class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -75,10 +82,18 @@ def _served():
                 server.shutdown()
 
 
-def _open(browser, base, width, height=900, js=None, css=None):
+def _serve_body(body, route):
+    route.fulfill(status=200, content_type="text/javascript", body=body)
+
+
+def _open(browser, base, width, height=900, js=None, css=None, assets=None, scripts=None):
     page = browser.new_page(viewport={"width": width, "height": height})
     page.errors = []
     page.on("pageerror", lambda error: page.errors.append(str(error)))
+    for name, body in (assets or {}).items():   # engine files served with one fault, e.g. {"value-model.js": ...}
+        page.route(f"**/assets/{name}*", functools.partial(_serve_body, body))
+    for name, body in (scripts or {}).items():   # v2 files served with one fault, e.g. {"overrides.js": ...}
+        page.route(f"**/v2/{name}*", functools.partial(_serve_body, body))
     if js is not None:
         page.route("**/v2/v2.js*", lambda route: route.fulfill(status=200, content_type="text/javascript", body=js))
     if css is not None:
@@ -94,8 +109,17 @@ def _customize(page):
     page.wait_for_selector("#v2Popover .v2-panel-body")
 
 
-def _tab(page, name):
-    page.click(f"#v2Popover [data-tab='{name}']")
+def _go(page, view):
+    page.evaluate(f"() => {{ location.hash = '#{view}'; }}")
+    page.wait_for_timeout(500)
+
+
+def _basis_blend(page):
+    """The reader's way: Overrides > Value basis > Custom blend (espn, cbsros, razzball ticked)."""
+    _go(page, "value-overrides")
+    page.wait_for_selector("#v2OvPresets")
+    page.click('#v2OvPresets [data-preset="blend"]')
+    page.wait_for_selector("#v2OvOn-espn")
 
 
 def _done(page):
@@ -109,10 +133,11 @@ def _open_now(page):
 
 def _untick_all_but_last(page):
     for _ in range(12):
-        boxes = page.query_selector_all("#v2Popover [data-ddf-input]:checked:not(:disabled)")
+        boxes = page.query_selector_all("[id^=v2OvOn-]:checked:not(:disabled)")
         if not boxes:
             return
         boxes[0].click()
+        page.wait_for_timeout(150)
 
 
 # ---------- the checks ----------
@@ -134,64 +159,96 @@ def check_d1_done_matches(page):
 
 def check_d2_last_input(page):
     errors = []
-    _customize(page)
-    _tab(page, "blend")
-    held = page.evaluate("() => [...document.querySelectorAll('#v2Popover [data-ddf-input]')].filter(b => b.disabled).map(b => b.dataset.ddfInput)")
+    _basis_blend(page)
+    held = page.evaluate("() => [...document.querySelectorAll('[id^=v2OvOn-]')].filter(b => b.disabled).map(b => b.dataset.source)")
     if not held:
-        return ["D2: the pinned fixture has no held DDF input, so the held-does-not-count rule is not exercised"]
+        return ["D2: the pinned fixture has no held source on Overrides, so the held-does-not-count rule is not exercised"]
     _untick_all_but_last(page)
-    left = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-ddf-input]')]
-      .filter(b => b.checked).map(b => ({key: b.dataset.ddfInput, disabled: b.disabled}))""")
+    left = page.evaluate("""() => [...document.querySelectorAll('[id^=v2OvOn-]')]
+      .filter(b => b.checked && !b.closest('.is-paused')).map(b => ({key: b.dataset.source, disabled: b.disabled}))""")
     if len(left) != 1 or not left[0]["disabled"]:
-        errors.append(f"D2: after unticking every free input the usable ones left are {left}; the last one must be ticked and locked")
-    counter = page.text_content("#v2Popover [data-panel='blend'] .v2-psummary")
-    if not re.fullmatch(r"Using 1 of \d+ sources", counter.strip()):
-        errors.append(f"D2: the blend counter reads {counter!r}, wanted 'Using 1 of N sources'")
-    _done(page)
-    series = page.evaluate("() => window.TradeValueCurveControls.getCompositeInputs().series")
-    if len(series) != 1:
-        errors.append(f"D2: the blend reads {series} after Done, wanted exactly one usable input")
+        errors.append(f"D2: after unticking every free source the usable ones left are {left}; the last one must be ticked and locked")
+    note = page.text_content(".v2-ov-wlist")
+    if "Last source stays on" not in note:
+        errors.append(f"D2: the blend rows do not say the last source stays on: {note[:200]!r}")
+    members = page.evaluate("() => window.TradeValueCurveControls.getBasis().members")
+    if len(members) != 1:
+        errors.append(f"D2: the basis blends {members}, wanted exactly one usable source")
     if page.evaluate("() => window.TradeValueCurveControls.getRankSource()") != "ddf_value":
         errors.append("D2: the ranking series moved off DDF Value")
     return errors
 
 
-def check_d3_no_inputs_reason(page):
+CHARTS_COUNT = """() => window.TradeValueCurveControls.getRows()
+  .filter(r => (r.ddf_value_charts != null) || (r.values && r.values.ddf_value_charts != null)).length"""
+
+
+PROJECTIONS_REF = """() => JSON.stringify(Object.entries(Object.fromEntries(window.TradeValueCurveControls.getRows()
+  .map(r => [String(r.player_key), r.values && r.values.ddf_value_projections]))).sort())"""   # keyed: the row order follows the basis
+DDF_NOW = """() => JSON.stringify(Object.entries(Object.fromEntries(window.TradeValueCurveControls.getRows()
+  .map(r => [String(r.player_key), r.values.ddf_value]))).sort())"""
+
+
+def check_d3_charts_only_survives_blend_edit(page):
+    """JEG-930, now JEG-1044 (Jeremy, 2026-10-24): 'DDF Value: charts only' and the projections reference ignore the value
+    basis, so choosing a basis on Overrides never blanks them and their dialog row never says 'No sources on in the DDF blend'."""
     errors = []
+    before = page.evaluate(CHARTS_COUNT)
+    if not before:
+        return ["D3: the pinned fixture gives 'DDF Value: charts only' no values before any edit, so the check proves nothing"]
+    ref_before, ddf_before = page.evaluate(PROJECTIONS_REF), page.evaluate(DDF_NOW)
+    version_series = "() => ['ddf_value_charts', 'ddf_value_projections'].map(v => window.TradeValueCurveControls.getCompositeInputs(v).series)"
+    series_before = page.evaluate(version_series)
+    _basis_blend(page)
+    page.click("#v2OvOn-espn")   # a real basis edit: the blend without ESPN is not our methodology
+    page.wait_for_timeout(400)
+    if page.evaluate("() => window.TradeValueCurveControls.getBasis().isDefault"):
+        errors.append("D3: the basis edit left the engine on our methodology (test premise)")
+    _go(page, "player-values")
+    page.wait_for_selector("#v2Table tbody tr")
+    if page.evaluate(DDF_NOW) == ddf_before:
+        errors.append("D3: the basis edit changed no DDF Value, so the check is not discriminating")
     _customize(page)
-    _tab(page, "blend")
-    for key in ("espn", "cbsros", "razzball"):
-        box = page.query_selector(f"#v2Popover [data-ddf-input='{key}']")
-        if box and box.is_checked() and not box.is_disabled():
-            box.click()
-    _tab(page, "lines")
-    page.click("#v2Popover [data-series='ddf_value_projections']")
-    note = page.text_content("#v2Popover [data-series='ddf_value_projections'] >> xpath=ancestor::label")
-    if "No sources on in the DDF blend" not in note:
-        errors.append(f"D3: the dialog does not warn that this DDF Value has no source on: {note!r}")
+    # JEG-930: charts-only must NOT show the blend warning. JEG-863: ddf_value_projections hidden, use ddf_value_charts.
+    page.click("#v2Popover [data-series='ddf_value_charts']")
+    note = page.text_content("#v2Popover [data-series='ddf_value_charts'] >> xpath=ancestor::label")
+    if "No sources on in the DDF blend" in note:
+        errors.append(f"D3: the dialog row of 'DDF Value: charts only' warns about the DDF blend after a basis edit: {note!r}")
     _done(page)
+    after = page.evaluate(CHARTS_COUNT)
+    if after != before:
+        errors.append(f"D3: 'DDF Value: charts only' has {after} values after a basis edit, wanted the {before} it had before")
+    if page.evaluate(PROJECTIONS_REF) != ref_before:
+        errors.append("D3: the projections reference (our methodology) moved with the basis")
+    series = page.evaluate("() => window.TradeValueCurveControls.getCompositeInputs('ddf_value_charts').series")
+    if not series:
+        errors.append("D3: the engine lists no sources for 'DDF Value: charts only' after a basis edit")
+    if page.evaluate(version_series) != series_before:
+        errors.append(f"D3: the sources of the charts-only / projections versions moved with the basis: {series_before} -> {page.evaluate(version_series)}")
     titles = page.evaluate("() => [...new Set([...document.querySelectorAll('#v2Table .missing')].map(m => m.title))]")
-    if "No source prices this player" in titles:
-        errors.append(f"D3: a blank DDF cell blames players ('No source prices this player') when no source is on: {titles}")
-    if not any("No sources are turned on" in t for t in titles):
-        errors.append(f"D3: no blank cell says no source is turned on: {titles}")
+    if any("No sources are turned on" in t for t in titles):
+        errors.append(f"D3: a blank cell says no source is turned on after a basis edit: {titles}")
     return errors
 
 
 def check_d4_strip_and_reset(page):
     errors = []
     strip = lambda: page.text_content("#v2ShowingText")  # noqa: E731
-    _customize(page)
-    _tab(page, "blend")
-    page.click("#v2Popover [data-ddf-input='fantasycalc']")
-    _done(page)
-    if "custom blend" not in strip():
-        errors.append(f"D4: the 'On the chart' line does not say the DDF blend is customized: {strip()!r}")
-    _customize(page)
-    page.click("#v2Popover .v2-preset")
-    _done(page)
-    if "custom blend" in strip():
-        errors.append(f"D4: Reset to default left 'custom blend' in the line: {strip()!r}")
+    _go(page, "value-overrides")
+    page.wait_for_selector("#v2OvPresets")
+    page.click('#v2OvPresets [data-preset="single:espn"]')
+    page.wait_for_timeout(300)
+    _go(page, "player-values")
+    page.wait_for_selector("#v2Table tbody tr")
+    if "your basis, not ours" not in strip():
+        errors.append(f"D4: the 'On the chart' line does not say a basis other than ours is chosen: {strip()!r}")
+    _go(page, "value-overrides")
+    page.click("#v2OvResetAll")
+    page.wait_for_timeout(300)
+    _go(page, "player-values")
+    page.wait_for_selector("#v2Table tbody tr")
+    if "your basis, not ours" in strip():
+        errors.append(f"D4: Reset all on Overrides left 'your basis, not ours' in the line: {strip()!r}")
     # A line hidden with the chart legend.
     page.click("#v2Legend .v2-legend-item[data-series='usatoday']")
     page.wait_for_timeout(200)
@@ -219,34 +276,41 @@ def check_d5_plain_text(page, width):
     raw = RAW_TEXT.findall(text)
     if raw:
         errors.append(f"D5 ({width}): raw pipeline text in the dialog: {sorted(set(raw))}")
-    _tab(page, "blend")
-    rows = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-ddf-input]')].filter(b => b.disabled)
-      .map(b => b.closest('label').textContent)""")
+    _basis_blend(page)
+    raw = RAW_TEXT.findall(page.text_content(".v2-ov-wlist"))
+    if raw:
+        errors.append(f"D5 ({width}): raw pipeline text in the Overrides blend rows: {sorted(set(raw))}")
+    rows = page.evaluate("""() => [...document.querySelectorAll('.v2-ov-wrow.is-paused')].map(r => r.textContent)""")
     if not rows or not all("Paused this week" in r for r in rows):
-        errors.append(f"D5 ({width}): a held input does not say 'Paused this week': {rows}")
+        errors.append(f"D5 ({width}): a held source does not say 'Paused this week' on Overrides: {rows}")
     return errors
 
 
 def check_structure(page, phone):
     errors = []
     _customize(page)
-    tabs = page.evaluate("() => [...document.querySelectorAll('#v2Popover [role=tab]')].map(t => ({text: t.textContent, h: t.getBoundingClientRect().height}))")
-    if [t["text"] for t in tabs] != ["Chart lines", "DDF blend"]:
-        return [f"structure: tabs are {tabs}, wanted 'Chart lines' and 'DDF blend'"]
-    if any(t["h"] < 44 for t in tabs):
-        errors.append(f"structure: a tab is under 44 px: {tabs}")
-    # The draft survives a tab switch.
-    page.click("#v2Popover [data-series='usatoday']")
-    _tab(page, "blend")
-    body = page.text_content("#v2Popover [data-panel='blend']")
-    if "applies on every page" not in body or not re.search(r"Using \d+ of \d+ sources", body):
-        errors.append(f"structure: the blend tab lacks 'applies on every page' or 'Using N of M sources': {body[:160]!r}")
-    rows = page.evaluate("() => [...document.querySelectorAll('#v2Popover [data-panel=blend] .v2-crow')].map(r => r.getBoundingClientRect().height)")
+    gone = page.evaluate("() => document.querySelectorAll('#v2Popover [role=tab], #v2Popover [data-tab], #v2Popover [data-ddf-input], [id^=v2CustTab-]').length")
+    if gone:
+        return [f"structure: the Customize dialog still has {gone} tab or DDF-blend controls; JEG-1044 moved the blend to Overrides"]
+    link = page.evaluate("() => { const a = document.querySelector('#v2Popover a[href$=\"#value-overrides\"]'); return a ? a.textContent : null; }")
+    if link != "Overrides":
+        errors.append(f"structure: the dialog has no 'Overrides' link for the DDF blend (found {link!r})")
+    else:
+        page.click("#v2Popover a[href$='#value-overrides']")
+        page.wait_for_timeout(400)
+        if page.evaluate("() => location.hash") != "#value-overrides" or _open_now(page) or not page.query_selector("#v2OvPresets"):
+            errors.append("structure: the dialog's Overrides link did not close the dialog and open Overrides")
+        _go(page, "player-values")
+        page.wait_for_selector("#v2Table tbody tr")
+        _customize(page)
+    rows = page.evaluate("() => [...document.querySelectorAll('#v2Popover [data-panel=lines] .v2-crow')].map(r => r.getBoundingClientRect().height)")
     if not rows or min(rows) < 43.5:
-        errors.append(f"structure: a blend row is under 44 px: {rows}")
-    _tab(page, "lines")
-    if page.is_checked("#v2Popover [data-series='usatoday']"):
-        errors.append("structure: a tab switch dropped the draft (USA Today is ticked again)")
+        errors.append(f"structure: a chart-line row is under 44 px: {rows}")
+    # The draft is kept while the dialog is open.
+    page.click("#v2Popover [data-series='usatoday']")
+    if page.is_checked("#v2Popover [data-series='usatoday']") == page.evaluate("() => window.TradeValueV2.shown().includes('usatoday')"):
+        errors.append("structure: ticking a row changed the page before Done")
+    page.click("#v2Popover [data-series='usatoday']")
     vorp = page.evaluate("() => document.querySelector('#v2Popover details[data-group=vorp]').open")
     if vorp:
         errors.append("structure: the value-above-waivers group is open although none is selected")
@@ -264,7 +328,10 @@ def check_structure(page, phone):
             errors.append(f"structure: phone footer is not stacked Done, Cancel, Reset: {foot}")
         if foot["overflow"]:
             errors.append("structure: the phone page scrolls sideways")
-    # Cancel discards on both tabs.
+        direction = page.evaluate("() => getComputedStyle(document.querySelector('#v2Popover .v2-panel-foot')).flexDirection")
+        if direction != "column":
+            errors.append(f"structure: the phone footer is a {direction}, wanted a column (Done, Cancel, Reset stacked)")
+    # Cancel discards the draft.
     before = page.evaluate(ACTIVE)
     page.click("#v2Popover .v2-panel-foot button:has-text('Cancel')")
     if page.evaluate(ACTIVE) != before or _open_now(page):
@@ -279,6 +346,11 @@ def check_structure(page, phone):
         _customize(page)
         if not page.evaluate("() => document.querySelector('#v2Popover details[data-group=vorp]').open"):
             errors.append("structure: the value-above-waivers group is collapsed although one is selected")
+    # Overrides' blend rows and presets are 44 px too (the controls that replaced the blend tab).
+    _basis_blend(page)
+    boxes = page.evaluate("""() => [...document.querySelectorAll('.v2-ov-wrow, #v2OvPresets [role=radio]')].map(r => r.getBoundingClientRect().height)""")
+    if not boxes or min(boxes) < 43.5:
+        errors.append(f"structure: an Overrides blend row or preset is under 44 px: {sorted(boxes)[:3]}")
     if page.errors:
         errors.append(f"page errors: {page.errors[:2]}")
     return errors
@@ -300,14 +372,16 @@ class CustomizeCleanupTest(unittest.TestCase):
         cls.browser = cls.pw.chromium.launch(executable_path=exe, args=_render_env.HERMETIC_ARGS)
         cls.js = V2_JS.read_text(encoding="utf-8")
         cls.css = V2_CSS.read_text(encoding="utf-8")
+        cls.widget = WIDGET_JS.read_text(encoding="utf-8")
+        cls.model = MODEL_JS.read_text(encoding="utf-8")
 
     @classmethod
     def tearDownClass(cls):
         cls.browser.close()
         cls._stack.close()
 
-    def run_check(self, check, width=1440, js=None, css=None, *args):
-        page = _open(self.browser, self.base, width, 812 if width < 500 else 900, js, css)
+    def run_check(self, check, width=1440, js=None, css=None, *args, assets=None, scripts=None):
+        page = _open(self.browser, self.base, width, 812 if width < 500 else 900, js, css, assets, scripts)
         try:
             return check(page, *args)
         except Exception as error:   # a control the check needs is missing: that is a failure, not a pass
@@ -320,8 +394,8 @@ class CustomizeCleanupTest(unittest.TestCase):
         self.assertEqual(source.count(old), 1, f"stale mutation anchor: {old[:60]!r}")
         return source.replace(old, new)
 
-    def assertCaught(self, check, label, *, js=None, css=None, width=1440, args=()):
-        self.assertTrue(self.run_check(check, width, js, css, *args), f"the guard did not catch: {label}")
+    def assertCaught(self, check, label, *, js=None, css=None, width=1440, args=(), assets=None, scripts=None):
+        self.assertTrue(self.run_check(check, width, js, css, *args, assets=assets, scripts=scripts), f"the guard did not catch: {label}")
 
     # ---- D1 ----
     def test_d1_done_matches_the_dialog(self):
@@ -337,28 +411,35 @@ class CustomizeCleanupTest(unittest.TestCase):
         self.assertEqual(self.run_check(check_d2_last_input), [])
 
     def test_d2_guard_catches_the_old_lock(self):
-        js = self.mutate("input.disabled = Boolean(out) || last;",
-                         "input.disabled = Boolean(out) || (inputsDraft.size === 1 && inputsDraft.has(key));")
-        self.assertCaught(check_d2_last_input, "the lock counts held inputs", js=js)
+        overrides = (ROOT / "app" / "v2" / "overrides.js").read_text(encoding="utf-8")
+        body = self.mutate("const last = S.blend[key].on && ticked.length === 1 && ticked[0] === key;",
+                           "const last = S.blend[key].on && BASIS_KEYS.filter(k => S.blend[k].on).length === 1;", overrides)
+        self.assertCaught(check_d2_last_input, "the lock counts held sources", scripts={"overrides.js": body})
 
     # ---- D3 ----
-    def test_d3_no_inputs_says_so(self):
-        self.assertEqual(self.run_check(check_d3_no_inputs_reason), [])
+    def test_d3_charts_only_survives_a_blend_edit(self):
+        self.assertEqual(self.run_check(check_d3_charts_only_survives_blend_edit), [])
 
-    def test_d3_guard_catches_the_wrong_reason(self):
-        js = self.mutate('if (isDdfKey(key) && own === "No source prices this player" && ddfNoInputsReason(key)) return ddfNoInputsReason(key);   // JEG-850',
-                         "")
-        self.assertCaught(check_d3_no_inputs_reason, "wrong blank reason", js=js)
-        js = self.mutate('versionUsable(item.key) === 0) {', 'false) {')
-        self.assertCaught(check_d3_no_inputs_reason, "no warning on the variant row", js=js)
+    def test_d3_guard_catches_the_blank_charts_variant(self):
+        # The engine's per-version pool (curve-widget.js) following the basis again: the charts-only and projections
+        # versions would take the basis' sources.
+        widget = self.mutate("if (version === COMPOSITE_KEY && basisConfig) {", "if (basisConfig) {", self.widget)
+        self.assertCaught(check_d3_charts_only_survives_blend_edit, "engine versions follow the basis", assets={"curve-widget.js": widget})
+        # The value pipeline (value-model.js) applying the basis to the charts-only and projections versions too.
+        model = self.mutate('if (basisPlan && version === "blended") {', "if (basisPlan) {", self.model)
+        self.assertCaught(check_d3_charts_only_survives_blend_edit, "values blanked by the basis", assets={"value-model.js": model})
+        # The dialog row counting the basis for the charts variant again.
+        js = self.mutate("? ((C.getCompositeInputs && C.getCompositeInputs(versionKey).series) || []).length : null);",
+                         "? 0 : null);")
+        self.assertCaught(check_d3_charts_only_survives_blend_edit, "row warns 'No sources on in the DDF blend'", js=js)
 
     # ---- D4 ----
     def test_d4_strip_counter_and_reset(self):
         self.assertEqual(self.run_check(check_d4_strip_and_reset), [])
 
     def test_d4_guard_catches_each_gap(self):
-        js = self.mutate('(c.g.id === "ddf" && customBlend ? " (custom blend)" : "")', '""')
-        self.assertCaught(check_d4_strip_and_reset, "the line ignores a customized blend", js=js)
+        js = self.mutate('(c.g.id === "ddf" && customBlend ? " (your basis, not ours)" : "")', '""')
+        self.assertCaught(check_d4_strip_and_reset, "the line ignores a chosen basis", js=js)
         js = self.mutate('      + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")', "")
         self.assertCaught(check_d4_strip_and_reset, "the line ignores a legend hide", js=js)
         js = self.mutate("state.hiddenSeries.clear();   // JEG-907: the draft is the whole state; a legend hide never survives Done", "")
@@ -370,9 +451,11 @@ class CustomizeCleanupTest(unittest.TestCase):
             self.assertEqual(self.run_check(check_d5_plain_text, width, None, None, width), [], width)
 
     def test_d5_guard_catches_raw_text(self):
-        js = self.mutate("function plainOutReason(reason) {\n    const text = String(reason || \"\");",
-                         "function plainOutReason(reason) {\n    return String(reason || \"held: fidelity: scrape_validity\");\n    const text = String(reason || \"\");")
-        self.assertCaught(check_d5_plain_text, "raw held text", js=js, args=(1440,))
+        # JEG-1044: the dialog's old plain-words helper (plainOutReason) served the removed blend tab and is unused now;
+        # the held-source copy lives in the Overrides blend rows.
+        overrides = (ROOT / "app" / "v2" / "overrides.js").read_text(encoding="utf-8")
+        body = self.mutate('text: "Paused this week; its weight waits"', 'text: "held: fidelity: scrape_validity"', overrides)
+        self.assertCaught(check_d5_plain_text, "raw held text", scripts={"overrides.js": body}, args=(1440,))
 
     # ---- structure ----
     def test_structure_desktop_and_phone(self):
@@ -380,8 +463,8 @@ class CustomizeCleanupTest(unittest.TestCase):
         self.assertEqual(self.run_check(check_structure, 375, None, None, True), [])
 
     def test_structure_guard_catches_each_fault(self):
-        js = self.mutate("if (hasBlend) body.appendChild(tabBar);", "")
-        self.assertCaught(check_structure, "no tabs", js=js, args=(False,))
+        js = self.mutate("link.href = \"v2/#value-overrides\";", "link.href = \"v2/#nowhere\";")
+        self.assertCaught(check_structure, "the Overrides link goes nowhere", js=js, args=(False,))
         js = self.mutate("if (advanced && items.some(item => draft.has(item.key))) section.open = true;", "if (advanced) section.open = true;")
         self.assertCaught(check_structure, "value-above-waivers always open", js=js, args=(False,))
         css = self.mutate(".v2-popover .v2-cust-foot { flex-direction: column; align-items: stretch; }", "", self.css)

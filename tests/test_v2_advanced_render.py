@@ -9,14 +9,14 @@ retired: since JEG-536 the bench share is computed from the reader's settings). 
     turns the override off; How values work carries the same numbers;
   * Your league has a collapsed "Advanced" section at the bottom: Injury history (Recent seasons / All seasons
     equally), Projection confidence (Less / As measured / More = 1.5 / 1 / 0.5) and the bench-share override, off
-    by default, with the 1-30% slider only when on; a draft until Apply (Cancel changes nothing); Apply sets the
-    engine's lineup settings; Reset defaults returns them;
+    by default, with the 1-30% slider only when on; applied as it changes, no Apply (JEG-1020; Undo changes returns
+    to the settings the panel opened with); Reset defaults returns them;
   * share links write inj, conf and bso only when they differ from the defaults and never write bench=; opening
     such a link sets the engine; an old link's bench=0.150 means no override and any other bench= without bso= is
     the sender's override; bso is held to 1-30%;
   * at 390 px the Advanced section opens without sideways scroll; no page errors.
 
-Discrimination: test_guard_fails_on_broken_builds serves v2.js with Apply ignoring the Advanced section, the link
+Discrimination: test_guard_fails_on_broken_builds serves v2.js with the live change ignoring the Advanced section, the link
 not writing bso, the link ignoring bso, the override on by default and the readout dropping a position.
 """
 from __future__ import annotations
@@ -138,14 +138,18 @@ def run_checks(js_patch=None) -> list[str]:
                 errors.append(f"[league] projection confidence {lg['conf']}")
             if lg["box"] is not False or lg["slider"]:
                 errors.append(f"[league] the override should be off with no slider: box {lg['box']}, slider {lg['slider']}")
-            # Draft: change, cancel, nothing reaches the engine.
+            # Live (JEG-1020): a change reaches the engine on its own; Undo changes returns to what the panel opened with.
             page.click("#v2Popover details.v2-padv summary")
             page.click('#v2Popover [aria-label="Injury history"] button[data-value="all"]')
             page.click('#v2Popover [aria-label="Projection confidence"] button[data-value="0.5"]')
-            page.click("#v2Popover button:has-text('Cancel')")
+            page.wait_for_function("() => window.TradeValueCurveControls.getLineupSettings().injuryHistory === 'all'", timeout=3000)
+            page.click("#v2Popover [data-league-undo]")
             if page.evaluate(ENGINE)["lineup"]["injuryHistory"] != "recent":
-                errors.append("[league] Cancel leaked the injury history into the engine")
-            # Apply: all three.
+                errors.append("[league] Undo changes did not return the injury history")
+            if page.locator("#v2Popover button:has-text('Apply')").count() or page.locator("#v2Popover button:has-text('Cancel')").count():
+                errors.append("[league] the panel still has an Apply or Cancel button")
+            page.click('#v2Popover [data-done="league"]')
+            # All three apply as they change.
             page.click("#v2EditLeague")
             page.click("#v2Popover details.v2-padv summary")
             page.click('#v2Popover [aria-label="Injury history"] button[data-value="all"]')
@@ -155,11 +159,11 @@ def run_checks(js_patch=None) -> list[str]:
             if not lg["slider"] or lg["open"] is not True:
                 errors.append(f"[league] turning the override on should show the slider inside the open section: {lg}")
             page.evaluate("() => { const s = document.getElementById('v2BenchSlider'); s.value = '0.12'; s.dispatchEvent(new Event('input')); }")
-            page.click('#v2Popover [data-apply="league"]')
-            page.wait_for_timeout(400)
+            page.wait_for_function("() => window.TradeValueCurveControls.getLineupSettings().benchShareOverride === 0.12", timeout=3000)
             got = page.evaluate(ENGINE)
             if got["lineup"]["injuryHistory"] != "all" or got["lineup"]["projectionConfidence"] != 0.5 or abs((got["lineup"]["benchShareOverride"] or 0) - 0.12) > 1e-9:
-                errors.append(f"[league] Apply gave {got['lineup']}")
+                errors.append(f"[league] the live change gave {got['lineup']}")
+            page.click('#v2Popover [data-done="league"]')
             # The panel and How values show the override; the reset link turns it off.
             page.click("#v2Weights")
             w = page.evaluate(WEIGHTS)
@@ -230,7 +234,7 @@ def run_checks(js_patch=None) -> list[str]:
 
 
 PATCHES = {
-    "Apply ignores Advanced": ("          if (!weekError && draft.adv) weekError = applyAdvanced(draft.adv);", ""),
+    "live change ignores Advanced": ("            if (!error && draft.adv) error = applyAdvanced(draft.adv);", ""),
     "link does not write bso": ("        if (adv.benchShareOverride !== null) parts.push(`bso=${Number(adv.benchShareOverride).toFixed(3)}`);", ""),
     "link ignores bso": ("      if (JSON.stringify(want) !== JSON.stringify(now)) advChange = want;", "      advChange = null;"),
     "override on by default": ("        box.checked = adv.benchShareOverride !== null;", "        box.checked = true;"),

@@ -613,7 +613,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("Projections (Adjusted values)", text)
         self.assertIn("Trade charts (Adjusted values)", text)
         self.assertIn("Trade charts (rescaled)", text)
-        self.assertIn("Projections (VORP vs waivers)", text)
+        self.assertIn("Projections (value above waivers)", text)
         self.assertIn('DEFAULT_INDEXED_SOURCES = ["usatoday", "fantasycalc", "fantasypros", "cbs"]', text)
         self.assertIn("ValueModel.runValuePipeline", text)
         for retired in ("buildCbsAdjustedMap", "buildEspnIndexedMap", "buildEspnRows", "buildPublishedSourceMap"):
@@ -749,7 +749,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('"trade-value-rows-change"', text)
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn('key:"espn_role"', text)
-        self.assertIn("ESPN raw VORP vs waivers", text)
+        self.assertIn("ESPN value above waivers, raw", text)
 
     def test_data_health_has_no_retired_player_news_card(self):
         # chore/retire-extras (2026-10-08): the player-news artifact had no

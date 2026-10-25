@@ -28,13 +28,15 @@ window.TradeValueCurveControls.getAllRows():
 
 Discrimination: test_guard_fails_on_broken_builds serves a per-row scale, the
 verdict following the picker instead of DDF Value, a verdict naming no source, no example,
-the landing drawn on incomplete rows, and the 3-column layout removed, and
+the landing drawn on incomplete rows, the 3-column layout removed, and the short-viewport
+wide verdict column removed (JEG-917), and
 requires the checks to fail on each.
 """
 from __future__ import annotations
 
 import contextlib
 import functools
+import re
 import http.server
 import shutil
 import socketserver
@@ -428,9 +430,13 @@ class WaterfallRenderTest(unittest.TestCase):
             "landing on incomplete rows": {"trade.js": (trade.replace(
                 "net: sums.net, complete: sums.net !== null,",
                 "net: sums.net === null ? 0 : sums.net, complete: true,", 1), js)},
-            "no 3-column layout": {"v2.css": (css.replace(
-                "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(420px, 1.6fr);",
-                "grid-template-columns: 1fr 1fr;", 1), styles)},
+            # Both 3-column rules (>= 1280, and the wider verdict column on short viewports) go.
+            "no 3-column layout": {"v2.css": (re.sub(
+                r"grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(420px, [\d.]+fr\);",
+                "grid-template-columns: 1fr 1fr;", css), styles)},
+            # JEG-917: without the wider verdict column the 1366x768 verdict runs past the fold.
+            "no wide verdict column on short viewports": {"v2.css": (css.replace(
+                "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(420px, 2.2fr);", "", 1), styles)},
         }
         # With the SIMULATE_GAP fixture, a gap player is always available, so every
         # mutation is expected to be caught.

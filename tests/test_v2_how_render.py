@@ -8,12 +8,15 @@ league, and checks:
     (getState scoring and teams, getRosterShape counts, getPositionWeights,
     getBenchShareReadout), so it follows Edit league and Position weights; the Methods
     row is shown (frame 15);
-  * each of the three views (VORP vs waivers, Data Driven Adjustments,
+  * each of the three views (Value above waivers, Data Driven Adjustments,
     Rescaled, JEG-510) lists exactly the engine's series of that method from
     getSourceInfo(), unavailable ones marked with a reason, older weeks labeled per the
     data's freshness record;
-  * copy rules (CLAUDE.md): no "Vegas"; "VORP" only inside "VORP vs waivers";
+  * copy rules (CLAUDE.md): no "Vegas"; no "VORP" at all (JEG-861, 2026-10-22);
     no numbers anywhere on the tab except the engine-filled league card;
+  * JEG-941: the "How position weights work" explainer is a collapsible in the league card, a
+    button with aria-expanded, collapsed by default, opened from the keyboard, with the agreed
+    wording and no stray numbers;
   * no page errors and no horizontal overflow at 390 px.
 
 Discrimination: test_guard_fails_on_broken_builds builds the tab with a bare
@@ -85,6 +88,54 @@ READ = """() => {
 }"""
 
 
+EXPLAINER = """() => {
+  const b = document.getElementById('v2HowWeightsExplainerBtn');
+  const body = document.getElementById('v2HowWeightsExplainerBody');
+  if (!b || !body) return {present: false};
+  const r = body.getBoundingClientRect();
+  return {present: true, tag: b.tagName, expanded: b.getAttribute('aria-expanded'), controls: b.getAttribute('aria-controls') === body.id,
+    label: b.textContent.trim(), bodyHidden: body.hidden, visible: r.width > 0 && r.height > 0,
+    text: body.textContent.replace(/\\s+/g, ' ').trim(), inLeagueCard: !!b.closest('.v2-how-league'),
+    overflow: document.documentElement.scrollWidth - window.innerWidth};
+}"""
+
+EXPLAINER_PHRASES = (
+    "no single source sets the shares",
+    "In superflex leagues",
+    "no position has a fixed share",
+)
+
+
+def check_explainer(snap) -> list[str]:
+    before, opened, closed = snap["explainerBefore"], snap["explainerOpen"], snap["explainerClosed"]
+    if not before["present"]:
+        return ["JEG-941: the position weights explainer is missing from the How values work tab"]
+    errors = []
+    if before["tag"] != "BUTTON" or not before["controls"]:
+        errors.append(f"explainer toggle is not a button wired with aria-controls: {before}")
+    if before["label"] != "How position weights work":
+        errors.append(f"explainer label {before['label']!r}")
+    if before["expanded"] != "false" or not before["bodyHidden"] or before["visible"]:
+        errors.append(f"explainer is not collapsed by default: {before}")
+    if not before["inLeagueCard"]:
+        errors.append("explainer is not inside the league card (a separate card was not asked for)")
+    if opened["expanded"] != "true" or opened["bodyHidden"] or not opened["visible"]:
+        errors.append(f"Enter on the toggle does not expand the explainer: {opened}")
+    if closed["expanded"] != "false" or not closed["bodyHidden"]:
+        errors.append(f"a second Enter does not collapse the explainer: {closed}")
+    for phrase in EXPLAINER_PHRASES:
+        if phrase not in before["text"]:
+            errors.append(f"explainer text is missing {phrase!r}")
+    words = len(before["text"].split())
+    if not 90 <= words <= 140:
+        errors.append(f"explainer is {words} words, expected about 120")
+    if re.search(r"\bJEG-\d+|\.py\b|\bDDF\b|\bVORP\b", before["text"]):
+        errors.append("explainer carries a ticket id, script path or abbreviation")
+    if opened["overflow"] > 0 and snap["width"] <= 390:
+        errors.append(f"explainer overflows horizontally by {opened['overflow']}px when open")
+    return errors
+
+
 def method(key):
     if key.endswith("_vorp"):
         return "vorp"
@@ -141,9 +192,9 @@ def check(snap) -> list[str]:
                 errors.append(f"{view}/{w['key']}: older-week label {g['text']!r} vs engine stale={w.get('stale')}")
     if re.search(r"vegas", snap["text"], re.I):
         errors.append("copy mentions Vegas")
-    bare = re.sub(r"VORP vs waivers", "", snap["text"])
-    if "VORP" in bare:
-        errors.append("copy uses VORP outside the phrase 'VORP vs waivers'")
+    # JEG-861 (2026-10-22): the term is "Value above waivers"; "VORP" never appears in user-facing copy.
+    if re.search(r"vorp", snap["text"], re.I):
+        errors.append("copy says VORP")
     # JEG-822: plain language, no overclaim; "estimated" is explained where the engine's count appears.
     for phrase in ("really worth", "All nine reads"):
         if phrase in snap["text"]:
@@ -158,6 +209,7 @@ def check(snap) -> list[str]:
     want_stamp = f"NFL Week {snap['refWeek']} · as of {as_of_label(snap['builtAt'])}"
     if snap["stamp"] != want_stamp:
         errors.append(f"page stamp {snap['stamp']!r} != {want_stamp!r} from the data")
+    errors += check_explainer(snap)
     return errors
 
 
@@ -219,6 +271,12 @@ def collect(shell_html=None, v2_js=None, viewports=((1440, 1000), (390, 844))):
                 page.evaluate("() => { location.hash = '#writing/how-values'; }")
                 page.wait_for_timeout(200)
                 snap = page.evaluate(READ)
+                snap["explainerBefore"] = page.evaluate(EXPLAINER)
+                page.focus("#v2HowWeightsExplainerBtn")
+                page.keyboard.press("Enter")
+                snap["explainerOpen"] = page.evaluate(EXPLAINER)
+                page.keyboard.press("Enter")
+                snap["explainerClosed"] = page.evaluate(EXPLAINER)
                 snap.update(width=width, pageErrors=list(errors))
                 snapshots.append(snap)
                 page.close()
@@ -259,12 +317,17 @@ class HowValuesRenderTest(unittest.TestCase):
                 '$("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]',
                 '$("v2HowWeights").textContent = "QB 6.1% · RB 44.2% · WR 43.6% · TE 6.1%"; void ["QB", "RB", "WR", "TE"]', 1)},
             "overclaim copy back": {"shell_html": shell.replace(
-                "Our estimate of what a player is worth. It blends", "Fair value: the price a player is really worth. It blends", 1)},
+                "Our estimate of what a player is worth:", "Fair value: the price a player is really worth:", 1)},
             "no estimated gloss": {"v2_js": v2.replace("estimatedExplained = true;", "estimatedExplained = true; return;", 1)},
             # JEG-861 (#821): the stamp carries the data week; a calendar/hard-coded week is a wrong number.
             "stamp week hard-coded": {"v2_js": v2.replace(
                 "return [view.refWeek ? `NFL Week ${view.refWeek}` : \"\", asOf ? `as of ${asOf}` : \"\"]",
                 "return [`NFL Week ${(view.refWeek || 0) + 1}`, asOf ? `as of ${asOf}` : \"\"]", 1)},
+            "explainer open by default": {"shell_html": shell.replace(
+                'aria-expanded="false" aria-controls="v2HowWeightsExplainerBody"', 'aria-expanded="true" aria-controls="v2HowWeightsExplainerBody"', 1)},
+            "explainer toggle dead": {"v2_js": v2.replace(
+                'button.setAttribute("aria-expanded", String(open));', 'void open;', 1)},
+            "explainer text changed": {"shell_html": shell.replace("no position has a fixed share", "positions have fixed shares", 1)},
             "sources not split by method": {"v2_js": v2.replace(
                 "list.replaceChildren();\n      view.info.filter(item => sourceMeta(item.key).method === method)",
                 "list.replaceChildren();\n      view.info", 1)},

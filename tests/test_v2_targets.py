@@ -12,7 +12,7 @@ Check 1 (JEG-677; default and indexed basis per Jeremy 2026-10-16) on the engine
     (JEG-820, option B, 2026-10-22); Sell also needs ours >= 5 (SELL_FLOOR), so
     a player we would drop never heads the Sell list. Buy has no floor;
   * our value defaults to DDF Value, the blend (ddf_value; Jeremy 2026-10-16:
-    DDF decides who we want); DDF Projections and the other DDF versions,
+    DDF decides who we want); the other DDF versions,
     ESPN, CBS rest-of-season and Razzball stay as choices, each read from its
     own series only, an unavailable one offered disabled with a reason;
   * every available chart is compared, including one still on an earlier week
@@ -444,7 +444,7 @@ MUTATIONS = {
                                         "const values = priced.map(key => cells[key].value).filter(v => v > 0);"),
     "agreement counted on the wrong side": ('(side === "sell" ? v > ours : v < ours)', '(side === "sell" ? v < ours : v > ours)'),
     "equal never flagged": ("equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: false,\n      side"),
-    "DDF Projections dropped from the choices": ('"ddf_value_charts", "ddf_value_projections", "espn"', '"ddf_value_charts", "espn"'),
+    "DDF Value dropped from the choices": ('"ddf_value_charts", "ddf_value_projections", "espn"', '"ddf_value_charts", "espn"'),
     "dot value not the indexed chart value": ("dots = priced.map(key => ({chart: key, value: cells[key].value,", "dots = priced.map(key => ({chart: key, value: 0,"),
     # JEG-820: the weighted ranking and the Sell floor. Each of these is the bug the ticket names (raw-gap order
     # put 0.0 to 3.4 players at the top of Sell) or a plausible slip while fixing it.

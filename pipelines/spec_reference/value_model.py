@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import statistics
 
-from .twotier import BENCH_MIX_12, FLEX_ELIGIBLE, POSITIONS, round_half_up
+from .twotier import FLEX_ELIGIBLE, bench_counts, POSITIONS, round_half_up
 
 DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "BENCH": 7}
 SAVED_TEAMS = 12
@@ -65,8 +65,9 @@ def dhondt(seats: int, weights: dict[str, float], order=POSITIONS) -> dict[str, 
 
 
 def bench_alloc(teams: int, roster=DEFAULT_ROSTER) -> dict[str, int]:
-    """teams x BENCH seats apportioned by the 12-team bench mix."""
-    return dhondt(teams * roster["BENCH"], dict(BENCH_MIX_12))
+    """teams x BENCH seats by the roster convention (JEG-561): D'Hondt on
+    dedicated slots x market backups-per-starter."""
+    return bench_counts(teams, {p: roster[p] for p in POSITIONS}, roster["BENCH"])
 
 
 def _ranked(values: dict) -> list:

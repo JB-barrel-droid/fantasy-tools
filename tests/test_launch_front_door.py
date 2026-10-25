@@ -242,7 +242,7 @@ TABLE_VS_ENGINE_JS = """() => {
       if (!td) return;  // the Columns menu can hide a group
       cells++;
       const v = row.values[key];
-      const want = Number.isFinite(v) ? v.toFixed(1) : "—";
+      const want = !Number.isFinite(v) ? "—" : (v.toFixed(1) === "-0.0" ? "0.0" : v.toFixed(1));  // JEG-912: v2 never prints -0.0
       const got = text(td);
       if (got !== want) problems.push(`${row.name} ${key}: table ${got}, engine ${want}`);
     });
@@ -251,7 +251,31 @@ TABLE_VS_ENGINE_JS = """() => {
 }"""
 
 
+def route_title_problem(route: str, title: str) -> str:
+    """JEG-898: the rendered v2 title is "<route> · Data Driven Football"; the static <title> stays the brand."""
+    if not title.strip():
+        return "empty title"
+    if not title.endswith(V2_TITLE):
+        return f"title lost the brand: {title!r}"
+    if not title.startswith(route + " \u00b7 "):
+        return f"title does not name the route {route!r}: {title!r}"
+    if "undefined" in title or "null" in title or "{" in title:
+        return f"raw placeholder in title: {title!r}"
+    return ""
+
+
+class FrontDoorTitleGuardTests(unittest.TestCase):
+    def test_route_title_check_catches_broken_titles(self):
+        self.assertEqual("", route_title_problem("Trade targets", "Trade targets \u00b7 Data Driven Football"))
+        for bad in ("", "Data Driven Football", "undefined \u00b7 Data Driven Football", "Trade targets", "Player values \u00b7 Data Driven Football"):
+            with self.subTest(title=bad):
+                self.assertNotEqual("", route_title_problem("Trade targets", bad))
+
+
 class FrontDoorRenderedTests(unittest.TestCase):
+    def assertTitleNamesRoute(self, route, title):
+        self.assertEqual("", route_title_problem(route, title))
+
     def _browser(self, playwright):
         executable = _chromium_executable(playwright)
         if not executable:
@@ -280,9 +304,9 @@ class FrontDoorRenderedTests(unittest.TestCase):
         except Exception as exc:
             raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
         v2_js = (ROOT / "app" / "v2" / "v2.js").read_text(encoding="utf-8")
-        fmt = 'const fmt = v => Number.isFinite(v) ? v.toFixed(1) : "—";'
+        fmt = 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text; };'
         self.assertIn(fmt, v2_js, "mutation anchor for v2's number format is stale")
-        drifted = v2_js.replace(fmt, 'const fmt = v => Number.isFinite(v) ? (v * 1.02).toFixed(1) : "—";', 1)
+        drifted = v2_js.replace(fmt, 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = (v * 1.02).toFixed(1); return text === "-0.0" ? "0.0" : text; };', 1)
         with _pages_server(DIST) as base, sync_playwright() as playwright:
             browser = self._browser(playwright)
             try:
@@ -329,7 +353,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 # Landing tab is Trade targets (Jeremy, 2026-10-08).
                 page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
                 self.assertEqual([], errors)
-                self.assertEqual(V2_TITLE, page.title())
+                self.assertTitleNamesRoute("Trade targets", page.title())
                 self.assertEqual(SITE, page.eval_on_selector('link[rel="canonical"]', "e => e.href"))
                 v2_rows = page.evaluate(ROWS_JS)
                 self.assertGreater(len(v2_rows), 100)
@@ -366,7 +390,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
                     self.assertEqual(200, response.status, url)
                     page.wait_for_url(lambda u: u.split("#")[0] == base, timeout=30000)
                     page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
-                    self.assertEqual(V2_TITLE, page.title())
+                    self.assertTitleNamesRoute("Trade targets", page.title())
                     page.close()
 
                 # The engine alone (the build-only engine page, no v2 around

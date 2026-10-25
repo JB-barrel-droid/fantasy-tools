@@ -12,7 +12,8 @@
 // Usage:
 //   node tests/_edge_pipeline_runner.cjs \
 //     --scoring ppr --teams 12 --superflex 0 --dist dist/
-//     [--bench 6]
+//     [--bench 6] [--league '<normalized DDF league JSON>']
+//   Needs `node --experimental-strip-types` (it loads the edge function's league.ts).
 
 "use strict";
 
@@ -24,9 +25,17 @@ const args = {};
 for (let i = 2; i < process.argv.length; i += 2) {
   args[process.argv[i].replace(/^--/, "")] = process.argv[i + 1];
 }
-const scoring = args.scoring || "ppr";
-const teams = Number(args.teams) || 12;
-const superflex = Number(args.superflex) || 0;
+// JEG-1031: with --league the setting and lineup come from the edge function's own mapping module
+// (supabase/functions/get-values/league.ts), so the parity test exercises the shipped mapping.
+const { mapLeague } = require("../supabase/functions/get-values/league.ts");
+const leagueArg = args.league ? JSON.parse(args.league) : null;
+const legacyLeague = { scoring: args.scoring || "ppr", teams: Number(args.teams) || 12,
+  ...(Number(args.superflex) ? { roster: { SUPERFLEX: 1 } } : {}) };
+let mapped = null; // set once the lineup config is read (the mapping needs its defaults)
+const scoring = leagueArg ? leagueArg.scoring : legacyLeague.scoring;
+const teams = leagueArg ? Number(leagueArg.teams) : legacyLeague.teams;
+const superflex = leagueArg ? (Number(leagueArg.roster && leagueArg.roster.SUPERFLEX) > 0 ? 1 : 0)
+  : Number(args.superflex) || 0;
 const distDir = resolve(args.dist || "dist");
 const benchOverride = args.bench !== undefined ? Number(args.bench) : null;
 
@@ -117,7 +126,10 @@ function sectionHold(sourceSection) {
   for (const field of HOLD_FIELDS) {
     const hold = sourceSection[field];
     if (hold && typeof hold === "object" && hold.reason) {
-      return { reason: hold.reason, field, source: hold.source || null, week: hold.week || null };
+      // JEG-726 / JEG-787 (as in get-values/index.ts): an amber validationHold labels the source but
+      // does not hide it from DDF Value. Only red holds (hold_level absent) and promotionHolds hide.
+      const isAmber = field === "validationHold" && hold.hold_level === "amber";
+      return { reason: hold.reason, field, source: hold.source || null, week: hold.week || null, hidden: !isAmber };
     }
   }
   return null;
@@ -285,52 +297,30 @@ for (const key of PIPELINE_SOURCE_KEYS) {
   included.push(key);
 
   // Mark as hidden if held, validation-held, or divergence-excluded.
-  if (hold || isValidationHeld || isDivergenceExcluded) {
+  if ((hold && hold.hidden) || isValidationHeld || isDivergenceExcluded) {
     hiddenKeys.push(key);
   }
 }
 
-// DEFAULT_ROSTER.BENCH = 7 (curve-widget.js line 114); SAVED_SETUP_SHAPE
-// agrees (value-model.js). The old default of 6 was stale after the convention
-// settled (JEG-548/549/566, bench research re-run on the convention).
-const benchPerTeam = benchOverride !== null ? benchOverride : 7;
-
 // --- Load lineup parameters (expected-starts model) -------------------------
 let lineupConfig = null;
-let resolvedLineup = null;
 try {
-  const lpPath = join(distDir, "assets/lineup-parameters.json");
-  lineupConfig = JSON.parse(readFileSync(lpPath, "utf8"));
-  if (lineupConfig && lineupConfig.schema === "lineup-parameters-config/2") {
-    const d = lineupConfig.defaults || {};
-    resolvedLineup = ValueModel.resolveLineupParameters(lineupConfig, {
-      objective: d.objective || "season",
-      injury_history: d.injury_history || "recent",
-      league_weeks: {
-        regular_season_end: d.league_weeks?.regular_season_end ?? 14,
-        playoff_weeks: [...(d.league_weeks?.playoff_weeks || [15, 17])],
-      },
-      projection_confidence: d.projection_confidence ?? 1.0,
-      content_week: null, // use config's content_week
-    });
-  }
+  lineupConfig = JSON.parse(readFileSync(join(distDir, "assets/lineup-parameters.json"), "utf8"));
 } catch (e) {
   // No lineup parameters; fall back to slices mode.
 }
+mapped = mapLeague(leagueArg || legacyLeague, lineupConfig);
+let resolvedLineup = null;
+if (lineupConfig && lineupConfig.schema === "lineup-parameters-config/2") {
+  resolvedLineup = ValueModel.resolveLineupParameters(lineupConfig, mapped.lineupArgs);
+}
+
+// --bench overrides bench_per_team (the negative test's deliberately wrong value).
+const setting = { ...mapped.setting };
+if (benchOverride !== null) setting.bench_per_team = benchOverride;
 
 const input = {
-  setting: {
-    teams: teams,
-    // Must match DEFAULT_ROSTER (curve-widget.js) and SAVED_SETUP_SHAPE
-    // (value-model.js): QB:1, RB:2, WR:2, TE:1. The old WR:3 was stale.
-    slots: { QB: 1, RB: 2, WR: 2, TE: 1 },
-    flex: 1,
-    superflex: superflex,
-    bench_per_team: benchPerTeam,
-    bench_share: 0.15,
-    bench_share_override: null,
-    position_shares: null,
-  },
+  setting,
   players: playerMap,
   sources: sources,
   included: included,

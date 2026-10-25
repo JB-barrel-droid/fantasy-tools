@@ -341,6 +341,23 @@ def latest_week_param(table: str, params: str) -> str:
     return f"&week=eq.{max(weeks)}" if weeks else ""
 
 
+def latest_date_param(table: str, date_key: str) -> str:
+    """`&<date_key>=eq.<newest>` looked up server-side (JEG-793 egress trim).
+
+    The snapshot tables (ESPN, CBS ROS, Razzball) keep every dated save, but
+    the importer only ever uses the newest snapshot date
+    (_select_latest_snapshot_date still runs on the result, so the selection
+    is unchanged). One limit=1 row picks the date; NULL dates never win
+    (order=desc sorts NULLs first, so they are filtered). Returns "" when no
+    row carries a date: the unscoped read and its fail-closed paths are kept.
+    """
+    top = fetch_supabase_rows(
+        table, f"?select={date_key}&{date_key}=not.is.null&order={date_key}.desc&limit=1"
+    )
+    dates = [r.get(date_key) for r in top if r.get(date_key)]
+    return f"&{date_key}=eq.{max(dates)}" if dates else ""
+
+
 def _select_latest_week(
     rows: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], int | None]:
@@ -650,7 +667,10 @@ def build_espn_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
     players.json map (public.players carries no team column) -- documented
     in fixture_pos_team.
     """
-    rows = fetch_supabase_rows("espn_season_projections", "?select=*")
+    rows = fetch_supabase_rows(
+        "espn_season_projections",
+        "?select=*" + latest_date_param("espn_season_projections", "espn_snapshot_date"),
+    )
     if not rows:
         raise SystemExit(
             "Fail closed: source 'espn' resolved to zero rows in "
@@ -883,7 +903,10 @@ def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
     players.json map (public.players carries no team column) -- documented
     in fixture_pos_team.
     """
-    rows = fetch_supabase_rows("cbs_ros_projections", "?select=*")
+    rows = fetch_supabase_rows(
+        "cbs_ros_projections",
+        "?select=*" + latest_date_param("cbs_ros_projections", "cbs_snapshot_date"),
+    )
     if not rows:
         raise SystemExit(
             "Fail closed: source 'cbsros' resolved to zero rows in "
@@ -1044,7 +1067,10 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
     original row field comes back from raw_stats verbatim, so a file-built and a
     DB-rebuilt snapshot carry the same values.
     """
-    rows = fetch_supabase_rows("razzball_projections", "?select=*")
+    rows = fetch_supabase_rows(
+        "razzball_projections",
+        "?select=*" + latest_date_param("razzball_projections", "razzball_snapshot_date"),
+    )
     if not rows:
         raise SystemExit(
             "Fail closed: source 'razzball' resolved to zero rows in "

@@ -3,10 +3,11 @@
 Loads the built page headless at 1440 and 390 px and checks:
 
   * "Values auditing" is the last tab, Research still directly follows How values work;
-  * #values-auditing shows only the audit page with the Value pie sub-tab; the sub-tab
+  * #values-auditing shows only the audit page with the Health check sub-tab (JEG-1011, was Value pie); the sub-tab
     link is aria-current and #audit-pie-root is the visible mount;
   * #values-auditing/single-source shows the Single source mount (#audit-source-root);
-  * an unknown sub-route (#values-auditing/nope) falls back to the Value pie;
+  * an unknown sub-route (#values-auditing/nope) falls back to the Health check; the old
+    #values-auditing/value-pie hash is rewritten to #values-auditing/health-check;
   * the route calls the hook a sub-tab registered with DDFAudit.register, with its mount;
   * no page errors and no horizontal overflow at 390 px.
 
@@ -44,9 +45,10 @@ READ = """() => {
     hookCalls: window.__auditCalls || [],
     overflow: document.documentElement.scrollWidth - innerWidth,
     // JEG-872: the pie tab's source names must be v2's own (symbol + label), never the engine's.
-    pieLabels: [...document.querySelectorAll('#audit-pie-root .audit-pie-summary tbody tr:not(.audit-pie-verdict-row):not(.audit-pie-verdict-note)')].map(r => r.cells[0].textContent),
+    pieValue: Number(((document.querySelector('#audit-pie-root .audit-pie-meta') || {}).textContent || '').match(/Value pie: ([\\d.]+)/)?.[1]),
+    pieLabels: [...document.querySelectorAll('#audit-pie-root table[aria-label="Starter, bench and total value by source"] tbody tr')].map(r => r.cells[0].textContent),
     siteLabels: Object.fromEntries(Object.entries((window.TradeValueV2.publishers && window.TradeValueV2.publishers()) || {}).map(([k, p]) => [k, `${p.symbol} ${p.label}`])),
-    pieReconcile: [...document.querySelectorAll('#audit-pie-root .audit-pie-reconcile-table tbody tr')].map(r => [...r.cells].map(c => c.textContent)),
+    pieReconcile: [...document.querySelectorAll('#audit-pie-root table[aria-label="Reconciling each source to Player values"] tbody tr')].map(r => [...r.cells].map(c => c.textContent)),
   };
 }"""
 
@@ -58,17 +60,18 @@ SPY = """() => {
   window.__auditCalls = [];
   for (const slug of DDFAudit.slugs) DDFAudit.register(slug, (mount, ctx) => {
     window.__auditCalls.push([slug, mount.id, ctx.slug]);
-    if (slug === 'value-pie' && window.AuditPie) window.AuditPie.render(mount, ctx);   // keep the real pie render
+    if (slug === 'health-check' && window.AuditPie) window.AuditPie.render(mount, ctx);   // keep the real Health check render
   });
 }"""
 
 ROUTES = (
-    ("#values-auditing", "value-pie"),
-    ("#values-auditing/value-pie", "value-pie"),
+    ("#values-auditing", "health-check"),
+    ("#values-auditing/health-check", "health-check"),
+    ("#values-auditing/value-pie", "health-check"),   # JEG-1011: the old Value pie hash lands on the Health check
     ("#values-auditing/single-source", "single-source"),
-    ("#values-auditing/nope", "value-pie"),
+    ("#values-auditing/nope", "health-check"),
 )
-MOUNTS = {"value-pie": "audit-pie-root", "single-source": "audit-source-root"}
+MOUNTS = {"health-check": "audit-pie-root", "single-source": "audit-source-root"}
 
 
 def check(snap, hash_, slug, width) -> list[str]:
@@ -78,7 +81,7 @@ def check(snap, hash_, slug, width) -> list[str]:
         errors.append(f"{tag}pages shown: audit={snap['audit']} others={snap['others']}")
     if [t["view"] for t in snap["tabs"] if t["current"]] != ["audit"]:
         errors.append(f"{tag}Values auditing is not the current tab")
-    if (snap["pie"], snap["source"]) != (slug == "value-pie", slug == "single-source"):
+    if (snap["pie"], snap["source"]) != (slug == "health-check", slug == "single-source"):
         errors.append(f"{tag}panels shown pie={snap['pie']} source={snap['source']}, want {slug}")
     if snap["subCurrent"] != [slug]:
         errors.append(f"{tag}sub-tab current {snap['subCurrent']}, want {slug}")
@@ -86,18 +89,18 @@ def check(snap, hash_, slug, width) -> list[str]:
         errors.append(f"{tag}render hook calls {snap['hookCalls']}, want last {[slug, MOUNTS[slug], slug]}")
     if width <= 390 and snap["overflow"] > 0:
         errors.append(f"{tag}horizontal overflow {snap['overflow']}px")
-    if slug == "value-pie":
+    if slug == "health-check":
         if snap["siteLabels"] != SITE_LABELS:
             errors.append(f"{tag}TradeValueV2.publishers() {snap['siteLabels']}, want {SITE_LABELS}")
         if not snap["pieLabels"] or any(label not in SITE_LABELS.values() for label in snap["pieLabels"]):
             errors.append(f"{tag}pie tab source names {snap['pieLabels']} are not the site's {sorted(SITE_LABELS.values())}")
         # JEG-871: every source's own + filled-in = Total adjusted = pie, and the Player values column is shown.
         for cells in snap["pieReconcile"]:
-            own, filled, total, pie, shown = (float(c) for c in cells[1:6])
-            if abs(own + filled - total) > 0.11 or abs(total - pie) > 0.05:
+            own, filled, total, shown = (float(c) for c in cells[1:5])
+            if abs(own + filled - total) > 0.11 or abs(total - snap["pieValue"]) > 0.05:
                 errors.append(f"{tag}pie reconcile row {cells}: own + filled != total adjusted = pie")
         if not snap["pieReconcile"]:
-            errors.append(f"{tag}no reconcile rows on the Value pie")
+            errors.append(f"{tag}no reconcile rows on the Health check")
     return errors
 
 
@@ -152,7 +155,7 @@ class AuditRenderTest(unittest.TestCase):
 
     def test_guard_fails_on_broken_builds(self):
         broken = {
-            "route removed": ('(hashBase() === "#values-auditing" || hashBase().startsWith("#values-auditing/")) ? "audit"', 'false ? "audit"'),
+            "route removed": ('(base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"', 'false ? "audit"'),
             "unknown slug not caught": ("slugs.includes(asked) ? asked : slugs[0]", "asked"),
             "hook not called": ("window.DDFAudit.render(slug, panel,", "(() => 0)(slug, panel,"),
             # JEG-872: the pie tab reads v2's map; with it gone the rows show raw keys ("cbs"), which the check rejects.

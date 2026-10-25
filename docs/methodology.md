@@ -16,21 +16,28 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 | Step | Spec | Engine | Python reference | Roster convention used today |
 | --- | --- | --- | --- | --- |
 | Inputs and included set | VP-0, VP-1 | `runValuePipeline`, "VP-1 included set" | `Inputs`, `Setting`, `run_pipeline` | Reader's selection of sources; no roster. |
-| Value above waivers, per source | VP-2 | `runValuePipeline`, "VP-2 / VP-3 per source"; fill-in `estimateFor` | `_source_lines`, `_estimate` | The user's roster. Starters by dedicated slot, then superflex, then flex by mean projected points (`vpAllocate`, `allocate`). **Browser engine, as of a66f3f40:** bench seats by D'Hondt over `BENCH_MIX_12` with the user's teams times bench (`vpBenchSeats`); starter line = the value of the first non-starter, floored at the waiver line. **Python reference, since PR 557 (JEG-560):** bench seats and the starter line come from the roster convention module (`pipelines/lib/roster_convention.py`: market-bench ratios, D'Hondt; starter line = midpoint of the last starter and first non-starter). **The two disagree**, so `value_check compare` reports disagree on every source until the engine is migrated (risk register `GAP-VALUECHECK-REFERENCE-AHEAD`). Waiver line (both) = the value of the first player past the rostered count; on a short list after fill-in, the last listed value. Jeremy's 2026-10-12 decision for short lists is "estimate from other charts"; neither implementation does that yet (parity test, JEG-559). |
-| Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. |
+| Value above waivers, per source | VP-2 | `runValuePipeline`, "VP-2 / VP-3 per source"; fill-in `estimateFor` | `_source_lines`, `_estimate` | The user's roster. Starters by dedicated slot, then superflex, then flex by mean projected points (`vpAllocate`, `allocate`). **Browser engine, as of a66f3f40:** bench seats by D'Hondt over `BENCH_MIX_12` with the user's teams times bench (`vpBenchSeats`); starter line = the value of the first non-starter, floored at the waiver line. **Python reference, since PR 557 (JEG-560):** bench seats and the starter line come from the roster convention module (`pipelines/lib/roster_convention.py`: market-bench ratios, D'Hondt; starter line = midpoint of the last starter and first non-starter). **Flex-filled bench seats (MR-28 / JEG-969, on by default since 2026-10-23):** bench-seat D'Hondt weights count superflex+flex starters alongside dedicated starters (matching `allocate_league` in the ES model); set `flex_bench_seats=false` / `setting.flex_bench_seats = false` to disable. In canonical ppr/12/1QB this changes QB bench seats from ~15 to ~4, shifting weight to RB/WR. **Skipped in 2-QB / superflex rosters (Jeremy, 2026-10-23, option A):** the market_bench 2-QB data (bps 0.28) already reflects supply-capped QB benches from FFC draft data; applying flex-filled weights on top double-counts the effect and inverts the 2-QB direction gate (JEG-702). In 2-QB/superflex, bench allocation uses dedicated starters only. **The two disagree**, so `value_check compare` reports disagree on every source until the engine is migrated (risk register `GAP-VALUECHECK-REFERENCE-AHEAD`). Waiver line (both) = the value of the first player past the rostered count; on a short list after fill-in, the last listed value. Jeremy's 2026-10-12 decision for short lists is "estimate from other charts"; neither implementation does that yet (parity test, JEG-559). |
+| Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma`, `esApplyPromotionModel` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma`, `_apply_promotion_model` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. **Promotion/demotion model (JEG-969, on by default since 2026-10-23):** after computing the base ES parts, the lineup share is adjusted for persistent role-change probability — bench players gain a promotion bonus scaled by depth-specific rates and weeks remaining; marginal starters lose a demotion penalty. Rates from `config/promotion_rates.json` (measured from 2015-2025 nflverse actuals). Set `promotion_model=false` / `setting.promotion_model = false` to disable. |
 | Source weights and DDF weights | VP-3, VP-4 | "VP-4 DDF weights" | `_mixes`, `ddf_weights` | Each source's eight group totals (position x starter or bench) give its mix (VP-3); the DDF weights are the average of the included sources' mixes (VP-4). |
 | Fixed pie, rates, Adjusted | VP-5 | "VP-5 budgets, rates, Adjusted" | `_price` | One pie per league setting; each source's Adjusted sums to it (VP-5.6). |
 | Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of **projection** Adjusted values only (JEG-804); Indexed is display only and never feeds DDF. |
 | Tiers and ranking | VP-7 | "VP-7 slot fill, tiers, ranking" | `_tiers` | Tier basis is the blended DDF value, with seat counts from the allocation above (`slot_fill`). |
 | Weeks and change since last week | VP-8 | `valuePipelineDiagnostics`, prior-week run | `History`, `history_entry` | Each week's own inputs and weights. |
 
-Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --strict` agreed to 0.05 on every value (915,234 values, zero mismatches) and `tools/engine_dump.py` passed all 13 settings; at a66f3f40 the compare disagrees (see the row above). The 12-combo sweep in `runbooks/sweep-and-rank-guard.md`. Retired in this pipeline: the fit and `*_adjusted` sections (PR 532), the fixed-pie and `roleMap` family, `derivePublishedSetup` and `derivePublishedViews` (PR 514). VP-10 lists what replaced each.
+Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --strict` agreed to 0.05 on every value (915,234 values, zero mismatches) and `tools/engine_dump.py` passed all 13 settings; at a66f3f40 the compare disagreed on every source (GAP-VALUECHECK-REFERENCE-AHEAD, JEG-560); that is cleared: the engine was migrated to the convention, `runbooks/sweep-and-rank-guard.md` section 3 records `agree` with 0 mismatches at e71e8262 (2026-10-15), `make validate` has run `value-check-compare` (`--strict`) since JEG-668, and the JEG-804 log (`docs/claude-log/2026-10-22-jeg-804-ddf-projections-only.md`) records `agree` on 1,224,171 values. The 12-combo sweep in `runbooks/sweep-and-rank-guard.md`. Retired in this pipeline: the fit and `*_adjusted` sections (PR 532), the fixed-pie and `roleMap` family, `derivePublishedSetup` and `derivePublishedViews` (PR 514). VP-10 lists what replaced each.
 
-**Pending, not live (checked against `origin/main` c1ae4e5, 2026-10-22, JEG-874).** Decisions Jeremy has made whose engine or text change is still an open PR; nothing below this line describes them as live:
+**Live and pending (checked against `origin/main` 35205b89, 2026-10-23, JEG-874).** Decisions Jeremy has made, split by whether the change is merged. Anything under "Pending" is not live.
 
-- **DDF Value from projections only (JEG-804, PR #814 open).** Jeremy, 2026-10-22, on JEG-613 Q4: "Out of DDF Value": the blended DDF Value becomes the mean of the projection sources (ESPN, CBS rest of season, Razzball); trade charts stay on the Indexed and VORP comparison views. Until #814 merges, `ddf_value` still averages all included sources (VP-6.3, "DDF Composite Value" step 2). The copy follow-up is JEG-863.
-- **Held-source wording (JEG-787, PR #815 open).** A red or `promotionHold` source is hidden from DDF Value and the Indexed basis but stays in the pipeline for allocation, weights and the pie (VP-1 "Held sources"); #815 only reconciles the "Two Implementations" sentence with that.
+Live:
+
+- **DDF Value from projections only (JEG-804, merged #814).** Jeremy, 2026-10-22, on JEG-613 Q4: "Out of DDF Value": the blended `ddf_value` is the equal-weight mean of the projection sources' Adjusted values (ESPN, CBS rest of season, Razzball); trade charts stay on the Indexed and value-above-waivers comparison views and in `ddf_value_charts`. Verified in code: `pipelines/value_reference.py` `DDF_FAMILY = {"blended": "projection", "charts": "chart", "projections": "projection"}`. The explainer-text follow-up is JEG-863 (#845 open).
+- **Held-source wording (JEG-787, merged #815).** A red or `promotionHold` source is hidden from DDF Value and the Indexed basis but stays in the pipeline for allocation, weights and the pie (VP-1 "Held sources"); #815 reconciled the "Two Implementations" sentence with that. In v2 one predicate decides held: `heldReason` in `app/v2/v2.js` (engine `excludedReason` starting "held"); a held source is hidden but still counted in the pipeline pool, and the user-facing counts read the blend (JEG-807, JEG-906).
+- **Naming (JEG-861, merged #842).** User-facing copy says "Value above waivers"; "VORP" remains in this document's prose, code identifiers (`vorp`, `PURE_VORP_KEYS`), tests and code comments. Where this document says "VORP vs waivers" it means the view the site labels "Value above waivers". The browser's short method names are `{dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"}` (`SHORT_METHOD`, `app/v2/v2.js`).
 - **Razzball sentinel (JEG-807, merged #816, fidelity not methodology).** The pulse's star-player bands are derived from the other projection sources' half-PPR per-game mean (`SENTINEL_LOW_RATIO` 0.55, `SENTINEL_HIGH_RATIO` 1.50, fixed fallback bands when no other source prices the player). Values are unchanged; only what holds a projection source.
+
+- **Charts-only DDF Value (JEG-930, merged #848, 2026-10-23).** Jeremy, 2026-10-23: the "DDF Value: charts only" variant ignores the Customize DDF blend selection and always uses the open trade charts, so it is never blank after a blend edit. The JS engine and both Python references skip the reader's selection for the charts family (`value-model.js`, `value_reference.py`, `spec_reference/value_pipeline.py`). Paragraphs below that describe charts-only as following the blend selection are history.
+
+Pending: nothing merged-but-unreleased is listed here. The one open item is the explainer-text follow-up (JEG-863, #845, draft), which changes no number.
 
 **Reading order.** The sections below keep their history. Where a paragraph says "Superseded (JEG-508)", "proposed", "pending" or "not live", the status line in this block governs and the paragraph is kept for the before/after. A paragraph in "Source Families And Adjustments", "Published-Chart Configuration Coverage" or "Publisher Flex Allocation" that describes the fit, the two-tier legs as a value source, or the ESPN anchor describes retired behavior.
 
@@ -163,9 +170,12 @@ implementation follows the rule as written.
    same allocation, rosterable set, pie and DDF weights, with the charts in
    `I` as its fill-in peers, so its numbers stay on the page's scale. It
    contributes nothing to weights, peers, `m` or DDF.
-5. The reader's input selection (`setCompositeInputs`) filters only the DDF
-   averaging (VP-6.3). It never changes `I`, `m`, the weights, or any
-   source's values.
+5. The reader's value basis (`setBasis`, the Overrides tab; JEG-1044, which
+   replaced the Customize "DDF blend" selection `setCompositeInputs`) changes
+   only which Adjusted values the blended DDF Value averages and with what
+   weights (VP-6.3), and so the Indexed basis (VP-6.4), tiers and ranking that
+   read it. It never changes `I`, `m`, the weights, the pie, or any source's
+   values.
 6. ESPN has no special role anywhere. A missing ESPN is dropped like any other
    source, and the page renders with any non-empty `I`.
 
@@ -372,7 +382,28 @@ rules, except that only charts are filled in (VP-2.4).
    - `ddf_value_charts`: the charts in `I`.
    - `ddf_value_projections`: the projections in `I`.
 
-   Each is further narrowed by the reader's selection. Value = the
+   **Reader basis (JEG-1044, Jeremy 2026-10-24).** The default is the
+   above: our methodology. A reader may instead choose one source (any of the
+   seven: ESPN, CBS rest of season, Razzball, FantasyCalc, USA Today,
+   FantasyPros, CBS trade chart) or a blend of any subset with whole-percent
+   weights `w_s` (1 to 100; 0 leaves a source out). Only `ddf_value` (blended)
+   follows it, as `sum(w_s x A_s,i) / sum(w_s)` over the chosen sources in `I`
+   that are not hidden and price `i`, re-normalised per player (the weights are
+   proportions: 60/40 is 3/2). A one-source basis is that source's Adjusted
+   value and is not flagged "Only one source" (the reader chose it); a
+   multi-source basis that only one source prices for a player is. A basis none
+   of whose sources is usable (not in `I`, or hidden) falls back to our
+   methodology and says so (`basis.fellBackToDefault`). `ddf_value_charts` and
+   `ddf_value_projections` ignore the basis (the projections version stays the
+   equal-weight reference). A reader's per-player override is a row-level
+   overlay after the pipeline: it replaces the blended and projections values on
+   that row only and is never an input to any Adjusted value, Indexed factor,
+   pie total or the charts-only version. The basis is the reader's, so the
+   prior week is run on it too.
+
+   (Before JEG-1044, "narrowed by the reader's selection": the Customize DDF
+   blend tab's choice of projection sources, equal weight. That control is
+   retired; its saved choice migrates to the basis.) Value = the
    equal-weight mean of the numeric Adjusted row values of those sources,
    estimated values included. Zeros count; nulls are left out. Exactly one
    value gives that value with `lowConfidence` ("Only one source prices this
@@ -383,7 +414,12 @@ rules, except that only charts are filled in (VP-2.4).
    blended DDF Value, genuine zeros included (OC-8). Then
    `f_c = sum(ddf_value over shared) / sum(native_c over shared)` and
    `Indexed_i = native_i x f_c` for listed and estimated players (estimated
-   ones marked).
+   ones marked). Under a reader basis (JEG-1044) "blended DDF Value" is the
+   reader's basis, so every chart is rescaled to it and the page says so
+   ("Rescaled (to FantasyCalc)"); `f_c` is a uniform scale, so a chart used as
+   the whole basis has Indexed total = its Adjusted total over the shared
+   players, not a factor of 1. The identity `Indexed total = basis total over
+   shared` holds for every basis, so `fixedPieIndexed` stays gated.
    - It is one positive factor, so the chart's own order survives exactly
      (rank guard; estimated players sit at or below the lowest listed one).
    - If the native sum is `<= 0`, the `ddf_value` sum is `<= 0` (the factor
@@ -532,6 +568,13 @@ above left a choice. Each was settled here, and the text above now states it:
 - **Composite API.** `getCompositeInputs([version])` and
   `getCompositeValues([version])`, where `version` is `"blended"` (default),
   `"charts"` or `"projections"`.
+  - JEG-1044: `setBasis(config, publish = true)` / `getBasis()` / `resetBasis()`
+    set and read the reader's value basis (`null`/`"default"`, `{mode: "single",
+    source}` or `{mode: "blend", sources?, weights: {key: percent}}`; returns
+    `{ok, mode, isDefault, source, sources, weights, percents, label,
+    shortLabel, rescaledLabel, applied, members, fellBackToDefault,
+    sourceStates}`). `setCompositeInputs(keys)` is a thin alias (an
+    equal-weight blend of the named projections; all three = default).
   - The former `view` argument is accepted and ignored.
   - `inputs` and `series` are source keys.
   - `getSourceInfo({includeComposite: true})` lists all three DDF keys.
@@ -719,16 +762,13 @@ change to them is a value change and is reviewed as one.
 bench, `S_p` and `N_p` per source. `n_p = max(1, round(S_p / T))` is the
 starters per team at `p`, flex winners included.
 
-- **Roster decision (JEG-521 constraint).** The default roster is QB 1 / RB 2 /
-  WR 3 / TE 1 / FLEX 1 / BENCH 6, as in `DEFAULT_ROSTER`, `REF_SLOTS`, the
-  spec reference, the worked example and the v2 steppers. `config/roster.json`
-  says WR 2 / FLEX 2 and is wrong; both shapes have 8 starters and the same
-  pie, but the engine has never priced the WR 2 / FLEX 2 shape by default.
-  The file is corrected when VP-10 retires `build_adjustment_inputs.py`,
-  which is its only consumer that moves a live number (today it sets the
-  starter and bench roles of the `*_adjusted` fit cells, so correcting it
-  before the fit retires would move live values outside this decision).
-  `reindex_comparison_section.py` loads the shape and never uses it.
+- **Roster decision (JEG-563, 2026-10-16; supersedes the JEG-521 constraint).**
+  The default roster is QB 1 / RB 2 / WR 2 / TE 1 / FLEX 1 / BENCH 7, as in
+  `DEFAULT_ROSTER`, `REF_SLOTS` and the spec reference. Bench seats are the
+  roster convention (JEG-561): D'Hondt over teams x 7 on dedicated slots x
+  market backups-per-starter (`config/market_bench.json`), not the old
+  `BENCH_MIX_12` mix. The older WR 3 / BENCH 6 default no longer applies.
+  `reindex_comparison_section.py` loads a roster shape and never uses it.
 
 **ES-3 Lines and depth edges** (per source and position, own units, on the
 work list of VP-2.4).

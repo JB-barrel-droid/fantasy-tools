@@ -164,6 +164,10 @@
   //   included: [keys] (optional; overrides status, used for the prior week
   //             so both weeks share one I, VP-8),
   //   compositeInputs: [keys] (optional; the reader's selection, VP-1.5),
+  //   basisConfig: {mode: "default"|"single"|"blend", source?, sources?,
+  //             weights?: {key: integer percent}} (optional; JEG-1044, the
+  //             reader's value basis, VP-6.3; null/default = today's
+  //             equal-weight projections, byte-identical),
   //   pie: number (optional; VP-8 prior week reuses the current pie)
   // }
   // Player keys are numeric strings; every output map is keyed by String(key).
@@ -258,6 +262,19 @@
     var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
       return alloc[pos].dedicated + alloc[pos].superflex;
     }, teams * flexSlots);
+    // MR-28 (JEG-969): flex_bench_seats on by default (2026-10-23, Jeremy approved).
+    // Recompute bench weights counting superflex+flex starters, matching
+    // allocate_league in the ES model.  Off only when explicitly false.
+    // Skipped in 2-QB / superflex: market_bench 2-QB data already captures
+    // supply-capped QB benches (Jeremy, 2026-10-23, option A).
+    var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
+    if (setting.flex_bench_seats !== false && !isTwoQb) {
+      var ff = {};
+      POSITION_ORDER.forEach(function (pos) { ff[pos] = (sf[pos] || 0) + (fx[pos] || 0); });
+      bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
+                           {superflex: sfSlots > 0, flexFilled: ff});
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
+    }
     POSITION_ORDER.forEach(function (pos) {
       var a = alloc[pos];
       a.flex = fx[pos] || 0;
@@ -461,8 +478,44 @@
     var teams = Number(setting.teams) || 0;
     var slots = setting.slots || {};
     var flexElig = setting.flex_eligible || VP_FLEX_ELIGIBLE;
-    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                             {superflex: (Number(setting.superflex) || 0) > 0});
+    var benchOpts = {superflex: (Number(setting.superflex) || 0) > 0};
+    // MR-28: approximate flex_filled for bench weights when flex_bench_seats on
+    // Skipped in 2-QB / superflex (Jeremy, 2026-10-23, option A).
+    var isTwoQbSigma = (Number(setting.superflex) || 0) > 0 || (Number(slots.QB) || 0) >= 2;
+    if (setting.flex_bench_seats !== false && !isTwoQbSigma) {
+      // shared keys across all charts (same as the shared computation below)
+      var sharedKeys = {};
+      chartKeys.forEach(function (src) {
+        var ks = {};
+        POSITION_ORDER.forEach(function (pos) {
+          listed[src][pos].forEach(function (r) { ks[r.key] = (ks[r.key] || 0); });
+        });
+        if (!Object.keys(sharedKeys).length) { sharedKeys = ks; }
+        else {
+          Object.keys(sharedKeys).forEach(function (k) {
+            if (!(k in ks)) delete sharedKeys[k];
+          });
+        }
+      });
+      // Build pos_of from listed data to count per-position shared players
+      var posOf = {};
+      chartKeys.forEach(function (src) {
+        POSITION_ORDER.forEach(function (pos) {
+          listed[src][pos].forEach(function (r) { posOf[r.key] = pos; });
+        });
+      });
+      var ff = {};
+      var sfTotal = teams * Math.max(0, Number(setting.superflex) || 0);
+      var fxTotal = teams * Math.max(0, Number(setting.flex) || 0);
+      POSITION_ORDER.forEach(function (pos) {
+        var nListed = Object.keys(sharedKeys).filter(function (k) { return posOf[k] === pos; }).length;
+        var ded = teams * (Number(slots[pos]) || 0);
+        var avail = Math.max(0, nListed - ded);
+        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail);
+      });
+      benchOpts.flexFilled = ff;
+    }
+    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0), benchOpts);
     var maps = chartKeys.map(function (src) {
       var m = {};
       POSITION_ORDER.forEach(function (pos) { listed[src][pos].forEach(function (r) { m[r.key] = r.native; }); });
@@ -536,6 +589,137 @@
     return { avail: avail, unavailable: q, nPerTeam: nPerTeam, bands: bands, parts: parts };
   }
 
+  // JEG-969: promotion/demotion rates (measured from 2015-2025 nflverse actuals).
+  // Mirrors config/promotion_rates.json.
+  var PROMOTION_RATES = {
+    QB: {"1": 0.018, "2": 0.017, "3": 0.015, "4+": 0.005},
+    RB: {"1": 0.022, "2": 0.019, "3": 0.017, "4+": 0.006},
+    WR: {"1": 0.023, "2": 0.020, "3": 0.022, "4+": 0.007},
+    TE: {"1": 0.020, "2": 0.015, "3": 0.015, "4+": 0.009}
+  };
+  var DEMOTION_RATES = { QB: 0.020, RB: 0.014, WR: 0.015, TE: 0.018 };
+  var PROMOTION_SEASON_WEEKS = 17;
+
+  function esPromotionRate(pos, depth) {
+    if (depth <= 0) return 0;
+    var rates = PROMOTION_RATES[pos] || {};
+    var key = depth <= 3 ? String(depth) : "4+";
+    return Number(rates[key] || rates["4+"] || 0);
+  }
+
+  function esDemotionRate(pos) {
+    return Number(DEMOTION_RATES[pos] || 0);
+  }
+
+  // Apply promotion/demotion model to ES parts. Off by default; enabled
+  // when setting.promotion_model is truthy. Modifies lineup share and
+  // part values to reflect persistent role-change probability.
+  function esApplyPromotionModel(es, work, starters, teams, pos, weeksRemaining) {
+    if (!es || !es.parts || es.avail <= 0 || weeksRemaining <= 0) return es;
+    var avail = es.avail;
+    var nPerTeam = es.nPerTeam;
+    var parts = es.parts.map(function (pt, i) {
+      var rank = i + 1;
+      var ls = pt.lineupShare;
+      var sp = pt.starterPart;
+      var fp = pt.benchPart;
+
+      if (rank > starters) {
+        // Bench player: promotion bonus
+        var depth = rank - starters;
+        var ratePw = esPromotionRate(pos, depth);
+        var promoBonusShare = ratePw * weeksRemaining * 0.5;
+        var newLs = Math.min(avail, ls + promoBonusShare * (avail - ls));
+        if (ls > 0) {
+          var scale = newLs / ls;
+          sp = sp * scale;
+          fp = fp * scale;
+        }
+        ls = newLs;
+      } else if (rank > starters - nPerTeam * teams && rank <= starters) {
+        // Marginal starter: demotion risk
+        var ratePw = esDemotionRate(pos);
+        var demoPenaltyShare = ratePw * weeksRemaining * 0.5;
+        var newLs = Math.max(0, ls - demoPenaltyShare * ls);
+        if (ls > 0) {
+          var scale = newLs / ls;
+          sp = sp * scale;
+          fp = fp * scale;
+        }
+        ls = newLs;
+      }
+      return { sigma: pt.sigma, startWorthy: pt.startWorthy, lineupShare: ls,
+        starterPart: sp, benchPart: fp,
+        optionStarterPart: pt.optionStarterPart, optionBenchPart: pt.optionBenchPart };
+    });
+    return { avail: es.avail, unavailable: es.unavailable, nPerTeam: es.nPerTeam,
+      bands: es.bands, parts: parts };
+  }
+
+  // ===================================================================
+  // JEG-1044: the value basis (VP-6.3). "Our value" is DDF Value, the blended
+  // version. By default it is the equal-weight mean of the projection sources'
+  // Adjusted values. A reader may instead name one source ("single") or a
+  // weighted mean over any subset ("blend") on the same Adjusted scale. The
+  // basis only changes which Adjusted values the blended version averages (and
+  // therefore the Indexed basis, tiers and ranking that read it); VP-1 to
+  // VP-5 (allocation, weights, pie, Adjusted values) never see it, and the
+  // charts-only and projections versions are unchanged (Jeremy, 2026-10-24).
+  // Returns null for the default, else {mode, keys: [requested keys in the
+  // caller's source order], weights: {key: positive number}}.
+  function vpNormalizeBasis(cfg, sourceKeys) {
+    if (!cfg || typeof cfg !== "object" || !cfg.mode || cfg.mode === "default") return null;
+    var asked = [], weights = {};
+    if (cfg.mode === "single") {
+      var one = cfg.source !== undefined && cfg.source !== null ? cfg.source
+        : (Array.isArray(cfg.sources) ? cfg.sources[0] : null);
+      if (one === null || one === undefined) return null;
+      asked = [String(one)];
+      weights[asked[0]] = 1;
+    } else if (cfg.mode === "blend") {
+      var named = Array.isArray(cfg.sources) ? cfg.sources
+        : Object.keys(cfg.weights || {});
+      named.forEach(function (k) {
+        k = String(k);
+        var w = cfg.weights && cfg.weights[k] !== undefined ? Number(cfg.weights[k]) : 1;
+        if (!vpFinite(w) || w <= 0 || weights[k] !== undefined) return;
+        asked.push(k); weights[k] = w;
+      });
+    } else {
+      return null;
+    }
+    var keys = sourceKeys.filter(function (k) { return asked.indexOf(k) !== -1; });
+    return asked.length ? { mode: cfg.mode, asked: asked, keys: keys, weights: weights } : null;
+  }
+
+  // The weighted mean of `keys` over the player's finite Adjusted values,
+  // re-normalised over the sources that price him. {value, used}.
+  function vpWeightedMean(adjusted, keys, weights) {
+    var used = [], sum = 0, wsum = 0;
+    keys.forEach(function (k) {
+      var v = adjusted[k];
+      if (!vpFinite(v)) return;
+      used.push(k); sum += weights[k] * v; wsum += weights[k];
+    });
+    return { value: used.length ? sum / wsum : null, used: used };
+  }
+
+  // JEG-1035 / JEG-1044: a reader override of DDF Value is a row-level
+  // overlay applied after the pipeline. It touches only the DDF entry it is
+  // given; Adjusted values, the pie, Indexed factors and the charts-only
+  // version are never read or written. Absolute value only. Returns the
+  // entry (mutated).
+  function applyDdfOverride(entry, override) {
+    entry.pipelineValue = entry.value;
+    entry.overridden = override !== null && override !== undefined;
+    if (!entry.overridden) return entry;
+    entry.value = override;
+    entry.reason = null;
+    entry.lowConfidence = false;
+    entry.confidenceNote = null;
+    return entry;
+  }
+
   function runValuePipeline(input) {
     var setting = input.setting || {};
     var players = input.players || {};
@@ -571,6 +755,14 @@
     var hiddenKeys = Array.isArray(input.hidden) ? input.hidden : [];
     var isHidden = {};
     hiddenKeys.forEach(function (k) { isHidden[k] = true; });
+    // JEG-1044: the reader's basis. A basis none of whose sources is usable
+    // (not in I, or hidden) falls back to the default and says so.
+    var basisAsked = vpNormalizeBasis(input.basisConfig, sourceKeys);
+    var basisPlan = null;
+    if (basisAsked) {
+      var basisMembers = basisAsked.keys.filter(function (k) { return inI[k] && !isHidden[k]; });
+      if (basisMembers.length) basisPlan = { mode: basisAsked.mode, keys: basisMembers, weights: basisAsked.weights };
+    }
 
     // --- Lists (VP-0, VP-2.1): finite natives at a known position.
     var listed = {}; // src -> {pos: [{key, native}] sorted}
@@ -658,6 +850,16 @@
       var windowWeeks = lineup.window[1] - lineup.window[0] + 1;
       var fullSeasonWeeks = LINEUP_DEFAULT_LEAGUE_WEEKS.playoff_weeks[1];
       timingFactor = Math.min(1, windowWeeks / fullSeasonWeeks);
+    }
+
+    // JEG-969: promotion/demotion model (on by default, 2026-10-23).
+    // Set setting.promotion_model = false to disable.
+    var promoEnabled = (setting.promotion_model !== false) && esMode;
+    var promoWeeksRemaining = 0;
+    if (promoEnabled && lineup.window && lineup.window[1] >= lineup.window[0]) {
+      promoWeeksRemaining = lineup.window[1] - lineup.window[0] + 1;
+    } else if (promoEnabled) {
+      promoWeeksRemaining = PROMOTION_SEASON_WEEKS;
     }
 
     var chartPeersFor = function (src) {
@@ -813,6 +1015,13 @@
           es.sigmaRel = sigRel;
           es.sigmaFloor = sigFloor;
           es.m = lp.m;
+          // JEG-969: apply promotion/demotion model if enabled
+          if (promoEnabled && promoWeeksRemaining > 0) {
+            es = esApplyPromotionModel(es, work, S, Number(setting.teams) || 0, pos, promoWeeksRemaining);
+            es.sigmaRel = sigRel;
+            es.sigmaFloor = sigFloor;
+            es.m = lp.m;
+          }
         }
         var bsum = 0, ssum = 0, vsum = 0;
         work.forEach(function (r, i) {
@@ -1106,7 +1315,8 @@
       }
       Object.keys(versionSources).forEach(function (version) {
         var keys = versionSources[version].filter(function (k) {
-          return !selection || selection.indexOf(k) !== -1;
+          // JEG-930 (Jeremy, 2026-10-23): the charts-only version ignores the blend selection.
+          return version === "charts" || !selection || selection.indexOf(k) !== -1;
         });
         // JEG-569 part 2: hidden (held) sources are excluded from the DDF
         // blend.  They contributed to weights and pie so no other source's
@@ -1119,11 +1329,19 @@
           if (!vpFinite(v)) return;
           used.push(k); sum += v;
         });
-        var entry = { value: used.length ? sum / used.length : null, count: used.length, sources: used,
-          lowConfidence: used.length === 1, reason: null };
+        var blendValue = used.length ? sum / used.length : null;
+        if (basisPlan && version === "blended") {
+          var wm = vpWeightedMean(row.adjusted, basisPlan.keys, basisPlan.weights);
+          used = wm.used; blendValue = wm.value;
+        }
+        // One source pricing him is a low-confidence note only when the
+        // reader chose several; a one-source basis is not "only one source".
+        var oneIsThin = !(basisPlan && version === "blended" && basisPlan.keys.length === 1);
+        var entry = { value: blendValue, count: used.length, sources: used,
+          lowConfidence: used.length === 1 && oneIsThin, reason: null };
         if (!included.length) entry.reason = "No source available this week";
         else if (!used.length) entry.reason = "No source prices this player";
-        else if (used.length === 1) entry.reason = "Only one source prices this player";
+        else if (used.length === 1 && oneIsThin) entry.reason = "Only one source prices this player";
         row.ddfByVersion[version] = entry;
       });
       rows[key] = row;
@@ -1141,6 +1359,9 @@
     // displayed blended DDF Value.
     var indexBasis = {};
     rowKeys.forEach(function (key) {
+      // JEG-1044: with a reader basis the Indexed basis is that basis (the
+      // blended value), so every chart is rescaled to it.
+      if (basisPlan) { indexBasis[key] = rows[key].ddfByVersion.blended.value; return; }
       var sum = 0, n = 0;
       versionSources.blended.forEach(function (k) {
         if (isHidden[k]) return;
@@ -1267,6 +1488,10 @@
       benchShareApplied: bsStar,
       included: included,
       excluded: excluded,
+      basis: basisAsked ? { mode: basisAsked.mode, requested: basisAsked.asked.slice(),
+        applied: !!basisPlan, members: basisPlan ? basisPlan.keys.slice() : [],
+        weights: basisPlan ? Object.assign({}, basisPlan.weights) : {},
+        fellBackToDefault: !basisPlan } : null,
       degenerate: degenerate,
       meanPpg: meanPpg,
       allocation: allocation,
@@ -1320,6 +1545,7 @@
       benchShare: result.benchShare, benchShareInput: result.benchShareInput,
       benchShareOverride: result.benchShareOverride, lineup: result.lineup, chartSigma: result.chartSigma,
       benchShareApplied: result.benchShareApplied, included: result.included, excluded: result.excluded,
+      basis: result.basis || null,
       degenerate: result.degenerate, ddfWeights: result.ddfWeights, allocation: result.allocation,
       slotFill: result.slotFill, fillSets: result.fillSets, sources: sources
     };
@@ -1330,6 +1556,8 @@
     VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,
+    applyDdfOverride: applyDdfOverride,
+    normalizeBasis: vpNormalizeBasis,
     resolveLineupParameters: resolveLineupParameters,
     lineupWindow: lineupWindow,
     LINEUP_OBJECTIVES: LINEUP_OBJECTIVES,

@@ -5,7 +5,8 @@
 // Usage: DDFRosterPaste.parse(text, playerIndex)
 //   text: raw pasted page text (Ctrl+A from a browser)
 //   playerIndex: array of engine rows [{player_key, name, pos, team, ...}]
-//   returns: {site, players:[{id,name,confidence,sourceLine}], unmatched:[{line,reason}],
+//   returns: {site, players:[{id,name,confidence,sourceLine,slot}], unmatched:[{line,reason}],
+//            (slot: the page's own label, e.g. QB/FLEX/BN/Bench/IR, "Injured"/"Bye" for ESPN matchup sections, "" when the page shows none)
 //            matched, total, mode:'team'|'matchup', teams?:[...same shape],
 //            benchIncluded (matchup: false when bench is collapsed)}
 
@@ -360,9 +361,9 @@
 
               var result = matchCandidate(candidate, index, seen);
               if (result.match) {
-                players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine});
+                players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine, slot: trimmed});
               } else if (result.reason !== "duplicate") {
-                unmatched.push({line: nameLine, reason: result.reason || "not in the values"});
+                unmatched.push({line: nameLine, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
               }
               i += 3;
               continue;
@@ -412,11 +413,27 @@
         t += 1;
       }
 
-      if (leftNameLine) processEntry(leftNameLine, leftTP, teamA, index, seenA);
-      if (rightNameLine && rightTP) processEntry(rightNameLine, rightTP, teamB, index, seenB);
+      var slot = slotBetween(lines, leftTP.index, rightTP ? rightTP.index : Math.min(lines.length, leftTP.index + 8));
+      if (leftNameLine) processEntry(leftNameLine, leftTP, teamA, index, seenA, slot);
+      if (rightNameLine && rightTP) processEntry(rightNameLine, rightTP, teamB, index, seenB, slot);
     }
 
+    // Team names: Yahoo prints each side's header as a "logo" line followed by the team name (left side first).
+    var names = [];
+    for (var n = 0; n + 1 < lines.length && names.length < 2; n++) {
+      if (lines[n].trim() === "logo" && lines[n + 1].trim()) names.push(lines[n + 1].trim());
+    }
+    if (names.length === 2) { teamA.teamName = names[0]; teamB.teamName = names[1]; }
     return {teamA: teamA, teamB: teamB};
+  }
+
+  // The slot label ("QB", "FLEX", "BN") printed between the two sides of a matchup row.
+  function slotBetween(lines, from, to) {
+    for (var i = from + 1; i < to; i++) {
+      var s = lines[i].trim();
+      if (isSlotLabel(s)) return s;
+    }
+    return "";
   }
 
   function findNameAbove(lines, tpIndex) {
@@ -430,7 +447,7 @@
     return null;
   }
 
-  function processEntry(nameLine, tp, team, index, seen) {
+  function processEntry(nameLine, tp, team, index, seen, slot) {
     var cleanedName = cleanYahooName(nameLine);
     if (!cleanedName) return;
 
@@ -441,9 +458,9 @@
 
     var result = matchCandidate(candidate, index, seen);
     if (result.match) {
-      team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine});
+      team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: nameLine, slot: slot || ""});
     } else if (result.reason !== "duplicate") {
-      team.unmatched.push({line: nameLine, reason: result.reason || "not in the values"});
+      team.unmatched.push({line: nameLine, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
     }
   }
 
@@ -541,9 +558,9 @@
 
           var result = matchCandidate(candidate, index, seen);
           if (result.match) {
-            players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: singleName});
+            players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: singleName, slot: trimmed});
           } else if (result.reason !== "duplicate") {
-            unmatched.push({line: singleName, reason: result.reason || "not in the values"});
+            unmatched.push({line: singleName, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
           }
         }
       }
@@ -678,9 +695,9 @@
 
         var result = matchCandidate(candidate, index, seen);
         if (result.match) {
-          players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: playerName});
+          players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: playerName, slot: ""});
         } else if (result.reason !== "duplicate") {
-          unmatched.push({line: playerName, reason: result.reason || "not in the values"});
+          unmatched.push({line: playerName, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
         }
         // Skip past this player's block
         i += (look || 1) + 1;
@@ -729,11 +746,11 @@
 
           var result = matchCandidate(candidate, index, team.seen);
           if (result.match) {
-            team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: name});
+            team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: name, slot: "Injured"});
             team.matched++;
             team.total++;
           } else if (result.reason !== "duplicate") {
-            team.unmatched.push({line: name, reason: result.reason || "not in the values"});
+            team.unmatched.push({line: name, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
             team.total++;
           }
           i += 3;
@@ -783,11 +800,11 @@
 
             var result = matchCandidate(candidate, index, team.seen);
             if (result.match) {
-              team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: trimmed});
+              team.players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: trimmed, slot: "Bye"});
               team.matched++;
               team.total++;
             } else if (result.reason !== "duplicate") {
-              team.unmatched.push({line: trimmed, reason: result.reason || "not in the values"});
+              team.unmatched.push({line: trimmed, reason: result.reason || "not in the values", pos: candidate.posHint, team: candidate.teamHint});
               team.total++;
             }
           }
@@ -829,8 +846,8 @@
           mode: "matchup",
           benchIncluded: !benchCollapsed,
           teams: [
-            {players: ym.teamA.players, unmatched: ym.teamA.unmatched, matched: ym.teamA.players.length, total: ym.teamA.players.length + ym.teamA.unmatched.length},
-            {players: ym.teamB.players, unmatched: ym.teamB.unmatched, matched: ym.teamB.players.length, total: ym.teamB.players.length + ym.teamB.unmatched.length},
+            {teamName: ym.teamA.teamName, players: ym.teamA.players, unmatched: ym.teamA.unmatched, matched: ym.teamA.players.length, total: ym.teamA.players.length + ym.teamA.unmatched.length},
+            {teamName: ym.teamB.teamName, players: ym.teamB.players, unmatched: ym.teamB.unmatched, matched: ym.teamB.players.length, total: ym.teamB.players.length + ym.teamB.unmatched.length},
           ],
         };
       } else {
@@ -882,18 +899,533 @@
       };
     }
 
-    // ---- Unknown: try both parsers, pick the one with more matches ----
+    // ---- Unknown: try format-specific parsers, then fall back to n-gram extraction ----
     var tryYahoo = parseYahooTeamPage(rawLines, index);
     var tryEspn = parseESPNTeamPage(rawLines, index);
     var best = tryYahoo.matched >= tryEspn.matched ? tryYahoo : tryEspn;
+    // If format-specific parsers found players, use the best one.
+    if (best.matched > 0) {
+      return {
+        site: "unknown",
+        players: best.players,
+        unmatched: best.unmatched,
+        matched: best.matched,
+        total: best.total,
+        mode: "team",
+      };
+    }
+    // Otherwise, use the source-agnostic n-gram extractor (JEG-1010).
+    var extracted = extractPlayers(text, playerIndex);
     return {
       site: "unknown",
-      players: best.players,
-      unmatched: best.unmatched,
-      matched: best.matched,
-      total: best.total,
-      mode: "team",
+      players: extracted.players,
+      unmatched: extracted.unmatched,
+      matched: extracted.matched,
+      total: extracted.total,
+      ignoredLines: extracted.ignoredLines,
+      mode: "extract",
     };
+  }
+
+  // ---- source-agnostic n-gram extraction (JEG-1010) ----
+  // Scans every line for player names by sliding n-gram windows over tokens and matching
+  // against the engine's player list.  Tolerates arbitrary noise (columns, headers, nav,
+  // injury tags, numbers, ads).  Never invents players: a match must be exact (after
+  // normalisation) or a known nickname/initial form confirmed by position or team context.
+  // Defences are found by city, mascot or "City Mascot" forms.
+
+  // Tokenize a line into word-like tokens, splitting on whitespace, tabs, pipes.
+  // Preserves apostrophes and hyphens within words (for names like Ja'Marr, Amon-Ra).
+  function extractTokens(line) {
+    return line.replace(/\t+/g, " ").replace(/\|/g, " ").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  }
+
+  // Build a set of all first-word keys from the name index, for quick rejection.
+  function buildFirstWords(index) {
+    var firstWords = {};
+    var addKeys = function (map) {
+      var names = Object.keys(map);
+      for (var i = 0; i < names.length; i++) {
+        var parts = names[i].split(" ");
+        if (parts[0]) firstWords[parts[0]] = 1;
+        // Also add last word (for reversed names)
+        if (parts.length > 1) firstWords[parts[parts.length - 1]] = 1;
+      }
+    };
+    addKeys(index.byName);
+    addKeys(index.byInitial);
+    return firstWords;
+  }
+
+  // Find position and team hints on a line.
+  function lineHints(tokens) {
+    var posHint = null;
+    var teamHint = null;
+    for (var i = 0; i < tokens.length; i++) {
+      var raw = tokens[i];
+      var upper = raw.toUpperCase().replace(/[^A-Z/]/g, "");
+      if (!posHint && POSITIONS[upper]) posHint = upper;
+      if (upper === "D/ST" || upper === "DST") posHint = "DEF";
+      var nt = normTeam(raw);
+      if (nt && !teamHint) teamHint = nt;
+    }
+    return {posHint: posHint, teamHint: teamHint};
+  }
+
+  // Try to match a sequence of tokens as a player name.
+  // Handles "First Last", "Last, First", nicknames and initial forms.
+  function tryNameMatch(tokens, start, len, index) {
+    if (start + len > tokens.length) return null;
+    var slice = [];
+    for (var i = start; i < start + len; i++) {
+      var t = tokens[i].replace(/,$/, "");
+      if (!t) return null;
+      slice.push(t);
+    }
+    var normed = normName(slice.join(" "));
+    if (!normed || normed.length < 3) return null;
+
+    // Direct lookup
+    var hits = index.byName[normed];
+    if (hits && hits.length > 0) return {hits: hits, normed: normed, form: "exact"};
+
+    // Nickname variant
+    var nick = nickVariant(normed);
+    if (nick) {
+      hits = index.byName[nick];
+      if (hits && hits.length > 0) return {hits: hits, normed: nick, form: "nick"};
+    }
+
+    // Initial form: "D. Henry" -> "d henry"
+    var init = initialForm(normed);
+    if (init) {
+      hits = index.byInitial[init];
+      if (hits && hits.length > 0) return {hits: hits, normed: init, form: "initial"};
+    }
+
+    // Reversed: "Last, First" or "Last First" -> "First Last"
+    if (len >= 2) {
+      var reversed = slice.slice();
+      reversed[0] = reversed[0].replace(/,$/, "");
+      reversed = [reversed[reversed.length - 1]].concat(reversed.slice(0, reversed.length - 1));
+      var revNormed = normName(reversed.join(" "));
+      if (revNormed && revNormed !== normed) {
+        hits = index.byName[revNormed];
+        if (hits && hits.length > 0) return {hits: hits, normed: revNormed, form: "reversed"};
+        nick = nickVariant(revNormed);
+        if (nick) {
+          hits = index.byName[nick];
+          if (hits && hits.length > 0) return {hits: hits, normed: nick, form: "reversed-nick"};
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // Disambiguate when multiple players share a normalized name.
+  function disambiguate(hits, posHint, teamHint) {
+    var filtered = hits;
+    if (filtered.length > 1 && teamHint) {
+      var byTeam = filtered.filter(function (h) { return h.team === teamHint; });
+      if (byTeam.length > 0) filtered = byTeam;
+    }
+    if (filtered.length > 1 && posHint) {
+      var byPos = filtered.filter(function (h) { return h.pos === posHint; });
+      if (byPos.length > 0) filtered = byPos;
+    }
+    return filtered.length === 1 ? filtered[0] : null;
+  }
+
+  // Defence matching: check if tokens contain a city, mascot, "City Mascot", or a direct
+  // "Team Name" match (e.g. "Dallas Cowboys" in the index).
+  function tryDefenceOnLine(tokens, index, seen) {
+    // Helper: look up a defence by name forms and return the entry if unique and unseen.
+    function tryDef(raw) {
+      var names = dstSearchNames(raw);
+      for (var d = 0; d < names.length; d++) {
+        var hits = index.byName[normName(names[d])];
+        if (hits) {
+          var def = hits.filter(function (h) { return h.pos === "DEF"; });
+          if (def.length === 1 && !seen[String(def[0].row.player_key)]) return def[0];
+        }
+      }
+      // Also try the raw form directly (e.g. "Dallas Cowboys" as-is in the index)
+      var direct = index.byName[normName(raw)];
+      if (direct) {
+        var dd = direct.filter(function (h) { return h.pos === "DEF"; });
+        if (dd.length === 1 && !seen[String(dd[0].row.player_key)]) return dd[0];
+      }
+      return null;
+    }
+
+    for (var i = 0; i < tokens.length; i++) {
+      var lower = tokens[i].toLowerCase().replace(/[^a-z]/g, "");
+      // Single-word mascot (e.g. "Cowboys") or single-word city (e.g. "Dallas")
+      if (MASCOT_TO_CITY[lower] || CITY_TO_MASCOT[lower]) {
+        var r = tryDef(tokens[i]);
+        if (r) return r;
+        // Also try combining with next token: "Dallas Cowboys", "Dallas D/ST"
+        if (i + 1 < tokens.length) {
+          r = tryDef(tokens[i] + " " + tokens[i + 1]);
+          if (r) return r;
+        }
+      }
+      // Two-word city (e.g. "Green Bay", "Kansas City", "New York")
+      if (i + 1 < tokens.length) {
+        var twoWord = tokens[i].toLowerCase().replace(/[^a-z]/g, "") + " " + tokens[i + 1].toLowerCase().replace(/[^a-z]/g, "");
+        if (CITY_TO_MASCOT[twoWord]) {
+          var r2 = tryDef(tokens[i] + " " + tokens[i + 1]);
+          if (r2) return r2;
+          // With mascot: "Kansas City Chiefs"
+          if (i + 2 < tokens.length) {
+            r2 = tryDef(tokens[i] + " " + tokens[i + 1] + " " + tokens[i + 2]);
+            if (r2) return r2;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  // The main extraction function. Scans each line for player names using n-gram matching.
+  // Returns {players, unmatched, matched, total, ignoredLines, mode:'extract'}.
+  function extractPlayers(text, playerIndex) {
+    if (!text || typeof text !== "string" || !text.trim()) {
+      return {players: [], unmatched: [], matched: 0, total: 0, ignoredLines: [], mode: "extract"};
+    }
+    if (!playerIndex || !Array.isArray(playerIndex) || playerIndex.length === 0) {
+      return {players: [], unmatched: [], matched: 0, total: 0, ignoredLines: [], mode: "extract"};
+    }
+
+    var index = buildIndex(playerIndex);
+    var firstWords = buildFirstWords(index);
+    var rawLines = text.split(/\r?\n/);
+    var seen = {};
+    var players = [];
+    var unmatched = [];
+    var ignoredLines = [];
+
+    for (var lineIdx = 0; lineIdx < rawLines.length; lineIdx++) {
+      var line = rawLines[lineIdx];
+      var trimmed = line.trim();
+      if (!trimmed) continue;
+
+      // Clean Yahoo-style glued text and ESPN doubled names
+      var cleaned = cleanYahooName(trimmed);
+      cleaned = cleanESPNDoubled(cleaned);
+
+      var tokens = extractTokens(cleaned);
+      if (tokens.length === 0) continue;
+
+      var hints = lineHints(tokens);
+      var foundOnLine = [];
+      var consumed = {};
+
+      // D/ST or DEF lines
+      if (hints.posHint === "DEF" || /\bD\/?ST\b/i.test(trimmed)) {
+        var defEntry = tryDefenceOnLine(tokens, index, seen);
+        if (defEntry) {
+          seen[String(defEntry.row.player_key)] = true;
+          foundOnLine.push({id: String(defEntry.row.player_key), name: defEntry.row.name, confidence: 1, sourceLine: trimmed, slot: ""});
+        } else {
+          unmatched.push({line: trimmed, reason: "defence not matched", pos: "DEF", team: hints.teamHint || ""});
+        }
+      }
+
+      // Kicker lines
+      if (hints.posHint === "K" && foundOnLine.length === 0) {
+        // Try whole line and token combos as a kicker name
+        var kMatched = false;
+        for (var kw = Math.min(4, tokens.length); kw >= 2; kw--) {
+          for (var ks = 0; ks + kw <= tokens.length; ks++) {
+            var km = tryNameMatch(tokens, ks, kw, index);
+            if (km) {
+              var kEntry = km.hits.filter(function (h) { return h.pos === "K"; });
+              if (kEntry.length === 1 && !seen[String(kEntry[0].row.player_key)]) {
+                seen[String(kEntry[0].row.player_key)] = true;
+                foundOnLine.push({id: String(kEntry[0].row.player_key), name: kEntry[0].row.name, confidence: 1, sourceLine: trimmed, slot: ""});
+                kMatched = true;
+                break;
+              }
+            }
+          }
+          if (kMatched) break;
+        }
+        if (!kMatched) {
+          unmatched.push({line: trimmed, reason: "kicker not matched", pos: "K", team: hints.teamHint || ""});
+        }
+      }
+
+      // N-gram scan for player names: try windows of 4, 3, 2 words (prefer longer matches).
+      if (foundOnLine.length === 0 && hints.posHint !== "DEF" && hints.posHint !== "K") {
+        for (var winLen = 4; winLen >= 2; winLen--) {
+          for (var start = 0; start + winLen <= tokens.length; start++) {
+            var overlap = false;
+            for (var c = start; c < start + winLen; c++) {
+              if (consumed[c]) { overlap = true; break; }
+            }
+            if (overlap) continue;
+
+            // Quick rejection: first or last token must contain a known player-name word
+            // normName may produce multi-word results (e.g. "Amon-Ra" -> "amon ra"),
+            // so check each word of the normalized form, not just the whole string.
+            var fn = normName(tokens[start].replace(/,$/, ""));
+            var ln = normName(tokens[start + winLen - 1]);
+            var fnHit = false, lnHit = false;
+            if (fn) { var fnParts = fn.split(" "); for (var fp = 0; fp < fnParts.length; fp++) { if (firstWords[fnParts[fp]]) { fnHit = true; break; } } }
+            if (ln) { var lnParts = ln.split(" "); for (var lp = 0; lp < lnParts.length; lp++) { if (firstWords[lnParts[lp]]) { lnHit = true; break; } } }
+            if (!fnHit && !lnHit) continue;
+
+            var match = tryNameMatch(tokens, start, winLen, index);
+            if (!match) continue;
+
+            var entry = disambiguate(match.hits, hints.posHint, hints.teamHint);
+            if (!entry) {
+              if (match.hits.length > 1) {
+                // Only report ambiguous once per line
+                var already = unmatched.some(function (u) { return u.line === trimmed && u.reason.indexOf("ambiguous") === 0; });
+                if (!already) {
+                  unmatched.push({line: trimmed, reason: "ambiguous: " + match.hits.map(function(h) { return h.row.name + " " + h.pos + " " + h.team; }).join(" / "),
+                    pos: hints.posHint || "", team: hints.teamHint || ""});
+                }
+              }
+              continue;
+            }
+
+            var key = String(entry.row.player_key);
+            if (seen[key]) {
+              for (var mc = start; mc < start + winLen; mc++) consumed[mc] = true;
+              continue;
+            }
+            seen[key] = true;
+
+            var confidence = 1.0;
+            if (match.form !== "exact") {
+              confidence = (hints.teamHint && entry.team === hints.teamHint) || (hints.posHint && entry.pos === hints.posHint) ? 0.9 : 0.8;
+            }
+
+            foundOnLine.push({id: String(entry.row.player_key), name: entry.row.name, confidence: confidence,
+              sourceLine: trimmed, slot: ""});
+            for (var mc2 = start; mc2 < start + winLen; mc2++) consumed[mc2] = true;
+          }
+        }
+      }
+
+      if (foundOnLine.length > 0) {
+        for (var fi = 0; fi < foundOnLine.length; fi++) players.push(foundOnLine[fi]);
+      } else {
+        // Track non-empty non-noise lines that had no match
+        var hasAlpha = /[a-zA-Z]{2,}/.test(trimmed);
+        var isShort = trimmed.length < 120;
+        var looksNav = /^(home|teams?|players?|matchups?|standings|transactions|settings|news|fantasy|football|copyright|menu|search|filter|sort|draft|overview|research|page \d|waivers?|add player|drop player|injury report|bye week|show bench|stat\w*|espn|yahoo|sleeper|fantrax|cbs|mfl|nfl|fanduel|draftkings|underdogs?|network|plus|video forecast|player note)s?$/i.test(trimmed);
+        if (hasAlpha && isShort && !looksNav) {
+          ignoredLines.push(trimmed);
+        }
+      }
+    }
+
+    return {
+      players: players,
+      unmatched: unmatched,
+      matched: players.length,
+      total: players.length + unmatched.length,
+      ignoredLines: ignoredLines,
+      mode: "extract",
+    };
+  }
+
+  // =========================================================================
+  //  WHOLE LEAGUE PAGE (ESPN "League Rosters", Yahoo league rosters, Sleeper, any site)
+  // =========================================================================
+  // A whole-league paste is cut into one block per team, then each block is read by the source-agnostic extractor.
+  // Team blocks start at a team header:
+  //   1. "Team Name (5-1-0)" or "Team Name" followed by a "(5-1-0)" / "5-2" line (ESPN, Sleeper, most sites);
+  //   2. otherwise a roster table header ("SLOT", "Pos", "Starters") with the team name the nearest plain line above it.
+  // A block with no players is dropped (standings and nav lists), and a block of one or two players folds into the one
+  // before it (Yahoo's separate Kickers and Defense tables). Never invents a team: fewer than two teams is "no league".
+  var RECORD_INLINE_RE = /^(.{2,80}?)\s*\(\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)\s*$/;
+  var RECORD_ALONE_RE = /^\(?\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)?$/;
+  var TABLE_MARKER_RE = /^(SLOT|Pos|Position|Starters)(\s|$)/i;
+  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye\b.*)$/i;
+
+  function cleanTeamName(raw) {
+    var s = cleanESPNDoubled(String(raw || "").replace(/\t+/g, " ").replace(/\s+/g, " ").trim());
+    return s.replace(/\s*\.\.\.$|…$/, "").trim();
+  }
+  function lineIsPlayer(line, index) {
+    var c = cleanESPNDoubled(cleanYahooName(String(line || "").trim()));
+    if (!c) return false;
+    if (/\bD\/?ST\b/i.test(c)) return true;
+    var n = normName(c);
+    return !!(n && index.byName[n]);
+  }
+  function plausibleTeamName(line, index) {
+    var t = cleanTeamName(line);
+    if (t.length < 2 || t.length > 60) return false;
+    if (!/[A-Za-z]/.test(t) || /\t/.test(line)) return false;
+    if (t.charAt(0) === "@") return false;
+    if (TEAM_NAME_NOISE_RE.test(t) || isSlotLabel(t)) return false;
+    return !lineIsPlayer(t, index);
+  }
+
+  function recordHeaders(lines, index) {
+    var heads = [];
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i].trim();
+      if (!t) continue;
+      var m = t.match(RECORD_INLINE_RE);
+      if (m && plausibleTeamName(m[1], index)) { heads.push({line: i, name: cleanTeamName(m[1])}); continue; }
+      if (RECORD_ALONE_RE.test(t)) {
+        // The name is the nearest plain line above (skipping a "@handle" or manager line on Sleeper).
+        for (var j = i - 1, seenLines = 0; j >= 0 && seenLines < 3; j--) {
+          var u = lines[j].trim();
+          if (!u) continue;
+          seenLines++;
+          if (u.charAt(0) === "@") continue;
+          if (plausibleTeamName(u, index)) { heads.push({line: j, name: cleanTeamName(u)}); break; }
+        }
+      }
+    }
+    return heads;
+  }
+  function markerHeaders(lines, index) {
+    var heads = [];
+    for (var i = 0; i < lines.length; i++) {
+      if (!TABLE_MARKER_RE.test(lines[i].trim())) continue;
+      var name = null;
+      for (var j = i - 1, seenLines = 0; j >= 0 && seenLines < 10; j--) {
+        var u = lines[j].trim();
+        if (!u) continue;
+        seenLines++;
+        if (lineIsPlayer(u, index)) break;          // ran into the previous team's table
+        if (plausibleTeamName(u, index)) { name = cleanTeamName(u); break; }
+      }
+      heads.push({line: i, name: name});
+    }
+    return heads;
+  }
+
+  // Kickers and defenses are not in the engine's player list, so the extractor can miss a bare "Jason Myers" or "Jets"
+  // line. They are caught by the position line next to them ("SEA K", "Sea - K", "K - SEA", "DEF", "Nyj - DEF") and
+  // kept as not evaluated, like the team-page parsers do.
+  var K_RE = /^(?:([A-Za-z]{2,4})\s*(?:[-–]\s*)?K|K\s*[-–]\s*([A-Za-z]{2,4}))$/;
+  var DEF_RE = /^(?:([A-Za-z]{2,4})\s*(?:[-–]\s*)?(?:DEF|D\/ST|DST)|(?:DEF|D\/ST|DST)(?:\s*[-–]\s*([A-Za-z]{2,4}))?)$/i;
+  // A position line: a bare "K"/"DEF", or one with a real NFL team code ("SEA K", "Nyj - DEF"), never "Jets D/ST".
+  function posLine(re, line) {
+    var m = String(line || "").match(re);
+    if (!m) return null;
+    var code = m[1] || m[2];
+    if (code && !normTeam(code)) return null;
+    return {team: code ? normTeam(code) : ""};
+  }
+  var K_LINE_RE = {test: function (l) { return !!posLine(K_RE, l); }};
+  var DEF_LINE_RE = {test: function (l) { return !!posLine(DEF_RE, l); }};
+  function blockNotEvaluated(blockLines, index) {
+    var out = [];
+    var lines = blockLines.map(function (l) { return cleanESPNDoubled(cleanYahooName(l.trim())); });
+    for (var i = 0; i < lines.length; i++) {
+      var km = posLine(K_RE, lines[i]);
+      if (km && i > 0) {
+        for (var j = i - 1; j >= 0 && j >= i - 2; j--) {
+          var nm = lines[j];
+          if (nm && /[a-z]/.test(nm) && !lineIsPlayer(nm, index) && !isSlotLabel(nm) && nm.split(/\s+/).length <= 4 && !TEAM_NAME_NOISE_RE.test(nm)) {
+            out.push({line: nm, reason: "kicker not matched", pos: "K", team: km.team});
+            break;
+          }
+        }
+      }
+      var mascot = lines[i].toLowerCase();
+      if (MASCOT_TO_CITY[mascot]) {
+        var near = false;
+        for (var d = Math.max(0, i - 2); d <= Math.min(lines.length - 1, i + 2); d++) if (d !== i && DEF_LINE_RE.test(lines[d])) near = true;
+        if (near) {
+          var city = MASCOT_TO_CITY[mascot];
+          out.push({line: lines[i], reason: "defence not matched", pos: "DEF", team: normTeam(city) || normTeam(city.split(" ").pop()) || ""});
+        }
+      }
+    }
+    return out;
+  }
+
+  function readBlocks(heads, lines, playerRows, index) {
+    var teams = [];
+    for (var h = 0; h < heads.length; h++) {
+      var from = heads[h].line + 1;
+      var to = h + 1 < heads.length ? heads[h + 1].line : lines.length;
+      var blockLines = lines.slice(from, to);
+      var ex = extractPlayers(blockLines.join("\n"), playerRows);
+      // The extractor also flags slot and position lines ("D/ST", "SEA K") as unmatched kickers and defenses: drop those,
+      // undo ESPN's doubled names, and keep one entry per kicker or defense.
+      var keyOf = function (u) { return u.pos + ":" + normName(String(u.line).replace(/\s*D\/?ST$/i, "")); };
+      var have = {};
+      var unmatched = ex.unmatched.concat(blockNotEvaluated(blockLines, index)).map(function (u) {
+        return u.pos === "K" || u.pos === "DEF" ? {line: cleanESPNDoubled(cleanYahooName(String(u.line).trim())), reason: u.reason, pos: u.pos, team: u.team} : u;
+      }).filter(function (u) {
+        if (u.pos !== "K" && u.pos !== "DEF") return true;
+        if (isSlotLabel(u.line) || K_LINE_RE.test(u.line) || DEF_LINE_RE.test(u.line) || !/[a-z]/.test(u.line)) return false;
+        var k = keyOf(u);
+        if (have[k]) return false;
+        have[k] = true;
+        return true;
+      });
+      teams.push({teamName: heads[h].name, players: ex.players, unmatched: unmatched});
+    }
+    return teams;
+  }
+  function finishTeams(teams, foldSmall) {
+    var out = [];
+    teams.forEach(function (t) {
+      var prev = out[out.length - 1];
+      if (foldSmall && prev && t.players.length < 3) {
+        prev.players = prev.players.concat(t.players);
+        prev.unmatched = prev.unmatched.concat(t.unmatched);
+        return;
+      }
+      if (!t.players.length) return;
+      out.push({teamName: t.teamName, players: t.players.slice(), unmatched: t.unmatched.slice()});
+    });
+    // The same team twice (a nav list or a standings table with players): keep the fuller one.
+    var byName = {};
+    var result = [];
+    out.forEach(function (t, i) {
+      if (!t.teamName) t.teamName = "Team " + (i + 1);
+      var key = t.teamName.toLowerCase();
+      if (byName[key] !== undefined) {
+        if (t.players.length > result[byName[key]].players.length) result[byName[key]] = t;
+        return;
+      }
+      byName[key] = result.length;
+      result.push(t);
+    });
+    // A player can only be on one roster: the first team that lists them keeps them.
+    var taken = {};
+    result.forEach(function (t) {
+      t.players = t.players.filter(function (p) { if (taken[p.id]) return false; taken[p.id] = true; return true; });
+      t.matched = t.players.length;
+      t.total = t.players.length + t.unmatched.length;
+    });
+    return result;
+  }
+
+  function parseLeague(text, playerRows) {
+    var out = {site: "unknown", teams: [], sleeperLeagueId: null, espnLeagueId: null};
+    if (!text || typeof text !== "string" || !text.trim()) return out;
+    out.site = /sleeper\.(com|app)|^\s*Sleeper\s*$/im.test(text) ? "sleeper" : detectSite(text);
+    var sl = text.match(/sleeper\.(?:com|app)\/leagues\/(\d{6,})/i);
+    if (sl) out.sleeperLeagueId = sl[1];
+    var es = text.match(/espn\.com\/football\/\S*?[?&]leagueId=(\d+)/i);
+    if (es) out.espnLeagueId = es[1];
+    if (!playerRows || !Array.isArray(playerRows) || !playerRows.length) return out;
+    var index = buildIndex(playerRows);
+    var lines = text.split(/\r?\n/);
+    var teams = finishTeams(readBlocks(recordHeaders(lines, index), lines, playerRows, index), false);
+    if (teams.length < 2) {
+      var byMarker = finishTeams(readBlocks(markerHeaders(lines, index), lines, playerRows, index), true);
+      if (byMarker.length > teams.length) teams = byMarker;
+    }
+    out.teams = teams.length >= 2 ? teams : [];
+    return out;
   }
 
   function hasBNLine(lines) {
@@ -905,13 +1437,15 @@
 
   // Expose for testing and for window.DDFRosterPaste
   var api = {
-    parse: parse,
+    parse: parse, extractPlayers: extractPlayers, parseLeague: parseLeague,
     normName: normName, normTeam: normTeam, buildIndex: buildIndex, matchCandidate: matchCandidate,
     cleanYahooName: cleanYahooName, cleanESPNDoubled: cleanESPNDoubled,
     detectSite: detectSite, isMatchupPage: isMatchupPage,
     parseTeamPosYahoo: parseTeamPosYahoo,
     parseYahooTeamPage: parseYahooTeamPage, parseYahooMatchupPage: parseYahooMatchupPage,
     parseESPNTeamPage: parseESPNTeamPage, parseESPNMatchupPage: parseESPNMatchupPage,
+    extractTokens: extractTokens, tryNameMatch: tryNameMatch, disambiguate: disambiguate,
+    lineHints: lineHints, buildFirstWords: buildFirstWords, tryDefenceOnLine: tryDefenceOnLine,
     dstSearchNames: dstSearchNames, isSlotLabel: isSlotLabel, hasBNLine: hasBNLine,
     NICK_MAP: NICK_MAP, CITY_TO_MASCOT: CITY_TO_MASCOT, MASCOT_TO_CITY: MASCOT_TO_CITY,
   };
