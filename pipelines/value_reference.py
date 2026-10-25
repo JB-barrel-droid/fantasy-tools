@@ -92,9 +92,9 @@ VIEW_SERIES = {
 }
 COMPOSITE_KEY = "ddf_value"
 DDF_VERSIONS = {"ddf_value": "blended", "ddf_value_charts": "charts", "ddf_value_projections": "projections"}
-# JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources only.
-# Trade charts are out of the blended DDF Value; charts-only version unchanged.
-DDF_FAMILY = {"blended": "projection", "charts": "chart", "projections": "projection"}
+# JEG-1073 (Jeremy, 2026-10-25): DDF Value = the Adjusted trade charts, equal
+# weight; the projections version is the alternate. Reverses JEG-804.
+DDF_FAMILY = {"blended": "chart", "charts": "chart", "projections": "projection"}
 DDF_COUNT_FIELD = {"ddf_value": "ddf_count", "ddf_value_charts": "ddf_charts_count",
                    "ddf_value_projections": "ddf_projections_count"}
 
@@ -981,8 +981,8 @@ def bench_share_readout(rows: dict, order_m: dict, alloc: dict, inc: list, expec
                         override, applied: float, hidden: set | None = None) -> dict:
     """ES-14: the bench tier's share (ranks S_p+1..N_p on the projected-points
     order) of each position's blended DDF Value over I and of the whole.
-    JEG-804: uses the blended DDF basis (= the index basis in the engine),
-    which is now projections-only, matching value-model.js indexBasis."""
+    JEG-1073: uses the blended DDF basis (= the index basis in the engine),
+    which is now the chart average, matching value-model.js indexBasis."""
     out = {"override": (override is not None) if expected_starts else True,
            "override_value": override, "fill_in_share": applied,
            "method": "expected-starts" if expected_starts else "fixed-share"}
@@ -990,7 +990,7 @@ def bench_share_readout(rows: dict, order_m: dict, alloc: dict, inc: list, expec
     for p in POSITIONS:
         bench = total = 0.0
         for idx, i in enumerate(order_m[p]):
-            # Use the blended DDF Value (= projections-only after JEG-804),
+            # Use the blended DDF Value (= the chart average after JEG-1073),
             # matching the engine's indexBasis.
             v = rows[i]["ddf"]["blended"]["value"]
             if v is None:
@@ -1113,11 +1113,8 @@ def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: d
         for version, fam in DDF_FAMILY.items():
             # JEG-930 (Jeremy, 2026-10-23): the charts-only version ignores the blend selection.
             keys = [k for k in inc if (fam is None or sources[k].family == fam) and (sel is None or version == "charts" or k in sel)]
-            # JEG-804 fallback: when no projection is in I (e.g. a saved week
-            # where the only projection is unmatched), use all included sources
-            # for the blended DDF so the Indexed basis can still be computed.
-            if version == "blended" and not keys:
-                keys = [k for k in inc if (sel is None or k in sel)]
+            # JEG-1073: no fallback to the other family. With no chart in I
+            # the blended DDF Value is unavailable (null).
             if plan is not None and version == "blended":
                 ddf[version] = _ddf_weighted(adj, plan["keys"], plan["weights"])
             else:
@@ -1132,11 +1129,12 @@ def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: d
 
 def apply_value_overrides(rows: dict, overrides: dict) -> None:
     """JEG-1035 / JEG-1044: reader DDF Value overrides, a row-level overlay
-    after the pipeline: the blended and projections values only (absolute).
-    Adjusted, Indexed, the pie and the charts-only version are untouched."""
+    after the pipeline: the blended value only (absolute; JEG-1073 made the
+    projections version a separate alternate). Adjusted, Indexed, the pie and
+    the charts-only and projections versions are untouched."""
     for i, row in rows.items():
         ov = overrides.get(i)
-        for name in ("blended", "projections"):
+        for name in ("blended",):
             entry = row["ddf"][name]
             entry["pipeline_value"] = entry["value"]
             entry["overridden"] = ov is not None
