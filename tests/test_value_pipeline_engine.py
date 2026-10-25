@@ -207,7 +207,14 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     bands, parts, groups, own weights and rates, the DDF weights, every row's
     DDF Value, lineup share and start-worthy probability, the readout; and the
     0.10 override. Fails before JEG-536: the engine ignores `lineup` and
-    prices the VP-2.6 slices at 15%."""
+    prices the VP-2.6 slices at 15%.
+
+    JEG-1057: the variants are pinned at the engine defaults (promotion_model
+    and flex_bench_seats on, Jeremy 2026-10-23, JEG-969 / #867), the same
+    defaults the fixture generator (tools/worked_example_expected_starts.py)
+    and the Python and spec reference variant tests use. Forcing the flags
+    off here compared the engine against the wrong rule, and made every
+    guard below pass vacuously."""
 
     @classmethod
     def setUpClass(cls):
@@ -216,8 +223,7 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     def test_variants_reproduced(self):
         for name in esx.VARIANTS:
             with self.subTest(variant=name):
-                problems = esx.variant_problems(self.doc, name, run_engine(variant=name, promotion_model=False,
-                                                                                     flex_bench_seats=False))
+                problems = esx.variant_problems(self.doc, name, run_engine(variant=name))
                 self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_variant_is_walked(self):
@@ -230,10 +236,14 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assertEqual(exp["sources"]["p1"]["positions"]["WR"]["lineup"]["n_per_team"], 2)
 
     def assert_variant_fails(self, replacements):
+        # JEG-1057: a guard only proves something if the unmutated engine
+        # passes in the same configuration; otherwise any mutation "fails".
+        baseline = esx.variant_problems(self.doc, "variant_expected_starts",
+                                        run_engine(variant="variant_expected_starts"))
+        self.assertEqual(baseline, [], "unmutated engine must pass before a guard can discriminate")
         model = _mutated(replacements)
         try:
-            actual = run_engine(model, variant="variant_expected_starts", promotion_model=False,
-                               flex_bench_seats=False)
+            actual = run_engine(model, variant="variant_expected_starts")
         except AssertionError:
             return
         finally:
