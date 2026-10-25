@@ -22,17 +22,22 @@ Contract: shrink the inputs status strip (#915, JEG-1076) from 45 px to one comp
   strip. Fix in `app/v2/v2.css`: on >= 768 px the roster line (`.v2-league-inner > .v2-meta`) has `flex: 1 1 120px; min-width: 0`
   so the row breaks only when the buttons cannot fit, and the roster line wraps inside its own cell.
 
-### Not met after merging current main (693c0ca4)
-- Re-run of `test_waterfall_verdict_layout_example` (scratch merge of #918, #918 not committed here) after merging
-  origin/main 693c0ca4 (an automated data rebuild): Inter still passes (boxes bottom 757.5), but in the CI font setup the
-  boxes bottom is 773.7 at 1366x768, 5.7 px past the fold (one more wrapped verdict line in DejaVu Sans; it was 756.9
-  on 4ae3b8a4). The strip is 27 px and the league row is one line in that run, so the remaining cost is elsewhere on the
-  page. Closing it needs a layout choice outside the strip (for example the league row min-height 64 px, or the
-  verdict column width), which is Jeremy's to pick; not done here.
-- With #918 merged in the same scratch run, the guard mutation "verdict not DDF" is NOT CAUGHT with Inter: since
-  JEG-1073 `ddf_value_charts` has the same numbers and name as `ddf_value`, so the fixture's "other series" pick is
-  invisible. This needs a fixture fix in `tests/test_v2_waterfall_render.py` (PR #918's file, not edited here); PR #929
-  carries one.
+### After merging current main (693c0ca4, then fb6c5e54): the league row decision
+- With the strip at 27 px and the league row one line, `test_waterfall_verdict_layout_example` (scratch merge of #918) was
+  Inter 757.5 (passes) but CI fonts 773.7, 5.7 px past the fold (one more wrapped verdict line in DejaVu Sans; data
+  rebuild 693c0ca4). Jeremy, 2026-10-25, multiple choice: "Trim the league row height": let the league row shrink to
+  its content, nothing else (verdict column width untouched).
+- Done in `app/v2/v2.css`: from 768 px `.v2-league-inner { min-height: 0; padding-block: 6px; }` (44 px buttons + 6 + 6; the
+  row is 57 px with its border instead of 65). Phones keep their own rule (padding 10px 16px).
+- Fold, bottom of give/receive/verdict at 1366x768 (scratch merge of #918, #918 not committed here): Inter 749.5, CI fonts
+  (Playwright 1.49.1, DejaVu Sans) 765.7, both <= 768 and `test_waterfall_verdict_layout_example` passes in both. The CI
+  margin is only 2.3 px: a further wrapped line would fail it again.
+- League row looked at (screenshots, CI font and Inter) at 390, 768, 1024 and 1366: Edit league, Position weights, Copy and
+  Paste all shown, at least 44 px tall, no sideways overflow. At 768 and 1024 the buttons wrap to two rows with the
+  existing 24 px row gap (unchanged).
+- With #918 merged in the same scratch run, the guard mutation "verdict not DDF" is NOT CAUGHT: since JEG-1073
+  `ddf_value_charts` has the same numbers and name as `ddf_value`, so the fixture's "other series" is invisible. That
+  fixture fix belongs in #918 (its test file), not here (Jeremy 2026-10-25).
 
 ### Claimed, not confirmed
 - No wording was changed. At 1366 the full default note fits on one line in Inter and DejaVu Sans (the test asserts the
