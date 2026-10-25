@@ -179,12 +179,11 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
 
 <div class="wrap">
   <header class="top">
-    <div class="eyebrow">Data Driven Football · internal</div>
+    <div class="eyebrow"><a href="../#writing/how-values">Data Driven Football · How values work</a></div>
     <h1>DDF Value Logic</h1>
     <p class="lede">How each source turns into a value on the trade chart, with the chart engine's own numbers. Read it to decide whether you agree with each step, and use the checks and the list at the bottom to spot what looks wrong.</p>
     <div class="strip" id="strip"></div>
     <div class="chips" id="weeks"></div>
-    <div id="reviewBanner" hidden></div>
   </header>
 
   <nav class="index" aria-label="Sections">
@@ -196,7 +195,7 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <a href="#trace">Trace a player</a>
     <a href="#compare">Compare players</a>
     <a href="#settings">League settings</a>
-    <a href="#look">Things to look at</a>
+    <a href="#review">Review</a>
   </nav>
 
   <section class="sec" id="map">
@@ -297,7 +296,10 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <div class="tablewrap"><table id="setTable"></table></div>
   </section>
 
-  <section class="sec" id="look">
+  <details class="sec fold" id="review">
+    <summary>Review: what changed and what to look at</summary>
+    <div id="reviewBanner" hidden></div>
+  <div id="look">
     <header>
       <div class="eyebrow">9 · Things to look at</div>
       <h2>Measured from this build</h2>
@@ -306,12 +308,16 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <div class="obs" id="obsList"></div>
     <h3>Open questions in the math review</h3>
     <div class="mr" id="mrList"></div>
-  </section>
+  </div>
+
+  </details>
 
   <footer class="prov" id="prov"></footer>
 </div>
 
 <script>
+const openReview = () => { if (location.hash === "#review" || location.hash === "#look") { const r = document.getElementById("review"); if (r) r.open = true; } };
+openReview(); addEventListener("hashchange", openReview);
 const D = /*__VALUES_DATA__*/null;
 (function () {
 "use strict";

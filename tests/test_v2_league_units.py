@@ -75,7 +75,7 @@ MUTATIONS = {
         "const c = compareValues(x, y, tie.type || \"number\") * (tie.dir === \"desc\" ? -1 : 1) * sign;", {"test_sort_tiebreak", "test_sort_core"}),
     "fit tier ignored in the ranking": ("opportunities.js", "return a.tier - b.tier || shown(b.edge)", "return shown(b.edge)", {"test_opportunities_rank", "test_opportunities_tier_before_edge"}),
     "overall fit always natural when it fills": ("opportunities.js", 'return theirLabel === "fills" ? "natural" : "value";', 'return "natural";', {"test_opportunities_fit_label", "test_opportunities_fit_label_rows"}),
-    "cache ignores the values": ("opportunities.js", 'const rowSig = r => `${r.player_key}:${[OUR_KEY].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;',
+    "cache ignores the values": ("opportunities.js", 'const rowSig = r => `${r.player_key}:${[OUR_KEY, "ddf_value_projections"].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;',
         'const rowSig = r => `${r.player_key}:${r.pos}`;', {"test_multi_trade_cache"}),
     "capture is not the finder edge": ("opportunities.js", "edge: t.edge, edgePct", "edge: t.edge + 0.7, edgePct", {"test_opportunities_1_opponent"}),
     "opponents not capped": ("opportunities.js", "const run = eligible.slice(0, MAX_OPPONENTS);", "const run = eligible;", {"test_opportunities_cap_and_headline"}),
