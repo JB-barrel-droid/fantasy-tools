@@ -419,7 +419,47 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
     return errors
 
 
+WIDE_FONT_CSS = '\n.v2-app, .v2-app * { font-family: "DejaVu Sans", sans-serif !important; }\n'
+
+
+def wide_font_overflow(css: str, widths=(1024, 1100, 1279)) -> dict:
+    """Page overflow and tab-row squeeze per width with the app drawn in DejaVu Sans, the font CI falls back to
+    when Inter is not installed (the hermetic browser blocks Google Fonts). Local Inter hid JEG-1056's overflow."""
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    out = {}
+    with _built_dist() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width in widths:
+                page = browser.new_page(viewport={"width": width, "height": 900})
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                page.route("**/v2/v2.css*", functools.partial(_serve, css + WIDE_FONT_CSS, "text/css"))
+                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
+                out[width] = page.evaluate("""() => { const t = document.querySelector('.v2-tabs');
+                  return {overflow: document.documentElement.scrollWidth - innerWidth, tabsScroll: t.scrollWidth, tabsClient: t.clientWidth}; }""")
+                page.close()
+        finally:
+            browser.close()
+    return out
+
+
 class WaterfallRenderTest(unittest.TestCase):
+    def test_no_sideways_scroll_with_a_wide_fallback_font(self):
+        """JEG-1056: CI draws the page in DejaVu Sans (no Inter), which made the nav 37 px wider than 1100 px."""
+        result = wide_font_overflow(V2_CSS.read_text(encoding="utf-8"))
+        print("WIDE FONT", result, file=sys.stderr, flush=True)
+        self.assertEqual({w: r["overflow"] for w, r in result.items()}, {w: 0 for w in result})
+        # The stress must be real: at 1024 the tab row has to be squeezed, or the font was not wide here.
+        self.assertGreater(result[1024]["tabsScroll"], result[1024]["tabsClient"], "DejaVu Sans did not widen the nav; the check is vacuous")
+
     def test_waterfall_verdict_layout_example(self):
         self.assertEqual(run_checks(), [])
 
