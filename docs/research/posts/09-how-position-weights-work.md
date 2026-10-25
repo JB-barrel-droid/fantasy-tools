@@ -1,6 +1,10 @@
 # How we split value across positions
 
 Research post 9 (JEG-925). Draft for Jeremy's review.
+All numbers recomputed 2026-10-25 on main bd345e00, after the change that fills
+bench seats with flex starters and turns the promotion model on by default
+(#867). The earlier draft's tables were computed before that change and are
+replaced here.
 Copy rules: for trades others will accept; no title abbreviations.
 
 ---
@@ -29,28 +33,35 @@ league's total value pie belongs to a group. There are eight groups: four
 positions (QB, RB, WR, TE) times two roles (starter, bench). The eight
 weights sum to 1.
 
-At PPR scoring with 12 teams and the default roster (QB1 RB2 WR3 TE1 FLEX1,
-6 bench), the current weights are:
+At PPR scoring with 12 teams and the default roster (QB1 RB2 WR2 TE1 FLEX1,
+7 bench), the current weights are:
 
 | Position | Starter | Bench | Total |
 |---|---|---|---|
-| QB | 10.0% | 0.7% | 10.7% |
-| RB | 35.5% | 2.6% | 38.1% |
-| WR | 41.3% | 2.6% | 43.9% |
-| TE | 7.2% | 0.1% | 7.3% |
-| **Total** | **93.9%** | **6.1%** | **100.0%** |
+| QB | 5.9% | 0.1% | 6.0% |
+| RB | 34.7% | 2.4% | 37.2% |
+| WR | 47.0% | 4.2% | 51.3% |
+| TE | 5.5% | 0.1% | 5.5% |
+| **Total** | **93.1%** | **6.9%** | **100.0%** |
+
+(Rounded to one decimal, so a row can differ from its parts by 0.1.)
 
 The total pie at this setting is 2,352 points (28 per starting slot times 12
-teams times 7 starters per team, plus the flex slot). Each group's budget is
-its weight times the pie. WR starters get 971 of the 2,352; QB starters get
-235; TE bench players get 3.
+teams times 7 starting slots per team, the flex slot included). Each group's
+budget is its weight times the pie. WR starters get 1,106 of the 2,352; QB
+starters get 138; TE bench players get about 1.
+
+What this means for a trade: at this setting more than half of all trade value
+sits in wide receivers, and the whole quarterback position gets about the
+same pie share as the tight ends. A quarterback is not cheap because he is
+bad; he is cheap because one starter per team leaves a small slice to divide.
 
 Those budgets control the Adjusted values. A source whose running backs carry
 a lot of surplus sees those values scaled up or down until the running back
 budget matches what the weights say. The weights are the bridge between each
 source's own opinion and the common scale.
 
-> Numbers: recomputed from `pipelines/value_reference.py`, `Setting(Inputs.load(), scoring='ppr', teams=12, expected_starts=True).result()['ddf_weights']` on the week 7 fixture (`data/fixtures/current/`). Verified: the eight groups sum to 1.0000.
+> Numbers: recomputed from `pipelines/value_reference.py`, `Setting(Inputs.load(), scoring='ppr', teams=12, expected_starts=True).result()['ddf_weights']` on the current fixture (`data/fixtures/current/`, built 2026-09-19). Verified: the eight groups sum to 1.0000.
 
 ## The inputs
 
@@ -68,14 +79,22 @@ The weights come from three things:
    superflex slots assigned by projected points (not by the source's own
    values). Bench seats are apportioned by D'Hondt across the positions,
    using draft-measured ratios of backups per starter from Fantasy Football
-   Calculator data (`config/market_bench.json`). This is VP-2.2.
+   Calculator data (`config/market_bench.json`). Since #867 the count of
+   starters that feeds this split includes the flex starters, so a position
+   that fills many flex slots (wide receivers, running backs) also gets
+   more bench seats, and quarterbacks get fewer. At PPR/12 the quarterback
+   bench went from 15 seats to 4. Superflex rosters keep the older count
+   (dedicated starters only), because the draft data for two-quarterback
+   leagues already reflects a short quarterback bench. This is VP-2.2.
 
 3. **The bench share from expected starts.** Instead of a fixed 15% bench
    share, the tool computes how much of each position's surplus actually
    reaches a starting lineup, using missed-game rates, bye weeks and
-   depth-chart volatility. The bench share is an output of the weight
-   computation, not an input. This is the expected-starts system (ES-0 to
-   ES-14).
+   depth-chart volatility. The model now also credits a bench player for the
+   chance he is promoted into a starting role (and debits a marginal starter
+   for the chance he is demoted), scaled by the weeks remaining (#867). The
+   bench share is an output of the weight computation, not an input. This is
+   the expected-starts system (ES-0 to ES-14).
 
 ## The derivation, step by step
 
@@ -97,18 +116,21 @@ Every included source goes through the same steps:
 5. Sum the starter slices and the bench slices at each position. This gives
    the source's eight group totals.
 
-For ESPN projections at PPR/12 this week, the group totals are:
+For ESPN projections at PPR/12 this week, the group totals (points per game
+of surplus over the waiver line, after the expected-starts split) are:
 
 | Group | Total |
 |---|---|
-| QB starter | 48.7 |
-| QB bench | 3.4 |
-| RB starter | 183.5 |
-| RB bench | 19.7 |
-| WR starter | 220.1 |
-| WR bench | 19.0 |
-| TE starter | 36.5 |
-| TE bench | 1.0 |
+| QB starter | 19.0 |
+| QB bench | 0.2 |
+| RB starter | 166.8 |
+| RB bench | 18.9 |
+| WR starter | 265.8 |
+| WR bench | 24.8 |
+| TE starter | 29.7 |
+| TE bench | 0.4 |
+
+They add to 525.8.
 
 > Numbers: from `res['sources']['espn']['groups']` in the same pipeline run.
 
@@ -123,23 +145,32 @@ source to two unit-free mixes:
 - **Bench mix**: the share of bench surplus at each position.
   `bench_mix[QB]` = QB bench total / sum of all bench totals.
 
-ESPN's starter mix this week: QB 10.0%, RB 37.5%, WR 45.0%, TE 7.5%.
-ESPN's bench mix: QB 7.8%, RB 45.7%, WR 44.2%, TE 2.3%.
+ESPN's starter mix this week: QB 4.0%, RB 34.6%, WR 55.2%, TE 6.2%.
+ESPN's bench mix: QB 0.5%, RB 42.6%, WR 55.9%, TE 1.0%.
 
 Each source also gets its own 8-group weight set. With expected starts
 enabled, each group's weight is simply its group total divided by the
 source's grand total (the mixes are combined through the source's own
 bench-to-starter ratio, which varies by source).
 
-The per-source starter mixes for all five included sources this week:
+The per-source starter mixes for all seven included sources this week:
 
 | Source | QB | RB | WR | TE |
 |---|---|---|---|---|
-| FantasyCalc (chart) | 8.5% | 39.6% | 43.7% | 8.2% |
-| CBS (chart) | 7.3% | 37.7% | 46.1% | 8.9% |
-| ESPN (projection) | 10.0% | 37.5% | 45.0% | 7.5% |
-| CBS rest of season (projection) | 15.1% | 36.5% | 40.7% | 7.7% |
-| Razzball (projection) | 12.4% | 37.4% | 44.4% | 5.9% |
+| USA Today (chart) | 7.9% | 34.1% | 51.0% | 7.0% |
+| FantasyCalc (chart) | 7.3% | 41.4% | 44.5% | 6.8% |
+| FantasyPros (chart) | 8.3% | 43.9% | 44.3% | 3.5% |
+| CBS (chart) | 7.7% | 38.4% | 48.3% | 5.6% |
+| ESPN (projection) | 4.0% | 34.6% | 55.2% | 6.2% |
+| CBS rest of season (projection) | 5.3% | 33.9% | 54.2% | 6.6% |
+| Razzball (projection) | 3.6% | 34.8% | 56.3% | 5.3% |
+| **Mean** | **6.3%** | **37.3%** | **50.5%** | **5.9%** |
+
+All four charts give quarterbacks 7.3% to 8.3% of starter surplus; all three
+projections give them 3.6% to 5.3%. That split is the main reason the
+combined quarterback share lands near 6% instead of near 8%. For a trade it
+means the quarterback prices you see are a compromise between a market that
+pays for the position and projections that do not.
 
 > Numbers: from `res['sources'][src]['starter_mix']` for each source.
 
@@ -154,16 +185,19 @@ The DDF weights are the average of all included sources' mixes:
 Sources that have no players at a position, or no weights at all, are
 excluded from the average at that position.
 
-With expected starts, the tool then averages each source's 8-group weights
-directly and renormalizes to 1. This means the bench share is an output:
-it is whatever the averaged weights say, not a fixed 15%. Currently the
-computed bench share is about 6.1% at PPR/12.
+With expected starts, the weights that are actually used come from a second
+average: the tool averages each source's 8-group weights directly (seven
+sources, each counted once) and renormalizes to 1. This means the bench
+share is an output: it is whatever the averaged weights say, not a fixed 15%.
+Currently the computed bench share is about 6.9% at PPR/12. The mix means
+below are reported as diagnostics; the final weights are the 8-group table at
+the top of this post.
 
-The final DDF weights this week:
+This week's mix means:
 
-    Starter mix mean:  QB 10.7%  RB 37.8%  WR 44.0%  TE 7.6%
-    Bench mix mean:    QB 12.1%  RB 40.5%  WR 44.4%  TE 3.0%
-    Bench share:       6.1%
+    Starter mix mean:  QB 6.3%  RB 37.3%  WR 50.5%  TE 5.9%
+    Bench mix mean:    QB 2.5%  RB 34.6%  WR 62.2%  TE 0.8%
+    Bench share:       6.9%
 
 ### Step 4: Weights become budgets (VP-5)
 
@@ -174,14 +208,14 @@ Each group's budget is pie times its weight:
 
 | Group | Weight | Budget |
 |---|---|---|
-| QB starter | 10.0% | 234.6 |
-| QB bench | 0.7% | 17.3 |
-| RB starter | 35.5% | 834.6 |
-| RB bench | 2.6% | 61.7 |
-| WR starter | 41.3% | 971.3 |
-| WR bench | 2.6% | 60.3 |
-| TE starter | 7.2% | 169.1 |
-| TE bench | 0.1% | 3.2 |
+| QB starter | 5.9% | 138.1 |
+| QB bench | 0.1% | 3.4 |
+| RB starter | 34.7% | 817.3 |
+| RB bench | 2.4% | 57.6 |
+| WR starter | 47.0% | 1,105.9 |
+| WR bench | 4.2% | 99.9 |
+| TE starter | 5.5% | 128.5 |
+| TE bench | 0.1% | 1.4 |
 
 Each source's Adjusted values are then scaled so its group totals match these
 budgets. A source with relatively more QB value than the average sees its QB
@@ -192,71 +226,89 @@ same for every source -- that is how sources end up on a common scale.
 
 ESPN projects players' points per game. At PPR/12, the allocation gives:
 
-- QB: 12 starters, 15 bench
-- RB: 27 starters (24 dedicated + 3 flex), 28 bench
-- WR: 33 starters (24 dedicated + 9 flex), 35 bench
-- TE: 12 starters, 6 bench
+- QB: 12 starters, 4 bench
+- RB: 27 starters (24 dedicated + 3 flex), 21 bench
+- WR: 33 starters (24 dedicated + 9 flex), 57 bench
+- TE: 12 starters, 2 bench
 
-ESPN's total value above waivers across all groups is 531.9 points per game.
+(Those 168 rostered players are 12 teams times 14 roster spots.)
+
+ESPN's total value above waivers across all groups is 525.8 points per game.
 Its group totals (from Step 1 above) give it this weight set:
 
-    QB starter: 48.7 / 531.9 = 9.2%
-    RB starter: 183.5 / 531.9 = 34.5%
-    WR starter: 220.1 / 531.9 = 41.4%
-    TE starter: 36.5 / 531.9 = 6.9%
-    (bench groups make up the remaining 8.2%)
+    QB starter: 19.0 / 525.8 = 3.6%
+    RB starter: 166.8 / 525.8 = 31.7%
+    WR starter: 265.8 / 525.8 = 50.6%
+    TE starter: 29.7 / 525.8 = 5.7%
+    (bench groups make up the remaining 8.4%)
 
-ESPN's weights are then averaged with the other four sources' weights. Each
+ESPN's weights are then averaged with the other six sources' weights. Each
 source counts once; no source is favored. The result is the DDF weight set
 shown in Step 3.
 
-The QB starter budget (234.6) is then applied to ESPN. ESPN's QB starter
-group total is 48.7, so the rate is `234.6 / 48.7 = 4.82`. Every QB starter
-on ESPN has their starter slice multiplied by 4.82 to produce their Adjusted
+The QB starter budget (138.1) is then applied to ESPN. ESPN's QB starter
+group total is 19.0, so the rate is `138.1 / 19.0 = 7.26`. Every QB starter
+on ESPN has their starter slice multiplied by 7.26 to produce their Adjusted
 starter contribution. This scales ESPN's per-game surplus into the trade
-value units the pie is denominated in.
+value units the pie is denominated in. ESPN gives quarterbacks a smaller
+share (3.6%) than the 5.9% budget, so its quarterbacks are scaled up; the
+same step scales its wide receivers (50.6% against a 47.0% budget) down.
 
 ## What changes the weights
 
 ### League size
 
-As leagues get larger, QB's share rises because more quarterbacks are
-rostered and the scarcity premium grows:
+League size moves the weights, but not in a straight line. The quarterback
+share rises from 8 to 12 teams and then eases at 14; running backs peak at
+12 teams. The bench share falls steadily as the league grows. I did not
+isolate why each position moves; treat the pattern as a measurement, not an
+explanation. In practice: do not assume a 14-team league values running
+backs more than a 12-team one.
 
 | Setting | QB | RB | WR | TE | Bench share |
 |---|---|---|---|---|---|
-| PPR 8 teams | 8.4% | 37.5% | 45.9% | 8.2% | 6.2% |
-| PPR 10 teams | 9.1% | 39.8% | 43.3% | 7.8% | 6.2% |
-| PPR 12 teams | 10.7% | 38.1% | 43.9% | 7.3% | 6.1% |
-| PPR 14 teams | 13.0% | 36.8% | 43.3% | 6.8% | 6.5% |
+| PPR 8 teams | 4.8% | 31.1% | 58.4% | 5.7% | 8.0% |
+| PPR 10 teams | 5.2% | 34.9% | 54.8% | 5.1% | 7.8% |
+| PPR 12 teams | 6.0% | 37.2% | 51.3% | 5.5% | 6.9% |
+| PPR 14 teams | 5.8% | 33.6% | 54.9% | 5.6% | 6.8% |
 
 ### Scoring format
 
 PPR scoring inflates the value of pass catchers. In standard scoring, RB
 takes a much larger share:
 
-| Setting | QB | RB | WR | TE |
-|---|---|---|---|---|
-| PPR 12 teams | 10.7% | 38.1% | 43.9% | 7.3% |
-| Half PPR 12 teams | 11.7% | 42.9% | 38.4% | 7.0% |
-| Standard 12 teams | 12.4% | 47.9% | 33.3% | 6.3% |
+| Setting | QB | RB | WR | TE | Bench share |
+|---|---|---|---|---|---|
+| PPR 12 teams | 6.0% | 37.2% | 51.3% | 5.5% | 6.9% |
+| Half PPR 12 teams | 6.2% | 47.2% | 41.4% | 5.2% | 6.8% |
+| Standard 12 teams | 6.7% | 60.0% | 28.4% | 4.9% | 7.9% |
+
+Moving from PPR to standard hands running backs 23 more points of the pie
+and takes 23 from wide receivers. A running back-for-wide receiver swap that
+looks even in PPR is not even in a standard league.
 
 ### Superflex
 
-Adding a superflex slot nearly doubles QB's share because QBs now fill a
-starting slot they were previously excluded from:
+Adding a superflex slot more than triples QB's share because quarterbacks now
+fill a starting slot on every team (24 quarterback starters instead of 12),
+and the pie grows from 2,352 to 2,688 points with the extra slot:
 
 | Setting | QB | RB | WR | TE |
 |---|---|---|---|---|
-| PPR 12, no superflex | 10.7% | 38.1% | 43.9% | 7.3% |
-| PPR 12, 1 superflex | 21.0% | 33.3% | 38.7% | 7.1% |
+| PPR 12, no superflex | 6.0% | 37.2% | 51.3% | 5.5% |
+| PPR 12, 1 superflex | 21.8% | 33.9% | 37.7% | 6.7% |
 
 ### Bench depth and roster shape
 
-More bench slots shift value toward positions with higher backup ratios
-(RB, WR). The bench share also rises slightly. Changing dedicated roster
-slots (for example, adding a second TE slot) increases that position's share
-directly because more starters means more surplus above the waiver line.
+Bench size mostly changes the bench share and barely moves the position
+split. At PPR/12 with 4, 7 (default) and 10 bench spots, the bench share is
+5.2%, 6.9% and 7.9%, and no position's total moves by more than about a
+point (QB 5.3%, 6.0%, 6.0%; TE 6.0%, 5.5%, 5.0%). Changing dedicated roster
+slots moves the split directly: adding a second TE slot takes TE from 5.5%
+to 11.3% and the pie from 2,352 to 2,688 points, because there are now two
+tight end starters per team above the waiver line. If you play a bigger bench
+or an extra starting slot, expect the tool's values for that position to
+move; a deeper bench alone will not reshuffle the positions.
 
 ## Alternatives tried and rejected
 
@@ -291,36 +343,49 @@ These are documented in the bench-rule research
    decision was a flat 15% bench share. This was replaced by the
    expected-starts computation (OC-9, `es-value-001`, Jeremy 2026-10-09),
    which derives the bench share from how much bench surplus actually reaches
-   a starting lineup. The computed share turned out to be around 6% -- less
+   a starting lineup. The computed share turned out to be around 7% -- less
    than half the fixed 15%. The 15% is still the default for the reader's
    manual slider, but the tool's own weights use the computed share.
 
-> Source for rules A through C3: `docs/research/bench-rule-research.md`, scorecard table. The chosen rule is C1 (draft ratio per starter, D'Hondt apportionment). Source for the 15% replacement: `docs/methodology.md` VP-3.4, ES-0 to ES-14, and `docs/research/qb-bench-share.md`.
+> The fit errors in items 1 to 4 come from the bench-rule research, which that
+> page marks as run on the 2026-10-10 engine, before bench seats counted flex
+> starters. They were not recomputed here. Source for rules A through C3: `docs/research/bench-rule-research.md`, scorecard table. The chosen rule is C1 (draft ratio per starter, D'Hondt apportionment). Source for the 15% replacement: `docs/methodology.md` VP-3.4, ES-0 to ES-14, and `docs/research/qb-bench-share.md`.
 
 ## Sensitivity: what happens if the weights move
 
 Because every source is rescaled to the same budgets, shifting weight between
 positions changes the relative value of players across positions.
 
-A 5-percentage-point shift from WR to RB (for example, moving WR from 44% to
-39% and RB from 38% to 43%) would increase every running back's Adjusted
-value by about 13% and decrease every wide receiver's Adjusted value by about
-11%. DDF Value, which averages the Adjusted values, would move proportionally.
+A 5-percentage-point shift from WR to RB at PPR/12 (RB from 37.2% to 42.2%,
+WR from 51.3% to 46.3%) raises every running back's DDF Value by 13.4% and
+lowers every wide receiver's by 9.8%. Quarterbacks and tight ends do not
+move. I checked this by re-running the reference with those position shares
+set: every running back and every wide receiver moved by the same ratio.
 
-The sensitivity is roughly proportional: a 1-point shift in weight moves a
-position's values by about 2 to 3 percent. This means the weights are
-consequential -- small changes to the inputs (for example, one source joining
-or leaving the included set) can shift a position's total trade value by a
-meaningful amount.
+The size of the effect depends on how big the position's share is. A
+1-point shift changes a position's values by about 1 divided by its share:
 
-However, the multi-source averaging provides stability. Because the DDF
-weights are the mean of five to seven sources' mixes, a single source
-changing its position opinion moves the weights by only about 1/5 to 1/7 of
-the change in that source's mix.
+| Position | Share | Value change per 1-point shift |
+|---|---|---|
+| QB | 6.0% | 16.6% |
+| RB | 37.2% | 2.7% |
+| WR | 51.3% | 2.0% |
+| TE | 5.5% | 18.1% |
+
+So a small position is far more sensitive to the weights than a large one.
+For you, this means quarterback and tight end values are the ones most
+exposed to a change in method (for example, one source joining or leaving).
+
+The multi-source average gives stability. Each of the seven sources counts for
+one seventh of the weights. Leaving out any single source at PPR/12 moves the
+quarterback share between 5.7% and 6.5% (from 6.0%), running backs between
+36.1% and 37.9% (from 37.2%) and wide receivers between 50.4% and 52.3% (from
+51.3%). The largest single move is FantasyPros, whose removal takes running
+backs down 1.1 points.
 
 ## Known limits and open questions
 
-1. **The bench share is lower than intuition suggests.** At about 6%, the
+1. **The bench share is lower than intuition suggests.** At about 7%, the
    expected-starts bench share is less than half the original 15% fixed
    share. The expected-starts model says this is correct: most bench value
    comes from filling in for injured starters and bye weeks, which adds up
@@ -331,7 +396,8 @@ the change in that source's mix.
 2. **The QB bench share was an artifact.** An earlier version showed QB
    bench share at 22.6% because two elite quarterbacks were misclassified as
    bench players due to one projection source's outlier inputs. The Razzball
-   missed-games guard (JEG-555/593) fixed the cause. See
+   missed-games guard (JEG-555/593) fixed the cause, and the flex-filled seat
+   count now gives a 12-team league 4 quarterback bench seats, not 15. See
    `docs/research/qb-bench-share.md` for the full story.
 
 3. **Draft-measured backup ratios are frozen.** The `config/market_bench.json`
@@ -376,10 +442,10 @@ the change in that source's mix.
 > charts and projections alike. Each source gets its own position split, then
 > the tool averages them.
 >
-> The result: at PPR with 12 teams, wide receivers hold about 44% of the
-> value, running backs about 38%, quarterbacks about 11%, and tight ends about
-> 7%. Those shares change with your league size, scoring format, and roster
-> settings. In superflex leagues, QB's share nearly doubles.
+> The result: at PPR with 12 teams, wide receivers hold about 51% of the
+> value, running backs about 37%, quarterbacks about 6%, and tight ends about
+> 5.5%. Those shares change with your league size, scoring format, and roster
+> settings. In superflex leagues, QB's share more than triples.
 >
 > The weights are recomputed every week from fresh data. No position has a
 > fixed share.
@@ -392,8 +458,9 @@ implementation is a follow-up ticket.
 
 ## Traceability
 
-Every number in this post was produced by running the Python reference
-pipeline on the week 7 fixture:
+Every number in this post was produced on 2026-10-25 by running the Python
+reference pipeline on the current fixture (`data/fixtures/current/`, built
+2026-09-19) at main bd345e00:
 
     python3 -c "
     from pipelines.value_reference import Setting, Inputs, POSITIONS
@@ -412,7 +479,13 @@ tables come from the same script run at different `teams`, `scoring` and
 `superflex` parameters.
 
 **Verified:** eight-group sum equals 1.0000; budgets equal pie times weights;
-per-source group totals match the code's output. **Not verified:** the
-sensitivity percentages (2 to 3 percent per 1-point shift) are approximate,
-estimated from the budget formula, not from a full re-run with perturbed
-weights.
+per-source group totals match the code's output; the same checks hold at all
+24 combinations of 3 scorings (standard, half PPR, PPR), 4 league sizes
+(8, 10, 12, 14) and no or one superflex slot. The sensitivity table's
+13.4% and 9.8% come from a re-run with position shares set
+(`position_shares`); the per-point column is the formula 1 divided by the
+share. **Not verified:** the browser engine was not re-run against these
+figures (that it matches the reference rests on the strict compare in the
+deploy gate); the bench-rule fit errors are quoted from the older bench
+research; the fixture does not state its week, so the post no longer names
+one.
