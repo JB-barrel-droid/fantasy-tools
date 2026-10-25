@@ -144,19 +144,28 @@ def score_order(scores: dict, pos_of: dict) -> dict:
 
 # ---------------------------------------------------------------- VP-2.2 allocation
 
-def dhondt_bench(setting) -> dict:
+def dhondt_bench(setting, *, flex_filled: dict | None = None) -> dict:
     """VP-2.2d: D'Hondt bench seats via roster convention (market bench
-    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights."""
+    ratios, JEG-560). Replaces the fixed BENCH_MIX_12 weights.
+
+    flex_filled: optional {pos: count} of superflex+flex starters (MR-28)."""
     slots = {p: int(setting.slots.get(p, 0)) for p in _CONV_POSITIONS}
     seats = _convention_bench_seats(
         slots, setting.teams, setting.bench_per_team,
         superflex=(setting.superflex > 0),
+        flex_filled=flex_filled,
     )
     return {p: seats.get(p, 0) for p in POSITIONS}
 
 
-def allocate(setting: Setting, order: dict, scores: dict) -> dict:
-    """League allocation (VP-2.2 a-e) on a per-position order with scores."""
+def allocate(setting: Setting, order: dict, scores: dict, *,
+             flex_bench_seats: bool = True) -> dict:
+    """League allocation (VP-2.2 a-e) on a per-position order with scores.
+
+    flex_bench_seats (MR-28): on by default (2026-10-23, Jeremy approved).
+    Bench weights count sf+flex starters.
+    Skipped in 2-QB / superflex (Jeremy, 2026-10-23, option A):
+    market_bench 2-QB data already reflects supply-capped QB benches."""
     T = setting.teams
     ded = {p: T * int(setting.slots.get(p, 0)) for p in POSITIONS}
 
@@ -172,7 +181,11 @@ def allocate(setting: Setting, order: dict, scores: dict) -> dict:
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    bench = dhondt_bench(setting)
+    # Skip flex_bench_seats in 2-QB / superflex (Jeremy, 2026-10-23).
+    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+    use_flex = flex_bench_seats and not is_two_qb
+    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
+    bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         starters = ded[p] + sf[p] + fx[p]
@@ -310,7 +323,8 @@ def resolve_lineup(cfg: dict, objective: str | None = None, injury_history: str 
     return {"bye": b, "projection_confidence": conf, "window": [lo, hi], "positions": pos}
 
 
-def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) -> dict:
+def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
+                   *, flex_bench_seats: bool = True) -> dict:
     """ES-15.3 (SA-ES-3): sigma for the chart family, per position."""
     shared = None
     for c in charts:
@@ -321,7 +335,20 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict) 
     for c in charts:
         t = fsum_in_order(natives[c][k] for k in sorted(shared))
         scale[c] = 1000.0 / t if t > 0 else 1.0
-    bench = dhondt_bench(setting)
+    # MR-28: approximate flex_filled for bench weights
+    # Skipped in 2-QB / superflex (Jeremy, 2026-10-23).
+    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+    ff = None
+    if flex_bench_seats and not is_two_qb:
+        ff = {}
+        sf_total = setting.teams * setting.superflex
+        fx_total = setting.teams * setting.flex
+        for p in POSITIONS:
+            n_listed = sum(1 for k in shared if pos_of.get(k) == p)
+            ded = setting.teams * int(setting.slots.get(p, 0))
+            avail = max(0, n_listed - ded)
+            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail)
+    bench = dhondt_bench(setting, flex_filled=ff)
     res = {}
     for p in POSITIONS:
         vals: dict = {}
@@ -374,11 +401,70 @@ def es_parts(values: list, S: int, T: int, w: float, line: float, m: float, bye:
     return {"avail": avail, "n_per_team": n, "bands": bands, "rows": out}
 
 
+# ---------------------------------------------------------------- JEG-969 promotion/demotion
+
+import json as _json
+
+_PROMOTION_CONFIG = _REPO / "config" / "promotion_rates.json"
+
+
+def _load_promotion_config() -> dict:
+    return _json.loads(_PROMOTION_CONFIG.read_text(encoding="utf-8"))
+
+
+def _promotion_rate(cfg: dict, pos: str, depth: int) -> float:
+    rates = cfg.get("promotion_rate_per_remaining_week", {}).get(pos, {})
+    if depth <= 0:
+        return 0.0
+    key = str(min(depth, 4)) if depth <= 3 else "4+"
+    return float(rates.get(key, rates.get("4+", 0.0)))
+
+
+def _demotion_rate_cfg(cfg: dict, pos: str) -> float:
+    return float(cfg.get("demotion_rate_per_remaining_week", {}).get(pos, 0.0))
+
+
+def apply_promotion_model(parts: dict, values: list, S: int, T: int, pos: str,
+                          cfg: dict, weeks_remaining: float) -> dict:
+    """JEG-969: adjust es_parts rows for promotion/demotion dynamics."""
+    avail = parts["avail"]
+    if avail <= 0 or weeks_remaining <= 0:
+        return parts
+    n = parts["n_per_team"]
+    rows = []
+    for rank_0, (pt, x) in enumerate(zip(parts["rows"], values)):
+        rank = rank_0 + 1
+        sw = pt["sw"]
+        fi = pt["fi"]
+        ls = pt["share"]
+        if rank > S:
+            depth = rank - S
+            rate_pw = _promotion_rate(cfg, pos, depth)
+            bonus = rate_pw * weeks_remaining * 0.5
+            new_ls = min(avail, ls + bonus * (avail - ls))
+            if ls > 0:
+                scale = new_ls / ls
+                sw *= scale
+                fi *= scale
+            ls = new_ls
+        elif rank > S - n * T and rank <= S:
+            rate_pw = _demotion_rate_cfg(cfg, pos)
+            penalty = rate_pw * weeks_remaining * 0.5
+            new_ls = max(0.0, ls - penalty * ls)
+            if ls > 0:
+                scale = new_ls / ls
+                sw *= scale
+                fi *= scale
+            ls = new_ls
+        rows.append({"sw": sw, "fi": fi, "share": ls, "start_worthy": pt["start_worthy"]})
+    return {**parts, "rows": rows}
+
+
 # ---------------------------------------------------------------- one source, VP-2/3
 
 def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
                  fill_sets: dict | None, peers: list, m: dict, bs: float | None,
-                 es: dict | None = None) -> dict:
+                 es: dict | None = None, promotion: dict | None = None) -> dict:
     """VP-2 (work lists, waiver/starter lines, slices) and VP-3 for one source."""
     nat = natives[s]
     listed_by_pos = {p: [] for p in POSITIONS}
@@ -434,6 +520,10 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
                 sig, floor = prm["sigma_rel"], prm["sigma_floor"]
             got = es_parts([work_val[k] for k in work], S, es["teams"], w, line, prm["m"],
                            es["lineup"]["bye"], sig, floor)
+            # JEG-969: apply promotion/demotion model if enabled
+            if promotion is not None:
+                got = apply_promotion_model(got, [work_val[k] for k in work], S, es["teams"],
+                                            p, promotion["config"], promotion["weeks_remaining"])
             parts = got["rows"]
             info.update(avail=got["avail"], bands=got["bands"],
                         lineup={"m": prm["m"], "n_per_team": got["n_per_team"], "sigma_rel": sig,
@@ -587,25 +677,90 @@ def row_value(r: dict, family: str, k: int, p: str, view: str):
     return None, None             # projection that does not list him
 
 
-def ddf_version(values: dict, members: list) -> dict:
+def normalize_basis(cfg: dict | None, source_order: list) -> dict | None:
+    """JEG-1044: the reader's value basis. None = the default (equal-weight
+    projections). Else {"mode", "asked", "keys" (in source order), "weights"}.
+    "single": one source, weight 1. "blend": every named source with a positive
+    weight (a missing weight reads as 1)."""
+    if not cfg or not cfg.get("mode") or cfg["mode"] == "default":
+        return None
+    asked, weights = [], {}
+    if cfg["mode"] == "single":
+        one = cfg.get("source")
+        if one is None and cfg.get("sources"):
+            one = cfg["sources"][0]
+        if one is None:
+            return None
+        asked, weights = [str(one)], {str(one): 1.0}
+    elif cfg["mode"] == "blend":
+        named = cfg.get("sources")
+        if named is None:
+            named = list((cfg.get("weights") or {}).keys())
+        for k in named:
+            k = str(k)
+            w = float((cfg.get("weights") or {}).get(k, 1))
+            if not (w > 0) or w == float("inf") or k in weights:
+                continue
+            asked.append(k)
+            weights[k] = w
+    else:
+        return None
+    if not asked:
+        return None
+    return {"mode": cfg["mode"], "asked": asked, "keys": [s for s in source_order if s in asked],
+            "weights": weights}
+
+
+def ddf_version(values: dict, members: list, weights: dict | None = None) -> dict:
     used = [(s, values[s]) for s in members if values.get(s) is not None]
     if not used:
         return {"value": None, "count": 0, "low_confidence": False, "sources": [],
                 "reason": "No source prices this player"}
-    val = fsum_in_order(v for _, v in used) / len(used)
-    out = {"value": val, "count": len(used), "low_confidence": len(used) == 1,
+    if weights is not None:
+        # Weighted mean on the Adjusted scale, re-normalised over the sources
+        # that price the player (JEG-1044).
+        val = fsum_in_order(weights[s] * v for s, v in used) / fsum_in_order(weights[s] for s, _ in used)
+    else:
+        val = fsum_in_order(v for _, v in used) / len(used)
+    thin = len(used) == 1 and (weights is None or len(members) > 1)   # a one-source basis is not "only one source"
+    out = {"value": val, "count": len(used), "low_confidence": thin,
            "sources": [s for s, _ in used]}
-    if len(used) == 1:
+    if thin:
         out["reason"] = "Only one source prices this player"
     return out
+
+
+def apply_value_overrides(rows: dict, overrides: dict) -> None:
+    """JEG-1035 / JEG-1044: the reader's per-player DDF Value overrides, a
+    row-level overlay applied after the pipeline. It replaces the blended and
+    DDF value only (JEG-1073: the projections version is a separate alternate);
+    Adjusted values, Indexed values, the pie and the charts-only and projections
+    versions are never touched. Absolute values."""
+    for k, row in rows.items():
+        ov = overrides.get(k)
+        for field_ in ("ddf_blended",):
+            entry = row[field_]
+            entry["pipeline_value"] = entry["value"]
+            entry["overridden"] = ov is not None
+            if ov is not None:
+                entry["value"] = float(ov)
+                entry["low_confidence"] = False
+                entry.pop("reason", None)
 
 
 # ---------------------------------------------------------------- one week
 
 def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
-             lineup: dict | None = None, hidden: list | None = None) -> dict:
+             lineup: dict | None = None, hidden: list | None = None,
+             promotion_model: bool = True, flex_bench_seats: bool = True,
+             basis: dict | None = None) -> dict:
     """VP-2 .. VP-7 for one week.
+
+    basis: JEG-1044, the reader's value basis ({"mode": "single"|"blend", ...});
+           None or mode "default" = equal-weight projections. It changes only
+           the blended DDF Value (and so the Indexed basis, tiers, ranking);
+           allocation, weights, pie and Adjusted values never see it.
 
     sources: {key: {"family": "projection"|"chart", "values": {player_key: native}}}
              in source-key display order; natives already carry the superflex
@@ -629,7 +784,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     degenerate = not proj_in
     if not degenerate:
         p_order = score_order(m, pos_of)
-        alloc = allocate(setting, p_order, m)
+        alloc = allocate(setting, p_order, m, flex_bench_seats=flex_bench_seats)
         fill_sets = {p: p_order[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     else:   # VP-2.2 f (SA-3)
         alloc, fill_sets, p_order = None, None, None
@@ -638,17 +793,32 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     if lineup is not None:
         charts_in = [s for s in inc if family[s] == CHART]
         es = {"teams": setting.teams, "lineup": lineup,
-              "chart_sigma": es_chart_sigma(setting, natives, charts_in, pos_of)}
+              "chart_sigma": es_chart_sigma(setting, natives, charts_in, pos_of,
+                                            flex_bench_seats=flex_bench_seats)}
         bs = setting.bench_share_override
+
+    # JEG-969: promotion/demotion model (off by default)
+    promo = None
+    if promotion_model and es is not None and lineup is not None:
+        promo_cfg = _load_promotion_config()
+        season_wks = float(promo_cfg.get("season_weeks", 17))
+        window = lineup.get("window")
+        if window is not None:
+            w0, w1 = window
+            weeks_rem = max(0.0, float(w1 - w0 + 1))
+        else:
+            weeks_rem = season_wks
+        promo = {"config": promo_cfg, "weeks_remaining": weeks_rem}
+
     priced = {}
     for s in sources:
         if degenerate:
             own = score_order(natives[s], pos_of)
-            a = allocate(setting, own, natives[s])
+            a = allocate(setting, own, natives[s], flex_bench_seats=flex_bench_seats)
         else:
             a = alloc
         peers = [k for k in peers_all if k != s]
-        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs, es)
+        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs, es, promo)
         priced[s]["status"] = "included" if s in inc else sources[s].get("status", "excluded")
         priced[s]["allocation"] = a
     S_raw, B_raw, bs_star, W = ddf_weights(priced, inc, bs, setting.position_shares)
@@ -661,13 +831,22 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     # JEG-569 part 2 / JEG-787: hidden sources are in `inc` (so they count in
     # allocation, weights and pie) but excluded from the DDF Value blend and
     # the Indexed basis, matching value-model.js isHidden.
-    # JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
-    # only.  Trade charts are out of the blended DDF Value.
+    # JEG-1073 (Jeremy, 2026-10-25): DDF Value = the Adjusted trade charts,
+    # equal weight; the projections version is the alternate. Reverses JEG-804.
     proj_members = [s for s in inc if s not in hidden_set and family[s] == PROJECTION and (sel is None or s in sel)]
-    # JEG-804 fallback: when no projection is in I (e.g. a saved week where
-    # the only projection is unmatched), use all included sources for blended
-    # so the Indexed basis can still be computed.
-    blended_members = proj_members if proj_members else [s for s in inc if s not in hidden_set and (sel is None or s in sel)]
+    # No fallback to the other family: with no chart in I, DDF Value is null.
+    blended_members = [s for s in inc if s not in hidden_set and family[s] == CHART and (sel is None or s in sel)]
+    blend_weights = None
+    asked = normalize_basis(basis, list(sources))
+    basis_out = None
+    if asked is not None:
+        usable = [s for s in asked["keys"] if s in inc and s not in hidden_set]
+        basis_out = {"mode": asked["mode"], "requested": list(asked["asked"]), "applied": bool(usable),
+                     "members": list(usable), "weights": {s: asked["weights"][s] for s in usable},
+                     "fell_back_to_default": not usable}
+        if usable:
+            blended_members = usable
+            blend_weights = asked["weights"]
     members = {
         "blended": blended_members,
         "charts": [s for s in inc if s not in hidden_set and family[s] == CHART],   # JEG-930: charts-only ignores the blend selection
@@ -685,7 +864,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
                 est[s] = path
         rows[k] = {"name": (names or {}).get(k), "pos": p, "adjusted": adj, "vorp_vs_waivers": vorp,
                    "estimated": est,
-                   "ddf_blended": ddf_version(adj, members["blended"]),
+                   "ddf_blended": ddf_version(adj, members["blended"], blend_weights),
                    "ddf_charts": ddf_version(adj, members["charts"]),
                    "ddf_projections": ddf_version(adj, members["projections"]),
                    "mean_ppg": m.get(k)}
@@ -724,7 +903,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     if degenerate:
         ddf_scores = {k: rows[k]["ddf_blended"]["value"] for k in row_keys
                       if rows[k]["ddf_blended"]["value"] is not None}
-        slot_fill = allocate(setting, score_order(ddf_scores, pos_of), ddf_scores)
+        slot_fill = allocate(setting, score_order(ddf_scores, pos_of), ddf_scores,
+                             flex_bench_seats=flex_bench_seats)
     else:
         slot_fill = alloc
     for p in POSITIONS:
@@ -750,7 +930,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     budgets = {g: pie * W[g] for g in GROUP_KEYS}
     # ES-14 readout (SA-ES-5): bench tier = ranks S_p+1..N_p of the
     # projected-points order; value = blended DDF Value over I, no selection.
-    # JEG-804: uses the blended DDF Value (now projections-only), matching
+    # JEG-1073: uses the blended DDF Value (now the chart average), matching
     # the engine's indexBasis.
     readout = None
     if not degenerate:
@@ -783,6 +963,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
             src_out[s]["allocation"] = r["allocation"]
     return {
         "included": inc,
+        "basis": basis_out,
         "hidden": [s for s in inc if s in hidden_set],
         "pie": pie,
         "starting_slots_per_team": setting.starting_slots_per_team(),
@@ -812,14 +993,17 @@ VERSIONS = (("blended", "ddf_blended"), ("charts", "ddf_charts"), ("projections"
 def run(setting: Setting, pos_of: dict, current: dict, prior: dict | None, included: list,
         selection: list | None = None, names: dict | None = None,
         prior_pos_of: dict | None = None, lineup: dict | None = None,
-        hidden: list | None = None) -> dict:
+        hidden: list | None = None, promotion_model: bool = True,
+        flex_bench_seats: bool = True, basis: dict | None = None) -> dict:
     """Both weeks and the change. `prior` holds only sources with a prior
     snapshot; the prior week uses the same I and setting (VP-8.1)."""
-    cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden)
+    cur = run_week(setting, pos_of, current, included, selection, names, lineup, hidden=hidden,
+                   promotion_model=promotion_model, flex_bench_seats=flex_bench_seats, basis=basis)
     out = {"current": cur, "prior": None}
     if prior:
         prior_src = {s: prior[s] for s in included if s in prior}
-        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup, hidden=hidden)
+        pw = run_week(setting, prior_pos_of or pos_of, prior_src, included, selection, names, lineup, hidden=hidden,
+                      promotion_model=promotion_model, flex_bench_seats=flex_bench_seats, basis=basis)
         out["prior"] = pw
         for k, row in cur["rows"].items():
             prow = pw["rows"].get(k)

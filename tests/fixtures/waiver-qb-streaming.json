@@ -1,0 +1,190 @@
+{
+ "name": "waiver-qb-streaming",
+ "split": "training",
+ "description": "One QB (low value): a good QB and a marginal one whose gain sits inside the sources' disagreement.",
+ "teams": 12,
+ "alloc": [
+  {
+   "pos": "QB",
+   "lineup": 12,
+   "bench": 15,
+   "rostered": 27
+  },
+  {
+   "pos": "RB",
+   "lineup": 27,
+   "bench": 28,
+   "rostered": 55
+  },
+  {
+   "pos": "WR",
+   "lineup": 33,
+   "bench": 35,
+   "rostered": 68
+  },
+  {
+   "pos": "TE",
+   "lineup": 12,
+   "bench": 6,
+   "rostered": 18
+  }
+ ],
+ "shape": {
+  "QB": 1,
+  "RB": 2,
+  "WR": 2,
+  "TE": 1,
+  "FLEX": 1,
+  "SUPERFLEX": 0,
+  "BENCH": 3,
+  "K": 0,
+  "DST": 0
+ },
+ "roster": [
+  {
+   "key": "QB201",
+   "name": "Sam SlowQB",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 6,
+   "noise": 0.0,
+   "market": 5.4
+  },
+  {
+   "key": "RB202",
+   "name": "Ron One",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 20,
+   "noise": 0.0,
+   "market": 18.0
+  },
+  {
+   "key": "RB203",
+   "name": "Ray Two",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 14,
+   "noise": 0.0,
+   "market": 12.6
+  },
+  {
+   "key": "RB204",
+   "name": "Rob Three",
+   "pos": "RB",
+   "team": "XXX",
+   "ddf": 8,
+   "noise": 0.0,
+   "market": 7.2
+  },
+  {
+   "key": "WR205",
+   "name": "Will One",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 25,
+   "noise": 0.0,
+   "market": 22.5
+  },
+  {
+   "key": "WR206",
+   "name": "Wil Two",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 18,
+   "noise": 0.0,
+   "market": 16.2
+  },
+  {
+   "key": "WR207",
+   "name": "Wen Three",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 7,
+   "noise": 0.0,
+   "market": 6.3
+  },
+  {
+   "key": "WR208",
+   "name": "Wyn Four",
+   "pos": "WR",
+   "team": "XXX",
+   "ddf": 4.8,
+   "noise": 0.0,
+   "market": 4.32
+  },
+  {
+   "key": "TE209",
+   "name": "Ted One",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 12,
+   "noise": 0.0,
+   "market": 10.8
+  },
+  {
+   "key": "TE210",
+   "name": "Tex Two",
+   "pos": "TE",
+   "team": "XXX",
+   "ddf": 4.5,
+   "noise": 0.0,
+   "market": 4.05
+  }
+ ],
+ "candidates": [
+  {
+   "key": "QB211",
+   "name": "Gus GoodQB",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 14,
+   "noise": 0.0,
+   "market": 12.6
+  },
+  {
+   "key": "QB212",
+   "name": "Mo MarginalQB",
+   "pos": "QB",
+   "team": "XXX",
+   "ddf": 5.5,
+   "noise": 1.0,
+   "market": 4.95
+  }
+ ],
+ "expect": {
+  "verdicts": {
+   "Gus GoodQB": "Pick up",
+   "Mo MarginalQB": "Consider"
+  },
+  "drops": {
+   "Gus GoodQB": "Tex Two",
+   "Mo MarginalQB": "Tex Two"
+  },
+  "order": [
+   "Gus GoodQB",
+   "Mo MarginalQB"
+  ],
+  "total": {
+   "Gus GoodQB": 8.15,
+   "Mo MarginalQB": 0.1
+  },
+  "tau": {
+   "Mo MarginalQB": 1.0
+  },
+  "headline": "Pick up Gus GoodQB, drop Tex Two: +8.0 starter value",
+  "combos": [],
+  "_combos_note": "Gus + Mo is worth 7.98, less than Gus alone (8.15): not listed.",
+  "starter": {
+   "Gus GoodQB": 8.0
+  }
+ },
+ "weights": {
+  "overall": 0.15,
+  "QB": 0.1,
+  "RB": 0.2,
+  "WR": 0.15,
+  "TE": 0.1
+ },
+ "weights_note": "bench weights (the engine's share of starts the bench takes), per position; bench value counts at these weights, starters in full"
+}

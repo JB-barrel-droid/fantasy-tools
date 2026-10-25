@@ -111,7 +111,7 @@ def check(snap, tag) -> list[str]:
                 errors.append(f"{tag}{name} player {w[0]}: in the wrong list ({g['moved']})")
     if "Week 5 → Week 6" not in snap["meta"] or "like for like" not in snap["meta"] or "compared" not in snap["meta"]:
         errors.append(f"{tag}meta line {snap['meta']!r}")
-    if snap["h2"] != "Where the market and the projections disagree":
+    if snap["h2"] != "Where DDF Value and the projections disagree":   # JEG-1073 name
         errors.append(f"{tag}heading {snap['h2']!r}")
     return errors
 
@@ -164,7 +164,7 @@ def run_checks(movers_patch=None) -> list[str]:
                       n: document.querySelectorAll('#v2RMkt li[data-player-key], #v2RProj li[data-player-key]').length})""")
                     if real["meta"].startswith("No comparison yet") and real["n"]:
                         errors.append(f"[real data] no comparison but {real['n']} players listed: {real['meta']!r}")
-                    if real["meta"].startswith("No comparison yet") and "Trade chart average" not in real["meta"] and "DDF Projections" not in real["meta"]:
+                    if real["meta"].startswith("No comparison yet") and "Trade chart average" not in real["meta"] and "DDF Value" not in real["meta"]:
                         errors.append(f"[real data] the reason names no series: {real['meta']!r}")
                     fresh.close()
                 if page_errors:

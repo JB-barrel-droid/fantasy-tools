@@ -124,7 +124,7 @@ def collect(overrides=None):
             page, errors = open_page(f"{base}/v2/")
             page.evaluate("() => { location.hash = '#trade-targets'; }")
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=30000)
-            # JEG-677: DDF Projections is the default Our value; this check is about ESPN, so pick it.
+            # JEG-677: DDF Value is the default Our value; this check is about ESPN, so pick it.
             page.select_option("#v2TOurs", "espn")
             page.click("#v2Targets [data-side=sell]")
             out["targets"] = page.evaluate("""(name) => {

@@ -1121,11 +1121,17 @@ def fc_grain_check(left: dict, right: dict, *, bake_age_s: float | None = None) 
         # Walk the chain from `start`
         chain = [start]
         cur = nearest[start]
-        while cur != start and cur not in visited and cur in nearest:
+        # JEG-979: stop on any column already on this chain, not only `start`.
+        # A chain can end on a column nearest itself (stored std -> live half,
+        # half -> half) or run into a cycle that excludes `start` (a -> b -> c
+        # -> b); checking only `start` never ended the walk (unbounded memory).
+        while cur not in chain and cur not in visited and cur in nearest:
             chain.append(cur)
             cur = nearest[cur]
-        if cur == start and len(chain) >= 2:
-            on_cycle.update(chain)
+        if cur in chain:
+            loop = chain[chain.index(cur):]
+            if len(loop) >= 2:
+                on_cycle.update(loop)
         visited.update(chain)
 
     problems = []

@@ -57,7 +57,7 @@ Status: v1.2 (2026-10-10). Earlier versions are superseded.
 
   - **GL-10** The reader's selection (series, DDF inputs, ranking) is remembered on this device.
 
-  - **GL-11** Changes to league settings are a draft until Apply. Nothing reaches the values before Apply.
+  - **GL-11** Changes to league settings apply as they change: no Apply or Save step. Rapid changes are one recompute; an invalid in-between state keeps the last valid results and says why; Find a trade re-reads the pasted roster text and re-runs under the new settings. *(Changed 2026-10-24 from "a draft until Apply", Jeremy, JEG-1020.)*
 
   - **GL-12** The bench share shown is the one the engine computed from the reader's settings (the readout in GL-23) or, when the override is on, the reader's own number. v2 does no math on it.
 
@@ -162,7 +162,7 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
   - **RF-01** Defaults to DDF Value, with series grouped in the picker. Counts the players it could not compare.
 
-  - **RF-02** "Where the market and the projections disagree": compares the change in Trade chart average with the change in DDF Projections, week over week and like for like (a source without a saved prior week is left out of both weeks). Two lists: "Market moved, projections didn't" and "Projections moved, market didn't". A player qualifies when one side moved 2.5 points or more either way and the other 1.0 or less. Each player gets a rule-based read: market up only, "Buying in without the production: sell"; market down only, "Panic the projections don't share: buy"; projections up only, "Market hasn't caught up: buy"; projections down only, "Market hasn't reacted: sell". With no prior week for either series it says so and lists nothing. *(JEG-488; pinned by `tests/test_v2_disagree.py` and `tests/test_v2_disagree_render.py`)*
+  - **RF-02** "Where DDF Value and the projections disagree" (JEG-1073 names): compares the change in DDF Value (the Adjusted trade chart average) with the change in DDF Value (projections), week over week and like for like (a source without a saved prior week is left out of both weeks). Two lists: "DDF Value moved, projections didn't" and "Projections moved, DDF Value didn't". A player qualifies when one side moved 2.5 points or more either way and the other 1.0 or less. Each player gets a rule-based read: market up only, "Buying in without the production: sell"; market down only, "Panic the projections don't share: buy"; projections up only, "Market hasn't caught up: buy"; projections down only, "Market hasn't reacted: sell". With no prior week for either series it says so and lists nothing. *(JEG-488; pinned by `tests/test_v2_disagree.py` and `tests/test_v2_disagree_render.py`)*
 
 ## Compare a trade (CT)
 

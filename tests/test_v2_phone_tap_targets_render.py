@@ -136,7 +136,7 @@ def _run(css=None) -> dict:
         raise _render_env.unavailable("no browser")
     out = {"small": {}, "over": {}, "panel": None, "overlap": {}, "search": {}}
 
-    def open_page(browser, width, height, tab, init=None):
+    def open_page(browser, width, height, tab, init=None, menu=False):
         page = browser.new_page(viewport={"width": width, "height": height})
         if init:
             page.add_init_script(init)
@@ -144,6 +144,13 @@ def _run(css=None) -> dict:
             page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
         page.goto(base + "#" + tab, wait_until="networkidle")
         page.wait_for_timeout(1000)
+        if menu:
+            # JEG-1048: below 768 px the tab row lives in the hamburger menu (#864). Open it so its six tabs are swept for
+            # size and overlap; with it shut a Writing page has 8-9 controls and the "is the sweep looking" floor fires.
+            toggle = page.locator("#v2NavToggle")
+            if toggle.is_visible():
+                toggle.click()
+                page.wait_for_timeout(300)
         return page
 
     with _served() as base, sync_playwright() as p:
@@ -152,7 +159,7 @@ def _run(css=None) -> dict:
         family = next((f for f in FAMILIES if probe.evaluate(HAS_FACE, f)), None)
         probe.close()
         for tab in TABS:
-            page = open_page(browser, 375, 812, tab)
+            page = open_page(browser, 375, 812, tab, menu=True)
             out["small"][tab] = page.evaluate(SMALL)
             page.close()
         for tab, opener in PANELS:
@@ -177,7 +184,7 @@ def _run(css=None) -> dict:
         page.close()
         for width in OVERLAP_WIDTHS:
             for tab in TABS:
-                page = open_page(browser, width, 812 if width < 768 else 800, tab)
+                page = open_page(browser, width, 812 if width < 768 else 800, tab, menu=True)
                 out["overlap"][(width, tab)] = page.evaluate(OVERLAP)
                 page.close()
         for width in SEARCH_WIDTHS:
@@ -232,6 +239,17 @@ class PhoneTapTargetsTest(unittest.TestCase):
         self.assertTrue(any("panel body" in e for e in errors), f"old CSS landscape panel was not caught: {errors}")
         self.assertTrue(any("overlap another target" in e for e in errors), f"old CSS Expand-over-search overlap was not caught: {errors}")
         self.assertTrue(any("centre hits" in e for e in errors), f"old CSS search hit test was not caught: {errors}")
+
+    def test_guard_fails_without_jeg1048_fixes(self):
+        """JEG-1048: the Reviewed chip's 44 px pseudo-element and the Compare net chips' 24 px info hit box each hold a check."""
+        css = CSS.read_text(encoding="utf-8")
+        chip = "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }\n"
+        info = "  #v2Compare .v2-deal-nets .v2-info { height: 24px; margin-top: 0; margin-bottom: 0; }\n"
+        self.assertIn(chip, css, "stale mutation anchor")
+        self.assertIn(info, css, "stale mutation anchor")
+        errors = _errors(_run(css.replace(chip, "").replace(info, "")))
+        self.assertTrue(any("under 44px" in e and "Reviewed" in e for e in errors), f"small Reviewed chip was not caught: {errors}")
+        self.assertTrue(any("1280 compare-trade" in e and "overlap" in e for e in errors), f"overlapping net info buttons were not caught: {errors}")
 
 
 if __name__ == "__main__":

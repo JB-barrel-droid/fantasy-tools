@@ -3,7 +3,7 @@
 Loads the built page headless, opens trades by link (#compare-trade?give=..&get=..) and checks that:
 
   * the outlined cell of the 3x3 grid, the three nets and their sides equal an independent recomputation from the
-    engine rows (DDF Value, Trade chart average, DDF Projections: win at or above max(1, 3% of the average side
+    engine rows (DDF Value, Trade chart average: win at or above max(1, 3% of the average side
     total), lose at or below the negative of that);
   * the grid has nine cells, exactly one outlined (aria-current), and none for an incomplete trade;
   * each net has an info button that opens its one-line definition;
@@ -170,9 +170,13 @@ def check_snapshot(snap, give, receive, chart_keys, tag) -> list[str]:
     if cell:
         if not snap["read"].strip() or "Arbitrage" in snap["read"] and cell != "win|lose":
             errors.append(f"{tag}read {snap['read']!r} for cell {cell}")
-        if cell == "win|lose" and "Arbitrage: send it" not in snap["read"]:
+        # JEG-886: when the per-chart count disagrees with the average's cell, the read names the split instead of the
+        # cell copy ("..., and the trade charts split"); the cell itself stays. DDF Value is the chart average again
+        # (JEG-1073), so V and M move together and a trade can land in a split read; that is the rule, not a miss.
+        split = "the trade charts split" in snap["read"]
+        if cell == "win|lose" and "Arbitrage: send it" not in snap["read"] and not split:
             errors.append(f"{tag}win|lose must read 'Arbitrage: send it', got {snap['read']!r}")
-        if cell == "lose|win" and not snap["read"].startswith("Trap"):
+        if cell == "lose|win" and not snap["read"].startswith("Trap") and not split:
             errors.append(f"{tag}lose|win must read 'Trap', got {snap['read']!r}")
     return errors
 

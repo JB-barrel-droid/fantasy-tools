@@ -185,12 +185,12 @@ class WorkedExample(unittest.TestCase):
     def test_hand_check_values(self):
         """The spec's own hand-check: p1 RB Delta Adjusted and RB Delta's
         three DDF versions. Values updated for convention bench seats and
-        midpoint starter line (JEG-560). JEG-804: blended = projections only."""
+        midpoint starter line (JEG-560). JEG-1073: blended = the charts (Adjusted)."""
         res = run(load())
         self.assertAlmostEqual(res["sources"]["p1"]["players"][201]["adjusted"], 49.077706, places=6)
         ddf = res["rows"][201]["ddf"]
-        # JEG-804: blended DDF Value is projections-only (== projections version).
-        self.assertAlmostEqual(ddf["blended"]["value"], 45.819969, places=6)
+        # JEG-1073: blended DDF Value is the chart average (== charts version).
+        self.assertAlmostEqual(ddf["blended"]["value"], 50.413773, places=6)
         self.assertAlmostEqual(ddf["charts"]["value"], 50.413773, places=6)
         self.assertAlmostEqual(ddf["projections"]["value"], 45.819969, places=6)
         bench = sum(v for g, v in res["ddf_weights"].items() if g.endswith("|bench"))
@@ -247,10 +247,10 @@ class CheckerCatchesBrokenRules(unittest.TestCase):
     def test_flex_by_own_values(self):
         real = ref.allocate
 
-        def own_values_allocate(league, order, score):
+        def own_values_allocate(league, order, score, **kw):
             # The superseded rule: no shared league allocation; signal by
             # pushing every flex slot to RB.
-            out = real(league, order, score)
+            out = real(league, order, score, **kw)
             for p in ("WR", "TE"):
                 out["RB"]["flex"] += out[p]["flex"]
                 out["RB"]["starters"] += out[p]["flex"]

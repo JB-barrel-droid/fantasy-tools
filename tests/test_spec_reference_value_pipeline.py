@@ -54,7 +54,7 @@ class WorkedExample(unittest.TestCase):
         out = we.run_fixture(_fx())
         self.assertAlmostEqual(out["sources"]["p1"]["players"][201]["adjusted"], 49.077706, 6)
         # JEG-804: blended DDF = projections only.
-        self.assertAlmostEqual(out["rows"][201]["ddf_blended"]["value"], 45.819969, 6)
+        self.assertAlmostEqual(out["rows"][201]["ddf_blended"]["value"], 50.413773, 6)
         self.assertEqual(out["pie"], 280.0)
 
 
@@ -110,11 +110,11 @@ class WalkCatchesBreakage(unittest.TestCase):
         c1 = {int(k): float(v) for k, v in fx["inputs"]["c1"]["values"].items()}
         real = vp.allocate
 
-        def own_values(setting, order, scores):
+        def own_values(setting, order, scores, **kwargs):
             pos_of = {int(k): v["pos"] for k, v in fx["players"].items()}
             if scores is not c1:
-                return real(setting, vp.score_order(c1, pos_of), c1)
-            return real(setting, order, scores)
+                return real(setting, vp.score_order(c1, pos_of), c1, **kwargs)
+            return real(setting, order, scores, **kwargs)
 
         with mock.patch.object(vp, "allocate", own_values):
             self.assertTrue(self._mismatches())
@@ -137,6 +137,61 @@ class Invariants(unittest.TestCase):
         out = we.run_fixture(scaled)
         for k, row in base["rows"].items():
             self.assertAlmostEqual(row["adjusted"]["c5"] or 0.0, out["rows"][k]["adjusted"]["c5"] or 0.0, 9)
+
+
+class NoChartFallback(unittest.TestCase):
+    """JEG-1073 (Jeremy, 2026-10-25): DDF Value is the Adjusted trade charts,
+    with no fallback to projections (the mirror of JEG-863's option B). When
+    no chart is in I, DDF blended must be null for every player (not the
+    projection average); the projections version is the alternate and still
+    works."""
+
+    def _run_projections_only(self):
+        fx = _fx()
+        # Remove all chart sources, keep only projections.
+        fx["inputs"] = {k: v for k, v in fx["inputs"].items() if v["family"] == "projection"}
+        inp = we.fixture_inputs(fx)
+        s = copy.deepcopy(fx["setting"])
+        setting = vp.Setting.from_fixture(s)
+        return vp.run_week(setting, inp["pos_of"], inp["sources"], inp["included"], names=inp["names"])
+
+    def test_projections_only_gives_null_blended(self):
+        out = self._run_projections_only()
+        for k, row in out["rows"].items():
+            self.assertIsNone(row["ddf_blended"]["value"],
+                              f"DDF blended must be null with no charts (player {k})")
+        # The projections version (the alternate) still works.
+        proj_ok = any(row["ddf_projections"]["value"] is not None for row in out["rows"].values())
+        self.assertTrue(proj_ok, "projections version should be populated even with no charts")
+
+    def test_charts_are_the_blend(self):
+        """DDF blended equals the charts version and differs from the projections version."""
+        out = we.run_fixture(_fx())
+        rows = out["rows"].values()
+        self.assertTrue(all(r["ddf_blended"]["value"] == r["ddf_charts"]["value"] for r in rows))
+        self.assertTrue(any(r["ddf_blended"]["value"] != r["ddf_projections"]["value"] for r in rows))
+
+    def test_guard_catches_fallback_restored(self):
+        """If a fallback is restored (blended = projections when no chart), this detects it."""
+        out = self._run_projections_only()
+        all_null = all(row["ddf_blended"]["value"] is None for row in out["rows"].values())
+        self.assertTrue(all_null, "the no-fallback guard should see null DDF blended with projections only")
+        # Negative test: simulate a fallback by running with the patched pipeline.
+        real_run_week = vp.run_week
+        def with_fallback(setting, pos_of, sources, included, selection=None, names=None, lineup=None, hidden=None):
+            result = real_run_week(setting, pos_of, sources, included, selection, names, lineup, hidden=hidden)
+            if all(result["rows"][k]["ddf_blended"]["value"] is None for k in result["rows"]):
+                for k in result["rows"]:
+                    result["rows"][k]["ddf_blended"] = copy.deepcopy(result["rows"][k]["ddf_projections"])
+            return result
+        fx = _fx()
+        fx["inputs"] = {k: v for k, v in fx["inputs"].items() if v["family"] == "projection"}
+        inp = we.fixture_inputs(fx)
+        s = copy.deepcopy(fx["setting"])
+        setting = vp.Setting.from_fixture(s)
+        broken = with_fallback(setting, inp["pos_of"], inp["sources"], inp["included"], names=inp["names"])
+        broken_has_values = any(row["ddf_blended"]["value"] is not None for row in broken["rows"].values())
+        self.assertTrue(broken_has_values, "the simulated fallback should produce non-null blended")
 
 
 class Rulings(unittest.TestCase):
@@ -258,16 +313,17 @@ class LiveDump(unittest.TestCase):
             self.assertEqual(held_exclusions, [],
                              f"amber-held {root} should not be excluded for 'held'")
         # Any amber-held projection that made it into included must NOT be
-        # hidden from the DDF blend (i.e. it must appear in at least one
-        # row's blend sources -- players that source prices).
+        # hidden from the DDF projections version (the alternate since
+        # JEG-1073; DDF Value itself is the charts): it must appear in at
+        # least one row's sources -- players that source prices.
         for root in pl.PROJECTIONS:
             if root not in s["included"]:
                 continue  # excluded for another reason (e.g. no prior week)
-            found = any(root in row["ddf"]["blended"]["sources"]
+            found = any(root in row["ddf"]["projections"]["sources"]
                         for row in s["rows"].values())
             self.assertTrue(
                 found,
-                f"amber-held {root} in included but never appears in DDF blend sources")
+                f"amber-held {root} in included but never appears in DDF projections sources")
 
     def test_red_hold_eligible_but_hidden(self):
         """JEG-569 / JEG-787: red holds are eligible (in pipeline for weights

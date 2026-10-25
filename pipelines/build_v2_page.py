@@ -28,6 +28,22 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_V2 = ROOT / "app" / "v2"
 DIST = ROOT / "dist"
 RESEARCH_DIR = APP_V2 / "research"
+# Sleeper /players/nfl, refreshed twice a week by .github/workflows/sleeper-identity-refresh.yml.
+SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
+NFL_BYES = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
+
+# The 32 team defenses (name, team code as roster-paste.js writes it: Jacksonville is JAC). The engine prices no
+# defense (JEG-988), so Find a trade offers these by name as unpriced "Not evaluated" entries (JEG-995).
+DEFENSES = [
+    ("Arizona Cardinals", "ARI"), ("Atlanta Falcons", "ATL"), ("Baltimore Ravens", "BAL"), ("Buffalo Bills", "BUF"),
+    ("Carolina Panthers", "CAR"), ("Chicago Bears", "CHI"), ("Cincinnati Bengals", "CIN"), ("Cleveland Browns", "CLE"),
+    ("Dallas Cowboys", "DAL"), ("Denver Broncos", "DEN"), ("Detroit Lions", "DET"), ("Green Bay Packers", "GB"),
+    ("Houston Texans", "HOU"), ("Indianapolis Colts", "IND"), ("Jacksonville Jaguars", "JAC"), ("Kansas City Chiefs", "KC"),
+    ("Las Vegas Raiders", "LV"), ("Los Angeles Chargers", "LAC"), ("Los Angeles Rams", "LAR"), ("Miami Dolphins", "MIA"),
+    ("Minnesota Vikings", "MIN"), ("New England Patriots", "NE"), ("New Orleans Saints", "NO"), ("New York Giants", "NYG"),
+    ("New York Jets", "NYJ"), ("Philadelphia Eagles", "PHI"), ("Pittsburgh Steelers", "PIT"), ("San Francisco 49ers", "SF"),
+    ("Seattle Seahawks", "SEA"), ("Tampa Bay Buccaneers", "TB"), ("Tennessee Titans", "TEN"), ("Washington Commanders", "WAS"),
+]
 
 SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # The engine page sync_dashboard_artifacts writes. Outside dist/, so Pages never
@@ -125,7 +141,13 @@ def head_for_v2(html: str, at_root: bool) -> str:
     # v2 has a dark theme: let form controls follow it, and use the v2 nav colour for the browser bar.
     html = html.replace('<meta name="color-scheme" content="light" />', '<meta name="color-scheme" content="light dark" />', 1)
     html = html.replace('<meta name="theme-color" content="#17364c" />', '<meta name="theme-color" content="#142B25" />', 1)
-    return html.replace("</head>", f'  <link rel="canonical" href="{SITE_URL}">\n</head>', 1)
+    # JEG-1028: a machine-readable pointer for AI assistants (what the site is, the MCP server, the skill).
+    return html.replace(
+        "</head>",
+        f'  <link rel="canonical" href="{SITE_URL}">\n'
+        f'  <link rel="alternate" type="text/plain" title="For AI assistants" href="{SITE_URL}llms.txt">\n</head>',
+        1,
+    )
 
 
 # ---------- Research tab (JEG-543) ----------
@@ -219,6 +241,8 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
         '  <link rel="stylesheet" href="v2/v2.css">\n'
         '  <link rel="stylesheet" href="v2/audit-pie.css">\n'
         '  <link rel="stylesheet" href="v2/audit-source.css">\n'
+        '  <link rel="stylesheet" href="v2/waivers.css">\n'
+        '  <link rel="stylesheet" href="v2/overrides.css">\n'
         + FETCH_SHARE_SHIM
         + (ROOT_LINK_SHIM if at_root else "")
     )
@@ -238,15 +262,61 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/movers.js" defer></script>'
+                  '\n  <script src="v2/kdef-names.js" defer></script>'
                   '\n  <script src="v2/roster-paste.js" defer></script>'
+                  '\n  <script src="v2/workspace.js" defer></script>'
+                  '\n  <script src="v2/table-sort.js" defer></script>'
+                  '\n  <script src="v2/team-summary.js" defer></script>'
+                  '\n  <script src="v2/opportunities.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
+                  '\n  <script src="v2/league.js" defer></script>'
+                  '\n  <script src="v2/nfl-byes.js" defer></script>'
+                  '\n  <script src="v2/waivers.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
                   '\n  <script src="v2/audit-core.js" defer></script>'
                   '\n  <script src="v2/audit-pie.js" defer></script>'
                   '\n  <script src="v2/audit-source.js" defer></script>'
+                  '\n  <script src="v2/overrides.js" defer></script>'
+                  '\n  <script src="v2/inputs-status.js" defer></script>'
+                  '\n  <script src="v2/name-format.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
     return html
+
+
+def kdef_names_js(base_path: Path = SLEEPER_BASE) -> str:
+    """window.TradeValueKDef: the 32 defenses and the kickers on an NFL team now, for Find a trade's typed search (JEG-995).
+
+    Kickers come from the Sleeper identity base (position K with a current team: Sleeper leaves a free agent's team
+    empty, and the base keeps retired kickers marked active, so a team is the only current signal). Derived at build
+    time, so the twice-weekly Sleeper refresh is the refresh path and nothing generated is committed. A missing base
+    gives defenses only."""
+    kickers, pulled_at = [], None
+    if base_path.exists():
+        base = json.loads(base_path.read_text(encoding="utf-8"))
+        pulled_at = (base.get("meta") or {}).get("pulled_at")
+        seen = set()
+        for player in (base.get("by_sleeper_id") or {}).values():
+            if player.get("pos") == "K" and player.get("team") and player.get("name") and player["name"] not in seen:
+                seen.add(player["name"])
+                kickers.append({"name": player["name"], "team": player["team"]})
+        kickers.sort(key=lambda k: k["name"])
+    data = {"defenses": [{"name": n, "team": t} for n, t in DEFENSES], "kickers": kickers, "kickers_pulled_at": pulled_at}
+    return "window.TradeValueKDef = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
+
+
+def nfl_byes_js(path: Path = NFL_BYES) -> str:
+    """window.TradeValueByes: each team's bye week this season, for the Waivers tab's bye-week coverage (JEG-1022).
+
+    Read from data/inputs/nfl_byes_2026.json (the file the pipelines use), so nothing is typed twice and nothing generated
+    is committed. A missing file gives no byes: the tab then says nothing about byes, never a guess."""
+    byes = {}
+    season = None
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        season = data.get("season")
+        byes = {team: week for team, week in (data.get("byes") or {}).items() if isinstance(week, int)}
+    return "window.TradeValueByes = " + json.dumps({"season": season, "byes": byes}, separators=(",", ":")) + ";\n"
 
 
 def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path = RESEARCH_DIR) -> Path:
@@ -258,8 +328,10 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     posts = load_posts(research_dir)
     (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html, posts=posts), encoding="utf-8")
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "finder.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "v2.js"):
+    (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
+    (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
+    for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "league.js", "modules.js",
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "waivers.js", "waivers.css", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 
