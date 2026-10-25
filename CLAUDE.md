@@ -119,7 +119,7 @@ disagreement is the product.)
 
 Moved from a claude.ai artifact into the dashboard (Jeremy, 2026-10-25, JEG-1086:
 "Ddf value logic should migrate from a Claude artifact to part of the dashboard").
-`make sync` builds it to `dist/modules/value-logic.html` (builder
+`make sync` builds it to `dist/value-logic/index.html` (builder
 `pipelines/build_values_explainer.py`, page template and engine extractor in
 `app/values-explainer/`); How values work links to it. Every number is read
 from the chart engine at the default setting (12 teams, Full PPR). It needs

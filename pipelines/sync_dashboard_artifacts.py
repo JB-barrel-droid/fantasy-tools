@@ -532,11 +532,11 @@ def main() -> int:
         import playwright.sync_api  # noqa: F401
     except ImportError:
         if os.environ.get("RENDER_TESTS_REQUIRED") == "1":
-            raise SystemExit("sync: Playwright is required to build modules/value-logic.html")
-        print("sync: Playwright not installed; skipping modules/value-logic.html")
+            raise SystemExit("sync: Playwright is required to build value-logic/index.html")
+        print("sync: Playwright not installed; skipping value-logic/index.html")
     else:
         from build_values_explainer import main as build_values_explainer
-        build_values_explainer(["--skip-sync", "--out", str(DIST / "modules" / "value-logic.html")])
+        build_values_explainer(["--skip-sync", "--out", str(DIST / "value-logic" / "index.html")])
 
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0
