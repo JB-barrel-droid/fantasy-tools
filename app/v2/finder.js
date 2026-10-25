@@ -637,7 +637,25 @@
     if (state === "unjudged") return {text: "Fit not judged: not enough trade charts are available this week", link: null};
     return {text: `No natural fit between these rosters: ${info && info.reason ? info.reason : "the trades below are value-only or force fits"}`, link: null};
   }
-  const api = {fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // JEG-1081 (tri-view, PR 3): the projections view beside DDF Value and the Trade chart average, display helpers (no math of
+  // their own beyond differences of numbers the engine rows carry).
+  // True when at least one row carries a projection value (otherwise the third column would read n/a all through).
+  const hasProjections = rows => rows.some(r => r && r.values && finite(r.values[PROJECTIONS_KEY]));
+  // The three-value tooltip of a score chip: "DDF Value: 24.3\nProjections: 22.1\nMarket: 20.8"; a missing view reads "no value".
+  function chipTooltip(values) {
+    const one = (label, v) => `${label}: ${finite(v) ? v.toFixed(1) : "no value"}`;
+    const v = values || {};
+    return [one("DDF Value", v.ddf), one("Projections", v.projections), one("Market", v.market)].join("\n");
+  }
+  // "Starters +4.2 DDF Value (+3.9 projections, +2.1 market)"; a view with no delta is left out of the parentheses.
+  function deltaLine(what, deltas) {
+    const sign = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "\u2212") + Math.abs(n).toFixed(1));
+    const d = deltas || {};
+    const others = [finite(d.projections) ? `${sign(d.projections)} projections` : "", finite(d.market) ? `${sign(d.market)} market` : ""].filter(Boolean);
+    if (!finite(d.ddf)) return `${what}: no value`;
+    return `${what} ${sign(d.ddf)} DDF Value${others.length ? ` (${others.join(", ")})` : ""}`;
+  }
+  const api = {hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -922,7 +940,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (isNotEvaluated(player) || !row) return null;
     const ddf = row.values ? row.values[OUR_KEY] : null;
     const avg = charts ? withChartAverage([row], charts)[0].values[MARKET_KEY] : null;
-    const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind, title: label},
+    const proj = row.values ? row.values[PROJECTIONS_KEY] : null;
+    const tip = chipTooltip({ddf, projections: proj, market: avg});
+    const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind, title: tip, tabindex: "0", "aria-label": `${finite(value) ? value.toFixed(1) : "no value"} ${label}. ${tip.split("\n").join("; ")}`},
       el("span", {class: "v2-find-chip-value", text: finite(value) ? value.toFixed(1) : "no value"}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
     return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", charts ? "Trade chart avg" : "Trade chart avg (too few charts)", avg));
   }
@@ -937,6 +957,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     return expected ? {expected, shape: C.getRosterShape()} : null;
   }
   const STATUS_WORD = {under: "Under", over: "Over", ok: "OK"};
+  const VIEW_TIPS = {ddf: "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights.",
+    market: "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals.",
+    projections: "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market."};
   // JEG-1019: ONE roster assessment for both teams, as a table. Each team in two views (DDF Value, Trade chart average):
   // players counted per position against the expected depth, the over / under flag, and the starter and bench value.
   // Nothing here is new math: lineupValue splits a view's best lineup into starters and bench, rosterBalance judges depth.
@@ -953,7 +976,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const charts = marketKeys();
     const marketRows = charts ? withChartAverage(rows, charts) : null;
     const view = (rowsOf, key) => (rowsOf ? {balance: rosterBalance(rowsOf, ctx.expected, key, ctx.shape), lineup: lineupValue(rowsOf, ctx.shape, key)} : null);
-    return {side, ready: true, expected: ctx.expected, ddf: view(rows, OUR_KEY), market: view(marketRows, MARKET_KEY), kept: players.filter(isNotEvaluated),
+    return {side, ready: true, expected: ctx.expected, ddf: view(rows, OUR_KEY), market: view(marketRows, MARKET_KEY), projections: view(hasProjections(rows) ? rows : null, PROJECTIONS_KEY), kept: players.filter(isNotEvaluated),
       missing: lineupValue(rows, ctx.shape, OUR_KEY).unvalued.filter(r => !isNotEvaluated(r)).length};
   }
   const posSum = (list, pos, key) => list.filter(r => r.pos === pos).reduce((n, r) => n + r.values[key], 0);
@@ -971,13 +994,17 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   const money = n => n.toFixed(1);
   function assessmentTable(a, b) {
     const sides = [a, b].filter(Boolean);   // JEG-1022: one team (Waivers) or both (Find a trade)
-    const views = [{id: "ddf", label: "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: MARKET_KEY}];
+    // JEG-1081: DDF Value, Trade chart average, then DDF Value (projections) in a subdued, collapsible third group (hidden under 1024px until "Show projections").
+    const views = [{id: "ddf", label: "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: MARKET_KEY},
+      {id: "projections", label: "DDF Value (projections)", key: PROJECTIONS_KEY, cls: "v2-find-proj-col"}];
     const cell = (text, props) => el("td", props || {}, text);
+    const withCls = (v, props) => (v.cls ? {...props, class: `${(props && props.class) || ""} ${v.cls}`.trim()} : props);
     const head1 = el("tr", {}, el("th", {scope: "col", rowspan: "3", class: "v2-find-pos", text: "Position"}), el("th", {scope: "col", rowspan: "3", class: "v2-find-nowrap", text: "Expected"}),
-      ...sides.map(x => el("th", {scope: "colgroup", colspan: "6", class: "v2-find-assess-team", text: x.side === "mine" ? "Your team" : "Their team"})));
+      ...sides.map(x => el("th", {scope: "colgroup", colspan: "8", class: "v2-find-assess-team", text: x.side === "mine" ? "Your team" : "Their team"})));
     const head2 = el("tr", {}, ...sides.flatMap(() => [el("th", {scope: "colgroup", colspan: "2", text: "Players"}),
-      ...views.map(v => el("th", {scope: "colgroup", colspan: "2", text: v.label}))]));
-    const head3 = el("tr", {}, ...sides.flatMap(() => ["Counted", "Flag", "Starters", "Bench", "Starters", "Bench"].map(t => el("th", {scope: "col", text: t}))));
+      ...views.map(v => el("th", withCls(v, {scope: "colgroup", colspan: "2", text: v.label, title: VIEW_TIPS[v.id]})))]));
+    const head3 = el("tr", {}, ...sides.flatMap(() => [el("th", {scope: "col", text: "Counted"}), el("th", {scope: "col", text: "Flag"}),
+      ...views.flatMap(v => ["Starters", "Bench"].map(t => el("th", withCls(v, {scope: "col", text: t}))))]));
     const flagOf = (x, pos) => {
       const f = x.ddf.balance.positions[pos].status;
       const m = x.market ? x.market.balance.positions[pos].status : f;
@@ -990,20 +1017,35 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const body = DEPTH_POS.map(pos => el("tr", {"data-pos": pos}, el("th", {scope: "row", class: "v2-find-pos", text: pos}), cell(rangeText(a.expected[pos])),
       ...sides.flatMap(x => {
         const flag = flagOf(x, pos);
-        return [cell(String(x.ddf.balance.positions[pos].have), {class: "num"}), cell(flag.text, {class: flag.cls}),
+        return [cell(String(x.ddf.balance.positions[pos].have), {class: "num"}), cell(flag.text, {class: `${flag.cls} v2-find-flag`.trim()}),
           ...valueCells(x, (part, v) => (part
-            ? [cell(money(posSum(part.lineup.starters, pos, v.key)), {class: "num", "data-cell": `${v.id}-starters`}), cell(money(posSum(part.lineup.bench, pos, v.key)), {class: "num", "data-cell": `${v.id}-bench`})]
-            : [cell("n/a", {class: "num"}), cell("n/a", {class: "num"})]))];
+            ? [cell(money(posSum(part.lineup.starters, pos, v.key)), withCls(v, {class: "num", "data-cell": `${v.id}-starters`})), cell(money(posSum(part.lineup.bench, pos, v.key)), withCls(v, {class: "num", "data-cell": `${v.id}-bench`}))]
+            : [cell("n/a", withCls(v, {class: "num"})), cell("n/a", withCls(v, {class: "num"}))]))];
       })));
     const benchRow = el("tr", {"data-row": "bench"}, el("th", {scope: "row", class: "v2-find-pos", text: "Bench subtotal"}), cell(""),
       ...sides.flatMap(x => [cell(String(x.ddf.lineup.bench.length), {class: "num"}), cell(""), ...valueCells(x, (part, v) => (part
-        ? [cell(""), cell(money(part.lineup.benchValue), {class: "num", "data-cell": `${v.id}-bench-total`})] : [cell(""), cell("n/a", {class: "num"})]))]));
+        ? [cell("", withCls(v, {})), cell(money(part.lineup.benchValue), withCls(v, {class: "num", "data-cell": `${v.id}-bench-total`}))] : [cell("", withCls(v, {})), cell("n/a", withCls(v, {class: "num"}))]))]));
     const totalRow = el("tr", {"data-row": "total"}, el("th", {scope: "row", class: "v2-find-pos", text: "Total"}), cell(""),
       ...sides.flatMap(x => [cell(String(x.ddf.lineup.starters.length + x.ddf.lineup.bench.length), {class: "num"}), cell(""), ...valueCells(x, (part, v) => [
-        part ? el("td", {colspan: "2", class: "num", "data-cell": `${v.id}-total`}, money(part.lineup.total)) : el("td", {colspan: "2", class: "num"}, "n/a")])]));
-    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup v2-find-assess-table"},
+        part ? el("td", withCls(v, {colspan: "2", class: "num", "data-cell": `${v.id}-total`}), money(part.lineup.total)) : el("td", withCls(v, {colspan: "2", class: "num"}), "n/a")])]));
+    const toggle = el("button", {type: "button", class: "v2-btn v2-find-proj-toggle", "aria-expanded": "false", text: "Show projections"});
+    const wrap = el("div", {class: "v2-find-table-wrap"});
+    // The team headings span the visible columns: 8 with the projections group showing (1024px and up, or opened), 6 without.
+    const wide = typeof matchMedia === "function" ? matchMedia("(min-width: 1024px)") : null;
+    const spans = () => { const n = (wide && wide.matches) || wrap.dataset.showProj === "1" ? "8" : "6"; wrap.querySelectorAll("th.v2-find-assess-team").forEach(th => th.setAttribute("colspan", n)); };
+    toggle.addEventListener("click", () => {
+      const on = wrap.dataset.showProj !== "1";
+      wrap.dataset.showProj = on ? "1" : "0";
+      toggle.setAttribute("aria-expanded", String(on));
+      toggle.textContent = on ? "Hide projections" : "Show projections";
+      spans();
+    });
+    if (wide && wide.addEventListener) wide.addEventListener("change", spans);
+    wrap.append(toggle, el("table", {class: "v2-find-lineup v2-find-assess-table"},
       el("caption", {text: "Roster assessment: players counted against expected depth, and best-lineup value, starters and bench, by position"}),
       el("thead", {}, head1, head2, head3), el("tbody", {}, ...body, benchRow, totalRow)));
+    spans();
+    return wrap;
   }
   function renderAssessment() {
     const box = $("v2FindAssess");
@@ -1449,7 +1491,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const theirAvg = avg(theirRows);
     const byKey = new Map();
     (mineAvg || []).concat(theirAvg || []).forEach(r => byKey.set(String(r.player_key), r));
-    return {shape, market, mine: {ddf: mineRows, market: mineAvg}, theirs: {ddf: theirRows, market: theirAvg}, byKey};
+    return {shape, market, projections: hasProjections(mineRows.concat(theirRows)), mine: {ddf: mineRows, market: mineAvg}, theirs: {ddf: theirRows, market: theirAvg}, byKey};
   }
   const VIEW_LABEL = {ddf: "DDF Value", market: "Trade chart average"};
   const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : MARKET_KEY);
@@ -1489,7 +1531,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const lines = el("div", {class: "v2-find-impact-lines"});
     const detailsBody = el("div", {class: "v2-find-impact-body"});
     const details = el("details", {class: "v2-find-impact-details"}, el("summary", {text: "Show lineup details"}), detailsBody);
-    node.append(lines, details);
+    const more = el("button", {type: "button", class: "v2-link v2-find-impact-more", "aria-expanded": "false", text: "Show other views"});
+    more.addEventListener("click", () => {
+      const on = node.dataset.expanded !== "1";
+      node.dataset.expanded = on ? "1" : "0";
+      more.setAttribute("aria-expanded", String(on));
+      more.textContent = on ? "Hide other views" : "Show other views";
+    });
+    node.append(lines, more, details);
     return {node, update: (giveRows, recvRows) => {
       const lineup = ctx.lineup;
       const ourKey = ctx.ourKey;
@@ -1505,6 +1554,11 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const marketNote = lineup.market ? "" : " Trade chart average: not enough charts.";
         lines.append(el("p", {class: "v2-meta v2-find-impact-line"}, el("span", {class: "v2-find-who", text: `${name}: `}), `best starting lineup ${parts.join("; ")}.${marketNote}`),
           el("p", {class: "v2-meta v2-find-need"}, `${who === "mine" ? "Your" : "Their"} starters by position: ${needLine(imps.ddf)}.`));
+        // JEG-1081: the same trade in the other views, one line each for starters and bench (hidden on a phone until expanded).
+        const own = sideRows(lineup, "ddf", who, giveRows, recvRows);
+        const projImp = hasProjections(own.roster.concat(own.arriving)) ? rosterImpact(own.roster, own.leaving, own.arriving, lineup.shape, PROJECTIONS_KEY) : null;
+        const delta = field => ({ddf: imps.ddf[field], projections: projImp ? projImp[field] : null, market: imps.market ? imps.market[field] : null});
+        lines.append(el("p", {class: "v2-meta v2-find-impact-secondary", "data-line": "secondary"}, `${deltaLine("Starters", delta("starterDelta"))}. ${deltaLine("Bench", delta("benchDelta"))}.`));
         views(lineup).forEach(view => detailsBody.append(lineupTable(`${who === "mine" ? "Your" : "Their"} best lineup, ${VIEW_LABEL[view]}`, imps[view], lineup.shape, viewKey(view, ourKey))));
         const missing = imps.ddf.before.unvalued.filter(r => !isNotEvaluated(r)).length;
         if (missing) detailsBody.append(el("p", {class: "v2-meta", text: `${plural(missing, "player")} on ${who === "mine" ? "your" : "their"} roster ${missing === 1 ? "has" : "have"} no value and ${missing === 1 ? "is" : "are"} left out of the lineup.`}));
