@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-25T02:02:42.161287+00:00",
+  "run_at": "2026-10-25T03:28:08.039590+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -119,7 +119,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7788 values)",
+      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7752 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -184,12 +184,12 @@
       "FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference"
     ],
     "assertions": [
-      "AssertionError: Lists differ: ['standard/14: 2-QB top QB 36.71 is not >=[176 chars]02)'] != []"
+      "AssertionError: Lists differ: ['standard/14: 2-QB top QB 36.75 is not >=[176 chars]03)'] != []"
     ],
     "make_targets": [
       "Makefile:551: test-core"
     ],
-    "detail": "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine; FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference; AssertionError: Lists differ: ['standard/14: 2-QB top QB 36.71 is not >=[176 chars]02)'] != []",
-    "recorded_at": "2026-10-25T02:25:54.528836+00:00"
+    "detail": "FAIL tests.test_two_qb_direction.EngineDirection.test_two_qb_top_qb_rises_on_the_engine; FAIL tests.test_two_qb_direction.ReferenceDirection.test_two_qb_top_qb_rises_on_the_reference; AssertionError: Lists differ: ['standard/14: 2-QB top QB 36.75 is not >=[176 chars]03)'] != []",
+    "recorded_at": "2026-10-25T03:54:03.306525+00:00"
   }
 }

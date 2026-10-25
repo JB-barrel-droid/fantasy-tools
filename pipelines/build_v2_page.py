@@ -30,6 +30,7 @@ DIST = ROOT / "dist"
 RESEARCH_DIR = APP_V2 / "research"
 # Sleeper /players/nfl, refreshed twice a week by .github/workflows/sleeper-identity-refresh.yml.
 SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
+NFL_BYES = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
 
 # The 32 team defenses (name, team code as roster-paste.js writes it: Jacksonville is JAC). The engine prices no
 # defense (JEG-988), so Find a trade offers these by name as unpriced "Not evaluated" entries (JEG-995).
@@ -240,6 +241,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
         '  <link rel="stylesheet" href="v2/v2.css">\n'
         '  <link rel="stylesheet" href="v2/audit-pie.css">\n'
         '  <link rel="stylesheet" href="v2/audit-source.css">\n'
+        '  <link rel="stylesheet" href="v2/waivers.css">\n'
         '  <link rel="stylesheet" href="v2/overrides.css">\n'
         + FETCH_SHARE_SHIM
         + (ROOT_LINK_SHIM if at_root else "")
@@ -268,6 +270,8 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/opportunities.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
                   '\n  <script src="v2/league.js" defer></script>'
+                  '\n  <script src="v2/nfl-byes.js" defer></script>'
+                  '\n  <script src="v2/waivers.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
                   '\n  <script src="v2/audit-core.js" defer></script>'
                   '\n  <script src="v2/audit-pie.js" defer></script>'
@@ -300,6 +304,20 @@ def kdef_names_js(base_path: Path = SLEEPER_BASE) -> str:
     return "window.TradeValueKDef = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
 
 
+def nfl_byes_js(path: Path = NFL_BYES) -> str:
+    """window.TradeValueByes: each team's bye week this season, for the Waivers tab's bye-week coverage (JEG-1022).
+
+    Read from data/inputs/nfl_byes_2026.json (the file the pipelines use), so nothing is typed twice and nothing generated
+    is committed. A missing file gives no byes: the tab then says nothing about byes, never a guess."""
+    byes = {}
+    season = None
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        season = data.get("season")
+        byes = {team: week for team, week in (data.get("byes") or {}).items() if isinstance(week, int)}
+    return "window.TradeValueByes = " + json.dumps({"season": season, "byes": byes}, separators=(",", ":")) + ";\n"
+
+
 def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path = RESEARCH_DIR) -> Path:
     """Write dist/index.html (root) and dist/v2/index.html; return the /v2/ page."""
     index_html = engine_page.read_text(encoding="utf-8")
@@ -310,8 +328,9 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html, posts=posts), encoding="utf-8")
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
+    (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "league.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "name-format.js", "ddf-state.js", "v2.js"):
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "name-format.js", "ddf-state.js", "waivers.js", "waivers.css", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 
