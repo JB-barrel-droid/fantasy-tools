@@ -22,6 +22,18 @@ Contract: shrink the inputs status strip (#915, JEG-1076) from 45 px to one comp
   strip. Fix in `app/v2/v2.css`: on >= 768 px the roster line (`.v2-league-inner > .v2-meta`) has `flex: 1 1 120px; min-width: 0`
   so the row breaks only when the buttons cannot fit, and the roster line wraps inside its own cell.
 
+### Not met after merging current main (693c0ca4)
+- Re-run of `test_waterfall_verdict_layout_example` (scratch merge of #918, #918 not committed here) after merging
+  origin/main 693c0ca4 (an automated data rebuild): Inter still passes (boxes bottom 757.5), but in the CI font setup the
+  boxes bottom is 773.7 at 1366x768, 5.7 px past the fold (one more wrapped verdict line in DejaVu Sans; it was 756.9
+  on 4ae3b8a4). The strip is 27 px and the league row is one line in that run, so the remaining cost is elsewhere on the
+  page. Closing it needs a layout choice outside the strip (for example the league row min-height 64 px, or the
+  verdict column width), which is Jeremy's to pick; not done here.
+- With #918 merged in the same scratch run, the guard mutation "verdict not DDF" is NOT CAUGHT with Inter: since
+  JEG-1073 `ddf_value_charts` has the same numbers and name as `ddf_value`, so the fixture's "other series" pick is
+  invisible. This needs a fixture fix in `tests/test_v2_waterfall_render.py` (PR #918's file, not edited here); PR #929
+  carries one.
+
 ### Claimed, not confirmed
 - No wording was changed. At 1366 the full default note fits on one line in Inter and DejaVu Sans (the test asserts the
   text is not cut). On narrower desktop widths (768 to about 1100) the note text ends in an ellipsis with the full text in
