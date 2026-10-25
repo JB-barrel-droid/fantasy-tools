@@ -619,7 +619,32 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   const renders = {};
   // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
   const mineListeners = [];
-  const mineChanged = () => mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } });
+  // JEG-1021: "my roster" is one list: this card's "Your roster", the league's marked team and the Waivers tab all read and write the
+  // workspace store (workspace.js). A change here is pushed to it; a change there (the league page, Waivers, another tab) is pulled in.
+  const sharedStore = () => (root.TradeValueWorkspace ? root.TradeValueWorkspace.store : null);
+  const keysOf = list => list.map(p => p.key).join(",");
+  let syncing = false;
+  const pushMine = () => {
+    const store = sharedStore();
+    if (!store || syncing || keysOf(store.getMyRoster()) === keysOf(S.mine)) return;
+    syncing = true;
+    try { store.setMyRoster(S.mine.map(p => ({...p}))); } finally { syncing = false; }
+  };
+  const pullMine = () => {
+    const store = sharedStore();
+    if (!store || syncing) return;
+    const now = store.getMyRoster();
+    if (keysOf(now) === keysOf(S.mine)) return;
+    syncing = true;
+    try {
+      S.mine = now.map(p => ({...p}));
+      S.sel.clear();
+      renderBoth();
+      if ($("v2FindOut")) clearOutput();
+    } finally { syncing = false; }
+    mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } });
+  };
+  const mineChanged = () => { pushMine(); mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } }); };
   api.ui = {depthContext, marketKeys, benchWeights, sideAssessment, assessmentTable, imbalanceText: w => imbalanceText(w), biggestImbalance,
     getMine: () => S.mine.map(p => ({...p})),
     setMine: list => { S.mine = list.map(p => ({...p})); S.sel.clear(); renderBoth(); if ($("v2FindOut")) clearOutput(); },
@@ -1723,6 +1748,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   }
   // JEG-1021: the league page (league.js) reads rosters with the same parser, name list reader and defense / kicker choices.
   api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, loadSleeper, loadEspn, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);
-  else build();
+  if (sharedStore()) sharedStore().subscribe(pullMine);
+  const start = () => { build(); pullMine(); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
 })(typeof window !== "undefined" ? window : globalThis);

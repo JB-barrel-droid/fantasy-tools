@@ -309,12 +309,13 @@
   const writeJson = (key, value) => { try { root.localStorage.setItem(key, JSON.stringify(value)); } catch (error) { /* private window or full: the tab still works */ } };
   const keep = list => list.map(p => ({key: String(p.key), name: p.name, pos: p.pos, team: p.team || ""}));
 
-  // "My roster" is ONE list across Find a trade and Waivers (Jeremy, 2026-10-24). Until the league workspace store lands
-  // (JEG-1021, store-api.md) it is the list Find a trade already holds, mirrored to localStorage; swap this adapter then.
+  // "My roster" is ONE list across Find a trade (the league's marked team and the two-team card) and Waivers (Jeremy, 2026-10-24):
+  // the league workspace store (workspace.js, JEG-1021, store-api.md) holds it; this tab keeps no second copy.
+  const WS = () => root.TradeValueWorkspace.store;
   const mineStore = {
-    get: () => (UI() ? UI().getMine() : []),
-    set: list => { if (UI()) UI().setMine(list); },
-    subscribe: fn => { if (UI()) UI().onMineChange(fn); }
+    get: () => WS().getMyRoster(),
+    set: list => { WS().setMyRoster(list); },
+    subscribe: fn => { WS().subscribe(fn); }
   };
   const candStore = {
     get: () => S.cands,
@@ -861,7 +862,6 @@
     if (Array.isArray(storedMine) && storedMine.length && !mineStore.get().length) mineStore.set(keep(storedMine.filter(p => p && p.key)));
     mineStore.subscribe(() => {
       const list = mineStore.get();
-      writeJson(STORE_MINE, keep(list));
       const sig = list.map(p => p.key).join(",");
       if (sig !== S.mineSig) { S.mineSig = sig; schedule(); }
     });
