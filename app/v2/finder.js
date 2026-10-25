@@ -485,16 +485,22 @@
   const NET_FLOOR = 0.05;
   const FIT_TIER = {natural: 0, value: 1, force: 2};
   // The standard error of one player's value in a view: DDF Value, half the gap between its chart-based and
-  // projection-based versions (two readings of one value); the Trade chart average, the standard error of the mean of
-  // the compared charts. 0 when the sources cannot say.
-  function valueNoise(row, key, chartKeys) {
-    const v = (row && row.values) || {};
-    if (key === OUR_KEY) return finite(v.ddf_value_charts) && finite(v.ddf_value_projections) ? Math.abs(v.ddf_value_charts - v.ddf_value_projections) / 2 : 0;
-    const vals = (chartKeys || CHART_KEYS).map(k => v[k]).filter(finite);
+  // projection-based versions (two readings of one value); DDF Value (projections), the standard error of the mean of
+  // the projection sources (ESPN, CBS rest of season, Razzball); the Trade chart average, the standard error of the
+  // mean of the compared charts. 0 when the sources cannot say (fewer than two readings). JEG-1081.
+  const PROJECTION_KEYS = ["espn", "cbsros", "razzball"];
+  const PROJECTIONS_KEY = "ddf_value_projections";
+  function standardErrorOfMean(vals) {
     if (vals.length < 2) return 0;
     const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
     const variance = vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (vals.length - 1);
     return Math.sqrt(variance / vals.length);
+  }
+  function valueNoise(row, key, chartKeys) {
+    const v = (row && row.values) || {};
+    if (key === OUR_KEY) return finite(v.ddf_value_charts) && finite(v.ddf_value_projections) ? Math.abs(v.ddf_value_charts - v.ddf_value_projections) / 2 : 0;
+    if (key === PROJECTIONS_KEY) return standardErrorOfMean(PROJECTION_KEYS.map(k => v[k]).filter(finite));
+    return standardErrorOfMean((chartKeys || CHART_KEYS).map(k => v[k]).filter(finite));
   }
   const benchWeight = (weights, pos) => (weights && finite(weights[pos]) ? weights[pos] : weights && finite(weights.overall) ? weights.overall : 0);
   const netOf = (l, key, weights) => l.starterValue + l.bench.reduce((total, r) => total + benchWeight(weights, r.pos) * r.values[key], 0);
@@ -603,7 +609,7 @@
     if (state === "unjudged") return {text: "Fit not judged: not enough trade charts are available this week", link: null};
     return {text: `No natural fit between these rosters: ${info && info.reason ? info.reason : "the trades below are value-only or force fits"}`, link: null};
   }
-  const api = {fitHeadline, biggestImbalance, teamFit, tradeFit, fitText, valueNoise, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {fitHeadline, biggestImbalance, teamFit, tradeFit, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
