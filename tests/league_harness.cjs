@@ -358,7 +358,7 @@ t("test_summary_headline_independent_of_sort", () => {
   const cols = T.summaryColumns("fund");
   S.sortRows(s.teams, cols, {col: "benchF", dir: "asc"}, T.SUMMARY_TIES);
   assert.strictEqual(T.headline(s), before);
-  assert.ok(/ranks \d+(st|nd|rd|th) of 4 on fundamentals/.test(before), before);
+  assert.ok(/ranks \d+(st|nd|rd|th) of 4 on DDF Value/.test(before), before);
 });
 
 // ---------- sort over the real columns ----------
@@ -571,6 +571,101 @@ t("test_opportunities_cap_and_headline", async () => {
   assert.ok(head.startsWith(`${out.rows.length} trade opportunities across ${O.MAX_OPPONENTS} opponents.`), head);
   const one = await O.runAll(mine, [many[0]], ctxFor(d.rows), {yieldFn: () => Promise.resolve(), budgetMs: 0});
   assert.ok(/across 1 opponent\./.test(O.leagueHeadline(one, null)), "same sentence for one opponent");
+});
+
+// ---------- JEG-1081 (PR 4): the third view, position allocation wording, the projections-vs-charts disagreement list ----------
+// Rows with a projection value per player: ddf_value plus a deterministic offset (the frozen fixtures carry none).
+function withProjections(rows, offsetOf) {
+  const out = new Map();
+  let i = 0;
+  rows.forEach((r, k) => { out.set(k, {...r, values: {...r.values, ddf_value_projections: r.values.ddf_value + offsetOf(i++, r)}}); });
+  return out;
+}
+const spread = i => [-3.1, -1.2, 0.4, 2.6, 4.3][i % 5];
+function summaryWith(name, rows) {
+  const d = load(name);
+  return {d, s: T.summarize(d.teams, {rowsByKey: rows, shape: SHAPE, expected: EXPECTED, chartKeys: CH}, {basis: "fund"})};
+}
+t("test_summary_ranks_proj", () => {
+  const d = load("20team");
+  const { s } = summaryWith("20team", withProjections(d.rows, spread));
+  const ranked = s.teams.filter(x => x.hasRoster);
+  ranked.forEach(x => assert.ok(x.proj && x.proj.key === "ddf_value_projections", x.name));
+  const expect = indepRank(ranked.map(x => x.proj.rosterValue));
+  ranked.forEach((x, i) => assert.strictEqual(x.rank.proj, expect[i], x.name));
+  // the projections lineup is its own reading: it differs from the DDF Value one for at least one team
+  assert.ok(ranked.some(x => Math.abs(x.proj.rosterValue - x.fund.rosterValue) > 0.5), "projections view should differ");
+  // without projection values there is no third view and no third rank (never a zero)
+  const none = summaryFor("20team").s;
+  none.teams.filter(x => x.hasRoster).forEach(x => { assert.strictEqual(x.proj, null, x.name); assert.strictEqual(x.rank.proj, null, x.name); });
+});
+t("test_summary_disagree_list", () => {
+  const d = load("20team");
+  const rowsP = withProjections(d.rows, spread);
+  const { s } = summaryWith("20team", rowsP);
+  let listed = 0;
+  s.teams.filter(x => x.hasRoster).forEach(x => {
+    x.higher.forEach(i => { assert.ok(i.gap > 2.0 && Math.abs(i.projections - i.charts - i.gap) < 1e-9, `${x.name} ${i.name}`); listed += 1; });
+    x.lower.forEach(i => { assert.ok(i.gap < -2.0, `${x.name} ${i.name}`); listed += 1; });
+    // independent recount from the team's rows
+    const members = d.teams.find(tm => tm.id === x.id).entries.map(e => rowsP.get(String(e.key))).filter(Boolean);
+    assert.strictEqual(x.higher.length, members.filter(r => r.values.ddf_value_projections - r.values.ddf_value > 2.0).length, `${x.name} higher`);
+    assert.strictEqual(x.lower.length, members.filter(r => r.values.ddf_value_projections - r.values.ddf_value < -2.0).length, `${x.name} lower`);
+    const sizes = x.higher.map(i => Math.abs(i.gap));
+    sizes.forEach((g, k) => { if (k) assert.ok(sizes[k - 1] >= g, `${x.name} higher is not in size order`); });
+  });
+  assert.ok(listed > 0, "the offsets must put some players beyond 2.0");
+  // projections equal to the charts: nothing disagrees; just under the floor: nothing listed
+  summaryWith("20team", withProjections(d.rows, () => 0)).s.teams.forEach(x => assert.strictEqual(x.higher.length + x.lower.length, 0, x.name));
+  summaryWith("20team", withProjections(d.rows, () => 1.99)).s.teams.forEach(x => assert.strictEqual(x.higher.length, 0, `${x.name} under the floor`));
+});
+t("test_summary_proj_partial", () => {
+  // one team has a player with no projection: that team has no projections view or rank (never an understated one); the rest are ranked
+  const d = load("20team");
+  const rowsP = withProjections(d.rows, spread);
+  const victim = d.teams[0].entries.map(e => rowsP.get(String(e.key))).find(r => ["QB", "RB", "WR", "TE"].includes(r.pos));
+  const holed = new Map(rowsP);
+  holed.set(String(victim.player_key), {...victim, values: {...victim.values, ddf_value_projections: null}});
+  const { s } = summaryWith("20team", holed);
+  const t0 = s.teams.find(x => x.id === d.teams[0].id);
+  assert.strictEqual(t0.proj, null);
+  assert.strictEqual(t0.rank.proj, null);
+  const others = s.teams.filter(x => x.hasRoster && x.id !== t0.id);
+  others.forEach(x => assert.ok(x.rank.proj >= 1, x.name));
+  assert.strictEqual(Math.max(...others.map(x => x.rank.proj)) <= others.length, true);
+});
+t("test_summary_disagree_charts_key", () => {
+  // the gap is projections minus ddf_value_charts when the row has it, even when ddf_value was moved by an Overrides basis
+  const d = load("4team");
+  const rows = new Map();
+  d.rows.forEach((r, k) => rows.set(k, {...r, values: {...r.values, ddf_value: r.values.ddf_value + 50, ddf_value_charts: r.values.ddf_value, ddf_value_projections: r.values.ddf_value + 3.5}}));
+  const { s } = summaryWith("4team", rows);
+  const items = s.teams.flatMap(x => x.higher);
+  assert.ok(items.length > 0);
+  items.forEach(i => assert.ok(Math.abs(i.gap - 3.5) < 1e-9, `${i.name} gap ${i.gap}`));
+  // the column sorts on the signed biggest gap
+  const col = T.summaryColumns("fund").find(c => c.id === "disagree");
+  s.teams.filter(x => x.higher.length).forEach(x => assert.ok(Math.abs(col.get(x) - 3.5) < 1e-9));
+  s.teams.filter(x => !x.higher.length && !x.lower.length).forEach(x => assert.strictEqual(col.get(x), null));
+  // a lower gap sorts as a negative number
+  const low = summaryWith("4team", withProjections(d.rows, () => -3.5)).s;
+  const lowers = low.teams.filter(x => x.lower.length);
+  assert.ok(lowers.length > 0);
+  lowers.forEach(x => assert.ok(Math.abs(col.get(x) + 3.5) < 1e-9, `${x.name} lower sorts as ${col.get(x)}`));
+});
+t("test_summary_allocation_wording", () => {
+  const d = load("4team");
+  const { s } = summaryWith("4team", withProjections(d.rows, spread));
+  s.teams.filter(x => x.hasRoster).forEach(x => x.strengths.concat(x.weaknesses).forEach(i => {
+    assert.ok(/ allocation (above|below|at or above) /.test(i.text), i.text);
+    if (x.strengths.includes(i)) assert.ok(/ allocation (above|at or above) /.test(i.text), `strength says ${i.text}`);
+    if (x.weaknesses.includes(i)) assert.ok(/ allocation below /.test(i.text), `weakness says ${i.text}`);
+    assert.ok(!/fundamental|Strongest|Thinnest/.test(i.text), i.text);
+  }));
+  const head = T.headline(s);
+  assert.ok(/^Your team ranks \d+(st|nd|rd|th) of 4 on DDF Value, \d+(st|nd|rd|th) on projections, \d+(st|nd|rd|th) on market\./.test(head), head);
+  assert.ok(/Position allocation: (heavy at [A-Z]+|light at [A-Z]+)/.test(head), head);
+  assert.ok(!/fundamental|Strongest|Thinnest/.test(head), head);
 });
 
 (async () => {

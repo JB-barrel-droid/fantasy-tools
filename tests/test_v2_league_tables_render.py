@@ -16,20 +16,21 @@ Discrimination: test_guard_fails_on_broken_builds serves a build with each rule 
 """
 from __future__ import annotations
 
+import re
 import time
 import unittest
 
 from tests import _render_env
 from tests._league_render import browser_on_build, open_page, seed, source, wait_opps
 
-SUMMARY_COLS = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "under", "over"]
-NUMERIC_SUMMARY = ["rank", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank"]
+SUMMARY_COLS = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank", "disagree", "under", "over"]
+NUMERIC_SUMMARY = ["rank", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank"]
 OPP_HEADERS = ["Opponent", "Trade", "Fundamentals capture", "Our team fit", "Market perception", "Their team fit", "Overall fit", "Opportunity rank"]
 
 SUMMARY_ROWS = """() => [...document.querySelectorAll('#v2LgSummaryTable tr.v2-lg-main')].map(tr => {
   const cell = k => (tr.querySelector(`[data-cell="${k}"]`) || {}).textContent;
   return {id: tr.dataset.teamId, name: tr.querySelector('th').textContent.replace('★ ', '').replace(/ \\(partial\\)| No roster entered/g, ''), rank: cell('rank'), rosterF: cell('rosterF'), starterF: cell('starterF'),
-    benchF: cell('benchF'), rosterM: cell('rosterM'), starterM: cell('starterM'), benchM: cell('benchM'), altRank: cell('altRank'), under: cell('under'), over: cell('over'),
+    benchF: cell('benchF'), rosterM: cell('rosterM'), starterM: cell('starterM'), benchM: cell('benchM'), altRank: cell('altRank'), projRank: cell('projRank'), disagree: cell('disagree'), under: cell('under'), over: cell('over'),
     detail: (document.querySelector(`#v2LgSummaryTable tr.v2-lg-detail[data-team-id="${tr.dataset.teamId}"]`) || {}).textContent}; })"""
 
 # Independent recomputation of every team's numbers from the engine rows (not from team-summary.js).
@@ -95,7 +96,7 @@ def check_summary(browser, base, overrides, errors):
     if len(rows) != 4:
         errors.append(f"[summary] {len(rows)} rows for 4 teams")
     heads = page.evaluate("() => [...document.querySelectorAll('#v2LgSummaryTable thead th')].map(th => th.textContent.replace(/[▲▼↕]/g, '').trim())")
-    for want in ("Rank", "Team", "Roster value (DDF)", "Starter value (DDF)", "Bench value (DDF)", "Roster value (market)", "Starter value (market)", "Bench value (market)", "Market rank", "Undervalued by market", "Overvalued by market"):
+    for want in ("Rank", "Team", "Roster value (DDF)", "Starter value (DDF)", "Bench value (DDF)", "Roster value (market)", "Starter value (market)", "Bench value (market)", "Trade chart average rank", "DDF Value (projections) rank", "Projections vs charts", "Undervalued by market", "Overvalued by market"):
         if want not in heads:
             errors.append(f"[summary] no column {want!r}: {heads}")
     exp = page.evaluate(EXPECT)
@@ -111,12 +112,24 @@ def check_summary(browser, base, overrides, errors):
             errors.append(f"[summary] {r['name']} has no strengths and weaknesses text: {r['detail']!r}")
     if not any("+" in (r["under"] or "") for r in rows) and not any("-" in (r["over"] or "") for r in rows):
         errors.append("[summary] no under or overvalued player listed for any of the 4 teams")
+    # JEG-1081: the third rank and the projections-vs-charts list.
+    for r in rows:
+        if not r["projRank"] or not r["projRank"].strip().isdigit():
+            errors.append(f"[summary] {r['name']} has no projections rank: {r['projRank']!r}")
+        cell = (r["disagree"] or "").strip()
+        if cell != "—" and not ("projections higher" in cell or "projections lower" in cell):
+            errors.append(f"[summary] {r['name']} projections-vs-charts cell does not say higher or lower: {cell!r}")
+        for sign, word in re.findall(r"([+\u2212-])\d+\.\d \(projections (higher|lower)\)", cell):
+            if (sign == "+") != (word == "higher"):
+                errors.append(f"[summary] {r['name']} says projections {word} for a {sign} gap: {cell!r}")
+    if not any("projections higher" in (r["disagree"] or "") or "projections lower" in (r["disagree"] or "") for r in rows):
+        errors.append("[summary] no team lists a player where projections and charts disagree: the column would test nothing")
     # Default order is rank ascending.
     ranks = [fnum(r["rank"]) for r in rows]
     if ranks != sorted(ranks):
         errors.append(f"[summary] default order is not rank ascending: {ranks}")
     headline = page.inner_text("#v2LgSummaryHeadline")
-    if "of 4 on fundamentals" not in headline:
+    if "of 4 on DDF Value" not in headline or "on projections" not in headline:
         errors.append(f"[summary] headline {headline!r}")
     rank_by_team = {r["id"]: r["rank"] for r in rows}
     # Sort every numeric column both ways.
@@ -131,7 +144,7 @@ def check_summary(browser, base, overrides, errors):
             direction = "asc" if state[0].endswith("ascending") else "desc"
             if click == 1:
                 first = direction
-                want = "asc" if col == "altRank" else "desc" if col == "rank" else "desc"   # rank is already the default sort, so its first click reverses it
+                want = "asc" if col in ("altRank", "projRank") else "desc" if col == "rank" else "desc"   # rank is already the default sort, so its first click reverses it
                 if direction != want:
                     errors.append(f"[summary] {col} first click sorted {direction}, expected {want}")
             elif direction == first:
@@ -168,8 +181,8 @@ def check_summary(browser, base, overrides, errors):
     shown = page.evaluate(SUMMARY_ROWS)
     if {r["id"]: r["rank"] for r in shown} != exp["market"]:
         errors.append(f"[summary] market ranks {({r['id']: r['rank'] for r in shown})} expected {exp['market']}")
-    if "ranked by market roster value" not in page.inner_text("#v2LgSummaryTable caption") or "Fundamental rank" not in page.inner_text("#v2LgSummaryTable thead th[data-col=altRank]"):
-        errors.append("[summary] the table does not say it ranks by market and shows the fundamental rank beside it")
+    if "ranked by Trade chart average roster value" not in page.inner_text("#v2LgSummaryTable caption") or "DDF Value rank" not in page.inner_text("#v2LgSummaryTable thead th[data-col=altRank]"):
+        errors.append("[summary] the table does not say it ranks by market and shows the DDF Value rank beside it")
     page.context.close()
 
 
@@ -372,6 +385,10 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "rank follows the row position": ({"league.js": league.replace('el("td", {class: "num", "data-cell": "rank"}, rk),', 'el("td", {class: "num", "data-cell": "rank"}, String(rows.indexOf(t) + 1)),', 1)}, {"summary"}),
             "headline built from the sorted rows": ({"league.js": league.replace('T.headline(summary) ||', 'T.headline({...summary, teams: rows}).replace(/\\d+(st|nd|rd|th) of/, `${rows[0].rank[basis] || 0}th of`) ||', 1)}, {"summary"}),
             "roster value is the starters only": ({"team-summary.js": summary.replace("rosterValue: lineup.total,", "rosterValue: lineup.starterValue,", 1)}, {"summary"}),
+            "projections rank cell empty": ({"league.js": league.replace('rankText(t.rank.proj, ranked)', '"—"', 1)}, {"summary"}),
+            "projections-vs-charts cell not drawn": ({"league.js": league.replace('none ? "—" : disagreeList(t)', '"—"', 1)}, {"summary"}),
+            "higher and lower labels swapped": ({"league.js": league.replace('word: "Projections higher"})).concat(t.lower.map(i => ({...i, word: "Projections lower"}))', 'word: "Projections lower"})).concat(t.lower.map(i => ({...i, word: "Projections higher"}))', 1)}, {"summary"}),
+            "headline drops the projections rank": ({"team-summary.js": summary.replace('pj ? `${ordinal(pj)} on projections` : ""', '""', 1)}, {"summary"}),
             "capture is not the finder edge": ({"opportunities.js": opps.replace("edge: t.edge, edgePct", "edge: t.edge + 0.7, edgePct", 1)}, {"opps"}),
             "one opponent hides the opponent column": ({"league.js": league.replace('el("tr", {}, sortTh("opponent", cols, state, onSort, two),', 'el("tr", {}, (res.perOpponent.length > 1 ? sortTh("opponent", cols, state, onSort, two) : plainTh("", two)),', 1)}, {"opps"}),
             "Natural only does nothing": ({"opportunities.js": opps.replace('if (f.fit === "natural" && r.overall !== "natural") return false;', '', 1)}, {"opps"}),

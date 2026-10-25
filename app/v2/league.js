@@ -674,6 +674,17 @@
     void id;
     return wrap;
   }
+  // JEG-1081: the players where the projections and the trade charts disagree, by more than 2.0 points, in plain words.
+  function disagreeList(t) {
+    const items = t.higher.map(i => ({...i, word: "Projections higher"})).concat(t.lower.map(i => ({...i, word: "Projections lower"})))
+      .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap) || a.name.localeCompare(b.name));
+    if (!items.length) return "—";
+    const wrap = el("span", {class: "v2-lg-gaps", "data-gap": "disagree"});
+    const one = i => `${i.name} ${signed(i.gap)} (${i.word.toLowerCase()})`;
+    wrap.append(items.slice(0, 3).map(one).join(", "));
+    if (items.length > 3) wrap.append(" ", el("details", {class: "v2-lg-more"}, el("summary", {text: `+${items.length - 3} more`, "aria-label": `Show ${items.length - 3} more players where projections and charts disagree`}), el("span", {text: items.slice(3).map(one).join(", ")})));
+    return wrap;
+  }
   const rankText = (r, ranked) => (r === null || r === undefined ? "—" : ranked < 2 ? "—" : String(r));
   function renderSummaryNow() {
     const card = $("v2LgSummary");
@@ -692,14 +703,14 @@
     const ranked = summary.league.rankedCount;
     const marketOn = Boolean(ctx.market);
     const head = el("p", {class: "v2-find-headline", id: "v2LgSummaryHeadline", role: "status", "data-ranked": String(ranked)}, T.headline(summary) || "Add a roster to see how the teams compare.");
-    const basisSel = el("select", {id: "v2LgBasis"}, el("option", {value: "fund", text: "Fundamentals (DDF Value)"}), el("option", {value: "market", text: "Market (Trade chart average)"}));
+    const basisSel = el("select", {id: "v2LgBasis"}, el("option", {value: "fund", text: "DDF Value"}), el("option", {value: "market", text: "Trade chart average"}));
     basisSel.value = basis;
     if (!marketOn) basisSel.querySelector("option[value=market]").disabled = true;
-    basisSel.addEventListener("change", () => { update(w => W.ops.setUi(w, {rankBasis: basisSel.value}), "ui:basis"); announce(`Ranking by ${basisSel.value === "market" ? "market" : "fundamentals"}.`); });
+    basisSel.addEventListener("change", () => { update(w => W.ops.setUi(w, {rankBasis: basisSel.value}), "ui:basis"); announce(`Ranking by ${basisSel.value === "market" ? "the Trade chart average" : "DDF Value"}.`); });
     const reset = button("Reset sort", {class: "v2-btn", id: "v2LgSummaryReset", hidden: S.sameState(state, T.SUMMARY_DEFAULT)}, () => onSort(T.SUMMARY_DEFAULT));
     const tools = el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Rank by:"}), basisSel), reset);
     const alt = basis === "market" ? "fund" : "market";
-    const ids = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "under", "over"];
+    const ids = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank", "disagree", "under", "over"];
     const thead = el("thead", {}, el("tr", {}, ...ids.map(id => sortTh(id, cols, state, onSort))));
     const num = (v, extra) => el("td", {class: "num", ...(extra || {})}, v === null || v === undefined ? "—" : money(v));
     const tbodies = rows.map(t => {
@@ -715,21 +726,25 @@
         num(t.fund && t.fund.rosterValue, {"data-cell": "rosterF"}), num(t.fund && t.fund.starterValue, {"data-cell": "starterF"}), num(t.fund && t.fund.benchValue, {"data-cell": "benchF"}),
         num(t.market && t.market.rosterValue, {"data-cell": "rosterM"}), num(t.market && t.market.starterValue, {"data-cell": "starterM"}), num(t.market && t.market.benchValue, {"data-cell": "benchM"}),
         el("td", {class: "num", "data-cell": "altRank"}, same ? "=" : altText),
+        el("td", {class: "num", "data-cell": "projRank"}, rankText(t.rank.proj, ranked)),
+        el("td", {"data-cell": "disagree"}, none ? "—" : disagreeList(t)),
         el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "undervalued", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "overvalued", t.id)));
       const detail = el("tr", {class: "v2-lg-detail", "data-team-id": t.id},
         el("td", {colspan: String(ids.length)}, none ? "" : detailText(t, summary, basis)));
       return el("tbody", {}, main, detail);
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgSummaryTable"},
-      el("caption", {text: `Team summary: roster, starter and bench value in DDF Value and the Trade chart average, ranked by ${basis === "market" ? "market" : "fundamental"} roster value`}), thead, ...tbodies);
+      el("caption", {text: `Team summary: roster, starter and bench value in DDF Value and the Trade chart average, ranked by ${basis === "market" ? "Trade chart average" : "DDF Value"} roster value, with the projections rank beside them`}), thead, ...tbodies);
     const cards = el("ul", {class: "v2-lg-cards", id: "v2LgSummaryCards"}, ...rows.map(t => el("li", {class: "v2-lg-card", "data-team-id": t.id, "data-mine": String(t.isMine)},
       el("h4", {}, `${rankText(t.rank[basis], ranked) === "—" ? "" : `#${t.rank[basis]} `}${t.isMine ? "★ " : ""}${t.name}`, t.partial ? " (partial)" : ""),
-      t.hasRoster ? el("div", {}, el("p", {}, `DDF: ${money(t.fund.rosterValue)} (start ${money(t.fund.starterValue)}, bench ${money(t.fund.benchValue)})`),
-        t.market ? el("p", {}, `Market: ${money(t.market.rosterValue)} (start ${money(t.market.starterValue)}, bench ${money(t.market.benchValue)})`) : null,
-        t.rank[alt] ? el("p", {}, `${alt === "market" ? "Market" : "Fundamental"} rank: ${t.rank[alt]}`) : null,
+      t.hasRoster ? el("div", {}, el("p", {}, `DDF Value: ${money(t.fund.rosterValue)} (start ${money(t.fund.starterValue)}, bench ${money(t.fund.benchValue)})`),
+        t.market ? el("p", {}, `Trade chart average: ${money(t.market.rosterValue)} (start ${money(t.market.starterValue)}, bench ${money(t.market.benchValue)})`) : null,
+        t.rank[alt] ? el("p", {}, `${alt === "market" ? "Trade chart average" : "DDF Value"} rank: ${t.rank[alt]}`) : null,
+        t.rank.proj ? el("p", {}, `DDF Value (projections) rank: ${t.rank.proj}`) : null,
+        el("p", {}, "Projections vs charts: ", disagreeList(t)),
         el("p", {}, detailText(t, summary, basis)),
         el("p", {}, "Undervalued: ", gapList(t.under, "undervalued")), el("p", {}, "Overvalued: ", gapList(t.over, "overvalued"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
-    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Under and overvalued: DDF Value minus the Trade chart average, listed when the gap is more than 2.0 points."});
+    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Under and overvalued: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus the adjusted trade charts (DDF Value on the default basis), labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
     body.replaceChildren(head, tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note);
     const live = $("v2LgSummaryCount");
     if (live) live.textContent = `${plural(summary.teams.length, "team")}`;
@@ -1048,7 +1063,7 @@
       el("div", {class: "v2-sr", id: "v2LgLive", role: "status", "aria-live": "polite"}));
     const summary = el("section", {class: "v2-card", id: "v2LgSummary", "aria-labelledby": "v2LgSummaryTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgSummaryTitle", text: "Team summary"}),
-        el("p", {class: "v2-meta", text: "Roster, starter and bench value for every team in DDF Value (fundamentals) and the Trade chart average (market), with strengths, weaknesses and the players the market prices away from DDF Value."}))),
+        el("p", {class: "v2-meta", text: "Roster, starter and bench value for every team in DDF Value, DDF Value (projections) and the Trade chart average, with position allocation, ranks in each view and the players the views price differently."}))),
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
