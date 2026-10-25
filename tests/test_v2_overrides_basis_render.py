@@ -185,7 +185,7 @@ class RubricTest(unittest.TestCase):
             # Task script, first screen: the basis, the count, then one click.
             first = page.inner_text("#v2Overrides")
             self.assertIn("Our methodology", first)
-            self.assertIn("Your overrides (0)", first)
+            self.assertIn("Your player overrides (0)", first)
             self.assertTrue(page.locator("#v2OvBar").is_hidden() or page.inner_text("#v2OvBar").strip() == "")
             star = top_player(page)
             before = ddf_of(page, star["name"])

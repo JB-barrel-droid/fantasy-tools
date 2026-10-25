@@ -1821,3 +1821,11 @@ Bench RBs gain ~6.8% DDF Value; marginal starters lose 2-6%.
 not from projected PPG (what the engine uses for tiering). This proxy may
 over- or understate rates for specific positions. A future refinement could
 use projection-based rankings.
+
+## MR-33 Sub-waiver tail: engine Adjusted 0 vs reference ~0.006 (JEG-1044, 2026-10-24)
+
+Found by running `value_check compare --basis '{"mode":"single","source":"fantasycalc"}' --strict` (page vs Python reference, 12 combos, no superflex). For players below the waiver line on a trade chart, the engine's Adjusted value is exactly 0 and the Python reference's is about 0.006 (inside the 0.05 tolerance, so the default compare is green). With one chart as the whole value basis, DDF Value is that Adjusted value and the `v == 0 -> waiver` tier rule (VP-7.3) decides on it: about 20 boundary players per setting land in a different tier and tag (Hold vs Drop) between engine and reference. Values agree; tiers do not.
+
+**Question for the coordinated review:** which is right for a below-waiver tail player, an exact 0 (engine) or a small positive (reference's smooth tail)? Whichever it is, both implementations and the spec reference must match before a one-source basis is gated by `--strict`.
+
+**State:** default behaviour is byte-identical and untouched. Logged in docs/risk-register.md as GAP-BASIS-FC-TAIL-TIERS. No one-off change made.

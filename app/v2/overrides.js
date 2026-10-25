@@ -883,7 +883,7 @@
     if (!box) return;
     box.replaceChildren();
     const keys = Object.keys(S.values);
-    box.append(el("div", {class: "v2-card-head"}, [el("h2", {id: "v2OvListTitle", text: `Your overrides (${keys.length})`}),
+    box.append(el("div", {class: "v2-card-head"}, [el("h2", {id: "v2OvListTitle", text: `Your player overrides (${keys.length})`}),
       el("div", {class: "v2-ov-tools"}, [
         el("button", {type: "button", id: "v2OvExport", class: `v2-btn v2-btn-quiet${S.exportHint ? " is-hint" : ""}`, text: "Export", onclick: exportFile,
           title: "Download your value basis and player overrides as a file"}),
