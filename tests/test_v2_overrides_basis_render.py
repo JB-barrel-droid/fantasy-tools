@@ -437,17 +437,22 @@ class RubricTest(unittest.TestCase):
             self.assertEqual(page.locator("#v2OvBar").get_attribute("hidden") is not None or "Overrides active" in page.inner_text("#v2OvBar"), True)
             self.assertEqual(s.errors, [])
 
-    def test_values_auditing_says_when_the_basis_is_not_ours(self):
+    def test_health_check_says_when_the_basis_is_not_ours(self):
+        """#899 Health check (and every Values auditing page): thresholds were set on our methodology."""
         with Session() as s:
-            page = s.open("#values-auditing")
+            page = s.open("#values-auditing/health-check")
             self.assertTrue(page.locator("#v2AuditBasisNote").is_hidden())
             page.evaluate("() => window.TradeValueCurveControls.setBasis({mode: 'single', source: 'fantasycalc'})")
-            page.goto(s.base + "/v2/#values-auditing", wait_until="networkidle")
-            page.wait_for_function(READY, timeout=90000)
-            page.evaluate("() => window.TradeValueCurveControls.setBasis({mode: 'single', source: 'fantasycalc'})")
-            page.evaluate("() => { location.hash = '#player-values'; location.hash = '#values-auditing'; }")
-            page.wait_for_timeout(500)
-            self.assertIn("your custom basis (FantasyCalc)", page.inner_text("#v2AuditBasisNote"))
+            page.evaluate("() => { location.hash = '#values-auditing/single-source'; location.hash = '#values-auditing/health-check'; }")
+            page.wait_for_timeout(600)
+            note = page.inner_text("#v2AuditBasisNote")
+            self.assertIn("your custom basis (FantasyCalc)", note)
+            self.assertIn("thresholds on these pages were set on our methodology", note)
+            page.evaluate("() => window.TradeValueCurveControls.setBasis(null)")
+            page.evaluate("() => { location.hash = '#values-auditing/single-source'; location.hash = '#values-auditing/health-check'; }")
+            page.wait_for_timeout(600)
+            self.assertTrue(page.locator("#v2AuditBasisNote").is_hidden())
+            self.assertEqual(s.errors, [])
 
     def test_phone_has_no_sideways_scroll_and_blend_rows_stack(self):
         with Session(viewport=(390, 844)) as s:
@@ -510,6 +515,18 @@ class BrokenPageIsCaught(unittest.TestCase):
             page.wait_for_timeout(300)
             self.assertAlmostEqual(before, ddf_of(page, star["name"]), places=9,
                                    msg="control: with the engine call removed DDF Value cannot change")
+
+    def test_a_health_check_without_the_notice_is_caught(self):
+        src = (DIST / "v2" / "v2.js").read_text(encoding="utf-8")
+        old = "basisNote.hidden = !basis || basis.isDefault;"
+        self.assertIn(old, src)
+        broken = src.replace(old, "basisNote.hidden = true;", 1).encode("utf-8")
+        with Session(overrides={"v2/v2.js": broken}) as s:
+            page = s.open("#values-auditing/health-check")
+            page.evaluate("() => window.TradeValueCurveControls.setBasis({mode: 'single', source: 'fantasycalc'})")
+            page.evaluate("() => { location.hash = '#values-auditing/single-source'; location.hash = '#values-auditing/health-check'; }")
+            page.wait_for_timeout(600)
+            self.assertTrue(page.locator("#v2AuditBasisNote").is_hidden(), "control: the broken page never shows the notice")
 
     def test_a_page_without_the_indicator_fails_item_7(self):
         src = (DIST / "v2" / "overrides.js").read_text(encoding="utf-8")
