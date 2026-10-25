@@ -1,8 +1,8 @@
 {
- "run_at": "2026-10-25T12:40:29+00:00",
+ "run_at": "2026-10-25T16:20:29+00:00",
  "season": 2026,
  "dry_run": false,
- "pulled_at": "2026-10-25T12:40:15+00:00",
+ "pulled_at": "2026-10-25T16:20:16+00:00",
  "played_weeks": [
   1,
   2,
@@ -21,19 +21,19 @@
   7
  ],
  "actuals": {
-  "rows_in": 2522,
-  "resolved": 2522,
+  "rows_in": 2543,
+  "resolved": 2543,
   "resolved_by": {
-   "espn_id->gsis_id": 378,
-   "espn_id->name": 280,
-   "name": 1864
+   "espn_id->gsis_id": 380,
+   "espn_id->name": 285,
+   "name": 1878
   },
   "n_unresolved": 0,
   "unresolved": [],
   "n_no_game": 0,
   "no_game": [],
-  "to_upsert": 578,
-  "no_offensive_line_skipped": 489,
+  "to_upsert": 596,
+  "no_offensive_line_skipped": 492,
   "comparison_with_existing": {
    "by_position": {
     "QB": {
@@ -181,8 +181,8 @@
    6,
    7
   ],
-  "rows_written": 307,
-  "unchanged_skipped": 10262,
+  "rows_written": 0,
+  "unchanged_skipped": 10569,
   "unresolved_rows": 0,
   "no_game_skipped": 430
  },
@@ -205,11 +205,12 @@
   "unresolved_rows": 0,
   "source_week": 7,
   "phase": "sunday",
-  "written": 21348
+  "written": 0,
+  "note": "capture for this content week and phase already stored; first one wins"
  },
  "resolved_share": 1.0,
  "written": {
-  "player_game_stats": 578,
-  "projection_snapshots": 307
+  "player_game_stats": 596,
+  "projection_snapshots": 0
  }
 }

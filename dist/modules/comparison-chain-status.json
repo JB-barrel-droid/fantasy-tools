@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-25T15:27:50.524714+00:00",
+  "run_at": "2026-10-25T16:33:16.875152+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,15 +10,31 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "published_with_holds",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
+    "cbsros",
     "razzball"
   ],
   "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Eli Stowers, Tip Reiman); parse notes: RB: 3 players listed with another position in the cell (kept as RB): ['Kyl",
+      "hold_severity": "amber",
+      "week": 7
+    },
     "razzball": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -145,6 +161,27 @@
     }
   },
   "fidelity_holds": {
+    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: publisher_vs_stored"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_a_fixed_file_left_on_the_red_list_is_caught",
+      "FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_a_new_unlisted_module_is_caught",
+      "FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_an_unwired_green_module_is_caught",
+      "FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_every_render_module_is_wired_or_known_red"
+    ],
+    "assertions": [
+      "AssertionError: 1 != 2",
+      "AssertionError: Lists differ: ['test_v2_brand_new_render: in no Makefile run list[15 chars]red'] != ['test_v2_inputs_status_render: in no Makefile run [90 chars]red']",
+      "AssertionError: Lists differ: [] != ['test_v2_inputs_status_render: in no Makefile run list and not known red']"
+    ],
+    "make_targets": [
+      "Makefile:613: test-core"
+    ],
+    "detail": "FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_a_fixed_file_left_on_the_red_list_is_caught; FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_a_new_unlisted_module_is_caught; FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_an_unwired_green_module_is_caught; FAIL tests.test_render_sweep_coverage.RenderSweepCoverageTest.test_every_render_module_is_wired_or_known_red; AssertionError: 1 != 2; AssertionError: Lists differ: ['test_v2_brand_new_render: in no Makefile run list[15 chars]red'] != ['test_v2_inputs_status_render: in no Makefile run [90 chars]red']; AssertionError: Lists differ: [] != ['test_v2_inputs_status_render: in no Makefile run list and not known red']",
+    "recorded_at": "2026-10-25T16:59:19.678525+00:00"
   }
 }
