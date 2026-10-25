@@ -161,7 +161,7 @@ class LeaguePhoneRenderTest(unittest.TestCase):
             "the cards are never shown": ({"v2.css": css.replace("  .v2-lg-tablewrap { display: none; }\n  .v2-lg-cards { display: grid; }", "  .v2-lg-cards { display: none; }", 1)}, {"phone"}),
             "the sort selector is dead": ({"league.js": league.replace('sel.addEventListener("change", () => onSort(S.nextState({col: null}, sel.value, columns)));', '', 1)}, {"phone"}),
             "a 30px control": ({"v2.css": css.replace(".v2-lg-toggle { min-width: 44px; min-height: 44px;", ".v2-lg-toggle { min-width: 30px; min-height: 30px;", 1)}, {"phone"}),
-            "low contrast tint": ({"v2.css": css.replace(".v2-lg-fit.is-natural { color: var(--v2-action-strong); }", ".v2-lg-fit.is-natural { color: #9FD8BE; }", 1)}, {"contrast"}),
+            "low contrast tint": ({"v2.css": css.replace(".v2-lg-sort.is-active { color: var(--v2-action-strong); }", ".v2-lg-sort.is-active { color: #9FD8BE; }", 1)}, {"contrast"}),
             "aria-sort on the button": ({"league.js": league.replace('const th = el("th", {scope: "col", "aria-sort": S.ariaSort(state, id), "data-col": id, ...(attrs || {})});', 'const th = el("th", {scope: "col", "data-col": id, ...(attrs || {})});', 1)}, {"keyboard"}),
             "Escape does not fold": ({"league.js": league.replace('if (event.key === "Escape" && !comp.collapsed', 'if (false && !comp.collapsed', 1)}, {"keyboard"}),
         }

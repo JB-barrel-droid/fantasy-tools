@@ -218,7 +218,7 @@ def check_opps(browser, base, overrides, errors):
             direction = "asc" if state[0].endswith("ascending") else "desc"
             if click == 1:
                 first = direction
-                want = "asc" if col == "opponent" else "desc"   # rank is already the default sort, so its first click reverses it
+                want = "asc" if col in ("rank", "opponent") else "desc"   # rank is not the active sort here (fair was), so its first click is its natural direction
                 if direction != want:
                     errors.append(f"[opps] {col} first click sorted {direction}, expected {want}")
             elif direction == first:
@@ -370,7 +370,7 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "headline built from the sorted rows": ({"league.js": league.replace('T.headline(summary) ||', 'T.headline({...summary, teams: rows}).replace(/\\d+(st|nd|rd|th) of/, `${rows[0].rank[basis] || 0}th of`) ||', 1)}, {"summary"}),
             "roster value is the starters only": ({"team-summary.js": summary.replace("rosterValue: lineup.total,", "rosterValue: lineup.starterValue,", 1)}, {"summary"}),
             "capture is not the finder edge": ({"opportunities.js": opps.replace("edge: t.edge, edgePct", "edge: t.edge + 0.7, edgePct", 1)}, {"opps"}),
-            "one opponent gets a different table": ({"league.js": league.replace('{label: "Their team fit", buttons: []}, ', '', 1)}, {"opps"}),
+            "one opponent hides the opponent column": ({"league.js": league.replace('el("tr", {}, sortTh("opponent", cols, state, onSort, two),', 'el("tr", {}, (res.perOpponent.length > 1 ? sortTh("opponent", cols, state, onSort, two) : plainTh("", two)),', 1)}, {"opps"}),
             "Natural only does nothing": ({"opportunities.js": opps.replace('if (f.fit === "natural" && r.overall !== "natural") return false;', '', 1)}, {"opps"}),
             "force fits not hidden": ({"opportunities.js": opps.replace("if (hideForce && r.overall === \"force\") return false;", "", 1)}, {"opps"}),
             "settings change ignored": ({"league.js": league.replace('document.addEventListener("ddf:league-settings-changed", onSettingsChanged);', '', 1)}, {"settings"}),
