@@ -5799,7 +5799,7 @@
 
   // Shareable trade: the sides live in the hash, so a copied link opens the same trade.
   // A shared trade also carries the sender's scoring and roster (Jeremy, 2026-10-08: the receiver
-  // is assumed to be in the same league). Team count is not carried yet.
+  // is assumed to be in the same league). JEG-1026: and the team count (links written before it have none: the reader's stays).
   const LINK_ROSTER = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["FLEX", "FLEX"], ["SUPERFLEX", "SF"], ["BENCH", "BN"]];
   const LINK_SCORING = ["standard", "half_ppr", "ppr"];
   // The league settings a shared link carries (scoring, roster, position shares, season weeks, advanced); JEG-1022: the
@@ -5808,6 +5808,7 @@
     const parts = [];
     const shape = C.getRosterShape();
     parts.push(`scoring=${C.getState().scoring}`);
+    parts.push(`teams=${C.getState().teams}`);   // JEG-1026: the team count travels too (it priced the sender's league)
     parts.push(`roster=${LINK_ROSTER.map(([key, code]) => `${code}${shape[key] || 0}`).join(".")}`);
     // Position shares only when the sender changed them (back end: encode when not default).
     const shares = C.getPositionWeights();
@@ -5865,6 +5866,9 @@
     const shape = C.getRosterShape();
     const scoringChange = LINK_SCORING.includes(scoring) && scoring !== C.getState().scoring;
     const rosterChange = Object.entries(roster).filter(([key, value]) => key in shape && shape[key] !== value);
+    // JEG-1026: a link's team count (8, 10, 12 or 14, the engine's own choices); anything else is ignored.
+    const teams = Number(params.get("teams"));
+    const teamsChange = [8, 10, 12, 14].includes(teams) && teams !== C.getState().teams;
     // JEG-537: advanced settings. A link that carries a league carries all three (missing ones mean the defaults).
     // Old links: bench=0.150 (the old default) means no override; any other bench= without bso= is the sender's override.
     let advChange = null;
@@ -5903,16 +5907,17 @@
         optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
       if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
     }
-    if (!scoringChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
+    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
     leagueInputs.source = "link";
     leagueInputs.notes = [];
     if (weeksChange) {
       const error = applySeasonWeeks(weeksChange);
       if (error) console.warn("Link season weeks ignored:", error);
     }
-    if (scoringChange || rosterChange.length) {
+    if (scoringChange || teamsChange || rosterChange.length) {
       leagueChange(() => {
         if (scoringChange) C.setScoring(scoring);
+        if (teamsChange) C.setTeams(teams);
         rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
       });
     }
@@ -5933,10 +5938,28 @@
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 8000);
   }
+  // JEG-1026: the three routes a DDF state's `view` can name (docs/design/llm-site-state.md), and the link parameters that
+  // only the shared-state reader (ddf-assist.js) handles: a Find a trade link's rosters, a Trade targets link's player.
+  const STATE_ROUTES = ["#compare-trade", "#trade-targets", "#find-trade"];
+  const STATE_VIEW_ROUTE = {compare: "#compare-trade", targets: "#trade-targets", finder: "#find-trade"};
   function readTradeHash() {
-    const [base, query] = location.hash.split("?");
-    if ((base !== "#compare-trade" && base !== "#waivers") || !query) return;
-    const params = new URLSearchParams(query);
+    let [base, query] = location.hash.split("?");
+    if (!query || !STATE_ROUTES.includes(base) && base !== "#waivers") return;
+    let params = new URLSearchParams(query);
+    // A link whose `view` names another of the three routes opens that route (the address says so, Back still works).
+    const named = STATE_VIEW_ROUTE[params.get("view")];
+    if (named && STATE_ROUTES.includes(base) && named !== base) {
+      base = named;
+      try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
+    }
+    if (base !== "#compare-trade" && base !== "#waivers") {   // Find a trade and Trade targets links
+      if (window.DDFAssist) window.DDFAssist.applyLink(query);
+      return;
+    }
+    if (base === "#compare-trade" && (params.has("mine") || params.has("theirs") || params.has("target")) && window.DDFAssist) {
+      window.DDFAssist.applyLink(query);   // a state with more than the trade: the codec reads all of it
+      return;
+    }
     if (base === "#waivers") { applyLinkLeague(params); return; }   // JEG-1022: the Waivers tab reads its own players from the link
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     const seen = new Set();
@@ -5964,7 +5987,7 @@
     const dropped = shareDroppedOverrides && window.DDFOverrides ? ` ${window.DDFOverrides.dropOverridesNote()}` : "";
     try {
       await navigator.clipboard.writeText(url);
-      note.textContent = "✓ Link copied. It opens this trade with your scoring, roster, bench share and position shares; the team count stays the reader's."
+      note.textContent = "✓ Link copied. It opens this trade with your scoring, team count, roster, bench share and position shares."
         + carries + dropped;
     } catch (error) {
       note.textContent = `Copy this link: ${url}${dropped}`;
@@ -7086,6 +7109,41 @@
     bindRisers();
   }
 
+  // JEG-1026: what ddf-assist.js (Copy for ChatGPT/Claude, the paste box, state links) may read and change on this page.
+  // A narrow set of hooks, so the assist code never reaches into this file's state.
+  function attachAssist() {
+    if (!window.DDFAssist) return;
+    const VIEW_NAME = {compare: "compare", targets: "targets", find: "finder"};
+    window.DDFAssist.attach({
+      engine: C,
+      view: () => VIEW_NAME[currentView()] || "",
+      leagueQuery: () => leagueLinkParts().join("&"),
+      applyLinkLeague,
+      leagueText: () => `${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}`,
+      sources: () => C.getActiveSources(),
+      getTrade: () => ({give: TR.give.map(p => ({...p})), get: TR.receive.map(p => ({...p}))}),
+      setTrade: (give, get) => { TR.give = give; TR.receive = get; if (currentView() === "compare") renderCompare(); },
+      getTarget: () => T.search,
+      setTarget: name => {
+        T.search = name;
+        $("v2TSearch").value = name;
+        T.shown = {sell: TARGETS_TOP, buy: TARGETS_TOP};
+        T.expanded = {sell: new Set(), buy: new Set()};
+        if (currentView() === "targets") renderTargets();
+      },
+      // Show the route and re-render it (the same hash does not fire hashchange).
+      go: route => {
+        if (location.hash.split("?")[0] === route) { applyRoute(); return; }
+        location.hash = route;
+      },
+      say: (text, ms) => {
+        setStatus(text);
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => setStatus(""), ms || 8000);
+      },
+    });
+  }
+
   async function start() {
     document.body.classList.add("v2");
     canonicalizeHash();
@@ -7106,6 +7164,7 @@
     loadSourcePages();
     bind();
     setStatus("");
+    attachAssist();   // JEG-1026: before the link is read, which may carry a whole DDF state
     readTradeHash();   // may set a status: a shared link's league settings were applied
     $("v2State").hidden = true;
     applyRoute();
