@@ -1860,3 +1860,60 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 
 /* JEG-1023: "not reviewed" caption under the Optimize for control. */
 .v2-optimize-caption { margin: 6px 0 0; overflow-wrap: anywhere; }
+
+/* JEG-1021: Your league (any number of named teams), the team summary and the trade opportunities table. */
+.v2-lg-toolbar { align-items: center; }
+.v2-lg-toolbar .v2-btn, .v2-lg-actions .v2-btn, .v2-lg-filters .v2-btn { min-height: 44px; }
+.v2-lg-saved { margin-left: auto; }
+.v2-lg-saved[data-state="unavailable"], .v2-lg-saved[data-state="full"] { color: var(--v2-older); font-weight: 600; }
+.v2-lg-teams { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.v2-lg-team { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 4px 10px; background: var(--v2-surface); }
+.v2-lg-team[data-mine="true"] { border-left: 4px solid var(--v2-action); }
+.v2-lg-team-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 48px; }
+.v2-lg-star, .v2-lg-toggle { min-width: 44px; min-height: 44px; background: none; border: 0; font-size: 20px; cursor: pointer; color: var(--v2-action-text); border-radius: var(--v2-radius-btn); }
+.v2-lg-nameslot { min-width: 0; flex: 1 1 140px; }
+.v2-lg-name { min-height: 44px; max-width: 100%; background: none; border: 0; padding: 0 4px; font: inherit; font-weight: 700; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--v2-ink); text-decoration: underline; text-decoration-color: var(--v2-border); text-underline-offset: 3px; }
+.v2-lg-name-input { box-sizing: border-box; width: 100%; min-height: 44px; font: inherit; font-size: 16px; padding: 6px 10px; border: 1px solid var(--v2-field-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); color: inherit; }
+.v2-lg-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.v2-lg-confirm { padding: 8px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.v2-lg-confirm[hidden] { display: none; }
+.v2-lg-team-body { padding: 4px 0 10px; }
+.v2-lg-team-body[hidden] { display: none; }
+.v2-trade-players.v2-lg-players li.v2-lg-row { grid-template-columns: minmax(0, 1fr) auto; }
+.v2-lg-players .v2-find-remove { min-width: 44px; min-height: 44px; }
+.v2-lg-table { min-width: 0; }
+.v2-lg-table thead th { vertical-align: bottom; }
+.v2-lg-table td.num, .v2-lg-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.v2-lg-sort { background: none; border: 0; padding: 4px 2px; min-height: 32px; font: inherit; font-size: 12px; font-weight: 600; color: var(--v2-ink); cursor: pointer; text-align: left; }
+.v2-lg-sort.is-active { color: var(--v2-action-strong); }
+.v2-lg-sort + .v2-lg-sort { display: block; font-weight: 500; color: var(--v2-muted); }
+.v2-lg-arrow { color: var(--v2-muted); }
+.v2-lg-sort.is-active .v2-lg-arrow { color: var(--v2-action-strong); }
+.v2-lg-detail td, .v2-lg-opp-detail td { font-size: 13px; color: var(--v2-muted); border-top: 0; }
+.v2-lg-main[data-mine="true"] th, .v2-lg-main[data-mine="true"] td { background: var(--v2-positive); }
+.v2-lg-more summary { cursor: pointer; display: inline; color: var(--v2-action-text); }
+.v2-lg-details-btn { min-height: 44px; }
+.v2-lg-fit { font-weight: 700; }
+.v2-lg-fit.is-natural { color: var(--v2-action-strong); }
+.v2-lg-fit.is-force { color: var(--v2-older); }
+.v2-lg-fit.is-market, .v2-lg-fit.is-value { color: var(--v2-ink); }
+.v2-lg-detail-body { display: grid; gap: 4px; }
+.v2-lg-detail-body p { margin: 0; }
+.v2-lg-cards { display: none; list-style: none; margin: 8px 0 0; padding: 0; gap: 8px; }
+.v2-lg-card { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 8px 12px; }
+.v2-lg-card[data-mine="true"] { border-left: 4px solid var(--v2-action); }
+.v2-lg-card h4 { margin: 0 0 4px; }
+.v2-lg-card p { margin: 2px 0; overflow-wrap: anywhere; }
+.v2-lg-phonesort { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.v2-lg-phonesort .v2-btn { min-height: 44px; }
+.v2-lg-phonesort select, .v2-lg-filters select { min-height: 44px; max-width: 100%; }
+@media (max-width: 720px) {
+  .v2-lg-tablewrap { display: none; }
+  .v2-lg-cards { display: grid; }
+  .v2-lg-saved { margin-left: 0; flex-basis: 100%; }
+  .v2-lg-actions { flex: 1 1 100%; }
+  .v2-lg-actions .v2-btn { flex: 1 1 auto; }
+}
+.v2-lg-table td.num, .v2-lg-table th.num { white-space: nowrap; }
+.v2-lg-opp[data-overall="natural"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-action); }
+.v2-lg-opp[data-overall="force"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-older); }

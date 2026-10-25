@@ -1283,3 +1283,14 @@ The Value pie tab is now **Health check** (`#values-auditing/health-check`, `app
 - **Single source:** heading "How a source's values are built"; the Published line is drawn as a percentage of the source's own largest value (right-hand axis in %), raw numbers stay in the table.
 - **Follow-up, not built:** week-over-week change tracking (new flags since last week) needs stored flag state; ticket-ready note in the notes folder.
 - **Tests:** `tests/test_v2_health_check_render.py` (frozen fixtures in `tests/fixtures/audit/`, live page, broken-build guards), `tests/test_audit_pie.py`, `tests/test_v2_audit_render.py`, `tests/test_v2_audit_source_render.py`.
+
+## League workspace: any number of named teams (JEG-1021, 2026-10-24)
+
+Spec: `jeg-1021-league-workspace/spec.md` (decided by Jeremy 2026-10-24: name "Your league", one saved league, K/DEF counted, table on desktop and cards on phone, auto-save with a Saved indicator, up/down reorder; one opportunities table, same for 1 or 20 opponents; team summary; sorting on every numeric column; ranking = fit tier then fundamentals edge; force fits shown with a one-click Hide).
+
+- Files, all with no DOM except `league.js`: `workspace.js` (store, localStorage `ddf.v2.workspaces`, also the shared "my roster" for the Waivers tab: `getMyRoster`, `setMyRoster`, `subscribe`), `table-sort.js`, `team-summary.js`, `opportunities.js`, `league.js` (three cards above the two-team finder on Find a trade). Script order in `build_v2_page.py`: the four pure files, `finder.js`, `league.js`, `modules.js`.
+- No value math: starters, bench, depth and fit come from `finder.js` (`lineupValue`, `rosterBalance`, `withChartAverage`, `findTrades`, `tradeFit`), which is unchanged except `api.page` (the page's parser and loaders, shared with `league.js`). The two-team card and all its ids are unchanged (25 test files pin them).
+- Constants: market-gap noise floor 2.0 points; median needs 3 teams; at most 20 opponents; 10 trades kept per pairing (the finder's LIMIT); 20 table rows at a time. Listed in `docs/math-review-agenda.md` MR-33.
+- Cache: a pairing is keyed by both rosters' values (DDF Value and the four charts) plus the league shape, expected depth and bench weights, so a settings change never reuses an old answer and a rename recomputes nothing.
+- a11y: aria-sort is on the th (valid ARIA), one button per header, Market perception is two sub-columns so each sorts from its own header.
+- Tests: `tests/test_v2_league_units.py` (Node harness over the frozen fixtures `tests/fixtures/league/`, 22 mutations), `test_v2_league_render.py`, `test_v2_league_tables_render.py`, `test_v2_league_phone_render.py`.
