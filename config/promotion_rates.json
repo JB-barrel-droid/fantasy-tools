@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "ticket": "JEG-969",
+  "decision": "Measured from 2015-2025 nflverse weekly actuals (promotion_demotion_rates.py). Promotion = bench player (by season-to-date PPG rank) who becomes a starter by season end. Demotion = starter who falls to bench. Rates are per-week averages at mid-season (weeks 5-12) to avoid early-season noise and late-season compression.",
+  "measured_on": "2026-10-23",
+  "source": "tools/bench_research/promotion_demotion_rates.py on data/inputs/weekly_actuals_nflverse_2015_2025.csv.gz",
+  "note": "These rates are used ONLY when the promotion_model flag is on (off by default). They modify the expected-starts lineup share to account for persistent role changes.",
+  "season_weeks": 17,
+  "promotion_rate_per_remaining_week": {
+    "_comment": "Probability that a bench player at this depth becomes a starter, per remaining week of season. Derived from the slope of the promotion-rate-by-week curve: rate(W) ~ base * (total_weeks - W) / total_weeks. The per-week rate is base / total_weeks.",
+    "QB": {"1": 0.018, "2": 0.017, "3": 0.015, "4+": 0.005},
+    "RB": {"1": 0.022, "2": 0.019, "3": 0.017, "4+": 0.006},
+    "WR": {"1": 0.023, "2": 0.020, "3": 0.022, "4+": 0.007},
+    "TE": {"1": 0.020, "2": 0.015, "3": 0.015, "4+": 0.009}
+  },
+  "demotion_rate_per_remaining_week": {
+    "_comment": "Probability that a starter falls to bench, per remaining week. Used to reduce marginal starters' share symmetrically.",
+    "QB": 0.020,
+    "RB": 0.014,
+    "WR": 0.015,
+    "TE": 0.018
+  }
+}

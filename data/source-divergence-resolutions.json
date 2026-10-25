@@ -8,6 +8,62 @@
       "issue": "JEG-482",
       "decided": "2026-10-10",
       "note": "The Week 5 +6 point bias was lead 1 on JEG-460: the old isotonic reindex did not keep the chart's own scale. JEG-482 (#439, merged 2026-10-09) made Indexed the natives times one factor. Measured with this check on the fixture either side of #439 (full_12): bias +6.16 -> +0.08, outlier rate 66% -> 46%. The remaining ~47% outlier rate matches FantasyPros' own Weeks 2-4 (44-48%), so it is FantasyPros' normal disagreement, not a new break."
+    },
+    {
+      "source": "fantasycalc",
+      "week": 7,
+      "resolution": "accepted",
+      "issue": "JEG-830",
+      "decided": "2026-10-24",
+      "note": "Outlier rate 46-47% (full/half/standard) vs its own 4-week baseline 43-44% and a range of 38-52% over weeks 3-6 (52% in week 4); bias +0.4 to +0.5. Indexed is one factor per combo (min = max over 197 players); API values fetched 2026-10-23. Normal FantasyCalc disagreement, not a break."
+    },
+    {
+      "source": "fantasypros",
+      "week": 7,
+      "resolution": "accepted",
+      "issue": "JEG-796",
+      "decided": "2026-10-24",
+      "note": "Outlier rate 43/45/47% (full/half/standard) vs its own baseline 46-47% and 44-49% over weeks 3-6; bias -0.2 to 0.0. Week 7 article (content 2026-10-20). FantasyPros publishes one scoring-agnostic Value column reused for all three scorings (documented in the fixture), which is why standard, where the other charts reprice RBs against WRs, is its worst combo. Indexed is one factor per combo (min = max over 178 players). Same conclusion as the week 5 resolution: FantasyPros' normal disagreement."
+    },
+    {
+      "source": "fantasypros",
+      "week": 6,
+      "resolution": "accepted",
+      "issue": "JEG-790",
+      "decided": "2026-10-24",
+      "note": "Week 6 outlier rate 46-48% (from week 7's prior_weeks, history natives times the current factor), bias -0.4 to -0.1, inside FantasyPros' 44-49% range for weeks 3-7. Same reasons as week 7 (JEG-796): one scoring-agnostic Value column, normal disagreement."
+    },
+    {
+      "source": "espn",
+      "week": 7,
+      "resolution": "accepted",
+      "issue": "JEG-795",
+      "decided": "2026-10-24",
+      "note": "Warn in half/standard only (47-48%, bias +3.1/+3.6, RB +4.7/+5.9); full 33%. Native per-game projections compared source against source (median of each player's native over the mean of the other two, shared players, weeks 5-7 from data/history and the current fixture): CBS ROS QB +17 to +19%, RB -12 to -20%; Razzball QB -19 to -23%; ESPN RB +7 to +9%, TE -7 to -8%. The pattern is stable week to week and identical in full, half and standard, and reception scoring matches across the three (half-PPR share 0.50, same full-minus-standard gap by position), so no scoring path is broken. Razzball's live QB page (updated 2026-10-23) shows Josh Allen at 20.3 STD PPG, the fixture value; his stat line rescores to 223.1 vs 223.2 published. With three sources the leave-one-out consensus is the mean of two, so one low Razzball QB line or one low CBS ROS RB line moves the other sources' outlier rates. Rates sit 1-3 points over the fixed 45% ceiling; projection sources have no trailing baseline (JEG-952 tunes these thresholds)."
+    },
+    {
+      "source": "espn",
+      "week": 6,
+      "resolution": "accepted",
+      "issue": "JEG-789",
+      "decided": "2026-10-24",
+      "note": "Week 6 warn (standard 47%). Native per-game projections compared source against source (median of each player's native over the mean of the other two, shared players, weeks 5-7 from data/history and the current fixture): CBS ROS QB +17 to +19%, RB -12 to -20%; Razzball QB -19 to -23%; ESPN RB +7 to +9%, TE -7 to -8%. The pattern is stable week to week and identical in full, half and standard, and reception scoring matches across the three (half-PPR share 0.50, same full-minus-standard gap by position), so no scoring path is broken. Razzball's live QB page (updated 2026-10-23) shows Josh Allen at 20.3 STD PPG, the fixture value; his stat line rescores to 223.1 vs 223.2 published. With three sources the leave-one-out consensus is the mean of two, so one low Razzball QB line or one low CBS ROS RB line moves the other sources' outlier rates. Rates sit 1-3 points over the fixed 45% ceiling; projection sources have no trailing baseline (JEG-952 tunes these thresholds)."
+    },
+    {
+      "source": "cbsros",
+      "week": 7,
+      "resolution": "accepted",
+      "issue": "JEG-794",
+      "decided": "2026-10-24",
+      "note": "Warn in half/standard (46-47%, QB bias +5.3/+5.5, RB -6.4/-6.8). Native per-game projections compared source against source (median of each player's native over the mean of the other two, shared players, weeks 5-7 from data/history and the current fixture): CBS ROS QB +17 to +19%, RB -12 to -20%; Razzball QB -19 to -23%; ESPN RB +7 to +9%, TE -7 to -8%. The pattern is stable week to week and identical in full, half and standard, and reception scoring matches across the three (half-PPR share 0.50, same full-minus-standard gap by position), so no scoring path is broken. Razzball's live QB page (updated 2026-10-23) shows Josh Allen at 20.3 STD PPG, the fixture value; his stat line rescores to 223.1 vs 223.2 published. With three sources the leave-one-out consensus is the mean of two, so one low Razzball QB line or one low CBS ROS RB line moves the other sources' outlier rates. Rates sit 1-3 points over the fixed 45% ceiling; projection sources have no trailing baseline (JEG-952 tunes these thresholds)."
+    },
+    {
+      "source": "cbsros",
+      "week": 6,
+      "resolution": "accepted",
+      "issue": "JEG-788",
+      "decided": "2026-10-24",
+      "note": "Week 6 warn (standard 48%). Native per-game projections compared source against source (median of each player's native over the mean of the other two, shared players, weeks 5-7 from data/history and the current fixture): CBS ROS QB +17 to +19%, RB -12 to -20%; Razzball QB -19 to -23%; ESPN RB +7 to +9%, TE -7 to -8%. The pattern is stable week to week and identical in full, half and standard, and reception scoring matches across the three (half-PPR share 0.50, same full-minus-standard gap by position), so no scoring path is broken. Razzball's live QB page (updated 2026-10-23) shows Josh Allen at 20.3 STD PPG, the fixture value; his stat line rescores to 223.1 vs 223.2 published. With three sources the leave-one-out consensus is the mean of two, so one low Razzball QB line or one low CBS ROS RB line moves the other sources' outlier rates. Rates sit 1-3 points over the fixed 45% ceiling; projection sources have no trailing baseline (JEG-952 tunes these thresholds)."
     }
   ]
 }

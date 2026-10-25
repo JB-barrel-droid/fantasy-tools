@@ -49,8 +49,10 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [contract/](contract/) | Maintained | JEG-327 | unknown | Front-end read contract v1, FE dependency inventory, v3 backend requirements (JEG-327). |
 | [design/vorp-reweight.md](design/vorp-reweight.md) | Record | - | - | Eight-group VORP reweight design (JEG-209/231), with `reweight_example.py` and a desktop mockup PNG. |
 | [design/fidelity-all-hold.md](design/fidelity-all-hold.md) | Record | JEG-799 | 2026-10-22 | Why a week boundary holds every source and fails the chain closed (GAP-FIDELITY-ALL-HOLD); options A/B/C with measured evidence, recommendation (a hold applies to the build it measured), decision for Jeremy. |
+| [design/llm-site-state.md](design/llm-site-state.md) | Maintained | JEG-1025 | 2026-10-24 | The DDF state object and its two encodings (URL query, pasteable block) that move work between LLM chats and the site; reader rules and open gaps (JEG-1025, JEG-1024). |
 | [product/jeg-303-dashboard-ideas.md](product/jeg-303-dashboard-ideas.md) | Record | - | - | Dashboard idea scoping (JEG-303). |
 | [v2-design-notes.md](v2-design-notes.md) | Maintained | JEG-602 | 2026-10-22 | v2 front end design notes and back-end contracts; dated build-log sections archived 2026-10-15 (JEG-602); nav structure, sub-routes, DDFAudit registry, Value pie, Writing tab, Customize tabs, shared search, chips and links, single-source compare, roster paste parser as merged 2026-10-22 (JEG-874). |
+| [health-check-thresholds.md](health-check-thresholds.md) | Maintained | JEG-1011 | 2026-10-24 | Health check (Values auditing) flag limits: how each was derived from the engine on training weeks, validated on held-out weeks, and what is information only. |
 | [v2-mobile-plan.md](v2-mobile-plan.md) | Maintained | JEG-927 | 2026-10-23 | Phone audit of the v2 pages (2026-10-22), defects per tab, chart and table patterns, three decisions, and the phased tickets; its status line says which phases are merged (JEG-927, JEG-947, JEG-953). |
 | [fixture-transition-proposal.md](fixture-transition-proposal.md) | Record | - | - | Decision to pause stale adjusted curves, staged 2026-09-22. |
 
@@ -63,7 +65,9 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [SUPABASE_WRITER_AUDIT.md](SUPABASE_WRITER_AUDIT.md) | Record | - | - | Audit of Supabase writers' missing safeguards. |
 | [supabase-tables.md](supabase-tables.md) | Maintained | JEG-600 | 2026-10-12 | Every public table and view, who writes it, who reads it, and whether it is live or legacy (JEG-600). |
 | [projection-captures.md](projection-captures.md) | Maintained | JEG-944 | unknown | Forward-projection captures: what each source offers, the capture cadence, and the append-only table (JEG-944, parent JEG-943). |
-| [values-endpoint.md](values-endpoint.md) | Maintained | JEG-616 | unknown | The `get-values` Supabase edge function and the MCP server that serve blended values (JEG-616). |
+| [values-endpoint.md](values-endpoint.md) | Maintained | JEG-1012 | 2026-10-24 | The `get-values` and remote `mcp` Supabase edge functions and the local MCP server that serve blended values (JEG-616, JEG-1012). |
+| [use-ddf-in-claude-chatgpt.md](use-ddf-in-claude-chatgpt.md) | Maintained | JEG-1028 | 2026-10-24 | How to connect the values to Claude and ChatGPT (connector URL, skill, llms.txt, server card, Custom GPT Actions) and the current limits. Sources are in `app/llm/`, built by `pipelines/build_llm_surfaces.py`. |
+| [get-values.openapi.yaml](get-values.openapi.yaml) | Maintained | JEG-1012 | 2026-10-24 | OpenAPI schema of `get-values` for a Custom GPT's Actions. |
 | [supabase-egress-notes.md](supabase-egress-notes.md) | Record | JEG-793 | - | Which reads cost the cloud project's egress; steps 1 to 3 of JEG-793, figures inferred from code, not measured (2026-10-21). |
 | [import-health-schema.md](import-health-schema.md) | Maintained | unknown | unknown | Import health tables (each section states its status). |
 

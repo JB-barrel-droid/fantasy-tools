@@ -110,11 +110,11 @@ class WalkCatchesBreakage(unittest.TestCase):
         c1 = {int(k): float(v) for k, v in fx["inputs"]["c1"]["values"].items()}
         real = vp.allocate
 
-        def own_values(setting, order, scores):
+        def own_values(setting, order, scores, **kwargs):
             pos_of = {int(k): v["pos"] for k, v in fx["players"].items()}
             if scores is not c1:
-                return real(setting, vp.score_order(c1, pos_of), c1)
-            return real(setting, order, scores)
+                return real(setting, vp.score_order(c1, pos_of), c1, **kwargs)
+            return real(setting, order, scores, **kwargs)
 
         with mock.patch.object(vp, "allocate", own_values):
             self.assertTrue(self._mismatches())

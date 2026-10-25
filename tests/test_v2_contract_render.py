@@ -344,7 +344,8 @@ COMMON = r"""
   const fire = (el, v) => { el.value = String(v); el.dispatchEvent(new Event('input', {bubbles: true}));
     el.dispatchEvent(new Event('change', {bubbles: true})); };
   const C = window.TradeValueCurveControls, V = window.TradeValueV2;
-  const own = n => [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim();
+  // JEG-947: a name cell holds its text in a .v2-nm span (phones show "Last, First"); the contract reads the full "First Last" name, and an empty visible name still reads as empty.
+  const own = n => { const nm = n && n.querySelector && n.querySelector(':scope > .v2-nm'); return nm ? (nm.textContent.trim() ? (nm.dataset.full || nm.textContent.trim()) : '') : [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim(); };
   const rect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; };
   const shown = n => Boolean(n) && !n.hidden && n.getClientRects().length > 0;
   const closePop = async () => { const b = document.querySelector('#v2Popover:not([hidden]) .v2-panel-close')
@@ -357,7 +358,7 @@ COMMON = r"""
     label: a.textContent.trim(), href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page'}));
   const tabs = () => [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view,
     label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'}));
-  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit']
+  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit', 'v2Overrides']
     .map(id => [id, shown($(id))]));
   const readTable = (sel = '#v2Table') => [...document.querySelectorAll(sel + ' tbody tr[data-player-key]')].map(tr => ({
     key: tr.dataset.playerKey, name: own(tr.querySelector('td.player') || tr),
@@ -514,20 +515,23 @@ VALUES_JS = "async () => {" + COMMON + r"""
   fire($('v2Search'), 'a'); await sleep(600);
   $('v2Reset').click(); await sleep(600);
   out.reset = {rank: $('v2RankBy').value, position: $('v2Position').value, search: $('v2Search').value, show: $('v2Show').value};
-  // League edits are a draft until Apply
+  // League edits apply live (JEG-1020): no Apply, no Cancel; Undo changes returns to the opening settings
   const leagueBefore = $('v2LeagueName').textContent;
   const engineTeams = C.getState().teams;
   $('v2EditLeague').click(); await sleep(300);
   const teams = [...document.querySelectorAll('#v2Popover [aria-label="Teams"] button')].find(b => b.getAttribute('aria-pressed') !== 'true');
-  if (teams) { teams.click(); await sleep(200); }
-  const draftTeams = C.getState().teams;
+  const immediateTeams = (teams ? (teams.click(), C.getState().teams) : engineTeams);   // before the debounce
+  await sleep(700);
+  const liveTeams = C.getState().teams;
   const buttons = [...document.querySelectorAll('#v2Popover button')].map(b => b.textContent.trim());
-  const cancel = [...document.querySelectorAll('#v2Popover button')].find(b => b.textContent.trim() === 'Cancel');
-  if (cancel) cancel.click(); else await closePop();
+  const undo = document.querySelector('#v2Popover [data-league-undo]');
+  if (undo) undo.click(); else await closePop();
   await sleep(500);
+  const afterUndo = C.getState().teams;
+  await closePop();
   out.league = {before: leagueBefore, after: $('v2LeagueName').textContent, changed: Boolean(teams),
-    engineTeams, draftTeams, afterTeams: C.getState().teams,
-    hasApply: buttons.includes('Apply'), hasCancel: Boolean(cancel)};
+    engineTeams, immediateTeams, liveTeams, afterTeams: afterUndo,
+    hasApply: buttons.includes('Apply'), hasCancel: buttons.includes('Cancel'), hasUndo: Boolean(undo)};
   // Remembered selection: pick another Rank by, then the caller reloads
   const third = [...$('v2RankBy').options].map(o => o.value).filter(v => v !== 'ddf_value').pop();
   fire($('v2RankBy'), third); await sleep(400);
@@ -680,7 +684,7 @@ PHONE_JS = "async (hash) => {" + COMMON + r"""
   const toggle = $('v2NavToggle');
   if (shown(toggle)) {
     toggle.click(); await sleep(100);
-    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === 7 && toggle.getAttribute('aria-expanded') === 'true';
+    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === document.querySelectorAll('.v2-tabs .v2-tab').length && document.querySelectorAll('.v2-tabs .v2-tab').length >= 8 && toggle.getAttribute('aria-expanded') === 'true';
     toggle.click(); await sleep(100);
   }
   if (hash === '#compare-trade') {
@@ -1159,18 +1163,19 @@ def gl10(S):
 def gl11(S):
     v = S["values"]
     errors = []
-    # GL-11 (v1.2) is draft-until-Apply only; "Edit league is primary" is GL-22 (JEG-498).
+    # GL-11 (v1.2) was draft-until-Apply; JEG-1020 (Jeremy, 2026-10-24) replaced it: settings apply as they change.
     # Buttons are found by ID, never by label ("Weights & bench" becomes "Position weights").
     if not v["s0"]["leagueButtons"]["edit"]:
         errors.append("no Edit league control (#v2EditLeague)")
     lg = v["league"]
-    if not (lg["changed"] and lg["hasApply"] and lg["hasCancel"]):
-        errors.append(f"Edit league dialog: changed {lg['changed']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
-    if lg["after"] != lg["before"]:
-        errors.append(f"a cancelled league edit applied: {lg['before']!r} -> {lg['after']!r}")
-    if lg["draftTeams"] != lg["engineTeams"] or lg["afterTeams"] != lg["engineTeams"]:
-        errors.append(f"a league draft reached the engine before Apply: teams {lg['engineTeams']} -> "
-                      f"{lg['draftTeams']} (draft) -> {lg['afterTeams']} (cancelled)")
+    if not (lg["changed"] and lg["hasUndo"]) or lg["hasApply"] or lg["hasCancel"]:
+        errors.append(f"Edit league dialog: changed {lg['changed']}, Undo {lg['hasUndo']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
+    if lg["immediateTeams"] != lg["engineTeams"]:
+        errors.append(f"a league tap reached the engine inside the input handler (no debounce): {lg['engineTeams']} -> {lg['immediateTeams']}")
+    if lg["liveTeams"] == lg["engineTeams"]:
+        errors.append(f"a league change did not apply on its own: teams stayed {lg['liveTeams']}")
+    if lg["afterTeams"] != lg["engineTeams"] or lg["after"] != lg["before"]:
+        errors.append(f"Undo changes did not return the league: teams {lg['engineTeams']} -> {lg['liveTeams']} -> {lg['afterTeams']}; {lg['before']!r} -> {lg['after']!r}")
     return errors
 
 
@@ -2237,6 +2242,15 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "RS-01", "Writing sections out of order")
         caught(results, "CT-01", "Swap removed")
         caught(results, "GL-01", '"Vegas" in the header')
+
+        # JEG-947: a name cell with no visible name, with and without data-full (the helper PV-03 reads through must not hide it).
+        for fault, old, new_text in (
+            ("name cells with no text and no data-full", "    span.dataset.full = row.name;\n    span.dataset.pos = row.pos || \"\";\n    span.title = row.name;\n    span.textContent = phoneName(row.name, row.pos);\n",
+             "    span.dataset.pos = row.pos || \"\";\n"),
+            ("name cells with data-full but an empty visible name", "    span.textContent = phoneName(row.name, row.pos);\n", "    span.textContent = \"\";\n"),
+        ):
+            results, _ = run_contract(["PV-03"], {"v2.js": cut(js, old, new_text)})
+            caught(results, "PV-03", fault)
 
         # Group 2 (v2.js + v2.css): Reset keeps Rank by, prior-week status without a symbol,
         # the DDF line at the others' weight, the ◐ tag removed.

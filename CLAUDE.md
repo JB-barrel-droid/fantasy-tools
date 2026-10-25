@@ -29,9 +29,9 @@ quoted decisions, agents naming their ticket, "(part of JEG-xxx)" PR titles).
 
 ### Session ownership and takeover (Jeremy, 2026-10-10)
 
-Several Claude sessions work this repo at once: the back end, and the front end on the Windows PC and on the Mac. Linear decides who owns what.
+Several Claude sessions work this repo at once: the back end, and the front end on the Windows PC, on the Mac and in the cloud. Linear decides who owns what.
 
-- **Owner label.** Every ticket a session works carries exactly one label from the `Session` group: `session:be`, `session:fe-pc` or `session:fe-mac`. The label is the owner; the Linear assignee stays Jeremy.
+- **Owner label.** Every ticket a session works carries exactly one label from the `Session` group: `session:be`, `session:fe-pc`, `session:fe-mac` or `session:fe-cloud` (front end running in the cloud; added by Jeremy, 2026-10-24, because that session is neither the PC nor the Mac one). The label is the owner; the Linear assignee stays Jeremy.
 - **Queue (JEG-567).** A session's queue is the Todo tickets in Jegabee that carry its own Session label. Backlog is not the queue: a ticket enters it when Jeremy moves it to Todo. At session start, and each time a ticket closes, the session reads its queue and claims the top ticket:
   - back end: by the `BE priority` label (Now, Next, Then, Later), then Linear priority;
   - front end: by Linear priority, then oldest first.

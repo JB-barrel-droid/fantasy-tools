@@ -14,11 +14,30 @@
         <a class="v2-tab" href="v2/#risers-fallers" data-view="risers" data-short="Movers"><span class="v2-tab-full">Risers &amp; fallers</span></a>
         <a class="v2-tab" href="v2/#compare-trade" data-view="compare" data-short="Trade"><span class="v2-tab-full">Compare a trade</span></a>
         <a class="v2-tab" href="v2/#find-trade" data-view="find" data-short="Find"><span class="v2-tab-full">Find a trade</span></a>
+        <a class="v2-tab" href="v2/#waivers" data-view="waivers" data-short="Waivers"><span class="v2-tab-full">Waivers</span></a>
+        <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-short="Overrides"><span class="v2-tab-full">Overrides</span></a>
         <a class="v2-tab" href="v2/#values-auditing" data-view="audit" data-short="Audit"><span class="v2-tab-full">Values auditing</span></a>
       </nav>
       <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
       </button>
+    </div>
+    <div class="v2-topnote" id="v2SeasonNote">
+      <div class="v2-topnote-inner">
+        <p class="v2-topnote-text" id="v2SeasonNoteText">Built for season-long value, not weekly start/sit decisions or playoff optimization.</p>
+        <button type="button" class="v2-topnote-more" id="v2SeasonNoteMore" aria-expanded="false" aria-controls="v2SeasonNoteDetail">More</button>
+        <button type="button" class="v2-topnote-close" id="v2SeasonNoteClose" aria-label="Dismiss notice"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="v2-topnote-detail" id="v2SeasonNoteDetail" hidden>
+        <p><strong>What this dashboard is for right now</strong></p>
+        <ul>
+          <li>It is designed for season-long value.</li>
+          <li>It is not designed for weekly start/sit decisions.</li>
+          <li>It is not designed for playoff optimization.</li>
+          <li>The &ldquo;Optimize for playoffs&rdquo; setting has not been reviewed and likely is not working.</li>
+          <li>Defenses and kickers are not yet accounted for.</li>
+        </ul>
+      </div>
     </div>
   </header>
 
@@ -229,7 +248,7 @@
       </div>
     </div>
 
-    <p class="v2-footnote">DDF Value is our value: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
+    <p class="v2-footnote">DDF Value is our value: <span data-basis-ours>the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -241,15 +260,14 @@
       <p class="v2-asof" data-page-asof></p>
     </div>
 
-    <aside class="v2-circular-banner" id="v2TCircularBanner" role="status" hidden>
-      <p id="v2TCircularText"></p>
-    </aside>
 
     <section class="v2-tcheck" aria-labelledby="v2TCheck1Title">
       <h2 id="v2TCheck1Title">1. Potential mispricing</h2>
       <p class="v2-meta">Our value for each player against what the trade charts pay for the same player. A big gap means the market may have him wrong.</p>
     </section>
 
+    <!-- JEG-1042 (Jeremy, 2026-10-24): the review chips sit side by side on one line, just above the filters. -->
+    <p class="v2-filter-note v2-tdiv" id="v2TDivergence" hidden></p>
     <div class="v2-filters v2-tfilters" role="search">
       <label class="v2-search"><span class="v2-sr">Search players</span>
         <input type="search" id="v2TSearch" placeholder="Search players…" autocomplete="off">
@@ -276,7 +294,6 @@
     </div>
 
     <section class="v2-unpriced" id="v2TUnpriced" hidden aria-label="Players with no value"></section>
-    <p class="v2-filter-note v2-tdiv" id="v2TDivergence" hidden></p>
 
     <div class="v2-tlists">
       <section class="v2-card v2-tlist" id="v2TSell" aria-labelledby="v2TSellTitle">
@@ -444,9 +461,6 @@
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
-      <aside class="v2-circular-banner" id="v2CCircularBanner" role="status" hidden>
-        <p id="v2CCircularText"></p>
-      </aside>
       <section class="v2-card v2-cverdict" id="v2CVerdict" aria-labelledby="v2CVerdictTitle">
         <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
         <div class="v2-cheads" id="v2CHeads" hidden>
@@ -523,6 +537,15 @@
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
+  <main class="v2-wrap v2-main" id="v2Waivers" hidden aria-labelledby="v2WaiversTitle">
+    <div class="v2-title">
+      <h1 id="v2WaiversTitle">Should you pick anyone up?</h1>
+      <p>Enter your roster and the top waiver options, as many as you like. See who to pick up and who to drop, from your starting lineup, your bench depth and DDF Value, with the market value beside each.</p>
+      <p class="v2-asof" data-page-asof></p>
+    </div>
+    <p class="v2-footnote v2-brandline">Data Driven Football</p>
+  </main>
+
   <main class="v2-wrap v2-main" id="v2How" hidden aria-labelledby="v2HowTitle">
     <div class="v2-title">
       <h1 id="v2HowTitle"><span class="v2-wide">Know what the numbers mean.</span><span class="v2-narrow">Know your values.</span></h1>
@@ -533,7 +556,7 @@
     <section class="v2-card v2-how-names" id="v2HowNames" aria-labelledby="v2HowNamesTitle">
       <h2 id="v2HowNamesTitle">Two numbers for every player</h2>
       <ul class="v2-how-primaries">
-        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag. <span class="v2-circular-inline" id="v2HowCircular" hidden></span></li>
+        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: <span data-basis-ours>the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag.</li>
         <li data-primary="ddf_value_charts"><b>Trade chart average</b> What the market will pay: the published trade charts, rescaled to the same scale and averaged.</li>
       </ul>
       <h3>Where the edge comes from</h3>
@@ -769,19 +792,32 @@
     </article>
   </main>
 
+  <!-- JEG-1035 / JEG-1044: the basis and the player overrides. app/v2/overrides.js fills the four mounts. -->
+  <main class="v2-wrap v2-main" id="v2Overrides" hidden aria-labelledby="v2OverridesTitle">
+    <div class="v2-title">
+      <h1 id="v2OverridesTitle">Overrides.</h1>
+      <p>Choose what our value means, then adjust single players. Everything here applies on every tab, right away. Our methodology is the default.</p>
+    </div>
+    <section class="v2-card v2-ov-card" id="v2OvBasis" aria-labelledby="v2OvBasisTitle"></section>
+    <section class="v2-card v2-ov-card" id="v2OvSearchBox" aria-labelledby="v2OvPlayersTitle"></section>
+    <section class="v2-card v2-ov-card" id="v2OvEditor" hidden aria-labelledby="v2OvName"></section>
+    <section class="v2-card v2-ov-card" id="v2OvList" aria-labelledby="v2OvListTitle"></section>
+  </main>
+
   <main class="v2-wrap v2-main" id="v2Audit" hidden aria-labelledby="v2AuditTitle">
     <div class="v2-title">
       <h1 id="v2AuditTitle">Values auditing</h1>
       <p>Check where a value comes from.</p>
+      <p class="v2-ov-warn" id="v2AuditBasisNote" role="status" hidden></p>
       <p class="v2-asof" data-page-asof></p>
     </div>
     <nav class="v2-subtabs" id="v2AuditTabs" aria-label="Values auditing views">
-      <a class="v2-subtab" href="#values-auditing/value-pie" data-audit="value-pie">Value pie</a>
+      <a class="v2-subtab" href="#values-auditing/health-check" data-audit="health-check">Health check</a>
       <a class="v2-subtab" href="#values-auditing/single-source" data-audit="single-source">Single source</a>
     </nav>
-    <section class="v2-audit-panel" id="v2AuditPie" data-audit="value-pie" aria-label="Value pie">
+    <section class="v2-audit-panel" id="v2AuditPie" data-audit="health-check" aria-label="Health check">
       <div id="audit-pie-root" class="audit-root">
-        <p class="v2-meta">Value pie: coming soon.</p>
+        <p class="v2-meta">Health check: loading.</p>
       </div>
     </section>
     <section class="v2-audit-panel" id="v2AuditSource" data-audit="single-source" aria-label="Single source" hidden>
@@ -792,6 +828,7 @@
   </main>
 
   <div class="v2-status" id="v2Status" role="status" hidden></div>
+  <div class="v2-sr" id="v2LeagueLive" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div class="v2-tip" id="v2Tip" role="tooltip" hidden></div>
   <div class="v2-tip v2-mathtip" id="v2MathTip" role="tooltip" hidden></div>

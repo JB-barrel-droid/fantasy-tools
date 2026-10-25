@@ -11,9 +11,10 @@ pool.
 Builds dist/v2 into a temp copy of the built dist/ with the pinned holds
 (tests/_holds.py: CBS held, plus Razzball held here, JEG-804), loads it headless and checks against the engine:
 
-  * Customize (Player values), DDF blend tab (JEG-850): "Using N of M sources" where
-    N = ticked inputs the engine blends (getCompositeInputs().series) and M = the
-    allowed inputs; a held input's row says "Paused this week";
+  * Overrides > Custom blend (JEG-1044, replaced the Customize DDF blend tab and its "Using N of M sources"): the
+    sources that carry a share are the ticked inputs the engine blends (getCompositeInputs().series), their shares sum
+    to 100, and a held input's row says "Paused this week" and is locked, as is its preset; Customize's Chart lines
+    still say "Paused this week" for a held chart;
   * Trade targets "On this page": the rescaled trade chart count is the number of
     charts the page can read (available), never a held one;
   * Risers (DDF Value): "a of b sources have a prior week" counts the blended
@@ -94,16 +95,22 @@ ENGINE = """() => {
     heldCharts: charts.filter(k => { const i = info.find(x => x.key === k); return i && !i.available && /^held/i.test(i.excludedReason || ''); })};
 }"""
 
+OVERRIDES = """() => ({
+  rows: Object.fromEntries([...document.querySelectorAll('.v2-ov-wrow')].map(r => [r.dataset.sourceRow, {
+    paused: r.classList.contains('is-paused'), note: (r.querySelector('.v2-ov-wnote') || {}).textContent || '',
+    pct: (r.querySelector('[data-pct]') || {}).textContent || '', locked: r.querySelector('input[type=checkbox]').disabled}])),
+  presets: Object.fromEntries([...document.querySelectorAll('#v2OvPresets [role=radio]')].map(b =>
+    [b.dataset.preset, b.getAttribute('aria-disabled') === 'true']))
+})"""
+
 CUSTOMIZE = """() => ({
-  legend: document.querySelector('#v2Popover [data-panel="blend"] .v2-psummary')?.textContent || '',
-  reasons: Object.fromEntries([...document.querySelectorAll('#v2Popover [data-ddf-input]')].map(b =>
-    [b.dataset.ddfInput, b.closest('label')?.querySelector('.v2-meta')?.textContent || ''])),
+  tabs: document.querySelectorAll('#v2Popover [role=tab], #v2Popover [data-ddf-input]').length,
   chartReasons: Object.fromEntries([...document.querySelectorAll('#v2Popover input[data-series]')].map(b =>
     [b.dataset.series, b.closest('label')?.querySelector('.v2-meta')?.textContent || '']))
 })"""
 
 
-def run_checks(v2_js=None) -> list[str]:
+def run_checks(v2_js=None, overrides_js=None) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -122,6 +129,8 @@ def run_checks(v2_js=None) -> list[str]:
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
             if v2_js is not None:
                 page.route("**/v2/v2.js*", functools.partial(_serve, v2_js, "text/javascript"))
+            if overrides_js is not None:
+                page.route("**/v2/overrides.js*", functools.partial(_serve, overrides_js, "text/javascript"))
             page.goto(base + "#player-values", wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=30000)
             engine = page.evaluate(ENGINE)
@@ -135,20 +144,33 @@ def run_checks(v2_js=None) -> list[str]:
                 page.wait_for_function("(h) => location.hash.startsWith(h)", arg=name)
                 page.wait_for_timeout(300)
 
-            # 1. Customize on Player values: the DDF Value inputs legend.
-            page.click("#v2EditSources")
-            page.wait_for_selector("#v2Popover [data-ddf-input]", state="attached")
-            panel = page.evaluate(CUSTOMIZE)
-            match = re.match(r"Using (\d+) of (\d+) sources?", panel["legend"])
-            want_used = len([k for k in engine["series"] if k in engine["inputs"]])
-            if not match:
-                errors.append(f"Customize legend {panel['legend']!r} does not say 'Using N of M sources'")
-            elif (int(match.group(1)), int(match.group(2))) != (want_used, len(engine["allowed"])):
-                errors.append(f"Customize legend {panel['legend']!r}; engine blends {want_used} of {len(engine['allowed'])} "
-                              f"(pool {engine['inputs']}, blend {engine['series']})")
+            # 1. Overrides > Custom blend: the share rows count the sources the engine blends, not the pool.
+            go("#value-overrides")
+            page.wait_for_selector("#v2OvPresets")
+            page.click('#v2OvPresets [data-preset="blend"]')
+            page.wait_for_selector("#v2OvOn-espn")
+            page.wait_for_timeout(300)
+            panel = page.evaluate(OVERRIDES)
+            sharing = sorted(k for k, r in panel["rows"].items() if re.match(r"\d+% of the blend", r["pct"]))
+            want_used = sorted(k for k in engine["series"] if k in engine["inputs"])
+            if sharing != want_used:
+                errors.append(f"Overrides shows a share for {sharing}; the engine blends {want_used} (pool {engine['inputs']}, blend {engine['series']})")
+            total = sum(int(re.match(r"(\d+)%", panel["rows"][k]["pct"]).group(1)) for k in sharing)
+            if sharing and total != 100:
+                errors.append(f"Overrides' shares sum to {total}, want 100: {[panel['rows'][k]['pct'] for k in sharing]}")
             for key in hidden:
-                if "Paused this week" not in panel["reasons"].get(key, ""):
-                    errors.append(f"Customize row for held input {key} says {panel['reasons'].get(key)!r}, want 'Paused this week'")
+                row = panel["rows"].get(key) or {}
+                if "Paused this week" not in row.get("note", "") or not row.get("paused") or not row.get("locked") or row.get("pct") != "paused":
+                    errors.append(f"Overrides row for held input {key} is {row}, want paused, locked, 'Paused this week'")
+                if not panel["presets"].get(f"single:{key}"):
+                    errors.append(f"Overrides still offers held input {key} as a single-source basis")
+            page.click('#v2OvPresets [data-preset="default"]')
+            go("#player-values")
+            page.click("#v2EditSources")
+            page.wait_for_selector("#v2Popover .v2-panel-body")
+            panel = page.evaluate(CUSTOMIZE)
+            if panel["tabs"]:
+                errors.append(f"Customize still has {panel['tabs']} tab or DDF-input controls")
             for key in engine["heldCharts"]:
                 if "Paused this week" not in panel["chartReasons"].get(key, ""):
                     errors.append(f"Customize row for held chart {key} says {panel['chartReasons'].get(key)!r}, want 'Paused this week'")
@@ -190,13 +212,21 @@ class SourceCountRenderTest(unittest.TestCase):
 
     def test_guard_fails_on_broken_builds(self):
         js = V2_JS.read_text(encoding="utf-8")
+        overrides = (ROOT / "app" / "v2" / "overrides.js").read_text(encoding="utf-8")
+        broken_overrides = {
+            "Overrides marks no source paused": (
+                "const paused = st && !st.usable;",
+                "const paused = false;"),
+            "Overrides shares count the pool": (
+                "const on = BASIS_KEYS.filter(key => S.blend[key].on && isUsable(key));",
+                "const on = BASIS_KEYS.filter(key => S.blend[key].on);"),
+        }
+        for name, (anchor, replacement) in broken_overrides.items():
+            with self.subTest(mutation=name):
+                self.assertIn(anchor, overrides, f"mutation anchor for {name!r} is stale")
+                self.assertNotEqual(run_checks(overrides_js=overrides.replace(anchor, replacement, 1)), [],
+                                    f"render checks did not catch: {name}")
         broken = {
-            "Customize counts the pool": (
-                "const using = usableOn().length;",
-                "const using = blendKeys.filter(key => inputsDraft.has(key)).length;"),
-            "held input not listed as excluded": (
-                ".forEach(key => { if (!excluded.has(key)) excluded.set(key, plainOutReason(view.infoByKey[key]?.excludedReason)); });",
-                ".forEach(key => {});"),
             "On this page counts held charts": (
                 "view.infoByKey[key] && view.infoByKey[key].available && !pageCannotUse(page, key)",
                 "view.infoByKey[key] && !pageCannotUse(page, key)"),
