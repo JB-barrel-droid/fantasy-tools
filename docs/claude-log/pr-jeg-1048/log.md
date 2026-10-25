@@ -21,12 +21,21 @@
      the net-chip row gap to 2 px for the 1366x768 fold. Overlap guard from #854 fires.
   6. Phase 1 "no clipped name found to tap" at 390: not an element. The first 50 rows all fit the 148 px name column this week (longest
      "Walker III, Kenneth" 133 px), so the tap test had nothing to tap. Data-dependent guard; see test change.
-- Fixes (app/v2/v2.css, app/v2/v2.js): chip gets a centred 44 x 44 `::after` on every pointer (box and row unchanged), z-index 2 so a
-  header chip beats the value cells; legend chip +3 px left margin (touch) so it clears the source link's padding; Targets note items are
+- Fixes (app/v2/v2.css, app/v2/v2.js): chip gets a centred 44 x 44 `::after` (box and row unchanged): on touch for every chip (z-index 2
+  so a header chip beats the value cells), and on any pointer only on Targets (note and column header), because test_v2_targets_render
+  pins 44 px there at 1440/1366/1024 (it was red on the same chip) while on desktop elsewhere the chip's hit area would cross the 44 px
+  info buttons (the overlap guard caught that in a first attempt); legend chip +3 px left margin (touch) so it clears the source link's padding; Targets note items are
   44 px rows on touch; Compare net-chip info hit box is 24 px tall in the short-viewport block; header chip word is `display: none`
   (aria-label unchanged); Compare row chip (`td.player .th-sub`) is `noLink` (a 44 px link cannot fit under the name in a 44 px row;
   the legend keeps the link). Targets header chip stays a link (test_v2_divergence_chip_render pins that).
 - Test changes (none loosen): tap-target sweep opens the nav menu below 768 px; phase 1 name-tap lengthens the first name when no row
   clips naturally and still asserts the popover shows the full name (the "names no longer clip" mutation is still caught); two new phase 1
   mutations (chip hit area removed, header word back to 0 px) and one new tap-target test (chip pseudo and net-info rule removed).
-- Verified / not: see the PR body for the runs. Neither file is added to the blocking v2-render list: run time is well over 3 minutes.
+- Verified (RENDER_TESTS_REQUIRED=1, one file at a time under the lock, final tree): test_v2_phone_tap_targets_render 3 tests OK (327 s),
+  test_v2_mobile_phase1_render 2 tests OK (296 s), test_v2_targets_render OK (223 s), test_v2_divergence_chip_render OK (30 s),
+  test_v2_held_chip_render OK (17 s, earlier tree). `make -o sync validate` exit 0 (1003 s; the fallback-font render tests skip here, no
+  DejaVu Sans on this Mac). Guards fail on a broken build: both new mutations and the old ones pass in the two files above.
+- Not mine, found on the way: test_v2_waterfall_render.test_guard_fails_on_broken_builds mutation "no wide verdict column on short
+  viewports" is not caught on clean 69b70317 either (JEG-932's chip packing removed the fold pressure it relied on); main waterfall test passes.
+- CI list decision: neither file is added to the blocking v2-render job (only test_v2_contract_render runs there). Added run time is
+  about 10 minutes here (327 s + 296 s, with other agents using the machine), far over the 3-minute budget.
