@@ -166,8 +166,10 @@
   //            under 5%, Low when DDF Value is even or missing;
   //   accept   agreement: >= 75% of charts on the answer's side = High, >= 60% = Medium, else Low;
   //   few sources fewer than 3 complete sources caps at Medium;
+  //   charts   propose "High" needs 3 or more trade charts on the answer's side, else Medium (JEG-950);
   //   data     a low-confidence (one-source) DDF Value in the trade lowers the propose line one level.
   const THIN_MARGIN = 0.05;
+  const MIN_CHARTS_FOR_HIGH = 3;
   const LEVELS = ["Low", "Medium", "High"];
   const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
   const capped = (level, cap) => LEVELS[Math.min(LEVELS.indexOf(level), LEVELS.indexOf(cap))];
@@ -217,6 +219,10 @@
         else reasons.push(`DDF Value agrees (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
+      // JEG-950 (Jeremy, 2026-10-23): "High" needs at least MIN_CHARTS_FOR_HIGH trade charts on the answer's side.
+      if ((answer === "Yes" || answer === "No") && chartAgree < MIN_CHARTS_FOR_HIGH && level === "High") {
+        level = "Medium";   // no extra reason line: the "N of M trade charts agree" line below says why (keeps Compare's height)
+      }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
       reasons.push(`${chartAgree} of ${chartTotal} trade charts agree`);
       propose = {answer, confidence: level, agree: chartAgree, of: chartTotal, margin, reasons};
@@ -286,7 +292,7 @@
       text: "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss."},
     "win|even": {title: "Value win at a fair market price", action: "Propose it",
       text: "DDF Value says you come out ahead and the trade charts call it fair, so the other manager has little reason to refuse."},
-    "win|lose": {title: "Arbitrage: send it", action: "Send it",
+    "win|lose": {title: "Value yes, market no", action: "",
       text: "DDF Value says you come out ahead while the trade charts say you lose, so the other manager will likely see it as their win."},
     "even|win": {title: "Even on value, a hard sell", action: "Counter for more",
       text: "DDF Value calls it even but the trade charts say you win, so the other manager will likely see a loss."},

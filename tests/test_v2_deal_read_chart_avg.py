@@ -94,8 +94,8 @@ def check(trade_js: Path) -> list[str]:
         errors.append(f"deal read says 'trade charts agree' when they disagree: {d['text']!r}")
 
     # 5. The title should be the arbitrage case (win on value, lose on market).
-    if d["title"] != "Arbitrage: send it":
-        errors.append(f"title is {d['title']!r}, expected 'Arbitrage: send it' (win|lose)")
+    if d["title"] != "Value yes, market no":
+        errors.append(f"title is {d['title']!r}, expected 'Value yes, market no' (win|lose)")
 
     return errors
 
