@@ -3,6 +3,8 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
+import { evalFinder } from "../../supabase/functions/mcp/find-trades.ts";
+import { readFileSync } from "node:fs";
 const codec = createRequire(import.meta.url)("../../app/v2/ddf-state.js");
 const ORIGIN = "https://site.test";
 const deps = { codec, siteOrigin: ORIGIN };
@@ -300,5 +302,18 @@ assert.match(r.result.content[0].text, /unavailable/);
 // The site link points to find-trade.
 r = await callF("find_trades", { mine: "Josh Allen", theirs: "Bijan Robinson" });
 assert.ok(r.result.structuredContent.site_url.includes("#find-trade"), "link points to find-trade view");
+
+// The edge function evals the published finder.js with no DOM. The file publishes TradeValueFinder and then runs
+// browser-only page code that throws without a document; the loader must keep the API anyway.
+{
+  const src = readFileSync(new URL("../../app/v2/finder.js", import.meta.url), "utf8");
+  assert.equal(typeof globalThis.document, "undefined", "test runs without a DOM");
+  assert.throws(() => (0, eval)(src), /document is not defined/, "the raw eval throws without a DOM");
+  delete globalThis.TradeValueFinder;
+  const loaded = evalFinder(src, eval);
+  assert.equal(typeof loaded?.findTrades, "function", "finder loads despite the browser-only tail");
+  assert.equal(evalFinder("throw new Error('boom')", eval, {}), null, "a source that never publishes the API is unavailable");
+  delete globalThis.TradeValueFinder;
+}
 
 console.log("ok");

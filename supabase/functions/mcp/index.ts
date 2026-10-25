@@ -8,7 +8,7 @@
 import { handleRpc } from "./rpc.ts";
 import type { Codec, Deps } from "./state.ts";
 import type { ChartValuesResponse, FetchValues, FetchValuesWithCharts, ValuesResponse } from "./tools.ts";
-import type { Finder } from "./find-trades.ts";
+import { evalFinder, type Finder } from "./find-trades.ts";
 import type { FinderDeps } from "./tools.ts";
 
 // Same site origin as get-values; DDF_SITE_ORIGIN overrides it once the custom domain is live.
@@ -99,10 +99,7 @@ async function loadFinder(): Promise<Finder | null> {
     if (res.ok) {
       // deno-lint-ignore no-eval
       const evalFn = eval;
-      evalFn(await res.text());
-      // deno-lint-ignore no-explicit-any
-      const f = (globalThis as any).TradeValueFinder;
-      if (f && typeof f.findTrades === "function") finder = f as Finder;
+      finder = evalFinder(await res.text(), evalFn);
     } else {
       console.error(`finder.js load failed: ${res.status} from ${SITE_ORIGIN}/v2/finder.js`);
     }
