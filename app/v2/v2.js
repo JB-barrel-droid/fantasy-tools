@@ -4988,7 +4988,7 @@
     // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
     if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
     else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
-    appendDivergence(sub, key);
+    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; the legend keeps the link
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }

@@ -441,6 +441,12 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-div-chip.is-reviewed { border-color: var(--v2-tint-border); color: var(--v2-action-strong); }
 .v2-div-chip.is-excluded { border-color: var(--v2-older); color: var(--v2-older); opacity: 0.7; }
 @media (hover: hover) { a.v2-div-chip:hover { text-decoration: underline; } }
+/* JEG-1048: a "Reviewed" / "Excluded" chip is a link to its resolution issue (JEG-609). It was 74-79 x 18-19 (24 x 24 in Customize).
+   A centred 44 x 44 pseudo-element (the .v2-fchip pattern) gives it a 44 px hit area without changing its box or the row.
+   On Targets (the note and the column header) at every width, since test_v2_targets_render pins 44 px there; everywhere else on
+   touch (below). On a fine pointer elsewhere the chip sits beside 44 px info buttons that its hit area would cross. */
+.v2-tdiv-item a.v2-div-chip, .v2-ttable a.v2-div-chip { position: relative; }
+.v2-tdiv-item a.v2-div-chip::after, .v2-ttable a.v2-div-chip::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }
 .v2-prior-badge { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; }
 .v2-info { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -10px -4px -10px -10px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--v2-muted); cursor: pointer; font-size: 15px; font-weight: 400; line-height: 1; }
 .v2-info[aria-expanded="true"] { color: var(--v2-action); }
@@ -999,6 +1005,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   #v2Compare .v2-deal { margin-top: 4px; padding-top: 4px; }
   /* JEG-932: the three net chips wrapped one per line (216 + 389 + 20px gap > 617px); a tighter gap lets two share a row, ~28px shorter. */
   #v2Compare .v2-deal-nets { gap: 2px 6px; margin: 2px 0; }
+  /* JEG-1048: wrapped net rows sit 26 px apart, so the 44 px info buttons crossed (a click in the lower row's top landed on the upper one). Here the hit box is the row pitch, as for the chart legend below. */
+  #v2Compare .v2-deal-nets .v2-info { height: 24px; margin-top: 0; margin-bottom: 0; }
   #v2Compare .v2-cstory { padding-top: 4px; margin-top: 0; }
 }
 
@@ -1201,7 +1209,8 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 /* Divergence chip in values-table headers: show only the symbol to keep the column narrow. */
 .v2-vtable .th-2 .v2-div-chip { font-variant-caps: normal; font-size: 0; }
 .v2-vtable .th-2 .v2-div-chip > span { font-size: 11px; }
-.v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }
+/* JEG-1048: the word is hidden, not shrunk to 0 px (a 0 px text node reads as text under 12 px); the chip keeps its aria-label. */
+.v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }
 .v2-vtable .th-2 .is-older { color: var(--v2-older); }
 /* Grouped top row. */
 .v2-vtable .v2-group-row th { height: var(--v2-group-h); padding: 2px var(--v2-cell-pad-x); font-size: 10px; font-weight: 700;
@@ -1609,6 +1618,13 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (max-width: 767px), (pointer: coarse) {
   .v2-showing-legend li { min-height: 44px; }
   .v2-showing-legend .v2-srclink { padding: 13.5px 6px; margin: -13.5px -6px; }
+  /* Every reviewed chip on touch; z-index 2 puts it above the value cells (z-index 1), so a header chip's hit area reaches over the first row. */
+  a.v2-div-chip { position: relative; z-index: 2; }
+  a.v2-div-chip::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }
+  /* In the chart legend the source link's 6 px side padding ends 3 px into the chip: 3 px more margin keeps the two hit areas apart. */
+  .v2-showing-legend a.v2-div-chip { margin-left: 3px; }
+  /* Targets' divergence notes stack 23 px apart on a wide line: 44 px rows keep one chip's hit area off the next. */
+  .v2-tdiv-item { display: flex; align-items: center; gap: 0 4px; min-height: 44px; }
 }
 @media (min-width: 1280px) and (max-height: 800px) {
   .v2-chart-head .v2-legend-item::after { height: 30px; }
