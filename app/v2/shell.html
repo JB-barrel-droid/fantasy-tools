@@ -827,6 +827,24 @@
     </section>
   </main>
 
+  <!-- JEG-1026: on every tab. The line is static HTML (an assistant that does not run JavaScript reads it); the buttons are
+       shown by ddf-assist.js once the page is ready. __CONNECT_URL__ is the published connect guide (build_v2_page.py). -->
+  <footer class="v2-assist" id="v2Assist" aria-label="ChatGPT and Claude">
+    <div class="v2-wrap v2-assist-inner">
+      <p class="v2-assist-line" id="v2AssistLine">Using ChatGPT or Claude? <a class="v2-link" href="__CONNECT_URL__">Connect the tool</a></p>
+      <div class="v2-assist-actions">
+        <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
+        <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+      </div>
+      <div class="v2-assist-paste" id="v2AssistPaste" hidden>
+        <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
+        <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
+        <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
+      </div>
+      <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
+    </div>
+  </footer>
+
   <div class="v2-status" id="v2Status" role="status" hidden></div>
   <div class="v2-sr" id="v2LeagueLive" role="status" aria-live="polite" aria-atomic="true"></div>
 

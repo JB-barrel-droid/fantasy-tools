@@ -1919,3 +1919,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-table td.num, .v2-lg-table th.num { white-space: nowrap; }
 .v2-lg-opp[data-overall="natural"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-action); }
 .v2-lg-opp[data-overall="force"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-older); }
+
+/* JEG-1026: the ChatGPT / Claude line on every tab, with Copy and Paste. */
+.v2-assist { border-top: 1px solid var(--v2-border); margin-top: var(--v2-pad-section); padding: 16px 0 28px; color: var(--v2-muted); font-size: 13px; }
+.v2-assist-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.v2-assist-line { margin: 0; }
+.v2-assist-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.v2-assist-actions[hidden], .v2-assist-paste[hidden], .v2-assist-note[hidden] { display: none; }
+.v2-assist-paste, .v2-assist-note { flex: 1 1 100%; min-width: 0; }
+.v2-assist-paste { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.v2-assist-text { box-sizing: border-box; width: 100%; max-width: 100%; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--v2-ink); background: var(--v2-surface); border: 1px solid var(--v2-field-border); border-radius: var(--v2-radius-btn); padding: 8px; }
+.v2-assist-note p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.v2-assist-note strong { color: var(--v2-ink); }
+.v2-assist-paste .v2-field-label { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
