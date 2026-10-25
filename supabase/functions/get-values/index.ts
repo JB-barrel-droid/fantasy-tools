@@ -349,7 +349,6 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
       (bundle.lineupConfig as Record<string, unknown>).schema === "lineup-parameters-config/2") {
     // deno-lint-ignore no-explicit-any
     const lp = bundle.lineupConfig as any;
-    const d = lp.defaults || {};
     resolvedLineup = ValueModel.resolveLineupParameters(lp, m.lineupArgs);
   }
 
