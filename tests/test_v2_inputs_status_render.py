@@ -105,6 +105,27 @@ class InputsStatusRender(unittest.TestCase):
             self.assertIn("league-default", notes(page))
             self.assertEqual(b.errors, [])
 
+    def test_strip_is_one_slim_line_on_desktop_and_does_not_overflow_a_phone(self):
+        """JEG-1084: the 45px strip pushed Compare past the 1366x768 fold. One line, about 28px, on wide screens."""
+        measure = """() => [...document.querySelectorAll('#v2InputsStatus .v2-inputs-note')].map(n => ({
+            h: n.getBoundingClientRect().height, id: n.dataset.note,
+            text: n.querySelector('.v2-inputs-text').getBoundingClientRect().height}))"""
+        with Browser() as b:
+            page = b.open("#compare-trade")
+            got = page.evaluate(measure)
+            self.assertTrue(got, "a fresh visit shows the default-settings note")
+            for note in got:
+                self.assertLessEqual(note["h"], 30, f"strip note {note['id']} is {note['h']}px; it must stay one slim line")
+                self.assertLessEqual(note["text"], 26, f"strip text {note['id']} wraps at 1366")
+            buttons = page.eval_on_selector_all("#v2InputsStatus .v2-btn", "els => els.map(e => e.textContent)")
+            self.assertEqual(buttons, ["Edit league", "Dismiss"], "Edit league and Dismiss stay on the line")
+            page.set_viewport_size({"width": 390, "height": 800})
+            page.wait_for_timeout(200)
+            self.assertLessEqual(page.evaluate("() => document.documentElement.scrollWidth"), 390, "no horizontal overflow at 390px")
+            for h in page.eval_on_selector_all("#v2InputsStatus .v2-btn", "els => els.map(e => e.getBoundingClientRect().height)"):
+                self.assertGreaterEqual(h, 32, "phone tap targets stay at least 32px")
+            self.assertEqual(b.errors, [])
+
     def test_shared_link_settings_are_flagged_and_not_saved(self):
         with Browser() as b:
             page = b.open("#compare-trade?scoring=standard&roster=QB1.RB2.WR3.TE1.FLEX2.SF1.BN7")

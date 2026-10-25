@@ -377,7 +377,9 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 page.wait_for_function("() => !document.getElementById('v2CTable').hidden")
                 options = page.evaluate("() => [...document.querySelectorAll('#v2CShown option')].map(o => o.value)")
                 current = page.evaluate("() => document.getElementById('v2CShown').value")
-                other = next((k for k in options if k != current and not k.endswith("_vorp")), None)
+                # ddf_value_charts is the same numbers under the same name as ddf_value since JEG-1073, so a verdict that
+                # wrongly follows the picker would be invisible on it; pick a series with its own name and values.
+                other = next((k for k in options if k not in (current, "ddf_value", "ddf_value_charts") and not k.endswith("_vorp")), None)
                 if other:
                     page.select_option("#v2CShown", other)
                 page.evaluate("() => window.scrollTo(0, 0)")
