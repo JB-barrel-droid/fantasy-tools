@@ -1153,7 +1153,7 @@
     // Fallback: when no projection is in I (e.g. a saved week where the only
     // projection is unmatched), use all included sources so the Indexed basis
     // can still be computed.
-    var blendedI = projI.length ? projI : included;
+    var blendedI = chartsI;   // JEG-1073: the baseline takes the same default rule change (DDF Value = the charts)
     var versionSources = {
       blended: blendedI,
       charts: chartsI,
