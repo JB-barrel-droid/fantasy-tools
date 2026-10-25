@@ -40,6 +40,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+sys.path.insert(0, str(ROOT / "pipelines"))
+from nfl_week import content_week  # noqa: E402
 from canonical_players import norm_plain as norm_player_name  # noqa: E402
 # NOTE: norm_plain (NO nickname expansion) is the fixture join convention:
 # fixture player_keys and the ESPN leg's csv player_norm both use it
@@ -50,6 +52,13 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 BASE = "https://www.cbssports.com/fantasy/football/stats/{pos}/2026/restofseason/projections/nonppr/"
 POSITIONS = ["QB", "RB", "WR", "TE"]
+# JEG-944: CBS also publishes per-week projections. Checked 2026-10-23: only the
+# current week and the next week are real; a later week's URL answers 200 with
+# the CURRENT week's page, titled "Week <current> Proj". So a page counts only
+# when its own title names the week asked for.
+WEEK_BASE = "https://www.cbssports.com/fantasy/football/stats/{pos}/2026/{week}/projections/nonppr/"
+WEEK_TITLE_RE = re.compile(r"<title>\s*Week\s+(\d+)\s+Proj", re.I)
+WEEKS_TO_TRY = 3  # content week, +1, +2 (the last is how the fallback is seen)
 
 # Data <td> columns per position, in order, after the player cell.
 LAYOUTS = {
@@ -208,6 +217,50 @@ def parse_position(pos: str, html: str) -> tuple[list[dict], list[dict]]:
     return rows, review
 
 
+def served_week(html: str) -> int | None:
+    m = WEEK_TITLE_RE.search(html)
+    return int(m.group(1)) if m else None
+
+
+def pull_weekly(source_week: int, scraped_at: str) -> dict:
+    """Per-week CBS projections for source_week .. source_week+WEEKS_TO_TRY-1.
+
+    Never raises: a fault is recorded in `errors`, and the ROS leg (the only part
+    that feeds a published value) is untouched either way. Rows carry the week
+    TOTAL (gp is 1) in points_*; half/PPR add receptions as in the ROS rows.
+    """
+    weeks: dict[str, list[dict]] = {}
+    not_offered: list[int] = []
+    errors: list[str] = []
+    for wk in range(source_week, source_week + WEEKS_TO_TRY):
+        rows_wk: list[dict] = []
+        offered = True
+        for pos in POSITIONS:
+            try:
+                html = fetch(WEEK_BASE.format(pos=pos, week=wk))
+            except (SystemExit, Exception) as exc:  # noqa: BLE001
+                errors.append(f"week {wk} {pos}: {exc}")
+                offered = False
+                break
+            if served_week(html) != wk:
+                offered = False
+                break
+            rows, _review = parse_position(pos, html)
+            for r in rows:
+                rows_wk.append({"player_name": r["player_name"], "player_norm": r["player_norm"],
+                                "pos": r["pos"], "team": r["team"], "gp": r["gp"],
+                                "points_standard": r["ros_standard"],
+                                "points_half_ppr": r["ros_half_ppr"],
+                                "points_ppr": r["ros_ppr"]})
+        if offered and rows_wk:
+            weeks[str(wk)] = rows_wk
+        elif not any(e.startswith(f"week {wk} ") for e in errors):
+            not_offered.append(wk)
+    return {"schema": "cbs-weekly-projections-v1", "scraped_at": scraped_at,
+            "source_week": source_week, "weeks": weeks,
+            "not_offered_weeks": not_offered, "errors": errors}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -261,6 +314,16 @@ def main() -> int:
     out_path = out_dir / "snapshot.json"
     out_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {len(all_rows)} players -> {out_path}")
+    try:
+        weekly = pull_weekly(content_week(datetime.strptime(args.date, "%Y-%m-%d").date()),
+                             utc_now())
+    except Exception as exc:  # noqa: BLE001 -- the ROS snapshot above is already safe
+        weekly = {"schema": "cbs-weekly-projections-v1", "weeks": {}, "not_offered_weeks": [],
+                  "errors": [f"pull_weekly: {exc}"]}
+    (out_dir / "weekly_snapshot.json").write_text(json.dumps(weekly, indent=1) + "\n",
+                                                  encoding="utf-8")
+    print(f"CBS weekly pages: weeks {sorted(map(int, weekly['weeks']))}, "
+          f"not offered {weekly['not_offered_weeks']}, errors {len(weekly['errors'])}")
     if all_review:
         print(f"  ({len(all_review)} review rows excluded fail-closed)")
     return 0

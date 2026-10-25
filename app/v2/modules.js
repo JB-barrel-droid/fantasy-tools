@@ -39,6 +39,9 @@
       summary: () => text("v2CMeta") || text("v2CEmpty")},
     {title: "v2FindTitle", name: "Find a trade",
       summary: () => "Trades where DDF Value says you win and the trade charts say they accept"},
+    {title: "v2LgTitle", name: "Your league", summary: () => text("v2LgCount") || "Your league"},
+    {title: "v2LgSummaryTitle", name: "Team summary", summary: () => text("v2LgSummaryHeadline") || "Roster, starter and bench value for every team"},
+    {title: "v2LgOppsTitle", name: "Trade opportunities", summary: () => text("v2LgOppsHeadline") || "Your team against every other team"},
     {title: "v2CVorpTitle", name: "Value over a waiver player", summary: () => "Raw value above a waiver-level player"},
   ];
 

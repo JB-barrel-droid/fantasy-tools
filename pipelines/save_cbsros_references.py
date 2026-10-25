@@ -41,6 +41,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
 import canonical_players  # noqa: E402 -- the one name -> player_key rule (JEG-438)
+import projection_capture as pc  # noqa: E402 -- JEG-944 append-only forward-projection history
 from nfl_week import current_nfl_week  # noqa: E402
 
 
@@ -241,6 +242,35 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
     return clean, review, vintage
 
 
+def save_captures(snapshot_path: Path, vintage: str) -> None:
+    """JEG-944: append CBS's ROS rows and per-week rows to source_projection_captures.
+    Never raises and never changes cbs_ros_projections (see pc.save_capture_or_flag)."""
+    if upsert_rows is not _default_upsert:
+        return  # the writer is stubbed (tests): never open a live client from here
+    try:
+        snap = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        weekly_path = snapshot_path.with_name("weekly_snapshot.json")
+        weekly = json.loads(weekly_path.read_text(encoding="utf-8")) if weekly_path.exists() else None
+        registry = build_registry(fetch_players())
+        today = datetime.now(timezone.utc).date()
+        source_week = current_nfl_week(today)
+        phase = pc.capture_phase(datetime.now(timezone.utc))
+        rows, rep = pc.cbs_capture_rows(
+            snap.get("rows", []), weekly,
+            lambda n, p, norm: resolve_name(str(n or "").strip(), (p or "").upper() or None, registry, norm)[0],
+            season=season_for_vintage(today), source_week=source_week, capture_at=utc_now(),
+            phase=phase, batch_id=pc.new_batch(), vintage=vintage)
+        print(f"capture plan: {json.dumps(rep, default=str)}")
+        if weekly is None or not weekly.get("weeks"):
+            print("::error title=projection capture cbs week::no CBS per-week pages in the pull "
+                  f"({(weekly or {}).get('errors')}); only ROS is captured this run")
+        for line in pc.save_capture_or_flag(_sb(), rows, "cbs", season_for_vintage(today),
+                                            source_week, phase, ("ros", "week")):
+            print(line)
+    except Exception as exc:  # noqa: BLE001
+        print(f"::error title=projection capture cbs::{type(exc).__name__}: {exc}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Save CBS ROS snapshot to Supabase.")
     parser.add_argument(
@@ -285,6 +315,7 @@ def main() -> None:
         )
     identity_queue.record_misses("cbsros", review)
     print("CBS ROS save complete.")
+    save_captures(snapshot_path, vintage)
 
 
 if __name__ == "__main__":

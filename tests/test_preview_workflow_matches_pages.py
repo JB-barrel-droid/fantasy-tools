@@ -92,6 +92,14 @@ def check_preview(preview_text, pages_text):
     for word in FORBIDDEN_IN_PREVIEW:
         if word in preview_text:
             problems.append(f"preview must not deploy or hold Pages permissions: {word!r}")
+    # JEG-978: a suite that takes the runner down fails its whole job, so the
+    # full suite lives in its own non-blocking job, never in the preview job.
+    preview_job, _, full_job = preview_text.partition("\n  full-suite:\n")
+    runs_suite = re.compile(r"^\s+(- )?(run: )?make test-unit\s*$", re.M)  # the command, not comments
+    if runs_suite.search(preview_job):
+        problems.append("make test-unit must run in the full-suite job, not the preview job")
+    if not runs_suite.search(full_job) or not re.search(r"^    continue-on-error: true$", full_job, re.M):
+        problems.append("the full-suite job must run make test-unit with job-level continue-on-error")
     return problems
 
 
@@ -219,6 +227,18 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         mutated = PREVIEW.replace("        id: gate\n", "        id: gate\n        continue-on-error: true\n")
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "must be blocking")
+
+    def test_full_suite_back_in_the_preview_job_is_caught(self):
+        # The pre-JEG-978 shape: the suite as the preview job's last step.
+        mutated = PREVIEW.replace("\n  full-suite:\n", "\n").replace(
+            "      - uses: actions/checkout@v4", "      - run: make test-unit\n      - uses: actions/checkout@v4", 1)
+        self.assertNotEqual(PREVIEW, mutated)
+        self.assertCaught(mutated, "not the preview job")
+
+    def test_blocking_full_suite_job_is_caught(self):
+        mutated = PREVIEW.replace("    continue-on-error: true\n    timeout-minutes", "    timeout-minutes", 1)
+        self.assertNotEqual(PREVIEW, mutated)
+        self.assertCaught(mutated, "job-level continue-on-error")
 
     def test_any_deploy_or_pages_permission_is_caught(self):
         for word in FORBIDDEN_IN_PREVIEW:

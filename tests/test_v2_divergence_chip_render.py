@@ -120,13 +120,10 @@ def check_chips(chips: list[dict], where: str, place: str, allow_link: bool, exp
         if c["title"] != MESSAGES[src] or MESSAGES[src] not in c["aria"]:
             errors.append(f"[{where}] {src}: tooltip {c['title']!r} / name {c['aria']!r}, want the published message")
         linked = c["tag"] == "A"
-        if src == "fantasypros":
-            if allow_link and (not linked or c["href"] != "https://linear.app/jegabee/issue/JEG-123"):
-                errors.append(f"[{where}] reviewed chip should link to the resolution issue: {c['tag']} {c['href']!r}")
-            if not allow_link and linked:
-                errors.append(f"[{where}] a link inside a column-header button: {c['href']!r}")
-        elif linked:
-            errors.append(f"[{where}] {src}: only a reviewed chip links")
+        # Jeremy, 2026-10-25: the live dashboard has no links to Linear, and the fixture's resolution issue is a
+        # Linear ticket, so no chip links anywhere (it used to link the reviewed chip to the ticket).
+        if linked:
+            errors.append(f"[{where}] {src}: a chip must not link (Linear ticket ids are not linked): {c['href']!r}")
         if c["inButton"] and linked:
             errors.append(f"[{where}] {src}: interactive chip inside a button")
     return errors
@@ -168,10 +165,12 @@ def run_checks(patch=None) -> list[str]:
                 errors.append(f"[trade targets] want at least USA Today and FantasyPros shown to carry chips: {shown_heads}")
             chips = page.evaluate(CHIPS)
             errors += check_chips(chips, "trade targets note", "note", True, expect)
-            note = page.evaluate("() => document.getElementById('v2TDivergence').textContent")
+            # JEG-1042 (Jeremy, 2026-10-24): the note shows chips side by side; each chip's explanation is its hover
+            # text (title) and accessible name, not inline text.
+            note_titles = page.evaluate("() => [...document.querySelectorAll('#v2TDivergence .v2-div-chip')].map(c => (c.title || '') + ' ' + (c.getAttribute('aria-label') || '')).join(' ')")
             for message in (MESSAGES[k] for k in expect):
-                if message not in note:
-                    errors.append(f"[trade targets] the note does not say: {message!r}")
+                if message not in note_titles:
+                    errors.append(f"[trade targets] no note chip explains: {message!r}")
             # Per-chart columns are folded from 1024 px (v2.css, #639), so the head chips are on screen below it.
             page.set_viewport_size({"width": 900, "height": 1000})
             page.wait_for_timeout(400)

@@ -344,7 +344,8 @@ COMMON = r"""
   const fire = (el, v) => { el.value = String(v); el.dispatchEvent(new Event('input', {bubbles: true}));
     el.dispatchEvent(new Event('change', {bubbles: true})); };
   const C = window.TradeValueCurveControls, V = window.TradeValueV2;
-  const own = n => [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim();
+  // JEG-947: a name cell holds its text in a .v2-nm span (phones show "Last, First"); the contract reads the full "First Last" name, and an empty visible name still reads as empty.
+  const own = n => { const nm = n && n.querySelector && n.querySelector(':scope > .v2-nm'); return nm ? (nm.textContent.trim() ? (nm.dataset.full || nm.textContent.trim()) : '') : [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim(); };
   const rect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; };
   const shown = n => Boolean(n) && !n.hidden && n.getClientRects().length > 0;
   const closePop = async () => { const b = document.querySelector('#v2Popover:not([hidden]) .v2-panel-close')
@@ -357,7 +358,7 @@ COMMON = r"""
     label: a.textContent.trim(), href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page'}));
   const tabs = () => [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view,
     label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'}));
-  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit']
+  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit', 'v2Overrides']
     .map(id => [id, shown($(id))]));
   const readTable = (sel = '#v2Table') => [...document.querySelectorAll(sel + ' tbody tr[data-player-key]')].map(tr => ({
     key: tr.dataset.playerKey, name: own(tr.querySelector('td.player') || tr),
@@ -514,20 +515,23 @@ VALUES_JS = "async () => {" + COMMON + r"""
   fire($('v2Search'), 'a'); await sleep(600);
   $('v2Reset').click(); await sleep(600);
   out.reset = {rank: $('v2RankBy').value, position: $('v2Position').value, search: $('v2Search').value, show: $('v2Show').value};
-  // League edits are a draft until Apply
+  // League edits apply live (JEG-1020): no Apply, no Cancel; Undo changes returns to the opening settings
   const leagueBefore = $('v2LeagueName').textContent;
   const engineTeams = C.getState().teams;
   $('v2EditLeague').click(); await sleep(300);
   const teams = [...document.querySelectorAll('#v2Popover [aria-label="Teams"] button')].find(b => b.getAttribute('aria-pressed') !== 'true');
-  if (teams) { teams.click(); await sleep(200); }
-  const draftTeams = C.getState().teams;
+  const immediateTeams = (teams ? (teams.click(), C.getState().teams) : engineTeams);   // before the debounce
+  await sleep(700);
+  const liveTeams = C.getState().teams;
   const buttons = [...document.querySelectorAll('#v2Popover button')].map(b => b.textContent.trim());
-  const cancel = [...document.querySelectorAll('#v2Popover button')].find(b => b.textContent.trim() === 'Cancel');
-  if (cancel) cancel.click(); else await closePop();
+  const undo = document.querySelector('#v2Popover [data-league-undo]');
+  if (undo) undo.click(); else await closePop();
   await sleep(500);
+  const afterUndo = C.getState().teams;
+  await closePop();
   out.league = {before: leagueBefore, after: $('v2LeagueName').textContent, changed: Boolean(teams),
-    engineTeams, draftTeams, afterTeams: C.getState().teams,
-    hasApply: buttons.includes('Apply'), hasCancel: Boolean(cancel)};
+    engineTeams, immediateTeams, liveTeams, afterTeams: afterUndo,
+    hasApply: buttons.includes('Apply'), hasCancel: buttons.includes('Cancel'), hasUndo: Boolean(undo)};
   // Remembered selection: pick another Rank by, then the caller reloads
   const third = [...$('v2RankBy').options].map(o => o.value).filter(v => v !== 'ddf_value').pop();
   fire($('v2RankBy'), third); await sleep(400);
@@ -675,7 +679,14 @@ PHONE_JS = "async (hash) => {" + COMMON + r"""
   location.hash = hash; await sleep(700);
   const page = Object.entries(pagesShown()).find(([, on]) => on);
   const out = {hash, page: page ? page[0] : null, height: page ? $(page[0]).getBoundingClientRect().height : 0,
-    overflow: document.documentElement.scrollWidth - innerWidth, nav: shown(document.querySelector('.v2-tabs'))};
+    overflow: document.documentElement.scrollWidth - innerWidth, nav: false};
+  // JEG-953: on phones the tabs live in the hamburger menu; the nav is usable when the button opens a menu with every tab.
+  const toggle = $('v2NavToggle');
+  if (shown(toggle)) {
+    toggle.click(); await sleep(100);
+    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === document.querySelectorAll('.v2-tabs .v2-tab').length && document.querySelectorAll('.v2-tabs .v2-tab').length >= 8 && toggle.getAttribute('aria-expanded') === 'true';
+    toggle.click(); await sleep(100);
+  }
   if (hash === '#compare-trade') {
     await addTrade();
     scrollTo(0, document.documentElement.scrollHeight); await sleep(500);
@@ -1117,8 +1128,9 @@ def gl08(S):
 
 
 def gl09(S):
-    """GL-09 (JEG-542): the three DDF Value versions are offered everywhere; blended is on, the others off."""
-    versions = ["ddf_value", "ddf_value_charts", "ddf_value_projections"]
+    """GL-09 (JEG-542): the two pickable DDF Value versions are offered everywhere; blended is on, the other off.
+    JEG-863: ddf_value_projections is hidden from all pickers (sameAs ddf_value), so only 2 versions are pickable."""
+    versions = ["ddf_value", "ddf_value_charts"]   # JEG-863: ddf_value_projections hidden (sameAs ddf_value)
     v, t = S["values"]["s0"], S["tabs"]
     errors = []
     on = [k for k in versions if k in v["shown"]]
@@ -1130,6 +1142,11 @@ def gl09(S):
         missing = [k for k in versions if k not in options]
         if missing:
             errors.append(f"{where} does not offer {missing}")
+    # ddf_value_projections must NOT appear in pickers (it's the hidden duplicate).
+    for where, options in (("Rank by", v["rankOptions"]),
+                           ("Trade targets' Our value", t["targets"]["oursOptions"])):
+        if "ddf_value_projections" in options:
+            errors.append(f"{where} still shows ddf_value_projections (should be hidden via sameAs)")
     return errors
 
 
@@ -1146,18 +1163,19 @@ def gl10(S):
 def gl11(S):
     v = S["values"]
     errors = []
-    # GL-11 (v1.2) is draft-until-Apply only; "Edit league is primary" is GL-22 (JEG-498).
+    # GL-11 (v1.2) was draft-until-Apply; JEG-1020 (Jeremy, 2026-10-24) replaced it: settings apply as they change.
     # Buttons are found by ID, never by label ("Weights & bench" becomes "Position weights").
     if not v["s0"]["leagueButtons"]["edit"]:
         errors.append("no Edit league control (#v2EditLeague)")
     lg = v["league"]
-    if not (lg["changed"] and lg["hasApply"] and lg["hasCancel"]):
-        errors.append(f"Edit league dialog: changed {lg['changed']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
-    if lg["after"] != lg["before"]:
-        errors.append(f"a cancelled league edit applied: {lg['before']!r} -> {lg['after']!r}")
-    if lg["draftTeams"] != lg["engineTeams"] or lg["afterTeams"] != lg["engineTeams"]:
-        errors.append(f"a league draft reached the engine before Apply: teams {lg['engineTeams']} -> "
-                      f"{lg['draftTeams']} (draft) -> {lg['afterTeams']} (cancelled)")
+    if not (lg["changed"] and lg["hasUndo"]) or lg["hasApply"] or lg["hasCancel"]:
+        errors.append(f"Edit league dialog: changed {lg['changed']}, Undo {lg['hasUndo']}, Apply {lg['hasApply']}, Cancel {lg['hasCancel']}")
+    if lg["immediateTeams"] != lg["engineTeams"]:
+        errors.append(f"a league tap reached the engine inside the input handler (no debounce): {lg['engineTeams']} -> {lg['immediateTeams']}")
+    if lg["liveTeams"] == lg["engineTeams"]:
+        errors.append(f"a league change did not apply on its own: teams stayed {lg['liveTeams']}")
+    if lg["afterTeams"] != lg["engineTeams"] or lg["after"] != lg["before"]:
+        errors.append(f"Undo changes did not return the league: teams {lg['engineTeams']} -> {lg['liveTeams']} -> {lg['afterTeams']}; {lg['before']!r} -> {lg['after']!r}")
     return errors
 
 
@@ -1547,7 +1565,7 @@ def gl26(S):
 def hv02(S):
     h = S["tabs"]["how"]
     errors = []
-    if h["primaries"] != ["DDF Value", "DDF Projections", "Trade chart average"] or not h["edge"]:
+    if h["primaries"] != ["DDF Value", "Trade chart average"] or not h["edge"]:
         errors.append(f"How values work leads with {h['primaries']}, edge section {h['edge']}")
     if "Data Driven Adjustments" in h["outside"] or re.search(r"\bDDA\b", h["outside"]):
         errors.append("How values work still says Data Driven Adjustments / DDA")
@@ -1776,8 +1794,9 @@ def gl07_partial(S):
                 errors.append(f"{tab}: Customize group {gid!r} is {g and g['title']!r}, want {title!r}")
             elif not re.match(r"Select (all|none)$", g["call"].strip()):
                 errors.append(f"{tab}: group {title!r} has no Select all / none ({g['call']!r})")
-        if c["versions"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections"]:
-            errors.append(f"{tab}: DDF Value versions in Customize {c['versions']}")
+        # JEG-863: ddf_value_projections hidden from pickers (sameAs ddf_value); only 2 pickable versions.
+        if c["versions"] != ["ddf_value", "ddf_value_charts"]:
+            errors.append(f"{tab}: DDF Value versions in Customize {c['versions']}, want 2 (ddf_value_projections hidden)")
         for b in ("Reset to default", "Done", "Cancel"):
             if b not in c["footer"]:
                 errors.append(f"{tab}: Customize has no {b!r} button")
@@ -2224,6 +2243,15 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "CT-01", "Swap removed")
         caught(results, "GL-01", '"Vegas" in the header')
 
+        # JEG-947: a name cell with no visible name, with and without data-full (the helper PV-03 reads through must not hide it).
+        for fault, old, new_text in (
+            ("name cells with no text and no data-full", "    span.dataset.full = row.name;\n    span.dataset.pos = row.pos || \"\";\n    span.title = row.name;\n    span.textContent = phoneName(row.name, row.pos);\n",
+             "    span.dataset.pos = row.pos || \"\";\n"),
+            ("name cells with data-full but an empty visible name", "    span.textContent = phoneName(row.name, row.pos);\n", "    span.textContent = \"\";\n"),
+        ):
+            results, _ = run_contract(["PV-03"], {"v2.js": cut(js, old, new_text)})
+            caught(results, "PV-03", fault)
+
         # Group 2 (v2.js + v2.css): Reset keeps Rank by, prior-week status without a symbol,
         # the DDF line at the others' weight, the ◐ tag removed.
         broken_js = cut(js, '    if (view && view.infoByKey[DDF_KEY] && C.getRankSource() !== DDF_KEY) C.setLockOrder(DDF_KEY);\n')
@@ -2257,8 +2285,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 3: Rank by defaults to a chart (the first active source), the chip claims every source is current
         # (JEG-721: removing the held-source detection makes the chip lie), the 390 px layout scrolls sideways,
         # a Manifesto section dropped.
-        broken_js = cut(js, "const rank = saved && saved.rank ? saved.rank : (hasDdf ? DDF_KEY : null);",
-                        'const rank = saved && saved.rank ? saved.rank : (hasDdf ? C.getActiveSources()[0] : null);')
+        broken_js = cut(js, "const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? DDF_KEY : null);",
+                        'const rank = saved && saved.rank ? ddfPickKey(saved.rank) : (hasDdf ? C.getActiveSources()[0] : null);')
         # JEG-806: the ternary is now multi-line; the anchor is just the assignment start.
         broken_js = cut(broken_js, '$("v2FreshnessLabel").textContent = stuck\n', '$("v2FreshnessLabel").textContent = false\n')
         broken_js = cut(broken_js, '`${weekText}${freshNotes.join(" · ") || "all sources current"}`;\n',
@@ -2276,6 +2304,9 @@ class ContractRenderTest(unittest.TestCase):
         caught(results, "GL-05", "a chip claiming every source is current")
         caught(results, "GL-13", "the 390 px layout scrolling sideways")
         caught(results, "MF-01", "a Manifesto section dropped")
+        # JEG-953: with the hamburger button hidden, a phone has no way to reach the tabs.
+        results, _ = run_contract(["GL-13"], {"v2.css": css + "\n.v2-nav .v2-nav-toggle { display: none !important; }\n"})
+        caught(results, "GL-13", "the phone hamburger button hidden (tabs unreachable)")
 
 
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to

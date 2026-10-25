@@ -123,6 +123,10 @@ test-unit-modules:
 	python3 -m unittest tests.test_run_suite
 	python3 -m unittest tests.test_validate_runner
 	python3 -m unittest tests.test_doc_staleness
+	python3 -m unittest tests.test_mcp_remote
+	python3 -m unittest tests.test_ddf_state
+	python3 -m unittest tests.test_league_mapping
+	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
@@ -171,10 +175,12 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_contract_render
 	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_finder_arrange_render
+	python3 -m unittest tests.test_waivers_render
 	python3 -m unittest tests.test_v2_espn_held_chip_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_audit_render
+	python3 -m unittest tests.test_v2_health_check_render
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
@@ -470,6 +476,9 @@ value-check-compare:
 
 test-core:
 	python3 -m unittest tests.test_spec_reference_value_pipeline
+	# JEG-1057: the engine side of the worked example. It ran in no target, so
+	# #867 regenerated the fixture for the new defaults and this went red unseen.
+	python3 -m unittest tests.test_value_pipeline_engine
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_rank_guard
@@ -503,7 +512,10 @@ test-core:
 	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
+	python3 -m unittest tests.test_waivers_math
 	node tests/test_v2_roster_paste.js
+	node tests/test_v2_league_paste.js
+	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
@@ -514,7 +526,7 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_phone_layout_render
-	python3 -m unittest tests.test_v2_phone_nav_overflow_render
+	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_phone_rank_overflow_render
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_trade_actions_render
@@ -534,7 +546,9 @@ test-core:
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
 	python3 -m unittest tests.test_bench_share_readout_matches_reference
+	python3 -m unittest tests.test_lineup_content_week_advance
 	python3 -m unittest tests.test_position_weights_setter
+	python3 -m unittest tests.test_value_overrides
 	python3 -m unittest tests.test_ddf_composite_value
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_row_missing_reasons

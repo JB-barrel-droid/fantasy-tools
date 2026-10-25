@@ -1789,3 +1789,74 @@ week-ahead projections from all three sources are stored, re-run
 - **MR-23 weekly matchups:** lineup hint only, values untouched (option a, confirmed).
 - **MR-20 / JEG-535 direction-check thresholds (PR 637):** keep the loosened thresholds (2-QB +3, peak >28), then have QB values reviewed. After the per-game basis the top QB value over replacement in 2-QB fell from about 60 to about 32 (1-QB is 25); nobody has judged whether 32 is right. Open: examples of QB values on a 2-QB board, and whether to cap part-timers' inflated per-game rates.
 - **JEG-505 compare-trade cutoffs and JEG-477 taller chart:** product decisions, recorded in decisions.md.
+
+## MR-28 Bench seat allocation: should bench weights count flex starters? (JEG-969, 2026-10-23)
+
+**Decided: on by default** (Jeremy, 2026-10-23). Bench-seat D'Hondt weights
+now count superflex+flex starters alongside dedicated starters, matching
+`allocate_league` in the ES model. Set `flex_bench_seats=false` to disable.
+
+The page's bench seat allocation (`value_reference.py bench_seats`, `value-model.js
+vpBenchSeats`) previously computed bench weight as `dedicated_slots *
+backups_per_starter` and did NOT include flex starters. With the fix, the weight
+includes flex starters, and at ppr/12 QB drops from 15 bench seats to 4.
+
+**Measured impact (12-combo sweep + superflex):**
+- QB bench share: ~25.6% -> ~9.5% (ppr/12)
+- Top QB movers lose 4-5 DDF Value points; top WR movers gain 3-4 points
+- fixedPieIndexed invariant: PASS all 13 settings
+- Overall bench share readout delta: -0.023 to +0.019 depending on setting
+
+Implementation: commit `720f9652` (flag off), `489d6f94` (flag on). All three
+engines (Python reference, JS browser, spec reference) plus 3 parity tests.
+
+**2-QB / superflex skip (Jeremy, 2026-10-23, option A):** flex_bench_seats is
+skipped in 2-QB and superflex rosters. The market_bench 2-QB data (bps 0.28)
+already reflects supply-capped QB benches from FFC draft data; applying
+flex-filled bench weights on top double-counts the effect and inverts the
+JEG-702 2-QB direction gate (ratio 0.950 vs threshold 1.1 at ppr/12). In
+2-QB/superflex, bench allocation uses dedicated starters only. Implementation:
+commit `d753cae7`. 4 additional tests including negative (monkey-patched
+allocate without the skip differs).
+
+## MR-32 Promotion/demotion model in expected starts (JEG-969, 2026-10-23)
+
+**Decided: on by default** (Jeremy, 2026-10-23). The promotion model adjusts
+ES lineup shares for persistent role changes. Bench players gain a promotion
+bonus; marginal starters lose a demotion penalty. Both scale linearly with
+weeks remaining in the fantasy season.
+
+**Rates:** measured from 2015-2025 nflverse weekly actuals
+(`config/promotion_rates.json`, `tools/bench_research/promotion_demotion_rates.py`).
+Per-remaining-week hazard rates by position and bench depth (promotion) or
+position (demotion).
+
+**Formula:** `promo_bonus_share = rate_pw * weeks_remaining * 0.5`; new lineup
+share = `min(avail, ls + bonus * (avail - ls))`. Demotion: `penalty = rate_pw *
+weeks_remaining * 0.5`; new ls = `max(0, ls - penalty * ls)`.
+
+**Impact (12-combo sweep):** bench share readout +0.75 to +1.16pp; applied
++0.33 to +0.51pp. At ppr/12: QB +2.17pp, RB +0.72pp, WR +1.03pp, TE +0.21pp.
+Bench RBs gain ~6.8% DDF Value; marginal starters lose 2-6%.
+
+**Open question:** the rates are from season-to-date PPG rankings (actuals),
+not from projected PPG (what the engine uses for tiering). This proxy may
+over- or understate rates for specific positions. A future refinement could
+use projection-based rankings.
+
+## MR-34 Sub-waiver tail: engine Adjusted 0 vs reference ~0.006 (JEG-1044, 2026-10-24)
+
+Found by running `value_check compare --basis '{"mode":"single","source":"fantasycalc"}' --strict` (page vs Python reference, 12 combos, no superflex). For players below the waiver line on a trade chart, the engine's Adjusted value is exactly 0 and the Python reference's is about 0.006 (inside the 0.05 tolerance, so the default compare is green). With one chart as the whole value basis, DDF Value is that Adjusted value and the `v == 0 -> waiver` tier rule (VP-7.3) decides on it: about 20 boundary players per setting land in a different tier and tag (Hold vs Drop) between engine and reference. Values agree; tiers do not.
+
+**Question for the coordinated review:** which is right for a below-waiver tail player, an exact 0 (engine) or a small positive (reference's smooth tail)? Whichever it is, both implementations and the spec reference must match before a one-source basis is gated by `--strict`.
+
+**State:** default behaviour is byte-identical and untouched. Logged in docs/risk-register.md as GAP-BASIS-FC-TAIL-TIERS. No one-off change made.
+
+## MR-33 League workspace constants: noise floor, median rule, opportunity ranking (JEG-1021, 2026-10-24)
+
+Jeremy decided these on JEG-1021 (2026-10-24: ranking and the strength / noise-floor recommendations under "decide based on math"); they sit here so the full review sees them. No value math changed.
+
+- **Market-gap noise floor 2.0 points** (`NOISE_FLOOR` in `app/v2/team-summary.js`): a player is listed as undervalued (DDF Value above the Trade chart average) or overvalued only when the gap is more than 2.0. The two series are on one scale in this product; 2.0 is about 5% of a mid-tier player. Not measured against the live distribution of gaps. Option B (1.0) and C (10% of value) not tried.
+- **Strength / weakness by the league median** (`MIN_MEDIAN_TEAMS = 3`): a position is a strength when depth is at or above the expected range AND the team's starters there are at or above the median of the teams with a starter there; below 3 such teams, depth alone decides. With a median, every position is a strength or a weakness (half the league on each side). The depth range is `rosterBalance` (D'Hondt bench seats), already on the agenda as MR-28.
+- **Opportunity ranking**: fit tier first (natural, value, market-only, force), then the fundamentals edge (DDF receive minus give, as shown). The finder's size-discounted score (`EXTRA_PLAYER_WEIGHT`) only picks the 10 trades kept per pairing, so a large high-edge package can be cut before the tier sort sees it. Open: keep more per pairing, or rank the cut by edge.
+- **Overall fit truth table** (spec 4.3): "market fit" (we gain, charts call it fair, but the chart-average edge for them is below 0 as shown) is rare when 3 of 4 charts must each be fair; the table was built before that gate was counted.

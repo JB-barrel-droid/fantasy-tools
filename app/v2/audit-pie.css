@@ -1,8 +1,17 @@
-/* audit-pie.css – Value pie tab (JEG-848)
+/* audit-pie.css – Health check tab (JEG-1011, was the Value pie tab of JEG-848)
    All classes prefixed audit-pie- to avoid collisions with v2.css. */
 
+#audit-pie-root {
+  --ap-pass-ink: var(--v2-action-strong, #066b4c);
+  --ap-pass-bg: var(--v2-positive, #e9f5ef);
+  --ap-flag-ink: #8a4a07;
+  --ap-flag-bg: #fff3dc;
+  --ap-info-ink: var(--v2-index-ink, #1f5fbf);
+  --ap-info-bg: var(--v2-index-bg, #eaf1fb);
+}
+
 .audit-pie-header {
-  margin-bottom: 1rem;
+  margin: 0 0 1.75rem;
 }
 
 .audit-pie-meta {
@@ -13,32 +22,136 @@
 
 .audit-pie-section {
   margin-bottom: 2rem;
+  scroll-margin-top: 1rem;
 }
 
 .audit-pie-heading {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.25rem;
   color: var(--v2-heading, inherit);
 }
 
+.audit-pie-heading:focus { outline: none; }
+.audit-pie-heading:focus-visible { outline: 2px solid var(--v2-focus, #087f5b); outline-offset: 2px; }
+
 .audit-pie-pos-heading {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   margin: 0.75rem 0 0.25rem;
   color: var(--v2-heading, inherit);
 }
 
+.audit-pie-pos-ok { font-weight: 400; color: var(--v2-muted, #6b7280); font-size: 0.8125rem; }
+.audit-pie-pos-flag { font-weight: 600; color: var(--ap-flag-ink); font-size: 0.8125rem; }
+
 .audit-pie-note {
   font-size: 0.8125rem;
   color: var(--v2-muted, #6b7280);
   margin: 0 0 0.75rem;
-  line-height: 1.4;
+  line-height: 1.45;
+  max-width: 62rem;
+}
+
+.audit-pie-summary-line { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+
+.audit-pie-bench-note {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--v2-radius-btn, 8px);
+  background: var(--ap-info-bg);
+  color: var(--ap-info-ink);
+  max-width: 62rem;
 }
 
 .audit-pie-pos-block {
   margin-bottom: 1rem;
 }
+
+/* Verdict: one row per check, one column. */
+.audit-pie-verdict {
+  margin-bottom: 1.75rem;
+  scroll-margin-top: 1rem;
+}
+
+.audit-pie-verdict-q { display: inline; margin: 0 0.5rem 0 0; }
+.audit-pie-headline {
+  display: inline;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+.audit-pie-checks { margin-top: 0.5rem; }
+.audit-pie-headline-pass { color: var(--ap-pass-ink); }
+.audit-pie-headline-flag { color: var(--ap-flag-ink); }
+
+.audit-pie-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--v2-border, #dee5e2);
+  border-radius: var(--v2-radius-card, 12px);
+  background: var(--v2-surface, #fff);
+  overflow: hidden;
+}
+
+.audit-pie-check {
+  border-bottom: 1px solid var(--v2-border, #dee5e2);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+.audit-pie-check:last-child { border-bottom: none; }
+.audit-pie-check-flag { background: var(--ap-flag-bg); }
+
+/* The whole row is one link: badge, name and reason. */
+.audit-pie-check-row {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(11rem, 15rem) 1fr;
+  align-items: center;
+  column-gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.25rem 0.75rem;
+  color: var(--v2-ink, inherit);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .audit-pie-check-row:hover { background: var(--v2-hover, #f7faf9); }
+  .audit-pie-check-flag .audit-pie-check-row:hover { background: var(--ap-flag-bg); filter: brightness(0.97); }
+  .audit-pie-check-row:hover .audit-pie-check-name { text-decoration-style: solid; }
+}
+.audit-pie-check-row:focus-visible { outline: 2px solid var(--v2-focus, #087f5b); outline-offset: -2px; }
+
+.audit-pie-badge {
+  display: inline-block;
+  justify-self: start;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.audit-pie-badge-pass { background: var(--ap-pass-bg); color: var(--ap-pass-ink); }
+.audit-pie-badge-flag { background: var(--ap-flag-ink); color: #fff; }
+.audit-pie-badge-info { background: var(--ap-info-bg); color: var(--ap-info-ink); }
+
+.audit-pie-check-name {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.audit-pie-check-reason { color: var(--v2-ink, inherit); }
+
+.audit-pie-check-link {
+  position: relative;
+  color: var(--v2-action-text, #087f5b);
+  text-decoration: underline;
+}
+.audit-pie-check-link:focus-visible { outline: 2px solid var(--v2-focus, #087f5b); outline-offset: 2px; }
+.audit-pie-meta .audit-pie-check-link { display: inline-flex; align-items: center; min-height: 44px; }
 
 .audit-pie-scroll {
   overflow-x: auto;
@@ -52,6 +165,15 @@
   border-collapse: collapse;
   font-size: 0.8125rem;
   line-height: 1.3;
+  white-space: nowrap;
+}
+
+.audit-pie-caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
   white-space: nowrap;
 }
 
@@ -69,17 +191,22 @@
   letter-spacing: 0.03em;
   color: var(--v2-muted, #6b7280);
   border-bottom: 2px solid var(--v2-border, #d1d5db);
+  white-space: normal;
+  vertical-align: bottom;
 }
 
+.audit-pie-table th.audit-pie-num,
+.audit-pie-table td.audit-pie-num,
 .audit-pie-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-/* Flag: value deviates >10% from median */
+/* Amber: this cell is the one the check is flagging. */
 .audit-pie-flag {
-  color: var(--v2-flag, #b45309);
-  font-weight: 600;
+  color: var(--ap-flag-ink);
+  background: var(--ap-flag-bg);
+  font-weight: 700;
 }
 
 .audit-pie-empty {
@@ -88,40 +215,38 @@
   padding: 2rem 0;
 }
 
-/* Verdict rows: cross-source spread per cut */
-.audit-pie-verdict-row td {
-  font-size: 0.75rem;
-  font-style: italic;
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
-  border-bottom: none;
+/* Collapsed and legend sections */
+.audit-pie-raw,
+.audit-pie-terms {
+  border: 1px solid var(--v2-border, #dee5e2);
+  border-radius: var(--v2-radius-card, 12px);
+  padding: 0 1rem;
+  background: var(--v2-surface, #fff);
 }
+.audit-pie-raw[open],
+.audit-pie-terms[open] { padding-bottom: 0.75rem; }
 
-.audit-pie-verdict-pass {
-  color: var(--v2-muted, #6b7280);
+.audit-pie-raw-summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  list-style-position: inside;
 }
+.audit-pie-raw-summary .audit-pie-heading { margin: 0; display: inline; }
+.audit-pie-raw-summary:focus-visible { outline: 2px solid var(--v2-focus, #087f5b); outline-offset: 2px; }
 
-.audit-pie-verdict-fail {
-  color: var(--v2-flag, #b45309);
-  font-weight: 600;
-}
-
-.audit-pie-verdict-note-text {
-  font-size: 0.75rem;
-  font-style: italic;
-  color: var(--v2-muted, #6b7280);
-  border-bottom: none;
-  padding-top: 0;
-  white-space: normal;
-  line-height: 1.4;
-}
+.audit-pie-dl { margin: 0; font-size: 0.8125rem; line-height: 1.45; }
+.audit-pie-dl dt { font-weight: 600; margin-top: 0.5rem; }
+.audit-pie-dl dd { margin: 0 0 0 1rem; color: var(--v2-muted, #6b7280); max-width: 60rem; }
 
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .audit-pie-flag,
-  :root:not([data-theme="light"]) .audit-pie-verdict-fail {
-    color: #fbbf24;
+  :root:not([data-theme="light"]) #audit-pie-root {
+    --ap-flag-ink: #fbbf24;
+    --ap-flag-bg: #3a2a12;
   }
+  :root:not([data-theme="light"]) .audit-pie-badge-flag { color: #1a1204; background: #fbbf24; }
   :root:not([data-theme="light"]) .audit-pie-table th,
   :root:not([data-theme="light"]) .audit-pie-table td {
     border-bottom-color: var(--v2-border, #374151);
@@ -130,10 +255,11 @@
     border-bottom-color: var(--v2-border, #4b5563);
   }
 }
-:root[data-theme="dark"] .audit-pie-flag,
-:root[data-theme="dark"] .audit-pie-verdict-fail {
-  color: #fbbf24;
+:root[data-theme="dark"] #audit-pie-root {
+  --ap-flag-ink: #fbbf24;
+  --ap-flag-bg: #3a2a12;
 }
+:root[data-theme="dark"] .audit-pie-badge-flag { color: #1a1204; background: #fbbf24; }
 :root[data-theme="dark"] .audit-pie-table th,
 :root[data-theme="dark"] .audit-pie-table td {
   border-bottom-color: var(--v2-border, #374151);
@@ -142,8 +268,19 @@
   border-bottom-color: var(--v2-border, #4b5563);
 }
 
-/* Phone: tighter padding, allow horizontal scroll */
+/* Phone: one row per check, name on the first line and the reason under it. */
 @media (max-width: 767px) {
+  .audit-pie-check-row {
+    grid-template-columns: auto 1fr;
+    column-gap: 0.5rem;
+    row-gap: 0;
+    padding: 0.25rem 0.625rem 0.375rem;
+  }
+  .audit-pie-check-reason {
+    grid-column: 1 / -1;
+    font-size: 0.8125rem;
+    line-height: 1.3;
+  }
   .audit-pie-table {
     font-size: 0.75rem;
   }
@@ -151,4 +288,6 @@
   .audit-pie-table td {
     padding: 0.25rem 0.375rem;
   }
+  .audit-pie-raw,
+  .audit-pie-terms { padding: 0 0.625rem; }
 }
