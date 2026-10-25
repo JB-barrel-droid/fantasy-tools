@@ -15,6 +15,7 @@
         <a class="v2-tab" href="v2/#compare-trade" data-view="compare" data-short="Trade"><span class="v2-tab-full">Compare a trade</span></a>
         <a class="v2-tab" href="v2/#find-trade" data-view="find" data-short="Find"><span class="v2-tab-full">Find a trade</span></a>
         <a class="v2-tab" href="v2/#waivers" data-view="waivers" data-short="Waivers"><span class="v2-tab-full">Waivers</span></a>
+        <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-short="Overrides"><span class="v2-tab-full">Overrides</span></a>
         <a class="v2-tab" href="v2/#values-auditing" data-view="audit" data-short="Audit"><span class="v2-tab-full">Values auditing</span></a>
       </nav>
       <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
@@ -265,6 +266,8 @@
       <p class="v2-meta">Our value for each player against what the trade charts pay for the same player. A big gap means the market may have him wrong.</p>
     </section>
 
+    <!-- JEG-1042 (Jeremy, 2026-10-24): the review chips sit side by side on one line, just above the filters. -->
+    <p class="v2-filter-note v2-tdiv" id="v2TDivergence" hidden></p>
     <div class="v2-filters v2-tfilters" role="search">
       <label class="v2-search"><span class="v2-sr">Search players</span>
         <input type="search" id="v2TSearch" placeholder="Search players…" autocomplete="off">
@@ -291,7 +294,6 @@
     </div>
 
     <section class="v2-unpriced" id="v2TUnpriced" hidden aria-label="Players with no value"></section>
-    <p class="v2-filter-note v2-tdiv" id="v2TDivergence" hidden></p>
 
     <div class="v2-tlists">
       <section class="v2-card v2-tlist" id="v2TSell" aria-labelledby="v2TSellTitle">
@@ -788,6 +790,17 @@
       <p>That is the game.</p>
     </section>
     </article>
+  </main>
+
+  <!-- JEG-1035: value overrides. app/v2/overrides.js fills the three mounts. -->
+  <main class="v2-wrap v2-main" id="v2Overrides" hidden aria-labelledby="v2OverridesTitle">
+    <div class="v2-title">
+      <h1 id="v2OverridesTitle">Value overrides.</h1>
+      <p>Think a player is worth more or less? Set your own value. It replaces DDF Value on every tab.</p>
+    </div>
+    <section class="v2-card v2-ov-card" id="v2OvSearchBox" aria-label="Pick a player"></section>
+    <section class="v2-card v2-ov-card" id="v2OvEditor" hidden aria-labelledby="v2OvName"></section>
+    <section class="v2-card v2-ov-card" id="v2OvList" aria-labelledby="v2OvListTitle"></section>
   </main>
 
   <main class="v2-wrap v2-main" id="v2Audit" hidden aria-labelledby="v2AuditTitle">

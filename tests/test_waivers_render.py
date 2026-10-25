@@ -284,7 +284,7 @@ def chrome_checks(page, tag) -> list[str]:
       active: document.querySelector('.v2-tab[aria-current=page]') && document.querySelector('.v2-tab[aria-current=page]').dataset.view})""")
     if not t["title"].startswith("Waivers"):
         errors.append(tag + f"title {t['title']!r}")
-    if t["tabs"][-2:] != ["Waivers", "Values auditing"] or t["tabs"].index("Waivers") != 6 or t["active"] != "waivers":
+    if t["tabs"][-3:] != ["Waivers", "Overrides", "Values auditing"] or t["tabs"].index("Waivers") != 6 or t["active"] != "waivers":
         errors.append(tag + f"nav {t}")
     return errors
 
