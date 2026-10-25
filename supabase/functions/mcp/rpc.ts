@@ -1,7 +1,7 @@
 // JEG-1012: minimal stateless MCP (Streamable HTTP, JSON responses only).
 // JSON-RPC 2.0 dispatch, no Deno APIs, so it runs under node in the tests.
 
-import { type FetchValues, runTool, ToolInputError, ToolUnavailableError, TOOLS } from "./tools.ts";
+import { type FetchValues, type FinderDeps, runTool, ToolInputError, ToolUnavailableError, TOOLS } from "./tools.ts";
 import type { Deps } from "./state.ts";
 
 const SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -26,7 +26,7 @@ const err = (id: Json, code: number, message: string) => ({
 });
 
 // Returns the JSON-RPC response, or null for a notification (HTTP 202).
-export async function handleRpc(msg: Json, fetchValues: FetchValues, deps?: Deps): Promise<Json | null> {
+export async function handleRpc(msg: Json, fetchValues: FetchValues, deps?: Deps, finderDeps?: FinderDeps): Promise<Json | null> {
   if (!msg || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") {
     return err(msg?.id, -32600, "Invalid Request");
   }
@@ -53,7 +53,7 @@ export async function handleRpc(msg: Json, fetchValues: FetchValues, deps?: Deps
       return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
     case "tools/call": {
       try {
-        const result = await runTool(String(params?.name ?? ""), params?.arguments ?? {}, fetchValues, deps);
+        const result = await runTool(String(params?.name ?? ""), params?.arguments ?? {}, fetchValues, deps, finderDeps);
         return { jsonrpc: "2.0", id, result };
       } catch (e) {
         if (e instanceof ToolUnavailableError) console.error("tool dependency unavailable:", e.message);

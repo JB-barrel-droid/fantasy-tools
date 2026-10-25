@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-24T20:02:02.501705+00:00",
+  "run_at": "2026-10-24T23:55:48.213201+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan | fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none | fantasycalc-half-12-qb1-section half_12_qb1/RB list 60 -> 63: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal | fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none)",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -12,20 +12,27 @@
   },
   "failed": [],
   "success": true,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
-  "list_changes": {
-    "fantasycalc": [
-      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan",
-      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none",
-      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 60 -> 63: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal",
-      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none"
-    ]
+  "outcome": "published_with_holds",
+  "held": [
+    "cbsros"
+  ],
+  "hold_severity": "amber",
+  "list_changes": {},
+  "held_detail": {
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: DJ Giddens, Eli Stowers, Kaleb Johnson, Tip Reiman); parse notes: RB: 3 players listed with another position in t",
+      "hold_severity": "amber",
+      "week": 7
+    }
   },
-  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -41,17 +48,10 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan | fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none | fantasycalc-half-12-qb1-section half_12_qb1/RB list 60 -> 63: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal | fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none",
+      "detail": "promoted 3/3",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": [
-        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan",
-        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none",
-        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 60 -> 63: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal",
-        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 60 -> 64: dropped jonathon brooks; added bam knight, chris rodriguez jr, dylan sampson, kimani vidal, seth mcgowan",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 76 -> 73: dropped dezhaun stribling, kalif raymond, travis hunter; added none"
-      ]
+      "list_change_warnings": []
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -66,7 +66,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7104 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7116 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -83,7 +83,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (4392 values)",
+      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (4404 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -91,7 +91,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7692 values)",
+      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7788 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -143,5 +143,8 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "fidelity_holds": {
+    "cbsros": "fidelity: publisher_vs_stored"
   }
 }

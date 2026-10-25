@@ -20,6 +20,8 @@ If the user pastes a block that starts with ```ddf-state, or a link to the Data 
 - A specific player's worth: `get_player_value` (several names at once).
 - Is this trade fair: `compare_trade` (side A is what the user gives, side B is what they get). It adds up blended values and is not lineup-aware, with no per-source breakdown; say so, and send the user to the site link for the full view before they act on a close call.
 - Who could I trade for: `trade_targets`.
+- Find a trade between two rosters: `find_trades` (give both rosters as comma-separated names; returns packages where you gain value and the other team breaks even on the trade charts, each scored on 9 viability checks with a High/Med-High/Medium label when viable).
+- Find the best trades across a whole league: `find_trades_league` (your roster plus opponents with their rosters; returns ranked trades and a recommended package of non-conflicting viable offers).
 - Top of the board, by position: `get_values`.
 - How the numbers work: `explain`.
 - The user wants to take your work to the site: `make_state`.

@@ -7,7 +7,9 @@
 
 import { handleRpc } from "./rpc.ts";
 import type { Codec, Deps } from "./state.ts";
-import type { FetchValues, ValuesResponse } from "./tools.ts";
+import type { ChartValuesResponse, FetchValues, FetchValuesWithCharts, ValuesResponse } from "./tools.ts";
+import { evalFinder, type Finder } from "./find-trades.ts";
+import type { FinderDeps } from "./tools.ts";
 
 // Same site origin as get-values; DDF_SITE_ORIGIN overrides it once the custom domain is live.
 const SITE_ORIGIN = (Deno.env.get("DDF_SITE_ORIGIN") ||
@@ -21,17 +23,21 @@ const VALUES_URL = Deno.env.get("DDF_API_URL") ||
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; data: ValuesResponse }>();
 
-const fetchValues: FetchValues = async (scoring, teams, superflex) => {
-  const key = `${scoring}|${teams}|${superflex}`;
+const CACHE_MAX = 12;
+
+const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
   url.searchParams.set("scoring", scoring);
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
+  if (league) url.searchParams.set("league", JSON.stringify(league));
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`get-values ${res.status}`);
   const data = await res.json() as ValuesResponse;
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
   cache.set(key, { at: Date.now(), data });
   return data;
 };
@@ -61,6 +67,47 @@ async function loadCodec(): Promise<Codec | null> {
   // A failure is remembered for one minute, not five, so a fixed deploy is picked up quickly.
   codecCache = { at: codec ? Date.now() : Date.now() - CACHE_TTL_MS + 60_000, codec };
   return codec;
+}
+
+// Chart-enriched fetch: get-values with include=charts for the finder.
+const chartCache = new Map<string, { at: number; data: ChartValuesResponse }>();
+const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex) => {
+  const key = `${scoring}|${teams}|${superflex}`;
+  const hit = chartCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+  const url = new URL(VALUES_URL);
+  url.searchParams.set("scoring", scoring);
+  url.searchParams.set("teams", String(teams));
+  url.searchParams.set("superflex", String(superflex));
+  url.searchParams.set("include", "charts");
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`get-values ${res.status}`);
+  const data = await res.json() as ChartValuesResponse;
+  chartCache.set(key, { at: Date.now(), data });
+  return data;
+};
+
+// The finder is the site's app/v2/finder.js, loaded like the codec. It exports
+// findTrades and the constants the search uses. If it cannot be loaded, the
+// find_trades tool says it is unavailable.
+let finderCache: { at: number; finder: Finder | null } | null = null;
+async function loadFinder(): Promise<Finder | null> {
+  if (finderCache && Date.now() - finderCache.at < CACHE_TTL_MS) return finderCache.finder;
+  let finder: Finder | null = null;
+  try {
+    const res = await fetch(`${SITE_ORIGIN}/v2/finder.js`);
+    if (res.ok) {
+      // deno-lint-ignore no-eval
+      const evalFn = eval;
+      finder = evalFinder(await res.text(), evalFn);
+    } else {
+      console.error(`finder.js load failed: ${res.status} from ${SITE_ORIGIN}/v2/finder.js`);
+    }
+  } catch (e) {
+    console.error("finder.js load failed:", e);
+  }
+  finderCache = { at: finder ? Date.now() : Date.now() - CACHE_TTL_MS + 60_000, finder };
+  return finder;
 }
 
 // MCP clients are not browsers, but browser-based inspectors send CORS preflights.
@@ -105,8 +152,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const deps: Deps = { codec: await loadCodec(), siteOrigin: SITE_ORIGIN };
+  const fDeps: FinderDeps = { finder: await loadFinder(), fetchCharts };
   const batch = Array.isArray(body);
-  const responses = (await Promise.all((batch ? body : [body]).map((m) => handleRpc(m, fetchValues, deps))))
+  const responses = (await Promise.all((batch ? body : [body]).map((m) => handleRpc(m, fetchValues, deps, fDeps))))
     .filter((r) => r !== null);
   if (!responses.length) return new Response(null, { status: 202, headers: cors });
   return Response.json(batch ? responses : responses[0], { headers: cors });

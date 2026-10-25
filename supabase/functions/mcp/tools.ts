@@ -5,6 +5,17 @@
 // instead of the whole player list.
 
 import { type Deps, finish, prepare } from "./state.ts";
+import { type Finder, type FinderRow, findTradesForPair } from "./find-trades.ts";
+import {
+  type RosterShape,
+  type ViabilityConfig,
+  type ViabilityRow,
+  type TradeOfferInput,
+  DEFAULT_CONFIG,
+  runViabilityChecks,
+  scoreAndRankOffers,
+  selectPackage,
+} from "./viability.ts";
 
 export interface PlayerValue {
   player_key: number;
@@ -27,7 +38,26 @@ export type FetchValues = (
   scoring: string,
   teams: number,
   superflex: number,
+  league?: Record<string, unknown>,
 ) => Promise<ValuesResponse>;
+
+/** Extended player record with per-chart values (from get-values?include=charts). */
+export interface ChartPlayerValue extends PlayerValue {
+  chart_values: Record<string, number | null>;
+  ddf_value_charts: number | null;
+  ddf_value_projections: number | null;
+}
+
+export interface ChartValuesResponse extends ValuesResponse {
+  players: ChartPlayerValue[];
+}
+
+/** Fetches values with chart series included (for find_trades). */
+export type FetchValuesWithCharts = (
+  scoring: string,
+  teams: number,
+  superflex: number,
+) => Promise<ChartValuesResponse>;
 
 export interface ToolResult {
   content: Array<{ type: "text"; text: string }>;
@@ -66,6 +96,52 @@ const listProps = {
   theirs: { type: "string", description: "Comma-separated names: their roster (Find a trade)" },
   target: { type: "string", description: "One player name (Trade targets)" },
 };
+
+// Viability configuration properties, exposed as optional tool arguments.
+const viabilityProps = {
+  viable_only: { type: "boolean", default: false, description: "Return only viable trades (all 9 checks pass)" },
+  roster_shape: {
+    type: "object",
+    description: "Starting lineup shape (default: QB 1, RB 2, WR 2, TE 1, FLEX 1, SUPERFLEX per league setting)",
+    properties: {
+      QB: { type: "integer", default: 1 }, RB: { type: "integer", default: 2 },
+      WR: { type: "integer", default: 2 }, TE: { type: "integer", default: 1 },
+      FLEX: { type: "integer", default: 1 }, SUPERFLEX: { type: "integer", default: 0 },
+    },
+  },
+  min_ddf_edge: { type: "number", default: 0, description: "Minimum DDF value gain for viability (default 0)" },
+  min_market_net: { type: "number", default: 0, description: "Minimum market-value gain for the other team (default 0)" },
+  depth_player_cutoff: { type: "number", default: 0.5, description: "Minimum DDF value for a player to count as depth" },
+  dead_weight_cutoff: { type: "number", default: 0.5, description: "Maximum DDF value for a droppable player" },
+  min_rb_backups: { type: "integer", default: 1, description: "Minimum healthy RB backups beyond starters" },
+  min_wr_backups: { type: "integer", default: 1, description: "Minimum healthy WR backups beyond starters" },
+};
+
+/** Build a RosterShape from tool args, defaulting SUPERFLEX from the league setting. */
+function rosterShape(args: Record<string, unknown>, superflex: number): RosterShape {
+  const rs = (args.roster_shape ?? {}) as Record<string, unknown>;
+  return {
+    QB: Number(rs.QB ?? 1),
+    RB: Number(rs.RB ?? 2),
+    WR: Number(rs.WR ?? 2),
+    TE: Number(rs.TE ?? 1),
+    FLEX: Number(rs.FLEX ?? 1),
+    SUPERFLEX: Number(rs.SUPERFLEX ?? (superflex ? 1 : 0)),
+  };
+}
+
+/** Build a ViabilityConfig from tool args. */
+function viabilityConfig(args: Record<string, unknown>): ViabilityConfig {
+  return {
+    ...DEFAULT_CONFIG,
+    minDdfEdge: Number(args.min_ddf_edge ?? DEFAULT_CONFIG.minDdfEdge),
+    minMarketNet: Number(args.min_market_net ?? DEFAULT_CONFIG.minMarketNet),
+    depthPlayerCutoff: Number(args.depth_player_cutoff ?? DEFAULT_CONFIG.depthPlayerCutoff),
+    deadWeightCutoff: Number(args.dead_weight_cutoff ?? DEFAULT_CONFIG.deadWeightCutoff),
+    minRbBackups: Number(args.min_rb_backups ?? DEFAULT_CONFIG.minRbBackups),
+    minWrBackups: Number(args.min_wr_backups ?? DEFAULT_CONFIG.minWrBackups),
+  };
+}
 
 export const TOOLS = [
   {
@@ -153,6 +229,57 @@ export const TOOLS = [
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   {
+    name: "find_trades",
+    description:
+      "Find trade packages between two rosters, scored for viability. Lists trades where you gain DDF Value and at least 3 of 4 trade charts say the other team breaks even or wins. Each trade is scored on 9 viability checks (arbitrage, fairness, lineup improvement, position protection, depth, roster space, QB, guardrails) and labelled High/Med-High/Medium when viable. Set viable_only to see only the trades most likely to be accepted.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...settingsProps,
+        mine: { type: "string", description: "Comma-separated names: your full roster" },
+        theirs: { type: "string", description: "Comma-separated names: their full roster" },
+        max_per_side: { type: "integer", minimum: 1, maximum: 4, default: 2, description: "Maximum players each side trades (default 2-for-2)" },
+        min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum average chart-value edge the other team needs (0 = any fair trade)" },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 10, description: "Maximum trade candidates to return" },
+        ...viabilityProps,
+      },
+      required: ["mine", "theirs"],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "find_trades_league",
+    description:
+      "Find the best trades across an entire league. Takes your roster and a list of opponents with their rosters, scores every candidate on 9 viability checks, ranks viable offers first, and selects the best package of trades (no player sent twice, each opponent at most once). Returns per-trade viability labels, failure reasons, and the package with your projected lineup after.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...settingsProps,
+        mine: { type: "string", description: "Comma-separated names: your full roster" },
+        opponents: {
+          type: "array",
+          description: "Opposing teams: [{name, roster}] where roster is comma-separated names",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Team name" },
+              roster: { type: "string", description: "Comma-separated player names" },
+            },
+            required: ["name", "roster"],
+          },
+          minItems: 1,
+          maxItems: 15,
+        },
+        max_per_side: { type: "integer", minimum: 1, maximum: 4, default: 2, description: "Maximum players each side trades" },
+        min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum market-value edge for the other team" },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 25, description: "Maximum trade candidates to return" },
+        ...viabilityProps,
+      },
+      required: ["mine", "opponents"],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
     name: "explain",
     description:
       "Explain how Data Driven Football values work: methodology, sources, value scale, scoring formats, superflex, tiers, how to use values in trades.",
@@ -169,6 +296,12 @@ export class ToolInputError extends Error {}
 // A dependency is down, not the caller's input: same message to the client, logged as an outage.
 export class ToolUnavailableError extends ToolInputError {}
 
+/** Extra dependencies for tools that need the finder (find_trades). */
+export interface FinderDeps {
+  finder: Finder | null;
+  fetchCharts: FetchValuesWithCharts | null;
+}
+
 function settings(args: Record<string, unknown>) {
   const scoring = String(args.scoring ?? "ppr");
   const teams = Number(args.teams ?? 12);
@@ -179,7 +312,9 @@ function settings(args: Record<string, unknown>) {
     throw new ToolInputError(`invalid teams: ${teams}. Must be one of: ${TEAMS.join(", ")}`);
   }
   const superflex = args.superflex === true || args.superflex === 1 || args.superflex === "true" ? 1 : 0;
-  return { scoring, teams, superflex };
+  // JEG-1031: the rest of a pasted league (roster shape, shares, weeks, advanced), priced by get-values.
+  const league = args.league && typeof args.league === "object" ? args.league as Record<string, unknown> : undefined;
+  return { scoring, teams, superflex, league };
 }
 
 function position(args: Record<string, unknown>): string {
@@ -222,9 +357,12 @@ export async function runTool(
   args: Record<string, unknown>,
   fetchValues: FetchValues,
   deps?: Deps,
+  finderDeps?: FinderDeps,
 ): Promise<ToolResult> {
   if (name === "read_state") return await readState(args, fetchValues, deps);
   if (name === "make_state") return await makeState(args, fetchValues, deps);
+  if (name === "find_trades") return await findTradesHandler(args, fetchValues, deps, finderDeps);
+  if (name === "find_trades_league") return await findTradesLeagueHandler(args, fetchValues, deps, finderDeps);
   const prepared = prepare(args, deps);
   args = prepared.args;
   if (name === "explain") {
@@ -238,7 +376,7 @@ export async function runTool(
   if (name === "get_values") {
     const pos = position(args);
     const limit = Math.min(200, Math.max(1, Number(args.limit ?? 50) || 50));
-    const data = await fetchValues(s.scoring, s.teams, s.superflex);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const players = data.players.filter((p) => pos === "all" || p.pos === pos).slice(0, limit);
     const text = [
       ...header(data, s),
@@ -256,7 +394,7 @@ export async function runTool(
   if (name === "get_player_value") {
     const names = String(args.names ?? "").split(",").map((n) => n.trim()).filter(Boolean);
     if (!names.length) throw new ToolInputError("names is required");
-    const data = await fetchValues(s.scoring, s.teams, s.superflex);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const results = names.map((input) => ({ input, player: findPlayer(data.players, input) }));
     const text = [
       ...header(data, s),
@@ -277,7 +415,7 @@ export async function runTool(
   if (name === "trade_targets") {
     const pos = position(args);
     const pct = Math.min(50, Math.max(1, Number(args.range_pct ?? 15) || 15));
-    const data = await fetchValues(s.scoring, s.teams, s.superflex);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const player = findPlayer(data.players, String(args.player_name ?? ""));
     if (!player) {
       return {
@@ -307,7 +445,7 @@ export async function runTool(
   }
 
   if (name === "compare_trade") {
-    const data = await fetchValues(s.scoring, s.teams, s.superflex);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const side = (raw: unknown) =>
       String(raw ?? "").split(",").map((n) => n.trim()).filter(Boolean).map((input) => ({
         input,
@@ -362,6 +500,333 @@ export async function runTool(
   throw new ToolInputError(`unknown tool: ${name}`);
 }
 
+// ---------- find_trades tool ----------
+
+/** Convert a ChartPlayerValue into the FinderRow format finder.js expects. */
+function toFinderRow(p: ChartPlayerValue): FinderRow {
+  const values: Record<string, number | null> = {
+    ddf_value: p.value,
+    ddf_value_charts: p.ddf_value_charts,
+    ddf_value_projections: p.ddf_value_projections,
+  };
+  for (const [k, v] of Object.entries(p.chart_values)) values[k] = v;
+  return { player_key: p.player_key, name: p.name, pos: p.pos, values, ddfTier: p.tier };
+}
+
+function findChartPlayer(players: ChartPlayerValue[], query: string): ChartPlayerValue | null {
+  return findPlayer(players, query) as ChartPlayerValue | null;
+}
+
+async function findTradesHandler(
+  args: Record<string, unknown>,
+  fetchValues: FetchValues,
+  deps?: Deps,
+  finderDeps?: FinderDeps,
+): Promise<ToolResult> {
+  if (!finderDeps?.finder) {
+    throw new ToolUnavailableError("The trade finder is unavailable right now. Try again shortly.");
+  }
+  if (!finderDeps?.fetchCharts) {
+    throw new ToolUnavailableError("Chart values are unavailable right now. Try again shortly.");
+  }
+
+  const prepared = prepare(args, deps);
+  const a = prepared.args;
+  const s = settings(a);
+
+  const mineNames = String(a.mine ?? "").split(",").map((n) => n.trim()).filter(Boolean);
+  const theirNames = String(a.theirs ?? "").split(",").map((n) => n.trim()).filter(Boolean);
+  if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
+  if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
+
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
+  const chartPlayers = data.players;
+
+  // Resolve names to rows.
+  const resolve = (names: string[]) => {
+    const matched: ChartPlayerValue[] = [];
+    const unmatched: string[] = [];
+    for (const name of names) {
+      const p = findChartPlayer(chartPlayers, name);
+      if (p) matched.push(p);
+      else unmatched.push(name);
+    }
+    return { matched, unmatched };
+  };
+
+  const mineRes = resolve(mineNames);
+  const theirRes = resolve(theirNames);
+  const unmatched = [...mineRes.unmatched, ...theirRes.unmatched];
+
+  if (!mineRes.matched.length) throw new ToolInputError("No players matched on your roster. Check the spelling.");
+  if (!theirRes.matched.length) throw new ToolInputError("No players matched on their roster. Check the spelling.");
+
+  const mineRows = mineRes.matched.map(toFinderRow);
+  const theirRows = theirRes.matched.map(toFinderRow);
+
+  const maxPerSide = Number(a.max_per_side ?? 2) || 2;
+  const minRivalEdge = Number(a.min_rival_edge ?? 0) || 0;
+  const limit = Number(a.limit ?? 10) || 10;
+
+  const result = findTradesForPair(finderDeps.finder, mineRows, theirRows, {
+    maxSize: maxPerSide,
+    minRivalEdge,
+    limit: limit + 20, // fetch extra before viability filtering
+  });
+
+  // --- Viability scoring ---
+  const shape = rosterShape(a, s.superflex);
+  const vConfig = viabilityConfig(a);
+  const viableOnly = a.viable_only === true || a.viable_only === "true";
+
+  // Build lookup by player_key for full rows.
+  const rowByKey = new Map<number, FinderRow>();
+  for (const r of mineRows) rowByKey.set(r.player_key, r);
+  for (const r of theirRows) rowByKey.set(r.player_key, r);
+
+  const offers: TradeOfferInput[] = result.trades.map((t) => ({
+    team: "opponent",
+    userGives: t.give.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
+    userGets: t.receive.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
+    userRoster: mineRows,
+    theirRoster: theirRows,
+  }));
+
+  let scored = scoreAndRankOffers(offers, shape, vConfig);
+  if (viableOnly) scored = scored.filter((o) => o.viable);
+  scored = scored.slice(0, limit);
+
+  const entry = (input: string, p: PlayerValue | null) =>
+    p ? { key: String(p.player_key), name: p.name } : { name: input };
+
+  // Format text output.
+  const lines: string[] = [
+    data.attribution,
+    `As of: ${data.as_of || "unknown"}`,
+    `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
+    "",
+    `Found ${result.total} trade${result.total === 1 ? "" : "s"} (showing ${scored.length}${viableOnly ? " viable" : ""}).`,
+    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found; searched ${result.mine.searched} of ${result.mine.of} priced.`,
+    `Their roster: ${theirRes.matched.length} matched, ${theirRes.unmatched.length} not found; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
+  ];
+  if (unmatched.length) lines.push(`Not found: ${unmatched.join(", ")}`);
+  lines.push("");
+
+  for (let i = 0; i < scored.length; i++) {
+    const o = scored[i];
+    const giveStr = o.userGives.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
+    const getStr = o.userGets.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
+    const viabilityTag = o.viable
+      ? `[${o.label}]`
+      : `[NOT VIABLE: ${o.failedChecks.join("; ")}]`;
+    lines.push(`${i + 1}. You give: ${giveStr}`);
+    lines.push(`   You get: ${getStr}`);
+    lines.push(`   Your edge: +${o.ddfEdge.toFixed(1)} DDF | Lineup: ${o.userLineupDelta >= 0 ? "+" : ""}${o.userLineupDelta.toFixed(1)} | ${viabilityTag}`);
+    if (o.temporaryGap) lines.push(`   ⚠ Temporary lineup gap (injured players out)`);
+    lines.push("");
+  }
+  if (!scored.length) lines.push(viableOnly
+    ? "No viable trades found. Try without viable_only to see all candidates."
+    : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
+
+  // Structured output.
+  const structured = {
+    as_of: data.as_of,
+    setting: data.setting,
+    trades: scored,
+    total: result.total,
+    viableCount: scored.filter((o) => o.viable).length,
+    mine: { ...result.mine, unmatched: mineRes.unmatched },
+    theirs: { ...result.theirs, unmatched: theirRes.unmatched },
+    chart_keys: result.chartKeys,
+  };
+
+  // Work for the state: mine/theirs as entries.
+  const work = {
+    mine: mineNames.map((n) => entry(n, findPlayer(data.players, n))),
+    theirs: theirNames.map((n) => entry(n, findPlayer(data.players, n))),
+  };
+
+  return finish(ok(lines.join("\n"), structured), {
+    prepared, deps, settings: s, view: "finder", work,
+  });
+}
+
+/** Minimal ViabilityRow from a trade candidate player summary. */
+function toViabilityRow(p: { player_key: number; name: string; pos: string; value: number | null }): ViabilityRow {
+  return { player_key: p.player_key, name: p.name, pos: p.pos, values: { ddf_value: p.value } };
+}
+
+// ---------- find_trades_league tool ----------
+
+async function findTradesLeagueHandler(
+  args: Record<string, unknown>,
+  fetchValues: FetchValues,
+  deps?: Deps,
+  finderDeps?: FinderDeps,
+): Promise<ToolResult> {
+  if (!finderDeps?.finder) {
+    throw new ToolUnavailableError("The trade finder is unavailable right now. Try again shortly.");
+  }
+  if (!finderDeps?.fetchCharts) {
+    throw new ToolUnavailableError("Chart values are unavailable right now. Try again shortly.");
+  }
+
+  const prepared = prepare(args, deps);
+  const a = prepared.args;
+  const s = settings(a);
+
+  const mineNames = String(a.mine ?? "").split(",").map((n: string) => n.trim()).filter(Boolean);
+  if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
+
+  const opponents = a.opponents as Array<{ name: string; roster: string }> | undefined;
+  if (!opponents?.length) throw new ToolInputError("opponents is required: [{name, roster}]");
+  if (opponents.length > 15) throw new ToolInputError("too many opponents (max 15)");
+
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
+  const chartPlayers = data.players;
+
+  const resolve = (names: string[]) => {
+    const matched: ChartPlayerValue[] = [];
+    const unmatched: string[] = [];
+    for (const name of names) {
+      const p = findChartPlayer(chartPlayers, name);
+      if (p) matched.push(p);
+      else unmatched.push(name);
+    }
+    return { matched, unmatched };
+  };
+
+  const mineRes = resolve(mineNames);
+  if (!mineRes.matched.length) throw new ToolInputError("No players matched on your roster. Check the spelling.");
+  const mineRows = mineRes.matched.map(toFinderRow);
+
+  const shape = rosterShape(a, s.superflex);
+  const vConfig = viabilityConfig(a);
+  const viableOnly = a.viable_only === true || a.viable_only === "true";
+  const maxPerSide = Number(a.max_per_side ?? 2) || 2;
+  const minRivalEdge = Number(a.min_rival_edge ?? 0) || 0;
+  const limit = Math.min(100, Math.max(1, Number(a.limit ?? 25) || 25));
+
+  const allOffers: TradeOfferInput[] = [];
+  const perOpponent: Array<{ name: string; tradesFound: number; unmatchedNames: string[] }> = [];
+  const allUnmatched: string[] = [...mineRes.unmatched];
+
+  // Run each opponent pair sequentially (edge function memory).
+  for (const opp of opponents) {
+    const oppNames = String(opp.roster ?? "").split(",").map((n: string) => n.trim()).filter(Boolean);
+    if (!oppNames.length) {
+      perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: [] });
+      continue;
+    }
+    const oppRes = resolve(oppNames);
+    allUnmatched.push(...oppRes.unmatched);
+    if (!oppRes.matched.length) {
+      perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: oppRes.unmatched });
+      continue;
+    }
+
+    const theirRows = oppRes.matched.map(toFinderRow);
+    const rowByKey = new Map<number, FinderRow>();
+    for (const r of mineRows) rowByKey.set(r.player_key, r);
+    for (const r of theirRows) rowByKey.set(r.player_key, r);
+
+    const pairResult = findTradesForPair(finderDeps.finder, mineRows, theirRows, {
+      maxSize: maxPerSide,
+      minRivalEdge,
+      limit: 50,
+    });
+
+    const pairOffers: TradeOfferInput[] = pairResult.trades.map((t) => ({
+      team: opp.name,
+      userGives: t.give.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
+      userGets: t.receive.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
+      userRoster: mineRows,
+      theirRoster: theirRows,
+    }));
+
+    allOffers.push(...pairOffers);
+    perOpponent.push({
+      name: opp.name,
+      tradesFound: pairResult.trades.length,
+      unmatchedNames: oppRes.unmatched,
+    });
+  }
+
+  // Score, rank, and optionally filter.
+  let scored = scoreAndRankOffers(allOffers, shape, vConfig);
+  if (viableOnly) scored = scored.filter((o) => o.viable);
+
+  // Package: best viable combination.
+  const pkg = selectPackage(scored, mineRows, shape, vConfig.ddfKey);
+
+  const shownTrades = scored.slice(0, limit);
+  const viableCount = scored.filter((o) => o.viable).length;
+
+  // Text output.
+  const lines: string[] = [
+    data.attribution,
+    `As of: ${data.as_of || "unknown"}`,
+    `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
+    "",
+    `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}.`,
+    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found.`,
+  ];
+  if (allUnmatched.length) lines.push(`Not found: ${allUnmatched.join(", ")}`);
+  lines.push("");
+
+  if (pkg.offers.length > 0) {
+    lines.push(`=== RECOMMENDED PACKAGE (${pkg.offers.length} trade${pkg.offers.length === 1 ? "" : "s"}, total edge +${pkg.totalDdfEdge.toFixed(1)}) ===`);
+    for (const o of pkg.offers) {
+      const giveStr = o.userGives.map((p) => `${p.name} (${p.pos})`).join(", ");
+      const getStr = o.userGets.map((p) => `${p.name} (${p.pos})`).join(", ");
+      lines.push(`  vs ${o.team}: give ${giveStr} → get ${getStr} [${o.label}] +${o.ddfEdge.toFixed(1)} DDF`);
+    }
+    lines.push("");
+  }
+
+  lines.push("=== ALL CANDIDATES ===");
+  for (let i = 0; i < shownTrades.length; i++) {
+    const o = shownTrades[i];
+    const giveStr = o.userGives.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
+    const getStr = o.userGets.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
+    const viabilityTag = o.viable
+      ? `[${o.label}]`
+      : `[NOT VIABLE: ${o.failedChecks.join("; ")}]`;
+    lines.push(`${i + 1}. vs ${o.team}: give ${giveStr} → get ${getStr}`);
+    lines.push(`   Edge: +${o.ddfEdge.toFixed(1)} DDF | Lineup: ${o.userLineupDelta >= 0 ? "+" : ""}${o.userLineupDelta.toFixed(1)} | ${viabilityTag}`);
+    if (o.temporaryGap) lines.push(`   ⚠ Temporary lineup gap`);
+  }
+  if (!shownTrades.length) lines.push(viableOnly
+    ? "No viable trades found across the league."
+    : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
+
+  const structured = {
+    as_of: data.as_of,
+    setting: data.setting,
+    package: {
+      offers: pkg.offers,
+      totalDdfEdge: pkg.totalDdfEdge,
+      userLineupAfter: pkg.userLineupAfter,
+    },
+    trades: shownTrades,
+    total: scored.length,
+    viableCount,
+    perOpponent,
+    mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched },
+  };
+
+  const entry = (input: string, p: PlayerValue | null) =>
+    p ? { key: String(p.player_key), name: p.name } : { name: input };
+  const work = {
+    mine: mineNames.map((n: string) => entry(n, findPlayer(data.players, n))),
+  };
+
+  return finish(ok(lines.join("\n"), structured), {
+    prepared, deps, settings: s, view: "finder", work,
+  });
+}
+
 const EXPLANATIONS: Record<string, string> = {
   methodology:
     "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). Several projection sources and published trade charts are blended; a stale or held source is left out of the blend rather than counted as zero. Full method: the site's methodology pages.",
@@ -410,7 +875,7 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
     throw new ToolInputError(`No usable DDF state found in the text. ${prepared.warnings.join(" ")}`.trim());
   }
   const s = settings(prepared.args);
-  const data = await fetchValues(s.scoring, s.teams, s.superflex);
+  const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
   const work = (prepared.state.work ?? {}) as Record<string, unknown>;
 
   const lists: Record<string, Array<{ input: string; player: PlayerValue | null }>> = {};
@@ -450,7 +915,7 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
   const prepared = prepare(args, deps);
   const a = prepared.args;
   const s = settings(a);
-  const data = await fetchValues(s.scoring, s.teams, s.superflex);
+  const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
   const names = (v: unknown) => String(v ?? "").split(",").map((n) => n.trim()).filter(Boolean);
   const work: Record<string, unknown> = {};
   const unmatched: string[] = [];

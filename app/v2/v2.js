@@ -3060,7 +3060,15 @@
         eyebrow(content, "Optimize for");
         content.appendChild(segmented("Optimize for", [["season", "Whole season"], ["regular", "Regular season"], ["playoffs", "Playoffs"]],
           w.optimize, v => { w.optimize = v; queue(); }));
-        const lo = w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
+        // JEG-1023: the playoffs option has not been reviewed (Jeremy, 2026-10-24); plain text, tied to the button.
+        const optimizeCaption = document.createElement("p");
+        optimizeCaption.className = "v2-meta v2-optimize-caption";
+        optimizeCaption.id = "v2OptimizeNotReviewed";
+        optimizeCaption.textContent = "Playoffs: not reviewed, may not work as expected";
+        content.appendChild(optimizeCaption);
+        const playoffsButton = content.querySelector('.v2-pseg button[data-value="playoffs"]');
+        if (playoffsButton) playoffsButton.setAttribute("aria-describedby", optimizeCaption.id);
+        const lo =w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
         const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
         const weeksNote = document.createElement("p");
         weeksNote.className = "v2-meta";
