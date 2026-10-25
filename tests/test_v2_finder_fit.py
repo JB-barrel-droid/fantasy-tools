@@ -145,7 +145,7 @@ MUTANTS = {
     "their view reads DDF": ("const them = teamFit(sides.theirs, ctx, ctx.marketKey);", "const them = teamFit(sides.theirs, ctx, ctx.ourKey);"),
     "noise ignored": ("const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);", "const tau = NET_FLOOR;"),
     "no need needed for natural": ('(fillsNeed ? "natural" : "value")', '"natural"'),
-    "force never": ('us.ok && them.ok ? (fillsNeed ? "natural" : "value") : "force"', "(fillsNeed ? \"natural\" : \"value\")"),
+    "force never": ('yourOk && them.ok ? (fillsNeed ? "natural" : "value") : "force"', "(fillsNeed ? \"natural\" : \"value\")"),
     "tiers reversed": ("a.t - b.t || a.i - b.i", "b.t - a.t || a.i - b.i"),
     "tiers unstable": ("a.t - b.t || a.i - b.i", "a.t - b.t || b.i - a.i"),
 }

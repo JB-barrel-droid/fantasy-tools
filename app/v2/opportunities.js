@@ -28,8 +28,9 @@
 
   // ---------- the labels (section 4.2 / 4.3) ----------
   // Our team's fit, from tradeFit's reading of our side in DDF Value: served and moving toward expected depth = natural; served = value.
+  // JEG-1081: when only the projections serve us (natural, projections only) the label reads that view, as the card's fit text does.
   function ourFitOf(fit) {
-    const us = fit.us;
+    const us = !fit.us.ok && fit.usProj && fit.usProj.ok ? fit.usProj : fit.us;
     if (!us.ok) return {label: "force", detail: us.down ? "loses value" : us.away ? `moves away from depth at ${listJoin(us.awayAt)}` : "no measurable gain"};
     if (us.toward) return {label: "natural", detail: us.towardAt.length ? `fills ${listJoin(us.towardAt)}` : "fills a starting slot"};
     return {label: "value", detail: "gain, depth unchanged"};
@@ -56,7 +57,7 @@
 
   // ---------- one pairing ----------
   const rowsFor = (entries, rowsByKey) => (entries || []).map(e => rowsByKey.get(String(e.key))).filter(Boolean);
-  const rowSig = r => `${r.player_key}:${[OUR_KEY].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;
+  const rowSig = r => `${r.player_key}:${[OUR_KEY, "ddf_value_projections"].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;
   const sigOf = rows => rows.map(rowSig).sort().join(";");
   // Everything besides the two rosters that changes a pairing's answer.
   function contextSig(ctx) {

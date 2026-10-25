@@ -543,19 +543,38 @@
     return {key, net, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
       needBefore, needAfter, emptyBefore, emptyAfter, ok: (up && !away) || (!up && !down && toward)};
   }
-  // sides: {mine, theirs: {roster, leaving, arriving}}; ctx adds ourKey and marketKey. null when the market view is not available.
+  // JEG-1081 (tri-view): your team is also judged in DDF Value (projections), the independent reading. The base label keeps its
+  // two-view meaning (natural / value / force, so the tiers and every consumer are unchanged); your side is served when DDF Value
+  // OR the projections serve it. `variant` names which: natural (both serve you), natural-charts (only DDF Value, i.e. the
+  // charts, serves you), natural-projections (only the projections serve you), value, force. The market still judges them.
+  // Projections count only when every player moving on your side has a projection value; otherwise the rule is the two-view one.
+  // sides: {mine, theirs: {roster, leaving, arriving}}; ctx adds ourKey and marketKey (and optionally projectionsKey). null when the market view is not available.
+  const FIT_VARIANTS = ["natural", "natural-charts", "natural-projections", "value", "force"];
   function tradeFit(sides, ctx) {
     if (!ctx || !ctx.marketKey) return null;
+    const projKey = ctx.projectionsKey || PROJECTIONS_KEY;
     const us = teamFit(sides.mine, ctx, ctx.ourKey);
     const them = teamFit(sides.theirs, ctx, ctx.marketKey);
     const usOther = teamFit(sides.mine, ctx, ctx.marketKey);
     const themOther = teamFit(sides.theirs, ctx, ctx.ourKey);
-    const fillsNeed = us.toward || them.toward;
-    const label = us.ok && them.ok ? (fillsNeed ? "natural" : "value") : "force";
-    return {label, us, them, usOther, themOther, fillsNeed};
+    const moving = sides.mine.leaving.concat(sides.mine.arriving);
+    const projected = projKey !== ctx.ourKey && moving.length > 0 && moving.every(r => r && r.values && finite(r.values[projKey]));
+    const usProj = projected ? teamFit(sides.mine, ctx, projKey) : null;
+    const chartsOk = us.ok;
+    const projOk = Boolean(usProj && usProj.ok);
+    const yourOk = chartsOk || projOk;
+    // Depth: the trade fills a need when it does so in a view that serves you (either of your two), or for them.
+    const usToward = (chartsOk && us.toward) || (projOk && usProj.toward);
+    // The view(s) that serve you, for the text: the charts view unless only the projections serve you.
+    const usServing = !chartsOk && projOk ? usProj : us;
+    const fillsNeed = usToward || them.toward;
+    const label = yourOk && them.ok ? (fillsNeed ? "natural" : "value") : "force";
+    const qualifier = !projected || label !== "natural" ? null : chartsOk && projOk ? null : chartsOk ? "charts only" : "projections only";
+    const variant = label === "natural" ? (qualifier === "charts only" ? "natural-charts" : qualifier === "projections only" ? "natural-projections" : "natural") : label;
+    return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected};
   }
   const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
-  const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average"};
+  const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
   function stateText(t) {
     const short = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "under");
     const deep = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "over");
@@ -570,13 +589,18 @@
     const net = (t, who) => (t.up ? `${who} gain ${fitFmt(t.net)} on ${VIEW_NAME[t.key]}`
       : t.down ? `${who} lose ${Math.abs(t.net).toFixed(1)} on ${VIEW_NAME[t.key]}`
         : `${who} are level on ${VIEW_NAME[t.key]} (${fitFmt(t.net)}, inside the ${t.tau.toFixed(1)} noise floor)`);
+    const projNet = t => (t.up ? `you gain ${fitFmt(t.net)} on ${VIEW_NAME[t.key]}` : t.down ? `you lose ${Math.abs(t.net).toFixed(1)} on ${VIEW_NAME[t.key]}` : `you are level on ${VIEW_NAME[t.key]} (${fitFmt(t.net)}, inside the ${t.tau.toFixed(1)} noise floor)`);
     const depth = us.ready || them.ready
       ? ` ${us.ready ? `You are ${stateText(us)}` : ""}${us.ready && them.ready ? "; " : ""}${them.ready ? `${us.ready ? "they" : "They"} are ${stateText(them)}` : ""}.`
       : "";
     if (fit.label === "natural") {
       const at = t => (t.towardAt.length ? `at ${listJoin(t.towardAt)}` : "(a starting slot filled)");
-      const moves = [us.toward ? `you ${at(us)}` : "", them.toward ? `them ${at(them)}` : ""].filter(Boolean);
-      return `Natural fit: ${net(us, "you")} and ${net(them, "they")}.${depth} It moves ${listJoin(moves)} toward the expected depth.`;
+      const yours = fit.usServing && fit.usServing.toward ? fit.usServing : fit.usProj && fit.usProj.ok && fit.usProj.toward ? fit.usProj : us;
+      const moves = [yours.toward ? `you ${at(yours)}` : "", them.toward ? `them ${at(them)}` : ""].filter(Boolean);
+      const base = `${net(us, "you")} and ${net(them, "they")}.${depth} It moves ${listJoin(moves)} toward the expected depth.`;
+      if (fit.qualifier === "charts only") return `Natural fit (charts only): ${base} The projections do not back it: ${projNet(fit.usProj)}.`;
+      if (fit.qualifier === "projections only") return `Natural fit (projections only): ${net(fit.usProj, "you")} and ${net(them, "they")}.${depth} It moves ${listJoin(moves)} toward the expected depth. The trade charts do not back it: ${projNet(us)}.`;
+      return `Natural fit: ${base}`;
     }
     if (fit.label === "value") return `Value fit: ${net(us, "you")} and ${net(them, "they")}, but neither team's depth needs change.${depth}`;
     const why = [];
@@ -605,11 +629,15 @@
     const n = (info && info.count) || 0;
     if (state === "missing") return {text: "Add both rosters to see fit", link: null};
     if (state === "pending") return {text: "Press Find trades to see fit", link: null};
-    if (state === "natural") return {text: `Natural fit found: ${n} group${n === 1 ? "" : "s"}`, link: "Jump to the first natural group"};
+    if (state === "natural") {
+      const charts = (info && info.chartsOnly) || 0, proj = (info && info.projectionsOnly) || 0;
+      const parts = [charts ? `${charts} ${charts === 1 ? "is" : "are"} backed by the trade charts but not the projections` : "", proj ? `${proj} ${proj === 1 ? "is" : "are"} backed by the projections but not the trade charts` : ""].filter(Boolean);
+      return {text: `Natural fit found: ${n} group${n === 1 ? "" : "s"}`, subtitle: parts.join("; ") || null, link: "Jump to the first natural group"};
+    }
     if (state === "unjudged") return {text: "Fit not judged: not enough trade charts are available this week", link: null};
     return {text: `No natural fit between these rosters: ${info && info.reason ? info.reason : "the trades below are value-only or force fits"}`, link: null};
   }
-  const api = {fitHeadline, biggestImbalance, teamFit, tradeFit, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -683,6 +711,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const h = fitHeadline(state, info);
     box.dataset.state = state;
     box.replaceChildren(el("b", {text: h.text}));
+    if (h.subtitle) box.append(" ", el("span", {class: "v2-find-headline-sub", text: h.subtitle}));
     if (h.link) {
       const jump = el("a", {href: "#v2FindFirstNatural", class: "v2-link", text: h.link});
       jump.addEventListener("click", event => {
@@ -1388,10 +1417,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     // Natural fits first, then value fits, then force fits (Jeremy 2026-10-23); each tier keeps the edge ranking. Only the order changes.
     if (fitCtx) groups = tierGroups(groups, g => fitFor(lineup, fitCtx, g.best.give, g.best.receive));
     const shown = Math.min(GROUP_LIMIT, groups.length);
-    const fitLabels = fitCtx ? groups.map(g => fitFor(lineup, fitCtx, g.best.give, g.best.receive).label) : [];
-    const naturalCount = fitLabels.filter(label => label === "natural").length;
+    const fits = fitCtx ? groups.map(g => fitFor(lineup, fitCtx, g.best.give, g.best.receive)) : [];
+    const naturalCount = fits.filter(f => f.label === "natural").length;
+    const chartsOnly = fits.filter(f => f.variant === "natural-charts").length;
+    const projectionsOnly = fits.filter(f => f.variant === "natural-projections").length;
     if (!fitCtx) setHeadline("unjudged");
-    else if (naturalCount) setHeadline("natural", {count: naturalCount});
+    else if (naturalCount) setHeadline("natural", {count: naturalCount, chartsOnly, projectionsOnly});
     else setHeadline("none");
     note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(groups.length, "group")}; ${groups.length > shown ? `the top ${shown} groups are listed` : "all are listed"}, ranked ${fitCtx ? "natural fits first, then value fits, then force fits, and within each by" : "by"} the best DDF Value edge in each, with simpler trades first.`
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : ""));
@@ -1559,7 +1590,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const cut = text.indexOf(": ");
         fitLine.replaceChildren(el("b", {text: text.slice(0, cut + 1)}), ` ${text.slice(cut + 2)}`);
         fitLine.dataset.fit = fit.label;
+        fitLine.dataset.fitVariant = fit.variant;
         li.dataset.findFit = fit.label;
+        li.dataset.findFitVariant = fit.variant;
       }
       open.setAttribute("href", `v2/#compare-trade?give=${ids(giveRows)}&get=${ids(recvRows)}`);
       li.dataset.findEdge = String(e.edge);
