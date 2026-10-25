@@ -10,8 +10,12 @@ Three-way parity: the JS engine (value-model.js, run under node), the Python
 reference (pipelines/value_reference.py) and the clean-room spec reference
 (pipelines/spec_reference/value_pipeline.py) each run every frozen fixture
 tests/fixtures/basis_*.json; all three must reproduce the pinned values (the
-JS to 1e-10, the two references to 1e-6, VP-12). The default fixture was made
-from the pre-change engine, so the default path is pinned byte-for-byte.
+JS to 1e-10, the two references to 1e-6, VP-12). The default fixture (and the
+with_override one) was regenerated once for JEG-1073 (Jeremy, 2026-10-25: "Keep
+adj trade chart avg as the main ddf and projections as an alt."): the default
+DDF Value is the equal-weight mean of the trade charts' Adjusted values. That
+is the rule change, not a test bent to go green; the explicit projections basis
+(basis_projections_only) is what the default was before and still matches.
 
 Discrimination: the Broken* classes re-run with one thing broken at a time
 (a wrong source read as the basis, an override written into Adjusted, the
@@ -219,21 +223,40 @@ class ThreeWayParity(unittest.TestCase):
 
 class DefaultIdentity(unittest.TestCase):
     """Spec 7.1 test 1: no basis, a null basis and {mode: default} are the same
-    as the pre-change engine, and an unusable basis changes nothing."""
+    as the pinned default (JEG-1073: the Adjusted trade chart average), and an
+    unusable basis changes nothing."""
 
     @classmethod
     def setUpClass(cls):
         cls.pinned = fixture("default")["expected"]
 
-    def test_absent_null_and_default_mode_match_the_pre_change_engine(self):
+    def test_absent_null_and_default_mode_match_the_pinned_default(self):
         for basis in (None, {"mode": "default"}, {"mode": "default", "sources": ["c1"], "weights": {"c1": 5}}):
             self.assertEqual(compare(self.pinned, run_js(basis, {}), TOL_JS), [], basis)
 
-    def test_default_fixture_is_the_projection_mean(self):
+    def test_default_fixture_is_the_chart_mean(self):
+        """JEG-1073: the default is the mean of the Adjusted trade charts in I
+        (c3 is held), never the projections."""
         exp = fixture("default")["expected"]
         for k, r in exp["rows"].items():
-            vals = [r["adjusted"][s] for s in ("p1", "p2") if r["adjusted"][s] is not None]
+            vals = [r["adjusted"][s] for s in ("c1", "c2", "c4", "c5") if r["adjusted"][s] is not None]
             self.assertAlmostEqual(r["ddf_blended"]["value"], sum(vals) / len(vals), places=9, msg=k)
+            self.assertEqual(r["ddf_blended"]["sources"], [s for s in ("c1", "c2", "c4", "c5")
+                                                           if r["adjusted"][s] is not None])
+
+    def test_default_is_not_the_projection_mean_and_projections_stay_the_alternate(self):
+        """Fails on the pre-JEG-1073 rule: the blended default differs from the
+        projection mean, which lives on in ddf_projections."""
+        exp = fixture("default")["expected"]
+        moved = 0
+        for k, r in exp["rows"].items():
+            vals = [r["adjusted"][s] for s in ("p1", "p2") if r["adjusted"][s] is not None]
+            if not vals:
+                continue
+            self.assertAlmostEqual(r["ddf_projections"]["value"], sum(vals) / len(vals), places=9, msg=k)
+            if abs(r["ddf_blended"]["value"] - r["ddf_projections"]["value"]) > 1e-6:
+                moved += 1
+        self.assertGreater(moved, 10)
 
     def test_unusable_basis_falls_back_to_default_and_says_so(self):
         out = run_js({"mode": "single", "source": "c3"}, {})   # c3 is not in I (held)
@@ -261,7 +284,7 @@ class BasisMath(unittest.TestCase):
             self.assertEqual(r["ddf_blended"]["sources"], ["c1"])
             self.assertFalse(r["ddf_blended"]["low_confidence"], "a one-source basis is not 'only one source'")
 
-    def test_single_projection_basis_differs_from_the_equal_weight_default(self):
+    def test_single_projection_basis_is_an_explicit_basis_that_differs_from_the_default(self):
         out = run_js({"mode": "single", "source": "p1"}, {})
         moved = 0
         for k, r in out["rows"].items():
@@ -392,7 +415,7 @@ class IndexedFollowsBasis(unittest.TestCase):
                 indexed_total = sum(self.nat[s][k] * out["indexed_factor"][s] for k in shared)
                 self.assertAlmostEqual(indexed_total, sum(basis_vals[k] for k in shared), places=8, msg=(basis, s))
 
-    def test_default_factors_equal_the_pre_change_engine(self):
+    def test_default_factors_equal_the_pinned_default(self):
         self.assertEqual(compare(self.default, run_js(None, {}), TOL_JS), [])
 
 
@@ -409,7 +432,10 @@ class Overrides(unittest.TestCase):
         out = run_js(None, {"201": 99.0})
         r, d = out["rows"]["201"], self.default["rows"]["201"]
         self.assertEqual(r["ddf_blended"]["value"], 99.0)
-        self.assertEqual(r["ddf_projections"]["value"], 99.0)
+        # JEG-1073: the override replaces ddf_value (blended) only; the
+        # projections alternate keeps its own value.
+        self.assertTrue(close(d["ddf_projections"]["value"], r["ddf_projections"]["value"], TOL_JS))
+        self.assertNotEqual(r["ddf_projections"]["value"], 99.0)
         self.assertTrue(r["ddf_blended"]["overridden"])
         self.assertAlmostEqual(r["ddf_blended"]["pipeline_value"], d["ddf_blended"]["value"], places=10)
         for s, v in d["adjusted"].items():
@@ -491,6 +517,11 @@ class BrokenBuildsAreCaught(unittest.TestCase):
         out["rows"]["201"]["adjusted"]["p1"] = 99.0          # the misapplication
         total = sum(r["adjusted"]["p1"] for r in out["rows"].values())
         self.assertGreater(abs(total - out["pie"]), 1.0)
+        self.assertNotEqual(compare(fixture("with_override")["expected"], out, TOL_JS), [])
+
+    def test_override_that_leaks_into_the_projections_version_is_caught(self):
+        out = run_js(None, {"201": 99.0})
+        out["rows"]["201"]["ddf_projections"]["value"] = 99.0
         self.assertNotEqual(compare(fixture("with_override")["expected"], out, TOL_JS), [])
 
     def test_override_that_leaks_into_the_charts_version_is_caught(self):
