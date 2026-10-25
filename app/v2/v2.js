@@ -4624,7 +4624,9 @@
       if (!chip) return;
       const line = document.createElement("span");
       line.className = "v2-tdiv-item";
-      line.append(chip, document.createTextNode(` ${chip.title}`));
+      // JEG-1042 (Jeremy, 2026-10-24: chips side by side): chip + source name on one line; the explanation is the
+      // chip's hover text and accessible name, so each linked chip keeps its own 44 px target.
+      line.append(chip, document.createTextNode(` ${PUBLISHER_NAMES[chip.dataset.divergence] || chip.dataset.divergence}`));
       flags.appendChild(line);
     });
     flags.hidden = !flags.childNodes.length;
@@ -6409,6 +6411,7 @@
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
     : base === "#find-trade" ? "find"
+    : base === "#value-overrides" ? "overrides"
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
@@ -6416,7 +6419,7 @@
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade", overrides: "Overrides"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -6443,10 +6446,11 @@
     $("v2FindTrade").hidden = v !== "find";
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
+    if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find";
+    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "overrides";
     // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
@@ -6521,6 +6525,7 @@
     else if (currentView() === "compare") renderCompare();
     else if (writingSection() === "how-values") renderHow();
     else if (currentView() === "audit") renderAudit();
+    else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
     else if (currentView() === "writing" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
@@ -7041,6 +7046,8 @@
       showFailure(error.message);
       return;
     }
+    // JEG-1035: saved value overrides apply before the first view renders, so every tab shows them from the start.
+    if (window.DDFOverrides) window.DDFOverrides.boot(C);
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
     applyStartSelection();
     loadPipeline();

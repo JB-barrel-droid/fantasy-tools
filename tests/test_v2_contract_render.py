@@ -358,7 +358,7 @@ COMMON = r"""
     label: a.textContent.trim(), href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page'}));
   const tabs = () => [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view,
     label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'}));
-  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit']
+  const pagesShown = () => Object.fromEntries(['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2FindTrade', 'v2How', 'v2Manifesto', 'v2Research', 'v2Audit', 'v2Overrides']
     .map(id => [id, shown($(id))]));
   const readTable = (sel = '#v2Table') => [...document.querySelectorAll(sel + ' tbody tr[data-player-key]')].map(tr => ({
     key: tr.dataset.playerKey, name: own(tr.querySelector('td.player') || tr),
@@ -684,7 +684,7 @@ PHONE_JS = "async (hash) => {" + COMMON + r"""
   const toggle = $('v2NavToggle');
   if (shown(toggle)) {
     toggle.click(); await sleep(100);
-    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === 7 && toggle.getAttribute('aria-expanded') === 'true';
+    out.nav = [...document.querySelectorAll('.v2-tabs .v2-tab')].filter(shown).length === document.querySelectorAll('.v2-tabs .v2-tab').length && document.querySelectorAll('.v2-tabs .v2-tab').length >= 8 && toggle.getAttribute('aria-expanded') === 'true';
     toggle.click(); await sleep(100);
   }
   if (hash === '#compare-trade') {
