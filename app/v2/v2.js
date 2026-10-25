@@ -6286,6 +6286,7 @@
   // (#manifesto, #how-values, #research, #research/<slug>) still work: hashBase() reads them as their Writing
   // route, and canonicalizeHash() rewrites the address in place (replaceState, so Back skips the old route).
   const LEGACY_ROUTES = {"#manifesto": "#writing/manifesto", "#how-values": "#writing/how-values", "#research": "#writing/research"};
+  LEGACY_ROUTES["#values-auditing/value-pie"] = "#values-auditing/health-check";   // JEG-1011: the Value pie tab is now the Health check
   const canonicalBase = base => LEGACY_ROUTES[base] || (base.startsWith("#research/") ? "#writing/" + base.slice(1) : base);
   const hashBase = () => canonicalBase(location.hash.split("?")[0]);
   // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
@@ -6481,7 +6482,7 @@
       basisNote.hidden = !basis || basis.isDefault;
       basisNote.textContent = basisNote.hidden ? "" : `Values are shown for your custom basis (${basis.label}). Diagnostics may differ from our methodology, and the thresholds on these pages were set on our methodology.`;
     }
-    const slugs = window.DDFAudit ? window.DDFAudit.slugs : ["value-pie", "single-source"];
+    const slugs = window.DDFAudit ? window.DDFAudit.slugs : ["health-check", "single-source"];
     const asked = decodeURIComponent(hashBase().slice("#values-auditing/".length));
     const slug = hashBase().startsWith("#values-auditing/") && slugs.includes(asked) ? asked : slugs[0];
     document.querySelectorAll("#v2Audit .v2-audit-panel").forEach(node => { node.hidden = node.dataset.audit !== slug; });

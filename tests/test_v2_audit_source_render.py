@@ -67,7 +67,13 @@ READ = """() => {
       badge: Boolean(tr.querySelector('[data-estimated-badge]')),
       v: Object.fromEntries([...tr.querySelectorAll('td[data-stage]')].map(td => [td.dataset.stage, {value: td.dataset.value, text: td.textContent}]))})),
     stageNotes: Object.fromEntries([...document.querySelectorAll('#audit-source-root .as-stage')].map(li => [li.dataset.stage, {exists: li.dataset.exists, text: li.textContent}])),
-    marks: document.querySelectorAll('#audit-source-root circle[data-estimated]').length
+    marks: document.querySelectorAll('#audit-source-root circle[data-estimated]').length,
+    // JEG-1011: Published is drawn as a percentage of the source's own largest value (right-hand axis in %), raw numbers stay in the table.
+    rightTicks: [...document.querySelectorAll('#audit-source-root .as-tick-r')].map(t => t.textContent),
+    pubTop: (() => { const p = document.querySelector('#audit-source-root path[data-series="published"]'); if (!p) return null;
+      return Math.min(...[...p.getAttribute('d').matchAll(/[ML][\\d.]+,([\\d.]+)/g)].map(m => Number(m[1]))); })(),
+    plotTop: 14,
+    heading: (document.querySelector('#audit-source-root .as-title') || {}).textContent
   };
 }"""
 
@@ -125,6 +131,13 @@ def check_source(page, src) -> list[str]:
             errors.append(f"{src}: the drawn {stage} line has {got['paths'].get(stage)} points, engine {len(want)}")
         if not want and stage in got["paths"]:
             errors.append(f"{src}: a {stage} line is drawn but the engine has no {stage} values")
+    # JEG-1011 (Jeremy, 2026-10-24): the Published line is normalized to a percentage of the source's own maximum.
+    if not got["rightTicks"] or any(not t.endswith("%") for t in got["rightTicks"]) or got["rightTicks"][0] != "100%":
+        errors.append(f"{src}: right-hand axis {got['rightTicks']} is not a percentage axis ending at 100%")
+    if got["pubTop"] is None or abs(got["pubTop"] - got["plotTop"]) > 0.6:
+        errors.append(f"{src}: the Published line peaks at y={got['pubTop']}, not at the top of the plot (100% of the source's max)")
+    if got["heading"] != "How a source's values are built":
+        errors.append(f"{src}: heading {got['heading']!r}")
     # Table cells carry the same numbers as the model.
     cells = {c["key"]: c for c in got["cells"]}
     if len(cells) != len(got["rows"]):
@@ -299,6 +312,9 @@ class AuditSourceRenderTest(unittest.TestCase):
             "adjusted reads the wrong stage": js.replace(
                 "const adjusted = finite(row.adjusted && row.adjusted[meta.key]);",
                 "const adjusted = finite(row.vorp && row.vorp[meta.key]);", 1),
+            "published not normalized": js.replace(
+                "sc.publishedMax > 0 ? v / sc.publishedMax : 0", "sc.publishedMax > 0 ? v / (2 * sc.publishedMax) : 0", 1),
+            "right axis not in percent": js.replace("{textContent: `${Math.round(rv)}%`}", "{textContent: `${Math.round(rv)}`}", 1),
             "published reads the indexed number": js.replace(
                 "const published = finite(p.native);",
                 "const published = finite(rows[key] && rows[key].indexed && rows[key].indexed[meta.key]);", 1),

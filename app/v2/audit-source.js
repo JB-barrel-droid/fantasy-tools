@@ -182,15 +182,13 @@
     return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
   }
 
-  // Shared left axis: DDF value (Indexed and Adjusted). The right axis is the
-  // source's own units (Published), scaled so a pure rescale (Indexed =
-  // Published x one factor) lies exactly on top of the Indexed curve.
+  // Left axis: DDF value (Indexed and Adjusted). Right axis (JEG-1011, Jeremy 2026-10-24): the
+  // Published line is drawn as a percentage of the source's own largest Published value, so the
+  // shape is comparable whatever the source's units; the raw numbers stay in the table.
   function chartScales(model) {
     const max = stage => model.series[stage].reduce((m, pt) => Math.max(m, pt.value), 0);
     const left = niceMax(Math.max(max("indexed"), max("adjusted")));
-    const refMax = max("indexed") > 0 ? max("indexed") : max("adjusted");
-    const rightMax = refMax > 0 ? left * (max("published") / refMax) : niceMax(max("published"));
-    return {left, right: rightMax > 0 ? rightMax : 1, n: model.shown};
+    return {left, publishedMax: max("published"), n: model.shown};
   }
 
   function pathFor(sx, sy, shownRows, stage) {
@@ -214,14 +212,13 @@
     const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
     const sx = rank => PAD.l + (model.shown <= 1 ? 0 : (rank - 1) / (model.shown - 1)) * plotW;
     const syLeft = v => PAD.t + plotH - Math.min(1, Math.max(0, v / sc.left)) * plotH;
-    const syRight = v => PAD.t + plotH - Math.min(1, Math.max(0, v / sc.right)) * plotH;
+    const syRight = v => PAD.t + plotH - Math.min(1, Math.max(0, sc.publishedMax > 0 ? v / sc.publishedMax : 0)) * plotH;
     for (let i = 0; i <= 4; i += 1) {
       const y = PAD.t + (plotH * i) / 4;
       svg.append(s("line", {x1: PAD.l, x2: W - PAD.r, y1: y, y2: y, class: "as-grid"}));
-      const lv = sc.left * (1 - i / 4), rv = sc.right * (1 - i / 4);
+      const lv = sc.left * (1 - i / 4), rv = 100 * (1 - i / 4);
       svg.append(Object.assign(s("text", {x: PAD.l - 6, y: y + 4, class: "as-tick as-tick-l", "text-anchor": "end"}), {textContent: lv >= 10 ? Math.round(lv) : lv.toFixed(1)}));
-      svg.append(Object.assign(s("text", {x: W - PAD.r + 6, y: y + 4, class: "as-tick as-tick-r"}),
-        {textContent: rv >= 100 ? Math.round(rv).toLocaleString("en-US") : rv >= 10 ? rv.toFixed(0) : rv.toFixed(1)}));
+      svg.append(Object.assign(s("text", {x: W - PAD.r + 6, y: y + 4, class: "as-tick as-tick-r"}), {textContent: `${Math.round(rv)}%`}));
     }
     [1, Math.ceil(model.shown / 2), model.shown].filter((v, i, a) => a.indexOf(v) === i).forEach(rank => {
       svg.append(Object.assign(s("text", {x: sx(rank), y: H - 8, class: "as-tick", "text-anchor": rank === 1 ? "start" : rank === model.shown ? "end" : "middle"}), {textContent: `#${rank}`}));
@@ -278,8 +275,8 @@
     host.textContent = "";
     host.classList.add("as-root");
     host.append(h("header", {class: "as-head"},
-      h("h2", {class: "as-title", text: "Single-source build-up"}),
-      h("p", {class: "as-lede", text: "One source's values at each step: as published, then indexed to the blended DDF Value, then adjusted to the league's fixed pie."})));
+      h("h2", {class: "as-title", text: "How a source's values are built"}),
+      h("p", {class: "as-lede", text: "One source at a time, in three steps: Published (the source's own numbers), then Indexed (lined up with DDF Value), then Adjusted (rescaled so the source's total is the league's value pie)."})));
 
     if (!insp) {
       host.append(h("p", {class: "as-note", role: "status", text: "Values are still loading."}));
@@ -320,13 +317,13 @@
       let text;
       if (stage === "published") {
         text = model.family === "projection"
-          ? "Published: the projection's own points per game, listed in the table. It is not on the value scale, so it is drawn against the right-hand axis."
-          : "Published: the chart's own numbers at your scoring, before any rescaling (right-hand axis).";
+          ? "Published: the projection's own points per game. It is drawn as a percentage of the source's largest value (right-hand axis); the raw numbers are in the table."
+          : "Published: the chart's own numbers at your scoring, before any rescaling. It is drawn as a percentage of the source's largest value (right-hand axis); the raw numbers are in the table.";
       } else if (stage === "indexed") {
-        text = st.exists ? "Indexed: the published numbers times one factor, so the chart lines up with the blended DDF Value (left-hand axis)."
+        text = st.exists ? "Indexed: the published numbers times one factor, so the chart lines up with DDF Value (left-hand axis). Player values calls this Rescaled."
           : `Indexed: not available. ${st.reason || "This source has no indexed values."}`;
       } else {
-        text = "Adjusted: the value after the rosterable and starter/bench split, rescaled so the source's total is the league pie (left-hand axis).";
+        text = "Adjusted: the value after the starter and bench split, rescaled so the source's total is the league's value pie (left-hand axis).";
       }
       notes.append(h("li", {class: `as-stage as-stage-${stage}`, "data-stage": stage, "data-exists": String(st.exists)},
         h("span", {class: `as-swatch as-swatch-${stage}`, "aria-hidden": "true"}), text));
