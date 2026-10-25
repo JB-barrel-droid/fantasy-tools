@@ -11,3 +11,10 @@ Contract: `tradeFit` judges your team in DDF Value and in DDF Value (projections
 - DOM rendering of the subtitle at 390/1366 and the render suites: left to CI v2-render plus the validate run.
 - Spec table row 4 (value when they would not accept) not implemented: it contradicts the pinned rule that a team the market does not serve makes the trade force. Kept the pinned rule; decision for Jeremy.
 - `docs/claude-log/2026-10-25-jeg-1081-pr2-tri-view-fit.md` edit to `test_v2_finder_fit.py`: only a mutant anchor string, no assertion.
+
+### Fresh-eyes review (separate subagent) and what changed
+- Fixed: opportunities.js `ourFitOf` read DDF Value only, so a "projections only" trade was "force" in the table but "Natural fit (projections only)" on the card; it now reads the serving view (unit test and mutant in test_v2_finder_trifit). Cache `rowSig` now includes the projections value (pinned mutant anchor in test_v2_league_units updated, no assertion changed).
+- Fixed: fit text named only the DDF Value depth move; it now names the view that moves toward depth (fixture: DDF Value gains with no slot filled, projections fill one).
+- Method call made, flagged: depth counts in EITHER view that serves you (before, the charts view only). Same result whenever projections are missing or agree.
+- Fixed: headline subtitle separated by a space for the live region, and reworded in plain language ("N are backed by the trade charts but not the projections").
+- Added mutants for the both-agree qualifier, the depth rule, the projections-key guard and the opportunities half.
