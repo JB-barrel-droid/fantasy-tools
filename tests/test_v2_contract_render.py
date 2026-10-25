@@ -589,6 +589,7 @@ TARGETS_JS = "async () => {" + COMMON + r"""
   if (info) { info.click(); await sleep(300); out.info = shown($('v2Popover')) ? $('v2Popover').innerText : ''; await closePop(); }
   // Every row, for TT-08 (one-source players are included and flagged anywhere in the lists).
   for (const id of ['v2TSellMore', 'v2TBuyMore']) if (shown($(id))) { $(id).click(); await sleep(300); }
+  out.sellAll = rows('#v2TTable').length; out.buyAll = rows('#v2TBuyTable').length;
   out.all = rows('#v2TTable').concat(rows('#v2TBuyTable'));
   out.allEngine = engineFor(out.all.map(r => r.key));
   return out;
@@ -1650,10 +1651,13 @@ def tt01(S):
 def tt02(S):
     t = S["tabs"]["targets"]
     errors = []
+    # JEG-1073: DDF Value is the Adjusted chart average, so "ours" and the market consensus come from the same charts and
+    # the gap lists are shorter than they were against projections; a side can have 5 or fewer targets. The rule is the
+    # cap of five with a Show all control exactly when more exist, not a minimum list length.
     for side in ("sell", "buy"):
-        n = len(t[side])
-        if n != 5 or not t[f"{side}More"]:
-            errors.append(f"{side}: {n} rows, Show all {t[f'{side}More']}")
+        n, total = len(t[side]), t[f"{side}All"]
+        if n != min(5, total) or t[f"{side}More"] != (total > 5):
+            errors.append(f"{side}: {n} rows of {total}, Show all {t[f'{side}More']}")
     a, b = t["rects"]
     if not (a and b and abs(a["y"] - b["y"]) < 4 and a["x"] + a["w"] <= b["x"] + 1):
         errors.append(f"Sell and Buy are not side by side at 1440: {a} {b}")
@@ -1946,7 +1950,7 @@ def tt08(S):
 def rf02(S):
     d = S["tabs"]["risers"]["disagree"]
     errors = []
-    if d["h2"] != "Where the market and the projections disagree" or d["heads"] != ["Market moved, projections didn't", "Projections moved, market didn't"]:
+    if d["h2"] != "Where DDF Value and the projections disagree" or d["heads"] != ["DDF Value moved, projections didn't", "Projections moved, DDF Value didn't"]:
         errors.append(f"disagreement section headings {d['h2']!r} {d['heads']}")
     if d["meta"].startswith("No comparison yet") and d["n"]:
         errors.append(f"no comparison but {d['n']} players listed")

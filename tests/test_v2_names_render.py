@@ -4,7 +4,7 @@ DDF Value and Trade chart average are defined once and shown wherever the names 
 
   * the header row reads "On the chart:" (not "Showing:") with an info button; opening it shows the three definitions
     and the edge in plain words (Esc closes it);
-  * the same info button sits beside Risers & fallers' Movement picker, on the "Where the market and the projections
+  * the same info button sits beside Risers & fallers' Movement picker, on the "Where DDF Value and the projections
     disagree" heading, on the DDF Value group in Customize, and the Compare deal-read nets open a definition that
     starts with the shared one;
   * How values work leads with the three numbers and "Where the edge comes from", with no numbers in that copy, and
