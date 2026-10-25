@@ -1235,6 +1235,199 @@
     };
   }
 
+  // =========================================================================
+  //  WHOLE LEAGUE PAGE (ESPN "League Rosters", Yahoo league rosters, Sleeper, any site)
+  // =========================================================================
+  // A whole-league paste is cut into one block per team, then each block is read by the source-agnostic extractor.
+  // Team blocks start at a team header:
+  //   1. "Team Name (5-1-0)" or "Team Name" followed by a "(5-1-0)" / "5-2" line (ESPN, Sleeper, most sites);
+  //   2. otherwise a roster table header ("SLOT", "Pos", "Starters") with the team name the nearest plain line above it.
+  // A block with no players is dropped (standings and nav lists), and a block of one or two players folds into the one
+  // before it (Yahoo's separate Kickers and Defense tables). Never invents a team: fewer than two teams is "no league".
+  var RECORD_INLINE_RE = /^(.{2,80}?)\s*\(\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)\s*$/;
+  var RECORD_ALONE_RE = /^\(?\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)?$/;
+  var TABLE_MARKER_RE = /^(SLOT|Pos|Position|Starters)(\s|$)/i;
+  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye\b.*)$/i;
+
+  function cleanTeamName(raw) {
+    var s = cleanESPNDoubled(String(raw || "").replace(/\t+/g, " ").replace(/\s+/g, " ").trim());
+    return s.replace(/\s*\.\.\.$|…$/, "").trim();
+  }
+  function lineIsPlayer(line, index) {
+    var c = cleanESPNDoubled(cleanYahooName(String(line || "").trim()));
+    if (!c) return false;
+    if (/\bD\/?ST\b/i.test(c)) return true;
+    var n = normName(c);
+    return !!(n && index.byName[n]);
+  }
+  function plausibleTeamName(line, index) {
+    var t = cleanTeamName(line);
+    if (t.length < 2 || t.length > 60) return false;
+    if (!/[A-Za-z]/.test(t) || /\t/.test(line)) return false;
+    if (t.charAt(0) === "@") return false;
+    if (TEAM_NAME_NOISE_RE.test(t) || isSlotLabel(t)) return false;
+    return !lineIsPlayer(t, index);
+  }
+
+  function recordHeaders(lines, index) {
+    var heads = [];
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i].trim();
+      if (!t) continue;
+      var m = t.match(RECORD_INLINE_RE);
+      if (m && plausibleTeamName(m[1], index)) { heads.push({line: i, name: cleanTeamName(m[1])}); continue; }
+      if (RECORD_ALONE_RE.test(t)) {
+        // The name is the nearest plain line above (skipping a "@handle" or manager line on Sleeper).
+        for (var j = i - 1, seenLines = 0; j >= 0 && seenLines < 3; j--) {
+          var u = lines[j].trim();
+          if (!u) continue;
+          seenLines++;
+          if (u.charAt(0) === "@") continue;
+          if (plausibleTeamName(u, index)) { heads.push({line: j, name: cleanTeamName(u)}); break; }
+        }
+      }
+    }
+    return heads;
+  }
+  function markerHeaders(lines, index) {
+    var heads = [];
+    for (var i = 0; i < lines.length; i++) {
+      if (!TABLE_MARKER_RE.test(lines[i].trim())) continue;
+      var name = null;
+      for (var j = i - 1, seenLines = 0; j >= 0 && seenLines < 10; j--) {
+        var u = lines[j].trim();
+        if (!u) continue;
+        seenLines++;
+        if (lineIsPlayer(u, index)) break;          // ran into the previous team's table
+        if (plausibleTeamName(u, index)) { name = cleanTeamName(u); break; }
+      }
+      heads.push({line: i, name: name});
+    }
+    return heads;
+  }
+
+  // Kickers and defenses are not in the engine's player list, so the extractor can miss a bare "Jason Myers" or "Jets"
+  // line. They are caught by the position line next to them ("SEA K", "Sea - K", "K - SEA", "DEF", "Nyj - DEF") and
+  // kept as not evaluated, like the team-page parsers do.
+  var K_RE = /^(?:([A-Za-z]{2,4})\s*(?:[-–]\s*)?K|K\s*[-–]\s*([A-Za-z]{2,4}))$/;
+  var DEF_RE = /^(?:([A-Za-z]{2,4})\s*(?:[-–]\s*)?(?:DEF|D\/ST|DST)|(?:DEF|D\/ST|DST)(?:\s*[-–]\s*([A-Za-z]{2,4}))?)$/i;
+  // A position line: a bare "K"/"DEF", or one with a real NFL team code ("SEA K", "Nyj - DEF"), never "Jets D/ST".
+  function posLine(re, line) {
+    var m = String(line || "").match(re);
+    if (!m) return null;
+    var code = m[1] || m[2];
+    if (code && !normTeam(code)) return null;
+    return {team: code ? normTeam(code) : ""};
+  }
+  var K_LINE_RE = {test: function (l) { return !!posLine(K_RE, l); }};
+  var DEF_LINE_RE = {test: function (l) { return !!posLine(DEF_RE, l); }};
+  function blockNotEvaluated(blockLines, index) {
+    var out = [];
+    var lines = blockLines.map(function (l) { return cleanESPNDoubled(cleanYahooName(l.trim())); });
+    for (var i = 0; i < lines.length; i++) {
+      var km = posLine(K_RE, lines[i]);
+      if (km && i > 0) {
+        for (var j = i - 1; j >= 0 && j >= i - 2; j--) {
+          var nm = lines[j];
+          if (nm && /[a-z]/.test(nm) && !lineIsPlayer(nm, index) && !isSlotLabel(nm) && nm.split(/\s+/).length <= 4 && !TEAM_NAME_NOISE_RE.test(nm)) {
+            out.push({line: nm, reason: "kicker not matched", pos: "K", team: km.team});
+            break;
+          }
+        }
+      }
+      var mascot = lines[i].toLowerCase();
+      if (MASCOT_TO_CITY[mascot]) {
+        var near = false;
+        for (var d = Math.max(0, i - 2); d <= Math.min(lines.length - 1, i + 2); d++) if (d !== i && DEF_LINE_RE.test(lines[d])) near = true;
+        if (near) {
+          var city = MASCOT_TO_CITY[mascot];
+          out.push({line: lines[i], reason: "defence not matched", pos: "DEF", team: normTeam(city) || normTeam(city.split(" ").pop()) || ""});
+        }
+      }
+    }
+    return out;
+  }
+
+  function readBlocks(heads, lines, playerRows, index) {
+    var teams = [];
+    for (var h = 0; h < heads.length; h++) {
+      var from = heads[h].line + 1;
+      var to = h + 1 < heads.length ? heads[h + 1].line : lines.length;
+      var blockLines = lines.slice(from, to);
+      var ex = extractPlayers(blockLines.join("\n"), playerRows);
+      // The extractor also flags slot and position lines ("D/ST", "SEA K") as unmatched kickers and defenses: drop those,
+      // undo ESPN's doubled names, and keep one entry per kicker or defense.
+      var keyOf = function (u) { return u.pos + ":" + normName(String(u.line).replace(/\s*D\/?ST$/i, "")); };
+      var have = {};
+      var unmatched = ex.unmatched.concat(blockNotEvaluated(blockLines, index)).map(function (u) {
+        return u.pos === "K" || u.pos === "DEF" ? {line: cleanESPNDoubled(cleanYahooName(String(u.line).trim())), reason: u.reason, pos: u.pos, team: u.team} : u;
+      }).filter(function (u) {
+        if (u.pos !== "K" && u.pos !== "DEF") return true;
+        if (isSlotLabel(u.line) || K_LINE_RE.test(u.line) || DEF_LINE_RE.test(u.line) || !/[a-z]/.test(u.line)) return false;
+        var k = keyOf(u);
+        if (have[k]) return false;
+        have[k] = true;
+        return true;
+      });
+      teams.push({teamName: heads[h].name, players: ex.players, unmatched: unmatched});
+    }
+    return teams;
+  }
+  function finishTeams(teams, foldSmall) {
+    var out = [];
+    teams.forEach(function (t) {
+      var prev = out[out.length - 1];
+      if (foldSmall && prev && t.players.length < 3) {
+        prev.players = prev.players.concat(t.players);
+        prev.unmatched = prev.unmatched.concat(t.unmatched);
+        return;
+      }
+      if (!t.players.length) return;
+      out.push({teamName: t.teamName, players: t.players.slice(), unmatched: t.unmatched.slice()});
+    });
+    // The same team twice (a nav list or a standings table with players): keep the fuller one.
+    var byName = {};
+    var result = [];
+    out.forEach(function (t, i) {
+      if (!t.teamName) t.teamName = "Team " + (i + 1);
+      var key = t.teamName.toLowerCase();
+      if (byName[key] !== undefined) {
+        if (t.players.length > result[byName[key]].players.length) result[byName[key]] = t;
+        return;
+      }
+      byName[key] = result.length;
+      result.push(t);
+    });
+    // A player can only be on one roster: the first team that lists them keeps them.
+    var taken = {};
+    result.forEach(function (t) {
+      t.players = t.players.filter(function (p) { if (taken[p.id]) return false; taken[p.id] = true; return true; });
+      t.matched = t.players.length;
+      t.total = t.players.length + t.unmatched.length;
+    });
+    return result;
+  }
+
+  function parseLeague(text, playerRows) {
+    var out = {site: "unknown", teams: [], sleeperLeagueId: null, espnLeagueId: null};
+    if (!text || typeof text !== "string" || !text.trim()) return out;
+    out.site = /sleeper\.(com|app)|^\s*Sleeper\s*$/im.test(text) ? "sleeper" : detectSite(text);
+    var sl = text.match(/sleeper\.(?:com|app)\/leagues\/(\d{6,})/i);
+    if (sl) out.sleeperLeagueId = sl[1];
+    var es = text.match(/espn\.com\/football\/\S*?[?&]leagueId=(\d+)/i);
+    if (es) out.espnLeagueId = es[1];
+    if (!playerRows || !Array.isArray(playerRows) || !playerRows.length) return out;
+    var index = buildIndex(playerRows);
+    var lines = text.split(/\r?\n/);
+    var teams = finishTeams(readBlocks(recordHeaders(lines, index), lines, playerRows, index), false);
+    if (teams.length < 2) {
+      var byMarker = finishTeams(readBlocks(markerHeaders(lines, index), lines, playerRows, index), true);
+      if (byMarker.length > teams.length) teams = byMarker;
+    }
+    out.teams = teams.length >= 2 ? teams : [];
+    return out;
+  }
+
   function hasBNLine(lines) {
     for (var i = 0; i < lines.length; i++) {
       if (lines[i].trim() === "BN") return true;
@@ -1244,7 +1437,7 @@
 
   // Expose for testing and for window.DDFRosterPaste
   var api = {
-    parse: parse, extractPlayers: extractPlayers,
+    parse: parse, extractPlayers: extractPlayers, parseLeague: parseLeague,
     normName: normName, normTeam: normTeam, buildIndex: buildIndex, matchCandidate: matchCandidate,
     cleanYahooName: cleanYahooName, cleanESPNDoubled: cleanESPNDoubled,
     detectSite: detectSite, isMatchupPage: isMatchupPage,

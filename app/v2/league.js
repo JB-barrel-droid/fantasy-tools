@@ -221,6 +221,12 @@
           ...unmatchedBlock(rest));
         return;
       }
+      const lg = root.DDFRosterPaste && root.DDFRosterPaste.parseLeague && C ? root.DDFRosterPaste.parseLeague(text, rows) : null;
+      if (lg && lg.teams.length >= 3) {
+        say(para(`This is a whole league: ${plural(lg.teams.length, "team")}. Nothing was added to this team.`, "v2-find-paste-count is-ok"),
+          button(`Set up all ${plural(lg.teams.length, "team")}`, {class: "v2-btn"}, () => { say(); pasteWholeLeague(text); const d = $("v2LgImport"); if (d) { d.open = true; d.scrollIntoView({block: "nearest"}); } }));
+        return;
+      }
       const res = F.page.parsePage(text);
       if (!res) { say(para("Values are still loading. Try again in a moment.")); return; }
       res.sourceText = text;
@@ -513,6 +519,91 @@
     }, "add");
     status.textContent = `Added ${plural(Math.min(teams.length, W.MAX_TEAMS), "team")}. Press the star on your team to mark it as yours.`;
     announce(status.textContent);
+  }
+
+  // A whole league pasted from its rosters page (ESPN League > Rosters, Yahoo, Sleeper, any site that lists every team):
+  // one team per roster. A team already here with the same name gets the pasted roster; the rest are added.
+  function leagueEntries(t, ctx, taken) {
+    const list = [];
+    let unsure = 0;
+    t.players.forEach(p => {
+      const row = ctx.rowsByKey.get(String(p.id));
+      if (!row) return;
+      if (p.confidence < 1) { unsure += 1; return; }
+      const key = String(row.player_key);
+      if (taken.has(key)) return;
+      taken.add(key);
+      list.push(entryOf(row, p.slot));
+    });
+    (t.unmatched || []).filter(F.isNotEvaluated).forEach(u => {
+      const name = F.page.cleanLine(u.line || u.name);
+      const key = `x:${u.pos}:${u.team || F.normName(name)}`;
+      if (!name || taken.has(key)) return;
+      taken.add(key);
+      list.push({key, name, pos: u.pos, team: u.team || undefined});
+    });
+    const missed = (t.unmatched || []).filter(u => !F.isNotEvaluated(u)).map(u => F.page.cleanLine(u.line || u.name)).filter(Boolean);
+    return {list, unsure, missed};
+  }
+  function pasteWholeLeague(text) {
+    const status = $("v2LgLeagueStatus");
+    const box = $("v2LgLeaguePaste");
+    if (box) box.value = "";
+    const C = engine();
+    const P = root.DDFRosterPaste;
+    if (!C || !P || !P.parseLeague || !mathContext()) { status.textContent = "Values are still loading. Try again in a moment."; return; }
+    const res = P.parseLeague(String(text || ""), C.getAllRows());
+    if (!res.teams.length) {
+      const id = res.sleeperLeagueId || res.espnLeagueId;
+      if (id) {
+        $("v2LgLeagueKind").value = res.sleeperLeagueId ? "sleeper" : "espn";
+        $("v2LgLeagueId").value = id;
+        loadWholeLeague();
+        return;
+      }
+      status.textContent = res.site === "sleeper"
+        ? "Sleeper shows one roster per page, so that paste had no league in it. Paste your Sleeper league link (sleeper.com/leagues/…) here, or enter its league ID below, to load every team."
+        : "No teams found in that text. Open your league's rosters page (ESPN: League, then Rosters), press Ctrl+A then Ctrl+C, and paste it here.";
+      announce(status.textContent);
+      return;
+    }
+    const ctx = mathContext();
+    const ws0 = store.get();
+    // Names are compared as saved (the workspace trims a name to W.MAX_NAME), so a long name matches on a second paste.
+    const nameKey = name => W.cleanName(name, "").toLowerCase();
+    const byName = new Map(ws0.teams.map(t => [nameKey(t.name), t.id]));
+    const replacing = new Set();
+    res.teams.forEach(t => { const id = byName.get(nameKey(t.teamName)); if (id) replacing.add(id); });
+    // Players on a team this paste does not cover stay there.
+    const taken = new Set(ws0.teams.filter(t => !replacing.has(t.id)).flatMap(t => t.entries.map(e => e.key)));
+    const room = W.MAX_TEAMS - ws0.teams.length;
+    let added = 0;
+    let updated = 0;
+    let skipped = 0;
+    const lines = [];
+    const plan = res.teams.map(t => ({t, id: byName.get(nameKey(t.teamName)), ...leagueEntries(t, ctx, taken)}));
+    update(w => {
+      let next = w;
+      plan.forEach(item => {
+        if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: []}); updated += 1; }
+        else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list}); added += 1; }
+        else { skipped += 1; return; }
+        const notes = [];
+        if (item.unsure) notes.push(`${item.unsure} to check`);
+        if (item.missed.length) notes.push(`not matched: ${item.missed.slice(0, 6).join(", ")}${item.missed.length > 6 ? "…" : ""}`);
+        lines.push(`${item.t.teamName}: ${plural(item.list.length, "player")}${notes.length ? ` (${notes.join("; ")})` : ""}`);
+      });
+      return next;
+    }, "add");
+    const parts = [];
+    if (added) parts.push(`added ${plural(added, "team")}`);
+    if (updated) parts.push(`updated ${plural(updated, "team")} with the same name`);
+    let msg = `Found ${plural(res.teams.length, "team")}: ${parts.join(" and ")}.`;
+    if (skipped) msg += ` ${plural(skipped, "team")} left out: the limit is ${W.MAX_TEAMS}.`;
+    if (!ws0.myTeamId) msg += " Press the star on your team to mark it as yours.";
+    status.replaceChildren(el("span", {text: msg}), el("ul", {class: "v2-lg-paste-teams"}, ...lines.map(line => el("li", {text: line}))));
+    if (lines.some(l => /not matched|to check/.test(l))) status.append(el("span", {text: "Add any missing players by searching inside that team."}));
+    announce(msg);
   }
 
   // ---------- sort controls shared by both tables ----------
@@ -927,11 +1018,20 @@
       renderUndo();
       announce("Undone.");
     });
-    const leagueBox = el("details", {class: "v2-find-import", id: "v2LgImport"}, el("summary", {text: "Load a whole league: a Sleeper or ESPN league ID"}),
+    const leaguePaste = el("textarea", {id: "v2LgLeaguePaste", rows: "3", autocomplete: "off", spellcheck: "false",
+      placeholder: "Paste your league's whole rosters page here (ESPN, Yahoo or any site), or a Sleeper league link", "aria-describedby": "v2LgLeaguePasteHelp"});
+    leaguePaste.addEventListener("paste", event => {
+      const text = event.clipboardData ? event.clipboardData.getData("text") : "";
+      if (text) { event.preventDefault(); pasteWholeLeague(text); }
+    });
+    leaguePaste.addEventListener("input", () => { if (F.looksLikePage(leaguePaste.value) || /sleeper\.(com|app)\/leagues\/\d|leagueId=\d/i.test(leaguePaste.value)) pasteWholeLeague(leaguePaste.value); });
+    const leagueBox = el("details", {class: "v2-find-import", id: "v2LgImport", open: store.get().teams.length === 0}, el("summary", {text: "Load a whole league: paste its rosters page, or a Sleeper or ESPN league ID"}),
       el("div", {class: "v2-find-import-body"},
+        el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole league's rosters page"}), leaguePaste),
+        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: paste the league link instead. Pasted text stays in this browser."}),
         el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), (() => { const s = el("select", {id: "v2LgLeagueKind"}, el("option", {value: "sleeper", text: "Sleeper league ID"}), el("option", {value: "espn", text: "ESPN public league ID"})); return s; })()),
         el("input", {type: "text", id: "v2LgLeagueId", placeholder: "League ID", autocomplete: "off", inputmode: "numeric", "aria-label": "League ID"}),
-        button("Load teams", {class: "v2-btn", id: "v2LgLeagueLoad"}, loadWholeLeague), el("p", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
+        button("Load teams", {class: "v2-btn", id: "v2LgLeagueLoad"}, loadWholeLeague), el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
     const league = el("section", {class: "v2-card", id: "v2LgCard", "aria-labelledby": "v2LgTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2LgTitle", text: "Your league"}),
@@ -941,10 +1041,10 @@
       el("div", {class: "v2-lg-confirm", id: "v2LgLoadConfirm", role: "group", hidden: true}),
       el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}),
       el("p", {class: "v2-meta", text: "Your teams and rosters are saved in this browser only. Nothing is sent anywhere. Use Download to keep a copy."}),
-      el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Add your first team, then paste its roster or search players by name."}),
+      el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Paste your whole league below, or add a team and paste its roster or search players by name."}),
+      leagueBox,
       el("ul", {class: "v2-lg-teams", id: "v2LgTeams"}),
       el("p", {class: "v2-meta v2-footnote", id: "v2LgFootnote", hidden: true, text: "K and DEF are on rosters (and counted) but not evaluated."}),
-      leagueBox,
       el("div", {class: "v2-sr", id: "v2LgLive", role: "status", "aria-live": "polite"}));
     const summary = el("section", {class: "v2-card", id: "v2LgSummary", "aria-labelledby": "v2LgSummaryTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgSummaryTitle", text: "Team summary"}),

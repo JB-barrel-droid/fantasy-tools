@@ -511,6 +511,7 @@ test-core:
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_waivers_math
 	node tests/test_v2_roster_paste.js
+	node tests/test_v2_league_paste.js
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_movers
