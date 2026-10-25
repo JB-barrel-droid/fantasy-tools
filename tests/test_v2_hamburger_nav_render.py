@@ -1,7 +1,7 @@
 """Phone hamburger navigation guard (JEG-953; Jeremy, 2026-10-23, decision C2).
 
 Below the phone breakpoint (under 768 px wide, or a landscape phone up to 932 x 500) the top nav collapses to a
-44 x 44 button; the menu lists all seven tabs, marks the active one, and closes on selection, Escape (focus returns
+44 x 44 button; the menu lists all nine tabs (Waivers added 2026-10-24, JEG-1022; Overrides, JEG-1035), marks the active one, and closes on selection, Escape (focus returns
 to the button) and a tap outside. 768 px and wider keep the tab row, unchanged.
 
 Discrimination (test_guard_fails_on_broken_builds): each break below must make the check fail:
@@ -24,7 +24,7 @@ CSS = ROOT / "app" / "v2" / "v2.css"
 JS = ROOT / "app" / "v2" / "v2.js"
 PHONES = ((320, 568), (360, 740), (390, 844), (844, 390))
 WIDE = ((768, 1024), (1366, 768))
-LABELS = ["Writing", "Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Find a trade", "Values auditing"]
+LABELS = ["Writing", "Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Find a trade", "Waivers", "Overrides", "Values auditing"]
 
 
 def setUpModule():
@@ -94,8 +94,8 @@ def run_checks(css=None, js=None) -> list[str]:
                 # Open.
                 page.click("#v2NavToggle")
                 s = page.evaluate(STATE)
-                if s["expanded"] != "true" or s["tabsShown"] != 7:
-                    errors.append(f"{tag}: open menu shows {s['tabsShown']} tabs, expanded {s['expanded']}; want 7 and true")
+                if s["expanded"] != "true" or s["tabsShown"] != len(LABELS):
+                    errors.append(f"{tag}: open menu shows {s['tabsShown']} tabs, expanded {s['expanded']}; want {len(LABELS)} and true")
                 if s["labels"] != LABELS:
                     errors.append(f"{tag}: menu labels {s['labels']}")
                 if s["over"] > 0 or s["offscreen"]:
@@ -133,7 +133,7 @@ def run_checks(css=None, js=None) -> list[str]:
                 s = page.evaluate(STATE)
                 if s["toggleShown"]:
                     errors.append(f"{tag}: hamburger shown on a non-phone width")
-                if s["tabsShown"] != 7 or s["labels"] != LABELS:
+                if s["tabsShown"] != len(LABELS) or s["labels"] != LABELS:
                     errors.append(f"{tag}: desktop tab row shows {s['tabsShown']} tabs {s['labels']}")
                 if s["over"] > 0:
                     errors.append(f"{tag}: page scrolls sideways by {s['over']}")

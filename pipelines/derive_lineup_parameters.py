@@ -438,6 +438,26 @@ def build_config(doc: dict, byes: dict) -> dict:
     return cfg
 
 
+def advance_content_week(index_path: Path = HISTORY / "index.json", config_path: Path = CONFIG) -> int | None:
+    """JEG-1034: keep the config's content_week (the last week with completed
+    games) in step with the data. A "Week N" chart is posted after week N-1's
+    games, so the newest served content week N means content_week N-1. Only
+    ever advances; rewrites content_week and resolved_default in the config's
+    own format. Returns the content_week in effect, or None when nothing is
+    served."""
+    served = [s.get("week") for s in json.loads(index_path.read_text(encoding="utf-8")).get("served", {}).values()]
+    served = [w for w in served if isinstance(w, int)]
+    if not served:
+        return None
+    cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    target = max(served) - 1
+    if target > cfg["content_week"]:
+        cfg["content_week"] = target
+        cfg["resolved_default"] = resolve(cfg)
+        config_path.write_text(json.dumps(cfg, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    return cfg["content_week"]
+
+
 # --------------------------------------------------------------------------- sigma
 
 

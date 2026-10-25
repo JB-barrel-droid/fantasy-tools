@@ -8,8 +8,8 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
     Apply; Apply adds exactly that pair to getActiveSources(); Cancel
     discards; an empty draft cannot be applied ("Choose at least one");
     an unavailable pair is disabled; full screen at 390;
-  * Your league (12): steppers and segmented buttons are a draft; Apply sets
-    getRosterShape() / getState().teams, SUPERFLEX included; a change that
+  * Your league (12): steppers and segmented buttons apply as they change (JEG-1020, no Apply
+    button; Done only closes); the change sets getRosterShape() / getState().teams, SUPERFLEX included; a change that
     moves the bench share says so (JEG-444); Reset defaults returns to the
     first-load league;
   * Position weights (11): position shares shown equal getPositionWeights();
@@ -228,7 +228,7 @@ def check_league(page) -> list[str]:
     if page.locator('#v2Popover [aria-label="Fewer K"]').count():
         page.click('#v2Popover [aria-label="Fewer K"]')
         page.click('#v2Popover [aria-label="Fewer DEF"]')
-        page.click('#v2Popover [data-apply="league"]')
+        page.click('#v2Popover [data-done="league"]')
         kd = page.evaluate("() => { const s = window.TradeValueCurveControls.getRosterShape(); return [s.K, s.DST]; }")
         line0 = page.text_content("#v2RosterLine")
         if kd != [0, 0] or " K " in line0 or "DEF" in line0:
@@ -236,18 +236,25 @@ def check_league(page) -> list[str]:
         page.click("#v2EditLeague")
         page.click('#v2Popover [aria-label="More K"]')
         page.click('#v2Popover [aria-label="More DEF"]')
-        page.click('#v2Popover [data-apply="league"]')
+        page.click('#v2Popover [data-done="league"]')
     else:
         page.keyboard.press("Escape")
     page.click("#v2EditLeague")
     page.click('#v2Popover [aria-label="More WR"]')
     page.click('#v2Popover .v2-pseg button[data-value="10"]')
+    # JEG-1020: no Apply step; the change reaches the engine on its own after the debounce (and not before it).
     if page.evaluate("() => window.TradeValueCurveControls.getRosterShape().WR") != start["shape"]["WR"]:
-        errors.append("league: a stepper reached the engine before Apply")
-    page.click('#v2Popover [data-apply="league"]')
+        errors.append("league: a stepper reached the engine before the debounce")
+    try:
+        page.wait_for_function("(wr) => window.TradeValueCurveControls.getRosterShape().WR === wr", arg=start["shape"]["WR"] + 1, timeout=3000)
+    except Exception:
+        errors.append("league: the stepper change never reached the engine on its own")
+    if page.locator('#v2Popover [data-apply="league"]').count() or page.locator('#v2Popover button:has-text("Apply")').count():
+        errors.append("league: an Apply button is still on the panel")
+    page.click('#v2Popover [data-done="league"]')
     now = page.evaluate("() => ({shape: window.TradeValueCurveControls.getRosterShape(), teams: window.TradeValueCurveControls.getState().teams})")
     if now["shape"]["WR"] != start["shape"]["WR"] + 1 or now["teams"] != 10:
-        errors.append(f"league: Apply gave WR {now['shape']['WR']} teams {now['teams']}, wanted WR {start['shape']['WR'] + 1} teams 10")
+        errors.append(f"league: live change gave WR {now['shape']['WR']} teams {now['teams']}, wanted WR {start['shape']['WR'] + 1} teams 10")
     line = page.text_content("#v2RosterLine")
     if f"{now['shape']['WR']} WR" not in line:
         errors.append(f"league: roster line {line!r} does not follow the engine")
@@ -255,7 +262,7 @@ def check_league(page) -> list[str]:
     page.click("#v2EditLeague")
     if page.locator('#v2Popover [aria-label="More SUPERFLEX"]').count():
         page.click('#v2Popover [aria-label="More SUPERFLEX"]')
-    page.click('#v2Popover [data-apply="league"]')
+    page.click('#v2Popover [data-done="league"]')
     sf = page.evaluate("() => window.TradeValueCurveControls.getRosterShape().SUPERFLEX")
     if sf != 1 or "1 SUPERFLEX" not in page.text_content("#v2RosterLine"):
         errors.append(f"league: SUPERFLEX stepper gave engine {sf}, roster line {page.text_content('#v2RosterLine')!r}")
@@ -264,10 +271,10 @@ def check_league(page) -> list[str]:
     # change simply changes the readout; tests/test_v2_advanced_render.py covers it).
     page.click("#v2EditLeague")
     page.click('#v2Popover .v2-pseg button[data-value="14"]')
-    page.click('#v2Popover [data-apply="league"]')
+    page.click('#v2Popover [data-done="league"]')
     page.click("#v2EditLeague")
-    page.click("#v2Popover .v2-preset")
-    page.click('#v2Popover [data-apply="league"]')
+    page.click("#v2Popover [data-league-reset]")
+    page.click('#v2Popover [data-done="league"]')
     back = page.evaluate("() => ({shape: window.TradeValueCurveControls.getRosterShape(), teams: window.TradeValueCurveControls.getState().teams})")
     if back != start:
         errors.append(f"league: Reset defaults gave {back}, first load was {start}")
@@ -284,8 +291,15 @@ def check_weights(page) -> list[str]:
             errors.append(f"weights: {pos} shows {text}, engine {weights[pos]}")
     # Position shares (frame 11, JEG-452): the edited share reaches the engine, the rest rebalance there.
     # Use 30% (far from the default ~10%) so a no-op Apply is caught.
+    # JEG-1020 (Jeremy, 2026-10-24): Position weights applies live like Your league, no Apply step.
     page.fill("#v2ShareQB", "30")
-    page.click('#v2Popover [data-apply="weights"]')
+    try:
+        page.wait_for_function("() => Math.abs(window.TradeValueCurveControls.getPositionWeights().QB - 0.30) < 0.002", timeout=3000)
+    except Exception:
+        errors.append("weights: a valid share never reached the engine on its own")
+    if page.locator('#v2Popover [data-apply="weights"]').count() or page.locator('#v2Popover button:has-text("Apply")').count() or page.locator('#v2Popover button:has-text("Cancel")').count():
+        errors.append("weights: an Apply or Cancel button is still on Position weights")
+    page.click('#v2Popover [data-done="weights"]')
     got = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if abs(got["QB"] - 0.30) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
         errors.append(f"weights: QB 30% applied as {got}")
@@ -302,13 +316,14 @@ def check_weights(page) -> list[str]:
     if abs(float(page.input_value("#v2ShareWR")) - before["WR"] * 100) > 0.06:
         errors.append(f"weights: WR 150 left {page.input_value('#v2ShareWR')} in the box, last valid was {before['WR'] * 100:.1f}")
     page.fill("#v2ShareWR", "150")
-    page.click('#v2Popover [data-apply="weights"]')
+    page.wait_for_timeout(600)
+    page.click('#v2Popover [data-done="weights"]')
     after = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if any(abs(after[p] - before[p]) > 1e-9 for p in before):
         errors.append(f"weights: WR 150 changed the engine shares {before} -> {after}")
     page.click("#v2Weights")
-    page.click("#v2Popover .v2-preset")
-    page.click('#v2Popover [data-apply="weights"]')
+    page.click("#v2Popover [data-weights-reset]")
+    page.click('#v2Popover [data-done="weights"]')
     back = page.evaluate("""() => { const C = window.TradeValueCurveControls; const a = C.getPositionWeights(), d = C.getDefaultPositionWeights();
       return ['QB', 'RB', 'WR', 'TE'].every(p => Math.abs(a[p] - d[p]) < 1e-9); }""")
     if not back:
@@ -975,8 +990,8 @@ class PanelsRenderTest(unittest.TestCase):
             # JEG-675: CBS is held in the pinned fixture and a week behind in the pipeline; a held source is not "Prior week".
             "held source reads Prior week": {"v2_js": v2.replace(
                 "const shown = items.some(item => item.available);", "const shown = true;", 1)},
-            "league Apply does nothing": {"v2_js": v2.replace(
-                "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
+            "league live change does nothing": {"v2_js": v2.replace(
+                "            ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1)},
             # Table fit and above the fold (CSS).
             "header not sticky": {"v2_css": css.replace(

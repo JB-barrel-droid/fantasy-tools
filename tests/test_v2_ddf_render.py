@@ -11,9 +11,9 @@ headless at 1440 and 390 with empty storage, and checks against the engine
     values.ddf_value to one decimal, "—" where the engine has none;
   * chart: the DDF Value line is drawn, last (on top) and heavier than the
     others;
-  * Customize: the DDF Value inputs list getCompositeInputs().allowed, ticked
-    exactly where the engine uses them; unticking one and pressing Done
-    reaches setCompositeInputs, and the table then shows the engine's new
+  * Overrides > Custom blend (JEG-1044, replaced the Customize DDF blend tab): the DDF Value
+    inputs list getCompositeInputs().allowed, ticked exactly where the engine uses them;
+    unticking one applies live through setBasis, and the table then shows the engine's new
     values;
   * remembered on this device: after a reload the inputs, the shown series
     and the ranking are the reader's choice; Reset to default + Done brings
@@ -149,25 +149,29 @@ def check_customize(page, tag) -> list[str]:
     errors = []
     before = page.evaluate(READ)
     FIRST_VISIT["shown"] = list(before["shown"])
-    page.click("#v2EditSources")
-    page.click('#v2Popover [data-tab="blend"]')   # JEG-850: the inputs live on the DDF blend tab
-    boxes = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-ddf-input]')].map(b => ({key: b.dataset.ddfInput,
+    # JEG-1044 (Jeremy 2026-10-24): the DDF inputs are Custom blend on the Overrides tab now, and apply live (no Done).
+    page.evaluate("() => { location.hash = '#value-overrides'; }")
+    page.wait_for_selector("#v2OvPresets")
+    page.click('#v2OvPresets [data-preset="blend"]')
+    page.wait_for_selector("#v2OvOn-espn")
+    boxes = page.evaluate("""() => [...document.querySelectorAll('[id^=v2OvOn-]')].map(b => ({key: b.dataset.source,
       on: b.checked, disabled: b.disabled}))""")
-    if sorted(b["key"] for b in boxes) != sorted(before["allowed"]):
-        errors.append(tag + f"DDF inputs {[b['key'] for b in boxes]} != engine allowed {before['allowed']}")
-    # JEG-850: a held input (kept in the engine's pool) shows unticked and locked, so it is not counted as "on".
+    if not set(before["allowed"]) <= {b["key"] for b in boxes}:
+        errors.append(tag + f"Overrides' blend rows {[b['key'] for b in boxes]} lack engine allowed {before['allowed']}")
+    # A held input (kept in the engine's pool) shows unticked-or-locked, so it is not counted as "on".
     held_off = {b["key"] for b in boxes if b["disabled"] and not b["on"]}
-    if sorted(b["key"] for b in boxes if b["on"]) != sorted(k for k in before["inputs"] if k not in held_off):
+    if sorted(b["key"] for b in boxes if b["on"] and not b["disabled"]) != sorted(k for k in before["inputs"] if k not in held_off):
         errors.append(tag + f"ticked inputs {[b['key'] for b in boxes if b['on']]} != engine inputs {before['inputs']} minus held {sorted(held_off)}")
-    drop = next((b["key"] for b in boxes if b["on"] and not b["disabled"]), None)
+    drop = next((b["key"] for b in boxes if b["on"] and not b["disabled"] and b["key"] in before["allowed"]), None)
     if not drop:
         return errors + [tag + "no DDF input to untick"]
-    page.click(f'#v2Popover [data-ddf-input="{drop}"]')
-    page.click('#v2Popover [data-apply="sources"]')
-    page.wait_for_timeout(300)
+    page.click(f'#v2OvOn-{drop}')
+    page.wait_for_timeout(500)
+    page.evaluate("() => { location.hash = '#player-values'; }")
+    ready(page)
     after = page.evaluate(READ)
     if drop in after["inputs"] or after["isDefault"]:
-        errors.append(tag + f"Done did not drop {drop} from the DDF inputs: {after['inputs']}")
+        errors.append(tag + f"unticking {drop} on Overrides did not drop it from the DDF inputs: {after['inputs']}")
     errors += check_table(after, tag + "after inputs: ")
     if after["engine"] == before["engine"]:
         errors.append(tag + f"dropping {drop} changed no DDF Value; the check is not discriminating")
@@ -180,26 +184,32 @@ def check_customize(page, tag) -> list[str]:
     if again["shown"] != after["shown"] or again["rank"] != DDF:
         errors.append(tag + f"after reload shown {again['shown']} rank {again['rank']}, want {after['shown']} / ddf_value")
     errors += check_table(again, tag + "after reload: ")
-    # Reset to default restores the engine's inputs.
+    # Reset all on Overrides restores the engine's inputs; Customize's Reset to default restores the first-visit lines.
+    page.evaluate("() => { location.hash = '#value-overrides'; }")
+    page.wait_for_selector("#v2OvPresets")
+    page.wait_for_timeout(300)
+    if page.locator("#v2OvResetAll").is_visible():
+        page.click("#v2OvResetAll")
+    else:
+        errors.append(tag + "no 'Reset all' on Overrides although the basis was changed (not applied or not remembered)")
+        page.click('#v2OvPresets [data-preset="default"]')
+    page.wait_for_timeout(300)
+    page.evaluate("() => { location.hash = '#player-values'; }")
+    ready(page)
     page.click("#v2EditSources")
     page.click("#v2Popover button:has-text('Reset to default')")
     page.click('#v2Popover [data-apply="sources"]')
     page.wait_for_timeout(300)
     reset = page.evaluate(READ)
-    # Reset to default hands the choice back to the engine (isDefault), which then follows its own defaults.
+    # Reset all hands the choice back to the engine (isDefault), which then follows its own defaults.
     if not reset["isDefault"]:
-        errors.append(tag + f"Reset to default left reader-chosen inputs {reset['inputs']} (defaults {reset['defaults']})")
+        errors.append(tag + f"Reset all left reader-chosen inputs {reset['inputs']} (defaults {reset['defaults']})")
     # JEG-843: Reset to default returns exactly the first-visit series, never the retired *_adjusted aliases.
     if sorted(reset["shown"]) != sorted(FIRST_VISIT["shown"]):
         errors.append(tag + f"Reset to default shows {reset['shown']}, a fresh profile shows {FIRST_VISIT['shown']}")
     errors += check_no_alias(page, reset, tag + "after Reset to default: ")
-    # A selection saved with the aliases (older build) is cleaned on load.
-    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('ddf.v2.selection') || '{"v":1}');
-      s.v = 1; s.shown = (s.shown || []).concat(['fantasycalc_adjusted', 'cbs_adjusted']); localStorage.setItem('ddf.v2.selection', JSON.stringify(s)); }""")
-    page.reload(wait_until="networkidle")
-    ready(page)
-    errors += check_no_alias(page, page.evaluate(READ), tag + "after loading a saved selection with aliases: ")
-    # Hiding the DDF Value is remembered too.
+    # Hiding the DDF Value is remembered too. JEG-1044: this runs before the alias seeding below, which rewrites the saved
+    # selection; since the blend choice left that record, a lost save is only visible here.
     page.click("#v2EditSources")
     page.click(f'#v2Popover [data-series="{DDF}"]')
     page.click('#v2Popover [data-apply="sources"]')
@@ -209,6 +219,14 @@ def check_customize(page, tag) -> list[str]:
     if DDF in hidden["shown"]:
         errors.append(tag + f"hidden DDF Value is back after reload: {hidden['shown']}")
     page.evaluate("() => window.TradeValueV2.setShown(['ddf_value'].concat(window.TradeValueV2.shown()))")
+    # A selection saved with the aliases (older build) is cleaned on load.
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('ddf.v2.selection') || '{"v":1}');
+      s.v = 1; s.shown = (s.shown || []).concat(['fantasycalc_adjusted', 'cbs_adjusted']); localStorage.setItem('ddf.v2.selection', JSON.stringify(s)); }""")
+    page.reload(wait_until="networkidle")
+    ready(page)
+    errors += check_no_alias(page, page.evaluate(READ), tag + "after loading a saved selection with aliases: ")
+    if DDF not in page.evaluate(READ)["shown"]:
+        page.evaluate("() => window.TradeValueV2.setShown(['ddf_value'].concat(window.TradeValueV2.shown()))")
     return errors
 
 
@@ -415,14 +433,17 @@ class DdfRenderTest(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         v2 = V2_JS.read_text(encoding="utf-8")
         movers = MOVERS_JS.read_text(encoding="utf-8")
+        overrides = (ROOT / "app" / "v2" / "overrides.js").read_text(encoding="utf-8")
         css = V2_CSS.read_text(encoding="utf-8")
         js, cs = "text/javascript", "text/css"
         broken = {
             "DDF Value hidden by default": {"v2.js": (v2.replace("    return [DDF_KEY].concat(info.filter(", "    return [].concat(info.filter(", 1), js)},
             # ("ranked by the engine's own default" retired with JEG-508 VP-7.4:
             # the engine's own default lock IS the DDF Value now.)
-            "inputs never reach the engine": {"v2.js": (v2.replace(
-                "if (changed) C.setCompositeInputs([...inputsDraft]);", "if (false) C.setCompositeInputs([...inputsDraft]);", 1), js)},
+            "inputs never reach the engine": {"overrides.js": (overrides.replace(
+                "const result = S.engine.setBasis(engineBasis(), publish !== false);", "const result = null;", 1), js)},
+            "basis not remembered": {"overrides.js": (overrides.replace(
+                "localStorage.setItem(SAVE_KEY, JSON.stringify({v: 2,", "void (SAVE_KEY, JSON.stringify({v: 2,", 1), js)},
             "Reset default includes retired aliases": {"v2.js": (v2.replace("item.available && !isEngineAlias(item.key) && sourceMeta(item.key).method === \"indexed\"", "item.available && sourceMeta(item.key).method === \"indexed\"", 1), js)},
             "choice not remembered": {"v2.js": (v2.replace("localStorage.setItem(SAVE_KEY,", "void (SAVE_KEY,", 1), js)},
             "Reset keeps Rank by": {"v2.js": (v2.replace(
@@ -448,7 +469,7 @@ class DdfRenderTest(unittest.TestCase):
         for name, overrides in broken.items():
             with self.subTest(mutation=name):
                 for file, (body, _) in overrides.items():
-                    source = {"v2.js": v2, "movers.js": movers, "v2.css": css}[file]
+                    source = {"v2.js": v2, "movers.js": movers, "v2.css": css, "overrides.js": overrides}[file]
                     self.assertNotEqual(body, source, f"mutation anchor for {name!r} is stale")
                 self.assertNotEqual(run_checks(overrides, viewports=((1440, 900),)), [], f"render checks did not catch: {name}")
 

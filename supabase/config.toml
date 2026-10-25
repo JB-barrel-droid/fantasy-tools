@@ -6,3 +6,6 @@ project_id = "fantasy-tools"
 # Without this the gateway rejects calls that lack a Supabase JWT.
 [functions.get-values]
 verify_jwt = false
+
+[functions.mcp]
+verify_jwt = false

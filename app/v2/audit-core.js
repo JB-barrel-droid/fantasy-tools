@@ -1,9 +1,9 @@
-/* Values auditing (JEG-847): a small registry so each sub-tab can live in its own file.
+/* Values auditing (JEG-847, front tab renamed Health check in JEG-1011; the old #values-auditing/value-pie hash is a legacy route in v2.js): a small registry so each sub-tab can live in its own file.
    audit-pie.js and audit-source.js call DDFAudit.register(slug, fn); v2.js calls DDFAudit.render(slug, root, ctx)
    when the route shows that sub-tab. fn(root, ctx): root is the sub-tab's mount element, ctx = {slug, engine}. */
 (function (root) {
   "use strict";
-  const SLUGS = ["value-pie", "single-source"];
+  const SLUGS = ["health-check", "single-source"];
   const renderers = {};
   root.DDFAudit = {
     slugs: SLUGS,

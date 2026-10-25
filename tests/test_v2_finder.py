@@ -128,7 +128,7 @@ MUTANTS = {
     "rival test inverted": ("const rivalOk = pointsAsShown(net) <= 0;", "const rivalOk = pointsAsShown(net) >= 0;"),
     "2 of 4 is enough": ("const MIN_CHARTS = 3;", "const MIN_CHARTS = 2;"),
     "missing chart read as 0": ("if (!finite(v)) return null; total += v;", "total += finite(v) ? v : 0;"),
-    "DDF edge not required": [("if (pointsAsShown(edge) <= 0) continue;", ""),
+    "DDF edge not required": [("if (!judged.passes.edge || !judged.passes.charts) continue;", "if (!judged.passes.charts) continue;"),
                               ("if (pointsAsShown(theirSubs[mid].sums[0] - give.sums[0]) > 0)", "if (true)")],
     "chartKeys ignored (held chart counted)": ("const chartKeys = (o.chartKeys || CHART_KEYS).slice();", "const chartKeys = CHART_KEYS.slice();"),
     "default size 3": ("Math.max(1, o.maxSize || 2)", "Math.max(1, o.maxSize || 3)"),

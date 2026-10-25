@@ -135,7 +135,7 @@ MUTANTS = {
     "sleeper unknown id kept": ("if (!p) return null;", "if (!p) return {name: String(id), pos: \"\"};"),
     "count rule ignores 'got worse'": ("if (all < need && all < before[pos].all)", "if (all < need)"),
     "starter rule dropped": ("else if (starters < Math.min(before[pos].starter, need))", "else if (false)"),
-    "keep flag ignored": ("if ((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))", "if (false)"),
+    "keep flag ignored": ("passes: !((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))", "passes: true"),
     "paste notes kept": ("s.replace(/\\(.*?\\)/g, \"\")", "s"),
 }
 

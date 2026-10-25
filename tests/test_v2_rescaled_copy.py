@@ -97,12 +97,12 @@ class RescaledCopyTest(unittest.TestCase):
         v2 = scripts["v2.js"]
         broken = {
             "group title": ("v2.js", 'title: "Trade charts (rescaled)"', 'title: "Trade charts (as published)"'),
-            "series name": ("v2.js", "chart (rescaled)`,\n      vorp", "chart (as published)`,\n      vorp"),
+            "series name": ("v2.js", "chart (rescaled${RESCALED_TO})`,\n      vorp", "chart (as published)`,\n      vorp"),
             "column label": ("v2.js", 'indexed: "Rescaled chart", vorp', 'indexed: "Published chart", vorp'),
             "short label": ("v2.js", 'indexed: "Rescaled", vorp', 'indexed: "Index", vorp'),
             "target sub-label": ("v2.js", '" · " : ""}rescaled`', '" · " : ""}indexed`'),
             "info title": ("v2.js", 'title: "Rescaled values"', 'title: "Indexed values"'),
-            "legend": ("v2.js", 'indexed: "Dashed = rescaled chart"', 'indexed: "Dashed = published chart"'),
+            "legend": ("v2.js", 'indexed: `Dashed = rescaled chart${RESCALED_TO}`', 'indexed: "Dashed = published chart"'),
         }
         for name, (_file, old, new) in broken.items():
             with self.subTest(mutation=name):
