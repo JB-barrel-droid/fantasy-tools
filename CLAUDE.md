@@ -115,22 +115,23 @@ projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
 band on published charts, was retired 2026-10-08, GAP-026: publisher shape
 disagreement is the product.)
 
-## Values explainer (living artifact)
+## Values explainer (DDF Value Logic, part of the dashboard)
 
-Jeremy reads how every source's values are made at the claude.ai artifact
-https://claude.ai/artifact/RALxprAWirGvjw8uwZwbfW ("DDF Value Logic"). It is
-built by `make values-explainer` (`pipelines/build_values_explainer.py`, page
-template and engine extractor in `app/values-explainer/`) into
-`output/values-explainer/index.html`, and every number on it is read from the
-chart engine. Keep it current:
+Moved from a claude.ai artifact into the dashboard (Jeremy, 2026-10-25, JEG-1086:
+"Ddf value logic should migrate from a Claude artifact to part of the dashboard").
+`make sync` builds it to `dist/modules/value-logic.html` (builder
+`pipelines/build_values_explainer.py`, page template and engine extractor in
+`app/values-explainer/`); How values work links to it. Every number is read
+from the chart engine at the default setting (12 teams, Full PPR). It needs
+Playwright: skipped with a notice locally, an error where `RENDER_TESTS_REQUIRED=1`.
+Keep it current:
 
 - After any change to value math (the files in `LOGIC_FILES` in the builder),
-  rebuild and republish to that URL in the same session. If the logic changed,
-  update the narrative in `template.html` to match, then
-  `make values-explainer MARK_REVIEWED=1` so the page stops flagging it.
-- A daily scheduled task rebuilds and republishes it from `main`. When the page
-  says "Logic changed since this explanation was reviewed", the narrative is
-  stale: fix the text, not the numbers.
+  update the narrative in `template.html` if the logic changed, then
+  `make values-explainer MARK_REVIEWED=1` so the review section stops flagging it.
+  The review banner and open math-review items sit in a collapsed section at the bottom.
+- The old artifact (https://claude.ai/artifact/RALxprAWirGvjw8uwZwbfW) and its daily
+  republish task stay until the dashboard page is verified live, then retire (Jeremy, 2026-10-25).
 
 ## Usage: same quality, fewer tokens (JEG-524)
 

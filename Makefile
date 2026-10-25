@@ -682,7 +682,7 @@ test-all: naming naming-convention test-unit
 plan-status:
 	@python3 lanes/plan_status.py
 
-# Values explainer (internal page; published as a claude.ai artifact).
+# Values explainer standalone build (make sync also builds it to dist/modules/value-logic.html).
 # Needs Playwright Chromium. MARK_REVIEWED=1 after re-checking the narrative.
 values-explainer:
 	python3 pipelines/build_values_explainer.py $(if $(MARK_REVIEWED),--mark-reviewed,)
