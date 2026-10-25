@@ -91,9 +91,10 @@
   // VP-11: the DDF inputs are source keys. The pre-JEG-508 names of the
   // charts' inputs (fantasycalc_adjusted, ...) are still accepted by
   // setCompositeInputs and mapped to the chart (COMPOSITE_INPUT_ALIASES).
-  // JEG-804 (Jeremy Q4, 2026-10-22): DDF Value = projection sources only.
-  // Trade charts are out of DDF Value; they stay on the Indexed/VORP tabs.
-  const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball"];
+  // JEG-1073 (Jeremy, 2026-10-25): DDF Value = the Adjusted trade charts,
+  // equal weight; the projections are the alternate (ddf_value_projections).
+  // This reverses JEG-804.
+  const COMPOSITE_INPUT_KEYS = ["fantasycalc", "usatoday", "fantasypros", "cbs"];
   const EXTRA_SOURCE_KEYS = [];
   // The four "*_adjusted" series are deprecated aliases (VP-11 retires them):
   // each carries its chart's Adjusted values (VP-5.5) in every tab, so the v2
@@ -956,13 +957,13 @@
   // JEG-1035 (Jeremy, 2026-10-24: "select a player and say their ddf is actually a
   // different value ... have it permeate through the full dashboard"): reader
   // overrides of DDF Value, player_key -> value. Row-level only: the override
-  // replaces DDF Value (ddf_value and ddf_value_projections, the same series
-  // since JEG-804) on the player's row, so every view that reads rows uses it.
+  // replaces DDF Value (ddf_value only; since JEG-1073 the projections version
+  // is a separate alternate series and is not overridden) on the player's row, so every view that reads rows uses it.
   // The pipeline (Indexed factors, pie, tiers), the trade chart average
   // (ddf_value_charts), each source's own values and the prior week are not
   // touched. Off (empty) by default.
   let valueOverrides = new Map();
-  const OVERRIDE_VERSIONS = ["ddf_value", "ddf_value_projections"];
+  const OVERRIDE_VERSIONS = ["ddf_value"];
   const COMPOSITE_MIN_SOURCES = 1;
   const COMPOSITE_NONE_REASON = "No source prices this player";
   const COMPOSITE_EMPTY_REASON = "No source available this week";
@@ -970,7 +971,7 @@
   const COMPOSITE_PROJECTION_INPUTS = ["espn", "cbsros", "razzball"];
   const COMPOSITE_CHART_INPUTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"];
   const COMPOSITE_VERSIONS = {
-    ddf_value: COMPOSITE_PROJECTION_INPUTS,
+    ddf_value: COMPOSITE_CHART_INPUTS,
     ddf_value_charts: COMPOSITE_CHART_INPUTS,
     ddf_value_projections: COMPOSITE_PROJECTION_INPUTS,
   };
@@ -2431,8 +2432,8 @@
           return {ok: false, error: `DDF Value needs at least ${COMPOSITE_MIN_SOURCES} usable input for ${scoreLabel()} / ${teams} teams`};
         }
       }
-      // JEG-804: the default DDF Value inputs are the accepted projection
-      // keys, not the full pipeline (which includes charts the setter rejects).
+      // JEG-1073: the default DDF Value inputs are the accepted chart keys,
+      // not the full pipeline (which includes projections the setter rejects).
       const defaults = COMPOSITE_INPUT_KEYS;
       if (next && next.length === defaults.length && next.every(key => defaults.includes(key))) next = null;
     }
@@ -2485,10 +2486,10 @@
       });
       const sources = BASIS_SOURCE_KEYS.filter(key => weights[key] !== undefined);
       if (!sources.length) return {ok: false, error: "a blend needs at least one source with a weight of 1 or more"};
-      const equalProjections = sources.length === COMPOSITE_INPUT_KEYS.length
+      const equalDefault = sources.length === COMPOSITE_INPUT_KEYS.length
         && COMPOSITE_INPUT_KEYS.every(key => sources.includes(key))
         && new Set(sources.map(key => weights[key])).size === 1;
-      if (equalProjections) return {ok: true, value: null};
+      if (equalDefault) return {ok: true, value: null};
       return {ok: true, value: {mode: "blend", sources, weights: Object.fromEntries(sources.map(key => [key, weights[key]]))}};
     }
     return {ok: false, error: `unknown basis mode: ${String(mode)} (expected default, single or blend)`};

@@ -79,10 +79,10 @@ def case_set():
     for net, want in ((3.1, "win"), (3.0, "even"), (-2.9, "even"), (-3.0, "lose")):
         give, receive = rows_for({"v": net, "m": net, "p": net}, total=100.0)
         cases.append({"id": f"large {net}", "give": give, "receive": receive, "want_sides": [want, want, want]})
-    # P disagrees with V: dead after JEG-804 (DDF Value = projections), but kept as defense.
-    # JEG-863: the disagree branch returns "inconclusive" (distinguishable from "backs").
+    # P disagrees with V: live again since JEG-1073 (DDF Value = the Adjusted trade charts, the projections
+    # version is the alternate); the sentence says production does not back the value.
     give, receive = rows_for({"v": 5.0, "m": -5.0, "p": -5.0})
-    cases.append({"id": "p disagrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "inconclusive"})
+    cases.append({"id": "p disagrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "not"})
     give, receive = rows_for({"v": 5.0, "m": -5.0, "p": 5.0})
     cases.append({"id": "p agrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "backs"})
     # Missing values.
