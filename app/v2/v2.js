@@ -2746,6 +2746,94 @@
     try { C.setLineupSettings(changed); } catch (error) { return error.message || "Those advanced settings are not valid."; }
     return "";
   }
+  // The reader's league settings are kept in this browser, like their rosters (ddf.v2.workspaces). One record holds what
+  // the engine has: scoring, teams, roster slots, season weeks, advanced, position shares. A record equal to the site
+  // defaults is not kept, so a reader who never changed anything keeps getting the current defaults. A shared link's
+  // settings apply for the visit and are not saved until the reader changes something themselves.
+  const LEAGUE_SAVE_KEY = "ddf.v2.league-settings";
+  const SHARE_POSITIONS = ["QB", "RB", "WR", "TE"];
+  // source: "default" | "saved" | "link"; notes: what a saved record could not carry over; storage: "ok" | "unavailable" | "full".
+  const leagueInputs = {source: "default", savedAt: null, notes: [], storage: "ok"};
+  let leagueDefaultSnapshot = "";
+  function leagueSnapshot() {
+    const st = C.getState();
+    const snap = {v: 1, scoring: st.scoring, teams: st.teams, roster: {...C.getRosterShape()}};
+    const w = seasonWeeksState(false);
+    if (w) snap.weeks = {build: w.build, content: w.content, regularEnd: w.regularEnd, playoffLo: w.playoffLo, playoffHi: w.playoffHi, optimize: w.optimize};
+    const adv = advancedState(false);
+    if (adv) snap.adv = adv;
+    // Shares only when the reader changed them (the same rule as a shared link): the engine's defaults move with the league.
+    const shares = C.getPositionWeights ? C.getPositionWeights() : null;
+    const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
+    if (shares && defaults && SHARE_POSITIONS.some(pos => Math.abs(Number(shares[pos]) - Number(defaults[pos])) > 5e-4)) {
+      snap.shares = Object.fromEntries(SHARE_POSITIONS.map(pos => [pos, Number(Number(shares[pos]).toFixed(4))]));
+    }
+    return snap;
+  }
+  function announceInputs() {
+    try { document.dispatchEvent(new CustomEvent("ddf:inputs-changed")); } catch (error) { /* a listener must not stop the page */ }
+  }
+  function saveLeagueSettings() {
+    let text = "";
+    try { text = JSON.stringify(leagueSnapshot()); } catch (error) { return; }
+    const isDefault = text === leagueDefaultSnapshot;
+    leagueInputs.notes = [];
+    try {
+      if (isDefault) localStorage.removeItem(LEAGUE_SAVE_KEY);
+      else localStorage.setItem(LEAGUE_SAVE_KEY, JSON.stringify({...JSON.parse(text), savedAt: Date.now()}));
+      leagueInputs.storage = "ok";
+    } catch (error) {
+      leagueInputs.storage = error && (error.name === "QuotaExceededError" || error.code === 22 || error.code === 1014) ? "full" : "unavailable";
+    }
+    leagueInputs.source = isDefault ? "default" : "saved";
+    leagueInputs.savedAt = isDefault ? null : Date.now();
+    announceInputs();
+  }
+  // Called once, before the first view renders and after the defaults were read. Each part is applied on its own, so one
+  // setting the engine no longer accepts (a source or league shape that changed) does not lose the others.
+  function restoreLeagueSettings() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LEAGUE_SAVE_KEY) || "null"); }
+    catch (error) { leagueInputs.storage = "unavailable"; return; }
+    if (!saved || saved.v !== 1) return;
+    const notes = [];
+    const attempt = (label, fn) => { try { fn(); } catch (error) { notes.push(`${label} could not be restored (${(error && error.message) || "not accepted"}).`); } };
+    attempt("Scoring", () => { if (saved.scoring && saved.scoring !== C.getState().scoring) C.setScoring(saved.scoring); });
+    attempt("Team count", () => { if (Number.isInteger(saved.teams) && saved.teams !== C.getState().teams) C.setTeams(saved.teams); });
+    attempt("Roster slots", () => {
+      const shape = C.getRosterShape();
+      ROSTER_SLOTS.forEach(([key]) => {
+        const want = saved.roster && saved.roster[key];
+        if (Number.isInteger(want) && key in shape && want !== C.getRosterShape()[key]) C.setRosterSpot(key, want);
+      });
+    });
+    attempt("Season weeks", () => {
+      const now = seasonWeeksState(false);
+      if (!now || !saved.weeks) return;
+      // A saved "count from week N" belongs to the build it was made on; on a newer build the current week is used.
+      const sameBuild = saved.weeks.build === now.build;
+      if (!sameBuild && saved.weeks.content !== saved.weeks.build) notes.push("Your saved season week was reset: the projections moved to a newer week.");
+      const error = applySeasonWeeks({build: now.build, content: sameBuild ? saved.weeks.content : now.build, regularEnd: saved.weeks.regularEnd,
+        playoffLo: saved.weeks.playoffLo, playoffHi: saved.weeks.playoffHi, optimize: saved.weeks.optimize});
+      if (error) throw new Error(error);
+    });
+    attempt("Advanced settings", () => {
+      if (!saved.adv || !hasAdvanced()) return;
+      const error = applyAdvanced(saved.adv);
+      if (error) throw new Error(error);
+    });
+    // Shares last: a league change resets them to that league's defaults.
+    attempt("Position shares", () => {
+      const s = saved.shares;
+      if (!s || !C.setPositionWeights || !SHARE_POSITIONS.every(pos => Number.isFinite(s[pos]))) return;
+      const result = C.setPositionWeights(s);
+      if (result && !result.ok) throw new Error("outside the allowed range");
+    });
+    leagueInputs.source = "saved";
+    leagueInputs.savedAt = Number(saved.savedAt) || null;
+    leagueInputs.notes = notes;
+  }
+
   // JEG-1020 (Jeremy, 2026-10-24: "Don't require hitting accept or save when league settings are changed"): every control
   // here applies as it changes. Rapid taps coalesce into one recompute (LEAGUE_DEBOUNCE_MS); the recompute runs off the
   // input handler; an invalid intermediate state is refused by the engine, the last valid result stays and one inline line
@@ -3013,6 +3101,7 @@
         }
         lastMs = performance.now() - t0;
         (window.__leagueApplyLog = window.__leagueApplyLog || []).push(Math.round(lastMs));
+        saveLeagueSettings();
         showMsg("");
         if (error) {
           showIssue(`Not applied: ${error} The results still show the last valid settings.`);
@@ -3099,6 +3188,7 @@
       resetLink.addEventListener("click", () => {
         if (C.setBenchShareOverride) C.setBenchShareOverride(null);
         refresh();
+        saveLeagueSettings();
         syncReadout();
         announceLeagueChange("bench");
       });
@@ -3238,6 +3328,7 @@
         }
         Object.keys(edited).forEach(pos => delete edited[pos]);
         resetShares = false;
+        saveLeagueSettings();
         lastMs = performance.now() - t0;
         (window.__leagueApplyLog = window.__leagueApplyLog || []).push(Math.round(lastMs));
         msg.textContent = note;
@@ -5805,6 +5896,8 @@
       if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
     }
     if (!scoringChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
+    leagueInputs.source = "link";
+    leagueInputs.notes = [];
     if (weeksChange) {
       const error = applySeasonWeeks(weeksChange);
       if (error) console.warn("Link season weeks ignored:", error);
@@ -5824,6 +5917,7 @@
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
     if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");   // JEG-1020: Find a trade reads the link's settings too
+    announceInputs();
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
@@ -6997,6 +7091,8 @@
     // JEG-1035: saved value overrides apply before the first view renders, so every tab shows them from the start.
     if (window.DDFOverrides) window.DDFOverrides.boot(C);
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
+    try { leagueDefaultSnapshot = JSON.stringify(leagueSnapshot()); } catch (error) { leagueDefaultSnapshot = ""; }
+    restoreLeagueSettings();
     applyStartSelection();
     loadPipeline();
     loadSourcePages();
@@ -7009,6 +7105,8 @@
       compare: () => compareView, tradeState: TR,
       // JEG-1022: the Waivers link carries the same league settings as a shared trade.
       leagueQuery: () => leagueLinkParts().join("&"), applyLinkLeague,
+      // Where the league settings in force came from, for the status strip at the top (inputs-status.js).
+      leagueInputs: () => ({...leagueInputs, notes: leagueInputs.notes.slice(), label: $("v2LeagueName").textContent}),
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
@@ -7019,6 +7117,7 @@
       setShown: keys => { applyShown(keys); refresh(); },
       // JEG-498: the other pages' Customize lists (what their Done saves).
       pageKeys, setPageKeys: (page, keys) => { savePageKeys(page, keys); refresh(); }};
+    announceInputs();   // after the object above: the status strip reads TradeValueV2.leagueInputs()
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
