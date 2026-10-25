@@ -587,7 +587,8 @@
   }
   function marketTable(r, dropRow) {
     const rows = [r.candidate].concat(dropRow ? [dropRow] : []);
-    const cell = (row, k) => (row.values && typeof row.values[k] === "number" && Number.isFinite(row.values[k]) ? row.values[k].toFixed(1) : "—");
+    // A chart price that shows as 0.0 is no price: a dash, never zero.
+    const cell = (row, k) => (row.values && typeof row.values[k] === "number" && Number.isFinite(row.values[k]) && row.values[k] >= USABLE_MIN ? row.values[k].toFixed(1) : "—");
     return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: "Market value by trade chart"}),
       el("thead", {}, el("tr", {}, el("th", {scope: "col", text: "Player"}), ...CHART_KEYS.map(k => el("th", {scope: "col", text: CHART_NAMES[k]})), el("th", {scope: "col", text: "Average"}))),
       el("tbody", {}, ...rows.map(row => el("tr", {}, el("th", {scope: "row", text: row.name}), ...CHART_KEYS.map(k => el("td", {class: "num", text: cell(row, k)})),
