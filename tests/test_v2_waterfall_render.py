@@ -393,7 +393,9 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 page.wait_for_function("() => !document.getElementById('v2CTable').hidden")
                 options = page.evaluate("() => [...document.querySelectorAll('#v2CShown option')].map(o => o.value)")
                 current = page.evaluate("() => document.getElementById('v2CShown').value")
-                other = next((k for k in options if k != current and not k.endswith("_vorp")), None)
+                # ddf_value_charts is the same numbers under the same name as ddf_value since JEG-1073, so a verdict that
+                # wrongly follows the picker would be invisible on it; pick a series with its own name and values.
+                other = next((k for k in options if k not in (current, "ddf_value", "ddf_value_charts") and not k.endswith("_vorp")), None)
                 if other:
                     page.select_option("#v2CShown", other)
                 page.evaluate("() => window.scrollTo(0, 0)")
@@ -524,13 +526,18 @@ class WaterfallRenderTest(unittest.TestCase):
         # With the SIMULATE_GAP fixture, a gap player is always available, so every
         # mutation is expected to be caught.
         sources = {"v2.js": v2, "v2.css": css, "trade.js": trade}
+        # JEG-1056: only an error the clean build does not already have counts as a catch. When the clean build fails
+        # (the 45 px inputs strip pushed Compare past the 1366x768 fold), every mutation looked caught by that error.
+        # Numbers are masked so a mutation that only moves an already-failing box does not count as a new error.
+        shape = lambda e: re.sub(r"-?\d+(\.\d+)?", "#", e)  # noqa: E731
+        baseline = {shape(e) for e in run_checks(viewports=((1366, 768),))}
         for name, overrides in broken.items():
             with self.subTest(mutation=name):
                 for file, (body, _) in overrides.items():
                     self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
-                errors = run_checks(overrides, viewports=((1366, 768),))
+                errors = [e for e in run_checks(overrides, viewports=((1366, 768),)) if shape(e) not in baseline]
                 # Printed so the blocking `make validate` log shows each guard result, caught or not (JEG-1056).
-                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({len(errors)} new errors; first: {errors[0] if errors else '-'})",
                       file=sys.stderr, flush=True)
                 self.assertNotEqual(errors, [], f"render checks did not catch: {name}")
 
