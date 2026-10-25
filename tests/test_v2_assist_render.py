@@ -185,6 +185,17 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                   return {shown: r.height > 0 && getComputedStyle(f).display !== 'none', text: f.textContent.includes('Using ChatGPT or Claude?')}; }""")
                 if not (seen["shown"] and seen["text"]):
                     errors.append(f"footer not shown on {tab}: {seen}")
+                # The buttons sit in the league strip (Jeremy, 2026-10-25) on every tab that has the strip: whole, on screen,
+                # wrapped or stacked rather than clipped, and the page no wider than the phone.
+                strip = narrow.evaluate("""() => { const w = document.documentElement.clientWidth;
+                  const box = id => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
+                    return {inStrip: Boolean(e.closest('#v2League')), ok: r.width > 0 && r.left >= 0 && r.right <= w + 0.5 && e.scrollWidth <= e.clientWidth + 1}; };
+                  return {stripShown: !document.getElementById('v2League').hidden, copy: box('v2AssistCopy'), paste: box('v2AssistPasteToggle'),
+                          over: document.documentElement.scrollWidth - w, footerButtons: document.querySelectorAll('#v2Assist button').length}; }""")
+                if strip["stripShown"] and not (strip["copy"]["inStrip"] and strip["copy"]["ok"] and strip["paste"]["inStrip"] and strip["paste"]["ok"]):
+                    errors.append(f"Copy / Paste buttons not whole in the league strip at 390px on {tab}: {strip}")
+                if strip["over"] > 0 or strip["footerButtons"]:
+                    errors.append(f"390px {tab}: overflow {strip['over']}px, buttons left in the footer {strip['footerButtons']}")
             narrow.evaluate("() => { location.hash = '#find-trade'; }")
             narrow.click("#v2AssistPasteToggle")
             narrow.fill("#v2AssistPasteText", f"```ddf-state\n{hand}\n```")

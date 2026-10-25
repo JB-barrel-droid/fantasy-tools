@@ -57,6 +57,18 @@
         <button type="button" class="v2-btn v2-btn-primary" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
         <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
       </div>
+      <div class="v2-assist-actions" id="v2AssistActions">
+        <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
+        <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+      </div>
+    </div>
+    <div class="v2-wrap v2-assist-panel">
+      <div class="v2-assist-paste" id="v2AssistPaste" hidden>
+        <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
+        <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
+        <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
+      </div>
+      <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
     </div>
   </section>
 
@@ -827,21 +839,11 @@
     </section>
   </main>
 
-  <!-- JEG-1026: on every tab. The line is static HTML (an assistant that does not run JavaScript reads it); the buttons are
-       shown by ddf-assist.js once the page is ready. __CONNECT_URL__ is the published connect guide (build_v2_page.py). -->
+  <!-- JEG-1026: on every tab. The line is static HTML (an assistant that does not run JavaScript reads it).
+       The link is the connect guide published at connect/ (build_llm_surfaces.py; the URL is written out here so the built page embeds this file verbatim). The Copy / Paste buttons live in the league strip. -->
   <footer class="v2-assist" id="v2Assist" aria-label="ChatGPT and Claude">
     <div class="v2-wrap v2-assist-inner">
-      <p class="v2-assist-line" id="v2AssistLine">Using ChatGPT or Claude? <a class="v2-link" href="__CONNECT_URL__">Connect the tool</a></p>
-      <div class="v2-assist-actions">
-        <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
-        <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
-      </div>
-      <div class="v2-assist-paste" id="v2AssistPaste" hidden>
-        <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
-        <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
-        <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
-      </div>
-      <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
+      <p class="v2-assist-line" id="v2AssistLine">Using ChatGPT or Claude? <a class="v2-link" href="https://jb-barrel-droid.github.io/fantasy-tools/connect/">Connect the tool</a></p>
     </div>
   </footer>
 

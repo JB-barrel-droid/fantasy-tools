@@ -58,7 +58,7 @@ OG_DESCRIPTION = ("Rest-of-season trade values for your league settings, with tr
                   "where the published charts disagree with our values.")
 
 # JEG-1026: the footer line "Using ChatGPT or Claude? Connect the tool" on every tab (static HTML), linking the connect guide that
-# build_llm_surfaces.py publishes at connect/. The marker is where the footer starts in shell.html.
+# build_llm_surfaces.py publishes at connect/ (shell.html carries the same URL literally: the contract test needs the built page to embed it verbatim). The marker is where the footer starts in shell.html.
 ASSIST_FOOTER_MARKER = "<!-- JEG-1026: on every tab"
 CONNECT_URL = SITE_URL + "connect/"
 
@@ -243,7 +243,6 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
             raise SystemExit(f"build_v2_page: marker {marker!r} missing from the chart dashboard page")
     html = head_for_v2(index_html, at_root)
     html = CLASSIC_FONTS.sub("", html, count=1)
-    shell_html = shell_html.replace("__CONNECT_URL__", CONNECT_URL)
     if at_root:
         shell_html = shell_html.replace('href="v2/#', 'href="#')
     head_extra = (

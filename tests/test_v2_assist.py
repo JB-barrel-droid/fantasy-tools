@@ -28,6 +28,8 @@ class AssistBuildTest(unittest.TestCase):
             html = build_v2_page.build_v2_html(INDEX, SHELL, at_root=at_root, posts=[])
             self.assertIn(LINE, html, f"at_root={at_root}")
             self.assertNotIn("__CONNECT_URL__", html)
+        # The built page embeds shell.html verbatim (tests/test_v2_contract_render.py), so the link is written out in the shell.
+        self.assertIn(LINE, SHELL)
 
     def test_footer_is_after_the_research_tab_so_it_ends_every_tab(self):
         html = build_v2_page.build_v2_html(INDEX, SHELL, posts=[])
