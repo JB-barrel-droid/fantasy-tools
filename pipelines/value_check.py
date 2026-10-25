@@ -136,6 +136,8 @@ ENGINE_JS = """async ([settings, views, viewSeries, versions]) => {
       }
       c.setLineupSettings(m, false);
     }
+    // JEG-1044: the reader's value basis (absent = our methodology).
+    if (typeof c.setBasis === 'function') c.setBasis(s.basis || {mode: 'default'}, false);
     const id = s.id;
     let composite = null;
     try { composite = c.getCompositeInputs(); } catch (e) { composite = {error: String(e)}; }
@@ -703,6 +705,12 @@ def spec_reference_section(engine_settings: dict) -> dict:
 def cmd_compare(args) -> int:
     today = date.fromisoformat(args.today) if args.today else datetime.now(timezone.utc).date()
     setting_list = ref.settings(superflex_too=not args.no_superflex)
+    # JEG-1044: compare under a reader value basis ({"mode": "single", "source":
+    # "fantasycalc"}, {"mode": "blend", "weights": {"espn": 60, ...}}); the page
+    # runs setBasis, the reference passes the same basis. Default = ours.
+    if args.basis:
+        basis = json.loads(args.basis)
+        setting_list = [{**s, "basis": basis} for s in setting_list]
     report_path = Path(args.report)
     summary_path, engine_path, reference_path = dumps_for(report_path)
     if args.engine_json and Path(args.engine_json).exists() and not args.rerun_engine:
@@ -774,6 +782,7 @@ def main(argv=None) -> int:
     c.add_argument("--today", default=None)
     c.add_argument("--tol", type=float, default=TOL)
     c.add_argument("--no-superflex", action="store_true")
+    c.add_argument("--basis", default=None, help="JSON value basis to run both sides under (JEG-1044)")
     c.add_argument("--strict", action="store_true", help="exit 1 on any disagreement")
     c.add_argument("--report", default=str(REPORT), help="report path (dumps go beside it)")
     c.set_defaults(func=cmd_compare)

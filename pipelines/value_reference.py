@@ -137,6 +137,13 @@ def setting_id(s: dict) -> str:
     # JEG-702: the QB stepper (1 is the default and keeps the old ids).
     if int(s.get("qb", 1) or 1) != 1:
         base += f"/qb{int(s['qb'])}"
+    # JEG-1044: a non-default reader basis is part of the setting's identity.
+    basis = s.get("basis")
+    if basis and basis.get("mode") not in (None, "default"):
+        w = basis.get("weights") or {}
+        keys = basis.get("sources") or ([basis["source"]] if basis.get("source") else sorted(w))
+        base += "/basis:" + basis["mode"] + ":" + "+".join(
+            f"{k}.{w[k]}" if k in w and basis["mode"] == "blend" else str(k) for k in keys)
     lineup = s.get("lineup")
     if not lineup:
         return base
@@ -824,8 +831,12 @@ def mean_ppg(sources: dict, included: list) -> dict:
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                  selection: list | None = None, lineup: dict | None = None,
                  hidden: set | None = None, promotion_model: bool = True,
-                 flex_bench_seats: bool = True) -> dict:
+                 flex_bench_seats: bool = True, basis: dict | None = None) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
+
+    basis: JEG-1044, the reader's value basis ({"mode": "single"|"blend", ...});
+    None or mode "default" = equal-weight projections. Only the blended DDF
+    Value (and so tiers, ranking and the Indexed basis) reads it.
 
     sources: {key: SourceInput} in source-key order, every source shown (held
     and unpublished ones too); included: the keys in I; selection: the
@@ -905,7 +916,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     for d in details.values():
         _price(d, budgets, pie, timing_factor)
 
-    rows = _rows(sources, details, pos_of, inc, selection, m, hidden or set())
+    rows = _rows(sources, details, pos_of, inc, selection, m, hidden or set(), basis)
     for i, r in rows.items():
         by_src = {k: details[k]["players"][i]["lineup_share"] for k in sources
                   if i in details[k]["players"] and details[k]["players"][i]["lineup_share"] is not None}
@@ -1007,6 +1018,57 @@ def row_value(src: SourceInput, detail: dict, i: int, pos: str, field_name: str)
     return None, f"{src.label} doesn't project this player"
 
 
+def normalize_basis(cfg: dict | None, source_order: list) -> dict | None:
+    """JEG-1044: None = default; else {mode, asked, keys (source order), weights}.
+    single: one source, weight 1. blend: each named source with weight > 0
+    (a missing weight reads as 1)."""
+    if not cfg or not cfg.get("mode") or cfg["mode"] == "default":
+        return None
+    asked, weights = [], {}
+    if cfg["mode"] == "single":
+        one = cfg.get("source")
+        if one is None and cfg.get("sources"):
+            one = cfg["sources"][0]
+        if one is None:
+            return None
+        asked, weights = [str(one)], {str(one): 1.0}
+    elif cfg["mode"] == "blend":
+        named = cfg.get("sources")
+        if named is None:
+            named = list((cfg.get("weights") or {}).keys())
+        for k in named:
+            k = str(k)
+            w = float((cfg.get("weights") or {}).get(k, 1))
+            if not (w > 0) or w == float("inf") or k in weights:
+                continue
+            asked.append(k)
+            weights[k] = w
+    else:
+        return None
+    if not asked:
+        return None
+    return {"mode": cfg["mode"], "asked": asked, "keys": [k for k in source_order if k in asked],
+            "weights": weights}
+
+
+def _ddf_weighted(values: dict, keys: list, weights: dict) -> dict:
+    """VP-6.3 under a reader basis: sum(w * adjusted) / sum(w) over the sources
+    that price the player."""
+    used = [k for k in keys if values.get(k) is not None]
+    if not used:
+        return {"value": None, "count": 0, "low_confidence": False, "sources": [],
+                "reason": "No source prices this player"}
+    total = 0.0
+    wsum = 0.0
+    for k in used:
+        total += weights[k] * values[k]
+        wsum += weights[k]
+    n = len(used)
+    thin = n == 1 and len(keys) > 1   # a one-source basis is not "only one source"
+    return {"value": total / wsum, "count": n, "low_confidence": thin, "sources": used,
+            "reason": "Only one source prices this player" if thin else None}
+
+
 def _ddf(values: dict, keys: list, hidden: set | None = None) -> dict:
     # JEG-569 part 2: hidden (held) sources are excluded from the DDF blend.
     h = hidden or set()
@@ -1021,8 +1083,14 @@ def _ddf(values: dict, keys: list, hidden: set | None = None) -> dict:
 
 
 def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: dict,
-          hidden: set | None = None) -> dict:
+          hidden: set | None = None, basis: dict | None = None) -> dict:
     """VP-6.1 - 6.3: one row per player any source lists."""
+    asked = normalize_basis(basis, list(sources))
+    plan = None
+    if asked is not None:
+        usable = [k for k in asked["keys"] if k in inc and k not in (hidden or set())]
+        if usable:
+            plan = {"keys": usable, "weights": asked["weights"]}
     universe = set()
     for s in sources.values():
         universe.update(s.values)
@@ -1050,13 +1118,32 @@ def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: d
             # for the blended DDF so the Indexed basis can still be computed.
             if version == "blended" and not keys:
                 keys = [k for k in inc if (sel is None or k in sel)]
-            ddf[version] = _ddf(adj, keys, hidden)
+            if plan is not None and version == "blended":
+                ddf[version] = _ddf_weighted(adj, plan["keys"], plan["weights"])
+            else:
+                ddf[version] = _ddf(adj, keys, hidden)
         if not inc:
             for v in ddf.values():
                 v["reason"] = "No source available this week"
         rows[i] = {"pos": pos, "adjusted": adj, "vorp_vs_waivers": vorp, "estimated": est,
                    "reasons": reasons, "ddf": ddf, "mean_ppg": m.get(i), "indexed": {}}
     return rows
+
+
+def apply_value_overrides(rows: dict, overrides: dict) -> None:
+    """JEG-1035 / JEG-1044: reader DDF Value overrides, a row-level overlay
+    after the pipeline: the blended and projections values only (absolute).
+    Adjusted, Indexed, the pie and the charts-only version are untouched."""
+    for i, row in rows.items():
+        ov = overrides.get(i)
+        for name in ("blended", "projections"):
+            entry = row["ddf"][name]
+            entry["pipeline_value"] = entry["value"]
+            entry["overridden"] = ov is not None
+            if ov is not None:
+                entry["value"] = float(ov)
+                entry["low_confidence"] = False
+                entry["reason"] = None
 
 
 def _tiers(rows: dict, slot_fill: dict, m: dict) -> None:
@@ -1408,8 +1495,10 @@ class Setting:
                  position_shares: dict | None = None, selection: list | None = None,
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
-                 promotion_model: bool = True, flex_bench_seats: bool = True):
-        """lineup_settings: derive_lineup_parameters.resolve() keyword
+                 promotion_model: bool = True, flex_bench_seats: bool = True,
+                 basis: dict | None = None):
+        """basis: JEG-1044, the reader's value basis (None = default).
+        lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
         False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline).
@@ -1430,6 +1519,7 @@ class Setting:
         self.shape = {**roster(superflex), "QB": int(qb)}
         self.hist = hist
         self.selection = selection
+        self.basis = basis
         self.divergence_exclusions = divergence_exclusions or set()
         self.league = League(
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
@@ -1559,7 +1649,7 @@ class Setting:
                                          st["included"], self.selection, lineup=self.lineup,
                                          hidden=st.get("hidden"),
                                          promotion_model=self.promotion_model,
-                                         flex_bench_seats=self.flex_bench_seats)
+                                         flex_bench_seats=self.flex_bench_seats, basis=self.basis)
         return self._current
 
     def prior_result(self) -> dict | None:
@@ -1573,7 +1663,7 @@ class Setting:
                                        st["included"], self.selection, lineup=self.lineup,
                                        hidden=st.get("hidden"),
                                        promotion_model=self.promotion_model,
-                                       flex_bench_seats=self.flex_bench_seats)
+                                       flex_bench_seats=self.flex_bench_seats, basis=self.basis)
         return self._prior
 
     # -- VP-11 rows --------------------------------------------------------
@@ -1642,7 +1732,8 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
                 expected_starts=setting_spec.get("expected_starts", True),
                 divergence_exclusions=divergence_exclusions,
                 promotion_model=promotion_model,
-                flex_bench_seats=flex_bench_seats)
+                flex_bench_seats=flex_bench_seats,
+                basis=setting_spec.get("basis"))
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}
@@ -1652,6 +1743,13 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
     for version, name in DDF_VERSIONS.items():
         fam = DDF_FAMILY[name]
         inputs = [k for k in st["included"] if fam is None or FAMILY[k] == fam]
+        # JEG-1044: under a reader basis the blended version's inputs are the
+        # basis' sources in I (any family); none in I = the default.
+        asked = normalize_basis(setting_spec.get("basis"), list(SOURCES)) if name == "blended" else None
+        if asked is not None:
+            members = [k for k in st["included"] if k in asked["keys"]]
+            if members:
+                inputs = members
         excluded = {k: v for k, v in st["excluded"].items() if fam is None or FAMILY[k] == fam}
         out["composite"][version] = {"inputs": inputs, "excluded": excluded}
         if hist is None:

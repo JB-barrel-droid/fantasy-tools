@@ -27,6 +27,14 @@ if (args.indexOf("--no-promotion-model") !== -1) setting.promotion_model = false
 // --flex-bench-seats forces on, --no-flex-bench-seats forces off.
 if (args.indexOf("--flex-bench-seats") !== -1) setting.flex_bench_seats = true;
 if (args.indexOf("--no-flex-bench-seats") !== -1) setting.flex_bench_seats = false;
+// JEG-1044: --basis '<json>' is the reader's value basis ({mode, source?,
+// sources?, weights?}); --overrides '<json>' is {playerKey: value}, applied
+// to the blended and projections DDF entries after the pipeline with the same
+// ValueModel.applyDdfOverride the widget uses.
+const basisFlag = args.indexOf("--basis");
+const basisConfig = basisFlag !== -1 ? JSON.parse(args[basisFlag + 1]) : (doc.basisConfig || null);
+const ovFlag = args.indexOf("--overrides");
+const valueOverrides = ovFlag !== -1 ? JSON.parse(args[ovFlag + 1]) : {};
 // --variant <name>: a fixture variant with lineup parameters (JEG-536,
 // expected starts): its `lineup` and `setting_change` apply.
 const varFlag = args.indexOf("--variant");
@@ -44,7 +52,7 @@ Object.entries(doc.inputs || doc.sources).forEach(([key, s]) => {
 });
 const result = ValueModel.runValuePipeline({
   setting, players: doc.players, sources,
-  included: doc.included, compositeInputs: doc.compositeInputs, lineup,
+  included: doc.included, compositeInputs: doc.compositeInputs, basisConfig, lineup,
 });
 
 const intKeys = (keys) => keys.map(Number);
@@ -114,8 +122,17 @@ Object.entries(result.indexed).forEach(([src, ix]) => {
   out.indexed[src] = {factor: ix.factor, shared_players: ix.sharedPlayers, ddf_total: ix.ddfTotal,
     native_total: ix.nativeTotal, values};
 });
+Object.entries(result.rows).forEach(([k, row]) => {
+  const has = Object.prototype.hasOwnProperty.call(valueOverrides, k);
+  // (A pre-JEG-1044 engine, used to pin the default path, has no overlay.)
+  if (typeof ValueModel.applyDdfOverride !== "function") return;
+  ["blended", "projections"].forEach((v) => {
+    ValueModel.applyDdfOverride(row.ddfByVersion[v], has ? Number(valueOverrides[k]) : null);
+  });
+});
+out.basis = result.basis;
 const ddf = (e) => ({value: e.value, count: e.count, low_confidence: e.lowConfidence, sources: e.sources,
-  reason: e.reason});
+  reason: e.reason, overridden: !!e.overridden, pipeline_value: e.pipelineValue === undefined ? e.value : e.pipelineValue});
 Object.entries(result.rows).forEach(([k, row]) => {
   out.rows[k] = {name: row.name, pos: row.pos, adjusted: row.adjusted, vorp_vs_waivers: row.vorp,
     estimated: row.estimatedPath, estimated_reason: row.estimated, reasons: row.reasons,
