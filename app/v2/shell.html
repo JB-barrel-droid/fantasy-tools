@@ -247,7 +247,7 @@
       </div>
     </div>
 
-    <p class="v2-footnote">DDF Value is our value: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
+    <p class="v2-footnote">DDF Value is our value: <span data-basis-ours>the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -546,7 +546,7 @@
     <section class="v2-card v2-how-names" id="v2HowNames" aria-labelledby="v2HowNamesTitle">
       <h2 id="v2HowNamesTitle">Two numbers for every player</h2>
       <ul class="v2-how-primaries">
-        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag.</li>
+        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: <span data-basis-ours>the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag.</li>
         <li data-primary="ddf_value_charts"><b>Trade chart average</b> What the market will pay: the published trade charts, rescaled to the same scale and averaged.</li>
       </ul>
       <h3>Where the edge comes from</h3>
@@ -782,13 +782,14 @@
     </article>
   </main>
 
-  <!-- JEG-1035: value overrides. app/v2/overrides.js fills the three mounts. -->
+  <!-- JEG-1035 / JEG-1044: the basis and the player overrides. app/v2/overrides.js fills the four mounts. -->
   <main class="v2-wrap v2-main" id="v2Overrides" hidden aria-labelledby="v2OverridesTitle">
     <div class="v2-title">
-      <h1 id="v2OverridesTitle">Value overrides.</h1>
-      <p>Think a player is worth more or less? Set your own value. It replaces DDF Value on every tab.</p>
+      <h1 id="v2OverridesTitle">Overrides.</h1>
+      <p>Choose what our value means, then adjust single players. Everything here applies on every tab, right away. Our methodology is the default.</p>
     </div>
-    <section class="v2-card v2-ov-card" id="v2OvSearchBox" aria-label="Pick a player"></section>
+    <section class="v2-card v2-ov-card" id="v2OvBasis" aria-labelledby="v2OvBasisTitle"></section>
+    <section class="v2-card v2-ov-card" id="v2OvSearchBox" aria-labelledby="v2OvPlayersTitle"></section>
     <section class="v2-card v2-ov-card" id="v2OvEditor" hidden aria-labelledby="v2OvName"></section>
     <section class="v2-card v2-ov-card" id="v2OvList" aria-labelledby="v2OvListTitle"></section>
   </main>
@@ -797,6 +798,7 @@
     <div class="v2-title">
       <h1 id="v2AuditTitle">Values auditing</h1>
       <p>Check where a value comes from.</p>
+      <p class="v2-ov-warn" id="v2AuditBasisNote" role="status" hidden></p>
       <p class="v2-asof" data-page-asof></p>
     </div>
     <nav class="v2-subtabs" id="v2AuditTabs" aria-label="Values auditing views">
