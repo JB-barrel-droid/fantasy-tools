@@ -604,8 +604,8 @@ test-core:
 	python3 -m unittest tests.test_roster_convention_parity
 	python3 -m unittest tests.test_player_tags
 	python3 -m unittest tests.test_contract_qa_report
-	# Test sweep (JEG-976): engine worked-example reproduction and the Razzball outlier hold.
-	python3 -m unittest tests.test_value_pipeline_engine
+	# Test sweep (JEG-976): the Razzball outlier hold and the render-sweep coverage guard.
+	# (tests.test_value_pipeline_engine is wired into test-core by #914 / JEG-1057.)
 	python3 -m unittest tests.test_razzball_outlier_guard
 	python3 -m unittest tests.test_render_sweep_coverage
 
@@ -644,6 +644,27 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_values_tab_ux_render
 	python3 -m unittest tests.test_v2_writing_routes_render
 	python3 -m unittest tests.test_v2_finder_paste_render
+	# Render modules added on main after the sweep (wired here so the coverage guard passes; green status not yet verified).
+	python3 -m unittest tests.test_basis_overrides_render
+	python3 -m unittest tests.test_v2_all_projections_paused_render
+	python3 -m unittest tests.test_v2_finder_box_render
+	python3 -m unittest tests.test_v2_finder_chips_render
+	python3 -m unittest tests.test_v2_finder_collapse_render
+	python3 -m unittest tests.test_v2_finder_eval_render
+	python3 -m unittest tests.test_v2_finder_fit_render
+	python3 -m unittest tests.test_v2_finder_groups_render
+	python3 -m unittest tests.test_v2_finder_impact_render
+	python3 -m unittest tests.test_v2_finder_kdef_search_render
+	python3 -m unittest tests.test_v2_league_basis_render
+	python3 -m unittest tests.test_v2_league_live_render
+	python3 -m unittest tests.test_v2_league_phone_render
+	python3 -m unittest tests.test_v2_league_render
+	python3 -m unittest tests.test_v2_league_shared_roster_render
+	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_v2_mobile_phase1_render
+	python3 -m unittest tests.test_v2_optimize_caption_render
+	python3 -m unittest tests.test_v2_overrides_basis_render
+	python3 -m unittest tests.test_v2_topbar_notice_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
