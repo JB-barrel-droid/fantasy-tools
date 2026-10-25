@@ -383,7 +383,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
    height only, and the top-5 fold is checked at 1366 and 1440 (JEG-675). */
 @media (min-width: 1024px) and (max-width: 1279px) {
   .v2-ttable td.best .t-score { display: block; margin-left: 0; }
-  .v2-ttable td.t-avg .t-diff { white-space: normal; }   /* "▼ 3.3 below" may wrap rather than widen the table */
+  .v2-ttable td.t-avg .t-diff { white-space: normal; }   /* "+3.3" may wrap rather than widen the table */
 }
 @media (max-width: 1023px) {
   .v2-ttable .t-expand, .v2-ttable tr.t-detail { display: none; }

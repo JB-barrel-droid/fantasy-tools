@@ -82,7 +82,7 @@ LEVEL_LABELS = {
     "propose": {"High": "Our value: strong", "Medium": "Our value: moderate", "Low": "Our value: weak"},
     "accept": {"High": "Charts agree: strongly", "Medium": "Charts agree: mostly", "Low": "Charts agree: weakly"},
 }
-CHART_COUNT = re.compile(r"\d+ of \d+ trade charts agree")
+CHART_COUNT = re.compile(r"\d+ of \d+ charts agree")
 HARD_SELL_COPY = ("will likely see a loss",)
 
 # JEG-875/886: a second trade, opened by link, where the compared charts disagree with each
@@ -265,7 +265,7 @@ def check(snap) -> list[str]:
     # JEG-505: the two headline lines, each an answer and a level in words (and symbols), and the
     # first line's answer is the sign of DDF Value's net recomputed from the engine.
     # JEG-895: the level is named for what it measures (LEVEL_LABELS), never "confidence", and the
-    # chart count "N of M trade charts agree" is its own line, outside the level and the reasons.
+    # chart count "N of M charts agree" is its own line, outside the level and the reasons.
     heads = {h["line"]: h for h in snap["heads"]}
     if set(heads) != {"propose", "accept"} or any(h["hidden"] for h in heads.values()):
         errors.append(f"the verdict card must open with two headline lines: {snap['heads']}")

@@ -168,10 +168,10 @@ def check_snapshot(snap, give, receive, chart_keys, tag) -> list[str]:
     if "The sources split" in snap["body"]:
         errors.append(f"{tag}the old 'The sources split.' copy is back")
     if cell:
-        if not snap["read"].strip() or "Arbitrage" in snap["read"] and cell != "win|lose":
+        if not snap["read"].strip() or "charts say you lose: send it" in snap["read"] and cell != "win|lose":
             errors.append(f"{tag}read {snap['read']!r} for cell {cell}")
-        if cell == "win|lose" and "Arbitrage: send it" not in snap["read"]:
-            errors.append(f"{tag}win|lose must read 'Arbitrage: send it', got {snap['read']!r}")
+        if cell == "win|lose" and "Value win, charts say you lose: send it" not in snap["read"]:
+            errors.append(f"{tag}win|lose must read 'Value win, charts say you lose: send it', got {snap['read']!r}")
         if cell == "lose|win" and not snap["read"].startswith("Trap"):
             errors.append(f"{tag}lose|win must read 'Trap', got {snap['read']!r}")
     return errors
