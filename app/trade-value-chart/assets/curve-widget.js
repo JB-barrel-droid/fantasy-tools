@@ -942,6 +942,16 @@
   // only the DDF averaging (VP-1.5), never I, the weights or any series.
   let compositeInputs = null;
   let compositeMap = new Map();
+  // JEG-1035 (Jeremy, 2026-10-24: "select a player and say their ddf is actually a
+  // different value ... have it permeate through the full dashboard"): reader
+  // overrides of DDF Value, player_key -> value. Row-level only: the override
+  // replaces DDF Value (ddf_value and ddf_value_projections, the same series
+  // since JEG-804) on the player's row, so every view that reads rows uses it.
+  // The pipeline (Indexed factors, pie, tiers), the trade chart average
+  // (ddf_value_charts), each source's own values and the prior week are not
+  // touched. Off (empty) by default.
+  let valueOverrides = new Map();
+  const OVERRIDE_VERSIONS = ["ddf_value", "ddf_value_projections"];
   const COMPOSITE_MIN_SOURCES = 1;
   const COMPOSITE_NONE_REASON = "No source prices this player";
   const COMPOSITE_EMPTY_REASON = "No source available this week";
@@ -1110,6 +1120,22 @@
       else delete row.missingReasons[version];
       return [name, entry];
     }));
+    // JEG-1035: the reader's override, if any, replaces DDF Value on this row.
+    const override = valueOverrides.has(row.player_key) ? valueOverrides.get(row.player_key) : null;
+    OVERRIDE_VERSIONS.forEach(version => {
+      const entry = row.ddfByVersion[COMPOSITE_VERSION_NAMES[version]];
+      entry.pipelineValue = entry.value;
+      entry.overridden = override !== null;
+      if (override === null) return;
+      entry.value = override;
+      entry.reason = null;
+      entry.lowConfidence = false;
+      entry.confidenceNote = null;
+      row.values[version] = override;
+      delete row.missingReasons[version];
+    });
+    row.valueOverride = override;
+    row.ddfPipelineValue = row.ddfByVersion.blended.pipelineValue;
     const {blended: blend, charts, projections} = row.ddfByVersion;
     row.ddfCount = blend.count;
     row.ddfChartsCount = charts.count;
@@ -1130,6 +1156,18 @@
     row.lineupShare = now && Number.isFinite(now.lineupShare) ? now.lineupShare : null;
     row.startWorthy = now && Number.isFinite(now.startWorthy) ? now.startWorthy : null;
     return blend;
+  }
+  function setValueOverrides(map) {
+    const next = new Map();
+    Object.entries(map || {}).forEach(([key, value]) => {
+      const playerKey = Number(key);
+      const v = Number(value);
+      if (Number.isInteger(playerKey) && value !== null && value !== "" && Number.isFinite(v) && v >= 0) next.set(playerKey, v);
+    });
+    const same = next.size === valueOverrides.size && [...next].every(([k, v]) => valueOverrides.get(k) === v);
+    valueOverrides = next;
+    if (!same && pipeline) rebuildDomain();
+    return Object.fromEntries(valueOverrides);
   }
   function applyComposite(rows) {
     compositeMap = new Map();
@@ -2897,6 +2935,11 @@
         sharedPlayers: ix ? finite(ix.sharedPlayers) : null};
     },
     isReady: () => engineReady,
+    // JEG-1035: reader DDF Value overrides. setValueOverrides({player_key: value})
+    // replaces the whole set (empty or null clears it), rebuilds the rows and
+    // fires trade-value-rows-change; getValueOverrides() returns a copy.
+    setValueOverrides,
+    getValueOverrides: () => Object.fromEntries(valueOverrides),
     getRankSource: () => selectedRankSourceKey(),
     getActiveSources: () => activeSourceKeys(),
     getReferenceWeek: () => activeReferenceWeek(),

@@ -3,6 +3,8 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
+import { evalFinder } from "../../supabase/functions/mcp/find-trades.ts";
+import { readFileSync } from "node:fs";
 const codec = createRequire(import.meta.url)("../../app/v2/ddf-state.js");
 const ORIGIN = "https://site.test";
 const deps = { codec, siteOrigin: ORIGIN };
@@ -15,8 +17,10 @@ const players = [
   { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver" },
 ];
 let calls = [];
-const stub = async (scoring, teams, superflex) => {
+let leagues = [];
+const stub = async (scoring, teams, superflex, league) => {
   calls.push([scoring, teams, superflex]);
+  leagues.push(league);
   return {
     attribution: "Data Driven Football", as_of: "2026-10-24",
     setting: { scoring, teams, superflex }, players,
@@ -36,7 +40,7 @@ assert.equal(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialize
 assert.deepEqual((await rpc("ping")).result, {});
 r = await rpc("tools/list");
 assert.deepEqual(r.result.tools.map((t) => t.name),
-  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "explain"]);
+  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "explain"]);
 assert.ok(r.result.tools.every((t) => t.inputSchema.type === "object" && !/0-70/.test(t.description)));
 assert.equal((await rpc("nope")).error.code, -32601);
 assert.equal((await handleRpc({ foo: 1 }, stub)).error.code, -32600);
@@ -125,10 +129,11 @@ assert.deepEqual(calls.at(-1), ["standard", 8, 1]);
 await callD("get_values", { state: pasted, scoring: "ppr", limit: 1 });
 assert.deepEqual(calls.at(-1), ["ppr", 8, 1]);
 
-// A league the endpoint cannot price is said out loud, so numbers are never silently different.
+// JEG-1031: a league with shares is sent to the endpoint, not noted as unpriced.
 const custom = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, shares: { QB: 0.2, RB: 0.35, WR: 0.35, TE: 0.1 } } });
 r = await callD("get_values", { state: custom, limit: 1 });
-assert.match(r.result.content[0].text, /not applied here/);
+assert.doesNotMatch(r.result.content[0].text, /not applied here/);
+assert.deepEqual(leagues.at(-1), { shares: { QB: 0.2, RB: 0.35, WR: 0.35, TE: 0.1 } });
 assert.equal((await callD("get_values", { limit: 1 })).result.content[0].text.includes("not applied here"), false);
 
 // Work carried in a state survives a tool call that does not touch it.
@@ -194,18 +199,25 @@ assert.doesNotMatch(t, /around 70|45\+|30-45|15-30/);
 assert.match(t, /no fixed maximum/);
 r = await call("explain", { topic: "how_to_trade" });
 assert.match(r.result.content[0].text, /rule of thumb/);
-// JEG-1033: a league the endpoint fully prices must not trigger the "numbers can differ" note. make_state's
-// own output (roster has only SUPERFLEX) used to, so every round trip through the chat warned for nothing.
+// JEG-1033 / JEG-1031: a pasted league is priced by the endpoint, so no "numbers can differ" note, and the
+// settings beyond scoring/teams/superflex go to get-values as `league`.
 const sfOnly = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { SUPERFLEX: 1 } } });
 r = await callD("get_values", { state: sfOnly, limit: 1 });
-assert.doesNotMatch(r.result.content[0].text, /not applied here/);
+assert.doesNotMatch(r.result.content[0].text, /not applied here|default lineup/);
+assert.equal(leagues.at(-1), undefined);
 const ms = await callD("make_state", { scoring: "ppr", superflex: true, mine: "Josh Allen" });
 r = await callD("read_state", { state: ms.result.content[0].text });
-assert.doesNotMatch(r.result.content[0].text, /not applied here/);
-// A full roster shape is still flagged (it may differ from the default lineup).
-const fullRoster = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 6 } } });
-r = await callD("get_values", { state: fullRoster, limit: 1 });
-assert.match(r.result.content[0].text, /not applied here/);
+assert.doesNotMatch(r.result.content[0].text, /not applied here|default lineup/);
+const customLeague = { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 1, BENCH: 6 },
+  shares: { QB: 0.2, RB: 0.4, WR: 0.3, TE: 0.1 }, bso: 0.2, inj: "all", conf: 1.5, weeks: { regend: 13, playoffs: [14, 16] } };
+r = await callD("get_values", { state: codec.encodeBlock({ league: customLeague }), limit: 1 });
+assert.doesNotMatch(r.result.content[0].text, /not applied here|default lineup/);
+assert.deepEqual(calls.at(-1), ["ppr", 12, 1]);
+assert.deepEqual(leagues.at(-1), { roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 },
+  shares: customLeague.shares, bso: 0.2, inj: "all", conf: 1.5, weeks: customLeague.weeks });
+// An explicit argument still wins over the pasted state for the top-level settings.
+r = await callD("get_values", { state: codec.encodeBlock({ league: customLeague }), superflex: false, limit: 1 });
+assert.deepEqual(calls.at(-1), ["ppr", 12, 0]);
 // JEG-1029 (interim): the chat verdict says what it is, so it is not mistaken for the site's lineup-aware view.
 r = await call("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson" });
 assert.match(r.result.content[0].text, /market-value sum, not lineup-aware/);
@@ -255,15 +267,19 @@ assert.ok(r.result.content[0].text.includes("Open this on the site"), "text incl
 assert.ok(ft.mine.searched > 0, "mine searched > 0");
 assert.ok(ft.theirs.searched > 0, "theirs searched > 0");
 
-// If trades are found, each has the expected shape.
+// If trades are found, each has the viability-scored shape.
 if (ft.trades.length > 0) {
   const first = ft.trades[0];
-  assert.ok(Array.isArray(first.give) && first.give.length > 0, "give is a non-empty array");
-  assert.ok(Array.isArray(first.receive) && first.receive.length > 0, "receive is a non-empty array");
-  assert.equal(typeof first.edge, "number", "edge is a number");
-  assert.equal(typeof first.rivalOkCount, "number", "rivalOkCount is a number");
-  assert.ok(first.edge > 0, "your edge is positive (you gain)");
-  assert.ok(first.rivalOkCount >= 3, "at least 3 charts say the rival wins");
+  assert.ok(Array.isArray(first.userGives) && first.userGives.length > 0, "userGives is a non-empty array");
+  assert.ok(Array.isArray(first.userGets) && first.userGets.length > 0, "userGets is a non-empty array");
+  assert.equal(typeof first.ddfEdge, "number", "ddfEdge is a number");
+  assert.equal(typeof first.viable, "boolean", "viable is a boolean");
+  assert.ok(Array.isArray(first.checks), "checks is an array");
+  assert.equal(first.checks.length, 9, "9 viability checks");
+  assert.ok(first.ddfEdge > 0, "your edge is positive (you gain)");
+  if (first.viable) {
+    assert.ok(["High", "Med-High", "Medium"].includes(first.label), "viable offer has a label");
+  }
 }
 
 // Unmatched names are reported.
@@ -286,5 +302,18 @@ assert.match(r.result.content[0].text, /unavailable/);
 // The site link points to find-trade.
 r = await callF("find_trades", { mine: "Josh Allen", theirs: "Bijan Robinson" });
 assert.ok(r.result.structuredContent.site_url.includes("#find-trade"), "link points to find-trade view");
+
+// The edge function evals the published finder.js with no DOM. The file publishes TradeValueFinder and then runs
+// browser-only page code that throws without a document; the loader must keep the API anyway.
+{
+  const src = readFileSync(new URL("../../app/v2/finder.js", import.meta.url), "utf8");
+  assert.equal(typeof globalThis.document, "undefined", "test runs without a DOM");
+  assert.throws(() => (0, eval)(src), /document is not defined/, "the raw eval throws without a DOM");
+  delete globalThis.TradeValueFinder;
+  const loaded = evalFinder(src, eval);
+  assert.equal(typeof loaded?.findTrades, "function", "finder loads despite the browser-only tail");
+  assert.equal(evalFinder("throw new Error('boom')", eval, {}), null, "a source that never publishes the API is unavailable");
+  delete globalThis.TradeValueFinder;
+}
 
 console.log("ok");

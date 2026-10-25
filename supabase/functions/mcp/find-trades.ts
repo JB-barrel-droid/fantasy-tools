@@ -66,6 +66,27 @@ export interface Finder {
   [key: string]: any;
 }
 
+/**
+ * Evaluate the site's finder.js source and return its API. The file publishes
+ * TradeValueFinder and then keeps running browser-only page code, which throws
+ * here (no document). The API is already on the global by then, so a throw
+ * after publishing is not a failed load; a source that never publishes it is.
+ */
+export function evalFinder(
+  source: string,
+  evalFn: (code: string) => unknown,
+  // deno-lint-ignore no-explicit-any
+  g: any = globalThis,
+): Finder | null {
+  try {
+    evalFn(source);
+  } catch (e) {
+    console.error("finder.js threw after load (expected without a DOM):", String((e as Error)?.message ?? e));
+  }
+  const f = g.TradeValueFinder;
+  return f && typeof f.findTrades === "function" ? (f as Finder) : null;
+}
+
 // ---------------------------------------------------------------------------
 // findTradesForPair — the contract both tools use.
 // ---------------------------------------------------------------------------

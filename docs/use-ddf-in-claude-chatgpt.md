@@ -19,6 +19,6 @@ Plan and menu names change; check the vendor's connector docs if a step has move
 ## Limits
 
 - Public and rate limited (60 requests a minute per IP for `mcp`, 30 for `get-values`). The first call after idle can take several seconds.
-- The values endpoint prices scoring, team count and superflex. A league with a changed roster shape, position shares, season weeks or advanced settings is priced with the default lineup, and the assistant is told to say so (JEG-1029).
+- The values endpoint prices the whole league: scoring, team count, roster shape, position shares, season weeks and advanced settings (JEG-1031). A custom league is computed per request, so its first answer takes about a second.
 - Until the site reads `teams`, `mine`, `theirs` and `target` from a link (JEG-1026), a link for Find a trade or Trade targets opens the right tab but not the rosters or target.
 - No prior-week "risers and fallers" yet (JEG-1029).
