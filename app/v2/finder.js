@@ -654,7 +654,22 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   api.ui = {depthContext, marketKeys, benchWeights, sideAssessment, assessmentTable, imbalanceText: w => imbalanceText(w), biggestImbalance,
     getMine: () => S.mine.map(p => ({...p})),
     setMine: list => { S.mine = list.map(p => ({...p})); S.sel.clear(); renderBoth(); if ($("v2FindOut")) clearOutput(); },
-    onMineChange: fn => { mineListeners.push(fn); }};
+    onMineChange: fn => { mineListeners.push(fn); },
+    // JEG-1026: a DDF state (a pasted block or a link) sets both rosters at once. Undo puts back what was there; the page text each
+    // side was read from is dropped (these players did not come from it), so a league-settings re-read does not overwrite them.
+    getTheirs: () => S.theirs.map(p => ({...p})),
+    setSides: (mine, theirs) => {
+      snapshot();
+      const have = new Set(mine.map(p => p.key));
+      S.mine = mine.map(p => ({...p}));
+      S.theirs = theirs.filter(p => !have.has(p.key)).map(p => ({...p}));
+      S.src = {mine: null, theirs: null};
+      S.label = {mine: "", theirs: ""};
+      S.sel.clear();
+      renderBoth();
+      if ($("v2FindOut")) clearOutput();
+      return {bothSides: theirs.filter(p => have.has(p.key)).map(p => p.name)};
+    }};
 
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
