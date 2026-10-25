@@ -120,13 +120,10 @@ def check_chips(chips: list[dict], where: str, place: str, allow_link: bool, exp
         if c["title"] != MESSAGES[src] or MESSAGES[src] not in c["aria"]:
             errors.append(f"[{where}] {src}: tooltip {c['title']!r} / name {c['aria']!r}, want the published message")
         linked = c["tag"] == "A"
-        if src == "fantasypros":
-            if allow_link and (not linked or c["href"] != "https://linear.app/jegabee/issue/JEG-123"):
-                errors.append(f"[{where}] reviewed chip should link to the resolution issue: {c['tag']} {c['href']!r}")
-            if not allow_link and linked:
-                errors.append(f"[{where}] a link inside a column-header button: {c['href']!r}")
-        elif linked:
-            errors.append(f"[{where}] {src}: only a reviewed chip links")
+        # Jeremy, 2026-10-25: the live dashboard has no links to Linear, and the fixture's resolution issue is a
+        # Linear ticket, so no chip links anywhere (it used to link the reviewed chip to the ticket).
+        if linked:
+            errors.append(f"[{where}] {src}: a chip must not link (Linear ticket ids are not linked): {c['href']!r}")
         if c["inButton"] and linked:
             errors.append(f"[{where}] {src}: interactive chip inside a button")
     return errors

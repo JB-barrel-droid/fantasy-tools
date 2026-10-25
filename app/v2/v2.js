@@ -181,10 +181,11 @@
   // link is allowed, links to the resolution issue. It sits where the prior-week badge sits, never hides a
   // source and never blocks anything. Own value series (Data Driven Football) and VORP columns carry none.
   let divergence = {};
+  // Jeremy, 2026-10-25: the live dashboard has no links to Linear. A bare ticket id or a linear.app URL is internal
+  // bookkeeping, so only a public http(s) page can be linked.
   const resolutionHref = issue => {
     const text = String(issue || "").trim();
-    if (/^https?:\/\//.test(text)) return text;
-    return /^[A-Z]+-\d+$/.test(text) ? `https://linear.app/jegabee/issue/${text}` : "";
+    return /^https?:\/\//.test(text) && !/^https?:\/\/([^/]+\.)?linear\.app(\/|$)/i.test(text) ? text : "";
   };
   function divergenceChip(key, opts) {
     const publisher = sourceMeta(key).publisher;
