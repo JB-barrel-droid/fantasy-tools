@@ -1129,8 +1129,8 @@ def gl08(S):
 
 def gl09(S):
     """GL-09 (JEG-542): the two pickable DDF Value versions are offered everywhere; blended is on, the other off.
-    JEG-863: ddf_value_projections is hidden from all pickers (sameAs ddf_value), so only 2 versions are pickable."""
-    versions = ["ddf_value", "ddf_value_charts"]   # JEG-863: ddf_value_projections hidden (sameAs ddf_value)
+    JEG-1073: ddf_value_charts is hidden from all pickers (sameAs ddf_value), so DDF Value and the projections alternate are pickable."""
+    versions = ["ddf_value", "ddf_value_projections"]   # JEG-1073: ddf_value_charts hidden (sameAs ddf_value)
     v, t = S["values"]["s0"], S["tabs"]
     errors = []
     on = [k for k in versions if k in v["shown"]]
@@ -1142,11 +1142,11 @@ def gl09(S):
         missing = [k for k in versions if k not in options]
         if missing:
             errors.append(f"{where} does not offer {missing}")
-    # ddf_value_projections must NOT appear in pickers (it's the hidden duplicate).
+    # ddf_value_charts must NOT appear in pickers (it's the hidden duplicate).
     for where, options in (("Rank by", v["rankOptions"]),
                            ("Trade targets' Our value", t["targets"]["oursOptions"])):
-        if "ddf_value_projections" in options:
-            errors.append(f"{where} still shows ddf_value_projections (should be hidden via sameAs)")
+        if "ddf_value_charts" in options:
+            errors.append(f"{where} still shows ddf_value_charts (should be hidden via sameAs)")
     return errors
 
 
@@ -1794,9 +1794,10 @@ def gl07_partial(S):
                 errors.append(f"{tab}: Customize group {gid!r} is {g and g['title']!r}, want {title!r}")
             elif not re.match(r"Select (all|none)$", g["call"].strip()):
                 errors.append(f"{tab}: group {title!r} has no Select all / none ({g['call']!r})")
-        # JEG-863: ddf_value_projections hidden from pickers (sameAs ddf_value); only 2 pickable versions.
-        if c["versions"] != ["ddf_value", "ddf_value_charts"]:
-            errors.append(f"{tab}: DDF Value versions in Customize {c['versions']}, want 2 (ddf_value_projections hidden)")
+        # JEG-1073: ddf_value_charts is hidden from pickers (sameAs ddf_value: DDF Value is the Adjusted chart average);
+        # the pickable versions are DDF Value and the projections alternate.
+        if c["versions"] != ["ddf_value", "ddf_value_projections"]:
+            errors.append(f"{tab}: DDF Value versions in Customize {c['versions']}, want 2 (ddf_value_charts hidden)")
         for b in ("Reset to default", "Done", "Cancel"):
             if b not in c["footer"]:
                 errors.append(f"{tab}: Customize has no {b!r} button")
