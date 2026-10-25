@@ -668,6 +668,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
+	python3 -m unittest tests.test_v2_inputs_status_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
