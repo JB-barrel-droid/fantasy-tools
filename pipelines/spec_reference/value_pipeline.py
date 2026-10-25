@@ -733,11 +733,12 @@ def ddf_version(values: dict, members: list, weights: dict | None = None) -> dic
 def apply_value_overrides(rows: dict, overrides: dict) -> None:
     """JEG-1035 / JEG-1044: the reader's per-player DDF Value overrides, a
     row-level overlay applied after the pipeline. It replaces the blended and
-    projections DDF values only; Adjusted values, Indexed values, the pie and
-    the charts-only version are never touched. Absolute values."""
+    DDF value only (JEG-1073: the projections version is a separate alternate);
+    Adjusted values, Indexed values, the pie and the charts-only and projections
+    versions are never touched. Absolute values."""
     for k, row in rows.items():
         ov = overrides.get(k)
-        for field_ in ("ddf_blended", "ddf_projections"):
+        for field_ in ("ddf_blended",):
             entry = row[field_]
             entry["pipeline_value"] = entry["value"]
             entry["overridden"] = ov is not None
@@ -830,12 +831,11 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     # JEG-569 part 2 / JEG-787: hidden sources are in `inc` (so they count in
     # allocation, weights and pie) but excluded from the DDF Value blend and
     # the Indexed basis, matching value-model.js isHidden.
-    # JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
-    # only.  Trade charts are out of the blended DDF Value.
+    # JEG-1073 (Jeremy, 2026-10-25): DDF Value = the Adjusted trade charts,
+    # equal weight; the projections version is the alternate. Reverses JEG-804.
     proj_members = [s for s in inc if s not in hidden_set and family[s] == PROJECTION and (sel is None or s in sel)]
-    # JEG-863 (Jeremy, 2026-10-23, option B): no fallback to charts. When no
-    # projection source is included, DDF Value is unavailable (null).
-    blended_members = proj_members
+    # No fallback to the other family: with no chart in I, DDF Value is null.
+    blended_members = [s for s in inc if s not in hidden_set and family[s] == CHART and (sel is None or s in sel)]
     blend_weights = None
     asked = normalize_basis(basis, list(sources))
     basis_out = None
@@ -930,7 +930,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     budgets = {g: pie * W[g] for g in GROUP_KEYS}
     # ES-14 readout (SA-ES-5): bench tier = ranks S_p+1..N_p of the
     # projected-points order; value = blended DDF Value over I, no selection.
-    # JEG-804: uses the blended DDF Value (now projections-only), matching
+    # JEG-1073: uses the blended DDF Value (now the chart average), matching
     # the engine's indexBasis.
     readout = None
     if not degenerate:
