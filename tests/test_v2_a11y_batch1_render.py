@@ -1,7 +1,7 @@
 """A11y batch 1 (JEG-896, JEG-898, JEG-902), rendered.
 
-  * JEG-896: in Customize, the "DDF blend" tab is reached by ArrowRight / End and left by ArrowLeft / Home
-    (ARIA tabs pattern), with roving tabindex kept.
+  * JEG-896 (retired, JEG-1044): the Customize "DDF blend" tab and its arrow-key checks are gone with the tab
+    (Jeremy 2026-10-24). The open Customize dialog still names itself in document.title (checked below).
   * JEG-898: document.title names the view, the Writing / Values auditing section and an open modal dialog.
   * JEG-902: computed-style contrast. Rank value cells and the Y-axis toggle >= 4.5:1 in light and dark
     (alpha composited), field / button borders >= 3:1 against the page, nav focus ring >= 3:1 on the nav bar.
@@ -82,7 +82,7 @@ TITLES = {
 }
 
 
-def run_checks(v2_js=None, v2_css=None, only=("tabs", "titles", "contrast")) -> list[str]:
+def run_checks(v2_js=None, v2_css=None, only=("dialog", "titles", "contrast")) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -120,21 +120,9 @@ def run_checks(v2_js=None, v2_css=None, only=("tabs", "titles", "contrast")) -> 
                     errors += [f"{tag}expanded {e}" for e in page.evaluate(TEXT_CONTRAST)]
                     page.keyboard.press("Escape")
                     page.wait_for_timeout(200)
-                if "tabs" in only and scheme == "light":
+                if "dialog" in only and scheme == "light":
                     page.click("#v2EditSources")
-                    page.wait_for_selector("#v2CustTab-lines")
-                    page.focus("#v2CustTab-lines")
-                    steps = [("ArrowRight", "v2CustTab-blend", "false,true"), ("ArrowLeft", "v2CustTab-lines", "true,false"),
-                             ("End", "v2CustTab-blend", "false,true"), ("Home", "v2CustTab-lines", "true,false"),
-                             ("ArrowLeft", "v2CustTab-blend", "false,true")]
-                    for key, want_id, want_sel in steps:
-                        page.keyboard.press(key)
-                        got = page.evaluate("() => [document.activeElement.id, ['v2CustTab-lines','v2CustTab-blend'].map(i => document.getElementById(i).getAttribute('aria-selected')).join(','), "
-                                            "['v2CustTab-lines','v2CustTab-blend'].map(i => document.getElementById(i).tabIndex).join(',')]")
-                        if got[0] != want_id or got[1] != want_sel:
-                            errors.append(f"{tag}{key}: focus {got[0]!r} selected {got[1]!r}, wanted {want_id!r} {want_sel!r}")
-                        if sorted(got[2].split(",")) != ["-1", "0"]:
-                            errors.append(f"{tag}{key}: roving tabindex broken {got[2]}")
+                    page.wait_for_selector("#v2Popover")
                     title = page.title()
                     if not title.startswith("Customize values · Player values"):
                         errors.append(f"{tag}dialog title {title!r}")
@@ -154,14 +142,13 @@ def run_checks(v2_js=None, v2_css=None, only=("tabs", "titles", "contrast")) -> 
 
 
 class A11yBatch1Test(unittest.TestCase):
-    def test_tabs_titles_contrast(self):
+    def test_dialog_titles_contrast(self):
         self.assertEqual(run_checks(), [])
 
     def test_guard_fails_on_broken_builds(self):
         js = V2_JS.read_text(encoding="utf-8")
         css = V2_CSS.read_text(encoding="utf-8")
         broken = {
-            "no arrow keys": ({"v2_js": js.replace('const to = event.key === "ArrowRight" ?', 'const to = event.key === "NeverRight" ?', 1)}, ("tabs",)),
             "title never set": ({"v2_js": js.replace("document.title = parts", "void parts", 1)}, ("titles",)),
             "rank text reverted": ({"v2_css": css.replace("background: var(--v2-hover-rank); color: var(--v2-action-strong); }", "background: var(--v2-hover-rank); }", 1)}, ("contrast",)),
             "field border reverted": ({"v2_css": css.replace("border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn);\n  padding: 10px 14px;",

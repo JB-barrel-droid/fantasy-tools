@@ -80,9 +80,15 @@ HELPERS = """
   };
   const near = (a, b) => (a === null || a === undefined) ? (b === null || b === undefined) : (b !== null && b !== undefined && Math.abs(a - b) <= 1e-9);
   const isDdf = k => VERSIONS.includes(k);
-  const others = () => JSON.stringify(c.getAllRows().map(r => {
-    const v = {...r.values}; VERSIONS.forEach(k => delete v[k]); return [r.player_key, v];
+  // JEG-1044: Indexed follows the reader's basis, so a basis change legitimately moves the trade charts' Indexed
+  // series. others() is every non-DDF series; othersNoCharts() drops those four for the "nothing else moved" rule.
+  const CHART_SERIES = ['fantasycalc', 'usatoday', 'fantasypros', 'cbs'];
+  const others = (skip = []) => JSON.stringify(c.getAllRows().map(r => {
+    const v = {...r.values}; VERSIONS.concat(skip).forEach(k => delete v[k]); return [r.player_key, v];
   }));
+  const othersNoCharts = () => others(CHART_SERIES);
+  // The Adjusted tab does not follow the basis (VP-5.5), so there every non-DDF series must stay put.
+  const adjOthers = () => { const was = activeView(); if (was !== 'adj') view('adj'); const o = others(); if (was !== 'adj') view(was); return o; };
   const ddf = () => JSON.stringify(c.getAllRows().map(r => [r.player_key, r.ddfTier, r.ddfPrior, r.ddfByVersion]));
   // A source's Adjusted value: its value on the Adjusted tab's row (VP-11).
   const seriesValue = (adjRow, s) => adjRow.values[s];
@@ -164,14 +170,16 @@ SETTER = """async () => {""" + HELPERS + """
   const events = {rows: 0, shared: []};
   window.addEventListener('trade-value-rows-change', () => { events.rows += 1; });
   window.addEventListener('trade-value-shared-change', e => { events.shared.push(e.detail.compositeInputs); });
-  const baseOthers = others(), baseDdf = ddf();
+  const baseOthers = others(), baseOthersNoCharts = othersNoCharts(), baseAdj = adjOthers(), baseDdf = ddf();
   out.set = c.setCompositeInputs(['cbsros', 'espn', 'espn']);
   // Two projections: players only one of them projects exercise the
   // one-source rule (JEG-508: every chart prices every rosterable player, so
   // the full blend rarely has a one-source player).
   out.subsetShort = checkMean('subset', out.problems).short;
   out.subsetMoved = ddf() !== baseDdf;
-  out.othersSame = others() === baseOthers;
+  out.othersSame = othersNoCharts() === baseOthersNoCharts;
+  out.adjSame = adjOthers() === baseAdj;
+  out.indexedFollowsBasis = activeView() !== 'indexed' || others() !== baseOthers;
   out.eventsAfterSet = JSON.parse(JSON.stringify(events));
   out.get = c.getCompositeInputs();
   const before = ddf();
@@ -568,14 +576,16 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["set"]["inputs"], ["espn", "cbsros"])
         self.assertFalse(out["set"]["isDefault"])
         self.assertTrue(out["subsetMoved"])
-        self.assertTrue(out["othersSame"], "a DDF Value input change moved another series")
+        self.assertTrue(out["othersSame"], "a DDF Value input change moved another series (other than the charts' Indexed series)")
+        self.assertTrue(out["adjSame"], "a DDF Value input change moved an Adjusted-tab series")
+        self.assertTrue(out["indexedFollowsBasis"], "JEG-1044: Indexed should follow the basis, but no Indexed series moved")
         self.assertGreater(out["subsetShort"], 0, "no player has one source, so the one-source rule went untested")
         self.assertGreaterEqual(out["eventsAfterSet"]["rows"], 1)
         self.assertEqual(out["eventsAfterSet"]["shared"], [["espn", "cbsros"]])
-        # v2 contract: a deselected input's reason is exactly "not selected"
-        # (the only reason v2 lets a reader re-tick).
+        # v2 contract: a deselected input's reason is exactly one string (the only reason v2 lets a reader
+        # re-tick). JEG-1044 renamed it "not selected" -> "not in your basis" (no v2 code reads the string).
         self.assertEqual({e["key"]: e["reason"] for e in out["get"]["excluded"]},
-                         {k: "not selected" for k in INPUTS if k not in ("espn", "cbsros")})
+                         {k: "not in your basis" for k in INPUTS if k not in ("espn", "cbsros")})
         for refused in out["invalid"]:
             self.assertFalse(refused["ok"], refused)
             self.assertIn("error", refused)

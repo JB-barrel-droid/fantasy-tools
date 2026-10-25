@@ -2,8 +2,8 @@
 
 Headless against a temp copy of dist/ with the pinned holds (tests/_holds.py: CBS held) and source_divergence
 putting CBS inside its usual range (the state that drew the check next to "Paused this week" on the live site,
-build tv-20261022-2012-1795eb2, FantasyCalc). Two cases, checked on Customize > Chart lines (since JEG-804 the DDF blend
-tab lists projections only, and the test requires that no trade chart row or chip is there):
+build tv-20261022-2012-1795eb2, FantasyCalc). Two cases, checked on Customize > Chart lines (JEG-1044: the DDF blend tab is gone from
+Customize; the test requires no tab there and that Overrides' picker marks the held source as paused):
 
   * red hold (the pinned hold, no hold_level): no `.v2-ok-mark` anywhere on CBS; the chip reads "Paused" (glyph next
     to the row's "Paused this week" note), data-status "held";
@@ -84,7 +84,7 @@ def _served(level):
 
 
 def read_chips(level, v2_js=None) -> dict:
-    """{'page': chips on Player values, 'lines': Customize Chart lines chips, 'blend': DDF blend chips, 'errors': [...]}"""
+    """{'page': chips on Player values, 'lines': Customize Chart lines chips, 'picker'/'blend_rows': Overrides, 'errors': [...]}"""
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -109,27 +109,39 @@ def read_chips(level, v2_js=None) -> dict:
             page.click("#v2EditSources")
             page.wait_for_timeout(600)
             out["lines"] = [c for c in page.evaluate(CHIPS) if c["where"] == "customize"]
-            page.click("#v2Popover [role=tab]:nth-of-type(2)")
-            page.wait_for_timeout(400)
-            out["blend"] = [c for c in page.evaluate(CHIPS) if c["where"] == "customize"]
-            out["blend_text"] = page.evaluate("() => document.querySelector('#v2Popover').innerText")
+            # JEG-1044: the DDF blend tab is gone from Customize. The sources and their holds are on Overrides.
+            out["tabs"] = page.evaluate("() => document.querySelectorAll('#v2Popover [role=tab], #v2Popover [data-ddf-input]').length")
+            out["customize_text"] = page.evaluate("() => document.querySelector('#v2Popover').innerText")
+            page.keyboard.press("Escape")
+            page.evaluate("() => { location.hash = '#value-overrides'; }")
+            page.wait_for_selector("#v2OvPresets")
+            page.click('#v2OvPresets [data-preset="blend"]')
+            page.wait_for_selector("#v2OvOn-espn")
+            out["picker"] = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('#v2OvPresets [role=radio]')]
+              .map(b => [b.dataset.preset, {disabled: b.getAttribute('aria-disabled') === 'true', title: b.title}]))""")
+            out["blend_rows"] = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('.v2-ov-wrow')]
+              .map(r => [r.dataset.sourceRow, {paused: r.classList.contains('is-paused'), text: r.textContent}]))""")
         finally:
             browser.close()
     return out
 
 
-CHART_LABELS = ("USA Today", "FantasyCalc", "FantasyPros", "CBS Sports")
-
-
 def problems(got, level) -> list[str]:
     errors = list(got["errors"])
-    # JEG-804 (#814, Jeremy 2026-10-22 "Out of DDF Value"): the DDF blend tab lists projections only, so no trade chart
-    # (held or open) has a row or a chip there; the chart chips are on Chart lines.
-    charts_in_blend = [label for label in CHART_LABELS if label in got["blend_text"]]
-    if charts_in_blend or got["blend"]:
-        errors.append(f"[blend] trade charts are not DDF Value inputs, yet the blend tab shows {charts_in_blend or got['blend']}")
-    if "Projections" not in got["blend_text"]:
-        errors.append(f"[blend] the blend tab does not list the projection inputs: {got['blend_text'][:200]!r}")
+    # JEG-1044 (Jeremy 2026-10-24): Customize has no blend tab any more; a held source is marked on the Overrides picker
+    # instead (preset disabled, its blend row "Paused this week"). Held-chip chips themselves stay on Chart lines.
+    if got["tabs"]:
+        errors.append(f"[customize] the DDF blend tab or its inputs are back ({got['tabs']} controls)")
+    held_preset = got["picker"].get(f"single:{HELD}")
+    held_row = got["blend_rows"].get(HELD)
+    if level == "red":
+        if not held_preset or not held_preset["disabled"] or "Paused this week" not in held_preset["title"]:
+            errors.append(f"[picker] a red-held source is still pickable as a basis: {held_preset}")
+        if not held_row or not held_row["paused"] or "Paused this week" not in held_row["text"]:
+            errors.append(f"[picker] a red-held source's blend row does not say 'Paused this week': {held_row}")
+    open_preset = got["picker"].get("single:fantasypros")
+    if not open_preset or open_preset["disabled"]:
+        errors.append(f"[picker] an open source (FantasyPros) is not pickable as a basis: {open_preset}")
     for where in ("lines",):
         held = [c for c in got[where] if c["src"] == HELD]
         if not held:
@@ -171,13 +183,16 @@ class HeldChipRenderTest(unittest.TestCase):
     def test_amber_hold_shows_the_lag_flag_not_the_check(self):
         self.assertEqual(check("amber"), [])
 
-    def test_guard_fails_when_a_chart_is_in_the_blend_tab(self):
-        """A chart row or chip in the blend tab (the pre-JEG-804 shape) is reported."""
+    def test_guard_fails_when_the_blend_tab_returns_or_the_hold_is_unmarked(self):
+        """A blend tab back in Customize, or a held source unmarked on the Overrides picker, is reported."""
         for level in ("red", "amber"):
             got = read_chips(level)
             self.assertEqual(problems(got, level), [], "premise: the unmodified page is clean")
-            self.assertTrue(problems({**got, "blend_text": got["blend_text"] + "\nCBS Sports"}, level), level)
-            self.assertTrue(problems({**got, "blend": got["lines"]}, level), level)
+            self.assertTrue(problems({**got, "tabs": 2}, level), level)
+        got = read_chips("red")
+        unmarked = {**got["picker"], f"single:{HELD}": {"disabled": False, "title": ""}}
+        self.assertTrue(problems({**got, "picker": unmarked}, "red"))
+        self.assertTrue(problems({**got, "blend_rows": {**got["blend_rows"], HELD: {"paused": False, "text": "CBS"}}}, "red"))
 
     def test_guard_fails_on_broken_build(self):
         v2 = V2_JS.read_text(encoding="utf-8")
