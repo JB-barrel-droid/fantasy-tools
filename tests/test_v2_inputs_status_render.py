@@ -105,6 +105,43 @@ class InputsStatusRender(unittest.TestCase):
             self.assertIn("league-default", notes(page))
             self.assertEqual(b.errors, [])
 
+    def test_strip_is_one_slim_line_on_desktop_and_phone_safe(self):
+        """JEG-1084: the strip was 45 px and pushed Compare's trade boxes below the 1366x768 fold. Desktop: one line
+        of at most 32 px (the design is about 28), the note is whole (not cut with an ellipsis) and both actions are
+        on that line. Phone (390): it may wrap, nothing overflows sideways and each action is a 44 px tap target."""
+        measure = """() => {
+          const note = document.querySelector('#v2InputsStatus [data-note="league-default"]');
+          const text = note.querySelector('.v2-inputs-text');
+          const box = note.getBoundingClientRect();
+          return {height: box.height, top: box.top, cut: text.scrollWidth > text.clientWidth + 1,
+            textHeight: text.getBoundingClientRect().height,
+            buttons: [...note.querySelectorAll('button')].map(b => {
+              const r = b.getBoundingClientRect();
+              return {label: b.textContent.trim(), h: r.height, w: r.width, top: r.top, bottom: r.bottom};
+            }),
+            overflow: document.documentElement.scrollWidth - innerWidth};
+        }"""
+        with Browser() as b:
+            b.page.set_viewport_size({"width": 1366, "height": 768})
+            page = b.open("#compare-trade")
+            got = page.evaluate(measure)
+            self.assertLessEqual(got["height"], 32, f"the strip must be one slim line at 1366 wide: {got}")
+            self.assertFalse(got["cut"], f"the note text is cut off at 1366: {got}")
+            self.assertEqual([x["label"] for x in got["buttons"]], ["Edit league", "Dismiss"])
+            for x in got["buttons"]:
+                self.assertGreaterEqual(x["top"], got["top"] - 0.5)
+                self.assertLessEqual(x["bottom"], got["top"] + got["height"] + 0.5, f"{x['label']} is off the strip line: {got}")
+            self.assertEqual(got["overflow"], 0)
+
+            b.page.set_viewport_size({"width": 390, "height": 844})
+            page = b.open("#compare-trade")
+            got = page.evaluate(measure)
+            self.assertLessEqual(got["overflow"], 0, f"the strip overflows sideways at 390: {got}")
+            for x in got["buttons"]:
+                self.assertGreaterEqual(x["h"], 44, f"{x['label']} is under 44 px tall at 390: {got}")
+                self.assertGreaterEqual(x["w"], 44)
+            self.assertEqual(b.errors, [])
+
     def test_shared_link_settings_are_flagged_and_not_saved(self):
         with Browser() as b:
             page = b.open("#compare-trade?scoring=standard&roster=QB1.RB2.WR3.TE1.FLEX2.SF1.BN7")

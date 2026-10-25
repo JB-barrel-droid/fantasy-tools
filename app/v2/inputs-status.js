@@ -112,7 +112,7 @@
     const shown = notesFor(snapshot()).filter(n => !dismissed[n.id]);
     box.replaceChildren(...shown.map(n => el("div", {class: `v2-inputs-note is-${n.level}${n.quiet ? " is-quiet" : ""}`, "data-note": n.id}, [
       el("div", {class: "v2-wrap v2-inputs-in"}, [
-        el("span", {class: "v2-inputs-text", text: n.text}),
+        el("span", {class: "v2-inputs-text", title: n.text, text: n.text}),
         ...(n.edit ? [el("button", {type: "button", class: "v2-btn v2-btn-quiet", text: "Edit league",
           onclick: () => { const b = $("v2EditLeague"); if (b) b.click(); }})] : []),
         ...(n.link ? [el("a", {class: "v2-link", href: n.link.href, text: n.link.label})] : []),

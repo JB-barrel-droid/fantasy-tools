@@ -116,6 +116,12 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* League bar */
 .v2-league { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
 .v2-league-inner { display: flex; align-items: center; gap: 24px; min-height: 64px; flex-wrap: wrap; }
+/* JEG-1084: with the Copy / Paste buttons (JEG-1026) the row no longer fits one line in a wide fallback face (DejaVu Sans
+   on GitHub's runner), and the second 68 px row pushed Compare's trade boxes past the 1366x768 fold. The roster line has
+   a small flex-basis so the row breaks only when the buttons cannot fit; it then wraps inside its own cell. */
+/* Jeremy, 2026-10-25 ("Trim the league row height"): from 768 px the row shrinks to its content (44 px buttons plus
+   6 px above and below) instead of holding a 64 px minimum, which saves 8 px on every tab. */
+@media (min-width: 768px) { .v2-league-inner > .v2-meta { flex: 1 1 120px; min-width: 0; } .v2-league-inner { min-height: 0; padding-block: 6px; } }
 
 /* Buttons and fields */
 .v2-app .v2-btn { border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
@@ -1944,6 +1950,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-inputs-note { background: var(--v2-rank-tint); border-bottom: 1px solid var(--v2-border); }
 .v2-inputs-note.is-info { background: var(--v2-surface); }
 .v2-inputs-note.is-quiet .v2-inputs-text { color: var(--v2-muted); }
-.v2-inputs-in { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding-block: 6px; margin-inline: auto; }
-.v2-inputs-text { flex: 1 1 32ch; }
-.v2-app .v2-inputs-note .v2-btn { min-height: 32px; padding: 4px 12px; }
+/* JEG-1084: one slim line (about 28 px) on desktop so Compare's trade boxes stay above the 1366x768 fold (the strip was
+   45 px and pushed them to y=775 / 792 in the CI font). The text gives way with an ellipsis (the full note is in its
+   title) before the strip wraps; phones may wrap and keep 44 px buttons. */
+.v2-inputs-in { display: flex; align-items: center; flex-wrap: nowrap; gap: 12px; padding-block: 1px; margin-inline: auto; font-size: 13px; line-height: 20px; }
+.v2-inputs-text { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-inputs-in .v2-link { flex: none; white-space: nowrap; }
+.v2-app .v2-inputs-note .v2-btn { flex: none; min-height: 24px; padding: 0 10px; font-size: 12px; line-height: 20px; white-space: nowrap; }
+@media (max-width: 767px) {
+  .v2-inputs-in { flex-wrap: wrap; gap: 4px 12px; padding-block: 6px; }
+  .v2-inputs-text { flex: 1 1 100%; overflow: visible; white-space: normal; }
+  .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
+  .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
+}
