@@ -375,7 +375,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -4873,7 +4873,7 @@
     // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
     if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
     else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
-    appendDivergence(sub, key);
+    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; the legend keeps the link
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
@@ -5703,37 +5703,44 @@
   // is assumed to be in the same league). Team count is not carried yet.
   const LINK_ROSTER = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["FLEX", "FLEX"], ["SUPERFLEX", "SF"], ["BENCH", "BN"]];
   const LINK_SCORING = ["standard", "half_ppr", "ppr"];
+  // The league settings a shared link carries (scoring, roster, position shares, season weeks, advanced); JEG-1022: the
+  // Waivers link carries the same ones.
+  function leagueLinkParts() {
+    const parts = [];
+    const shape = C.getRosterShape();
+    parts.push(`scoring=${C.getState().scoring}`);
+    parts.push(`roster=${LINK_ROSTER.map(([key, code]) => `${code}${shape[key] || 0}`).join(".")}`);
+    // Position shares only when the sender changed them (back end: encode when not default).
+    const shares = C.getPositionWeights();
+    const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
+    const custom = defaults && ["QB", "RB", "WR", "TE"].some(pos => Math.abs(Number(shares[pos]) - Number(defaults[pos])) > 5e-4);
+    if (custom) parts.push(`shares=${["QB", "RB", "WR", "TE"].map(pos => `${pos}${Number(shares[pos]).toFixed(3)}`).join("_")}`);
+    // JEG-527: season weeks only when they differ from the defaults (a default link stays short).
+    const w = seasonWeeksState(false);
+    const d = w && seasonWeeksState(true);
+    if (w) {
+      if (w.regularEnd !== d.regularEnd) parts.push(`regend=${w.regularEnd}`);
+      if (w.playoffLo !== d.playoffLo || w.playoffHi !== d.playoffHi) parts.push(`playoffs=${w.playoffLo}-${w.playoffHi}`);
+      if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
+      if (w.content !== w.build) parts.push(`week=${w.content}`);
+    }
+    // JEG-537: the advanced settings, only when they differ from the defaults (bso: 3 decimals; absent = off).
+    const adv = advancedState(false);
+    const advDefaults = adv && advancedState(true);
+    if (adv) {
+      if (adv.injuryHistory !== advDefaults.injuryHistory) parts.push(`inj=${adv.injuryHistory}`);
+      if (adv.projectionConfidence !== advDefaults.projectionConfidence) parts.push(`conf=${adv.projectionConfidence}`);
+      if (adv.benchShareOverride !== null) parts.push(`bso=${Number(adv.benchShareOverride).toFixed(3)}`);
+    }
+    return parts;
+  }
   function tradeHash() {
     const keys = side => TR[side].map(p => encodeURIComponent(p.key)).join(",");
     const parts = [];
     if (TR.give.length) parts.push(`give=${keys("give")}`);
     if (TR.receive.length) parts.push(`get=${keys("receive")}`);
     if (parts.length) {
-      const shape = C.getRosterShape();
-      parts.push(`scoring=${C.getState().scoring}`);
-      parts.push(`roster=${LINK_ROSTER.map(([key, code]) => `${code}${shape[key] || 0}`).join(".")}`);
-      // Position shares only when the sender changed them (back end: encode when not default).
-      const shares = C.getPositionWeights();
-      const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
-      const custom = defaults && ["QB", "RB", "WR", "TE"].some(pos => Math.abs(Number(shares[pos]) - Number(defaults[pos])) > 5e-4);
-      if (custom) parts.push(`shares=${["QB", "RB", "WR", "TE"].map(pos => `${pos}${Number(shares[pos]).toFixed(3)}`).join("_")}`);
-      // JEG-527: season weeks only when they differ from the defaults (a default link stays short).
-      const w = seasonWeeksState(false);
-      const d = w && seasonWeeksState(true);
-      if (w) {
-        if (w.regularEnd !== d.regularEnd) parts.push(`regend=${w.regularEnd}`);
-        if (w.playoffLo !== d.playoffLo || w.playoffHi !== d.playoffHi) parts.push(`playoffs=${w.playoffLo}-${w.playoffHi}`);
-        if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
-        if (w.content !== w.build) parts.push(`week=${w.content}`);
-      }
-      // JEG-537: the advanced settings, only when they differ from the defaults (bso: 3 decimals; absent = off).
-      const adv = advancedState(false);
-      const advDefaults = adv && advancedState(true);
-      if (adv) {
-        if (adv.injuryHistory !== advDefaults.injuryHistory) parts.push(`inj=${adv.injuryHistory}`);
-        if (adv.projectionConfidence !== advDefaults.projectionConfidence) parts.push(`conf=${adv.projectionConfidence}`);
-        if (adv.benchShareOverride !== null) parts.push(`bso=${Number(adv.benchShareOverride).toFixed(3)}`);
-      }
+      parts.push(...leagueLinkParts());
       // JEG-1044: the reader's value basis and player overrides travel with the link (absent = ours / none).
       // Past the budget the player overrides drop out and the sender is told to use Export.
       const ov = window.DDFOverrides && window.DDFOverrides.shareParams ? window.DDFOverrides.shareParams() : null;
@@ -5826,8 +5833,9 @@
   }
   function readTradeHash() {
     const [base, query] = location.hash.split("?");
-    if (base !== "#compare-trade" || !query) return;
+    if ((base !== "#compare-trade" && base !== "#waivers") || !query) return;
     const params = new URLSearchParams(query);
+    if (base === "#waivers") { applyLinkLeague(params); return; }   // JEG-1022: the Waivers tab reads its own players from the link
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     const seen = new Set();
     const read = name => (params.get(name) || "").split(",").map(k => decodeURIComponent(k).trim())
@@ -6303,6 +6311,7 @@
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
     : base === "#find-trade" ? "find"
+    : base === "#waivers" ? "waivers"
     : base === "#value-overrides" ? "overrides"
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
@@ -6311,7 +6320,7 @@
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade", overrides: "Overrides"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade", waivers: "Waivers", overrides: "Overrides"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -6337,13 +6346,14 @@
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
     $("v2FindTrade").hidden = v !== "find";
+    $("v2Waivers").hidden = v !== "waivers";   // JEG-1022
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "overrides";
+    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "waivers" || v === "overrides";
     // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
@@ -6454,6 +6464,7 @@
     else if (currentView() === "compare") renderCompare();
     else if (writingSection() === "how-values") renderHow();
     else if (currentView() === "audit") renderAudit();
+    else if (currentView() === "waivers") { collect(); renderHeader(); if (window.TradeValueWaivers && window.TradeValueWaivers.activate) window.TradeValueWaivers.activate(); }   // JEG-1022
     else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
     else if (currentView() === "writing" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
@@ -6995,6 +7006,8 @@
     applyRoute();
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
       compare: () => compareView, tradeState: TR,
+      // JEG-1022: the Waivers link carries the same league settings as a shared trade.
+      leagueQuery: () => leagueLinkParts().join("&"), applyLinkLeague,
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),

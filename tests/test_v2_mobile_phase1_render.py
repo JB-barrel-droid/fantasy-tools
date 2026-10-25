@@ -166,7 +166,17 @@ NAMES = r"""(phone) => {
 
 NAME_TAP = r"""() => {
   const out = [];
-  const span = [...document.querySelectorAll('#v2Table .v2-nm')].find(e => e.checkVisibility() && e.scrollWidth > e.clientWidth + 1);
+  const spans = [...document.querySelectorAll('#v2Table .v2-nm')].filter(e => e.checkVisibility());
+  let span = spans.find(e => e.scrollWidth > e.clientWidth + 1);
+  if (!span && spans.length) {
+    // JEG-1048: the first 50 rows can all fit the 148 px column (week 7 data: longest "Walker III, Kenneth", 133 px), so
+    // a tap on a clipped name had nothing to tap. Lengthen the first name the way a long one reads, then tap it: the
+    // popover handler is the code under test, and a column that no longer clips still fails here (the popover never shows).
+    span = spans[0];
+    span.dataset.full = 'Valdes-Scantling Marquez Jr.';
+    span.title = span.dataset.full;
+    span.textContent = 'Valdes-Scantling Jr., Marquez';
+  }
   if (!span) return ['no clipped name found to tap'];
   span.scrollIntoView({block: 'center', behavior: 'instant'});
   const r = span.getBoundingClientRect();
@@ -307,6 +317,11 @@ class MobilePhase1RenderTest(unittest.TestCase):
             "names stay First Last on phones": ("names", {"name-format.js": (NAMEFMT_JS.replace("function lastFirst(name, pos) {", "function lastFirst(name, pos) { return String(name);", 1), "application/javascript")}, None),
             "suffix dropped from the last name": ("names", {"name-format.js": (NAMEFMT_JS.replace("var SUFFIX_RE = /^(jr|sr|ii|iii|iv|v)\\.?$/i;", "var SUFFIX_RE = /^$/;", 1), "application/javascript")}, None),
             "names no longer clip": ("names", {"v2.css": (css + "\n@media (max-width: 767px), (pointer: coarse) { .v2-table td.player .v2-nm, .v2-ttable td.player .v2-nm { text-overflow: clip; white-space: normal; } }\n", text_css)}, None),
+            # JEG-1048: the Reviewed chip is a link (JEG-609) and needs its 44 px hit area; a header chip word must not be a 0 px text node.
+            "Reviewed chip loses its hit area": ("tap", {"v2.css": (css.replace("  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }", "", 1), text_css)},
+                                                  "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }"),
+            "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css)},
+                                                  ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }"),
             "touch rules leak to desktop": ("desktop", {"v2.css": (css + "\n.v2-table-wrap { -webkit-mask-image: linear-gradient(to right, #000 90%, transparent); mask-image: linear-gradient(to right, #000 90%, transparent); }\n", text_css)}, None),
         }
         for name, (check, files, anchor) in broken.items():
