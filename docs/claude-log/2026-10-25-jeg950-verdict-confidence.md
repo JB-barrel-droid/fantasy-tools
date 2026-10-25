@@ -25,3 +25,5 @@ fit was not measured separately; the page gained no lines and the title is 2 cha
 Caps only lower a level, never raise it (a one-source Low stays Low). Owner confirmed by Jeremy 2026-10-25: session:fe-pc.
 
 Second pass (2026-10-25): anchors for likely, arbitrage and zero-agree-wide are now Low (0 or 1 chart agrees); the unit and render files were rerun one at a time after the change (headlines, deal_read, compare_render, deal_read_render). The contract render test was run on the first pass only and not rerun.
+
+Third pass (2026-10-25), on head 1885bb02 (after the Low rule): `tests/test_v2_contract_render.py` 6 passed and `tests/test_v2_compare_empty_side_render.py` 2 passed, each run alone. No test was changed.
