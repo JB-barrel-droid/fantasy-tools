@@ -219,9 +219,12 @@
         else reasons.push(`DDF Value agrees (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
-      // JEG-950 (Jeremy, 2026-10-23): "High" needs at least MIN_CHARTS_FOR_HIGH trade charts on the answer's side.
-      if ((answer === "Yes" || answer === "No") && chartAgree < MIN_CHARTS_FOR_HIGH && level === "High") {
-        level = "Medium";   // no extra reason line: the "N of M trade charts agree" line below says why (keeps Compare's height)
+      // JEG-950 (Jeremy, 2026-10-23 and 2026-10-25): 3+ trade charts on the answer's side keep the level,
+      // 2 cap it at Medium, 1 or none cap it at Low. No extra reason line: the "N of M trade charts agree"
+      // line below says why (keeps Compare's height).
+      if (answer === "Yes" || answer === "No") {
+        if (chartAgree < MIN_CHARTS_FOR_HIGH - 1) level = capped(level, "Low");
+        else if (chartAgree < MIN_CHARTS_FOR_HIGH) level = capped(level, "Medium");
       }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
       reasons.push(`${chartAgree} of ${chartTotal} trade charts agree`);

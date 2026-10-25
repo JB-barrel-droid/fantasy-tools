@@ -170,7 +170,7 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
   - **CT-02** The headline answers two questions in plain words, each with a three-step level named for what it measures (JEG-895, Jeremy 2026-10-22; decided by DDF Value + DDF Projections since JEG-841) *(to build: JEG-505)*:
 
-1.  Should you propose or accept this trade? Judged by DDF Value and DDF Projections. Level "Our value: strong / moderate / weak" (strong when the DDF Projections margin is also 5%+, moderate when they agree by less, weak when Unclear). "Strong" also needs at least 3 of the trade charts on the answer's side; with fewer it shows as moderate (Jeremy, 2026-10-23).
+1.  Should you propose or accept this trade? Judged by DDF Value and DDF Projections. Level "Our value: strong / moderate / weak" (strong when the DDF Projections margin is also 5%+, moderate when they agree by less, weak when Unclear). The level also follows how many trade charts are on the answer's side: 3 or more keep it, 2 cap it at moderate, 0 or 1 cap it at weak (Jeremy, 2026-10-23 and 2026-10-25).
 2.  Will a competing manager accept it? Judged by the rescaled trade charts. Level "Charts agree: strongly / mostly / weakly" (75%+ of charts on the answer's side, 60%+, else weakly).
 
 The level drops one step when any DDF Value in the trade comes from one source, and to weak when the DDF margin is under 5% of the total value traded. "N of M trade charts agree" is its own line under the first answer; it never sets that answer's level. The word "confidence" is not used.
