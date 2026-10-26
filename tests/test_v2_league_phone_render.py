@@ -13,6 +13,7 @@ the low-contrast tint colour back, and requires the checks to fail.
 """
 from __future__ import annotations
 
+import re
 import unittest
 
 from tests import _render_env
@@ -71,6 +72,17 @@ def check_phone(browser, base, overrides, errors):
             errors.append(f"{tag}summary cards after reversing: {vals2}")
         if page.evaluate(CARDS, "#v2LgSummaryCards") == texts:
             errors.append(f"{tag}the sort selector did not reorder the cards")
+        # By team name: the order differs from the rank order whatever today's values are (2026-10-25: bench value order matched the rank
+        # order on the rebuilt data, so a dead selector passed the check above).
+        clean = lambda texts: [re.sub(r"^#\d+\s*|★\s*| \(partial\)", "", t.split("\n")[0]).strip() for t in texts]
+        rank_order = clean(texts)   # the cards as first drawn: the rank order
+        # The sort selector's default order is the rank order; it must differ from alphabetical or this check proves nothing.
+        page.select_option("#v2LgSummarySortBy", "team")
+        names = clean(page.evaluate(CARDS, "#v2LgSummaryCards"))
+        if names != sorted(names, key=str.lower) and names != sorted(names, key=str.lower, reverse=True):
+            errors.append(f"{tag}summary cards after sorting by team: {names}")
+        if names == rank_order:
+            errors.append(f"{tag}sorting by team did not reorder the summary cards ({names}); if the fixture's rank order is alphabetical this check proves nothing")
         page.select_option("#v2LgOppsSortBy", "capture")
         caps = [card_numbers(t, r"Fundamentals") for t in page.evaluate(CARDS, "#v2LgOppsCards")]
         if any(v is None for v in caps) or caps != sorted(caps, reverse=True):
