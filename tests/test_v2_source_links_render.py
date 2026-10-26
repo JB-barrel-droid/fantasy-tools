@@ -168,7 +168,7 @@ def run_checks(js_patch=None) -> list[str]:
                     cell = page.query_selector(f'#v2TTable tr[data-player-key="{key}"] td.t-chart[data-chart="{chart}"]')
                     if not cell:
                         continue
-                    if cell.get_attribute("aria-describedby") != "v2MathTip" or cell.get_attribute("tabindex") != "0":
+                    if cell.get_attribute("aria-describedby") != "v2MathTip" or cell.get_attribute("tabindex") not in ("0", "-1"):  # JEG-899: roving tabindex leaves one tab stop per row; cells are reached with ArrowRight
                         errors.append(f"[math] the {chart} cell is not keyboard focusable with aria-describedby")
                     cell.focus()
                     page.wait_for_timeout(150)

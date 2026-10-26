@@ -30,6 +30,12 @@ window.TradeValueCurveControls.getAllRows():
     using a baseline-vs-mutation comparison at 1280);
   * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
     and the address keeps no trade.
+  * example fold (JEG-1112): the EXAMPLE state itself, with no trade seeded (it is live data: the same page a new
+    visitor sees), ends with both sides, the verdict card and the totals row under each side at least
+    EXAMPLE_FOLD_MARGIN px above the fold at 1366x768 and 1440x900, in the browser's own fonts and in DejaVu Sans
+    (CI's face); the seeded scenarios below measure a linked trade, whose header is shorter, and missed the
+    27 px overrun the first live view had. test_example_fold_guard_fails_on_the_old_header serves the
+    uncompacted header and requires the check to fail.
 
 Discrimination: test_guard_fails_on_broken_builds serves a per-row scale, the
 verdict following the picker instead of DDF Value, a verdict naming no source, no example,
@@ -600,6 +606,89 @@ def check_wide_font(result: dict) -> list[str]:
 
 # JEG-1106 mutation of the menu rule: the menu opens in the bar (in flow) instead of as a panel under it.
 NAV_RULE = "position: absolute; z-index: 50; left: 48px;"
+
+
+# JEG-1112: the example state is what a new visitor sees, on live data (no seeding), so it is held to the fold with a stated
+# margin rather than exactly: a data bake that adds a line of verdict text (about 18 px) must not clip the totals unnoticed.
+# Measured 2026-10-26 on Linux Chromium: header compacted, 1366x768 bottoms 739.5 (DejaVu Sans) / 740.1 (Inter), a margin of
+# 28 px; the old header 794.2 / 794.9, 26-27 px past the fold.
+EXAMPLE_FOLD_MARGIN = 12
+EXAMPLE_READ = """() => {
+  const box = n => { if (!n || n.hidden || !n.getClientRects().length) return null; const b = n.getBoundingClientRect(); return {top: b.top, bottom: b.bottom, width: b.width, height: b.height}; };
+  const q = s => box(document.querySelector(s));
+  const ex = document.getElementById('v2CExample');
+  return {example: !ex.hidden ? ex.textContent : null, hash: location.hash,
+    give: document.querySelectorAll('#v2GivePlayers li[data-player-key]').length, receive: document.querySelectorAll('#v2GetPlayers li[data-player-key]').length,
+    boxes: {give: q('[data-trade-side="give"]'), receive: q('[data-trade-side="receive"]'), verdict: q('#v2CVerdict'),
+      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), useExample: q('#v2CUseExample'), picker: q('#v2CShown')},
+    innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
+}"""
+EXAMPLE_FOLD_VIEWPORTS = ((1366, 768), (1440, 900))
+EXAMPLE_PHONE_VIEWPORTS = ((390, 844), (360, 740), (320, 640))
+
+
+def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS + EXAMPLE_PHONE_VIEWPORTS) -> dict:
+    """The Compare example view per viewport: boxes of the sides, the verdict, the totals and the Use this example button."""
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    out = {}
+    with _built_dist() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width, height in viewports:
+                page = browser.new_page(viewport={"width": width, "height": height})
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                for name, (body, ctype) in (overrides or {}).items():
+                    page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
+                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
+                if font_css:
+                    page.add_style_tag(content=font_css)
+                page.wait_for_timeout(300)
+                out[(width, height)] = page.evaluate(EXAMPLE_READ)
+                page.close()
+        finally:
+            browser.close()
+    return out
+
+
+def check_example_state(result: dict) -> list[str]:
+    errors = []
+    for (width, height), snap in result.items():
+        tag = f"[{width}x{height}] "
+        b = snap["boxes"]
+        if not snap["example"] or "Example" not in snap["example"] or snap["give"] != 2 or snap["receive"] != 2 or "give=" in snap["hash"]:
+            errors.append(tag + f"not the example state (banner {snap['example']!r}, {snap['give']} for {snap['receive']}, {snap['hash']!r})")
+            continue
+        if snap["overflow"] > 0:
+            errors.append(tag + f"horizontal overflow {snap['overflow']}px")
+        button = b.get("useExample")
+        if not button or button["height"] < 44 or button["width"] < 44:
+            errors.append(tag + f"'Use this example' is missing or under 44 px: {button}")
+        if not b.get("picker"):
+            errors.append(tag + "the 'Player values shown' picker is not reachable")
+        if (width, height) in EXAMPLE_FOLD_VIEWPORTS:
+            limit = height - EXAMPLE_FOLD_MARGIN
+            for name in ("give", "receive", "verdict", "giveTotal", "receiveTotal"):
+                box = b.get(name)
+                if not box:
+                    errors.append(tag + f"{name} is not drawn in the example state")
+                elif box["bottom"] > limit:
+                    errors.append(f"{tag}example {name} ends at {box['bottom']:.1f}, past {limit} ({height} fold less a {EXAMPLE_FOLD_MARGIN} px margin)")
+    return errors
+
+
+# The compacted header's grid, served away: Compare's header and Example banner fall back to the four-line stack.
+HEADER_GRID = re.compile(r"@media \(min-width: 1280px\) \{\n  #v2Compare \.v2-chead \{ display: grid;.*?\n\}\n", re.S)
+
+
+# JEG-1106 mutations (NAV_RULE above): the menu panel must not open in the bar's own row.
 NAV_MUTATIONS = {
     "menu opens in the bar": "position: static; z-index: 50; left: 48px;",
 }
@@ -628,6 +717,32 @@ class WaterfallRenderTest(unittest.TestCase):
     def test_waterfall_verdict_layout_win_with_dissent(self):
         """JEG-1112: the same checks on the long "win with dissenting sources" copy, at 1366x768 and 1440x900 too."""
         self.assertEqual(run_checks(seed="win"), [])
+
+    def test_example_state_fits_the_fold(self):
+        """JEG-1112: the first view a new visitor sees (the Example, nothing seeded) ends above the fold at 1366x768 and
+        1440x900 with its totals, in the browser's own fonts and in DejaVu Sans; phones keep a 44 px Use this example
+        button and no sideways scroll."""
+        errors = []
+        for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
+            result = example_state(font_css=font_css)
+            for (width, height), snap in result.items():
+                b = snap["boxes"]
+                r = lambda k: b[k] and round(b[k]["bottom"], 1)  # noqa: E731
+                print(f"EXAMPLE FOLD [{label}] {width}x{height} give {r('give')} receive {r('receive')} verdict {r('verdict')} "
+                      f"totals {r('giveTotal')}/{r('receiveTotal')}", file=sys.stderr, flush=True)
+            errors += [f"{label} {e}" for e in check_example_state(result)]
+        self.assertEqual(errors, [])
+
+    def test_example_fold_guard_fails_on_the_old_header(self):
+        css = V2_CSS.read_text(encoding="utf-8")
+        old_header = HEADER_GRID.sub("", css)
+        self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
+        self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
+        for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
+            errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
+            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+                  file=sys.stderr, flush=True)
+            self.assertTrue(any("1366x768" in e and "past" in e for e in errors), f"the old header was not caught at 1366x768 in {label}: {errors}")
 
     def test_guard_fails_on_broken_builds(self):
         v2 = V2_JS.read_text(encoding="utf-8")

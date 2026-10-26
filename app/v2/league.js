@@ -917,23 +917,6 @@
     });
     return node;
   }
-  // JEG-1108: viability label shown alongside fit on the detail panel.
-  const VIABILITY_WORD = {High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"};
-  function viabilityText(r, ctx) {
-    if (!r.fit || !ctx || !ctx.shape) return "";
-    const ws = store.get();
-    const mine = teamById(ws, ws.myTeamId);
-    const opp = teamById(ws, r.opponentId);
-    if (!mine || !opp) return "";
-    const rowsByKey = ctx.rowsByKey || new Map();
-    // Viability reads the Trade chart average of their lineup, so both rosters carry it (the rows in the store do not).
-    const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
-    const mineRows = withAvg((mine.entries || []).map(e => rowsByKey.get(String(e.key))).filter(Boolean));
-    const theirRows = withAvg((opp.entries || []).map(e => rowsByKey.get(String(e.key))).filter(Boolean));
-    const label = F.viabilityLabel(r.fit, mineRows, theirRows, r.give, r.receive, ctx.shape, "ddf_value", ctx.charts || []);
-    if (!label) return "Viability: not assessed (insufficient data)";
-    return `${F.FIT_TIER[r.fit.label] !== undefined ? ({"natural": "Natural fit", "market": "Market supported", "force": "Force fit"}[r.fit.label] || r.fit.label) : ""} · ${VIABILITY_WORD[label] || label}`;
-  }
   function oppPanel(r, ctx) {
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);
@@ -945,7 +928,7 @@
         el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
       el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
       r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
-      el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: viabilityText(r, ctx)}),
+      el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: "Checks that this trade is workable for both managers are not shown here yet."}),
       el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
   }
   function oppControls(ws, res) {
