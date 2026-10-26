@@ -688,8 +688,7 @@ def check_example_state(result: dict) -> list[str]:
 HEADER_GRID = re.compile(r"@media \(min-width: 1280px\) \{\n  #v2Compare \.v2-chead \{ display: grid;.*?\n\}\n", re.S)
 
 
-# JEG-1056 mutations of the nav rule: the old non-shrinking tab row, and tabs that shrink as readily as the label.
-NAV_RULE = ".v2-tabs { flex-shrink: 1; min-width: 0; }\n.v2-freshness { flex: 0 100000 auto; min-width: 0; }"
+# JEG-1106 mutations (NAV_RULE above): the menu panel must not open in the bar's own row.
 NAV_MUTATIONS = {
     "menu opens in the bar": "position: static; z-index: 50; left: 48px;",
 }
