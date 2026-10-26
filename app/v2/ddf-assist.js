@@ -197,6 +197,32 @@
     return applyFrom(codec().decodeBlock(text), "paste");
   }
 
+  // ---------- what the buttons do (JEG-1101) ----------
+  // The short line under each button is static in shell.html (its own words). The ⓘ behind it carries the how-to and
+  // the link to the MCP connect instructions: the link is read from the footer, so the two cannot drift apart.
+  const HOWTO = {
+    copy: {kind: "assist", aria: "What Copy for ChatGPT/Claude does", title: "Copy for ChatGPT/Claude",
+      lines: ["Copies your league and what you are working on, ready for the chat.",
+        "Paste it into ChatGPT or Claude, ask, then paste the answer back here."]},
+    paste: {kind: "assist", aria: "What Paste from ChatGPT/Claude does", title: "Paste from ChatGPT/Claude",
+      lines: ["Applies the answer a chat sends back, and says what it used.",
+        "Copy for ChatGPT/Claude first, paste that into the chat, then paste its reply here."]},
+  };
+  function connectHref() {
+    const link = $("v2AssistLine") && $("v2AssistLine").querySelector("a");
+    return link ? link.href : "";
+  }
+  // One button's line (unhidden) and its ⓘ. No hook or no slot: leave what is there rather than half-build it.
+  function explain(hintId, slotId, infoId, spec) {
+    const hint = $(hintId);
+    if (hint) hint.hidden = false;
+    const slot = $(slotId);
+    if (!slot || !H.infoButton) return;
+    const button = H.infoButton({...spec, link: {href: connectHref(), text: "Connect the tool ↗"}});
+    button.id = infoId;
+    slot.replaceWith(button);
+  }
+
   // ---------- controls ----------
   async function copy() {
     const note = $("v2AssistNote");
@@ -240,6 +266,8 @@
     if (!copyButton || !pasteToggle || !pasteBox || !area) return;
     copyButton.hidden = false;
     pasteToggle.hidden = false;
+    explain("v2AssistCopyHint", "v2AssistCopyInfoSlot", "v2AssistCopyInfo", HOWTO.copy);
+    explain("v2AssistPasteHint", "v2AssistPasteInfoSlot", "v2AssistPasteInfo", HOWTO.paste);
     copyButton.addEventListener("click", copy);
     pasteToggle.addEventListener("click", () => {
       const open = pasteBox.hidden;

@@ -201,6 +201,49 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                     errors.append(f"Copy / Paste buttons not whole in the league strip at 390px on {tab}: {strip}")
                 if strip["over"] > 0 or strip["footerButtons"]:
                     errors.append(f"390px {tab}: overflow {strip['over']}px, buttons left in the footer {strip['footerButtons']}")
+            # 6. JEG-1101: each button explains itself on screen — a short line of its own and an ⓘ that opens the how-to
+            #    (a tap, not hover), whose link is the footer's connect guide (same href, not a second URL).
+            narrow.evaluate("() => { location.hash = '#trade-targets'; }")   # the last tab above hides the league strip
+            narrow.wait_for_timeout(300)
+            footer_href = narrow.evaluate("() => document.querySelector('#v2AssistLine a').href")
+            if footer_href != "https://jb-barrel-droid.github.io/fantasy-tools/connect/":
+                errors.append(f"the footer connect link is {footer_href!r}, not the published guide")
+            for key, button_id, hint_id, info_id in (("copy", "v2AssistCopy", "v2AssistCopyHint", "v2AssistCopyInfo"),
+                                                     ("paste", "v2AssistPasteToggle", "v2AssistPasteHint", "v2AssistPasteInfo")):
+                line = narrow.evaluate("""([btnId, hintId, infoId]) => {
+                  const p = document.getElementById(hintId), b = document.getElementById(infoId);
+                  const btn = document.getElementById(btnId);
+                  const box = p ? p.getBoundingClientRect() : null;
+                  return {text: p ? p.textContent.trim() : '', shown: Boolean(p && !p.hidden && box.height > 0),
+                    under: Boolean(box && btn && box.top >= btn.getBoundingClientRect().bottom - 0.5),
+                    described: Boolean(btn && btn.getAttribute('aria-describedby') === hintId),
+                    info: Boolean(b && b.classList.contains('v2-info') && b.closest('.v2-assist-action')),
+                    name: b ? b.getAttribute('aria-label') : '', over: p ? p.scrollWidth - p.clientWidth : 0}; }""",
+                    [button_id, hint_id, info_id])
+                if not (line["shown"] and line["text"] and line["under"] and line["described"]):
+                    errors.append(f"{key}: no short line under the button: {line}")
+                if line["over"] > 0:
+                    errors.append(f"{key}: the line is cut off: {line}")
+                if not line["info"] or "does" not in line["name"]:
+                    errors.append(f"{key}: no ⓘ how-to beside the button: {line}")
+                narrow.click(f"#{info_id}")   # a tap opens it (no hover needed)
+                narrow.wait_for_timeout(250)
+                pop = narrow.evaluate("""() => { const p = document.getElementById('v2Popover');
+                  return {open: !p.hidden, title: (p.querySelector('h2') || {}).textContent || '',
+                    text: (p.querySelector('.v2-info-text') || {}).textContent || '',
+                    links: [...p.querySelectorAll('a')].map(a => ({href: a.href, text: a.textContent.trim()}))}; }""")
+                steps = pop["text"].lower()
+                acts = "copies" if key == "copy" else "applies"   # the button's own action, then the round trip
+                where = "chatgpt or claude" in steps or "chatgpt/claude" in steps   # the buttons' own naming
+                if not pop["open"] or acts not in steps or "paste" not in steps or not where:
+                    errors.append(f"{key}: the ⓘ how-to does not read as the round trip: {pop}")
+                if "connect" not in pop["title"].lower() and pop["title"] not in ("Copy for ChatGPT/Claude", "Paste from ChatGPT/Claude"):
+                    errors.append(f"{key}: the ⓘ is titled {pop['title']!r}")
+                if [x["href"] for x in pop["links"]] != [footer_href]:
+                    errors.append(f"{key}: the ⓘ link is not the footer's connect link: {pop['links']} vs {footer_href!r}")
+                narrow.keyboard.press("Escape")
+                narrow.wait_for_timeout(150)
+
             narrow.evaluate("() => { location.hash = '#find-trade'; }")
             narrow.click("#v2AssistPasteToggle")
             narrow.fill("#v2AssistPasteText", f"```ddf-state\n{hand}\n```")
@@ -238,6 +281,10 @@ class AssistRenderTest(unittest.TestCase):
             ("find-trade links not read", "v2", js.replace("if (window.DDFAssist) window.DDFAssist.applyLink(query);\n      return;\n    }\n    if (base ===", "return;\n    }\n    if (base ===", 1)),
             ("teams not read from a link", "v2", js.replace("if (teamsChange) C.setTeams(teams);", "", 1)),
             ("teams not written to a link", "v2", js.replace("    parts.push(`teams=${C.getState().teams}`);", "", 1)),
+            ("no short line under the buttons", "assist", assist.replace(
+                'explain("v2AssistCopyHint", "v2AssistCopyInfoSlot", "v2AssistCopyInfo", HOWTO.copy);', "//", 1)),
+            ("no ⓘ how-to beside a button", "assist", assist.replace(
+                "    button.id = infoId;\n    slot.replaceWith(button);", "    void button;", 1)),
         ]
         for name, which, body in broken:
             with self.subTest(mutation=name):

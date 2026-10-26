@@ -78,9 +78,19 @@
         <button type="button" class="v2-btn v2-btn-primary" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
         <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
       </div>
+      <!-- JEG-1101: each button carries a line of its own and an ⓘ how-to; ddf-assist.js fills the ⓘ in and unhides
+           the line with the buttons. The ⓘ is the page's shared info popover (v2.js), its link the footer's. -->
       <div class="v2-assist-actions" id="v2AssistActions">
-        <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
-        <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+        <div class="v2-assist-action">
+          <button type="button" class="v2-btn" id="v2AssistCopy" aria-describedby="v2AssistCopyHint" hidden>Copy for ChatGPT/Claude</button>
+          <span id="v2AssistCopyInfoSlot"></span>
+          <p class="v2-assist-hint" id="v2AssistCopyHint" hidden>Copies your league and your work.</p>
+        </div>
+        <div class="v2-assist-action">
+          <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" aria-describedby="v2AssistPasteHint" hidden>Paste from ChatGPT/Claude</button>
+          <span id="v2AssistPasteInfoSlot"></span>
+          <p class="v2-assist-hint" id="v2AssistPasteHint" hidden>Applies a chat's answer here.</p>
+        </div>
       </div>
     </div>
     <div class="v2-wrap v2-assist-panel">
