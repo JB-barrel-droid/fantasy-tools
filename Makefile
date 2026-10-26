@@ -121,6 +121,8 @@ test-unit:
 
 test-unit-modules:
 	python3 -m unittest tests.test_run_suite
+	# Render-sweep coverage guard (JEG-976): a warning, not a deploy gate (Jeremy, 2026-10-26).
+	python3 -m unittest tests.test_render_sweep_coverage
 	python3 -m unittest tests.test_validate_runner
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_mcp_remote
@@ -609,15 +611,15 @@ test-core:
 	python3 -m unittest tests.test_roster_convention_parity
 	python3 -m unittest tests.test_player_tags
 	python3 -m unittest tests.test_contract_qa_report
-	# Test sweep (JEG-976): the Razzball outlier hold and the render-sweep coverage guard.
+	# Test sweep (JEG-976): the Razzball outlier hold.
 	# (tests.test_value_pipeline_engine is wired into test-core by #914 / JEG-1057.)
 	python3 -m unittest tests.test_razzball_outlier_guard
-	python3 -m unittest tests.test_render_sweep_coverage
 
 # Daily render sweep (JEG-976): the green headless render modules that are in neither test-core nor
 # test-unit-modules (about 25 min together). Run by .github/workflows/render-sweep.yml, dispatched daily
 # by pg_cron; never part of validate or a deploy. Keeps going past a failure and exits 1 at the end.
-# tests/test_render_sweep_coverage.py fails when a render module is in no list.
+# tests/test_render_sweep_coverage.py fails when a render module is in no list; it runs in
+# test-unit-modules (non-blocking, preview CI's full-suite job), not in test-core or validate.
 test-render-sweep:
 	python3 tests/run_suite.py test-render-extra
 
