@@ -347,7 +347,9 @@ COMMON = r"""
   // JEG-947: a name cell holds its text in a .v2-nm span (phones show "Last, First"); the contract reads the full "First Last" name, and an empty visible name still reads as empty.
   const own = n => { const nm = n && n.querySelector && n.querySelector(':scope > .v2-nm'); return nm ? (nm.textContent.trim() ? (nm.dataset.full || nm.textContent.trim()) : '') : [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim(); };
   const rect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; };
-  const shown = n => Boolean(n) && !n.hidden && n.getClientRects().length > 0;
+  // JEG-1112: a display: contents wrapper (the Example banner inside Compare's header grid) has no box of its own; it is shown when a child is.
+  const drawn = n => n.getClientRects().length > 0 || (getComputedStyle(n).display === 'contents' && [...n.children].some(drawn));
+  const shown = n => Boolean(n) && !n.hidden && drawn(n);
   const closePop = async () => { const b = document.querySelector('#v2Popover:not([hidden]) .v2-panel-close')
       || [...document.querySelectorAll('#v2Popover:not([hidden]) button')].find(b => /^(Done|Cancel)$/.test(b.textContent.trim()));
     if (b) b.click(); document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); await sleep(250); };
