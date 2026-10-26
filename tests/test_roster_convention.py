@@ -319,5 +319,90 @@ class TestNegativeTest(unittest.TestCase):
                             msg="convention bench must differ from legacy scaling")
 
 
+class TestBenchSeatsUnits(unittest.TestCase):
+    """JEG-1121: flex_filled must be per-team, not league-wide.
+
+    Bug: allocate_league passed league-wide sf_filled/fx_filled as flex_filled
+    to bench_seats, but slots is per-team.  The fix normalises to per-team by
+    dividing by teams before calling bench_seats.
+    """
+
+    # Deterministic player pool for exact assertions.
+    _TEAMS = 12
+    _BENCH = 7
+    _FLEX = 1
+
+    @classmethod
+    def _player_pool(cls):
+        player_order = {
+            "QB":  [f"QB{i:03d}" for i in range(100)],
+            "RB":  [f"RB{i:03d}" for i in range(200)],
+            "WR":  [f"WR{i:03d}" for i in range(200)],
+            "TE":  [f"TE{i:03d}" for i in range(100)],
+            "K":   [f"K{i:03d}"  for i in range(30)],
+            "DEF": [f"DEF{i:03d}" for i in range(30)],
+        }
+        player_scores = {}
+        for i, p in enumerate(player_order["QB"]):  player_scores[p] = 500 - i * 30
+        for i, p in enumerate(player_order["RB"]):  player_scores[p] = 500 - i * 10
+        for i, p in enumerate(player_order["WR"]):  player_scores[p] = 500 - i * 10
+        for i, p in enumerate(player_order["TE"]):  player_scores[p] = 400 - i * 10
+        for i, p in enumerate(player_order["K"]):   player_scores[p] = 100 - i * 5
+        for i, p in enumerate(player_order["DEF"]): player_scores[p] = 100 - i * 5
+        return player_order, player_scores
+
+    def test_1qb_bench_apportionment(self):
+        """1QB default 12-team: QB bench must not be near zero (was ~4 with bug)."""
+        order, scores = self._player_pool()
+        result = allocate_league(
+            slots=DEFAULT_SLOTS, teams=self._TEAMS, bench_per_team=self._BENCH,
+            flex_count=self._FLEX, superflex_count=0,
+            player_order=order, player_scores=scores,
+        )
+        bench_total = sum(result[pos]["bench"] for pos in POSITIONS)
+        self.assertEqual(bench_total, self._TEAMS * self._BENCH)
+        # With correct per-team normalization QB gets proportional share.
+        # Bug produced QB=4; fixed value is 13 for this player pool.
+        self.assertEqual(result["QB"]["bench"], 13,
+                         "QB bench should be 13, not ~4 (units bug)")
+        self.assertEqual(result["RB"]["bench"], 29)
+        self.assertEqual(result["WR"]["bench"], 34)
+        self.assertEqual(result["TE"]["bench"], 8)
+
+    def test_superflex_bench_apportionment(self):
+        """Superflex 12-team: bench total correct; uses two_qb ratios."""
+        order, scores = self._player_pool()
+        result = allocate_league(
+            slots=DEFAULT_SLOTS, teams=self._TEAMS, bench_per_team=self._BENCH,
+            flex_count=self._FLEX, superflex_count=1,
+            player_order=order, player_scores=scores,
+        )
+        bench_total = sum(result[pos]["bench"] for pos in POSITIONS)
+        self.assertEqual(bench_total, self._TEAMS * self._BENCH)
+        # Superflex skips flex_bench_seats (option A); bench uses dedicated only.
+        # Pinning known-good values so a regression is immediately visible.
+        self.assertEqual(result["QB"]["bench"], 4)
+        self.assertEqual(result["RB"]["bench"], 30)
+        self.assertEqual(result["WR"]["bench"], 36)
+        self.assertEqual(result["TE"]["bench"], 12)
+
+    def test_units_bug_would_inflate_wr_bench(self):
+        """Demonstrate the units bug: league-wide flex_filled inflates WR bench."""
+        slots = DEFAULT_SLOTS
+        # Per-team: WR gets 0.5 flex starters on average (6 league-wide / 12).
+        per_team = bench_seats(slots, 12, 7, superflex=False,
+                               flex_filled={"QB": 0, "RB": 0.5, "WR": 0.5, "TE": 0,
+                                            "K": 0, "DEF": 0})
+        # League-wide (the bug): 6 league-wide flex starters added to per-team slots.
+        league_wide = bench_seats(slots, 12, 7, superflex=False,
+                                  flex_filled={"QB": 0, "RB": 6, "WR": 6, "TE": 0,
+                                               "K": 0, "DEF": 0})
+        # Per-team is correct; league-wide massively over-weights WR and under-weights QB.
+        self.assertGreater(per_team["QB"], league_wide["QB"],
+                           "per-team normalization gives more QB bench seats")
+        self.assertLess(per_team["WR"], league_wide["WR"],
+                        "per-team normalization gives fewer WR bench seats (bug inflated them)")
+
+
 if __name__ == "__main__":
     unittest.main()

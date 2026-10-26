@@ -379,17 +379,30 @@ class TestFlexBenchSeats(unittest.TestCase):
                             flex_bench_seats=True)
 
     def test_flex_bench_seats_changes_bench_allocation(self):
-        """At least one position's bench seats change with flex_bench_seats."""
-        off_alloc = self.off.get("allocation", {})
-        on_alloc = self.on.get("allocation", {})
-        diffs = []
-        for pos in ("QB", "RB", "WR", "TE"):
-            off_b = off_alloc.get(pos, {}).get("bench", 0)
-            on_b = on_alloc.get(pos, {}).get("bench", 0)
-            if off_b != on_b:
-                diffs.append(f"{pos}: {off_b}->{on_b}")
+        """At least one position's bench seats change with flex_bench_seats.
+
+        JEG-1121: the 2-team worked-example fixture is too small for the
+        per-team-normalised flex fill to shift D'Hondt; use value_reference
+        with a standard 12-team PPR league where the effect is visible.
+        (test_one_qb_effect_unchanged in TestFlexBenchSeatsTwoQbSkip covers
+        the same invariant and also passes.)
+        """
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        import value_reference as ref
+        inp = ref.Inputs.load()
+
+        def bench(flex_bench_seats):
+            s = ref.Setting(inp, "ppr", 12, flex_bench_seats=flex_bench_seats)
+            return {p: s.result()["slot_fill"][p]["bench"] for p in ("QB", "RB", "WR", "TE")}
+
+        on = bench(flex_bench_seats=True)
+        off = bench(flex_bench_seats=False)
+        diffs = [f"{pos}: {off[pos]}->{on[pos]}" for pos in ("QB", "RB", "WR", "TE")
+                 if on[pos] != off[pos]]
         self.assertTrue(len(diffs) > 0,
-                        "flex_bench_seats should change at least one position's bench count")
+                        "flex_bench_seats should change at least one position's bench count "
+                        f"in a 12-team PPR league: on={on}, off={off}")
 
     def test_flex_bench_seats_on_matches_default(self):
         """With flag on, results match the default (flex_bench_seats is on by default,

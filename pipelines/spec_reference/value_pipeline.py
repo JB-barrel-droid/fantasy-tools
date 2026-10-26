@@ -184,7 +184,8 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     # Skip flex_bench_seats in 2-QB / superflex (Jeremy, 2026-10-23).
     is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
     use_flex = flex_bench_seats and not is_two_qb
-    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
+    # JEG-1121: sf/fx are league-wide; normalize to per-team before passing to bench_seats.
+    ff = {p: (sf[p] + fx[p]) / T for p in POSITIONS} if use_flex else None
     bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
@@ -347,7 +348,8 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
             n_listed = sum(1 for k in shared if pos_of.get(k) == p)
             ded = setting.teams * int(setting.slots.get(p, 0))
             avail = max(0, n_listed - ded)
-            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail)
+            # JEG-1121: sf_total/fx_total/avail are league-wide; normalize to per-team.
+            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail) / setting.teams
     bench = dhondt_bench(setting, flex_filled=ff)
     res = {}
     for p in POSITIONS:

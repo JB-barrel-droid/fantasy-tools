@@ -270,7 +270,8 @@
     var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
     if (setting.flex_bench_seats !== false && !isTwoQb) {
       var ff = {};
-      POSITION_ORDER.forEach(function (pos) { ff[pos] = (sf[pos] || 0) + (fx[pos] || 0); });
+      // JEG-1121: sf/fx are league-wide; slots is per-team → normalize to per-team.
+      POSITION_ORDER.forEach(function (pos) { ff[pos] = ((sf[pos] || 0) + (fx[pos] || 0)) / teams; });
       bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
                            {superflex: sfSlots > 0, flexFilled: ff});
       POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
@@ -511,7 +512,8 @@
         var nListed = Object.keys(sharedKeys).filter(function (k) { return posOf[k] === pos; }).length;
         var ded = teams * (Number(slots[pos]) || 0);
         var avail = Math.max(0, nListed - ded);
-        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail);
+        // JEG-1121: sfTotal/fxTotal/avail are league-wide; normalize to per-team.
+        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail) / teams;
       });
       benchOpts.flexFilled = ff;
     }

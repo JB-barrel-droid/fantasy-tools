@@ -62,7 +62,7 @@ def market_bench_ratios(*, superflex: bool = False, qb_slots: int = 1) -> dict[s
 
 
 def bench_weights(slots: dict[str, int], *, superflex: bool = False,
-                  flex_filled: dict[str, int] | None = None) -> dict[str, float]:
+                  flex_filled: dict[str, float] | None = None) -> dict[str, float]:
     """Convention rule 1: bench weight per position.
 
     weight_p = starters_p * backups_per_starter_p.
@@ -79,7 +79,7 @@ def bench_weights(slots: dict[str, int], *, superflex: bool = False,
     ff = flex_filled or {}
     weights = {}
     for pos in POSITIONS:
-        starters = int(slots.get(pos, 0)) + int(ff.get(pos, 0))
+        starters = int(slots.get(pos, 0)) + (ff.get(pos, 0) or 0)
         ratio = ratios.get(pos, 0.0)
         weights[pos] = starters * ratio
     return weights
@@ -105,7 +105,7 @@ def dhondt_allocate(weights: dict[str, float], total: int) -> dict[str, int]:
 
 def bench_seats(slots: dict[str, int], teams: int, bench_per_team: int, *,
                 superflex: bool = False,
-                flex_filled: dict[str, int] | None = None) -> dict[str, int]:
+                flex_filled: dict[str, float] | None = None) -> dict[str, int]:
     """Convention rule 1: D'Hondt bench allocation using market bench ratios.
 
     Returns {pos: bench_count} across the entire league.
@@ -222,9 +222,11 @@ def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
     effective_slots = {}
     for pos in POSITIONS:
         effective_slots[pos] = int(slots.get(pos, 0))
+    # JEG-1121: sf_filled/fx_filled are league-wide; effective_slots is per-team.
+    # Normalize flex to per-team so bench_weights uses consistent units.
     effective_flex = {}
     for pos in POSITIONS:
-        effective_flex[pos] = sf_filled[pos] + fx_filled[pos]
+        effective_flex[pos] = (sf_filled[pos] + fx_filled[pos]) / t
 
     is_superflex = superflex_count > 0
     is_2qb = int(slots.get("QB", 0)) >= 2
