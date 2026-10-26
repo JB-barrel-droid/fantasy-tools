@@ -492,6 +492,47 @@
     if (res.error) { notice(res.error); return; }
     offerReplace(res.workspace, `${res.workspace.name}:`);
   }
+  // JEG-1095: what a whole-league paste (or ID load) understood, kept on screen outside the folded import box until the
+  // next paste or Close: how many teams, each team's name and roster size, which team is marked as yours, the players that
+  // did not match with the line they came from, and a plain error when nothing could be read.
+  // info: {error} or {teams: [{name, count, unmatched: [text], unsure, leftOut}], skipped, source}
+  function showParsed(info) {
+    const box = $("v2LgParsed");
+    if (!box) return;
+    box.hidden = false;
+    box.dataset.state = info.error ? "error" : "ok";
+    UI.parsed = info;
+    UI.parsedMine = store.get().myTeamId;
+    const close = button("Close", {class: "v2-btn", id: "v2LgParsedClose"}, () => { box.hidden = true; box.replaceChildren(); UI.parsed = null; });
+    if (info.error) {
+      box.replaceChildren(el("h3", {text: "Nothing was read from that paste"}), el("p", {id: "v2LgParsedError", text: info.error}), close);
+      return;
+    }
+    const ws = store.get();
+    const mine = teamById(ws, ws.myTeamId);
+    const kept = info.teams.filter(t => !t.leftOut);
+    const lines = kept.map(t => {
+      const isMine = Boolean(mine) && W.cleanName(t.name, "").toLowerCase() === W.cleanName(mine.name, "").toLowerCase();
+      const li = el("li", {"data-team": t.name, "data-count": String(t.count), class: isMine ? "is-mine" : ""},
+        el("b", {text: t.name}), ` · ${plural(t.count, "player")}${isMine ? " · your team" : ""}${t.unsure ? ` · ${t.unsure} to check` : ""}`);
+      if (t.unmatched.length) {
+        li.append(el("div", {class: "v2-meta"}, `${plural(t.unmatched.length, "line")} not matched to a player:`),
+          el("ul", {class: "v2-lg-parsed-miss"}, ...t.unmatched.map(text => el("li", {text}))));
+      }
+      return li;
+    });
+    const unmatchedTotal = kept.reduce((n, t) => n + t.unmatched.length, 0);
+    const yours = mine ? `Your team is ${mine.name}.` : "No team is marked as yours yet. Press the star beside your team's name so results are for your team.";
+    const head = `${info.source || "Read"} ${plural(kept.length, "team")} from your paste.`;
+    box.replaceChildren(el("h3", {text: head}),
+      el("p", {id: "v2LgParsedMine", text: yours}),
+      info.skipped ? el("p", {class: "v2-meta", text: `${plural(info.skipped, "team")} left out: the limit is ${W.MAX_TEAMS} teams.`}) : null,
+      el("ul", {class: "v2-lg-parsed-teams", id: "v2LgParsedTeams"}, ...lines),
+      el("p", {class: "v2-meta", id: "v2LgParsedMiss", text: unmatchedTotal
+        ? `${plural(unmatchedTotal, "line")} could not be matched to a player. Add those players by searching inside the team.`
+        : "Every player line was matched."}),
+      close);
+  }
   // A whole league from Sleeper or a public ESPN league: one team per roster (JEG-1021 section 3.4).
   async function loadWholeLeague() {
     const kind = $("v2LgLeagueKind").value;
@@ -501,13 +542,15 @@
     status.textContent = kind === "sleeper" ? "Loading the league and Sleeper's player names (about 15 MB the first time)…" : "Loading the league…";
     let teams;
     try { teams = await (kind === "sleeper" ? F.page.loadSleeper(idText) : F.page.loadEspn(idText)); }
-    catch (error) { status.textContent = `${error.message} You can paste each team instead.`; return; }
-    if (!teams.length) { status.textContent = "That league has no teams."; return; }
+    catch (error) { status.textContent = `${error.message} You can paste each team instead.`; showParsed({error: status.textContent}); return; }
+    if (!teams.length) { status.textContent = "That league has no teams."; showParsed({error: status.textContent}); return; }
     const rows = engine().getAllRows();
     const taken = new Set();
+    const parsedIds = [];
     const entriesFor = t => {
       const {matched, unmatched} = F.matchNames(t.entries, rows);
       const list = [];
+      parsedIds.push({name: t.label, unmatched});
       matched.forEach(row => { const key = String(row.player_key); if (!taken.has(key)) { taken.add(key); list.push(entryOf(row)); } });
       unmatched.filter(F.isNotEvaluated).forEach(u => { const key = `x:${u.pos}:${u.team || F.normName(u.name)}`; if (!taken.has(key)) { taken.add(key); list.push({key, name: u.name, pos: u.pos}); } });
       return list;
@@ -518,6 +561,11 @@
       return next;
     }, "add");
     status.textContent = `Added ${plural(Math.min(teams.length, W.MAX_TEAMS), "team")}. Press the star on your team to mark it as yours.`;
+    showParsed({source: "Loaded", skipped: Math.max(0, teams.length - Math.min(teams.length, W.MAX_TEAMS)), teams: parsedIds.map(p => {
+      const team = store.get().teams.find(t => t.name === W.cleanName(p.name, ""));
+      return {name: p.name, count: team ? team.entries.length : 0, unsure: 0,
+        unmatched: p.unmatched.filter(u => !F.isNotEvaluated(u)).map(u => u.line || u.name)};
+    })});
     announce(status.textContent);
   }
 
@@ -551,7 +599,7 @@
     if (box) box.value = "";
     const C = engine();
     const P = root.DDFRosterPaste;
-    if (!C || !P || !P.parseLeague || !mathContext()) { status.textContent = "Values are still loading. Try again in a moment."; return; }
+    if (!C || !P || !P.parseLeague || !mathContext()) { status.textContent = "Values are still loading. Try again in a moment."; showParsed({error: status.textContent}); return; }
     const res = P.parseLeague(String(text || ""), C.getAllRows());
     if (!res.teams.length) {
       const id = res.sleeperLeagueId || res.espnLeagueId;
@@ -564,6 +612,7 @@
       status.textContent = res.site === "sleeper"
         ? "Sleeper shows one roster per page, so that paste had no league in it. Paste your Sleeper league link (sleeper.com/leagues/…) here, or enter its league ID below, to load every team."
         : "No teams found in that text. Open your league's rosters page (ESPN: League, then Rosters), press Ctrl+A then Ctrl+C, and paste it here.";
+      showParsed({error: status.textContent});
       announce(status.textContent);
       return;
     }
@@ -581,13 +630,15 @@
     let updated = 0;
     let skipped = 0;
     const lines = [];
+    const parsed = [];
     const plan = res.teams.map(t => ({t, id: byName.get(nameKey(t.teamName)), ...leagueEntries(t, ctx, taken)}));
     update(w => {
       let next = w;
       plan.forEach(item => {
         if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: []}); updated += 1; }
         else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list}); added += 1; }
-        else { skipped += 1; return; }
+        else { skipped += 1; parsed.push({name: item.t.teamName, count: 0, unmatched: [], unsure: 0, leftOut: true}); return; }
+        parsed.push({name: item.t.teamName, count: item.list.length, unmatched: item.missed, unsure: item.unsure});
         const notes = [];
         if (item.unsure) notes.push(`${item.unsure} to check`);
         if (item.missed.length) notes.push(`not matched: ${item.missed.slice(0, 6).join(", ")}${item.missed.length > 6 ? "…" : ""}`);
@@ -603,6 +654,7 @@
     if (!ws0.myTeamId) msg += " Press the star on your team to mark it as yours.";
     status.replaceChildren(el("span", {text: msg}), el("ul", {class: "v2-lg-paste-teams"}, ...lines.map(line => el("li", {text: line}))));
     if (lines.some(l => /not matched|to check/.test(l))) status.append(el("span", {text: "Add any missing players by searching inside that team."}));
+    showParsed({teams: parsed, skipped, source: "Read"});
     announce(msg);
   }
 
@@ -892,6 +944,7 @@
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
       sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
       el("p", {class: "v2-meta v2-footnote", text: `Showing ${shownRows.length} of ${sorted.length}.${notEval ? " K and DEF are on rosters but not evaluated." : ""}`})].filter(Boolean));
+
   }
 
   // The finder runs for my team against every other team: debounced, one pairing at a time, cached by roster and values.
@@ -1054,6 +1107,7 @@
       el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, download2, load, copyText, copyLink, undo, fileInput,
         el("span", {class: "v2-meta v2-lg-saved", id: "v2LgSaved", role: "status", "aria-live": "polite"})),
       el("div", {class: "v2-lg-confirm", id: "v2LgLoadConfirm", role: "group", hidden: true}),
+      el("section", {class: "v2-lg-parsed", id: "v2LgParsed", role: "status", "aria-live": "polite", "aria-label": "What was read from your paste", hidden: true}),
       el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}),
       el("p", {class: "v2-meta", text: "Your teams and rosters are saved in this browser only. Nothing is sent anywhere. Use Download to keep a copy."}),
       el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Paste your whole league below, or add a team and paste its roster or search players by name."}),
@@ -1078,7 +1132,11 @@
   function start() {
     build();
     if (!$("v2LgCard")) return;
-    store.onChange((ws, change) => { if (UI.ready) refreshAll(change.reason); });
+    store.onChange((ws, change) => {
+      if (UI.ready) refreshAll(change.reason);
+      // JEG-1095: pressing the star changes which team the paste summary calls yours.
+      if (UI.parsed && !UI.parsed.error && ws.myTeamId !== UI.parsedMine) showParsed(UI.parsed);
+    });
     store.onStatus(renderStatus);
     const lc = store.loadStatus();
     if (lc === "corrupt" || lc === "version") notice("Saved league data could not be read. You can re-enter your teams.");

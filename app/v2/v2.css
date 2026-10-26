@@ -1981,3 +1981,14 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
   .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* JEG-1095: what a league paste understood */
+.v2-lg-parsed { border: 1px solid var(--v2-line, #d0d4da); border-radius: 8px; padding: 12px 14px; margin: 8px 0; }
+.v2-lg-parsed[hidden] { display: none; }
+.v2-lg-parsed[data-state="error"] { border-color: var(--v2-bad, #b3261e); }
+.v2-lg-parsed h3 { margin: 0 0 6px; font-size: 1rem; }
+.v2-lg-parsed-teams { margin: 6px 0; padding-left: 18px; }
+.v2-lg-parsed-teams li { overflow-wrap: anywhere; margin: 2px 0; }
+.v2-lg-parsed-teams li.is-mine { font-weight: 600; }
+.v2-lg-parsed-miss { margin: 2px 0 6px; padding-left: 18px; font-weight: 400; }
+
