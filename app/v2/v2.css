@@ -1992,3 +1992,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-parsed-teams li.is-mine { font-weight: 600; }
 .v2-lg-parsed-miss { margin: 2px 0 6px; padding-left: 18px; font-weight: 400; }
 
+/* JEG-1099: the two-team panel under the opportunities table */
+.v2-lg-opp { cursor: pointer; }
+.v2-lg-opp.is-selected > *, .v2-lg-card.is-selected { background: var(--v2-selected, rgba(168, 68, 16, 0.12)); }
+.v2-lg-oppsides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.v2-lg-oppside h4 { margin: 0 0 6px; }
+@media (max-width: 720px) { .v2-lg-oppsides { grid-template-columns: minmax(0, 1fr); } }

@@ -843,6 +843,80 @@
     box.append(el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
     return el("tr", {class: "v2-lg-opp-detail", "data-detail-for": r.id}, el("td", {colspan: String(colspan)}, box));
   }
+  // JEG-1099: click a row (or its "Both teams" button) and the two lineups it changes open below the table.
+  // The pick lives in the address as ?trade=<opponent>~<give keys>~<receive keys> so the link reopens the same trade.
+  const SLOT_ORDER = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  const tradeParam = r => [r.opponent, r.give.map(p => p.player_key).join(","), r.receive.map(p => p.player_key).join(",")].map(encodeURIComponent).join("~");
+  // Focus goes back to the button that opened the panel (the visible one: the table and the phone cards both carry one).
+  function focusPick(id) {
+    const all = [...document.querySelectorAll(`[data-pick-for="${id}"]`)];
+    const back = all.find(b => b.offsetParent !== null) || all[0];
+    if (back) back.focus();
+  }
+  function setTradeHash(r) {
+    const hash = root.location.hash || "";
+    if (!hash.startsWith("#find-league")) return;
+    const base = hash.split("?")[0];
+    const rest = (hash.split("?")[1] || "").split("&").filter(p => p && !p.startsWith("trade="));
+    if (r) rest.push(`trade=${tradeParam(r)}`);
+    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + base + (rest.length ? `?${rest.join("&")}` : "")); } catch (error) { /* the pick still works on this page */ }
+  }
+  function selectOpp(r) {
+    UI.selectedOpp = r ? r.id : null;
+    UI.selectedParam = r ? tradeParam(r) : null;
+    setTradeHash(r);
+  }
+  // The pick in the address, if any, once the rows exist.
+  function pickFromHash(rows) {
+    const m = /[?&]trade=([^&]+)/.exec(root.location.hash || "");
+    if (!m || !rows.length) return;
+    if (UI.selectedParam === m[1]) return;
+    const hit = rows.find(r => tradeParam(r) === m[1]);
+    if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; }
+  }
+  function lineupRows(imp, shape, key) {
+    const out = [];
+    SLOT_ORDER.forEach(slot => {
+      for (let i = 0; i < ((shape && shape[slot]) || 0); i += 1) out.push({slot, before: imp.before.slots[slot][i] || null, after: imp.after.slots[slot][i] || null});
+    });
+    const cell = row => (row ? `${row.name} ${money(row.values[key])}` : "empty");
+    const val = row => (row ? row.values[key] : 0);
+    return out.map(o => el("tr", {"data-slot": o.slot}, el("th", {scope: "row", text: o.slot}), el("td", {text: cell(o.before)}), el("td", {text: cell(o.after)}), el("td", {class: "num", text: signed(val(o.after) - val(o.before))})));
+  }
+  function sidePanel(heading, team, leaving, arriving, ctx) {
+    const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
+    const names = list => list.map(p => p.name).join(" + ") || "nobody";
+    const node = el("section", {class: "v2-lg-oppside", "data-side": heading, "aria-label": heading},
+      el("h4", {text: `${heading}${team ? `: ${team.name}` : ""}`}),
+      el("p", {}, el("b", {text: "Gives: "}), names(leaving), el("br"), el("b", {text: "Gets: "}), names(arriving)));
+    if (!team || !ctx.shape) return node;
+    const views = [["DDF Value", OUR_KEY, rows => rows]].concat(ctx.market ? [["Trade chart average", MARKET_KEY, withAvg]] : []);
+    views.forEach(([label, key, convert]) => {
+      const imp = F.rosterImpact(convert(rowsOfTeam(team, ctx)), convert(leaving), convert(arriving), ctx.shape, key);
+      const body = lineupRows(imp, ctx.shape, key);
+      body.push(el("tr", {}, el("th", {scope: "row", text: "Starters"}), el("td", {text: money(imp.before.starterValue)}), el("td", {text: money(imp.after.starterValue)}), el("td", {class: "num", text: signed(imp.starterDelta)})));
+      body.push(el("tr", {}, el("th", {scope: "row", text: "Bench"}), el("td", {text: money(imp.before.benchValue)}), el("td", {text: money(imp.after.benchValue)}), el("td", {class: "num", text: signed(imp.benchDelta)})));
+      node.append(el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup", "data-view": label},
+        el("caption", {text: `Best starting lineup in ${label}`}),
+        el("thead", {}, el("tr", {}, ...["Position", "Before", "After", "Change"].map(h => el("th", {scope: "col", text: h})))), el("tbody", {}, ...body))));
+      if (label === "DDF Value") node.append(el("p", {class: "v2-meta", "data-line": "need", text: `${F.needLine(imp)}.`}));
+    });
+    return node;
+  }
+  function oppPanel(r, ctx) {
+    const ws = store.get();
+    const mine = teamById(ws, ws.myTeamId);
+    const opp = teamById(ws, r.opponentId);
+    const close = button("Close", {class: "v2-btn", id: "v2LgOppPanelClose"}, () => { const id = UI.selectedOpp; selectOpp(null); renderOpps(); focusPick(id); });
+    const copyLinkBtn = button("Copy link to this trade", {class: "v2-btn", id: "v2LgOppPanelLink"}, () => copy(root.location.href, "Copied a link to this trade."));
+    return el("section", {class: "v2-card v2-lg-oppanel", id: "v2LgOppPanel", "aria-labelledby": "v2LgOppPanelTitle", "data-opp-id": r.id},
+      el("div", {class: "v2-card-head"}, el("div", {}, el("h3", {id: "v2LgOppPanelTitle", text: `This trade with ${r.opponent}`}),
+        el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
+      el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
+      r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
+      el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: "Checks that this trade is workable for both managers are not shown here yet."}),
+      el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
+  }
   function oppControls(ws, res) {
     const f = ws.ui.filters;
     const sel = (id, label, options, value, onChange) => {
@@ -886,6 +960,9 @@
     const onSort = next => setSort("opps", next, cols);
     const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce);
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
+    pickFromHash(res.rows);
+    const togglePick = r => { selectOpp(UI.selectedOpp === r.id ? null : r); renderOpps(); if (UI.selectedOpp) { const p = $("v2LgOppPanel"); if (p) p.scrollIntoView({block: "nearest"}); } };
+    const chosen = UI.selectedOpp ? sorted.find(r => r.id === UI.selectedOpp) : null;
     const shownRows = sorted.slice(0, UI.oppsShown);
     const mineRows = rowsOfTeam(mine, ctx);
     const balance = ctx.expected && ctx.shape ? F.rosterBalance(mineRows, ctx.expected, OUR_KEY, ctx.shape) : null;
@@ -916,9 +993,11 @@
         renderOpps();
       });
       const fitWord = r.overall ? O.FIT_WORD[r.overall] : "Not judged";
-      const tr = el("tr", {class: "v2-lg-opp", "data-opp-id": r.id, "data-overall": r.overall || "none", "data-rank": String(r.rank)},
+      const picked = UI.selectedOpp === r.id;
+      const pickBtn = button(picked ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "aria-expanded": String(picked), "aria-controls": "v2LgOppPanel"}, () => togglePick(r));
+      const tr = el("tr", {class: `v2-lg-opp${picked ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none", "data-rank": String(r.rank)},
         el("td", {}, r.opponent, r.partial ? el("span", {class: "v2-meta", text: " (partial roster)"}) : null),
-        el("th", {scope: "row", class: "v2-lg-trade"}, ...tradeNodes(r, ctx), el("br"), details),
+        el("th", {scope: "row", class: "v2-lg-trade"}, ...tradeNodes(r, ctx), el("br"), details, " ", pickBtn),
         el("td", {class: "num", "data-cell": "capture"}, `${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
         el("td", {"data-cell": "ours"}, r.ours ? `${r.ours.label[0].toUpperCase()}${r.ours.label.slice(1)}` : "—", r.ours ? el("span", {class: "v2-meta", text: ` ${r.ours.detail}`}) : null),
         el("td", {class: "num", "data-cell": "market"}, r.chartEdge === null ? "—" : signed(r.chartEdge)),
@@ -930,13 +1009,14 @@
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgOppsTable"},
       el("caption", {text: "Trade opportunities: my team against every other team, ranked by fit then by fundamentals capture"}), thead, ...bodyRows);
-    const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...shownRows.map(r => el("li", {class: "v2-lg-card", "data-opp-id": r.id, "data-overall": r.overall || "none"},
+    const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...shownRows.map(r => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
       el("p", {}, ...tradeNodes(r, ctx)),
       el("p", {}, `Fundamentals: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
-      el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}))));
+      el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
+      " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)))));
     const remaining = sorted.length - shownRows.length;
     const reveal = count => { UI.oppsShown = shownRows.length + count; renderOpps(); };
     const moreButtons = remaining > 0 ? [
@@ -949,6 +1029,7 @@
     body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
       count, sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
+      chosen ? oppPanel(chosen, ctx) : null,
       notEval ? el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated."}) : null].filter(Boolean));
 
   }
@@ -1054,7 +1135,8 @@
     const ctx = mathContext();
     if (!ctx) return;
     const teams = W.decodeShare(text, ctx.rowsByKey);
-    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league"); } catch (error) { /* the link stays in the address bar */ }
+    const keep = /[?&](trade=[^&]+)/.exec(hash);
+    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league" + (keep ? `?${keep[1]}` : "")); } catch (error) { /* the link stays in the address bar */ }
     if (!teams.length) { notice("That link carries no teams."); return; }
     let w = W.newWorkspace({name: "Shared league"});
     teams.forEach((t, i) => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); if (i === 0 && teams.length) w = W.ops.setMyTeam(w, w.teams[0].id); });
@@ -1129,6 +1211,20 @@
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
         el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by fundamentals capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
+    // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
+    opps.addEventListener("click", event => {
+      const tr = event.target.closest && event.target.closest("tr.v2-lg-opp");
+      if (!tr || event.target.closest("button, a, select, input")) return;
+      const row = UI.result && UI.result.rows.find(r => r.id === tr.dataset.oppId);
+      if (row) { selectOpp(UI.selectedOpp === row.id ? null : row); renderOpps(); }
+    });
+    opps.addEventListener("keydown", event => {
+      if (event.key !== "Escape" || !UI.selectedOpp) return;
+      const id = UI.selectedOpp;
+      selectOpp(null);
+      renderOpps();
+      focusPick(id);
+    });
     const anchor = host.querySelector(".v2-footnote");
     host.insertBefore(league, anchor);
     host.insertBefore(summary, anchor);
