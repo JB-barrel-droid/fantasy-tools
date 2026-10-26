@@ -109,8 +109,8 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
             # JEG-855: Manifesto, How values work and Research are sections of one Writing tab (Jeremy, 2026-10-22);
             # the landing tab stays Trade targets.
             names = [tab["text"] for tab in tabs]
-            if names != ["Writing", "Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Find a trade", "Waivers", "Overrides", "Values auditing"]:
-                errors.append(f"nav order: {names}, want Writing first, Values auditing last and no Manifesto / How values work / Research tabs")
+            if names != ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", "Research", "Manifesto", "Customize", "Overrides"]:
+                errors.append(f"nav order: {names}, want the grouped menu (Trade, Players, Auditing, Our approach, Settings; JEG-1106)")
             # JEG-953 (Jeremy, 2026-10-23): below 768 px the tabs live in a hamburger menu, so their row layout is
             # no longer pinned here; tests/test_v2_hamburger_nav_render.py covers the phone menu.
             for tab in tabs:

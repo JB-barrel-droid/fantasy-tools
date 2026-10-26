@@ -243,8 +243,8 @@ def _check_913(page, base) -> list[str]:
     page.evaluate("() => { location.hash = '#nonsense-route?x=1'; }")
     page.wait_for_timeout(300)
     snap = page.evaluate(ROUTE)
-    if snap["hash"] != "#trade-targets" or snap["tab"] != ["targets"]:
-        errors.append(f"[913] #nonsense-route?x=1 left the address at {snap['hash']!r} / tab {snap['tab']}, want #trade-targets")
+    if snap["hash"] != "#player-values" or snap["tab"] != ["values"]:   # JEG-1106: the landing page is the value chart
+        errors.append(f"[913] #nonsense-route?x=1 left the address at {snap['hash']!r} / tab {snap['tab']}, want #player-values")
     page.go_back()
     page.wait_for_timeout(300)
     snap = page.evaluate(ROUTE)
@@ -272,12 +272,23 @@ def _check_913(page, base) -> list[str]:
     snap = page.evaluate(ROUTE)
     if not snap["hash"].startswith("#find-trade?x=1") or snap["tab"] != ["find"]:
         errors.append(f"[913] the #find-trade deep link was rewritten: {snap}")
+    # JEG-1094: the league-wide screen is its own route and tab; an old league share link moves to it.
+    page.evaluate("() => { location.hash = '#find-league'; }")
+    page.wait_for_timeout(300)
+    snap = page.evaluate(ROUTE)
+    if snap["hash"] != "#find-league" or snap["tab"] != ["league"]:
+        errors.append(f"[1094] #find-league did not land on its own tab: {snap}")
+    page.evaluate("() => { location.hash = '#find-trade?workspace=zzz'; }")
+    page.wait_for_timeout(300)
+    snap = page.evaluate(ROUTE)
+    if not snap["hash"].startswith("#find-league") or snap["tab"] != ["league"]:
+        errors.append(f"[1094] an old #find-trade?workspace= league link did not move to the league-wide screen: {snap}")
     # Landing on an unknown hash.
     page.goto(base + "#nonsense-route", wait_until="networkidle")
     page.wait_for_function("() => window.TradeValueV2", timeout=40000)
     page.wait_for_timeout(300)
     snap = page.evaluate(ROUTE)
-    if snap["hash"] != "#trade-targets" or snap["tab"] != ["targets"]:
+    if snap["hash"] != "#player-values" or snap["tab"] != ["values"]:
         errors.append(f"[913 landing] #nonsense-route left the address at {snap['hash']!r} / tab {snap['tab']}")
     return errors
 

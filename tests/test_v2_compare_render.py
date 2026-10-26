@@ -19,22 +19,21 @@ own search boxes, and checks against window.TradeValueCurveControls.getAllRows()
     grouped picker (JEG-466); DDF Value is the first row of "Difference by
     source & method", marked in words as the series that decides the verdict;
   * no page errors and no horizontal overflow at 390 px;
-  * JEG-875: both headline lines (answer and confidence) equal the rule
-    recomputed from the engine values by test_v2_headlines.expected (DDF Value +
-    DDF Value decide, JEG-841), on the search-box trade (a chart missing,
-    so Unclear) and on a second trade opened by link where the charts disagree
-    with each other and DDF Value agrees (Yes or No);
   * JEG-886: the Deal read never says "fair market price" / "little reason to
-    refuse" unless "Will they accept?" is Likely, never "will likely see a loss"
-    unless it is Unlikely, and when the per-chart count does not support the
-    chart average's side it names the split (and so does the market card).
+    refuse" unless the per-chart count says the charts would accept (Likely), never
+    "will likely see a loss" unless it is Unlikely, and when the per-chart count does not
+    support the chart average's side it names the split (and so does the market card),
+    on the search-box trade and on a second trade opened by link where the charts
+    disagree with each other and DDF Value agrees;
+  * JEG-1112 (Jeremy, 2026-10-26, option D): the verdict card no longer opens with the
+    "Should you propose or accept?" / "Will they accept?" lines (the Deal read says the
+    same), so neither is in the DOM; the JEG-875/895 answer, level and chart-count checks
+    that read them went with them.
 
 Discrimination: test_guard_fails_on_broken_builds serves trade.js with the
-sign flipped, with missing values read as 0, with the headline Yes/No swapped,
-with the headline always Unclear and with the chart split ignored, and v2.js
-with VORP mixed into the trade-value table, with the "High confidence" label
-back and with the chart count merged into the reasons line (JEG-895), and
-requires the checks to fail on each.
+sign flipped, with missing values read as 0 and with the chart split ignored, and
+v2.js with VORP mixed into the trade-value table, and requires the checks to fail
+on each.
 """
 from __future__ import annotations
 
@@ -42,7 +41,6 @@ import contextlib
 import functools
 import http.server
 import json
-import re
 import shutil
 import socketserver
 import sys
@@ -60,7 +58,6 @@ from tests.test_published_league_settings_render import _chromium_executable  # 
 from tests import _render_env  # noqa: E402
 from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_v2_risers_render import PICKER_READ, check_picker  # noqa: E402
-from tests.test_v2_headlines import expected as expected_headlines  # noqa: E402
 
 
 def setUpModule():
@@ -77,12 +74,6 @@ CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 # JEG-886: the answer to "Will they accept?" each chart-average column's copy assumes.
 DEAL_SPLIT_ACCEPT = {"win": "Unlikely", "even": "Likely", "lose": "Likely"}
 FAIR_COPY = ("fair market price", "little reason to refuse", "easy for them", "call it fair")
-# JEG-895: the level names (v2.js LEVEL_LABELS) keyed by the internal High / Medium / Low.
-LEVEL_LABELS = {
-    "propose": {"High": "Our value: strong", "Medium": "Our value: moderate", "Low": "Our value: weak"},
-    "accept": {"High": "Charts agree: strongly", "Medium": "Charts agree: mostly", "Low": "Charts agree: weakly"},
-}
-CHART_COUNT = re.compile(r"\d+ of \d+ trade charts agree")
 HARD_SELL_COPY = ("will likely see a loss",)
 
 # JEG-875/886: a second trade, opened by link, where the compared charts disagree with each
@@ -190,10 +181,7 @@ READ = """() => {
     vorp: document.getElementById('v2CVorpCard').hidden ? [] : read(document.getElementById('v2CVorpTable')),
     marked: [...document.querySelectorAll('#v2CTable tbody tr.is-verdict')].map(tr => ({key: tr.dataset.source,
       tag: tr.querySelector('.v2-cverdict-tag')?.textContent ?? null})),
-    heads: [...document.querySelectorAll('#v2CHeads .v2-chead')].map(p => ({line: p.dataset.line, answer: p.dataset.answer,
-      confidence: p.dataset.confidence, text: p.textContent, hidden: document.getElementById('v2CHeads').hidden,
-      label: p.querySelector('.c')?.textContent ?? null, why: p.querySelector('.why:not(.charts)')?.textContent ?? null,
-      charts: [...p.querySelectorAll('.charts')].map(s => s.textContent)})),
+    headsGone: !document.getElementById('v2CHeads') && !document.querySelector('#v2CVerdict .v2-chead'),
     deal: {hidden: document.getElementById('v2CDeal').hidden, read: document.getElementById('v2CDealRead').textContent,
       text: document.getElementById('v2CDealText').textContent,
       market: document.querySelector('#v2CDealNets li[data-net="market"] .v2-deal-net')?.textContent ?? null},
@@ -262,34 +250,9 @@ def check(snap) -> list[str]:
             errors.append(f"DDF Value row not marked as deciding the verdict: {snap['marked']}")
     else:
         errors.append("DDF Value is not shown; its row went unchecked")
-    # JEG-505: the two headline lines, each an answer and a level in words (and symbols), and the
-    # first line's answer is the sign of DDF Value's net recomputed from the engine.
-    # JEG-895: the level is named for what it measures (LEVEL_LABELS), never "confidence", and the
-    # chart count "N of M trade charts agree" is its own line, outside the level and the reasons.
-    heads = {h["line"]: h for h in snap["heads"]}
-    if set(heads) != {"propose", "accept"} or any(h["hidden"] for h in heads.values()):
-        errors.append(f"the verdict card must open with two headline lines: {snap['heads']}")
-    else:
-        for line, question in (("propose", "Should you propose or accept?"), ("accept", "Will they accept?")):
-            h = heads[line]
-            if not h["text"].startswith(question):
-                errors.append(f"{line} line must start with {question!r}: {h['text']!r}")
-            if h["answer"] != "none":
-                label = LEVEL_LABELS[line].get(h["confidence"])
-                if not label or not (h["label"] or "").endswith(label) or not any(g in h["text"] for g in "▲▼=≈?"):
-                    errors.append(f"{line} line must carry a symbol and the level {label!r}: {h['text']!r}")
-            if "confidence" in h["text"].lower():
-                errors.append(f"{line} line still says confidence: {h['text']!r}")
-            if CHART_COUNT.search(h["text"]):
-                if len(h["charts"]) != 1 or not CHART_COUNT.fullmatch(h["charts"][0]):
-                    errors.append(f"{line} line: the chart count must be its own line: {h['charts']}")
-                if CHART_COUNT.search(h["label"] or "") or CHART_COUNT.search(h["why"] or ""):
-                    errors.append(f"{line} line: the chart count is merged into the level or the reasons: {h['text']!r}")
-            elif h["charts"]:
-                errors.append(f"{line} line: unexpected chart-count line {h['charts']}")
-        if snap["kind"] == "split" and not heads["propose"]["charts"]:
-            errors.append(f"the split trade's propose line shows no chart count: {heads['propose']['text']!r}")
-        errors += check_headlines(snap, heads, point_keys)
+    # JEG-1112: the two headline lines are gone from the verdict card (the Deal read says the same).
+    if not snap["headsGone"]:
+        errors.append("the verdict card still has the propose / accept headline lines (removed in JEG-1112)")
     errors += check_deal(snap, point_keys)
     errors += check_picker(snap["picker"], "Player values shown")
     if snap["firstShown"] != "ddf_value":
@@ -304,22 +267,6 @@ def trade_players(snap):
     def side(keys):
         return [{"player_key": k, "values": engine[k]["values"]} for k in keys]
     return side(snap["give"]), side(snap["receive"]), any(engine[k]["low"] for k in snap["give"] + snap["receive"])
-
-
-def check_headlines(snap, heads, point_keys) -> list[str]:
-    """JEG-875: both headline lines equal the rule recomputed from the engine values (exact answer
-    and confidence; Unclear only when the rule says Unclear)."""
-    errors = []
-    charts = [k for k in CHART_KEYS if k in point_keys]
-    want = expected_headlines(trade_players(snap), charts)
-    for line in ("propose", "accept"):
-        got = (heads[line]["answer"], heads[line]["confidence"])
-        exp = tuple(v or "none" for v in (want[line]["answer"], want[line]["confidence"]))
-        if got != exp:
-            errors.append(f"{line} line says {got}, the rule on the engine values says {exp} ({snap['kind']} trade)")
-    if snap["kind"] == "split" and want["propose"]["answer"] not in ("Yes", "No"):
-        errors.append(f"the split trade must have DDF Value agreeing, rule says {want['propose']}")
-    return errors
 
 
 def deal_expectation(snap, point_keys):
@@ -485,19 +432,9 @@ class CompareTradeRenderTest(unittest.TestCase):
             "missing read as zero": {"trade.js": trade.replace(
                 "const value = row.values ? row.values[key] : null;",
                 "const value = (row.values ? row.values[key] : null) ?? 0;")},
-            # JEG-875: the rendered headline is guarded: Yes/No swapped, and a build that always says Unclear.
-            "headline answer flipped": {"trade.js": trade.replace('answer = "Yes";', 'answer = "@@";', 1)
-                                        .replace('answer = "No";', 'answer = "Yes";', 1).replace('answer = "@@";', 'answer = "No";', 1)},
-            "headline always Unclear": {"trade.js": trade.replace("const deal = ctx && ctx.deal;", "const deal = null;", 1)},
             # JEG-886: the deal read falls back to the chart average's cell copy whatever the per-chart count says.
             "deal read ignores the chart split": {"trade.js": trade.replace(
                 "market.split = market.charts.accept !== DEAL_SPLIT_ACCEPT[market.side];", "market.split = false;", 1)},
-            # JEG-895: the level must be named for what it measures, and the chart count must be its own line.
-            "confidence label back": {"v2.js": v2.replace(
-                "document.createTextNode(LEVEL_LABELS[line][h.confidence])", "document.createTextNode(`${h.confidence} confidence`)", 1)},
-            "chart count merged into the reasons": {"v2.js": v2.replace(
-                'why.textContent = h.reasons.filter(r => !CHART_COUNT_REASON.test(r)).join("; ");',
-                'why.textContent = h.reasons.join("; ");', 1)},
             "VORP mixed into trade values": {"v2.js": v2.replace(
                 'let pointKeys = usable(mineOrdered.filter(key => sourceMeta(key).method !== "vorp"));',
                 "let pointKeys = usable(mineOrdered);", 1)},

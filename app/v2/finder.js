@@ -500,7 +500,8 @@
     const v = (row && row.values) || {};
     if (key === OUR_KEY) return finite(v.ddf_value_charts) && finite(v.ddf_value_projections) ? Math.abs(v.ddf_value_charts - v.ddf_value_projections) / 2 : 0;
     if (key === PROJECTIONS_KEY) return standardErrorOfMean(PROJECTION_KEYS.map(k => v[k]).filter(finite));
-    return standardErrorOfMean((chartKeys || CHART_KEYS).map(k => v[k]).filter(finite));
+    if (key === MARKET_KEY) return standardErrorOfMean((chartKeys || CHART_KEYS).map(k => v[k]).filter(finite));
+    return 0;   // one source (a single chart or projection source): nothing to measure a spread against (JEG-1081 PR 6); the net floor decides
   }
   const benchWeight = (weights, pos) => (weights && finite(weights[pos]) ? weights[pos] : weights && finite(weights.overall) ? weights.overall : 0);
   const netOf = (l, key, weights) => l.starterValue + l.bench.reduce((total, r) => total + benchWeight(weights, r.pos) * r.values[key], 0);
@@ -655,7 +656,27 @@
     if (!finite(d.ddf)) return `${what}: no value`;
     return `${what} ${sign(d.ddf)} DDF Value${others.length ? ` (${others.join(", ")})` : ""}`;
   }
-  const api = {hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const VIEW_TIPS = {ddf: "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights.",
+    market: "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals.",
+    projections: "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market."};
+  // Spec 4c; under a basis of the reader's own (Overrides) DDF Value is theirs, and the market's point scale follows it (spec 5b).
+  function viewTip(id, basis) {
+    const custom = Boolean(basis && !basis.isDefault);
+    const name = custom ? basis.label : "";
+    if (id === "ddf" && custom) return `Your basis, not our methodology: ${name}, adjusted for your league's position weights. Change it on Overrides.`;
+    if (id === "market" && custom) return `${VIEW_TIPS.market} Rescaled to ${basis.mode === "single" ? `${name}'s point scale` : `the point scale of ${name}`}.`;
+    return VIEW_TIPS[id];
+  }
+  // JEG-1081 PR 7: what each fit label means, for the label's tooltip (spec 4c). Plain words, no abbreviations.
+  const FIT_TIPS = {
+    natural: "Natural fit: in each view that can judge it (DDF Value and DDF Value (projections) for you, the Trade chart average for them) the trade does not hurt a side, and at least one side moves toward the depth it needs.",
+    "natural-charts": "Natural fit (charts only): DDF Value says you gain and the trade fills a need, but DDF Value (projections) does not back it. A trade the market likes more than the production does.",
+    "natural-projections": "Natural fit (projections only): DDF Value (projections) says you gain and the trade fills a need, but DDF Value does not. A trade backed by production, not by the trade charts.",
+    value: "Value fit: both sides gain in the views that judge them, but neither side moves toward the depth it needs.",
+    force: "Force fit: a side loses, gains less than the noise between the sources, or the trade moves a team away from the depth it needs."
+  };
+  const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
+  const api = {viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -944,7 +965,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const tip = chipTooltip({ddf, projections: proj, market: avg});
     const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind, title: tip, tabindex: "0", "aria-label": `${finite(value) ? value.toFixed(1) : "no value"} ${label}. ${tip.split("\n").join("; ")}`},
       el("span", {class: "v2-find-chip-value", text: finite(value) ? value.toFixed(1) : "no value"}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
-    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", charts ? "Trade chart avg" : "Trade chart avg (too few charts)", avg));
+    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", charts ? "Trade chart average" : "Trade chart average (too few charts)", avg));
   }
   // JEG-988: roster balance and the generated evaluation for one side, in both views: fundamentals (DDF Value) and market
   // pricing (Trade chart average, only with enough charts). Expected depth is the engine's own seats per team.
@@ -957,9 +978,6 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     return expected ? {expected, shape: C.getRosterShape()} : null;
   }
   const STATUS_WORD = {under: "Under", over: "Over", ok: "OK"};
-  const VIEW_TIPS = {ddf: "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights.",
-    market: "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals.",
-    projections: "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market."};
   // JEG-1019: ONE roster assessment for both teams, as a table. Each team in two views (DDF Value, Trade chart average):
   // players counted per position against the expected depth, the over / under flag, and the starter and bench value.
   // Nothing here is new math: lineupValue splits a view's best lineup into starters and bench, rosterBalance judges depth.
@@ -995,14 +1013,16 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function assessmentTable(a, b) {
     const sides = [a, b].filter(Boolean);   // JEG-1022: one team (Waivers) or both (Find a trade)
     // JEG-1081: DDF Value, Trade chart average, then DDF Value (projections) in a subdued, collapsible third group (hidden under 1024px until "Show projections").
-    const views = [{id: "ddf", label: "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: MARKET_KEY},
+    const basis = engine() && engine().getBasis ? engine().getBasis() : null;
+    const custom = Boolean(basis && !basis.isDefault);
+    const views = [{id: "ddf", label: custom ? `DDF Value (${basis.label})` : "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: MARKET_KEY},
       {id: "projections", label: "DDF Value (projections)", key: PROJECTIONS_KEY, cls: "v2-find-proj-col"}];
     const cell = (text, props) => el("td", props || {}, text);
     const withCls = (v, props) => (v.cls ? {...props, class: `${(props && props.class) || ""} ${v.cls}`.trim()} : props);
     const head1 = el("tr", {}, el("th", {scope: "col", rowspan: "3", class: "v2-find-pos", text: "Position"}), el("th", {scope: "col", rowspan: "3", class: "v2-find-nowrap", text: "Expected"}),
       ...sides.map(x => el("th", {scope: "colgroup", colspan: "8", class: "v2-find-assess-team", text: x.side === "mine" ? "Your team" : "Their team"})));
     const head2 = el("tr", {}, ...sides.flatMap(() => [el("th", {scope: "colgroup", colspan: "2", text: "Players"}),
-      ...views.map(v => el("th", withCls(v, {scope: "colgroup", colspan: "2", text: v.label, title: VIEW_TIPS[v.id]})))]));
+      ...views.map(v => el("th", withCls(v, {scope: "colgroup", colspan: "2", text: v.label, title: viewTip(v.id, basis)})))]));
     const head3 = el("tr", {}, ...sides.flatMap(() => [el("th", {scope: "col", text: "Counted"}), el("th", {scope: "col", text: "Flag"}),
       ...views.flatMap(v => ["Starters", "Bench"].map(t => el("th", withCls(v, {scope: "col", text: t}))))]));
     const flagOf = (x, pos) => {
@@ -1645,6 +1665,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         fitLine.replaceChildren(el("b", {text: text.slice(0, cut + 1)}), ` ${text.slice(cut + 2)}`);
         fitLine.dataset.fit = fit.label;
         fitLine.dataset.fitVariant = fit.variant;
+        fitLine.title = fitTip(fit.variant);
         li.dataset.findFit = fit.label;
         li.dataset.findFitVariant = fit.variant;
       }

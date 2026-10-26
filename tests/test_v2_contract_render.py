@@ -34,7 +34,7 @@ symbol (GL-04), a chip without a warning and a chip claiming all current (GL-05)
 that scrolls sideways (GL-13), and Player values search without its
 not-valued list (GL-20, a partial check until the Doc marks it live), and (group 4) the ⓘ hover dropped
 (GL-19), the chart group named "as published" (GL-21), Edit league demoted (GL-22), Customize without
-Reset (GL-07) and Compare's headlines hidden (CT-02). Separately, the pre-fix v2.js from
+Reset (GL-07) and the removed Compare headline lines put back (CT-02). Separately, the pre-fix v2.js from
 JEG-506's own commit (raw engine keys in the source list and How values,
 "undefined" in the player detail, a prior-week status without a symbol) fails
 GL-02, GL-04, GL-05, TT-03 and HV-01.
@@ -347,7 +347,9 @@ COMMON = r"""
   // JEG-947: a name cell holds its text in a .v2-nm span (phones show "Last, First"); the contract reads the full "First Last" name, and an empty visible name still reads as empty.
   const own = n => { const nm = n && n.querySelector && n.querySelector(':scope > .v2-nm'); return nm ? (nm.textContent.trim() ? (nm.dataset.full || nm.textContent.trim()) : '') : [...n.childNodes].filter(c => c.nodeType === 3).map(c => c.textContent).join('').trim(); };
   const rect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; };
-  const shown = n => Boolean(n) && !n.hidden && n.getClientRects().length > 0;
+  // JEG-1112: a display: contents wrapper (the Example banner inside Compare's header grid) has no box of its own; it is shown when a child is.
+  const drawn = n => n.getClientRects().length > 0 || (getComputedStyle(n).display === 'contents' && [...n.children].some(drawn));
+  const shown = n => Boolean(n) && !n.hidden && drawn(n);
   const closePop = async () => { const b = document.querySelector('#v2Popover:not([hidden]) .v2-panel-close')
       || [...document.querySelectorAll('#v2Popover:not([hidden]) button')].find(b => /^(Done|Cancel)$/.test(b.textContent.trim()));
     if (b) b.click(); document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); await sleep(250); };
@@ -781,7 +783,7 @@ MODULES_JS = """() => [...document.querySelectorAll('main:not([hidden]) section.
 
 
 def scenario_tabs(s: Session) -> dict:
-    page = s.open("")
+    page = s.open("#trade-targets")   # JEG-1106: an empty hash now lands on the value chart; this scenario starts on Trade targets
     try:
         page.wait_for_function("() => window.TradeValueV2.targets()", timeout=40000)
         page.wait_for_timeout(300)
@@ -841,9 +843,9 @@ def scenario_failure(s: Session) -> dict:
         page.close()
 
 
-# Shipped-but-pending lines (GL-07, GL-19, GL-21, GL-22, CT-02): the Doc still says "to build" for
+# Shipped-but-pending lines (GL-07, GL-19, GL-21, GL-22): the Doc still says "to build" for
 # these, so they stay PENDING with a partial check that runs like a live one. The probes read
-# Customize on each data page, the league buttons, the text of every page and Compare's headlines.
+# Customize on each data page, the league buttons, the text of every page and whether Compare's verdict card has headline lines (CT-02).
 CUSTOMIZE_JS = "async () => {" + COMMON + r"""
   const out = {league: {edit: shown($('v2EditLeague')), weights: shown($('v2Weights'))}};
   const edit = $('v2EditLeague'), weights = $('v2Weights');
@@ -879,9 +881,8 @@ CUSTOMIZE_JS = "async () => {" + COMMON + r"""
 }"""
 
 HEADLINES_JS = "() => {" + COMMON + r"""
-  const box = $('v2CHeads');
-  return {shown: shown(box), lines: [...box.querySelectorAll('[data-line]')].map(p => ({line: p.dataset.line, answer: p.dataset.answer,
-    confidence: p.dataset.confidence, text: p.innerText.replace(/\s+/g, ' ').trim()}))};
+  const card = $('v2CVerdict');
+  return {box: Boolean($('v2CHeads')), lines: card.querySelectorAll('[data-line]').length, text: card.innerText.replace(/\s+/g, ' ').trim()};
 }"""
 
 
@@ -1725,8 +1726,11 @@ def tt11(S):
 def rs01(S):
     errors = []
     views = [t["view"] for t in S["tabs"]["targets"]["tabs"]]
-    if any(v in views for v in ("manifesto", "how", "research")) or views.count("writing") != 1:
-        errors.append(f"Manifesto, How values work and Research should be sections of one Writing tab, not top-level tabs: {views}")
+    # JEG-1106: the menu lists the three Writing sections as entries of the "Our approach" group (all routes are Writing
+    # routes: none is a view of its own), where the old top bar had one Writing tab.
+    labels = [t["label"] for t in S["tabs"]["targets"]["tabs"] if t["view"] == "writing"]
+    if any(v in views for v in ("manifesto", "how", "research")) or labels != ["Methodology", "Research", "Manifesto"]:
+        errors.append(f"Methodology, Research and Manifesto should be the Writing entries of the Our approach group, not views of their own: {views} {labels}")
     sections = S["tabs"]["manifesto"]["sections"]
     want = [("manifesto", "#writing/manifesto"), ("how-values", "#writing/how-values"), ("research", "#writing/research")]
     if [(x["slug"], x["href"]) for x in sections] != want:
@@ -1855,33 +1859,16 @@ def gl22_partial(S):
     return errors
 
 
-CT02_LEVEL_LABELS = {
-    "propose": {"High": "Our value: strong", "Medium": "Our value: moderate", "Low": "Our value: weak"},
-    "accept": {"High": "Charts agree: strongly", "Medium": "Charts agree: mostly", "Low": "Charts agree: weakly"},
-}
-
-
-def ct02_partial(S):
+def ct02(S):
+    """JEG-1112 (Jeremy, 2026-10-26, option D): the verdict card has no "Should you propose or accept?" / "Will they
+    accept?" lines. They repeated the Deal read and pushed the give / receive / verdict block past the fold at 1366x768."""
     h = S["shipped"]["headlines"]
     errors = []
-    if not h["shown"] or len(h["lines"]) != 2:
-        return [f"the Compare headline shows {len(h['lines'])} lines (shown {h['shown']})"]
-    want = {"propose": ("Should you propose or accept?", {"Yes", "No", "Even", "Unclear"}),
-            "accept": ("Will they accept?", {"Likely", "Unlikely", "Toss-up"})}
-    for line in h["lines"]:
-        question, answers = want[line["line"]]
-        if question not in line["text"]:
-            errors.append(f"{line['line']}: question {question!r} missing from {line['text']!r}")
-        if line["answer"] not in answers:
-            errors.append(f"{line['line']}: answer {line['answer']!r}, want one of {sorted(answers)}")
-        # JEG-895: the level is named for what it measures, never "confidence".
-        label = CT02_LEVEL_LABELS[line["line"]].get(line["confidence"])
-        if not label or label not in line["text"]:
-            errors.append(f"{line['line']}: level {line['confidence']!r} not stated as {label!r} in {line['text']!r}")
-        if "confidence" in line["text"].lower():
-            errors.append(f"{line['line']}: still says confidence in {line['text']!r}")
-        if "margin is under 5%" in line["text"] and line["confidence"] != "Low":
-            errors.append(f"{line['line']}: DDF margin under 5% but the level is {line['confidence']}")
+    if h["box"] or h["lines"]:
+        errors.append(f"the verdict card still has the propose / accept headline lines (box {h['box']}, {h['lines']} lines)")
+    for phrase in ("Should you propose or accept?", "Will they accept?", "Our value:", "Charts agree:"):
+        if phrase in h["text"]:
+            errors.append(f"the verdict card still says {phrase!r}: {h['text'][:160]!r}")
     return errors
 
 
@@ -2113,7 +2100,7 @@ CHECKS = {
     "TT-05": PENDING("JEG-510", partial=tt05_partial),
     "TT-06": tt06, "TT-07": tt07, "TT-08": tt08, "TT-09": PENDING("JEG-504"),
     "RF-01": rf01, "RF-02": rf02,
-    "CT-01": ct01, "CT-02": PENDING("JEG-505", partial=ct02_partial), "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
+    "CT-01": ct01, "CT-02": ct02, "CT-03": ct03, "CT-04": ct04, "CT-05": ct05,
     "CT-06": ct06, "CT-07": ct07, "CT-08": ct08,
     "HV-01": hv01, "HV-02": hv02,
 }
@@ -2240,8 +2227,8 @@ class ContractRenderTest(unittest.TestCase):
         broken_shell = cut(cut(shell, manifesto_tab), how_tab, how_tab + manifesto_tab)
         # Swap never shows (removing the node would crash startup, which is a different failure).
         broken_shell = cut(broken_shell, 'id="v2CSwap" hidden>', 'id="v2CSwap" hidden style="display:none !important">')
-        broken_shell = cut(broken_shell, 'href="v2/#trade-targets">Data Driven Football</a>',
-                           'href="v2/#trade-targets">Data Driven Football · Vegas lines</a>')
+        broken_shell = cut(broken_shell, 'href="v2/#player-values">Data Driven Football</a>',
+                           'href="v2/#player-values">Data Driven Football · Vegas lines</a>')
         results, _ = run_contract(["MF-01", "RS-01", "CT-01", "GL-01"], {"shell": broken_shell})
         caught(results, "MF-01", "Manifesto moved after How values work in Writing")
         caught(results, "RS-01", "Writing sections out of order")
@@ -2315,19 +2302,22 @@ class ContractRenderTest(unittest.TestCase):
 
 
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
-        # "as published", Edit league demoted, Customize without Reset, Compare's headlines hidden.
+        # "as published", Edit league demoted, Customize without Reset, the removed Compare headline lines back.
         broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
         broken_js = cut(broken_js, '{id: "pub", title: "Published trade charts"',
                         '{id: "pub", title: "Trade charts (as published)"')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
-        broken_js = cut(broken_js, "box.hidden = !heads;", "box.hidden = true;")
         broken_shell = cut(shell, 'class="v2-btn v2-btn-primary" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust" id="v2EditLeague"')
+        # JEG-1112: the propose / accept lines put back into the verdict card (the pre-JEG-1112 markup).
+        broken_shell = cut(broken_shell, '        <div aria-live="polite">\n          <h2 id="v2CVerdictTitle">',
+                           '        <div class="v2-cheads" id="v2CHeads"><p class="v2-chead" data-line="propose">Should you propose or accept? Yes</p></div>\n'
+                           '        <div aria-live="polite">\n          <h2 id="v2CVerdictTitle">')
         results, _ = run_contract(["GL-19", "GL-21", "GL-22", "GL-07", "CT-02"], {"v2.js": broken_js, "shell": broken_shell})
         caught(results, "GL-19", "ⓘ no longer opening on hover")
         caught(results, "GL-21", "the chart group named 'as published'")
         caught(results, "GL-22", "Edit league no longer the primary control")
         caught(results, "GL-07", "Customize without Reset to default")
-        caught(results, "CT-02", "Compare's headline answers hidden")
+        caught(results, "CT-02", "the propose / accept headline lines back in the verdict card")
 
 
 if __name__ == "__main__":
