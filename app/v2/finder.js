@@ -140,17 +140,24 @@
         let giveRows = give.combo.map(i => mineP.rows[i]);
         let getRows = get.combo.map(i => theirsP.rows[i]);
         let verdict = judged;
-        let addedThrowIn = null;
+        let addedThrowIns = [];
         let unbalanced = false;
-        // JEG-1108: the team receiving more players adds its own least valuable rostered player to the other side, so both
-        // sides trade the same number of players. The package is then judged again with the throw-in in it. If that player
-        // is a starter, balanceCounts leaves the trade as it was and it is marked unbalanced.
+        // JEG-1108: the team receiving more players adds its own least valuable rostered players (one per missing player) to
+        // the other side, so both sides trade the same number of players. The package is then judged again with the
+        // throw-ins in it. If one of them is a starter, balanceCounts adds nothing and the trade is kept as it was, marked unbalanced.
         if (giveRows.length !== getRows.length) {
-          const balanced = balanceCounts({give: giveRows, receive: getRows}, balanceMine, balanceTheirs, balanceShape, ourKey, keys);
-          if (balanced.balanced) {
-            giveRows = balanced.give;
-            getRows = balanced.receive;
-            addedThrowIn = {side: balanced.throwInPlayer && balanced.give.includes(balanced.throwInPlayer) ? "give" : "receive", row: balanced.throwInPlayer};
+          let work = {give: giveRows, receive: getRows};
+          const added = [];
+          while (work.give.length !== work.receive.length) {
+            const step = balanceCounts(work, balanceMine, balanceTheirs, balanceShape, ourKey, keys);
+            if (!step.balanced) break;
+            added.push({side: step.give.length > work.give.length ? "give" : "receive", row: step.throwInPlayer});
+            work = {give: step.give, receive: step.receive};
+          }
+          if (work.give.length === work.receive.length) {
+            giveRows = work.give;
+            getRows = work.receive;
+            addedThrowIns = added;
             verdict = judgeSums(sumsOf(giveRows, keys), sumsOf(getRows, keys), chartKeys, minCharts);
             if (!verdict.passes.edge || !verdict.passes.charts) continue;
           } else unbalanced = true;
@@ -159,12 +166,12 @@
         if (!lineup.passes) { sanityDropped += 1; continue; }
         const entry = {give: giveRows, receive: getRows, edge: verdict.edge, charts: verdict.charts, issues: lineup.issues,
           pricedCharts: verdict.pricedCharts, rivalOkCount: verdict.rivalOkCount, score: scoreOf(verdict.edge, giveRows.length + getRows.length),
-          ...(addedThrowIn ? {addedThrowIn} : {}), ...(unbalanced ? {unbalanced: true} : {})};
+          ...(addedThrowIns.length ? {addedThrowIns} : {}), ...(unbalanced ? {unbalanced: true} : {})};
         // A balanced variant can be the same package the search also reached directly: one trade, the throw-in listed.
         const id = idOf(entry);
         if (seen.has(id)) {
           const at = seen.get(id);
-          if (entry.addedThrowIn && !found[at].addedThrowIn) found[at] = entry;
+          if (entry.addedThrowIns && !found[at].addedThrowIns) found[at] = entry;
           continue;
         }
         seen.set(id, found.length);
@@ -1801,7 +1808,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
       const throwIns = same && same.throwIns ? [].concat(same.throwIns.give.map(r => `${r.name} (${valueText(r, ourKey)})`), same.throwIns.receive.map(r => `${r.name} (${valueText(r, ourKey)})`)) : [];
       notes.textContent = `${warn.join(" ")}${warn.length && throwIns.length ? " " : ""}${throwIns.length ? `Can add ${throwIns.join(", ")} as a throw-in.` : ""}`;
-      if (same && same.addedThrowIn) notes.textContent += `${notes.textContent ? " " : ""}Includes ${same.addedThrowIn.row.name} (${valueText(same.addedThrowIn.row, ourKey)}) as a throw-in, so both teams trade the same number of players.`;
+      if (same && same.addedThrowIns) notes.textContent += `${notes.textContent ? " " : ""}Includes ${same.addedThrowIns.map(t => `${t.row.name} (${valueText(t.row, ourKey)})`).join(", ")} as ${same.addedThrowIns.length === 1 ? "a throw-in" : "throw-ins"}, so both teams trade the same number of players.`;
       notes.classList.toggle("is-warn", warn.length > 0);
       if (impact) impact.update(giveRows, recvRows);
       const fit = ctx.fit ? fitFor(ctx.lineup, ctx.fit, giveRows, recvRows) : null;

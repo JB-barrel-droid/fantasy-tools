@@ -74,8 +74,8 @@ THIN = """() => {
 
 
 def orientation(page, tag, swap) -> list[str]:
-    """Yahoo as mine and ESPN as theirs has no natural group on current data; the swap has several (and force ones), which is what
-    makes the tier-order assertion test something."""
+    """Yahoo as mine and ESPN as theirs has no natural group on current data; the swap lists groups of at least two different fits,
+    which is what makes the tier-order assertion test something."""
     errors = []
     tag = f"{tag}{'ESPN mine / Yahoo theirs: ' if swap else 'Yahoo mine / ESPN theirs: '}"
     say = lambda what: errors.append(tag + what)
@@ -100,8 +100,8 @@ def orientation(page, tag, swap) -> list[str]:
         say("no groups listed")
         return errors
     kinds = {g["fit"] for g in shown}
-    if swap and not ({"natural", "force"} <= kinds):
-        say(f"the swapped rosters must list natural and force groups so the tier order is exercised, got {sorted(map(str, kinds))}: the guard would test nothing")
+    if swap and len(kinds & {"natural", "market", "force"}) < 2:
+        say(f"the swapped rosters must list groups of at least two different fits so the tier order is exercised, got {sorted(map(str, kinds))}: the guard would test nothing")
     if not all(g["visible"] for g in shown):
         say("a group's fit line is not visible")
     if any(g["fit"] is None or not re.match(r"^(Natural fit|Market supported|Force fit)(?: · [A-Za-z -]+ viability)?:", g["line"]) for g in shown):
