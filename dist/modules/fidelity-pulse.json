@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-26T12:48:36.771740Z",
- "run_id": "9f3ded3a-8981-4c44-99b9-1eaaed5f1ec2",
+ "checked_at": "2026-10-26T12:49:47.896634Z",
+ "run_id": "061f21af-7c31-4323-945d-e3eea0dcb848",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -33,7 +33,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "fcwk7_2026-10-26t1106_v1",
    "measured_site": "2026-10-26T04:05:20+00:00",
-   "since": "2026-10-26T12:48:36.771740Z",
+   "since": "2026-10-26T12:49:47.896634Z",
    "summary": "1188/1188 chart values equal stored bake fcwk7_2026-10-26t0405_v1; newer stored bake fcwk7_2026-10-26t1106_v1 (week 7, saved 2026-10-26T11:06:41.080174Z) is not on the chart yet: 1139 values changed, 6 added, 12 dropped"
   },
   "cbsros": {
@@ -45,7 +45,7 @@
    "reason": "fidelity: publisher_vs_stored",
    "identity": "2026-10-26@2026-10-26T11:25:58.955184Z",
    "measured_site": "2026-10-26",
-   "since": "2026-10-26T12:48:36.771740Z",
+   "since": "2026-10-26T12:49:47.896634Z",
    "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Eli Stowers, Hunter Long); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Ky"
   },
   "razzball": {
@@ -69,7 +69,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-26@2026-10-26T04:45:27.257883Z",
    "measured_site": null,
-   "since": "2026-10-26T12:48:36.771740Z",
+   "since": "2026-10-26T12:49:47.896634Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -81,7 +81,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
    "measured_site": null,
-   "since": "2026-10-26T12:48:36.771740Z",
+   "since": "2026-10-26T12:49:47.896634Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -675,7 +675,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "fcwk7_2026-10-26t1106_v1",
     "measured_site": "2026-10-26T04:05:20+00:00",
-    "since": "2026-10-26T12:48:36.771740Z",
+    "since": "2026-10-26T12:49:47.896634Z",
     "summary": "1188/1188 chart values equal stored bake fcwk7_2026-10-26t0405_v1; newer stored bake fcwk7_2026-10-26t1106_v1 (week 7, saved 2026-10-26T11:06:41.080174Z) is not on the chart yet: 1139 values changed, 6 added, 12 dropped"
    }
   },
@@ -1592,7 +1592,7 @@
     "reason": "fidelity: publisher_vs_stored",
     "identity": "2026-10-26@2026-10-26T11:25:58.955184Z",
     "measured_site": "2026-10-26",
-    "since": "2026-10-26T12:48:36.771740Z",
+    "since": "2026-10-26T12:49:47.896634Z",
     "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Eli Stowers, Hunter Long); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Ky"
    }
   },
@@ -1861,13 +1861,13 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "55/2744 values match exactly across 3 columns; 2689 value mismatches, 2 publisher players not stored, 4 stored players not on the page; daily update, ingest pending: the publisher changed since the save (fingerprint 57141754502f9ec8 at the save, bf0069e668325de8 now); 25 publisher names do not resolve to a canonical player; 1 publisher players not stored whose printed values are at most one printed unit (absent means 0): Baker Mayfield",
+     "summary": "46/2744 values match exactly across 3 columns; 2698 value mismatches, 2 publisher players not stored, 4 stored players not on the page; daily update, ingest pending: the publisher changed since the save (fingerprint 57141754502f9ec8 at the save, bf0069e668325de8 now); 25 publisher names do not resolve to a canonical player; 1 publisher players not stored whose printed values are at most one printed unit (absent means 0): Baker Mayfield",
      "counts": {
       "publisher_players": 917,
       "stored_players": 917,
       "compared": 2744,
-      "matched": 55,
-      "mismatched": 2689,
+      "matched": 46,
+      "mismatched": 2698,
       "missing_in_stored": 2,
       "extra_in_stored": 4,
       "outside_universe": 0,
@@ -1896,7 +1896,7 @@
       "std|1": {
        "left": 916,
        "right": 916,
-       "mismatched": 892,
+       "mismatched": 901,
        "missing": 1,
        "extra": 1
       }
@@ -1978,7 +1978,7 @@
        "player_key": 1469,
        "name": "Sione Vaki",
        "pos": "RB",
-       "left": "-0.3",
+       "left": "-0.2",
        "right": null
       }
      ],
@@ -1992,7 +1992,7 @@
        "values": {
         "full|1": "-102.3",
         "half|1": "-117.4",
-        "std|1": "-141.9"
+        "std|1": "-141.6"
        }
       },
       {
@@ -2003,7 +2003,7 @@
        "values": {
         "full|1": "-102.3",
         "half|1": "-117.4",
-        "std|1": "-141.9"
+        "std|1": "-141.6"
        }
       },
       {
@@ -2014,7 +2014,7 @@
        "values": {
         "full|1": "-89.9",
         "half|1": "-78.4",
-        "std|1": "-67.5"
+        "std|1": "-67.2"
        }
       },
       {
@@ -2025,7 +2025,7 @@
        "values": {
         "full|1": "-19.9",
         "half|1": "-20.1",
-        "std|1": "-23"
+        "std|1": "-22.8"
        }
       },
       {
@@ -2036,7 +2036,7 @@
        "values": {
         "full|1": "-89.9",
         "half|1": "-78.4",
-        "std|1": "-67.5"
+        "std|1": "-67.2"
        }
       },
       {
@@ -2069,7 +2069,7 @@
        "values": {
         "full|1": "-102.3",
         "half|1": "-117.4",
-        "std|1": "-141.9"
+        "std|1": "-141.6"
        }
       }
      ]
@@ -2199,7 +2199,7 @@
      "player_key": 1469,
      "name": "Sione Vaki",
      "pos": "RB",
-     "left": "-0.3",
+     "left": "-0.2",
      "right": null
     }
    ],
@@ -2213,7 +2213,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-26@2026-10-26T04:45:27.257883Z",
     "measured_site": null,
-    "since": "2026-10-26T12:48:36.771740Z",
+    "since": "2026-10-26T12:49:47.896634Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -2276,7 +2276,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
     "measured_site": null,
-    "since": "2026-10-26T12:48:36.771740Z",
+    "since": "2026-10-26T12:49:47.896634Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2314,5 +2314,5 @@
   "fantasysharks": "2026-10-16T07:19:25.781124+00:00"
  },
  "resyncs": {},
- "holds_changed": true
+ "holds_changed": false
 }
