@@ -6416,7 +6416,7 @@
   const hashBase = () => canonicalBase(location.hash.split("?")[0]);
   // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
   // (replaceState, so Back still works); its query goes with it. An empty hash is the landing page, not unknown.
-  const DEFAULT_ROUTE = "#trade-targets";
+  const DEFAULT_ROUTE = "#player-values";   // JEG-1106: new visitors land on the value chart (Jeremy, 2026-10-25)
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
     // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.
@@ -6444,7 +6444,7 @@
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
-  const currentView = () => viewFor(hashBase()) || "targets";   // landing: Trade targets (Jeremy, 2026-10-08)
+  const currentView = () => viewFor(hashBase()) || "values";   // landing: the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08)
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
@@ -6484,12 +6484,18 @@
     // The Manifesto is text only: no values, so no Showing bar.
     $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
     // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
-    document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
-      const on = tab.dataset.view === v;
+    // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
+    // on show is picked by its key ("values", "writing/research", "audit/single-source"), not by the view alone.
+    const navKey = v === "writing" ? "writing/" + writingSection()
+      : v === "audit" ? "audit/" + (hashBase().startsWith("#values-auditing/single-source") ? "single-source" : "health-check") : v;
+    let navLabel = "";
+    document.querySelectorAll(".v2-tab[data-key]").forEach(tab => {
+      const on = tab.dataset.key === navKey;
       tab.classList.toggle("is-active", on);
-      if (on) tab.setAttribute("aria-current", "page");
+      if (on) { tab.setAttribute("aria-current", "page"); navLabel = tab.textContent.trim(); }
       else tab.removeAttribute("aria-current");
     });
+    $("v2NavCurrent").textContent = navLabel;
     closePopover();
     if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
@@ -6875,7 +6881,23 @@
         else if (returnFocus) toggle.focus();
       };
       toggle.addEventListener("click", () => setNav(!header.classList.contains("is-open"), true));
-      $("v2Tabs").addEventListener("click", event => { if (event.target.closest(".v2-tab") && header.classList.contains("is-open")) setNav(false, false); });
+      $("v2Tabs").addEventListener("click", event => {
+        const item = event.target.closest(".v2-tab");
+        if (item && header.classList.contains("is-open")) setNav(false, false);
+        if (item && item.dataset.action === "customize") openSources(toggle);   // Settings > Customize opens the sources dialog
+      });
+      // Arrow keys move through the entries (Home / End jump); Down on the closed button opens the menu.
+      header.addEventListener("keydown", event => {
+        const open = header.classList.contains("is-open");
+        if (event.key === "ArrowDown" && !open && document.activeElement === toggle) { event.preventDefault(); setNav(true, false); return; }
+        if (!open || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+        const items = [...document.querySelectorAll("#v2Tabs .v2-tab")];
+        const at = items.indexOf(document.activeElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+          : event.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length - 1 : at - 1);
+        event.preventDefault();
+        items[next].focus();
+      });
       document.addEventListener("keydown", event => {
         if (event.key === "Escape" && header.classList.contains("is-open")) setNav(false, true);
       });

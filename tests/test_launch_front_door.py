@@ -350,17 +350,18 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 # Root: the v2 page itself, branded, canonical, no page errors.
                 page, errors, _ = open_page(base)
                 engine_ready(page)
-                # Landing tab is Trade targets (Jeremy, 2026-10-08).
-                page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
+                # Landing page is the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08).
+                page.wait_for_selector("#v2Main:not([hidden])", timeout=60000)
                 self.assertEqual([], errors)
-                self.assertTitleNamesRoute("Trade targets", page.title())
+                self.assertTitleNamesRoute("Player values", page.title())
                 self.assertEqual(SITE, page.eval_on_selector('link[rel="canonical"]', "e => e.href"))
                 v2_rows = page.evaluate(ROWS_JS)
                 self.assertGreater(len(v2_rows), 100)
                 # A tab click stays on the root page.
-                page.click('.v2-tab[data-view="values"]')
-                page.wait_for_selector("#v2Main:not([hidden])", timeout=30000)
-                self.assertEqual(base + "#player-values", page.url)
+                page.click("#v2NavToggle")
+                page.click('.v2-tab[data-view="targets"]')
+                page.wait_for_selector("#v2Targets:not([hidden])", timeout=30000)
+                self.assertEqual(base + "#trade-targets", page.url)
                 # Links v2.js builds at runtime as "v2/#view" (the drawer's
                 # "Open Compare a trade") also stay on the root page.
                 page.evaluate("""() => { const a = document.createElement('a');
@@ -374,7 +375,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 page.close()
 
                 # /v2/ and its deep links still work.
-                for url, shown in ((base + "v2/", "#v2Targets"), (base + "v2/#player-values", "#v2Main")):
+                for url, shown in ((base + "v2/", "#v2Main"), (base + "v2/#trade-targets", "#v2Targets")):
                     page, errors, response = open_page(url)
                     self.assertEqual(200, response.status, url)
                     page.wait_for_selector(f"{shown}:not([hidden])", timeout=60000)
@@ -389,8 +390,8 @@ class FrontDoorRenderedTests(unittest.TestCase):
                     response = page.goto(url, wait_until="commit", timeout=60000)
                     self.assertEqual(200, response.status, url)
                     page.wait_for_url(lambda u: u.split("#")[0] == base, timeout=30000)
-                    page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
-                    self.assertTitleNamesRoute("Trade targets", page.title())
+                    page.wait_for_selector("#v2Main:not([hidden])", timeout=60000)
+                    self.assertTitleNamesRoute("Player values", page.title())
                     page.close()
 
                 # The engine alone (the build-only engine page, no v2 around

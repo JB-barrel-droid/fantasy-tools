@@ -781,7 +781,7 @@ MODULES_JS = """() => [...document.querySelectorAll('main:not([hidden]) section.
 
 
 def scenario_tabs(s: Session) -> dict:
-    page = s.open("")
+    page = s.open("#trade-targets")   # JEG-1106: an empty hash now lands on the value chart; this scenario starts on Trade targets
     try:
         page.wait_for_function("() => window.TradeValueV2.targets()", timeout=40000)
         page.wait_for_timeout(300)
@@ -1725,8 +1725,11 @@ def tt11(S):
 def rs01(S):
     errors = []
     views = [t["view"] for t in S["tabs"]["targets"]["tabs"]]
-    if any(v in views for v in ("manifesto", "how", "research")) or views.count("writing") != 1:
-        errors.append(f"Manifesto, How values work and Research should be sections of one Writing tab, not top-level tabs: {views}")
+    # JEG-1106: the menu lists the three Writing sections as entries of the "Our approach" group (all routes are Writing
+    # routes: none is a view of its own), where the old top bar had one Writing tab.
+    labels = [t["label"] for t in S["tabs"]["targets"]["tabs"] if t["view"] == "writing"]
+    if any(v in views for v in ("manifesto", "how", "research")) or labels != ["Methodology", "Research", "Manifesto"]:
+        errors.append(f"Methodology, Research and Manifesto should be the Writing entries of the Our approach group, not views of their own: {views} {labels}")
     sections = S["tabs"]["manifesto"]["sections"]
     want = [("manifesto", "#writing/manifesto"), ("how-values", "#writing/how-values"), ("research", "#writing/research")]
     if [(x["slug"], x["href"]) for x in sections] != want:
@@ -2240,8 +2243,8 @@ class ContractRenderTest(unittest.TestCase):
         broken_shell = cut(cut(shell, manifesto_tab), how_tab, how_tab + manifesto_tab)
         # Swap never shows (removing the node would crash startup, which is a different failure).
         broken_shell = cut(broken_shell, 'id="v2CSwap" hidden>', 'id="v2CSwap" hidden style="display:none !important">')
-        broken_shell = cut(broken_shell, 'href="v2/#trade-targets">Data Driven Football</a>',
-                           'href="v2/#trade-targets">Data Driven Football · Vegas lines</a>')
+        broken_shell = cut(broken_shell, 'href="v2/#player-values">Data Driven Football</a>',
+                           'href="v2/#player-values">Data Driven Football · Vegas lines</a>')
         results, _ = run_contract(["MF-01", "RS-01", "CT-01", "GL-01"], {"shell": broken_shell})
         caught(results, "MF-01", "Manifesto moved after How values work in Writing")
         caught(results, "RS-01", "Writing sections out of order")

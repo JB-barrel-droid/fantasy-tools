@@ -447,8 +447,13 @@ def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
                 page.route("**/v2/v2.css*", functools.partial(_serve, css + WIDE_FONT_CSS, "text/css"))
                 page.goto(base + "#compare-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
-                out[width] = page.evaluate("""() => { const t = document.querySelector('.v2-tabs');
-                  return {overflow: document.documentElement.scrollWidth - innerWidth, tabsScroll: t.scrollWidth, tabsClient: t.clientWidth}; }""")
+                # JEG-1106: the tab row is now a menu opened by a button, so there is no row to squeeze. What
+                # matters at these widths is the bar stays one row and the open menu neither widens the page nor
+                # pushes the content down.
+                page.click("#v2NavToggle")
+                out[width] = page.evaluate("""() => { const r = document.querySelector('.v2-nav-inner').getBoundingClientRect();
+                  const f = document.getElementById('v2Freshness').getBoundingClientRect();
+                  return {overflow: document.documentElement.scrollWidth - innerWidth, barH: r.height, freshRight: f.right, vw: innerWidth}; }""")
                 page.close()
         finally:
             browser.close()
@@ -456,21 +461,18 @@ def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
 
 
 def check_wide_font(result: dict) -> list[str]:
-    """No sideways page scroll at any width, the tab row squeezed at 1024 (else the face was not wide and the check is
-    vacuous), and the tabs not squeezed at 1279, where the freshness label still has room to give way (JEG-675)."""
+    """No sideways page scroll at any width, and (JEG-1106, replacing the old tab-row squeeze check that measured a row
+    that no longer exists) a bar that stays one row, with the freshness button on screen, while the menu is open."""
     errors = [f"[{w}] horizontal overflow {r['overflow']}px in DejaVu Sans" for w, r in result.items() if r["overflow"] > 0]
-    if result[1024]["tabsScroll"] <= result[1024]["tabsClient"]:
-        errors.append("DejaVu Sans did not widen the nav at 1024; the check is vacuous")
-    if result[1279]["tabsScroll"] > result[1279]["tabsClient"]:
-        errors.append(f"[1279] tab row squeezed to {result[1279]['tabsClient']} of {result[1279]['tabsScroll']}px while the freshness label could give way (JEG-675)")
+    errors += [f"[{w}] top bar is {r['barH']:.0f}px tall with the menu open (want one row, under 80px)" for w, r in result.items() if r["barH"] >= 80]
+    errors += [f"[{w}] freshness button runs off screen ({r['freshRight']:.0f} of {r['vw']}px)" for w, r in result.items() if r["freshRight"] > r["vw"] + 0.5]
     return errors
 
 
-# JEG-1056 mutations of the nav rule: the old non-shrinking tab row, and tabs that shrink as readily as the label.
-NAV_RULE = ".v2-tabs { flex-shrink: 1; min-width: 0; }\n.v2-freshness { flex: 0 100000 auto; min-width: 0; }"
+# JEG-1106 mutation of the menu rule: the menu opens in the bar (in flow) instead of as a panel under it.
+NAV_RULE = "position: absolute; z-index: 50; left: 48px;"
 NAV_MUTATIONS = {
-    "tabs never shrink (pre-JEG-1056)": ".v2-freshness { flex: 0 1 auto; min-width: 0; }",
-    "tabs shrink with the label": ".v2-tabs { flex-shrink: 1; min-width: 0; }\n.v2-freshness { flex: 0 1 auto; min-width: 0; }",
+    "menu opens in the bar": "position: static; z-index: 50; left: 48px;",
 }
 
 
@@ -484,7 +486,7 @@ class WaterfallRenderTest(unittest.TestCase):
 
     def test_wide_font_guard_fails_on_broken_nav(self):
         css = V2_CSS.read_text(encoding="utf-8")
-        self.assertEqual(css.count(NAV_RULE), 1, "JEG-1056 nav rule anchor is stale")
+        self.assertEqual(css.count(NAV_RULE), 1, "JEG-1106 nav menu rule anchor is stale")
         for name, rule in NAV_MUTATIONS.items():
             with self.subTest(name):
                 errors = check_wide_font(wide_font_overflow(css.replace(NAV_RULE, rule)))

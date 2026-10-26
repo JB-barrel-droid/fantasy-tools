@@ -148,7 +148,7 @@ def _run(css=None) -> dict:
             # JEG-1048: below 768 px the tab row lives in the hamburger menu (#864). Open it so its six tabs are swept for
             # size and overlap; with it shut a Writing page has 8-9 controls and the "is the sweep looking" floor fires.
             toggle = page.locator("#v2NavToggle")
-            if toggle.is_visible():
+            if toggle.is_visible() and width < 768:   # JEG-1106: the button shows at every width; wider screens get a floating panel, not a bar menu
                 toggle.click()
                 page.wait_for_timeout(300)
         return page
