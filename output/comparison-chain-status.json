@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-26T18:02:19.622534+00:00",
+  "run_at": "2026-10-26T19:23:10.439715+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added justice hill | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added justice hill)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -21,7 +21,12 @@
     "razzball"
   ],
   "hold_severity": "amber",
-  "list_changes": {},
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added justice hill",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added justice hill"
+    ]
+  },
   "held_detail": {
     "fantasypros": {
       "reason": "validation hold: engine and Python reference disagree",
@@ -43,7 +48,7 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Dallen Bentley, Hunter Long); parse notes: RB: 2 players listed with another position in the cell (kept as RB): [",
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Tip Reiman); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['K",
       "hold_severity": "amber",
       "week": 7
     },
@@ -76,10 +81,13 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added justice hill | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added justice hill",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added justice hill",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added justice hill"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -178,7 +186,7 @@
       "fantasypros"
     ],
     "composite_disagreements": [],
-    "values_compared": 1230752
+    "values_compared": 1230740
   },
   "fidelity_holds": {
     "cbsros": "fidelity: publisher_vs_stored",
@@ -193,6 +201,6 @@
       "Makefile:527: value-check-compare"
     ],
     "detail": "make validate failed at Makefile:527: value-check-compare",
-    "recorded_at": "2026-10-26T18:33:57.187527+00:00"
+    "recorded_at": "2026-10-26T19:57:32.131117+00:00"
   }
 }
