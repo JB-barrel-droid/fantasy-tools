@@ -159,6 +159,25 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-hint { color: var(--v2-muted); font-size: 11px; margin-top: 8px !important; }
 .v2-sym { font-size: 11px; line-height: 1; }
 
+/* JEG-1134 (Jeremy 2026-10-26, option A): on a phone the league bar collapses to one summary line that opens the
+   existing controls below it, so the first tab content reaches the top of the first viewport. The summary button is
+   not rendered above the phone breakpoint, and neither block is ever hidden there, so desktop and tablet are
+   unchanged. The disclosure itself is aria-expanded on the button: no :has() fallback is needed because the blocks
+   are open unless the phone rule below matches. */
+.v2-league-summary { display: none; }
+.v2-league-summary-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-league-summary-caret { flex: 0 0 auto; color: var(--v2-muted); font-size: 12px; line-height: 1; }
+.v2-league-summary-caret::before { content: "▾"; }
+.v2-league-summary[aria-expanded="true"] .v2-league-summary-caret { transform: rotate(180deg); }
+@media (max-width: 767px) {
+  .v2-league-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+    min-height: 44px; padding: 10px 16px; border: 0; background: none; color: var(--v2-ink); font: inherit;
+    font-weight: 600; text-align: left; cursor: pointer; }
+  .v2-league-summary:focus-visible { outline: 2px solid var(--v2-action); outline-offset: -2px; }
+  body:not(:has(#v2LeagueSummary[aria-expanded="true"])) #v2LeagueBody,
+  body:not(:has(#v2LeagueSummary[aria-expanded="true"])) #v2Methods { display: none; }
+}
+
 /* League bar actions (JEG-498, revising JEG-462): Edit league is the primary button, Position weights the secondary one; no ↗ on in-page dialogs. */
 .v2-league-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 .v2-app .v2-btn-adjust { background: var(--v2-surface); border: 1px solid var(--v2-field-border); color: var(--v2-ink); font-weight: 600; min-height: 44px; padding: 8px 16px; }

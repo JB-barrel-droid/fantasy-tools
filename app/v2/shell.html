@@ -71,25 +71,34 @@
   </div>
 
   <section class="v2-league" id="v2League" aria-label="League settings">
-    <div class="v2-wrap v2-league-inner">
-      <strong id="v2LeagueName">—</strong>
-      <span class="v2-meta" id="v2RosterLine">—</span>
-      <div class="v2-league-actions">
-        <button type="button" class="v2-btn v2-btn-primary" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
-        <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+    <!-- JEG-1134: on a phone the bar collapses to this one summary line, which opens the controls below it. It is
+         display:none everywhere else, so the desktop and tablet bar is the same as before. aria-controls names both
+         blocks the disclosure holds: the league row (with the assist panel) and the "On the chart" legend row. -->
+    <button type="button" class="v2-wrap v2-league-summary" id="v2LeagueSummary" aria-expanded="false" aria-controls="v2LeagueBody v2Methods">
+      <span class="v2-league-summary-text" id="v2LeagueSummaryText">—</span>
+      <span class="v2-league-summary-caret" aria-hidden="true"></span>
+    </button>
+    <div id="v2LeagueBody">
+      <div class="v2-wrap v2-league-inner">
+        <strong id="v2LeagueName">—</strong>
+        <span class="v2-meta" id="v2RosterLine">—</span>
+        <div class="v2-league-actions">
+          <button type="button" class="v2-btn v2-btn-primary" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
+          <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+        </div>
+        <div class="v2-assist-actions" id="v2AssistActions">
+          <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
+          <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+        </div>
       </div>
-      <div class="v2-assist-actions" id="v2AssistActions">
-        <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
-        <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+      <div class="v2-wrap v2-assist-panel">
+        <div class="v2-assist-paste" id="v2AssistPaste" hidden>
+          <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
+          <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
+          <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
+        </div>
+        <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
       </div>
-    </div>
-    <div class="v2-wrap v2-assist-panel">
-      <div class="v2-assist-paste" id="v2AssistPaste" hidden>
-        <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
-        <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
-        <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
-      </div>
-      <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
     </div>
   </section>
 

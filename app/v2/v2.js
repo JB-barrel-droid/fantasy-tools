@@ -959,6 +959,10 @@
       + (c.g.id === "ddf" && customBlend ? " (your basis, not ours)" : "")).join(" + ") || "nothing selected"}`
       + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
+    // JEG-1134: the phone league-bar summary ("Full PPR · 12 teams · 3 sources"). Same scoring label, team count and
+    // shown-series count the bar itself uses, so the line updates whenever a setting or a source changes.
+    const sourceCount = shownKeys.length;
+    $("v2LeagueSummaryText").textContent = `${scoring} · ${s.teams} teams · ${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();
     shownKeys.forEach(key => {
@@ -6803,6 +6807,15 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    // JEG-1134: the phone league-bar summary. It is only rendered below the phone breakpoint (CSS); flipping
+    // aria-expanded opens and closes the blocks it controls. Leaving the phone layout closes it, so the state
+    // never leaks into the desktop bar.
+    {
+      const summary = $("v2LeagueSummary");
+      const setSummary = open => summary.setAttribute("aria-expanded", open ? "true" : "false");
+      summary.addEventListener("click", () => setSummary(summary.getAttribute("aria-expanded") !== "true"));
+      window.matchMedia("(max-width: 767px)").addEventListener("change", event => { if (!event.matches) setSummary(false); });
+    }
     // JEG-953: phone hamburger menu. The toggle only shows below the phone breakpoint (CSS); the menu is the same
     // nav element. It closes on selection, Escape (focus returns to the button) and a tap outside.
     {
