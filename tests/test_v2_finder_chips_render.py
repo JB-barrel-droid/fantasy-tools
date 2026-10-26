@@ -86,7 +86,7 @@ def check(page, tag, width) -> list[str]:
     if sum(1 for r in rows.values() if r["notEvaluated"]) != 2:
         say("want exactly one kicker and one defense not evaluated")
     labels = page.evaluate("() => [...new Set([...document.querySelectorAll('.v2-find-chip')].map(c => c.textContent.replace(/[0-9.]+|no value/, '').trim()))]")
-    if sorted(labels) != ["DDF Value", "Trade chart avg"]:
+    if sorted(labels) != ["DDF Value", "Trade chart average"]:
         say(f"chip labels are {labels}")
     # Move follows the chips.
     mover = pick["mine"][0]
