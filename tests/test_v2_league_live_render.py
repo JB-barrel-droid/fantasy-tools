@@ -75,7 +75,7 @@ GROUPS = """() => [...document.querySelectorAll('#v2FindOut .v2-find-group')].ma
   picks: Object.fromEntries([...g.querySelectorAll('input[data-key]')].map(i => [i.dataset.key, i.checked]))}))"""
 LIVE = "() => document.getElementById('v2LeagueLive').textContent"
 TAB_TEXT = ("()=>[...document.querySelectorAll('main')].filter(m=>!m.hidden&&m.offsetParent!==null).map(m=>m.innerText).join('\\n')"
-            "+'\\n'+(document.getElementById('v2League')?.innerText||'')")
+            "+'\\n'+(document.getElementById('v2Context')?.innerText||'')")
 
 
 def _open(browser, base, hash_, width=1440, height=900, overrides=None, errors=None, tag=""):

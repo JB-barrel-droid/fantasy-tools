@@ -18,28 +18,26 @@
         <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-short="Overrides"><span class="v2-tab-full">Overrides</span></a>
         <a class="v2-tab" href="v2/#values-auditing" data-view="audit" data-short="Audit"><span class="v2-tab-full">Values auditing</span></a>
       </nav>
-      <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
-        <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
-      </button>
-    </div>
-    <div class="v2-topnote" id="v2SeasonNote">
-      <div class="v2-topnote-inner">
-        <p class="v2-topnote-text" id="v2SeasonNoteText">Built for season-long value, not weekly start/sit decisions or playoff optimization.</p>
-        <button type="button" class="v2-topnote-more" id="v2SeasonNoteMore" aria-expanded="false" aria-controls="v2SeasonNoteDetail">More</button>
-        <button type="button" class="v2-topnote-close" id="v2SeasonNoteClose" aria-label="Dismiss notice"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      </div>
-      <div class="v2-topnote-detail" id="v2SeasonNoteDetail" hidden>
-        <p><strong>What this dashboard is for right now</strong></p>
-        <ul>
-          <li>It is designed for season-long value.</li>
-          <li>It is not designed for weekly start/sit decisions.</li>
-          <li>It is not designed for playoff optimization.</li>
-          <li>The &ldquo;Optimize for playoffs&rdquo; setting has not been reviewed and likely is not working.</li>
-          <li>Defenses and kickers are not yet accounted for.</li>
-        </ul>
-      </div>
     </div>
   </header>
+
+  <!-- Season notice (dismissible banner, moved out of nav): JEG-1119 -->
+  <div class="v2-topnote" id="v2SeasonNote">
+    <div class="v2-topnote-inner">
+      <p class="v2-topnote-text" id="v2SeasonNoteText">Built for season-long value, not weekly start/sit decisions or playoff optimization.</p>
+      <button type="button" class="v2-topnote-more" id="v2SeasonNoteMore" aria-expanded="false" aria-controls="v2SeasonNoteDetail">More</button>
+      <button type="button" class="v2-topnote-close" id="v2SeasonNoteClose" aria-label="Dismiss notice"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="v2-topnote-detail" id="v2SeasonNoteDetail" hidden>
+      <p><strong>What this dashboard is for right now</strong></p>
+      <ul>
+        <li>It is designed for season-long value.</li>
+        <li>It is not designed for weekly start/sit decisions.</li>
+        <li>It is not designed for playoff optimization.</li>
+        <li>Defenses and kickers are not yet accounted for.</li>
+      </ul>
+    </div>
+  </div>
 
   <div class="v2-wrap v2-writing-nav" id="v2Writing" hidden>
     <nav class="v2-subtabs" id="v2WritingTabs" aria-label="Writing sections">
@@ -49,14 +47,27 @@
     </nav>
   </div>
 
-  <section class="v2-league" id="v2League" aria-label="League settings">
-    <div class="v2-wrap v2-league-inner">
-      <strong id="v2LeagueName">—</strong>
-      <span class="v2-meta" id="v2RosterLine">—</span>
-      <div class="v2-league-actions">
-        <button type="button" class="v2-btn v2-btn-primary" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
-        <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+  <!-- Context row: compact sticky bar with league summary, value basis, freshness (JEG-1119) -->
+  <div class="v2-context" id="v2Context">
+    <div class="v2-wrap v2-context-inner">
+      <div class="v2-ctx-league">
+        <strong id="v2LeagueName">—</strong>
+        <span class="v2-meta v2-ctx-roster" id="v2RosterLine">—</span>
       </div>
+      <button type="button" class="v2-btn v2-btn-sm" id="v2EditLeague" aria-haspopup="dialog">Edit</button>
+      <div class="v2-ctx-basis">
+        <b class="v2-sr" id="v2ShowingLabel">On the chart:</b>
+        <span id="v2ShowingText">—</span><span id="v2NamesInfoSlot"></span>
+        <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
+      </div>
+      <button type="button" class="v2-btn v2-btn-sm v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
+      <button type="button" class="v2-freshness v2-ctx-freshness" id="v2Freshness" aria-haspopup="dialog">
+        <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
+      </button>
+      <button type="button" class="v2-btn v2-btn-sm v2-ctx-more" id="v2ContextMore" aria-haspopup="dialog" aria-label="More settings">⋯</button>
+      <!-- v2Weights stays in DOM for JS event binding; triggered via overflow popover -->
+      <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog" hidden>Position weights</button>
+      <!-- ChatGPT/Claude assist buttons (hidden; shown by ddf-assist.js when available) -->
       <div class="v2-assist-actions" id="v2AssistActions">
         <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
         <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
@@ -70,15 +81,7 @@
       </div>
       <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
     </div>
-  </section>
-
-  <section class="v2-methods" id="v2Methods" aria-label="Values shown">
-    <div class="v2-wrap v2-methods-row">
-      <p class="v2-showing"><b id="v2ShowingLabel">On the chart:</b> <span id="v2ShowingText">—</span><span id="v2NamesInfoSlot"></span></p>
-      <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
-      <button type="button" class="v2-btn v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
-    </div>
-  </section>
+  </div>
 
   <div class="v2-wrap v2-state-wrap" id="v2State">
     <section class="v2-card v2-state" data-state="loading" aria-labelledby="v2StateTitle" aria-live="polite">
@@ -98,7 +101,7 @@
 
   <main class="v2-wrap v2-main" id="v2Main" hidden>
     <div class="v2-title v2-title-row">
-      <h1>Every value. Your league.</h1>
+      <h1>Player values</h1>
       <p id="v2ValueLine">Trade values for every player, tuned to your league</p>
     </div>
 
@@ -143,6 +146,7 @@
     <div class="v2-notice" id="v2Notice" role="status" hidden>
       <p id="v2NoticeText"></p>
       <button type="button" class="v2-btn" id="v2NoticeBtn">Choose sources</button>
+      <button type="button" class="v2-notice-close" id="v2NoticeClose" aria-label="Dismiss">✕</button>
     </div>
 
     <div class="v2-values-grid">
@@ -267,7 +271,7 @@
 
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
     <div class="v2-title v2-ttitle">
-      <h1 id="v2TargetsTitle">Where the trade market is wrong this week</h1>
+      <h1 id="v2TargetsTitle">Trade targets</h1>
       <p id="v2TIntro">We check the trade charts against our values for your league, two ways: potential mispricing, player by player, and potential positional weight inflation, position by position. Sell what they overpay for; buy what they undervalue.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -292,7 +296,7 @@
           <option value="FLEX">FLEX (RB/WR/TE)</option>
         </select>
       </label>
-      <label class="v2-field v2-field-rank v2-field-ours"><span class="v2-field-label">Our value:</span>
+      <label class="v2-field v2-field-rank v2-field-ours"><span class="v2-field-label">DDF Value:</span>
         <select id="v2TOurs"></select>
       </label>
       <div class="v2-tcompare">
@@ -361,7 +365,7 @@
 
   <main class="v2-wrap v2-main" id="v2Risers" hidden aria-labelledby="v2RisersTitle">
     <div class="v2-title">
-      <h1 id="v2RisersTitle">Risers &amp; fallers.</h1>
+      <h1 id="v2RisersTitle">Risers &amp; fallers</h1>
       <p>Value-point changes. One source. Two snapshots.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -434,7 +438,7 @@
   <main class="v2-wrap v2-main" id="v2Compare" hidden aria-labelledby="v2CompareTitle">
     <div class="v2-chead">
       <div class="v2-title">
-        <h1 id="v2CompareTitle">Build a better offer.</h1>
+        <h1 id="v2CompareTitle">Compare a trade</h1>
         <p id="v2CSub">See the deal through every selected source.</p>
       <p class="v2-asof" data-page-asof></p>
       </div>
@@ -538,7 +542,7 @@
 
   <main class="v2-wrap v2-main" id="v2FindTrade" hidden aria-labelledby="v2FindPageTitle">
     <div class="v2-title">
-      <h1 id="v2FindPageTitle">Find a trade to propose.</h1>
+      <h1 id="v2FindPageTitle">Find a trade</h1>
       <p>Paste in your roster and another manager's, and see the trades they are likely to take. Already have a trade in mind? Check it in Compare a trade.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -547,7 +551,7 @@
 
   <main class="v2-wrap v2-main" id="v2Waivers" hidden aria-labelledby="v2WaiversTitle">
     <div class="v2-title">
-      <h1 id="v2WaiversTitle">Should you pick anyone up?</h1>
+      <h1 id="v2WaiversTitle">Waivers</h1>
       <p>Enter your roster and the top waiver options, as many as you like. See who to pick up and who to drop, from your starting lineup, your bench depth and DDF Value, with the market value beside each.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -556,7 +560,7 @@
 
   <main class="v2-wrap v2-main" id="v2How" hidden aria-labelledby="v2HowTitle">
     <div class="v2-title">
-      <h1 id="v2HowTitle"><span class="v2-wide">Know what the numbers mean.</span><span class="v2-narrow">Know your values.</span></h1>
+      <h1 id="v2HowTitle">How values work</h1>
       <p><span class="v2-wide">Three methods. Visible source context. Your league settings.</span><span class="v2-narrow">Three methods. One clear comparison.</span></p>
       <p class="v2-asof" data-page-asof></p>
     </div>

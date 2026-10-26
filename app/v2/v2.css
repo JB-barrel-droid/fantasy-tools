@@ -118,7 +118,21 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-dot { width: 8px; height: 8px; border-radius: 50%; background: #9BE3C1; display: inline-block; }
 .v2-freshness.is-older .v2-dot { background: var(--v2-older); }
 
-/* League bar */
+/* Compact context row (JEG-1119): sticky 48 px bar with league summary, value basis selector, freshness */
+.v2-context { position: sticky; top: 64px; z-index: 30; background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
+.v2-context-inner { display: flex; align-items: center; gap: 8px; min-height: 48px; flex-wrap: nowrap; overflow: hidden; }
+.v2-ctx-league { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.v2-ctx-league strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+.v2-ctx-roster { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+.v2-ctx-basis { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; overflow: hidden; font-size: 13px; color: var(--v2-muted); white-space: nowrap; }
+.v2-ctx-basis .v2-showing-legend { flex: 1 1 0; min-width: 0; }
+.v2-ctx-freshness { flex-shrink: 0; color: var(--v2-ink); }
+.v2-ctx-freshness .v2-dot { background: var(--v2-positive-strong, var(--v2-action)); }
+.v2-ctx-more { flex-shrink: 0; padding: 6px 10px; min-height: 36px; font-size: 16px; line-height: 1; }
+/* Small button variant */
+.v2-app .v2-btn-sm { padding: 6px 12px; min-height: 36px; font-size: 13px; }
+
+/* League bar (kept for backwards compat with any panels that reference it) */
 .v2-league { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
 .v2-league-inner { display: flex; align-items: center; gap: 24px; min-height: 64px; flex-wrap: wrap; }
 /* JEG-1084: with the Copy / Paste buttons (JEG-1026) the row no longer fits one line in a wide fallback face (DejaVu Sans
@@ -807,6 +821,7 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border: 1px solid var(--v2-older); background: var(--v2-surface); border-radius: var(--v2-radius-card); padding: 10px 16px; margin-top: 8px; }
 .v2-notice[hidden] { display: none; }
 .v2-notice p::before { content: "! "; font-weight: 800; color: var(--v2-older); }
+.v2-notice-close { background: none; border: 0; cursor: pointer; padding: 4px 8px; color: var(--v2-muted); font-size: 14px; line-height: 1; margin-left: auto; min-height: 32px; }
 /* JEG-909: an echoed search query (no spaces, any length) wraps instead of widening the page. */
 #v2EmptyText, .v2-t-empty { overflow-wrap: anywhere; max-width: 100%; }
 .v2-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -1113,7 +1128,7 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-app .v2-reset { margin-left: auto; padding: 10px 14px; }
 #v2More[aria-expanded="true"], #v2Columns[aria-expanded="true"] { border-color: var(--v2-action); }
 @media (min-width: 768px) {
-  #v2Main .v2-toolbar { position: sticky; top: 0; z-index: 25; background: var(--v2-canvas); padding: 4px 0; margin-top: 2px; }
+  #v2Main .v2-toolbar { position: sticky; top: 48px; z-index: 25; background: var(--v2-canvas); padding: 4px 0; margin-top: 2px; }
 }
 
 /* Chart card: title and legend on one line, the line-style key inside the legend. */

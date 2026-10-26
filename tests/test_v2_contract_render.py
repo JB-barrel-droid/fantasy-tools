@@ -1482,7 +1482,7 @@ def pv12(S):
     if d.get("allToggle") is not False:
         errors.append("'Show all sources' is missing or not off by default")
     kinds = {r["kind"] for r in d.get("kindsAll") or []}
-    for kind in ("Our value", "Rescaled chart", "Value above waivers"):
+    for kind in ("DDF Value", "Market", "Value above waivers"):
         if kind not in kinds:
             errors.append(f"'Show all sources' lists no {kind!r} row")
     for r in d.get("kindsAll") or []:
@@ -1646,7 +1646,7 @@ def gl18(S):
 
 def tt01(S):
     h = S["tabs"]["targets"]["h1"]
-    return [] if h == "Where the trade market is wrong this week" else [f"headline {h!r}"]
+    return [] if h == "Trade targets" else [f"headline {h!r}"]
 
 
 def tt02(S):
@@ -1781,7 +1781,7 @@ def tt05_partial(S):
 
 PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
 # JEG-850 (Jeremy, 2026-10-22): the Chart lines tab's groups, in the plain copy of the review (customize-ux-review.md 2.3).
-GROUPS_SHIPPED = {"ddf": "Our values", "pub": "Published trade charts", "proj": "Projection-based values",
+GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published trade charts", "proj": "Projection-based values",
                   "vorp": "Raw value above waivers (advanced)"}
 
 
