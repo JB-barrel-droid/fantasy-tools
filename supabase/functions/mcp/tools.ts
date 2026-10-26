@@ -38,7 +38,6 @@ export type FetchValues = (
   scoring: string,
   teams: number,
   superflex: number,
-  league?: Record<string, unknown>,
 ) => Promise<ValuesResponse>;
 
 /** Extended player record with per-chart values (from get-values?include=charts). */
@@ -57,7 +56,6 @@ export type FetchValuesWithCharts = (
   scoring: string,
   teams: number,
   superflex: number,
-  league?: Record<string, unknown>,
 ) => Promise<ChartValuesResponse>;
 
 export interface ToolResult {
@@ -313,9 +311,7 @@ function settings(args: Record<string, unknown>) {
     throw new ToolInputError(`invalid teams: ${teams}. Must be one of: ${TEAMS.join(", ")}`);
   }
   const superflex = args.superflex === true || args.superflex === 1 || args.superflex === "true" ? 1 : 0;
-  // JEG-1031: the rest of a pasted league (roster shape, shares, weeks, advanced), priced by get-values.
-  const league = args.league && typeof args.league === "object" ? args.league as Record<string, unknown> : undefined;
-  return { scoring, teams, superflex, league };
+  return { scoring, teams, superflex };
 }
 
 function position(args: Record<string, unknown>): string {
@@ -377,7 +373,7 @@ export async function runTool(
   if (name === "get_values") {
     const pos = position(args);
     const limit = Math.min(200, Math.max(1, Number(args.limit ?? 50) || 50));
-    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex);
     const players = data.players.filter((p) => pos === "all" || p.pos === pos).slice(0, limit);
     const text = [
       ...header(data, s),
@@ -395,7 +391,7 @@ export async function runTool(
   if (name === "get_player_value") {
     const names = String(args.names ?? "").split(",").map((n) => n.trim()).filter(Boolean);
     if (!names.length) throw new ToolInputError("names is required");
-    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex);
     const results = names.map((input) => ({ input, player: findPlayer(data.players, input) }));
     const text = [
       ...header(data, s),
@@ -416,7 +412,7 @@ export async function runTool(
   if (name === "trade_targets") {
     const pos = position(args);
     const pct = Math.min(50, Math.max(1, Number(args.range_pct ?? 15) || 15));
-    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex);
     const player = findPlayer(data.players, String(args.player_name ?? ""));
     if (!player) {
       return {
@@ -446,7 +442,7 @@ export async function runTool(
   }
 
   if (name === "compare_trade") {
-    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+    const data = await fetchValues(s.scoring, s.teams, s.superflex);
     const side = (raw: unknown) =>
       String(raw ?? "").split(",").map((n) => n.trim()).filter(Boolean).map((input) => ({
         input,
@@ -540,7 +536,7 @@ async function findTradesHandler(
   if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
   if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
 
-  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
   const chartPlayers = data.players;
 
   // Resolve names to rows.
@@ -684,7 +680,7 @@ async function findTradesLeagueHandler(
   if (!opponents?.length) throw new ToolInputError("opponents is required: [{name, roster}]");
   if (opponents.length > 15) throw new ToolInputError("too many opponents (max 15)");
 
-  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
   const chartPlayers = data.players;
 
   const resolve = (names: string[]) => {
@@ -830,7 +826,7 @@ async function findTradesLeagueHandler(
 
 const EXPLANATIONS: Record<string, string> = {
   methodology:
-    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). The headline value (DDF Value) is the average of the four published trade charts, each adjusted to the user's league (position and bench weighting); the projection sources are an alternate version. A stale or held source is left out of the average rather than counted as zero. Full method: the site's methodology pages.",
+    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). Several projection sources and published trade charts are blended; a stale or held source is left out of the blend rather than counted as zero. Full method: the site's methodology pages.",
   sources:
     "Projection sources: ESPN, CBS rest-of-season, Razzball. Published trade charts: FantasyCalc, USA Today, FantasyPros, CBS. The get_values response lists which sources are included and excluded for the current week.",
   value_scale:
@@ -876,7 +872,7 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
     throw new ToolInputError(`No usable DDF state found in the text. ${prepared.warnings.join(" ")}`.trim());
   }
   const s = settings(prepared.args);
-  const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+  const data = await fetchValues(s.scoring, s.teams, s.superflex);
   const work = (prepared.state.work ?? {}) as Record<string, unknown>;
 
   const lists: Record<string, Array<{ input: string; player: PlayerValue | null }>> = {};
@@ -916,7 +912,7 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
   const prepared = prepare(args, deps);
   const a = prepared.args;
   const s = settings(a);
-  const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+  const data = await fetchValues(s.scoring, s.teams, s.superflex);
   const names = (v: unknown) => String(v ?? "").split(",").map((n) => n.trim()).filter(Boolean);
   const work: Record<string, unknown> = {};
   const unmatched: string[] = [];

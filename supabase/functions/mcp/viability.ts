@@ -187,19 +187,8 @@ const val = (row: ViabilityRow, key: string): number | null => {
   return finite(v) ? v : null;
 };
 
-/** Mean of the chart values for a player (null if any chart missing). */
-function marketValue(row: ViabilityRow, chartKeys: string[]): number | null {
-  const vals = chartKeys.map((k) => val(row, k));
-  if (vals.some((v) => v === null)) return null;
-  return (vals as number[]).reduce((a, b) => a + b, 0) / vals.length;
-}
-
 function sumValues(rows: ViabilityRow[], key: string): number {
   return rows.reduce((total, r) => total + (val(r, key) ?? 0), 0);
-}
-
-function sumMarket(rows: ViabilityRow[], chartKeys: string[]): number {
-  return rows.reduce((total, r) => total + (marketValue(r, chartKeys) ?? 0), 0);
 }
 
 const FLEX_POS = ["RB", "WR", "TE"];
@@ -306,6 +295,8 @@ export function runViabilityChecks(
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const ddf = cfg.ddfKey;
   const charts = cfg.chartKeys;
+  // Jeremy 2026-10-26: their side uses ddf_value_charts (indexed trade charts, no position adjustment).
+  const MARKET_KEY = "ddf_value_charts";
 
   const userAfter = applyTrade(userRoster, userGives, userGets);
   const theirAfter = applyTrade(theirRoster, userGets, userGives);
@@ -315,30 +306,16 @@ export function runViabilityChecks(
   const userGetsDdf = sumValues(userGets, ddf);
   const ddfEdge = userGetsDdf - userGivesDdf;
 
-  const theirGivesMarket = sumMarket(userGets, charts); // what they give = what user gets
-  const theirGetsMarket = sumMarket(userGives, charts);  // what they get = what user gives
-  const theirMarketNet = theirGetsMarket - theirGivesMarket;
+  const theirMarketNet = sumValues(userGives, MARKET_KEY) - sumValues(userGets, MARKET_KEY);
 
   // --- Lineup values ---
   const userLineupBefore = lineupStarterValue(userRoster, shape, ddf);
   const userLineupAfter = lineupStarterValue(userAfter, shape, ddf);
   const userLineupDelta = userLineupAfter - userLineupBefore;
 
-  const theirLineupBefore = lineupStarterValue(theirRoster, shape, "chart_avg_internal");
-  const theirLineupAfter = lineupStarterValue(theirAfter, shape, "chart_avg_internal");
-
-  // We need market-value lineup calculation. Attach chart_avg to rows.
-  const withMarket = (rows: ViabilityRow[]): ViabilityRow[] =>
-    rows.map((r) => ({
-      ...r,
-      values: { ...r.values, _market: marketValue(r, charts) },
-    }));
-
-  const theirRosterM = withMarket(theirRoster);
-  const theirAfterM = withMarket(theirAfter);
-  const theirLineupBeforeM = lineupStarterValue(theirRosterM, shape, "_market");
-  const theirLineupAfterM = lineupStarterValue(theirAfterM, shape, "_market");
-  const theirLineupDelta = theirLineupAfterM - theirLineupBeforeM;
+  const theirLineupBefore = lineupStarterValue(theirRoster, shape, MARKET_KEY);
+  const theirLineupAfter = lineupStarterValue(theirAfter, shape, MARKET_KEY);
+  const theirLineupDelta = theirLineupAfter - theirLineupBefore;
 
   const checks: CheckResult[] = [];
 
@@ -392,14 +369,14 @@ export function runViabilityChecks(
   const theirPosBefore: Record<string, { starters: string[]; value: number }> = {};
   const theirPosAfter: Record<string, { starters: string[]; value: number }> = {};
   for (const pos of POSITION_SLOTS) {
-    const before = starterValueAtPos(theirRosterM, shape, "_market", pos);
-    const after = starterValueAtPos(theirAfterM, shape, "_market", pos);
+    const before = starterValueAtPos(theirRoster, shape, MARKET_KEY, pos);
+    const after = starterValueAtPos(theirAfter, shape, MARKET_KEY, pos);
     theirPosBefore[pos] = { starters: before.starters.map((r) => r.name), value: before.value };
     theirPosAfter[pos] = { starters: after.starters.map((r) => r.name), value: after.value };
   }
 
   // Total starting lineup market value check
-  const theirPickedAfter = pickStarters(theirAfterM, shape, "_market");
+  const theirPickedAfter = pickStarters(theirAfter, shape, MARKET_KEY);
   const emptySlots = Object.entries(theirPickedAfter.empty);
   let posProtectionPass: boolean;
   let posProtectionDetail: string;
@@ -409,10 +386,10 @@ export function runViabilityChecks(
     posProtectionPass = false;
     const slotNames = emptySlots.map(([slot, count]) => `${count} ${slot}`).join(", ");
     posProtectionDetail = `Trade leaves them unable to fill starting slots: ${slotNames}`;
-  } else if (theirLineupAfterM < theirLineupBeforeM - 0.05) {
+  } else if (theirLineupAfter < theirLineupBefore - 0.05) {
     // Their total starting lineup value drops
     posProtectionPass = false;
-    const drop = theirLineupBeforeM - theirLineupAfterM;
+    const drop = theirLineupBefore - theirLineupAfter;
     posProtectionDetail = `Their starting lineup drops ${drop.toFixed(1)} market value`;
   } else {
     posProtectionPass = true;
@@ -449,7 +426,7 @@ export function runViabilityChecks(
     }
   };
   checkDepth(userAfter, "you", ddf);
-  checkDepth(theirAfterM, "them", "_market");
+  checkDepth(theirAfter, "them", MARKET_KEY);
   checks.push({
     name: "depth",
     passed: depthPass,
@@ -527,7 +504,7 @@ export function runViabilityChecks(
 
   // --- Temporary gap flag ---
   const tempGap = checkTemporaryGap(userAfter, shape, ddf) ||
-    checkTemporaryGap(theirAfterM, shape, "_market");
+    checkTemporaryGap(theirAfter, shape, MARKET_KEY);
 
   // --- Viable? ---
   const failedChecks = checks.filter((c) => !c.passed);

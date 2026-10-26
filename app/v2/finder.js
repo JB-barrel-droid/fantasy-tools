@@ -224,7 +224,7 @@
   const FLEX_POS = ["RB", "WR", "TE"];
   const SUPERFLEX_POS = ["QB", "RB", "WR", "TE"];
   const SLOTS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
-  const MARKET_KEY = "chart_avg";
+  const MARKET_KEY = "ddf_value_charts";
   // The best starting lineup for the league's slots: QB, RB, WR, TE take the highest valueKey at their position, then
   // FLEX from what is left of RB/WR/TE, then SUPERFLEX from what is left of QB/RB/WR/TE. Ties by lower player_key. A
   // player with no value is never a starter (listed in unvalued, not counted as 0); a slot nobody can fill stays
@@ -575,7 +575,7 @@
     return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected};
   }
   const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
-  const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
+  const VIEW_NAME = {ddf_value: "DDF Value", ddf_value_charts: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
   function stateText(t) {
     const short = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "under");
     const deep = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "over");
@@ -1506,12 +1506,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function lineupContext(mineRows, theirRows, charts, shape) {
     if (!shape) return null;
     const market = charts.length >= MIN_CHARTS ? charts : null;
-    const avg = rows => (market ? withChartAverage(rows, market) : null);
-    const mineAvg = avg(mineRows);
-    const theirAvg = avg(theirRows);
+    // ddf_value_charts is engine-computed and already in row.values; no local mean needed.
+    const mineM = market ? mineRows : null;
+    const theirM = market ? theirRows : null;
     const byKey = new Map();
-    (mineAvg || []).concat(theirAvg || []).forEach(r => byKey.set(String(r.player_key), r));
-    return {shape, market, projections: hasProjections(mineRows.concat(theirRows)), mine: {ddf: mineRows, market: mineAvg}, theirs: {ddf: theirRows, market: theirAvg}, byKey};
+    (mineM || []).concat(theirM || []).forEach(r => byKey.set(String(r.player_key), r));
+    return {shape, market, projections: hasProjections(mineRows.concat(theirRows)), mine: {ddf: mineRows, market: mineM}, theirs: {ddf: theirRows, market: theirM}, byKey};
   }
   const VIEW_LABEL = {ddf: "DDF Value", market: "Trade chart average"};
   const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : MARKET_KEY);
