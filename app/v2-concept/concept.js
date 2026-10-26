@@ -1,6 +1,6 @@
 /* Clickable design preview. Reads window.CONCEPT_SAMPLE.
-   DDF Value (charts) uses each player's chart average.
-   DDF Projections uses the projection series on the value scale.
+   DDF Charted Value uses each player's chart average.
+   DDF Projected Value uses the projection series on the value scale.
    The Market is that chart average from the other side.
    No publisher names on the surface. No live value math. */
 (function () {
@@ -98,8 +98,63 @@
     try { localStorage.setItem(TEAM_KEY, name); } catch (e) { /* private mode */ }
   }
 
+  const INFO = {
+    charted: "Our value for this player, starting from the trade charts and adjusted for position weight and your league's rosters.",
+    projected: "Our value for this player, starting from rest-of-season projections and adjusted for position weight and your league's rosters.",
+    market: "What the trade charts say before our adjustments \u2014 roughly how the other manager will see it."
+  };
+  let tipSeq = 0;
+
   function footnote() {
-    return "Preview from " + data.asOf + ", full PPR, 12 teams. DDF Value and DDF Projections are the same method: charts, then projection sources. The Market is the other method, from their side. A one-for-one swap stands in for a lineup check. This page is not the live site.";
+    return "Preview from " + data.asOf + ", full PPR, 12 teams. DDF Charted Value and DDF Projected Value are one read. The Market is the other team's read. A one-for-one swap stands in for a lineup check. This page is not the live site.";
+  }
+
+  function infoBtn(kind, align) {
+    tipSeq += 1;
+    const id = "tip-" + kind + "-" + tipSeq;
+    const name = kind === "charted" ? "DDF Charted Value" : kind === "projected" ? "DDF Projected Value" : "The Market";
+    return (
+      '<span class="tip">' +
+        '<button type="button" class="tip-btn" aria-expanded="false" aria-controls="' + id + '">' +
+          '<span aria-hidden="true">i</span>' +
+          '<span class="sr">About ' + name + "</span>" +
+        "</button>" +
+        '<span class="tip-pop" id="' + id + '" role="note" tabindex="-1" hidden' +
+          (align === "end" ? ' data-align="end"' : "") + ">" + esc(INFO[kind]) + "</span>" +
+      "</span>"
+    );
+  }
+
+  function closeTips() {
+    document.querySelectorAll(".tip-btn[aria-expanded='true']").forEach(btn => {
+      btn.setAttribute("aria-expanded", "false");
+      const pop = document.getElementById(btn.getAttribute("aria-controls"));
+      if (!pop) return;
+      pop.hidden = true;
+      if (btn.isConnected && btn.parentElement) btn.parentElement.appendChild(pop);
+    });
+    document.querySelectorAll("body > .tip-pop").forEach(pop => pop.remove());
+  }
+
+  function openTip(btn) {
+    const pop = document.getElementById(btn.getAttribute("aria-controls"));
+    if (!pop) return;
+    closeTips();
+    btn.setAttribute("aria-expanded", "true");
+    pop.hidden = false;
+    document.body.appendChild(pop);
+    const rect = btn.getBoundingClientRect();
+    const width = Math.min(240, window.innerWidth - 32);
+    let left = rect.left;
+    if (pop.dataset.align === "end" || left + width > window.innerWidth - 16) {
+      left = Math.max(16, rect.right - width);
+    }
+    pop.style.position = "fixed";
+    pop.style.left = left + "px";
+    pop.style.top = (rect.bottom + 8) + "px";
+    pop.style.width = width + "px";
+    pop.style.right = "auto";
+    pop.focus();
   }
 
   function shortName(name) {
@@ -110,9 +165,11 @@
     return '<span class="chip" data-pos="' + esc(pos) + '">' + esc(pos) + "</span>";
   }
 
-  function numbersChip(value, label) {
+  function numbersChip(value) {
     return (
-      '<div class="chip-stat"><b data-count="' + value + '">' + signed(value) + "</b><span>" + esc(label) + "</span></div>"
+      '<div class="chip-stat"><b data-count="' + value + '">' + signed(value) + "</b>" +
+        '<span class="chip-terms"><span>DDF Projected Value</span>' + infoBtn("projected", "end") +
+        "<span>vs the Market</span>" + infoBtn("market", "end") + "</span></div>"
     );
   }
 
@@ -132,21 +189,21 @@
     return {
       emoji: buy ? "\u2705" : "\uD83D\uDCB8",
       title: (buy ? "Buy " : "Sell ") + player.name,
-      why: buy ? "DDF Projections are ahead of the Market." : "The Market is ahead of DDF Projections.",
+      why: buy ? "DDF Projected Value is ahead of the Market." : "The Market is ahead of DDF Projected Value.",
       tone: buy ? "good" : "bad"
     };
   }
 
   function meters(player) {
     const rows = [
-      {name: "DDF Projections", value: player.ddf, read: true},
-      {name: "The Market", value: player.market, read: false}
+      {name: "DDF Projected Value", value: player.ddf, read: true, kind: "projected"},
+      {name: "The Market", value: player.market, read: false, kind: "market"}
     ];
     return rows.map(row => {
       const width = Math.max(2, Math.min(100, (row.value / data.scaleMax) * 100));
       return (
         '<div class="meter-row">' +
-          '<span class="meter-name">' + row.name + "</span>" +
+          '<span class="meter-name"><span>' + row.name + "</span>" + infoBtn(row.kind, "end") + "</span>" +
           '<span class="meter-val">' + num(row.value) + "</span>" +
           '<span class="meter' + (row.read ? " is-read" : "") + '" aria-hidden="true"><span style="width:' + width.toFixed(1) + '%"></span></span>' +
         "</div>"
@@ -191,7 +248,7 @@
     $("#peekEmoji").textContent = copy.emoji;
     $("#peekName").textContent = copy.title;
     $("#peekBlurb").textContent = copy.why;
-    $("#peekNums").innerHTML = numbersChip(player.gap, "DDF Projections vs the Market");
+    $("#peekNums").innerHTML = numbersChip(player.gap);
     countNodes($("#peekNums"));
   }
 
@@ -213,7 +270,7 @@
     $("#targetsEmoji").textContent = copy.emoji;
     titleEl.textContent = copy.title;
     $("#targetsSub").textContent = copy.why;
-    $("#targetsChips").innerHTML = numbersChip(player.gap, "DDF Projections vs the Market");
+    $("#targetsChips").innerHTML = numbersChip(player.gap);
     countNodes($("#targetsChips"));
     if (changed) {
       titleEl.classList.remove("tick");
@@ -238,11 +295,11 @@
               '<span class="player-id"><span class="player-name">' + esc(player.name) + "</span></span>" +
               '<span class="player-meta">' + posChip(player.pos) + "<span>" + esc(player.team) + "</span></span>" +
               '<span class="player-short">' + esc(copy.why) + "</span>" +
-              '<span class="player-figs"><span><b>' + num(player.ddf) + "</b> DDF Projections</span><span><b>" + num(player.market) + "</b> the Market</span></span>" +
+              '<span class="player-figs"><span><b>' + num(player.ddf) + "</b> DDF Projected Value</span><span><b>" + num(player.market) + "</b> the Market</span></span>" +
             "</span>" +
             '<svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           "</button>" +
-          '<div class="player-more" id="detail-' + player.id + '"><div class="player-more-inner">' +
+          '<div class="player-more"' + (open ? "" : " inert") + ' id="detail-' + player.id + '"><div class="player-more-inner">' +
             detail(player) +
           "</div></div>" +
         "</article>"
@@ -274,38 +331,38 @@
       title = "Fair swap";
       emoji = "\uD83E\uDD1D";
       tone = "neutral";
-      why = "You are about even on DDF Value, and their lineup barely moves on the Market.";
+      why = "You are about even on DDF Charted Value, and their lineup barely moves on the Market.";
     } else if (mine >= SEND && theirs > 0.05) {
       title = "Send it";
       emoji = "\uD83D\uDD25";
       tone = "good";
-      why = "You gain " + num(mine) + " DDF Value; their lineup improves on the Market, so they'll likely accept.";
+      why = "You gain " + num(mine) + " DDF Charted Value; their lineup improves on the Market, so they'll likely accept.";
     } else if (mine >= CLOSE && theirs > 0.05) {
       title = "Worth a shot";
       emoji = "\uD83D\uDC40";
       tone = "good";
-      why = "You gain " + num(mine) + " DDF Value; their lineup improves on the Market, so they'll likely accept.";
+      why = "You gain " + num(mine) + " DDF Charted Value; their lineup improves on the Market, so they'll likely accept.";
     } else if (mine > 0.05 && theirs <= 0.05) {
       title = "They'll pass";
       emoji = "\uD83D\uDE2C";
       tone = "warn";
-      why = "You gain " + num(mine) + " DDF Value, but their lineup does not improve on the Market, so they'll likely pass.";
+      why = "You gain " + num(mine) + " DDF Charted Value, but their lineup does not improve on the Market, so they'll likely pass.";
     } else if (mine <= -CLOSE) {
       title = "Don't do it";
       emoji = "\uD83D\uDED1";
       tone = "bad";
       if (theirs > 0.05) {
-        why = "You give up " + num(Math.abs(mine)) + " DDF Value. Their lineup improves on the Market, so they'll likely accept.";
+        why = "You give up " + num(Math.abs(mine)) + " DDF Charted Value. Their lineup improves on the Market, so they'll likely accept.";
       } else if (theirs < -0.05) {
-        why = "You give up " + num(Math.abs(mine)) + " DDF Value, and their lineup does not improve on the Market.";
+        why = "You give up " + num(Math.abs(mine)) + " DDF Charted Value, and their lineup does not improve on the Market.";
       } else {
-        why = "You give up " + num(Math.abs(mine)) + " DDF Value. Their lineup barely moves on the Market.";
+        why = "You give up " + num(Math.abs(mine)) + " DDF Charted Value. Their lineup barely moves on the Market.";
       }
     } else {
       title = "Fair swap";
       emoji = "\uD83E\uDD1D";
       tone = "neutral";
-      why = "You are about even on DDF Value, and their lineup barely moves on the Market.";
+      why = "You are about even on DDF Charted Value, and their lineup barely moves on the Market.";
     }
     const points = pointsRead(give, get, mine);
     return {
@@ -330,13 +387,13 @@
     const opposite = (charts > 0.05 && ppg < -0.05) || (charts < -0.05 && ppg > 0.05);
     let lean;
     if (opposite && Math.abs(ppg) < 1) {
-      lean = "The points lean the other way from the charts. The gap is small.";
+      lean = "The points lean the other way from DDF Charted Value. The gap is small.";
     } else if (opposite) {
-      lean = "The points lean the other way from the charts.";
+      lean = "The points lean the other way from DDF Charted Value.";
     } else if (Math.abs(ppg) < 1) {
-      lean = "The points say the same thing as the charts. The gap is small.";
+      lean = "The points say the same thing as DDF Charted Value. The gap is small.";
     } else {
-      lean = "The points say the same thing as the charts.";
+      lean = "The points say the same thing as DDF Charted Value.";
     }
     return {ppg: ppg, ros: ros, lean: lean};
   }
@@ -349,26 +406,23 @@
 
   function projLean(charts, proj) {
     const opposite = (charts > 0.05 && proj < -0.05) || (charts < -0.05 && proj > 0.05);
-    if (opposite) return "Leans the other way from the charts.";
-    if (Math.abs(proj) < 0.05 && Math.abs(charts) < 0.05) return "About even with the charts.";
-    return "Says the same thing as the charts.";
+    if (opposite) return "Leans the other way.";
+    if (proj < -0.05) return "What you give up.";
+    if (proj > 0.05) return "What you gain.";
+    return "About even.";
   }
 
   function marketLine(theirs) {
-    if (theirs > 0.05) {
-      return "Whether they'll accept. Their lineup improves by this much on the trade charts, before our adjustment.";
-    }
-    if (theirs < -0.05) {
-      return "Whether they'll accept. Their lineup does not improve on the trade charts, before our adjustment.";
-    }
-    return "Whether they'll accept. Their lineup barely moves on the trade charts, before our adjustment.";
+    if (theirs > 0.05) return "Whether they'll accept. Their lineup improves, so they'll likely accept.";
+    if (theirs < -0.05) return "Whether they'll accept. Their lineup does not improve.";
+    return "Whether they'll accept. Their lineup barely moves.";
   }
 
-  function pairSide(label, unit, value, line) {
+  function pairSide(kind, value, line) {
+    const label = kind === "charted" ? "DDF Charted Value" : "DDF Projected Value";
     return (
       '<article class="reading">' +
-        '<p class="reading-label">' + label + "</p>" +
-        '<p class="reading-unit">' + unit + "</p>" +
+        '<p class="reading-label"><span>' + label + "</span>" + infoBtn(kind, kind === "projected" ? "end" : "") + "</p>" +
         '<p class="reading-num"><b data-count="' + value + '">' + signed(value) + "</b></p>" +
         '<p class="reading-why">' + esc(line) + "</p>" +
       "</article>"
@@ -376,20 +430,20 @@
   }
 
   function readingsHtml(result) {
-    const sizes = "Points: " + signed(result.points.ppg) + " a week, " + signed(result.points.ros) + " the rest of the season. " + result.points.lean;
+    const sizes = signed(result.points.ppg) + " a week, " + signed(result.points.ros) + " the rest of the season. " + result.points.lean;
     return (
       '<section class="read-group read-ddf">' +
         '<p class="read-kicker">The DDF read</p>' +
         '<p class="read-method">Same method, two inputs</p>' +
         '<div class="read-pair">' +
-          pairSide("DDF Value", "charts", result.charts, chartLine(result.charts)) +
-          pairSide("DDF Projections", "projection sources", result.proj, projLean(result.charts, result.proj)) +
+          pairSide("charted", result.charts, chartLine(result.charts)) +
+          pairSide("projected", result.proj, projLean(result.charts, result.proj)) +
         "</div>" +
         '<p class="read-sizes">' + esc(sizes) + "</p>" +
       "</section>" +
       '<section class="read-group read-market">' +
-        '<p class="read-kicker">The Market</p>' +
-        '<p class="read-method">The other method. Their lens.</p>' +
+        '<p class="read-kicker"><span>The Market</span>' + infoBtn("market", "end") + "</p>" +
+        '<p class="read-method">The other team\'s read.</p>' +
         '<p class="reading-num"><b data-count="' + result.theirs + '">' + signed(result.theirs) + "</b></p>" +
         '<p class="reading-why">' + esc(marketLine(result.theirs)) + "</p>" +
       "</section>"
@@ -437,8 +491,8 @@
         '<span class="slot-name">' + esc(player.name) + "</span>" +
         '<span class="slot-meta">' + posChip(player.pos) + "<span>" + esc(player.team) + "</span></span>" +
         '<span class="slot-nums">' +
-          "<span><b>" + num(player.market) + "</b> DDF Value</span>" +
-          "<span><b>" + num(player.ddf) + "</b> DDF Projections</span>" +
+          "<span><b>" + num(player.market) + "</b> DDF Charted Value</span>" +
+          "<span><b>" + num(player.ddf) + "</b> DDF Projected Value</span>" +
         "</span>" +
         '<span class="slot-change">Change</span>' +
       "</button>"
@@ -531,10 +585,10 @@
     if (ready) {
       const reads = give.points.reads.map((read, i) => readBlock(read.name, read, get.points.reads[i], give, get)).join("");
       $("#whyInner").innerHTML =
-        '<p class="math">DDF Value, charts: ' + num(get.market) + " received \u2212 " + num(give.market) + " given = " + signed(result.charts) + ". On this preview that figure is the trade-chart average, before the position-weight adjustment.</p>" +
-        '<p class="math">DDF Projections, on the value scale: ' + num(get.ddf) + " received \u2212 " + num(give.ddf) + " given = " + signed(result.proj) + ". Same method, projection sources. This preview uses one projection source there, not the three-source average.</p>" +
-        '<p class="math">The Market, for them: ' + num(give.market) + " received \u2212 " + num(get.market) + " given = " + signed(result.theirs) + ". The other method. On this preview that is the same chart average, read from their side.</p>" +
-        '<p class="math">Points, full PPR. Each line is one read, then the three together. These are the point sizes under DDF Projections.</p>' +
+        '<p class="math">DDF Charted Value: ' + num(get.market) + " received \u2212 " + num(give.market) + " given = " + signed(result.charts) + ". On this preview that figure is the trade-chart average, before the position-weight adjustment is wired.</p>" +
+        '<p class="math">DDF Projected Value: ' + num(get.ddf) + " received \u2212 " + num(give.ddf) + " given = " + signed(result.proj) + ". Same method, starting from projections. This preview uses one projection source on the value scale, not the three-source average.</p>" +
+        '<p class="math">The Market, for them: ' + num(give.market) + " received \u2212 " + num(get.market) + " given = " + signed(result.theirs) + ". The other team\'s read. On this preview that is the same chart average, from their side.</p>" +
+        '<p class="math">Points per week and for the rest of the season, full PPR. Each line is one read, then the three together.</p>' +
         '<div class="reads">' + reads +
           readBlock("The three together", {ppg: give.points.ppg, ros: give.points.ros}, {ppg: get.points.ppg, ros: get.points.ros}, give, get) +
         "</div>" +
@@ -551,7 +605,7 @@
         '<p class="share-title">' + esc(result.title) + "</p>" +
         '<p class="share-players">' + esc(give.name) + " \u2192 " + esc(get.name) + "</p>" +
         '<p class="share-why">' + esc(result.why) + "</p>" +
-        '<p class="share-why">DDF Value ' + signed(result.charts) + ". DDF Projections " + signed(result.proj) + ". Points " + signed(result.points.ppg) + " a week, " + signed(result.points.ros) + " the rest of the season.</p>" +
+        '<p class="share-why">DDF Charted Value ' + signed(result.charts) + ". DDF Projected Value " + signed(result.proj) + ". " + signed(result.points.ppg) + " a week, " + signed(result.points.ros) + " the rest of the season.</p>" +
         '<button type="button" class="quiet" id="copyCard">Copy card</button>';
     } else {
       card.hidden = true;
@@ -569,7 +623,7 @@
   function shareText() {
     const result = verdict();
     if (result.gain == null) return "";
-    return result.title + "\n" + result.give.name + " for " + result.get.name + "\n" + result.why + "\nDDF Value " + signed(result.charts) + ". DDF Projections " + signed(result.proj) + ". Points " + signed(result.points.ppg) + " a week.\nData Driven Football";
+    return result.title + "\n" + result.give.name + " for " + result.get.name + "\n" + result.why + "\nDDF Charted Value " + signed(result.charts) + ". DDF Projected Value " + signed(result.proj) + ". " + signed(result.points.ppg) + " a week.\nData Driven Football";
   }
 
   function exportData() {
@@ -800,7 +854,26 @@
     if (title) title.focus();
   }
 
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    const open = document.querySelector(".tip-btn[aria-expanded='true']");
+    if (!open) return;
+    event.preventDefault();
+    closeTips();
+    open.focus();
+  });
+
   document.addEventListener("click", event => {
+    const tipBtn = event.target.closest(".tip-btn");
+    if (tipBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const willOpen = tipBtn.getAttribute("aria-expanded") !== "true";
+      if (willOpen) openTip(tipBtn);
+      else closeTips();
+      return;
+    }
+    if (!event.target.closest(".tip") && !event.target.closest(".tip-pop")) closeTips();
     const go = event.target.closest("[data-go]");
     if (go) {
       event.preventDefault();
@@ -861,6 +934,11 @@
         const on = Number(node.dataset.id) === state.openId;
         node.classList.toggle("is-open", on);
         node.querySelector(".player-sum").setAttribute("aria-expanded", on ? "true" : "false");
+        const more = node.querySelector(".player-more");
+        if (more) {
+          if (on) more.removeAttribute("inert");
+          else more.setAttribute("inert", "");
+        }
       });
       paintTargets(true);
       return;
