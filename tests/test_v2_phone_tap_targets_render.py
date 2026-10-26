@@ -24,6 +24,7 @@ and requires every check to fail.
 """
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -126,6 +127,16 @@ DROPDOWN = """(id) => { const u = document.getElementById(id); const b = u.query
   return out; }"""
 
 
+def _with_linked_reviews(route):
+    """JEG-1116: the Reviewed chip is a link (the tap target JEG-1048 sized) only when its entry carries a public page.
+    The baked data has none today, so every chip renders as a plain span and the sweep never sees one. Serve the real
+    file with every source marked reviewed and linked, so the sweep always has the link chips to measure."""
+    doc = json.loads(route.fetch().text())
+    doc["source_divergence"] = {key: {"status": "reviewed", "message": "Checked by hand this week.", "resolution_issue": "https://example.com/review"}
+                                for key in (doc.get("source_divergence") or {"usatoday": 0, "fantasycalc": 0, "fantasypros": 0, "cbs": 0, "espn": 0})}
+    route.fulfill(status=200, content_type="application/json", body=json.dumps(doc))
+
+
 def _run(css=None) -> dict:
     try:
         from playwright.sync_api import sync_playwright
@@ -142,6 +153,7 @@ def _run(css=None) -> dict:
             page.add_init_script(init)
         if css is not None:
             page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
+        page.route("**/assets/reference-freshness.json*", _with_linked_reviews)
         page.goto(base + "#" + tab, wait_until="networkidle")
         page.wait_for_timeout(1000)
         if menu:
