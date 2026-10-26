@@ -516,7 +516,7 @@
         special.length ? note(`Kept, not evaluated (no value for defenses and kickers): ${special.map(e => `${e.name} (${e.pos})`).join(", ")}.`, "v2-meta v2-find-kept") : null,
         ...unsureBlock(unsure), ...unmatchedBlock(rest), ignoredBlock(res.ignoredLines));
     }
-    function consume(text) {
+    function consume(text, force) {
       input.value = "";
       results.replaceChildren();
       results.hidden = true;
@@ -542,6 +542,18 @@
       }
       const res = root.DDFRosterPaste.parse(text, rows);
       if (!res) { result.replaceChildren(note("Values are still loading. Try again in a moment.")); return; }
+      // A roster page pasted into the waiver list (or a waiver page into the roster) is offered to the other list.
+      const kind = root.DDFRosterPaste.detectListKind(text, res);
+      const other = target === "mine" ? "cands" : "mine";
+      if (!force && res.matched && kind !== "unknown" && kind !== (target === "mine" ? "roster" : "waivers") && boxes[other]) {
+        const move = el("button", {type: "button", class: "v2-btn", text: `Use it for ${TITLES[other].toLowerCase()}`});
+        move.addEventListener("click", () => { result.replaceChildren(); boxes[other].consume(text, true); });
+        const here = el("button", {type: "button", class: "v2-btn", text: `Use it for ${title.toLowerCase()} anyway`});
+        here.addEventListener("click", () => consume(text, true));
+        result.replaceChildren(el("p", {class: "v2-find-paste-count is-bad", text: kind === "roster" ? "That looks like a roster page, not a waiver page." : "That looks like a waiver page, not your roster."}),
+          note("Nothing was added yet."), move, here);
+        return;
+      }
       if (res.mode === "matchup" && res.teams && res.teams.length === 2 && target === "mine") {
         const label2 = (t, i) => t.teamName || `Team ${i + 1} (listed ${i ? "second" : "first"})`;
         result.replaceChildren(note("This is a matchup page with two teams. Which team is yours?", "v2-find-which"),
@@ -598,7 +610,7 @@
         results.append(el("li", {}, button));
       });
     });
-    return {wrap, list, clear, input, result, render: () => { clear.hidden = !stores[target].get().length; placeList(target, list); }};
+    return {wrap, list, clear, input, result, consume, render: () => { clear.hidden = !stores[target].get().length; placeList(target, list); }};
   }
 
   // ---------- the results ----------
@@ -904,6 +916,53 @@
     if (location.hash !== want) { try { history.replaceState(null, "", want); } catch (error) { /* the page still works */ } }
   }
 
+  // One box for either page: it reads which list was pasted and fills it. When it cannot tell, it asks.
+  function anyPageCard(mineBox, candsBox) {
+    const input = el("textarea", {id: "v2WaiversAnySearch", rows: "2", placeholder: "Paste a whole roster page or waiver page here",
+      autocomplete: "off", spellcheck: "false", "aria-describedby": "v2WaiversAnyHelp"});
+    const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole roster page or waiver page from a fantasy site"}), input);
+    const help = el("p", {class: "v2-meta v2-find-paste-help", id: "v2WaiversAnyHelp",
+      text: "On your team page or the free-agent page of ESPN, Yahoo or Sleeper, press Ctrl+A then Ctrl+C, and paste here. It works out which list it is and fills it in. Pasted text stays in this browser."});
+    const result = el("div", {class: "v2-find-paste-result", id: "v2WaiversAnyResult", role: "status", "aria-live": "polite"});
+    const siteName = site => ({espn: "ESPN", yahoo: "Yahoo", sleeper: "Sleeper"}[site] || "");
+    function route(text, kind, site) {
+      const box = kind === "roster" ? mineBox : candsBox;
+      const from = siteName(site);
+      result.replaceChildren(el("p", {class: "v2-meta", text: `Read as ${kind === "roster" ? "your roster" : "waiver options"}${from ? ` from ${from}` : ""}. What was found is listed under ${TITLES[kind === "roster" ? "mine" : "cands"]} below.`}));
+      box.consume(text, true);
+      if (box.wrap.scrollIntoView) box.wrap.scrollIntoView({block: "nearest"});
+    }
+    function consume(text) {
+      input.value = "";
+      const rows = rowsAll();
+      const P = root.DDFRosterPaste;
+      if (!rows.length || !P) { result.replaceChildren(el("p", {class: "v2-meta", text: "Values are still loading. Try again in a moment."})); return; }
+      const res = P.parse(text, rows);
+      if (!res || !res.matched) {
+        result.replaceChildren(el("p", {class: "v2-find-paste-count is-bad", text: "No players recognised in that text. Nothing was added."}),
+          el("p", {class: "v2-meta", text: "Paste a whole page from a fantasy site (Ctrl+A, Ctrl+C on the page), or a list of player names."}));
+        return;
+      }
+      const kind = P.detectListKind(text, res);
+      if (kind !== "unknown") { route(text, kind, res.site); return; }
+      const mine = el("button", {type: "button", class: "v2-btn", text: "This is my roster"});
+      const cands = el("button", {type: "button", class: "v2-btn", text: "These are waiver options"});
+      mine.addEventListener("click", () => route(text, "roster", res.site));
+      cands.addEventListener("click", () => route(text, "waivers", res.site));
+      result.replaceChildren(el("p", {class: "v2-find-paste-count is-ok", text: `Found ${plural(res.matched, "player")}, but I cannot tell which list this is.`}),
+        el("p", {class: "v2-meta", text: "Which list is it?"}), mine, cands);
+    }
+    input.addEventListener("paste", event => {
+      const text = event.clipboardData ? event.clipboardData.getData("text") : "";
+      if (text && F.looksLikePage(text)) { event.preventDefault(); consume(text); }
+    });
+    input.addEventListener("input", () => { if (F.looksLikePage(input.value)) consume(input.value); });
+    return el("section", {class: "v2-card", id: "v2WaiversAny", "aria-labelledby": "v2WaiversAnyTitle"},
+      el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2WaiversAnyTitle", text: "Paste a whole page"}),
+        el("p", {class: "v2-meta", text: "Your team page or a free-agent page, from any supported site."}))),
+      el("div", {class: "v2-wv-input"}, el("div", {class: "v2-find-search-wrap"}, label), help, result));
+  }
+
   // ---------- the page ----------
   function viewPicker() {
     const sel = el("select", {id: "v2WaiversView", "aria-describedby": "v2WaiversViewHelp"});
@@ -933,13 +992,14 @@
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2WaiversCandsTitle", text: "Waiver candidates"}),
         el("p", {class: "v2-meta", text: "The top options on the wire. Kickers and defenses are kept but not evaluated."})), candsBox.clear),
       candsBox.wrap);
+    const anyCard = anyPageCard(mineBox, candsBox);
     const outCard = el("section", {class: "v2-card", id: "v2WaiversResults", "aria-labelledby": "v2WaiversResultsTitle"},
       el("div", {class: "v2-card-head"}, el("h2", {id: "v2WaiversResultsTitle", text: "Who to pick up"}), viewPicker()),
       el("div", {id: "v2WaiversOut", hidden: ""}));
     const foot = host.querySelector(".v2-footnote");
     const live = el("div", {class: "v2-wv-live"}, headline, count);
     host.insertBefore(live, foot);
-    [mineCard, candsCard, outCard].forEach(card => host.insertBefore(card, foot));
+    [anyCard, mineCard, candsCard, outCard].forEach(card => host.insertBefore(card, foot));
     boxes.mine = mineBox;
     boxes.cands = candsBox;
     mineCard.addEventListener("keydown", event => {
