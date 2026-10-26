@@ -57,6 +57,7 @@ export type FetchValuesWithCharts = (
   scoring: string,
   teams: number,
   superflex: number,
+  league?: Record<string, unknown>,
 ) => Promise<ChartValuesResponse>;
 
 export interface ToolResult {
@@ -539,7 +540,7 @@ async function findTradesHandler(
   if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
   if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
 
-  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
   const chartPlayers = data.players;
 
   // Resolve names to rows.
@@ -683,7 +684,7 @@ async function findTradesLeagueHandler(
   if (!opponents?.length) throw new ToolInputError("opponents is required: [{name, roster}]");
   if (opponents.length > 15) throw new ToolInputError("too many opponents (max 15)");
 
-  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
   const chartPlayers = data.players;
 
   const resolve = (names: string[]) => {

@@ -214,7 +214,7 @@
   const OPP_COLUMNS = [
     {id: "rank", label: "Opportunity rank", type: "number", first: "asc", rank: true, get: r => r.rank},
     {id: "opponent", label: "Opponent", type: "text", first: "asc", get: r => r.opponent},
-    {id: "capture", label: "Fundamentals capture", type: "number", first: "desc", get: r => r.edge},
+    {id: "capture", label: "DDF Value capture", type: "number", first: "desc", get: r => r.edge},
     {id: "market", label: "Market perception", type: "number", first: "desc", get: r => r.chartEdge},
     {id: "proj", label: "Projections agree", type: "number", first: "desc", get: r => (r.projAgrees === null || r.projAgrees === undefined ? null : r.projAgrees ? 1 : 0)},
     {id: "fair", label: "Charts fair", type: "number", first: "desc", get: r => r.rivalOkCount},

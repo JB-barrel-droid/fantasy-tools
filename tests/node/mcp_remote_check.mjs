@@ -287,6 +287,29 @@ r = await callF("find_trades", { mine: "Josh Allen, Ghost", theirs: "Bijan Robin
 assert.notEqual(r.result.isError, true);
 assert.deepEqual(r.result.structuredContent.mine.unmatched, ["Ghost"]);
 
+// JEG-1070: a pasted custom league reaches the chart fetch for both finder tools, so the
+// finder prices the same league as get_values; a default league sends none.
+const chartLeagues = [];
+const recordingCharts = async (scoring, teams, superflex, league) => {
+  chartLeagues.push(league);
+  return chartStub(scoring, teams, superflex);
+};
+const recDeps = { finder, fetchCharts: recordingCharts };
+const callR = (name, args) => handleRpc(
+  { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
+  stub, deps, recDeps);
+const finderLeague = { roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 }, shares: { QB: 0.2, RB: 0.35, WR: 0.35, TE: 0.1 } };
+const finderState = codec.encodeBlock({ league: { scoring: "ppr", teams: 12, ...finderLeague } });
+r = await callR("find_trades", { state: finderState, mine: "Josh Allen, Josh Jacobs", theirs: "Bijan Robinson, Ja'Marr Chase" });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+assert.deepEqual(chartLeagues.at(-1), finderLeague, "find_trades passes the pasted league to fetchCharts");
+r = await callR("find_trades_league", { state: finderState, mine: "Josh Allen, Josh Jacobs",
+  opponents: [{ name: "Opp", roster: "Bijan Robinson, Ja'Marr Chase" }] });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+assert.deepEqual(chartLeagues.at(-1), finderLeague, "find_trades_league passes the pasted league to fetchCharts");
+r = await callR("find_trades", { scoring: "ppr", teams: 12, mine: "Josh Allen", theirs: "Bijan Robinson" });
+assert.equal(chartLeagues.at(-1), undefined, "no pasted league sends none");
+
 // Empty roster is an error.
 r = await callF("find_trades", { mine: "", theirs: "Bijan Robinson" });
 assert.equal(r.result.isError, true);

@@ -8,7 +8,7 @@ Yahoo and ESPN team fixtures go through the page at 1440, 1366x768 and 390 wide.
   * the breakpoints hold at 1023/1024 (projections group) and 767/768 (impact secondary line); the team headings' colspans equal
     the visible cell count, so the headings stay over their own columns (JEG-1081 review);
   * the projections group is consistent within itself: its starters cells and its bench subtotal add to its total (to 0.2);
-  * score chips: one number each (DDF Value and Trade chart avg) and the same three-line tooltip
+  * score chips: one number each (DDF Value and Trade chart average) and the same three-line tooltip
     ("DDF Value: x / Projections: y / Market: z") equal to the row's values;
   * roster impact: a secondary line "Starters +a DDF Value (+b projections, +c market). Bench ..." per team; at 390 it is hidden
     until "Show other views" is pressed;
@@ -137,6 +137,26 @@ def check(page, tag, width) -> list[str]:
             page.click("#v2FindList li.v2-find-group .v2-find-impact-more")
             if not page.evaluate(IMPACT)["visible"]:
                 say("phone: Show other views did not reveal the secondary line")
+    # JEG-1081 PR 7: the view tooltips are the spec's sentences; a fit line says in words what its label means.
+    tips = page.evaluate("() => Object.fromEntries([...document.querySelectorAll('#v2FindAssess thead tr:nth-child(2) th[title]')].slice(0, 3).map(th => [th.textContent.trim(), th.title]))")
+    want = {"DDF Value": "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights.",
+            "Trade chart average": "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals.",
+            "DDF Value (projections)": "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market."}
+    if tips != want:
+        say(f"assessment tooltips {tips}")
+    fit_tips = page.evaluate("() => [...document.querySelectorAll('#v2FindList .v2-find-fit')].map(p => [p.dataset.fitVariant, p.title])")
+    if not fit_tips or any(not v or not t or not t.startswith(v.split('-')[0].capitalize()) for v, t in fit_tips):
+        say(f"fit line tooltips {fit_tips[:3]}")
+    # Under a basis of the reader's own, DDF Value says so and the market says its point scale follows (spec 5b).
+    page.evaluate("() => { window.TradeValueCurveControls.setBasis({mode: 'single', source: 'fantasycalc'}, false); document.dispatchEvent(new CustomEvent('ddf:league-settings-changed', {detail: {reason: 'basis', notes: []}})); }")
+    page.wait_for_timeout(800)
+    basis = page.evaluate("() => Object.fromEntries([...document.querySelectorAll('#v2FindAssess thead tr:nth-child(2) th[title]')].slice(0, 3).map(th => [th.textContent.trim(), th.title]))")
+    heads = list(basis)
+    if not heads or heads[0] != "DDF Value (FantasyCalc)" or "not our methodology" not in basis.get("DDF Value (FantasyCalc)", "") \
+            or "Rescaled to FantasyCalc's point scale." not in basis.get("Trade chart average", ""):
+        say(f"under a FantasyCalc basis the assessment says {basis}")
+    page.evaluate("() => { window.TradeValueCurveControls.setBasis(null, false); document.dispatchEvent(new CustomEvent('ddf:league-settings-changed', {detail: {reason: 'basis', notes: []}})); }")
+    page.wait_for_timeout(500)
     if width <= 390 and page.evaluate(OVER) > 0:
         say("horizontal overflow")
     return errors
@@ -189,6 +209,9 @@ class FinderTriViewRenderTest(unittest.TestCase):
             "toggle does not flip aria-expanded": ({"finder.js": (js.replace('toggle.setAttribute("aria-expanded", String(on));\n      toggle.textContent = on ? "Hide projections"', 'toggle.textContent = on ? "Hide projections"'), "text/javascript")}, ((390, 844),), 'toggle.setAttribute("aria-expanded", String(on));\n      toggle.textContent = on ? "Hide projections"' in js),
             "projections hidden only under 600px": ({"v2.css": (css.replace("@media (max-width: 1023px) {\n  .v2-find-proj-toggle", "@media (max-width: 600px) {\n  .v2-find-proj-toggle"), "text/css")}, ((1023, 768),), "@media (max-width: 1023px) {\n  .v2-find-proj-toggle" in css),
             "impact secondary hidden only under 700px": ({"v2.css": (css.replace("@media (max-width: 767px) {\n  .v2-find-impact-more", "@media (max-width: 700px) {\n  .v2-find-impact-more"), "text/css")}, ((767, 1024),), "@media (max-width: 767px) {\n  .v2-find-impact-more" in css),
+            "basis header unchanged": ({"finder.js": (js.replace('label: custom ? `DDF Value (${basis.label})` : "DDF Value"', 'label: "DDF Value"'), "text/javascript")}, ((1440, 900),), 'label: custom ? `DDF Value (${basis.label})` : "DDF Value"' in js),
+            "market tooltip without the rescaling": ({"finder.js": (js.replace("return `${VIEW_TIPS.market} Rescaled to ${name}'s point scale.`;", "return VIEW_TIPS.market;"), "text/javascript")}, ((1440, 900),), "return `${VIEW_TIPS.market} Rescaled to ${name}'s point scale.`;" in js),
+            "fit line without its tooltip": ({"finder.js": (js.replace("fitLine.title = fitTip(fit.variant);", ""), "text/javascript")}, ((1440, 900),), "fitLine.title = fitTip(fit.variant);" in js),
             "chip tooltip is the old label": ({"finder.js": (js.replace('"data-kind": kind, title: tip,', '"data-kind": kind, title: label,'), "text/javascript")}, ((1440, 900),), '"data-kind": kind, title: tip,' in js),
             "no secondary impact line": ({"finder.js": (js.replace('"data-line": "secondary"', '"data-line": "secondary", hidden: ""'), "text/javascript")}, ((1440, 900),), '"data-line": "secondary"' in js),
         }

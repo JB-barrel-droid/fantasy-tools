@@ -35,6 +35,9 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [math-review-questions-2026-10-12.md](math-review-questions-2026-10-12.md) | Record | - | - | Judgment calls left for Jeremy after the 2026-10-15 verification of the math review agenda (JEG-450). |
 | [player-scenario-regression-tests.md](player-scenario-regression-tests.md) | Maintained | unknown | unknown | Football-question scenarios used as regression tests on current players. |
 | [QA_FRAMEWORKS.md](QA_FRAMEWORKS.md) | Maintained | unknown | unknown | Systematic QA frameworks for whole dimensions of the dashboard. |
+| [product/methodology-outline.md](product/methodology-outline.md) | Proposal | - | - | Draft page list for a reader-facing Methodology section under "Learn" (JEG-1105); which pages wait for JEG-1081. |
+| [product/fit-label-glossary-draft.md](product/fit-label-glossary-draft.md) | Proposal | - | - | Draft plain definitions and numeric rules for Natural, Value, Market and Force fit, with code-vs-doc disagreements (JEG-1097). |
+| [product/ddf-two-views-article-outline.md](product/ddf-two-views-article-outline.md) | Proposal | - | - | Outline of the Trade Charts vs Projections view pros-and-cons article, with the JEG-1073 numbers and what is still to measure (JEG-1102). |
 
 ## Architecture and data
 
