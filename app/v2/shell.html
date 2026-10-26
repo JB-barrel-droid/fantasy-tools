@@ -3,21 +3,41 @@
   <span class="v2-sr" id="v2OpenHint">Opens player details. Press Enter or Space.</span>
   <header class="v2-nav">
     <div class="v2-nav-inner">
-      <a class="v2-brand" href="v2/#trade-targets">Data Driven Football</a>
       <button type="button" class="v2-nav-toggle" id="v2NavToggle" aria-expanded="false" aria-controls="v2Tabs" aria-label="Menu">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
-      <nav class="v2-tabs" id="v2Tabs" aria-label="Views">
-        <a class="v2-tab" href="v2/#writing" data-view="writing" data-short="Writing"><span class="v2-tab-full">Writing</span></a>
-        <a class="v2-tab" href="v2/#player-values" data-view="values" data-short="Values"><span class="v2-tab-full">Player values</span></a>
-        <a class="v2-tab is-active" href="v2/#trade-targets" data-view="targets" aria-current="page" data-short="Targets"><span class="v2-tab-full">Trade targets</span></a>
-        <a class="v2-tab" href="v2/#risers-fallers" data-view="risers" data-short="Movers"><span class="v2-tab-full">Risers &amp; fallers</span></a>
-        <a class="v2-tab" href="v2/#compare-trade" data-view="compare" data-short="Trade"><span class="v2-tab-full">Compare a trade</span></a>
-        <a class="v2-tab" href="v2/#find-trade" data-view="find" data-short="Find"><span class="v2-tab-full">Find a trade: your team</span></a>
-        <a class="v2-tab" href="v2/#find-league" data-view="league" data-short="League"><span class="v2-tab-full">Find a trade: league-wide</span></a>
-        <a class="v2-tab" href="v2/#waivers" data-view="waivers" data-short="Waivers"><span class="v2-tab-full">Waivers</span></a>
-        <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-short="Overrides"><span class="v2-tab-full">Overrides</span></a>
-        <a class="v2-tab" href="v2/#values-auditing" data-view="audit" data-short="Audit"><span class="v2-tab-full">Values auditing</span></a>
+      <a class="v2-brand" href="v2/#player-values">Data Driven Football</a>
+      <span class="v2-nav-current" id="v2NavCurrent">Value chart</span>
+      <nav class="v2-tabs" id="v2Tabs" aria-label="Pages">
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG1">
+          <p class="v2-nav-grouphead" id="v2NavG1">Trade</p>
+          <a class="v2-tab" href="v2/#player-values" data-view="values" data-key="values"><span class="v2-tab-full">Value chart</span></a>
+          <a class="v2-tab" href="v2/#compare-trade" data-view="compare" data-key="compare"><span class="v2-tab-full">Compare a trade</span></a>
+          <a class="v2-tab" href="v2/#find-trade" data-view="find" data-key="find"><span class="v2-tab-full">Find a trade: your team</span></a>
+          <a class="v2-tab" href="v2/#find-league" data-view="league" data-key="league"><span class="v2-tab-full">Find a trade: league-wide</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG2">
+          <p class="v2-nav-grouphead" id="v2NavG2">Players</p>
+          <a class="v2-tab" href="v2/#risers-fallers" data-view="risers" data-key="risers"><span class="v2-tab-full">Risers and fallers</span></a>
+          <a class="v2-tab" href="v2/#waivers" data-view="waivers" data-key="waivers"><span class="v2-tab-full">Waivers</span></a>
+          <a class="v2-tab" href="v2/#trade-targets" data-view="targets" data-key="targets"><span class="v2-tab-full">Trade targets</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG3">
+          <p class="v2-nav-grouphead" id="v2NavG3">Auditing</p>
+          <a class="v2-tab" href="v2/#values-auditing/health-check" data-view="audit" data-key="audit/health-check"><span class="v2-tab-full">Value pie</span></a>
+          <a class="v2-tab" href="v2/#values-auditing/single-source" data-view="audit" data-key="audit/single-source"><span class="v2-tab-full">Source build-up</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG4">
+          <p class="v2-nav-grouphead" id="v2NavG4">Our approach</p>
+          <a class="v2-tab" href="v2/#writing/how-values" data-view="writing" data-key="writing/how-values"><span class="v2-tab-full">Methodology</span></a>
+          <a class="v2-tab" href="v2/#writing/research" data-view="writing" data-key="writing/research"><span class="v2-tab-full">Research</span></a>
+          <a class="v2-tab" href="v2/#writing/manifesto" data-view="writing" data-key="writing/manifesto"><span class="v2-tab-full">Manifesto</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG5">
+          <p class="v2-nav-grouphead" id="v2NavG5">Settings</p>
+          <button type="button" class="v2-tab" data-action="customize" aria-haspopup="dialog"><span class="v2-tab-full">Customize</span></button>
+          <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-key="overrides"><span class="v2-tab-full">Overrides</span></a>
+        </div>
       </nav>
       <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>

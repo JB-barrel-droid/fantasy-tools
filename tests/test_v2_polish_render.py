@@ -243,8 +243,8 @@ def _check_913(page, base) -> list[str]:
     page.evaluate("() => { location.hash = '#nonsense-route?x=1'; }")
     page.wait_for_timeout(300)
     snap = page.evaluate(ROUTE)
-    if snap["hash"] != "#trade-targets" or snap["tab"] != ["targets"]:
-        errors.append(f"[913] #nonsense-route?x=1 left the address at {snap['hash']!r} / tab {snap['tab']}, want #trade-targets")
+    if snap["hash"] != "#player-values" or snap["tab"] != ["values"]:   # JEG-1106: the landing page is the value chart
+        errors.append(f"[913] #nonsense-route?x=1 left the address at {snap['hash']!r} / tab {snap['tab']}, want #player-values")
     page.go_back()
     page.wait_for_timeout(300)
     snap = page.evaluate(ROUTE)
@@ -288,7 +288,7 @@ def _check_913(page, base) -> list[str]:
     page.wait_for_function("() => window.TradeValueV2", timeout=40000)
     page.wait_for_timeout(300)
     snap = page.evaluate(ROUTE)
-    if snap["hash"] != "#trade-targets" or snap["tab"] != ["targets"]:
+    if snap["hash"] != "#player-values" or snap["tab"] != ["values"]:
         errors.append(f"[913 landing] #nonsense-route left the address at {snap['hash']!r} / tab {snap['tab']}")
     return errors
 
