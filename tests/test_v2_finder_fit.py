@@ -240,6 +240,26 @@ def check(finder_js: Path) -> list[str]:
     if f["label"] != "natural":
         say(f"noisy trade within noise floor should be natural: label={f['label']} them={f['them']['net']:.1f} tau={f['them']['tau']:.1f}")
 
+    # 12. Your side has no noise floor (Jeremy, 2026-10-26): a small rise that is far inside the noise still counts.
+    # Bench WR swap on the deep rosters of test 10; both moving players carry DDF noise 10 (charts vs projections), so
+    # your tau is about 14 while your rise is only +0.45. Their side is level on the charts (inside their noise floor).
+    mine12 = team("m12", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5])
+    theirs12 = team("t12", [22, 11], [35, 28, 25, 20, 15], [40, 35, 30, 25, 20], [11, 6])
+    g12 = [p("m12g", "WR", 5, market=7, noise=10)]
+    r12 = [p("t12g", "WR", 8, market=7, noise=10)]
+    f = fit(finder_js, mine12 + g12, theirs12 + r12, g12, r12)
+    if not (f["us"]["net"] > 0.05 and f["us"]["net"] < f["us"]["tau"]):
+        say(f"test 12 setup: your rise should sit between 0.05 and your noise floor: net={f['us']['net']} tau={f['us']['tau']}")
+    if f["label"] != "natural":
+        say(f"a rise inside your noise floor should still be natural: label={f['label']} us net={f['us']['net']:.2f} tau={f['us']['tau']:.2f}")
+
+    # 13. But the rise must be a rise: +0.03 (at or under the 0.05 display floor) is not natural.
+    g13 = [p("m13g", "WR", 5, market=7, noise=10)]
+    r13 = [p("t13g", "WR", 5.2, market=7, noise=10)]
+    f = fit(finder_js, mine12 + g13, theirs12 + r13, g13, r13)
+    if f["label"] == "natural":
+        say(f"a rise of {f['us']['net']:.2f} is not a rise: label={f['label']}")
+
     return errors
 
 
@@ -248,6 +268,8 @@ MUTANTS = {
     "starter drop allowed": ("const yourStartersOk = us.starterDelta >= -NET_FLOOR;", "const yourStartersOk = true;"),
     "their loss allowed": ("const theirOk = theirNet >= -theirTau;", "const theirOk = true;"),
     "noise ignored": ("const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);", "const tau = NET_FLOOR;"),
+    "your side needs the noise floor": ("const yourTotalUp = us.net > NET_FLOOR;", "const yourTotalUp = us.net > us.tau;"),
+    "your side needs no rise": ("const yourTotalUp = us.net > NET_FLOOR;", "const yourTotalUp = us.net > -1000;"),
     "market always": ('const label = isNatural ? "natural" : marketSupported ? "market" : "force";', 'const label = "market";'),
     "tiers reversed": ("a.t - b.t || a.i - b.i", "b.t - a.t || a.i - b.i"),
     "tiers unstable": ("a.t - b.t || a.i - b.i", "a.t - b.t || b.i - a.i"),

@@ -548,7 +548,7 @@
   // ---------- JEG-1108: fit labels rewrite ----------
   // Natural fit: roster construction works for both teams (after the trade: no bench player promoted to starter, no
   // starter lost without a starter coming back, no empty starting slot) AND your DDF Value total roster value (starters
-  // plus bench at bench weight) rises with starter value not worse AND the other team's Trade chart average change is
+  // plus bench at bench weight) rises at all (above 0.05; no noise floor on your side) with starter value not worse AND the other team's Trade chart average change is
   // within the noise floor (max(0.05, FIT_Z x noise)) or positive.
   // Market supported (renamed from Market fit, definition FLIPPED): the Trade chart average says the other team's side
   // is favorable. Independent of the roster test.
@@ -665,8 +665,9 @@
     const myConstruction = rosterConstructionOk(sides.mine, ctx.shape, ctx.ourKey);
     const theirConstruction = rosterConstructionOk(sides.theirs, ctx.shape, ctx.marketKey);
     const constructionOk = myConstruction.ok && theirConstruction.ok;
-    // Your DDF Value total rises (net > 0, beyond noise) and starters not worse.
-    const yourTotalUp = us.net > us.tau;
+    // Your DDF Value total rises at all (above the 0.05 display floor, not the noise floor; Jeremy, 2026-10-26) and
+    // starters not worse. The noise floor still applies to the other team's side below.
+    const yourTotalUp = us.net > NET_FLOOR;
     const yourStartersOk = us.starterDelta >= -NET_FLOOR;
     const yourValueOk = yourTotalUp && yourStartersOk;
     // Their Trade chart average change: within the noise floor or positive.
@@ -714,7 +715,7 @@
         const issues = (fit.myConstruction.issues || []).concat(fit.theirConstruction.issues || []);
         why.push(`Roster construction issue${issues.length > 1 ? "s" : ""}: ${issues.join("; ")}.`);
       }
-      if (!fit.yourValueOk) why.push(`Your DDF Value total does not rise enough (${fitFmt(us.net)}, starters ${fitFmt(us.starterDelta)}).`);
+      if (!fit.yourValueOk) why.push(`Your DDF Value total does not rise (${fitFmt(us.net)}, starters ${fitFmt(us.starterDelta)}).`);
       return `Market supported: the trade charts favor them (${fitFmt(them.net)}).${why.length ? ` ${why.join(" ")}` : ""}${depth}`;
     }
     const why = [];
@@ -723,7 +724,7 @@
       if (issues.length) why.push(`Roster construction: ${issues.join("; ")}.`);
     }
     if (!fit.yourValueOk) {
-      if (us.net < us.tau) why.push(`Your DDF Value total does not rise (${fitFmt(us.net)}, noise floor ${us.tau.toFixed(1)}).`);
+      if (us.net <= NET_FLOOR) why.push(`Your DDF Value total does not rise (${fitFmt(us.net)}).`);
       else if (us.starterDelta < -NET_FLOOR) why.push(`Your starters drop ${Math.abs(us.starterDelta).toFixed(1)} on DDF Value.`);
     }
     if (them.net < -them.tau) why.push(`They lose ${Math.abs(them.net).toFixed(1)} on ${VIEW_NAME[them.key]}, outside the ${them.tau.toFixed(1)} noise floor.`);
