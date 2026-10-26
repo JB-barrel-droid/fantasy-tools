@@ -563,6 +563,11 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_waivers_math
+	python3 -m unittest tests.test_waivers_views
+	python3 -m unittest tests.test_v2_copy_names
+	python3 -m unittest tests.test_v2_finder_trifit
+	python3 -m unittest tests.test_v2_finder_projection_noise
+	python3 -m unittest tests.test_v2_finder_triview_display
 	node tests/test_v2_roster_paste.js
 	node tests/test_v2_league_paste.js
 	node tests/test_v2_name_format.js

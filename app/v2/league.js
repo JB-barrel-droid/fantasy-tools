@@ -83,7 +83,7 @@
     const avg = ctx.market ? F.withChartAverage([row], ctx.market)[0].values[MARKET_KEY] : null;
     const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind},
       el("span", {class: "v2-find-chip-value", text: finite(value) ? value.toFixed(1) : "no value"}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
-    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", ctx.market ? "Trade chart avg" : "Trade chart avg (too few charts)", avg));
+    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", ctx.market ? "Trade chart average" : "Trade chart average (too few charts)", avg));
   };
 
   // Paste and search for one team. Returns the body node and a render() for its player list.
@@ -785,7 +785,7 @@
     const box = el("div", {class: "v2-lg-detail-body"});
     box.append(el("p", {}, el("b", {text: "You give: "}), `${valueLine(r.give, OUR_KEY)} (DDF Value); ${ctx.market ? valueLine(withAvg(r.give), MARKET_KEY) : "no trade chart average"} (Trade chart average).`),
       el("p", {}, el("b", {text: "You receive: "}), `${valueLine(r.receive, OUR_KEY)} (DDF Value); ${ctx.market ? valueLine(withAvg(r.receive), MARKET_KEY) : "no trade chart average"} (Trade chart average).`));
-    if (r.fit) box.append(el("p", {class: "v2-find-fit", text: F.fitText(r.fit)}));
+    if (r.fit) box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(r.fit)}));
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);
     const opp = teamById(ws, r.opponentId);
@@ -892,11 +892,11 @@
       bodyRows.push(el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : [])));
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgOppsTable"},
-      el("caption", {text: "Trade opportunities: my team against every other team, ranked by fit then by fundamentals capture"}), thead, ...bodyRows);
+      el("caption", {text: "Trade opportunities: my team against every other team, ranked by fit then by DDF Value capture"}), thead, ...bodyRows);
     const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...shownRows.map(r => el("li", {class: "v2-lg-card", "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
       el("p", {}, ...tradeNodes(r, ctx)),
-      el("p", {}, `Fundamentals: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
+      el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
       el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
@@ -1083,7 +1083,7 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by fundamentals capture."}))),
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
     const anchor = $("v2Find") || host.querySelector(".v2-footnote");
     host.insertBefore(league, anchor);

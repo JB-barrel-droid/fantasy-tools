@@ -25,7 +25,7 @@ from tests._league_render import browser_on_build, open_page, seed, source, wait
 
 SUMMARY_COLS = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank", "disagree", "under", "over"]
 NUMERIC_SUMMARY = ["rank", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank"]
-OPP_HEADERS = ["Opponent", "Trade", "Fundamentals capture", "Our team fit", "Market perception", "Projections agree", "Their team fit", "Overall fit", "Opportunity rank"]
+OPP_HEADERS = ["Opponent", "Trade", "DDF Value capture", "Our team fit", "Market perception", "Projections agree", "Their team fit", "Overall fit", "Opportunity rank"]
 
 SUMMARY_ROWS = """() => [...document.querySelectorAll('#v2LgSummaryTable tr.v2-lg-main')].map(tr => {
   const cell = k => (tr.querySelector(`[data-cell="${k}"]`) || {}).textContent;

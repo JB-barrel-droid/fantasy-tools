@@ -174,7 +174,7 @@
     const key = view.key;
     const base = {candidate, name: candidate.name, pos: candidate.pos, ddf: ddfOf(candidate), market: marketOf(candidate), team: candidate.team || "", view: view.id};
     const charts = ctx.chartKeys && ctx.chartKeys.length ? ctx.chartKeys : null;
-    const marketText = charts ? (base.market !== null ? ` Trade chart avg ${base.market.toFixed(1)}.` : " No market value available.") : "";
+    const marketText = charts ? (base.market !== null ? ` Trade chart average ${base.market.toFixed(1)}.` : " No market value available.") : "";
     if (isNotEvaluated(candidate)) {
       return {...base, verdict: VERDICT.none, ddf: null, market: null, starterDelta: null, benchDelta: null, totalDelta: null, drop: null, reasonKind: "kdef",
         reason: `${candidate.name}: kickers and defenses are not evaluated.`};
@@ -426,7 +426,7 @@
       else if (!row) tail = el("span", {class: "v2-find-noteval", text: "No longer in the data"});
       else {
         const avg = charts ? withChartAverage([row], charts)[0] : null;
-        tail = el("span", {class: "v2-find-chips"}, chip("DDF Value", api.ddfOf(row)), chip("Trade chart avg", avg ? api.marketOf(avg) : null));
+        tail = el("span", {class: "v2-find-chips"}, chip("DDF Value", api.ddfOf(row)), chip("Trade chart average", avg ? api.marketOf(avg) : null));
       }
       return el("li", {class: "v2-wv-row"}, el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}${p.team ? ` ${p.team}` : ""}` : ""}), injuryTag(row) ? document.createTextNode(" ") : null, injuryTag(row), tail), remove);
     }));
@@ -727,7 +727,7 @@
   // The reader picks which view decides every verdict; the other views are context. A saved choice that no longer exists falls back to DDF Value.
   function basisName() {
     const b = engine() && engine().getBasis ? engine().getBasis() : null;
-    return b && !b.isDefault ? b.shortLabel || b.label : "default";
+    return b && !b.isDefault ? b.label : "default";
   }
   function sourceChoices() {
     const info = engine() && engine().getSourceInfo ? engine().getSourceInfo() : [];
@@ -871,7 +871,7 @@
       if (c.dd.repeats) notes.push(`${plural(c.dd.repeats, "duplicate")} removed.`);
       if (c.mine.gone.length) notes.push(`Your roster no longer has ${c.mine.gone.map(p => p.name).join(", ")} in the data (left out).`);
       if (c.cands.gone.length) notes.push(`${c.cands.gone.map(p => p.name).join(", ")}: no longer in the data (left out).`);
-      if (c.ctx && !c.ctx.chartKeys) notes.push("Not enough trade charts are available this week for the market view. The fundamental evaluation is unaffected.");
+      if (c.ctx && !c.ctx.chartKeys) notes.push("Not enough trade charts are available this week for the market view. The DDF Value evaluation is unaffected.");
     }
     if (c.state === "ok") {
       const n = c.out.results.filter(r => r.verdict === api.VERDICT.pick).length;
