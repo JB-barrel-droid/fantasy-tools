@@ -657,6 +657,42 @@ t("test_summary_disagree_charts_key", () => {
   assert.ok(lowers.length > 0);
   lowers.forEach(x => assert.ok(Math.abs(col.get(x) + 3.5) < 1e-9, `${x.name} lower sorts as ${col.get(x)}`));
 });
+t("test_opportunities_proj_agreement", async () => {
+  // JEG-1081 PR 5: projections agree = (received - given) in DDF Value (projections) is a gain (tick), a loss (cross), level or unpriced (null)
+  const d = load("4team");
+  const rowsP = withProjections(d.rows, i => [-6, 5, -2, 7, 1.5][i % 5]);
+  const mine = d.teams[0];
+  const opps = d.teams.slice(1);
+  const run = rows => O.runAll(mine, opps, ctxFor(rows), {yieldFn: () => Promise.resolve(), budgetMs: 0});
+  const out = await run(rowsP);
+  assert.ok(out.rows.length > 0);
+  const sum = (list) => list.reduce((n, r) => n + r.values.ddf_value_projections, 0);
+  out.rows.forEach(r => {
+    const want = sum(r.receive) - sum(r.give);
+    assert.ok(Math.abs(r.projEdge - want) < 1e-9, `${r.id} projEdge ${r.projEdge} vs ${want}`);
+    assert.strictEqual(r.projAgrees, want >= 0.05 ? true : want <= -0.05 ? false : null, `${r.id} agrees for ${want}`);
+  });
+  assert.ok(out.rows.some(r => r.projAgrees === true) && out.rows.some(r => r.projAgrees === false), "the offsets must give both a tick and a cross");
+  // no projection values at all: nothing agrees or disagrees, and nothing is 0
+  const none = await run(d.rows);
+  none.rows.forEach(r => { assert.strictEqual(r.projEdge, null, r.id); assert.strictEqual(r.projAgrees, null, r.id); });
+  // one package player without a projection: null, not a partial sum
+  const holed = new Map(rowsP);
+  const first = out.rows[0];
+  const gone = first.give[0];
+  holed.set(String(gone.player_key), {...gone, values: {...gone.values, ddf_value_projections: null}});
+  const part = await run(holed);
+  part.rows.filter(r => r.give.concat(r.receive).some(p => String(p.player_key) === String(gone.player_key))).forEach(r => assert.strictEqual(r.projAgrees, null, r.id));
+  // the boundaries and the column
+  assert.strictEqual(O.projAgreement(0.05), true);
+  assert.strictEqual(O.projAgreement(0.049), null);
+  assert.strictEqual(O.projAgreement(-0.049), null);
+  assert.strictEqual(O.projAgreement(-0.05), false);
+  assert.strictEqual(O.projAgreement(NaN), null);
+  assert.strictEqual(O.projAgreement(null), null);
+  const col = O.OPP_COLUMNS.find(c => c.id === "proj");
+  assert.deepStrictEqual([true, false, null].map(v => col.get({projAgrees: v})), [1, 0, null]);
+});
 t("test_summary_allocation_wording", () => {
   const d = load("4team");
   const { s } = summaryWith("4team", withProjections(d.rows, spread));
