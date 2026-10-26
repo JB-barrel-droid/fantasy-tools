@@ -340,5 +340,17 @@ class HowValuesRenderTest(unittest.TestCase):
                                     f"render checks did not catch: {name}")
 
 
+class ValueLogicInDashboardTest(unittest.TestCase):
+    """JEG-1107 (Jeremy, 2026-10-25): DDF Value Logic is part of the dashboard, not a separate page."""
+
+    def test_value_logic_is_framed_in_how_values_not_linked_out(self):
+        shell = SHELL.read_text(encoding="utf-8")
+        how = shell[shell.index('id="v2How"'):shell.index('id="v2Manifesto"')]
+        self.assertIn('id="v2ValueLogicFrame"', how)
+        self.assertNotIn('href="value-logic/"', shell)
+        template = (ROOT / "app" / "values-explainer" / "template.html").read_text(encoding="utf-8")
+        self.assertIn('location.replace("../#writing/how-values")', template)
+
+
 if __name__ == "__main__":
     unittest.main()

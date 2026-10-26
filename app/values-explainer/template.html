@@ -3,6 +3,30 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<script>
+/* Embedded in the dashboard (Writing > How values work, JEG-1107). Opened on its own at
+   /value-logic/ it sends the reader into the dashboard; framed, it drops its own chrome,
+   follows the dashboard's theme and reports its height so the frame never scrolls. */
+(function () {
+  var framed = window.self !== window.top;
+  var root = document.documentElement;
+  if (!framed) {
+    if (/\/value-logic\/?(index\.html)?$/.test(location.pathname)) location.replace("../#writing/how-values");
+    return;
+  }
+  root.classList.add("embed");
+  function theme() {
+    try {
+      var t = window.parent.document.documentElement.dataset.theme;
+      if (t) root.dataset.theme = t; else delete root.dataset.theme;
+    } catch (e) { /* cross-origin: keep prefers-color-scheme */ }
+  }
+  theme();
+  try { new MutationObserver(theme).observe(window.parent.document.documentElement, {attributes: true, attributeFilter: ["data-theme"]}); } catch (e) {}
+  function report() { window.parent.postMessage({type: "ddf-value-logic-height", height: root.scrollHeight}, location.origin); }
+  addEventListener("load", function () { report(); if (window.ResizeObserver) new ResizeObserver(report).observe(document.body); });
+})();
+</script>
 <style>
 /* Layout: a single reading column for the explanation, widening to full
    width for tables and charts; a sticky section index; a scoreboard-style
@@ -175,6 +199,15 @@ details.fold { border-top: 1px solid var(--rule); padding-top: 10px; }
 details.fold summary { cursor: pointer; font-family: var(--font-display); font-weight: 600; color: var(--ink-2); }
 footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 16px; display: grid; gap: 10px; font-size: 0.88rem; color: var(--ink-2); }
 @media (prefers-reduced-motion: no-preference) { .seg button, .toggle, .srcnav button { transition: background-color .12s, opacity .12s; } }
+
+/* Framed in the dashboard: the dashboard supplies the title, back link and scrolling. */
+html.embed, html.embed body { background: transparent; }
+html.embed { --font-display: Inter, "Segoe UI", system-ui, sans-serif; --font-body: Inter, "Segoe UI", system-ui, sans-serif; }
+html.embed .wrap { padding: 0 0 24px; max-width: none; }
+html.embed header.top .eyebrow, html.embed header.top h1 { display: none; }
+html.embed header.top { padding-top: 0; }
+html.embed nav.index { position: static; margin-inline: 0; padding-inline: 0; background: transparent; }
+html.embed section.sec { scroll-margin-top: 12px; }
 </style>
 
 <div class="wrap">
