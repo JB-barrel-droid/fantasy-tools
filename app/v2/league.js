@@ -83,7 +83,7 @@
     const avg = ctx.market ? F.withChartAverage([row], ctx.market)[0].values[MARKET_KEY] : null;
     const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind},
       el("span", {class: "v2-find-chip-value", text: finite(value) ? value.toFixed(1) : "no value"}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
-    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", ctx.market ? "Trade chart avg" : "Trade chart avg (too few charts)", avg));
+    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", ctx.market ? "Trade chart average" : "Trade chart average (too few charts)", avg));
   };
 
   // Paste and search for one team. Returns the body node and a render() for its player list.
@@ -810,20 +810,34 @@
   }
 
   // ---------- trade opportunities ----------
-  const OPP_COLSPAN = 9;   // eight columns; Market perception has two sub-columns (the chart edge and the charts that call it fair)
+  const OPP_COLSPAN = 10;   // nine columns (JEG-1081 adds Projections agree); Market perception has two sub-columns (the chart edge and the charts that call it fair)
   const tradeNodes = (r, ctx) => {
     const names = list => list.map(p => p.name).join(" + ");
     const recv = r.receive.map((p, i) => (p === r.core ? el("b", {text: p.name}) : p.name)).reduce((acc, n, i) => acc.concat(i ? [" + ", n] : [n]), []);
     void ctx;
     return [`Send ${names(r.give)}, get `, ...recv];
   };
+  // JEG-1081: does DDF Value (projections) back the trade? A tick when it gains you, a cross when it loses you, a dash when level or unpriced.
+  function projText(r) {
+    if (r.projAgrees === true) return {mark: "\u2713", word: "Projections agree", cls: "is-agree"};
+    if (r.projAgrees === false) return {mark: "\u2717", word: "Projections disagree", cls: "is-disagree"};
+    return {mark: "\u2013", word: r.projEdge === null || r.projEdge === undefined ? "Projections unavailable" : "Projections level", cls: "is-level"};
+  }
+  function projCell(r) {
+    const t = projText(r);
+    const n = r.projEdge === null || r.projEdge === undefined ? "" : ` ${signed(r.projEdge)}`;
+    return el("td", {class: `num v2-lg-proj ${t.cls}`, "data-cell": "proj", title: r.projAgrees === true ? "Projections agree with the DDF Value assessment of this trade."
+        : r.projAgrees === false ? "Projections disagree with the DDF Value assessment of this trade."
+          : r.projEdge === null || r.projEdge === undefined ? "No projection for a player in this trade, so projections cannot say." : "Projections see this trade as level (inside 0.05 points)."},
+      el("span", {"aria-hidden": "true", text: `${t.mark}${n}`}), el("span", {class: "v2-sr", text: `${t.word}${n ? `, ${n.trim()} points` : ""}`}));
+  }
   function detailRow(r, ctx, colspan) {
     const valueLine = (list, key) => list.map(p => `${p.name} ${finite(p.values[key]) ? money(p.values[key]) : "no value"}`).join(", ");
     const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
     const box = el("div", {class: "v2-lg-detail-body"});
     box.append(el("p", {}, el("b", {text: "You give: "}), `${valueLine(r.give, OUR_KEY)} (DDF Value); ${ctx.market ? valueLine(withAvg(r.give), MARKET_KEY) : "no trade chart average"} (Trade chart average).`),
       el("p", {}, el("b", {text: "You receive: "}), `${valueLine(r.receive, OUR_KEY)} (DDF Value); ${ctx.market ? valueLine(withAvg(r.receive), MARKET_KEY) : "no trade chart average"} (Trade chart average).`));
-    if (r.fit) box.append(el("p", {class: "v2-find-fit", text: F.fitText(r.fit)}));
+    if (r.fit) box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(r.fit)}));
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);
     const opp = teamById(ws, r.opponentId);
@@ -982,7 +996,7 @@
     const two = {rowspan: "2"};
     const thead = el("thead", {},
       el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), plainTh("Our team fit", two),
-        plainTh("Market perception", {colspan: "2", scope: "colgroup"}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two)),
+        plainTh("Market perception", {colspan: "2", scope: "colgroup"}), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two)),
       el("tr", {}, sortTh("market", cols, state, onSort, null, "Edge"), sortTh("fair", cols, state, onSort, null, "Charts fair")));
     const colspan = OPP_COLSPAN;
     const bodyRows = [];
@@ -1002,18 +1016,20 @@
         el("td", {"data-cell": "ours"}, r.ours ? `${r.ours.label[0].toUpperCase()}${r.ours.label.slice(1)}` : "—", r.ours ? el("span", {class: "v2-meta", text: ` ${r.ours.detail}`}) : null),
         el("td", {class: "num", "data-cell": "market"}, r.chartEdge === null ? "—" : signed(r.chartEdge)),
         el("td", {class: "num", "data-cell": "fair"}, `${r.rivalOkCount}/${r.chartCount} fair`),
+        projCell(r),
         el("td", {"data-cell": "theirs"}, r.theirs ? r.theirs.detail[0].toUpperCase() + r.theirs.detail.slice(1) : "—"),
         el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord})),
         el("td", {class: "num", "data-cell": "rank"}, String(r.rank)));
       bodyRows.push(el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : [])));
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgOppsTable"},
-      el("caption", {text: "Trade opportunities: my team against every other team, ranked by fit then by fundamentals capture"}), thead, ...bodyRows);
+      el("caption", {text: "Trade opportunities: my team against every other team, ranked by fit then by DDF Value capture"}), thead, ...bodyRows);
     const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...shownRows.map(r => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
       el("p", {}, ...tradeNodes(r, ctx)),
-      el("p", {}, `Fundamentals: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
+      el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
+      el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
       el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
       " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)))));
@@ -1208,7 +1224,7 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by fundamentals capture."}))),
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {

@@ -25,7 +25,7 @@ from tests._league_render import browser_on_build, open_page, seed, source, wait
 
 SUMMARY_COLS = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank", "disagree", "under", "over"]
 NUMERIC_SUMMARY = ["rank", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank"]
-OPP_HEADERS = ["Opponent", "Trade", "Fundamentals capture", "Our team fit", "Market perception", "Their team fit", "Overall fit", "Opportunity rank"]
+OPP_HEADERS = ["Opponent", "Trade", "DDF Value capture", "Our team fit", "Market perception", "Projections agree", "Their team fit", "Overall fit", "Opportunity rank"]
 
 SUMMARY_ROWS = """() => [...document.querySelectorAll('#v2LgSummaryTable tr.v2-lg-main')].map(tr => {
   const cell = k => (tr.querySelector(`[data-cell="${k}"]`) || {}).textContent;
@@ -56,7 +56,50 @@ OPP_ROWS = """() => [...document.querySelectorAll('#v2LgOppsTable tbody tr.v2-lg
   const num = s => { const m = s.match(/[-+]?\\d+(\\.\\d+)?/); return m ? Number(m[0]) : null; };
   const fair = cell('fair').match(/(\\d)\\/(\\d) fair/);
   return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Hide both teams', '').replace('Both teams', '').replace('Details', '').replace('Hide details', ''),
-    capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, rank: Number(cell('rank')), rankText: cell('rank')}; })"""
+    capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, proj: cell('proj'), rank: Number(cell('rank')), rankText: cell('rank')}; })"""
+
+
+NAME_PROJ = """() => { const by = new Map(); for (const r of window.TradeValueCurveControls.getAllRows()) { const k = r.name; by.set(k, by.has(k) ? null : r.values.ddf_value_projections); } return Object.fromEntries(by); }"""
+
+
+def proj_checks(page, rows) -> list[str]:
+    """JEG-1081: the Projections agree cell is a tick when the projections gain you on the package (received minus given, in
+    DDF Value (projections)), a cross when they lose you, a dash when level or a player has no projection; recomputed here from
+    the engine rows by player name (names that are not unique are skipped)."""
+    errors = []
+    proj = page.evaluate(NAME_PROJ)
+    checked = ticks = crosses = 0
+    for r in rows:
+        m = re.match(r"Send (.*), get (.*)$", r["trade"].strip())
+        if not m:
+            continue
+        give = [n.strip() for n in m.group(1).split(" + ")]
+        get = [n.strip() for n in m.group(2).split(" + ")]
+        vals = [proj.get(n) for n in give + get]
+        if any(v is None for v in vals):
+            continue
+        edge = sum(proj[n] for n in get) - sum(proj[n] for n in give)
+        want = "\u2713" if edge >= 0.05 else "\u2717" if edge <= -0.05 else "\u2013"
+        got = (r["proj"] or "").strip()[:1]
+        checked += 1
+        ticks += want == "\u2713"
+        crosses += want == "\u2717"
+        if got != want:
+            errors.append(f"[opps] projections cell {r['proj']!r} for {r['trade']!r}: expected {want} (edge {edge:+.2f})")
+    if not checked:
+        errors.append("[opps] no row could be checked for the projections cell")
+    elif not ticks and not crosses:
+        errors.append("[opps] every checked row is level for the projections: the cell checks would prove nothing")
+    head = page.evaluate("() => { const th = document.querySelector('#v2LgOppsTable th[data-col=proj]'); return th ? th.title : null; }")
+    if not head or "Projections agree or disagree with the DDF Value assessment of this trade" not in head:
+        errors.append(f"[opps] the Projections agree header has no tooltip: {head!r}")
+    cells = page.evaluate("() => [...document.querySelectorAll('#v2LgOppsTable td[data-cell=proj]')].map(td => ({text: td.textContent, tip: td.title, sr: !!td.querySelector('.v2-sr'), hidden: !!td.querySelector('[aria-hidden=true]')}))")
+    if not cells or not all(c["sr"] and c["hidden"] and "Projections" in c["text"] and c["tip"] for c in cells):
+        errors.append(f"[opps] the projections cells do not say it in words for a screen reader or carry a tooltip: {cells[:2]}")
+    cards = page.evaluate("() => [...document.querySelectorAll('#v2LgOppsCards li p[data-line=proj]')].map(p => p.textContent)")
+    if len(cards) != len(rows) or not all(re.match(r"Projections (agree|disagree|level|unavailable)", c) for c in cards):
+        errors.append(f"[opps] the phone cards do not each say whether projections agree: {cards[:3]}")
+    return errors
 
 
 def setUpModule():
@@ -209,8 +252,9 @@ def check_opps(browser, base, overrides, errors):
         errors.append("[opps] no opportunity rows for the 4-team fixture")
         page.context.close()
         return
-    if any(r["cells"] != 9 for r in rows):
+    if any(r["cells"] != 10 for r in rows):
         errors.append(f"[opps] rows with the wrong number of cells: {[r['cells'] for r in rows]}")
+    errors += proj_checks(page, rows)
     if [r["rank"] for r in rows] != list(range(1, len(rows) + 1)):
         errors.append(f"[opps] default order is not rank 1..n: {[r['rank'] for r in rows]}")
     head = page.inner_text("#v2LgOppsHeadline")
@@ -259,6 +303,14 @@ def check_opps(browser, base, overrides, errors):
     if len(shown) >= len(rows) and any(r["overall"] != "natural" for r in rows):
         errors.append("[opps] Natural only did not remove any row")
     page.select_option("#v2LgFilterFit", "all")
+    # The table lists 20 rows at a time and force fits rank last: read the whole list before saying the fixture has none (2026-10-25:
+    # 30 opportunities, 2 force, all force rows on the second page; the check read only the first).
+    for _ in range(10):
+        if not page.locator("#v2LgOppsMore").count():
+            break
+        page.click("#v2LgOppsMore")
+        page.wait_for_timeout(150)
+    rows = page.evaluate(OPP_ROWS)
     page.click("#v2LgHideForce")
     if page.is_visible("#v2LgOppsAll"):   # a filter resets the list to its first 10 rows; read all of them
         page.click("#v2LgOppsAll")
@@ -285,7 +337,7 @@ def check_opps(browser, base, overrides, errors):
     wait_opps(page)
     heads1 = page.evaluate("() => [...document.querySelectorAll('#v2LgOppsTable thead tr:first-child th')].map(th => th.textContent.replace(/[▲▼↕]/g, '').trim())")
     rows1 = page.evaluate(OPP_ROWS)
-    if heads1 != OPP_HEADERS or not rows1 or any(r["cells"] != 9 for r in rows1):
+    if heads1 != OPP_HEADERS or not rows1 or any(r["cells"] != 10 for r in rows1):
         errors.append(f"[1v1] a different table for one opponent: {heads1}, {len(rows1)} rows")
     if "across 1 opponent" not in page.inner_text("#v2LgOppsHeadline"):
         errors.append(f"[1v1] headline {page.inner_text('#v2LgOppsHeadline')!r}")
@@ -395,6 +447,12 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "projections-vs-charts cell not drawn": ({"league.js": league.replace('none ? "—" : disagreeList(t)', '"—"', 1)}, {"summary"}),
             "higher and lower labels swapped": ({"league.js": league.replace('word: "Projections higher"})).concat(t.lower.map(i => ({...i, word: "Projections lower"}))', 'word: "Projections lower"})).concat(t.lower.map(i => ({...i, word: "Projections higher"}))', 1)}, {"summary"}),
             "headline drops the projections rank": ({"team-summary.js": summary.replace('pj ? `${ordinal(pj)} on projections` : ""', '""', 1)}, {"summary"}),
+            "projections agreement inverted": ({"opportunities.js": opps.replace("if (projEdge >= 0.05) return true;\n    if (projEdge <= -0.05) return false;", "if (projEdge >= 0.05) return false;\n    if (projEdge <= -0.05) return true;", 1)}, {"opps"}),
+            "projections cell not drawn": ({"league.js": league.replace("        projCell(r),\n", "        el(\"td\", {\"data-cell\": \"proj\"}, \"\u2013\"),\n", 1)}, {"opps"}),
+            "projections header without its tooltip": ({"league.js": league.replace('{...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}', 'two', 1)}, {"opps"}),
+            "projections cell without words for a screen reader": ({"league.js": league.replace('el("span", {class: "v2-sr", text: `${t.word}${n ? `, ${n.trim()} points` : ""}`})', '""', 1)}, {"opps"}),
+            "phone card without the projections line": ({"league.js": league.replace('el("p", {"data-line": "proj"}, ', 'null && el("p", {"data-line": "proj"}, ', 1)}, {"opps"}),
+            "projections column dropped": ({"league.js": league.replace('sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), ', "", 1)}, {"opps"}),
             "capture is not the finder edge": ({"opportunities.js": opps.replace("edge: t.edge, edgePct", "edge: t.edge + 0.7, edgePct", 1)}, {"opps"}),
             "one opponent hides the opponent column": ({"league.js": league.replace('el("tr", {}, sortTh("opponent", cols, state, onSort, two),', 'el("tr", {}, (res.perOpponent.length > 1 ? sortTh("opponent", cols, state, onSort, two) : plainTh("", two)),', 1)}, {"opps"}),
             "Natural only does nothing": ({"opportunities.js": opps.replace('if (f.fit === "natural" && r.overall !== "natural") return false;', '', 1)}, {"opps"}),
