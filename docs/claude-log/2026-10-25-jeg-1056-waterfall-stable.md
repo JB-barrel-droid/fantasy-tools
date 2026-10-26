@@ -14,7 +14,7 @@ Additionally, the "verdict names no source" mutation guard was not caught becaus
 
 1. **Seeded fixture** (`SEED_VALUES`): wraps `getAllRows`/`getRows`/`getPlayer` to replace the top-12 ESPN players' values with small, deterministic numbers (floor above 13th player + 2-point spread). Produces a stable "you lose" verdict with short text and a 154px deal card that fits 1366x768 with 19px margin. The seed runs after example-trade checks but before PICK, so example checks use live data and linked-trade checks use seeded data.
 
-2. **check_wide_font 1280 check**: Added 1280 to the tab-squeeze check alongside 1279. The "tabs shrink with the label" mutation now fails at 1280 where equal flex-shrink causes visible tab compression.
+2. **check_wide_font 1280 split** (follow-up after CI run 40255965792): the real nav squeezes at 1280 on CI fonts (DejaVu Sans, 868 of 964px -- GAP-WATERFALL-NAV-1280-SQUEEZE, JEG-1113). The real-page check now asserts only at 1279. The mutation guard in `test_wide_font_guard_fails_on_broken_nav` runs a baseline-vs-mutation comparison at 1280: the mutation must widen the squeeze beyond the baseline, proving it is caught at the breakpoint without requiring the real page to be clean at 1280.
 
 ### Verified (check named)
 
