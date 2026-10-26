@@ -950,10 +950,26 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-chead .v2-title p { margin-top: 2px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #v2Compare.has-trade .v2-chead .v2-title p { display: none; }
 .v2-chead .v2-ctoolbar { margin-top: 0; justify-content: flex-end; flex: 0 1 auto; }
-.v2-cexample { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-top: 8px !important; font-size: 13px; color: var(--v2-muted); }
+.v2-cexample { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-top: 0 !important; font-size: 13px; color: var(--v2-muted); }
 .v2-cexample[hidden] { display: none; }
 .v2-cexample .v2-pill, .v2-cverdict.is-example .v2-eyebrow { color: var(--v2-older); }
 .v2-cexample .v2-pill { background: var(--v2-surface); border: 1px solid var(--v2-older); }
+/* JEG-1112: the Example banner sits inside .v2-chead (full width below 1280 px, as before). From 1280 px, where the verdict
+   sits beside the two sides and the fold matters, a new visitor's header is two lines instead of four: the title and the
+   Example chip share a row with the Use this example button and the picker, and the subtitle, the week and the
+   sample-trade sentence share the second line. Other tabs' headers are not touched. */
+#v2Compare .v2-cexample { flex: 1 1 100%; }
+@media (min-width: 1280px) {
+  #v2Compare .v2-chead { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; align-items: center; gap: 2px 12px; }
+  #v2Compare .v2-chead .v2-title, #v2Compare .v2-chead .v2-cexample:not([hidden]) { display: contents; }
+  #v2Compare .v2-chead .v2-title h1 { grid-row: 1; grid-column: 1; }
+  #v2Compare .v2-chead .v2-title p { grid-row: 2; grid-column: 1; margin: 0; min-width: 0; }
+  #v2Compare .v2-chead .v2-title .v2-asof { grid-column: 2; white-space: nowrap; }
+  #v2Compare .v2-chead .v2-cexample .v2-pill { grid-row: 1; grid-column: 2; align-self: center; justify-self: start; }
+  #v2Compare .v2-chead .v2-cexample > span:not(.v2-pill) { grid-row: 2; grid-column: 3 / -1; }
+  #v2Compare .v2-chead .v2-cexample .v2-link { grid-row: 1; grid-column: 4; }
+  #v2Compare .v2-chead .v2-ctoolbar { grid-row: 1; grid-column: 5; }
+}
 #v2Compare.is-example .v2-trade-side { border-style: dashed; }
 
 /* Inputs side by side with the verdict (>= 1280), the verdict as a strip below them (768–1279). */
