@@ -92,7 +92,7 @@ that needs a URL instead of a local process.
   "Viability scoring" below) and labelled High/Med-High/Medium when viable.
   Optional: `max_per_side` (1-4, default 2), `min_rival_edge`, `limit`,
   `viable_only`, viability threshold overrides. Loads `finder.js` from the site
-  (like the codec) and calls `get-values?include=charts` for per-chart values.
+  (like the codec) and calls `get-values?include=charts` for per-chart values, passing the pasted `league` too (JEG-1070), so the finder prices the same league as `get_values`.
   The pure function `findTradesForPair` is in `mcp/find-trades.ts`.
 - `find_trades_league`: takes your roster plus up to 15 opponents (each with a
   name and roster). Runs `find_trades` for each pair, scores all candidates on
