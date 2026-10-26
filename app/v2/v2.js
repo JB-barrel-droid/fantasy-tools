@@ -5669,7 +5669,8 @@
     }
     // Phone: once both sides have a player, the verdict headline stays at the bottom.
     const bar = $("v2CVerdictBar");
-    bar.dataset.verdict = copy.kind;
+    const barWrap = $("v2CVerdictBarWrap");
+    barWrap.dataset.verdict = copy.kind;
     bar.textContent = `${copy.sym ? `${copy.sym} ` : ""}${copy.title}`;
     bar.setAttribute("aria-label", `${copy.title}. Show the verdict`);
     TR.barWanted = compareView.ready && !compareView.example && copy.kind !== "none";
@@ -5677,7 +5678,7 @@
   }
 
   function syncVerdictBar() {
-    const bar = $("v2CVerdictBar");
+    const bar = $("v2CVerdictBarWrap");
     const show = Boolean(TR.barWanted) && isNarrow() && !TR.verdictInView && currentView() === "compare";
     bar.hidden = !show;
     $("v2Compare").classList.toggle("has-verdict-bar", Boolean(TR.barWanted) && isNarrow());
@@ -5728,6 +5729,7 @@
     $("v2CClear").hidden = !count || compareView.example;
     $("v2CSwap").hidden = !count || compareView.example;
     $("v2CShare").hidden = !ready || compareView.example;
+    $("v2CShare2").hidden = !ready || compareView.example;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
   }
@@ -5887,6 +5889,9 @@
       base = named;
       try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
     }
+    // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
+    // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
+    if (base === "#find-trade" && window.TradeValueFinder && window.TradeValueFinder.applyHash) window.TradeValueFinder.applyHash(params);
     if (base !== "#compare-trade" && base !== "#waivers") {   // Find a trade and Trade targets links
       if (window.DDFAssist) window.DDFAssist.applyLink(query);
       return;
@@ -5912,10 +5917,17 @@
     const want = tradeHash();
     if (location.hash !== want) history.replaceState(null, "", want);
   }
-  async function copyTradeLink() {
+  async function copyTradeLink(button) {
     const url = location.href;
     const note = $("v2CShareNote");
     note.hidden = false;
+    // JEG-894: "Copied" feedback on the button itself (on a phone the sticky bar sits far from the note).
+    if (button) {
+      if (!button.dataset.copyLabel) button.dataset.copyLabel = button.textContent;
+      button.textContent = "Copied";
+      clearTimeout(button.copyTimer);
+      button.copyTimer = setTimeout(() => { button.textContent = button.dataset.copyLabel; }, 2000);
+    }
     // JEG-1044: say what else the link carries, and when the player overrides did not fit.
     const carries = /[?&]basis=/.test(url) || /[?&]ov=/.test(url)
       ? " Your value basis and player overrides are in the link too; the reader can switch back to our methodology in one click." : "";
@@ -5930,7 +5942,8 @@
   }
 
   function bindCompare() {
-    $("v2CShare").addEventListener("click", copyTradeLink);
+    $("v2CShare").addEventListener("click", () => copyTradeLink($("v2CShare")));
+    $("v2CShare2").addEventListener("click", () => copyTradeLink($("v2CShare2")));
     // JEG-468: hover / focus tooltip for every waterfall step.
     const compare = $("v2Compare");
     const stepOf = event => event.target.closest && event.target.closest(".v2-wf-step, .v2-wf-land");
