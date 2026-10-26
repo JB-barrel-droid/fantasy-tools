@@ -142,9 +142,9 @@
         let verdict = judged;
         let addedThrowIns = [];
         let unbalanced = false;
-        // JEG-1108: the team receiving more players adds its own least valuable rostered players (one per missing player) to
+        // JEG-1108: the team receiving more players adds its own least valuable bench players (one per missing player) to
         // the other side, so both sides trade the same number of players. The package is then judged again with the
-        // throw-ins in it. If one of them is a starter, balanceCounts adds nothing and the trade is kept as it was, marked unbalanced.
+        // throw-ins in it. If the team has no bench player left, balanceCounts adds nothing and the trade is kept as it was, marked unbalanced.
         if (giveRows.length !== getRows.length) {
           let work = {give: giveRows, receive: getRows};
           const added = [];
@@ -231,9 +231,9 @@
   }
 
   // ---------- JEG-1108: player-count balancing ----------
-  // If one team receives more players, auto-add the receiving-more team's own least valuable rostered player as a throw-in
-  // on the other side so counts match. One trade with the throw-in listed. Edge case: if the least valuable player is a
-  // starter, skip the throw-in and mark the trade unbalanced.
+  // If one team receives more players, auto-add the receiving-more team's own least valuable bench player (a non-starter)
+  // as a throw-in on the other side so counts match. One trade with the throw-in listed. Edge case: a team with no bench
+  // player left to add leaves the trade unbalanced.
   function balanceCounts(trade, mineRoster, theirRoster, shape, ourKey, requireKeys) {
     const giveCount = trade.give.length;
     const recvCount = trade.receive.length;
@@ -247,16 +247,13 @@
     // The search passes requireKeys (DDF Value and every compared chart): a throw-in must be priced everywhere, or the
     // package could not be judged on the charts it is missing.
     const priced = r => r.values && finite(r.values[key]) && (requireKeys || []).every(k => finite(r.values[k]));
-    const eligible = roster.filter(r => !involved.has(String(r.player_key)) && priced(r));
-    if (!eligible.length) return {...trade, balanced: false, throwInPlayer: null};
+    // The throw-in is the supplying team's least valuable BENCH player (Jeremy, 2026-10-26): a non-starter before the trade.
+    // Only a team with no bench player left (none unused and priced) leaves the trade unbalanced.
+    const starterKeys = shape ? new Set(pickStarters(roster, shape, key).starters.map(r => String(r.player_key))) : new Set();
+    const eligible = roster.filter(r => !involved.has(String(r.player_key)) && !starterKeys.has(String(r.player_key)) && priced(r));
+    if (!eligible.length) return {...trade, balanced: false, throwInPlayer: null, noBench: true};
     eligible.sort((a, b) => a.values[key] - b.values[key] || String(a.player_key).localeCompare(String(b.player_key)));
     const cheapest = eligible[0];
-    // Edge case: if the cheapest is a starter, skip the throw-in (mark unbalanced).
-    if (shape) {
-      const picked = pickStarters(roster, shape, key);
-      const starterKeys = new Set(picked.starters.map(r => String(r.player_key)));
-      if (starterKeys.has(String(cheapest.player_key))) return {...trade, balanced: false, throwInPlayer: cheapest, throwInIsStarter: true};
-    }
     // Add the throw-in to the side that must supply it.
     if (moreOnMySide) {
       return {...trade, give: trade.give.concat([cheapest]), throwInPlayer: cheapest, balanced: true};
