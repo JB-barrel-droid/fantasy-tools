@@ -303,6 +303,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_dashboard_view_tags
 	python3 -m unittest tests.test_dist_manifest
 	python3 -m unittest tests.test_preview_workflow_matches_pages
+	python3 -m unittest tests.test_v2_render_runs_on_data_push
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
 	python3 -m unittest tests.test_rebuild_chain_conflict_handoff
