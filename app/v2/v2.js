@@ -6180,7 +6180,7 @@
       R.series = (ticked.find(c => c.prior.available) || choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
         || choices.find(c => c.prior.available) || choices[0]).key;
     }
-    renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
+    renderSeriesPicker($("v2RSeries"), choices.filter(({key}) => ddfPickKey(key) === key).map(({key, prior}) => ({key,
       reason: prior.available ? null : view.infoByKey[key] && !view.infoByKey[key].available ? prior.reason
         : `no prior week: ${prior.reason || "not saved"}`})), R.series);
     $("v2RPosition").value = view.state.position;
