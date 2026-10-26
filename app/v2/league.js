@@ -903,6 +903,21 @@
     });
     return node;
   }
+  // JEG-1108: viability label shown alongside fit on the detail panel.
+  const VIABILITY_WORD = {High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"};
+  function viabilityText(r, ctx) {
+    if (!r.fit || !ctx || !ctx.shape) return "";
+    const ws = store.get();
+    const mine = teamById(ws, ws.myTeamId);
+    const opp = teamById(ws, r.opponentId);
+    if (!mine || !opp) return "";
+    const rowsByKey = ctx.rowsByKey || new Map();
+    const mineRows = (mine.entries || []).map(e => rowsByKey.get(String(e.key))).filter(Boolean);
+    const theirRows = (opp.entries || []).map(e => rowsByKey.get(String(e.key))).filter(Boolean);
+    const label = F.viabilityLabel(r.fit, mineRows, theirRows, r.give, r.receive, ctx.shape, "ddf_value", ctx.charts || []);
+    if (!label) return "Viability: not assessed (insufficient data)";
+    return `${F.FIT_TIER[r.fit.label] !== undefined ? ({"natural": "Natural fit", "market": "Market supported", "force": "Force fit"}[r.fit.label] || r.fit.label) : ""} · ${VIABILITY_WORD[label] || label}`;
+  }
   function oppPanel(r, ctx) {
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);
@@ -914,7 +929,7 @@
         el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
       el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
       r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
-      el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: "Checks that this trade is workable for both managers are not shown here yet."}),
+      el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: viabilityText(r, ctx)}),
       el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
   }
   function oppControls(ws, res) {
@@ -931,7 +946,7 @@
       () => { update(w => W.ops.setUi(w, {hideForce: !w.ui.hideForce}), "ui:filter"); UI.oppsShown = PAGE; announce(store.get().ui.hideForce ? "Force fits hidden." : "Force fits shown."); });
     return el("div", {class: "v2-ctoolbar v2-lg-filters"},
       sel("v2LgSize", "Package size:", [[2, "Up to 2-for-2"], [3, "Up to 3-for-3"], [4, "Up to 4-for-4"]], ws.ui.maxSize || 2, v => { update(w => W.ops.setUi(w, {maxSize: Number(v)}), "size"); }),
-      sel("v2LgFilterFit", "Overall fit:", [["all", "All fits"], ["natural", "Natural only"], ["naturalValue", "Natural and value"]], f.fit, v => set({filters: {fit: v}})),
+      sel("v2LgFilterFit", "Overall fit:", [["all", "All fits"], ["natural", "Natural only"], ["naturalMarket", "Natural and market supported"]], f.fit, v => set({filters: {fit: v}})),
       sel("v2LgFilterOpp", "Opponent:", [["all", "All opponents"]].concat(opponents.map(o => [o.id, o.name])), opponents.some(o => o.id === f.opponent) ? f.opponent : "all", v => set({filters: {opponent: v}})),
       sel("v2LgFilterCapture", "Min capture:", [[0, "Any"], [1, "1 point"], [3, "3 points"], [5, "5 points"], [10, "10 points"]], f.minCapture, v => set({filters: {minCapture: Number(v)}})),
       sel("v2LgFilterCharts", "Min charts fair:", [[0, "Any"], [1, "1"], [2, "2"], [3, "3"], [4, "4"]], f.minCharts, v => set({filters: {minCharts: Number(v)}})),

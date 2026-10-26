@@ -93,7 +93,7 @@ def check(finder_js: Path) -> list[str]:
     heads = {k: call(finder_js, "fitHeadline", k, v)["text"] for k, v in (("missing", {}), ("pending", {}), ("natural", {"count": 1}), ("none", {}), ("unjudged", {}))}
     if heads["missing"] != "Add both rosters to see fit" or heads["natural"] != "Natural fit found: 1 group" or call(finder_js, "fitHeadline", "natural", {"count": 3})["text"] != "Natural fit found: 3 groups":
         errors.append(f"headline texts: {heads}")
-    if heads["none"] != "No natural fit between these rosters: the trades below are value-only or force fits":
+    if heads["none"] != "No natural fit between these rosters: the trades below are market supported or force fits":
         errors.append(f"the no-natural headline reads {heads['none']!r}")
     if call(finder_js, "fitHeadline", "natural", {"count": 2})["link"] is None or call(finder_js, "fitHeadline", "none", {})["link"] is not None:
         errors.append("the jump link is offered without a natural group, or missing with one")
