@@ -177,6 +177,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_waivers_render
+	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_v2_espn_held_chip_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
