@@ -3,10 +3,17 @@
 
 import { type FetchValues, type FinderDeps, runTool, ToolInputError, ToolUnavailableError, TOOLS } from "./tools.ts";
 import type { Deps } from "./state.ts";
+import { MCP_BUILD_SHA } from "./build.ts";
 
 const SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
-export const SERVER_INFO = { name: "data-driven-football", version: "1.1.0" };
+export const SERVER_INFO = { name: "data-driven-football", version: "1.2.0", build: MCP_BUILD_SHA };
+
+/** Deploy sets DDF_BUILD_SHA to the uploaded git SHA. Tests and local runs use the stamp. */
+export function setMcpBuild(sha: string): void {
+  const trimmed = sha.trim();
+  if (trimmed) SERVER_INFO.build = trimmed;
+}
 
 const INSTRUCTIONS =
   "Data Driven Football trade values for fantasy football, computed for the user's league settings (scoring, team count, superflex). " +
@@ -14,7 +21,8 @@ const INSTRUCTIONS =
   "Every result ends with a link to the same view on the Data Driven Football site: always include that link in your answer so the person can keep working there, and say what they will find on it. " +
   "If the user pastes a ```ddf-state block or a site link, call read_state first and continue from that work. " +
   "When the user wants to carry your work to the site (a trade, rosters, a player to target), call make_state and give them the block or link. " +
-  "If a result says the pasted league has settings these tools do not apply, tell the user the numbers may differ from the site and point them to the link.";
+  "If a result says the pasted league has settings these tools do not apply, tell the user the numbers may differ from the site and point them to the link. " +
+  "DDF Value is the average of the four adjusted trade charts. If a name comes back ambiguous or not found, ask which player was meant instead of guessing.";
 
 // deno-lint-ignore no-explicit-any
 type Json = any;

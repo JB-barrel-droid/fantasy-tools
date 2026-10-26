@@ -5,11 +5,14 @@
 // Deploy: supabase functions deploy mcp --no-verify-jwt
 // URL:    https://<project>.supabase.co/functions/v1/mcp
 
-import { handleRpc } from "./rpc.ts";
+import { handleRpc, setMcpBuild } from "./rpc.ts";
+import { MCP_BUILD_SHA } from "./build.ts";
 import type { Codec, Deps } from "./state.ts";
 import type { ChartValuesResponse, FetchValues, FetchValuesWithCharts, ValuesResponse } from "./tools.ts";
 import { evalFinder, type Finder } from "./find-trades.ts";
 import type { FinderDeps } from "./tools.ts";
+
+setMcpBuild(Deno.env.get("DDF_BUILD_SHA") || MCP_BUILD_SHA);
 
 // Same site origin as get-values; DDF_SITE_ORIGIN overrides it once the custom domain is live.
 const SITE_ORIGIN = (Deno.env.get("DDF_SITE_ORIGIN") ||

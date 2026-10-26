@@ -106,7 +106,9 @@ export function findTradesForPair(
   opts?: FindTradesOpts,
 ): FindTradesResult {
   const maxSize = Math.max(1, Math.min(4, opts?.maxSize ?? 2));
-  const limit = Math.max(1, Math.min(50, opts?.limit ?? 10));
+  // The tool asks for a pool larger than the number it will show, so a later
+  // dedupe can still fill the caller's limit. 500 is the pool cap.
+  const limit = Math.max(1, Math.min(500, opts?.limit ?? 10));
   const minRivalEdge = opts?.minRivalEdge ?? 0;
 
   // Call the finder's own search — the same function the site uses.
@@ -114,7 +116,7 @@ export function findTradesForPair(
     ourKey: finder.OUR_KEY,
     chartKeys: finder.CHART_KEYS,
     maxSize,
-    limit: limit + 20, // fetch extra so we can filter by minRivalEdge
+    limit: Math.min(500, limit + (minRivalEdge > 0 ? 20 : 0)),
   });
 
   const ddfKey = finder.OUR_KEY;
