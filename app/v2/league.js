@@ -1031,7 +1031,6 @@
       count, sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
       chosen ? oppPanel(chosen, ctx) : null,
       notEval ? el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated."}) : null].filter(Boolean));
-
   }
 
   // The finder runs for my team against every other team: debounced, one pairing at a time, cached by roster and values.

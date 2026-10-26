@@ -55,7 +55,7 @@ OPP_ROWS = """() => [...document.querySelectorAll('#v2LgOppsTable tbody tr.v2-lg
   const cell = k => ((tr.querySelector(`[data-cell="${k}"]`) || {}).textContent || '');
   const num = s => { const m = s.match(/[-+]?\\d+(\\.\\d+)?/); return m ? Number(m[0]) : null; };
   const fair = cell('fair').match(/(\\d)\\/(\\d) fair/);
-  return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Details', '').replace('Hide details', ''),
+  return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Hide both teams', '').replace('Both teams', '').replace('Details', '').replace('Hide details', ''),
     capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, rank: Number(cell('rank')), rankText: cell('rank')}; })"""
 
 
@@ -202,6 +202,8 @@ def check_opps(browser, base, overrides, errors):
         errors.append(f"[opps] columns {heads}")
     if not page.evaluate("() => document.querySelector('#v2LgOppsTable caption') !== null && document.querySelectorAll('#v2LgOppsTable tbody th[scope=row]').length > 0"):
         errors.append("[opps] no caption or no row headers")
+    if page.is_visible("#v2LgOppsAll"):   # JEG-1098: the list opens on 10 rows; these checks read every row
+        page.click("#v2LgOppsAll")
     rows = page.evaluate(OPP_ROWS)
     if not rows:
         errors.append("[opps] no opportunity rows for the 4-team fixture")
@@ -249,6 +251,8 @@ def check_opps(browser, base, overrides, errors):
     page.click("#v2LgOppsReset")
     # Filters.
     page.select_option("#v2LgFilterFit", "natural")
+    if page.is_visible("#v2LgOppsAll"):
+        page.click("#v2LgOppsAll")
     shown = page.evaluate(OPP_ROWS)
     if any(r["overall"] != "natural" for r in shown):
         errors.append(f"[opps] Natural only left {[r['overall'] for r in shown]}")
@@ -256,6 +260,8 @@ def check_opps(browser, base, overrides, errors):
         errors.append("[opps] Natural only did not remove any row")
     page.select_option("#v2LgFilterFit", "all")
     page.click("#v2LgHideForce")
+    if page.is_visible("#v2LgOppsAll"):   # a filter resets the list to its first 10 rows; read all of them
+        page.click("#v2LgOppsAll")
     shown = page.evaluate(OPP_ROWS)
     if any(r["overall"] == "force" for r in shown) or page.get_attribute("#v2LgHideForce", "aria-pressed") != "true":
         errors.append("[opps] Hide force fits left force fits or is not pressed")
@@ -393,7 +399,7 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "one opponent hides the opponent column": ({"league.js": league.replace('el("tr", {}, sortTh("opponent", cols, state, onSort, two),', 'el("tr", {}, (res.perOpponent.length > 1 ? sortTh("opponent", cols, state, onSort, two) : plainTh("", two)),', 1)}, {"opps"}),
             "Natural only does nothing": ({"opportunities.js": opps.replace('if (f.fit === "natural" && r.overall !== "natural") return false;', '', 1)}, {"opps"}),
             "force fits not hidden": ({"opportunities.js": opps.replace("if (hideForce && r.overall === \"force\") return false;", "", 1)}, {"opps"}),
-            "a missing piece is printed as null": ({"league.js": league.replace("})].filter(Boolean));\n  }\n\n  // The finder runs", "}));\n  }\n\n  // The finder runs", 1)}, {"opps"}),
+            "a missing piece is printed as null": ({"league.js": league.replace("].filter(Boolean));\n  }\n\n  // The finder runs", "]);\n  }\n\n  // The finder runs", 1)}, {"opps"}),
             "settings change ignored": ({"league.js": league.replace('document.addEventListener("ddf:league-settings-changed", onSettingsChanged);', '', 1)}, {"settings"}),
             "settings change loses the teams": ({"league.js": league.replace('store.replace(ws, "settings");', 'store.replace(W.newWorkspace(), "settings");', 1)}, {"settings"}),
             "opponents silently dropped": ({"opportunities.js": opps.replace("const run = eligible.slice(0, MAX_OPPONENTS);", "const run = eligible.slice(0, 5);", 1)}, {"twenty"}),

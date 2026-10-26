@@ -22,7 +22,7 @@ def espn_league_text(teams=12) -> tuple[str, list[tuple[str, int]]]:
     expect = []
     for i, team in enumerate(fx["teams"][:teams]):
         players = [p for p in team["players"] if not p["key"].startswith("x:")]
-        name = team["name"].replace("Bye Week Bandits", "Fumble Bandits")   # a team name starting "Bye Week" is read as ESPN's Bye Week Players section (follow-up ticket)
+        name = team["name"].replace("Bye Week Bandits", "Fumble Bandits")   # a team name starting "Bye Week" is read as ESPN's Bye Week Players section (JEG-1110)
         lines.append(f"{name} (5-1-0)")
         lines += ["SLOT\tPLAYER\tACQ"]
         for p in players:
