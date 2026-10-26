@@ -1,17 +1,17 @@
 {
  "meta": {
-  "as_of": "2026-10-25",
+  "as_of": "2026-10-26",
   "prior_blend_snapshot": "2026-09-23",
   "espn_snapshot": "2026-10-25",
   "rz_snapshot": "2026-10-24",
-  "cbsros_snapshot": "2026-10-25",
+  "cbsros_snapshot": "2026-10-26",
   "espn_snapshot_id": "sha256:805fe66dea5732e8856abc799b451f97c4d9623341b0a8ca20cbf5bba1e4d5d1",
-  "cbsros_snapshot_id": "sha256:0031846889611b3bfce21f616d2f7aaadf5efccdbd558e9e2a237d64819570e5",
+  "cbsros_snapshot_id": "sha256:d678c90d302ef5ba8308309a35e3008bcebc6b5af00c51e56fa6c330e328a900",
   "rz_snapshot_id": "sha256:f0a3d2634cd1c3734f27818f64914b7f0bf4f1a6e0a7581b2b62c64052dc14b4",
   "n_players": 1163,
   "n_espn_complete": 368,
-  "n_rz_complete": 635,
-  "n_rz_held": 40,
+  "n_rz_complete": 632,
+  "n_rz_held": 43,
   "n_cbsros_complete": 366,
   "universe": {
    "note": "Rows = ESPN's list (priced or listed at 0) + players any current-week published chart or projection source prices. A player not on ESPN's list is espn_status 'absent' (ESPN shown as missing, never 0).",
@@ -56,19 +56,19 @@
       "half_ppr-12": {
        "QB": 33,
        "RB": 62,
-       "WR": 75,
+       "WR": 74,
        "TE": 28
       },
       "ppr-12": {
        "QB": 33,
        "RB": 62,
-       "WR": 75,
+       "WR": 74,
        "TE": 28
       },
       "standard-12": {
        "QB": 33,
        "RB": 62,
-       "WR": 75,
+       "WR": 74,
        "TE": 28
       }
      }
@@ -168,8 +168,8 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-25T23:42:44Z",
-   "as_of": "2026-10-25",
+   "built_at": "2026-10-26T11:51:08Z",
+   "as_of": "2026-10-26",
    "summary": {
     "live": 3,
     "stale": 0,
@@ -196,8 +196,8 @@
       "note": "Every charted player carries a current value model value."
      },
      "freshness": {
-      "snapshot_date": "2026-10-25",
-      "content_date": "2026-10-25",
+      "snapshot_date": "2026-10-26",
+      "content_date": "2026-10-26",
       "note": "Computed at bake time from the ESPN (primary) leg."
      },
      "prior": {
@@ -337,7 +337,7 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 635,
+      "priced": 632,
       "universe": 1163,
       "note": "Razzball where priced; no fill leg. Rank correlation vs ESPN primary 0.78\u20130.91, never 0.99+ \u2014 verified independent 2026-09-17."
      },
@@ -446,9 +446,9 @@
    "delta_rz_espn": -10.26,
    "delta_rz_espn_ppg": -0.86,
    "cbsros_ppg": {
-    "standard": 21.083,
-    "half_ppr": 23.333,
-    "ppr": 25.583
+    "standard": 20.027,
+    "half_ppr": 22.3,
+    "ppr": 24.573
    },
    "prior_espn_ros": {
     "standard": 301.34,
@@ -544,9 +544,9 @@
    "delta_rz_espn": -44.68,
    "delta_rz_espn_ppg": -4.06,
    "cbsros_ppg": {
-    "standard": 26.273,
-    "half_ppr": 26.273,
-    "ppr": 26.273
+    "standard": 26.945,
+    "half_ppr": 26.945,
+    "ppr": 26.945
    },
    "prior_espn_ros": {
     "standard": 339.18,
@@ -643,9 +643,9 @@
    "delta_rz_espn": -46.34,
    "delta_rz_espn_ppg": -3.86,
    "cbsros_ppg": {
-    "standard": 11.918,
-    "half_ppr": 15.191,
-    "ppr": 18.464
+    "standard": 12.464,
+    "half_ppr": 15.691,
+    "ppr": 18.918
    },
    "prior_espn_ros": {
     "standard": 191.08,
@@ -657,7 +657,7 @@
     "half_ppr": 276.87,
     "ppr": 337.12
    },
-   "delta_rz_espn_ppg_demeaned": -3.49,
+   "delta_rz_espn_ppg_demeaned": -3.48,
    "preseason_ecr_rank": 1
   },
   {
@@ -741,9 +741,9 @@
    "delta_rz_espn": -63.24,
    "delta_rz_espn_ppg": -5.27,
    "cbsros_ppg": {
-    "standard": 23.582,
-    "half_ppr": 23.582,
-    "ppr": 23.582
+    "standard": 25.055,
+    "half_ppr": 25.055,
+    "ppr": 25.055
    },
    "prior_espn_ros": {
     "standard": 282.91,
@@ -839,9 +839,9 @@
    "delta_rz_espn": 11.43,
    "delta_rz_espn_ppg": 0.95,
    "cbsros_ppg": {
-    "standard": 18.083,
-    "half_ppr": 19.75,
-    "ppr": 21.417
+    "standard": 17.573,
+    "half_ppr": 19.345,
+    "ppr": 21.118
    },
    "prior_espn_ros": {
     "standard": 238.97,
@@ -937,9 +937,9 @@
    "delta_rz_espn": -27.0,
    "delta_rz_espn_ppg": -2.45,
    "cbsros_ppg": {
-    "standard": 13.473,
-    "half_ppr": 17.291,
-    "ppr": 21.109
+    "standard": 13.03,
+    "half_ppr": 16.88,
+    "ppr": 20.73
    },
    "prior_espn_ros": {
     "standard": 194.87,
@@ -951,7 +951,7 @@
     "half_ppr": 281.05,
     "ppr": 339.7
    },
-   "delta_rz_espn_ppg_demeaned": -2.08,
+   "delta_rz_espn_ppg_demeaned": -2.07,
    "preseason_ecr_rank": 2
   },
   {
@@ -1035,9 +1035,9 @@
    "delta_rz_espn": -79.49,
    "delta_rz_espn_ppg": -7.23,
    "cbsros_ppg": {
-    "standard": 21.39,
-    "half_ppr": 21.39,
-    "ppr": 21.39
+    "standard": 21.48,
+    "half_ppr": 21.48,
+    "ppr": 21.48
    },
    "prior_espn_ros": {
     "standard": 273.63,
@@ -1231,9 +1231,9 @@
    "delta_rz_espn": -85.67,
    "delta_rz_espn_ppg": -7.79,
    "cbsros_ppg": {
-    "standard": 23.109,
-    "half_ppr": 23.109,
-    "ppr": 23.109
+    "standard": 23.182,
+    "half_ppr": 23.182,
+    "ppr": 23.182
    },
    "prior_espn_ros": {
     "standard": 290.04,
@@ -1329,9 +1329,9 @@
    "delta_rz_espn": -51.48,
    "delta_rz_espn_ppg": -4.29,
    "cbsros_ppg": {
-    "standard": 18.573,
-    "half_ppr": 18.573,
-    "ppr": 18.573
+    "standard": 17.655,
+    "half_ppr": 17.655,
+    "ppr": 17.655
    },
    "prior_espn_ros": {
     "standard": 261.09,
@@ -1427,9 +1427,9 @@
    "delta_rz_espn": -64.16,
    "delta_rz_espn_ppg": -5.83,
    "cbsros_ppg": {
-    "standard": 23.45,
-    "half_ppr": 23.45,
-    "ppr": 23.45
+    "standard": 22.82,
+    "half_ppr": 22.82,
+    "ppr": 22.82
    },
    "prior_espn_ros": {
     "standard": 297.44,
@@ -1525,9 +1525,9 @@
    "delta_rz_espn": -45.47,
    "delta_rz_espn_ppg": -3.79,
    "cbsros_ppg": {
-    "standard": 22.35,
-    "half_ppr": 22.35,
-    "ppr": 22.35
+    "standard": 21.618,
+    "half_ppr": 21.618,
+    "ppr": 21.618
    },
    "prior_espn_ros": {
     "standard": 265.57,
@@ -1623,9 +1623,9 @@
    "delta_rz_espn": -11.1,
    "delta_rz_espn_ppg": -0.93,
    "cbsros_ppg": {
-    "standard": 12.525,
-    "half_ppr": 16.067,
-    "ppr": 19.608
+    "standard": 12.418,
+    "half_ppr": 16.009,
+    "ppr": 19.6
    },
    "prior_espn_ros": {
     "standard": 193.12,
@@ -1637,7 +1637,7 @@
     "half_ppr": 249.44,
     "ppr": 305.64
    },
-   "delta_rz_espn_ppg_demeaned": -0.56,
+   "delta_rz_espn_ppg_demeaned": -0.55,
    "preseason_ecr_rank": 4
   },
   {
@@ -1721,9 +1721,9 @@
    "delta_rz_espn": -66.24,
    "delta_rz_espn_ppg": -5.52,
    "cbsros_ppg": {
-    "standard": 22.15,
-    "half_ppr": 22.15,
-    "ppr": 22.15
+    "standard": 21.591,
+    "half_ppr": 21.591,
+    "ppr": 21.591
    },
    "prior_espn_ros": {
     "standard": 281.67,
@@ -1819,9 +1819,9 @@
    "delta_rz_espn": 5.73,
    "delta_rz_espn_ppg": 0.52,
    "cbsros_ppg": {
-    "standard": 15.391,
-    "half_ppr": 18.845,
-    "ppr": 22.3
+    "standard": 16.41,
+    "half_ppr": 20.01,
+    "ppr": 23.61
    },
    "prior_espn_ros": {
     "standard": 197.91,
@@ -1833,7 +1833,7 @@
     "half_ppr": 249.16,
     "ppr": 300.11
    },
-   "delta_rz_espn_ppg_demeaned": 0.89,
+   "delta_rz_espn_ppg_demeaned": 0.9,
    "preseason_ecr_rank": 3
   },
   {
@@ -1917,8 +1917,8 @@
    "delta_rz_espn": 3.89,
    "delta_rz_espn_ppg": 0.35,
    "cbsros_ppg": {
-    "standard": 16.26,
-    "half_ppr": 18.11,
+    "standard": 16.16,
+    "half_ppr": 18.06,
     "ppr": 19.96
    },
    "prior_espn_ros": {
@@ -2015,9 +2015,9 @@
    "delta_rz_espn": -31.53,
    "delta_rz_espn_ppg": -2.87,
    "cbsros_ppg": {
-    "standard": 11.76,
-    "half_ppr": 13.76,
-    "ppr": 15.76
+    "standard": 11.66,
+    "half_ppr": 13.66,
+    "ppr": 15.66
    },
    "prior_espn_ros": {
     "standard": 218.56,
@@ -2113,9 +2113,9 @@
    "delta_rz_espn": -102.57,
    "delta_rz_espn_ppg": -9.32,
    "cbsros_ppg": {
-    "standard": 15.95,
-    "half_ppr": 15.95,
-    "ppr": 15.95
+    "standard": 15.92,
+    "half_ppr": 15.92,
+    "ppr": 15.92
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -2208,9 +2208,9 @@
    "delta_rz_espn": -38.58,
    "delta_rz_espn_ppg": -3.21,
    "cbsros_ppg": {
-    "standard": 11.345,
-    "half_ppr": 14.118,
-    "ppr": 16.891
+    "standard": 10.5,
+    "half_ppr": 13.182,
+    "ppr": 15.864
    },
    "prior_espn_ros": {
     "standard": 162.78,
@@ -2222,7 +2222,7 @@
     "half_ppr": 198.65,
     "ppr": 245.2
    },
-   "delta_rz_espn_ppg_demeaned": -2.84,
+   "delta_rz_espn_ppg_demeaned": -2.83,
    "preseason_ecr_rank": null
   },
   {
@@ -2306,9 +2306,9 @@
    "delta_rz_espn": -61.88,
    "delta_rz_espn_ppg": -5.16,
    "cbsros_ppg": {
-    "standard": 18.136,
-    "half_ppr": 18.136,
-    "ppr": 18.136
+    "standard": 18.0,
+    "half_ppr": 18.0,
+    "ppr": 18.0
    },
    "prior_espn_ros": {
     "standard": 272.74,
@@ -2404,9 +2404,9 @@
    "delta_rz_espn": -29.49,
    "delta_rz_espn_ppg": -2.68,
    "cbsros_ppg": {
-    "standard": 20.364,
-    "half_ppr": 20.364,
-    "ppr": 20.364
+    "standard": 20.45,
+    "half_ppr": 20.45,
+    "ppr": 20.45
    },
    "prior_espn_ros": {
     "standard": 255.84,
@@ -2503,9 +2503,9 @@
    "delta_rz_espn": -35.97,
    "delta_rz_espn_ppg": -3.27,
    "cbsros_ppg": {
-    "standard": 21.79,
-    "half_ppr": 21.79,
-    "ppr": 21.79
+    "standard": 20.85,
+    "half_ppr": 20.85,
+    "ppr": 20.85
    },
    "prior_espn_ros": {
     "standard": 225.28,
@@ -2601,9 +2601,9 @@
    "delta_rz_espn": -39.7,
    "delta_rz_espn_ppg": -3.61,
    "cbsros_ppg": {
-    "standard": 13.555,
-    "half_ppr": 14.464,
-    "ppr": 15.373
+    "standard": 13.755,
+    "half_ppr": 14.664,
+    "ppr": 15.573
    },
    "prior_espn_ros": {
     "standard": 215.91,
@@ -2699,9 +2699,9 @@
    "delta_rz_espn": -25.86,
    "delta_rz_espn_ppg": -2.35,
    "cbsros_ppg": {
-    "standard": 19.02,
-    "half_ppr": 19.02,
-    "ppr": 19.02
+    "standard": 19.48,
+    "half_ppr": 19.48,
+    "ppr": 19.48
    },
    "prior_espn_ros": {
     "standard": 255.55,
@@ -2798,9 +2798,9 @@
    "delta_rz_espn": -7.0,
    "delta_rz_espn_ppg": -0.64,
    "cbsros_ppg": {
-    "standard": 13.073,
-    "half_ppr": 16.755,
-    "ppr": 20.436
+    "standard": 12.973,
+    "half_ppr": 16.655,
+    "ppr": 20.336
    },
    "prior_espn_ros": {
     "standard": 154.58,
@@ -2812,7 +2812,7 @@
     "half_ppr": 222.23,
     "ppr": 270.28
    },
-   "delta_rz_espn_ppg_demeaned": -0.27,
+   "delta_rz_espn_ppg_demeaned": -0.26,
    "preseason_ecr_rank": 5
   },
   {
@@ -2896,9 +2896,9 @@
    "delta_rz_espn": -35.45,
    "delta_rz_espn_ppg": -3.22,
    "cbsros_ppg": {
-    "standard": 21.345,
-    "half_ppr": 21.345,
-    "ppr": 21.345
+    "standard": 20.88,
+    "half_ppr": 20.88,
+    "ppr": 20.88
    },
    "prior_espn_ros": {
     "standard": 269.85,
@@ -2994,9 +2994,9 @@
    "delta_rz_espn": -52.89,
    "delta_rz_espn_ppg": -4.81,
    "cbsros_ppg": {
-    "standard": 19.52,
-    "half_ppr": 19.52,
-    "ppr": 19.52
+    "standard": 19.62,
+    "half_ppr": 19.62,
+    "ppr": 19.62
    },
    "prior_espn_ros": {
     "standard": 282.4,
@@ -3093,9 +3093,9 @@
    "delta_rz_espn": -8.64,
    "delta_rz_espn_ppg": -0.79,
    "cbsros_ppg": {
-    "standard": 22.78,
-    "half_ppr": 22.78,
-    "ppr": 22.78
+    "standard": 22.08,
+    "half_ppr": 22.08,
+    "ppr": 22.08
    },
    "prior_espn_ros": {
     "standard": 302.52,
@@ -3289,9 +3289,9 @@
    "delta_rz_espn": -22.09,
    "delta_rz_espn_ppg": -2.01,
    "cbsros_ppg": {
-    "standard": 15.36,
-    "half_ppr": 16.01,
-    "ppr": 16.66
+    "standard": 14.86,
+    "half_ppr": 15.46,
+    "ppr": 16.06
    },
    "prior_espn_ros": {
     "standard": 246.62,
@@ -3388,9 +3388,9 @@
    "delta_rz_espn": -41.34,
    "delta_rz_espn_ppg": -3.76,
    "cbsros_ppg": {
-    "standard": 20.02,
-    "half_ppr": 20.02,
-    "ppr": 20.02
+    "standard": 18.68,
+    "half_ppr": 18.68,
+    "ppr": 18.68
    },
    "prior_espn_ros": {
     "standard": 174.99,
@@ -3486,9 +3486,9 @@
    "delta_rz_espn": -1.03,
    "delta_rz_espn_ppg": -0.09,
    "cbsros_ppg": {
-    "standard": 13.945,
-    "half_ppr": 15.582,
-    "ppr": 17.218
+    "standard": 13.76,
+    "half_ppr": 15.31,
+    "ppr": 16.86
    },
    "prior_espn_ros": {
     "standard": 160.64,
@@ -3584,9 +3584,9 @@
    "delta_rz_espn": -16.51,
    "delta_rz_espn_ppg": -1.5,
    "cbsros_ppg": {
-    "standard": 17.66,
-    "half_ppr": 18.91,
-    "ppr": 20.16
+    "standard": 17.76,
+    "half_ppr": 19.01,
+    "ppr": 20.26
    },
    "prior_espn_ros": {
     "standard": 235.96,
@@ -3682,9 +3682,9 @@
    "delta_rz_espn": -36.91,
    "delta_rz_espn_ppg": -3.36,
    "cbsros_ppg": {
-    "standard": 14.73,
-    "half_ppr": 14.73,
-    "ppr": 14.73
+    "standard": 15.37,
+    "half_ppr": 15.37,
+    "ppr": 15.37
    },
    "prior_espn_ros": {
     "standard": 220.52,
@@ -3781,9 +3781,9 @@
    "delta_rz_espn": -19.18,
    "delta_rz_espn_ppg": -1.74,
    "cbsros_ppg": {
-    "standard": 7.68,
-    "half_ppr": 10.23,
-    "ppr": 12.78
+    "standard": 7.98,
+    "half_ppr": 10.63,
+    "ppr": 13.28
    },
    "prior_espn_ros": {
     "standard": 117.42,
@@ -3795,7 +3795,7 @@
     "half_ppr": 163.76,
     "ppr": 197.06
    },
-   "delta_rz_espn_ppg_demeaned": -1.37,
+   "delta_rz_espn_ppg_demeaned": -1.36,
    "preseason_ecr_rank": 12
   },
   {
@@ -3879,9 +3879,9 @@
    "delta_rz_espn": -21.15,
    "delta_rz_espn_ppg": -1.76,
    "cbsros_ppg": {
-    "standard": 8.527,
-    "half_ppr": 11.073,
-    "ppr": 13.618
+    "standard": 7.682,
+    "half_ppr": 10.182,
+    "ppr": 12.682
    },
    "prior_espn_ros": {
     "standard": 129.83,
@@ -3893,7 +3893,7 @@
     "half_ppr": 174.39,
     "ppr": 211.09
    },
-   "delta_rz_espn_ppg_demeaned": -1.39,
+   "delta_rz_espn_ppg_demeaned": -1.38,
    "preseason_ecr_rank": 18
   },
   {
@@ -3977,9 +3977,9 @@
    "delta_rz_espn": -10.23,
    "delta_rz_espn_ppg": -0.93,
    "cbsros_ppg": {
-    "standard": 9.891,
-    "half_ppr": 12.664,
-    "ppr": 15.436
+    "standard": 8.69,
+    "half_ppr": 11.39,
+    "ppr": 14.09
    },
    "prior_espn_ros": {
     "standard": 129.37,
@@ -3991,7 +3991,7 @@
     "half_ppr": 186.89,
     "ppr": 233.84
    },
-   "delta_rz_espn_ppg_demeaned": -1.15,
+   "delta_rz_espn_ppg_demeaned": -1.16,
    "preseason_ecr_rank": 3
   },
   {
@@ -4075,9 +4075,9 @@
    "delta_rz_espn": -34.7,
    "delta_rz_espn_ppg": -2.89,
    "cbsros_ppg": {
-    "standard": 18.755,
-    "half_ppr": 18.755,
-    "ppr": 18.755
+    "standard": 19.8,
+    "half_ppr": 19.8,
+    "ppr": 19.8
    },
    "prior_espn_ros": {
     "standard": 223.85,
@@ -4174,9 +4174,9 @@
    "delta_rz_espn": 3.08,
    "delta_rz_espn_ppg": 0.26,
    "cbsros_ppg": {
-    "standard": 7.409,
-    "half_ppr": 9.636,
-    "ppr": 11.864
+    "standard": 6.364,
+    "half_ppr": 8.409,
+    "ppr": 10.455
    },
    "prior_espn_ros": {
     "standard": 111.94,
@@ -4188,7 +4188,7 @@
     "half_ppr": 88.24,
     "ppr": 112.04
    },
-   "delta_rz_espn_ppg_demeaned": 0.63,
+   "delta_rz_espn_ppg_demeaned": 0.64,
    "preseason_ecr_rank": 53
   },
   {
@@ -4272,9 +4272,9 @@
    "delta_rz_espn": -7.94,
    "delta_rz_espn_ppg": -0.72,
    "cbsros_ppg": {
-    "standard": 9.89,
-    "half_ppr": 12.59,
-    "ppr": 15.29
+    "standard": 10.29,
+    "half_ppr": 13.04,
+    "ppr": 15.79
    },
    "prior_espn_ros": {
     "standard": 148.31,
@@ -4286,7 +4286,7 @@
     "half_ppr": 219.89,
     "ppr": 267.74
    },
-   "delta_rz_espn_ppg_demeaned": -0.35,
+   "delta_rz_espn_ppg_demeaned": -0.34,
    "preseason_ecr_rank": 9
   },
   {
@@ -4371,9 +4371,9 @@
    "delta_rz_espn": -23.37,
    "delta_rz_espn_ppg": -2.12,
    "cbsros_ppg": {
-    "standard": 10.97,
-    "half_ppr": 13.92,
-    "ppr": 16.87
+    "standard": 10.37,
+    "half_ppr": 13.17,
+    "ppr": 15.97
    },
    "prior_espn_ros": {
     "standard": 145.02,
@@ -4385,7 +4385,7 @@
     "half_ppr": 189.8,
     "ppr": 229.2
    },
-   "delta_rz_espn_ppg_demeaned": -1.75,
+   "delta_rz_espn_ppg_demeaned": -1.74,
    "preseason_ecr_rank": 13
   },
   {
@@ -4469,9 +4469,9 @@
    "delta_rz_espn": -37.48,
    "delta_rz_espn_ppg": -3.41,
    "cbsros_ppg": {
-    "standard": 18.609,
-    "half_ppr": 18.609,
-    "ppr": 18.609
+    "standard": 18.72,
+    "half_ppr": 18.72,
+    "ppr": 18.72
    },
    "prior_espn_ros": {
     "standard": 234.94,
@@ -4567,9 +4567,9 @@
    "delta_rz_espn": -26.29,
    "delta_rz_espn_ppg": -2.39,
    "cbsros_ppg": {
-    "standard": 18.764,
-    "half_ppr": 18.764,
-    "ppr": 18.764
+    "standard": 19.22,
+    "half_ppr": 19.22,
+    "ppr": 19.22
    },
    "prior_espn_ros": {
     "standard": 242.65,
@@ -4665,9 +4665,9 @@
    "delta_rz_espn": 9.31,
    "delta_rz_espn_ppg": 0.78,
    "cbsros_ppg": {
-    "standard": 11.736,
-    "half_ppr": 14.009,
-    "ppr": 16.282
+    "standard": 11.091,
+    "half_ppr": 13.364,
+    "ppr": 15.636
    },
    "prior_espn_ros": {
     "standard": 185.59,
@@ -4763,9 +4763,9 @@
    "delta_rz_espn": -16.2,
    "delta_rz_espn_ppg": -1.47,
    "cbsros_ppg": {
-    "standard": 9.5,
-    "half_ppr": 13.227,
-    "ppr": 16.955
+    "standard": 10.18,
+    "half_ppr": 14.08,
+    "ppr": 17.98
    },
    "prior_espn_ros": {
     "standard": 138.14,
@@ -4777,7 +4777,7 @@
     "half_ppr": 185.32,
     "ppr": 236.52
    },
-   "delta_rz_espn_ppg_demeaned": -1.69,
+   "delta_rz_espn_ppg_demeaned": -1.7,
    "preseason_ecr_rank": 1
   },
   {
@@ -4861,9 +4861,9 @@
    "delta_rz_espn": -50.28,
    "delta_rz_espn_ppg": -4.57,
    "cbsros_ppg": {
-    "standard": 14.52,
-    "half_ppr": 14.52,
-    "ppr": 14.52
+    "standard": 15.22,
+    "half_ppr": 15.22,
+    "ppr": 15.22
    },
    "prior_espn_ros": {
     "standard": 237.11,
@@ -5057,9 +5057,9 @@
    "delta_rz_espn": -64.66,
    "delta_rz_espn_ppg": -5.88,
    "cbsros_ppg": {
-    "standard": 15.42,
-    "half_ppr": 15.42,
-    "ppr": 15.42
+    "standard": 15.48,
+    "half_ppr": 15.48,
+    "ppr": 15.48
    },
    "prior_espn_ros": {
     "standard": 238.55,
@@ -5155,9 +5155,9 @@
    "delta_rz_espn": -24.24,
    "delta_rz_espn_ppg": -2.02,
    "cbsros_ppg": {
-    "standard": 13.627,
-    "half_ppr": 14.809,
-    "ppr": 15.991
+    "standard": 12.782,
+    "half_ppr": 14.009,
+    "ppr": 15.236
    },
    "prior_espn_ros": {
     "standard": 167.38,
@@ -5254,9 +5254,9 @@
    "delta_rz_espn": -14.9,
    "delta_rz_espn_ppg": -1.35,
    "cbsros_ppg": {
-    "standard": 9.645,
-    "half_ppr": 11.373,
-    "ppr": 13.1
+    "standard": 9.76,
+    "half_ppr": 11.61,
+    "ppr": 13.46
    },
    "prior_espn_ros": {
     "standard": 200.15,
@@ -5352,9 +5352,9 @@
    "delta_rz_espn": -17.82,
    "delta_rz_espn_ppg": -1.62,
    "cbsros_ppg": {
-    "standard": 10.72,
-    "half_ppr": 13.27,
-    "ppr": 15.82
+    "standard": 9.62,
+    "half_ppr": 12.07,
+    "ppr": 14.52
    },
    "prior_espn_ros": {
     "standard": 136.49,
@@ -5366,7 +5366,7 @@
     "half_ppr": 191.49,
     "ppr": 230.64
    },
-   "delta_rz_espn_ppg_demeaned": -1.25,
+   "delta_rz_espn_ppg_demeaned": -1.24,
    "preseason_ecr_rank": 8
   },
   {
@@ -5464,7 +5464,7 @@
     "half_ppr": 147.16,
     "ppr": 178.11
    },
-   "delta_rz_espn_ppg_demeaned": -2.23,
+   "delta_rz_espn_ppg_demeaned": -2.22,
    "preseason_ecr_rank": 30
   },
   {
@@ -5548,9 +5548,9 @@
    "delta_rz_espn": -13.37,
    "delta_rz_espn_ppg": -1.22,
    "cbsros_ppg": {
-    "standard": 16.191,
-    "half_ppr": 16.191,
-    "ppr": 16.191
+    "standard": 18.22,
+    "half_ppr": 18.22,
+    "ppr": 18.22
    },
    "prior_espn_ros": {
     "standard": 253.52,
@@ -5646,9 +5646,9 @@
    "delta_rz_espn": 16.78,
    "delta_rz_espn_ppg": 1.53,
    "cbsros_ppg": {
-    "standard": 11.36,
-    "half_ppr": 12.81,
-    "ppr": 14.26
+    "standard": 11.76,
+    "half_ppr": 13.21,
+    "ppr": 14.66
    },
    "prior_espn_ros": {
     "standard": 153.38,
@@ -5744,9 +5744,9 @@
    "delta_rz_espn": -7.77,
    "delta_rz_espn_ppg": -0.71,
    "cbsros_ppg": {
-    "standard": 8.918,
-    "half_ppr": 11.1,
-    "ppr": 13.282
+    "standard": 8.82,
+    "half_ppr": 11.07,
+    "ppr": 13.32
    },
    "prior_espn_ros": {
     "standard": 125.78,
@@ -5758,7 +5758,7 @@
     "half_ppr": 118.97,
     "ppr": 144.12
    },
-   "delta_rz_espn_ppg_demeaned": -0.34,
+   "delta_rz_espn_ppg_demeaned": -0.33,
    "preseason_ecr_rank": 47
   },
   {
@@ -5842,9 +5842,9 @@
    "delta_rz_espn": -46.64,
    "delta_rz_espn_ppg": -4.24,
    "cbsros_ppg": {
-    "standard": 15.58,
-    "half_ppr": 15.58,
-    "ppr": 15.58
+    "standard": 15.62,
+    "half_ppr": 15.62,
+    "ppr": 15.62
    },
    "prior_espn_ros": {
     "standard": 237.13,
@@ -5941,9 +5941,9 @@
    "delta_rz_espn": -35.99,
    "delta_rz_espn_ppg": -3.27,
    "cbsros_ppg": {
-    "standard": 7.68,
-    "half_ppr": 9.88,
-    "ppr": 12.08
+    "standard": 7.78,
+    "half_ppr": 9.98,
+    "ppr": 12.18
    },
    "prior_espn_ros": {
     "standard": 108.66,
@@ -5955,7 +5955,7 @@
     "half_ppr": 216.38,
     "ppr": 260.68
    },
-   "delta_rz_espn_ppg_demeaned": -2.9,
+   "delta_rz_espn_ppg_demeaned": -2.89,
    "preseason_ecr_rank": 6
   },
   {
@@ -6039,9 +6039,9 @@
    "delta_rz_espn": 2.89,
    "delta_rz_espn_ppg": 0.26,
    "cbsros_ppg": {
-    "standard": 11.418,
-    "half_ppr": 13.555,
-    "ppr": 15.691
+    "standard": 11.19,
+    "half_ppr": 13.34,
+    "ppr": 15.49
    },
    "prior_espn_ros": {
     "standard": 144.93,
@@ -6053,7 +6053,7 @@
     "half_ppr": 138.14,
     "ppr": 164.64
    },
-   "delta_rz_espn_ppg_demeaned": 0.63,
+   "delta_rz_espn_ppg_demeaned": 0.64,
    "preseason_ecr_rank": 24
   },
   {
@@ -6138,9 +6138,9 @@
    "delta_rz_espn": 5.71,
    "delta_rz_espn_ppg": 0.48,
    "cbsros_ppg": {
-    "standard": 9.855,
-    "half_ppr": 12.4,
-    "ppr": 14.945
+    "standard": 11.1,
+    "half_ppr": 13.691,
+    "ppr": 16.282
    },
    "prior_espn_ros": {
     "standard": 127.55,
@@ -6152,7 +6152,7 @@
     "half_ppr": 177.66,
     "ppr": 211.91
    },
-   "delta_rz_espn_ppg_demeaned": 0.85,
+   "delta_rz_espn_ppg_demeaned": 0.86,
    "preseason_ecr_rank": 15
   },
   {
@@ -6238,8 +6238,8 @@
    "delta_rz_espn_ppg": -2.12,
    "cbsros_ppg": {
     "standard": 10.96,
-    "half_ppr": 12.46,
-    "ppr": 13.96
+    "half_ppr": 12.41,
+    "ppr": 13.86
    },
    "prior_espn_ros": {
     "standard": 166.29,
@@ -6335,9 +6335,9 @@
    "delta_rz_espn": -36.9,
    "delta_rz_espn_ppg": -3.35,
    "cbsros_ppg": {
-    "standard": 8.28,
-    "half_ppr": 10.38,
-    "ppr": 12.48
+    "standard": 7.58,
+    "half_ppr": 9.73,
+    "ppr": 11.88
    },
    "prior_espn_ros": {
     "standard": 127.93,
@@ -6349,7 +6349,7 @@
     "half_ppr": 154.56,
     "ppr": 189.61
    },
-   "delta_rz_espn_ppg_demeaned": -3.57,
+   "delta_rz_espn_ppg_demeaned": -3.58,
    "preseason_ecr_rank": 7
   },
   {
@@ -6433,9 +6433,9 @@
    "delta_rz_espn": -29.43,
    "delta_rz_espn_ppg": -2.68,
    "cbsros_ppg": {
-    "standard": 10.69,
-    "half_ppr": 13.94,
-    "ppr": 17.19
+    "standard": 10.49,
+    "half_ppr": 13.69,
+    "ppr": 16.89
    },
    "prior_espn_ros": {
     "standard": 144.42,
@@ -6447,7 +6447,7 @@
     "half_ppr": 189.98,
     "ppr": 233.03
    },
-   "delta_rz_espn_ppg_demeaned": -2.31,
+   "delta_rz_espn_ppg_demeaned": -2.3,
    "preseason_ecr_rank": 11
   },
   {
@@ -6531,9 +6531,9 @@
    "delta_rz_espn": 51.41,
    "delta_rz_espn_ppg": 4.67,
    "cbsros_ppg": {
-    "standard": 10.36,
-    "half_ppr": 11.56,
-    "ppr": 12.76
+    "standard": 11.76,
+    "half_ppr": 13.01,
+    "ppr": 14.26
    },
    "prior_espn_ros": {
     "standard": 188.9,
@@ -6723,9 +6723,9 @@
    "delta_rz_espn": -13.29,
    "delta_rz_espn_ppg": -1.21,
    "cbsros_ppg": {
-    "standard": 8.69,
-    "half_ppr": 11.44,
-    "ppr": 14.19
+    "standard": 7.89,
+    "half_ppr": 10.44,
+    "ppr": 12.99
    },
    "prior_espn_ros": {
     "standard": 128.89,
@@ -6737,7 +6737,7 @@
     "half_ppr": 181.31,
     "ppr": 225.56
    },
-   "delta_rz_espn_ppg_demeaned": -0.84,
+   "delta_rz_espn_ppg_demeaned": -0.83,
    "preseason_ecr_rank": 23
   },
   {
@@ -6821,9 +6821,9 @@
    "delta_rz_espn": -15.67,
    "delta_rz_espn_ppg": -1.42,
    "cbsros_ppg": {
-    "standard": 18.08,
-    "half_ppr": 18.08,
-    "ppr": 18.08
+    "standard": 17.19,
+    "half_ppr": 17.19,
+    "ppr": 17.19
    },
    "prior_espn_ros": {
     "standard": 225.34,
@@ -6920,9 +6920,9 @@
    "delta_rz_espn": 3.52,
    "delta_rz_espn_ppg": 0.32,
    "cbsros_ppg": {
-    "standard": 8.68,
-    "half_ppr": 11.53,
-    "ppr": 14.38
+    "standard": 8.48,
+    "half_ppr": 11.23,
+    "ppr": 13.98
    },
    "prior_espn_ros": {
     "standard": 94.97,
@@ -6934,7 +6934,7 @@
     "half_ppr": 108.47,
     "ppr": 135.52
    },
-   "delta_rz_espn_ppg_demeaned": 0.1,
+   "delta_rz_espn_ppg_demeaned": 0.09,
    "preseason_ecr_rank": 13
   },
   {
@@ -7117,9 +7117,9 @@
    "delta_rz_espn": -21.97,
    "delta_rz_espn_ppg": -1.83,
    "cbsros_ppg": {
-    "standard": 8.282,
-    "half_ppr": 10.6,
-    "ppr": 12.918
+    "standard": 7.636,
+    "half_ppr": 9.955,
+    "ppr": 12.273
    },
    "prior_espn_ros": {
     "standard": 132.78,
@@ -7131,7 +7131,7 @@
     "half_ppr": 215.81,
     "ppr": 264.76
    },
-   "delta_rz_espn_ppg_demeaned": -1.46,
+   "delta_rz_espn_ppg_demeaned": -1.45,
    "preseason_ecr_rank": 16
   },
   {
@@ -7216,9 +7216,9 @@
    "delta_rz_espn": -16.26,
    "delta_rz_espn_ppg": -1.48,
    "cbsros_ppg": {
-    "standard": 8.78,
-    "half_ppr": 11.03,
-    "ppr": 13.28
+    "standard": 8.18,
+    "half_ppr": 10.43,
+    "ppr": 12.68
    },
    "prior_espn_ros": {
     "standard": 120.55,
@@ -7230,7 +7230,7 @@
     "half_ppr": 153.27,
     "ppr": 183.42
    },
-   "delta_rz_espn_ppg_demeaned": -1.11,
+   "delta_rz_espn_ppg_demeaned": -1.1,
    "preseason_ecr_rank": 29
   },
   {
@@ -7314,9 +7314,9 @@
    "delta_rz_espn": 15.18,
    "delta_rz_espn_ppg": 1.38,
    "cbsros_ppg": {
-    "standard": 15.4,
-    "half_ppr": 15.4,
-    "ppr": 15.4
+    "standard": 15.509,
+    "half_ppr": 15.509,
+    "ppr": 15.509
    },
    "prior_espn_ros": {
     "standard": 227.22,
@@ -7412,9 +7412,9 @@
    "delta_rz_espn": -18.07,
    "delta_rz_espn_ppg": -1.51,
    "cbsros_ppg": {
-    "standard": 8.375,
-    "half_ppr": 10.75,
-    "ppr": 13.125
+    "standard": 7.655,
+    "half_ppr": 9.836,
+    "ppr": 12.018
    },
    "prior_espn_ros": {
     "standard": 96.93,
@@ -7426,7 +7426,7 @@
     "half_ppr": 149.04,
     "ppr": 183.24
    },
-   "delta_rz_espn_ppg_demeaned": -1.73,
+   "delta_rz_espn_ppg_demeaned": -1.74,
    "preseason_ecr_rank": 6
   },
   {
@@ -7582,9 +7582,9 @@
    "delta_rz_espn": 5.25,
    "delta_rz_espn_ppg": 0.48,
    "cbsros_ppg": {
-    "standard": 7.76,
-    "half_ppr": 9.16,
-    "ppr": 10.56
+    "standard": 8.46,
+    "half_ppr": 9.76,
+    "ppr": 11.06
    },
    "prior_espn_ros": {
     "standard": 149.06,
@@ -7680,9 +7680,9 @@
    "delta_rz_espn": -19.99,
    "delta_rz_espn_ppg": -1.67,
    "cbsros_ppg": {
-    "standard": 9.418,
-    "half_ppr": 9.782,
-    "ppr": 10.145
+    "standard": 10.318,
+    "half_ppr": 10.727,
+    "ppr": 11.136
    },
    "prior_espn_ros": {
     "standard": 130.02,
@@ -7779,8 +7779,8 @@
    "delta_rz_espn_ppg": 1.53,
    "cbsros_ppg": {
     "standard": 9.809,
-    "half_ppr": 12.582,
-    "ppr": 15.355
+    "half_ppr": 12.627,
+    "ppr": 15.445
    },
    "prior_espn_ros": {
     "standard": 130.26,
@@ -7792,7 +7792,7 @@
     "half_ppr": 207.34,
     "ppr": 247.64
    },
-   "delta_rz_espn_ppg_demeaned": 1.9,
+   "delta_rz_espn_ppg_demeaned": 1.91,
    "preseason_ecr_rank": 10
   },
   {
@@ -7876,9 +7876,9 @@
    "delta_rz_espn": -1.44,
    "delta_rz_espn_ppg": -0.13,
    "cbsros_ppg": {
-    "standard": 14.72,
-    "half_ppr": 14.72,
-    "ppr": 14.72
+    "standard": 14.82,
+    "half_ppr": 14.82,
+    "ppr": 14.82
    },
    "prior_espn_ros": {
     "standard": 228.63,
@@ -7974,8 +7974,8 @@
    "delta_rz_espn": -1.98,
    "delta_rz_espn_ppg": -0.18,
    "cbsros_ppg": {
-    "standard": 6.02,
-    "half_ppr": 8.02,
+    "standard": 6.12,
+    "half_ppr": 8.07,
     "ppr": 10.02
    },
    "prior_espn_ros": {
@@ -7988,7 +7988,7 @@
     "half_ppr": 156.31,
     "ppr": 186.86
    },
-   "delta_rz_espn_ppg_demeaned": 0.19,
+   "delta_rz_espn_ppg_demeaned": 0.2,
    "preseason_ecr_rank": 32
   },
   {
@@ -8073,9 +8073,9 @@
    "delta_rz_espn": -13.36,
    "delta_rz_espn_ppg": -1.21,
    "cbsros_ppg": {
-    "standard": 10.836,
-    "half_ppr": 12.2,
-    "ppr": 13.564
+    "standard": 11.56,
+    "half_ppr": 13.06,
+    "ppr": 14.56
    },
    "prior_espn_ros": {
     "standard": 107.3,
@@ -8172,9 +8172,9 @@
    "delta_rz_espn": -39.27,
    "delta_rz_espn_ppg": -3.57,
    "cbsros_ppg": {
-    "standard": 7.018,
-    "half_ppr": 8.882,
-    "ppr": 10.745
+    "standard": 7.118,
+    "half_ppr": 9.027,
+    "ppr": 10.936
    },
    "prior_espn_ros": {
     "standard": 124.32,
@@ -8186,7 +8186,7 @@
     "half_ppr": 148.5,
     "ppr": 180.0
    },
-   "delta_rz_espn_ppg_demeaned": -3.2,
+   "delta_rz_espn_ppg_demeaned": -3.19,
    "preseason_ecr_rank": 27
   },
   {
@@ -8270,9 +8270,9 @@
    "delta_rz_espn": 6.01,
    "delta_rz_espn_ppg": 0.55,
    "cbsros_ppg": {
-    "standard": 7.76,
-    "half_ppr": 8.66,
-    "ppr": 9.56
+    "standard": 9.46,
+    "half_ppr": 10.41,
+    "ppr": 11.36
    },
    "prior_espn_ros": {
     "standard": 148.42,
@@ -8368,9 +8368,9 @@
    "delta_rz_espn": -15.73,
    "delta_rz_espn_ppg": -1.43,
    "cbsros_ppg": {
-    "standard": 6.291,
-    "half_ppr": 8.564,
-    "ppr": 10.836
+    "standard": 6.49,
+    "half_ppr": 8.74,
+    "ppr": 10.99
    },
    "prior_espn_ros": {
     "standard": 114.83,
@@ -8382,7 +8382,7 @@
     "half_ppr": 136.74,
     "ppr": 168.09
    },
-   "delta_rz_espn_ppg_demeaned": -1.06,
+   "delta_rz_espn_ppg_demeaned": -1.05,
    "preseason_ecr_rank": 39
   },
   {
@@ -8466,9 +8466,9 @@
    "delta_rz_espn": 0.08,
    "delta_rz_espn_ppg": 0.01,
    "cbsros_ppg": {
-    "standard": 8.42,
-    "half_ppr": 10.67,
-    "ppr": 12.92
+    "standard": 8.12,
+    "half_ppr": 10.27,
+    "ppr": 12.42
    },
    "prior_espn_ros": {
     "standard": 108.61,
@@ -8480,7 +8480,7 @@
     "half_ppr": 175.27,
     "ppr": 208.22
    },
-   "delta_rz_espn_ppg_demeaned": 0.38,
+   "delta_rz_espn_ppg_demeaned": 0.39,
    "preseason_ecr_rank": 17
   },
   {
@@ -8664,9 +8664,9 @@
    "delta_rz_espn": -1.53,
    "delta_rz_espn_ppg": -0.14,
    "cbsros_ppg": {
-    "standard": 8.66,
-    "half_ppr": 9.86,
-    "ppr": 11.06
+    "standard": 8.76,
+    "half_ppr": 10.01,
+    "ppr": 11.26
    },
    "prior_espn_ros": {
     "standard": 174.32,
@@ -8762,9 +8762,9 @@
    "delta_rz_espn": -5.33,
    "delta_rz_espn_ppg": -0.48,
    "cbsros_ppg": {
-    "standard": 8.71,
-    "half_ppr": 11.06,
-    "ppr": 13.41
+    "standard": 8.51,
+    "half_ppr": 10.81,
+    "ppr": 13.11
    },
    "prior_espn_ros": {
     "standard": 104.31,
@@ -8776,7 +8776,7 @@
     "half_ppr": 159.02,
     "ppr": 191.77
    },
-   "delta_rz_espn_ppg_demeaned": -0.11,
+   "delta_rz_espn_ppg_demeaned": -0.1,
    "preseason_ecr_rank": 26
   },
   {
@@ -8860,9 +8860,9 @@
    "delta_rz_espn": 3.45,
    "delta_rz_espn_ppg": 0.29,
    "cbsros_ppg": {
-    "standard": 8.5,
-    "half_ppr": 9.636,
-    "ppr": 10.773
+    "standard": 8.0,
+    "half_ppr": 9.045,
+    "ppr": 10.091
    },
    "prior_espn_ros": {
     "standard": 130.65,
@@ -8973,7 +8973,7 @@
     "half_ppr": 118.46,
     "ppr": 149.46
    },
-   "delta_rz_espn_ppg_demeaned": -0.01,
+   "delta_rz_espn_ppg_demeaned": -0.0,
    "preseason_ecr_rank": 43
   },
   {
@@ -9058,9 +9058,9 @@
    "delta_rz_espn": -41.99,
    "delta_rz_espn_ppg": -3.82,
    "cbsros_ppg": {
-    "standard": 7.86,
-    "half_ppr": 8.71,
-    "ppr": 9.56
+    "standard": 7.96,
+    "half_ppr": 8.81,
+    "ppr": 9.66
    },
    "prior_espn_ros": {
     "standard": 121.97,
@@ -9156,9 +9156,9 @@
    "delta_rz_espn": -31.82,
    "delta_rz_espn_ppg": -2.89,
    "cbsros_ppg": {
-    "standard": 6.68,
-    "half_ppr": 8.73,
-    "ppr": 10.78
+    "standard": 6.58,
+    "half_ppr": 8.58,
+    "ppr": 10.58
    },
    "prior_espn_ros": {
     "standard": 88.01,
@@ -9170,7 +9170,7 @@
     "half_ppr": 171.36,
     "ppr": 211.16
    },
-   "delta_rz_espn_ppg_demeaned": -3.11,
+   "delta_rz_espn_ppg_demeaned": -3.12,
    "preseason_ecr_rank": 2
   },
   {
@@ -9254,9 +9254,9 @@
    "delta_rz_espn": -16.64,
    "delta_rz_espn_ppg": -1.51,
    "cbsros_ppg": {
-    "standard": 5.59,
-    "half_ppr": 6.89,
-    "ppr": 8.19
+    "standard": 5.79,
+    "half_ppr": 7.14,
+    "ppr": 8.49
    },
    "prior_espn_ros": {
     "standard": 98.33,
@@ -9268,7 +9268,7 @@
     "half_ppr": 96.97,
     "ppr": 122.82
    },
-   "delta_rz_espn_ppg_demeaned": -1.14,
+   "delta_rz_espn_ppg_demeaned": -1.13,
    "preseason_ecr_rank": 58
   },
   {
@@ -9353,9 +9353,9 @@
    "delta_rz_espn": 0.99,
    "delta_rz_espn_ppg": 0.09,
    "cbsros_ppg": {
-    "standard": 6.96,
-    "half_ppr": 8.41,
-    "ppr": 9.86
+    "standard": 6.66,
+    "half_ppr": 8.16,
+    "ppr": 9.66
    },
    "prior_espn_ros": {
     "standard": 139.14,
@@ -9451,9 +9451,9 @@
    "delta_rz_espn": -13.78,
    "delta_rz_espn_ppg": -1.25,
    "cbsros_ppg": {
-    "standard": 8.3,
-    "half_ppr": 8.936,
-    "ppr": 9.573
+    "standard": 6.71,
+    "half_ppr": 7.21,
+    "ppr": 7.71
    },
    "prior_espn_ros": {
     "standard": 150.84,
@@ -9549,8 +9549,8 @@
    "delta_rz_espn": -47.58,
    "delta_rz_espn_ppg": -4.33,
    "cbsros_ppg": {
-    "standard": 4.49,
-    "half_ppr": 6.19,
+    "standard": 4.39,
+    "half_ppr": 6.14,
     "ppr": 7.89
    },
    "prior_espn_ros": {
@@ -9563,7 +9563,7 @@
     "half_ppr": 80.85,
     "ppr": 99.6
    },
-   "delta_rz_espn_ppg_demeaned": -3.96,
+   "delta_rz_espn_ppg_demeaned": -3.95,
    "preseason_ecr_rank": 85
   },
   {
@@ -9647,9 +9647,9 @@
    "delta_rz_espn": -54.55,
    "delta_rz_espn_ppg": -4.96,
    "cbsros_ppg": {
-    "standard": 0.736,
-    "half_ppr": 0.736,
-    "ppr": 0.736
+    "standard": 0.15,
+    "half_ppr": 0.15,
+    "ppr": 0.15
    },
    "prior_espn_ros": {
     "standard": 138.98,
@@ -9745,9 +9745,9 @@
    "delta_rz_espn": -2.76,
    "delta_rz_espn_ppg": -0.25,
    "cbsros_ppg": {
-    "standard": 7.29,
-    "half_ppr": 9.49,
-    "ppr": 11.69
+    "standard": 7.49,
+    "half_ppr": 9.79,
+    "ppr": 12.09
    },
    "prior_espn_ros": {
     "standard": 107.34,
@@ -9759,7 +9759,7 @@
     "half_ppr": 140.01,
     "ppr": 170.31
    },
-   "delta_rz_espn_ppg_demeaned": 0.12,
+   "delta_rz_espn_ppg_demeaned": 0.13,
    "preseason_ecr_rank": 34
   },
   {
@@ -9843,9 +9843,9 @@
    "delta_rz_espn": -9.51,
    "delta_rz_espn_ppg": -0.79,
    "cbsros_ppg": {
-    "standard": 8.217,
-    "half_ppr": 10.05,
-    "ppr": 11.883
+    "standard": 9.209,
+    "half_ppr": 11.073,
+    "ppr": 12.936
    },
    "prior_espn_ros": {
     "standard": 100.8,
@@ -9857,7 +9857,7 @@
     "half_ppr": 176.15,
     "ppr": 206.85
    },
-   "delta_rz_espn_ppg_demeaned": -0.42,
+   "delta_rz_espn_ppg_demeaned": -0.41,
    "preseason_ecr_rank": 21
   },
   {
@@ -9942,9 +9942,9 @@
    "delta_rz_espn": -6.92,
    "delta_rz_espn_ppg": -0.58,
    "cbsros_ppg": {
-    "standard": 7.609,
-    "half_ppr": 9.2,
-    "ppr": 10.791
+    "standard": 6.864,
+    "half_ppr": 8.409,
+    "ppr": 9.955
    },
    "prior_espn_ros": {
     "standard": 102.81,
@@ -9956,7 +9956,7 @@
     "half_ppr": 145.82,
     "ppr": 175.12
    },
-   "delta_rz_espn_ppg_demeaned": -0.21,
+   "delta_rz_espn_ppg_demeaned": -0.2,
    "preseason_ecr_rank": 41
   },
   {
@@ -10139,9 +10139,9 @@
    "delta_rz_espn": -4.97,
    "delta_rz_espn_ppg": -0.41,
    "cbsros_ppg": {
-    "standard": 5.827,
-    "half_ppr": 8.145,
-    "ppr": 10.464
+    "standard": 5.309,
+    "half_ppr": 7.264,
+    "ppr": 9.218
    },
    "prior_espn_ros": {
     "standard": 97.83,
@@ -10153,7 +10153,7 @@
     "half_ppr": 85.94,
     "ppr": 108.19
    },
-   "delta_rz_espn_ppg_demeaned": -0.04,
+   "delta_rz_espn_ppg_demeaned": -0.03,
    "preseason_ecr_rank": 74
   },
   {
@@ -10350,7 +10350,7 @@
     "half_ppr": 96.94,
     "ppr": 126.39
    },
-   "delta_rz_espn_ppg_demeaned": -2.89,
+   "delta_rz_espn_ppg_demeaned": -2.9,
    "preseason_ecr_rank": 22
   },
   {
@@ -10434,9 +10434,9 @@
    "delta_rz_espn": -2.73,
    "delta_rz_espn_ppg": -0.25,
    "cbsros_ppg": {
-    "standard": 6.436,
-    "half_ppr": 8.527,
-    "ppr": 10.618
+    "standard": 6.69,
+    "half_ppr": 8.74,
+    "ppr": 10.79
    },
    "prior_espn_ros": {
     "standard": 74.64,
@@ -10448,7 +10448,7 @@
     "half_ppr": 136.25,
     "ppr": 164.7
    },
-   "delta_rz_espn_ppg_demeaned": -0.47,
+   "delta_rz_espn_ppg_demeaned": -0.48,
    "preseason_ecr_rank": 5
   },
   {
@@ -10532,9 +10532,9 @@
    "delta_rz_espn": -22.06,
    "delta_rz_espn_ppg": -1.84,
    "cbsros_ppg": {
-    "standard": 8.475,
-    "half_ppr": 11.058,
-    "ppr": 13.642
+    "standard": 8.109,
+    "half_ppr": 10.7,
+    "ppr": 13.291
    },
    "prior_espn_ros": {
     "standard": 102.49,
@@ -10546,7 +10546,7 @@
     "half_ppr": 139.97,
     "ppr": 176.17
    },
-   "delta_rz_espn_ppg_demeaned": -2.06,
+   "delta_rz_espn_ppg_demeaned": -2.07,
    "preseason_ecr_rank": 11
   },
   {
@@ -10630,9 +10630,9 @@
    "delta_rz_espn": -11.82,
    "delta_rz_espn_ppg": -0.99,
    "cbsros_ppg": {
-    "standard": 6.908,
-    "half_ppr": 8.867,
-    "ppr": 10.825
+    "standard": 6.236,
+    "half_ppr": 8.145,
+    "ppr": 10.055
    },
    "prior_espn_ros": {
     "standard": 94.17,
@@ -10644,7 +10644,7 @@
     "half_ppr": 132.96,
     "ppr": 159.41
    },
-   "delta_rz_espn_ppg_demeaned": -0.62,
+   "delta_rz_espn_ppg_demeaned": -0.61,
    "preseason_ecr_rank": 48
   },
   {
@@ -10728,9 +10728,9 @@
    "delta_rz_espn": -7.24,
    "delta_rz_espn_ppg": -0.66,
    "cbsros_ppg": {
-    "standard": 9.92,
-    "half_ppr": 12.67,
-    "ppr": 15.42
+    "standard": 9.82,
+    "half_ppr": 12.52,
+    "ppr": 15.22
    },
    "prior_espn_ros": {
     "standard": 96.89,
@@ -10742,7 +10742,7 @@
     "half_ppr": 145.92,
     "ppr": 183.32
    },
-   "delta_rz_espn_ppg_demeaned": -0.88,
+   "delta_rz_espn_ppg_demeaned": -0.89,
    "preseason_ecr_rank": 4
   },
   {
@@ -10826,9 +10826,9 @@
    "delta_rz_espn": -18.7,
    "delta_rz_espn_ppg": -1.7,
    "cbsros_ppg": {
-    "standard": 6.291,
-    "half_ppr": 8.155,
-    "ppr": 10.018
+    "standard": 6.391,
+    "half_ppr": 8.255,
+    "ppr": 10.118
    },
    "prior_espn_ros": {
     "standard": 97.69,
@@ -10840,7 +10840,7 @@
     "half_ppr": 136.09,
     "ppr": 169.74
    },
-   "delta_rz_espn_ppg_demeaned": -1.33,
+   "delta_rz_espn_ppg_demeaned": -1.32,
    "preseason_ecr_rank": 49
   },
   {
@@ -10925,9 +10925,9 @@
    "delta_rz_espn": 34.3,
    "delta_rz_espn_ppg": 3.12,
    "cbsros_ppg": {
-    "standard": 8.06,
-    "half_ppr": 9.31,
-    "ppr": 10.56
+    "standard": 8.16,
+    "half_ppr": 9.41,
+    "ppr": 10.66
    },
    "prior_espn_ros": {
     "standard": 168.49,
@@ -11023,9 +11023,9 @@
    "delta_rz_espn": -29.29,
    "delta_rz_espn_ppg": -2.66,
    "cbsros_ppg": {
-    "standard": 4.791,
-    "half_ppr": 6.473,
-    "ppr": 8.155
+    "standard": 5.26,
+    "half_ppr": 6.86,
+    "ppr": 8.46
    },
    "prior_espn_ros": {
     "standard": 93.91,
@@ -11122,9 +11122,9 @@
    "delta_rz_espn": -34.72,
    "delta_rz_espn_ppg": -3.16,
    "cbsros_ppg": {
-    "standard": 6.609,
-    "half_ppr": 8.382,
-    "ppr": 10.155
+    "standard": 6.709,
+    "half_ppr": 8.482,
+    "ppr": 10.255
    },
    "prior_espn_ros": {
     "standard": 94.15,
@@ -11136,7 +11136,7 @@
     "half_ppr": 157.82,
     "ppr": 194.27
    },
-   "delta_rz_espn_ppg_demeaned": -2.79,
+   "delta_rz_espn_ppg_demeaned": -2.78,
    "preseason_ecr_rank": 20
   },
   {
@@ -11220,9 +11220,9 @@
    "delta_rz_espn": 24.7,
    "delta_rz_espn_ppg": 2.25,
    "cbsros_ppg": {
-    "standard": 5.56,
-    "half_ppr": 6.16,
-    "ppr": 6.76
+    "standard": 5.46,
+    "half_ppr": 6.06,
+    "ppr": 6.66
    },
    "prior_espn_ros": {
     "standard": 150.48,
@@ -11318,9 +11318,9 @@
    "delta_rz_espn": -0.81,
    "delta_rz_espn_ppg": -0.07,
    "cbsros_ppg": {
-    "standard": 6.173,
-    "half_ppr": 8.173,
-    "ppr": 10.173
+    "standard": 6.36,
+    "half_ppr": 8.36,
+    "ppr": 10.36
    },
    "prior_espn_ros": {
     "standard": 104.86,
@@ -11332,7 +11332,7 @@
     "half_ppr": 171.59,
     "ppr": 208.59
    },
-   "delta_rz_espn_ppg_demeaned": 0.3,
+   "delta_rz_espn_ppg_demeaned": 0.31,
    "preseason_ecr_rank": 19
   },
   {
@@ -11430,7 +11430,7 @@
     "half_ppr": 68.69,
     "ppr": 83.44
    },
-   "delta_rz_espn_ppg_demeaned": -1.76,
+   "delta_rz_espn_ppg_demeaned": -1.75,
    "preseason_ecr_rank": 109
   },
   {
@@ -11529,7 +11529,7 @@
     "half_ppr": 128.73,
     "ppr": 161.53
    },
-   "delta_rz_espn_ppg_demeaned": 1.62,
+   "delta_rz_espn_ppg_demeaned": 1.61,
    "preseason_ecr_rank": 12
   },
   {
@@ -11613,9 +11613,9 @@
    "delta_rz_espn": -6.27,
    "delta_rz_espn_ppg": -0.57,
    "cbsros_ppg": {
-    "standard": 6.36,
-    "half_ppr": 8.01,
-    "ppr": 9.66
+    "standard": 5.76,
+    "half_ppr": 7.41,
+    "ppr": 9.06
    },
    "prior_espn_ros": {
     "standard": 119.59,
@@ -11627,7 +11627,7 @@
     "half_ppr": 121.53,
     "ppr": 146.93
    },
-   "delta_rz_espn_ppg_demeaned": -0.2,
+   "delta_rz_espn_ppg_demeaned": -0.19,
    "preseason_ecr_rank": 56
   },
   {
@@ -11711,9 +11711,9 @@
    "delta_rz_espn": 0.54,
    "delta_rz_espn_ppg": 0.05,
    "cbsros_ppg": {
-    "standard": 6.09,
-    "half_ppr": 7.94,
-    "ppr": 9.79
+    "standard": 5.99,
+    "half_ppr": 7.79,
+    "ppr": 9.59
    },
    "prior_espn_ros": {
     "standard": 104.07,
@@ -11725,7 +11725,7 @@
     "half_ppr": 157.18,
     "ppr": 186.33
    },
-   "delta_rz_espn_ppg_demeaned": 0.42,
+   "delta_rz_espn_ppg_demeaned": 0.43,
    "preseason_ecr_rank": 28
   },
   {
@@ -11810,9 +11810,9 @@
    "delta_rz_espn": 11.54,
    "delta_rz_espn_ppg": 0.96,
    "cbsros_ppg": {
-    "standard": 7.618,
-    "half_ppr": 8.118,
-    "ppr": 8.618
+    "standard": 7.555,
+    "half_ppr": 8.009,
+    "ppr": 8.464
    },
    "prior_espn_ros": {
     "standard": 117.93,
@@ -12008,9 +12008,9 @@
    "delta_rz_espn": -16.15,
    "delta_rz_espn_ppg": -1.47,
    "cbsros_ppg": {
-    "standard": 7.46,
-    "half_ppr": 8.16,
-    "ppr": 8.86
+    "standard": 6.76,
+    "half_ppr": 7.41,
+    "ppr": 8.06
    },
    "prior_espn_ros": {
     "standard": 100.97,
@@ -12106,9 +12106,9 @@
    "delta_rz_espn": 4.34,
    "delta_rz_espn_ppg": 0.39,
    "cbsros_ppg": {
-    "standard": 6.609,
-    "half_ppr": 8.7,
-    "ppr": 10.791
+    "standard": 6.709,
+    "half_ppr": 8.845,
+    "ppr": 10.982
    },
    "prior_espn_ros": {
     "standard": 69.33,
@@ -12120,7 +12120,7 @@
     "half_ppr": 113.95,
     "ppr": 143.45
    },
-   "delta_rz_espn_ppg_demeaned": 0.17,
+   "delta_rz_espn_ppg_demeaned": 0.16,
    "preseason_ecr_rank": 18
   },
   {
@@ -12204,9 +12204,9 @@
    "delta_rz_espn": -11.77,
    "delta_rz_espn_ppg": -1.07,
    "cbsros_ppg": {
-    "standard": 7.682,
-    "half_ppr": 9.682,
-    "ppr": 11.682
+    "standard": 7.49,
+    "half_ppr": 9.49,
+    "ppr": 11.49
    },
    "prior_espn_ros": {
     "standard": 81.69,
@@ -12218,7 +12218,7 @@
     "half_ppr": 101.51,
     "ppr": 123.51
    },
-   "delta_rz_espn_ppg_demeaned": -0.7,
+   "delta_rz_espn_ppg_demeaned": -0.69,
    "preseason_ecr_rank": 57
   },
   {
@@ -12302,9 +12302,9 @@
    "delta_rz_espn": -0.83,
    "delta_rz_espn_ppg": -0.08,
    "cbsros_ppg": {
-    "standard": 6.38,
-    "half_ppr": 7.98,
-    "ppr": 9.58
+    "standard": 6.18,
+    "half_ppr": 7.83,
+    "ppr": 9.48
    },
    "prior_espn_ros": {
     "standard": 60.25,
@@ -12316,7 +12316,7 @@
     "half_ppr": 143.6,
     "ppr": 180.85
    },
-   "delta_rz_espn_ppg_demeaned": -0.3,
+   "delta_rz_espn_ppg_demeaned": -0.31,
    "preseason_ecr_rank": 8
   },
   {
@@ -12400,9 +12400,9 @@
    "delta_rz_espn": 5.3,
    "delta_rz_espn_ppg": 0.48,
    "cbsros_ppg": {
-    "standard": 5.66,
-    "half_ppr": 7.86,
-    "ppr": 10.06
+    "standard": 6.12,
+    "half_ppr": 8.37,
+    "ppr": 10.62
    },
    "prior_espn_ros": {
     "standard": 55.53,
@@ -12414,7 +12414,7 @@
     "half_ppr": 140.92,
     "ppr": 173.87
    },
-   "delta_rz_espn_ppg_demeaned": 0.85,
+   "delta_rz_espn_ppg_demeaned": 0.86,
    "preseason_ecr_rank": 38
   },
   {
@@ -12498,9 +12498,9 @@
    "delta_rz_espn": -19.35,
    "delta_rz_espn_ppg": -1.76,
    "cbsros_ppg": {
-    "standard": 4.345,
-    "half_ppr": 4.573,
-    "ppr": 4.8
+    "standard": 4.77,
+    "half_ppr": 5.02,
+    "ppr": 5.27
    },
    "prior_espn_ros": {
     "standard": 107.94,
@@ -12596,9 +12596,9 @@
    "delta_rz_espn": -5.01,
    "delta_rz_espn_ppg": -0.46,
    "cbsros_ppg": {
-    "standard": 5.09,
-    "half_ppr": 6.64,
-    "ppr": 8.19
+    "standard": 4.99,
+    "half_ppr": 6.49,
+    "ppr": 7.99
    },
    "prior_espn_ros": {
     "standard": 66.64,
@@ -12610,7 +12610,7 @@
     "half_ppr": 91.58,
     "ppr": 114.98
    },
-   "delta_rz_espn_ppg_demeaned": -0.68,
+   "delta_rz_espn_ppg_demeaned": -0.69,
    "preseason_ecr_rank": 25
   },
   {
@@ -12694,9 +12694,9 @@
    "delta_rz_espn": 0.53,
    "delta_rz_espn_ppg": 0.05,
    "cbsros_ppg": {
-    "standard": 4.99,
-    "half_ppr": 6.89,
-    "ppr": 8.79
+    "standard": 4.79,
+    "half_ppr": 6.69,
+    "ppr": 8.59
    },
    "prior_espn_ros": {
     "standard": 63.46,
@@ -12708,7 +12708,7 @@
     "half_ppr": 130.3,
     "ppr": 166.1
    },
-   "delta_rz_espn_ppg_demeaned": 0.42,
+   "delta_rz_espn_ppg_demeaned": 0.43,
    "preseason_ecr_rank": 52
   },
   {
@@ -12792,9 +12792,9 @@
    "delta_rz_espn": 21.45,
    "delta_rz_espn_ppg": 1.95,
    "cbsros_ppg": {
-    "standard": 3.82,
-    "half_ppr": 5.32,
-    "ppr": 6.82
+    "standard": 4.66,
+    "half_ppr": 6.41,
+    "ppr": 8.16
    },
    "prior_espn_ros": {
     "standard": 83.33,
@@ -12806,7 +12806,7 @@
     "half_ppr": 116.64,
     "ppr": 144.34
    },
-   "delta_rz_espn_ppg_demeaned": 2.32,
+   "delta_rz_espn_ppg_demeaned": 2.33,
    "preseason_ecr_rank": 50
   },
   {
@@ -12904,7 +12904,7 @@
     "half_ppr": 55.31,
     "ppr": 67.81
    },
-   "delta_rz_espn_ppg_demeaned": 0.37,
+   "delta_rz_espn_ppg_demeaned": 0.38,
    "preseason_ecr_rank": 68
   },
   {
@@ -12988,9 +12988,9 @@
    "delta_rz_espn": 7.79,
    "delta_rz_espn_ppg": 0.71,
    "cbsros_ppg": {
-    "standard": 6.59,
-    "half_ppr": 8.79,
-    "ppr": 10.99
+    "standard": 5.79,
+    "half_ppr": 7.94,
+    "ppr": 10.09
    },
    "prior_espn_ros": {
     "standard": 94.04,
@@ -13002,7 +13002,7 @@
     "half_ppr": 122.55,
     "ppr": 155.25
    },
-   "delta_rz_espn_ppg_demeaned": 1.08,
+   "delta_rz_espn_ppg_demeaned": 1.09,
    "preseason_ecr_rank": 44
   },
   {
@@ -13100,7 +13100,7 @@
     "half_ppr": 40.46,
     "ppr": 49.26
    },
-   "delta_rz_espn_ppg_demeaned": -1.9,
+   "delta_rz_espn_ppg_demeaned": -1.89,
    "preseason_ecr_rank": 123
   },
   {
@@ -13184,9 +13184,9 @@
    "delta_rz_espn": -23.85,
    "delta_rz_espn_ppg": -2.17,
    "cbsros_ppg": {
-    "standard": 4.909,
-    "half_ppr": 6.636,
-    "ppr": 8.364
+    "standard": 5.009,
+    "half_ppr": 6.782,
+    "ppr": 8.555
    },
    "prior_espn_ros": {
     "standard": 87.23,
@@ -13198,7 +13198,7 @@
     "half_ppr": 128.34,
     "ppr": 161.89
    },
-   "delta_rz_espn_ppg_demeaned": -1.8,
+   "delta_rz_espn_ppg_demeaned": -1.79,
    "preseason_ecr_rank": 55
   },
   {
@@ -13282,9 +13282,9 @@
    "delta_rz_espn": -16.77,
    "delta_rz_espn_ppg": -1.52,
    "cbsros_ppg": {
-    "standard": 6.76,
-    "half_ppr": 7.66,
-    "ppr": 8.56
+    "standard": 6.96,
+    "half_ppr": 7.86,
+    "ppr": 8.76
    },
    "prior_espn_ros": {
     "standard": 87.09,
@@ -13380,9 +13380,9 @@
    "delta_rz_espn": -8.72,
    "delta_rz_espn_ppg": -0.79,
    "cbsros_ppg": {
-    "standard": 6.38,
-    "half_ppr": 8.43,
-    "ppr": 10.48
+    "standard": 5.48,
+    "half_ppr": 7.43,
+    "ppr": 9.38
    },
    "prior_espn_ros": {
     "standard": 86.79,
@@ -13394,7 +13394,7 @@
     "half_ppr": 110.95,
     "ppr": 141.1
    },
-   "delta_rz_espn_ppg_demeaned": -1.01,
+   "delta_rz_espn_ppg_demeaned": -1.02,
    "preseason_ecr_rank": 15
   },
   {
@@ -13479,9 +13479,9 @@
    "delta_rz_espn": 16.98,
    "delta_rz_espn_ppg": 1.54,
    "cbsros_ppg": {
-    "standard": 5.78,
-    "half_ppr": 7.88,
-    "ppr": 9.98
+    "standard": 5.68,
+    "half_ppr": 7.78,
+    "ppr": 9.88
    },
    "prior_espn_ros": {
     "standard": 73.38,
@@ -13493,7 +13493,7 @@
     "half_ppr": 106.47,
     "ppr": 132.67
    },
-   "delta_rz_espn_ppg_demeaned": 1.91,
+   "delta_rz_espn_ppg_demeaned": 1.92,
    "preseason_ecr_rank": 72
   },
   {
@@ -13579,8 +13579,8 @@
    "delta_rz_espn_ppg": 5.12,
    "cbsros_ppg": {
     "standard": 8.86,
-    "half_ppr": 9.71,
-    "ppr": 10.56
+    "half_ppr": 9.66,
+    "ppr": 10.46
    },
    "prior_espn_ros": {
     "standard": 189.22,
@@ -13676,9 +13676,9 @@
    "delta_rz_espn": 10.75,
    "delta_rz_espn_ppg": 0.98,
    "cbsros_ppg": {
-    "standard": 4.89,
-    "half_ppr": 6.54,
-    "ppr": 8.19
+    "standard": 3.99,
+    "half_ppr": 5.49,
+    "ppr": 6.99
    },
    "prior_espn_ros": {
     "standard": 85.46,
@@ -13690,7 +13690,7 @@
     "half_ppr": 132.34,
     "ppr": 160.54
    },
-   "delta_rz_espn_ppg_demeaned": 0.76,
+   "delta_rz_espn_ppg_demeaned": 0.75,
    "preseason_ecr_rank": 14
   },
   {
@@ -13872,9 +13872,9 @@
    "delta_rz_espn": -6.33,
    "delta_rz_espn_ppg": -0.58,
    "cbsros_ppg": {
-    "standard": 5.78,
-    "half_ppr": 7.68,
-    "ppr": 9.58
+    "standard": 5.98,
+    "half_ppr": 7.93,
+    "ppr": 9.88
    },
    "prior_espn_ros": {
     "standard": 66.01,
@@ -13886,7 +13886,7 @@
     "half_ppr": 65.09,
     "ppr": 80.49
    },
-   "delta_rz_espn_ppg_demeaned": -0.21,
+   "delta_rz_espn_ppg_demeaned": -0.2,
    "preseason_ecr_rank": 84
   },
   {
@@ -13970,9 +13970,9 @@
    "delta_rz_espn": 12.52,
    "delta_rz_espn_ppg": 1.14,
    "cbsros_ppg": {
-    "standard": 5.382,
-    "half_ppr": 7.109,
-    "ppr": 8.836
+    "standard": 5.482,
+    "half_ppr": 7.255,
+    "ppr": 9.027
    },
    "prior_espn_ros": {
     "standard": 93.67,
@@ -13984,7 +13984,7 @@
     "half_ppr": 113.32,
     "ppr": 139.37
    },
-   "delta_rz_espn_ppg_demeaned": 0.92,
+   "delta_rz_espn_ppg_demeaned": 0.91,
    "preseason_ecr_rank": 10
   },
   {
@@ -14068,9 +14068,9 @@
    "delta_rz_espn": -5.62,
    "delta_rz_espn_ppg": -0.51,
    "cbsros_ppg": {
-    "standard": 5.99,
-    "half_ppr": 7.69,
-    "ppr": 9.39
+    "standard": 6.39,
+    "half_ppr": 8.24,
+    "ppr": 10.09
    },
    "prior_espn_ros": {
     "standard": 79.19,
@@ -14082,7 +14082,7 @@
     "half_ppr": 146.9,
     "ppr": 185.65
    },
-   "delta_rz_espn_ppg_demeaned": -0.73,
+   "delta_rz_espn_ppg_demeaned": -0.74,
    "preseason_ecr_rank": 9
   },
   {
@@ -14166,9 +14166,9 @@
    "delta_rz_espn": -10.4,
    "delta_rz_espn_ppg": -0.95,
    "cbsros_ppg": {
-    "standard": 5.364,
-    "half_ppr": 7.0,
-    "ppr": 8.636
+    "standard": 5.48,
+    "half_ppr": 7.13,
+    "ppr": 8.78
    },
    "prior_espn_ros": {
     "standard": 98.88,
@@ -14180,7 +14180,7 @@
     "half_ppr": 152.56,
     "ppr": 183.71
    },
-   "delta_rz_espn_ppg_demeaned": -0.58,
+   "delta_rz_espn_ppg_demeaned": -0.57,
    "preseason_ecr_rank": 37
   },
   {
@@ -14264,9 +14264,9 @@
    "delta_rz_espn": 28.11,
    "delta_rz_espn_ppg": 2.56,
    "cbsros_ppg": {
-    "standard": 6.918,
-    "half_ppr": 7.782,
-    "ppr": 8.645
+    "standard": 7.018,
+    "half_ppr": 7.927,
+    "ppr": 8.836
    },
    "prior_espn_ros": {
     "standard": 155.81,
@@ -14377,7 +14377,7 @@
     "half_ppr": 91.9,
     "ppr": 115.95
    },
-   "delta_rz_espn_ppg_demeaned": 0.66,
+   "delta_rz_espn_ppg_demeaned": 0.65,
    "preseason_ecr_rank": 19
   },
   {
@@ -14462,8 +14462,8 @@
    "delta_rz_espn_ppg": 0.35,
    "cbsros_ppg": {
     "standard": 3.88,
-    "half_ppr": 5.43,
-    "ppr": 6.98
+    "half_ppr": 5.48,
+    "ppr": 7.08
    },
    "prior_espn_ros": {
     "standard": 65.15,
@@ -14475,7 +14475,7 @@
     "half_ppr": 105.55,
     "ppr": 135.1
    },
-   "delta_rz_espn_ppg_demeaned": 0.13,
+   "delta_rz_espn_ppg_demeaned": 0.12,
    "preseason_ecr_rank": 20
   },
   {
@@ -14559,9 +14559,9 @@
    "delta_rz_espn": 0.14,
    "delta_rz_espn_ppg": 0.01,
    "cbsros_ppg": {
-    "standard": 5.045,
-    "half_ppr": 6.955,
-    "ppr": 8.864
+    "standard": 4.89,
+    "half_ppr": 6.79,
+    "ppr": 8.69
    },
    "prior_espn_ros": {
     "standard": 42.61,
@@ -14573,7 +14573,7 @@
     "half_ppr": 30.26,
     "ppr": 37.11
    },
-   "delta_rz_espn_ppg_demeaned": 0.38,
+   "delta_rz_espn_ppg_demeaned": 0.39,
    "preseason_ecr_rank": 117
   },
   {
@@ -14696,9 +14696,9 @@
    },
    "rz_held": "razzball standard 1.3 ppg is 21% of the ESPN/CBS mean 6.2 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 6.39,
-    "half_ppr": 8.34,
-    "ppr": 10.29
+    "standard": 6.49,
+    "half_ppr": 8.49,
+    "ppr": 10.49
    },
    "prior_espn_ros": {
     "standard": 70.68,
@@ -14767,11 +14767,11 @@
     "half_ppr": 6.021667,
     "ppr": 7.5175
    },
-   "rz_held": "razzball ppr 4.5 ppg is 59% of the ESPN/CBS mean 7.6 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 2.8 ppg is 49% of the ESPN/CBS mean 5.7 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 4.564,
-    "half_ppr": 6.109,
-    "ppr": 7.655
+    "standard": 6.9,
+    "half_ppr": 8.536,
+    "ppr": 10.173
    },
    "prior_espn_ros": {
     "standard": 75.12,
@@ -14866,9 +14866,9 @@
    "delta_rz_espn": -22.26,
    "delta_rz_espn_ppg": -2.02,
    "cbsros_ppg": {
-    "standard": 3.79,
-    "half_ppr": 4.79,
-    "ppr": 5.79
+    "standard": 3.59,
+    "half_ppr": 4.49,
+    "ppr": 5.39
    },
    "prior_espn_ros": {
     "standard": 53.2,
@@ -14880,7 +14880,7 @@
     "half_ppr": 55.93,
     "ppr": 67.48
    },
-   "delta_rz_espn_ppg_demeaned": -1.65,
+   "delta_rz_espn_ppg_demeaned": -1.64,
    "preseason_ecr_rank": 88
   },
   {
@@ -14978,7 +14978,7 @@
     "half_ppr": 55.99,
     "ppr": 68.34
    },
-   "delta_rz_espn_ppg_demeaned": -0.71,
+   "delta_rz_espn_ppg_demeaned": -0.7,
    "preseason_ecr_rank": 141
   },
   {
@@ -15062,9 +15062,9 @@
    "delta_rz_espn": -29.76,
    "delta_rz_espn_ppg": -2.48,
    "cbsros_ppg": {
-    "standard": 3.975,
-    "half_ppr": 4.808,
-    "ppr": 5.642
+    "standard": 3.818,
+    "half_ppr": 4.636,
+    "ppr": 5.455
    },
    "prior_espn_ros": {
     "standard": 61.15,
@@ -15076,7 +15076,7 @@
     "half_ppr": 66.42,
     "ppr": 78.67
    },
-   "delta_rz_espn_ppg_demeaned": -2.11,
+   "delta_rz_espn_ppg_demeaned": -2.1,
    "preseason_ecr_rank": 77
   },
   {
@@ -15160,9 +15160,9 @@
    "delta_rz_espn": -19.98,
    "delta_rz_espn_ppg": -1.82,
    "cbsros_ppg": {
-    "standard": 5.145,
-    "half_ppr": 6.464,
-    "ppr": 7.782
+    "standard": 4.9,
+    "half_ppr": 6.2,
+    "ppr": 7.5
    },
    "prior_espn_ros": {
     "standard": 77.83,
@@ -15174,7 +15174,7 @@
     "half_ppr": 129.14,
     "ppr": 153.19
    },
-   "delta_rz_espn_ppg_demeaned": -1.45,
+   "delta_rz_espn_ppg_demeaned": -1.44,
    "preseason_ecr_rank": 54
   },
   {
@@ -15258,9 +15258,9 @@
    "delta_rz_espn": -6.68,
    "delta_rz_espn_ppg": -0.61,
    "cbsros_ppg": {
-    "standard": 4.58,
-    "half_ppr": 6.38,
-    "ppr": 8.18
+    "standard": 4.38,
+    "half_ppr": 6.08,
+    "ppr": 7.78
    },
    "prior_espn_ros": {
     "standard": 64.68,
@@ -15272,7 +15272,7 @@
     "half_ppr": 94.83,
     "ppr": 119.63
    },
-   "delta_rz_espn_ppg_demeaned": -0.83,
+   "delta_rz_espn_ppg_demeaned": -0.84,
    "preseason_ecr_rank": 28
   },
   {
@@ -15357,8 +15357,8 @@
    "delta_rz_espn_ppg": -1.6,
    "cbsros_ppg": {
     "standard": 5.48,
-    "half_ppr": 7.18,
-    "ppr": 8.88
+    "half_ppr": 7.23,
+    "ppr": 8.98
    },
    "prior_espn_ros": {
     "standard": 73.93,
@@ -15370,7 +15370,7 @@
     "half_ppr": 125.31,
     "ppr": 152.86
    },
-   "delta_rz_espn_ppg_demeaned": -1.82,
+   "delta_rz_espn_ppg_demeaned": -1.83,
    "preseason_ecr_rank": 17
   },
   {
@@ -15454,9 +15454,9 @@
    "delta_rz_espn": -16.02,
    "delta_rz_espn_ppg": -1.46,
    "cbsros_ppg": {
-    "standard": 3.518,
-    "half_ppr": 5.155,
-    "ppr": 6.791
+    "standard": 3.48,
+    "half_ppr": 5.03,
+    "ppr": 6.58
    },
    "prior_espn_ros": {
     "standard": 44.8,
@@ -15468,7 +15468,7 @@
     "half_ppr": 60.85,
     "ppr": 76.9
    },
-   "delta_rz_espn_ppg_demeaned": -1.68,
+   "delta_rz_espn_ppg_demeaned": -1.69,
    "preseason_ecr_rank": 38
   },
   {
@@ -15552,9 +15552,9 @@
    "delta_rz_espn": -18.22,
    "delta_rz_espn_ppg": -1.66,
    "cbsros_ppg": {
-    "standard": 6.6,
-    "half_ppr": 7.2,
-    "ppr": 7.8
+    "standard": 7.37,
+    "half_ppr": 8.17,
+    "ppr": 8.97
    },
    "prior_espn_ros": {
     "standard": 78.34,
@@ -15652,8 +15652,8 @@
    "delta_rz_espn_ppg": 0.33,
    "cbsros_ppg": {
     "standard": 5.96,
-    "half_ppr": 7.11,
-    "ppr": 8.26
+    "half_ppr": 7.21,
+    "ppr": 8.46
    },
    "prior_espn_ros": {
     "standard": 80.57,
@@ -15749,9 +15749,9 @@
    "delta_rz_espn": -27.8,
    "delta_rz_espn_ppg": -2.53,
    "cbsros_ppg": {
-    "standard": 3.89,
-    "half_ppr": 4.69,
-    "ppr": 5.49
+    "standard": 3.69,
+    "half_ppr": 4.49,
+    "ppr": 5.29
    },
    "prior_espn_ros": {
     "standard": 54.16,
@@ -15763,7 +15763,7 @@
     "half_ppr": 73.25,
     "ppr": 90.75
    },
-   "delta_rz_espn_ppg_demeaned": -2.16,
+   "delta_rz_espn_ppg_demeaned": -2.15,
    "preseason_ecr_rank": 110
   },
   {
@@ -15821,11 +15821,11 @@
     "half_ppr": 6.364545,
     "ppr": 7.719091
    },
-   "rz_held": "razzball standard 3.8 ppg is 51% of the ESPN/CBS mean 7.4 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 3.8 ppg is 52% of the ESPN/CBS mean 7.3 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 7.98,
-    "half_ppr": 9.48,
-    "ppr": 10.98
+    "standard": 7.78,
+    "half_ppr": 9.23,
+    "ppr": 10.68
    },
    "prior_espn_ros": {
     "standard": 74.22,
@@ -15920,9 +15920,9 @@
    "delta_rz_espn": -10.93,
    "delta_rz_espn_ppg": -0.99,
    "cbsros_ppg": {
-    "standard": 4.409,
-    "half_ppr": 5.182,
-    "ppr": 5.955
+    "standard": 3.87,
+    "half_ppr": 4.72,
+    "ppr": 5.57
    },
    "prior_espn_ros": {
     "standard": 78.71,
@@ -16019,9 +16019,9 @@
    "delta_rz_espn": -29.54,
    "delta_rz_espn_ppg": -2.69,
    "cbsros_ppg": {
-    "standard": 3.564,
-    "half_ppr": 4.836,
-    "ppr": 6.109
+    "standard": 3.88,
+    "half_ppr": 5.23,
+    "ppr": 6.58
    },
    "prior_espn_ros": {
     "standard": 32.91,
@@ -16033,7 +16033,7 @@
     "half_ppr": 72.36,
     "ppr": 88.66
    },
-   "delta_rz_espn_ppg_demeaned": -2.91,
+   "delta_rz_espn_ppg_demeaned": -2.92,
    "preseason_ecr_rank": 32
   },
   {
@@ -16117,9 +16117,9 @@
    "delta_rz_espn": 0.33,
    "delta_rz_espn_ppg": 0.03,
    "cbsros_ppg": {
-    "standard": 3.791,
-    "half_ppr": 5.018,
-    "ppr": 6.245
+    "standard": 3.99,
+    "half_ppr": 5.29,
+    "ppr": 6.59
    },
    "prior_espn_ros": {
     "standard": 71.21,
@@ -16131,7 +16131,7 @@
     "half_ppr": 88.85,
     "ppr": 109.85
    },
-   "delta_rz_espn_ppg_demeaned": -0.19,
+   "delta_rz_espn_ppg_demeaned": -0.2,
    "preseason_ecr_rank": 23
   },
   {
@@ -16215,9 +16215,9 @@
    "delta_rz_espn": 17.02,
    "delta_rz_espn_ppg": 1.42,
    "cbsros_ppg": {
-    "standard": 6.055,
-    "half_ppr": 7.6,
-    "ppr": 9.145
+    "standard": 6.3,
+    "half_ppr": 7.755,
+    "ppr": 9.209
    },
    "prior_espn_ros": {
     "standard": 63.97,
@@ -16229,7 +16229,7 @@
     "half_ppr": 71.97,
     "ppr": 90.92
    },
-   "delta_rz_espn_ppg_demeaned": 1.2,
+   "delta_rz_espn_ppg_demeaned": 1.19,
    "preseason_ecr_rank": 36
   },
   {
@@ -16448,9 +16448,9 @@
    "delta_rz_espn": -15.49,
    "delta_rz_espn_ppg": -1.41,
    "cbsros_ppg": {
-    "standard": 2.98,
-    "half_ppr": 4.03,
-    "ppr": 5.08
+    "standard": 3.48,
+    "half_ppr": 4.48,
+    "ppr": 5.48
    },
    "prior_espn_ros": {
     "standard": 35.45,
@@ -16462,7 +16462,7 @@
     "half_ppr": 60.7,
     "ppr": 76.2
    },
-   "delta_rz_espn_ppg_demeaned": -1.63,
+   "delta_rz_espn_ppg_demeaned": -1.64,
    "preseason_ecr_rank": 41
   },
   {
@@ -16552,7 +16552,7 @@
     "half_ppr": 21.13,
     "ppr": 25.33
    },
-   "delta_rz_espn_ppg_demeaned": -0.34,
+   "delta_rz_espn_ppg_demeaned": -0.33,
    "preseason_ecr_rank": 135
   },
   {
@@ -16636,9 +16636,9 @@
    "delta_rz_espn": 6.96,
    "delta_rz_espn_ppg": 0.63,
    "cbsros_ppg": {
-    "standard": 4.87,
-    "half_ppr": 5.47,
-    "ppr": 6.07
+    "standard": 5.47,
+    "half_ppr": 6.07,
+    "ppr": 6.67
    },
    "prior_espn_ros": {
     "standard": 117.18,
@@ -16735,9 +16735,9 @@
    "delta_rz_espn": 4.91,
    "delta_rz_espn_ppg": 0.45,
    "cbsros_ppg": {
-    "standard": 5.59,
-    "half_ppr": 7.04,
-    "ppr": 8.49
+    "standard": 6.89,
+    "half_ppr": 8.64,
+    "ppr": 10.39
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -16745,7 +16745,7 @@
     "half_ppr": 84.56,
     "ppr": 104.31
    },
-   "delta_rz_espn_ppg_demeaned": 0.82,
+   "delta_rz_espn_ppg_demeaned": 0.83,
    "preseason_ecr_rank": 70
   },
   {
@@ -16829,9 +16829,9 @@
    "delta_rz_espn": 1.84,
    "delta_rz_espn_ppg": 0.17,
    "cbsros_ppg": {
-    "standard": 5.58,
-    "half_ppr": 6.78,
-    "ppr": 7.98
+    "standard": 5.38,
+    "half_ppr": 6.58,
+    "ppr": 7.78
    },
    "prior_espn_ros": {
     "standard": 69.53,
@@ -16843,7 +16843,7 @@
     "half_ppr": 155.23,
     "ppr": 187.43
    },
-   "delta_rz_espn_ppg_demeaned": 0.54,
+   "delta_rz_espn_ppg_demeaned": 0.55,
    "preseason_ecr_rank": 31
   },
   {
@@ -16927,9 +16927,9 @@
    "delta_rz_espn": 7.97,
    "delta_rz_espn_ppg": 0.66,
    "cbsros_ppg": {
-    "standard": 4.309,
-    "half_ppr": 4.855,
-    "ppr": 5.4
+    "standard": 4.755,
+    "half_ppr": 5.255,
+    "ppr": 5.755
    },
    "prior_espn_ros": {
     "standard": 54.2,
@@ -17025,9 +17025,9 @@
    "delta_rz_espn": 0.92,
    "delta_rz_espn_ppg": 0.08,
    "cbsros_ppg": {
-    "standard": 5.51,
-    "half_ppr": 6.66,
-    "ppr": 7.81
+    "standard": 5.06,
+    "half_ppr": 6.21,
+    "ppr": 7.36
    },
    "prior_espn_ros": {
     "standard": 29.91,
@@ -17039,7 +17039,7 @@
     "half_ppr": 87.45,
     "ppr": 108.75
    },
-   "delta_rz_espn_ppg_demeaned": 0.45,
+   "delta_rz_espn_ppg_demeaned": 0.46,
    "preseason_ecr_rank": 78
   },
   {
@@ -17070,13 +17070,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 53.44,
     "half_ppr": 65.74,
@@ -17123,11 +17119,6 @@
    },
    "delta_rz_espn": -9.84,
    "delta_rz_espn_ppg": -0.89,
-   "cbsros_ppg": {
-    "standard": 4.48,
-    "half_ppr": 5.93,
-    "ppr": 7.38
-   },
    "prior_espn_ros": {
     "standard": 102.11,
     "half_ppr": 125.16,
@@ -17138,7 +17129,7 @@
     "half_ppr": 71.8,
     "ppr": 87.2
    },
-   "delta_rz_espn_ppg_demeaned": -0.52,
+   "delta_rz_espn_ppg_demeaned": -0.51,
    "preseason_ecr_rank": 61
   },
   {
@@ -17195,11 +17186,11 @@
     "half_ppr": 5.697273,
     "ppr": 7.006364
    },
-   "rz_held": "razzball standard 0.4 ppg is 11% of the ESPN/CBS mean 3.6 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 0.4 ppg is 8% of the ESPN/CBS mean 5.0 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 2.76,
-    "half_ppr": 3.61,
-    "ppr": 4.46
+    "standard": 5.56,
+    "half_ppr": 6.71,
+    "ppr": 7.86
    },
    "prior_espn_ros": {
     "standard": 74.52,
@@ -17294,9 +17285,9 @@
    "delta_rz_espn": 12.56,
    "delta_rz_espn_ppg": 1.14,
    "cbsros_ppg": {
-    "standard": 5.0,
-    "half_ppr": 6.818,
-    "ppr": 8.636
+    "standard": 4.18,
+    "half_ppr": 5.93,
+    "ppr": 7.68
    },
    "prior_espn_ros": {
     "standard": 12.6,
@@ -17308,7 +17299,7 @@
     "half_ppr": 50.51,
     "ppr": 61.51
    },
-   "delta_rz_espn_ppg_demeaned": 0.92,
+   "delta_rz_espn_ppg_demeaned": 0.91,
    "preseason_ecr_rank": 46
   },
   {
@@ -17393,9 +17384,9 @@
    "delta_rz_espn": 6.62,
    "delta_rz_espn_ppg": 0.6,
    "cbsros_ppg": {
-    "standard": 5.86,
-    "half_ppr": 6.71,
-    "ppr": 7.56
+    "standard": 6.06,
+    "half_ppr": 7.01,
+    "ppr": 7.96
    },
    "prior_espn_ros": {
     "standard": 104.11,
@@ -17491,9 +17482,9 @@
    "delta_rz_espn": -12.82,
    "delta_rz_espn_ppg": -1.17,
    "cbsros_ppg": {
-    "standard": 5.88,
-    "half_ppr": 7.18,
-    "ppr": 8.48
+    "standard": 4.98,
+    "half_ppr": 6.18,
+    "ppr": 7.38
    },
    "prior_espn_ros": {
     "standard": 75.33,
@@ -17505,7 +17496,7 @@
     "half_ppr": 105.27,
     "ppr": 123.87
    },
-   "delta_rz_espn_ppg_demeaned": -0.8,
+   "delta_rz_espn_ppg_demeaned": -0.79,
    "preseason_ecr_rank": 75
   },
   {
@@ -17589,9 +17580,9 @@
    "delta_rz_espn": -0.94,
    "delta_rz_espn_ppg": -0.09,
    "cbsros_ppg": {
-    "standard": 4.991,
-    "half_ppr": 6.536,
-    "ppr": 8.082
+    "standard": 4.39,
+    "half_ppr": 5.89,
+    "ppr": 7.39
    },
    "prior_espn_ros": {
     "standard": 57.46,
@@ -17603,7 +17594,7 @@
     "half_ppr": 113.34,
     "ppr": 138.84
    },
-   "delta_rz_espn_ppg_demeaned": 0.28,
+   "delta_rz_espn_ppg_demeaned": 0.29,
    "preseason_ecr_rank": 83
   },
   {
@@ -17634,9 +17625,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 49.91,
     "half_ppr": 61.71,
@@ -17682,6 +17677,11 @@
    },
    "delta_rz_espn": -11.11,
    "delta_rz_espn_ppg": -0.93,
+   "cbsros_ppg": {
+    "standard": 4.355,
+    "half_ppr": 5.491,
+    "ppr": 6.627
+   },
    "prior_espn_ros": {
     "standard": 37.54,
     "half_ppr": 48.84,
@@ -17692,7 +17692,7 @@
     "half_ppr": 54.13,
     "ppr": 67.68
    },
-   "delta_rz_espn_ppg_demeaned": -0.56,
+   "delta_rz_espn_ppg_demeaned": -0.55,
    "preseason_ecr_rank": 130
   },
   {
@@ -17776,9 +17776,9 @@
    "delta_rz_espn": -4.14,
    "delta_rz_espn_ppg": -0.34,
    "cbsros_ppg": {
-    "standard": 4.318,
-    "half_ppr": 6.136,
-    "ppr": 7.955
+    "standard": 5.964,
+    "half_ppr": 8.055,
+    "ppr": 10.145
    },
    "prior_espn_ros": {
     "standard": 54.56,
@@ -17790,7 +17790,7 @@
     "half_ppr": 109.55,
     "ppr": 136.75
    },
-   "delta_rz_espn_ppg_demeaned": -0.56,
+   "delta_rz_espn_ppg_demeaned": -0.57,
    "preseason_ecr_rank": 31
   },
   {
@@ -17874,9 +17874,9 @@
    "delta_rz_espn": 19.62,
    "delta_rz_espn_ppg": 1.63,
    "cbsros_ppg": {
-    "standard": 4.336,
-    "half_ppr": 5.564,
-    "ppr": 6.791
+    "standard": 4.091,
+    "half_ppr": 5.227,
+    "ppr": 6.364
    },
    "prior_espn_ros": {
     "standard": 52.34,
@@ -17888,7 +17888,7 @@
     "half_ppr": 90.66,
     "ppr": 111.31
    },
-   "delta_rz_espn_ppg_demeaned": 1.41,
+   "delta_rz_espn_ppg_demeaned": 1.4,
    "preseason_ecr_rank": 37
   },
   {
@@ -17972,9 +17972,9 @@
    "delta_rz_espn": -9.53,
    "delta_rz_espn_ppg": -0.87,
    "cbsros_ppg": {
-    "standard": 7.527,
-    "half_ppr": 9.164,
-    "ppr": 10.8
+    "standard": 6.382,
+    "half_ppr": 7.791,
+    "ppr": 9.2
    },
    "prior_espn_ros": {
     "standard": 58.38,
@@ -17986,7 +17986,7 @@
     "half_ppr": 51.88,
     "ppr": 62.03
    },
-   "delta_rz_espn_ppg_demeaned": -0.5,
+   "delta_rz_espn_ppg_demeaned": -0.49,
    "preseason_ecr_rank": 89
   },
   {
@@ -18071,9 +18071,9 @@
    "delta_rz_espn": -0.64,
    "delta_rz_espn_ppg": -0.06,
    "cbsros_ppg": {
-    "standard": 5.091,
-    "half_ppr": 6.364,
-    "ppr": 7.636
+    "standard": 5.191,
+    "half_ppr": 6.464,
+    "ppr": 7.736
    },
    "prior_espn_ros": {
     "standard": 84.9,
@@ -18085,7 +18085,7 @@
     "half_ppr": 141.55,
     "ppr": 168.4
    },
-   "delta_rz_espn_ppg_demeaned": 0.31,
+   "delta_rz_espn_ppg_demeaned": 0.32,
    "preseason_ecr_rank": 35
   },
   {
@@ -18169,9 +18169,9 @@
    "delta_rz_espn": -21.59,
    "delta_rz_espn_ppg": -1.8,
    "cbsros_ppg": {
-    "standard": 2.3,
-    "half_ppr": 2.633,
-    "ppr": 2.967
+    "standard": 2.218,
+    "half_ppr": 2.582,
+    "ppr": 2.945
    },
    "prior_espn_ros": {
     "standard": 57.22,
@@ -18268,9 +18268,9 @@
    "delta_rz_espn": -21.37,
    "delta_rz_espn_ppg": -1.78,
    "cbsros_ppg": {
-    "standard": 3.382,
-    "half_ppr": 4.473,
-    "ppr": 5.564
+    "standard": 4.127,
+    "half_ppr": 5.309,
+    "ppr": 6.491
    },
    "prior_espn_ros": {
     "standard": 61.57,
@@ -18282,7 +18282,7 @@
     "half_ppr": 86.25,
     "ppr": 106.05
    },
-   "delta_rz_espn_ppg_demeaned": -1.41,
+   "delta_rz_espn_ppg_demeaned": -1.4,
    "preseason_ecr_rank": 76
   },
   {
@@ -18339,11 +18339,11 @@
     "half_ppr": 6.296364,
     "ppr": 6.296364
    },
-   "rz_held": "razzball standard 7.2 ppg is 42% of the ESPN/CBS mean 17.0 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 7.2 ppg is 44% of the ESPN/CBS mean 16.5 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 16.609,
-    "half_ppr": 16.609,
-    "ppr": 16.609
+    "standard": 15.78,
+    "half_ppr": 15.78,
+    "ppr": 15.78
    },
    "prior_espn_ros": {
     "standard": 96.06,
@@ -18439,9 +18439,9 @@
    "delta_rz_espn": -20.25,
    "delta_rz_espn_ppg": -1.84,
    "cbsros_ppg": {
-    "standard": 4.26,
-    "half_ppr": 5.31,
-    "ppr": 6.36
+    "standard": 5.06,
+    "half_ppr": 6.16,
+    "ppr": 7.26
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -18533,9 +18533,9 @@
    "delta_rz_espn": -3.41,
    "delta_rz_espn_ppg": -0.31,
    "cbsros_ppg": {
-    "standard": 3.96,
-    "half_ppr": 5.31,
-    "ppr": 6.66
+    "standard": 4.06,
+    "half_ppr": 5.41,
+    "ppr": 6.76
    },
    "prior_espn_ros": {
     "standard": 82.3,
@@ -18645,7 +18645,7 @@
     "half_ppr": 127.86,
     "ppr": 153.91
    },
-   "delta_rz_espn_ppg_demeaned": 2.8,
+   "delta_rz_espn_ppg_demeaned": 2.81,
    "preseason_ecr_rank": 46
   },
   {
@@ -18729,8 +18729,8 @@
    "delta_rz_espn": 1.54,
    "delta_rz_espn_ppg": 0.14,
    "cbsros_ppg": {
-    "standard": 3.49,
-    "half_ppr": 4.69,
+    "standard": 3.39,
+    "half_ppr": 4.64,
     "ppr": 5.89
    },
    "prior_espn_ros": {
@@ -18743,7 +18743,7 @@
     "half_ppr": 117.8,
     "ppr": 145.9
    },
-   "delta_rz_espn_ppg_demeaned": 0.51,
+   "delta_rz_espn_ppg_demeaned": 0.52,
    "preseason_ecr_rank": 67
   },
   {
@@ -18800,11 +18800,11 @@
     "half_ppr": 4.545,
     "ppr": 5.628333
    },
-   "rz_held": "razzball standard 0.7 ppg is 18% of the ESPN/CBS mean 3.9 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 0.7 ppg is 18% of the ESPN/CBS mean 3.8 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 4.318,
-    "half_ppr": 5.909,
-    "ppr": 7.5
+    "standard": 4.2,
+    "half_ppr": 5.609,
+    "ppr": 7.018
    },
    "prior_espn_ros": {
     "standard": 24.01,
@@ -18899,9 +18899,9 @@
    "delta_rz_espn": -1.36,
    "delta_rz_espn_ppg": -0.12,
    "cbsros_ppg": {
-    "standard": 4.945,
-    "half_ppr": 6.491,
-    "ppr": 8.036
+    "standard": 5.045,
+    "half_ppr": 6.591,
+    "ppr": 8.136
    },
    "prior_espn_ros": {
     "standard": 69.35,
@@ -18913,7 +18913,7 @@
     "half_ppr": 77.28,
     "ppr": 94.98
    },
-   "delta_rz_espn_ppg_demeaned": 0.25,
+   "delta_rz_espn_ppg_demeaned": 0.26,
    "preseason_ecr_rank": 66
   },
   {
@@ -19109,7 +19109,7 @@
     "half_ppr": 124.53,
     "ppr": 158.78
    },
-   "delta_rz_espn_ppg_demeaned": -0.47,
+   "delta_rz_espn_ppg_demeaned": -0.48,
    "preseason_ecr_rank": 16
   },
   {
@@ -19193,9 +19193,9 @@
    "delta_rz_espn": 8.45,
    "delta_rz_espn_ppg": 0.77,
    "cbsros_ppg": {
-    "standard": 5.66,
-    "half_ppr": 5.81,
-    "ppr": 5.96
+    "standard": 5.56,
+    "half_ppr": 5.71,
+    "ppr": 5.86
    },
    "prior_espn_ros": {
     "standard": 76.26,
@@ -19296,7 +19296,7 @@
     "half_ppr": 19.49,
     "ppr": 23.74
    },
-   "delta_rz_espn_ppg_demeaned": -0.64,
+   "delta_rz_espn_ppg_demeaned": -0.63,
    "preseason_ecr_rank": 120
   },
   {
@@ -19353,11 +19353,11 @@
     "half_ppr": 4.848182,
     "ppr": 5.957273
    },
-   "rz_held": "razzball standard 2.1 ppg is 56% of the ESPN/CBS mean 3.7 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 2.1 ppg is 55% of the ESPN/CBS mean 3.8 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 3.745,
-    "half_ppr": 4.609,
-    "ppr": 5.473
+    "standard": 3.845,
+    "half_ppr": 4.709,
+    "ppr": 5.573
    },
    "prior_espn_ros": {
     "standard": 44.64,
@@ -19452,9 +19452,9 @@
    "delta_rz_espn": 6.13,
    "delta_rz_espn_ppg": 0.56,
    "cbsros_ppg": {
-    "standard": 4.96,
-    "half_ppr": 5.66,
-    "ppr": 6.36
+    "standard": 4.76,
+    "half_ppr": 5.46,
+    "ppr": 6.16
    },
    "prior_espn_ros": {
     "standard": 6.5,
@@ -19550,9 +19550,9 @@
    "delta_rz_espn": -5.51,
    "delta_rz_espn_ppg": -0.5,
    "cbsros_ppg": {
-    "standard": 4.56,
-    "half_ppr": 5.41,
-    "ppr": 6.26
+    "standard": 4.36,
+    "half_ppr": 5.21,
+    "ppr": 6.06
    },
    "prior_espn_ros": {
     "standard": 56.07,
@@ -19648,9 +19648,9 @@
    "delta_rz_espn": -19.72,
    "delta_rz_espn_ppg": -1.79,
    "cbsros_ppg": {
-    "standard": 4.364,
-    "half_ppr": 5.455,
-    "ppr": 6.545
+    "standard": 3.78,
+    "half_ppr": 4.83,
+    "ppr": 5.88
    },
    "prior_espn_ros": {
     "standard": 20.35,
@@ -19662,7 +19662,7 @@
     "half_ppr": 24.06,
     "ppr": 29.41
    },
-   "delta_rz_espn_ppg_demeaned": -1.42,
+   "delta_rz_espn_ppg_demeaned": -1.41,
    "preseason_ecr_rank": 127
   },
   {
@@ -19934,9 +19934,9 @@
    "delta_rz_espn": 0.29,
    "delta_rz_espn_ppg": 0.03,
    "cbsros_ppg": {
-    "standard": 5.264,
-    "half_ppr": 5.809,
-    "ppr": 6.355
+    "standard": 4.98,
+    "half_ppr": 5.48,
+    "ppr": 5.98
    },
    "prior_espn_ros": {
     "standard": 46.7,
@@ -20046,7 +20046,7 @@
     "half_ppr": -2.21,
     "ppr": -1.61
    },
-   "delta_rz_espn_ppg_demeaned": -1.5,
+   "delta_rz_espn_ppg_demeaned": -1.49,
    "preseason_ecr_rank": 161
   },
   {
@@ -20130,9 +20130,9 @@
    "delta_rz_espn": 9.49,
    "delta_rz_espn_ppg": 0.79,
    "cbsros_ppg": {
-    "standard": 3.264,
-    "half_ppr": 4.445,
-    "ppr": 5.627
+    "standard": 2.618,
+    "half_ppr": 3.709,
+    "ppr": 4.8
    },
    "prior_espn_ros": {
     "standard": 39.9,
@@ -20144,7 +20144,7 @@
     "half_ppr": 39.71,
     "ppr": 49.76
    },
-   "delta_rz_espn_ppg_demeaned": 0.57,
+   "delta_rz_espn_ppg_demeaned": 0.56,
    "preseason_ecr_rank": 55
   },
   {
@@ -20228,9 +20228,9 @@
    "delta_rz_espn": 9.78,
    "delta_rz_espn_ppg": 0.89,
    "cbsros_ppg": {
-    "standard": 3.97,
-    "half_ppr": 4.22,
-    "ppr": 4.47
+    "standard": 3.71,
+    "half_ppr": 3.91,
+    "ppr": 4.11
    },
    "prior_espn_ros": {
     "standard": 68.91,
@@ -20326,9 +20326,9 @@
    "delta_rz_espn": -9.91,
    "delta_rz_espn_ppg": -0.9,
    "cbsros_ppg": {
-    "standard": 3.545,
-    "half_ppr": 5.0,
-    "ppr": 6.455
+    "standard": 3.39,
+    "half_ppr": 4.79,
+    "ppr": 6.19
    },
    "prior_espn_ros": {
     "standard": 38.28,
@@ -20340,7 +20340,7 @@
     "half_ppr": 71.18,
     "ppr": 93.93
    },
-   "delta_rz_espn_ppg_demeaned": -1.12,
+   "delta_rz_espn_ppg_demeaned": -1.13,
    "preseason_ecr_rank": 29
   },
   {
@@ -20438,7 +20438,7 @@
     "half_ppr": 139.68,
     "ppr": 166.68
    },
-   "delta_rz_espn_ppg_demeaned": 2.11,
+   "delta_rz_espn_ppg_demeaned": 2.12,
    "preseason_ecr_rank": 33
   },
   {
@@ -20528,7 +20528,7 @@
     "half_ppr": 94.01,
     "ppr": 113.26
    },
-   "delta_rz_espn_ppg_demeaned": 0.64,
+   "delta_rz_espn_ppg_demeaned": 0.65,
    "preseason_ecr_rank": 64
   },
   {
@@ -20613,9 +20613,9 @@
    "delta_rz_espn": -11.21,
    "delta_rz_espn_ppg": -1.02,
    "cbsros_ppg": {
-    "standard": 4.79,
-    "half_ppr": 6.34,
-    "ppr": 7.89
+    "standard": 4.39,
+    "half_ppr": 5.84,
+    "ppr": 7.29
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -20623,7 +20623,7 @@
     "half_ppr": 78.56,
     "ppr": 92.36
    },
-   "delta_rz_espn_ppg_demeaned": -0.65,
+   "delta_rz_espn_ppg_demeaned": -0.64,
    "preseason_ecr_rank": 69
   },
   {
@@ -20712,7 +20712,7 @@
     "half_ppr": 69.88,
     "ppr": 87.98
    },
-   "delta_rz_espn_ppg_demeaned": -0.99,
+   "delta_rz_espn_ppg_demeaned": -0.98,
    "preseason_ecr_rank": 141
   },
   {
@@ -20796,9 +20796,9 @@
    "delta_rz_espn": 7.91,
    "delta_rz_espn_ppg": 0.72,
    "cbsros_ppg": {
-    "standard": 1.58,
-    "half_ppr": 2.43,
-    "ppr": 3.28
+    "standard": 2.28,
+    "half_ppr": 3.18,
+    "ppr": 4.08
    },
    "prior_espn_ros": {
     "standard": 29.62,
@@ -20810,7 +20810,7 @@
     "half_ppr": 67.77,
     "ppr": 86.77
    },
-   "delta_rz_espn_ppg_demeaned": 0.5,
+   "delta_rz_espn_ppg_demeaned": 0.49,
    "preseason_ecr_rank": 33
   },
   {
@@ -20899,7 +20899,7 @@
     "half_ppr": 29.07,
     "ppr": 35.27
    },
-   "delta_rz_espn_ppg_demeaned": 0.18,
+   "delta_rz_espn_ppg_demeaned": 0.19,
    "preseason_ecr_rank": 143
   },
   {
@@ -20984,8 +20984,8 @@
    "delta_rz_espn_ppg": 2.23,
    "cbsros_ppg": {
     "standard": 3.79,
-    "half_ppr": 5.34,
-    "ppr": 6.89
+    "half_ppr": 5.29,
+    "ppr": 6.79
    },
    "prior_espn_ros": {
     "standard": 59.47,
@@ -20997,7 +20997,7 @@
     "half_ppr": 31.33,
     "ppr": 37.73
    },
-   "delta_rz_espn_ppg_demeaned": 2.6,
+   "delta_rz_espn_ppg_demeaned": 2.61,
    "preseason_ecr_rank": 128
   },
   {
@@ -21082,9 +21082,9 @@
    "delta_rz_espn": 12.93,
    "delta_rz_espn_ppg": 1.08,
    "cbsros_ppg": {
-    "standard": 2.9,
-    "half_ppr": 3.036,
-    "ppr": 3.173
+    "standard": 2.8,
+    "half_ppr": 2.936,
+    "ppr": 3.073
    },
    "prior_espn_ros": {
     "standard": 92.8,
@@ -21245,7 +21245,7 @@
     "half_ppr": 70.72,
     "ppr": 87.17
    },
-   "delta_rz_espn_ppg_demeaned": -1.07,
+   "delta_rz_espn_ppg_demeaned": -1.06,
    "preseason_ecr_rank": 99
   },
   {
@@ -21329,9 +21329,9 @@
    "delta_rz_espn": -5.29,
    "delta_rz_espn_ppg": -0.48,
    "cbsros_ppg": {
-    "standard": 4.69,
-    "half_ppr": 6.09,
-    "ppr": 7.49
+    "standard": 2.89,
+    "half_ppr": 4.04,
+    "ppr": 5.19
    },
    "prior_espn_ros": {
     "standard": 74.81,
@@ -21343,7 +21343,7 @@
     "half_ppr": 95.51,
     "ppr": 120.01
    },
-   "delta_rz_espn_ppg_demeaned": -0.7,
+   "delta_rz_espn_ppg_demeaned": -0.71,
    "preseason_ecr_rank": 24
   },
   {
@@ -21437,9 +21437,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 38.29,
     "half_ppr": 46.59,
@@ -21485,6 +21489,11 @@
    },
    "delta_rz_espn": -8.69,
    "delta_rz_espn_ppg": -0.79,
+   "cbsros_ppg": {
+    "standard": 3.16,
+    "half_ppr": 3.81,
+    "ppr": 4.46
+   },
    "prior_espn_ros": {
     "standard": 20.14,
     "half_ppr": 24.94,
@@ -21495,7 +21504,7 @@
     "half_ppr": 26.08,
     "ppr": 31.18
    },
-   "delta_rz_espn_ppg_demeaned": -0.42,
+   "delta_rz_espn_ppg_demeaned": -0.41,
    "preseason_ecr_rank": 115
   },
   {
@@ -21593,7 +21602,7 @@
     "half_ppr": 23.87,
     "ppr": 30.97
    },
-   "delta_rz_espn_ppg_demeaned": -1.29,
+   "delta_rz_espn_ppg_demeaned": -1.3,
    "preseason_ecr_rank": 48
   },
   {
@@ -21749,7 +21758,7 @@
     "half_ppr": 3.76,
     "ppr": 4.66
    },
-   "delta_rz_espn_ppg_demeaned": -0.11,
+   "delta_rz_espn_ppg_demeaned": -0.1,
    "preseason_ecr_rank": 173
   },
   {
@@ -21848,7 +21857,7 @@
     "half_ppr": 41.86,
     "ppr": 51.46
    },
-   "delta_rz_espn_ppg_demeaned": -1.09,
+   "delta_rz_espn_ppg_demeaned": -1.1,
    "preseason_ecr_rank": 40
   },
   {
@@ -21932,9 +21941,9 @@
    "delta_rz_espn": -13.5,
    "delta_rz_espn_ppg": -1.12,
    "cbsros_ppg": {
-    "standard": 1.117,
-    "half_ppr": 1.2,
-    "ppr": 1.283
+    "standard": 1.136,
+    "half_ppr": 1.227,
+    "ppr": 1.318
    },
    "prior_espn_ros": {
     "standard": 51.1,
@@ -21973,13 +21982,9 @@
    "rz_complete": false,
    "rz_comp_count": 0,
    "rz_covered": [],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 37.3,
     "half_ppr": 44.95,
@@ -22003,12 +22008,7 @@
     "half_ppr": 4.086364,
     "ppr": 4.781818
    },
-   "rz_held": "razzball standard 1.6 ppg is 49% of the ESPN/CBS mean 3.3 (< 60%): likely an expected-missed-games discount",
-   "cbsros_ppg": {
-    "standard": 3.16,
-    "half_ppr": 4.16,
-    "ppr": 5.16
-   },
+   "rz_held": "razzball standard 1.6 ppg is 47% of the ESPN/CBS mean 3.4 (< 60%): likely an expected-missed-games discount",
    "prior_espn_ros": {
     "standard": 53.66,
     "half_ppr": 67.31,
@@ -22102,9 +22102,9 @@
    "delta_rz_espn": 4.7,
    "delta_rz_espn_ppg": 0.39,
    "cbsros_ppg": {
-    "standard": 1.475,
-    "half_ppr": 2.017,
-    "ppr": 2.558
+    "standard": 1.573,
+    "half_ppr": 2.164,
+    "ppr": 2.755
    },
    "prior_espn_ros": {
     "standard": 25.33,
@@ -22116,7 +22116,7 @@
     "half_ppr": 37.45,
     "ppr": 46.85
    },
-   "delta_rz_espn_ppg_demeaned": 0.17,
+   "delta_rz_espn_ppg_demeaned": 0.16,
    "preseason_ecr_rank": 49
   },
   {
@@ -22200,9 +22200,9 @@
    "delta_rz_espn": 4.78,
    "delta_rz_espn_ppg": 0.43,
    "cbsros_ppg": {
-    "standard": 2.818,
-    "half_ppr": 3.773,
-    "ppr": 4.727
+    "standard": 2.28,
+    "half_ppr": 3.28,
+    "ppr": 4.28
    },
    "prior_espn_ros": {
     "standard": 12.39,
@@ -22214,7 +22214,7 @@
     "half_ppr": 32.27,
     "ppr": 41.77
    },
-   "delta_rz_espn_ppg_demeaned": 0.21,
+   "delta_rz_espn_ppg_demeaned": 0.2,
    "preseason_ecr_rank": 60
   },
   {
@@ -22301,13 +22301,9 @@
     "rushing_tds",
     "rushing_yards"
    ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
    "cbsros_complete": true,
    "cbsros_comp_count": 3,
    "cbsros_covered": [
@@ -22338,32 +22334,11 @@
     "half_ppr": 3.586364,
     "ppr": 4.209091
    },
-   "rz_ppg": {
-    "standard": 2.0,
-    "half_ppr": 2.5,
-    "ppr": 3.1
-   },
-   "rz_ros": {
-    "standard": 22.0,
-    "half_ppr": 27.5,
-    "ppr": 34.1
-   },
-   "rz_filled_ppg": {
-    "standard": 2.0,
-    "half_ppr": 2.5,
-    "ppr": 3.1
-   },
-   "rz_filled_ros": {
-    "standard": 22.0,
-    "half_ppr": 27.5,
-    "ppr": 34.1
-   },
-   "delta_rz_espn": -12.2,
-   "delta_rz_espn_ppg": -1.11,
+   "rz_held": "razzball standard 2.0 ppg is 58% of the ESPN/CBS mean 3.4 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 3.68,
-    "half_ppr": 4.53,
-    "ppr": 5.38
+    "standard": 3.88,
+    "half_ppr": 4.78,
+    "ppr": 5.68
    },
    "prior_espn_ros": {
     "standard": 58.79,
@@ -22375,7 +22350,6 @@
     "half_ppr": 67.2,
     "ppr": 82.35
    },
-   "delta_rz_espn_ppg_demeaned": -0.74,
    "preseason_ecr_rank": 94
   },
   {
@@ -22473,7 +22447,7 @@
     "half_ppr": 7.22,
     "ppr": 8.87
    },
-   "delta_rz_espn_ppg_demeaned": 5.29,
+   "delta_rz_espn_ppg_demeaned": 5.3,
    "preseason_ecr_rank": 163
   },
   {
@@ -22558,9 +22532,9 @@
    "delta_rz_espn": 6.67,
    "delta_rz_espn_ppg": 0.61,
    "cbsros_ppg": {
-    "standard": 1.88,
-    "half_ppr": 2.93,
-    "ppr": 3.98
+    "standard": 1.98,
+    "half_ppr": 3.08,
+    "ppr": 4.18
    },
    "prior_espn_ros": {
     "standard": 56.32,
@@ -22572,7 +22546,7 @@
     "half_ppr": 67.55,
     "ppr": 85.85
    },
-   "delta_rz_espn_ppg_demeaned": 0.39,
+   "delta_rz_espn_ppg_demeaned": 0.38,
    "preseason_ecr_rank": 27
   },
   {
@@ -22603,13 +22577,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 28.76,
     "half_ppr": 36.06,
@@ -22655,11 +22625,6 @@
    },
    "delta_rz_espn": -8.16,
    "delta_rz_espn_ppg": -0.74,
-   "cbsros_ppg": {
-    "standard": 2.945,
-    "half_ppr": 3.9,
-    "ppr": 4.855
-   },
    "prior_espn_ros": {
     "standard": 29.67,
     "half_ppr": 36.37,
@@ -22670,7 +22635,7 @@
     "half_ppr": 79.54,
     "ppr": 97.79
    },
-   "delta_rz_espn_ppg_demeaned": -0.37,
+   "delta_rz_espn_ppg_demeaned": -0.36,
    "preseason_ecr_rank": 90
   },
   {
@@ -22755,8 +22720,8 @@
    "delta_rz_espn_ppg": -0.1,
    "cbsros_ppg": {
     "standard": 3.345,
-    "half_ppr": 4.482,
-    "ppr": 5.618
+    "half_ppr": 4.527,
+    "ppr": 5.709
    },
    "prior_espn_ros": {
     "standard": 53.98,
@@ -22768,7 +22733,7 @@
     "half_ppr": 83.18,
     "ppr": 102.58
    },
-   "delta_rz_espn_ppg_demeaned": -0.32,
+   "delta_rz_espn_ppg_demeaned": -0.33,
    "preseason_ecr_rank": 26
   },
   {
@@ -22864,9 +22829,13 @@
    "rz_complete": false,
    "rz_comp_count": 0,
    "rz_covered": [],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 27.91,
     "half_ppr": 34.81,
@@ -22890,7 +22859,12 @@
     "half_ppr": 3.164545,
     "ppr": 3.791818
    },
-   "rz_held": "razzball half_ppr 0.4 ppg is 13% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 0.3 ppg is 10% of the ESPN/CBS mean 3.1 (< 60%): likely an expected-missed-games discount",
+   "cbsros_ppg": {
+    "standard": 3.57,
+    "half_ppr": 3.87,
+    "ppr": 4.17
+   },
    "prior_espn_ros": null,
    "prior_blend_ros": {
     "standard": 12.95,
@@ -22980,9 +22954,9 @@
    "delta_rz_espn": 11.58,
    "delta_rz_espn_ppg": 1.05,
    "cbsros_ppg": {
-    "standard": 2.38,
-    "half_ppr": 3.23,
-    "ppr": 4.08
+    "standard": 2.88,
+    "half_ppr": 3.73,
+    "ppr": 4.58
    },
    "prior_espn_ros": {
     "standard": 23.93,
@@ -22994,7 +22968,7 @@
     "half_ppr": 26.06,
     "ppr": 31.56
    },
-   "delta_rz_espn_ppg_demeaned": 0.83,
+   "delta_rz_espn_ppg_demeaned": 0.82,
    "preseason_ecr_rank": 72
   },
   {
@@ -23079,7 +23053,7 @@
     "half_ppr": 53.84,
     "ppr": 65.04
    },
-   "delta_rz_espn_ppg_demeaned": 0.05,
+   "delta_rz_espn_ppg_demeaned": 0.06,
    "preseason_ecr_rank": 132
   },
   {
@@ -23168,7 +23142,7 @@
     "half_ppr": 65.24,
     "ppr": 80.94
    },
-   "delta_rz_espn_ppg_demeaned": 1.28,
+   "delta_rz_espn_ppg_demeaned": 1.29,
    "preseason_ecr_rank": 81
   },
   {
@@ -23254,7 +23228,7 @@
     "half_ppr": 15.39,
     "ppr": 18.79
    },
-   "delta_rz_espn_ppg_demeaned": 0.3,
+   "delta_rz_espn_ppg_demeaned": 0.31,
    "preseason_ecr_rank": 251
   },
   {
@@ -23281,9 +23255,13 @@
    "rz_complete": false,
    "rz_comp_count": 0,
    "rz_covered": [],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 26.73,
     "half_ppr": 32.33,
@@ -23307,7 +23285,12 @@
     "half_ppr": 2.939091,
     "ppr": 3.448182
    },
-   "rz_held": "razzball ppr 1.9 ppg is 55% of the ESPN/CBS mean 3.4 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball half_ppr 1.6 ppg is 44% of the ESPN/CBS mean 3.6 (< 60%): likely an expected-missed-games discount",
+   "cbsros_ppg": {
+    "standard": 3.12,
+    "half_ppr": 4.32,
+    "ppr": 5.52
+   },
    "prior_espn_ros": {
     "standard": 67.73,
     "half_ppr": 84.73,
@@ -23513,7 +23496,7 @@
     "half_ppr": 67.84,
     "ppr": 82.94
    },
-   "delta_rz_espn_ppg_demeaned": -0.21,
+   "delta_rz_espn_ppg_demeaned": -0.22,
    "preseason_ecr_rank": 45
   },
   {
@@ -23602,7 +23585,7 @@
     "half_ppr": 121.07,
     "ppr": 144.52
    },
-   "delta_rz_espn_ppg_demeaned": 1.7,
+   "delta_rz_espn_ppg_demeaned": 1.71,
    "preseason_ecr_rank": 73
   },
   {
@@ -23686,9 +23669,9 @@
    "delta_rz_espn": -3.55,
    "delta_rz_espn_ppg": -0.32,
    "cbsros_ppg": {
-    "standard": 0.991,
-    "half_ppr": 1.4,
-    "ppr": 1.809
+    "standard": 1.082,
+    "half_ppr": 1.491,
+    "ppr": 1.9
    },
    "prior_espn_ros": {
     "standard": 15.21,
@@ -23700,7 +23683,7 @@
     "half_ppr": 10.56,
     "ppr": 12.76
    },
-   "delta_rz_espn_ppg_demeaned": -0.54,
+   "delta_rz_espn_ppg_demeaned": -0.55,
    "preseason_ecr_rank": 89
   },
   {
@@ -24019,13 +24002,13 @@
    "delta_rz_espn": -5.41,
    "delta_rz_espn_ppg": -0.49,
    "cbsros_ppg": {
-    "standard": 3.08,
-    "half_ppr": 4.08,
-    "ppr": 5.08
+    "standard": 2.98,
+    "half_ppr": 3.93,
+    "ppr": 4.88
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -0.71,
+   "delta_rz_espn_ppg_demeaned": -0.72,
    "preseason_ecr_rank": null
   },
   {
@@ -24104,9 +24087,9 @@
    "delta_rz_espn": 3.67,
    "delta_rz_espn_ppg": 0.33,
    "cbsros_ppg": {
-    "standard": 2.29,
-    "half_ppr": 2.99,
-    "ppr": 3.69
+    "standard": 2.79,
+    "half_ppr": 3.59,
+    "ppr": 4.39
    },
    "prior_espn_ros": {
     "standard": 21.09,
@@ -24292,9 +24275,9 @@
    "delta_rz_espn": 14.18,
    "delta_rz_espn_ppg": 1.29,
    "cbsros_ppg": {
-    "standard": 0.62,
-    "half_ppr": 0.72,
-    "ppr": 0.82
+    "standard": 0.59,
+    "half_ppr": 0.64,
+    "ppr": 0.69
    },
    "prior_espn_ros": {
     "standard": 30.5,
@@ -24364,9 +24347,9 @@
     "ppr": 2.999091
    },
    "cbsros_ppg": {
-    "standard": 1.38,
-    "half_ppr": 1.83,
-    "ppr": 2.28
+    "standard": 1.48,
+    "half_ppr": 1.98,
+    "ppr": 2.48
    },
    "prior_espn_ros": {
     "standard": 24.44,
@@ -24466,7 +24449,7 @@
     "half_ppr": 32.96,
     "ppr": 40.11
    },
-   "delta_rz_espn_ppg_demeaned": -0.92,
+   "delta_rz_espn_ppg_demeaned": -0.91,
    "preseason_ecr_rank": 140
   },
   {
@@ -24564,7 +24547,7 @@
     "half_ppr": 29.53,
     "ppr": 36.48
    },
-   "delta_rz_espn_ppg_demeaned": -0.56,
+   "delta_rz_espn_ppg_demeaned": -0.57,
    "preseason_ecr_rank": 66
   },
   {
@@ -24653,7 +24636,7 @@
     "half_ppr": 53.92,
     "ppr": 67.67
    },
-   "delta_rz_espn_ppg_demeaned": 1.23,
+   "delta_rz_espn_ppg_demeaned": 1.24,
    "preseason_ecr_rank": 116
   },
   {
@@ -24742,7 +24725,7 @@
     "half_ppr": 110.92,
     "ppr": 133.82
    },
-   "delta_rz_espn_ppg_demeaned": 2.24,
+   "delta_rz_espn_ppg_demeaned": 2.25,
    "preseason_ecr_rank": 60
   },
   {
@@ -24827,9 +24810,9 @@
    "delta_rz_espn": 14.83,
    "delta_rz_espn_ppg": 1.35,
    "cbsros_ppg": {
-    "standard": 3.78,
-    "half_ppr": 5.13,
-    "ppr": 6.48
+    "standard": 3.58,
+    "half_ppr": 4.88,
+    "ppr": 6.18
    },
    "prior_espn_ros": {
     "standard": 33.76,
@@ -24841,7 +24824,7 @@
     "half_ppr": 36.27,
     "ppr": 47.62
    },
-   "delta_rz_espn_ppg_demeaned": 1.13,
+   "delta_rz_espn_ppg_demeaned": 1.12,
    "preseason_ecr_rank": 52
   },
   {
@@ -25002,7 +24985,7 @@
     "half_ppr": 25.16,
     "ppr": 31.81
    },
-   "delta_rz_espn_ppg_demeaned": -0.37,
+   "delta_rz_espn_ppg_demeaned": -0.38,
    "preseason_ecr_rank": 82
   },
   {
@@ -25100,7 +25083,7 @@
     "half_ppr": 29.86,
     "ppr": 36.51
    },
-   "delta_rz_espn_ppg_demeaned": 0.44,
+   "delta_rz_espn_ppg_demeaned": 0.43,
    "preseason_ecr_rank": 54
   },
   {
@@ -25180,7 +25163,7 @@
    "delta_rz_espn_ppg": -2.01,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -1.64,
+   "delta_rz_espn_ppg_demeaned": -1.63,
    "preseason_ecr_rank": 249
   },
   {
@@ -25264,9 +25247,9 @@
    "delta_rz_espn": 41.7,
    "delta_rz_espn_ppg": 3.79,
    "cbsros_ppg": {
-    "standard": 3.009,
-    "half_ppr": 3.327,
-    "ppr": 3.645
+    "standard": 2.37,
+    "half_ppr": 2.72,
+    "ppr": 3.07
    },
    "prior_espn_ros": {
     "standard": 24.44,
@@ -25362,9 +25345,9 @@
    "delta_rz_espn": 14.47,
    "delta_rz_espn_ppg": 1.32,
    "cbsros_ppg": {
-    "standard": 4.164,
-    "half_ppr": 4.982,
-    "ppr": 5.8
+    "standard": 4.264,
+    "half_ppr": 5.082,
+    "ppr": 5.9
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -25372,7 +25355,7 @@
     "half_ppr": 43.89,
     "ppr": 55.49
    },
-   "delta_rz_espn_ppg_demeaned": 1.69,
+   "delta_rz_espn_ppg_demeaned": 1.7,
    "preseason_ecr_rank": null
   },
   {
@@ -25457,9 +25440,9 @@
    "delta_rz_espn": 21.71,
    "delta_rz_espn_ppg": 1.97,
    "cbsros_ppg": {
-    "standard": 5.555,
-    "half_ppr": 6.327,
-    "ppr": 7.1
+    "standard": 7.86,
+    "half_ppr": 8.81,
+    "ppr": 9.76
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -25663,7 +25646,7 @@
     "half_ppr": 14.24,
     "ppr": 17.64
    },
-   "delta_rz_espn_ppg_demeaned": 2.26,
+   "delta_rz_espn_ppg_demeaned": 2.25,
    "preseason_ecr_rank": 78
   },
   {
@@ -25809,7 +25792,7 @@
     "half_ppr": 64.34,
     "ppr": 78.24
    },
-   "delta_rz_espn_ppg_demeaned": 0.84,
+   "delta_rz_espn_ppg_demeaned": 0.85,
    "preseason_ecr_rank": 98
   },
   {
@@ -25893,9 +25876,9 @@
    "delta_rz_espn": 6.44,
    "delta_rz_espn_ppg": 0.54,
    "cbsros_ppg": {
-    "standard": 1.173,
-    "half_ppr": 1.673,
-    "ppr": 2.173
+    "standard": 1.273,
+    "half_ppr": 1.818,
+    "ppr": 2.364
    },
    "prior_espn_ros": {
     "standard": 10.33,
@@ -25907,7 +25890,7 @@
     "half_ppr": 49.79,
     "ppr": 63.04
    },
-   "delta_rz_espn_ppg_demeaned": 0.32,
+   "delta_rz_espn_ppg_demeaned": 0.31,
    "preseason_ecr_rank": 68
   },
   {
@@ -26086,7 +26069,7 @@
     "half_ppr": 11.89,
     "ppr": 13.94
    },
-   "delta_rz_espn_ppg_demeaned": 0.34,
+   "delta_rz_espn_ppg_demeaned": 0.35,
    "preseason_ecr_rank": 176
   },
   {
@@ -26170,9 +26153,9 @@
    "delta_rz_espn": 8.87,
    "delta_rz_espn_ppg": 0.81,
    "cbsros_ppg": {
-    "standard": 4.38,
-    "half_ppr": 5.08,
-    "ppr": 5.78
+    "standard": 4.18,
+    "half_ppr": 4.83,
+    "ppr": 5.48
    },
    "prior_espn_ros": {
     "standard": 20.24,
@@ -26184,7 +26167,7 @@
     "half_ppr": 50.51,
     "ppr": 59.56
    },
-   "delta_rz_espn_ppg_demeaned": 1.18,
+   "delta_rz_espn_ppg_demeaned": 1.19,
    "preseason_ecr_rank": 144
   },
   {
@@ -26273,7 +26256,7 @@
     "half_ppr": 98.65,
     "ppr": 120.6
    },
-   "delta_rz_espn_ppg_demeaned": 3.21,
+   "delta_rz_espn_ppg_demeaned": 3.22,
    "preseason_ecr_rank": 65
   },
   {
@@ -26362,7 +26345,7 @@
     "half_ppr": 13.77,
     "ppr": 17.32
    },
-   "delta_rz_espn_ppg_demeaned": -0.04,
+   "delta_rz_espn_ppg_demeaned": -0.03,
    "preseason_ecr_rank": 174
   },
   {
@@ -26549,7 +26532,7 @@
     "half_ppr": 63.79,
     "ppr": 75.94
    },
-   "delta_rz_espn_ppg_demeaned": 2.9,
+   "delta_rz_espn_ppg_demeaned": 2.91,
    "preseason_ecr_rank": 93
   },
   {
@@ -26638,7 +26621,7 @@
     "half_ppr": 65.46,
     "ppr": 77.21
    },
-   "delta_rz_espn_ppg_demeaned": 1.34,
+   "delta_rz_espn_ppg_demeaned": 1.35,
    "preseason_ecr_rank": 131
   },
   {
@@ -26696,9 +26679,9 @@
     "ppr": 2.022727
    },
    "cbsros_ppg": {
-    "standard": 2.38,
-    "half_ppr": 3.08,
-    "ppr": 3.78
+    "standard": 1.78,
+    "half_ppr": 2.48,
+    "ppr": 3.18
    },
    "prior_espn_ros": {
     "standard": 35.45,
@@ -26793,9 +26776,9 @@
    "delta_rz_espn": -15.38,
    "delta_rz_espn_ppg": -1.4,
    "cbsros_ppg": {
-    "standard": 1.036,
-    "half_ppr": 1.218,
-    "ppr": 1.4
+    "standard": 1.08,
+    "half_ppr": 1.23,
+    "ppr": 1.38
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -26883,7 +26866,7 @@
    "delta_rz_espn_ppg": -1.5,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -1.13,
+   "delta_rz_espn_ppg_demeaned": -1.12,
    "preseason_ecr_rank": null
   },
   {
@@ -26967,9 +26950,9 @@
    "delta_rz_espn": 4.98,
    "delta_rz_espn_ppg": 0.42,
    "cbsros_ppg": {
-    "standard": 2.175,
-    "half_ppr": 3.008,
-    "ppr": 3.842
+    "standard": 1.673,
+    "half_ppr": 2.491,
+    "ppr": 3.309
    },
    "prior_espn_ros": {
     "standard": 13.8,
@@ -26981,7 +26964,7 @@
     "half_ppr": 42.01,
     "ppr": 51.96
    },
-   "delta_rz_espn_ppg_demeaned": 0.2,
+   "delta_rz_espn_ppg_demeaned": 0.19,
    "preseason_ecr_rank": 73
   },
   {
@@ -27065,9 +27048,9 @@
    "delta_rz_espn": 17.34,
    "delta_rz_espn_ppg": 1.45,
    "cbsros_ppg": {
-    "standard": 1.2,
-    "half_ppr": 1.7,
-    "ppr": 2.2
+    "standard": 1.3,
+    "half_ppr": 1.8,
+    "ppr": 2.3
    },
    "prior_espn_ros": {
     "standard": 18.37,
@@ -27079,7 +27062,7 @@
     "half_ppr": 20.87,
     "ppr": 26.17
    },
-   "delta_rz_espn_ppg_demeaned": 1.23,
+   "delta_rz_espn_ppg_demeaned": 1.22,
    "preseason_ecr_rank": 57
   },
   {
@@ -27137,9 +27120,9 @@
     "ppr": 1.875455
    },
    "cbsros_ppg": {
-    "standard": 1.636,
-    "half_ppr": 2.273,
-    "ppr": 2.909
+    "standard": 1.52,
+    "half_ppr": 2.12,
+    "ppr": 2.72
    },
    "prior_espn_ros": {
     "standard": 24.75,
@@ -27174,13 +27157,9 @@
     "rushing_tds",
     "rushing_yards"
    ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
    "cbsros_complete": true,
    "cbsros_comp_count": 3,
    "cbsros_covered": [
@@ -27211,32 +27190,11 @@
     "half_ppr": 1.457273,
     "ppr": 1.825455
    },
-   "rz_ppg": {
-    "standard": 0.7,
-    "half_ppr": 0.9,
-    "ppr": 1.2
-   },
-   "rz_ros": {
-    "standard": 7.7,
-    "half_ppr": 9.9,
-    "ppr": 13.2
-   },
-   "rz_filled_ppg": {
-    "standard": 0.7,
-    "half_ppr": 0.9,
-    "ppr": 1.2
-   },
-   "rz_filled_ros": {
-    "standard": 7.7,
-    "half_ppr": 9.9,
-    "ppr": 13.2
-   },
-   "delta_rz_espn": -6.88,
-   "delta_rz_espn_ppg": -0.63,
+   "rz_held": "razzball ppr 1.2 ppg is 39% of the ESPN/CBS mean 3.1 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 1.773,
-    "half_ppr": 2.591,
-    "ppr": 3.409
+    "standard": 2.78,
+    "half_ppr": 3.58,
+    "ppr": 4.38
    },
    "prior_espn_ros": {
     "standard": 13.98,
@@ -27248,7 +27206,6 @@
     "half_ppr": 24.75,
     "ppr": 30.6
    },
-   "delta_rz_espn_ppg_demeaned": -0.85,
    "preseason_ecr_rank": 81
   },
   {
@@ -27329,7 +27286,7 @@
    "delta_rz_espn_ppg": -0.7,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -0.33,
+   "delta_rz_espn_ppg_demeaned": -0.32,
    "preseason_ecr_rank": 175
   },
   {
@@ -27415,7 +27372,7 @@
     "half_ppr": 44.65,
     "ppr": 54.15
    },
-   "delta_rz_espn_ppg_demeaned": -0.93,
+   "delta_rz_espn_ppg_demeaned": -0.92,
    "preseason_ecr_rank": 95
   },
   {
@@ -27496,7 +27453,7 @@
    "delta_rz_espn_ppg": -0.32,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": -0.54,
+   "delta_rz_espn_ppg_demeaned": -0.55,
    "preseason_ecr_rank": 128
   },
   {
@@ -27580,9 +27537,9 @@
    "delta_rz_espn": 9.38,
    "delta_rz_espn_ppg": 0.85,
    "cbsros_ppg": {
-    "standard": 2.836,
-    "half_ppr": 3.382,
-    "ppr": 3.927
+    "standard": 2.99,
+    "half_ppr": 3.54,
+    "ppr": 4.09
    },
    "prior_espn_ros": {
     "standard": 13.36,
@@ -27594,7 +27551,7 @@
     "half_ppr": 22.08,
     "ppr": 27.43
    },
-   "delta_rz_espn_ppg_demeaned": 0.63,
+   "delta_rz_espn_ppg_demeaned": 0.62,
    "preseason_ecr_rank": 95
   },
   {
@@ -27680,8 +27637,8 @@
    "delta_rz_espn_ppg": 3.67,
    "cbsros_ppg": {
     "standard": 0.32,
-    "half_ppr": 0.67,
-    "ppr": 1.02
+    "half_ppr": 0.62,
+    "ppr": 0.92
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -27689,7 +27646,7 @@
     "half_ppr": 24.39,
     "ppr": 30.54
    },
-   "delta_rz_espn_ppg_demeaned": 3.45,
+   "delta_rz_espn_ppg_demeaned": 3.44,
    "preseason_ecr_rank": 109
   },
   {
@@ -27787,7 +27744,7 @@
     "half_ppr": 29.66,
     "ppr": 36.66
    },
-   "delta_rz_espn_ppg_demeaned": 0.06,
+   "delta_rz_espn_ppg_demeaned": 0.05,
    "preseason_ecr_rank": 67
   },
   {
@@ -27871,9 +27828,9 @@
    "delta_rz_espn": 19.91,
    "delta_rz_espn_ppg": 1.81,
    "cbsros_ppg": {
-    "standard": 1.58,
-    "half_ppr": 2.18,
-    "ppr": 2.78
+    "standard": 1.48,
+    "half_ppr": 2.03,
+    "ppr": 2.58
    },
    "prior_espn_ros": {
     "standard": 4.1,
@@ -27885,7 +27842,7 @@
     "half_ppr": 14.88,
     "ppr": 18.18
    },
-   "delta_rz_espn_ppg_demeaned": 1.59,
+   "delta_rz_espn_ppg_demeaned": 1.58,
    "preseason_ecr_rank": 98
   },
   {
@@ -27970,7 +27927,7 @@
     "half_ppr": 39.56,
     "ppr": 46.96
    },
-   "delta_rz_espn_ppg_demeaned": -0.2,
+   "delta_rz_espn_ppg_demeaned": -0.19,
    "preseason_ecr_rank": 119
   },
   {
@@ -28123,7 +28080,7 @@
     "half_ppr": 18.43,
     "ppr": 22.38
    },
-   "delta_rz_espn_ppg_demeaned": -0.77,
+   "delta_rz_espn_ppg_demeaned": -0.76,
    "preseason_ecr_rank": 125
   },
   {
@@ -28292,7 +28249,7 @@
     "half_ppr": 0.0,
     "ppr": 0.0
    },
-   "delta_rz_espn_ppg_demeaned": -0.52,
+   "delta_rz_espn_ppg_demeaned": -0.53,
    "preseason_ecr_rank": 97
   },
   {
@@ -28378,7 +28335,7 @@
     "half_ppr": 38.3,
     "ppr": 46.95
    },
-   "delta_rz_espn_ppg_demeaned": 0.38,
+   "delta_rz_espn_ppg_demeaned": 0.39,
    "preseason_ecr_rank": 159
   },
   {
@@ -28462,7 +28419,7 @@
     "half_ppr": 52.44,
     "ppr": 64.74
    },
-   "delta_rz_espn_ppg_demeaned": 1.62,
+   "delta_rz_espn_ppg_demeaned": 1.63,
    "preseason_ecr_rank": 168
   },
   {
@@ -28551,7 +28508,7 @@
     "half_ppr": 18.26,
     "ppr": 22.91
    },
-   "delta_rz_espn_ppg_demeaned": 0.14,
+   "delta_rz_espn_ppg_demeaned": 0.13,
    "preseason_ecr_rank": 107
   },
   {
@@ -28635,9 +28592,9 @@
    "delta_rz_espn": -0.81,
    "delta_rz_espn_ppg": -0.07,
    "cbsros_ppg": {
-    "standard": 0.85,
-    "half_ppr": 1.1,
-    "ppr": 1.35
+    "standard": 0.92,
+    "half_ppr": 1.22,
+    "ppr": 1.52
    },
    "prior_espn_ros": {
     "standard": 19.96,
@@ -28649,7 +28606,7 @@
     "half_ppr": 19.69,
     "ppr": 25.64
    },
-   "delta_rz_espn_ppg_demeaned": -0.29,
+   "delta_rz_espn_ppg_demeaned": -0.3,
    "preseason_ecr_rank": 105
   },
   {
@@ -28730,7 +28687,7 @@
    "delta_rz_espn_ppg": 1.97,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 2.34,
+   "delta_rz_espn_ppg_demeaned": 2.35,
    "preseason_ecr_rank": 221
   },
   {
@@ -28815,8 +28772,8 @@
    "delta_rz_espn_ppg": -0.01,
    "cbsros_ppg": {
     "standard": 0.85,
-    "half_ppr": 1.2,
-    "ppr": 1.55
+    "half_ppr": 1.15,
+    "ppr": 1.45
    },
    "prior_espn_ros": {
     "standard": 4.58,
@@ -28828,7 +28785,7 @@
     "half_ppr": 30.22,
     "ppr": 37.82
    },
-   "delta_rz_espn_ppg_demeaned": -0.23,
+   "delta_rz_espn_ppg_demeaned": -0.24,
    "preseason_ecr_rank": 77
   },
   {
@@ -28917,7 +28874,7 @@
     "half_ppr": 19.96,
     "ppr": 24.61
    },
-   "delta_rz_espn_ppg_demeaned": 1.01,
+   "delta_rz_espn_ppg_demeaned": 1.02,
    "preseason_ecr_rank": 170
   },
   {
@@ -29006,7 +28963,7 @@
     "half_ppr": 6.5,
     "ppr": 8.3
    },
-   "delta_rz_espn_ppg_demeaned": 0.65,
+   "delta_rz_espn_ppg_demeaned": 0.64,
    "preseason_ecr_rank": 101
   },
   {
@@ -29095,7 +29052,7 @@
     "half_ppr": 4.67,
     "ppr": 5.67
    },
-   "delta_rz_espn_ppg_demeaned": 0.26,
+   "delta_rz_espn_ppg_demeaned": 0.25,
    "preseason_ecr_rank": 86
   },
   {
@@ -29179,9 +29136,9 @@
    "delta_rz_espn": -1.21,
    "delta_rz_espn_ppg": -0.11,
    "cbsros_ppg": {
-    "standard": 0.909,
-    "half_ppr": 1.227,
-    "ppr": 1.545
+    "standard": 0.92,
+    "half_ppr": 1.22,
+    "ppr": 1.52
    },
    "prior_espn_ros": {
     "standard": 4.18,
@@ -29193,7 +29150,7 @@
     "half_ppr": 15.04,
     "ppr": 19.14
    },
-   "delta_rz_espn_ppg_demeaned": -0.33,
+   "delta_rz_espn_ppg_demeaned": -0.34,
    "preseason_ecr_rank": 99
   },
   {
@@ -29282,7 +29239,7 @@
     "half_ppr": 53.97,
     "ppr": 66.87
    },
-   "delta_rz_espn_ppg_demeaned": 1.18,
+   "delta_rz_espn_ppg_demeaned": 1.19,
    "preseason_ecr_rank": 124
   },
   {
@@ -29363,7 +29320,7 @@
    "delta_rz_espn_ppg": -0.28,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.09,
+   "delta_rz_espn_ppg_demeaned": 0.1,
    "preseason_ecr_rank": 198
   },
   {
@@ -29452,7 +29409,7 @@
     "half_ppr": 17.76,
     "ppr": 22.16
    },
-   "delta_rz_espn_ppg_demeaned": -0.29,
+   "delta_rz_espn_ppg_demeaned": -0.28,
    "preseason_ecr_rank": 148
   },
   {
@@ -29542,7 +29499,7 @@
     "half_ppr": 45.76,
     "ppr": 53.41
    },
-   "delta_rz_espn_ppg_demeaned": 1.82,
+   "delta_rz_espn_ppg_demeaned": 1.83,
    "preseason_ecr_rank": 145
   },
   {
@@ -29599,11 +29556,11 @@
     "half_ppr": 0.820909,
     "ppr": 0.998182
    },
-   "rz_held": "razzball ppr 1.3 ppg is 39% of the ESPN/CBS mean 3.3 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball ppr 1.3 ppg is 40% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 3.49,
-    "half_ppr": 4.59,
-    "ppr": 5.69
+    "standard": 3.29,
+    "half_ppr": 4.39,
+    "ppr": 5.49
    },
    "prior_espn_ros": {
     "standard": 20.95,
@@ -29698,9 +29655,9 @@
    "delta_rz_espn": 13.31,
    "delta_rz_espn_ppg": 1.21,
    "cbsros_ppg": {
-    "standard": 0.909,
-    "half_ppr": 1.227,
-    "ppr": 1.545
+    "standard": 0.92,
+    "half_ppr": 1.22,
+    "ppr": 1.52
    },
    "prior_espn_ros": {
     "standard": 18.04,
@@ -29712,7 +29669,7 @@
     "half_ppr": 39.24,
     "ppr": 48.74
    },
-   "delta_rz_espn_ppg_demeaned": 0.99,
+   "delta_rz_espn_ppg_demeaned": 0.98,
    "preseason_ecr_rank": 69
   },
   {
@@ -29796,9 +29753,9 @@
    "delta_rz_espn": 14.55,
    "delta_rz_espn_ppg": 1.32,
    "cbsros_ppg": {
-    "standard": 2.18,
-    "half_ppr": 3.03,
-    "ppr": 3.88
+    "standard": 1.48,
+    "half_ppr": 2.23,
+    "ppr": 2.98
    },
    "prior_espn_ros": {
     "standard": 19.5,
@@ -29810,7 +29767,7 @@
     "half_ppr": 26.23,
     "ppr": 34.08
    },
-   "delta_rz_espn_ppg_demeaned": 1.1,
+   "delta_rz_espn_ppg_demeaned": 1.09,
    "preseason_ecr_rank": 84
   },
   {
@@ -29956,11 +29913,11 @@
     "half_ppr": 0.903636,
     "ppr": 0.953636
    },
-   "rz_held": "razzball standard 1.7 ppg is 22% of the ESPN/CBS mean 7.7 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 1.7 ppg is 21% of the ESPN/CBS mean 8.0 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 6.091,
-    "half_ppr": 6.5,
-    "ppr": 6.909
+    "standard": 6.58,
+    "half_ppr": 6.98,
+    "ppr": 7.38
    },
    "prior_espn_ros": {
     "standard": 25.2,
@@ -30061,7 +30018,7 @@
     "half_ppr": 12.65,
     "ppr": 15.85
    },
-   "delta_rz_espn_ppg_demeaned": -0.57,
+   "delta_rz_espn_ppg_demeaned": -0.56,
    "preseason_ecr_rank": 211
   },
   {
@@ -30120,9 +30077,9 @@
    },
    "rz_held": "razzball standard 1.2 ppg is 26% of the ESPN/CBS mean 4.6 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 0.86,
-    "half_ppr": 0.91,
-    "ppr": 0.96
+    "standard": 0.8,
+    "half_ppr": 0.85,
+    "ppr": 0.9
    },
    "prior_espn_ros": {
     "standard": 26.33,
@@ -30217,9 +30174,9 @@
    "delta_rz_espn": 12.39,
    "delta_rz_espn_ppg": 1.13,
    "cbsros_ppg": {
-    "standard": 1.38,
-    "half_ppr": 2.03,
-    "ppr": 2.68
+    "standard": 1.39,
+    "half_ppr": 2.04,
+    "ppr": 2.69
    },
    "prior_espn_ros": {
     "standard": 3.84,
@@ -30231,7 +30188,7 @@
     "half_ppr": 26.41,
     "ppr": 34.31
    },
-   "delta_rz_espn_ppg_demeaned": 0.91,
+   "delta_rz_espn_ppg_demeaned": 0.9,
    "preseason_ecr_rank": 96
   },
   {
@@ -30387,7 +30344,7 @@
     "half_ppr": 19.71,
     "ppr": 24.56
    },
-   "delta_rz_espn_ppg_demeaned": -0.27,
+   "delta_rz_espn_ppg_demeaned": -0.26,
    "preseason_ecr_rank": 187
   },
   {
@@ -30471,9 +30428,9 @@
    "delta_rz_espn": 108.11,
    "delta_rz_espn_ppg": 9.83,
    "cbsros_ppg": {
-    "standard": 1.336,
-    "half_ppr": 1.473,
-    "ppr": 1.609
+    "standard": 1.13,
+    "half_ppr": 1.23,
+    "ppr": 1.33
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -30567,7 +30524,7 @@
     "half_ppr": 25.33,
     "ppr": 31.28
    },
-   "delta_rz_espn_ppg_demeaned": -0.4,
+   "delta_rz_espn_ppg_demeaned": -0.39,
    "preseason_ecr_rank": 153
   },
   {
@@ -30591,13 +30548,9 @@
     "rushing_tds",
     "rushing_yards"
    ],
-   "rz_complete": true,
-   "rz_comp_count": 3,
-   "rz_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "rz_complete": false,
+   "rz_comp_count": 0,
+   "rz_covered": [],
    "cbsros_complete": true,
    "cbsros_comp_count": 3,
    "cbsros_covered": [
@@ -30628,32 +30581,11 @@
     "half_ppr": 0.606364,
     "ppr": 0.710909
    },
-   "rz_ppg": {
-    "standard": 1.0,
-    "half_ppr": 1.3,
-    "ppr": 1.6
-   },
-   "rz_ros": {
-    "standard": 11.0,
-    "half_ppr": 14.3,
-    "ppr": 17.6
-   },
-   "rz_filled_ppg": {
-    "standard": 1.0,
-    "half_ppr": 1.3,
-    "ppr": 1.6
-   },
-   "rz_filled_ros": {
-    "standard": 11.0,
-    "half_ppr": 14.3,
-    "ppr": 17.6
-   },
-   "delta_rz_espn": 9.78,
-   "delta_rz_espn_ppg": 0.89,
+   "rz_held": "razzball ppr 1.6 ppg is 53% of the ESPN/CBS mean 3.0 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 3.21,
-    "half_ppr": 4.21,
-    "ppr": 5.21
+    "standard": 3.31,
+    "half_ppr": 4.31,
+    "ppr": 5.31
    },
    "prior_espn_ros": {
     "standard": 38.95,
@@ -30665,7 +30597,6 @@
     "half_ppr": 14.14,
     "ppr": 17.39
    },
-   "delta_rz_espn_ppg_demeaned": 1.26,
    "preseason_ecr_rank": 150
   },
   {
@@ -30692,13 +30623,9 @@
    "rz_complete": false,
    "rz_comp_count": 0,
    "rz_covered": [],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 5.24,
     "half_ppr": 6.29,
@@ -30723,12 +30650,7 @@
     "half_ppr": 0.571818,
     "ppr": 0.667273
    },
-   "rz_held": "razzball standard 1.0 ppg is 33% of the ESPN/CBS mean 3.1 (< 60%): likely an expected-missed-games discount",
-   "cbsros_ppg": {
-    "standard": 0.882,
-    "half_ppr": 1.064,
-    "ppr": 1.245
-   },
+   "rz_held": "razzball standard 1.0 ppg is 19% of the ESPN/CBS mean 5.2 (< 60%): likely an expected-missed-games discount",
    "prior_espn_ros": {
     "standard": 10.31,
     "half_ppr": 12.31,
@@ -30795,11 +30717,11 @@
     "half_ppr": 0.579091,
     "ppr": 0.629091
    },
-   "rz_held": "razzball standard 1.4 ppg is 44% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 1.4 ppg is 43% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 0.57,
-    "half_ppr": 0.72,
-    "ppr": 0.87
+    "standard": 0.68,
+    "half_ppr": 0.88,
+    "ppr": 1.08
    },
    "prior_espn_ros": {
     "standard": 7.67,
@@ -30894,13 +30816,13 @@
    "delta_rz_espn": 11.82,
    "delta_rz_espn_ppg": 1.07,
    "cbsros_ppg": {
-    "standard": 2.882,
-    "half_ppr": 3.882,
-    "ppr": 4.882
+    "standard": 2.98,
+    "half_ppr": 4.03,
+    "ppr": 5.08
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.85,
+   "delta_rz_espn_ppg_demeaned": 0.84,
    "preseason_ecr_rank": 137
   },
   {
@@ -30984,9 +30906,9 @@
    "delta_rz_espn": 6.52,
    "delta_rz_espn_ppg": 0.59,
    "cbsros_ppg": {
-    "standard": 0.4,
-    "half_ppr": 0.7,
-    "ppr": 1.0
+    "standard": 0.32,
+    "half_ppr": 0.57,
+    "ppr": 0.82
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -30994,7 +30916,7 @@
     "half_ppr": 22.8,
     "ppr": 28.3
    },
-   "delta_rz_espn_ppg_demeaned": 0.37,
+   "delta_rz_espn_ppg_demeaned": 0.36,
    "preseason_ecr_rank": 90
   },
   {
@@ -31092,7 +31014,7 @@
     "half_ppr": 28.98,
     "ppr": 36.58
    },
-   "delta_rz_espn_ppg_demeaned": 0.18,
+   "delta_rz_espn_ppg_demeaned": 0.17,
    "preseason_ecr_rank": 70
   },
   {
@@ -31173,7 +31095,7 @@
    "delta_rz_espn_ppg": -0.09,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.28,
+   "delta_rz_espn_ppg_demeaned": 0.29,
    "preseason_ecr_rank": 185
   },
   {
@@ -31254,7 +31176,7 @@
    "delta_rz_espn_ppg": 3.12,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 2.9,
+   "delta_rz_espn_ppg_demeaned": 2.89,
    "preseason_ecr_rank": 132
   },
   {
@@ -31352,7 +31274,7 @@
     "half_ppr": 21.56,
     "ppr": 26.71
    },
-   "delta_rz_espn_ppg_demeaned": 0.4,
+   "delta_rz_espn_ppg_demeaned": 0.39,
    "preseason_ecr_rank": 87
   },
   {
@@ -31438,7 +31360,7 @@
     "half_ppr": 43.11,
     "ppr": 55.01
    },
-   "delta_rz_espn_ppg_demeaned": -0.44,
+   "delta_rz_espn_ppg_demeaned": -0.45,
    "preseason_ecr_rank": 118
   },
   {
@@ -31536,7 +31458,7 @@
     "half_ppr": 18.35,
     "ppr": 23.05
    },
-   "delta_rz_espn_ppg_demeaned": 1.52,
+   "delta_rz_espn_ppg_demeaned": 1.51,
    "preseason_ecr_rank": 43
   },
   {
@@ -31672,7 +31594,7 @@
    "delta_rz_espn_ppg": 1.39,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 1.17,
+   "delta_rz_espn_ppg_demeaned": 1.16,
    "preseason_ecr_rank": 117
   },
   {
@@ -31753,7 +31675,7 @@
    "delta_rz_espn_ppg": 1.05,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.83,
+   "delta_rz_espn_ppg_demeaned": 0.82,
    "preseason_ecr_rank": 123
   },
   {
@@ -31842,7 +31764,7 @@
     "half_ppr": 49.93,
     "ppr": 60.68
    },
-   "delta_rz_espn_ppg_demeaned": 0.03,
+   "delta_rz_espn_ppg_demeaned": 0.04,
    "preseason_ecr_rank": 146
   },
   {
@@ -31940,7 +31862,7 @@
     "half_ppr": 21.27,
     "ppr": 27.22
    },
-   "delta_rz_espn_ppg_demeaned": 0.65,
+   "delta_rz_espn_ppg_demeaned": 0.64,
    "preseason_ecr_rank": 74
   },
   {
@@ -32025,7 +31947,7 @@
     "half_ppr": 17.87,
     "ppr": 21.82
    },
-   "delta_rz_espn_ppg_demeaned": 0.67,
+   "delta_rz_espn_ppg_demeaned": 0.68,
    "preseason_ecr_rank": 104
   },
   {
@@ -32123,7 +32045,7 @@
     "half_ppr": 22.7,
     "ppr": 27.65
    },
-   "delta_rz_espn_ppg_demeaned": 1.48,
+   "delta_rz_espn_ppg_demeaned": 1.47,
    "preseason_ecr_rank": 64
   },
   {
@@ -32181,9 +32103,9 @@
     "ppr": 0.502727
    },
    "cbsros_ppg": {
-    "standard": 0.79,
-    "half_ppr": 1.04,
-    "ppr": 1.29
+    "standard": 0.85,
+    "half_ppr": 1.15,
+    "ppr": 1.45
    },
    "prior_espn_ros": {
     "standard": 8.31,
@@ -32343,7 +32265,7 @@
     "half_ppr": 0.0,
     "ppr": 0.0
    },
-   "delta_rz_espn_ppg_demeaned": 0.22,
+   "delta_rz_espn_ppg_demeaned": 0.23,
    "preseason_ecr_rank": 180
   },
   {
@@ -32433,7 +32355,7 @@
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.6,
+   "delta_rz_espn_ppg_demeaned": 0.59,
    "preseason_ecr_rank": 144
   },
   {
@@ -32528,7 +32450,7 @@
     "half_ppr": 40.34,
     "ppr": 50.79
    },
-   "delta_rz_espn_ppg_demeaned": -0.5,
+   "delta_rz_espn_ppg_demeaned": -0.51,
    "preseason_ecr_rank": 35
   },
   {
@@ -32609,7 +32531,7 @@
    "delta_rz_espn_ppg": 6.84,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 7.21,
+   "delta_rz_espn_ppg_demeaned": 7.22,
    "preseason_ecr_rank": 162
   },
   {
@@ -32927,9 +32849,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 2.29,
     "half_ppr": 3.59,
@@ -32970,6 +32896,11 @@
    },
    "delta_rz_espn": 9.41,
    "delta_rz_espn_ppg": 0.86,
+   "cbsros_ppg": {
+    "standard": 0.65,
+    "half_ppr": 0.75,
+    "ppr": 0.85
+   },
    "prior_espn_ros": {
     "standard": 2.8,
     "half_ppr": 4.4,
@@ -33069,7 +33000,7 @@
     "half_ppr": 33.72,
     "ppr": 41.12
    },
-   "delta_rz_espn_ppg_demeaned": 2.73,
+   "delta_rz_espn_ppg_demeaned": 2.74,
    "preseason_ecr_rank": 107
   },
   {
@@ -33159,7 +33090,7 @@
     "half_ppr": 22.85,
     "ppr": 27.6
    },
-   "delta_rz_espn_ppg_demeaned": 0.74,
+   "delta_rz_espn_ppg_demeaned": 0.75,
    "preseason_ecr_rank": 122
   },
   {
@@ -33242,9 +33173,9 @@
    "delta_rz_espn": 2.37,
    "delta_rz_espn_ppg": 0.22,
    "cbsros_ppg": {
-    "standard": 1.1,
-    "half_ppr": 1.15,
-    "ppr": 1.2
+    "standard": 1.22,
+    "half_ppr": 1.32,
+    "ppr": 1.42
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
@@ -33536,7 +33467,7 @@
     "half_ppr": 45.96,
     "ppr": 58.76
    },
-   "delta_rz_espn_ppg_demeaned": 3.28,
+   "delta_rz_espn_ppg_demeaned": 3.27,
    "preseason_ecr_rank": 44
   },
   {
@@ -33770,7 +33701,7 @@
     "half_ppr": 21.39,
     "ppr": 26.74
    },
-   "delta_rz_espn_ppg_demeaned": 2.02,
+   "delta_rz_espn_ppg_demeaned": 2.03,
    "preseason_ecr_rank": 194
   },
   {
@@ -33860,7 +33791,7 @@
     "half_ppr": 14.83,
     "ppr": 18.43
    },
-   "delta_rz_espn_ppg_demeaned": 1.34,
+   "delta_rz_espn_ppg_demeaned": 1.35,
    "preseason_ecr_rank": 142
   },
   {
@@ -33945,7 +33876,7 @@
     "half_ppr": 11.28,
     "ppr": 13.88
    },
-   "delta_rz_espn_ppg_demeaned": 0.16,
+   "delta_rz_espn_ppg_demeaned": 0.17,
    "preseason_ecr_rank": 156
   },
   {
@@ -34031,7 +33962,7 @@
     "half_ppr": 8.11,
     "ppr": 9.91
    },
-   "delta_rz_espn_ppg_demeaned": 0.46,
+   "delta_rz_espn_ppg_demeaned": 0.47,
    "preseason_ecr_rank": 212
   },
   {
@@ -34115,9 +34046,9 @@
    "delta_rz_espn": 9.04,
    "delta_rz_espn_ppg": 0.82,
    "cbsros_ppg": {
-    "standard": 0.25,
-    "half_ppr": 0.55,
-    "ppr": 0.85
+    "standard": 0.4,
+    "half_ppr": 0.7,
+    "ppr": 1.0
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -34125,7 +34056,7 @@
     "half_ppr": 21.1,
     "ppr": 26.1
    },
-   "delta_rz_espn_ppg_demeaned": 0.6,
+   "delta_rz_espn_ppg_demeaned": 0.59,
    "preseason_ecr_rank": 103
   },
   {
@@ -34205,7 +34136,7 @@
    "delta_rz_espn_ppg": 0.39,
    "prior_espn_ros": null,
    "prior_blend_ros": null,
-   "delta_rz_espn_ppg_demeaned": 0.17,
+   "delta_rz_espn_ppg_demeaned": 0.16,
    "preseason_ecr_rank": 160
   },
   {
@@ -34290,7 +34221,7 @@
     "half_ppr": 12.05,
     "ppr": 14.6
    },
-   "delta_rz_espn_ppg_demeaned": 1.69,
+   "delta_rz_espn_ppg_demeaned": 1.7,
    "preseason_ecr_rank": 178
   },
   {
@@ -34424,13 +34355,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -34440,7 +34367,6 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
-    "cbsros",
     "razzball",
     "usatoday"
    ],
@@ -34470,11 +34396,6 @@
     "standard": 1.1,
     "half_ppr": 1.1,
     "ppr": 1.1
-   },
-   "cbsros_ppg": {
-    "standard": 0.41,
-    "half_ppr": 0.41,
-    "ppr": 0.41
    },
    "prior_espn_ros": {
     "standard": 47.08,
@@ -34559,9 +34480,9 @@
     "ppr": 134.2
    },
    "cbsros_ppg": {
-    "standard": 9.457,
-    "half_ppr": 11.743,
-    "ppr": 14.029
+    "standard": 9.357,
+    "half_ppr": 11.643,
+    "ppr": 13.929
    },
    "prior_espn_ros": {
     "standard": 144.62,
@@ -34950,11 +34871,11 @@
    "sleeper_id": "3286",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_held": "razzball standard 1.0 ppg is 22% of the ESPN/CBS mean 4.5 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 1.0 ppg is 22% of the ESPN/CBS mean 4.6 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 4.49,
-    "half_ppr": 5.44,
-    "ppr": 6.39
+    "standard": 4.59,
+    "half_ppr": 5.54,
+    "ppr": 6.49
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -36244,9 +36165,9 @@
     "ppr": 1.1
    },
    "cbsros_ppg": {
-    "standard": 0.155,
-    "half_ppr": 0.155,
-    "ppr": 0.155
+    "standard": 0.7,
+    "half_ppr": 0.7,
+    "ppr": 0.7
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -36863,9 +36784,9 @@
     "ppr": 12.1
    },
    "cbsros_ppg": {
-    "standard": 0.755,
-    "half_ppr": 0.755,
-    "ppr": 0.755
+    "standard": 0.77,
+    "half_ppr": 0.77,
+    "ppr": 0.77
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -37041,9 +36962,9 @@
     "ppr": 1.1
    },
    "cbsros_ppg": {
-    "standard": 0.736,
-    "half_ppr": 0.736,
-    "ppr": 0.736
+    "standard": 0.78,
+    "half_ppr": 0.78,
+    "ppr": 0.78
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -37921,11 +37842,11 @@
    "sleeper_id": "4177",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_held": "razzball standard 0.9 ppg is 19% of the ESPN/CBS mean 4.8 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 0.9 ppg is 18% of the ESPN/CBS mean 4.9 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 4.767,
-    "half_ppr": 6.156,
-    "ppr": 7.544
+    "standard": 4.867,
+    "half_ppr": 6.311,
+    "ppr": 7.756
    },
    "prior_espn_ros": {
     "standard": 54.04,
@@ -38555,9 +38476,9 @@
     "ppr": 50.6
    },
    "cbsros_ppg": {
-    "standard": 2.318,
-    "half_ppr": 3.182,
-    "ppr": 4.045
+    "standard": 2.418,
+    "half_ppr": 3.282,
+    "ppr": 4.145
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -39655,9 +39576,9 @@
     "ppr": 1.2
    },
    "cbsros_ppg": {
-    "standard": 0.8,
-    "half_ppr": 0.8,
-    "ppr": 0.8
+    "standard": 0.791,
+    "half_ppr": 0.791,
+    "ppr": 0.791
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -40508,9 +40429,9 @@
     "ppr": 7.7
    },
    "cbsros_ppg": {
-    "standard": 0.32,
-    "half_ppr": 0.57,
-    "ppr": 0.82
+    "standard": 0.85,
+    "half_ppr": 1.15,
+    "ppr": 1.45
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
@@ -41373,9 +41294,9 @@
     "ppr": 5.5
    },
    "cbsros_ppg": {
-    "standard": 0.791,
-    "half_ppr": 0.791,
-    "ppr": 0.791
+    "standard": 0.8,
+    "half_ppr": 0.8,
+    "ppr": 0.8
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -42667,9 +42588,9 @@
     "ppr": 18.7
    },
    "cbsros_ppg": {
-    "standard": 0.364,
-    "half_ppr": 0.682,
-    "ppr": 1.0
+    "standard": 0.32,
+    "half_ppr": 0.67,
+    "ppr": 1.02
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -43259,11 +43180,11 @@
    "sleeper_id": "11439",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_held": "razzball standard 0.7 ppg is 22% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 0.7 ppg is 21% of the ESPN/CBS mean 3.3 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 3.16,
-    "half_ppr": 3.56,
-    "ppr": 3.96
+    "standard": 3.31,
+    "half_ppr": 3.71,
+    "ppr": 4.11
    },
    "prior_espn_ros": {
     "standard": 6.35,
@@ -43611,9 +43532,9 @@
     "ppr": 7.7
    },
    "cbsros_ppg": {
-    "standard": 0.791,
-    "half_ppr": 0.791,
-    "ppr": 0.791
+    "standard": 0.8,
+    "half_ppr": 0.8,
+    "ppr": 0.8
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -44771,9 +44692,9 @@
     "ppr": 2.4
    },
    "cbsros_ppg": {
-    "standard": 0.858,
-    "half_ppr": 0.858,
-    "ppr": 0.858
+    "standard": 0.845,
+    "half_ppr": 0.845,
+    "ppr": 0.845
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -45742,13 +45663,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -45757,9 +45674,6 @@
    "pricing": "espn_only",
    "espn_zeroed": true,
    "espn_status": "ineligible",
-   "universe_sources": [
-    "cbsros"
-   ],
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
    "injury_status": "PUP",
@@ -45787,11 +45701,6 @@
     "standard": 0.0,
     "half_ppr": 0.0,
     "ppr": 0.0
-   },
-   "cbsros_ppg": {
-    "standard": 0.25,
-    "half_ppr": 0.6,
-    "ppr": 0.95
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -46120,9 +46029,9 @@
    "games_remaining": 12,
    "espn_expected_games": null,
    "cbsros_ppg": {
-    "standard": 0.908,
-    "half_ppr": 1.242,
-    "ppr": 1.575
+    "standard": 0.364,
+    "half_ppr": 0.682,
+    "ppr": 1.0
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -47448,9 +47357,9 @@
     "ppr": 1.1
    },
    "cbsros_ppg": {
-    "standard": 0.1,
-    "half_ppr": 0.1,
-    "ppr": 0.1
+    "standard": 0.144,
+    "half_ppr": 0.144,
+    "ppr": 0.144
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -48693,11 +48602,11 @@
    "sleeper_id": "12472",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_held": "razzball half_ppr 0.0 ppg is 0% of the ESPN/CBS mean 3.6 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 0.0 ppg is 0% of the ESPN/CBS mean 3.0 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 2.825,
-    "half_ppr": 3.575,
-    "ppr": 4.325
+    "standard": 3.025,
+    "half_ppr": 3.837,
+    "ppr": 4.65
    },
    "prior_espn_ros": {
     "standard": 54.59,
@@ -48731,9 +48640,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -48744,6 +48657,7 @@
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
    "universe_sources": [
+    "cbsros",
     "razzball"
    ],
    "roster_status": "injured_reserve",
@@ -48773,6 +48687,11 @@
     "standard": 2.2,
     "half_ppr": 3.3,
     "ppr": 4.4
+   },
+   "cbsros_ppg": {
+    "standard": 0.25,
+    "half_ppr": 0.55,
+    "ppr": 0.85
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -50102,11 +50021,11 @@
    "sleeper_id": "12487",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_held": "razzball standard 2.0 ppg is 51% of the ESPN/CBS mean 3.9 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 2.0 ppg is 52% of the ESPN/CBS mean 3.8 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 3.933,
-    "half_ppr": 5.044,
-    "ppr": 6.156
+    "standard": 3.833,
+    "half_ppr": 4.944,
+    "ppr": 6.056
    },
    "prior_espn_ros": {
     "standard": 69.03,
@@ -51126,8 +51045,8 @@
    "rz_held": "razzball standard 0.4 ppg is 12% of the ESPN/CBS mean 3.4 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
     "standard": 3.364,
-    "half_ppr": 4.5,
-    "ppr": 5.636
+    "half_ppr": 4.455,
+    "ppr": 5.545
    },
    "prior_espn_ros": {
     "standard": 7.69,
@@ -52320,9 +52239,9 @@
     "ppr": 1.1
    },
    "cbsros_ppg": {
-    "standard": 0.78,
-    "half_ppr": 0.78,
-    "ppr": 0.78
+    "standard": 0.82,
+    "half_ppr": 0.82,
+    "ppr": 0.82
    },
    "prior_espn_ros": {
     "standard": 47.88,
@@ -52834,13 +52753,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -52850,7 +52765,6 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
-    "cbsros",
     "razzball"
    ],
    "roster_status": "practice_squad",
@@ -52878,11 +52792,6 @@
     "standard": 1.1,
     "half_ppr": 2.2,
     "ppr": 2.2
-   },
-   "cbsros_ppg": {
-    "standard": 0.68,
-    "half_ppr": 0.83,
-    "ppr": 0.98
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -53595,9 +53504,9 @@
     "ppr": 1.1
    },
    "cbsros_ppg": {
-    "standard": 0.96,
-    "half_ppr": 1.01,
-    "ppr": 1.06
+    "standard": 1.04,
+    "half_ppr": 1.09,
+    "ppr": 1.14
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -53905,9 +53814,9 @@
     "ppr": 2.2
    },
    "cbsros_ppg": {
-    "standard": 1.78,
-    "half_ppr": 1.78,
-    "ppr": 1.78
+    "standard": 1.75,
+    "half_ppr": 1.75,
+    "ppr": 1.75
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -54244,9 +54153,9 @@
     "ppr": 1.1
    },
    "cbsros_ppg": {
-    "standard": 0.791,
-    "half_ppr": 0.791,
-    "ppr": 0.791
+    "standard": 0.827,
+    "half_ppr": 0.827,
+    "ppr": 0.827
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -58359,13 +58268,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -58375,7 +58280,6 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
-    "cbsros",
     "razzball"
    ],
    "roster_status": "active_roster",
@@ -58404,11 +58308,6 @@
     "standard": 1.1,
     "half_ppr": 1.1,
     "ppr": 1.1
-   },
-   "cbsros_ppg": {
-    "standard": 0.65,
-    "half_ppr": 0.7,
-    "ppr": 0.75
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -58447,6 +58346,8 @@
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
    "universe_sources": [
+    "fantasycalc",
+    "fantasycalc:superflex",
     "usatoday"
    ],
    "roster_status": "free_agent",
@@ -59991,9 +59892,9 @@
     "ppr": 1.2
    },
    "cbsros_ppg": {
-    "standard": 0.473,
-    "half_ppr": 0.518,
-    "ppr": 0.564
+    "standard": 0.391,
+    "half_ppr": 0.436,
+    "ppr": 0.482
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -60955,9 +60856,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -60967,6 +60872,7 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
+    "cbsros",
     "razzball"
    ],
    "roster_status": "active_roster",
@@ -60995,6 +60901,11 @@
     "standard": 1.1,
     "half_ppr": 1.1,
     "ppr": 1.1
+   },
+   "cbsros_ppg": {
+    "standard": 0.41,
+    "half_ppr": 0.41,
+    "ppr": 0.41
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -62758,9 +62669,9 @@
     "ppr": 37.4
    },
    "cbsros_ppg": {
-    "standard": 0.51,
-    "half_ppr": 0.51,
-    "ppr": 0.51
+    "standard": 0.74,
+    "half_ppr": 0.74,
+    "ppr": 0.74
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -63018,9 +62929,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -63031,6 +62946,7 @@
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
    "universe_sources": [
+    "cbsros",
     "razzball"
    ],
    "roster_status": "active_roster",
@@ -63059,6 +62975,11 @@
     "standard": 1.1,
     "half_ppr": 1.1,
     "ppr": 2.2
+   },
+   "cbsros_ppg": {
+    "standard": 0.25,
+    "half_ppr": 0.55,
+    "ppr": 0.85
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -64554,9 +64475,9 @@
     "ppr": 31.2
    },
    "cbsros_ppg": {
-    "standard": 0.773,
-    "half_ppr": 0.773,
-    "ppr": 0.773
+    "standard": 0.736,
+    "half_ppr": 0.736,
+    "ppr": 0.736
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
@@ -64742,9 +64663,9 @@
     "ppr": 2.2
    },
    "cbsros_ppg": {
-    "standard": 0.791,
-    "half_ppr": 0.791,
-    "ppr": 0.791
+    "standard": 0.8,
+    "half_ppr": 0.8,
+    "ppr": 0.8
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -65516,9 +65437,9 @@
     "ppr": 34.8
    },
    "cbsros_ppg": {
-    "standard": 1.627,
-    "half_ppr": 2.355,
-    "ppr": 3.082
+    "standard": 1.827,
+    "half_ppr": 2.555,
+    "ppr": 3.282
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
@@ -67405,8 +67326,8 @@
    "rz_held": "razzball standard 0.6 ppg is 13% of the ESPN/CBS mean 4.7 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
     "standard": 4.737,
-    "half_ppr": 6.175,
-    "ppr": 7.612
+    "half_ppr": 6.237,
+    "ppr": 7.737
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -71591,11 +71512,11 @@
    "sleeper_id": "12492",
    "games_remaining": 11,
    "espn_expected_games": null,
-   "rz_held": "razzball standard 1.7 ppg is 42% of the ESPN/CBS mean 4.0 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball standard 1.7 ppg is 42% of the ESPN/CBS mean 4.1 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 4.022,
-    "half_ppr": 5.189,
-    "ppr": 6.356
+    "standard": 4.067,
+    "half_ppr": 5.233,
+    "ppr": 6.4
    },
    "prior_espn_ros": {
     "standard": 46.39,
@@ -71784,9 +71705,9 @@
     "ppr": 1.1
    },
    "cbsros_ppg": {
-    "standard": 0.41,
-    "half_ppr": 0.46,
-    "ppr": 0.51
+    "standard": 0.5,
+    "half_ppr": 0.55,
+    "ppr": 0.6
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {

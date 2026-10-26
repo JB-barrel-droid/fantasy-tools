@@ -15,6 +15,7 @@
   const MAX_OPPONENTS = 20;
   const OUR_KEY = "ddf_value";
   const MARKET_KEY = "chart_avg";
+  const PROJ_KEY = "ddf_value_projections";
   const TIERS = {natural: 0, value: 1, market: 2, force: 3};
   const UNJUDGED_TIER = 4;
   const CACHE_LIMIT = 400;
@@ -52,6 +53,15 @@
     if (!marketOk) return "force";
     if (chartEdge !== null && asShown(chartEdge) < 0) return "market";
     return theirLabel === "fills" ? "natural" : "value";
+  }
+  // JEG-1081: does DDF Value (projections) back the trade? projEdge = what you receive minus what you give in that view (the
+  // same direction as the DDF Value capture). true: it gains you 0.05 or more; false: it loses you 0.05 or more; null: level or no
+  // projection for a player in the package (never counted as 0).
+  function projAgreement(projEdge) {
+    if (!finite(projEdge)) return null;
+    if (projEdge >= 0.05) return true;
+    if (projEdge <= -0.05) return false;
+    return null;
   }
   const FIT_WORD = {natural: "Natural fit", value: "Value fit", market: "Market fit", force: "Force fit"};
 
@@ -95,13 +105,17 @@
       const recvAvg = market ? sumOf(recv, MARKET_KEY) : null;
       const chartEdge = giveAvg !== null && recvAvg !== null ? giveAvg - recvAvg : null;
       const marketOk = t.pricedCharts >= Math.min(F.MIN_CHARTS, ctx.charts.length) && t.rivalOkCount >= Math.min(F.MIN_CHARTS, ctx.charts.length);
+      const sumAll = (list, key) => list.reduce((n, r) => (n === null || !r.values || !finite(r.values[key]) ? null : n + r.values[key]), 0);
+      const projGive = sumAll(give, PROJ_KEY);
+      const projRecv = sumAll(recv, PROJ_KEY);
+      const projEdge = projGive !== null && projRecv !== null ? projRecv - projGive : null;
       const ours = fit ? ourFitOf(fit) : null;
       const theirs = fit ? theirFitOf(fit) : null;
       const overall = fit ? overallFit(ours.label, marketOk, chartEdge, theirs.label) : null;
       const core = F.coreOf(t.receive, OUR_KEY);
       return {id: `${opp.id}|${t.give.map(r => r.player_key)}|${t.receive.map(r => r.player_key)}`, opponentId: opp.id, opponent: opp.name, give: t.give, receive: t.receive, core,
         edge: t.edge, edgePct: myStart > 0 ? (t.edge / myStart) * 100 : null, score: t.score, charts: t.charts, pricedCharts: t.pricedCharts, rivalOkCount: t.rivalOkCount,
-        chartCount: ctx.charts.length, chartEdge, ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null, size: t.give.length + t.receive.length};
+        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null, size: t.give.length + t.receive.length};
     });
     return {opponentId: opp.id, rows, total: res.total, partial, evaluated: theirRows.length, searched: {mine: res.mine, theirs: res.theirs}, sanityDropped: res.sanityDropped};
   }
@@ -204,13 +218,14 @@
     {id: "opponent", label: "Opponent", type: "text", first: "asc", get: r => r.opponent},
     {id: "capture", label: "Fundamentals capture", type: "number", first: "desc", get: r => r.edge},
     {id: "market", label: "Market perception", type: "number", first: "desc", get: r => r.chartEdge},
+    {id: "proj", label: "Projections agree", type: "number", first: "desc", get: r => (r.projAgrees === null || r.projAgrees === undefined ? null : r.projAgrees ? 1 : 0)},
     {id: "fair", label: "Charts fair", type: "number", first: "desc", get: r => r.rivalOkCount},
     {id: "overall", label: "Overall fit", type: "number", first: "asc", rank: true, get: r => (r.overall ? r.tier : null)}
   ];
   const OPP_DEFAULT = {col: "rank", dir: "asc"};
   const OPP_TIES = [{get: r => r.rank, type: "number", dir: "asc"}, {get: r => r.opponent, type: "text", dir: "asc"}, {get: r => r.id, type: "text", dir: "asc"}];
 
-  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
+  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
     opponentHeadline, contextSig, sigOf, fmt};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueOpportunities = api;

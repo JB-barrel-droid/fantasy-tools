@@ -7,8 +7,8 @@ name: Render sweep
 # as a red run plus a warning annotation and holds nothing.
 #
 # Trigger: workflow_dispatch only. Schedules live in Supabase pg_cron (no
-# `schedule:` here); the daily job `render-sweep-daily` would dispatch this
-# file, see supabase/render_sweep_pg_cron.sql (not yet applied).
+# `schedule:` here); the daily job `render-sweep-daily` dispatches this file:
+# applied 2026-10-26 (jobid 47), see supabase/render_sweep_pg_cron.sql.
 
 on:
   workflow_dispatch:
