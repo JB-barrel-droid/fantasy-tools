@@ -245,6 +245,11 @@ const chartPlayers = [
   { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver",
     chart_values: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
     ddf_value_charts: 0, ddf_value_projections: 0 },
+  // JEG-1115: a player the trade charts price far below DDF Value, so a trade exists
+  // (you gain on DDF Value, the charts say the rival breaks even or wins).
+  { player_key: 6, name: "Chart Gem", pos: "RB", value: 45, tier: "starter",
+    chart_values: { usatoday: 10, fantasycalc: 11, fantasypros: 9, cbs: 10 },
+    ddf_value_charts: 45, ddf_value_projections: 45 },
 ];
 const chartStub = async (scoring, teams, superflex) => ({
   attribution: "Data Driven Football", as_of: "2026-10-24",
@@ -256,8 +261,9 @@ const callF = (name, args) => handleRpc(
   { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
   stub, deps, finderDeps);
 
-// find_trades: basic search between two rosters.
-r = await callF("find_trades", { mine: "Josh Allen, Josh Jacobs", theirs: "Bijan Robinson, Ja'Marr Chase" });
+// find_trades: basic search between two rosters (Chart Gem is cheap on the charts, dear on
+// DDF Value, so there is a trade where you gain and the charts say the rival breaks even).
+r = await callF("find_trades", { mine: "Josh Allen, Josh Jacobs", theirs: "Chart Gem, Bijan Robinson" });
 assert.notEqual(r.result.isError, true, "find_trades should not error: " + JSON.stringify(r.result));
 const ft = r.result.structuredContent;
 assert.ok(ft.total >= 0, "total trades is a number");
@@ -281,6 +287,15 @@ if (ft.trades.length > 0) {
     assert.ok(["High", "Med-High", "Medium"].includes(first.label), "viable offer has a label");
   }
 }
+
+// JEG-1115: every returned trade also carries the finder's fit label and reason.
+for (const t of ft.trades) {
+  assert.ok(["Natural", "Market supported", "Force"].includes(t.fit), "trade has a fit label: " + JSON.stringify(t.fit));
+  assert.equal(typeof t.fitReason, "string", "trade has a fit reason");
+  assert.ok(t.fitReason.length > 20, "the fit reason is a sentence");
+}
+assert.ok(ft.trades.every((t) => t.fit !== "Value"), "the retired Value label never appears");
+assert.match(r.result.content[0].text, /Fit: (Natural|Market supported|Force)/, "the text shows the fit label");
 
 // Unmatched names are reported.
 r = await callF("find_trades", { mine: "Josh Allen, Ghost", theirs: "Bijan Robinson" });

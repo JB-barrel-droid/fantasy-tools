@@ -164,6 +164,10 @@ export interface ScoredOffer {
   failedChecks: string[];
   temporaryGap: boolean;
   checks: CheckResult[];
+  /** JEG-1115: the fit label the finder shows (Natural / Market supported / Force). */
+  fit: string | null;
+  /** JEG-1115: the finder's one-line reason for that label. */
+  fitReason: string | null;
 }
 
 /** The best combination of viable offers across opponents. */
@@ -597,6 +601,9 @@ export interface TradeOfferInput {
   userGets: ViabilityRow[];
   userRoster: ViabilityRow[];
   theirRoster: ViabilityRow[];
+  /** JEG-1115: the finder's fit label for this offer, passed through unchanged. */
+  fit?: string | null;
+  fitReason?: string | null;
 }
 
 /** Score and rank a list of trade offers. */
@@ -643,6 +650,8 @@ export function scoreAndRankOffers(
       failedChecks: result.failureReasons,
       temporaryGap: result.temporaryGap,
       checks: result.checks,
+      fit: offer.fit ?? null,
+      fitReason: offer.fitReason ?? null,
     };
   });
 

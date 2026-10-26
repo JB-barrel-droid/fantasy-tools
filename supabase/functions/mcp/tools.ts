@@ -6,6 +6,7 @@
 
 import { type Deps, finish, prepare } from "./state.ts";
 import { type Finder, type FinderRow, findTradesForPair } from "./find-trades.ts";
+import { type FitContext, benchWeightsFromPlayers, buildFitContext } from "./fit.ts";
 import {
   type RosterShape,
   type ViabilityConfig,
@@ -232,7 +233,7 @@ export const TOOLS = [
   {
     name: "find_trades",
     description:
-      "Find trade packages between two rosters, scored for viability. Lists trades where you gain DDF Value and at least 3 of 4 trade charts say the other team breaks even or wins. Each trade is scored on 9 viability checks (arbitrage, fairness, lineup improvement, position protection, depth, roster space, QB, guardrails) and labelled High/Med-High/Medium when viable. Set viable_only to see only the trades most likely to be accepted.",
+      "Find trade packages between two rosters, scored for viability. Lists trades where you gain DDF Value and at least 3 of 4 trade charts say the other team breaks even or wins. Each trade is scored on 9 viability checks (arbitrage, fairness, lineup improvement, position protection, depth, roster space, QB, guardrails) and labelled High/Med-High/Medium when viable. Each trade also carries a fit label (Natural / Market supported / Force) with a one-line reason, the same fit the site's finder shows. Set viable_only to see only the trades most likely to be accepted.",
     inputSchema: {
       type: "object",
       properties: {
@@ -251,7 +252,7 @@ export const TOOLS = [
   {
     name: "find_trades_league",
     description:
-      "Find the best trades across an entire league. Takes your roster and a list of opponents with their rosters, scores every candidate on 9 viability checks, ranks viable offers first, and selects the best package of trades (no player sent twice, each opponent at most once). Returns per-trade viability labels, failure reasons, and the package with your projected lineup after.",
+      "Find the best trades across an entire league. Takes your roster and a list of opponents with their rosters, scores every candidate on 9 viability checks, ranks viable offers first, and selects the best package of trades (no player sent twice, each opponent at most once). Returns per-trade viability labels, fit labels (Natural / Market supported / Force), failure reasons, and the package with your projected lineup after.",
     inputSchema: {
       type: "object",
       properties: {
@@ -569,15 +570,20 @@ async function findTradesHandler(
   const minRivalEdge = Number(a.min_rival_edge ?? 0) || 0;
   const limit = Number(a.limit ?? 10) || 10;
 
+  // --- Viability scoring ---
+  const shape = rosterShape(a, s.superflex);
+  const vConfig = viabilityConfig(a);
+
+  // JEG-1115: each trade also carries the finder's fit label (Natural / Market supported /
+  // Force), judged by the finder's own rule (fit.ts).
+  const fitCtx = fitContextFor(finderDeps.finder, data, shape);
+
   const result = findTradesForPair(finderDeps.finder, mineRows, theirRows, {
     maxSize: maxPerSide,
     minRivalEdge,
     limit: limit + 20, // fetch extra before viability filtering
+    fit: fitCtx,
   });
-
-  // --- Viability scoring ---
-  const shape = rosterShape(a, s.superflex);
-  const vConfig = viabilityConfig(a);
   const viableOnly = a.viable_only === true || a.viable_only === "true";
 
   // Build lookup by player_key for full rows.
@@ -591,6 +597,8 @@ async function findTradesHandler(
     userGets: t.receive.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
     userRoster: mineRows,
     theirRoster: theirRows,
+    fit: t.fit,
+    fitReason: t.fit_reason,
   }));
 
   let scored = scoreAndRankOffers(offers, shape, vConfig);
@@ -623,6 +631,8 @@ async function findTradesHandler(
     lines.push(`${i + 1}. You give: ${giveStr}`);
     lines.push(`   You get: ${getStr}`);
     lines.push(`   Your edge: +${o.ddfEdge.toFixed(1)} DDF | Lineup: ${o.userLineupDelta >= 0 ? "+" : ""}${o.userLineupDelta.toFixed(1)} | ${viabilityTag}`);
+    // JEG-1115: the fit label beside viability, with the finder's own one-line reason.
+    if (o.fit) lines.push(`   Fit: ${o.fit}${o.fitReason ? ` — ${o.fitReason}` : ""}`);
     if (o.temporaryGap) lines.push(`   ⚠ Temporary lineup gap (injured players out)`);
     lines.push("");
   }
@@ -656,6 +666,24 @@ async function findTradesHandler(
 /** Minimal ViabilityRow from a trade candidate player summary. */
 function toViabilityRow(p: { player_key: number; name: string; pos: string; value: number | null }): ViabilityRow {
   return { player_key: p.player_key, name: p.name, pos: p.pos, values: { ddf_value: p.value } };
+}
+
+/**
+ * JEG-1115: the fit context for a chart response. The compared charts are the ones
+ * get-values actually priced (a Trade chart average needs MIN_CHARTS of them, the same bar
+ * the page's marketKeys() applies); the bench weights are the engine's readout read back
+ * from the published values and tiers (fit.ts). Expected depth is not exposed by
+ * get-values, so it stays null — the label never reads it.
+ */
+function fitContextFor(finder: Finder, data: ChartValuesResponse, shape: RosterShape): FitContext | null {
+  const chartKeys = (finder.CHART_KEYS || []).filter((k) => data.sources_included.includes(k));
+  return buildFitContext(finder, {
+    shape,
+    chartKeys,
+    weights: benchWeightsFromPlayers(data.players),
+    expected: null,
+    z: finder.FIT_Z,
+  });
 }
 
 // ---------- find_trades_league tool ----------
@@ -709,6 +737,9 @@ async function findTradesLeagueHandler(
   const minRivalEdge = Number(a.min_rival_edge ?? 0) || 0;
   const limit = Math.min(100, Math.max(1, Number(a.limit ?? 25) || 25));
 
+  // JEG-1115: the fit label each candidate carries, from the finder's own rule (fit.ts).
+  const fitCtx = fitContextFor(finderDeps.finder, data, shape);
+
   const allOffers: TradeOfferInput[] = [];
   const perOpponent: Array<{ name: string; tradesFound: number; unmatchedNames: string[] }> = [];
   const allUnmatched: string[] = [...mineRes.unmatched];
@@ -736,6 +767,7 @@ async function findTradesLeagueHandler(
       maxSize: maxPerSide,
       minRivalEdge,
       limit: 50,
+      fit: fitCtx,
     });
 
     const pairOffers: TradeOfferInput[] = pairResult.trades.map((t) => ({
@@ -744,6 +776,8 @@ async function findTradesLeagueHandler(
       userGets: t.receive.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
       userRoster: mineRows,
       theirRoster: theirRows,
+      fit: t.fit,
+      fitReason: t.fit_reason,
     }));
 
     allOffers.push(...pairOffers);
@@ -781,7 +815,7 @@ async function findTradesLeagueHandler(
     for (const o of pkg.offers) {
       const giveStr = o.userGives.map((p) => `${p.name} (${p.pos})`).join(", ");
       const getStr = o.userGets.map((p) => `${p.name} (${p.pos})`).join(", ");
-      lines.push(`  vs ${o.team}: give ${giveStr} → get ${getStr} [${o.label}] +${o.ddfEdge.toFixed(1)} DDF`);
+      lines.push(`  vs ${o.team}: give ${giveStr} → get ${getStr} [${o.fit ? o.fit + " · " : ""}${o.label}] +${o.ddfEdge.toFixed(1)} DDF`);
     }
     lines.push("");
   }
@@ -796,6 +830,7 @@ async function findTradesLeagueHandler(
       : `[NOT VIABLE: ${o.failedChecks.join("; ")}]`;
     lines.push(`${i + 1}. vs ${o.team}: give ${giveStr} → get ${getStr}`);
     lines.push(`   Edge: +${o.ddfEdge.toFixed(1)} DDF | Lineup: ${o.userLineupDelta >= 0 ? "+" : ""}${o.userLineupDelta.toFixed(1)} | ${viabilityTag}`);
+    if (o.fit) lines.push(`   Fit: ${o.fit}${o.fitReason ? ` — ${o.fitReason}` : ""}`);
     if (o.temporaryGap) lines.push(`   ⚠ Temporary lineup gap`);
   }
   if (!shownTrades.length) lines.push(viableOnly

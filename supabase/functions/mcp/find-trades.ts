@@ -6,6 +6,8 @@
 //
 // No Deno APIs. No DOM. Runs under node in tests.
 
+import { type FitContext, fitForTrade } from "./fit.ts";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -33,6 +35,10 @@ export interface TradeCandidate {
   score: number;
   /** Per-chart breakdown. */
   charts: Array<{ key: string; net: number | null; rivalOk: boolean | null }>;
+  /** JEG-1115: the fit label the finder shows, next to viability. Null when not judged. */
+  fit: string | null;
+  /** JEG-1115: the finder's own one-line reason for that label (fitText). */
+  fit_reason: string | null;
 }
 
 export interface FindTradesResult {
@@ -47,6 +53,8 @@ export interface FindTradesOpts {
   maxSize?: number;       // max players per side (default 2)
   minRivalEdge?: number;  // min market-value edge the rival needs (default 0)
   limit?: number;         // max candidates to return (default 10)
+  /** JEG-1115: when set, each trade carries fit + fit_reason (the finder's own label). */
+  fit?: FitContext | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,15 +136,23 @@ export function findTradesForPair(
 
   let trades: TradeCandidate[] = raw.trades.map(
     // deno-lint-ignore no-explicit-any
-    (t: any) => ({
-      give: fmt(t.give),
-      receive: fmt(t.receive),
-      edge: Math.round(t.edge * 10) / 10,
-      rivalOkCount: t.rivalOkCount,
-      pricedCharts: t.pricedCharts,
-      score: Math.round(t.score * 10) / 10,
-      charts: t.charts,
-    }),
+    (t: any) => {
+      // JEG-1115: the fit label the finder shows, from the finder's own rule (fit.ts).
+      const fit = opts?.fit
+        ? fitForTrade(finder, mine, theirs, t.give, t.receive, opts.fit)
+        : { fit: null, fit_reason: null };
+      return {
+        give: fmt(t.give),
+        receive: fmt(t.receive),
+        edge: Math.round(t.edge * 10) / 10,
+        rivalOkCount: t.rivalOkCount,
+        pricedCharts: t.pricedCharts,
+        score: Math.round(t.score * 10) / 10,
+        charts: t.charts,
+        fit: fit.fit,
+        fit_reason: fit.fit_reason,
+      };
+    },
   );
 
   // Optional: filter by a minimum market-value (chart-average) edge for the rival.
