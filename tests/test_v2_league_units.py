@@ -28,6 +28,7 @@ REQUIRED = [
     "test_summary_headline_independent_of_sort", "test_sort_numeric_asc_desc", "test_sort_blanks_last", "test_sort_rank_unchanged",
     "test_sort_tiebreak", "test_opportunities_columns", "test_opportunities_fit_label", "test_opportunities_fit_label_rows",
     "test_opportunities_rank", "test_opportunities_tier_before_edge", "test_opportunities_1_opponent", "test_opportunities_partial",
+    "test_opportunities_cap_per_core", "test_opportunities_cap_on_a_fixture",
     "test_multi_trade_cache", "test_opportunities_filters", "test_opportunities_cap_and_headline",
     "test_summary_ranks_proj", "test_summary_disagree_list", "test_summary_allocation_wording", "test_summary_proj_partial", "test_summary_disagree_charts_key", "test_opportunities_proj_agreement",
 ]
@@ -71,6 +72,10 @@ MUTATIONS = {
     "projections view built from any one projected player": ("team-summary.js", "rows.filter(r => POSITIONS.includes(r.pos)).every(r => r.values && finite(r.values[PROJ_KEY]))", "rows.some(r => r.values && finite(r.values[PROJ_KEY]))", {"test_summary_proj_partial"}),
     "disagreement reads DDF Value instead of the charts": ("team-summary.js", "const charts = finite(v[CHARTS_KEY]) ? v[CHARTS_KEY] : v[OUR_KEY];", "const charts = v[OUR_KEY];", {"test_summary_disagree_charts_key"}),
     "disagreement column sorts unsigned": ("team-summary.js", "list.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0].gap", "Math.abs(list.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0].gap)", {"test_summary_disagree_charts_key"}),
+    "cap keeps three rows for one received core player": ("opportunities.js", "const CAP_PER_CORE = 2;", "const CAP_PER_CORE = 3;",
+        {"test_opportunities_cap_per_core", "test_opportunities_cap_on_a_fixture"}),
+    "cap never folds the overflow": ("opportunities.js", "if (used < limit) { list.push(row); return; }", "list.push(row); return;",
+        {"test_opportunities_cap_per_core", "test_opportunities_cap_on_a_fixture"}),
     "projections edge direction flipped": ("opportunities.js", "const projEdge = projGive !== null && projRecv !== null ? projRecv - projGive : null;", "const projEdge = projGive !== null && projRecv !== null ? projGive - projRecv : null;", {"test_opportunities_proj_agreement"}),
     "level counts as agreement": ("opportunities.js", "if (projEdge >= 0.05) return true;", "if (projEdge >= 0) return true;", {"test_opportunities_proj_agreement"}),
     "a missing projection counts as 0": ("opportunities.js", "const sumAll = (list, key) => list.reduce((n, r) => (n === null || !r.values || !finite(r.values[key]) ? null : n + r.values[key]), 0);", "const sumAll = (list, key) => list.reduce((n, r) => n + (r.values && finite(r.values[key]) ? r.values[key] : 0), 0);", {"test_opportunities_proj_agreement"}),
