@@ -97,6 +97,35 @@ def check(finder_js: Path) -> list[str]:
         errors.append(f"the no-natural headline reads {heads['none']!r}")
     if call(finder_js, "fitHeadline", "natural", {"count": 2})["link"] is None or call(finder_js, "fitHeadline", "none", {})["link"] is not None:
         errors.append("the jump link is offered without a natural group, or missing with one")
+    # Throw-ins are live in the search (JEG-1108): the team that receives more players adds its own least valuable
+    # rostered player, so no trade the search lists has unequal player counts, and the added player is listed on it.
+    def tr(key, pos, ddf, charts):
+        return {"player_key": key, "name": key, "pos": pos, "values": dict(zip(["ddf_value", "usatoday", "fantasycalc", "fantasypros", "cbs"], [ddf] + [charts] * 4))}
+    mine_rows = [tr("M1", "WR", 10, 20), tr("M2", "WR", 0.3, 0.3), tr("M3", "WR", 0.4, 0.4)]
+    their_rows = [tr("T1", "WR", 8, 8), tr("T2", "WR", 4, 4)]
+    chart_keys = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
+    res = call(finder_js, "findTrades", mine_rows, their_rows, {"chartKeys": chart_keys, "maxSize": 2, "limit": 50})
+    unequal = [t for t in res["trades"] if len(t["give"]) != len(t["receive"])]
+    if unequal:
+        errors.append(f"the search listed {len(unequal)} trade(s) with unequal player counts; throw-ins are not wired in")
+    flagged = [t for t in res["trades"] if t.get("addedThrowIn")]
+    if not any(t["addedThrowIn"]["row"]["player_key"] == "M2" and t["addedThrowIn"]["side"] == "give" for t in flagged):
+        errors.append("a 1-for-2 package did not get my least valuable player (M2) as a listed throw-in")
+    ids = [",".join(r["player_key"] for r in t["give"]) + "|" + ",".join(r["player_key"] for r in t["receive"]) for t in res["trades"]]
+    if len(ids) != len(set(ids)):
+        errors.append("the search listed the same package twice (throw-in variants not collapsed)")
+    # The throw-in is judged with the package: M2 is a real cost, so the edge is 12 - 10.3, not 12 - 10.
+    one = [t for t in res["trades"] if [r["player_key"] for r in t["give"]] == ["M1", "M2"] and len(t["receive"]) == 2]
+    if one and abs(one[0]["edge"] - 1.7) > 1e-6:
+        errors.append(f"the throw-in was not counted in the edge: {one[0]['edge']}")
+    # A throw-in who is a starter for the team that must supply him is not added: the trade stays, marked unbalanced.
+    shape = {"QB": 0, "RB": 0, "WR": 2, "TE": 0, "FLEX": 0, "SUPERFLEX": 0}
+    res = call(finder_js, "findTrades", mine_rows[:2], their_rows, {"chartKeys": chart_keys, "maxSize": 2, "limit": 50,
+               "sanity": {"shape": shape, "mine": mine_rows[:2], "theirs": their_rows, "keepMine": False, "keepTheirs": False}})
+    skipped = [t for t in res["trades"] if t.get("unbalanced")]
+    if not skipped or any(t.get("addedThrowIn") for t in skipped):
+        errors.append("a starter as the throw-in should leave the trade unbalanced with no throw-in added")
+
     return errors
 
 
@@ -110,6 +139,7 @@ MUTANTS = {
     "over rule one early": ("have > e.hi + 1 ? \"over\"", "have > e.hi ? \"over\""),
     "partial roster judged": ("includes(r.pos)).length >= slots &&", "includes(r.pos)).length >= 0 &&"),
     "market view reads fundamentals": ("r.values && finite(r.values[valueKey]) && r.values[valueKey] >= USABLE_MIN", "r.values && finite(r.values.ddf_value) && r.values.ddf_value >= USABLE_MIN"),
+    "throw-ins not wired into the search": ("const balanced = balanceCounts({give: giveRows, receive: getRows}, balanceMine, balanceTheirs, balanceShape, ourKey);", "const balanced = {balanced: false};"),
     "sentence drops the lineup": ("const value = sums ?", "const value = false ?"),
 }
 
