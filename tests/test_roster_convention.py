@@ -361,8 +361,14 @@ class TestBenchSeatsUnits(unittest.TestCase):
         self.assertEqual(result["QB"]["bench"], 0,
                          "QB bench must be 0 when QB pool is exhausted after starters")
 
-    def test_qb_bench_fills_when_qbs_dominate(self):
-        """QB bench > 0 when remaining QB pool outscores all other bench candidates."""
+    def test_qb_bench_fills_when_qbs_have_positive_vorp(self):
+        """QB bench > 0 when remaining QBs score above their VORP waiver reference.
+
+        VORP allocation: a player earns bench spots by scoring above the reference
+        waiver line (player at index t1 in the remaining pool). This test uses a
+        sharp dropoff so QBs 4-5 (first bench candidates) score far above qb6+
+        (the waiver reference), giving them large positive VORP.
+        """
         teams = 4
         player_order = {
             "QB": [f"qb{i}" for i in range(30)],
@@ -372,14 +378,21 @@ class TestBenchSeatsUnits(unittest.TestCase):
             "K": [], "DEF": [],
         }
         player_scores = {}
-        for k in player_order["QB"]: player_scores[k] = 200   # high — QB pool dominates
-        for k in player_order["RB"]: player_scores[k] = 1     # low
-        for k in player_order["WR"]: player_scores[k] = 1     # low
-        for k in player_order["TE"]: player_scores[k] = 1     # low
-        # 4 teams * 2 bench = 8 bench spots; after 4 dedicated QBs, 26 QB remain at score 200
+        # Top 6 QBs score high; rest drop to 1. VORP reference at t1=1 → qb5 at 200;
+        # but qb4 also at 200 so VORP=0 for first candidate.
+        # Use: qb0-5 at 200, qb6+ at 1. With t1=1, reference = qb[4+1]=qb5=200,
+        # first candidate qb4=200 → VORP=0. Better: qb0-4 at 200, qb5+ at 1.
+        # Then reference = remaining[QB][1] = qb5 = 1; first candidate qb4 = 200 → VORP=199.
+        for i, k in enumerate(player_order["QB"]):
+            player_scores[k] = 200 if i < 5 else 1  # qb0-4 elite; qb5+ waiver-level
+        for k in player_order["RB"]: player_scores[k] = 1
+        for k in player_order["WR"]: player_scores[k] = 1
+        for k in player_order["TE"]: player_scores[k] = 1
+        # 4 dedicated QB starters (qb0-3); remaining bench-eligible QBs: qb4 (200) and qb5+ (1).
+        # qb4 has VORP = 200 - 1 = 199 (reference is at t1=1 = qb5 = 1) → QB gets bench.
         result = allocate_league(DEFAULT_SLOTS, teams, 2, 1, 0, player_order, player_scores)
-        self.assertEqual(result["QB"]["bench"], 8,
-                         "QB should fill all bench spots when QB pool dominates all positions")
+        self.assertGreater(result["QB"]["bench"], 0,
+                           "QB should get bench when remaining QBs have positive VORP")
 
     def test_negative_dhondt_would_give_qb_bench_regardless(self):
         """D'Hondt (bench_seats) gives QB>0 bench even when QB pool is exhausted after starters.

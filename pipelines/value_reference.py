@@ -49,6 +49,7 @@ from lib.roster_convention import (
     starter_line as _convention_starter_line,
     waiver_line as _convention_waiver_line,
     market_bench_ratios as _convention_market_bench_ratios,
+    vorp_bench_allocate as _vorp_bench_allocate,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -262,11 +263,18 @@ def allocate(league: League, order: dict, score: dict, *,
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
     if flex_bench_seats:
-        # Greedy bench: all positions compete for bench spots after starters.
-        bench_cands = [(p, i) for p in POSITIONS
-                       for idx, i in enumerate(order.get(p, []))
-                       if idx >= d[p] + sf[p] + fx[p]]
-        b = take(bench_cands, t * int(league.bench))
+        # JEG-1121 VORP: bench fills by VORP × usage discount.
+        _starters = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
+        _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
+        _is_2qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
+        _ff = (None if _is_2qb
+               else {p: (sf[p] + fx[p]) / t for p in POSITIONS})
+        b = _vorp_bench_allocate(
+            _starters, _remaining, score,
+            t, t * int(league.bench),
+            {p: int(league.slots.get(p, 0)) for p in POSITIONS},
+            _is_2qb, _ff,
+        )
     else:
         # D'Hondt bench (backward compat: flex_bench_seats=False).
         is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2

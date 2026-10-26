@@ -36,6 +36,11 @@ POS_ORDER = {p: i for i, p in enumerate(POSITIONS)}
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
 SUPERFLEX_ELIGIBLE = ("QB", "RB", "WR", "TE")
 
+# JEG-1121: VORP bench allocation constants.
+# miss_rate per game (from lineup_parameters.json; rounded for JS parity).
+_BENCH_MISS_RATE = {"QB": 0.12, "RB": 0.14, "WR": 0.11, "TE": 0.15}
+_BYE_RATE = 1.0 / 17.0  # one bye per 17-game season
+
 # Default roster: 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / 1 K / 1 DEF, 7 bench.
 # The switch to this default ships in JEG-563; this module defines it.
 DEFAULT_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
@@ -175,6 +180,105 @@ def waiver_line(values: list[float], rostered: int) -> float | None:
     return values[-1]
 
 
+def vorp_bench_allocate(
+    starters: dict[str, int],
+    remaining: dict[str, list],
+    player_scores: dict,
+    teams: int,
+    total_bench: int,
+    slots: dict[str, int],
+    is_two_qb: bool,
+    flex_filled_per_team: dict[str, float] | None = None,
+) -> dict[str, int]:
+    """Greedy bench fill by VORP × usage discount (JEG-1121 VORP spec).
+
+    VORP = max(0, score − D'Hondt_waiver_line[pos]), where the D'Hondt bench
+    (market bench ratios) defines the reference waiver line per position.
+    Usage discount has two tiers: first-round backups (k < teams) get
+    coverage_rate = starters_per_team × (bye_rate + miss_rate); second-round
+    backups (teams ≤ k < 2×teams) get coverage_rate². Beyond 2×teams: 0.
+    This naturally limits backup QBs in 1-QB leagues without a hard cap.
+
+    starters[pos]: league-wide starter count (dedicated + sf + flex).
+    remaining[pos]: non-starter candidates sorted best-first.
+    """
+    # Starters per team per position (for coverage rate)
+    spt = {pos: starters.get(pos, 0) / teams for pos in POSITIONS}
+
+    # Rational bench reference: t1[pos] = round(2 × coverage_rate × teams).
+    # Physical meaning: ~twice the expected starter-absence events per season at
+    # each position. Used for both the waiver line reference and the tier-1
+    # boundary so the allocation is internally consistent (JEG-1121).
+    t1: dict[str, int] = {}
+    for pos in POSITIONS:
+        c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
+        t1[pos] = max(1, round(2.0 * c * float(teams)))
+
+    ref_waiver: dict[str, float] = {}
+    for pos in POSITIONS:
+        order = remaining.get(pos, [])
+        ref_idx = t1[pos]
+        if len(order) > ref_idx:
+            ref_waiver[pos] = float(player_scores.get(order[ref_idx], 0) or 0)
+        elif order:
+            ref_waiver[pos] = float(player_scores.get(order[-1], 0) or 0)
+        else:
+            ref_waiver[pos] = 0.0
+
+    def _discount(pos: str, k: int) -> float:
+        c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
+        if k < t1[pos]:
+            return c
+        if k < 2 * t1[pos]:
+            return c * c
+        return 0.0
+
+    # Iterative greedy fill (VORP head); when no positive-VORP candidate remains,
+    # fall back to D'Hondt proportional fill for the tail so bench is fully allocated.
+    counts: dict[str, int] = {pos: 0 for pos in POSITIONS}
+    for _ in range(max(0, int(total_bench))):
+        best: float = -1e18
+        winner: str | None = None
+        any_candidate = False
+        for pos in POSITIONS:
+            order = remaining.get(pos, [])
+            k = counts[pos]
+            if k >= len(order):
+                continue
+            any_candidate = True
+            raw = float(player_scores.get(order[k], 0) or 0)
+            vorp = max(0.0, raw - ref_waiver[pos])
+            effective = vorp * _discount(pos, k)
+            pos_rank = POS_ORDER.get(pos, 99)
+            win_rank = POS_ORDER.get(winner, 99) if winner is not None else 99
+            if effective > best or (effective == best and pos_rank < win_rank):
+                best = effective
+                winner = pos
+        if winner is None or not any_candidate:
+            break
+        if best <= 0:
+            # All remaining at/below waiver. Fill tail with D'Hondt using c³ weights:
+            # c = coverage_rate; c³ strongly discounts positions (like QB in 1-QB) with
+            # low per-starter backup demand, matching the "natural limit" spec intent.
+            remaining_slots = int(total_bench) - sum(counts.values())
+            if remaining_slots > 0:
+                tail_w: dict[str, float] = {}
+                for pos in POSITIONS:
+                    if counts[pos] < len(remaining.get(pos, [])):
+                        c3 = (spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))) ** 3
+                        tail_w[pos] = c3
+                    else:
+                        tail_w[pos] = 0.0
+                if any(v > 0 for v in tail_w.values()):
+                    tail = dhondt_allocate(tail_w, remaining_slots)
+                    for pos in POSITIONS:
+                        counts[pos] += tail.get(pos, 0)
+            break
+        counts[winner] += 1
+
+    return counts
+
+
 def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
                     flex_count: int, superflex_count: int,
                     player_order: dict[str, list],
@@ -217,15 +321,20 @@ def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
         t * int(flex_count), flex_eligible,
     )
 
-    # JEG-1121 revised: bench fills from the league-wide player pool after starters.
-    # Backup counts per position emerge from player values, not preset ratios.
+    # JEG-1121 VORP: bench fills by VORP × usage discount (not raw PPG).
     remaining_after_fx = {}
     for pos in POSITIONS:
         remaining_after_fx[pos] = remaining_after_sf[pos][fx_filled[pos]:]
 
-    b = flex_allocate_greedy(
-        remaining_after_fx, player_scores,
-        t * int(bench_per_team), POSITIONS,
+    starters_count = {pos: dedicated[pos] + sf_filled[pos] + fx_filled[pos]
+                      for pos in POSITIONS}
+    is_two_qb = int(superflex_count) > 0 or int(slots.get("QB", 0)) >= 2
+    ff_per_team = (None if is_two_qb
+                   else {pos: (sf_filled[pos] + fx_filled[pos]) / t
+                         for pos in POSITIONS})
+    b = vorp_bench_allocate(
+        starters_count, remaining_after_fx, player_scores,
+        t, t * int(bench_per_team), slots, is_two_qb, ff_per_team,
     )
 
     out = {}

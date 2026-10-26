@@ -273,12 +273,103 @@
       var bench = vpBenchSeats(slots, teams, benchPerTeam, {superflex: isTwoQb, flexFilled: ff});
       POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
     } else {
-      // Greedy: fill bench from the league-wide pool after starters. Backup counts
-      // per position emerge from player values — no preset ratio.
-      var bench = takeBest(POSITION_ORDER, function (pos) {
-        return alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
-      }, vpRoundHalfUp(teams * benchPerTeam));
-      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos] || 0; });
+      // JEG-1121 VORP: bench fills by VORP × usage discount, not raw PPG.
+      // VORP = max(0, score − D'Hondt_waiver_line[pos]).
+      // Usage discount has two tiers: first-round (k<teams) → coverage_rate,
+      // second-round (teams≤k<2*teams) → coverage_rate², beyond → 0.
+      var isTwoQbVorp = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
+      var ffVorp = null;
+      if (!isTwoQbVorp) {
+        ffVorp = {};
+        POSITION_ORDER.forEach(function (pos) {
+          ffVorp[pos] = ((sf[pos] || 0) + (fx[pos] || 0)) / teams;
+        });
+      }
+      // Starters per team for coverage rate
+      var startPT = {};
+      POSITION_ORDER.forEach(function (pos) {
+        startPT[pos] = (alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0)) / teams;
+      });
+      // miss rates (from lineup_parameters.json, rounded for Python parity)
+      var VORP_MISS = {QB: 0.12, RB: 0.14, WR: 0.11, TE: 0.15};
+      var VORP_BYE = 1.0 / 17.0;
+      // Rational bench reference: t1[pos] = round(2 × coverage_rate × teams).
+      // Used for waiver lines, tier boundaries, and the D'Hondt tail.
+      var vorpT1 = {};
+      POSITION_ORDER.forEach(function (pos) {
+        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+        vorpT1[pos] = Math.max(1, Math.round(2.0 * c * teams));
+      });
+      // Waiver lines from rational reference bench
+      var refWaiver = {};
+      POSITION_ORDER.forEach(function (pos) {
+        var order = orders[pos] || [];
+        var offset = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+        var refIdx = offset + (vorpT1[pos] || 0);
+        if (order.length > refIdx) {
+          refWaiver[pos] = order[refIdx].score || 0;
+        } else if (order.length > offset) {
+          refWaiver[pos] = order[order.length - 1].score || 0;
+        } else {
+          refWaiver[pos] = 0;
+        }
+      });
+      function vorpDiscount(pos, k) {
+        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+        var t1 = vorpT1[pos];
+        if (k < t1) return c;
+        if (k < 2 * t1) return c * c;
+        return 0;
+      }
+      // Iterative greedy bench fill (VORP head); D'Hondt tail for zero-VORP slots.
+      var benchCounts = {};
+      POSITION_ORDER.forEach(function (pos) { benchCounts[pos] = 0; });
+      var totalBench = vpRoundHalfUp(teams * benchPerTeam);
+      for (var bSlot = 0; bSlot < totalBench; bSlot++) {
+        var bestEff = -Infinity, bestPos = null, anyCandidate = false;
+        POSITION_ORDER.forEach(function (pos) {
+          var order = orders[pos] || [];
+          var offset = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+          var idx = offset + (benchCounts[pos] || 0);
+          if (idx >= order.length) return;
+          anyCandidate = true;
+          var raw = order[idx].score || 0;
+          var vorp = Math.max(0, raw - (refWaiver[pos] || 0));
+          var eff = vorp * vorpDiscount(pos, benchCounts[pos] || 0);
+          var pi = vpPosIndex(pos), bi = bestPos !== null ? vpPosIndex(bestPos) : Infinity;
+          if (eff > bestEff || (eff === bestEff && pi < bi)) {
+            bestEff = eff; bestPos = pos;
+          }
+        });
+        if (bestPos === null || !anyCandidate) break;
+        if (bestEff <= 0) {
+          // All remaining at/below waiver. Fill tail with D'Hondt using c³ weights:
+          // c = coverage_rate; c³ strongly discounts positions (like QB in 1-QB) with
+          // low per-starter backup demand, matching the "natural limit" spec intent.
+          var remainingSlots = totalBench - bSlot;
+          if (remainingSlots > 0) {
+            var tailWeights = {};
+            POSITION_ORDER.forEach(function (pos) {
+              var order = orders[pos] || [];
+              var offset = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+              var avail = order.length - offset - (benchCounts[pos] || 0);
+              if (avail > 0) {
+                var cv = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+                tailWeights[pos] = cv * cv * cv;
+              } else {
+                tailWeights[pos] = 0;
+              }
+            });
+            var tail = apportionSlots(tailWeights, remainingSlots);
+            POSITION_ORDER.forEach(function (pos) {
+              benchCounts[pos] = (benchCounts[pos] || 0) + (tail[pos] || 0);
+            });
+          }
+          break;
+        }
+        benchCounts[bestPos] = (benchCounts[bestPos] || 0) + 1;
+      }
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = benchCounts[pos] || 0; });
     }
     POSITION_ORDER.forEach(function (pos) {
       var a = alloc[pos];

@@ -230,7 +230,7 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assertGreater(esx.count_leaves(self.doc["variant_expected_starts"]["expected"]), 1500)
         exp = self.doc["variant_expected_starts"]["expected"]
         self.assertFalse(exp["bench_share_readout"]["override"])
-        # JEG-879: bench_per_team=4 gives WR 3 bench seats (rostered=6),
+        # JEG-879/JEG-1121: bench_per_team=5 gives WR 4 bench seats (rostered=7),
         # so the waiver line falls below the depth boundary -> 2 bands.
         self.assertEqual(len(exp["sources"]["p1"]["positions"]["WR"]["bands"]), 2)
         self.assertEqual(exp["sources"]["p1"]["positions"]["WR"]["lineup"]["n_per_team"], 2)
@@ -260,7 +260,7 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assert_variant_fails([("chartSigma[pos].sigma_rel * esConfidence", "chartSigma[pos].sigma_rel")])
 
     def test_guard_catches_one_band_only(self):
-        # JEG-879: bench_per_team=4 gives WR 2 bands; the mutation collapses
+        # JEG-879/JEG-1121: bench_per_team=5 gives WR 2 bands; the mutation collapses
         # every position to 1 band, so the comparison must fail.
         self.assert_variant_fails([("if (!teams || idx >= work.length || work[idx].native <= waiver) break;",
                                     "break;")])
@@ -469,18 +469,18 @@ class TestFlexBenchSeatsTwoQbSkip(unittest.TestCase):
         return {p: s.result()["slot_fill"][p]["bench"] for p in ("QB", "RB", "WR", "TE")}
 
     def test_two_qb_bench_is_supply_aware(self):
-        """In 2-QB, greedy bench gives different (supply-aware) QB bench vs D'Hondt.
+        """In 2-QB, VORP greedy bench allocates more QB bench than 1-QB greedy.
 
-        The old D'Hondt 2-QB path (flex_bench_seats=False) applied supply-capped ratios.
-        Greedy bench is also supply-aware: only QBs remaining in the pool fill bench spots.
-        Both should give fewer QB bench than 1-QB D'Hondt (which uses 0.88 ratio).
+        2-QB rosters have 2× starter coverage demand, so the VORP formula gives QBs
+        a higher coverage rate and more bench slots — that is the correct supply-aware
+        behaviour. The algorithm is also bounded by pool supply (remaining QBs after
+        24 starters are taken).
         """
-        greedy = self._bench(qb=2, flex_bench_seats=True)
-        dhondt_1qb = self._bench(qb=1, flex_bench_seats=False)
-        # 1-QB D'Hondt gives more QB bench seats (0.88 ratio) than either
-        # supply-aware approach for 2-QB
-        self.assertGreater(dhondt_1qb["QB"], greedy["QB"],
-                           "1-QB D'Hondt should give more QB bench than 2-QB greedy (supply-aware)")
+        greedy_2qb = self._bench(qb=2, flex_bench_seats=True)
+        greedy_1qb = self._bench(qb=1, flex_bench_seats=True)
+        # 2-QB has 2× starters → VORP coverage rate doubles → more QB bench
+        self.assertGreater(greedy_2qb["QB"], greedy_1qb["QB"],
+                           "2-QB greedy should give more QB bench than 1-QB greedy (supply-aware)")
 
     def test_superflex_bench_is_supply_aware(self):
         """In superflex, greedy bench handles supply-capped QBs naturally."""

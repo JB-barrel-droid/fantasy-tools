@@ -36,6 +36,7 @@ if str(_REPO / "pipelines" / "lib") not in sys.path:
 from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
+    vorp_bench_allocate as _vorp_bench,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -182,9 +183,18 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
     if flex_bench_seats:
-        # Greedy bench: best remaining players fill bench spots after starters.
-        bench_cands = [(k, p) for p in POSITIONS for k in order[p][ded[p] + sf[p] + fx[p]:]]
-        bench = take(bench_cands, T * setting.bench_per_team)
+        # JEG-1121 VORP: bench fills by VORP × usage discount.
+        _starters = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
+        _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
+        _is_2qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+        _ff = (None if _is_2qb
+               else {p: (sf[p] + fx[p]) / T for p in POSITIONS})
+        bench = _vorp_bench(
+            _starters, _remaining, scores,
+            T, T * setting.bench_per_team,
+            {p: int(setting.slots.get(p, 0)) for p in POSITIONS},
+            _is_2qb, _ff,
+        )
     else:
         # D'Hondt bench (backward compat).
         is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
