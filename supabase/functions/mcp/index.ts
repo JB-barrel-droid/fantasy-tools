@@ -71,14 +71,15 @@ async function loadCodec(): Promise<Codec | null> {
 
 // Chart-enriched fetch: get-values with include=charts for the finder.
 const chartCache = new Map<string, { at: number; data: ChartValuesResponse }>();
-const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex) => {
-  const key = `${scoring}|${teams}|${superflex}`;
+const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, league) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
   const hit = chartCache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
   url.searchParams.set("scoring", scoring);
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
+  if (league) url.searchParams.set("league", JSON.stringify(league));
   url.searchParams.set("include", "charts");
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`get-values ${res.status}`);
