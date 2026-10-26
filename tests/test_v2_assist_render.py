@@ -61,11 +61,16 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
             browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
             raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
-        context = browser.new_context(viewport={"width": 1440, "height": 1000})
-        context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base.split("/v2/")[0])
         pages = []
+        contexts = []
 
         def open_page(url, width=1440):
+            # JEG-1089: one browser context (own localStorage) per page, as every real visitor has. Pages sharing a context share the
+            # saved "my roster" (workspace.js), and a still-open earlier page saving ~1s late sends the new page an `other-tab` event
+            # that replaces the rosters its link just set (finder.js pullMine): the name-only link failed 3 runs in 4 that way.
+            context = browser.new_context(viewport={"width": 1440, "height": 1000})
+            context.grant_permissions(["clipboard-read", "clipboard-write"], origin=base.split("/v2/")[0])
+            contexts.append(context)
             page = context.new_page()
             page.set_viewport_size({"width": width, "height": 1000})
             page.errors = []
@@ -212,8 +217,8 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                 if p.errors:
                     errors.append(f"page errors {p.errors}")
         finally:
-            for p in pages:
-                p.close()
+            for c in contexts:
+                c.close()
             browser.close()
     return errors
 
