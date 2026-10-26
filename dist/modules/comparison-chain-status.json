@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-26T03:28:03.092553+00:00",
+  "run_at": "2026-10-26T04:02:03.067372+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -16,11 +16,11 @@
   "held": [
     "razzball"
   ],
-  "hold_severity": "red",
+  "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
     "razzball": {
-      "reason": "fidelity: stored_vs_chart",
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
         "razzball",
         "razzball_vorp"
@@ -28,8 +28,8 @@
       "sections": [
         "razzball"
       ],
-      "detail": "1938/1938 chart values equal stored snapshot 2026-10-24 (per game, 1 decimals); 24 stored players are left off the chart by its own rule (missed-games guard, JEG-555): Alec Pierce, Bryce Lance, Brycen Tremayne, Christian Kirk, Colbie Young, Darnell Mooney, De'Zhaun Stribling, Demarcus Robinson, Devi",
-      "hold_severity": "red",
+      "detail": "2025/2025 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
+      "hold_severity": "amber",
       "week": 7
     }
   },
@@ -145,6 +145,6 @@
     }
   },
   "fidelity_holds": {
-    "razzball": "fidelity: stored_vs_chart"
+    "razzball": "fidelity: publisher_vs_stored"
   }
 }
