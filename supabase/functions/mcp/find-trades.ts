@@ -67,6 +67,39 @@ export interface Finder {
 }
 
 // ---------------------------------------------------------------------------
+// evalFinder — safely load finder.js source and return the API or null.
+// ---------------------------------------------------------------------------
+
+/**
+ * Eval a finder.js source string and return globalThis.TradeValueFinder, or
+ * null if the eval throws or the API is not published. Used by the edge
+ * function's loadFinder() and by tests.
+ *
+ * @param src    Source text of finder.js.
+ * @param evalFn The eval function from the calling scope (avoids linter ban on
+ *               direct `eval` in this file).
+ * @param before Optional existing globalThis.TradeValueFinder to restore on
+ *               failure (pass {} or omit for none).
+ */
+// deno-lint-ignore no-explicit-any
+export function evalFinder(src: string, evalFn: (s: string) => void, before?: any): Finder | null {
+  // finder.js publishes TradeValueFinder before any browser-only page code that may throw.
+  // Delete first so a stale value from a prior eval doesn't survive a bad source.
+  // deno-lint-ignore no-explicit-any
+  delete (globalThis as any).TradeValueFinder;
+  try {
+    evalFn(src);
+  } catch {
+    // fall through — check if the API was published before the throw
+  }
+  // deno-lint-ignore no-explicit-any
+  const f = (globalThis as any).TradeValueFinder;
+  if (f && typeof f.findTrades === "function") return f as Finder;
+  if (before !== undefined) (globalThis as any).TradeValueFinder = before;
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // findTradesForPair — the contract both tools use.
 // ---------------------------------------------------------------------------
 
