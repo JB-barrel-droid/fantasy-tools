@@ -15,3 +15,9 @@ Contract: Jeremy accepted the rule as is (Natural 67% on the real page, 2026-10-
 
 ### Distribution (synthetic reference league, fit_diagnostic.cjs, 189 opportunities)
 Natural 55 -> 61 (32.3%), Market supported 97 -> 86 (45.5%), Force 37 -> 42 (22.2%). Counts shift because unequal packages are now balanced rather than judged as they came. No threshold changed.
+
+### Update: the throw-in is the least valuable bench player (Jeremy, 2026-10-26)
+- balanceCounts: eligible throw-ins are the supplying team's non-starters (starters from pickStarters before the trade), priced everywhere; only a team with no bench player left leaves the trade unbalanced. Tests: new case where the cheapest overall (a lone QB, 0.1) starts and the throw-in must be the cheapest bench WR; mutant "throw-in may be a starter" caught; the no-bench case still marks unbalanced; earlier mutants (call removed, one throw-in only) still caught.
+- Synthetic 189: unchanged (61 / 86 / 42). Real page (20-team league, real engine values): 66 opportunities, Natural 38 (57.6%), Market supported 0, Force 28 (42.4%); before throw-ins were live it was 89 (60 / 0 / 29), the drop in count is trades the balanced package no longer passes or the lineup boxes reject.
+- ESPN-mine thin-roster case (size 3): 19 trades listed, 13 with throw-ins, 0 unbalanced (was 20 of 39).
+- Render: finder, finder_collapse, league, league_tables, league_basis, league_oppanel, league_top10 pass; finder_fit_render only the known thin-roster red.
