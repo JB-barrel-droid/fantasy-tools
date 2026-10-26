@@ -5,7 +5,7 @@
 // flattens them into rows with the eight columns, labels each row's overall fit, and ranks the rows.
 //
 // Decisions (Jeremy, 2026-10-24, JEG-1021):
-//   * ranking = fit tiers first (natural, value, market-only, force), then the fundamentals edge (DDF Value receive - give);
+//   * ranking = fit tiers first (natural, market supported, force; JEG-1108 retired Value fit), then the fundamentals edge (DDF Value receive - give);
 //   * default order is best first; force fits are shown, labelled, with a one-click Hide force fits.
 // Defaults chosen here, to log in docs/math-review-agenda.md: at most PER_PAIRING trades per pairing (the finder's LIMIT),
 // at most MAX_OPPONENTS opponents per run.

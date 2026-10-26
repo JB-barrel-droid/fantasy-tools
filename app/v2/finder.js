@@ -552,7 +552,7 @@
   // within the noise floor (max(0.05, FIT_Z x noise)) or positive.
   // Market supported (renamed from Market fit, definition FLIPPED): the Trade chart average says the other team's side
   // is favorable. Independent of the roster test.
-  // Force fit: everything else. Value fit is RETIRED (JEG-1108).
+  // Force fit: everything else. The old fourth label (value) is retired (JEG-1108).
   const FIT_Z = 1;
   const NET_FLOOR = 0.05;
   const FIT_TIER = {natural: 0, market: 1, force: 2};
