@@ -1,4 +1,7 @@
-/* Clickable design preview. Reads window.CONCEPT_SAMPLE. Does no value math. */
+/* Clickable design preview. Reads window.CONCEPT_SAMPLE.
+   The DDF Value figure is the projection series (a stand-in).
+   The Market is the mean already stored on each player.
+   No publisher names. No live value math. */
 (function () {
   "use strict";
 
@@ -9,6 +12,34 @@
   const params = new URLSearchParams(location.search);
   const shot = params.get("shot") === "1";
   const CLOSE = 2;
+  const SEND = 5;
+  const LIST = 2.5;
+  const TEAM_KEY = "ddf-concept-team";
+
+  /* Sample league names for the picker. The match line does not parse a paste. */
+  const TEAMS = [
+    "The Sharp Friends",
+    "Sunday Scaries",
+    "Gridiron and Chill",
+    "Waiver Heroes",
+    "First Down",
+    "Red Zone",
+    "Bye Week Club",
+    "Two Point Try",
+    "Empty the Tank",
+    "Fourth and Long",
+    "Primetime",
+    "The Group Chat"
+  ];
+
+  const TIPS = {
+    sleeper: "One team per page. Paste a team, then the next. The count keeps track.",
+    espn: "Open League, then Rosters. Select all, and copy.",
+    yahoo: "Open the rosters page. Select all, and copy.",
+    other: "Paste any player list, or type the names."
+  };
+
+  const VIEWS = ["home", "paste", "targets", "compare", "settings"];
 
   const state = {
     view: "home",
@@ -17,8 +48,16 @@
     giveId: data.featured.give,
     getId: data.featured.get,
     why: params.get("why") === "1",
+    share: params.get("share") === "1",
     picking: null,
-    booted: false
+    booted: false,
+    from: null,
+    pasteText: "",
+    pasteCount: 0,
+    pasteStep: "edit",
+    team: null,
+    toast: false,
+    confettiKey: null
   };
 
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -31,7 +70,7 @@
   }
 
   function num(value) {
-    return Number(value).toFixed(1);
+    return Math.abs(Number(value)).toFixed(1);
   }
 
   function signed(value) {
@@ -42,17 +81,40 @@
     return "0.0";
   }
 
-  function titleFor(player) {
-    if (player.camps) return "The charts are split on " + player.name + ".";
-    if (player.gap >= 2.5) return "The charts are light on " + player.name + ".";
-    if (player.gap <= -2.5) return "The charts pay up for " + player.name + ".";
-    return player.name + " is close.";
+  function round1(value) {
+    return Math.round(value * 10) / 10;
+  }
+
+  function motionOff() {
+    return shot || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function readTeam() {
+    try { return localStorage.getItem(TEAM_KEY); } catch (e) { return null; }
+  }
+
+  function writeTeam(name) {
+    try { localStorage.setItem(TEAM_KEY, name); } catch (e) { /* private mode */ }
+  }
+
+  function footnote() {
+    return "Preview from " + data.asOf + ", full PPR, 12 teams. The DDF Value figure is the projection series, standing in until the position-weight adjustment is on the page. The Market is the average of the trade charts before that adjustment. Projections are that same second opinion, so they are not drawn again. A one-for-one swap stands in for a lineup check. This page is not the live site.";
+  }
+
+  function posChip(pos) {
+    return '<span class="chip" data-pos="' + esc(pos) + '">' + esc(pos) + "</span>";
+  }
+
+  function numbersChip(value, label) {
+    return (
+      '<div class="chip-stat"><b data-count="' + value + '">' + signed(value) + "</b><span>" + esc(label) + "</span></div>"
+    );
   }
 
   function listFor(side) {
     const featured = side === "buy" ? data.featured.buy : data.featured.sell;
     return data.players
-      .filter(player => (player.camps || Math.abs(player.gap) >= 2.5) && (side === "buy" ? player.gap > 0 : player.gap < 0))
+      .filter(player => Math.abs(player.gap) >= LIST && (side === "buy" ? player.gap > 0 : player.gap < 0))
       .sort((a, b) => {
         if (a.id === featured) return -1;
         if (b.id === featured) return 1;
@@ -60,24 +122,26 @@
       });
   }
 
-  function footnote() {
-    return "Sample numbers from " + data.asOf + ", full PPR, 12 teams. The charts are rescaled onto one scale. The projection read is ESPN on that same scale. This is not live DDF Value, and this preview does not change the site.";
-  }
-
-  function posChip(pos) {
-    return '<span class="chip" data-pos="' + esc(pos) + '">' + esc(pos) + "</span>";
+  function buyCopy(player) {
+    const buy = player.gap > 0;
+    return {
+      emoji: buy ? "\u2705" : "\uD83D\uDCB8",
+      title: (buy ? "Buy " : "Sell ") + player.name,
+      why: buy ? "DDF Value is ahead of the Market." : "The Market is ahead of DDF Value.",
+      tone: buy ? "good" : "bad"
+    };
   }
 
   function meters(player) {
-    const charts = data.publishers
-      .map(pub => ({name: pub.name, value: player.charts[pub.id]}))
-      .sort((a, b) => b.value - a.value);
-    const rows = [{name: "Projection read", value: player.espn, read: true}].concat(charts);
+    const rows = [
+      {name: "DDF Value", value: player.ddf, read: true},
+      {name: "The Market", value: player.market, read: false}
+    ];
     return rows.map(row => {
       const width = Math.max(2, Math.min(100, (row.value / data.scaleMax) * 100));
       return (
         '<div class="meter-row">' +
-          '<span class="meter-name">' + esc(row.name) + "</span>" +
+          '<span class="meter-name">' + row.name + "</span>" +
           '<span class="meter-val">' + num(row.value) + "</span>" +
           '<span class="meter' + (row.read ? " is-read" : "") + '" aria-hidden="true"><span style="width:' + width.toFixed(1) + '%"></span></span>' +
         "</div>"
@@ -86,25 +150,44 @@
   }
 
   function detail(player) {
+    const copy = buyCopy(player);
     const cap = player.capped
-      ? '<p class="cap-note">In this sample the projection read stops at 70, so the lead is a floor.</p>'
+      ? '<p class="cap-note">This preview\'s DDF Value figure stops at 70, so the lead is a floor.</p>'
       : "";
     return (
       '<div class="player-detail">' +
+        '<p class="detail-blurb">' + esc(copy.why) + "</p>" +
         meters(player) +
-        '<p class="detail-blurb">' + esc(player.blurb) + "</p>" +
         cap +
       "</div>"
     );
   }
 
+  function countNodes(root) {
+    (root || document).querySelectorAll("[data-count]").forEach(el => {
+      const target = Number(el.dataset.count);
+      const done = () => { el.textContent = signed(target); };
+      if (motionOff()) { done(); return; }
+      const t0 = performance.now();
+      const step = now => {
+        const p = Math.min(1, (now - t0) / 400);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = signed(target * eased);
+        if (p < 1) requestAnimationFrame(step);
+        else done();
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
   function paintPeek() {
     const player = byId.get(data.featured.buy);
-    $("#peekName").textContent = titleFor(player);
-    $("#peekBlurb").textContent = player.blurb;
-    $("#peekNums").innerHTML =
-      '<span><b>' + num(player.espn) + "</b> projection</span>" +
-      '<span><b>' + num(player.mid) + "</b> charts' middle</span>";
+    const copy = buyCopy(player);
+    $("#peekEmoji").textContent = copy.emoji;
+    $("#peekName").textContent = copy.title;
+    $("#peekBlurb").textContent = copy.why;
+    $("#peekNums").innerHTML = numbersChip(player.gap, "DDF Value vs the Market");
+    countNodes($("#peekNums"));
   }
 
   function headlinePlayer() {
@@ -119,19 +202,19 @@
 
   function paintTargets(tick) {
     const player = headlinePlayer();
-    const title = titleFor(player);
+    const copy = buyCopy(player);
     const titleEl = $("#targetsTitle");
-    const changed = state.booted && tick && titleEl.textContent !== title;
-    titleEl.textContent = title;
-    $("#targetsSub").textContent = player.blurb;
-    $("#targetsChips").innerHTML =
-      '<div class="chip-stat"><b>' + num(player.espn) + "</b><span>projection</span></div>" +
-      '<div class="chip-stat"><b>' + num(player.mid) + "</b><span>charts' middle</span></div>";
+    const changed = state.booted && tick && titleEl.textContent !== copy.title;
+    $("#targetsEmoji").textContent = copy.emoji;
+    titleEl.textContent = copy.title;
+    $("#targetsSub").textContent = copy.why;
+    $("#targetsChips").innerHTML = numbersChip(player.gap, "DDF Value vs the Market");
+    countNodes($("#targetsChips"));
     if (changed) {
       titleEl.classList.remove("tick");
       void titleEl.offsetWidth;
       titleEl.classList.add("tick");
-      if (state.view === "targets") live.textContent = title;
+      if (state.view === "targets") live.textContent = copy.title;
     }
   }
 
@@ -142,14 +225,15 @@
     $("#sideSell").setAttribute("aria-selected", state.side === "sell" ? "true" : "false");
     $("#targetList").innerHTML = list.map(player => {
       const open = player.id === state.openId;
+      const copy = buyCopy(player);
       return (
         '<article class="player' + (open ? " is-open" : "") + '" data-id="' + player.id + '">' +
           '<button type="button" class="player-sum" aria-expanded="' + (open ? "true" : "false") + '" aria-controls="detail-' + player.id + '">' +
             '<span class="who">' +
               '<span class="player-id"><span class="player-name">' + esc(player.name) + "</span></span>" +
               '<span class="player-meta">' + posChip(player.pos) + "<span>" + esc(player.team) + "</span></span>" +
-              '<span class="player-short">' + esc(player.short) + "</span>" +
-              '<span class="player-figs"><span><b>' + num(player.espn) + "</b> projection</span><span><b>" + num(player.mid) + "</b> charts</span></span>" +
+              '<span class="player-short">' + esc(copy.why) + "</span>" +
+              '<span class="player-figs"><span><b>' + num(player.ddf) + "</b> DDF Value</span><span><b>" + num(player.market) + "</b> the Market</span></span>" +
             "</span>" +
             '<svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           "</button>" +
@@ -161,43 +245,66 @@
     }).join("");
   }
 
-  function round1(value) {
-    return Math.round(value * 10) / 10;
-  }
-
   function verdict() {
     const give = state.giveId == null ? null : byId.get(state.giveId);
     const get = state.getId == null ? null : byId.get(state.getId);
     if (!give && !get) {
-      return {title: "Add a player to each side.", sub: "You get one sentence. The charts open under it.", proj: null, mid: null};
+      return {title: "Add a player to each side.", why: "You get one sentence. The math opens under it.", gain: null};
     }
-    if (!give) return {title: "Who are you giving up?", sub: "Add that player and the answer sits up here.", proj: null, mid: null};
-    if (!get) return {title: "Who are you getting?", sub: "Add that player and the answer sits up here.", proj: null, mid: null};
+    if (!give) return {title: "Who are you giving up?", why: "Add that player and the answer sits up here.", gain: null};
+    if (!get) return {title: "Who are you getting?", why: "Add that player and the answer sits up here.", gain: null};
     if (give.id === get.id) {
-      return {title: "Pick two different players.", sub: "A trade needs a player on each side.", proj: null, mid: null};
+      return {title: "Pick two different players.", why: "A trade needs a player on each side.", gain: null};
     }
-    const proj = round1(get.espn - give.espn);
-    const mid = round1(get.mid - give.mid);
-    const close = n => Math.abs(n) < CLOSE;
-    const sign = n => (n > 0.05 ? 1 : n < -0.05 ? -1 : 0);
+    const mine = round1(get.ddf - give.ddf);
+    const theirs = round1(give.market - get.market);
+    const mineSmall = Math.abs(mine) < CLOSE;
+    const theirsSmall = Math.abs(theirs) < CLOSE;
     let title;
-    if (close(proj) && close(mid)) title = "This is close on both reads.";
-    else if (!close(proj) && !close(mid) && sign(proj) !== sign(mid)) title = "The two reads disagree.";
-    else if (close(mid) && !close(proj)) title = "Close for the charts. Not for the projection read.";
-    else if (close(proj) && !close(mid)) title = "Close on the projection read. Not for the charts.";
-    else if (sign(proj) > 0 || (close(proj) && sign(mid) > 0)) title = "You come out ahead.";
-    else title = "You come out behind.";
-
-    function clause(label, n) {
-      if (Math.abs(n) < CLOSE) return "On the " + label + ", you are about even (" + signed(n) + ").";
-      if (n > 0) return "On the " + label + ", you gain " + num(n) + ".";
-      return "On the " + label + ", you give up " + num(Math.abs(n)) + ".";
+    let emoji;
+    let tone;
+    let why;
+    if (mineSmall && theirsSmall) {
+      title = "Fair swap";
+      emoji = "\uD83E\uDD1D";
+      tone = "neutral";
+      why = "You are about even on DDF Value, and their lineup barely moves on the Market.";
+    } else if (mine >= SEND && theirs > 0.05) {
+      title = "Send it";
+      emoji = "\uD83D\uDD25";
+      tone = "good";
+      why = "You gain " + num(mine) + " DDF Value; their lineup improves on the Market, so they'll likely accept.";
+    } else if (mine >= CLOSE && theirs > 0.05) {
+      title = "Worth a shot";
+      emoji = "\uD83D\uDC40";
+      tone = "good";
+      why = "You gain " + num(mine) + " DDF Value; their lineup improves on the Market, so they'll likely accept.";
+    } else if (mine > 0.05 && theirs <= 0.05) {
+      title = "They'll pass";
+      emoji = "\uD83D\uDE2C";
+      tone = "warn";
+      why = "You gain " + num(mine) + " DDF Value, but their lineup does not improve on the Market, so they'll likely pass.";
+    } else if (mine <= -CLOSE) {
+      title = "Don't do it";
+      emoji = "\uD83D\uDED1";
+      tone = "bad";
+      why = "You give up " + num(Math.abs(mine)) + " DDF Value. That is a loss against the Market.";
+    } else {
+      title = "Fair swap";
+      emoji = "\uD83E\uDD1D";
+      tone = "neutral";
+      why = "You are about even on DDF Value, and their lineup barely moves on the Market.";
     }
     return {
       title: title,
-      sub: clause("projection read", proj) + " " + clause("charts' middle", mid),
-      proj: proj,
-      mid: mid
+      emoji: emoji,
+      tone: tone,
+      why: why,
+      gain: mine,
+      theirs: theirs,
+      give: give,
+      get: get,
+      confetti: title === "Send it" && mine >= 8
     };
   }
 
@@ -218,63 +325,12 @@
         '<span class="slot-name">' + esc(player.name) + "</span>" +
         '<span class="slot-meta">' + posChip(player.pos) + "<span>" + esc(player.team) + "</span></span>" +
         '<span class="slot-nums">' +
-          "<span><b>" + num(player.espn) + "</b> projection</span>" +
-          "<span><b>" + num(player.mid) + "</b> charts</span>" +
+          "<span><b>" + num(player.ddf) + "</b> DDF Value</span>" +
+          "<span><b>" + num(player.market) + "</b> the Market</span>" +
         "</span>" +
         '<span class="slot-change">Change</span>' +
       "</button>"
     );
-  }
-
-  function renderCompare(tick) {
-    const result = verdict();
-    const titleEl = $("#compareTitle");
-    const changed = state.booted && tick && titleEl.textContent && titleEl.textContent !== result.title;
-    titleEl.textContent = result.title;
-    $("#compareSub").textContent = result.sub;
-    const sample = state.giveId === data.featured.give && state.getId === data.featured.get;
-    $("#compareEyebrow").innerHTML = sample
-      ? 'Compare a trade <span class="chip">Sample</span>'
-      : "Compare a trade";
-    $("#compareChips").innerHTML = result.proj == null ? "" : (
-      '<div class="chip-stat"><b>' + signed(result.proj) + "</b><span>projection</span></div>" +
-      '<div class="chip-stat"><b>' + signed(result.mid) + "</b><span>charts' middle</span></div>"
-    );
-    const give = state.giveId == null ? null : byId.get(state.giveId);
-    const get = state.getId == null ? null : byId.get(state.getId);
-    $("#deal").innerHTML =
-      slot("give", give) +
-      '<div class="deal-for" aria-hidden="true">' +
-        '<svg class="for-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-        '<svg class="for-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-      "</div>" +
-      slot("get", get);
-    const onSample = sample;
-    $("#compareActions").innerHTML =
-      '<button type="button" class="texty" id="clearTrade">Clear</button>' +
-      (onSample ? "" : '<button type="button" class="texty" id="useSample">Use the sample</button>');
-    const ready = give && get && give.id !== get.id;
-    const whyBtn = $("#whyBtn");
-    whyBtn.hidden = !ready;
-    $("#why").classList.toggle("is-open", state.why && ready);
-    whyBtn.setAttribute("aria-expanded", state.why && ready ? "true" : "false");
-    whyBtn.textContent = state.why ? "Hide the charts" : "Show the charts";
-    if (ready) {
-      $("#whyInner").innerHTML =
-        '<div class="why-grid">' +
-          whyCard(give, "You give") +
-          whyCard(get, "You get") +
-        "</div>" +
-        '<p class="math">Charts\' middle, ' + num(get.mid) + " received \u2212 " + num(give.mid) + " given = " + signed(result.mid) + ". Projection read, " + num(get.espn) + " \u2212 " + num(give.espn) + " = " + signed(result.proj) + ".</p>";
-    } else {
-      $("#whyInner").innerHTML = "";
-    }
-    if (changed && state.view === "compare") {
-      titleEl.classList.remove("tick");
-      void titleEl.offsetWidth;
-      titleEl.classList.add("tick");
-      live.textContent = result.title;
-    }
   }
 
   function whyCard(player, kicker) {
@@ -287,17 +343,241 @@
     );
   }
 
+  function burst() {
+    const box = $("#confetti");
+    box.hidden = false;
+    box.replaceChildren();
+    const colors = ["var(--action)", "var(--warn-ink)", "var(--info-ink)", "var(--good-ink)"];
+    for (let i = 0; i < 18; i++) {
+      const bit = document.createElement("i");
+      bit.style.left = (4 + Math.random() * 92) + "%";
+      bit.style.background = colors[i % colors.length];
+      bit.style.animationDelay = (Math.random() * 120) + "ms";
+      bit.style.transform = "rotate(" + (Math.random() * 80) + "deg)";
+      box.appendChild(bit);
+    }
+    window.setTimeout(() => {
+      box.hidden = true;
+      box.replaceChildren();
+    }, 1100);
+  }
+
+  function maybeConfetti(result) {
+    if (!result.confetti || motionOff() || state.view !== "compare") return;
+    const key = state.giveId + ">" + state.getId;
+    if (state.confettiKey === key) return;
+    state.confettiKey = key;
+    burst();
+  }
+
+  function renderCompare(tick) {
+    const result = verdict();
+    const titleEl = $("#compareTitle");
+    const changed = state.booted && tick && titleEl.textContent && titleEl.textContent !== result.title;
+    $("#compareEmoji").textContent = result.emoji || "";
+    titleEl.textContent = result.title;
+    $("#compareSub").textContent = result.why;
+    const sample = state.giveId === data.featured.give && state.getId === data.featured.get;
+    $("#compareEyebrow").innerHTML = sample
+      ? 'Check a trade <span class="chip">Sample</span>'
+      : "Check a trade";
+    const stamp = $("#compareStamp");
+    if (result.gain == null) {
+      stamp.hidden = true;
+      $("#compareChips").innerHTML = "";
+    } else {
+      stamp.hidden = false;
+      stamp.textContent = result.title;
+      stamp.dataset.tone = result.tone;
+      stamp.classList.remove("is-live");
+      if (!motionOff()) {
+        void stamp.offsetWidth;
+        stamp.classList.add("is-live");
+      }
+      $("#compareChips").innerHTML = numbersChip(result.gain, "DDF Value");
+      countNodes($("#compareChips"));
+    }
+    const give = result.give || (state.giveId == null ? null : byId.get(state.giveId));
+    const get = result.get || (state.getId == null ? null : byId.get(state.getId));
+    const ready = result.gain != null;
+    $("#deal").innerHTML =
+      slot("give", ready ? give : (state.giveId == null ? null : byId.get(state.giveId))) +
+      '<div class="deal-for" aria-hidden="true">' +
+        '<svg class="for-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '<svg class="for-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      "</div>" +
+      slot("get", ready ? get : (state.getId == null ? null : byId.get(state.getId)));
+    $("#compareActions").innerHTML =
+      '<button type="button" class="texty" id="clearTrade">Clear</button>' +
+      (sample ? "" : '<button type="button" class="texty" id="useSample">Use the sample</button>') +
+      (ready ? '<button type="button" class="texty" id="shareBtn">' + (state.share ? "Hide the card" : "Share this trade") + "</button>" : "");
+    const whyBtn = $("#whyBtn");
+    whyBtn.hidden = !ready;
+    $("#why").classList.toggle("is-open", state.why && ready);
+    whyBtn.setAttribute("aria-expanded", state.why && ready ? "true" : "false");
+    whyBtn.textContent = state.why ? "Hide the math" : "Show the math";
+    if (ready) {
+      $("#whyInner").innerHTML =
+        '<div class="why-grid">' +
+          whyCard(give, "You give") +
+          whyCard(get, "You get") +
+        "</div>" +
+        '<p class="math">DDF Value: ' + num(get.ddf) + " received \u2212 " + num(give.ddf) + " given = " + signed(result.gain) + ". The Market, for them: " + num(give.market) + " received \u2212 " + num(get.market) + " given = " + signed(result.theirs) + ".</p>" +
+        '<p class="math">A one-for-one swap stands in for their lineup. A full roster check comes with the live page.</p>';
+    } else {
+      $("#whyInner").innerHTML = "";
+    }
+    const card = $("#shareCard");
+    if (ready && state.share) {
+      card.hidden = false;
+      card.innerHTML =
+        '<p class="kicker">Data Driven Football</p>' +
+        '<p class="verdict-emoji" aria-hidden="true">' + (result.emoji || "") + "</p>" +
+        '<p class="share-title">' + esc(result.title) + "</p>" +
+        '<p class="share-players">' + esc(give.name) + " \u2192 " + esc(get.name) + "</p>" +
+        '<p class="share-why">' + esc(result.why) + "</p>" +
+        '<button type="button" class="quiet" id="copyCard">Copy card</button>';
+    } else {
+      card.hidden = true;
+      card.innerHTML = "";
+    }
+    if (changed && state.view === "compare") {
+      titleEl.classList.remove("tick");
+      void titleEl.offsetWidth;
+      titleEl.classList.add("tick");
+      live.textContent = result.title + ". " + result.why;
+    }
+    maybeConfetti(result);
+  }
+
+  function shareText() {
+    const result = verdict();
+    if (result.gain == null) return "";
+    return result.title + "\n" + result.give.name + " for " + result.get.name + "\n" + result.why + "\nData Driven Football";
+  }
+
+  function exportData() {
+    const team = state.team || "(none yet)";
+    const text = "Saved on this device.\nTeam: " + team + "\n" + data.leagueTeams + " teams, " + data.leaguePlayers + " players\n";
+    const blob = new Blob([text], {type: "text/plain"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "ddf-on-this-device.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(link.href);
+    live.textContent = "Export started";
+  }
+
+  function copyText(text, ok) {
+    const done = () => { live.textContent = ok; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    const input = document.createElement("textarea");
+    input.value = text;
+    input.setAttribute("readonly", "");
+    input.style.position = "fixed";
+    input.style.left = "-999px";
+    document.body.appendChild(input);
+    input.select();
+    try { document.execCommand("copy"); } catch (e) { /* still announce */ }
+    input.remove();
+    done();
+  }
+
+  function copyLink() {
+    copyText(location.origin + location.pathname, "Link copied");
+  }
+
+  function showToast() {
+    state.toast = true;
+    $("#toast").hidden = false;
+    live.textContent = $("#toastText").textContent;
+    if (state.toastTimer) window.clearTimeout(state.toastTimer);
+    if (!shot) {
+      state.toastTimer = window.setTimeout(() => {
+        state.toast = false;
+        $("#toast").hidden = true;
+      }, 8000);
+    }
+  }
+
+  function hideToast() {
+    state.toast = false;
+    $("#toast").hidden = true;
+  }
+
+  function paintLeague() {
+    $("#leagueBtn").textContent = state.team || "Paste a league";
+  }
+
+  function paintTeamNote() {
+    $("#teamNote").textContent = state.team
+      ? "Your team on this device: " + state.team + "."
+      : "No team picked yet. Paste a league, then pick yours.";
+  }
+
+  function renderPaste() {
+    const edit = $("#pasteEdit");
+    const match = $("#pasteMatch");
+    const onMatch = state.pasteStep === "match";
+    edit.hidden = onMatch;
+    match.hidden = !onMatch;
+    document.querySelectorAll("[data-from]").forEach(btn => {
+      btn.setAttribute("aria-checked", btn.dataset.from === state.from ? "true" : "false");
+    });
+    $("#pasteTip").textContent = state.from
+      ? TIPS[state.from]
+      : "Pick where you copy it from. The box stays the same.";
+    const box = $("#pasteBox");
+    if (box.value !== state.pasteText) box.value = state.pasteText;
+    const count = $("#pasteCount");
+    if (state.from === "sleeper") {
+      count.hidden = false;
+      const n = state.pasteCount;
+      count.textContent = n === 1 ? "1 team pasted" : n + " teams pasted";
+    } else {
+      count.hidden = true;
+    }
+    const actions = $("#pasteActions");
+    if (state.from === "sleeper") {
+      actions.innerHTML =
+        '<button type="button" class="btn" id="addTeam">Add this team</button>' +
+        '<button type="button" class="texty" id="thatsAll">That\'s everyone</button>';
+    } else if (state.from) {
+      actions.innerHTML = '<button type="button" class="btn" id="checkPaste">Check the paste</button>';
+    } else {
+      actions.innerHTML = "";
+    }
+    if (onMatch) {
+      $("#teamList").innerHTML = TEAMS.map(name => (
+        '<button type="button" class="team' + (name === state.team ? " is-on" : "") + '" data-team="' + esc(name) + '">' +
+          esc(name) +
+        "</button>"
+      )).join("");
+    }
+  }
+
   const TITLES = {
     home: "Data Driven Football — preview",
-    targets: "Targets — DDF preview",
-    compare: "Compare — DDF preview"
+    paste: "Paste your league — DDF preview",
+    targets: "Buy & sell — DDF preview",
+    compare: "Check a trade — DDF preview",
+    settings: "Settings — DDF preview"
   };
+
+  let returnFocus = null;
 
   function show(view, opts) {
     opts = opts || {};
-    if (view === "more") { openDialog($("#moreSheet")); return; }
-    if (view === "league") { openDialog($("#leagueSheet")); return; }
-    if (view !== "home" && view !== "targets" && view !== "compare") view = "home";
+    if (!VIEWS.includes(view)) view = "home";
     state.view = view;
     document.querySelectorAll(".view").forEach(section => {
       const on = section.id === view;
@@ -306,7 +586,6 @@
       section.setAttribute("aria-hidden", on ? "false" : "true");
     });
     document.querySelectorAll("[data-go]").forEach(btn => {
-      if (btn.dataset.go === "more" || btn.dataset.go === "league") return;
       if (btn.dataset.go === view) btn.setAttribute("aria-current", "page");
       else btn.removeAttribute("aria-current");
     });
@@ -316,13 +595,14 @@
       if (location.hash !== next) history.pushState({view: view}, "", next);
     }
     window.scrollTo(0, 0);
+    if (view === "compare") maybeConfetti(verdict());
     if (opts.focus && state.booted) {
-      const target = document.getElementById(view + "Title");
+      const target = document.getElementById(
+        view === "paste" && state.pasteStep === "match" ? "matchTitle" : view + "Title"
+      );
       if (target) target.focus();
     }
   }
-
-  let returnFocus = null;
 
   function openDialog(dialog) {
     if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
@@ -345,14 +625,19 @@
       $("#pickerList").innerHTML = '<p class="menu-note">No player in this sample matches.</p>';
       return;
     }
-    $("#pickerList").innerHTML = players.map(player => (
-      '<button type="button" class="pick" role="option" data-id="' + player.id + '">' +
-        posChip(player.pos) +
-        '<span class="pick-name">' + esc(player.name) + "</span>" +
-        '<span class="pick-team">' + esc(player.team) + "</span>" +
-        '<span class="pick-num">' + num(player.espn) + "</span>" +
-      "</button>"
-    )).join("");
+    $("#pickerList").innerHTML = players.map(player => {
+      const fair = Math.abs(player.gap) < LIST
+        ? '<span class="chip">Fair price</span>'
+        : "";
+      return (
+        '<button type="button" class="pick" role="option" data-id="' + player.id + '">' +
+          posChip(player.pos) +
+          '<span class="pick-name">' + esc(player.name) + fair + "</span>" +
+          '<span class="pick-team">' + esc(player.team) + "</span>" +
+          '<span class="pick-num">' + num(player.ddf) + "</span>" +
+        "</button>"
+      );
+    }).join("");
   }
 
   function openPicker(side, trigger) {
@@ -369,6 +654,7 @@
     const side = state.picking;
     if (side === "give") state.giveId = id;
     if (side === "get") state.getId = id;
+    state.confettiKey = null;
     renderCompare(true);
     returnFocus = document.querySelector('[data-pick="' + side + '"]');
     closeDialog($("#picker"));
@@ -382,11 +668,72 @@
     paintTargets(true);
   }
 
+  function pickTeam(name) {
+    state.team = name;
+    writeTeam(name);
+    paintLeague();
+    paintTeamNote();
+    renderPaste();
+    showToast();
+  }
+
+  function goMatch() {
+    state.pasteStep = "match";
+    renderPaste();
+    const title = $("#matchTitle");
+    if (title) title.focus();
+  }
+
   document.addEventListener("click", event => {
     const go = event.target.closest("[data-go]");
     if (go) {
       event.preventDefault();
       show(go.dataset.go, {focus: true});
+      return;
+    }
+    const from = event.target.closest("[data-from]");
+    if (from) {
+      state.from = from.dataset.from;
+      renderPaste();
+      return;
+    }
+    if (event.target.closest("#addTeam")) {
+      if (!state.pasteText.trim()) {
+        live.textContent = "Paste a team first.";
+        $("#pasteBox").focus();
+        return;
+      }
+      state.pasteCount += 1;
+      state.pasteText = "";
+      renderPaste();
+      live.textContent = state.pasteCount + " teams pasted";
+      return;
+    }
+    if (event.target.closest("#thatsAll")) {
+      if (state.pasteCount < 1) {
+        live.textContent = "Paste at least one team.";
+        return;
+      }
+      goMatch();
+      return;
+    }
+    if (event.target.closest("#checkPaste")) {
+      if (!state.pasteText.trim()) {
+        live.textContent = "Paste a list first.";
+        $("#pasteBox").focus();
+        return;
+      }
+      goMatch();
+      return;
+    }
+    if (event.target.closest("#pasteBack")) {
+      state.pasteStep = "edit";
+      renderPaste();
+      return;
+    }
+    const teamBtn = event.target.closest("[data-team]");
+    if (teamBtn) {
+      pickTeam(teamBtn.dataset.team);
       return;
     }
     const sum = event.target.closest(".player-sum");
@@ -416,19 +763,53 @@
       state.giveId = null;
       state.getId = null;
       state.why = false;
+      state.share = false;
+      state.confettiKey = null;
       renderCompare(true);
       return;
     }
     if (event.target.closest("#useSample")) {
       state.giveId = data.featured.give;
       state.getId = data.featured.get;
+      state.confettiKey = null;
       renderCompare(true);
       return;
     }
     if (event.target.closest("#whyBtn")) {
       state.why = !state.why;
       renderCompare(false);
+      return;
     }
+    if (event.target.closest("#shareBtn")) {
+      state.share = !state.share;
+      renderCompare(false);
+      return;
+    }
+    if (event.target.closest("#copyCard")) {
+      copyText(shareText(), "Card copied");
+      return;
+    }
+    if (event.target.closest("#exportBtn") || event.target.closest("#toastExport")) {
+      exportData();
+      return;
+    }
+    if (event.target.closest("#copyLinkBtn") || event.target.closest("#toastCopy")) {
+      copyLink();
+      return;
+    }
+    if (event.target.closest("#importBtn")) {
+      $("#importFile").click();
+      return;
+    }
+    if (event.target.closest("#toastDismiss")) hideToast();
+  });
+
+  $("#pasteBox").addEventListener("input", () => {
+    state.pasteText = $("#pasteBox").value;
+  });
+
+  $("#leagueBtn").addEventListener("click", () => {
+    show(state.team ? "settings" : "paste", {focus: true});
   });
 
   $("#sideBuy").addEventListener("click", () => setSide("buy"));
@@ -442,11 +823,30 @@
 
   $("#pickerSearch").addEventListener("input", renderPicker);
   $("#pickerClose").addEventListener("click", () => closeDialog($("#picker")));
-  document.querySelectorAll("[data-close]").forEach(btn => {
-    btn.addEventListener("click", () => closeDialog(btn.closest("dialog")));
-  });
   $("#picker").addEventListener("close", () => {
     if (returnFocus) returnFocus.focus();
+  });
+
+  $("#importFile").addEventListener("change", () => {
+    const file = $("#importFile").files && $("#importFile").files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      const line = text.split(/\r?\n/).find(row => row.indexOf("Team:") === 0);
+      const name = line ? line.replace(/^Team:\s*/, "").trim() : "";
+      if (name && name !== "(none yet)") {
+        state.team = name;
+        writeTeam(name);
+        paintLeague();
+        paintTeamNote();
+        live.textContent = "Imported on this device.";
+      } else {
+        live.textContent = "That file has no team.";
+      }
+    };
+    reader.readAsText(file);
+    $("#importFile").value = "";
   });
 
   $("#themeBtn").addEventListener("click", () => {
@@ -458,16 +858,27 @@
 
   window.addEventListener("hashchange", () => {
     const name = location.hash.replace("#", "");
-    if (name === "home" || name === "targets" || name === "compare") show(name, {history: false, focus: false});
+    if (VIEWS.includes(name)) show(name, {history: false, focus: false});
   });
 
   document.querySelectorAll(".footnote").forEach(node => { node.textContent = footnote(); });
+
+  state.team = readTeam();
+  const from = params.get("from");
+  if (TIPS[from]) state.from = from;
+  const count = Number(params.get("count"));
+  if (Number.isFinite(count) && count > 0) state.pasteCount = count;
+  if (params.get("matched") === "1") state.pasteStep = "match";
+
+  paintLeague();
+  paintTeamNote();
   paintPeek();
+  renderPaste();
 
   const openId = Number(params.get("open"));
   if (openId && byId.has(openId)) {
     const player = byId.get(openId);
-    if ((player.camps || Math.abs(player.gap) >= 2.5) && player.gap !== 0) {
+    if (Math.abs(player.gap) >= LIST && player.gap !== 0) {
       state.side = player.gap < 0 ? "sell" : "buy";
       state.openId = openId;
     }
@@ -485,12 +896,10 @@
   $("#themeBtn").setAttribute("aria-label", themeNow === "dark" ? "Switch to light mode" : "Switch to dark mode");
 
   let view = params.get("view") || location.hash.replace("#", "") || "home";
-  if (view === "more" || view === "league") view = "home";
+  if (!VIEWS.includes(view)) view = "home";
   show(view, {history: false, focus: false});
   state.booted = true;
-
-  if (params.get("sheet") === "more") openDialog($("#moreSheet"));
-  if (params.get("sheet") === "league") openDialog($("#leagueSheet"));
+  if (view === "compare") maybeConfetti(verdict());
 
   document.documentElement.dataset.ready = "1";
 })();

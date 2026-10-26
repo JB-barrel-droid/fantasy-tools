@@ -1,49 +1,68 @@
 # Design direction, October 2026
 
-Proposal for Jeremy. Nothing here ships. The live site is unchanged. The clickable preview that shows the recommendation is `app/v2-concept/index.html`. It is a separate page. `pipelines/build_v2_page.py` copies a named list of files out of `app/v2/`, so this folder is not part of the publish.
+Proposal for Jeremy, revised the same day to match decisions he made on 2026-10-26. Nothing here ships. The live site is unchanged. The clickable preview is `app/v2-concept/index.html`. `pipelines/build_v2_page.py` copies a named list of files out of `app/v2/`, so this folder is not part of the publish.
 
 Last updated: 2026-10-26. Status: Proposal.
 
-## The feeling
+## Decided
 
-Data Driven Football should feel like a sharp friend who already did the reading. Warm, direct, a little playful in how a screen moves, and serious the moment a number is on it.
+These are locked. The preview is drawn to them.
 
-A casual player gets one sentence and one button. A serious redraft manager gets the charts one tap later. Jeremy's own leagues use the same door, with the league in one chip. Someone arriving from ChatGPT or Claude should see the same kind of sentence the assistant would say, with the detail underneath.
+**Launch has no accounts and no platform integrations.** A league arrives as a paste. One box, and a "Where do I copy it from?" picker that only switches the tip:
 
-The forest green stays. It is already the brand, and it already passes contrast. What changes is the density, the type, and where the expert tools sit.
+- Sleeper: one team per page. Paste a team, then the next. A running count tracks them.
+- ESPN: open League, then Rosters. Select all, and copy.
+- Yahoo: the rosters page. Select all, and copy.
+- Somewhere else: any player list, or typed names.
 
-Patterns borrowed from friendlier tools: Sleeper's calm first screen, KeepTradeCut's one trade with a verdict, FantasyCalc's "here is the trade" focus. The density of a full research table stays available. It stops being the front door.
+Then a match check, "Got it: 12 teams, 186 players", then pick your team. That choice is remembered on this device. The toast is "Saved on this device. Bookmark this page or tap Export", with Export and Copy link. Settings says "Your data: saved on this device." with Export, Import, and Copy link.
+
+The hero micro-line is "Free · No sign-up · Nothing to connect · Saved on this device". The button is "Paste my league". The preview never says we support, connect, or sync with Sleeper, ESPN, or Yahoo. Those names are only where the paste is copied from.
+
+**Voice.** The sharp friend in your league chat. Positioning line: "Know who to trade for, before your league does."
+
+**One term per concept.** DDF Value (the site's value: the average of the indexed, position-weight-adjusted trade charts). The Market (the indexed trade charts before that adjustment). Projections (a second opinion). Buy, Sell, Fair price, Change.
+
+**Nav.** Trade targets is "Buy & sell". Compare is "Check a trade". Overrides is "Settings". Values auditing is "Show the math", a disclosure on Check a trade and a short explainer in Settings. It is not a fifth tab.
+
+**A trade verdict** is an emoji, a headline of at most six words, one line of why, and a numbers chip. The math is behind "Show the math". Fit words are Send it, Worth a shot, They'll pass, Fair swap, and Don't do it.
+
+**Viability.** A trade is good for me when I gain DDF Value against the Market. The other team is judging whether their lineup improves on the Market. The sample verdict says "You gain 11.5 DDF Value; their lineup improves on the Market, so they'll likely accept."
+
+**Casual first, depth one tap away.** Count-up numbers, a verdict stamp, confetti on a big win, and a shareable trade card are in the preview. `prefers-reduced-motion: reduce` turns the duration to 0ms and does not play confetti. Screenshot mode does the same, so a shot is the settled screen.
+
+**Roster counts are league-wide.** The match line says 12 teams and 186 players. The preview does not show a per-team bench or a roster shape.
+
+Marketing copy in the preview does not name chart publishers, and it does not show debug strings.
 
 ## The first 10 seconds
 
-On a 390px phone, measured in this preview at 390×844:
+On a 390×844 phone, the click-through check puts the headline 107px from the top of the viewport. On a 1280×900 window it is 124px. There is no season banner, no sources bar, and no stack of league controls above it.
 
-1. The headline starts just over 100px from the top of the viewport (106px in the click-through check). The review's problem was a title starting near 700px, under the season notice, the league bar, the default-league notice, and the sources bar. Those four bars are gone from the front door.
-2. You read one sentence, "Find the trade before your league does," and you see one green button, "See who to target."
-3. A card on that same screen already tells the week's story. In this sample: the charts are split on Puka Nacua.
-4. You tap. The next screen rises into place. The same sentence is now the title, with two numbers under it, and a list you can open.
+1. You read "Free · No sign-up · Nothing to connect · Saved on this device".
+2. You read "Know who to trade for, before your league does." and you see "Paste my league".
+3. A card on that same screen already has the first answer. In this sample: Buy Puka Nacua, because DDF Value is ahead of the Market.
+4. "I already have a trade" opens Check a trade. The league chip stays one chip. Before a team is picked it says "Paste a league". After that, it is the team name, and it opens Settings.
 
-The league is a chip in the header, "12-team PPR." Tap it and the season note lives there: rest of the season, not start/sit, not playoffs. It is one sentence in a sheet, not a banner above the answer.
+## The five screens
 
-## What moves off the front door
+**Home.** The positioning line, the micro-line, one button, a text link, and a peek of the first answer.
 
-The front door is three places: Home, Targets, Compare. A fourth item, More, holds the rest.
+**Paste your league.** The source picker, one tip, one box. On the Sleeper tip, "Add this team" raises the count and "That's everyone" moves on. The other tips use "Check the paste". The next step is the match line and twelve team names. Picking one writes it to this device and shows the toast.
 
-Also for you, still one tap away: Player values, Risers and fallers, Waivers, Find a trade.
+**Buy & sell.** The title is the answer. "Buy Puka Nacua." One line of why, one numbers chip, then Buy and Sell as one control. Each row is a person, a position chip, the same why, and DDF Value next to the Market. Open a row for the two bars. The green bar is DDF Value. The ink bar is the Market.
 
-The desk: Values auditing, Overrides, and Writing. They stay in the product. They are how the work gets checked. They do not sit in the main nav.
+**Check a trade.** The title is the fit word, with a stamp. The sample is Jaxon Smith-Njigba for Puka Nacua: "Send it." Change either player and the sentence updates. Giving up Puka for Jahmyr Gibbs becomes "They'll pass", because you gain DDF Value and their lineup does not improve on the Market. Clear starts from "Add a player to each side." "Share this trade" opens a card you can copy.
 
-Find a trade is where fit words belong (Natural, Value, Market, Force). Casual screens in this preview say Buy, Sell, Ahead, Behind, Close, and Split. The glossary disagreements in `docs/product/fit-label-glossary-draft.md` are a content decision. This direction does not pick them. It only says: when those words appear, they are the one chip, and they appear on Find a trade.
-
-The site's own value has several public names today (DDF Value, the projections version, ESPN, CBS rest of season, Razzball, and the charts version of the same series). The recommendation is one public name on a casual screen: **DDF Value**. The other names show up after you expand, each labeled by what it is. This preview does not compute DDF Value, so it does not pretend to. It labels the two numbers it does have.
+**Settings.** The data line and the three actions, then Show the math in plain language: DDF Value, the Market, Projections, Buy, Sell, Fair price, Change, and how a trade is judged.
 
 ## Tokens
 
-The type scale is the Figma scale: 34, 28, 20, 14, 12. Nothing else. This preview uses 34 for the answer, 20 for a name or the sentence under the answer, 14 for body, and 12 for metadata. 28 stays in the scale for a secondary page title. The preview screens lead with 34, so 28 is unused here.
+The type scale is the Figma scale: 34, 28, 20, 14, 12. The answer is 34. A name or the line under the answer is 20. Body is 14. Metadata is 12. The emoji sits at 28. Nothing else.
 
-UI text is Inter. The answer is Fraunces, a soft serif, vendored under the SIL Open Font License (`app/v2-concept/fonts/`). Numbers stay in Inter, tabular, so they still read as data.
+UI text is Inter. The answer is Fraunces, a soft serif, vendored under the SIL Open Font License (`app/v2-concept/fonts/`). Numbers stay in Inter, tabular.
 
-Spacing steps by 8. Phone page padding is 16. Cards are 12px radius. The one main button, the chips, and the search field are pills, so a control feels like one family. Hit targets on the preview's buttons are at least 44px.
+Spacing steps by 8. Phone page padding is 16. Cards are 12px radius. The main button, the chips, the source picker, and the search field are pills. Hit targets on the preview's buttons are at least 44px.
 
 Color, light:
 
@@ -54,103 +73,68 @@ Color, light:
 | Ink | `#1A2824` | Text |
 | Muted | `#52635C` | Metadata |
 | Line | `#E3DCD0` | Hairlines |
-| Action | `#0C7A56` | The one button, and the projection bar |
+| Action | `#0C7A56` | The one button, and the DDF Value bar |
 | Action ink | `#FFFFFF` | Text on that button |
 
-Good, warn, bad, and info are tint plus ink pairs (`#E4F5ED` / `#085C40`, `#F8EFE1` / `#7A4510`, `#F8E8EA` / `#8C2434`, `#E6F0FA` / `#18467A`). Each pair was checked at 4.5:1 or better on its own background. Dark mode uses the same roles: canvas `#101614`, surface `#18211D`, ink `#E8F2ED`, action `#6EE4B8` with ink `#062018`.
+Good, warn, bad, and info are tint plus ink pairs (`#E4F5ED` / `#085C40`, `#F8EFE1` / `#7A4510`, `#F8E8EA` / `#8C2434`, `#E6F0FA` / `#18467A`). Dark mode uses the same roles: canvas `#101614`, surface `#18211D`, ink `#E8F2ED`, action `#6EE4B8` with ink `#062018`.
 
-Green is used twice on a screen: the button, and the bar that marks the projection read. Chart bars are ink. Position is not a new color system. It is the same chip with a tone (RB good, WR info, TE warn, QB neutral).
-
-## One chip
-
-Every label is the same component: 12px, semibold, pill, 24px tall.
-
-| Tone | Examples in the preview |
-|---|---|
-| Neutral | Season-long trades, Sample |
-| Good | A buy, an RB |
-| Info | A WR |
-| Warn | A TE |
-| Bad | Reserved for a clear loss, when a chip needs it |
-
-The two big numbers under a headline are figures, not chips. They have a label ("projection", "charts' middle") and no badge chrome.
+Position is the same chip with a tone (RB good, WR info, TE warn, QB neutral). The verdict stamp reuses those inks. It is not a second badge.
 
 ## Motion
 
-One duration, 200ms, on a soft ease (`cubic-bezier(0.2, 0.7, 0.2, 1)`). That sits inside the 150–250ms range.
+One duration, 200ms, on `cubic-bezier(0.2, 0.7, 0.2, 1)`. A page rises 8px and fades. A card opens by height. The Buy/Sell thumb slides. A button presses in slightly. Hover styles sit inside `@media (hover: hover)`.
 
-- A tab or page change rises 8px and fades in.
-- A card opens by animating its height. The chevron turns.
-- A verdict or a headline cross-fades when the number changes.
-- The Buys/Sells thumb slides. The desktop nav underline draws.
-- A button nudges its arrow on hover, and presses in slightly on tap. Hover styles are wrapped in `@media (hover: hover)` so they do not stick on a phone.
-
-`prefers-reduced-motion: reduce` sets the duration to 0ms. There is no `!important`. The preview's stylesheet has none. Production `v2.css` still has its `!important` pile. That cleanup belongs with the production pass, not this preview.
-
-## The three screens
-
-**Home.** One sentence, one button, a text link for people who already have a trade, and a card that previews the first answer. On a wide screen the card sits beside the sentence. On a phone it sits under the button, still in the first viewport.
-
-**Trade targets.** The title is the answer. "The charts are split on Puka Nacua." Two figures sit under it. Buys and Sells are one control. Each row is a person, a position chip, a short line, and the two numbers. Open a row for the four charts as bars. The green bar is the projection read.
-
-**Compare.** The title is the verdict. The sample trade is Puka Nacua for Jaxon Smith-Njigba: "Close for the charts. Not for the projection read." Change either player and the sentence updates. "Show the charts" opens the four publishers under that sentence. Clear starts from empty: "Add a player to each side."
-
-More and the league chip open sheets. They explain where the other tools go. They are not extra product screens.
+On top of that, when motion is allowed: numbers count up over 400ms, the stamp settles, and a Send it with a gain of 8 or more plays a short confetti burst once per trade. The share card is a still card, not an animation. Reduced motion and screenshot mode set the duration to 0ms, skip the count-up, and do not mount confetti. The stylesheet has no `!important`.
 
 ## The numbers in the preview
 
-They are real, and they are not live DDF Value.
+They are real fixture values, and they are not live DDF Value.
 
-`app/v2-concept/build_sample.py` reads `dist/modules/player-trace.json` (generated 2026-10-26) and names, positions, and teams from `data/fixtures/current/players.json`. The chart values are `fixture_reindexed` for full PPR, 12 teams. FantasyCalc is stored on `full_12_qb1`. The projection read is the ESPN series on that same rescaled scale. ESPN tops out at 70 in this fixture. Other charts can sit higher. Jahmyr Gibbs is on that ceiling, so his lead is a floor, and he is not the featured sentence.
+`app/v2-concept/build_sample.py` reads `dist/modules/player-trace.json` (generated 2026-10-26) and names, positions, and teams from `data/fixtures/current/players.json`. The Market is the mean of the four indexed trade charts for full PPR, 12 teams, rounded to one decimal. The DDF Value figure on the cards is the projection series, standing in until the position-weight adjustment is wired. Projections are that same second opinion, so the cards do not draw them again. Publisher names are not written into `sample.js`.
 
-The featured buy is the clearest split that is not on the ceiling: Puka Nacua. FantasyCalc 59.4 and CBS 58.7, USA Today 42.2 and FantasyPros 40.3, projection read 59.0, charts' middle 50.5. The featured sell is Chris Olave: every chart pays more than the projection read (24.4 vs a middle of 34.9).
+In this sample, Puka Nacua is DDF Value 59.0 against a Market of 50.1 (8.9 ahead). Chris Olave is 24.4 against 34.6 (10.2 behind). The sample trade gives Jaxon Smith-Njigba (47.5 / Market 53.6) and gets Puka (59.0 / Market 50.1): you gain 11.5 DDF Value, and they gain 3.5 on the Market. Jahmyr Gibbs sits on the projection ceiling of 70, so his lead is a floor and he is not the featured buy. Quarterbacks are left out. On the 1QB chart scale a raw gap against the projection anchor overstates the lead.
 
-Quarterbacks are left out of the sample. On the 1QB chart scale a raw gap against the ESPN anchor overstates the lead.
+The paste does not parse a league. Any non-empty paste, or "That's everyone" after at least one Sleeper team, shows the decided success line. The twelve team names are sample names for the picker. "Their lineup improves" is a one-for-one Market gain. Show the math says so. A full roster check comes with the live page.
 
 Two cuts exist only so the preview has a calm list and a calm sentence. They are not proposed changes to the trade math:
 
-- A player is listed when the charts form two camps, or the gap between the projection read and the charts' middle is at least 2.5.
-- Compare calls a side "about even" when the gap is under 2 points on this scale.
+- Buy and Sell list a player when DDF Value and the Market differ by at least 2.5. Closer names are Fair price, and they stay in the picker.
+- Send it is a gain of at least 5 when they improve on the Market. A smaller gain that they would still accept is Worth a shot. A gain they would not accept is They'll pass. A loss of 2 or more is Don't do it. Both sides inside 2 is Fair swap.
 
 Regenerate with `python3 app/v2-concept/build_sample.py` from the repo root. Do not hand-edit `sample.js`.
 
 ## What this is not
 
-- It does not change `app/v2/shell.html`, `v2.css`, `v2.js`, or the production tab files. Another session is cleaning those.
-- It does not run the value engine, and it does not mount the hidden legacy engine. The production page's weight (every tab carrying that engine) is an engineering job of its own. This preview simply is not that page.
-- It does not pick the fit-label glossary, and it does not rename DDF Value in production.
+- It does not change `app/v2/shell.html`, `v2.css`, `v2.js`, or the production tab files.
+- It does not run the value engine, and it does not mount the hidden legacy engine.
 - It does not publish. Opening the file, or serving the repo, is the whole preview.
 
 ## Screens
 
-Shots at 390 and 1280, light and dark, are in `docs/design/shots/`. A few of them:
+Light shots at 390 and 1280 are in `docs/design/shots/`.
 
-![Home, 390, light](shots/home-390-light.png)
+![Home, 390](shots/home-390-light.png)
 
-![Home, 1280, light](shots/home-1280-light.png)
+![Home, 1280](shots/home-1280-light.png)
 
-![Targets, 390, light](shots/targets-390-light.png)
+![Paste a league, Sleeper tip, 390](shots/paste-390-light.png)
 
-![Targets opened, 390, light](shots/targets-open-390-light.png)
+![Got it, pick your team, 390](shots/paste-match-390-light.png)
 
-![Compare, 1280, light](shots/compare-1280-light.png)
+![Buy and sell, 390](shots/targets-390-light.png)
 
-![Home, 390, dark](shots/home-390-dark.png)
+![Check a trade, 390](shots/compare-390-light.png)
 
-The same folder also has dark shots of Targets and Compare, the sell list, the opened charts on Compare, and the More sheet.
+![Check a trade, 1280](shots/compare-1280-light.png)
 
-## Decisions for you
+![Settings, 390](shots/settings-390-light.png)
 
-The preview is drawn as the recommended option in each case, so you can see it. Reject any line and the rest still stands.
+The same folder also has the 1280 shots of the paste flow, the match step, Buy & sell, and Settings.
 
-1. **Type.** A) Fraunces for the one headline, Inter everywhere else. Recommended. The serif is the only playful note, and the numbers stay in Inter. B) All Inter, at the same sizes. C) A geometric sans for the headline.
+## Still open
+
+Two visual choices. The preview is drawn as the recommended option so you can see it. Reject either line and the rest still stands.
+
+1. **Type.** A) Fraunces for the one headline, Inter everywhere else. Recommended. The serif is the only playful note, and the numbers stay in Inter. B) All Inter, at the same sizes.
 
 2. **Canvas.** A) Warm paper `#F6F3EC`, with the same forest ink and green. Recommended. B) Keep today's `#F3F7F7`.
-
-3. **Front door.** A) Home, Targets, Compare, and More. Auditing, Overrides, and Writing live under More, in a desk group. Recommended. B) Those three, plus Player values as a fourth top item. C) Restyle only, and keep today's tabs.
-
-4. **First screen.** A) A landing with one action, and a peek of the answer, which is what the preview shows. Recommended. B) Skip the landing and open on Targets, with the same headline treatment.
-
-5. **Our number's name.** A) One public name, DDF Value, on every casual screen. The other names appear after expand, each labeled by what it is. Recommended. This preview does not show a DDF Value, because it does not run the engine. B) Keep the version names in the header.
-
-6. **Fit words on casual screens.** A) Casual screens say Buy, Sell, Ahead, Behind, Close, Split. Find a trade keeps Natural, Value, Market, and Force, drawn as the one chip, after the glossary is settled. Recommended. B) Show the four fit words on Targets and Compare too.
