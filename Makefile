@@ -180,6 +180,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_waivers_render
 	python3 -m unittest tests.test_waivers_paste_render
+	python3 -m unittest tests.test_waivers_view_render
 	python3 -m unittest tests.test_v2_espn_held_chip_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
@@ -304,6 +305,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_dashboard_view_tags
 	python3 -m unittest tests.test_dist_manifest
 	python3 -m unittest tests.test_preview_workflow_matches_pages
+	python3 -m unittest tests.test_v2_render_runs_on_data_push
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
 	python3 -m unittest tests.test_rebuild_chain_conflict_handoff
