@@ -13,10 +13,9 @@ shows (read from the data week and the fixture's built_at, never hard-coded), th
 says "middle of N charts" instead of "median of N", and the Deal read sentences do not overclaim what the other
 manager will do ("easy for them to accept", "will likely accept", "and is not").
 JEG-888 (2026-10-22): the Trade targets intro counts the charts the view compares ("We check 3 trade charts", read
-from window.TradeValueV2.targets().used), the Compare headline never shows "? ? Unclear", and a projections split
-never says "DDF Projections disagree (+7.3)". (JEG-930, 2026-10-23: the "say you win while DDF Value calls it even" reason was deleted, DDF Value now equals DDF Projections.)
-JEG-895 (2026-10-22): the headline levels are named for what they measure ("Our value: …", "Charts agree: …") and
-the word "confidence" never appears in the headline.
+from window.TradeValueV2.targets().used), and the Compare verdict card has no headline lines. (JEG-1112, 2026-10-26, Jeremy's option D: the
+"Should you propose or accept?" / "Will they accept?" lines were removed from it, so the JEG-888 / JEG-895 / JEG-863 copy
+checks that read them went too; the Deal read overclaim check stays.)
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the old USAT label, with "Wk" back, with
 "median of" back, with the page stamp not rendered and with "NFL" dropped from it, trade.js with the old
 overclaiming sentence, and the shell with the old panel title and the old Research line, and requires failures.
@@ -45,8 +44,7 @@ TITLE = "() => { const m = [...document.querySelectorAll('main.v2-main')].find(n
 DEAL_TEXTS = "() => Object.values(window.TradeValueTrade.DEAL_READS).map(c => c.text)"
 INTRO = "() => document.getElementById('v2TIntro').textContent"
 USED = "() => window.TradeValueV2.targets().used"
-HEADS = "() => document.getElementById('v2CHeads').innerText"
-DOUBLE_Q = re.compile(r"\?\s*\?")
+HEADS = "() => Boolean(document.getElementById('v2CHeads') || document.querySelector('#v2CVerdict .v2-chead'))"
 
 
 def bad_words(text: str) -> list[str]:
@@ -116,27 +114,13 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                         if len(used) and not intro.startswith(want):
                             errors.append(f"[{width}px targets] intro count is not the compared set ({len(used)} charts): {intro!r}")
                     if tab == "#compare-trade":
-                        # JEG-888: no "accept? ? Unclear" (the Unclear glyph was "?"), and the split reason says which
-                        # way each series points instead of "DDF Projections disagree (+7.3)".
-                        heads = page.evaluate(HEADS)
-                        if DOUBLE_Q.search(heads):
-                            errors.append(f"[{width}px headline] doubled question mark: {heads!r}")
-                        if "Projections disagree" in heads or "DDF Projections" in heads:
-                            errors.append(f"[{width}px headline] still says 'DDF Projections': {heads!r}")
-                        if "Unclear" in heads and "say you" not in heads and "call it even" not in heads and "cannot score" not in heads and "under 5%" not in heads:
-                            errors.append(f"[{width}px headline] Unclear with no plain reason: {heads!r}")
-                        # JEG-895: the level is named for what it measures ("Our value: …", "Charts agree: …"), never "confidence".
-                        if "confidence" in heads.lower():
-                            errors.append(f"[{width}px headline] still says 'confidence': {heads!r}")
-                        if heads.strip() and not ("Our value:" in heads and "Charts agree:" in heads):
-                            errors.append(f"[{width}px headline] levels not named for what they measure: {heads!r}")
+                        # JEG-1112: the propose / accept headline lines are gone from the verdict card.
+                        if page.evaluate(HEADS):
+                            errors.append(f"[{width}px headline] the verdict card still has the propose / accept lines")
                         for text in page.evaluate(DEAL_TEXTS):
                             hits = [phrase for phrase in OVERCLAIMS if phrase in text]
                             if hits:
                                 errors.append(f"[{width}px deal read] overclaims {hits}: {text!r}")
-                        # JEG-863: DDF Value = projections, so the agree reason always fires in the headline.
-                        if heads.strip() and "DDF Value agrees" not in heads and "DDF Value cannot" not in heads:
-                            errors.append(f"[{width}px headline] no 'DDF Value agrees/cannot' reason: {heads!r}")
                     if tab == "#writing/research":
                         text = page.evaluate(RESEARCH)
                         if "No posts are published yet" in text:
@@ -167,15 +151,10 @@ PATCHES = {
     "page stamp not rendered": {"v2_patch": ("    renderPageStamps();\n    const s = view.state;", "    const s = view.state;")},
     "NFL dropped from the stamp": {"v2_patch": ("`NFL Week ${view.refWeek}`", "`Week ${view.refWeek}`")},
     "deal read overclaims": {"trade_patch": ("so the other manager has little reason to refuse.", "so it is easy for them to accept.")},
-    # JEG-888 (each proven against the fixture's example trade, which renders Unclear with a projections split).
+    # JEG-888.
     "four publishers back": {"v2_patch": ("`We check ${introCharts} against", "`We check four publishers' trade charts against")},
     # 7 is more charts than exist, so it differs from the compared count whether the fixture holds CBS (3 charts) or not (4).
     "intro count hard-coded": {"v2_patch": ("const introCount = targetsView.used.length;", "const introCount = 7;")},
-    "Unclear glyph back to ?": {"v2_patch": ('Unclear: "–"', 'Unclear: "?"')},
-    # JEG-895: the headline level must not be called "confidence".
-    "confidence label back": {"v2_patch": ("document.createTextNode(LEVEL_LABELS[line][h.confidence])", "document.createTextNode(`${h.confidence} confidence`)")},
-    # JEG-863 + JEG-930: pSide !== vSide is dead (DDF Value = projections); guard checks the agree reason stays.
-    "projections agree reason removed": {"trade_patch": ("else reasons.push(`DDF Value agrees (${fmtNet(pNet)})`)", "else {}")},
 }
 
 

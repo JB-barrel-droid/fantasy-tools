@@ -127,6 +127,52 @@ SEED_VALUES = """() => {
   return {patched: Object.keys(patches)};
 }"""
 
+# JEG-1112: a SECOND seeded scenario, beside the one above, that takes the other verdict copy. The automated rebuild
+# b227f453 made the picked trade a DDF Value win that three charts and DDF Value (projections) see the other way, and the
+# win copy for that ("X, Y, Z and W think you lose this trade. A manager who trades off X, Y, Z or W is the likeliest to
+# accept.") names every dissenting source twice: the tallest verdict text, +72.8 px over the lose copy, and the one that put
+# Compare past the 1366x768 fold. Same top-12 patch as SEED_VALUES (PICK gives ranks 0 and 5, receives 2 and 3, whose base
+# values sum alike, so every neutral source nets 0): on the two received players DDF Value is +4 each (win by +8) while the
+# three trade charts and DDF Value (projections) are -4 each (each says "you lose"), so five sources are named, twice each.
+SEED_VALUES_WIN = """() => {
+  const C = window.TradeValueCurveControls;
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  const byEspn = C.getAllRows().filter(r => r.values && fin(r.values.espn)).sort((a, b) => b.values.espn - a.values.espn);
+  const floor = byEspn.length > 12 ? byEspn[12].values.espn : 10;
+  const dissent = ['usatoday', 'fantasycalc', 'fantasypros', 'ddf_value_projections'];
+  const patches = {};
+  for (let i = 0; i < Math.min(12, byEspn.length); i++) {
+    const r = byEspn[i];
+    const base = floor + 2 * (12 - i);
+    const received = i === 2 || i === 3;
+    const v = {};
+    for (const k of Object.keys(r.values)) {
+      if (!fin(r.values[k])) continue;
+      if (received && (k === 'ddf_value' || k === 'ddf_value_charts')) v[k] = base + 4;
+      else if (received && dissent.includes(k)) v[k] = base - 4;
+      else v[k] = base;
+    }
+    patches[String(r.player_key)] = v;
+  }
+  const patchRow = r => (!r || !r.values || !(String(r.player_key) in patches)) ? r
+    : {...r, values: {...r.values, ...patches[String(r.player_key)]}};
+  for (const name of ['getAllRows', 'getRows']) {
+    const original = C[name].bind(C);
+    C[name] = (...args) => original(...args).map(patchRow);
+  }
+  if (C.getPlayer) {
+    const original = C.getPlayer.bind(C);
+    C.getPlayer = (...args) => patchRow(original(...args));
+  }
+  return {patched: Object.keys(patches)};
+}"""
+
+# The verdict branch each seeded scenario must take (JEG-1112), so a change to the seeds cannot silently swap the copy.
+SCENARIO_BRANCH = {True: "lose", "win": "win"}
+# The win copy in v2.js (JEG-541), which the copy mutations below rewrite; stale if the line moves.
+WIN_AGAINST_COPY = ("text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade. "
+                    "A manager who trades off ${listSeries(v.againstKeys, \"or\")} is the likeliest to accept.`;")
+
 PICK = """() => {
   const C = window.TradeValueCurveControls;
   const rows = C.getAllRows();
@@ -303,7 +349,7 @@ def check_waterfalls(snap, pick, expect_missing=False) -> list[str]:
     return errors
 
 
-def check_verdict(snap, pick) -> list[str]:
+def check_verdict(snap, pick, branch=None) -> list[str]:
     engine = snap["engine"]
     names = {r["key"]: r["wf"]["name"] for r in snap["rows"] if r["wf"]}
     # JEG-467: DDF Value decides whenever it is a row; only without it does the picked series decide.
@@ -329,6 +375,20 @@ def check_verdict(snap, pick) -> list[str]:
     missing = [n for n in against if n not in text]
     if missing:
         errors.append(f"verdict does not name the sources that see it the other way {missing}: {text!r}")
+    if branch:
+        # JEG-1112: each seeded scenario must take its own copy branch, with a dissenting source, so the fold is measured
+        # on the short "lose" copy and on the long "win with dissenting sources" copy (each source named twice).
+        if s != {"win": 1, "lose": -1}[branch]:
+            errors.append(f"the {branch!r} scenario no longer takes the {branch} branch: DDF Value net {fmt_net(nets[key])}; "
+                          "fix its seeds (JEG-1112)")
+        elif not against:
+            errors.append(f"the {branch!r} scenario has no dissenting source, so its dissent copy went unchecked")
+        else:
+            marker = {"win": " you lose this trade. A manager who trades off ", "lose": " you win, but "}[branch]
+            if marker not in text:
+                errors.append(f"the {branch} verdict does not use the dissent copy ({marker.strip()!r}): {text!r}")
+            if branch == "win" and any(text.count(n) < 2 for n in against):
+                errors.append(f"the win verdict does not name every dissenting source twice {against}: {text!r}")
     if snap["verdictFall"] is None:
         errors.append("verdict card has no waterfall")
     else:
@@ -404,7 +464,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
             raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             for width, height in viewports:
-                tag = f"[{width}x{height}] "
+                tag = f"[{width}x{height}{' win' if seed == 'win' else ''}] "
                 page = browser.new_page(viewport={"width": width, "height": height})
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
@@ -427,7 +487,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 # JEG-1056: when seeded, patch engine values to small deterministic numbers so the waterfall
                 # column height is stable across data bakes and fits 1366x768.
                 if seed:
-                    seeded = page.evaluate(SEED_VALUES)
+                    seeded = page.evaluate(SEED_VALUES_WIN if seed == "win" else SEED_VALUES)
                     if not seeded or not seeded.get("patched"):
                         errors.append(tag + "seed fixture failed to apply")
                 # A 2-for-2 from a link, with a verdict series that is not the ranking series. Show every
@@ -468,7 +528,10 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 page.wait_for_timeout(150)
                 snap = page.evaluate(READ)
                 errors += [tag + e for e in check_waterfalls(snap, pick)]
-                errors += [tag + e for e in check_verdict(snap, pick)]
+                errors += [tag + e for e in check_verdict(snap, pick, branch=SCENARIO_BRANCH.get(seed))]
+                # Printed so a log shows the fold numbers (JEG-1112): the verdict card's bottom edge against the fold.
+                vb = (snap["boxes"].get("verdict") or {}).get("bottom")
+                print(f"FOLD {tag}verdict bottom {vb} of {snap['innerHeight']}", file=sys.stderr, flush=True)
                 if width >= 1280:
                     errors += [tag + e for e in check_layout(snap)]
                 if snap["overflow"] > 0:
@@ -572,6 +635,10 @@ class WaterfallRenderTest(unittest.TestCase):
     def test_waterfall_verdict_layout_example(self):
         self.assertEqual(run_checks(seed=True), [])
 
+    def test_waterfall_verdict_layout_win_with_dissent(self):
+        """JEG-1112: the same checks on the long "win with dissenting sources" copy, at 1366x768 and 1440x900 too."""
+        self.assertEqual(run_checks(seed="win"), [])
+
     def test_guard_fails_on_broken_builds(self):
         v2 = V2_JS.read_text(encoding="utf-8")
         css = V2_CSS.read_text(encoding="utf-8")
@@ -583,11 +650,18 @@ class WaterfallRenderTest(unittest.TestCase):
                 "renderWaterfall(bar, fall, window.TradeValueTrade.waterfallScale([fall]));", 1), js)},
             "verdict not DDF": {"v2.js": (v2.replace(
                 "verdictSeries = pointKeys.includes(DDF_KEY) ? DDF_KEY : TR.shown;", "verdictSeries = TR.shown;", 1), js)},
+            # JEG-1112: the win copy names the dissenting sources twice (first sentence, then "A manager who trades off ...");
+            # removing only the first sentence's names left the second naming them, so the mutation went uncaught on a win.
+            # Both sentences and the lose copy lose their names here, and it must be caught in EACH seeded scenario.
             "verdict names no source": {"v2.js": (v2.replace(
-                "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.",
-                "text = `Some sources think you lose this trade.", 1).replace(
+                WIN_AGAINST_COPY,
+                "text = `Some sources think you lose this trade. A manager who trades off some sources is the likeliest to accept.`;", 1).replace(
                 "? `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you win, but",
                 "? `Some sources think you win, but", 1), js)},
+            # The second sentence alone: the long copy must keep naming the sources there (win scenario only).
+            "win verdict drops its second sentence": {"v2.js": (v2.replace(
+                WIN_AGAINST_COPY,
+                "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.`;", 1), js)},
             "no example": {"v2.js": (v2.replace(
                 "verdictKey() ? exampleTrade(pointKeys) : null;", "verdictKey() ? null : null;", 1), js)},
             "landing on incomplete rows": {"trade.js": (trade.replace(
@@ -608,16 +682,21 @@ class WaterfallRenderTest(unittest.TestCase):
         # (the 45 px inputs strip pushed Compare past the 1366x768 fold), every mutation looked caught by that error.
         # Numbers are masked so a mutation that only moves an already-failing box does not count as a new error.
         shape = lambda e: re.sub(r"-?\d+(\.\d+)?", "#", e)  # noqa: E731
-        baseline = {shape(e) for e in run_checks(viewports=((1366, 768),), seed=True)}
+        baselines = {sc: {shape(e) for e in run_checks(viewports=((1366, 768),), seed=sc)} for sc in (True, "win")}
+        # JEG-1112: the copy mutations are caught in EACH seeded scenario (a catch in the other branch is not a catch);
+        # every other mutation changes layout or structure for both, so the lose scenario alone is enough.
+        scenarios = {"verdict names no source": (True, "win"), "win verdict drops its second sentence": ("win",)}
         for name, overrides in broken.items():
-            with self.subTest(mutation=name):
-                for file, (body, _) in overrides.items():
-                    self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
-                errors = [e for e in run_checks(overrides, viewports=((1366, 768),), seed=True) if shape(e) not in baseline]
-                # Printed so the blocking `make validate` log shows each guard result, caught or not (JEG-1056).
-                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({len(errors)} new errors; first: {errors[0] if errors else '-'})",
-                      file=sys.stderr, flush=True)
-                self.assertNotEqual(errors, [], f"render checks did not catch: {name}")
+            for file, (body, _) in overrides.items():
+                self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
+            for sc in scenarios.get(name, (True,)):
+                label = f"{name} [{'win' if sc == 'win' else 'lose'}]" if name in scenarios else name
+                with self.subTest(mutation=label):
+                    errors = [e for e in run_checks(overrides, viewports=((1366, 768),), seed=sc) if shape(e) not in baselines[sc]]
+                    # Printed so the blocking `make validate` log shows each guard result, caught or not (JEG-1056).
+                    print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {label} ({len(errors)} new errors; first: {errors[0] if errors else '-'})",
+                          file=sys.stderr, flush=True)
+                    self.assertNotEqual(errors, [], f"render checks did not catch: {label}")
 
 
 if __name__ == "__main__":
