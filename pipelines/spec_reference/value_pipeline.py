@@ -181,12 +181,16 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    # Skip flex_bench_seats in 2-QB / superflex (Jeremy, 2026-10-23).
-    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
-    use_flex = flex_bench_seats and not is_two_qb
-    # JEG-1121: sf/fx are league-wide; normalize to per-team before passing to bench_seats.
-    ff = {p: (sf[p] + fx[p]) / T for p in POSITIONS} if use_flex else None
-    bench = dhondt_bench(setting, flex_filled=ff)
+    if flex_bench_seats:
+        # Greedy bench: best remaining players fill bench spots after starters.
+        bench_cands = [(k, p) for p in POSITIONS for k in order[p][ded[p] + sf[p] + fx[p]:]]
+        bench = take(bench_cands, T * setting.bench_per_team)
+    else:
+        # D'Hondt bench (backward compat).
+        is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+        use_flex = not is_two_qb
+        ff = {p: (sf[p] + fx[p]) / T for p in POSITIONS} if use_flex else None
+        bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         starters = ded[p] + sf[p] + fx[p]

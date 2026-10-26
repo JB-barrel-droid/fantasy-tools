@@ -320,88 +320,104 @@ class TestNegativeTest(unittest.TestCase):
 
 
 class TestBenchSeatsUnits(unittest.TestCase):
-    """JEG-1121: flex_filled must be per-team, not league-wide.
-
-    Bug: allocate_league passed league-wide sf_filled/fx_filled as flex_filled
-    to bench_seats, but slots is per-team.  The fix normalises to per-team by
-    dividing by teams before calling bench_seats.
+    """JEG-1121 revised: allocate_league fills bench from the league-wide player
+    pool after starters. Backup QB counts emerge from player values, not a
+    preset ratio.
     """
 
-    # Deterministic player pool for exact assertions.
-    _TEAMS = 12
-    _BENCH = 7
-    _FLEX = 1
+    def _run_alloc(self, player_order, player_scores, teams=4, bench_per_team=2,
+                   flex=1, sf=0):
+        return allocate_league(
+            DEFAULT_SLOTS, teams, bench_per_team, flex, sf,
+            player_order, player_scores,
+        )
 
-    @classmethod
-    def _player_pool(cls):
+    def test_bench_total_equals_teams_times_bench(self):
+        """Total bench seats = teams * bench_per_team (league-wide, not per-team)."""
+        teams, bench = 4, 3
+        po = {pos: [f"{pos}{i}" for i in range(60)] for pos in POSITIONS}
+        ps = {k: 100 for pos in po for k in po[pos]}
+        result = allocate_league(DEFAULT_SLOTS, teams, bench, 1, 0, po, ps)
+        total = sum(result[pos]["bench"] for pos in SKILL_POSITIONS)
+        self.assertEqual(total, teams * bench,
+                         f"Total bench must equal {teams}*{bench}={teams*bench}; got {total}")
+
+    def test_qb_bench_zero_when_pool_exhausted(self):
+        """QB bench = 0 when exactly enough QBs fill dedicated slots (no QB pool left)."""
+        teams = 4
         player_order = {
-            "QB":  [f"QB{i:03d}" for i in range(100)],
-            "RB":  [f"RB{i:03d}" for i in range(200)],
-            "WR":  [f"WR{i:03d}" for i in range(200)],
-            "TE":  [f"TE{i:03d}" for i in range(100)],
-            "K":   [f"K{i:03d}"  for i in range(30)],
-            "DEF": [f"DEF{i:03d}" for i in range(30)],
+            "QB": [f"qb{i}" for i in range(4)],   # exactly 4, none left for bench
+            "RB": [f"rb{i}" for i in range(40)],
+            "WR": [f"wr{i}" for i in range(40)],
+            "TE": [f"te{i}" for i in range(20)],
+            "K": [], "DEF": [],
+        }
+        # QBs have very high scores but pool is exhausted after 4 starters
+        player_scores = {k: 1000 for k in player_order["QB"]}
+        for k in player_order["RB"]: player_scores[k] = 50
+        for k in player_order["WR"]: player_scores[k] = 50
+        for k in player_order["TE"]: player_scores[k] = 50
+        result = allocate_league(DEFAULT_SLOTS, teams, 2, 1, 0, player_order, player_scores)
+        self.assertEqual(result["QB"]["bench"], 0,
+                         "QB bench must be 0 when QB pool is exhausted after starters")
+
+    def test_qb_bench_fills_when_qbs_dominate(self):
+        """QB bench > 0 when remaining QB pool outscores all other bench candidates."""
+        teams = 4
+        player_order = {
+            "QB": [f"qb{i}" for i in range(30)],
+            "RB": [f"rb{i}" for i in range(40)],
+            "WR": [f"wr{i}" for i in range(40)],
+            "TE": [f"te{i}" for i in range(20)],
+            "K": [], "DEF": [],
         }
         player_scores = {}
-        for i, p in enumerate(player_order["QB"]):  player_scores[p] = 500 - i * 30
-        for i, p in enumerate(player_order["RB"]):  player_scores[p] = 500 - i * 10
-        for i, p in enumerate(player_order["WR"]):  player_scores[p] = 500 - i * 10
-        for i, p in enumerate(player_order["TE"]):  player_scores[p] = 400 - i * 10
-        for i, p in enumerate(player_order["K"]):   player_scores[p] = 100 - i * 5
-        for i, p in enumerate(player_order["DEF"]): player_scores[p] = 100 - i * 5
-        return player_order, player_scores
+        for k in player_order["QB"]: player_scores[k] = 200   # high — QB pool dominates
+        for k in player_order["RB"]: player_scores[k] = 1     # low
+        for k in player_order["WR"]: player_scores[k] = 1     # low
+        for k in player_order["TE"]: player_scores[k] = 1     # low
+        # 4 teams * 2 bench = 8 bench spots; after 4 dedicated QBs, 26 QB remain at score 200
+        result = allocate_league(DEFAULT_SLOTS, teams, 2, 1, 0, player_order, player_scores)
+        self.assertEqual(result["QB"]["bench"], 8,
+                         "QB should fill all bench spots when QB pool dominates all positions")
 
-    def test_1qb_bench_apportionment(self):
-        """1QB default 12-team: QB bench must not be near zero (was ~4 with bug)."""
-        order, scores = self._player_pool()
-        result = allocate_league(
-            slots=DEFAULT_SLOTS, teams=self._TEAMS, bench_per_team=self._BENCH,
-            flex_count=self._FLEX, superflex_count=0,
-            player_order=order, player_scores=scores,
-        )
-        bench_total = sum(result[pos]["bench"] for pos in POSITIONS)
-        self.assertEqual(bench_total, self._TEAMS * self._BENCH)
-        # With correct per-team normalization QB gets proportional share.
-        # Bug produced QB=4; fixed value is 13 for this player pool.
-        self.assertEqual(result["QB"]["bench"], 13,
-                         "QB bench should be 13, not ~4 (units bug)")
-        self.assertEqual(result["RB"]["bench"], 29)
-        self.assertEqual(result["WR"]["bench"], 34)
-        self.assertEqual(result["TE"]["bench"], 8)
+    def test_negative_dhondt_would_give_qb_bench_regardless(self):
+        """D'Hondt (bench_seats) gives QB>0 bench even when QB pool is exhausted after starters.
+        This proves the old approach was wrong: it gave QB bench regardless of pool availability.
+        """
+        # D'Hondt approach: QB bench weight = 4 starters * 0.88 ratio > 0
+        dhondt_result = bench_seats(DEFAULT_SLOTS, 4, 2, superflex=False)
+        self.assertGreater(dhondt_result["QB"], 0,
+                           "D'Hondt gives QB bench > 0 regardless of player pool availability")
 
-    def test_superflex_bench_apportionment(self):
-        """Superflex 12-team: bench total correct; uses two_qb ratios."""
-        order, scores = self._player_pool()
-        result = allocate_league(
-            slots=DEFAULT_SLOTS, teams=self._TEAMS, bench_per_team=self._BENCH,
-            flex_count=self._FLEX, superflex_count=1,
-            player_order=order, player_scores=scores,
-        )
-        bench_total = sum(result[pos]["bench"] for pos in POSITIONS)
-        self.assertEqual(bench_total, self._TEAMS * self._BENCH)
-        # Superflex skips flex_bench_seats (option A); bench uses dedicated only.
-        # Pinning known-good values so a regression is immediately visible.
-        self.assertEqual(result["QB"]["bench"], 4)
-        self.assertEqual(result["RB"]["bench"], 30)
-        self.assertEqual(result["WR"]["bench"], 36)
-        self.assertEqual(result["TE"]["bench"], 12)
+        # Greedy approach: with no QB pool remaining, QB bench = 0
+        teams = 4
+        player_order = {
+            "QB": [f"qb{i}" for i in range(4)],   # exactly 4, exhausted after starters
+            "RB": [f"rb{i}" for i in range(40)],
+            "WR": [f"wr{i}" for i in range(40)],
+            "TE": [f"te{i}" for i in range(20)],
+            "K": [], "DEF": [],
+        }
+        player_scores = {k: 50 for pos in player_order for k in player_order[pos]}
+        result = allocate_league(DEFAULT_SLOTS, teams, 2, 1, 0, player_order, player_scores)
+        self.assertEqual(result["QB"]["bench"], 0,
+                         "Greedy approach gives QB=0 (correct); D'Hondt gave QB>0 (wrong)")
 
     def test_units_bug_would_inflate_wr_bench(self):
-        """Demonstrate the units bug: league-wide flex_filled inflates WR bench."""
+        """Preserve the original units-bug test: passing league-wide vs per-team flex to
+        bench_seats (D'Hondt) gives different results. The convention module still
+        exposes bench_seats for other uses; the units matter there too.
+        """
         slots = DEFAULT_SLOTS
-        # Per-team: WR gets 0.5 flex starters on average (6 league-wide / 12).
         per_team = bench_seats(slots, 12, 7, superflex=False,
                                flex_filled={"QB": 0, "RB": 0.5, "WR": 0.5, "TE": 0,
                                             "K": 0, "DEF": 0})
-        # League-wide (the bug): 6 league-wide flex starters added to per-team slots.
         league_wide = bench_seats(slots, 12, 7, superflex=False,
                                   flex_filled={"QB": 0, "RB": 6, "WR": 6, "TE": 0,
                                                "K": 0, "DEF": 0})
-        # Per-team is correct; league-wide massively over-weights WR and under-weights QB.
-        self.assertGreater(per_team["QB"], league_wide["QB"],
-                           "per-team normalization gives more QB bench seats")
-        self.assertLess(per_team["WR"], league_wide["WR"],
-                        "per-team normalization gives fewer WR bench seats (bug inflated them)")
+        self.assertGreater(per_team["QB"], league_wide["QB"])
+        self.assertLess(per_team["WR"], league_wide["WR"])
 
 
 if __name__ == "__main__":

@@ -232,12 +232,10 @@
     var slots = setting.slots || {};
     var sfSlots = Math.max(0, Number(setting.superflex) || 0);
     var flexSlots = Math.max(0, Number(setting.flex) || 0);
-    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                             {superflex: sfSlots > 0});
     var alloc = {};
     POSITION_ORDER.forEach(function (pos) {
       alloc[pos] = { dedicated: teams * (Number(slots[pos]) || 0), superflex: 0, flex: 0,
-        bench: bench[pos], starters: 0, rostered: 0 };
+        bench: 0, starters: 0, rostered: 0 };
     });
     function takeBest(eligiblePositions, offsetOf, count) {
       var cand = [];
@@ -262,19 +260,25 @@
     var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
       return alloc[pos].dedicated + alloc[pos].superflex;
     }, teams * flexSlots);
-    // MR-28 (JEG-969): flex_bench_seats on by default (2026-10-23, Jeremy approved).
-    // Recompute bench weights counting superflex+flex starters, matching
-    // allocate_league in the ES model.  Off only when explicitly false.
-    // Skipped in 2-QB / superflex: market_bench 2-QB data already captures
-    // supply-capped QB benches (Jeremy, 2026-10-23, option A).
-    var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
-    if (setting.flex_bench_seats !== false && !isTwoQb) {
-      var ff = {};
-      // JEG-1121: sf/fx are league-wide; slots is per-team → normalize to per-team.
-      POSITION_ORDER.forEach(function (pos) { ff[pos] = ((sf[pos] || 0) + (fx[pos] || 0)) / teams; });
-      bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                           {superflex: sfSlots > 0, flexFilled: ff});
+    // JEG-1121 revised: bench allocation.
+    var benchPerTeam = Math.max(0, Number(setting.bench_per_team) || 0);
+    if (setting.flex_bench_seats === false) {
+      // D'Hondt path (backward compat; flex_bench_seats=false used by fixture tests).
+      var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
+      var ff = null;
+      if (!isTwoQb) {
+        ff = {};
+        POSITION_ORDER.forEach(function (pos) { ff[pos] = ((sf[pos] || 0) + (fx[pos] || 0)) / teams; });
+      }
+      var bench = vpBenchSeats(slots, teams, benchPerTeam, {superflex: isTwoQb, flexFilled: ff});
       POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
+    } else {
+      // Greedy: fill bench from the league-wide pool after starters. Backup counts
+      // per position emerge from player values — no preset ratio.
+      var bench = takeBest(POSITION_ORDER, function (pos) {
+        return alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+      }, vpRoundHalfUp(teams * benchPerTeam));
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos] || 0; });
     }
     POSITION_ORDER.forEach(function (pos) {
       var a = alloc[pos];

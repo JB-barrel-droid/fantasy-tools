@@ -217,23 +217,15 @@ def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
         t * int(flex_count), flex_eligible,
     )
 
-    # Bench: convention rule 1
-    # For bench weights, starters = dedicated + superflex + flex
-    effective_slots = {}
+    # JEG-1121 revised: bench fills from the league-wide player pool after starters.
+    # Backup counts per position emerge from player values, not preset ratios.
+    remaining_after_fx = {}
     for pos in POSITIONS:
-        effective_slots[pos] = int(slots.get(pos, 0))
-    # JEG-1121: sf_filled/fx_filled are league-wide; effective_slots is per-team.
-    # Normalize flex to per-team so bench_weights uses consistent units.
-    effective_flex = {}
-    for pos in POSITIONS:
-        effective_flex[pos] = (sf_filled[pos] + fx_filled[pos]) / t
+        remaining_after_fx[pos] = remaining_after_sf[pos][fx_filled[pos]:]
 
-    is_superflex = superflex_count > 0
-    is_2qb = int(slots.get("QB", 0)) >= 2
-    b = bench_seats(
-        effective_slots, teams, bench_per_team,
-        superflex=(is_superflex or is_2qb),
-        flex_filled=effective_flex,
+    b = flex_allocate_greedy(
+        remaining_after_fx, player_scores,
+        t * int(bench_per_team), POSITIONS,
     )
 
     out = {}

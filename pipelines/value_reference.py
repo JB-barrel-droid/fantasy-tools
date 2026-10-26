@@ -261,13 +261,18 @@ def allocate(league: League, order: dict, score: dict, *,
     fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
-    # Skip flex_bench_seats in 2-QB / superflex: market_bench 2-QB data
-    # already captures supply-capped QB benches (Jeremy, 2026-10-23).
-    is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
-    use_flex = flex_bench_seats and not is_two_qb
-    # JEG-1121: sf/fx are league-wide; normalize to per-team before passing to bench_seats.
-    ff = {p: (sf[p] + fx[p]) / t for p in POSITIONS} if use_flex else None
-    b = bench_seats(league, flex_filled=ff)
+    if flex_bench_seats:
+        # Greedy bench: all positions compete for bench spots after starters.
+        bench_cands = [(p, i) for p in POSITIONS
+                       for idx, i in enumerate(order.get(p, []))
+                       if idx >= d[p] + sf[p] + fx[p]]
+        b = take(bench_cands, t * int(league.bench))
+    else:
+        # D'Hondt bench (backward compat: flex_bench_seats=False).
+        is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
+        use_flex = not is_two_qb
+        ff = {p: (sf[p] + fx[p]) / t for p in POSITIONS} if use_flex else None
+        b = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         s = d[p] + sf[p] + fx[p]
