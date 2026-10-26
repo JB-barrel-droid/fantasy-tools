@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-26T13:52:24.326432+00:00",
+  "run_at": "2026-10-26T16:19:07.553506+00:00",
   "nfl_week": 7,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,16 +10,30 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "published_with_holds",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
     "cbsros",
+    "fantasypros",
     "razzball"
   ],
   "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
+    "fantasypros": {
+      "reason": "validation hold: engine and Python reference disagree",
+      "held_series": [
+        "fantasypros"
+      ],
+      "sections": [
+        "fantasypros"
+      ],
+      "hold_severity": "amber",
+      "week": 7
+    },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -29,7 +43,7 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Eli Stowers, Hunter Long); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Ky",
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Dallen Bentley, Hunter Long); parse notes: RB: 2 players listed with another position in the cell (kept as RB): [",
       "hold_severity": "amber",
       "week": 7
     },
@@ -80,7 +94,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7116 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7128 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -105,7 +119,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7752 values)",
+      "detail": "snapshot 2026-10-24 -> 12 DDF legs -> section; review passed (7704 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -134,7 +148,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-25",
+      "content_vintage": "2026-10-26",
       "content_week": 7,
       "health_status": "ok",
       "lagging_one_week": false
@@ -158,8 +172,27 @@
       "lagging_one_week": false
     }
   },
+  "value_check": {
+    "verdict": "disagree",
+    "disagreeing_sources": [
+      "fantasypros"
+    ],
+    "composite_disagreements": [],
+    "values_compared": 1230752
+  },
   "fidelity_holds": {
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: publisher_vs_stored"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [],
+    "assertions": [],
+    "make_targets": [
+      "Makefile:527: value-check-compare"
+    ],
+    "detail": "make validate failed at Makefile:527: value-check-compare",
+    "recorded_at": "2026-10-26T16:56:40.521731+00:00"
   }
 }
