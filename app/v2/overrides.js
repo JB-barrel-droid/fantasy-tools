@@ -66,6 +66,22 @@
   const OVERRIDE_MIN = 0;
   const OVERRIDE_MAX = 100;
   const isAdjustment = entry => !!(entry && typeof entry === "object" && entry.type === "adjustment");
+  // JEG-1058: every override that arrives from outside the editor (a share
+  // link, an import, a saved record) is put on the scale the editor shows: an
+  // absolute value between 0 and 100, an adjustment within the scale's span.
+  // The value it produces is the same either way, because the result is
+  // capped anyway; the adjustment is capped so it always fits a packed link.
+  const clampOverrideValue = v => round1(Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, v)));
+  const clampOverrideDelta = d => round1(Math.min(OVERRIDE_MAX, Math.max(-OVERRIDE_MAX, d)));
+  function normalizeEntry(entry) {
+    if (isAdjustment(entry)) {
+      const delta = Number(entry.delta);
+      if (!Number.isFinite(delta) || delta === 0) return null;
+      return {type: "adjustment", delta: clampOverrideDelta(delta)};
+    }
+    if (!finite(entry) || entry < OVERRIDE_MIN) return null;
+    return clampOverrideValue(entry);
+  }
   function el(tag, attrs, kids) {
     const node = document.createElement(tag);
     Object.entries(attrs || {}).forEach(([k, v]) => {
@@ -135,14 +151,9 @@
   // v1 (JEG-1035): {values, names}. v2 (JEG-1044): adds basis. A v1 record reads as our methodology; the retired
   // Customize DDF blend choice (ddf.v2.selection.inputs) is carried over once when no v2 basis exists.
   // JEG-1058: a value is an absolute number or an adjustment {type: "adjustment", delta}.
+  // Anything that arrives from outside the editor is put on the scale first.
   function readOverride(entry) {
-    if (isAdjustment(entry)) {
-      const delta = Number(entry.delta);
-      if (!Number.isFinite(delta) || delta === 0) return null;
-      return {type: "adjustment", delta: round1(delta)};
-    }
-    if (!finite(entry) || entry < OVERRIDE_MIN) return null;
-    return round1(entry);
+    return normalizeEntry(entry);
   }
   function load() {
     let saved = null;
@@ -171,7 +182,7 @@
     S.linkExtra = {basis: rec.basis || null, values: rec.values || null, ours: Boolean(rec.ours)};
     if (rec.ours) { setBasisState(null); S.values = {}; S.names = {}; return; }
     if (rec.basis) setBasisState(rec.basis);
-    if (rec.values) Object.entries(rec.values).forEach(([key, v]) => { S.values[key] = v; });
+    if (rec.values) Object.entries(rec.values).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
   }
   function save() {
     if (S.session) return;   // a shared link's settings stay in memory until the reader changes something
@@ -218,7 +229,7 @@
       if (!Number.isFinite(delta)) return null;
       return Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, pipelineValue(row) + delta));
     }
-    return finite(entry) ? entry : null;
+    return finite(entry) ? clampOverrideValue(entry) : null;
   }
   // JEG-1059: the badge that marks a value the reader set, next to the value itself.
   // The wording is the spec's: "You set this player's value to 58.0 (was 53.0 from
@@ -249,9 +260,9 @@
     if (reason) announce(reason);
   }
   function setOverride(key, entry, name) {
-    if (entry === null || entry === undefined) { delete S.values[key]; delete S.names[key]; }
-    else if (isAdjustment(entry)) S.values[key] = {type: "adjustment", delta: round1(entry.delta)};
-    else S.values[key] = round1(Math.max(OVERRIDE_MIN, entry));
+    const normalized = entry === null || entry === undefined ? null : normalizeEntry(entry);
+    if (normalized === null) { delete S.values[key]; delete S.names[key]; }
+    else S.values[key] = normalized;
     if (name) S.names[key] = name;
     if (entry === null || entry === undefined) delete S.names[key];
     push("overrides");
@@ -601,9 +612,9 @@
       const row = rowOf(key);
       // JEG-1058: an adjustment carries a delta, an absolute value a value.
       const entry = item && item.type === "adjustment"
-        ? (Number.isFinite(Number(item.delta)) && Number(item.delta) !== 0 ? {type: "adjustment", delta: round1(Number(item.delta))} : null)
+        ? normalizeEntry({type: "adjustment", delta: item.delta})
         : (item && (item.type === "absolute" || item.type === undefined)
-          && Number.isFinite(Number(item.value)) && Number(item.value) >= 0 ? round1(Number(item.value)) : null);
+          ? normalizeEntry(Number(item.value)) : null);
       if (!row || entry === null) { skipped += 1; return; }
       values[key] = entry;
       names[key] = item.name || row.name || "";
@@ -656,7 +667,10 @@
   function unpackOverrides(text) {
     const bytes = unb64(text);
     const out = {};
-    for (let i = 0; i + 4 < bytes.length; i += 5) out[String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2])] = ((bytes[i + 3] << 8) | bytes[i + 4]) / 10;
+    for (let i = 0; i + 4 < bytes.length; i += 5) {
+      const entry = normalizeEntry(((bytes[i + 3] << 8) | bytes[i + 4]) / 10);
+      if (entry !== null) out[String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2])] = entry;
+    }
     return out;
   }
   // The packed form that carries the kind: 3 bytes of player key, 1 byte of type
@@ -670,8 +684,11 @@
       const adjustment = isAdjustment(entry);
       const tenths = Math.round((adjustment ? Number(entry.delta) : Number(entry)) * 10);
       if (!Number.isInteger(k) || k < 0 || k > 0xFFFFFF) return;
-      if (!Number.isFinite(tenths) || tenths < -32768 || tenths > 32767) return;
-      bytes.push((k >> 16) & 255, (k >> 8) & 255, k & 255, adjustment ? 1 : 0, (tenths >> 8) & 255, tenths & 255);
+      if (!Number.isFinite(tenths)) return;
+      // The tenths are inside the two bytes they travel in: an override is on
+      // the scale, so this is the same number, never a dropped player.
+      const packed = Math.min(32767, Math.max(-32768, tenths));
+      bytes.push((k >> 16) & 255, (k >> 8) & 255, k & 255, adjustment ? 1 : 0, (packed >> 8) & 255, packed & 255);
     });
     return b64(bytes);
   }
@@ -683,7 +700,8 @@
       const raw = (bytes[i + 4] << 8) | bytes[i + 5];
       const tenths = raw >= 32768 ? raw - 65536 : raw;
       const value = tenths / 10;
-      out[key] = bytes[i + 3] === 1 ? {type: "adjustment", delta: value} : value;
+      const entry = bytes[i + 3] === 1 ? normalizeEntry({type: "adjustment", delta: value}) : normalizeEntry(value);
+      if (entry !== null) out[key] = entry;
     }
     return out;
   }
@@ -742,10 +760,12 @@
         // turned into a space (URLSearchParams reads "+" as a space), so it is a sign too.
         if (/^[+-]/.test(v) || /^\s/.test(v)) {
           const delta = Number(v);
-          if (Number.isFinite(delta) && delta !== 0) map[key] = {type: "adjustment", delta: round1(delta)};
+          const entry = normalizeEntry({type: "adjustment", delta});
+          if (entry !== null) map[key] = entry;
         } else {
           const value = Number(v);
-          if (value >= 0 && Number.isFinite(value)) map[key] = round1(value);
+          const entry = normalizeEntry(value);
+          if (entry !== null) map[key] = entry;
         }
       });
     } catch (error) { return null; }
@@ -765,7 +785,7 @@
     S.session = true;
     if (basis) setBasisState(basis);
     if (overrides) {
-      Object.entries(overrides).forEach(([key, v]) => { S.values[key] = v; });
+      Object.entries(overrides).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
       Object.keys(overrides).forEach(key => { const row = rowOf(key); if (row) S.names[key] = row.name; });
     }
     if (S.engine) {
@@ -1011,7 +1031,7 @@
       const v = Number(numberInput.value);
       if (!finite(v)) return;
       // JEG-1058: in adjustment mode the input holds the delta, so it adds to the DDF Value.
-      if (S.draftType === "adjustment") { S.draftDelta = round1(v); draw(base + S.draftDelta); }
+      if (S.draftType === "adjustment") { S.draftDelta = clampOverrideDelta(v); draw(base + S.draftDelta); }
       else draw(v);
       commit();
     });

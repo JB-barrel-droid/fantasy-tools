@@ -406,7 +406,11 @@ rules, except that only charts are filled in (VP-2.4).
    (JEG-1058): an absolute value ("worth 58.0") or an adjustment ("+5", "-3")
    added to the pipeline's own value for that player, clamped to the 0-100
    value scale; a player no source prices has no pipeline value, so an
-   adjustment is his value. Everywhere the overridden value shows it carries a
+   adjustment is his value. An override that arrives from outside the editor
+   (a share link, an import, a saved record) is put on the same scale: an
+   absolute value above 100 is capped, and an adjustment is capped to the span
+   of the scale, so the value the reader sees is the value that is applied.
+   Everywhere the overridden value shows it carries a
    badge (JEG-1059) that says what the reader set and what it was before, and
    the player detail panel shows "Your override: 58.0" above the unchanged
    source breakdown. The basis is the reader's, so the

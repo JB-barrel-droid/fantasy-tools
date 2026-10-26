@@ -618,9 +618,10 @@ cbs_adjusted` (a chart input is the chart's Adjusted values, series `<chart>_adj
 - **JEG-1058 / JEG-1059 (2026-10-26): an override is a value or an adjustment, and an overridden value
   is flagged everywhere it shows.** `getValueOverrides()` → `{player_key: 58.0}` for an absolute
   override, `{player_key: {type: "adjustment", delta: 5}}` for an adjustment (the pipeline's own value
-  plus the delta, clamped to the 0-100 value scale). A row carries `valueOverride` (the reader's
-  entry), `ddfPipelineValue` (the pipeline's value before the overlay) and `valueOverrideSpec`
-  (`{type, value}` or `{type, delta}`). `window.DDFOverrides.flag(row)` returns the badge element
+  plus the delta, clamped to the 0-100 value scale; an override that arrives from outside the editor —
+  a link, an import, a saved record — is put on the same scale). A row carries `valueOverride` (the effective
+  value the reader sees), `ddfPipelineValue` (the pipeline's value before the overlay) and
+  `valueOverrideSpec` (what the reader set: `{type, value}` or `{type, delta}`). `window.DDFOverrides.flag(row)` returns the badge element
   (`.v2-ov-flag`; `title` and `aria-label` are "You set this player's value to 58.0 (was 53.0 from DDF
   Value). Reset on the Overrides tab."), and every view that shows an overridden DDF Value appends it
   (Player values, Trade targets, Compare a trade, Find a trade, Waivers, the workspace opportunities

@@ -707,6 +707,16 @@
   // JEG-1058: the fixed-pie scale an override lives on (spec 3.6).
   var OVERRIDE_MIN = 0;
   var OVERRIDE_MAX = 100;
+  // An override that arrives from outside the editor (a share link, an import,
+  // a saved record) is put on the scale the editor shows: an absolute value
+  // between 0 and 100, an adjustment within the scale's span. The value it
+  // produces is the same either way, because the result is capped anyway.
+  function clampOverrideValue(value) {
+    return Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, value));
+  }
+  function clampOverrideDelta(delta) {
+    return Math.min(OVERRIDE_MAX, Math.max(-OVERRIDE_MAX, delta));
+  }
 
   // JEG-1035 / JEG-1044 / JEG-1058: a reader override of DDF Value is a
   // row-level overlay applied after the pipeline. It touches only the DDF
@@ -717,18 +727,19 @@
   // ("+5", "-3") added to the pipeline's own value. What the reader set is
   // normalised first: a number is an absolute value, an object carries its
   // type. An entry that cannot be used (not a number, an absolute below zero)
-  // is refused rather than applied.
+  // is refused rather than applied; one that is past the top of the scale is
+  // capped, so the value the reader sees is the value that is applied.
   function normalizeOverride(override) {
     if (override === null || override === undefined) return null;
     if (typeof override === "number") {
       if (!Number.isFinite(override) || override < OVERRIDE_MIN) return null;
-      return {type: "absolute", value: override};
+      return {type: "absolute", value: clampOverrideValue(override)};
     }
     if (typeof override === "string") {
       if (override === "") return null;
       var text = Number(override);
       if (!Number.isFinite(text) || text < OVERRIDE_MIN) return null;
-      return {type: "absolute", value: text};
+      return {type: "absolute", value: clampOverrideValue(text)};
     }
     if (typeof override !== "object") return null;
     if (override.type === "adjustment") {
@@ -736,13 +747,13 @@
       if (override.delta === "") return null;
       var delta = Number(override.delta);
       if (!Number.isFinite(delta)) return null;
-      return {type: "adjustment", delta: delta};
+      return {type: "adjustment", delta: clampOverrideDelta(delta)};
     }
     if (typeof override.value !== "number" && typeof override.value !== "string") return null;
     if (override.value === "") return null;
     var value = Number(override.value);
     if (!Number.isFinite(value) || value < OVERRIDE_MIN) return null;
-    return {type: "absolute", value: value};
+    return {type: "absolute", value: clampOverrideValue(value)};
   }
 
   function applyDdfOverride(entry, override) {

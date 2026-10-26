@@ -16,6 +16,10 @@ Checks, on the build-only engine page, at four league settings:
 5. JEG-1058: an adjustment ("+5", "-3") adds to the pipeline's own DDF Value,
    capped at the 0-100 value scale; the pipeline's value and the trade chart
    average do not move, and an adjustment without a usable delta is refused.
+6. JEG-1058: an override that arrives from outside the editor (a share link,
+   an import, a saved record) is put on the scale the editor shows: an
+   absolute value above 100 is capped, an adjustment is capped to the scale's
+   span.
 """
 from __future__ import annotations
 
@@ -123,6 +127,36 @@ ADJUSTMENT_SCRIPT = """async () => {
   return problems;
 }"""
 
+# JEG-1058: an override that arrives from outside the editor (a share link, an
+# import, a saved record) is put on the scale the editor shows: an absolute
+# value above 100 is capped, an adjustment is capped to the scale's span (so it
+# always fits a packed share link and the value it produces is unchanged).
+SCALE_SCRIPT = """async () => {
+  const c = window.TradeValueCurveControls;
+  const problems = [];
+  const rows = c.getAllRows().filter(r => r.pos === 'RB' && Number.isFinite(r.values.ddf_value))
+    .sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const target = rows[3];
+  const key = target.player_key;
+  const valueOf = () => c.getAllRows().find(r => r.player_key === key).values.ddf_value;
+  // An absolute value past the top of the scale is capped, not applied as it is.
+  c.setValueOverrides({[key]: 120});
+  if (valueOf() !== 100) problems.push(`120 gave ${valueOf()}, expected 100`);
+  if (c.getValueOverrides()[key] !== 100) problems.push(`120 stored as ${JSON.stringify(c.getValueOverrides()[key])}`);
+  // An adjustment past the scale is capped to the span of the scale: the value
+  // is the same, and the delta it travels as is inside the packed link's range.
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: 5000}});
+  if (valueOf() !== 100) problems.push(`+5000 gave ${valueOf()}, expected 100`);
+  const spec = c.getValueOverrides()[key];
+  if (!spec || spec.type !== 'adjustment' || spec.delta !== 100) problems.push(`+5000 stored as ${JSON.stringify(spec)}`);
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: -5000}});
+  if (valueOf() !== 0) problems.push(`-5000 gave ${valueOf()}, expected 0`);
+  const down = c.getValueOverrides()[key];
+  if (!down || down.type !== 'adjustment' || down.delta !== -100) problems.push(`-5000 stored as ${JSON.stringify(down)}`);
+  c.setValueOverrides(null);
+  return problems;
+}"""
+
 
 def run(script, arg=None):
     try:
@@ -158,6 +192,10 @@ class ValueOverridesTest(unittest.TestCase):
 
     def test_an_adjustment_adds_to_the_pipeline_value_and_is_capped(self):
         problems = run(ADJUSTMENT_SCRIPT)
+        self.assertEqual(problems, [], "\n".join(problems[:40]))
+
+    def test_an_override_from_outside_the_editor_is_capped_at_the_scale(self):
+        problems = run(SCALE_SCRIPT)
         self.assertEqual(problems, [], "\n".join(problems[:40]))
 
 

@@ -122,24 +122,27 @@ def _override_number(value):
 
 def _override_spec(override) -> dict | None:
     """JEG-1058: what the reader set, as one record: {"type": "absolute",
-    "value"} or {"type": "adjustment", "delta"}. None when it cannot be used."""
+    "value"} or {"type": "adjustment", "delta"}. None when it cannot be used.
+    A value past the top of the scale is capped and an adjustment is capped to
+    the scale's span, so an override from outside the editor lands on the same
+    numbers the editor shows."""
     if override is None or isinstance(override, bool):
         return None
     if isinstance(override, (int, float, str)):
         value = _override_number(override)
         if value is None or value < OVERRIDE_MIN:
             return None
-        return {"type": "absolute", "value": value}
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
     if isinstance(override, dict):
         if override.get("type") == "adjustment":
             delta = _override_number(override.get("delta"))
             if delta is None:
                 return None
-            return {"type": "adjustment", "delta": delta}
+            return {"type": "adjustment", "delta": min(OVERRIDE_MAX, max(-OVERRIDE_MAX, delta))}
         value = _override_number(override.get("value"))
         if value is None or value < OVERRIDE_MIN:
             return None
-        return {"type": "absolute", "value": value}
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
     return None
 
 

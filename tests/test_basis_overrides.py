@@ -512,6 +512,26 @@ class AdjustmentOverrides(unittest.TestCase):
                 self.assertAlmostEqual(row["value"], expect, places=9, msg=f"{key} {delta}")
                 self.assertTrue(row["overridden"])
 
+    def test_an_override_from_outside_the_editor_is_capped_at_the_scale(self):
+        """An absolute value past the top of the scale is capped to 100 in all
+        three implementations, so a link, an import or a saved record cannot
+        put a value off the scale."""
+        for key in ("201", "101"):
+            ov = {key: 120.0}
+            for out, tol in zip(self._three(None, ov), (TOL_JS, TOL_REF, TOL_REF)):
+                row = out["rows"][key]["ddf_blended"]
+                self.assertAlmostEqual(row["value"], 100.0, places=9, msg=f"{key} 120")
+                self.assertTrue(row["overridden"])
+
+    def test_an_adjustment_from_outside_the_editor_is_capped_to_the_scale(self):
+        """An adjustment past the scale is capped to its span. The value it
+        produces is the same (the result is capped anyway), so the check is
+        that all three agree."""
+        ov = {"201": {"type": "adjustment", "delta": 5000.0}}
+        for out, tol in zip(self._three(None, ov), (TOL_JS, TOL_REF, TOL_REF)):
+            row = out["rows"]["201"]["ddf_blended"]
+            self.assertAlmostEqual(row["value"], 100.0, places=9, msg=str(out.get("rows", {}).get("201")))
+
     def test_an_adjustment_leaves_the_projections_alternate_and_the_sources_alone(self):
         ov = {"201": {"type": "adjustment", "delta": 5.0}}
         for out, tol in zip(self._three(None, ov), (TOL_JS, TOL_REF, TOL_REF)):

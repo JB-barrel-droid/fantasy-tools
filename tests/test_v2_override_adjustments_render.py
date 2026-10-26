@@ -206,6 +206,53 @@ class AdjustmentTest(unittest.TestCase):
             self.assertIsNone(page.evaluate("() => localStorage.getItem('ddf-v2-value-overrides')"))
             self.assertEqual(r.errors, [])
 
+    def test_an_override_from_a_link_is_capped_at_the_scale(self):
+        """A link that carries a value off the scale is put on the scale: the
+        reader sees 100.0, and an adjustment travels inside the scale's span so
+        a packed link can still carry it."""
+        with Session() as s:
+            page = s.open("#value-overrides")
+            star = top_player(page, "RB", 4)
+        with Session() as r:
+            page = r.open(f"#compare-trade?ov={star['key']}:120")
+            got = page.evaluate("() => window.TradeValueCurveControls.getValueOverrides()")
+            self.assertEqual(got.get(str(star["key"])), 100)
+            self.assertAlmostEqual(row_of(page, star["key"])["value"], 100.0, places=6)
+            # The link the reader would pass on carries the capped value.
+            self.assertEqual(page.evaluate("() => window.DDFOverrides.shareParams()")["ov"], f"{star['key']}:100")
+            # An adjustment past the scale is capped to its span.
+            page2 = r.open(f"#compare-trade?ov={star['key']}:+5000", page=r.new_page())
+            got2 = page2.evaluate("() => window.TradeValueCurveControls.getValueOverrides()")
+            self.assertEqual(got2.get(str(star["key"])), {"type": "adjustment", "delta": 100})
+            self.assertEqual(page2.evaluate("() => window.DDFOverrides.shareParams()")["ov"], f"{star['key']}:+100")
+            self.assertEqual(r.errors, [])
+
+    def test_an_override_from_an_import_is_capped_at_the_scale(self):
+        """An imported file is put on the scale too."""
+        with Session() as s:
+            page = s.open("#value-overrides")
+            star = top_player(page, "RB", 4)
+            qb = top_player(page, "QB", 2)
+        doc = {"v": 2, "basis": None, "overrides": [
+            {"player_key": str(star["key"]), "type": "absolute", "value": 120, "name": star["name"]},
+            {"player_key": str(qb["key"]), "type": "adjustment", "delta": 5000, "name": qb["name"]}]}
+        path = ROOT / "dist" / "_ov-scale-import.json"
+        path.write_text(json.dumps(doc))
+        try:
+            with Session() as r:
+                page = r.open("#value-overrides")
+                with page.expect_file_chooser() as chooser:
+                    page.click("#v2OvImport")
+                chooser.value.set_files(files=[str(path)])
+                page.wait_for_selector("#v2OvImportNote")
+                got = page.evaluate("() => window.TradeValueCurveControls.getValueOverrides()")
+                self.assertEqual(got.get(str(star["key"])), 100)
+                self.assertEqual(got.get(str(doc["overrides"][1]["player_key"])), {"type": "adjustment", "delta": 100})
+                self.assertAlmostEqual(row_of(page, star["key"])["value"], 100.0, places=6)
+                self.assertEqual(r.errors, [])
+        finally:
+            path.unlink(missing_ok=True)
+
     def test_export_and_import_carry_the_adjustment(self):
         with Session() as s:
             page = s.open("#value-overrides")
