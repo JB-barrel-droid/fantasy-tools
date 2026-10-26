@@ -1900,6 +1900,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-table { min-width: 0; }
 .v2-lg-table thead th { vertical-align: bottom; }
 .v2-lg-table td.num, .v2-lg-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.v2-lg-proj { white-space: nowrap; position: relative; }
+.v2-lg-proj.is-agree { color: var(--v2-action-strong); }
+.v2-lg-proj.is-disagree { color: var(--v2-older); }
+.v2-lg-proj.is-level { color: var(--v2-muted); }
 .v2-lg-sort { background: none; border: 0; padding: 4px 2px; min-height: 32px; font: inherit; font-size: 12px; font-weight: 600; color: var(--v2-ink); cursor: pointer; text-align: left; }
 .v2-lg-sort.is-active { color: var(--v2-action-strong); }
 .v2-lg-sort + .v2-lg-sort { display: block; font-weight: 500; color: var(--v2-muted); }
