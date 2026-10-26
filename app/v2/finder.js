@@ -500,7 +500,8 @@
     const v = (row && row.values) || {};
     if (key === OUR_KEY) return finite(v.ddf_value_charts) && finite(v.ddf_value_projections) ? Math.abs(v.ddf_value_charts - v.ddf_value_projections) / 2 : 0;
     if (key === PROJECTIONS_KEY) return standardErrorOfMean(PROJECTION_KEYS.map(k => v[k]).filter(finite));
-    return standardErrorOfMean((chartKeys || CHART_KEYS).map(k => v[k]).filter(finite));
+    if (key === MARKET_KEY) return standardErrorOfMean((chartKeys || CHART_KEYS).map(k => v[k]).filter(finite));
+    return 0;   // one source (a single chart or projection source): nothing to measure a spread against (JEG-1081 PR 6); the net floor decides
   }
   const benchWeight = (weights, pos) => (weights && finite(weights[pos]) ? weights[pos] : weights && finite(weights.overall) ? weights.overall : 0);
   const netOf = (l, key, weights) => l.starterValue + l.bench.reduce((total, r) => total + benchWeight(weights, r.pos) * r.values[key], 0);

@@ -18,6 +18,26 @@
   const NET_FLOOR = 0.05;            // a change that shows as 0.0 is no change (same floor as finder.js)
   const OUT_STATUS = ["Out", "Doubtful", "IR", "PUP"];
 
+  // JEG-1081 (PR 6): the view that decides the verdict. ddf = DDF Value (adjusted trade charts, the default), projections = DDF Value
+  // (projections), market = Trade chart average, basis = whatever the Overrides basis makes DDF Value (same key as ddf), src:<key> = one source alone.
+  const PROJ_KEY = "ddf_value_projections";
+  const VIEW_DEFAULT = "ddf";
+  const SOURCE_NAMES = {fantasycalc: "FantasyCalc", usatoday: "USA Today", fantasypros: "FantasyPros", cbs: "CBS Sports", espn: "ESPN", cbsros: "CBS rest of season", razzball: "Razzball"};
+  // id -> {id, key, label, short}. label heads the verdict; short names the view in the "+x on ..." context. Unknown ids fall back to the default.
+  function viewFor(id, basisName) {
+    if (id === "projections") return {id, key: PROJ_KEY, label: "DDF Value (projections)", short: "projections"};
+    if (id === "market") return {id, key: MARKET_KEY, label: "Trade chart average", short: "market"};
+    if (id === "basis") return {id, key: OUR_KEY, label: basisName ? `Overrides basis (${basisName})` : "Overrides basis", short: "Overrides basis"};
+    if (typeof id === "string" && id.startsWith("src:") && SOURCE_NAMES[id.slice(4)]) return {id, key: id.slice(4), label: SOURCE_NAMES[id.slice(4)], short: SOURCE_NAMES[id.slice(4)]};
+    return {id: VIEW_DEFAULT, key: OUR_KEY, label: "DDF Value", short: "DDF Value"};
+  }
+  const CONTEXT_VIEWS = ["ddf", "projections", "market"];
+  // A player's value in a view: null when the view cannot price him (a market value that shows 0.0 is no price).
+  const viewValueOf = (row, key) => {
+    const v = row && row.values ? row.values[key] : null;
+    return finite(v) && (key !== MARKET_KEY || v >= USABLE_MIN) ? v : null;
+  };
+
   const VERDICT = {pick: "Pick up", force: "Pick up (force)", consider: "Consider", hold: "Hold", skip: "Skip", none: "Not evaluated"};
   const TIER = {[VERDICT.pick]: 0, [VERDICT.force]: 1, [VERDICT.consider]: 2, [VERDICT.hold]: 3, [VERDICT.skip]: 4, [VERDICT.none]: 5};
 
@@ -86,7 +106,9 @@
   function dropRanking(roster, shape, key, weights) {
     const list = roster.filter(r => !isRequiredSpecial(r, roster, shape))
       .map(row => ({row, marginal: marginalValue(roster, row, shape, key, weights)}));
-    return list.sort((a, b) => a.marginal - b.marginal
+    // In a view other than DDF Value, a player that view cannot price (no value there) is not offered as a drop while a priced player is.
+    const unpriced = r => key !== OUR_KEY && !isNotEvaluated(r) && viewValueOf(r, key) === null;
+    return list.sort((a, b) => Number(unpriced(a.row)) - Number(unpriced(b.row)) || a.marginal - b.marginal
       || Number(isNotEvaluated(b.row)) - Number(isNotEvaluated(a.row))
       || (ddfOf(a.row) || 0) - (ddfOf(b.row) || 0)
       || (marketOf(a.row) || 0) - (marketOf(b.row) || 0)
@@ -132,15 +154,36 @@
   }
   // ctx: {shape, expected, chartKeys, rosterSize, byes}. roster: rows (engine rows plus unpriced kicker / defense rows),
   // all carrying chart_avg when charts are available. candidate: an engine row, or an unpriced row.
+  // The worth change of a swap in one view (starters in full, bench at its weights): null when the candidate has no value there.
+  function worthChange(roster, leaving, candidate, shape, key, weights) {
+    if (viewValueOf(candidate, key) === null) return null;
+    const impact = rosterImpact(roster, leaving, [candidate], shape, key);
+    return netOf(impact.after, key, weights) - netOf(impact.before, key, weights);
+  }
+  // "+2.1 on projections, +1.8 on market": the other views' reading of the same swap, for context beside the verdict.
+  function contextFor(ctx, roster, leaving, candidate, view) {
+    const weights = ctx.weights || {};
+    const charts = ctx.chartKeys && ctx.chartKeys.length ? ctx.chartKeys : null;
+    const items = CONTEXT_VIEWS.filter(id => id !== view.id).map(id => viewFor(id)).filter(v => v.key !== view.key && (v.key !== MARKET_KEY || charts))
+      .map(v => ({id: v.id, short: v.id === "ddf" ? "DDF Value" : v.short, delta: worthChange(roster, leaving, candidate, ctx.shape, v.key, weights)}));
+    const text = items.filter(i => i.delta !== null).map(i => `${fmt(i.delta)} on ${i.short}`).join(", ");
+    return {items, text};
+  }
   function evaluateCandidate(ctx, roster, candidate) {
-    const base = {candidate, name: candidate.name, pos: candidate.pos, ddf: ddfOf(candidate), market: marketOf(candidate), team: candidate.team || ""};
+    const view = ctx.view || viewFor(VIEW_DEFAULT);
+    const key = view.key;
+    const base = {candidate, name: candidate.name, pos: candidate.pos, ddf: ddfOf(candidate), market: marketOf(candidate), team: candidate.team || "", view: view.id};
     const charts = ctx.chartKeys && ctx.chartKeys.length ? ctx.chartKeys : null;
     const marketText = charts ? (base.market !== null ? ` Trade chart avg ${base.market.toFixed(1)}.` : " No market value available.") : "";
     if (isNotEvaluated(candidate)) {
       return {...base, verdict: VERDICT.none, ddf: null, market: null, starterDelta: null, benchDelta: null, totalDelta: null, drop: null, reasonKind: "kdef",
         reason: `${candidate.name}: kickers and defenses are not evaluated.`};
     }
-    if (base.ddf === null) {
+    if (viewValueOf(candidate, key) === null) {
+      if (key !== OUR_KEY) {
+        return {...base, verdict: VERDICT.none, starterDelta: null, benchDelta: null, totalDelta: null, drop: null, reasonKind: "noview",
+          reason: `${candidate.name}: no ${view.label} value, so not evaluated in this view.`};
+      }
       return {...base, verdict: VERDICT.none, starterDelta: null, benchDelta: null, totalDelta: null, drop: null, reasonKind: "noddf",
         reason: base.market !== null
           ? `${candidate.name}: no DDF Value, so not evaluated (market value ${base.market.toFixed(1)}).`
@@ -148,10 +191,10 @@
     }
     const free = openSlots(roster, ctx.rosterSize);
     const weights = ctx.weights || {};
-    const drop = free > 0 ? null : dropRanking(roster, ctx.shape, OUR_KEY, weights)[0] || null;
+    const drop = free > 0 ? null : dropRanking(roster, ctx.shape, key, weights)[0] || null;
     const leaving = drop ? [drop.row] : [];
-    const impact = rosterImpact(roster, leaving, [candidate], ctx.shape, OUR_KEY);
-    const fit = teamFit({roster, leaving, arriving: [candidate]}, {shape: ctx.shape, expected: ctx.expected, weights, chartKeys: charts || undefined, z: FIT_Z}, OUR_KEY);
+    const impact = rosterImpact(roster, leaving, [candidate], ctx.shape, key);
+    const fit = teamFit({roster, leaving, arriving: [candidate]}, {shape: ctx.shape, expected: ctx.expected, weights, chartKeys: charts || undefined, z: FIT_Z}, key);
     // Verdicts run on the weighted worth: starters in full, the bench at its weights (fit.net); the raw bench change is kept for the detail.
     const total = fit.net;
     const benchDelta = fit.benchDelta;
@@ -178,7 +221,9 @@
       const deep = DEPTH_POS.find(pos => fit.depth[pos] && fit.depth[pos].statusBefore === "over" && candidate.pos === pos);
       reason = `No clear gain from ${candidate.name} (${fmt(total)}, inside the ${tau.toFixed(1)} noise floor).${deep ? ` Already deep at ${depthText(fit.depth, deep)}.` : ""}${marketText}`;
     } else reason = `${candidate.name} does not improve the roster (${fmt(total)}${dropName ? ` against ${dropName}` : ""}).${marketText}`;
-    return {...base, verdict, drop: drop ? drop.row : null, dropMarginal: drop ? drop.marginal : null, openSlot: free > 0,
+    const context = contextFor(ctx, roster, leaving, candidate, view);
+    if (key !== OUR_KEY || view.id === "basis") reason += ` Judged on ${view.label}.`;
+    return {...base, context: context.text, contextItems: context.items, verdict, drop: drop ? drop.row : null, dropMarginal: drop ? drop.marginal : null, openSlot: free > 0,
       starterDelta: impact.starterDelta, benchDelta, rawBenchDelta: impact.benchDelta, totalDelta: total, tau, noise: fit.tau, impact, fit,
       needGain: fit.needBefore - fit.needAfter, awayAt, towardAt, slot, starts: Boolean(slot), bye, injury, reason};
   }
@@ -208,17 +253,18 @@
     const free = openSlots(roster, ctx.rosterSize);
     const need = Math.max(0, 2 - free);
     const weights = ctx.weights || {};
+    const key = (ctx.view || viewFor(VIEW_DEFAULT)).key;
     const out = [];
     pairsOf(valued).forEach(([a, b]) => {
-      const drops = bestDrops(roster, ctx.shape, OUR_KEY, need, weights);
+      const drops = bestDrops(roster, ctx.shape, key, need, weights);
       if (drops.length < need) return;
       const leaving = drops.map(d => d.row);
       const arriving = [a.candidate, b.candidate];
-      const impact = rosterImpact(roster, leaving, arriving, ctx.shape, OUR_KEY);
-      const net = netOf(impact.after, OUR_KEY, weights) - netOf(impact.before, OUR_KEY, weights);
+      const impact = rosterImpact(roster, leaving, arriving, ctx.shape, key);
+      const net = netOf(impact.after, key, weights) - netOf(impact.before, key, weights);
       impact.netDelta = net;
       impact.weightedBench = net - impact.starterDelta;
-      const noise = Math.sqrt(leaving.concat(arriving).reduce((t, r) => t + Math.pow(valueNoise(r, OUR_KEY, ctx.chartKeys || undefined), 2), 0));
+      const noise = Math.sqrt(leaving.concat(arriving).reduce((t, r) => t + Math.pow(valueNoise(r, key, ctx.chartKeys || undefined), 2), 0));
       const tau = Math.max(NET_FLOOR, FIT_Z * noise);
       const best = Math.max(a.totalDelta, b.totalDelta);
       // It must clear the noise floor, and what it adds over the better single pickup must clear it too.
@@ -233,7 +279,12 @@
 
   // ---------- the whole tab ----------
   // The headline: the best single pickup in one sentence, else the best two-for-two, else "no pickup".
-  function headlineFor(results, combos) {
+  function headlineFor(results, combos, view) {
+    const h = headlineBase(results, combos);
+    const on = view && (view.key !== OUR_KEY || view.id === "basis") ? ` (judged on ${view.label})` : "";
+    return {...h, text: `${h.text}${on}`, context: h.best && h.best.context ? h.best.context : ""};
+  }
+  function headlineBase(results, combos) {
     const first = verdict => results.find(r => r.verdict === verdict);
     const pick = first(VERDICT.pick);
     const force = first(VERDICT.force);
@@ -253,7 +304,7 @@
     const roster = withMarket(mineRows);
     const results = orderResults(withMarket(candRows).map(c => evaluateCandidate(ctx, roster, c)));
     const combos = evaluateCombos(ctx, roster, results.filter(r => r.totalDelta !== null));
-    return {roster, results, combos, headline: headlineFor(results, combos)};
+    return {roster, results, combos, view: ctx.view || viewFor(VIEW_DEFAULT), headline: headlineFor(results, combos, ctx.view)};
   }
 
   // ---------- the share link ----------
@@ -278,7 +329,7 @@
   }
 
   const api = {VERDICT, TIER, MAX_PAIRS, NET_FLOOR, OUT_STATUS, rowsFor, dedupe, netOf, marginalValue, dropRanking, bestDrops, openSlots, rosterSizeOf, evaluateCandidate,
-    orderResults, pairsOf, evaluateCombos, headlineFor, evaluateAll, encodeHash, decodeHash, ddfOf, marketOf, fmt, isRequiredSpecial};
+    orderResults, pairsOf, evaluateCombos, headlineFor, evaluateAll, viewFor, viewValueOf, worthChange, contextFor, VIEW_DEFAULT, CONTEXT_VIEWS, SOURCE_NAMES, encodeHash, decodeHash, ddfOf, marketOf, fmt, isRequiredSpecial};
   if (isNode) { module.exports = api; return; }
   root.TradeValueWaivers = api;
 
@@ -291,12 +342,13 @@
   const VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
   const STORE_MINE = "ddf.v2.myRoster";
   const STORE_CANDS = "ddf.v2.waiverCandidates";
+  const STORE_VIEW = "ddf.v2.waivers.view";
   const MIN_MATCHED = 3;
   const MIN_SHARE = 0.5;
   const NAME_LIST_SHARE = 0.8;
   const SLOT_WORD = {SUPERFLEX: "Superflex"};
   const boxes = {};
-  const S = {cands: [], sort: {key: "verdict", dir: "asc"}, collapsed: false, hadResults: false, answered: new Set(), linkRead: false, scheduled: false,
+  const S = {view: (() => { try { return root.localStorage.getItem("ddf.v2.waivers.view") || "ddf"; } catch (error) { return "ddf"; } })(), viewSig: "", cands: [], sort: {key: "verdict", dir: "asc"}, collapsed: false, hadResults: false, answered: new Set(), linkRead: false, scheduled: false,
     notes: [], last: null, mineSig: ""};
 
   function el(tag, props, ...kids) {
@@ -625,7 +677,7 @@
       el("div", {class: "v2-wv-card-banner"}, verdictTag(r)),
       el("div", {class: "v2-wv-card-name"}, el("b", {text: r.name}), el("span", {class: "v2-meta", text: ` ${r.pos || ""}${r.team ? ` ${r.team}` : ""}`})),
       el("dl", {class: "v2-wv-card-facts"}, ...rowsDef.flatMap(([k, v]) => [el("dt", {text: k}), el("dd", {}, v)])),
-      el("p", {class: "v2-wv-card-reason", text: r.reason}),
+      el("p", {class: "v2-wv-card-reason"}, r.reason, r.context ? el("span", {class: "v2-meta v2-wv-ctx", text: ` Other views: ${r.context}.`}) : null),
       el("details", {class: "v2-wv-detail"}, el("summary", {text: `Details for ${r.name}`}), detailBlock(r, roster)));
   }
   function resultsTable(list, roster) {
@@ -652,7 +704,7 @@
         el("th", {scope: "row", class: "v2-wv-name"}, el("b", {text: r.name}), injuryTag(r.candidate) ? document.createTextNode(" ") : null, injuryTag(r.candidate)), el("td", {text: r.pos || ""}),
         el("td", {class: "num"}, numCell(r.ddf)), el("td", {class: "num"}, numCell(r.vaw)), el("td", {class: "num"}, numCell(r.market)),
         el("td", {class: "num"}, numCell(r.starterDelta, true)), el("td", {class: "num"}, numCell(r.benchDelta, true)),
-        el("td", {}, dropText(r) || dash()), el("td", {}, verdictTag(r)), el("td", {class: "v2-wv-reason", text: r.reason})));
+        el("td", {}, dropText(r) || dash()), el("td", {}, verdictTag(r)), el("td", {class: "v2-wv-reason"}, r.reason, r.context ? el("span", {class: "v2-meta v2-wv-ctx", text: ` Other views: ${r.context}.`}) : null)));
       body.push(el("tr", {class: "v2-wv-detailrow"}, el("td", {colspan: String(COLS.length)},
         el("details", {class: "v2-wv-detail"}, el("summary", {text: `Details for ${r.name}`}), detailBlock(r, roster)))));
     });
@@ -671,6 +723,37 @@
     return table;
   }
 
+  // ---------- the view selector (JEG-1081 PR 6) ----------
+  // The reader picks which view decides every verdict; the other views are context. A saved choice that no longer exists falls back to DDF Value.
+  function basisName() {
+    const b = engine() && engine().getBasis ? engine().getBasis() : null;
+    return b && !b.isDefault ? b.shortLabel || b.label : "default";
+  }
+  function sourceChoices() {
+    const info = engine() && engine().getSourceInfo ? engine().getSourceInfo() : [];
+    return info.filter(i => i.available && api.SOURCE_NAMES[i.key]).map(i => i.key);
+  }
+  function viewChoices() {
+    const b = engine() && engine().getBasis ? engine().getBasis() : null;
+    return [["ddf", "DDF Value"], ["projections", "DDF Value (projections)"]]
+      .concat(UI() && UI().marketKeys() ? [["market", "Trade chart average"]] : [])
+      .concat(b && !b.isDefault ? [["basis", `Overrides basis (${basisName()})`]] : [])
+      .concat(sourceChoices().map(k => [`src:${k}`, `${api.SOURCE_NAMES[k]} only`]));
+  }
+  function viewChoice() {
+    return viewChoices().some(([id]) => id === S.view) ? S.view : "ddf";
+  }
+  function fillViews() {
+    const sel = $("v2WaiversView");
+    if (!sel) return;
+    const choices = viewChoices();
+    const sig = choices.map(c => c.join(":")).join("|");
+    if (sig !== S.viewSig) {
+      S.viewSig = sig;
+      sel.replaceChildren(...choices.map(([id, text]) => el("option", {value: id, text})));
+    }
+    sel.value = viewChoice();
+  }
   // ---------- compute and render ----------
   function context() {
     const C = engine();
@@ -678,7 +761,7 @@
     const depth = UI().depthContext();
     const shape = C.getRosterShape();
     return {shape, weights: UI().benchWeights(), expected: depth ? depth.expected : null, chartKeys: UI().marketKeys(), rosterSize: rosterSizeOf(shape),
-      byes: root.TradeValueByes ? root.TradeValueByes.byes : null};
+      byes: root.TradeValueByes ? root.TradeValueByes.byes : null, view: api.viewFor(viewChoice(), basisName())};
   }
   function compute() {
     const ctx = context();
@@ -751,7 +834,7 @@
     const list = sortedResults(c.out.results);
     const cards = el("ol", {class: "v2-wv-cards", "aria-label": "Waiver candidates as cards"}, ...list.map(r => cardFor(r, c.out.roster)));
     const kids = [el("div", {class: "v2-find-table-wrap v2-wv-tablewrap"}, resultsTable(list, c.out.roster)), cards,
-      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in DDF Value; the bench counts at the engine's bench weights, never in full. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price him). A dash means no value, never zero."})];
+      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in the view you decide by (DDF Value unless you pick another); the bench counts at the engine's bench weights, never in full. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price him). A dash means no value, never zero."})];
     if (c.out.combos.length) {
       const sum = `Show ${plural(c.out.combos.length, "combo")}`;
       const det = el("details", {class: "v2-wv-combos", id: "v2WaiversCombos"}, el("summary", {text: sum}),
@@ -774,11 +857,13 @@
     if (!wanted || !$("v2WaiversHeadline")) return;
     const c = compute();
     S.last = c;
+    fillViews();
     const headline = $("v2WaiversHeadline");
     const state = c.state === "ok" ? c.out.headline.state : c.state;
     const text = c.state === "ok" ? c.out.headline.text : HEAD_TEXT[c.state];
     headline.dataset.state = state;
     setText(headline.querySelector("b"), text);
+    setText(headline.querySelector(".v2-wv-headctx"), c.state === "ok" && c.out.headline.context ? `Other views: ${c.out.headline.context}.` : "");
     const count = $("v2WaiversCount");
     const notes = [];
     if (c.state !== "loading") {
@@ -820,10 +905,20 @@
   }
 
   // ---------- the page ----------
+  function viewPicker() {
+    const sel = el("select", {id: "v2WaiversView", "aria-describedby": "v2WaiversViewHelp"});
+    sel.addEventListener("change", () => {
+      S.view = sel.value;
+      try { root.localStorage.setItem(STORE_VIEW, S.view); } catch (error) { /* a private window: the choice lasts until reload */ }
+      schedule();
+    });
+    return el("div", {class: "v2-wv-viewpick"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Decide by:"}), sel),
+      el("span", {class: "v2-meta", id: "v2WaiversViewHelp", text: "The view that decides each verdict; the other views are shown as context."}));
+  }
   function build() {
     const host = $("v2Waivers");
     if (!host || $("v2WaiversHeadline")) return;
-    const headline = el("div", {class: "v2-find-headline v2-wv-headline", id: "v2WaiversHeadline", role: "status", "aria-live": "polite", "aria-atomic": "true", "data-state": "loading"}, el("b", {text: HEAD_TEXT.loading}));
+    const headline = el("div", {class: "v2-find-headline v2-wv-headline", id: "v2WaiversHeadline", role: "status", "aria-live": "polite", "aria-atomic": "true", "data-state": "loading"}, el("b", {text: HEAD_TEXT.loading}), el("span", {class: "v2-wv-headctx"}));
     const count = el("p", {class: "v2-meta v2-wv-count", id: "v2WaiversCount"});
     const mineBox = oneBox("mine");
     const candsBox = oneBox("cands");
@@ -839,7 +934,7 @@
         el("p", {class: "v2-meta", text: "The top options on the wire. Kickers and defenses are kept but not evaluated."})), candsBox.clear),
       candsBox.wrap);
     const outCard = el("section", {class: "v2-card", id: "v2WaiversResults", "aria-labelledby": "v2WaiversResultsTitle"},
-      el("div", {class: "v2-card-head"}, el("h2", {id: "v2WaiversResultsTitle", text: "Who to pick up"})),
+      el("div", {class: "v2-card-head"}, el("h2", {id: "v2WaiversResultsTitle", text: "Who to pick up"}), viewPicker()),
       el("div", {id: "v2WaiversOut", hidden: ""}));
     const foot = host.querySelector(".v2-footnote");
     const live = el("div", {class: "v2-wv-live"}, headline, count);
