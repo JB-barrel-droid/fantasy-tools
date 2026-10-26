@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<!--
+  Design preview for Data Driven Football. Not the live site.
+  Open this file in a browser. Production v2 is not modified.
+  Direction: docs/design/2026-10-direction.md
+-->
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Data Driven Football — preview</title>
+  <link rel="stylesheet" href="concept.css">
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var theme = q.get("theme");
+      if (theme !== "dark" && theme !== "light") {
+        try { theme = localStorage.getItem("ddf-concept-theme"); } catch (e) { theme = null; }
+      }
+      if (theme !== "dark" && theme !== "light") {
+        theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+      if (q.get("shot") === "1") document.documentElement.classList.add("is-shot");
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip" href="#homeTitle">Skip to content</a>
+  <header class="bar">
+    <div class="bar-inner">
+      <a class="brand" href="#home" aria-label="Data Driven Football, home">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <rect width="32" height="32" rx="9" fill="currentColor"/>
+            <path d="M8 22c5 0 6-10 8-10s3 6 8 5" fill="none" stroke="var(--canvas)" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-short">DDF</span>
+        <span class="brand-long">Data Driven Football</span>
+      </a>
+      <nav class="topnav" aria-label="Preview">
+        <button type="button" data-go="home">Home</button>
+        <button type="button" data-go="targets">Targets</button>
+        <button type="button" data-go="compare">Compare</button>
+        <button type="button" data-go="more">More</button>
+      </nav>
+      <button type="button" class="league-btn" data-go="league">12-team PPR</button>
+      <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch to dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3.5A8.5 8.5 0 1 0 20.5 14 7 7 0 0 1 15 3.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="view is-on" id="home" aria-labelledby="homeTitle">
+      <div class="wrap home-wrap">
+        <div class="home-grid">
+          <div class="home-copy">
+            <p class="eyebrow"><span class="chip">Season-long trades</span></p>
+            <h1 id="homeTitle" tabindex="-1">Find the trade before your league does.</h1>
+            <p class="sub">One answer, then the details.</p>
+            <p class="lede">For the rest of the season, not this week's lineup. The chart is one tap away when you want it.</p>
+            <div class="actions">
+              <button type="button" class="btn" data-go="targets">See who to target <span class="btn-arrow" aria-hidden="true">→</span></button>
+              <button type="button" class="texty" data-go="compare">I already have a trade</button>
+            </div>
+          </div>
+          <article class="peek" aria-label="Preview of the first answer">
+            <p class="kicker">The first answer in this sample</p>
+            <p class="peek-name" id="peekName"></p>
+            <p class="peek-blurb" id="peekBlurb"></p>
+            <div class="peek-nums" id="peekNums"></div>
+          </article>
+        </div>
+        <p class="footnote"></p>
+      </div>
+    </section>
+
+    <section class="view" id="targets" aria-labelledby="targetsTitle" inert aria-hidden="true">
+      <div class="wrap">
+        <p class="eyebrow">Trade targets</p>
+        <h1 id="targetsTitle" tabindex="-1"></h1>
+        <p class="sub" id="targetsSub"></p>
+        <div class="chips" id="targetsChips"></div>
+        <div class="seg" id="sideSeg" data-on="buy" role="tablist" aria-label="Buys or sells">
+          <span class="seg-thumb" aria-hidden="true"></span>
+          <button type="button" role="tab" id="sideBuy" aria-selected="true" aria-controls="targetList">Buys</button>
+          <button type="button" role="tab" id="sideSell" aria-selected="false" aria-controls="targetList">Sells</button>
+        </div>
+        <div id="targetList"></div>
+        <p class="footnote"></p>
+      </div>
+    </section>
+
+    <section class="view" id="compare" aria-labelledby="compareTitle" inert aria-hidden="true">
+      <div class="wrap compare-wrap">
+        <p class="eyebrow" id="compareEyebrow">Compare a trade</p>
+        <h1 id="compareTitle" tabindex="-1"></h1>
+        <p class="sub" id="compareSub"></p>
+        <div class="chips" id="compareChips"></div>
+        <div class="why" id="why">
+          <button type="button" class="texty" id="whyBtn" aria-expanded="false" aria-controls="whyPanel" hidden>Show the charts</button>
+          <div class="why-panel" id="whyPanel">
+            <div class="why-inner" id="whyInner"></div>
+          </div>
+        </div>
+        <div class="deal" id="deal"></div>
+        <div class="row-actions" id="compareActions"></div>
+        <p class="footnote"></p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Preview">
+    <button type="button" data-go="home">Home</button>
+    <button type="button" data-go="targets">Targets</button>
+    <button type="button" data-go="compare">Compare</button>
+    <button type="button" data-go="more">More</button>
+  </nav>
+
+  <dialog id="picker" aria-labelledby="pickerTitle">
+    <div class="sheet-head">
+      <h2 id="pickerTitle">Choose a player</h2>
+      <button type="button" class="icon-btn" id="pickerClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <label class="search"><span class="sr">Search players</span>
+        <input id="pickerSearch" type="search" placeholder="Search the sample" autocomplete="off" enterkeyhint="search">
+      </label>
+      <div class="picker-list" id="pickerList" role="listbox" aria-label="Players in the sample"></div>
+    </div>
+  </dialog>
+
+  <dialog id="moreSheet" aria-labelledby="moreTitle">
+    <div class="sheet-head">
+      <h2 id="moreTitle">More</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <p>The front door is three places. Everything else opens from here.</p>
+      <div class="menu-block">
+        <h3>Also for you</h3>
+        <ul>
+          <li>Player values, the whole chart</li>
+          <li>Risers and fallers</li>
+          <li>Waivers</li>
+          <li>Find a trade, when you want a fit</li>
+        </ul>
+      </div>
+      <div class="menu-block">
+        <h3>The desk</h3>
+        <p class="menu-note">Values auditing, Overrides, and Writing stay in the product. They are for checking the work. They do not sit in the front door.</p>
+      </div>
+      <p class="menu-note">Those screens are not part of this preview.</p>
+    </div>
+  </dialog>
+
+  <dialog id="leagueSheet" aria-labelledby="leagueTitle">
+    <div class="sheet-head">
+      <h2 id="leagueTitle">Your league</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <p>This preview is locked to one setting: 12-team, full PPR.</p>
+      <p class="menu-note">On the real site, your league is this chip. It does not become a stack of bars above the answer.</p>
+      <p class="menu-note">Built for the rest of the season. Not weekly start/sit, and not playoff optimization.</p>
+    </div>
+  </dialog>
+
+  <p class="sr" id="live" aria-live="polite"></p>
+  <script src="sample.js"></script>
+  <script src="concept.js"></script>
+</body>
+</html>
