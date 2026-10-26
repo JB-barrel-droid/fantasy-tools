@@ -4931,19 +4931,16 @@
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
-    // JEG-505: "Will they accept?" reads the published value charts: the as-published (rescaled) series.
+    // JEG-505: the Deal read counts the published value charts: the as-published (rescaled) series.
     const chartKeys = pointKeys.filter(key => sourceMeta(key).method === "indexed" && window.TradeValueTargets.CHART_KEYS.includes(key));
-    const lowConfidence = giveRows.concat(receiveRows).some(row => isLowConfidence(row, isDdfKey(verdictSeries) ? verdictSeries : DDF_KEY));
     // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
     // series keeps its own (those scales are not comparable).
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
-    // JEG-841: compute deal read before headlines so the propose line can use DDF Value + Projections.
     const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
     compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
-      headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence, deal}) : null,
       deal,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
@@ -5641,73 +5638,7 @@
     return {kind: v.kind, sym: "=", title: `${name}: an even trade, 0.0`, text: parts.join(" ") + notCounted};
   }
 
-  // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
-  // (symbol + word), with the reasons on a second muted line. Never colour alone.
-  const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
-  // JEG-888: the Unclear glyph is not "?": the question already ends with one and the line read "…accept? ? Unclear".
-  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "–", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
-  const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
-  // JEG-895 (Jeremy, 2026-10-22): the level is named for what it measures, never "confidence".
-  // propose: the margins on DDF Value; accept: the share of charts on the answer's side.
-  const LEVEL_LABELS = {
-    propose: {High: "Our value: strong", Medium: "Our value: moderate", Low: "Our value: weak"},
-    accept: {High: "Charts agree: strongly", Medium: "Charts agree: mostly", Low: "Charts agree: weakly"},
-  };
-  // The chart count ("N of M trade charts agree") is its own line, so it is never read as the level.
-  const CHART_COUNT_REASON = / trade charts agree$/;
-  function renderHeadlines() {
-    const box = $("v2CHeads");
-    const heads = compareView.headlines;
-    box.hidden = !heads;
-    if (!heads) {
-      // JEG-808: an empty or changed trade must not keep the last answer in the hidden box.
-      box.querySelectorAll(".v2-chead").forEach(p => { p.replaceChildren(); p.dataset.answer = "none"; p.dataset.confidence = "none"; });
-      return;
-    }
-    ["propose", "accept"].forEach(line => {
-      const p = box.querySelector(`[data-line="${line}"]`);
-      const h = heads[line];
-      p.replaceChildren();
-      p.dataset.answer = h.answer || "none";
-      p.dataset.confidence = h.confidence || "none";
-      const q = document.createElement("span");
-      q.className = "q";
-      q.textContent = `${HEAD_QUESTIONS[line]} `;
-      p.appendChild(q);
-      const a = document.createElement("b");
-      a.className = "a";
-      if (!h.answer) {
-        a.textContent = "Not yet";
-        p.append(a, document.createTextNode(line === "propose"
-          ? " A value is missing, so DDF Value cannot score this trade."
-          : " No trade chart prices every player in this trade."));
-        return;
-      }
-      const sym = document.createElement("span");
-      sym.setAttribute("aria-hidden", "true");
-      sym.textContent = `${HEAD_SYMBOLS[h.answer]} `;
-      a.append(sym, document.createTextNode(h.answer));
-      const c = document.createElement("span");
-      c.className = "c";
-      const cs = document.createElement("span");
-      cs.setAttribute("aria-hidden", "true");
-      cs.textContent = `${CONFIDENCE_SYMBOLS[h.confidence]} `;
-      c.append(cs, document.createTextNode(LEVEL_LABELS[line][h.confidence]));
-      const why = document.createElement("span");
-      why.className = "why";
-      why.textContent = h.reasons.filter(r => !CHART_COUNT_REASON.test(r)).join("; ");
-      p.append(a, document.createTextNode(" · "), c, why);
-      h.reasons.filter(r => CHART_COUNT_REASON.test(r)).forEach(r => {
-        const charts = document.createElement("span");
-        charts.className = "why charts";
-        charts.textContent = r;
-        p.appendChild(charts);
-      });
-    });
-  }
-
   function renderVerdict() {
-    renderHeadlines();
     const copy = verdictCopy();
     const card = $("v2CVerdict");
     card.dataset.verdict = copy.kind;

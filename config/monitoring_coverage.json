@@ -65,7 +65,9 @@
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-live",
      "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-sunday",
-     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]}
+     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
+    {"workflow": "render-sweep.yml", "scheduler": "pg_cron", "pg_cron_job": "render-sweep-daily",
+     "records": []}
   ],
   "pg_cron_sql_jobs": [
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}
@@ -75,7 +77,6 @@
     "nflverse-history-load.yml": "manual one-off load of closed 2015-2025 history (JEG-532); no schedule, nothing to miss",
     "sleeper-projections-backfill.yml": "push/manual one-off backfill of Sleeper weekly projections for measurement (JEG-540); no schedule, nothing to miss",
     "preview.yml": "pull-request preview build; no schedule, nothing to miss",
-    "render-sweep.yml": "manual dispatch of the render sweep (JEG-976); a failure is a warning, never a deploy hold. The daily pg_cron job render-sweep-daily is written but not applied (production Supabase change awaiting Jeremy), so nothing can be missed yet",
     "v2-render-test.yml": "pull_request/manual merge-time render test (JEG-618); no schedule, nothing to miss",
     "record-pages-deploy.yml": "event-driven recorder for pages.yml (workflow_run); it is the evidence for check site_deploy, not a pipeline",
     "divergence-issues.yml": "push (when dist/modules/source-divergence.json changes) and manual; opens Linear sub-issues for flagged source-weeks (JEG-610); no schedule, nothing to miss",

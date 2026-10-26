@@ -445,6 +445,35 @@ test("unmatched lines carry their position and team, so a kicker or defense can 
 });
 
 // ===========================================================================
+//  Free-agent (waiver) pages and which list a paste is (SYNTHETIC fixtures: no real paste yet)
+// ===========================================================================
+var WAIVER_DIR = path.join(ROOT, "tests", "fixtures", "waivers_paste");
+var FA_IDS = ["noel", "perine", "miller_k", "goedert", "allen_k", "broncos", "boswell"];
+["espn-free-agents-SYNTHETIC.txt", "yahoo-free-agents-SYNTHETIC.txt"].forEach(function (name) {
+  test("free-agent page reads every row, no junk lines: " + name, function () {
+    var r = P.parse(fs.readFileSync(path.join(WAIVER_DIR, name), "utf8"), PLAYERS);
+    assert.strictEqual(r.mode, "list");
+    assert.deepStrictEqual(r.players.map(function (p) { return p.id; }).sort(), FA_IDS.slice().sort());
+    assert.strictEqual(r.unmatched.length, 0, "filter labels and headers are not listed as unmatched");
+    assert.strictEqual(P.detectListKind(fs.readFileSync(path.join(WAIVER_DIR, name), "utf8"), r), "waivers");
+  });
+});
+
+test("roster pages are detected as roster, matchups too", function () {
+  ["yahoo-team.txt", "espn-team.txt", "yahoo-matchup.txt", "espn-matchup.txt"].forEach(function (name) {
+    var text = readFixture(name);
+    assert.strictEqual(P.detectListKind(text, P.parse(text, PLAYERS)), "roster", name);
+  });
+});
+
+test("a bare list of names has no kind unless the text says which", function () {
+  assert.strictEqual(P.detectListKind("Jaylin Noel\nSamaje Perine", {mode: "extract"}), "unknown");
+  assert.strictEqual(P.detectListKind("Free Agents\nJaylin Noel\nSamaje Perine", {mode: "extract"}), "waivers");
+  assert.strictEqual(P.detectListKind("Bench\nJaylin Noel\nSamaje Perine", {mode: "extract"}), "roster");
+  assert.strictEqual(P.detectListKind("Free Agents\nBench\nJaylin Noel", {mode: "extract"}), "unknown");
+});
+
+// ===========================================================================
 //  Summary
 // ===========================================================================
 console.log("\n--- Results: " + passed + " passed, " + failed + " failed ---");
