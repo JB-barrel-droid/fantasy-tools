@@ -89,6 +89,23 @@ return res;
 """
 
 
+COMBO = """
+const out = {};
+['ddf', 'projections', 'src:fantasycalc'].forEach(id => {
+  const r = W.evaluateAll(ctxFor(id), mine, cands);
+  out[id] = r.combos.map(k => k.candidates.map(c => c.name).sort().join('+'));
+});
+return out;
+"""
+# A roster with no RB: adding two RBs fills two starting slots, so a pair beats either single. CaCb are priced 40 in DDF Value and 0.5 in
+# the projections; PaPb the other way round; MaMb are priced 18 in DDF Value and the market but -20 in the projections, so DDF Value's own noise
+# (half the charts-vs-projections gap) hides the pair that a single source, with no spread, shows. A pair exists only in the view that prices it.
+COMBO_PAYLOAD = {"shape": SHAPE, "alloc": ALLOC, "charts": CHARTS, "basisName": "x",
+                 "mine": [m for m in MINE if m["pos"] != "RB" and m["key"] != "bx"] + [p("w5", "WR", 9), p("w6", "WR", 7), p("q3", "QB", 4)],
+                 "cands": [p("Ca", "RB", 40, 0.5, 40), p("Cb", "RB", 40, 0.5, 40), p("Pa", "RB", 0.5, 40, 0.5), p("Pb", "RB", 0.5, 40, 0.5),
+                           p("Ma", "RB", 18, -20, 18), p("Mb", "RB", 18, -20, 18)]}
+
+
 def check(waivers_js: Path) -> list[str]:
     errors = []
     say = errors.append
@@ -157,10 +174,18 @@ def check(waivers_js: Path) -> list[str]:
         say(f"headline view note: ddf {r['ddf']['headline']!r}, projections {r['projections']['headline']!r}")
     if not r["ddf"]["headlineContext"] or "on projections" not in r["ddf"]["headlineContext"]:
         say(f"headline context {r['ddf']['headlineContext']!r}")
+    # 7. Combos follow the view: a pair that only one view prices is a combo in that view only.
+    combos = node(waivers_js, COMBO, COMBO_PAYLOAD)
+    if "Ca+Cb" not in combos["ddf"] or "Ca+Cb" in combos["projections"] or "Pa+Pb" not in combos["projections"] or "Pa+Pb" in combos["ddf"]:
+        say(f"combos by view {combos}: want Ca+Cb in DDF Value only and Pa+Pb in the projections only")
+    if "Ma+Mb" in combos["ddf"] or "Ma+Mb" not in combos["src:fantasycalc"]:
+        say(f"combos by view {combos}: want Ma+Mb in the single source (no noise) and not in DDF Value (noise {18 + 20} apart)")
     return errors
 
 
 MUTANTS = {
+    "combos ignore the view": ("const key = (ctx.view || viewFor(VIEW_DEFAULT)).key;\n    const out = [];", "const key = OUR_KEY;\n    const out = [];"),
+    "combo noise ignores the view": ("Math.pow(valueNoise(r, key, ctx.chartKeys || undefined), 2)", "Math.pow(valueNoise(r, OUR_KEY, ctx.chartKeys || undefined), 2)"),
     "unpriced players dropped first": ("Number(unpriced(a.row)) - Number(unpriced(b.row)) || a.marginal - b.marginal", "a.marginal - b.marginal"),
     "no market price read as a price": ("return finite(v) && (key !== MARKET_KEY || v >= USABLE_MIN) ? v : null;", "return finite(v) ? v : null;"),
     "view ignored in the swap": ("const impact = rosterImpact(roster, leaving, [candidate], ctx.shape, key);", "const impact = rosterImpact(roster, leaving, [candidate], ctx.shape, OUR_KEY);"),

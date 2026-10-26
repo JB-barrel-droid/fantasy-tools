@@ -94,7 +94,7 @@ def check_phone(browser, base, overrides, errors):
         sorted_by = page.evaluate(ACTIVE_SORT, "#v2LgOppsTable")
         if sorted_by != ["capture:descending"]:
             errors.append(f"{tag}the sort selector did not sort the opportunities by capture: {sorted_by}")
-        caps = [card_numbers(t, r"Fundamentals") for t in page.evaluate(CARDS, "#v2LgOppsCards")]
+        caps = [card_numbers(t, r"DDF Value") for t in page.evaluate(CARDS, "#v2LgOppsCards")]
         if any(v is None for v in caps) or caps != sorted(caps, reverse=True):
             errors.append(f"{tag}opportunity cards after sorting by capture: {caps}")
         page.context.close()
