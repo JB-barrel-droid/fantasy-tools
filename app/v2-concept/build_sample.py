@@ -78,6 +78,36 @@ def mean_1(values: list[float]) -> float:
     return round(sum(values) / len(values), 1)
 
 
+def r1(value: float) -> float:
+    return round(float(value), 1)
+
+
+def points_for(info: dict) -> dict:
+    """Full-PPR rest-of-season points. Three reads, then their average.
+
+    ESPN and Razzball store a rest-of-season total. CBS stores a per-game
+    rate, so its rest-of-season total is that rate times games remaining.
+    """
+    games = info.get("games_remaining")
+    if not isinstance(games, (int, float)) or games <= 0:
+        raise SystemExit(f"no games remaining for {info.get('name')}")
+    espn_ppg = info["espn_ppg"]["ppr"]
+    espn_ros = info["espn_ros"]["ppr"]
+    cbs_ppg = info["cbsros_ppg"]["ppr"]
+    rz_ppg = info["rz_ppg"]["ppr"]
+    rz_ros = info["rz_ros"]["ppr"]
+    cbs_ros = float(cbs_ppg) * float(games)
+    return {
+        "ppg": r1((float(espn_ppg) + float(cbs_ppg) + float(rz_ppg)) / 3),
+        "ros": r1((float(espn_ros) + cbs_ros + float(rz_ros)) / 3),
+        "reads": [
+            {"name": "ESPN", "ppg": r1(espn_ppg), "ros": r1(espn_ros)},
+            {"name": "CBS, rest of season", "ppg": r1(cbs_ppg), "ros": r1(cbs_ros)},
+            {"name": "Razzball", "ppg": r1(rz_ppg), "ros": r1(rz_ros)},
+        ],
+    }
+
+
 def main() -> None:
     trace = json.loads(TRACE.read_text(encoding="utf-8"))
     roster = json.loads(PLAYERS.read_text(encoding="utf-8"))
@@ -110,6 +140,7 @@ def main() -> None:
             "market": market,
             "gap": round(ddf - market, 1),
             "capped": ddf >= 69.9,
+            "points": points_for(info),
         })
 
     feature_buy = max(
@@ -157,6 +188,14 @@ def main() -> None:
     print(f"sample trade give {give['name']} (ddf {give['ddf']}, market {give['market']})")
     print(f"             get  {get['name']} (ddf {get['ddf']}, market {get['market']})")
     print(f"my DDF gain {my_gain}; their Market change {their_market}")
+    print(
+        "projection ppg "
+        f"{give['points']['ppg']} -> {get['points']['ppg']} "
+        f"({round(get['points']['ppg'] - give['points']['ppg'], 1)}), "
+        "ros "
+        f"{give['points']['ros']} -> {get['points']['ros']} "
+        f"({round(get['points']['ros'] - give['points']['ros'], 1)})"
+    )
     ranked = sorted(rows, key=lambda row: -row["gap"])
     for row in ranked[:8]:
         cap = " capped" if row["capped"] else ""

@@ -20,7 +20,6 @@ BANNED = (
     "FantasyCalc",
     "FantasyPros",
     "USA Today",
-    "CBS",
     "fixture_reindexed",
     "full_12",
     "we support",
@@ -138,12 +137,21 @@ def main() -> int:
             f"viability line: {why}",
         )
         check(page.locator("#compareStamp").is_visible(), "stamp visible")
+        page.wait_for_function("() => (document.querySelector('#readings').innerText || '').includes('+11.5')")
+        readings = page.locator("#readings").inner_text()
+        check("DDF Value" in readings and "+11.5" in readings and "What you gain" in readings, "DDF reading")
+        check("The Market" in readings and "+3.5" in readings and "Whether they'll accept" in readings, "Market reading")
+        check("Projections" in readings and "21.7" in readings and "21.8" in readings, "projection rates")
+        check("0.1" in readings and "1.1" in readings, "projection gains")
+        check("lean the other way" in readings and "The gap is small" in readings, "calm disagree")
         check(page.locator("#whyBtn").is_visible(), "show the math is on the first screen")
         check(page.locator("#whyBtn").inner_text() == "Show the math", "math control label")
         page.locator("#whyBtn").click()
         check(page.locator("#whyBtn").get_attribute("aria-expanded") == "true", "math expanded")
         math = page.locator("#whyInner").inner_text()
-        check("DDF Value" in math and "The Market" in math, "math uses the two terms")
+        check("DDF Value" in math and "The Market" in math, "math uses the value terms")
+        check("ESPN" in math and "CBS, rest of season" in math and "Razzball" in math, "projection breakdown names the reads")
+        check("23.5" in math and "20.7" in math, "projection breakdown has the weekly rates")
         check("one-for-one" in math, "lineup stand-in is named")
         page.locator("#shareBtn").click()
         check(page.locator("#shareCard").is_visible(), "share card")
@@ -155,6 +163,7 @@ def main() -> int:
         passed = page.locator("#compareTitle").inner_text()
         check(passed == "They'll pass", f"other side judges on the Market: {passed}")
         check("does not improve on the Market" in page.locator("#compareSub").inner_text(), "pass why")
+        check("same thing as DDF Value" in page.locator("#readings").inner_text(), "projections can agree")
 
         page.locator("#clearTrade").click()
         check(page.locator("#compareTitle").inner_text() == "Add a player to each side.", "cleared trade")

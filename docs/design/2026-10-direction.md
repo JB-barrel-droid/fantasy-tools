@@ -21,7 +21,7 @@ The hero micro-line is "Free · No sign-up · Nothing to connect · Saved on thi
 
 **Voice.** The sharp friend in your league chat. Positioning line: "Know who to trade for, before your league does."
 
-**One term per concept.** DDF Value (the site's value: the average of the indexed, position-weight-adjusted trade charts). The Market (the indexed trade charts before that adjustment). Projections (a second opinion). Buy, Sell, Fair price, Change.
+**One term per concept.** DDF Value (the site's value: the average of the indexed, position-weight-adjusted trade charts). The Market (the indexed trade charts before that adjustment). Projections (the points, per week and for the rest of the season). Buy, Sell, Fair price, Change.
 
 **Nav.** Trade targets is "Buy & sell". Compare is "Check a trade". Overrides is "Settings". Values auditing is "Show the math", a disclosure on Check a trade and a short explainer in Settings. It is not a fifth tab.
 
@@ -52,7 +52,7 @@ On a 390×844 phone, the click-through check puts the headline 107px from the to
 
 **Buy & sell.** The title is the answer. "Buy Puka Nacua." One line of why, one numbers chip, then Buy and Sell as one control. Each row is a person, a position chip, the same why, and DDF Value next to the Market. Open a row for the two bars. The green bar is DDF Value. The ink bar is the Market.
 
-**Check a trade.** The title is the fit word, with a stamp. The sample is Jaxon Smith-Njigba for Puka Nacua: "Send it." Change either player and the sentence updates. Giving up Puka for Jahmyr Gibbs becomes "They'll pass", because you gain DDF Value and their lineup does not improve on the Market. Clear starts from "Add a player to each side." "Share this trade" opens a card you can copy.
+**Check a trade.** The title is the fit word, with a stamp, then one sentence for the viability rule. Under that, three readings, each with a number and a plain explanation. DDF Value is what you gain. The Market is whether they'll accept. Projections are the points: each side's rate per week, and the gain per week and for the rest of the season. "Show the math" opens every projection read. The fit word still comes from DDF Value against the Market. When the points lean the other way, that reading says so, with the size, and it does not become a second verdict. The sample is that case: Send it, you gain 11.5 DDF Value, they gain 3.5 on the Market, and the points lean the other way by 0.1 a week (1.1 the rest of the season). Giving up Jaxon for Jahmyr Gibbs becomes "They'll pass", and the points agree with DDF Value. Clear starts from "Add a player to each side." "Share this trade" opens a card you can copy.
 
 **Settings.** The data line and the three actions, then Show the math in plain language: DDF Value, the Market, Projections, Buy, Sell, Fair price, Change, and how a trade is judged.
 
@@ -90,9 +90,9 @@ On top of that, when motion is allowed: numbers count up over 400ms, the stamp s
 
 They are real fixture values, and they are not live DDF Value.
 
-`app/v2-concept/build_sample.py` reads `dist/modules/player-trace.json` (generated 2026-10-26) and names, positions, and teams from `data/fixtures/current/players.json`. The Market is the mean of the four indexed trade charts for full PPR, 12 teams, rounded to one decimal. The DDF Value figure on the cards is the projection series, standing in until the position-weight adjustment is wired. Projections are that same second opinion, so the cards do not draw them again. Publisher names are not written into `sample.js`.
+`app/v2-concept/build_sample.py` reads `dist/modules/player-trace.json` (generated 2026-10-26) and names, positions, teams, and full-PPR projection points from `data/fixtures/current/players.json`. The Market is the mean of the four indexed trade charts for full PPR, 12 teams, rounded to one decimal. The DDF Value figure is the projection read on that same value scale, standing in until the position-weight adjustment is wired. Projections on Check a trade are the points themselves: ESPN, CBS rest of season, and Razzball, averaged. Per week is that average. Rest of season is the total still to play. CBS is stored as a per-game rate, so its rest-of-season total is the rate times games remaining. Trade-chart publisher names are not in the sample. The three projection reads are, and they appear only under Show the math.
 
-In this sample, Puka Nacua is DDF Value 59.0 against a Market of 50.1 (8.9 ahead). Chris Olave is 24.4 against 34.6 (10.2 behind). The sample trade gives Jaxon Smith-Njigba (47.5 / Market 53.6) and gets Puka (59.0 / Market 50.1): you gain 11.5 DDF Value, and they gain 3.5 on the Market. Jahmyr Gibbs sits on the projection ceiling of 70, so his lead is a floor and he is not the featured buy. Quarterbacks are left out. On the 1QB chart scale a raw gap against the projection anchor overstates the lead.
+In this sample, Puka Nacua is DDF Value 59.0 against a Market of 50.1 (8.9 ahead). Chris Olave is 24.4 against 34.6 (10.2 behind). The sample trade gives Jaxon Smith-Njigba (47.5 / Market 53.6, 21.8 points a week, 240.1 the rest of the season) and gets Puka (59.0 / Market 50.1, 21.7 a week, 239.0 the rest of the season). You gain 11.5 DDF Value, and they gain 3.5 on the Market. The points go the other way by 0.1 a week and 1.1 the rest of the season, because ESPN has Puka ahead (23.5 against 20.7 a week) while CBS rest of season and Razzball have Jaxon a little ahead. Jahmyr Gibbs sits on the projection ceiling of 70, so his lead is a floor and he is not the featured buy. Quarterbacks are left out. On the 1QB chart scale a raw gap against the projection anchor overstates the lead.
 
 The paste does not parse a league. Any non-empty paste, or "That's everyone" after at least one Sleeper team, shows the decided success line. The twelve team names are sample names for the picker. "Their lineup improves" is a one-for-one Market gain. Show the math says so. A full roster check comes with the live page.
 
@@ -131,10 +131,10 @@ Light shots at 390 and 1280 are in `docs/design/shots/`.
 
 The same folder also has the 1280 shots of the paste flow, the match step, Buy & sell, and Settings.
 
-## Still open
+## Type and canvas
 
-Two visual choices. The preview is drawn as the recommended option so you can see it. Reject either line and the rest still stands.
+Decided 2026-10-26, when Jeremy left both calls to this pass.
 
-1. **Type.** A) Fraunces for the one headline, Inter everywhere else. Recommended. The serif is the only playful note, and the numbers stay in Inter. B) All Inter, at the same sizes.
+The headline is Fraunces. Everything else, including every number, is Inter. The serif is the one playful note, and the figures stay in the UI face.
 
-2. **Canvas.** A) Warm paper `#F6F3EC`, with the same forest ink and green. Recommended. B) Keep today's `#F3F7F7`.
+The canvas is warm paper, `#F6F3EC`, with the forest ink and green above. Today's mint `#F3F7F7` stays on the live site until a production pass.

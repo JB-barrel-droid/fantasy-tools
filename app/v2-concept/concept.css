@@ -988,6 +988,63 @@ html.is-shot .confetti { display: none; }
   }
 }
 
+.verdict-lead {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.readings { display: grid; gap: 0; }
+
+.reading {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.reading-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.reading-num {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.reading-unit {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reading-why { margin-top: 4px; }
+
+.reads { display: grid; gap: 12px; margin-top: 12px; }
+
+.read {
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.read h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.read p { margin-top: 4px; }
+
+@media (min-width: 800px) {
+  .readings { grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  .reading { margin-top: 20px; }
+  .reads { grid-template-columns: 1fr 1fr; }
+}
+
 @media (hover: hover) {
   .source-row button:hover, .quiet:hover, .team:hover {
     background: color-mix(in srgb, var(--ink) 5%, var(--surface));

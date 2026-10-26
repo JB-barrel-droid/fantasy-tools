@@ -98,7 +98,11 @@
   }
 
   function footnote() {
-    return "Preview from " + data.asOf + ", full PPR, 12 teams. The DDF Value figure is the projection series, standing in until the position-weight adjustment is on the page. The Market is the average of the trade charts before that adjustment. Projections are that same second opinion, so they are not drawn again. A one-for-one swap stands in for a lineup check. This page is not the live site.";
+    return "Preview from " + data.asOf + ", full PPR, 12 teams. The DDF Value figure is the projection read on the value scale, standing in until the position-weight adjustment is on the page. The Market is the average of the trade charts before that adjustment. Projections are rest-of-season fantasy points: three reads, averaged, per week and for the rest of the season. A one-for-one swap stands in for a lineup check. This page is not the live site.";
+  }
+
+  function shortName(name) {
+    return String(name).split(" ")[0];
   }
 
   function posChip(pos) {
@@ -295,6 +299,7 @@
       tone = "neutral";
       why = "You are about even on DDF Value, and their lineup barely moves on the Market.";
     }
+    const points = pointsRead(give, get, mine);
     return {
       title: title,
       emoji: emoji,
@@ -302,10 +307,86 @@
       why: why,
       gain: mine,
       theirs: theirs,
+      points: points,
       give: give,
       get: get,
       confetti: title === "Send it" && mine >= 8
     };
+  }
+
+  function pointsRead(give, get, mine) {
+    const ppg = round1(get.points.ppg - give.points.ppg);
+    const ros = round1(get.points.ros - give.points.ros);
+    const who = shortName(get.name) + " projects to " + num(get.points.ppg) + " a week. " + shortName(give.name) + " projects to " + num(give.points.ppg) + ". ";
+    const move = "You: " + signed(ppg) + " a week, " + signed(ros) + " the rest of the season. Them: " + signed(-ppg) + " a week, " + signed(-ros) + " the rest of the season.";
+    const opposite = (mine > 0.05 && ppg < -0.05) || (mine < -0.05 && ppg > 0.05);
+    let lean = "";
+    if (opposite && Math.abs(ppg) < 1) {
+      lean = " The points lean the other way from DDF Value. The gap is small.";
+    } else if (opposite) {
+      lean = " The points lean the other way from DDF Value.";
+    } else if (Math.abs(ppg) >= 0.05 || Math.abs(mine) >= 0.05) {
+      lean = " The points say the same thing as DDF Value.";
+    }
+    return {ppg: ppg, ros: ros, line: who + move + lean};
+  }
+
+  function ddfLine(mine) {
+    const which = mine < -0.05 ? "What you give up. " : "What you gain. ";
+    return which + "Our number for the player you get, minus the one you give.";
+  }
+
+  function marketLine(theirs) {
+    if (theirs > 0.05) {
+      return "Whether they'll accept. Their lineup improves by this much on the trade charts, before our adjustment.";
+    }
+    if (theirs < -0.05) {
+      return "Whether they'll accept. Their lineup does not improve on the trade charts, before our adjustment.";
+    }
+    return "Whether they'll accept. Their lineup barely moves on the trade charts, before our adjustment.";
+  }
+
+  function reading(label, value, unit, line) {
+    return (
+      '<article class="reading">' +
+        '<p class="reading-label">' + label + "</p>" +
+        '<p class="reading-num"><b data-count="' + value + '">' + signed(value) + "</b></p>" +
+        '<p class="reading-unit">' + unit + "</p>" +
+        '<p class="reading-why">' + esc(line) + "</p>" +
+      "</article>"
+    );
+  }
+
+  function readingsHtml(result) {
+    return (
+      reading("DDF Value", result.gain, "for you", ddfLine(result.gain)) +
+      reading("The Market", result.theirs, "for them", marketLine(result.theirs)) +
+      reading("Projections", result.points.ppg, "points a week", result.points.line)
+    );
+  }
+
+  function readBlock(name, giveRead, getRead, give, get) {
+    const ppg = round1(getRead.ppg - giveRead.ppg);
+    const ros = round1(getRead.ros - giveRead.ros);
+    const week = ppg < -0.05
+      ? "You give up " + num(Math.abs(ppg)) + " a week."
+      : ppg > 0.05
+        ? "You gain " + num(ppg) + " a week."
+        : "Per week you are about even.";
+    const season = ros < -0.05
+      ? " You give up " + num(Math.abs(ros)) + " the rest of the season."
+      : ros > 0.05
+        ? " You gain " + num(ros) + " the rest of the season."
+        : " The rest of the season is about even.";
+    const them = ppg < -0.05 ? " They pick up the same." : ppg > 0.05 ? " They give up the same." : "";
+    return (
+      '<article class="read">' +
+        '<h3>' + esc(name) + "</h3>" +
+        "<p>" + esc(shortName(give.name)) + " " + num(giveRead.ppg) + " a week, " + num(giveRead.ros) + " the rest of the season.</p>" +
+        "<p>" + esc(shortName(get.name)) + " " + num(getRead.ppg) + " a week, " + num(getRead.ros) + " the rest of the season.</p>" +
+        "<p>" + week + season + them + "</p>" +
+      "</article>"
+    );
   }
 
   function slot(side, player) {
@@ -384,7 +465,7 @@
     const stamp = $("#compareStamp");
     if (result.gain == null) {
       stamp.hidden = true;
-      $("#compareChips").innerHTML = "";
+      $("#readings").innerHTML = "";
     } else {
       stamp.hidden = false;
       stamp.textContent = result.title;
@@ -394,8 +475,8 @@
         void stamp.offsetWidth;
         stamp.classList.add("is-live");
       }
-      $("#compareChips").innerHTML = numbersChip(result.gain, "DDF Value");
-      countNodes($("#compareChips"));
+      $("#readings").innerHTML = readingsHtml(result);
+      countNodes($("#readings"));
     }
     const give = result.give || (state.giveId == null ? null : byId.get(state.giveId));
     const get = result.get || (state.getId == null ? null : byId.get(state.getId));
@@ -417,12 +498,13 @@
     whyBtn.setAttribute("aria-expanded", state.why && ready ? "true" : "false");
     whyBtn.textContent = state.why ? "Hide the math" : "Show the math";
     if (ready) {
+      const reads = give.points.reads.map((read, i) => readBlock(read.name, read, get.points.reads[i], give, get)).join("");
       $("#whyInner").innerHTML =
-        '<div class="why-grid">' +
-          whyCard(give, "You give") +
-          whyCard(get, "You get") +
-        "</div>" +
         '<p class="math">DDF Value: ' + num(get.ddf) + " received \u2212 " + num(give.ddf) + " given = " + signed(result.gain) + ". The Market, for them: " + num(give.market) + " received \u2212 " + num(get.market) + " given = " + signed(result.theirs) + ".</p>" +
+        '<p class="math">Projections, full PPR. Each line is one read, then the three together. DDF Value on this preview is the projection read on the value scale, until the position-weight adjustment is wired. The lines below are the points themselves.</p>' +
+        '<div class="reads">' + reads +
+          readBlock("The three together", {ppg: give.points.ppg, ros: give.points.ros}, {ppg: get.points.ppg, ros: get.points.ros}, give, get) +
+        "</div>" +
         '<p class="math">A one-for-one swap stands in for their lineup. A full roster check comes with the live page.</p>';
     } else {
       $("#whyInner").innerHTML = "";
@@ -436,6 +518,7 @@
         '<p class="share-title">' + esc(result.title) + "</p>" +
         '<p class="share-players">' + esc(give.name) + " \u2192 " + esc(get.name) + "</p>" +
         '<p class="share-why">' + esc(result.why) + "</p>" +
+        '<p class="share-why">Projections: ' + signed(result.points.ppg) + " points a week, " + signed(result.points.ros) + " the rest of the season.</p>" +
         '<button type="button" class="quiet" id="copyCard">Copy card</button>';
     } else {
       card.hidden = true;
@@ -453,7 +536,7 @@
   function shareText() {
     const result = verdict();
     if (result.gain == null) return "";
-    return result.title + "\n" + result.give.name + " for " + result.get.name + "\n" + result.why + "\nData Driven Football";
+    return result.title + "\n" + result.give.name + " for " + result.get.name + "\n" + result.why + "\nProjections: " + signed(result.points.ppg) + " points a week, " + signed(result.points.ros) + " the rest of the season.\nData Driven Football";
   }
 
   function exportData() {
