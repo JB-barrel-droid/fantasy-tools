@@ -81,7 +81,11 @@ SCRIPT = """async (combos) => {
 
 
 def run(script, arg=None):
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        # JEG-1075: skip locally, error under RENDER_TESTS_REQUIRED=1.
+        raise _render_env.unavailable("Playwright is not installed")
     with sync_playwright() as p:
         exe = _render_env.chromium_executable(p)
         if exe is None:

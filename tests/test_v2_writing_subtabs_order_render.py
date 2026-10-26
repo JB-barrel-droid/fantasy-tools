@@ -28,7 +28,7 @@ SUBTABS = ("writing/manifesto", "writing/how-values", "writing/research")
 READ = """() => {
   const app = document.getElementById('v2App');
   const shown = [...app.children].filter(el => !el.hidden && el.getBoundingClientRect().height > 0
-    && !el.classList.contains('v2-skip') && !el.matches('header.v2-nav') && !el.matches('dialog, [role=dialog], .v2-overlay'));
+    && !el.classList.contains('v2-skip') && !el.classList.contains('v2-sr') && !el.matches('header.v2-nav') && !el.matches('dialog, [role=dialog], .v2-overlay'));
   const rows = shown.map(el => ({id: el.id || el.className, top: el.getBoundingClientRect().top}));
   rows.sort((a, b) => a.top - b.top);
   const tabs = document.getElementById('v2WritingTabs').getBoundingClientRect();
