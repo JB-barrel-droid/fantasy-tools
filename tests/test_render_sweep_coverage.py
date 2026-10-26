@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Red when run alone on main (2026-10-23). Remove an entry when its ticket is fixed and wire the file.
 KNOWN_RED = {
-    "test_v2_phone_header_render": "JEG-983",
     "test_v2_source_links_render": "JEG-983",
     "test_v2_writing_subtabs_order_render": "JEG-983",
     "test_v2_phone_tap_targets_render": "JEG-983",

@@ -1757,10 +1757,13 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-nav .v2-tabs .v2-tab::before { content: none; }
   .v2-nav .v2-tabs .v2-tab .v2-tab-full { display: inline; }
 }
+.v2-freshness-short { display: none; }
 @media (max-width: 419px) {
-  /* The wordmark and button fill the first row; the freshness line takes its own row instead of a sliver. */
-  .v2-nav .v2-nav-toggle { order: 1; margin-left: auto; }
-  .v2-nav .v2-freshness { order: 2; flex: 1 0 100%; justify-content: flex-start; text-align: left; margin-left: 0; min-height: 44px; /* JEG-947: 44 px tap target (was 36) */ }
+  /* Decision 2026-10-25: the freshness button stays beside the site name with a short label ("Week 7"), so the
+     header stays at most 120 px tall (JEG-887) and the button keeps its 44 px height (JEG-947). */
+  .v2-nav .v2-freshness { flex: 0 1 auto; min-width: 0; }
+  .v2-nav .v2-freshness #v2FreshnessLabel { display: none; }
+  .v2-nav .v2-freshness .v2-freshness-short { display: inline; white-space: nowrap; }
 }
 @media (max-height: 500px) and (min-width: 600px) {
   /* Landscape phone: two columns keep the seven items inside a 390 px tall screen. */

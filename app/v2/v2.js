@@ -935,6 +935,10 @@
       ? `⚠ ${[calendarNote, `${stuck === roots.length && stuck > 1 ? "all " : ""}${stuck} source${stuck === 1 ? "" : "s"} not updating`].filter(Boolean).join(" · ")}`
       : updatingNote ? [updatingNote, ...freshNotes].join(" · ")
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
+    // Phone header: a short form ("Week 7", with a warning mark when anything needs attention) shown under 420 px,
+    // so the button stays beside the site name. The full text stays in the label, the aria-label and the panel.
+    const flagged = stuck > 0 || behind > 0 || unknown > 0 || held > 0;
+    $("v2FreshnessShort").textContent = view.refWeek ? `Week ${view.refWeek}${flagged ? " ⚠" : ""}` : $("v2FreshnessLabel").textContent;
     $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0 || held > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
     $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);

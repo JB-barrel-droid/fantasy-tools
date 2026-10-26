@@ -180,6 +180,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_espn_held_chip_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
+	python3 -m unittest tests.test_v2_phone_header_render
 	python3 -m unittest tests.test_v2_audit_render
 	python3 -m unittest tests.test_v2_health_check_render
 	python3 -m unittest tests.test_v2_ux_render
