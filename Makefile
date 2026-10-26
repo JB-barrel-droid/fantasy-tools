@@ -584,6 +584,7 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_phone_layout_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
+	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_rank_overflow_render
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_trade_actions_render
@@ -738,7 +739,11 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_render
 	python3 -m unittest tests.test_v2_league_shared_roster_render
+	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_v2_league_parsed_render
+	python3 -m unittest tests.test_v2_league_top10_render
+	python3 -m unittest tests.test_v2_find_split_render
 	python3 -m unittest tests.test_v2_mobile_phase1_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
