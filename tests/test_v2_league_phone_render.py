@@ -28,6 +28,10 @@ SMALL = """() => { const out = []; for (const sel of ['#v2LgCard', '#v2LgSummary
     if (r.height < 43.5) out.push(`${sel} ${n.tagName.toLowerCase()}.${n.className.toString().split(' ')[0]} ${(n.textContent || n.getAttribute('aria-label') || '').trim().slice(0, 24)} ${Math.round(r.width)}x${Math.round(r.height)}`); }); }
   return out; }"""
 
+# The sort the page holds, as column:direction. The fixture's default order can already match the order a card check expects, so the
+# cards alone cannot tell a working selector from a dead one (JEG-1090: the 320 px overflow error used to mask exactly that).
+ACTIVE_SORT = """(table) => [...document.querySelectorAll(table + ' thead th[aria-sort]')].filter(t => t.getAttribute('aria-sort') !== 'none').map(t => t.dataset.col + ':' + t.getAttribute('aria-sort'))"""
+
 CARDS = """(sel) => [...document.querySelectorAll(sel + ' > li')].map(li => li.innerText)"""
 
 
@@ -62,6 +66,9 @@ def check_phone(browser, base, overrides, errors):
         # Sort selector: bench value (DDF), both directions.
         texts = page.evaluate(CARDS, "#v2LgSummaryCards")
         page.select_option("#v2LgSummarySortBy", "benchF")
+        sorted_by = page.evaluate(ACTIVE_SORT, "#v2LgSummaryTable")
+        if sorted_by != ["benchF:descending"]:
+            errors.append(f"{tag}the sort selector did not sort the summary by bench value: {sorted_by}")
         vals = [card_numbers(t, r"bench") for t in page.evaluate(CARDS, "#v2LgSummaryCards")]
         if any(v is None for v in vals) or vals != sorted(vals, reverse=True):
             errors.append(f"{tag}summary cards after sorting by bench value: {vals}")
@@ -72,6 +79,9 @@ def check_phone(browser, base, overrides, errors):
         if page.evaluate(CARDS, "#v2LgSummaryCards") == texts:
             errors.append(f"{tag}the sort selector did not reorder the cards")
         page.select_option("#v2LgOppsSortBy", "capture")
+        sorted_by = page.evaluate(ACTIVE_SORT, "#v2LgOppsTable")
+        if sorted_by != ["capture:descending"]:
+            errors.append(f"{tag}the sort selector did not sort the opportunities by capture: {sorted_by}")
         caps = [card_numbers(t, r"Fundamentals") for t in page.evaluate(CARDS, "#v2LgOppsCards")]
         if any(v is None for v in caps) or caps != sorted(caps, reverse=True):
             errors.append(f"{tag}opportunity cards after sorting by capture: {caps}")

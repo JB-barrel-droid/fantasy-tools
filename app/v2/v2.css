@@ -1923,6 +1923,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-phonesort { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
 .v2-lg-phonesort .v2-btn { min-height: 44px; }
 .v2-lg-phonesort select, .v2-lg-filters select { min-height: 44px; max-width: 100%; }
+/* JEG-1090: the label is as wide as the longest option, so on a 320 px phone it ran 1 px (Inter) to 14 px (fallback fonts) past the edge; it shrinks and the select with it. */
+.v2-lg-phonesort .v2-field { min-width: 0; max-width: 100%; }
+.v2-lg-phonesort .v2-field select { min-width: 0; }
 @media (max-width: 767px) {
   .v2-lg-tablewrap { display: none; }
   .v2-lg-cards { display: grid; }
