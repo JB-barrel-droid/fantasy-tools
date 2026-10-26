@@ -22,7 +22,7 @@
   const finite = v => typeof v === "number" && Number.isFinite(v);
   const OUR_KEY = "ddf_value";
   const MARKET_KEY = "chart_avg";
-  const PAGE = 20;
+  const PAGE = 10;   // JEG-1098: the opportunities list opens on the top 10; "Show 10 more" and "Show all" reveal the rest
   const OPP_DEBOUNCE_MS = 300;
   const money = n => n.toFixed(1);
   const signed = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
@@ -937,13 +937,19 @@
       el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}))));
-    const more = sorted.length > shownRows.length
-      ? button(`Show ${Math.min(PAGE, sorted.length - shownRows.length)} more (${shownRows.length} of ${sorted.length} shown)`, {class: "v2-btn", id: "v2LgOppsMore"}, () => { UI.oppsShown += PAGE; renderOpps(); }) : null;
+    const remaining = sorted.length - shownRows.length;
+    const reveal = count => { UI.oppsShown = shownRows.length + count; renderOpps(); };
+    const moreButtons = remaining > 0 ? [
+      button(`Show ${Math.min(PAGE, remaining)} more`, {class: "v2-btn", id: "v2LgOppsMore"}, () => reveal(PAGE)),
+      remaining > PAGE ? button(`Show all (${sorted.length})`, {class: "v2-btn", id: "v2LgOppsAll"}, () => reveal(remaining)) : null] : [];
+    if (shownRows.length > PAGE) moreButtons.push(button(`Show top ${PAGE} only`, {class: "v2-btn", id: "v2LgOppsLess"}, () => { UI.oppsShown = PAGE; renderOpps(); }));
+    const more = moreButtons.length ? el("div", {class: "v2-ctoolbar v2-lg-more"}, ...moreButtons) : null;
+    const count = sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsCount", role: "status", text: `Showing ${shownRows.length} of ${sorted.length}`}) : null;
     const empty = !sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsMsg", text: res.rows.length ? "No opportunity matches these filters." : "No trade opportunities found."}) : null;
     body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
-      sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
-      el("p", {class: "v2-meta v2-footnote", text: `Showing ${shownRows.length} of ${sorted.length}.${notEval ? " K and DEF are on rosters but not evaluated." : ""}`})].filter(Boolean));
+      count, sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
+      notEval ? el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated."}) : null].filter(Boolean));
 
   }
 

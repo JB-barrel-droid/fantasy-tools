@@ -10,7 +10,7 @@ Loads the built page headless at 1366x768 with the frozen fixture leagues in the
   * the opportunities table has the eight columns, the same rows for one opponent as for many, a fundamentals capture equal to the
     engine's DDF edge for the trade shown, Natural only and Hide force fits filter, and Details opens the Compare link;
   * a change of league settings recomputes both tables and keeps every team, its name and my team;
-  * 20 teams finish inside the time budget, 20 rows at a time.
+  * 20 teams finish inside the time budget, 10 rows at a time (JEG-1098).
 
 Discrimination: test_guard_fails_on_broken_builds serves a build with each rule broken and requires the checks to fail.
 """
@@ -328,11 +328,11 @@ def check_twenty(browser, base, overrides, errors):
     if page.locator("#v2LgSummaryTable tr.v2-lg-main").count() != 20:
         errors.append(f"[20] summary rows {page.locator('#v2LgSummaryTable tr.v2-lg-main').count()}")
     rows = page.evaluate(OPP_ROWS)
-    if len(rows) != 20 or "across 19 opponents" not in page.inner_text("#v2LgOppsHeadline"):
+    if len(rows) != 10 or "across 19 opponents" not in page.inner_text("#v2LgOppsHeadline"):
         errors.append(f"[20] {len(rows)} rows, headline {page.inner_text('#v2LgOppsHeadline')!r}")
     page.click("#v2LgOppsMore")
-    if len(page.evaluate(OPP_ROWS)) != 40:
-        errors.append("[20] Show more did not add 20 rows")
+    if len(page.evaluate(OPP_ROWS)) != 20:
+        errors.append("[20] Show more did not add 10 rows")
     # The partial teams do not break anything.
     if not any("partial" in (r["detail"] or "") or True for r in page.evaluate(SUMMARY_ROWS)):
         errors.append("[20] summary")
