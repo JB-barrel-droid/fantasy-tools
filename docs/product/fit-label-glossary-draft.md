@@ -2,6 +2,8 @@
 
 Draft for Jeremy's review (JEG-1097). Nothing here publishes. Definitions are taken from the code at `origin/main` 06c9be24 (2026-10-25), not from memory. Where a definition depends on the two-DDF naming and defaults (JEG-1081) it is marked **provisional**.
 
+**Note, 2026-10-26, design preview only.** Jeremy, on the Check a trade concept: projections sit with DDF Value. Both use the same DDF methodology on different inputs. DDF Value is the trade-chart input. DDF Projections are the projection-source input. The Market is the competing methodology, the other team's lens. The shared terms below still say your view is DDF Value and their view is the trade chart average, which is what that code does. The design preview (`docs/design/2026-10-direction.md`) groups the two DDF inputs together and keeps the Market as the other read. This note does not change the four fit rules or the live code.
+
 Sources read: `app/v2/finder.js` (`teamFit`, `tradeFit`, `fitText`, constants), `app/v2/opportunities.js` (`ourFitOf`, `theirFitOf`, `overallFit`, `FIT_WORD`, `TIERS`), `app/v2/league.js` (filter labels), `supabase/functions/mcp/viability.ts` and `docs/values-endpoint.md` ("Viability scoring").
 
 ## Finding: the name "Market Only Fit" does not exist
