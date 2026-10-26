@@ -3,7 +3,7 @@
 20-team league: click row 1; the panel names both teams, shows each side's gives and gets, the starting lineup by position
 before and after in DDF Value, the starters value change equal to the table's own arithmetic, the row is highlighted, the
 address carries the pick, the selection survives "Show all" and "Show top 10 only", Escape closes it and returns focus,
-and the link reopens the same trade after a reload. The viability slot is present and says it is not shown yet.
+and the link reopens the same trade after a reload. The viability slot now carries the fit label and the viability (JEG-1108), for example "Natural fit · High viability".
 
 Discrimination: test_guard_fails_on_broken_builds serves league.js with the click ignored, with the Escape key ignored,
 and with the pick dropped on re-render, and requires the checks to fail on each.
@@ -56,7 +56,7 @@ def check(browser, base, overrides=None):
         b, a, d = (float(x.replace("−", "-")) for x in s[who]["starters"][1:])
         if abs((a - b) - d) > 0.11:
             errors.append(f"{who}: starters {b} -> {a} but change {d}")
-    if "Close" not in page.inner_text("#v2LgOppPanel") or "not shown here yet" not in s["viability"]:
+    if "Close" not in page.inner_text("#v2LgOppPanel") or not re.fullmatch(r"(Natural fit|Market supported|Force fit) · (High|Medium-high|Medium) viability", s["viability"]):
         errors.append(f"viability slot or Close missing: {s['viability']!r}")
     if s["selected"] != [first_id] or f"trade=" not in s["hash"]:
         errors.append(f"row not highlighted or address has no pick: {s['selected']} {s['hash']}")

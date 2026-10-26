@@ -93,10 +93,56 @@ def check(finder_js: Path) -> list[str]:
     heads = {k: call(finder_js, "fitHeadline", k, v)["text"] for k, v in (("missing", {}), ("pending", {}), ("natural", {"count": 1}), ("none", {}), ("unjudged", {}))}
     if heads["missing"] != "Add both rosters to see fit" or heads["natural"] != "Natural fit found: 1 group" or call(finder_js, "fitHeadline", "natural", {"count": 3})["text"] != "Natural fit found: 3 groups":
         errors.append(f"headline texts: {heads}")
-    if heads["none"] != "No natural fit between these rosters: the trades below are value-only or force fits":
+    if heads["none"] != "No natural fit between these rosters: the trades below are market supported or force fits":
         errors.append(f"the no-natural headline reads {heads['none']!r}")
     if call(finder_js, "fitHeadline", "natural", {"count": 2})["link"] is None or call(finder_js, "fitHeadline", "none", {})["link"] is not None:
         errors.append("the jump link is offered without a natural group, or missing with one")
+    # Throw-ins are live in the search (JEG-1108): the team that receives more players adds its own least valuable
+    # bench player (a non-starter, Jeremy 2026-10-26), so no trade the search lists has unequal player counts, and the added player is listed on it.
+    def tr(key, pos, ddf, charts):
+        return {"player_key": key, "name": key, "pos": pos, "values": dict(zip(["ddf_value", "usatoday", "fantasycalc", "fantasypros", "cbs"], [ddf] + [charts] * 4))}
+    mine_rows = [tr("M1", "WR", 10, 20), tr("M2", "WR", 0.3, 0.3), tr("M3", "WR", 0.4, 0.4)]
+    their_rows = [tr("T1", "WR", 8, 8), tr("T2", "WR", 4, 4)]
+    chart_keys = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
+    res = call(finder_js, "findTrades", mine_rows, their_rows, {"chartKeys": chart_keys, "maxSize": 2, "limit": 50})
+    unequal = [t for t in res["trades"] if len(t["give"]) != len(t["receive"])]
+    if unequal:
+        errors.append(f"the search listed {len(unequal)} trade(s) with unequal player counts; throw-ins are not wired in")
+    flagged = [t for t in res["trades"] if t.get("addedThrowIns")]
+    if not any(t["addedThrowIns"][0]["row"]["player_key"] == "M2" and t["addedThrowIns"][0]["side"] == "give" for t in flagged):
+        errors.append("a 1-for-2 package did not get my least valuable player (M2) as a listed throw-in")
+    ids = [",".join(r["player_key"] for r in t["give"]) + "|" + ",".join(r["player_key"] for r in t["receive"]) for t in res["trades"]]
+    if len(ids) != len(set(ids)):
+        errors.append("the search listed the same package twice (throw-in variants not collapsed)")
+    # The throw-in is judged with the package: M2 is a real cost, so the edge is 12 - 10.3, not 12 - 10.
+    one = [t for t in res["trades"] if [r["player_key"] for r in t["give"]] == ["M1", "M2"] and len(t["receive"]) == 2]
+    if one and abs(one[0]["edge"] - 1.7) > 1e-6:
+        errors.append(f"the throw-in was not counted in the edge: {one[0]['edge']}")
+    # Two players short: 1-for-3 gets two throw-ins (my two cheapest), not one.
+    res = call(finder_js, "findTrades", mine_rows + [tr("M4", "WR", 0.5, 0.5)], their_rows + [tr("T3", "WR", 2, 2)], {"chartKeys": chart_keys, "maxSize": 3, "limit": 200})
+    if any(len(t["give"]) != len(t["receive"]) for t in res["trades"]):
+        errors.append("with a 3-player package the search still lists unequal player counts")
+    if not any(len(t.get("addedThrowIns") or []) == 2 for t in res["trades"]):
+        errors.append("a 1-for-3 package did not get two throw-ins")
+    # The throw-in is the least valuable BENCH player, not the least valuable overall: Q1 (0.1) is the lone QB and starts.
+    shape_qw = {"QB": 1, "RB": 0, "WR": 1, "TE": 0, "FLEX": 0, "SUPERFLEX": 0}
+    mine_b = [tr("Q1", "QB", 0.1, 0.1), tr("W1", "WR", 10, 20), tr("W2", "WR", 3, 3), tr("W3", "WR", 5, 5)]
+    theirs_b = [tr("T1", "WR", 9, 9), tr("T2", "WR", 8, 8)]
+    res = call(finder_js, "findTrades", mine_b, theirs_b, {"chartKeys": chart_keys, "maxSize": 2, "limit": 50,
+               "sanity": {"shape": shape_qw, "mine": mine_b, "theirs": theirs_b, "keepMine": False, "keepTheirs": False}})
+    added = [t["addedThrowIns"][0]["row"]["player_key"] for t in res["trades"] if t.get("addedThrowIns") and t["addedThrowIns"][0]["side"] == "give"]
+    if "Q1" in added:
+        errors.append("a starter (the lone QB) was added as the throw-in")
+    if "W2" not in added:
+        errors.append(f"the throw-in should be the cheapest bench player W2, got {added}")
+    # A team with no bench player left cannot supply a throw-in: the trade stays, marked unbalanced, nothing added.
+    shape = {"QB": 0, "RB": 0, "WR": 2, "TE": 0, "FLEX": 0, "SUPERFLEX": 0}
+    res = call(finder_js, "findTrades", mine_rows[:2], their_rows, {"chartKeys": chart_keys, "maxSize": 2, "limit": 50,
+               "sanity": {"shape": shape, "mine": mine_rows[:2], "theirs": their_rows, "keepMine": False, "keepTheirs": False}})
+    skipped = [t for t in res["trades"] if t.get("unbalanced")]
+    if not skipped or any(t.get("addedThrowIns") for t in skipped):
+        errors.append("a team with no bench player should leave the trade unbalanced with no throw-in added")
+
     return errors
 
 
@@ -110,6 +156,9 @@ MUTANTS = {
     "over rule one early": ("have > e.hi + 1 ? \"over\"", "have > e.hi ? \"over\""),
     "partial roster judged": ("includes(r.pos)).length >= slots &&", "includes(r.pos)).length >= 0 &&"),
     "market view reads fundamentals": ("r.values && finite(r.values[valueKey]) && r.values[valueKey] >= USABLE_MIN", "r.values && finite(r.values.ddf_value) && r.values.ddf_value >= USABLE_MIN"),
+    "throw-ins not wired into the search": ("const step = balanceCounts(work, balanceMine, balanceTheirs, balanceShape, ourKey, keys);", "const step = {balanced: false};"),
+    "throw-in may be a starter": ("&& !starterKeys.has(String(r.player_key)) && priced(r)", "&& priced(r)"),
+    "only one throw-in added": ("while (work.give.length !== work.receive.length) {", "while (work.give.length < 1 && work.give.length !== work.receive.length) {"),
     "sentence drops the lineup": ("const value = sums ?", "const value = false ?"),
 }
 
