@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWN_RED = {
     "test_v2_source_links_render": "JEG-983",
     "test_v2_writing_subtabs_order_render": "JEG-983",
-    "test_v2_phone_tap_targets_render": "JEG-983",
 }
 
 

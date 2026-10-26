@@ -1040,8 +1040,6 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
   #v2Compare .v2-deal { margin-top: 4px; padding-top: 4px; }
   /* JEG-932: the three net chips wrapped one per line (216 + 389 + 20px gap > 617px); a tighter gap lets two share a row, ~28px shorter. */
   #v2Compare .v2-deal-nets { gap: 2px 6px; margin: 2px 0; }
-  /* JEG-1048: wrapped net rows sit 26 px apart, so the 44 px info buttons crossed (a click in the lower row's top landed on the upper one). Here the hit box is the row pitch, as for the chart legend below. */
-  #v2Compare .v2-deal-nets .v2-info { height: 24px; margin-top: 0; margin-bottom: 0; }
   #v2Compare .v2-cstory { padding-top: 4px; margin-top: 0; }
 }
 

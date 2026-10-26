@@ -8,5 +8,9 @@ Contract: make tests/test_v2_phone_tap_targets_render.py green on the PR #949 ba
 - Serving linked chips exposed a real overlap: on a wide window with a fine pointer the legend chip's 15 px extension above and below covered the source link in the row above or below (768 to 1280 px, every chart tab). Fixed in v2.css (`.v2-showing-legend a.v2-div-chip::after` keeps its own box on fine pointers). Overlap sweep at 768, 1024, 1280 on trade-targets and player-values: 0 overlaps.
 - Negative checks: the overlaps above were observed with the fixes absent (before-state runs), and gone with them.
 
+### Follow-up (Jeremy decision, 2026-10-26)
+- Removed the Compare net info-button rule (`#v2Compare .v2-deal-nets .v2-info { height: 24px ... }`) and the half of test_guard_fails_without_jeg1048_fixes that guarded it. Reason: the rule is dead. With it removed there is no overlap at 1280x800, 1280x768, 1366x768, 1440x800 or 1280x720 (probe of the built page), so the guard could not fail. This was not done to go green; the Reviewed chip half stays and passes.
+- Verified: tests/test_v2_phone_tap_targets_render.py (3), tests/test_render_sweep_coverage.py and tests/test_v2_waterfall_render.py all pass (11 passed, RENDER_TESTS_REQUIRED=1, Chrome). File removed from KNOWN_RED and wired into the Makefile render list next to the phone header test.
+
 ### Claimed, not confirmed
-- test_guard_fails_without_jeg1048_fixes second assertion (Compare net info buttons, 24 px rule) still fails: with that rule removed there is no overlap at 1280x800, 1280x768, 1366x768, 1440x800 or 1280x720 on the merged base (3 net rows, one line). The guard cannot fail because the layout it names no longer overlaps; it earlier passed only by accident, via the legend overlap above. Not loosened; needs a decision whether to drop the dead 24 px rule and its half of the guard. The file stays in KNOWN_RED.
+- make test-core was not run.

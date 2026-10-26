@@ -253,15 +253,12 @@ class PhoneTapTargetsTest(unittest.TestCase):
         self.assertTrue(any("centre hits" in e for e in errors), f"old CSS search hit test was not caught: {errors}")
 
     def test_guard_fails_without_jeg1048_fixes(self):
-        """JEG-1048: the Reviewed chip's 44 px pseudo-element and the Compare net chips' 24 px info hit box each hold a check."""
+        """JEG-1048: the Reviewed chip's 44 px pseudo-element holds a check."""
         css = CSS.read_text(encoding="utf-8")
         chip = "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }\n"
-        info = "  #v2Compare .v2-deal-nets .v2-info { height: 24px; margin-top: 0; margin-bottom: 0; }\n"
         self.assertIn(chip, css, "stale mutation anchor")
-        self.assertIn(info, css, "stale mutation anchor")
-        errors = _errors(_run(css.replace(chip, "").replace(info, "")))
+        errors = _errors(_run(css.replace(chip, "")))
         self.assertTrue(any("under 44px" in e and "Reviewed" in e for e in errors), f"small Reviewed chip was not caught: {errors}")
-        self.assertTrue(any("1280 compare-trade" in e and "overlap" in e for e in errors), f"overlapping net info buttons were not caught: {errors}")
 
 
 if __name__ == "__main__":
