@@ -292,6 +292,17 @@ test("ESPN matchup page: 22/22 matched, two teams", function () {
   assert.strictEqual(result.benchIncluded, false, "bench is collapsed");
 });
 
+test("ESPN matchup page: a team named 'Bye Week ...' keeps both teams and the real Bye Week Players section (JEG-1110)", function () {
+  var text = readFixture("espn-matchup.txt").replace(/Team Zeta/g, "Bye Week Bandits");
+  var result = P.parse(text, PLAYERS);
+  assert.strictEqual(result.mode, "matchup");
+  assert.strictEqual(result.matched, 22);
+  assert.deepStrictEqual(result.teams.map(function (t) { return t.teamName; }), ["Bye Week Bandits", "My ESPN Team"]);
+  assert.strictEqual(result.teams[0].matched, 12, "9 starters, 1 injury and the 2 bye players");
+  assert.strictEqual(result.teams[1].matched, 10);
+  assert.strictEqual(result.players.filter(function (p) { return p.slot === "Bye"; }).length, 2, "the Bye Week Players section still parses");
+});
+
 test("all confidence scores are 1.0 on real fixtures", function () {
   ["yahoo-team.txt", "yahoo-matchup.txt", "espn-team.txt", "espn-matchup.txt"].forEach(function (f) {
     var text = readFixture(f);
