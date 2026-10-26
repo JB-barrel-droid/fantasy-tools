@@ -986,16 +986,16 @@
     if (event && event.detail && event.detail.notes && notes.length) event.detail.notes.push(...notes);
   }
 
-  // A share link: #find-trade?workspace=<text>.
+  // A share link: #find-league?workspace=<text> (older links used #find-trade?workspace=; v2.js rewrites them first).
   function readShareHash() {
     const hash = root.location.hash || "";
     const at = hash.indexOf("workspace=");
-    if (at < 0 || !hash.startsWith("#find-trade")) return;
+    if (at < 0 || !/^#find-(league|trade)\?/.test(hash)) return;
     const text = hash.slice(at + "workspace=".length).split("&")[0];
     const ctx = mathContext();
     if (!ctx) return;
     const teams = W.decodeShare(text, ctx.rowsByKey);
-    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-trade"); } catch (error) { /* the link stays in the address bar */ }
+    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league"); } catch (error) { /* the link stays in the address bar */ }
     if (!teams.length) { notice("That link carries no teams."); return; }
     let w = W.newWorkspace({name: "Shared league"});
     teams.forEach((t, i) => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); if (i === 0 && teams.length) w = W.ops.setMyTeam(w, w.teams[0].id); });
@@ -1004,7 +1004,7 @@
 
   // ---------- the cards ----------
   function build() {
-    const host = $("v2FindTrade");
+    const host = $("v2FindLeague");
     if (!host || $("v2LgCard")) return;
     const addBtn = button("Add team", {class: "v2-btn", id: "v2LgAdd"}, () => {
       const ws = store.get();
@@ -1020,7 +1020,7 @@
     const copyText = button("Copy as text", {class: "v2-btn", id: "v2LgCopyText"}, () => copy(W.copyText(store.get()), "Copied the teams as text."));
     const copyLink = button("Copy link", {class: "v2-btn", id: "v2LgCopyLink"}, () => {
       const enc = W.encodeShare(store.get());
-      const url = `${root.location.origin}${root.location.pathname}#find-trade?workspace=${enc.text}`;
+      const url = `${root.location.origin}${root.location.pathname}#find-league?workspace=${enc.text}`;
       copy(url, enc.full ? "Copied a link to the whole league." : "Link carries your team only. For the full league, use Download.");
     });
     const undo = button("", {class: "v2-btn", id: "v2LgUndo", hidden: true}, () => {
@@ -1069,7 +1069,7 @@
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
         el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by fundamentals capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
-    const anchor = $("v2Find") || host.querySelector(".v2-footnote");
+    const anchor = host.querySelector(".v2-footnote");
     host.insertBefore(league, anchor);
     host.insertBefore(summary, anchor);
     host.insertBefore(opps, anchor);

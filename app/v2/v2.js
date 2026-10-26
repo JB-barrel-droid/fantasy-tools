@@ -377,7 +377,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -6419,7 +6419,8 @@
   const DEFAULT_ROUTE = "#trade-targets";
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
-    const legacy = canonicalBase(base);
+    // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.
+    const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
     if (next === base) return;
@@ -6437,6 +6438,7 @@
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
     : base === "#find-trade" ? "find"
+    : base === "#find-league" ? "league"
     : base === "#waivers" ? "waivers"
     : base === "#value-overrides" ? "overrides"
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
@@ -6446,7 +6448,7 @@
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade", waivers: "Waivers", overrides: "Overrides"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -6472,6 +6474,7 @@
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
     $("v2FindTrade").hidden = v !== "find";
+    $("v2FindLeague").hidden = v !== "league";
     $("v2Waivers").hidden = v !== "waivers";   // JEG-1022
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
@@ -6479,7 +6482,7 @@
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "waivers" || v === "overrides";
+    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
     // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
@@ -6592,7 +6595,7 @@
     else if (currentView() === "audit") renderAudit();
     else if (currentView() === "waivers") { collect(); renderHeader(); if (window.TradeValueWaivers && window.TradeValueWaivers.activate) window.TradeValueWaivers.activate(); }   // JEG-1022
     else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
-    else if (currentView() === "writing" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing" || currentView() === "find" || currentView() === "league") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 

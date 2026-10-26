@@ -272,6 +272,17 @@ def _check_913(page, base) -> list[str]:
     snap = page.evaluate(ROUTE)
     if not snap["hash"].startswith("#find-trade?x=1") or snap["tab"] != ["find"]:
         errors.append(f"[913] the #find-trade deep link was rewritten: {snap}")
+    # JEG-1094: the league-wide screen is its own route and tab; an old league share link moves to it.
+    page.evaluate("() => { location.hash = '#find-league'; }")
+    page.wait_for_timeout(300)
+    snap = page.evaluate(ROUTE)
+    if snap["hash"] != "#find-league" or snap["tab"] != ["league"]:
+        errors.append(f"[1094] #find-league did not land on its own tab: {snap}")
+    page.evaluate("() => { location.hash = '#find-trade?workspace=zzz'; }")
+    page.wait_for_timeout(300)
+    snap = page.evaluate(ROUTE)
+    if not snap["hash"].startswith("#find-league") or snap["tab"] != ["league"]:
+        errors.append(f"[1094] an old #find-trade?workspace= league link did not move to the league-wide screen: {snap}")
     # Landing on an unknown hash.
     page.goto(base + "#nonsense-route", wait_until="networkidle")
     page.wait_for_function("() => window.TradeValueV2", timeout=40000)
