@@ -9,3 +9,6 @@ config:
       - jb-barrel-droid.github.io  # live dashboard, read by web_fetch
       - openrouter.ai              # outsourced bulk work
       - api.minimax.io             # outsourced bulk work (M3+)
+  packages:            # preinstalled so the gates and render checks run (smoke run 2026-10-27 lacked them)
+    pip: [pytest, playwright==1.49.1]
+    apt: [chromium]
