@@ -51,11 +51,21 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from pipelines.nfl_week import content_week, content_week_start
 from tests._dist_server import DIST, serve
 from tests import _render_env  # noqa: E402
 from tests._holds import HOLD_FIELDS  # noqa: E402
+
+
+def page_week() -> int:
+    """The content week the page is on: product-data.js todayIsoDay takes the
+    New York date. content_week() alone takes the machine's date (UTC on CI),
+    which says week N+1 from 00:00 UTC Tuesday while the page still says
+    week N, so the bumped charts read as a week ahead (JEG-1152)."""
+    return content_week(datetime.now(ZoneInfo("America/New_York")).date())
 
 
 def setUpModule():
@@ -441,7 +451,7 @@ def normalize_chart_weeks(fixture):
     Tests that need an unheld baseline also need charts at the current week so
     the JS freshness check doesn't mark them "not yet published".  Projections
     (ESPN, CBS ROS, Razzball) carry "rest of season" and are unaffected."""
-    week = content_week()
+    week = page_week()
     label = f"Week {week}"
     # The content_vintage for date-based sections (e.g. usatoday "2026-10-06")
     # needs a date in the current content week, not a "Week N" label.
@@ -476,7 +486,7 @@ def normalize_served_weeks(hist_index, fixture):
     as serving a stale week and excludes it.  Projections ("rest of season")
     also need bumping: they serve every week, so the history must report the
     same week as the charts for the prior-week pairing to include them."""
-    week = content_week()
+    week = page_week()
     served = hist_index.get("served") or {}
     for key in list(served):
         entry = served[key]
@@ -738,7 +748,7 @@ class DdfChartPriorWeekTest(unittest.TestCase):
     def test_chart_without_saved_prior_inputs_is_left_out_of_both_weeks(self):
         # JEG-676: use the normalized served week (content_week), not the
         # on-disk history week, since normalize_served_weeks bumps all sources.
-        prior = content_week() - 1
+        prior = page_week() - 1
 
         def drop_cbs(doc):
             doc["sources"].pop("cbs")

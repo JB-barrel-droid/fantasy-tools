@@ -614,7 +614,7 @@
   // Apply promotion/demotion model to ES parts. Off by default; enabled
   // when setting.promotion_model is truthy. Modifies lineup share and
   // part values to reflect persistent role-change probability.
-  function esApplyPromotionModel(es, work, starters, teams, pos, weeksRemaining) {
+  function esApplyPromotionModel(es, work, starters, teams, pos, weeksRemaining, waiver) {
     if (!es || !es.parts || es.avail <= 0 || weeksRemaining <= 0) return es;
     var avail = es.avail;
     var nPerTeam = es.nPerTeam;
@@ -630,10 +630,16 @@
         var ratePw = esPromotionRate(pos, depth);
         var promoBonusShare = ratePw * weeksRemaining * 0.5;
         var newLs = Math.min(avail, ls + promoBonusShare * (avail - ls));
-        if (ls > 0) {
+        var v = Math.max(0, work[i].native - (waiver || 0));
+        if (ls > 0 && v > 0) {
           var scale = newLs / ls;
           sp = sp * scale;
           fp = fp * scale;
+        } else if (v > 0) {
+          // No lineup share yet but value above waivers: promotion gives some
+          // (matches value_reference._apply_promotion_model, JEG-1152).
+          sp = avail * v * promoBonusShare;
+          fp = 0;
         }
         ls = newLs;
       } else if (rank > starters - nPerTeam * teams && rank <= starters) {
@@ -1017,7 +1023,7 @@
           es.m = lp.m;
           // JEG-969: apply promotion/demotion model if enabled
           if (promoEnabled && promoWeeksRemaining > 0) {
-            es = esApplyPromotionModel(es, work, S, Number(setting.teams) || 0, pos, promoWeeksRemaining);
+            es = esApplyPromotionModel(es, work, S, Number(setting.teams) || 0, pos, promoWeeksRemaining, waiver);
             es.sigmaRel = sigRel;
             es.sigmaFloor = sigFloor;
             es.m = lp.m;
