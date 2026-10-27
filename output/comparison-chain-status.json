@@ -1,6 +1,6 @@
 {
-  "run_at": "2026-10-26T23:02:12.343708+00:00",
-  "nfl_week": 7,
+  "run_at": "2026-10-27T00:02:21.253746+00:00",
+  "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added justice hill | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added justice hill)",
@@ -37,7 +37,7 @@
         "fantasypros"
       ],
       "hold_severity": "amber",
-      "week": 7
+      "week": 8
     },
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
@@ -50,7 +50,7 @@
       ],
       "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE",
       "hold_severity": "amber",
-      "week": 7
+      "week": 8
     },
     "razzball": {
       "reason": "fidelity: publisher_vs_stored",
@@ -63,7 +63,7 @@
       ],
       "detail": "2025/2025 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
       "hold_severity": "amber",
-      "week": 7
+      "week": 8
     }
   },
   "runner": "github-actions",
@@ -140,20 +140,20 @@
     "usatoday": {
       "content_vintage": "2026-10-20",
       "content_week": 7,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "fantasycalc": {
       "content_vintage": "Week 7",
       "content_week": 7,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "fantasypros": {
       "content_vintage": "2026-10-20",
       "content_week": 7,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "espn": {
       "content_vintage": "2026-10-26",
@@ -164,19 +164,19 @@
     "cbs": {
       "content_vintage": "Week 7",
       "content_week": 7,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "cbsros": {
       "content_vintage": "2026-10-26",
       "content_week": 7,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "razzball": {
       "content_vintage": "2026-10-24",
       "content_week": 7,
-      "health_status": "ok",
+      "health_status": "warn",
       "lagging_one_week": false
     }
   },
@@ -186,7 +186,7 @@
       "fantasypros"
     ],
     "composite_disagreements": [],
-    "values_compared": 1230740
+    "values_compared": 714140
   },
   "fidelity_holds": {
     "cbsros": "fidelity: publisher_vs_stored",
@@ -195,12 +195,32 @@
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
-    "failed_tests": [],
-    "assertions": [],
-    "make_targets": [
-      "Makefile:535: value-check-compare"
+    "failed_tests": [
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_override_is_reported_and_priced",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults",
+      "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults"
     ],
-    "detail": "make validate failed at Makefile:535: value-check-compare",
-    "recorded_at": "2026-10-26T23:36:38.864661+00:00"
+    "assertions": [
+      "TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'"
+    ],
+    "make_targets": [
+      "Makefile:614: test-core"
+    ],
+    "detail": "ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_override_is_reported_and_priced; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_three_non_default_settings; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; ERROR tests.test_bench_share_readout_matches_reference.BenchShareReadoutMatchesReference.test_twelve_settings_at_the_defaults; TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'",
+    "recorded_at": "2026-10-27T00:32:20.208251+00:00"
   }
 }
