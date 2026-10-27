@@ -1,7 +1,7 @@
 {
  "schema": "value-pipeline-worked-example/2",
  "spec": "docs/methodology.md, Value Pipeline (source-neutral, 2026-10-09), steps VP-0..VP-12 as decided 2026-10-09; summary table in the section's 'Worked example'",
- "note": "Regenerated 2026-10-09 for Jeremy's binding answers on JEG-508 (OC-1 A pie 28 per starting slot; OC-2 bench share fixed at 15%; OC-3 slices; OC-4 flex filled by mean projected points per game; OC-5 fill-in of rosterable players a chart does not list; OC-6 one weight set; OC-7 projections in the Trade charts (as published) view as Adjusted values, off by default; OC-8 Indexed basis counts DDF zeros). Provenance: computed by a throwaway script written from the edited VP text (not committed, not an implementation), then the key numbers (allocation, fill sets, every estimate, DDF weights, budgets, rates, selected Adjusted values, DDF versions and Indexed factors) were recomputed by a second, independently written script in exact rational arithmetic (Python fractions), which agreed with every checked value to the 6 decimals shown (0 mismatches at 1e-6 over 280+ values; a perturbed copy was caught). Values are unrounded doubles shown to 6 decimals; implementations must reproduce them to 1e-6. Cases pinned: flex by projected points (WR November and TE Uniform) where c1's own values would give RB Foxtrot the flex (expected.flex_contrast); 15% bench (ddf_weights bench groups sum to 0.15); OC-5 peer-ratio estimates (c2 WR Quebec, median of 2; c5 WR Papa and TE Victor, median of 3; c4 RB Golf, 10-player fit window and capped at c4's lowest listed RB); OC-5 curve estimates for RB Juliet (no chart lists him: capped on c1, c2, c3, c4; uncapped 19.563731 on c5); players below rosterable depth a chart does not list are 0 (c2 RB Hotel, c5 QB Delta). c3 is held and equals 10 x c1, so its Adjusted and Indexed values equal c1's. JEG-804 (2026-10-22): blended DDF Value changed to projections only (Jeremy Q4 answer). Expected blended DDF, Indexed, rankings and tiers updated throughout.",
+ "note": "Regenerated 2026-10-09 for Jeremy's binding answers on JEG-508 (OC-1 A pie 28 per starting slot; OC-2 bench share fixed at 15%; OC-3 slices; OC-4 flex filled by mean projected points per game; OC-5 fill-in of rosterable players a chart does not list; OC-6 one weight set; OC-7 projections in the Trade charts (as published) view as Adjusted values, off by default; OC-8 Indexed basis counts DDF zeros). Provenance: computed by a throwaway script written from the edited VP text (not committed, not an implementation), then the key numbers (allocation, fill sets, every estimate, DDF weights, budgets, rates, selected Adjusted values, DDF versions and Indexed factors) were recomputed by a second, independently written script in exact rational arithmetic (Python fractions), which agreed with every checked value to the 6 decimals shown (0 mismatches at 1e-6 over 280+ values; a perturbed copy was caught). Values are unrounded doubles shown to 6 decimals; implementations must reproduce them to 1e-6. Cases pinned: flex by projected points (WR November and TE Uniform) where c1's own values would give RB Foxtrot the flex (expected.flex_contrast); 15% bench (ddf_weights bench groups sum to 0.15); OC-5 peer-ratio estimates (c2 WR Quebec, median of 2; c5 WR Papa and TE Victor, median of 3; c4 RB Golf, 10-player fit window and capped at c4's lowest listed RB); OC-5 curve estimates for RB Juliet (no chart lists him: capped on c1, c2, c3, c4; uncapped 19.563731 on c5); players below rosterable depth a chart does not list are 0 (c2 RB Hotel, c5 QB Delta). c3 is held and equals 10 x c1, so its Adjusted and Indexed values equal c1's. JEG-804 (2026-10-22): blended DDF Value changed to projections only (Jeremy Q4 answer). Expected blended DDF, Indexed, rankings and tiers updated throughout. JEG-1073 (2026-10-25): blended DDF Value changed back to the charts (Adjusted, equal weight; Jeremy), so the Indexed basis follows. Expected blended DDF, Indexed (c5 only), rankings and tiers updated; values taken from pipelines/value_reference.py and reproduced by the engine and the spec reference.",
  "setting": {
   "teams": 2,
   "slots": {
@@ -666,40 +666,40 @@
     }
    },
    "c5": {
-    "factor": 0.52368,
+    "factor": 0.524555,
     "shared_players": 13,
-    "ddf_total": 278.597634,
+    "ddf_total": 279.063406,
     "native_total": 532.0,
     "values": {
-     "101": 19.899831,
-     "102": 12.568314,
-     "103": 7.331517,
-     "104": 3.85158,
-     "201": 49.749577,
-     "202": 30.373426,
-     "203": 17.281432,
+     "101": 19.9331,
+     "102": 12.589327,
+     "103": 7.343774,
+     "104": 3.858019,
+     "201": 49.832751,
+     "202": 30.424206,
+     "203": 17.310324,
      "204": 0.0,
      "205": 0.0,
      "206": 0.0,
-     "207": 10.24513,
+     "207": 10.262258,
      "208": 0.0,
      "209": 0.0,
      "210": 0.0,
      "211": 0.0,
      "212": 0.0,
      "213": 0.0,
-     "301": 42.941741,
-     "302": 25.136629,
-     "303": 21.99455,
-     "304": 10.997275,
-     "305": 7.369702,
-     "306": 4.987231,
+     "301": 43.013532,
+     "302": 25.178653,
+     "303": 22.031321,
+     "304": 11.015661,
+     "305": 7.382023,
+     "306": 4.995569,
      "307": 0.0,
      "308": 0.0,
-     "401": 25.136629,
-     "402": 11.520955,
-     "403": 3.665758,
-     "404": 2.337585,
+     "401": 25.178653,
+     "402": 11.540216,
+     "403": 3.671887,
+     "404": 2.341493,
      "405": 0.0
     }
    }
@@ -707,16 +707,16 @@
   "default_ranking": [
    301,
    201,
-   101,
    401,
-   202,
+   101,
    302,
    402,
-   403,
+   202,
    303,
    102,
-   304,
+   403,
    203,
+   304,
    103,
    305,
    104,
@@ -4513,17 +4513,19 @@
      "c2": 15.107913669064745,
      "c3": 17.877094972067034,
      "c4": 15.896188158961882,
-     "c5": 19.899831
+     "c5": 19.9331
     },
     "ddf_tier": "starter",
     "mean_ppg": 21.0,
     "ddf_blended": {
-     "value": 30.840947,
-     "count": 2,
+     "value": 28.230569,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -4574,17 +4576,19 @@
      "c2": 11.079136690647479,
      "c3": 11.173184357541896,
      "c4": 12.716950527169505,
-     "c5": 12.568314
+     "c5": 12.589327
     },
     "ddf_tier": "starter",
     "mean_ppg": 15.5,
     "ddf_blended": {
-     "value": 8.993685,
-     "count": 2,
+     "value": 12.092917,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -4635,17 +4639,19 @@
      "c2": 5.035971223021582,
      "c3": 6.703910614525138,
      "c4": 5.450121654501217,
-     "c5": 7.331517
+     "c5": 7.343774
     },
     "ddf_tier": "bench",
     "mean_ppg": 12.5,
     "ddf_blended": {
-     "value": 1.963178,
-     "count": 2,
+     "value": 1.474324,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -4698,17 +4704,19 @@
      "c2": 3.0215827338129486,
      "c3": 3.5754189944134067,
      "c4": 3.1792376317923763,
-     "c5": 3.85158
+     "c5": 3.858019
     },
     "ddf_tier": "waiver",
     "mean_ppg": 9.0,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -4759,17 +4767,19 @@
      "c2": 50.35971223021581,
      "c3": 40.223463687150826,
      "c4": 38.605028386050286,
-     "c5": 49.749577
+     "c5": 49.832751
     },
     "ddf_tier": "starter",
     "mean_ppg": 17.5,
     "ddf_blended": {
-     "value": 45.819969,
-     "count": 2,
+     "value": 50.413773,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -4820,17 +4830,19 @@
      "c2": 27.697841726618698,
      "c3": 26.81564245810055,
      "c4": 29.521492295214923,
-     "c5": 30.373426
+     "c5": 30.424206
     },
     "ddf_tier": "starter",
     "mean_ppg": 14.5,
     "ddf_blended": {
-     "value": 23.522424,
-     "count": 2,
+     "value": 18.143897,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -4881,17 +4893,19 @@
      "c2": 15.107913669064745,
      "c3": 15.642458100558654,
      "c4": 18.167072181670722,
-     "c5": 17.281432
+     "c5": 17.310324
     },
     "ddf_tier": "bench",
     "mean_ppg": 9.8,
     "ddf_blended": {
-     "value": 2.289403,
-     "count": 2,
+     "value": 3.074125,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -4948,11 +4962,13 @@
     "mean_ppg": 7.5,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5009,11 +5025,13 @@
     "mean_ppg": 5.5,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5070,11 +5088,13 @@
     "mean_ppg": 2.5,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5131,16 +5151,19 @@
      "c2": 1.5107913669064743,
      "c3": 0.44692737430167584,
      "c4": 0.9083536090835361,
-     "c5": 10.24513
+     "c5": 10.262258
     },
     "ddf_tier": "waiver",
     "mean_ppg": 8.5,
     "ddf_blended": {
      "value": 0.0,
-     "count": 1,
-     "low_confidence": true,
+     "count": 4,
+     "low_confidence": false,
      "sources": [
-      "p1"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5196,11 +5219,13 @@
     "mean_ppg": 2.1,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5257,11 +5282,13 @@
     "mean_ppg": 1.8,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5318,11 +5345,13 @@
     "mean_ppg": 1.55,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5379,11 +5408,13 @@
     "mean_ppg": 1.2,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5440,11 +5471,13 @@
     "mean_ppg": 0.9,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5501,11 +5534,13 @@
     "mean_ppg": 0.6,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5556,17 +5591,19 @@
      "c2": 42.80575539568344,
      "c3": 35.75418994413407,
      "c4": 34.0632603406326,
-     "c5": 42.941741
+     "c5": 43.013532
     },
     "ddf_tier": "starter",
     "mean_ppg": 16.5,
     "ddf_blended": {
-     "value": 55.583754,
-     "count": 2,
+     "value": 54.32609,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5617,17 +5654,19 @@
      "c2": 22.661870503597115,
      "c3": 22.34636871508379,
      "c4": 24.979724249797243,
-     "c5": 25.136629
+     "c5": 25.178653
     },
     "ddf_tier": "starter",
     "mean_ppg": 12.5,
     "ddf_blended": {
-     "value": 22.770682,
-     "count": 2,
+     "value": 23.695114,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5678,17 +5717,19 @@
      "c2": 17.625899280575535,
      "c3": 17.877094972067034,
      "c4": 17.258718572587185,
-     "c5": 21.99455
+     "c5": 22.031321
     },
     "ddf_tier": "starter",
     "mean_ppg": 11.0,
     "ddf_blended": {
-     "value": 11.503543,
-     "count": 2,
+     "value": 12.878684,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5739,17 +5780,19 @@
      "c2": 10.071942446043163,
      "c3": 9.832402234636868,
      "c4": 11.3544201135442,
-     "c5": 10.997275
+     "c5": 11.015661
     },
     "ddf_tier": "bench",
     "mean_ppg": 9.0,
     "ddf_blended": {
-     "value": 3.298158,
-     "count": 2,
+     "value": 2.72202,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5802,17 +5845,19 @@
      "c2": 6.043165467625897,
      "c3": 6.2569832402234615,
      "c4": 6.812652068126521,
-     "c5": 7.369702
+     "c5": 7.382023
     },
     "ddf_tier": "bench",
     "mean_ppg": 6.5,
     "ddf_blended": {
-     "value": 1.402366,
-     "count": 2,
+     "value": 0.936594,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5866,17 +5911,19 @@
      "c2": 4.552001789158664,
      "c3": 4.022346368715083,
      "c4": 4.5417680454176805,
-     "c5": 4.987231
+     "c5": 4.995569
     },
     "ddf_tier": "waiver",
     "mean_ppg": 4.5,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5933,11 +5980,13 @@
     "mean_ppg": 3.0,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -5994,11 +6043,13 @@
     "mean_ppg": 2.0,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -6049,17 +6100,19 @@
      "c2": 25.179856115107906,
      "c3": 20.111731843575413,
      "c4": 18.167072181670722,
-     "c5": 25.136629
+     "c5": 25.178653
     },
     "ddf_tier": "starter",
     "mean_ppg": 12.0,
     "ddf_blended": {
-     "value": 29.737097,
-     "count": 2,
+     "value": 49.05722,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -6110,17 +6163,19 @@
      "c2": 10.071942446043163,
      "c3": 8.044692737430166,
      "c4": 11.3544201135442,
-     "c5": 11.520955
+     "c5": 11.540216
     },
     "ddf_tier": "starter",
     "mean_ppg": 10.5,
     "ddf_blended": {
-     "value": 21.876203,
-     "count": 2,
+     "value": 19.797964,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -6171,17 +6226,19 @@
      "c2": 4.028776978417265,
      "c3": 2.6815642458100553,
      "c4": 4.087591240875913,
-     "c5": 3.665758
+     "c5": 3.671887
     },
     "ddf_tier": "starter",
     "mean_ppg": 10.2,
     "ddf_blended": {
-     "value": 20.398592,
-     "count": 2,
+     "value": 3.156708,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -6234,17 +6291,19 @@
      "c2": 1.5107913669064743,
      "c3": 1.7877094972067034,
      "c4": 2.2708840227088403,
-     "c5": 2.337585
+     "c5": 2.341493
     },
     "ddf_tier": "waiver",
     "mean_ppg": 3.0,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -6301,11 +6360,13 @@
     "mean_ppg": 1.5,
     "ddf_blended": {
      "value": 0.0,
-     "count": 2,
+     "count": 4,
      "low_confidence": false,
      "sources": [
-      "p1",
-      "p2"
+      "c1",
+      "c2",
+      "c4",
+      "c5"
      ]
     },
     "ddf_charts": {
@@ -6432,13 +6493,13 @@
    "TE|bench": 0.008075259279871778
   },
   "rows_ddf_blended": {
-   "101": 31.549451,
-   "102": 8.417055,
-   "103": 1.308786,
+   "101": 28.689667,
+   "102": 11.602742,
+   "103": 0.982883,
    "104": 0.0,
-   "201": 46.270749,
-   "202": 22.661584,
-   "203": 1.526268,
+   "201": 51.288644,
+   "202": 17.12054,
+   "203": 2.049417,
    "204": 0.0,
    "205": 0.0,
    "206": 0.0,
@@ -6449,17 +6510,17 @@
    "211": 0.0,
    "212": 0.0,
    "213": 0.0,
-   "301": 57.210333,
-   "302": 22.46708,
-   "303": 10.537168,
-   "304": 2.198772,
-   "305": 0.934911,
+   "301": 55.742492,
+   "302": 23.309693,
+   "303": 11.857004,
+   "304": 1.81468,
+   "305": 0.624396,
    "306": 0.0,
    "307": 0.0,
    "308": 0.0,
-   "401": 31.042991,
-   "402": 22.719691,
-   "403": 21.155161,
+   "401": 51.499591,
+   "402": 20.519203,
+   "403": 2.899049,
    "404": 0.0,
    "405": 0.0
   }
@@ -6525,11 +6586,11 @@
     "TE|bench": 2.786121
    },
    "bench_share_readout": {
-    "QB": 0.105913,
-    "RB": 0.058606,
-    "WR": 0.195246,
-    "TE": 0.019659,
-    "overall": 0.115324,
+    "QB": 0.049255,
+    "RB": 0.064716,
+    "WR": 0.132493,
+    "TE": 0.037807,
+    "overall": 0.086005,
     "override": false,
     "fill_in_share": 0.090833
    },
@@ -8900,17 +8961,17 @@
    },
    "rows": {
     "101": {
-     "ddf_blended": 24.153596,
+     "ddf_blended": 23.30773,
      "lineup_share": 0.670783,
      "start_worthy": 0.984211
     },
     "102": {
-     "ddf_blended": 10.26104,
+     "ddf_blended": 13.287756,
      "lineup_share": 0.585264,
      "start_worthy": 0.831239
     },
     "103": {
-     "ddf_blended": 4.076738,
+     "ddf_blended": 1.895888,
      "lineup_share": 0.302216,
      "start_worthy": 0.096484
     },
@@ -8920,17 +8981,17 @@
      "start_worthy": 0.000338
     },
     "201": {
-     "ddf_blended": 40.204667,
+     "ddf_blended": 42.2146,
      "lineup_share": 0.657932,
      "start_worthy": 0.945192
     },
     "202": {
-     "ddf_blended": 23.630049,
+     "ddf_blended": 21.205776,
      "lineup_share": 0.580103,
      "start_worthy": 0.803996
     },
     "203": {
-     "ddf_blended": 3.973962,
+     "ddf_blended": 4.388303,
      "lineup_share": 0.316372,
      "start_worthy": 0.092324
     },
@@ -8985,37 +9046,37 @@
      "start_worthy": 0.0
     },
     "301": {
-     "ddf_blended": 45.680615,
+     "ddf_blended": 50.267125,
      "lineup_share": 0.691176,
      "start_worthy": 0.968485
     },
     "302": {
-     "ddf_blended": 28.417053,
+     "ddf_blended": 30.135001,
      "lineup_share": 0.664209,
      "start_worthy": 0.911581
     },
     "303": {
-     "ddf_blended": 21.349818,
+     "ddf_blended": 22.488148,
      "lineup_share": 0.629387,
      "start_worthy": 0.837809
     },
     "304": {
-     "ddf_blended": 15.491881,
+     "ddf_blended": 8.679564,
      "lineup_share": 0.429906,
      "start_worthy": 0.120761
     },
     "305": {
-     "ddf_blended": 5.175934,
+     "ddf_blended": 4.700437,
      "lineup_share": 0.360397,
      "start_worthy": 0.012285
     },
     "306": {
-     "ddf_blended": 2.204426,
+     "ddf_blended": 2.113553,
      "lineup_share": 0.276534,
      "start_worthy": 0.000225
     },
     "307": {
-     "ddf_blended": 0.284774,
+     "ddf_blended": 0.220672,
      "lineup_share": 0.081405,
      "start_worthy": 0.0
     },
@@ -9025,22 +9086,22 @@
      "start_worthy": 0.0
     },
     "401": {
-     "ddf_blended": 20.643075,
+     "ddf_blended": 33.816343,
      "lineup_share": 0.646902,
      "start_worthy": 0.964269
     },
     "402": {
-     "ddf_blended": 17.035008,
+     "ddf_blended": 14.972687,
      "lineup_share": 0.637373,
      "start_worthy": 0.941484
     },
     "403": {
-     "ddf_blended": 16.334249,
+     "ddf_blended": 4.22341,
      "lineup_share": 0.56759,
      "start_worthy": 0.773525
     },
     "404": {
-     "ddf_blended": 1.083116,
+     "ddf_blended": 2.083008,
      "lineup_share": 0.407727,
      "start_worthy": 0.095478
     },
@@ -9097,11 +9158,11 @@
     "TE|bench": 0.009637
    },
    "bench_share_readout": {
-    "QB": 0.10824,
-    "RB": 0.062889,
-    "WR": 0.20233,
-    "TE": 0.019159,
-    "overall": 0.119832,
+    "QB": 0.052914,
+    "RB": 0.075424,
+    "WR": 0.144818,
+    "TE": 0.037049,
+    "overall": 0.094309,
     "override": true,
     "fill_in_share": 0.1
    },
@@ -9178,13 +9239,13 @@
     }
    },
    "rows_ddf_blended": {
-    "101": 24.085318,
-    "102": 10.283102,
-    "103": 4.171568,
+    "101": 23.232859,
+    "102": 13.267807,
+    "103": 2.039321,
     "104": 0.0,
-    "201": 39.839314,
-    "202": 23.624614,
-    "203": 4.259048,
+    "201": 41.568731,
+    "202": 21.046297,
+    "203": 5.107948,
     "204": 0.0,
     "205": 0.0,
     "206": 0.0,
@@ -9195,18 +9256,18 @@
     "211": 0.0,
     "212": 0.0,
     "213": 0.0,
-    "301": 45.251668,
-    "302": 28.291329,
-    "303": 21.364116,
-    "304": 15.762064,
-    "305": 5.581113,
-    "306": 2.417666,
-    "307": 0.31252,
+    "301": 49.681043,
+    "302": 29.786327,
+    "303": 22.282536,
+    "304": 9.510505,
+    "305": 5.158412,
+    "306": 2.319481,
+    "307": 0.242173,
     "308": 0.0,
-    "401": 20.531298,
-    "402": 16.937171,
-    "403": 16.239,
-    "404": 1.049091,
+    "401": 33.651678,
+    "402": 14.896286,
+    "403": 4.179895,
+    "404": 2.028701,
     "405": 0.0
    }
   }

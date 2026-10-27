@@ -7,7 +7,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 - One folder per topic once a topic has 3 or more files (`health/`, `audits/`, `contract/`, `planning/`, `design/`, `decisions/`). Single standing pages stay at the top level.
 - File names are lowercase kebab-case: `topic-subject.md`. Exceptions kept for history: `MODULES.md`, `QA_FRAMEWORKS.md`, `SUPABASE_WRITER_AUDIT.md`, `TRADE_DASHBOARD_QA_ROUND1.md` (rename when next edited).
 - Ticket-bound write-ups carry the ticket id as a prefix: `jeg-123-short-subject.md`. They are records, not maintained pages.
-- Session logs go in `claude-log/YYYY-MM-DD-slug.md`, one file per PR. `claude-log.md` is frozen (old entries only).
+- Every session that changes anything writes a log in `claude-log/YYYY-MM-DD-slug.md`, one file per PR (required by `CLAUDE.md`, Jeremy 2026-10-23). `claude-log.md` is frozen (old entries only).
 - Every page opens with a title, then a one-paragraph purpose, then a status or "Last updated" line when it can go stale.
 - Every page needs one line in this index. Superseded or finished docs move to `archive/` (repo root) with a dated README; nothing is deleted.
 - Staleness rule: a Maintained page names its owner ticket and a last-verified date; any Maintained page not verified in 30 days is stale and gets a refresh ticket (JEG-583).
@@ -35,6 +35,9 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [math-review-questions-2026-10-12.md](math-review-questions-2026-10-12.md) | Record | - | - | Judgment calls left for Jeremy after the 2026-10-15 verification of the math review agenda (JEG-450). |
 | [player-scenario-regression-tests.md](player-scenario-regression-tests.md) | Maintained | unknown | unknown | Football-question scenarios used as regression tests on current players. |
 | [QA_FRAMEWORKS.md](QA_FRAMEWORKS.md) | Maintained | unknown | unknown | Systematic QA frameworks for whole dimensions of the dashboard. |
+| [product/methodology-outline.md](product/methodology-outline.md) | Proposal | - | - | Draft page list for a reader-facing Methodology section under "Learn" (JEG-1105); which pages wait for JEG-1081. |
+| [product/fit-label-glossary-draft.md](product/fit-label-glossary-draft.md) | Proposal | - | - | Draft plain definitions and numeric rules for Natural, Value, Market and Force fit, with code-vs-doc disagreements (JEG-1097). |
+| [product/ddf-two-views-article-outline.md](product/ddf-two-views-article-outline.md) | Proposal | - | - | Outline of the Trade Charts vs Projections view pros-and-cons article, with the JEG-1073 numbers and what is still to measure (JEG-1102). |
 
 ## Architecture and data
 

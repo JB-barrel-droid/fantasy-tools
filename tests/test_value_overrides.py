@@ -5,7 +5,8 @@ value ... have it permeate through the full dashboard."
 
 Checks, on the build-only engine page, at four league settings:
 1. Off by default: getValueOverrides() is empty and no row carries an override.
-2. An override replaces DDF Value (ddf_value and ddf_value_projections) on that
+2. An override replaces DDF Value (ddf_value only since JEG-1073; the projections
+   alternate ddf_value_projections is not overridden) on that
    player's row in getAllRows(), getRows() and searchPlayers(), marks the row
    (valueOverride, ddfPipelineValue) and moves him in the DDF Value ranking.
 3. Nothing else moves: every other player's values, the overridden player's
@@ -29,7 +30,7 @@ COMBOS = [["ppr", 12], ["standard", 8], ["half_ppr", 10], ["ppr", 14]]
 
 SCRIPT = """async (combos) => {
   const c = window.TradeValueCurveControls;
-  const OV = ['ddf_value', 'ddf_value_projections'];
+  const OV = ['ddf_value'];   // JEG-1073: the projections alternate is not overridden
   const snap = () => {
     const out = {};
     c.getAllRows().forEach(r => Object.entries(r.values).forEach(([k, v]) => { out[`${r.player_key}|${k}`] = v; }));
@@ -63,6 +64,7 @@ SCRIPT = """async (combos) => {
     if (row.ddfPipelineValue !== base[`${low.player_key}|ddf_value`]) problems.push(`${tag}: ddfPipelineValue ${row.ddfPipelineValue}`);
     if (row.ddfByVersion.blended.value !== target || !row.ddfByVersion.blended.overridden) problems.push(`${tag}: ddfByVersion.blended not overridden`);
     if (row.ddfByVersion.charts.overridden) problems.push(`${tag}: trade chart average marked overridden`);
+    if (row.ddfByVersion.projections.overridden || row.values.ddf_value_projections !== base[`${low.player_key}|ddf_value_projections`]) problems.push(`${tag}: projections alternate was overridden`);
     const hit = c.searchPlayers(low.name, {limit: 5}).find(r => r.player_key === low.player_key);
     if (!hit || hit.values.ddf_value !== target) problems.push(`${tag}: searchPlayers row not overridden`);
     c.setPosition('RB'); c.setLockOrder('ddf_value');
@@ -79,7 +81,11 @@ SCRIPT = """async (combos) => {
 
 
 def run(script, arg=None):
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        # JEG-1075: skip locally, error under RENDER_TESTS_REQUIRED=1.
+        raise _render_env.unavailable("Playwright is not installed")
     with sync_playwright() as p:
         exe = _render_env.chromium_executable(p)
         if exe is None:

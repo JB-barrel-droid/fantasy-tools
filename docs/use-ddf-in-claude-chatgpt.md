@@ -4,7 +4,7 @@ How to connect the trade values to a chat assistant (JEG-1012, JEG-1024). Last u
 
 ## What you get
 
-Ask in plain words ("who is worth more, Chase or Bijan, in a 10-team half-PPR superflex league?") and the assistant calls the tool with your league settings. Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`, `read_state`, `make_state`, `explain`. Every answer ends with a link to the same view on the site, and work moves both ways: paste a `ddf-state` block from the site into the chat and the assistant continues from it; ask the assistant to save its work and paste the block (or open the link) on the site. Format: `design/llm-site-state.md`.
+Ask in plain words ("who is worth more, Chase or Bijan, in a 10-team half-PPR superflex league?") and the assistant calls the tool with your league settings. Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`, `read_state`, `make_state`, `explain`. Every answer ends with a link to the same view on the site, and work moves both ways: press **Copy for ChatGPT/Claude** in the site footer and paste the result into the chat; the assistant continues from it. Ask it to save its work, then paste the block into **Paste from ChatGPT/Claude** (same footer) or open the link, and the site shows what was applied and what was ignored. Format: `design/llm-site-state.md`.
 
 ## Connect
 
@@ -20,5 +20,5 @@ Plan and menu names change; check the vendor's connector docs if a step has move
 
 - Public and rate limited (60 requests a minute per IP for `mcp`, 30 for `get-values`). The first call after idle can take several seconds.
 - The values endpoint prices the whole league: scoring, team count, roster shape, position shares, season weeks and advanced settings (JEG-1031). A custom league is computed per request, so its first answer takes about a second.
-- Until the site reads `teams`, `mine`, `theirs` and `target` from a link (JEG-1026), a link for Find a trade or Trade targets opens the right tab but not the rosters or target.
+- A link carries the league (scoring, `teams`, roster shape) and your work: Find a trade rosters (`mine`, `theirs`), a Trade targets player (`target`) and the trade (`give`, `get`). Names an assistant gives that the site cannot match are listed on the page, never guessed.
 - No prior-week "risers and fallers" yet (JEG-1029).

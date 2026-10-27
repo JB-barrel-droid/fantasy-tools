@@ -658,8 +658,8 @@
 
   // ===================================================================
   // JEG-1044: the value basis (VP-6.3). "Our value" is DDF Value, the blended
-  // version. By default it is the equal-weight mean of the projection sources'
-  // Adjusted values. A reader may instead name one source ("single") or a
+  // version. By default it is the equal-weight mean of the trade charts'
+  // Adjusted values (JEG-1073). A reader may instead name one source ("single") or a
   // weighted mean over any subset ("blend") on the same Adjusted scale. The
   // basis only changes which Adjusted values the blended version averages (and
   // therefore the Indexed basis, tiers and ranking that read it); VP-1 to
@@ -1223,13 +1223,12 @@
     var rowKeys = Object.keys(allKeys).sort(vpNumKey);
     var rows = {};
     var selection = Array.isArray(input.compositeInputs) ? input.compositeInputs : null;
-    // JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
-    // only (ESPN, CBS ROS, Razzball).  Trade charts stay on the Indexed/VORP
-    // comparison tabs but are no longer inputs to the blended DDF Value.
-    // Fallback: when no projection is in I (e.g. a saved week where the only
-    // projection is unmatched), use all included sources so the Indexed basis
-    // can still be computed.
-    var blendedI = projI.length ? projI : included;
+    // JEG-1073 (Jeremy, 2026-10-25): DDF Value = the Adjusted trade charts
+    // (FantasyCalc, USA Today, FantasyPros, CBS), equal weight. The projections
+    // version is the alternate. This reverses JEG-804. With no chart in I the
+    // blended value is unavailable (null), never a fallback to projections
+    // (Jeremy, 2026-10-25).
+    var blendedI = chartsI;
     var versionSources = {
       blended: blendedI,
       charts: chartsI,
@@ -1353,10 +1352,10 @@
     // selection; with no selection it is exactly the displayed blended value.
     // JEG-569 part 2: hidden sources are excluded from the basis (consistent
     // with the DDF blend) so fixedPieIndexed holds.
-    // JEG-804: the Indexed basis is the blended DDF Value, which is now
-    // projections-only (or all-included as a fallback when no projection is
-    // in I).  Use versionSources.blended so the basis stays equal to the
-    // displayed blended DDF Value.
+    // JEG-1073: the Indexed basis is the blended DDF Value, now the Adjusted
+    // chart average (Jeremy, 2026-10-25: Indexed is just the scaling). Use
+    // versionSources.blended so the basis stays equal to the displayed
+    // blended DDF Value.
     var indexBasis = {};
     rowKeys.forEach(function (key) {
       // JEG-1044: with a reader basis the Indexed basis is that basis (the

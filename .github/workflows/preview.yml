@@ -167,4 +167,5 @@ jobs:
           make sync
       - name: make test-unit
         run: |
+          python3 -m pip install --quiet pytest
           make test-unit

@@ -126,7 +126,9 @@ Object.entries(result.rows).forEach(([k, row]) => {
   const has = Object.prototype.hasOwnProperty.call(valueOverrides, k);
   // (A pre-JEG-1044 engine, used to pin the default path, has no overlay.)
   if (typeof ValueModel.applyDdfOverride !== "function") return;
-  ["blended", "projections"].forEach((v) => {
+  // JEG-1073: an override replaces the blended DDF Value only; the projections
+  // version is a separate alternate and is not overridden.
+  ["blended"].forEach((v) => {
     ValueModel.applyDdfOverride(row.ddfByVersion[v], has ? Number(valueOverrides[k]) : null);
   });
 });

@@ -6,11 +6,14 @@ Writes, under dist/ (called from sync_dashboard_artifacts.main, the single publi
   ddf-skill.zip               the same skill as an uploadable zip (SKILL.md in a ddf folder)
   mcp-server-card.json        connection card (also at .well-known/mcp/server-card.json)
   get-values.openapi.yaml     Custom GPT Actions schema (copy of docs/get-values.openapi.yaml)
+  connect/index.html          the connect guide (docs/use-ddf-in-claude-chatgpt.md as a page), linked from the site footer (JEG-1026)
 Sources live in app/llm/; {{SITE_URL}} and {{MCP_URL}} are filled in here so the URLs have one home.
 """
 from __future__ import annotations
 
+import html as html_lib
 import os
+import re
 import shutil
 import sys
 import zipfile
@@ -19,6 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "app" / "llm"
 OPENAPI = ROOT / "docs" / "get-values.openapi.yaml"
+GUIDE = ROOT / "docs" / "use-ddf-in-claude-chatgpt.md"
 
 SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # The public remote MCP function (JEG-1012). DDF_MCP_URL overrides it for a new project or domain.
@@ -30,6 +34,50 @@ def fill(text: str, site_url: str, mcp_url: str) -> str:
     if "{{" in out:
         raise SystemExit(f"build_llm_surfaces: unfilled placeholder in template: {out[out.index('{{'):][:40]!r}")
     return out
+
+
+def _inline(text: str) -> str:
+    """Inline Markdown for the guide: `code`, **bold**, [text](url). Everything else is escaped text."""
+    out = html_lib.escape(text, quote=False)
+    out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
+    out = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", out)
+    return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2">\1</a>', out)
+
+
+def guide_html(markdown: str) -> str:
+    """The connect guide as a small standalone page (JEG-1026). The guide uses headings, paragraphs and bullet lists only."""
+    body: list[str] = []
+    in_list = False
+    title = "Use Data Driven Football in Claude and ChatGPT"
+    for line in markdown.splitlines():
+        item = re.match(r"^\s*[-*]\s+(.*)$", line)
+        if in_list and not item:
+            body.append("</ul>")
+            in_list = False
+        if item:
+            if not in_list:
+                body.append("<ul>")
+                in_list = True
+            body.append(f"<li>{_inline(item.group(1))}</li>")
+            continue
+        heading = re.match(r"^(#{1,3})\s+(.*)$", line)
+        if heading:
+            level = len(heading.group(1))
+            if level == 1:
+                title = heading.group(2).strip()
+            body.append(f"<h{level}>{_inline(heading.group(2).strip())}</h{level}>")
+        elif line.strip():
+            body.append(f"<p>{_inline(line.strip())}</p>")
+    if in_list:
+        body.append("</ul>")
+    return ("<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+            "<meta name=\"color-scheme\" content=\"light dark\">\n"
+            f"<title>{html_lib.escape(title)}</title>\n"
+            "<style>body{font:16px/1.55 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:24px 16px 48px;"
+            "background:#F3F7F7;color:#142B25}a{color:#066B4C}code{background:rgba(128,144,139,.18);padding:1px 4px;border-radius:4px;"
+            "overflow-wrap:anywhere}li{margin:.35em 0}@media(prefers-color-scheme:dark){body{background:#101A17;color:#E6EFEC}a{color:#7FD4B0}}</style>\n"
+            "</head>\n<body>\n<nav><a href=\"../v2/\">Data Driven Football</a></nav>\n" + "\n".join(body) + "\n</body>\n</html>\n")
 
 
 def build(dist: Path, site_url: str = SITE_URL, mcp_url: str | None = None) -> list[Path]:
@@ -50,6 +98,7 @@ def build(dist: Path, site_url: str = SITE_URL, mcp_url: str | None = None) -> l
     write(".well-known/mcp/server-card.json", card)
     shutil.copy2(OPENAPI, dist / "get-values.openapi.yaml")
     written.append(dist / "get-values.openapi.yaml")
+    write("connect/index.html", guide_html(GUIDE.read_text(encoding="utf-8")))
 
     # A skill zip holds one folder with SKILL.md. Fixed timestamp so the file only changes when the text does.
     zip_path = dist / "ddf-skill.zip"
