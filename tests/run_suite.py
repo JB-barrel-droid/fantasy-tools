@@ -83,12 +83,18 @@ def run(commands: list[str], cwd: Path) -> list[str]:
     return failed
 
 
+def suite_guards(target: str) -> list[str]:
+    """Cheap CI guards registered here without changing the Makefile recipes."""
+    return (["python3 -m unittest tests.test_no_real_clock"]
+            if target == "test-unit-modules" else [])
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("target")
     parser.add_argument("--makefile", type=Path, default=ROOT / "Makefile")
     args = parser.parse_args(argv)
-    commands = recipe_lines(args.makefile, args.target)
+    commands = suite_guards(args.target) + recipe_lines(args.makefile, args.target)
     failed = run(commands, args.makefile.resolve().parent)
     print(f"\nrun_suite: {args.target}: {len(commands) - len(failed)}/{len(commands)} passed", flush=True)
     for command in failed:
