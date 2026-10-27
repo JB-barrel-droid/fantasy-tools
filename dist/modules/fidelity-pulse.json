@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-27T12:40:15.295510Z",
- "run_id": "be974cac-2df4-4a89-a6fb-dbfeda65f07c",
+ "checked_at": "2026-10-27T13:04:24.197282Z",
+ "run_id": "4a76dd43-ce10-4658-8336-bb86c6efe080",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -33,7 +33,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "fcwk8_2026-10-27t0805_v1",
    "measured_site": "2026-10-26T11:06:33+00:00",
-   "since": "2026-10-27T12:40:15.295510Z",
+   "since": "2026-10-27T13:04:24.197282Z",
    "summary": "1182/1182 chart values equal stored bake fcwk7_2026-10-26t1106_v1; newer stored bake fcwk8_2026-10-27t0805_v1 (week 8, saved 2026-10-27T08:05:33.925521Z) is not on the chart yet: 1161 values changed, 12 added, 12 dropped"
   },
   "espn": {
@@ -45,7 +45,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-26@2026-10-26T18:41:44.471740Z",
    "measured_site": "2026-10-25",
-   "since": "2026-10-27T12:40:15.295510Z",
+   "since": "2026-10-27T13:04:24.197282Z",
    "summary": "the chart's snapshot 2026-10-25 is no longer stored: the stored set is now 2026-10-26; the chart is behind until the next chain run rebuilds it"
   },
   "cbsros": {
@@ -59,7 +59,7 @@
    "identity": "2026-10-27@2026-10-27T11:26:02.014899Z",
    "measured_site": "2026-10-26",
    "since": "2026-10-26T12:49:47.896634Z",
-   "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Tip Reiman); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['K"
+   "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Hunter Long, Joe Royer, Tip Reiman); parse notes: RB: 2 players listed with another position in th"
   },
   "razzball": {
    "stage": "publisher_vs_stored",
@@ -83,7 +83,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-27@2026-10-27T04:45:28.268834Z",
    "measured_site": null,
-   "since": "2026-10-27T12:40:15.295510Z",
+   "since": "2026-10-27T13:04:24.197282Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -95,7 +95,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": null,
    "measured_site": null,
-   "since": "2026-10-27T12:40:15.295510Z",
+   "since": "2026-10-27T13:04:24.197282Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -313,17 +313,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "22/1169 values match exactly across 6 columns; 1147 of 1169 values moved since the save at 2026-10-27T08:05:33.925521Z (largest 700%; 20 outside the max(25%, 50) band: C.J. Stroud, Cam Ward, J.J. McCarthy, Jacoby Brissett, Michael Penix, T.J. Hockenson, Tyrone Tracy); 7 players entered or left the bottom of the list since the save (churn)",
+     "summary": "6/1164 values match exactly across 6 columns; 1158 of 1164 values moved since the save at 2026-10-27T08:05:33.925521Z (largest 233%; 20 outside the max(25%, 50) band: C.J. Stroud, Cam Ward, Jacoby Brissett, Michael Penix, T.J. Hockenson, Tyrone Tracy); 5 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
+      "publisher_players": 196,
       "stored_players": 197,
-      "compared": 1169,
-      "matched": 22,
-      "mismatched": 1147,
+      "compared": 1164,
+      "matched": 6,
+      "mismatched": 1158,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 7,
+      "list_churn": 5,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -335,16 +335,16 @@
       "full|1": {
        "left": 196,
        "right": 197,
-       "mismatched": 189,
-       "missing": 1,
-       "extra": 2
+       "mismatched": 193,
+       "missing": 2,
+       "extra": 3
       },
       "full|2": {
-       "left": 197,
+       "left": 196,
        "right": 197,
-       "mismatched": 192,
+       "mismatched": 193,
        "missing": 2,
-       "extra": 2
+       "extra": 3
       },
       "half|1": {
        "left": 196,
@@ -356,23 +356,23 @@
       "half|2": {
        "left": 196,
        "right": 197,
-       "mismatched": 192,
-       "missing": 1,
-       "extra": 2
+       "mismatched": 193,
+       "missing": 2,
+       "extra": 3
       },
       "std|1": {
        "left": 196,
        "right": 197,
-       "mismatched": 189,
-       "missing": 1,
-       "extra": 2
+       "mismatched": 193,
+       "missing": 2,
+       "extra": 3
       },
       "std|2": {
-       "left": 197,
+       "left": 196,
        "right": 197,
-       "mismatched": 192,
+       "mismatched": 193,
        "missing": 2,
-       "extra": 2
+       "extra": 3
       }
      },
      "examples": [
@@ -382,9 +382,9 @@
        "player_key": 1765,
        "name": "Michael Penix",
        "pos": "QB",
-       "left": "1912",
+       "left": "1935",
        "right": 1370.0,
-       "delta": -542.0
+       "delta": -565.0
       },
       {
        "type": "value_mismatch",
@@ -392,9 +392,9 @@
        "player_key": 1765,
        "name": "Michael Penix",
        "pos": "QB",
-       "left": "1913",
+       "left": "1936",
        "right": 1371.0,
-       "delta": -542.0
+       "delta": -565.0
       },
       {
        "type": "value_mismatch",
@@ -402,9 +402,9 @@
        "player_key": 1765,
        "name": "Michael Penix",
        "pos": "QB",
-       "left": "1890",
+       "left": "1913",
        "right": 1354.0,
-       "delta": -536.0
+       "delta": -559.0
       },
       {
        "type": "value_mismatch",
@@ -412,9 +412,9 @@
        "player_key": 1743,
        "name": "J.J. McCarthy",
        "pos": "QB",
-       "left": "1421",
+       "left": "1437",
        "right": 1913.0,
-       "delta": 492.0
+       "delta": 476.0
       },
       {
        "type": "value_mismatch",
@@ -422,9 +422,9 @@
        "player_key": 1743,
        "name": "J.J. McCarthy",
        "pos": "QB",
-       "left": "1422",
+       "left": "1438",
        "right": 1914.0,
-       "delta": 492.0
+       "delta": 476.0
       },
       {
        "type": "value_mismatch",
@@ -432,29 +432,29 @@
        "player_key": 1743,
        "name": "J.J. McCarthy",
        "pos": "QB",
-       "left": "1405",
+       "left": "1421",
        "right": 1891.0,
-       "delta": 486.0
+       "delta": 470.0
       },
       {
        "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
+       "grain": "full|2",
+       "player_key": 311,
+       "name": "Jacoby Brissett",
        "pos": "QB",
-       "left": "1043",
-       "right": 714.0,
-       "delta": -329.0
+       "left": "950",
+       "right": 577.0,
+       "delta": -373.0
       },
       {
        "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
+       "grain": "half|2",
+       "player_key": 311,
+       "name": "Jacoby Brissett",
        "pos": "QB",
-       "left": "1031",
-       "right": 706.0,
-       "delta": -325.0
+       "left": "950",
+       "right": 577.0,
+       "delta": -373.0
       }
      ],
      "outside_universe": [],
@@ -597,9 +597,9 @@
      "player_key": 1765,
      "name": "Michael Penix",
      "pos": "QB",
-     "left": "1912",
+     "left": "1935",
      "right": 1370.0,
-     "delta": -542.0
+     "delta": -565.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -608,9 +608,9 @@
      "player_key": 1765,
      "name": "Michael Penix",
      "pos": "QB",
-     "left": "1913",
+     "left": "1936",
      "right": 1371.0,
-     "delta": -542.0
+     "delta": -565.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -619,9 +619,9 @@
      "player_key": 1765,
      "name": "Michael Penix",
      "pos": "QB",
-     "left": "1890",
+     "left": "1913",
      "right": 1354.0,
-     "delta": -536.0
+     "delta": -559.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -630,9 +630,9 @@
      "player_key": 1743,
      "name": "J.J. McCarthy",
      "pos": "QB",
-     "left": "1421",
+     "left": "1437",
      "right": 1913.0,
-     "delta": 492.0
+     "delta": 476.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -641,9 +641,9 @@
      "player_key": 1743,
      "name": "J.J. McCarthy",
      "pos": "QB",
-     "left": "1422",
+     "left": "1438",
      "right": 1914.0,
-     "delta": 492.0
+     "delta": 476.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -652,31 +652,31 @@
      "player_key": 1743,
      "name": "J.J. McCarthy",
      "pos": "QB",
-     "left": "1405",
+     "left": "1421",
      "right": 1891.0,
-     "delta": 486.0
+     "delta": 470.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
+     "grain": "full|2",
+     "player_key": 311,
+     "name": "Jacoby Brissett",
      "pos": "QB",
-     "left": "1043",
-     "right": 714.0,
-     "delta": -329.0
+     "left": "950",
+     "right": 577.0,
+     "delta": -373.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
+     "grain": "half|2",
+     "player_key": 311,
+     "name": "Jacoby Brissett",
      "pos": "QB",
-     "left": "1031",
-     "right": 706.0,
-     "delta": -325.0
+     "left": "950",
+     "right": 577.0,
+     "delta": -373.0
     }
    ],
    "held": null,
@@ -689,7 +689,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "fcwk8_2026-10-27t0805_v1",
     "measured_site": "2026-10-26T11:06:33+00:00",
-    "since": "2026-10-27T12:40:15.295510Z",
+    "since": "2026-10-27T13:04:24.197282Z",
     "summary": "1182/1182 chart values equal stored bake fcwk7_2026-10-26t1106_v1; newer stored bake fcwk8_2026-10-27t0805_v1 (week 8, saved 2026-10-27T08:05:33.925521Z) is not on the chart yet: 1161 values changed, 12 added, 12 dropped"
    }
   },
@@ -1227,7 +1227,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-26@2026-10-26T18:41:44.471740Z",
     "measured_site": "2026-10-25",
-    "since": "2026-10-27T12:40:15.295510Z",
+    "since": "2026-10-27T13:04:24.197282Z",
     "summary": "the chart's snapshot 2026-10-25 is no longer stored: the stored set is now 2026-10-26; the chart is behind until the next chain run rebuilds it"
    }
   },
@@ -1244,17 +1244,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Tip Reiman); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Hunter Long, Joe Royer, Tip Reiman); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 366,
       "stored_players": 366,
-      "compared": 1095,
-      "matched": 1095,
+      "compared": 1092,
+      "matched": 1092,
       "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 2,
+      "list_churn": 4,
       "unresolved_names": 1
      },
      "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
@@ -1266,22 +1266,22 @@
        "left": 366,
        "right": 366,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 2,
+       "extra": 2
       },
       "half|1": {
        "left": 366,
        "right": 366,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 2,
+       "extra": 2
       },
       "std|1": {
        "left": 366,
        "right": 366,
        "mismatched": 0,
-       "missing": 1,
-       "extra": 1
+       "missing": 2,
+       "extra": 2
       }
      },
      "publisher_version": null,
@@ -1427,7 +1427,7 @@
     "identity": "2026-10-27@2026-10-27T11:26:02.014899Z",
     "measured_site": "2026-10-26",
     "since": "2026-10-26T12:49:47.896634Z",
-    "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Tip Reiman); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['K"
+    "summary": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Hunter Long, Joe Royer, Tip Reiman); parse notes: RB: 2 players listed with another position in th"
    }
   },
   {
@@ -1994,7 +1994,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-27@2026-10-27T04:45:28.268834Z",
     "measured_site": null,
-    "since": "2026-10-27T12:40:15.295510Z",
+    "since": "2026-10-27T13:04:24.197282Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -2057,7 +2057,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": null,
     "measured_site": null,
-    "since": "2026-10-27T12:40:15.295510Z",
+    "since": "2026-10-27T13:04:24.197282Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
