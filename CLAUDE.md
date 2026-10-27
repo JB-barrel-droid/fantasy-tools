@@ -135,13 +135,26 @@ Keep it current:
 
 ## Usage: same quality, fewer tokens (JEG-524)
 
-The general rules are in the user-level "Usage Discipline" section. For this repo:
+The general rules are in the user-level "Usage Discipline" section. For this repo
+(these override it where they differ):
 
-- Subagents: `worker` (Sonnet) for routine lanes, `deep-worker` (Opus) for value
-  or engine math, unknown-root-cause debugging, design and final review. Brief
-  them with `docs/agent-brief-template.md`; don't paste a long shared brief.
+- **Rotate the lead thread at about 200k context** (or at each GO LIVE milestone).
+  First write the handoff as a comment on the active Linear ticket (state, open
+  PRs, next step, decisions pending), then tell Jeremy to start a new thread.
+- **Wait on CI and deploys with one blocking command:** `gh pr checks <n> --watch`
+  or `gh run watch <id> --exit-status`. No `sleep`/`ps`/`until` polling loops.
+- **Read by search or line range, not whole files.** Use `rg -n` and then read
+  the lines you need. Never `cat` or fully re-read large files such as
+  `app/v2/finder.js`, `app/v2/v2.js`, `pipelines/value_reference.py` or
+  `docs/methodology.md`.
+- **Screenshots:** one per check, and do not re-read an image already taken.
+- **Models:** `deep-worker` (Opus) only for T1 tickets (see the tiers in
+  `AGENTS.md`); `worker` (Sonnet) for everything else. Brief subagents with
+  `docs/agent-brief-template.md`; don't paste a long shared brief.
+- **Keep tool output short:** `tail`, `head`, `gh ... --jq`, `--json` with
+  only the fields needed; write large results to a scratch file.
 - Read `AGENTS.md`, then only the docs your task needs.
   `docs/engineering-notes.md` holds the dated incident notes.
-- The lead session rotates at each GO LIVE milestone, or once context passes
-  about 150k tokens. Before telling Jeremy to start a new thread, post the
-  handoff as a comment on the active Linear ticket.
+- **Direction questions still go to Jeremy directly** (AskUserQuestion is fine),
+  but batch them into one ask and never repeat a question he has answered;
+  check the ticket and memory first.
