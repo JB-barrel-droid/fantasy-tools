@@ -13,6 +13,13 @@ Checks, on the build-only engine page, at four league settings:
    other series (trade chart average, each source, Indexed/VORP), and the
    pipeline's own DDF Value (getCompositeValues) are unchanged.
 4. Clearing restores every value exactly; invalid entries are refused.
+5. JEG-1058: an adjustment ("+5", "-3") adds to the pipeline's own DDF Value,
+   capped at the 0-100 value scale; the pipeline's value and the trade chart
+   average do not move, and an adjustment without a usable delta is refused.
+6. JEG-1058: an override that arrives from outside the editor (a share link,
+   an import, a saved record) is put on the scale the editor shows: an
+   absolute value above 100 is capped, an adjustment is capped to the scale's
+   span.
 """
 from __future__ import annotations
 
@@ -79,6 +86,77 @@ SCRIPT = """async (combos) => {
   return problems;
 }"""
 
+# JEG-1058: the second kind of override. An adjustment ("+5", "-3") adds to the
+# pipeline's own DDF Value, capped at the 0-100 value scale; the pipeline's own
+# value and the trade chart average do not move.
+ADJUSTMENT_SCRIPT = """async () => {
+  const c = window.TradeValueCurveControls;
+  const problems = [];
+  const rows = c.getAllRows().filter(r => r.pos === 'RB' && Number.isFinite(r.values.ddf_value))
+    .sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const target = rows[3];
+  const key = target.player_key;
+  const pipeline = target.values.ddf_value;
+  const comp = JSON.stringify(c.getCompositeValues('ddf_value').current);
+  const valueOf = () => c.getAllRows().find(r => r.player_key === key).values.ddf_value;
+  // +5 adds to the pipeline's own value.
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: 5}});
+  if (Math.abs(valueOf() - (pipeline + 5)) > 1e-9) problems.push(`+5 gave ${valueOf()}, expected ${pipeline + 5}`);
+  const row = c.getAllRows().find(r => r.player_key === key);
+  if (!row.valueOverrideSpec || row.valueOverrideSpec.type !== 'adjustment' || row.valueOverrideSpec.delta !== 5) {
+    problems.push(`valueOverrideSpec ${JSON.stringify(row.valueOverrideSpec)}`);
+  }
+  if (row.ddfPipelineValue !== pipeline) problems.push(`ddfPipelineValue ${row.ddfPipelineValue}`);
+  const got = c.getValueOverrides();
+  if (!got[key] || got[key].type !== 'adjustment' || got[key].delta !== 5) problems.push(`getValueOverrides ${JSON.stringify(got)}`);
+  if (JSON.stringify(c.getCompositeValues('ddf_value').current) !== comp) problems.push('the pipeline value changed');
+  // -3 takes off.
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: -3}});
+  if (Math.abs(valueOf() - (pipeline - 3)) > 1e-9) problems.push(`-3 gave ${valueOf()}`);
+  // The value scale is 0-100: an adjustment past either end is capped.
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: 500}});
+  if (valueOf() !== 100) problems.push(`not capped at 100: ${valueOf()}`);
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: -500}});
+  if (valueOf() !== 0) problems.push(`not capped at 0: ${valueOf()}`);
+  // An adjustment without a usable delta is refused.
+  c.setValueOverrides({[key]: {type: 'adjustment'}, [rows[4].player_key]: {type: 'adjustment', delta: 'x'}});
+  if (Object.keys(c.getValueOverrides()).length) problems.push(`invalid adjustments not refused: ${JSON.stringify(c.getValueOverrides())}`);
+  // Clearing restores the pipeline's own value.
+  c.setValueOverrides(null);
+  if (valueOf() !== pipeline) problems.push(`not restored: ${valueOf()}`);
+  return problems;
+}"""
+
+# JEG-1058: an override that arrives from outside the editor (a share link, an
+# import, a saved record) is put on the scale the editor shows: an absolute
+# value above 100 is capped, an adjustment is capped to the scale's span (so it
+# always fits a packed share link and the value it produces is unchanged).
+SCALE_SCRIPT = """async () => {
+  const c = window.TradeValueCurveControls;
+  const problems = [];
+  const rows = c.getAllRows().filter(r => r.pos === 'RB' && Number.isFinite(r.values.ddf_value))
+    .sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const target = rows[3];
+  const key = target.player_key;
+  const valueOf = () => c.getAllRows().find(r => r.player_key === key).values.ddf_value;
+  // An absolute value past the top of the scale is capped, not applied as it is.
+  c.setValueOverrides({[key]: 120});
+  if (valueOf() !== 100) problems.push(`120 gave ${valueOf()}, expected 100`);
+  if (c.getValueOverrides()[key] !== 100) problems.push(`120 stored as ${JSON.stringify(c.getValueOverrides()[key])}`);
+  // An adjustment past the scale is capped to the span of the scale: the value
+  // is the same, and the delta it travels as is inside the packed link's range.
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: 5000}});
+  if (valueOf() !== 100) problems.push(`+5000 gave ${valueOf()}, expected 100`);
+  const spec = c.getValueOverrides()[key];
+  if (!spec || spec.type !== 'adjustment' || spec.delta !== 100) problems.push(`+5000 stored as ${JSON.stringify(spec)}`);
+  c.setValueOverrides({[key]: {type: 'adjustment', delta: -5000}});
+  if (valueOf() !== 0) problems.push(`-5000 gave ${valueOf()}, expected 0`);
+  const down = c.getValueOverrides()[key];
+  if (!down || down.type !== 'adjustment' || down.delta !== -100) problems.push(`-5000 stored as ${JSON.stringify(down)}`);
+  c.setValueOverrides(null);
+  return problems;
+}"""
+
 
 def run(script, arg=None):
     try:
@@ -94,6 +172,7 @@ def run(script, arg=None):
         try:
             with serve(DIST) as base:
                 page = browser.new_page(viewport={"width": 1280, "height": 900})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.goto(base + "/classic/", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueCurveDiagnostics", timeout=60000)
                 page.wait_for_timeout(300)
@@ -110,6 +189,14 @@ class ValueOverridesTest(unittest.TestCase):
 
     def test_override_replaces_ddf_value_only_and_clears(self):
         problems = run(SCRIPT, COMBOS)
+        self.assertEqual(problems, [], "\n".join(problems[:40]))
+
+    def test_an_adjustment_adds_to_the_pipeline_value_and_is_capped(self):
+        problems = run(ADJUSTMENT_SCRIPT)
+        self.assertEqual(problems, [], "\n".join(problems[:40]))
+
+    def test_an_override_from_outside_the_editor_is_capped_at_the_scale(self):
+        problems = run(SCALE_SCRIPT)
         self.assertEqual(problems, [], "\n".join(problems[:40]))
 
 
