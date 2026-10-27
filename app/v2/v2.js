@@ -377,7 +377,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -935,6 +935,10 @@
       ? `⚠ ${[calendarNote, `${stuck === roots.length && stuck > 1 ? "all " : ""}${stuck} source${stuck === 1 ? "" : "s"} not updating`].filter(Boolean).join(" · ")}`
       : updatingNote ? [updatingNote, ...freshNotes].join(" · ")
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
+    // Phone header: a short form ("Week 7", with a warning mark when anything needs attention) shown under 420 px,
+    // so the button stays beside the site name. The full text stays in the label, the aria-label and the panel.
+    const flagged = stuck > 0 || behind > 0 || unknown > 0 || held > 0;
+    $("v2FreshnessShort").textContent = view.refWeek ? `Week ${view.refWeek}${flagged ? " ⚠" : ""}` : $("v2FreshnessLabel").textContent;
     $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0 || held > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
     $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);
@@ -6111,7 +6115,7 @@
       R.series = (ticked.find(c => c.prior.available) || choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
         || choices.find(c => c.prior.available) || choices[0]).key;
     }
-    renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
+    renderSeriesPicker($("v2RSeries"), choices.filter(({key}) => ddfPickKey(key) === key).map(({key, prior}) => ({key,
       reason: prior.available ? null : view.infoByKey[key] && !view.infoByKey[key].available ? prior.reason
         : `no prior week: ${prior.reason || "not saved"}`})), R.series);
     $("v2RPosition").value = view.state.position;
@@ -6347,10 +6351,11 @@
   const hashBase = () => canonicalBase(location.hash.split("?")[0]);
   // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
   // (replaceState, so Back still works); its query goes with it. An empty hash is the landing page, not unknown.
-  const DEFAULT_ROUTE = "#trade-targets";
+  const DEFAULT_ROUTE = "#player-values";   // JEG-1106: new visitors land on the value chart (Jeremy, 2026-10-25)
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
-    const legacy = canonicalBase(base);
+    // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.
+    const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
     if (next === base) return;
@@ -6368,16 +6373,17 @@
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
     : base === "#find-trade" ? "find"
+    : base === "#find-league" ? "league"
     : base === "#waivers" ? "waivers"
     : base === "#value-overrides" ? "overrides"
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
-  const currentView = () => viewFor(hashBase()) || "targets";   // landing: Trade targets (Jeremy, 2026-10-08)
+  const currentView = () => viewFor(hashBase()) || "values";   // landing: the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08)
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade", waivers: "Waivers", overrides: "Overrides"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -6403,6 +6409,7 @@
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
     $("v2FindTrade").hidden = v !== "find";
+    $("v2FindLeague").hidden = v !== "league";
     $("v2Waivers").hidden = v !== "waivers";   // JEG-1022
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
@@ -6410,14 +6417,20 @@
     applyStatic();
     // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
     // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "waivers" || v === "overrides";
+    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
     // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
-    document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
-      const on = tab.dataset.view === v;
+    // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
+    // on show is picked by its key ("values", "writing/research", "audit/single-source"), not by the view alone.
+    const navKey = v === "writing" ? "writing/" + writingSection()
+      : v === "audit" ? "audit/" + (hashBase().startsWith("#values-auditing/single-source") ? "single-source" : "health-check") : v;
+    let navLabel = "";
+    document.querySelectorAll(".v2-tab[data-key]").forEach(tab => {
+      const on = tab.dataset.key === navKey;
       tab.classList.toggle("is-active", on);
-      if (on) tab.setAttribute("aria-current", "page");
+      if (on) { tab.setAttribute("aria-current", "page"); navLabel = tab.textContent.trim(); }
       else tab.removeAttribute("aria-current");
     });
+    $("v2NavCurrent").textContent = navLabel;
     closePopover();
     if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
@@ -6523,7 +6536,7 @@
     else if (currentView() === "audit") renderAudit();
     else if (currentView() === "waivers") { collect(); renderHeader(); if (window.TradeValueWaivers && window.TradeValueWaivers.activate) window.TradeValueWaivers.activate(); }   // JEG-1022
     else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
-    else if (currentView() === "writing" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing" || currentView() === "find" || currentView() === "league") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
@@ -6803,7 +6816,23 @@
         else if (returnFocus) toggle.focus();
       };
       toggle.addEventListener("click", () => setNav(!header.classList.contains("is-open"), true));
-      $("v2Tabs").addEventListener("click", event => { if (event.target.closest(".v2-tab") && header.classList.contains("is-open")) setNav(false, false); });
+      $("v2Tabs").addEventListener("click", event => {
+        const item = event.target.closest(".v2-tab");
+        if (item && header.classList.contains("is-open")) setNav(false, false);
+        if (item && item.dataset.action === "customize") openSources(toggle);   // Settings > Customize opens the sources dialog
+      });
+      // Arrow keys move through the entries (Home / End jump); Down on the closed button opens the menu.
+      header.addEventListener("keydown", event => {
+        const open = header.classList.contains("is-open");
+        if (event.key === "ArrowDown" && !open && document.activeElement === toggle) { event.preventDefault(); setNav(true, false); return; }
+        if (!open || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+        const items = [...document.querySelectorAll("#v2Tabs .v2-tab")];
+        const at = items.indexOf(document.activeElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+          : event.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length - 1 : at - 1);
+        event.preventDefault();
+        items[next].focus();
+      });
       document.addEventListener("keydown", event => {
         if (event.key === "Escape" && header.classList.contains("is-open")) setNav(false, true);
       });
