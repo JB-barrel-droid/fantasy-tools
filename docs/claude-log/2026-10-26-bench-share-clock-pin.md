@@ -124,3 +124,23 @@ dist change.
 - `tests.test_static_export` fails locally only because `dist/` was restored
   to the committed copy without a rebuild; CI rebuilds first and passed it on
   81f8d5f2. Not a date problem, not changed.
+
+## Stopped: value-check-compare disagrees in the week-8 state (not a test clock bug)
+
+At fdceef59 CI `preview` (run 40452846042) passed all of test-core and
+v2-render passed, then `make value-check-compare` failed: engine vs Python
+reference disagree on fantasypros (5 values, engine 0 vs reference up to
+0.122; ppr/10, half_ppr/12, standard/14; player keys 1502, 4086). Both sides
+already get the same `today` (UTC date), so this is not a clock split.
+
+### Verified (check named)
+
+- `python3 pipelines/value_check.py compare --rerun-engine --strict --today 2026-10-26`:
+  verdict agree, 1,230,125 values, 0 mismatches.
+- Same with `--today 2026-10-27`: verdict disagree, fantasypros 5 mismatches,
+  the same as CI.
+
+So in the "new week, charts not yet published" state (the live state now)
+engine and reference price a held or unpublished chart differently. Pinning
+`--today` would change the Makefile gate, not test setup, and would hide a
+real fidelity disagreement, so it was not done. PR 979 is not merged.
