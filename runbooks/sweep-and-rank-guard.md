@@ -36,6 +36,8 @@ Expected: `wrote 13 settings -> /tmp/engine-values.json` (about 7 seconds; headl
 python3 pipelines/value_check.py compare --rerun-engine --strict --report /tmp/value-check.json
 ```
 
+Run `make sync` first (or add `--sync`): the check reads the built `dist/`, and since JEG-1060 it exits non-zero with `dist is stale (<file> differs from <source>): run make sync first` instead of diffing an old committed engine against the current reference.
+
 Expected: `Verdict: **agree**` and a per-source table with 0 mismatches (the count moves with the fixture). `--strict` exits 1 on any disagreement. Second-session run 2026-10-15 at e71e8262: `agree`, 715,584 values across seven sources (usatoday, fantasycalc, fantasypros, cbs, espn, cbsros, razzball), exit 0. The earlier known red (`GAP-VALUECHECK-REFERENCE-AHEAD`, JEG-560) is cleared. `--engine-json` takes the check's own dump, not the `engine_dump.py` file above (passing that one fails with an AttributeError).
 
 ## If a check is red
