@@ -295,7 +295,9 @@
       text: "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss."},
     "win|even": {title: "Value win at a fair market price", action: "Propose it",
       text: "DDF Value says you come out ahead and the trade charts call it fair, so the other manager has little reason to refuse."},
-    "win|lose": {title: "Value yes, market no", action: "",
+    // JEG-950 (Jeremy, 2026-10-26): the title is the verdict; the live read's text is the real market gap
+    // (marketGapText, below). The static text stays for the 3x3 grid, where there is no single net to show.
+    "win|lose": {title: "DDF Value likes it. The market doesn't.", action: "",
       text: "DDF Value says you come out ahead while the trade charts say you lose, so the other manager will likely see it as their win."},
     "even|win": {title: "Even on value, a hard sell", action: "Counter for more",
       text: "DDF Value calls it even but the trade charts say you win, so the other manager will likely see a loss."},
@@ -337,6 +339,13 @@
     return {...SPLIT_READS[vSide],
       text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
   }
+  // JEG-950 (Jeremy, 2026-10-26): the win|lose sub-line shows the real computed market gap, so the number
+  // and the direction word always come from the market net, never hard-coded. "up" when the market has you
+  // ahead, "down" when behind, "even" at exactly zero (the win|lose cell cannot reach zero, but the helper
+  // stays honest on its own). One decimal, like the nets on the card.
+  const marketGapWord = net => (net > 0 ? "up" : net < 0 ? "down" : "even");
+  const marketGapText = net => (net === 0 ? "Market has you even." : `Market has you ${marketGapWord(net)} ${Math.abs(net).toFixed(1)} points.`)
+    + " Close the gap to land it.";
   // One production sentence: P's side against V's side.
   // JEG-1073: DDF Value is the trade charts again and the projections version is the alternate, so p !== v is a
   // live case (it was dead between JEG-804 and JEG-1073): the sentence says how the two differ.
@@ -380,13 +389,17 @@
     if (market.tooFew) {
       return {kind: "incomplete", ...out, text: `Not enough compared charts to read the market (${market.chartCount} of ${MIN_DEAL_CHARTS} needed).`};
     }
-    const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[`${out.value.side}|${out.market.side}`];
-    return {kind: "read", ...out, cell: `${out.value.side}|${out.market.side}`, title: cell.title, action: cell.action, text: cell.text,
+    const cellKey = `${out.value.side}|${out.market.side}`;
+    const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[cellKey];
+    // JEG-950: on the win|lose cell the live read shows the market gap instead of the static grid explanation.
+    const text = !market.split && cellKey === "win|lose" ? marketGapText(market.net) : cell.text;
+    return {kind: "read", ...out, cell: cellKey, title: cell.title, action: cell.action, text,
       production: out.projections.net === null ? null : productionCheck(out.projections.side, out.value.side)};
   }
 
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
-    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS};
+    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS,
+    marketGapWord, marketGapText};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);
