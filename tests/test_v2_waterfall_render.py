@@ -472,6 +472,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
             for width, height in viewports:
                 tag = f"[{width}x{height}{' win' if seed == 'win' else ''}] "
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -578,6 +579,7 @@ def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
         try:
             for width in widths:
                 page = browser.new_page(viewport={"width": width, "height": 900})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 page.route("**/v2/v2.css*", functools.partial(_serve, css + WIDE_FONT_CSS, "text/css"))
                 page.goto(base + "#compare-trade", wait_until="networkidle")
@@ -643,6 +645,7 @@ def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS 
         try:
             for width, height in viewports:
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, (body, ctype) in (overrides or {}).items():
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
@@ -738,6 +741,10 @@ class WaterfallRenderTest(unittest.TestCase):
         old_header = HEADER_GRID.sub("", css)
         self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
         self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
+        # JEG-1119: the one-row context row (48 px) replaced the league and Showing bars, freeing 75 px above Compare
+        # (1366x768 bottoms 739.5 -> 664.5), so the old header alone now ends above the fold. The guard puts that height
+        # back, so it still proves the fold check catches the old header's extra 55 px.
+        old_header += "\n#v2Compare { padding-top: 75px; }\n"
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
             errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
             print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",

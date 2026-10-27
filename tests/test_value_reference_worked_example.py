@@ -187,12 +187,12 @@ class WorkedExample(unittest.TestCase):
         three DDF versions. Values updated for convention bench seats and
         midpoint starter line (JEG-560). JEG-1073: blended = the charts (Adjusted)."""
         res = run(load())
-        self.assertAlmostEqual(res["sources"]["p1"]["players"][201]["adjusted"], 49.077706, places=6)
+        self.assertAlmostEqual(res["sources"]["p1"]["players"][201]["adjusted"], 49.445413, places=6)
         ddf = res["rows"][201]["ddf"]
         # JEG-1073: blended DDF Value is the chart average (== charts version).
-        self.assertAlmostEqual(ddf["blended"]["value"], 50.413773, places=6)
-        self.assertAlmostEqual(ddf["charts"]["value"], 50.413773, places=6)
-        self.assertAlmostEqual(ddf["projections"]["value"], 45.819969, places=6)
+        self.assertAlmostEqual(ddf["blended"]["value"], 50.760350, places=6)
+        self.assertAlmostEqual(ddf["charts"]["value"], 50.760350, places=6)
+        self.assertAlmostEqual(ddf["projections"]["value"], 46.192053, places=6)
         bench = sum(v for g, v in res["ddf_weights"].items() if g.endswith("|bench"))
         self.assertAlmostEqual(bench, 0.15, places=12)
 

@@ -45,7 +45,7 @@
   const ddfOf = row => (row && row.values && finite(row.values[OUR_KEY]) ? row.values[OUR_KEY] : null);
   // The Trade chart average, or null: a player no chart prices (or prices at a shown 0.0) has no market value to show.
   const marketOf = row => (row && row.values && finite(row.values[CHART_AVG_KEY]) && row.values[CHART_AVG_KEY] >= USABLE_MIN ? row.values[CHART_AVG_KEY] : null);
-  const fmt = n => (Math.abs(n) < NET_FLOOR ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fmt = n => (Math.abs(n) < NET_FLOOR ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const settle = n => Math.round(n * 1e9) / 1e9;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -426,7 +426,9 @@
       else if (!row) tail = el("span", {class: "v2-find-noteval", text: "No longer in the data"});
       else {
         const avg = charts ? withChartAverage([row], charts)[0] : null;
-        tail = el("span", {class: "v2-find-chips"}, chip("DDF Value", api.ddfOf(row)), chip("Trade chart average", avg ? api.marketOf(avg) : null));
+        // JEG-1059: the badge that marks a value the reader set, right after the DDF Value chip.
+        const badge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(row) : null;
+        tail = el("span", {class: "v2-find-chips"}, chip("DDF Value", api.ddfOf(row)), badge, chip("Trade chart average", avg ? api.marketOf(avg) : null));
       }
       return el("li", {class: "v2-wv-row"}, el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}${p.team ? ` ${p.team}` : ""}` : ""}), injuryTag(row) ? document.createTextNode(" ") : null, injuryTag(row), tail), remove);
     }));
@@ -644,8 +646,13 @@
     return starters.concat(l.bench.map(r => ({slot: "Bench", r})));
   }
   function lineupTable(title, l, mark) {
+    // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+    const ddfCell = r => {
+      const badge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(r) : null;
+      return el("td", {class: "num"}, api.ddfOf(r) === null ? "—" : api.ddfOf(r).toFixed(1), badge);
+    };
     const body = lineupRows(l).map(({slot, r}) => el("tr", mark && mark(r) ? {class: "is-new"} : {}, el("td", {text: slot}), el("td", {text: r.name + (mark && mark(r) ? " (new)" : "")}),
-      el("td", {class: "num", text: api.ddfOf(r) === null ? "—" : api.ddfOf(r).toFixed(1)})));
+      ddfCell(r)));
     return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"},
       el("caption", {text: `${title}: starters ${l.starterValue.toFixed(1)}, bench ${l.benchValue.toFixed(1)}, total ${l.total.toFixed(1)}`}),
       el("thead", {}, el("tr", {}, el("th", {scope: "col", text: "Slot"}), el("th", {scope: "col", text: "Player"}), el("th", {scope: "col", text: "DDF Value"}))), el("tbody", {}, ...body)));
@@ -683,12 +690,14 @@
     return el("span", {class: "v2-wv-verdict", "data-verdict": VERDICT_CLASS[r.verdict], text: r.verdict});
   }
   function cardFor(r, roster) {
-    const rowsDef = [["DDF Value", numCell(r.ddf)], ["Value above waivers", numCell(r.vaw)], ["Market value", numCell(r.market)],
+    // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+    const ddfBadge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(r.candidate) : null;
+    const rowsDef = [["DDF Value", [numCell(r.ddf), ddfBadge]], ["Value above waivers", numCell(r.vaw)], ["Market value", numCell(r.market)],
       ["Starter change", numCell(r.starterDelta, true)], ["Bench change", numCell(r.benchDelta, true)], ["Best drop", dropText(r) || dash()]];
     return el("li", {class: "v2-wv-card", "data-verdict": VERDICT_CLASS[r.verdict]},
       el("div", {class: "v2-wv-card-banner"}, verdictTag(r)),
       el("div", {class: "v2-wv-card-name"}, el("b", {text: r.name}), el("span", {class: "v2-meta", text: ` ${r.pos || ""}${r.team ? ` ${r.team}` : ""}`})),
-      el("dl", {class: "v2-wv-card-facts"}, ...rowsDef.flatMap(([k, v]) => [el("dt", {text: k}), el("dd", {}, v)])),
+      el("dl", {class: "v2-wv-card-facts"}, ...rowsDef.flatMap(([k, v]) => [el("dt", {text: k}), el("dd", {}, ...(Array.isArray(v) ? v : [v]))])),
       el("p", {class: "v2-wv-card-reason"}, r.reason, r.context ? el("span", {class: "v2-meta v2-wv-ctx", text: ` Other views: ${r.context}.`}) : null),
       el("details", {class: "v2-wv-detail"}, el("summary", {text: `Details for ${r.name}`}), detailBlock(r, roster)));
   }
@@ -712,9 +721,11 @@
     }));
     const body = [];
     list.forEach(r => {
+      // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+      const ddfBadge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(r.candidate) : null;
       body.push(el("tr", {class: "v2-wv-main", "data-verdict": VERDICT_CLASS[r.verdict]},
         el("th", {scope: "row", class: "v2-wv-name"}, el("b", {text: r.name}), injuryTag(r.candidate) ? document.createTextNode(" ") : null, injuryTag(r.candidate)), el("td", {text: r.pos || ""}),
-        el("td", {class: "num"}, numCell(r.ddf)), el("td", {class: "num"}, numCell(r.vaw)), el("td", {class: "num"}, numCell(r.market)),
+        el("td", {class: "num"}, numCell(r.ddf), ddfBadge), el("td", {class: "num"}, numCell(r.vaw)), el("td", {class: "num"}, numCell(r.market)),
         el("td", {class: "num"}, numCell(r.starterDelta, true)), el("td", {class: "num"}, numCell(r.benchDelta, true)),
         el("td", {}, dropText(r) || dash()), el("td", {}, verdictTag(r)), el("td", {class: "v2-wv-reason"}, r.reason, r.context ? el("span", {class: "v2-meta v2-wv-ctx", text: ` Other views: ${r.context}.`}) : null)));
       body.push(el("tr", {class: "v2-wv-detailrow"}, el("td", {colspan: String(COLS.length)},

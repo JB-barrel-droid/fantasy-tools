@@ -56,6 +56,7 @@ import pull_fantasypros  # noqa: E402
 import reindex_comparison_section as reindex_mod  # noqa: E402
 import save_usatoday_references as usat  # noqa: E402
 import verify_import_health as health_mod  # noqa: E402
+from tests import _render_env  # noqa: E402
 
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
@@ -434,6 +435,7 @@ def collect_overlay_page(fixture, widget_override=None):
         browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
         try:
             page = browser.new_page()
+            page.add_init_script(_render_env.pin_data_week_script())
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route("**/assets/comparison-sources-data.json*", lambda route: route.fulfill(
