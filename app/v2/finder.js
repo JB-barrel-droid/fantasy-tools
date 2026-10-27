@@ -404,6 +404,16 @@
     if (impact.spotsOpened > 0) parts.push(`opens ${countWord(impact.spotsOpened, "roster spot")} (fill from waivers)`);
     return parts.length ? parts.join("; ") : "Starters by position unchanged";
   }
+  // JEG-1043: a team's starters at each position it gives up, before and after the trade (names in lineup order;
+  // FLEX and SUPERFLEX starters count at their own position). One entry per QB/RB/WR/TE among the leaving players.
+  function startersAtGivenPositions(impact, leaving) {
+    const names = (l, pos) => l.starters.filter(r => r.pos === pos).map(r => r.name);
+    return ["QB", "RB", "WR", "TE"].filter(pos => leaving.some(r => r.pos === pos))
+      .map(pos => ({pos, before: names(impact.before, pos), after: names(impact.after, pos)}));
+  }
+  const givenPositionsLine = entries => entries.map(e => `${e.pos} ${e.before.join(", ") || "none"} → ${e.after.join(", ") || "none"}`).join("; ");
+  // JEG-1043: "Show viable offers only" keeps the groups whose best package has a viability label, in the same order.
+  const viableGroups = (groups, labelOf) => groups.filter(g => Boolean(labelOf(g)));
 
   // ---------- roster sanity (JEG-481, second slice) ----------
   // Slots that need a named position. FLEX and SUPERFLEX are not counted, so the check is conservative toward the
@@ -802,7 +812,7 @@
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
-  const api = {viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -814,7 +824,7 @@
   // src: the page text each side was read from (JEG-1020: re-read when the league settings change); removed: players the
 // reader took off by hand, which a re-read must not bring back.
 const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
-    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set()};
+    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set(), viableOnly: false};
   const renders = {};
   // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
   const mineListeners = [];
@@ -1576,14 +1586,36 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : "") + foldNote);
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
     const ctx = {...res.ctx, maxSize: res.maxSize, lineup, fit: fitCtx};
-    groups.slice(0, shownCount).forEach(g => list.append(groupCard(g, ctx)));
-    if (naturalCount && list.firstElementChild) { list.firstElementChild.id = "v2FindFirstNatural"; list.firstElementChild.tabIndex = -1; }
-    out.append(list);
-    if (groups.length > shownCount) {
-      const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shownCount, "more group")}`});
-      more.addEventListener("click", () => { groups.slice(shownCount).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
-      out.append(more);
+    // JEG-1043: "Show viable offers only" filters the groups by their best package's viability label (JEG-1108) and
+    // re-lists them; the ranking and the top-10 limit stay as they are.
+    const viabOf = fitCtx ? g => viabilityFor(ctx, fitFor(lineup, fitCtx, g.best.give, g.best.receive), g.best.give, g.best.receive) : null;
+    const tail = el("div", {class: "v2-find-list-tail"});
+    const renderList = () => {
+      const shown = S.viableOnly && viabOf ? viableGroups(groups, viabOf) : groups;
+      const count = Math.min(GROUP_LIMIT, shown.length);
+      list.replaceChildren(...shown.slice(0, count).map(g => groupCard(g, ctx)));
+      const first = list.firstElementChild;
+      if (naturalCount && first && first.dataset.findFit === "natural") { first.id = "v2FindFirstNatural"; first.tabIndex = -1; }
+      tail.replaceChildren();
+      if (!shown.length) {
+        tail.append(el("p", {class: "v2-find-empty", id: "v2FindViableEmpty"}, el("b", {text: "No slam dunks with this team."}),
+          " Your rosters fit a little too well. Try another team, or turn off \u201cShow viable offers only\u201d to see every offer."));
+      } else if (shown.length > count) {
+        const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(shown.length - count, "more group")}`});
+        more.addEventListener("click", () => { shown.slice(count).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
+        tail.append(more);
+      }
+    };
+    if (viabOf) {
+      const viableCount = groups.filter(viabOf).length;
+      const box = el("input", {type: "checkbox", id: "v2FindViableOnly"});
+      box.checked = S.viableOnly;
+      box.addEventListener("change", () => { S.viableOnly = box.checked; renderList(); });
+      out.append(el("label", {class: "v2-find-viable-toggle", for: "v2FindViableOnly"}, box,
+        ` Show viable offers only (${viableCount} of ${plural(groups.length, "group")})`));
     }
+    renderList();
+    out.append(list, tail);
   }
 
   // ---------- roster impact on the page (display only) ----------
@@ -1666,6 +1698,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const marketNote = lineup.market ? "" : " Trade chart average: not enough charts.";
         lines.append(el("p", {class: "v2-meta v2-find-impact-line"}, el("span", {class: "v2-find-who", text: `${name}: `}), `best starting lineup ${parts.join("; ")}.${marketNote}`),
           el("p", {class: "v2-meta v2-find-need"}, `${who === "mine" ? "Your" : "Their"} starters by position: ${needLine(imps.ddf)}.`));
+        // JEG-1043: the starters at each position this side gives up, before → after (DDF Value lineup).
+        const given = startersAtGivenPositions(imps.ddf, sideRows(lineup, "ddf", who, giveRows, recvRows).leaving);
+        if (given.length) lines.append(el("p", {class: "v2-meta v2-find-given", "data-line": "given"},
+          `${who === "mine" ? "Your starters at the positions you give up" : "Their starters at the positions they give up"}: ${givenPositionsLine(given)}.`));
         // JEG-1081: the same trade in the other views, one line each for starters and bench (hidden on a phone until expanded).
         const own = sideRows(lineup, "ddf", who, giveRows, recvRows);
         const projImp = hasProjections(own.roster.concat(own.arriving)) ? rosterImpact(own.roster, own.leaving, own.arriving, lineup.shape, PROJECTIONS_KEY) : null;
@@ -1681,6 +1717,13 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // One group: the player you receive, the best package for him preselected, side players selectable.
   // Each toggle re-judges the package with evaluateCombo, the function the search itself uses.
   const GROUP_LIMIT = 10;
+  // JEG-1108 / JEG-1043: the viability label of one package (null when it is not viable or cannot be judged).
+  function viabilityFor(ctx, fit, giveRows, recvRows) {
+    const lineup = ctx.lineup;
+    const mineAvg = lineup && lineup.mine ? lineup.mine.market || lineup.mine.ddf : null;
+    const theirAvg = lineup && lineup.theirs ? lineup.theirs.market || lineup.theirs.ddf : null;
+    return fit && mineAvg && theirAvg && lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, lineup.shape, ctx.ourKey, ctx.chartKeys || []) : null;
+  }
   const valueText = (row, key) => (finite(row.values[key]) ? row.values[key].toFixed(1) : "no value");
   function groupCard(group, ctx) {
     const ourKey = ctx.ourKey;
@@ -1788,9 +1831,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         // JEG-1108: viability label alongside fit.
         const FIT_LABEL = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
         const VIAB_LABEL = {High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"};
-        const mineAvg = ctx.lineup && ctx.lineup.mine ? ctx.lineup.mine.market || ctx.lineup.mine.ddf : null;
-        const theirAvg = ctx.lineup && ctx.lineup.theirs ? ctx.lineup.theirs.market || ctx.lineup.theirs.ddf : null;
-        const viab = mineAvg && theirAvg && ctx.lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, ctx.lineup.shape, ourKey, ctx.chartKeys || []) : null;
+        const viab = viabilityFor(ctx, fit, giveRows, recvRows);
+        li.dataset.findViable = viab || "";
         const viabSuffix = viab ? ` · ${VIAB_LABEL[viab] || viab}` : "";
         fitLine.replaceChildren(el("b", {text: `${FIT_LABEL[fit.label] || text.slice(0, cut + 1)}${viabSuffix}:`}), ` ${text.slice(cut + 2)}`);
         fitLine.dataset.fit = fit.label;
