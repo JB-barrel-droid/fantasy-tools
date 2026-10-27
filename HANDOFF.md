@@ -114,33 +114,37 @@ Product decisions to date (Oct 26 unless noted; details on the ticket):
 
 ## 5. Current state
 
-Last updated: Oct 27, 2026, 6:05 AM CT (by Ba-Nana).
+Last updated: Oct 27, 2026, 8:08 AM CT (by Ba-Nana).
 
-**Merged overnight:** [PR 979](https://github.com/JB-barrel-droid/fantasy-tools/pull/979) and
-[PR 984](https://github.com/JB-barrel-droid/fantasy-tools/pull/984) (main green again,
-[JEG-1152](https://linear.app/jegabee/issue/JEG-1152) Done),
-[PR 959](https://github.com/JB-barrel-droid/fantasy-tools/pull/959) (JEG-1119) and
-[PR 957](https://github.com/JB-barrel-droid/fantasy-tools/pull/957) (bench seats, JEG-1121).
+**Merged since midnight:** PRs 979, 984 (main fixes, JEG-1152), 959 (JEG-1119), 957 (bench seats,
+JEG-1121), [PR 925](https://github.com/JB-barrel-droid/fantasy-tools/pull/925) (JEG-977, 7:18 AM CT).
 
-**Live problems:** [JEG-1156](https://linear.app/jegabee/issue/JEG-1156) (urgent, `needs-review`):
-blended DDF Values blank until week-8 charts publish (A fallback to last week, recommended).
-[JEG-1157](https://linear.app/jegabee/issue/JEG-1157) diagnosed: same cause (no week-8 charts,
-get-values drops older weeks); the fix waits on the JEG-1156 choice.
+**Live problem being fixed:** [JEG-1156](https://linear.app/jegabee/issue/JEG-1156) and
+[JEG-1157](https://linear.app/jegabee/issue/JEG-1157): Jeremy picked A (fall back to the latest
+published week, labeled). Fix is [PR 987](https://github.com/JB-barrel-droid/fantasy-tools/pull/987), checks running. Deploy of the edge functions it
+changes (get-values, mcp) is approved once it merges; then verify live get_values returns players.
 
-**Running now** (all Mac, Claude Opus, merge wave 4 started 4:00 AM CT; launcher
-`~/code/wt/merge-wave4.launch.sh`, state `/tmp/banana-merge-wave.state`, logs `/tmp/banana-w4-*.json`):
-939+958, 921, 963, 920, 925, 962 (started 5:55 AM CT); 957 run is finishing its deploy watch.
-Still queued: 964, 965, 967, 968, 973-975, 977, 978, 980, then Muse's 981 and 982.
-Each waits for green main and merges under the merge lock.
+**Running now:**
+- Mac, Claude Opus, merge wave 4 (launcher `~/code/wt/merge-wave4.launch.sh`, state
+  `/tmp/banana-merge-wave.state`, logs `/tmp/banana-w4-*.json`): 939+958, 921, 963, 920, 962
+  (5:55), 964 (7:22), 965 (8:01); 925's run is watching its deploy. Each merges under the merge lock.
+- Mac, Claude: JEG-1156/1157 fallback on PR 987 (session 2018dfe4, started 7:28 AM CT).
+- Box, DeepSeek: [JEG-1159](https://linear.app/jegabee/issue/JEG-1159) retry (8:06 AM CT; the free
+  flint model hit a 429).
+- HP, Codex: [JEG-1162](https://linear.app/jegabee/issue/JEG-1162) freshness test frozen clock (8:07 AM CT).
+
+**Waiting to merge (low risk):** [PR 985](https://github.com/JB-barrel-droid/fantasy-tools/pull/985) (JEG-1161 tests), [PR 986](https://github.com/JB-barrel-droid/fantasy-tools/pull/986) (JEG-1160 CI
+guard), [PR 989](https://github.com/JB-barrel-droid/fantasy-tools/pull/989) (JEG-1158 clock guard; refresh its allowlist after 987). Still queued for
+the wave: 967, 968, 973-975, 977, 978, 980, then Muse's 981 and 982.
 
 **Held:** 976 (after 960), 960 (after 958, then the one combined mcp deploy),
-969 (JEG-894 privacy line), 970 (JEG-1101 Copy link wording, asked), 966.
+969 (JEG-894 privacy line), 970 (JEG-1101 Copy link wording), 966.
 
-**Muse:** JEG-557 (PR 982) and JEG-1061 (PR 981) in review and queued to merge;
-JEG-982 in progress; the numbered Muse queue on JEG-1145 has about 10 `muse` Todo tickets.
+**Muse:** JEG-557 (PR 982), JEG-1061 (PR 981), JEG-1145 (PR 973) in review; JEG-982 in progress;
+the numbered Muse queue on JEG-1145 has about 10 `muse` Todo tickets.
 
-**Open decisions** (label `needs-review`): JEG-1156, JEG-1101, JEG-894, JEG-1115,
-JEG-1125, JEG-1143, JEG-1142. QB bench count (8 vs about 7) is a low-priority math note.
+**Open decisions** (label `needs-review`): JEG-1101, JEG-894, JEG-1115, JEG-1125, JEG-1143,
+JEG-1142. QB bench count (8 vs about 7) is a low-priority math note.
 
 **Next queued:** research post refresh (PR 957 merged); Codex JEG-1136 on
 the HP once 921, 963, 964, 967, 939 merge.
