@@ -49,6 +49,7 @@ from lib.roster_convention import (
     starter_line as _convention_starter_line,
     waiver_line as _convention_waiver_line,
     market_bench_ratios as _convention_market_bench_ratios,
+    vorp_bench_allocate as _vorp_bench_allocate,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -261,12 +262,25 @@ def allocate(league: League, order: dict, score: dict, *,
     fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
-    # Skip flex_bench_seats in 2-QB / superflex: market_bench 2-QB data
-    # already captures supply-capped QB benches (Jeremy, 2026-10-23).
-    is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
-    use_flex = flex_bench_seats and not is_two_qb
-    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
-    b = bench_seats(league, flex_filled=ff)
+    if flex_bench_seats:
+        # JEG-1121 VORP: bench fills by VORP × usage discount.
+        _starters = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
+        _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
+        _is_2qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
+        _ff = (None if _is_2qb
+               else {p: (sf[p] + fx[p]) / t for p in POSITIONS})
+        b = _vorp_bench_allocate(
+            _starters, _remaining, score,
+            t, t * int(league.bench),
+            {p: int(league.slots.get(p, 0)) for p in POSITIONS},
+            _is_2qb, _ff,
+        )
+    else:
+        # D'Hondt bench (backward compat: flex_bench_seats=False).
+        is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
+        use_flex = not is_two_qb
+        ff = {p: (sf[p] + fx[p]) / t for p in POSITIONS} if use_flex else None
+        b = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         s = d[p] + sf[p] + fx[p]
@@ -432,7 +446,8 @@ def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict,
             ded = league.teams * int(league.slots.get(p, 0))
             avail = max(0, n_listed - ded)
             # apportion conservatively: cap sf+fx by available players
-            ff[p] = min(sf_total + (fx_total if p in league.flex_eligible else 0), avail)
+            # JEG-1121: sf_total/fx_total/avail are league-wide; normalize to per-team.
+            ff[p] = min(sf_total + (fx_total if p in league.flex_eligible else 0), avail) / league.teams
     seats = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
