@@ -283,6 +283,7 @@ def check_league(page) -> list[str]:
 
 def check_weights(page) -> list[str]:
     errors = []
+    page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     page.click("#v2Weights")
     shown = page.evaluate("() => Object.fromEntries([...document.querySelectorAll('#v2Popover [data-weight]')].map(n => [n.dataset.weight, n.textContent]))")
     weights = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
@@ -304,6 +305,7 @@ def check_weights(page) -> list[str]:
     if abs(got["QB"] - 0.30) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
         errors.append(f"weights: QB 30% applied as {got}")
     # JEG-834: 150% and -5% are refused with a message, the box snaps back, nothing invalid reaches the engine.
+    page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     page.click("#v2Weights")
     before = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     for bad in ("150", "-5", ""):
@@ -321,6 +323,7 @@ def check_weights(page) -> list[str]:
     after = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
     if any(abs(after[p] - before[p]) > 1e-9 for p in before):
         errors.append(f"weights: WR 150 changed the engine shares {before} -> {after}")
+    page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     page.click("#v2Weights")
     page.click("#v2Popover [data-weights-reset]")
     page.click('#v2Popover [data-done="weights"]')
@@ -329,6 +332,7 @@ def check_weights(page) -> list[str]:
     if not back:
         errors.append("weights: Reset defaults did not return the position shares to the league's defaults")
     # JEG-537: the bench share is a readout, not a slider.
+    page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     page.click("#v2Weights")
     if page.locator("#v2Popover #v2BenchSlider").count():
         errors.append("weights: the bench-share slider is still in Position weights")
@@ -764,7 +768,7 @@ def check_columns(page) -> list[str]:
     # Team: below 1600 px it is part of the player sub-line.
     page.click('#v2Popover input[data-meta="team"]')
     sub = page.evaluate("""() => { const v = window.TradeValueV2.view(); const r = v.visible[0];
-      return {sub: document.querySelector('#v2Table tbody .player-sub')?.textContent || '', team: r.team || 'FA'}; }""")
+      return {sub: document.querySelector('#v2Table tbody .player-sub')?.textContent || '', team: r.team || 'Free agent'}; }""")
     if f"· {sub['team']} ·" in f"· {sub['sub']} ·":
         errors.append(f"columns: Team unticked but the player line still reads {sub['sub']!r}")
     page.click('#v2Popover input[data-meta="team"]')
@@ -958,7 +962,7 @@ class PanelsRenderTest(unittest.TestCase):
                 "          if (box.checked) draft.add(item.key); else draft.delete(item.key);",
                 "          if (box.checked) draft.add(item.key); else draft.delete(item.key);\n          toggleEngineSource(item.key);", 1)},
             "zone preset ignored": {"v2_js": v2.replace("    const zone = zoneWindow(rows, preset);", "    const zone = null;", 1)},
-            "Team box ignored": {"v2_js": v2.replace("state.metaCols.team !== false && (row.team || \"FA\")", "(row.team || \"FA\")", 1)},
+            "Team box ignored": {"v2_js": v2.replace("state.metaCols.team !== false && (row.team || \"Free agent\")", "(row.team || \"Free agent\")", 1)},
             "From / To ignored": {"v2_js": v2.replace(
                 '      from.addEventListener("change", onBounds);\n      to.addEventListener("change", onBounds);\n', "", 1)},
             "brush drag keeps the preset": {"v2_js": v2.replace(

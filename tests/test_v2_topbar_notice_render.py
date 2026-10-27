@@ -1,8 +1,8 @@
 """Top-bar season-value notice guard (JEG-1023; Jeremy, 2026-10-24).
 
 The header carries one notice on every route: built for season-long value, not weekly start/sit decisions or
-playoff optimization. "More" opens the full list (also: the "Optimize for playoffs" setting is unreviewed, and
-defenses and kickers are not yet accounted for). An X dismisses it for the browser session.
+playoff optimization. "More" opens the full list (also: defenses and kickers are not yet accounted for; the
+"Optimize for playoffs" line went with the setting, hidden by JEG-1119). An X dismisses it for the browser session.
 
 Checks:
   * shown by default on every route (all views, the three Writing sections, both Values auditing views) at 1366x768
@@ -35,7 +35,7 @@ ROUTES = ["#writing/manifesto", "#writing/how-values", "#writing/research", "#pl
           "#risers-fallers", "#compare-trade", "#find-trade", "#values-auditing/value-pie", "#values-auditing/single-source"]
 LINE = "Built for season-long value, not weekly start/sit decisions or playoff optimization."
 DETAIL = ["season-long value", "weekly start/sit decisions", "playoff optimization",
-          "Optimize for playoffs", "has not been reviewed and likely is not working", "Defenses and kickers are not yet accounted for"]
+          "Defenses and kickers are not yet accounted for"]
 # Header heights before the notice existed (origin/main, measured 2026-10-24); the notice must not move them.
 BASE_HEADER = {(1440, 900): 64, (1366, 768): 64, (1024, 768): 64}
 DESKTOP = list(BASE_HEADER)

@@ -725,7 +725,7 @@
     return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected,
       constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported};
   }
-  const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
   function stateText(t) {
     const short = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "under");
@@ -1584,7 +1584,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     return wrap;
   }
 
-  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const names = rows => rows.map(r => r.name).join(" + ");
 
   function run() {
@@ -1623,7 +1623,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
     if (!res.trades.length) {
-      note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} available trade chart${charts.length === 1 ? "s say" : "s say"} they break even or win. Try a larger package.`);
+      note(`No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try a larger package.`);
       setHeadline("none", {reason: "no trades were found"});
       return undefined;   // the roster assessment above stays: it is worth reading even when no trade is found
     }
@@ -1818,7 +1818,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         + (thin.length ? ` ${thin.join(" ")}` : "");
       const warn = [];
       if (!e.passes.edge) warn.push("DDF Value does not say you win this package.");
-      if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} trade charts have them winning or even, so they may say no.`);
+      if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} charts have them winning or even, so they may say no.`);
       if (!e.passes.lineup) warn.push("It leaves a starting lineup short at a position.");
       const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
       const throwIns = same && same.throwIns ? [].concat(same.throwIns.give.map(r => `${r.name} (${valueText(r, ourKey)})`), same.throwIns.receive.map(r => `${r.name} (${valueText(r, ourKey)})`)) : [];
@@ -2035,7 +2035,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2FindTitle", text: "Your roster and theirs"}),
-        el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available trade charts say the other manager breaks even or wins."}))),
+        el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins."}))),
       summaryRow,
       el("div", {id: "v2FindInput"},
         el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),

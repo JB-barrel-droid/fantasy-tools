@@ -57,8 +57,8 @@
 
   const $ = id => document.getElementById(id);
   const finite = v => typeof v === "number" && Number.isFinite(v);
-  const fmt = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1)) : "—");
-  const signed = v => (finite(v) ? (Math.abs(v) < 0.05 ? "±0.0" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1)) : "—");
+  const fmt = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1).replace("-", "−")) : "—");
+  const signed = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1)) : "—");
   const round1 = v => Math.round(v * 10) / 10;
   function el(tag, attrs, kids) {
     const node = document.createElement(tag);
@@ -263,11 +263,10 @@
   function barHost() {
     let bar = $("v2OvBar");
     if (bar) return bar;
-    const inner = document.querySelector(".v2-league-inner");
+    const inner = document.querySelector(".v2-context-inner");   // JEG-1119: the context row replaced the league bar
     if (!inner) return null;
     bar = el("div", {id: "v2OvBar", class: "v2-ov-bar", hidden: true});
-    const actions = inner.querySelector(".v2-league-actions");
-    inner.insertBefore(bar, actions || null);
+    inner.insertBefore(bar, $("v2EditSources"));
     return bar;
   }
   function bannerHost() {
