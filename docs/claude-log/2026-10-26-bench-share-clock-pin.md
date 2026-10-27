@@ -114,3 +114,6 @@ dist change.
 
 - The other 15 previously failing suites were seen failing only in the
   parallel sweep, not one at a time without the pin.
+- `tests.test_v2_waterfall_render` (the second v2-render CI suite) failed on
+  CI run 40450942126 at 02d2bb95 (no player data: `reading 'player_key'`).
+  With the pin added at its three `new_page` calls: `TZ=UTC` OK (7 tests) at 04:52 UTC.
