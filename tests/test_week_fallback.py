@@ -2,7 +2,8 @@
 week, DDF Value falls back to the latest published week, labeled. Node checks with a pinned day:
 - weeks.ts (get-values) and product-data.js (the page) agree on the values week, label and drops;
 - the get-values handler itself on the flip day, a normal day, and with no chart at all;
-- the MCP tools carry the week label.
+- the MCP tools carry the week label;
+- the Python reference (pipelines/value_reference.py) follows the same rule.
 The rendered page check is tests/test_week_fallback_render.py.
 """
 import shutil
@@ -37,6 +38,33 @@ class WeekFallbackTests(unittest.TestCase):
         out = run_node("get_values_week_check.mjs", str(ROOT / "dist"))
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertTrue(out.stdout.strip().endswith("ok"))
+
+
+class ReferenceWeekFallbackTests(unittest.TestCase):
+    def test_reference_keeps_latest_week_on_the_flip(self):
+        import copy
+        import sys
+        from datetime import timedelta
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        import value_reference as ref
+        from nfl_week import content_week_start
+        inp = ref.Inputs.load()
+        charts = [k for k in ref.PUBLISHED if inp.section(k) is not None]
+        weeks = [ref.section_week(inp.section(k), inp.today)[0] for k in charts]
+        week = max(w for w in weeks if w is not None)
+        # The charts' own week: nothing behind. The flip day: the reference week stays the charts' week.
+        for day in (content_week_start(week) + timedelta(days=3), content_week_start(week + 1)):
+            inp.today = day
+            fresh = ref.freshness(inp)
+            self.assertEqual(fresh["reference_week"], week)
+            behind = sorted(k for k in charts if fresh["series"][k]["behind_values_week"])
+            expected = sorted(k for k, w in zip(charts, weeks) if w is not None and w < week)
+            self.assertEqual(behind, expected, day)
+        # A chart a week further behind is still left out on the flip day.
+        inp.today = content_week_start(week + 1)
+        inp.fixture = copy.deepcopy(inp.fixture)
+        inp.section(charts[0])["week_designated"] = f"Week {week - 1}"
+        self.assertTrue(ref.freshness(inp)["series"][charts[0]]["behind_values_week"])
 
 
 if __name__ == "__main__":

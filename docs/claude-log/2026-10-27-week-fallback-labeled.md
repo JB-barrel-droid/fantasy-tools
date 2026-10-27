@@ -26,6 +26,8 @@ Changes:
   drops a chart a week further behind with its reason, and returns no players with
   "No trade chart published yet" when no chart exists.
 - `tests/node/mcp_week_check.mjs`: get_values, get_player_value and read_state carry the label.
+- `tests.test_week_fallback.ReferenceWeekFallbackTests`: `value_reference.py` keeps the charts' week on
+  the flip day and still leaves out a chart a week further behind.
 - `tests/test_week_fallback_render.py`: dashboard and v2 (1440 and 390 wide) price DDF Value and
   show the label on the flip day; no label in the data's own week. Fails without the curve-widget
   change (0 players priced on all three surfaces).
