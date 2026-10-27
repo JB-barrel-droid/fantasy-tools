@@ -166,6 +166,12 @@ def checks(finder_js) -> list[str]:
                  {"rows": [p("Q1", "QB", 40, (5, 5, 5, 5)), p("R1", "RB", 30, (25, 26, 24, 25)), p("W1", "WR", 28, (22, 23, 21, 22))], "shape": SHAPE, "charts": CHARTS})
     if not short["empty"] or short["bench"]["value"] != 0 or short["emptySlot"] != 0:
         errors.append(f"a roster shorter than the lineup: {short}, want the unfilled slots empty and a zero bench")
+
+    # a kicker and a defense (no value in any series) are left out of every row, not flagged as missing
+    kd = node(finder_js, "const s = F.teamSummary(D.rows, D.shape, D.charts, 'ddf_value'); const t = s.series.find(x=>x.id==='usatoday').cells.total; return {size: s.size, complete: t.complete, missing: t.missing, count: t.count};",
+              {"rows": roster() + [p("K1", "K", None, None), p("D1", "DEF", None, None)], "shape": SHAPE, "charts": CHARTS})
+    if kd["size"] != len(roster()) or not kd["complete"] or kd["missing"] or kd["count"] != len(roster()):
+        errors.append(f"a kicker and a defense: {kd}, want them left out of the totals (not counted, not missing)")
     return errors
 
 
@@ -180,6 +186,7 @@ class FinderTeamsTest(unittest.TestCase):
             "an incomplete cell never flagged": js.replace("complete: missing.length === 0};", "complete: true};", 1),
             "the Total read from the starters": js.replace("const sets = {starters: picked.starters, bench: picked.bench, total: rows.slice(),", "const sets = {starters: picked.starters, bench: picked.bench, total: picked.starters,", 1),
             "the chart average shown with too few charts": js.replace("const market = charts.length >= MIN_CHARTS;", "const market = charts.length >= 0;", 1),
+            "a kicker or defense counted in the totals": js.replace("const rows = (teamRows || []).filter(r => !isNotEvaluated(r));", "const rows = teamRows || [];", 1),
             "the starters re-picked per column from the market": js.replace("starters: picked.starters, bench: picked.bench,", "starters: pickStarters(rows, shape, MARKET_KEY).starters, bench: pickStarters(rows, shape, MARKET_KEY).bench,", 1),
         }
         for name, body in broken.items():

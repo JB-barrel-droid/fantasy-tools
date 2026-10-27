@@ -427,7 +427,9 @@
   // rows: one team's engine rows; shape: the league's slots; chartKeys: the available, non-held charts (the list run()
   // compares); ourKey: DDF Value. series: [{key, id, cells}] with id "ddf", then "market" (the mean of chartKeys, absent
   // as a column when fewer than MIN_CHARTS of them), then one per chart. cells[row] per SUMMARY_ROWS.
-  function teamSummary(rows, shape, chartKeys, ourKey) {
+  // Kickers and defenses (isNotEvaluated) are left out of every row, as the roster assessment leaves them out.
+  function teamSummary(teamRows, shape, chartKeys, ourKey) {
+    const rows = (teamRows || []).filter(r => !isNotEvaluated(r));
     const key = ourKey || OUR_KEY;
     const charts = chartKeys || [];
     const picked = pickStarters(rows, shape, key);
