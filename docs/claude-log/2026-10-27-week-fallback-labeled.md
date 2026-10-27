@@ -17,6 +17,10 @@ Changes:
 - MCP tools (`mcp/tools.ts`): a "Values week: ..." line and `values_week` / `values_week_note` in
   every values-backed tool; get_values lists excluded sources.
 
+- `tests/test_ddf_composite_value.py`: its "every chart a week behind → DDF Value null" setup pinned
+  the old rule, which Jeremy changed (option A). The JEG-1073 check (no chart → no projection
+  fallback) now removes the chart sections; a new test pins the fallback on the old setup.
+
 ### Verified (check named)
 - `tests/node/week_fallback_check.mjs`: weeks.ts and product-data.js agree (values week, flag,
   label, dropped charts) on pinned days: current week published, partly published, missing, a chart
