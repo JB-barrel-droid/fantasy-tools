@@ -185,6 +185,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_espn_held_chip_render
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
+	python3 -m unittest tests.test_v2_phone_header_render
+	python3 -m unittest tests.test_v2_phone_tap_targets_render
 	python3 -m unittest tests.test_v2_audit_render
 	python3 -m unittest tests.test_v2_health_check_render
 	python3 -m unittest tests.test_v2_ux_render
@@ -404,6 +406,12 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_deal_read_split
 	python3 -m unittest tests.test_v2_disagree
 	python3 -m unittest tests.test_v2_finder_import
+	# JEG-1108: fit label rules, their guards, and the label distribution on the 20-team reference league.
+	python3 -m unittest tests.test_v2_finder_fit
+	python3 -m unittest tests.test_v2_finder_trifit
+	python3 -m unittest tests.test_v2_finder_balance
+	python3 -m unittest tests.test_v2_league_units
+	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
 	# pytest-style modules (unittest finds no tests in them); preview.yml installs pytest.
@@ -584,6 +592,7 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_phone_layout_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
+	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_rank_overflow_render
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_trade_actions_render
@@ -738,7 +747,11 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_render
 	python3 -m unittest tests.test_v2_league_shared_roster_render
+	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_v2_league_parsed_render
+	python3 -m unittest tests.test_v2_league_top10_render
+	python3 -m unittest tests.test_v2_find_split_render
 	python3 -m unittest tests.test_v2_mobile_phase1_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
