@@ -75,7 +75,7 @@ GROUPS = """() => [...document.querySelectorAll('#v2FindOut .v2-find-group')].ma
   picks: Object.fromEntries([...g.querySelectorAll('input[data-key]')].map(i => [i.dataset.key, i.checked]))}))"""
 LIVE = "() => document.getElementById('v2LeagueLive').textContent"
 TAB_TEXT = ("()=>[...document.querySelectorAll('main')].filter(m=>!m.hidden&&m.offsetParent!==null).map(m=>m.innerText).join('\\n')"
-            "+'\\n'+(document.getElementById('v2League')?.innerText||'')")
+            "+'\\n'+(document.getElementById('v2Context')?.innerText||'')")
 
 
 def _open(browser, base, hash_, width=1440, height=900, overrides=None, errors=None, tag=""):
@@ -323,6 +323,7 @@ def check_weights_live(browser, base, overrides, errors):
     page = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[weights] ")
     _find_flow(page)
     start = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
+    page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     page.click("#v2Weights")
     buttons = page.evaluate("() => [...document.querySelectorAll('#v2Popover button')].map(b => b.textContent.trim())")
     if "Apply" in buttons or "Cancel" in buttons or not {"Reset defaults", "Undo changes", "Done"} <= set(buttons):
@@ -354,6 +355,7 @@ def check_weights_live(browser, base, overrides, errors):
     page.click('#v2Popover [data-done="weights"]')
     if abs(page.evaluate("() => window.TradeValueCurveControls.getPositionWeights().QB") - 0.28) > 0.002:
         errors.append("[weights] Done did not flush a pending share")
+    page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     page.click("#v2Weights")
     page.click("#v2Popover [data-weights-reset]")
     page.click('#v2Popover [data-done="weights"]')
@@ -363,12 +365,14 @@ def check_weights_live(browser, base, overrides, errors):
     # Find after a live share change equals a page that had the share from the start.
     a = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[weights a] ")
     _find_flow(a)
+    a.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     a.click("#v2Weights")
     a.fill("#v2ShareQB", "30")
     _settle(a, 800)
     a.click('#v2Popover [data-done="weights"]')
     _settle(a, 300)
     b = _open(browser, base, "#find-trade", overrides=overrides, errors=errors, tag="[weights b] ")
+    b.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
     b.click("#v2Weights")
     b.fill("#v2ShareQB", "30")
     _settle(b, 800)

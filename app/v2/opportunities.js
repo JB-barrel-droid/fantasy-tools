@@ -23,7 +23,7 @@
   const finder = () => (typeof module !== "undefined" && module.exports ? require("./finder.js") : root.TradeValueFinder);
   const shown = n => Math.round(n * 10) / 10;
   const asShown = n => (Math.abs(n) < 0.05 ? 0 : n);
-  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const listJoin = items => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 

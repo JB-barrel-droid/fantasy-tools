@@ -100,6 +100,7 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
             sent = sender.evaluate(STATE)
             if (sent["teams"], sent["scoring"], sent["give"], sent["get"]) != (10, "half_ppr", give, get):
                 errors.append(f"sender page did not open the link: {sent}")
+            sender.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             sender.click("#v2AssistCopy")
             sender.wait_for_timeout(300)
             text = sender.evaluate("() => navigator.clipboard.readText()")
@@ -116,6 +117,7 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
             before = receiver.evaluate(STATE)
             if before["teams"] == 10 and before["scoring"] == "half_ppr":
                 errors.append("receiver already in the sender's league; the round trip proves nothing")
+            receiver.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             receiver.click("#v2AssistPasteToggle")
             receiver.fill("#v2AssistPasteText", text)
             receiver.click("#v2AssistApply")
@@ -133,6 +135,7 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                                "work": {"view": "finder", "mine": [{"name": "Jahmyr Gibbs"}, {"name": "Not A Real Player"}],
                                         "theirs": [{"name": "Ja'Marr Chase"}, {"name": "Puka Nacua"}]},
                                "sources": ["fantasycalc"], "asOf": "2026-10-24"})
+            receiver.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             receiver.click("#v2AssistPasteToggle")
             receiver.fill("#v2AssistPasteText", f"Here you go:\n```ddf-state\n{hand}\n```")
             receiver.click("#v2AssistApply")
@@ -144,6 +147,7 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
             note = hand_got["note"]
             if "Ignored." not in note or "Not A Real Player (not in the values)" not in note or "advisory" not in note:
                 errors.append(f"report does not name what was ignored: {note!r}")
+            receiver.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             receiver.click("#v2AssistPasteToggle")
             receiver.fill("#v2AssistPasteText", "just some words, no state")
             receiver.click("#v2AssistApply")
@@ -160,6 +164,7 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
             if link.evaluate("() => document.querySelectorAll('#v2FindMine .v2-find-row').length") != 2:
                 errors.append("find-trade link rosters not drawn on the page")
             # Copy writes what the page reads: the link in the block opens the same rosters.
+            link.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             link.click("#v2AssistCopy")
             link.wait_for_timeout(300)
             written = link.evaluate("() => navigator.clipboard.readText()")
@@ -191,21 +196,26 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                 if not (seen["shown"] and seen["text"]):
                     errors.append(f"footer not shown on {tab}: {seen}")
                 # The buttons sit in the league strip (Jeremy, 2026-10-25) on every tab that has the strip: whole, on screen,
-                # wrapped or stacked rather than clipped, and the page no wider than the phone.
+                # wrapped or stacked rather than clipped, and the page no wider than the phone. Since JEG-1119 (Jeremy's
+                # scope, 2026-10-26) they sit in the strip's ⋯ menu, so the menu is opened to measure them.
                 strip = narrow.evaluate("""() => { const w = document.documentElement.clientWidth;
+                  const more = document.getElementById('v2ContextMore'); if (more.offsetParent) more.click();
                   const box = id => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
-                    return {inStrip: Boolean(e.closest('#v2League')), ok: r.width > 0 && r.left >= 0 && r.right <= w + 0.5 && e.scrollWidth <= e.clientWidth + 1}; };
-                  return {stripShown: !document.getElementById('v2League').hidden, copy: box('v2AssistCopy'), paste: box('v2AssistPasteToggle'),
+                    return {inStrip: Boolean(e.closest('#v2Context')), ok: r.width > 0 && r.left >= 0 && r.right <= w + 0.5 && e.scrollWidth <= e.clientWidth + 1}; };
+                  return {stripShown: !document.getElementById('v2Context').hidden, copy: box('v2AssistCopy'), paste: box('v2AssistPasteToggle'),
                           over: document.documentElement.scrollWidth - w, footerButtons: document.querySelectorAll('#v2Assist button').length}; }""")
+                narrow.keyboard.press("Escape")
                 if strip["stripShown"] and not (strip["copy"]["inStrip"] and strip["copy"]["ok"] and strip["paste"]["inStrip"] and strip["paste"]["ok"]):
                     errors.append(f"Copy / Paste buttons not whole in the league strip at 390px on {tab}: {strip}")
                 if strip["over"] > 0 or strip["footerButtons"]:
                     errors.append(f"390px {tab}: overflow {strip['over']}px, buttons left in the footer {strip['footerButtons']}")
             narrow.evaluate("() => { location.hash = '#find-trade'; }")
+            narrow.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             narrow.click("#v2AssistPasteToggle")
             narrow.fill("#v2AssistPasteText", f"```ddf-state\n{hand}\n```")
             narrow.click("#v2AssistApply")
             narrow.wait_for_timeout(400)
+            narrow.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             narrow.click("#v2AssistPasteToggle")   # open again: the box, its label and the report all sit at 390px
             narrow.wait_for_timeout(100)
             if narrow.evaluate("() => document.getElementById('v2AssistPaste').hidden"):
