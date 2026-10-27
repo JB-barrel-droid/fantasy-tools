@@ -68,3 +68,20 @@ Author: an OpenRouter deepseek-v4.1-flash run (T2/T3). **Untrusted until a Claud
 - **Q7 (a privacy line) was not added** (Jeremy's instruction).
 - The phone bar was restructured minimally: `#v2CVerdictBarWrap` (fixed, flex) holds the go button `#v2CVerdictBar`
   (id and behaviour unchanged, so `ct06` still finds it) and the copy button `#v2CShare2`.
+
+## T1 review and main merge-in (Ba-Nana merge wave, 2026-10-27)
+
+- Reviewed the diff against main: scope matches JEG-894 (finder search link, copy link on the verdict and the phone bar),
+  no value math, bench or seat code touched. No code fixes needed.
+- Merged `origin/main` (51b7e528) with no conflicts; main brought only data and status files, no app or test changes.
+
+Verified (check named):
+- `gh run view 40456070192` / `40456072386`: main at 51b7e528 itself fails `test_rank_guard.test_indexed_order_equals_native_order`
+  (make validate) and `test_v2_waterfall_render` (`player_key` undefined), the same failures as this PR's `preview` and
+  `v2-render` after the merge-in.
+- The pre-merge PR head 84560c94 passed `preview` and `v2-render` in CI.
+
+Claimed, not confirmed:
+- `test_v2_share_links_render` and `test_v2_share_render` failed locally (sender found 0 trades); CI stops at the
+  waterfall step before it reaches them, so they are unverified on the merged head. Main brought no app changes, so the
+  local failures are most likely the local environment or data.
