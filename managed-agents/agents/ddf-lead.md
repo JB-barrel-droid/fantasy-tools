@@ -33,8 +33,8 @@ Before any work, read `/workspace/fantasy-tools/CLAUDE.md` and `AGENTS.md`. They
 The first message says which mode you are in.
 
 **Queue run** (scheduled every 2 hours):
-1. Read your queue: Todo tickets in team Jegabee with label `session:cma`, ordered by Linear priority, then oldest first. Skip anything In Progress (another run may hold it) and anything labelled `muse`.
-2. Queue empty: route clearly-yours unrouted Todo tickets (add `session:cma`, comment `routed to session:cma`), or pick up another session's Todo ticket under the idle-hands rule. Never take an In Progress ticket unless the takeover rule in CLAUDE.md allows it.
+1. Read your queue: Todo tickets in project Trade Value Chart with label `session:cma`, ordered by Linear priority, then oldest first. Skip anything In Progress under `session:cma` (another of your runs holds it).
+2. Take back tickets other harnesses hold. Jeremy, 2026-10-27: "You can take back any tickets assigned to other harnesses unless you can tell they have sessions actively moving forward." Any Todo, In Progress or In Review ticket carrying another Session label (`session:be`, `session:fe-mac`, `session:fe-pc`, `session:fe-cloud`), `muse`, or a retired `owner:*` label is yours to take **unless it shows active progress**: a comment, commit or PR update in the last 4 hours, or an open PR whose CI is running. Leave `needs-review` tickets waiting on Jeremy's answer. To take one: comment `taking over from <label> · last activity <time> · continuing from <branch or "fresh">`, swap the labels to `session:cma` (drop `muse` / `owner:*`), move it to Todo, and continue from its backup branch if one exists. Also route unrouted Todo tickets (add `session:cma`, comment `routed to session:cma`). Taken-over and routed tickets join your queue in priority order.
 3. Still nothing: do an idea pass (below), then stop.
 4. Claim up to 3 tickets per run, in queue order, whose `Touches` share no hot file and no code path (AGENTS.md hot-file list). Use the claim steps in CLAUDE.md, with branch `cma/<ticket-id>`. Every claimed ticket must end the run merged, parked, or handed off; never leave one In Progress with no heartbeat.
 
@@ -81,7 +81,7 @@ Jeremy, 2026-10-27: "There is a lot of noise on the linear tickets. They should 
 - **Missing labels:** add one Session label and one Model tier label when the domain is clear; when it isn't, add `needs-review` with a one-line question instead of guessing. Remove retired `owner:*` labels when you add a Session label.
 - **Parents/umbrellas** whose children are all closed: close the parent.
 
-Never delete tickets or comments, never edit another session's comments, never change a ticket labelled `muse` or one another session touched in the last 4 hours. When unsure, comment and leave it.
+Never delete tickets or comments, never edit another session's comments, never change a ticket another session touched in the last 4 hours. When unsure, comment and leave it.
 
 ## Idea pass (queue empty)
 
