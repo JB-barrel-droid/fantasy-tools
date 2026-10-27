@@ -1357,9 +1357,14 @@ def freshness(inp: Inputs) -> dict:
         rows[key] = {"week": week, "weekly": weekly, "older": weekly and week is not None and week < current}
     weekly_weeks = [r["week"] for r in rows.values() if r["weekly"] and r["week"] is not None]
     ref_week = min(max(weekly_weeks), current) if weekly_weeks else None
-    for r in rows.values():
+    # JEG-1156 (Jeremy, 2026-10-27, option A): a chart is not yet published only when it is older than
+    # the values week (the reference week), so on the Tuesday flip, before any chart posts the new
+    # week, the latest published week still prices DDF Value. As product-data.js behind_values_week.
+    values_bar = ref_week if ref_week is not None else current
+    for key, r in rows.items():
         r["first_load_excluded"] = bool(r["weekly"] and ref_week is not None and r["week"] is not None
                                         and r["week"] < ref_week)
+        r["behind_values_week"] = bool(FAMILY[key] == "chart" and r["week"] is not None and r["week"] < values_bar)
     return {"current_week": current, "reference_week": ref_week, "series": rows}
 
 
@@ -1605,8 +1610,8 @@ class Setting:
                 if self.inp.section(k) is not None and current[k]:
                     eligible.append(k)
                     hidden.add(k)
-            elif row.get("older") or row.get("first_load_excluded"):
-                excluded[k] = f"not yet published for week {fresh['current_week']}"
+            elif row.get("behind_values_week") or row.get("first_load_excluded"):
+                excluded[k] = f"not yet published for week {fresh['reference_week'] or fresh['current_week']}"
             elif self.inp.section(k) is None:
                 excluded[k] = "missing from this build"
             elif not current[k]:

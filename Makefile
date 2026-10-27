@@ -129,6 +129,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_mcp_remote
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1156 / JEG-1157: the values-week fallback, rendered (pinned clock).
+	python3 -m unittest tests.test_week_fallback_render
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
@@ -541,6 +543,8 @@ test-core:
 	python3 -m unittest tests.test_value_pipeline_engine
 	# JEG-1152: engine promotion model part-for-part with the reference.
 	python3 -m unittest tests.test_promotion_model_parity
+	# JEG-1156 / JEG-1157: values-week fallback, page and get-values agree (pinned clock).
+	python3 -m unittest tests.test_week_fallback
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_rank_guard

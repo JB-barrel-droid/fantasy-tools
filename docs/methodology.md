@@ -141,7 +141,8 @@ implementation follows the rule as written.
 
 1. A source is **eligible** this week when all three hold:
    - it is not unpublished (a weekly chart whose content week is older than
-     the current content week);
+     the values week: the newest week any chart has published, capped at the
+     current content week; JEG-1156, Jeremy 2026-10-27, option A);
    - it has values at `L` (the section exists and the scoring is saved);
    - it is not missing from the build.
 
@@ -1587,9 +1588,16 @@ implement exactly this text.
      series derived from it (`fantasycalc` holds `fantasycalc_adjusted`;
      `espn` holds `espn_vorp`; and so on). Reason: `held: <reason>`.
    - *Not yet published*: a weekly chart whose content week is older than the
-     current content week (Tuesday flip, `pipelines/nfl_week.py`). Its prior
-     section is the only valid one, and it is not used. Reason: `not yet
-     published for week N`. Projections are rest-of-season and always current.
+     values week (Tuesday flip, `pipelines/nfl_week.py`). The values week is
+     the newest week any weekly chart has published, capped at the current
+     content week. Its prior section is the only valid one, and it is not
+     used. Reason: `not yet published for week N`. Projections are
+     rest-of-season and always current.
+   - *Values-week fallback* (JEG-1156, Jeremy 2026-10-27, option A): when no
+     chart has posted the current content week yet, the values week is the
+     latest published one, so DDF Value is that week's, and every surface
+     says so: "Week 7 values, week 8 not published yet". Once a current-week
+     chart posts, the rule above leaves the older ones out again.
 4. **Selected and available.** By default every input left by step 3; a reader
    may choose a subset (at least one), and each version uses its share of it.
    An input with no values at this setting (missing section, no saved setup)
