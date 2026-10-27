@@ -26,18 +26,26 @@ reorder" check), so the ticket looks stale.
 
 ## Verified (checks named)
 - `RENDER_TESTS_REQUIRED=1 python -m unittest tests.test_v2_league_phone_render.LeaguePhoneRenderTest.test_guard_fails_on_broken_builds`
-  — OK before the change (mutation already caught); the anchor is live (assertNotEqual stale-anchor guard passes).
+  — OK before the change (mutation already caught) and OK after it. The new phrase assertion is
+  live: the dead-selector mutation is caught by an error that literally contains "sort selector"
+  (`the sort selector did not sort the summary by bench value: ['rank:ascending']`), so the phrase
+  is real and the anchor is live (the `assertNotEqual` stale-anchor guard passes).
 - Diagnostic (not committed, `/tmp/diag.py`): the dead-selector mutation yields the four
   sort-specific errors above at each width.
-- Diagnostic (`/tmp/diag2.py`): team sort is ascending on the real build; every other mutation
-  still produces its own error.
+- Diagnostic (`/tmp/diag2.py`): team sort is ascending on the real build (so the tightened
+  direction assertion is safe); every other mutation still produces its own error.
+- `RENDER_TESTS_REQUIRED=1 python -m unittest tests.test_v2_league_phone_render` (whole module,
+  branch tip) — 2 tests, 1 failure. `test_guard_fails_on_broken_builds` passes (all six mutations
+  caught, the sort one by name). `test_phone_contrast_keyboard` fails on
+  `[320px] sideways scroll by 24px`, the pre-existing app-CSS overflow below, unchanged here.
+- Pre-existing overflow confirmed on clean `origin/main`: `git checkout origin/main --
+  tests/test_v2_league_phone_render.py` then the same method fails with the identical
+  `[320px] sideways scroll by 24px`, and the JEG-1111 diff touches no overflow code. Not hidden,
+  not fixed here (app CSS).
 
 ## Claimed, not confirmed
-- The full-module and real-build runs after the edit were not re-run inside the budget. Before
-  the edit, `test_phone_contrast_keyboard` failed on `[320px] sideways scroll by 24px`, caused by
-  `#v2LgFilterFit` (the "Natural and market supported" option added by JEG-1093, e696bf25) having
-  no phone max-width — app CSS, outside this ticket's scope. That real-build failure is not fixed
-  here.
+- Nothing: the guard method and the whole module were both re-run after the edit, and the
+  real-build overflow was reproduced on clean `origin/main`.
 
 ## Open question for Jeremy
 The real-build phone check is red on `origin/main` from the JEG-1093 filter-label regression.
