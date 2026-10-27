@@ -93,7 +93,7 @@
     const results = el("ul", {class: "v2-trade-results", id: `${bodyId}-res`, hidden: true});
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Add players to this team: search by name, or paste a whole team page"}), input);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${bodyId}-help`,
-      text: "Type a name to search, or paste a team page from any fantasy site (Ctrl+A, Ctrl+C on the page). Pasted text stays in this browser; nothing is sent anywhere."});
+      text: "Type a name to search, or paste a team page: select all and copy on the page (Ctrl+A, Ctrl+C), then paste here. It stays on this device; nothing is sent anywhere."});
     const panel = el("div", {class: "v2-find-paste-result", id: `${bodyId}-panel`, role: "status", "aria-live": "polite"});
     const list = el("ul", {class: "v2-trade-players v2-lg-players", id: `${bodyId}-list`});
     const node = el("div", {class: "v2-lg-team-body", id: bodyId}, el("div", {class: "v2-find-search-wrap"}, label, results), help, panel, list);
@@ -430,8 +430,8 @@
     if (UI.undo) b.textContent = `Undo: ${UI.undo.label}`;
   }
 
-  const SAVE_TEXT = {idle: "", saving: "Saving…", saved: "Saved", unavailable: "Private browsing: your teams will not be saved between visits.",
-    full: "Storage is full. Download your league to keep it, then clear old data."};
+  const SAVE_TEXT = {idle: "", saving: "Saving…", saved: "Saved", unavailable: "Private browsing: your teams won't be saved on this device between visits.",
+    full: "This device's storage is full. Download your league to keep a copy, then clear old data."};
   function renderStatus() {
     const n = $("v2LgSaved");
     if (!n) return;
@@ -1180,8 +1180,8 @@
       el("div", {class: "v2-lg-confirm", id: "v2LgLoadConfirm", role: "group", hidden: true}),
       el("section", {class: "v2-lg-parsed", id: "v2LgParsed", role: "status", "aria-live": "polite", "aria-label": "What was read from your paste", hidden: true}),
       el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}),
-      el("p", {class: "v2-meta", text: "Your teams and rosters are saved in this browser only. Nothing is sent anywhere. Use Download to keep a copy."}),
-      el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Paste your whole league below, or add a team and paste its roster or search players by name."}),
+      el("p", {class: "v2-meta", text: "Saved on this device. Bookmark this page to come back, or use Download to keep a copy or move it to another device. Nothing is sent anywhere."}),
+      el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Let's get your league in here: paste your league's rosters page below, or add a team and paste its roster or search players by name. No sign-up; it saves on this device."}),
       leagueBox,
       el("ul", {class: "v2-lg-teams", id: "v2LgTeams"}),
       el("p", {class: "v2-meta v2-footnote", id: "v2LgFootnote", hidden: true, text: "K and DEF are on rosters (and counted) but not evaluated."}),

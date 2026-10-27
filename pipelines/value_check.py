@@ -20,7 +20,10 @@ series out of the consolidated DDF values."
         reference's value pipeline version (TradeValueCurveDiagnostics.
         valuePipeline.version) is not compared: verdict "incomparable",
         nothing held. Exit 0 always unless --strict; the verdict is in the
-        JSON.
+        JSON. Reads the built dist/, so it refuses a stale build: if a synced
+        engine file differs from app/trade-value-chart/, it exits non-zero
+        with "dist is stale (...) : run make sync first" (JEG-1060). Run
+        `make sync` first, or pass --sync to run it here.
 
     python pipelines/value_check.py hold [--report output/value-check.json]
         Holds every disagreeing source and every series derived from it:
@@ -55,6 +58,7 @@ import value_reference as ref  # noqa: E402
 
 TOL = 0.05
 REPORT = REPO / "output" / "value-check.json"
+APP = REPO / "app" / "trade-value-chart"
 FIXTURE_REL = "data/fixtures/current/comparison-sources-data.json"
 STATUS = REPO / "output" / "comparison-chain-status.json"
 SCHEMA = "value-check/2"
@@ -88,6 +92,47 @@ def derived_series(root: str) -> list[str]:
 
 def root_of(series: str) -> str | None:
     return ROOT_OF.get(series) or DIAG_ROOT.get(series)
+
+
+# ---------------------------------------------------------------------------
+# Freshness: run_engine reads the built dist/, which `make sync` produces from
+# app/trade-value-chart/ (copy_tree). A stale dist -- a fresh worktree, or an
+# engine edit without a sync -- makes the comparison meaningless: it diffs an
+# old engine against the current reference (JEG-1060). These are the synced
+# files whose bytes decide the compared values; each must match its source.
+# ---------------------------------------------------------------------------
+ENGINE_SYNC_FILES = (
+    "assets/value-model.js",
+    "assets/curve-widget.js",
+    "assets/product-data.js",
+    "assets/player-tags.js",
+    "assets/roster-convention.js",
+    "assets/fundamental-bench.js",
+    "assets/comparison-sources-data.json",
+)
+
+
+def _rel(path: Path) -> str:
+    try:
+        return str(Path(path).resolve().relative_to(REPO))
+    except ValueError:
+        return str(path)
+
+
+def stale_engine_files(dist: Path) -> list[str]:
+    """One message per synced engine file under dist/ that is missing or whose
+    bytes differ from its app/trade-value-chart/ source (JEG-1060). Empty when
+    dist is fresh."""
+    stale = []
+    for rel in ENGINE_SYNC_FILES:
+        source, built = APP / rel, Path(dist) / rel
+        if not source.is_file():
+            continue  # nothing to compare against
+        if not built.is_file():
+            stale.append(f"{_rel(built)} is missing (source {_rel(source)})")
+        elif source.read_bytes() != built.read_bytes():
+            stale.append(f"{_rel(built)} differs from {_rel(source)}")
+    return stale
 
 
 # ---------------------------------------------------------------------------
@@ -716,6 +761,12 @@ def cmd_compare(args) -> int:
     if args.engine_json and Path(args.engine_json).exists() and not args.rerun_engine:
         engine = json.loads(Path(args.engine_json).read_text(encoding="utf-8"))
     else:
+        if args.sync:
+            subprocess.run(["make", "sync"], cwd=str(REPO), check=True)
+        from tests._dist_server import DIST
+        stale = stale_engine_files(DIST)
+        if stale:
+            raise SystemExit(f"dist is stale ({'; '.join(stale)}): run make sync first")
         engine = run_engine(setting_list, today)
         engine_path.parent.mkdir(parents=True, exist_ok=True)
         engine_path.write_text(json.dumps(engine, separators=(",", ":")), encoding="utf-8")
@@ -744,8 +795,8 @@ def cmd_hold(args) -> int:
         # Nothing was compared: hold nothing new and release nothing.
         print(f"value check: incomparable ({report.get('reason')}); holds left as they are")
         return 0
-    from nfl_week import current_nfl_week
-    week = args.week or current_nfl_week(datetime.now(timezone.utc).date())
+    from nfl_week import current_nfl_week, today_ny
+    week = args.week or current_nfl_week(today_ny())
     fixture_path = REPO / FIXTURE_REL
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
     # A hold lasts while the disagreement does: a section still carrying a
@@ -779,6 +830,8 @@ def main(argv=None) -> int:
     c = sub.add_parser("compare")
     c.add_argument("--engine-json", default=None, help="reuse a saved engine dump")
     c.add_argument("--rerun-engine", action="store_true")
+    c.add_argument("--sync", action="store_true",
+                   help="run `make sync` before reading dist/ (default: fail if dist is stale)")
     c.add_argument("--today", default=None)
     c.add_argument("--tol", type=float, default=TOL)
     c.add_argument("--no-superflex", action="store_true")
