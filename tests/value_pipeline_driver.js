@@ -128,8 +128,10 @@ Object.entries(result.rows).forEach(([k, row]) => {
   if (typeof ValueModel.applyDdfOverride !== "function") return;
   // JEG-1073: an override replaces the blended DDF Value only; the projections
   // version is a separate alternate and is not overridden.
+  // JEG-1058: the override is passed as the reader set it: a number is an
+  // absolute value, {type: "adjustment", delta} an adjustment.
   ["blended"].forEach((v) => {
-    ValueModel.applyDdfOverride(row.ddfByVersion[v], has ? Number(valueOverrides[k]) : null);
+    ValueModel.applyDdfOverride(row.ddfByVersion[v], has ? valueOverrides[k] : null);
   });
 });
 out.basis = result.basis;
