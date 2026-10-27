@@ -30,6 +30,11 @@ Jeremy's own ask (Oct 26), but merge and deploy rules below still hold.
   `🍌 **Ba-Nana (Jeremy's AI PM)** — not written by Jeremy`, or for a run:
   `🍌 **Ba-Nana run (deepseek-v4.1-flash)** — not written by Jeremy`.
   A successor uses the same shape with its own name.
+- **Run comments:** Started, then ✅ done or ❌ failed. Started and its ✅/❌ both
+  carry `session: <machine>/<harness>/<id>`, e.g. `session: mac-mini/claude-code/65e6d78c`
+  (`mac-mini`, `grok-box`, `hp-envy`; id = first 8 chars of Claude Code's `session_id`
+  from `-p --output-format json`/`stream-json`, or Codex's session/thread id).
+  One session on several tickets posts the same line on each.
 - **Every question to Jeremy** carries a link, plain context and a
   recommendation. Batch questions; never re-ask one he has answered.
 - **After any live deploy** tell him what to check, with a direct link to the
@@ -57,9 +62,8 @@ Jeremy's own ask (Oct 26), but merge and deploy rules below still hold.
 - **Cursor cloud agents** only for big self-contained jobs, and tell Jeremy first.
 - **Non-Claude output** goes up as a draft PR for Claude (T1) review (`AGENTS.md` rule 2).
 - **Machines:**
-  - *Mac mini:* checkout `~/code/fantasy-tools`, worktrees `~/code/wt/`. Claude
-    is signed in; wrappers are in `~/.config/banana/`. macOS has no `setsid`, so
-    detach runs with `nohup ... < /dev/null & disown`.
+  - *Mac mini:* checkout `~/code/fantasy-tools`, worktrees `~/code/wt/`, Claude
+    signed in, wrappers in `~/.config/banana/`; detach with `nohup ... < /dev/null & disown`.
   - *Linux box (grok-bot-vm):* clone `/workspace/code/fantasy-tools`, worktrees
     `/workspace/code/wt/<JEG-n>`, launchers and logs in `/workspace/logs/`
     (outside the repo; only Ba-Nana's box can see them).
@@ -110,14 +114,11 @@ Product decisions to date (Oct 26 unless noted; details on the ticket):
 
 ## 5. Current state
 
-Last updated: Oct 26, 2026, 7:20 PM CT (by Ba-Nana).
+Last updated: Oct 26, 2026, 9:40 PM CT (by Ba-Nana).
 
 **Active runs**
-- Box: none running (checked with `ps`).
-- Mac: unverified from here. Per Ba-Nana's notes, lane 4 CI tickets and the
-  JEG-1121 Claude work live on the Mac, and a MiniMax run was finishing checks
-  on [PR 963](https://github.com/JB-barrel-droid/fantasy-tools/pull/963).
-  Check the Mac's `ps` and Linear In Progress before starting anything.
+- Runs change hourly: check `ps` on the Mac, box and HP, Linear In Progress,
+  and the Started / ✅ / ❌ run comments before starting anything.
 
 **Open PRs waiting on Jeremy**
 - [PR 957](https://github.com/JB-barrel-droid/fantasy-tools/pull/957), [JEG-1121](https://linear.app/jegabee/issue/JEG-1121): review the movers / bench
@@ -143,7 +144,7 @@ research if Jeremy OKs it; research post refresh after PR 957 merges.
 - Update it whenever runs, PRs, decisions or rules change (2-hourly check-in).
 - Rewrite section 5 in place and bump "Last updated". Never append a log;
   history lives in git, Linear and the PRs.
-- Delete anything resolved: merged PRs, answered decisions, finished runs.
-- Link to Linear and GitHub; never copy their content here.
+- Delete anything resolved (merged PRs, answered decisions, finished runs).
+  Link to Linear and GitHub; never copy their content here.
 - Hard cap: about 150 lines and 10 KB for the file, about 40 lines for section 5.
   If an edit would go over, cut before adding.
