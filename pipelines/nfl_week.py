@@ -23,6 +23,16 @@ GAME WEEK (Thursday flip) -- `game_week(day)`
     the content week; labelling a save with it files new content under the
     previous week (GAP-WEEK-CALENDARS, GAP-INGEST-THU-WEEK).
 
+CLOCK (JEG-1177): every "today" is the New York calendar day
+    (America/New_York), because the content week turns over after Monday
+    Night Football, Eastern time. `today_ny()` is the one reader of the wall
+    clock; tests and replays inject a fixed instant with `set_clock(...)` or
+    the DDF_NOW environment variable (ISO timestamp). The page's copy is
+    product-data.js todayIsoDay (America/New_York, window.TRADE_VALUE_TODAY
+    override). A UTC date flips the week 4-5 hours early (Monday evening in
+    Chicago), which is why value_reference.py and three CLIs read the wrong
+    week each Monday night before this.
+
 Usage:
     python3 pipelines/nfl_week.py          # prints the content week
     python3 pipelines/nfl_week.py --game   # prints the game week
@@ -30,19 +40,62 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from typing import Callable
+from zoneinfo import ZoneInfo
 
 SEASON = 2026
 CONTENT_WEEK_1_START = date(2026, 9, 8)   # Tuesday before the Week 1 kickoff
 GAME_WEEK_1_START = date(2026, 9, 10)     # Thursday, Week 1 kickoff
 REGULAR_SEASON_WEEKS = 18
 LAST_GAME_WEEK = 22                        # through the Super Bowl
+NEW_YORK = ZoneInfo("America/New_York")
+
+_clock: Callable[[], datetime] | None = None
+
+
+def set_clock(clock: Callable[[], datetime] | datetime | None) -> None:
+    """Inject the wall clock (a callable returning an aware datetime, a fixed
+    datetime, or None to restore the real clock)."""
+    global _clock
+    if isinstance(clock, datetime):
+        fixed = clock
+        _clock = lambda: fixed  # noqa: E731
+    else:
+        _clock = clock
+
+
+def now_utc() -> datetime:
+    """The current instant: the injected clock, else DDF_NOW, else the system clock."""
+    if _clock is not None:
+        moment = _clock()
+    elif os.environ.get("DDF_NOW"):
+        try:
+            from lib.timestamps import parse_iso_timestamp
+        except ImportError:  # imported as pipelines.nfl_week
+            from pipelines.lib.timestamps import parse_iso_timestamp
+        moment = parse_iso_timestamp(os.environ["DDF_NOW"])
+    else:
+        moment = datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        raise ValueError("the clock must return an aware datetime")
+    return moment.astimezone(timezone.utc)
+
+
+def today_ny(now: datetime | None = None) -> date:
+    """The New York calendar day of `now` (default: the clock above)."""
+    moment = now or now_utc()
+    if moment.tzinfo is None:
+        raise ValueError("today_ny needs an aware datetime")
+    return moment.astimezone(NEW_YORK).date()
 
 
 def content_week(day: date | None = None) -> int:
-    """Content week (Tuesday flip) for a date; 1 before the season, capped at 18."""
-    day = day or date.today()
+    """Content week (Tuesday flip) for a date; 1 before the season, capped at 18.
+    No date: today in New York (today_ny)."""
+    day = day or today_ny()
     days_since = (day - CONTENT_WEEK_1_START).days
     if days_since < 0:
         return 1
@@ -63,7 +116,7 @@ def content_week_start(week: int) -> date:
 
 def game_week(day: date | None = None) -> int:
     """Game week (Thursday flip) for a date; 1 before kickoff, capped at 22."""
-    day = day or date.today()
+    day = day or today_ny()
     week = (day - GAME_WEEK_1_START).days // 7 + 1
     return max(1, min(LAST_GAME_WEEK, week))
 

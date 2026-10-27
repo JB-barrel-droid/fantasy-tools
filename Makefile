@@ -632,6 +632,8 @@ test-core:
 	python3 -m unittest tests.test_search_players_universe
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
+	# JEG-1177: shared defaultWeek vectors (JS + Python) and the New York clock.
+	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
@@ -722,6 +724,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_ddf_composite_value
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_week_calendar
+	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_razzball_outlier_guard
 

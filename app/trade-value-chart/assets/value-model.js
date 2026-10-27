@@ -1660,7 +1660,59 @@
     };
   }
 
+  // JEG-1177 (JEG-1176): the week-transition rule. Python twin:
+  // pipelines/week_state.py; both are pinned to
+  // tests/fixtures/week_state_vectors.json (tests/test_week_state.py).
+  // entries: [{source, week}] for the sources that feed DDF Value at one
+  // league setting, each with the week it serves. Default week = the newest
+  // week when MORE than half serve it, else the week before (exactly half
+  // stays on the week before; Jeremy, 2026-10-27). A source with no known
+  // week counts in the total. No carry-forward: the newest view lists only
+  // the sources serving it; the previous view lists those serving previous
+  // or newest (a moved source is read from its saved previous week).
+  function weekState(entries) {
+    var rows = [];
+    var seen = {};
+    (entries || []).forEach(function (item) {
+      if (!item || !item.source || seen[item.source]) return;
+      seen[item.source] = true;
+      var week = Number.isInteger(item.week) ? item.week : null;
+      rows.push({source: String(item.source), week: week});
+    });
+    var weeks = rows.map(function (r) { return r.week; }).filter(function (w) { return w !== null; });
+    if (!weeks.length) {
+      return {newest: null, previous: null, default_week: null, transition: false, weeks: [],
+        on_newest: 0, total: rows.length, views: {}};
+    }
+    var newest = Math.max.apply(null, weeks);
+    var previous = newest - 1;
+    var byName = function (a, b) { return a < b ? -1 : a > b ? 1 : 0; };
+    var everyone = rows.map(function (r) { return r.source; }).sort(byName);
+    var onNewest = rows.filter(function (r) { return r.week === newest; })
+      .map(function (r) { return r.source; }).sort(byName);
+    var total = rows.length;
+    var transition = onNewest.length < total;
+    var views = {};
+    views[String(newest)] = {sources: onNewest,
+      missing_sources: everyone.filter(function (s) { return onNewest.indexOf(s) === -1; })};
+    if (transition) {
+      var prevSources = rows.filter(function (r) { return r.week === previous || r.week === newest; })
+        .map(function (r) { return r.source; }).sort(byName);
+      views[String(previous)] = {sources: prevSources,
+        missing_sources: everyone.filter(function (s) { return prevSources.indexOf(s) === -1; })};
+    }
+    return {newest: newest, previous: previous,
+      default_week: 2 * onNewest.length > total ? newest : previous,
+      transition: transition, weeks: transition ? [newest, previous] : [newest],
+      on_newest: onNewest.length, total: total, views: views};
+  }
+  function defaultWeek(entries) {
+    return weekState(entries).default_week;
+  }
+
   root.ValueModel = {
+    weekState: weekState,
+    defaultWeek: defaultWeek,
     VALUE_PIPELINE_VERSION: VALUE_PIPELINE_VERSION,
     VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,

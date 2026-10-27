@@ -795,8 +795,8 @@ def cmd_hold(args) -> int:
         # Nothing was compared: hold nothing new and release nothing.
         print(f"value check: incomparable ({report.get('reason')}); holds left as they are")
         return 0
-    from nfl_week import current_nfl_week
-    week = args.week or current_nfl_week(datetime.now(timezone.utc).date())
+    from nfl_week import current_nfl_week, today_ny
+    week = args.week or current_nfl_week(today_ny())
     fixture_path = REPO / FIXTURE_REL
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
     # A hold lasts while the disagreement does: a section still carrying a
