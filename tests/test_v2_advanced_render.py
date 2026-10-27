@@ -118,6 +118,7 @@ def run_checks(js_patch=None) -> list[str]:
             # 1. Position weights: a readout, no slider.
             if page.text_content("#v2Weights").strip() != "Position weights":
                 errors.append(f"button reads {page.text_content('#v2Weights')!r}, want 'Position weights'")
+            page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             page.click("#v2Weights")
             w = page.evaluate(WEIGHTS)
             eng = page.evaluate(ENGINE)
@@ -165,6 +166,7 @@ def run_checks(js_patch=None) -> list[str]:
                 errors.append(f"[league] the live change gave {got['lineup']}")
             page.click('#v2Popover [data-done="league"]')
             # The panel and How values show the override; the reset link turns it off.
+            page.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             page.click("#v2Weights")
             w = page.evaluate(WEIGHTS)
             if w["text"] != "Bench share: 12.0% (your override)" or not w["reset"]:

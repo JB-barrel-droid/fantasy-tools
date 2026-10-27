@@ -71,7 +71,7 @@ READ = """() => {
       current: a.getAttribute('aria-current') === 'page'})),
     sectionsShown: shown('v2Writing'),
     hash: location.hash,
-    league: shown('v2League'), methods: shown('v2Methods'),
+    league: shown('v2Context'), methods: shown('v2Context'),  // JEG-1119: one context row
     indexLinks: rs ? [...rs.querySelectorAll('.v2-rs-list a')].map(a => a.getAttribute('href')) : [],
     visible: visible.map(a => a.dataset.slug || 'index'),
     h1: visible.map(a => a.querySelector('h1')?.textContent.trim()),
