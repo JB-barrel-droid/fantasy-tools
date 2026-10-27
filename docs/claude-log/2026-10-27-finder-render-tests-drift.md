@@ -36,3 +36,31 @@ edited.
   documented one. Not confirmed: whether the same pass would come back on its own once CBS is current.
 - The new groups pick is balanced by position, not guaranteed to produce a trade in every week; it fails loudly
   ("0 group cards listed") if a week has none, as before.
+
+### Follow-up: fit test (JEG-1185, Jeremy's decision: synthetic rows for the thin case, four-chart build)
+
+#### Verified (check named)
+- `tests/test_v2_finder_fit_render.py` (`RENDER_TESTS_REQUIRED=1 python -m unittest -v tests.test_v2_finder_fit_render`:
+  `test_fit` OK and `test_guard_fails_on_broken_builds` OK, so all five mutations, tier ordering off, fit line not drawn, tier order
+  reversed, folded groups not counted, two-player packages not searched, are still caught).
+- Root cause of the CBS part: the shared `_built_dist` pins CBS held (`tests/_holds.py`, JEG-675), leaving three charts. The plain
+  committed fixture is worse (all four charts held, Week 7 against Week 8), so the fit test's own `_built_dist` applies the same pin
+  and also clears the CBS hold in its own copy. Check: the new up-front assertion on `getSourceInfo` (fewer than four available
+  charts fails and names the available and held ones), and the swapped-roster "two different fit labels" guard now passes.
+- Thin-roster case: weekly data has no star RB with two real RB2s that DDF Value prefers while three of four charts price them level
+  or lower (scanned every pair and triple, JEG-1185). The test injects three synthetic rows ("Test Star RB", "Test RB2 A", "Test RB2 B",
+  keys 9000001 to 9000003) as data in its own build copy: clones of real RBs' player rows and per-source entries; the star's
+  entries on the four charts set to the RB2s' sums, with CBS scaled so the DDF Value gap lands near 1.5 (DDF Value follows the charts).
+  No finder or engine code is touched, no reader overrides. The `THIN` check asserts in the page that the rows arrived exactly once,
+  are RBs, the RB2s are 8 or more, the gap is 0.2 to 4 and at least three charts are level or lower; a broken injection fails loudly.
+- Two more stale pins were behind intended page behaviour (JEG-1108 throw-in rule), fixed in the test: the thin team is built with
+  exactly its starting slots (a team receiving more players adds its cheapest bench player, which would swallow the 1-for-2 edge;
+  a team with no bench leaves it listed); the in-page `findTrades` call now passes the same roster sanity and league shape the page
+  passes (it lacked it, so every player counted as bench); the group card is found by a target that names either the better RB2 or
+  both RB2s (the page names the whole received core).
+
+#### Claimed, not confirmed
+- The synthetic CBS factor is found per week from two builds and a straight-line fit; it is not proven to land in the 0.2 to 4 window
+  every week. If it does not, the in-page assertion fails with the numbers instead of passing.
+- This supersedes the "NOT fixed" bullet above for the fit test: the cause was the pinned CBS hold plus no real thin-roster pair,
+  not a page fault.
