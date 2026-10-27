@@ -2,7 +2,7 @@
 
 > **Superseded in part (2026-10-10, JEG-603).** The merge protocol in
 > `AGENTS.md` ("Hot files and merging", from the Linear document "Board
-> operating conventions") and `CLAUDE.md` govern merges today: the Claude lead
+> operating conventions") governs merges today: the Claude lead
 > merges, one engine PR at a time, and other model families never merge. The
 > Roman, Muse and lane references below describe the retired multi-lane setup
 > and are kept as history. `lanes/plan.json` and `lanes/merge_charter.py` are

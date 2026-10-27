@@ -28,3 +28,10 @@ old stuff"). Docs only.
   never force-push. AGENTS.md merge step 2 and `docs/merge-charter.md` queue
   step updated; `rg -i rebase` over AGENTS.md, CLAUDE.md, docs/merge-charter.md,
   docs/delegation-workflow.md, docs/agent-brief-template.md, runbooks/ is empty.
+
+### Follow-up: final check before merge (Claude)
+- Pointers that named `CLAUDE.md` for rules now in `AGENTS.md` updated in
+  `docs/agent-brief-template.md`, `docs/README.md`, `docs/merge-charter.md`.
+  Verified: `git diff origin/main...HEAD --stat` is docs only.
+- PR #939 (JEG-1107) was still open, so its values-explainer sentence is not
+  in `AGENTS.md` yet; it lands when #939 merges main in.
