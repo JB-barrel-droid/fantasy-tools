@@ -945,7 +945,7 @@
       () => { update(w => W.ops.setUi(w, {hideForce: !w.ui.hideForce}), "ui:filter"); UI.oppsShown = PAGE; announce(store.get().ui.hideForce ? "Force fits hidden." : "Force fits shown."); });
     return el("div", {class: "v2-ctoolbar v2-lg-filters"},
       sel("v2LgSize", "Package size:", [[2, "Up to 2-for-2"], [3, "Up to 3-for-3"], [4, "Up to 4-for-4"]], ws.ui.maxSize || 2, v => { update(w => W.ops.setUi(w, {maxSize: Number(v)}), "size"); }),
-      sel("v2LgFilterFit", "Overall fit:", [["all", "All fits"], ["natural", "Natural only"], ["naturalValue", "Natural and value"]], f.fit, v => set({filters: {fit: v}})),
+      sel("v2LgFilterFit", "Overall fit:", [["all", "All fits"], ["natural", "Natural only"], ["naturalMarket", "Natural and market supported"]], f.fit, v => set({filters: {fit: v}})),
       sel("v2LgFilterOpp", "Opponent:", [["all", "All opponents"]].concat(opponents.map(o => [o.id, o.name])), opponents.some(o => o.id === f.opponent) ? f.opponent : "all", v => set({filters: {opponent: v}})),
       sel("v2LgFilterCapture", "Min capture:", [[0, "Any"], [1, "1 point"], [3, "3 points"], [5, "5 points"], [10, "10 points"]], f.minCapture, v => set({filters: {minCapture: Number(v)}})),
       sel("v2LgFilterCharts", "Min charts fair:", [[0, "Any"], [1, "1"], [2, "2"], [3, "3"], [4, "4"]], f.minCharts, v => set({filters: {minCharts: Number(v)}})),
