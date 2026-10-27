@@ -236,12 +236,14 @@ def contributed_week_checks() -> list[str]:
                 page.select_option("#v2WeekSelect", str(OLDER))
                 page.wait_for_timeout(400)
                 older = page.evaluate(CONTRIBUTED)
-                for key, got in older.items():
-                    if got["week"] != OLDER:
-                        errors.append(f"Week {OLDER} view: {key} is labelled Week {got['week']} (serves {got['served']}), expected Week {OLDER}")
                 for key in moved:
-                    if key in older and older[key]["served"] != NEWER:
-                        errors.append(f"{key} should be a source that moved on to Week {NEWER}: {older[key]}")
+                    got = older.get(key)
+                    if not got:
+                        continue
+                    if got["served"] != NEWER:
+                        errors.append(f"{key} should be a source that moved on to Week {NEWER}: {got}")
+                    if got["week"] != OLDER:
+                        errors.append(f"Week {OLDER} view: {key} is labelled Week {got['week']} (data says {got['served']}), expected Week {OLDER}")
                 page.select_option("#v2WeekSelect", str(NEWER))
                 page.wait_for_timeout(400)
                 for key, got in page.evaluate(CONTRIBUTED).items():

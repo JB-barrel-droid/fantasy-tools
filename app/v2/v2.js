@@ -457,7 +457,8 @@
       info.forEach(item => {
         if (isDdfKey(item.key)) return;
         const served = weekState.servedWeeks[sourceMeta(item.key).publisher];
-        if (Number.isInteger(served) && served >= weekState.week) {
+        // Only a source that moved past the viewed week; one on the viewed week keeps its own label.
+        if (Number.isInteger(served) && served > weekState.week) {
           item.servedWeek = served;
           item.week = weekState.week;
         }
