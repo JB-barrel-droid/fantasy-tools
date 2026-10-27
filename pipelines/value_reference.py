@@ -1724,9 +1724,12 @@ class Setting:
                     continue
                 current[k] = dict(view["saved"][k])
             if view and served is not None:
-                # Inside a week view a source's week is its served week, not
-                # the calendar's: the calendar "older" rule does not apply.
-                row = {**row, "older": False, "first_load_excluded": False}
+                # Inside a week view "older" is judged against the view's week
+                # (a weekly chart whose own label is behind it), not the
+                # calendar's (curve-widget.js compositeKeyOlderWeek).
+                row = {**row, "first_load_excluded": False,
+                       "older": bool(row.get("weekly") and row.get("week") is not None
+                                     and row["week"] < view["week"])}
             if hold:
                 # JEG-569 part 2: a held source with data stays in the pipeline
                 # (weights, pie, allocation) but is hidden: left out of the DDF
@@ -1749,7 +1752,7 @@ class Setting:
                     eligible.append(k)
                     hidden.add(k)
             elif row.get("older") or row.get("first_load_excluded"):
-                excluded[k] = f"not yet published for week {fresh['current_week']}"
+                excluded[k] = f"not yet published for week {view['week'] if view else fresh['current_week']}"
             elif self.inp.section(k) is None:
                 excluded[k] = "missing from this build"
             elif not current[k]:

@@ -1058,6 +1058,40 @@ class WeekTransitionSentinelTest(unittest.TestCase):
                          and f.split()[0] in ("cbs", "usatoday", "cbs_adjusted", "usatoday_adjusted")], failures)
 
 
+    def test_engine_and_python_reference_agree_in_the_transition(self):
+        """value_check compare (the chain's other gate) on the same replay:
+        the page and value_reference.py price the default Week 7 view value
+        for value, with the Week 6 charts out of DDF Value and named."""
+        import shutil
+        from datetime import date as _date
+        import value_check as vc
+        overrides = transition_overrides()
+        settings = [{"scoring": "ppr", "teams": 12, "superflex": 0},
+                    {"scoring": "half_ppr", "teams": 10, "superflex": 1}]
+        today = _date.fromisoformat(_fixture_today())
+        engine = vc.run_engine(settings, today, overrides={k: v.encode("utf-8") for k, v in overrides.items()})
+        with tempfile.TemporaryDirectory() as tmp:
+            hist = Path(tmp) / "history"
+            shutil.copytree(DIST / "assets" / "history", hist)
+            (hist / "index.json").write_text(overrides["assets/history/index.json"], encoding="utf-8")
+            fixture = Path(tmp) / "fixture.json"
+            fixture.write_text(overrides[FIXTURE_ASSET], encoding="utf-8")
+            reference = vc.run_reference(settings, today, fixture=fixture, history=hist)
+            import value_reference as R
+            week6 = R.Setting(R.Inputs.load(fixture), "ppr", 12, hist=R.History(hist), week=6)
+            self.assertEqual(week6.week_view()["week"], 6)
+            self.assertIn("cbs", week6.state()["included"])
+            self.assertEqual(week6.state()["current_week"], 6)
+        report = vc.compare(engine["settings"], reference)
+        bad = {k: a["examples"][:2] for k, a in report["series"].items() if a["mismatches"]}
+        self.assertEqual(bad, {})
+        for sid, r in reference.items():
+            self.assertNotIn("cbs", r["composite_inputs"], sid)
+            self.assertNotIn("usatoday", r["composite_inputs"], sid)
+            self.assertIn("fantasycalc", r["composite_inputs"], sid)
+            self.assertTrue(r["composite_excluded"]["cbs"].startswith("not yet published for Week 7"), sid)
+
+
 class FixtureTodayPinTest(unittest.TestCase):
     """JEG-791: _fixture_today must return a date in the data's content week,
     not the build week.  When the chain builds in week N+1 but the served

@@ -1082,10 +1082,14 @@
   // older than the current content week) or the first-load rule (JEG-432 R5).
   // Projections carry no week and are always current.
   // JEG-1177: inside a week view a source is "older" when it serves a week
-  // before the view's week (its own served week, not the calendar's).
+  // before the view's week, or (a weekly chart) its own label says so: the
+  // view's week, not the calendar's, so the page never blanks on the flip.
   const compositeKeyOlderWeek = key => {
-    const served = weekView?.servedWeeks?.[key];
-    if (weekView && Number.isInteger(served)) return served < weekView.week;
+    const served = weekView?.servedWeeks?.[seriesSource(key) || key];
+    if (weekView && Number.isInteger(served)) {
+      const label = weekForSource(key);
+      return served < weekView.week || (Number.isInteger(label) && label < weekView.week);
+    }
     return sourceIsStale(key) || firstLoadExcluded.has(key);
   };
   // JEG-479: a source held for the week is held with every series derived
