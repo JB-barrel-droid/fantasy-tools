@@ -959,9 +959,10 @@
       + (c.g.id === "ddf" && customBlend ? " (your basis, not ours)" : "")).join(" + ") || "nothing selected"}`
       + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
-    // JEG-1134: the phone league-bar summary ("Full PPR · 12 teams · 3 sources"). Same scoring label, team count and
-    // shown-series count the bar itself uses, so the line updates whenever a setting or a source changes.
-    const sourceCount = shownKeys.length;
+    // JEG-1134: the phone league-bar summary ("Full PPR · 12 teams · 4 sources"). Same scoring label and team count the
+    // bar itself uses, so the line updates whenever a setting or a source changes. The count is outside sources only:
+    // DDF Value is not counted (Jeremy, 2026-10-26).
+    const sourceCount = shownKeys.filter(key => !isDdfKey(key)).length;
     $("v2LeagueSummaryText").textContent = `${scoring} · ${s.teams} teams · ${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();

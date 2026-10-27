@@ -2,7 +2,7 @@
 
 Jeremy's decision (2026-10-26, option A): on a phone the league settings bar (scoring, roster, Edit league,
 Position weights, source legend, Customize) collapses to one tappable summary line built from the current
-settings, e.g. "Full PPR · 12 teams · 5 sources", which opens the existing controls below it. Before this the
+settings, e.g. "Full PPR · 12 teams · 4 sources", which opens the existing controls below it. Before this the
 bar cost about 280 px before any tab content, on top of the ~195 px sticky top bar.
 
 Loads the built page headless at 390 x 844 (phone) and checks, on #player-values:
@@ -12,7 +12,7 @@ Loads the built page headless at 390 x 844 (phone) and checks, on #player-values
   * the first tab content's top is above the fold (844 px) when closed, and the same top is at least 150 px
     lower when the bar is open, so the bar really does collapse rather than being hidden by something else;
   * the summary line reads "Full PPR · 12 teams · N sources" and is the same scoring label and team count the
-    bar itself shows.
+    bar itself shows, and N counts only the outside sources in the legend, not DDF Value (Jeremy, 2026-10-26).
 At 1440 x 900 (desktop) the summary button is not rendered and both blocks stay visible, so nothing changes
 there. The measured px gain is printed by test_report_px_gain.
 
@@ -78,6 +78,8 @@ MEASURE = """() => {
     editVisible: vis(document.querySelector('#v2EditLeague')),
     customizeVisible: vis(document.querySelector('#v2EditSources')),
     legendVisible: vis(document.querySelector('#v2ShowingLegend')),
+    legendCount: document.querySelectorAll('#v2ShowingLegend li').length,
+    ddfLegendCount: [...document.querySelectorAll('#v2ShowingLegend li')].filter(li => /^DDF Value/.test(li.title)).length,
     titleTop: title ? title.getBoundingClientRect().top : null,
     titleBottom: title ? title.getBoundingClientRect().bottom : null,
     vh: window.innerHeight,
@@ -185,6 +187,14 @@ def _text_errors(m: dict) -> list[str]:
         errors.append(f"the summary team count {parts[1]!r} is not the bar's {scoring_teams[1].strip()!r}")
     if not parts[2].endswith("sources") and parts[2] != "1 source":
         errors.append(f"the third part is not a source count: {parts[2]!r}")
+    # Jeremy, 2026-10-26: the count is outside sources only; DDF Value itself is not counted.
+    if not m["ddfLegendCount"]:
+        errors.append("DDF Value is not in the legend, so the outside-only count is not exercised")
+    outside = m["legendCount"] - m["ddfLegendCount"]
+    expected = f"{outside} source" + ("" if outside == 1 else "s")
+    if parts[2] != expected:
+        errors.append(f"the source count {parts[2]!r} is not the outside-source count {expected!r} "
+                      f"({m['legendCount']} in the legend, {m['ddfLegendCount']} of them DDF Value)")
     return errors
 
 
