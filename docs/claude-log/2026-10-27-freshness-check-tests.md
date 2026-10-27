@@ -8,8 +8,10 @@ Done by an OpenRouter MiniMax-M3.1-Flash run; untrusted until a Claude review.
 
 ### Verified (check named)
 
-- `python -m unittest tests.test_check_weekly_freshness -v` — 18 tests, OK
-  (run before and after merging `origin/main`).
+- `python -m unittest tests.test_check_weekly_freshness -v` — 18 tests, OK.
+  `git fetch origin main && git merge --no-edit origin/main` reported
+  "Already up to date" (the branch was cut from fresh `origin/main`), and the
+  suite was re-run green after that merge.
 - Mutation check: changing `scripts/check_weekly_freshness.py`
   `if today.weekday() in (0, 1)` to `in ()` (Mon/Tue tolerance removed) made
   `test_expected_week_accepts_prior_week_on_monday_and_tuesday` and
